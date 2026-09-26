@@ -61,6 +61,7 @@ import type {
   L1Document,
   L1Entrance,
   L1Filter,
+  L1FilterFunction,
   L1FocusRing,
   L1Heading,
   L1FocusState,
@@ -259,7 +260,18 @@ function fontFaceRules(resources: L1Resources | undefined): string[] {
       `font-family: "${name}"`,
       `src: ${url}${fmt ? ` format("${fmt}")` : ''}`,
     ]
-    if (f.weight !== undefined && Number.isFinite(f.weight)) decls.push(`font-weight: ${Math.round(f.weight)}`)
+    // REQ-332 — a variable face's `[min, max]` becomes the two-value
+    // `font-weight` descriptor CSS defines for exactly this, so the browser knows
+    // the one file answers every weight between them instead of synthesising the
+    // ones it thinks are missing.
+    if (Array.isArray(f.weight)) {
+      const [min, max] = f.weight
+      if (Number.isFinite(min) && Number.isFinite(max)) {
+        decls.push(`font-weight: ${Math.round(min)} ${Math.round(max)}`)
+      }
+    } else if (f.weight !== undefined && Number.isFinite(f.weight)) {
+      decls.push(`font-weight: ${Math.round(f.weight)}`)
+    }
     if (f.style) decls.push(`font-style: ${f.style}`)
     decls.push('font-display: swap')
     out.push(`@font-face { ${decls.join('; ')} }`)
@@ -579,25 +591,60 @@ function blobPoints(roughness: number, seed: number): string {
  * costs a composite layer and changes no pixel.
  */
 function filterDecls(f: L1Filter): string[] {
-  const parts: string[] = []
-  const scale = (name: string, v: number | undefined): void => {
-    if (v !== undefined && v >= 0 && v !== 1) parts.push(`${name}(${num(v)})`)
+  /** One function's CSS, or `null` where the value is absent or the identity. */
+  const cssOf = (axis: L1FilterFunction): string | null => {
+    switch (axis) {
+      case 'grayscale':
+      case 'sepia':
+      case 'invert': {
+        const v = f[axis]
+        return v !== undefined && v > 0 ? `${axis}(${num(Math.min(1, v))})` : null
+      }
+      case 'saturate':
+      case 'brightness':
+      case 'contrast': {
+        const v = f[axis]
+        return v !== undefined && v >= 0 && v !== 1 ? `${axis}(${num(v)})` : null
+      }
+      case 'hueRotateDeg':
+        return f.hueRotateDeg !== undefined && f.hueRotateDeg !== 0
+          ? `hue-rotate(${num(f.hueRotateDeg)}deg)`
+          : null
+      case 'blurPx':
+        return f.blurPx !== undefined && f.blurPx > 0 ? `blur(${num(f.blurPx)}px)` : null
+    }
   }
-  const amount = (name: string, v: number | undefined): void => {
-    if (v !== undefined && v > 0) parts.push(`${name}(${num(Math.min(1, v))})`)
-  }
-  amount('grayscale', f.grayscale)
-  amount('sepia', f.sepia)
-  amount('invert', f.invert)
-  scale('saturate', f.saturate)
-  scale('brightness', f.brightness)
-  scale('contrast', f.contrast)
-  if (f.hueRotateDeg !== undefined && f.hueRotateDeg !== 0) {
-    parts.push(`hue-rotate(${num(f.hueRotateDeg)}deg)`)
-  }
-  if (f.blurPx !== undefined && f.blurPx > 0) parts.push(`blur(${num(f.blurPx)}px)`)
+  // REQ-332 — the document's own sequence first, then any function it carries a
+  // value for but did not sequence, in the fixed order above. A declared order is
+  // therefore authoritative without being obliged to be exhaustive, and a partial
+  // one can never silently drop paint. A name repeated in `order` emits once: the
+  // values live on the object, so a second mention names the same value and CSS
+  // would apply the same function twice.
+  const seen = new Set<L1FilterFunction>()
+  const sequence = [...(f.order ?? []), ...FILTER_EMISSION_ORDER].filter((a) => {
+    if (seen.has(a)) return false
+    seen.add(a)
+    return true
+  })
+  const parts = sequence.map(cssOf).filter((p): p is string => p !== null)
   return parts.length ? [`filter: ${parts.join(' ')}`] : []
 }
+
+/**
+ * REQ-136 — the renderer's own fixed order, which is what an undeclared sequence
+ * means. REQ-332 made the sequence declarable; this stays the default so every
+ * document written before that axis existed renders exactly as it did.
+ */
+const FILTER_EMISSION_ORDER = [
+  'grayscale',
+  'sepia',
+  'invert',
+  'saturate',
+  'brightness',
+  'contrast',
+  'hueRotateDeg',
+  'blurPx',
+] as const satisfies readonly L1FilterFunction[]
 
 /**
  * A typed mask/clip edge → safe CSS declarations. A circular/elliptical crop uses
@@ -1218,10 +1265,24 @@ const STICKY_LIFT_Z_INDEX = 1
  * ordinary flow and its paint is exactly what it was. Absent `lift` emits no
  * `z-index` at all, so a document that does not ask to be lifted is byte-identical
  * to what it was before this field existed.
+ *
+ * BUG-154 — `stacked` ON A PINNED NODE IS THE SAME DECLARATION, which is why the
+ * emitter takes it too. The two fields read as one to an author and were two to
+ * the renderer: `stacked` says the node carrying it is the FIGURE of an overlap
+ * rather than its ground, and a pin is the one placement where document order
+ * paints the figure underneath — the page moves past a node that does not, so the
+ * sibling arriving later covers it. Everywhere else that claim needs no `z-index`
+ * (a later sibling already paints over an earlier one), which is why the axis
+ * emits nothing on its own and a folded reproduction's paint cannot move: the
+ * fold authors `stacked` and never authors `sticky`, so no folded document
+ * reaches this branch.
+ *
+ * ONE DECLARATION, NEVER TWO. A node carrying both spellings emits a single
+ * `z-index`, because they are one decision said twice rather than two levels.
  */
-function stickyDecls(sticky: L1Sticky): string[] {
+function stickyDecls(sticky: L1Sticky, stacked?: true): string[] {
   const decls = ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
-  if (sticky.lift) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
+  if (sticky.lift || stacked) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
   return decls
 }
 
@@ -4421,6 +4482,14 @@ function emitNode(
     if (t) base.push(`transform: ${t}`)
   }
   if (node.mask) base.push(...maskDecls(node.mask))
+  // REQ-332 — the one place the renderer emits `overflow`, and only where the
+  // document declared it. `l1TransformSchema`'s "the renderer emits no `overflow`
+  // anywhere" was never a safety property (there is nothing to smuggle through a
+  // closed keyword); it was the absence of a way to SAY it, which is the gap this
+  // axis closes. Both axes at once, deliberately: `overflow-x: hidden` alone
+  // promotes `overflow-y` to `auto` and grows a scrollbar the document never
+  // asked for.
+  if (node.clip) base.push('overflow: hidden')
   // BUG-17 node-level padding — a per-side inset. Emitted as longhands (only the
   // present sides) so a partial padding never resets the others. `box-sizing:
   // border-box` (the document reset) means this insets content inside the pinned
@@ -4500,9 +4569,11 @@ function emitNode(
   // rule — and therefore normal flow — in force below it.
   //
   // REQ-328 — a `lift` is part of that same list and so is confined with it: the
-  // paint level a pin holds at is only meaningful where the pin is.
+  // paint level a pin holds at is only meaningful where the pin is. BUG-154 — and
+  // so is the `stacked` that means the same thing here, which is read off the node
+  // rather than out of the pin because it is a node-level axis.
   if (node.sticky) {
-    const decls = stickyDecls(node.sticky)
+    const decls = stickyDecls(node.sticky, node.stacked)
     if (node.sticky.fromPx === undefined) base.push(...decls)
     else state.rules.push({ media: `(min-width: ${node.sticky.fromPx}px)`, selector, decls })
   }

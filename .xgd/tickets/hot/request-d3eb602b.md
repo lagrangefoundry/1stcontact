@@ -6,10 +6,10 @@ title: 'capture: an ancestor rotation and an image wrapper''s framing are lost, 
   four collage photos reproduce square, unrotated and stretched'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:29.327185+00:00'
-updated_at: '2026-09-26T21:30:29.327185+00:00'
+updated_at: '2026-09-26T23:44:41.717183+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: body
+status: free_coding
 fields:
   defect_class:
   - capture-loses-it
@@ -949,3 +949,204 @@ storage/references/faelan.com/index --sandbox --json` reports no `color` row for
   the whole region — so the honest attribution is: 91.76% of the score is
   regions 1+2, every defect that acts on the four photographs is inside it, and
   issue 1 is the only one of them that moves geometry.
+
+
+---
+
+# What was implemented
+
+All seven issues landed, in the dependency order the summary table names. Three
+new UAT files carry 24 tests; two existing suites were amended where this ticket
+supersedes what they asserted.
+
+## Issue 1 — a wrapper's rotation is the image's rotation, and `box` is the layout box
+
+`tools/generate/src/cli/capture/extract.ts`, inside `EXTRACT_SCRIPT`:
+
+- **`linearPartOf(t)`** — the 2×2 linear part of one element's own `transform`.
+  Reads `matrix()` and `matrix3d()` (what a laying-out engine reports) *and* the
+  declared function list `rotate`/`rotateZ`/`scale`/`scaleX`/`scaleY` (what an
+  engine that does no layout reports), so the accumulation is measurable without
+  a browser as well as inside one. Translation is dropped — it is already folded
+  into every rect this file records.
+- **`accTransformOf(el)`** — the transform that actually *paints* the element:
+  its own composed with every ancestor's, walking to the document root under a
+  64-level guard. This is the fix: `transform` does not inherit, so reading the
+  leaf recorded `transformRotateDeg: 0` for four photographs their wrappers tilt.
+  Returns exact `radians`/`scaleExact` alongside the rounded reported values, so
+  the box recovery below does not re-derive from a rounded degree.
+- **`layoutBoxOf(el, tf, rect)`** — undoes the inflation. An affine map sends the
+  box's centre to the parallelogram's centre and an AABB's centre *is* its
+  content's centre, so only the extent has to be solved:
+  `W = s(w|cos| + h|sin|)`, `H = s(w|sin| + h|cos|)`, two equations in `w` and
+  `h`. Near 45° the determinant `cos2θ` goes to zero and the pair stops
+  distinguishing them, so below `|det| = 0.2` the transform-independent
+  `offsetWidth`/`offsetHeight` answer instead. Identity transform returns the
+  rect untouched, so nothing unrotated changes.
+- Both the run record (`:2129`, `:2243`) and the field record (`:2307`, `:2336`)
+  now read `accTransformOf` and record the recovered layout box. A run inside a
+  tilted card is tilted.
+
+**A latent defect found while doing it, and fixed.** `EXTRACT_SCRIPT` is a
+template literal, so a single backslash is consumed by the literal and never
+reaches the emitted script. `transformOf`'s `/matrix\(([^)]+)\)/` therefore
+shipped as `/matrix(([^)]+))/` — `parseFloat('(1')` is `NaN`, so it returned the
+identity for **every** transform on **every** page. That is the deeper reason the
+four photographs read `0`, and it also means the case the ticket reasoned would
+already work (a rotation on the element itself) did not either. The same loss hit
+two gradient-colour regexes in `gradientStopsOf`. All are doubled now, and
+`test_UAT_FC_REQ-333_no_regex_in_the_extract_script_has_lost_its_backslash` pins
+the invariant across the whole literal so the next one fails loudly.
+
+## Issue 2 — a single-purpose wrapper frames the image it holds
+
+- **`frameOf(el, box)`** — a *frame* is a parent with exactly one element child
+  (this image), no text of its own, and something it actually paints. Its
+  `border-radius`, `border-*`, `box-shadow` and `mask-image` are attributed to
+  the image. A wrapper that paints nothing is not a frame and is not reported as
+  one; an image that carries its own framing is untouched, which is what the
+  three photographs on the same page that got it right all along prove.
+- **`borderRadiusOf(s, box)`** now resolves a **percentage** radius against the
+  box. `border-radius: 50%` — the idiomatic circular crop — computes to the
+  string `'50%'`, and `parseFloat` read it as `50px`: a 216px disc came back with
+  a 50px corner rounding. A caller with no box keeps the old reading.
+- The field record's border, radius, shadow and `maskEdge` prefer the frame's
+  when one exists, falling through to the element's own otherwise.
+
+## Issue 3 — a radial mask's stops are read in the gradient's own units
+
+`tools/generate/src/l1/fold.ts`:
+
+- **`radialEndingShape(css, box)`** — parses the gradient's **size slot**, which
+  was previously discarded wholesale (the stop regex matched colours only). Cuts
+  the slot at the first *top-level* comma (depth-counted, so `rgb(0, 0, 0)` does
+  not split it), handles `circle`/`ellipse`, the four extent keywords, and
+  explicit `<length-percentage>{2}` resolved against the box's corresponding
+  dimension. Only a **centred** shape resolves — an off-centre origin is a
+  different mask that L1's feather axis does not name, and answering with a
+  centred one would be a guess. `null` means unreadable, and the contract for
+  that is to emit **no** mask rather than an invented one.
+- `foldMask()` reads stops in that frame. Where the shape is uniform and the
+  outer stop is the ending shape, it transcribes the document's own two numbers
+  (issue 4's axes). Otherwise it converts into the renderer's one-parameter band:
+  `halfExtent − opaqueStop × min(rx, ry)`. An opaque core that already reaches
+  the box's half-extent attenuates nothing inside the box, so the honest answer
+  there is no mask — which is `heal-click-alley.jpg` exactly.
+
+The old line multiplied a fraction of the *source's* ending shape by the box's
+smaller side. That is the same number only when the ending shape is
+`closest-side`; here it is `92% 92%`, ~1.84× the half-extent, so a 28%-in stop
+landed as a 62px band and erased 21.5% of each photograph.
+
+## Issue 4 — `featherRadial` gains the two parameters it was missing
+
+`packages/site-schema/src/l1/schema.ts` — `l1MaskSchema` gains, for
+`featherRadial` only:
+
+- **`extentPct`** (1–400) — the ending ellipse's radii as a percentage of the
+  box's own width and height, in CSS `radial-gradient(ellipse P% P% …)` units
+  where `50` is exactly `closest-side`. An extent **wider than the box** is the
+  whole point: that is how the soft-edged-photograph idiom gets a *whisper* at
+  the corners rather than a vignette over half the frame.
+- **`opaqueStopPct`** (0–100) — where the opaque core ends, as a percentage of
+  that shape. The gradient's own last fully-opaque colour stop.
+
+Both optional; absent, every existing document means exactly what it always did.
+The schema stays `.strict()`, so freeform keys are still refused.
+
+`packages/framework/src/l1/render.ts` `maskDecls()` emits
+`radial-gradient(ellipse P% P% at 50% 50%, #000 Q%, transparent 100%)` when the
+document names an extent, and falls through to the historical
+`radial-gradient(closest-side, #000 calc(100% − Npx), transparent 100%)` when it
+does not.
+
+## Issue 5 — the column extent carries its own `calc()`
+
+`render.ts` `columnExtentCss()` returns
+`calc(min(Cpx, 100vw) - Ipx)` rather than the bare-parenthesised
+`(min(Cpx, 100vw) - Ipx)`. A parenthesised math sub-expression is legal only
+*inside* a math function, so the browser dropped the whole declaration: the run
+kept `position: absolute` with no width, shrank to fit, and the `text-align:
+center` beside it became a no-op. Fixing the **helper** rather than the call site
+makes it safe everywhere — `calc()` nests inside `calc()` and `min()` alike —
+rather than correct only where a caller remembered to wrap it.
+
+## Issue 6 — a rejoined node's anchor and its keyframes read the same rect
+
+`fold.ts` `buildGeometry` hoists the flow-box selection into a `boxOf(cell)`
+helper and `fitAnchor` now uses it. The anchor previously read `element.box`
+unconditionally while the keyframes read the flow root's `inlineBox`, so a
+rejoined sentence carried two values for the same `x` that disagreed:
+`keyframes[].x` 102.39 beside `anchor.x.pxTrack` 55.88 — the offset of its *last*
+fragment — and the renderer honours the anchor, so the sentence landed 169.48px
+right at every breakpoint. The invariant every other node satisfied,
+`pxTrack = x − columnOrigin`, only holds if both derivations read one rect. It is
+pinned across **every** anchored node of the folded document, not just this one.
+
+## Issue 7 — a synthesised `<a>` does not inherit UA link styling
+
+`render.ts` `textRunsHtml()` — a run element the renderer synthesises to carry an
+`href` emits `color: inherit` when the run names no colour of its own, and
+`text-decoration: none` when it names no decoration. `a:-webkit-any-link { color:
+-webkit-link }` is a rule on the *element*, so it beats the sentence's inherited
+value: a white hero run's linked word painted `#0000ee`. "This run overrides
+nothing" means inherit, so that is what is emitted. Both are `unshift`ed, so a
+run that does carry its own value still wins. This is the mirror of the
+node-level link path, which has always reset both.
+
+# Test plan
+
+**New — `tests/test_UAT_FC_REQ-333_the_capture_reads_the_frame_and_the_rotation.test.ts`**
+(issues 1, 2 + the escape guard). The real `EXTRACT_SCRIPT` string is evaluated
+against a jsdom DOM with supplied rects — jsdom does no layout, so the rects *are*
+the measurement and can be set to the rotated bounding boxes a real engine
+reports. A wrapper's angle reaches the image; a rotated image's `box` is its
+layout box; an unrotated one is untouched; a wrapper's clip, ring and shadows are
+attributed; an image that frames itself is unchanged; a wrapper that paints
+nothing, and one with copy of its own, are not frames. A Chromium block drives
+the real `1c capture page` against a served fixture
+(`tests/fixtures/capture/req333-framed-collage.html`) and **skips** — via
+`ctx.skip()`, reported as skipped, not silently green — where no browser is
+available.
+
+**New — `tests/test_UAT_FC_REQ-333_the_fold_reads_a_mask_and_an_anchor_in_the_right_frame.test.ts`**
+(issues 3, 4, 6). The page's own extent and opaque stop survive the fold; the old
+projection's erased fifth is measured and shown gone; the renderer emits the
+ending shape the document names and is byte-identical to before when it names
+none; the mask axis admits the two parameters and still refuses freeform keys; a
+`closest-side` gradient reads as the half-extent it is; a mask that attenuates
+nothing inside the box is not emitted; an unreadable shape folds to no mask. For
+issue 6: the rejoined sentence's anchor agrees with its own keyframes, **every**
+anchored node satisfies `pxTrack = x − columnOrigin`, and the served page puts
+the sentence where L1 says it is.
+
+**New — `tests/test_UAT_FC_REQ-333_the_renderer_emits_valid_and_inherited_css.test.ts`**
+(issues 5, 7). A full-width column run gets a width the browser can parse; every
+extent-bearing declaration in the emitted sheet is parseable (the general guard,
+not the one case); a link run with no colour inherits the sentence; one that
+names its own colour still wins; one that asks for no decoration gets none.
+
+**Amended — `tests/req88-viewport-relative-and-nowrap.test.ts:484`.** The
+`maxWidthPx` branch's expected string gains the inner `calc()`. This assertion
+only ever exercised the branch where `inner` *was* wrapped, which is why the
+suite never caught the broken one.
+
+**Amended — `tests/test_UAT_FC_REQ-331_fold_rejoins_a_linked_sentence.test.ts`.**
+This ticket **supersedes** REQ-331's `featherPx: 62` assertion. 62 was
+`(100 − 72)% × 222` — a fraction of the source gradient's own ending shape
+multiplied by the box, which is only the same thing under `closest-side`. The
+test now asserts `extentPct: 92`, `opaqueStopPct: 72`, `featherPx: undefined` —
+the document's own numbers.
+
+**Regression scope run in full, in the foreground.** `--project workers`: 162
+files, 1365 tests, all pass. `--project node`: 549 files, 4735 tests — 20 fail,
+and all 20 reproduce **identically on a clean baseline** (the four touched source
+files reverted, the same ten files fail with the same twenty assertions), so none
+is this ticket's. `tsc --noEmit` is clean on `packages/site-schema`,
+`packages/framework` and `tools/generate`.
+
+**Not verified here, and why.** Every "how to know it is fixed" command in the
+issues above ends at a `1c gate` / `1c values-diff` number against the stored
+faelan.com bundle. Issues 1 and 2 are capture-side, so those numbers cannot move
+until the operator presses **[recapture]** — `1c refold` cannot reach them. The
+ranked-score predictions in this ticket stand as predictions.

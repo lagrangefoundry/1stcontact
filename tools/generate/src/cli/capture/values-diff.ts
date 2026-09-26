@@ -36,6 +36,7 @@ import type {
   BorderTreatment,
   Box,
   Capture,
+  ClipAncestor,
   ContentRun,
   Field,
   GradientStop,
@@ -54,7 +55,7 @@ import { colorDistance } from './color-values'
 // REQ-331 — the shared statement of what a captured treatment actually paints:
 // the shadow parse, its painted-layer normalisation, and the filter identity
 // table. The fold reads the same module, so the two sides cannot drift.
-import { filterPaints, paintedShadowLayers, shadowLabel } from './treatments'
+import { filterChain, filterPaints, paintedShadowLayers, shadowLabel } from './treatments'
 import { isBandPaint } from '../perceptual-core'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
@@ -120,6 +121,13 @@ export interface ValueElement {
    *  solid): a gradient panel is a `background-image` the solid composite skips
    *  past. Compared like the text-fill `gradient` axis (stops + direction). */
   surfaceGradient?: TextGradient | null
+  /**
+   * REQ-332 — the nearest ancestor that CUTS THIS ELEMENT OFF, as a box plus a
+   * document-wide id. Carried for the fold: everything sharing an id belongs
+   * inside one node that clips. Absent when nothing clips the element, and on a
+   * pre-REQ-332 bundle.
+   */
+  clip?: ClipAncestor | null
   /**
    * REQ-35 — true when this run's colour could not be resolved from computed
    * styles and fell back to the `#000000`/`#ffffff` sentinel. The capture was
@@ -2745,7 +2753,21 @@ export function diffManifests(
     // identity table the fold acts on (`capture/treatments.ts`), so the two can
     // never disagree about which values are no-ops.
     const paints = property === 'filter' ? filterPaints : (v: string | null | undefined): boolean => !!v
-    if (paints(e) !== paints(a)) push(exp, property, paints(e) ? 'present' : 'none', paints(a) ? 'present' : 'none')
+    if (paints(e) !== paints(a)) {
+      push(exp, property, paints(e) ? 'present' : 'none', paints(a) ? 'present' : 'none')
+      return
+    }
+    // REQ-332 — for `filter`, presence is not the whole value. CSS filter
+    // functions compose in sequence and do not commute, so a chain the
+    // reproduction emits in a different ORDER (or with a different amount) paints
+    // a different image while scoring `present` on both sides — the reordered
+    // hero scrim on joyfulculinarycreations.com was invisible to the score for
+    // exactly this reason. The chain is compared as its painting form, so a
+    // dropped identity is still not a delta.
+    if (property !== 'filter' || !paints(e)) return
+    const chainE = filterChain(e)
+    const chainA = filterChain(a)
+    if (chainE !== chainA) push(exp, property, chainE, chainA)
   }
 
   // REQ-63 — emit a delta when a treatment's discrete VALUE differs (not just its

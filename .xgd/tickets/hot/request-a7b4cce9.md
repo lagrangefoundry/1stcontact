@@ -6,10 +6,10 @@ title: 'fold: a full-bleed band backdrop folds to box-N and escapes the surface 
   plus a carousel L1 cannot clip and a font table that loses every weight'
 created_by: repro-console:repro-joyfulculinarycreations-com#1
 created_at: '2026-09-26T19:40:57.271901+00:00'
-updated_at: '2026-09-26T21:08:33.769278+00:00'
+updated_at: '2026-09-26T22:06:41.379670+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,15 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-30133d14
+  commits:
+  - working_sha: 774d1ca786082134b0c9128861982e721651ee10
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9242212ed05d19c9790ca58e4cfe97fd2f997040
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.382
+  story_points: 13
 ---
 
 # fold: a full-bleed band backdrop folds to `box-N`, so the overlap exemption written for it never fires — plus a carousel L1 cannot clip and a font table that loses every weight
@@ -790,3 +799,24 @@ accompanying `bug`'s. In particular the full-bleed band test still measures agai
 `document.documentElement.scrollWidth` — this ticket's clip axis removes the horizontal overflow
 that blinded it on *this* site, but the ruler is still one horizontal overflow away from going blind
 on the next.
+
+
+---
+
+## Addendum — the two closed-set guardrails `clip` had to be added to
+
+Adding `clip` to `nodeAxisGroupsShape` (issue 2) failed two existing sweeps,
+which is exactly what those sweeps are for. Both hold an exhaustive sample value
+per node-level axis group and assert the schema's key set **equals** it, so a new
+group cannot be added without being swept on every node kind:
+
+- `tests/reconciliation-l1-shared-axis-groups.test.ts`
+  (`test_UAT_AC802_shared_groups_accepted_identically_and_strictly_on_every_kind`)
+- `tests/req105-node-axis-groups.test.ts`
+  (`test_UAT_FC_REQ-105_every_kind_admits_every_node_level_axis_group`)
+
+Each gains `clip: true`, the same literal-scalar sample shape `stacked` already
+carries beside it. Both sweeps then admit the axis on every kind and — because
+spreading a boolean yields an object that is not the literal — still refuse a
+polluted value on every kind alike. No assertion was relaxed: the closed set is
+one entry wider, which is the whole of what this ticket changed about it.

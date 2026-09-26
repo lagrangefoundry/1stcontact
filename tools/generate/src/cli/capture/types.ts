@@ -18,6 +18,21 @@ export interface Box {
   height: number
 }
 
+/**
+ * REQ-332 — the clipping ancestor an element is cut off by: WHICH one (a
+ * document-wide id, shared by every element the same ancestor clips) and WHERE
+ * its edge is.
+ *
+ * A RENDERED fact, not a CSS mechanism: the recorded thing is the rectangle
+ * content disappears at, whatever combination of `overflow`, `clip-path` or
+ * masking produced it. The id is what makes this more than a rectangle — two
+ * elements carrying the same id are cut off by the same ancestor, which is how
+ * the fold knows they belong inside ONE clipping container.
+ */
+export interface ClipAncestor extends Box {
+  id: number
+}
+
 /** Screen dimensions for a screenshot / viewport. */
 export interface Viewport {
   width: number
@@ -181,12 +196,37 @@ export interface ThemeColor {
   freq: number
 }
 
+/**
+ * REQ-332 — one captured `@font-face`: the mirrored file, and the descriptors
+ * that say WHICH glyphs it holds.
+ *
+ * The capture used to reduce a family's faces to a bare `string[]` of mirrored
+ * paths and read the weights from the RUNS the page painted instead — two arrays
+ * that were parallel in length by coincidence and in nothing else. On
+ * joyfulculinarycreations.com Lato's painted weights were `[300, 400, 600]` while
+ * its three files are 300, 400 and 700, and Karla's italic file was
+ * indistinguishable from its normal one. One face, one record, descriptors
+ * attached, is the only shape in which that pairing survives.
+ */
+export interface ThemeFontFace {
+  /** Mirrored font file under the bundle's `assets/` (a relative path). */
+  src: string
+  /** A single weight, or the `[min, max]` range a variable face covers. */
+  weight?: number | [number, number]
+  style?: 'normal' | 'italic'
+}
+
 export interface ThemeFont {
   family: string
   role: 'heading' | 'body'
+  /**
+   * The weights this family is actually PAINTED in on the page — a fact about the
+   * copy, not about the files. REQ-332: distinct from what {@link faces} declare,
+   * and the two are no longer conflated.
+   */
   weights: number[]
-  /** Mirrored font files under the bundle's `assets/` (relative paths). */
-  files: string[]
+  /** REQ-332 — the mirrored faces, each carrying its own descriptors. */
+  faces: ThemeFontFace[]
 }
 
 /**
@@ -373,6 +413,18 @@ export interface ElementGeometry {
   surface?: SurfaceShape | null
   /** REQ-63 — computed `backdrop-filter` (frosted-glass blur behind the element) when painted, else null. */
   backdropFilter?: string | null
+  /**
+   * REQ-332 — the nearest ancestor that CUTS THIS ELEMENT OFF, as its
+   * document-coordinate box plus a document-wide id shared by everything the same
+   * ancestor clips; null when nothing does, absent on a pre-REQ-332 bundle.
+   *
+   * A carousel, a marquee and a masked reveal all lay content out BEYOND the box
+   * the reader sees. With nothing recording where it is cut off, a reproduction
+   * places the off-screen content at the same coordinates (both sides agree
+   * exactly) and then makes the document as wide as it — on
+   * joyfulculinarycreations.com, 1699.75px against the reference's 1280.
+   */
+  clip?: ClipAncestor | null
   /** REQ-63 — computed `mix-blend-mode` when non-`normal`, else null. */
   blendMode?: string | null
   /** REQ-63 — element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */

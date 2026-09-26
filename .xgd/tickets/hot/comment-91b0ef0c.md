@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-26T18:41:04.273628+00:00'
+updated_at: '2026-09-26T23:38:45.466545+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2700,5 +2700,210 @@ One panel whose height doesn't follow its own reflowing copy at interior widths.
 So: the unmeasured 1 is a metric-design question worth one small ticket; the card-5 escape is the actual remaining defect.
 
 Want me to file the anchor-population fix as a child of EPIC-12, and/or append a §14 to the epic recording iteration 8? §13 still says iterating on this bundle can't find the defect, which BUG-142/143 have made false.
+
+<!-- xgd-turn id="6d7eb27b-303d-4193-886d-4c154b371cf6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T22:08:54.108140+00:00" -->
+#### You
+Can you help me with the repro console on 8710 I have tried to do a diagnosis MULTIPLE times but it keeps coming back saying the API key is invalid. This is DEEPLY concerning because, as we agreed, it SHOULD NOT be using the API key it should be using the Claude code interface claude -p
+
+<!-- xgd-turn id="6d7eb27b-303d-4193-886d-4c154b371cf6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T22:17:46.477972+00:00" -->
+#### Claude
+I'll look at how the console actually spawns the round before speculating.
+
+The console does spawn `claude -p` — no `env` option on the spawn, so it inherits whatever the server process has. Let me check what that environment contains.
+
+`ps` is blocked for me, but the round's own transcript is on disk. Let me find the actual error text.
+
+Definitive: the console **is** using `claude -p` — the transcript shows the CLI starting and naming its model. The 401 comes from inside the CLI. Let me find why it's authenticating with a key at all.
+
+The repo already documents the rule. Now let me check whether that key is itself dead — a `/v1/models` GET bills nothing.
+
+Stored key is **live** (200). So the key the console is presenting isn't that one. Let me verify the CLI path itself authenticates when no key is in the environment.
+
+One more check — whether the console passes any env to the child at all.
+
+Your fear is unfounded — **it is using `claude -p`.** The 401 comes from inside the CLI, because the CLI was handed an API key it didn't ask for.
+
+## The evidence
+
+Iteration 8's transcript:
+
+```
+— session started (claude-opus-5[1m])
+— api_retry   ×10
+Failed to authenticate. API Error: 401 API key is invalid.
+— round finished · $0.00 · 3m 02s · 1 turn · 0→0 tok
+```
+
+That first line only exists because `claude -p` emitted its `init` event. The process started, named its model, and *then* failed at the API boundary.
+
+## Why it's using a key at all
+
+`attempt()` at `ai.ts:1194`:
+
+```ts
+const child = spawn(command, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+```
+
+**No `env` option** — so the child inherits the console server's `process.env` verbatim. And Claude Code prefers `ANTHROPIC_API_KEY` over the subscription login. Your own repo documents exactly that, in `bin/kb-release:50`:
+
+> *"written by the Claude Code CLI **when no `ANTHROPIC_API_KEY` is set**"*
+
+Two things I checked rather than assumed:
+
+- **The flags aren't at fault.** I ran the same invocation shape — including `--setting-sources ''` — from an environment with no key. It authenticated and returned normally.
+- **The key in `~/Documents/secrets/ANTH_KEY` is live** (200 on `/v1/models`). So whatever is in the console's environment is a *different*, dead value — most likely a stale `export-anthropic-key` in the terminal that launched the server, from when that file held an older key. `bin/deploy` needs the variable exported (`bin/deploy.d/secrets/10-anthropic-api-key`), which is the obvious reason it'd be sitting in a shell you then launched the console from.
+
+One limit: `ps` is blocked in my sandbox, so I could not read PID 31436's environment directly. That last step is inference from the 401 plus the documented precedence, not something I read off the process.
+
+## Unblock now
+
+The environment is fixed at launch, so it needs a restart. I can't signal the process (sandbox denies it) — PID **31436** on 8710 is yours to kill. Then:
+
+```bash
+echo "${ANTHROPIC_API_KEY:+set}"        # must print nothing
+env -u ANTHROPIC_API_KEY ./bin/repro-console
+```
+
+Also worth knowing what each failed attempt cost you: three minutes of wall clock, and the console then said *"the round produced no outcome block… press [read it again]"* — which is wrong. There is nothing in that transcript to file.
+
+## Durable fix
+
+Two things, and neither is coded — this session scopes.
+
+**1. Sanitise the child environment at the spawn.** "The round runs on the operator's Claude Code subscription" should be a property of the spawn, not of whichever terminal happened to start the server. Pass an explicit `env` with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_BASE_URL` and the Bedrock/Vertex switches deleted. This is the same instruction-vs-property lesson the epic has now learned three times (REQ-262 D7, BUG-104). One trap for whoever builds it: `REPRO_CONSOLE_AI` and `REPRO_CONSOLE_AI_MODEL` are read off that same env and must survive the filter.
+
+**2. An auth failure must be reported as one.** The ten retries are the *CLI's* own, so the console can't shorten them — but it can classify the result. A 401 is not "no outcome block": there's nothing to recover, `[read it again]` is pointless, and the fix is operator-side. Naming it turns a three-minute mystery into one line.
+
+One adjacent thing I noticed in the same outcome, not part of this: the round was flagged for *"changed the working tree: `?? .xgd/working-merge.lock`"*. It didn't — that's another `xgd` process's lock file appearing during the three minutes. Same cry-wolf family as BUG-114.
+
+Want me to file a child ticket under EPIC-12 for the two fixes?
+
+<!-- xgd-turn id="538041b3-361d-4032-b8fd-48f29942b1e4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T22:53:33.721874+00:00" -->
+#### You
+I just need a bug for 1 please
+
+<!-- xgd-turn id="538041b3-361d-4032-b8fd-48f29942b1e4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T22:53:39.550498+00:00" -->
+#### Claude
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="ef0313c9-d33d-436e-902e-806778aeba73-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T23:33:45.166752+00:00" -->
+#### You
+I just need a bug for 1 please.
+
+Then, please can you walk me through
+1. deploying the latest code to production
+2. copying the latest version of lagrange framework to production
+
+<!-- xgd-turn id="ef0313c9-d33d-436e-902e-806778aeba73-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-26T23:38:44.914096+00:00" -->
+#### Claude
+Filing the bug for (1) only.
+
+Now the ticket body.
+
+BUG-155 filed under EPIC-12. Now let me work out the two procedures from the repo rather than from memory.
+
+Let me check whether the store is actually behind the framework source, so the walkthrough is concrete.
+
+All 20 components already match source. Let me check whether `bin/deploy` builds, and what's uncommitted in the deploy config.
+
+**BUG-155** filed under EPIC-12: *"repro console: the round inherits the launching shell's ANTHROPIC_API_KEY, so `claude -p` authenticates as a dead key instead of the operator"* (`bug-25102815`, priority high, 2 points). Behaviour wanted covers the named-variable removal at the spawn, `REPRO_CONSOLE_AI`/`REPRO_CONSOLE_AI_MODEL` surviving it, and the guarantee being assertable without spawning. Item 2 (naming a 401 as an auth failure rather than "no outcome block") is not in it.
+
+One thing to read before you start, because it connects the two halves of your day: **the deploy is what poisons the console.** `bin/deploy`'s secret hooks ask you to `export ANTHROPIC_API_KEY`, and that export is what BUG-155 is about. Whichever terminal you deploy from, don't launch `bin/repro-console` from it afterwards.
+
+---
+
+# 1. Deploying the latest code to production
+
+### What actually ships
+
+Your **working tree**, not a commit. `wrangler deploy` rebuilds from source at deploy time, and `bin/deploy` reads `wrangler.toml` off disk. That matters right now, because `apps/control-app/wrangler.toml` is **uncommitted** and carries two real production config changes:
+
+- `PLATFORM_ADMINS = "martin-github@westhead.me"` — the EPIC-16 §I3 lockout repair
+- `SERVICE_TOKEN_IDENTITIES` — the three client-id spellings from §I16
+
+Both will ship. Both are also one `git checkout` from gone, and neither is reproducible from history. I'd commit that file before deploying. When you do: name the paths explicitly rather than `git add -A` — the tree has `.pnpm-store/` and `apps/control-app/.dev.vars~` untracked, and a sweep takes them in.
+
+### Credentials
+
+Only one is genuinely required up front — the Cloudflare token for the upload and the KB embedder:
+
+```bash
+export CLOUDFLARE_API_TOKEN="$(< ~/Documents/secrets/1c_Admin_Token)"   # = your export-cloudflare-key alias
+```
+
+The four secret hooks (`ANTHROPIC_API_KEY`, `RESEND_API_KEY`, `OPENAI_API_KEY`, `CLOUDFLARE_DNS_TOKEN`) each ask a narrower question than you'd expect: if the variable is unset but the Worker already holds that secret, the hook records `keep` and the deploy proceeds. It only stops when the Worker has no value either. So for a code-only deploy you probably need to export none of them — and that is the version of this you want, given BUG-155.
+
+### The sequence
+
+```bash
+bin/build                 # preflight → KB (only if behind) → assets → typecheck → bundle
+bin/deploy --dry-run      # same hooks, same wrangler invocation, uploads nothing
+bin/deploy                # both apps, --env production
+bin/smoke                 # prove the origin serves
+```
+
+`bin/build` is not optional and `bin/deploy` does not call it: `1c assets` writes files under `src/generated/` that the Worker **statically imports**, so a stale tree fails at build or ships a broken import map. Exit code 6 from `bin/build` means the environment is wrong (usually the shared store — see part 2), not your code.
+
+The dry run is worth the minute: it is the same code path with only the final `--dry-run` differing, and it ends with the capability report — every credential, probed rather than merely present, in one place. Read that before the real run, and export only what it complains about.
+
+One app at a time if you prefer: `bin/deploy control-app`.
+
+### Not included, deliberately
+
+Fonts. `bin/deploy --fonts --env production` is its own invocation — 1.35GB against one bucket, roughly an hour — and is excluded from a code deploy on purpose. You have `tools/generate/src/cli/ai/platform-fonts.json` modified and `fonts/platform.json` untracked, so if the font manifest genuinely changed, that's a separate, deliberate run.
+
+---
+
+# 2. Copying the latest lagrange framework to production
+
+### First: it's already current
+
+I diffed all 20 installed components against the framework source tree. Every one is content-identical — the only differences are `.claude/` directories, which aren't packed. There is nothing to copy today.
+
+Worth knowing, though: the framework working tree is **dirty** (`components/ai/js/src/defaults/models.json`, the matching `models.yaml`, two READMEs), and the store already matches those edits. So the store — and anything you deploy from it — traces to an uncommitted working copy upstream, not to a commit. If you want production reproducible, that needs committing in `lagrange-framework`.
+
+### How it works, so the procedure makes sense
+
+There is no separate framework deploy. Components reach production by one route: `lagrange-framework/bin/install` packs each one as a tarball and extracts it into a flat `node_modules` at **`/Users/martin/lagrangefoundry/`** — the directory the consumer repos live under, so ordinary Node upward resolution finds it. Nothing records the dependency in `package.json`, which is why `pnpm install` can't supply it and the lockfile can't notice it missing. `1c preflight` exists as that missing diagnostic.
+
+### The procedure
+
+```bash
+cd /Users/martin/lagrangefoundry/lagrange-framework
+bin/install --lang js --component all
+```
+
+No `--env` needed — the default for JS is the repo's parent, which is exactly where the store is. (A path inside the framework repo is always refused.) This one is yours to run, not mine: the shared store sits outside my sandbox, so I can never write it.
+
+Then, and this is the part that's easy to miss: **a reinstall changes nothing in production by itself.** The store feeds `1c assets`, which generates the files the Worker imports. So the framework only reaches production through part 1:
+
+```bash
+cd /Users/martin/lagrangefoundry/1stcontact
+1c preflight              # every component resolves
+npm test                  # before you build — see below
+bin/build
+bin/deploy --dry-run
+bin/deploy
+bin/smoke
+```
+
+Run the suite between the reinstall and the build, not after the deploy. A framework reinstall has regressed this repo's tests before — the BUG-64 queue gating and the AC1058 Delegate failures were both upstream changes arriving through the store — and the store is unpinned, so nothing in the lockfile would have warned you.
+
+---
+
+Want me to file the second fix from BUG-155's sibling (a 401 reported as an auth failure rather than "the round produced no outcome block") as its own bug, or leave it?
 
 <!-- xgd-chat-end -->

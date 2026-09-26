@@ -65,7 +65,12 @@ import {
 // it here put `node:fs`, the filesystem stores and a loopback server into the
 // graph of everything that folds a capture — including, once REQ-157 arrived, a
 // Worker. The builder this actually uses is pure and now lives on its own.
-import { buildResponsiveTable, elementKey, type LabelledProjection } from '../cli/responsive-table'
+import {
+  buildResponsiveTable,
+  elementKey,
+  type LabelledProjection,
+  type ResponsiveCell,
+} from '../cli/responsive-table'
 // REQ-211 — the ONE decision about which captured runs are pieces of one
 // sentence, shared with the fidelity oracle in `probes.ts`. See that module's
 // header for why it cannot be a branch in either caller.
@@ -97,6 +102,8 @@ import {
   type StateProjection,
   type ValueElement,
 } from '../cli/capture/values-diff'
+// REQ-332 — the clip box an element is cut off at; the fold's only reader of it.
+import type { ClipAncestor } from '../cli/capture/types'
 
 const FONT_SIZE = { min: 1, max: 400 }
 const FONT_WEIGHT = { min: 1, max: 1000 }
@@ -964,9 +971,23 @@ export function foldObjectPosition(v: string | null | undefined): L1ObjectPositi
 export function foldFilter(v: string | null | undefined): L1Filter | undefined {
   if (!v || v.trim() === 'none') return undefined
   const filter: Record<string, number> = {}
+  /**
+   * REQ-332 — where each surviving function stood in the CAPTURED chain, so the
+   * order can be written down beside the values.
+   *
+   * CSS filter functions do not commute — `contrast` lifts every channel and
+   * `saturate` is a matrix on RGB, so the lift before and after the saturation
+   * are different images — and the axis used to hold eight named scalars with no
+   * order at all, leaving the renderer to impose one of its own. Measured on
+   * joyfulculinarycreations.com's hero scrim, captured
+   * `brightness(0.67) contrast(0.88) saturate(1.06)` and served
+   * `saturate(1.06) brightness(0.67) contrast(0.88)`.
+   */
+  const position = new Map<string, number>()
   for (const fn of FILTER_FUNCTIONS) {
     const m = v.match(new RegExp(`(?:^|\\s)${fn.css}\\(\\s*(-?\\d*\\.?\\d+)(%|deg|px|)\\s*\\)`, 'i'))
     if (!m) continue
+    if (m.index !== undefined) position.set(fn.axis, m.index)
     let n = parseFloat(m[1])
     if (!Number.isFinite(n)) continue
     // A ratio written as a percentage is the same filter written differently.
@@ -986,7 +1007,17 @@ export function foldFilter(v: string | null | undefined): L1Filter | undefined {
     if (n === fn.identity) continue
     filter[fn.axis] = n
   }
-  return Object.keys(filter).length ? (filter as L1Filter) : undefined
+  const axes = Object.keys(filter)
+  if (!axes.length) return undefined
+  // REQ-332 — the order is only written down when it DIFFERS from the renderer's
+  // own. A chain the emitter would have produced anyway needs no declaration, and
+  // omitting it keeps the fold's output identical to what it was for every
+  // document whose functions already happened to be in canonical order.
+  const captured = [...axes].sort((a, b) => position.get(a)! - position.get(b)!)
+  const canonical = FILTER_FUNCTIONS.map((f) => f.axis).filter((a) => a in filter)
+  const out = filter as L1Filter
+  if (captured.join() !== canonical.join()) out.order = captured as L1Filter['order']
+  return out
 }
 
 /**
@@ -1258,6 +1289,43 @@ export const SYNTHESIZED_SURFACE_ID_PREFIXES = ['section-band-', 'section-bg-', 
 /** True for a fold-synthesized backing surface — see {@link SYNTHESIZED_SURFACE_ID_PREFIXES}. */
 export function isSynthesizedSurfaceId(id: string | undefined): boolean {
   return id !== undefined && SYNTHESIZED_SURFACE_ID_PREFIXES.some((p) => id.startsWith(p))
+}
+
+/**
+ * REQ-332 — the id prefix of a **captured backdrop**: a full-bleed, childless
+ * `box` leaf that arrived as a capture element and paints only a fill (± a
+ * background photograph) behind a whole section.
+ *
+ * WHY IT IS ITS OWN PREFIX AND NOT ONE OF THE THREE ABOVE. A captured backdrop is
+ * a backing surface in every geometric sense — it is the thing an entire band of
+ * copy stands on — but it is NOT fold-invented: it has an oracle counterpart of
+ * its own, so it must stay in the fidelity pairing queue that
+ * {@link SYNTHESIZED_SURFACE_ID_PREFIXES} exists to keep surfaces out of. The two
+ * questions "did the fold invent this?" and "does this back content?" used to have
+ * one answer because only the fold ever made a backdrop; a captured one separates
+ * them, so there are now two predicates. {@link isBackingSurfaceId} is the second.
+ *
+ * Measured on `joyfulculinarycreations.com`, whose eleven section bands all arrive
+ * as capture `field`s: named `box-*`, they were simultaneously OVER-asserted (1172
+ * `overlap` findings, a fill colliding with the copy it was painted for) and
+ * UN-asserted (0 `escape` findings, because no run could name one as its backing
+ * surface) — the two states a surface must never be in at once.
+ */
+export const CAPTURED_BACKDROP_ID_PREFIX = 'backdrop-'
+
+/**
+ * REQ-332 — true for a box that BACKS CONTENT, however it arrived: a
+ * fold-synthesized surface ({@link isSynthesizedSurfaceId}) or a captured backdrop
+ * ({@link CAPTURED_BACKDROP_ID_PREFIX}).
+ *
+ * This is the predicate every *geometric* judgement about surfaces asks — the
+ * overlap exemption, the `backedBy` attribution, and the containment probe that
+ * holds a surface to the copy standing on it. `isSynthesizedSurfaceId` remains the
+ * predicate for the one question that is genuinely about PROVENANCE: whether the
+ * node has an oracle counterpart to be paired against.
+ */
+export function isBackingSurfaceId(id: string | undefined): boolean {
+  return isSynthesizedSurfaceId(id) || (id !== undefined && id.startsWith(CAPTURED_BACKDROP_ID_PREFIX))
 }
 
 /** A text-free element that carries media substance (an `<img>`): it becomes an `image` leaf. */
@@ -2285,6 +2353,214 @@ function foldGeometryOf(node: L1Node): L1Geometry | undefined {
 }
 
 /**
+ * Each node's resting rect at every width its geometry names, with a text leaf's
+ * measured height filled in where the keyframe carries none.
+ *
+ * Shared by the two passes that reason about which box sits inside which —
+ * {@link nestBackingSurfaces} (who owns whom) and {@link nameCapturedBackdrops}
+ * (which full-bleed fill actually backs content) — so the two can never disagree
+ * about the geometry they are reading.
+ */
+function foldRectsOf(
+  nodes: readonly L1Node[],
+  textHeights: ReadonlyMap<L1Node, Map<number, number>>,
+): Map<L1Node, Map<number, FoldRect>> {
+  const rects = new Map<L1Node, Map<number, FoldRect>>()
+  for (const node of nodes) {
+    const geo = foldGeometryOf(node)
+    const byWidth = new Map<number, FoldRect>()
+    const heights = textHeights.get(node)
+    for (const kf of geo?.keyframes ?? []) {
+      byWidth.set(kf.at, {
+        x: kf.x,
+        y: kf.y,
+        width: kf.width,
+        height: kf.height ?? heights?.get(kf.at) ?? 0,
+      })
+    }
+    rects.set(node, byWidth)
+  }
+  return rects
+}
+
+/**
+ * A pixel of slack: the fold rounds to a hundredth and a run's own border box can
+ * sit flush with the panel's edge.
+ */
+const FOLD_CONTAINS_EPS = 1
+
+/** Does `parent` fully cover `child`, within {@link FOLD_CONTAINS_EPS}? */
+function foldRectContains(parent: FoldRect, child: FoldRect): boolean {
+  return (
+    child.x >= parent.x - FOLD_CONTAINS_EPS &&
+    child.x + child.width <= parent.x + parent.width + FOLD_CONTAINS_EPS &&
+    child.y >= parent.y - FOLD_CONTAINS_EPS &&
+    child.y + child.height <= parent.y + parent.height + FOLD_CONTAINS_EPS
+  )
+}
+
+/**
+ * REQ-332 — name each captured backdrop for WHAT IT IS: a backing surface
+ * (`backdrop-N`) when content actually stands on it, an ordinary painted panel
+ * (`box-N`) when nothing does.
+ *
+ * WHY THE TEST IS CONTAINMENT AND NOT SIZE. {@link isBackdrop}'s full-bleed test
+ * decides which PAINT LAYER a fill belongs in, and for that it is exactly right: a
+ * 1200×4 divider spanning the page is painted behind the content as surely as a
+ * 1280×1064 section band is. It is far too loose to decide whether a fill is a
+ * *backing surface*, which is a claim about the copy standing on it — and that
+ * claim is what the geometry envelope acts on (an exemption from the overlap scan,
+ * an attributable `backedBy`, a containment assertion). Naming the divider a
+ * backing surface would exempt a decorative rule from ever being reported as
+ * colliding with anything.
+ *
+ * So the test is the one the claim is about: does this box cover at least one
+ * content leaf? A section band covers the words painted on it; a divider covers
+ * nothing.
+ *
+ * AT THE WIDEST WIDTH ONLY, deliberately — unlike {@link nestBackingSurfaces},
+ * which demands containment at every width before it will restructure the tree.
+ * The two need opposite defaults: nesting a band around copy it does not hold at
+ * 320px would give the band a content extent it never had, whereas *naming* a band
+ * that has slid off its copy at 320px is the only way the containment probe can
+ * ever report that it has. A stricter test here would silently un-name exactly the
+ * broken cases the probe exists to catch.
+ */
+function nameCapturedBackdrops(
+  backdrops: readonly L1Box[],
+  content: readonly L1Node[],
+  textHeights: ReadonlyMap<L1Node, Map<number, number>>,
+  widths: readonly number[],
+  nextBoxIdx: number,
+): number {
+  const widest = Math.max(...widths)
+  const rects = foldRectsOf([...backdrops, ...content], textHeights)
+  const at = (node: L1Node): FoldRect | undefined => rects.get(node)?.get(widest)
+  let backdropIdx = 0
+  let boxIdx = nextBoxIdx
+  for (const node of backdrops) {
+    const own = at(node)
+    const backs =
+      own !== undefined &&
+      own.width > 0 &&
+      own.height > 0 &&
+      content.some((c) => {
+        const inner = at(c)
+        return inner !== undefined && inner.width > 0 && inner.height > 0 && foldRectContains(own, inner)
+      })
+    node.id = backs ? `${CAPTURED_BACKDROP_ID_PREFIX}${backdropIdx++}` : `box-${boxIdx++}`
+  }
+  return boxIdx
+}
+
+/** REQ-332 — one folded leaf and the clip box that cut it off, per width. */
+interface ClipRow {
+  node: L1Node
+  frames: Map<number, ClipAncestor>
+}
+
+/**
+ * REQ-332 — the leaves a clipping ancestor cuts off → a container that CLIPS.
+ *
+ * The capture records, per element, the box it disappears at and a document-wide
+ * id for the ancestor that owns that box ({@link ClipAncestor}). Everything
+ * carrying one id belongs inside one node: that is the whole reconstruction, and
+ * it is why the id exists rather than a bare rectangle.
+ *
+ * ONLY WHERE THE CLIP ACTUALLY CUTS. A group whose every member sits wholly
+ * inside its clip box at every width is not clipped in any observable sense — the
+ * ancestor declares `overflow: hidden` and nothing reaches its edge — so no node
+ * is built for it. That is not an optimisation: a container is a real node with
+ * real geometry, and adding one per `overflow: hidden` on the page (a page-builder
+ * site has dozens) would restructure documents that have no clipping defect, for
+ * no pixel. The reconstruction earns its place exactly where the reference's own
+ * geometry says content is being cut off.
+ *
+ * Measured on joyfulculinarycreations.com: one group of two, the testimonial
+ * swiper's off-screen slides at `x: -419` and `x: 1027`, which made the
+ * reproduction 1699.75px wide against the reference's 1280 — 10 `clip` findings,
+ * all 56 of the round's `escape` findings, and two runs reading the page fill
+ * because they had slid off the band that backs them.
+ */
+function nestClipRegions(
+  rows: readonly ClipRow[],
+  widths: readonly number[],
+  heightAt: ReadonlyMap<number, number>,
+): { built: Map<L1Node, L1ContainerNode>; members: Map<L1Node, L1Node> } {
+  const built = new Map<L1Node, L1ContainerNode>()
+  const members = new Map<L1Node, L1Node>()
+  const groups = new Map<number, ClipRow[]>()
+  for (const row of rows) {
+    // The id is a property of the ancestor, so it is the same at every width the
+    // element was captured at; the first frame is as good as any.
+    const id = [...row.frames.values()][0]?.id
+    if (id === undefined) continue
+    const g = groups.get(id)
+    if (g) g.push(row)
+    else groups.set(id, [row])
+  }
+
+  for (const [, group] of groups) {
+    // The clip box per width, from whichever member recorded it — every member of
+    // a group names the same ancestor, so they agree by construction.
+    const boxes = new Map<number, ClipAncestor>()
+    for (const row of group) {
+      for (const [at, box] of row.frames) {
+        if (box.width > 0 && box.height > 0) boxes.set(at, box)
+      }
+    }
+    if (!boxes.size) continue
+    // Does anything actually reach the edge? A member escaping at ANY captured
+    // width is enough: a carousel whose slides are only off-screen below the
+    // desktop breakpoint is still a carousel.
+    const escapes = group.some((row) => {
+      const geo = foldGeometryOf(row.node)
+      return (geo?.keyframes ?? []).some((kf) => {
+        const clip = boxes.get(kf.at)
+        if (!clip) return false
+        return (
+          kf.x < clip.x - FOLD_CONTAINS_EPS ||
+          kf.x + kf.width > clip.x + clip.width + FOLD_CONTAINS_EPS
+        )
+      })
+    })
+    if (!escapes) continue
+
+    const at = widths.filter((w) => boxes.has(w))
+    if (!at.length) continue
+    const keyframes: L1Keyframe[] = at.map((w) => {
+      const b = boxes.get(w)!
+      const kf: L1Keyframe = {
+        at: w,
+        x: round2(b.x),
+        y: round2(b.y),
+        width: round2(b.width),
+        height: round2(b.height),
+      }
+      const h = heightAt.get(w)
+      if (h) kf.atHeight = h
+      return kf
+    })
+    const geometry: L1Geometry = { keyframes }
+    if (keyframes.length > 1) {
+      geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
+    }
+    const container: L1ContainerNode = {
+      kind: 'container',
+      layout: 'stack',
+      clip: true,
+      geometry,
+      children: group.map((row) => rebaseInto(row.node, geometry, undefined)),
+    }
+    // The group's FIRST member carries the container, so it lands where the
+    // earliest clipped element was in document order and the rest drop out.
+    built.set(group[0].node, container)
+    for (const row of group) members.set(row.node, container)
+  }
+  return { built, members }
+}
+
+/**
  * A geometry track resolved at `at`, mirroring the renderer's cascade exactly:
  * hold the base below the first keyframe, interpolate (or hold, on a `snap`)
  * inside a segment, hold the final keyframe above the last. At a sampled width
@@ -2432,31 +2708,9 @@ function nestBackingSurfaces(
   const order = new Map<L1Node, number>(all.map((n, i) => [n, i]))
   const isSurfaceNode = new Set<L1Node>(surfaces)
 
-  const rects = new Map<L1Node, Map<number, FoldRect>>()
-  for (const node of all) {
-    const geo = foldGeometryOf(node)
-    const byWidth = new Map<number, FoldRect>()
-    const heights = textHeights.get(node)
-    for (const kf of geo?.keyframes ?? []) {
-      byWidth.set(kf.at, {
-        x: kf.x,
-        y: kf.y,
-        width: kf.width,
-        height: kf.height ?? heights?.get(kf.at) ?? 0,
-      })
-    }
-    rects.set(node, byWidth)
-  }
+  const rects = foldRectsOf(all, textHeights)
   const rectAt = (node: L1Node, at: number): FoldRect | undefined => rects.get(node)?.get(at)
-
-  // A pixel of slack: the fold rounds to a hundredth and a run's own border box
-  // can sit flush with the panel's edge.
-  const EPS = 1
-  const contains = (parent: FoldRect, child: FoldRect): boolean =>
-    child.x >= parent.x - EPS &&
-    child.x + child.width <= parent.x + parent.width + EPS &&
-    child.y >= parent.y - EPS &&
-    child.y + child.height <= parent.y + parent.height + EPS
+  const contains = foldRectContains
 
   /**
    * Containment at EVERY width both are captured at, not just the widest.
@@ -2674,6 +2928,20 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   /** BUG-27 — box leaves painting a background photograph; they belong in the
    *  background layer, beneath all content (see where they are emitted below). */
   const backdropNodes: L1Box[] = []
+  /**
+   * REQ-332 — each folded leaf beside the clip box that cuts it off, per width.
+   * Collected here rather than derived later because the link between a leaf and
+   * the capture row it came from only exists inside this loop.
+   */
+  const clipRows: ClipRow[] = []
+  const recordClip = (node: L1Node, cells: readonly ResponsiveCell[]): void => {
+    const frames = new Map<number, ClipAncestor>()
+    for (const c of cells) {
+      const clip = c.element?.clip
+      if (clip) frames.set(c.width, clip)
+    }
+    if (frames.size) clipRows.push({ node, frames })
+  }
   let imageIdx = 0
   let boxIdx = 0
   // BUG-14 — the surface each text run sits on, collected per run for the post-loop
@@ -2821,6 +3089,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
+      recordClip(node, framed)
       // BUG-142 — the run's measured height. The POSITION comes off the flow
       // root's box only for a rejoined run (above); the HEIGHT comes off it
       // wherever the capture recorded one.
@@ -2993,6 +3262,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
+      recordClip(node, framed)
       continue
     }
 
@@ -3025,7 +3295,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         continue
       }
       const axes = boxAxes(widest)
-      const node: L1Box = { kind: 'box', id: `box-${boxIdx++}`, geometry: buildGeometry(true) }
+      const node: L1Box = { kind: 'box', geometry: buildGeometry(true) }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
       // REQ-331 — a painted surface can be feathered too (a fading section edge
@@ -3046,8 +3316,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // z-index) would lay the hero image OVER the hero's own headline. Backdrops
       // are collected separately and placed in the background layer, beside the
       // section-background boxes they are a peer of.
+      // REQ-332 — a backdrop's id is NOT decided here. Whether a full-bleed fill
+      // is a backing surface depends on whether anything actually stands on it,
+      // which is not knowable until every leaf is folded — see
+      // {@link nameCapturedBackdrops}, run once after this loop.
       if (isBackdrop(node)) backdropNodes.push(node)
-      else children.push(node)
+      else {
+        node.id = `box-${boxIdx++}`
+        children.push(node)
+        recordClip(node, framed)
+      }
       continue
     }
 
@@ -3357,7 +3635,37 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
   // A claimed button is the form's control now, not a page-level run — leaving it
   // in the body as well would paint the reference's one button twice.
-  const body = claimedSubmits.size ? children.filter((c) => !claimedSubmits.has(c)) : children
+  const bodyBeforeClip = claimedSubmits.size ? children.filter((c) => !claimedSubmits.has(c)) : children
+
+  // REQ-332 — put the leaves a clipping ancestor cuts off inside a node that
+  // clips, so the document is as wide as what the reader sees rather than as wide
+  // as what was laid out. Before `nestBackingSurfaces`, because a clip region is
+  // content like any other and a band that holds it should own the region, not
+  // its individual slides.
+  const inBody = new Set<L1Node>(bodyBeforeClip)
+  const clipRegions = nestClipRegions(
+    // Only leaves still standing in the page body: a run claimed by a form is
+    // that form's control now, and putting it in a clip region as well would
+    // paint the reference's one element twice.
+    clipRows.filter((r) => inBody.has(r.node)),
+    widths,
+    heightAt,
+  )
+  const body = clipRegions.members.size
+    ? bodyBeforeClip.flatMap((c) => {
+        const region = clipRegions.built.get(c)
+        if (region) return [region]
+        return clipRegions.members.has(c) ? [] : [c]
+      })
+    : bodyBeforeClip
+
+  // REQ-332 — name the captured backdrops now that every leaf exists, because the
+  // question ("does anything stand on this fill?") cannot be answered until they
+  // all do. Before this the ids were handed out in capture order inside the fold
+  // loop and every backdrop was a `box-N`, which is the name the geometry
+  // envelope reads as "ordinary painted content" — so a section band was reported
+  // as colliding with its own copy, and no run could name it as what it sits on.
+  nameCapturedBackdrops(backdropNodes, [...body, ...slotNodes], textHeights, widths, boxIdx)
 
   // BUG-142 — state the ownership the fold already knows. A band, a section
   // background and a card that back content become containers holding it, so the

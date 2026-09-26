@@ -50,6 +50,7 @@ import type {
   CapturedResponse,
   InteractionState,
   RenderEngine,
+  ThemeFontFace,
   Viewport,
 } from './types'
 import { CAPTURE_SCHEMA } from './schema'
@@ -169,28 +170,65 @@ function fontFacesFromStylesheets(responses: CapturedResponse[]): RawFontFace[] 
         }
       }
       if (!srcUrls.length) continue
-      const w = parseInt(/font-weight\s*:\s*([0-9]+)/i.exec(body)?.[1] ?? '', 10)
-      faces.push({ family, srcUrls, weight: isNaN(w) ? null : w })
+      // REQ-332 — the same descriptors the CSSOM path reads, so a cross-origin
+      // face is not a second-class one: a Google-Fonts italic recovered from bytes
+      // would otherwise land as a plain normal face beside its sibling.
+      const nums: string[] = (/font-weight\s*:\s*([^;]+)/i.exec(body)?.[1] ?? '').match(/[0-9]+/g) ?? []
+      const w = nums[0] !== undefined ? parseInt(nums[0], 10) : NaN
+      const wMax = nums[1] !== undefined ? parseInt(nums[1], 10) : NaN
+      const styleRaw = (/font-style\s*:\s*([^;]+)/i.exec(body)?.[1] ?? '').trim().toLowerCase()
+      faces.push({
+        family,
+        srcUrls,
+        weight: isNaN(w) ? null : w,
+        weightMax: isNaN(wMax) ? null : wMax,
+        style: /^(italic|oblique)/.test(styleRaw) ? 'italic' : styleRaw ? 'normal' : null,
+      })
     }
   }
   return faces
 }
 
 /**
- * Map each painted font family to the local paths of its mirrored face files,
- * drawing on both the in-page CSSOM faces (same-origin) and the byte-parsed faces
- * (cross-origin) — BUG-12. A family keeps only faces whose `src` actually mirrored
- * (`urlToLocal` hit); a family whose every face 404'd or was missed contributes
- * nothing, exactly as before.
+ * Map each painted font family to its mirrored FACES, drawing on both the in-page
+ * CSSOM faces (same-origin) and the byte-parsed faces (cross-origin) — BUG-12. A
+ * family keeps only faces whose `src` actually mirrored (`urlToLocal` hit); a
+ * family whose every face 404'd or was missed contributes nothing, exactly as
+ * before.
+ *
+ * REQ-332 — a FACE, not a file path. This used to flatten every face of a family
+ * into one deduplicated `string[]`, which is the step that destroyed the
+ * `(file → weight, style)` pairing: downstream had three Lato paths and, from a
+ * different source entirely, the set of weights the page's RUNS painted, and no
+ * way to know which path was which. Carrying the face keeps the descriptor bound
+ * to the file it describes all the way to `@font-face`.
+ *
+ * Deduplication is by `src`, as before — the same file declared twice is one face
+ * — and the FIRST declaration wins, which is the CSS cascade's own answer.
  */
-function fontFilesByFamilyOf(faces: RawFontFace[], urlToLocal: Map<string, string>): Map<string, string[]> {
-  const byFamily = new Map<string, string[]>()
+function fontFacesByFamilyOf(
+  faces: RawFontFace[],
+  urlToLocal: Map<string, string>,
+): Map<string, ThemeFontFace[]> {
+  const byFamily = new Map<string, ThemeFontFace[]>()
   for (const face of faces) {
-    const files = face.srcUrls.map((u) => urlToLocal.get(u)).filter((p): p is string => Boolean(p))
-    if (!files.length) continue
-    const merged = byFamily.get(face.family) ?? []
-    for (const f of files) if (!merged.includes(f)) merged.push(f)
-    byFamily.set(face.family, merged)
+    for (const url of face.srcUrls) {
+      const src = urlToLocal.get(url)
+      if (!src) continue
+      const merged = byFamily.get(face.family) ?? []
+      if (merged.some((f) => f.src === src)) continue
+      const built: ThemeFontFace = { src }
+      // A variable face's range is the pair; a static face's is the one number.
+      if (face.weight !== null && face.weight !== undefined) {
+        built.weight =
+          face.weightMax !== null && face.weightMax !== undefined && face.weightMax !== face.weight
+            ? [face.weight, face.weightMax]
+            : face.weight
+      }
+      if (face.style) built.style = face.style
+      merged.push(built)
+      byFamily.set(face.family, merged)
+    }
   }
   return byFamily
 }
@@ -209,7 +247,7 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
     // BUG-12 — union the in-page CSSOM faces (same-origin) with faces recovered
     // from cached stylesheet bytes (cross-origin, which the CSSOM blocks), so a
     // Google-Fonts-style family connects to its mirrored `.woff2`.
-    const fontFilesByFamily = fontFilesByFamilyOf(
+    const fontFacesByFamily = fontFacesByFamilyOf(
       [...signals.fontFaces, ...fontFacesFromStylesheets(responses)],
       urlToLocal,
     )
@@ -228,7 +266,7 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
       // a current oracle from one that predates the axes it is being asked about.
       captureSchema: CAPTURE_SCHEMA,
       viewport: signals.viewport,
-      theme: buildTheme(signals, fontFilesByFamily),
+      theme: buildTheme(signals, fontFacesByFamily),
       sections: buildSections(signals, (src) => urlToLocal.get(src)),
       assets,
     }

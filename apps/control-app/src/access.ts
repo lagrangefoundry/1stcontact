@@ -137,6 +137,33 @@ export function accessLogoutUrl(teamDomain: string, returnTo: string): string {
   return `${base}/cdn-cgi/access/logout?returnTo=${encodeURIComponent(returnTo)}`
 }
 
+/**
+ * A `kid` minted by `bin/access-sim` ([[REQ-192]]) rather than by Cloudflare.
+ *
+ * The simulator generates a fresh RSA keypair PER PROCESS and names it
+ * `local-dev-<pid>`, deliberately, so that a restart looks like a key rotation and
+ * the cache below refreshes itself on an unseen `kid`. Cloudflare's own kids are
+ * long hex digests and cannot take this shape, so the shape is what separates
+ * "your local simulator restarted" from "a real key does not match" ([[BUG-152]]).
+ */
+export function isAccessSimKid(kid: string): boolean {
+  return /^local-dev-\d+$/.test(kid)
+}
+
+/**
+ * Where a person signs in again when their local credential outlived its key.
+ *
+ * THE SAME SUBSTITUTION `certsUrl` AND `accessLogoutUrl` REST ON: the team domain
+ * is Cloudflare's in a deployment and `bin/access-sim` in local dev, so one
+ * expression serves both — and `/login` is the simulator's own sign-in page. It is
+ * only ever named when the token and the live JWKS both say the team domain IS a
+ * simulator, so this cannot point somebody at a route Cloudflare does not serve.
+ */
+export function accessSimSignInUrl(teamDomain: string): string {
+  const base = normaliseTeamDomain(teamDomain)
+  return base === '' ? '' : `${base}/login`
+}
+
 function base64UrlToBytes(value: string): Uint8Array {
   const padded = value.replace(/-/g, '+').replace(/_/g, '/')
   const binary = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4))
@@ -253,7 +280,31 @@ export async function verifyAccessJwt(options: VerifyOptions): Promise<VerifyRes
   }
 
   const jwk = keys.find((k) => k.kid === kid)
-  if (!jwk) return { ok: false, reason: `no Access signing key matches kid '${kid}'` }
+  if (!jwk) {
+    // A STALE LOCAL SIGN-IN IS NOT A KEY MISCONFIGURATION, and it is the
+    // overwhelmingly likely cause of this refusal on a developer's machine.
+    // `bin/access-sim` re-keys on every start while the cookie it minted carries
+    // `Max-Age` of thirty days, so EVERY restart of the simulator guarantees this
+    // for anyone who had signed in — and `no Access signing key matches kid
+    // 'local-dev-88241'` reads as a wrong team, a missing JWKS or a bad
+    // `.dev.vars`, none of which it is. The repair is one click, and the message
+    // now names it ([[BUG-152]]).
+    //
+    // BOTH SIDES HAVE TO SAY SIMULATOR, which is what keeps the deployed path from
+    // learning to be reassuring about a real key mismatch: the presented `kid` is
+    // of the simulator's shape AND the JWKS just refreshed from the team domain
+    // publishes one too. Cloudflare never publishes a `local-dev-<pid>` kid, so
+    // there is no deployment in which this sentence can be reached.
+    if (isAccessSimKid(kid) && keys.some((k) => typeof k.kid === 'string' && isAccessSimKid(k.kid))) {
+      return {
+        ok: false,
+        reason:
+          'this local sign-in has expired — `bin/access-sim` re-keys every time it starts, ' +
+          `so the cookie you are holding was signed by a simulator that is gone. Sign in again at ${accessSimSignInUrl(teamDomain)}`,
+      }
+    }
+    return { ok: false, reason: `no Access signing key matches kid '${kid}'` }
+  }
 
   const signature = base64UrlToBytes(signaturePart)
   const valid = await signatureIsValid(jwk, `${headerPart}.${payloadPart}`, signature)

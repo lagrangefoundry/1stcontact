@@ -602,6 +602,17 @@ export const l1MaskSchema = z
  * they are two effects — a frosted panel over a photograph is the first, a soft-
  * focus photograph is the second, and one field could not express both at once.
  */
+export const l1FilterFunctionSchema = z.enum([
+  'grayscale',
+  'sepia',
+  'invert',
+  'saturate',
+  'brightness',
+  'contrast',
+  'hueRotateDeg',
+  'blurPx',
+])
+
 export const l1FilterSchema = z
   .object({
     grayscale: finite.min(0).max(1).optional(),
@@ -612,6 +623,36 @@ export const l1FilterSchema = z
     contrast: finite.nonnegative().optional(),
     hueRotateDeg: finite.optional(),
     blurPx: finite.nonnegative().optional(),
+    /**
+     * REQ-332 — **the sequence the functions compose in.**
+     *
+     * CSS `filter` is an ORDERED LIST and its functions do not commute:
+     * `contrast` is affine and `saturate` is a matrix on RGB, so lifting before
+     * saturating and saturating before lifting are different images. The axis was
+     * eight optional scalars on an object, and a JSON object has no order that
+     * survives a file being rewritten or a diff being applied — so the emitter
+     * fixed one canonical order of its own and the captured order was simply
+     * lost. Measured on joyfulculinarycreations.com, whose hero scrim is captured
+     * as `brightness(0.67) contrast(0.88) saturate(1.06)` and served as
+     * `saturate(1.06) brightness(0.67) contrast(0.88)`.
+     *
+     * WHY A SEQUENCE BESIDE THE VALUES AND NOT A LIST OF `{fn, value}` PAIRS. The
+     * values are already a closed, typed, per-function envelope, and the editor's
+     * percentage controls (`edit.ts`'s `FILTER_CONTROLS`) are a projection over
+     * exactly those named axes — a list of pairs would move every one of them
+     * behind a search, and would newly admit the same function twice, which is
+     * a filter no capture produces and no control can express. Order is a
+     * SEPARATE FACT about the same eight values, so it is a separate field; the
+     * values stay where every reader already looks for them.
+     *
+     * ABSENT MEANS "the document has not chosen", and the renderer's own fixed
+     * order applies — which is what every document written before this axis
+     * existed means, so none of them change. A function present in `order` but
+     * carrying no value is skipped (it paints nothing); a function carrying a
+     * value that `order` omits is emitted after the named ones, in the renderer's
+     * fixed order, so a partial declaration can never silently drop paint.
+     */
+    order: z.array(l1FilterFunctionSchema).optional(),
   })
   .strict()
 
@@ -1460,9 +1501,10 @@ export const l1EntranceSchema = z.union([l1RevealSchema, z.array(l1RevealSchema)
  * freely — its offsets are margins.
  *
  * WHETHER CONTENT PASSES BEHIND OR IN FRONT is the pin's other half, and it is
- * `lift`'s — see that field. CSS positioning alone does not answer it, and the
- * answer it falls back to depends on the element kind of whatever is travelling
- * past, which is not a decision the document made.
+ * `lift`'s — see that field, or {@link nodeAxisGroupsShape}'s `stacked`, which
+ * BUG-154 accepts as the same declaration on a pinned node. CSS positioning alone
+ * does not answer it, and the answer it falls back to depends on the element kind
+ * of whatever is travelling past, which is not a decision the document made.
  */
 export const l1StickySchema = z
   .object({
@@ -1513,6 +1555,14 @@ export const l1StickySchema = z
      * "passes in front": a following section that slides over a held hero is a
      * real editorial composition, and it is exactly what document-order paint
      * already gives.
+     *
+     * BUG-154 — `stacked: true` ON THE SAME NODE SAYS THIS, and the renderer
+     * honours it. The two are one decision reached from two directions: `lift`
+     * is the pin naming its paint level, `stacked` is the overlap naming its
+     * figure, and on a pinned node those are the same sentence. A node carrying
+     * both emits one `z-index`, not two. This field remains the direct spelling
+     * and is the one to reach for where the pin is not part of a declared
+     * overlap; neither is deprecated in favour of the other.
      */
     lift: z.literal(true).optional(),
   })
@@ -1783,10 +1833,25 @@ const nodeAxisGroupsShape = {
    * point, the absence has to keep meaning "nobody has chosen", so that an
    * unmarked overlap stays a finding rather than a silent default.
    *
-   * NOT A PAINT AXIS: it moves no pixel and the renderer emits nothing for it
-   * (DOC-24's rule is about what L1 must be able to *express*; this is what the
-   * document must be able to *declare*, alongside `heading` / `link` / `action`,
-   * which paint nothing either).
+   * NOT A PAINT AXIS, WITH ONE EXCEPTION. On a node in ordinary flow it moves no
+   * pixel and the renderer emits nothing for it (DOC-24's rule is about what L1
+   * must be able to *express*; this is what the document must be able to
+   * *declare*, alongside `heading` / `link` / `action`, which paint nothing
+   * either) — the declaration needs no `z-index` there because document order
+   * already paints a later sibling over an earlier one, and a folded
+   * reproduction's measured overlaps must keep the paint the reference had.
+   *
+   * BUG-154 — **on a node that also carries {@link l1StickySchema}, it lifts.**
+   * A pin is the one placement where document order contradicts the declaration:
+   * the page moves past a node that does not, so a sibling arriving later covers
+   * the very node that just said it was the figure. There it compiles to the same
+   * single `z-index: 1` as `sticky.lift`, inside the pin's own declaration list —
+   * so a width-gated pin lifts only inside its band, and a node carrying both
+   * spellings emits one `z-index` rather than two. `sticky.lift` is the direct
+   * spelling of the same decision and is unchanged; reach for it when the pin is
+   * not part of a declared overlap. A fold authors `stacked` and never authors
+   * `sticky`, so no reproduction can reach this branch and none of their paint
+   * moves.
    *
    * REQ-331 — **a fold DOES author it, and the reference is what declares it.**
    * The original reading here was that a capture cannot recover the intent
@@ -1805,6 +1870,41 @@ const nodeAxisGroupsShape = {
    * faithful.
    */
   stacked: z.literal(true).optional(),
+  /**
+   * REQ-332 — **cut my children off at my own edge.**
+   *
+   * {@link l1TransformSchema}'s doc comment settles that the renderer emits no
+   * `overflow` anywhere, so "a node translated past its parent's edge paints in
+   * full rather than being cut off at the boundary" — and names the explicit
+   * `mask` as the one thing that still clips. That is right for a decorative edge
+   * treatment and cannot stand in for a clip: {@link l1MaskSchema} accepts seven
+   * SHAPES, none of which is "my own rectangle", and a `parallelogram` at
+   * `slantPct: 0` only degenerates to one by accident of the polygon the renderer
+   * builds — an accident is not an intent a document can state.
+   *
+   * So the gap was real and structural. A carousel, a marquee, a filmstrip and a
+   * masked reveal all lay their content out BEYOND the box the reader sees and
+   * rely on the box to cut it off; with no way to say so, every one of them makes
+   * the document as wide as its off-screen content. Measured on
+   * joyfulculinarycreations.com, whose testimonial swiper places two slides at
+   * `x: -419` and `x: 1027`: both sides place the slides identically and only the
+   * reproduction scrolls, 1699.75px wide against the reference's 1280 — 10 `clip`
+   * findings, every one of the round's 56 `escape` findings, and two
+   * `surfaceFill` deltas from runs that had slid off the band backing them.
+   *
+   * `true` IS THE ONLY LEGAL VALUE, for the reason `stacked` gives above: `false`
+   * would be a second spelling of absent, and absent has to keep meaning "the
+   * document has not chosen", which for clipping is the paint-in-full default the
+   * transform axis settles on. DECLARED, NEVER INFERRED, for the same reason —
+   * geometry alone cannot tell a carousel from a deliberate bleed off the edge.
+   *
+   * ONE AXIS, NOT TWO. CSS has `overflow-x` and `overflow-y`, and a document could
+   * in principle clip one and not the other — but `overflow: hidden` on a single
+   * axis promotes the other to `auto` in every browser, which is a scrollbar the
+   * document never asked for. One flag that cuts at the box is the intent every
+   * clipping composition actually has.
+   */
+  clip: z.literal(true).optional(),
 } as const
 
 /**
@@ -2221,7 +2321,18 @@ export const l1FontFaceSchema = z
   .object({
     family: z.string().min(1),
     src: z.string().min(1),
-    weight: finite.optional(),
+    /**
+     * REQ-332 — a single weight, or the `[min, max]` RANGE a variable face covers.
+     *
+     * A variable font is one file that answers every weight between two bounds,
+     * and `font-weight: 200 800` on its `@font-face` is how CSS says so. Pinned to
+     * a single number the browser synthesises the other weights (or ignores the
+     * request), which is a different set of glyphs from the ones the reference
+     * painted. Both Karla and Oswald on joyfulculinarycreations.com are variable
+     * faces covering 200–800, and the capture had no way to say it — so the pair
+     * shape is the axis, not a convenience.
+     */
+    weight: z.union([finite, z.tuple([finite, finite])]).optional(),
     style: z.enum(['normal', 'italic']).optional(),
   })
   .strict()

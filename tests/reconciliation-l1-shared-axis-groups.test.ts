@@ -95,6 +95,11 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   // refused" half of the sweep below holds for it the same way: anything that is
   // not the literal is refused on every kind alike.
   stacked: true,
+  // REQ-332 — the declared clip intent, the same literal-scalar shape as
+  // `stacked` above and swept for the same reason: a kind that could hold
+  // content but not cut it off at its own edge would be exactly the per-kind
+  // drift this AC exists to close.
+  clip: true,
 }
 
 /**

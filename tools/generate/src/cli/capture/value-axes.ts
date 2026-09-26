@@ -309,6 +309,12 @@ export const GEOMETRY_AXES: readonly AnyElementAxis<ElementGeometry, RawGeometry
     ...sharedGeometry((g) => g.backdropFilter),
   },
   {
+    axis: 'clip',
+    role: 'carried',
+    note: 'REQ-332 — the nearest ancestor that cuts this element off, as a box plus a document-wide id. Carried for the fold, which wraps everything sharing an id in a node that clips; the score reads the consequence (a document wider than its viewport), not the cause.',
+    ...sharedGeometry((g) => g.clip ?? undefined),
+  },
+  {
     axis: 'blendMode',
     role: 'compared',
     note: 'REQ-63 — computed `mix-blend-mode` when non-`normal`. Compared by value.',

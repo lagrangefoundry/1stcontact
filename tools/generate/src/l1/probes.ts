@@ -46,7 +46,13 @@ import {
   type L1ScalarTrack,
   type L1Text,
 } from '@1stcontact/site-schema'
-import { classifyElement, isSynthesizedSurfaceId, surfaceBorderInset, type FoldableElement } from './fold'
+import {
+  classifyElement,
+  isBackingSurfaceId,
+  isSynthesizedSurfaceId,
+  surfaceBorderInset,
+  type FoldableElement,
+} from './fold'
 // REQ-211 — the same rejoin decision the fold makes, asked here so the oracle
 // and the reproduction count the same things. See `inline-runs.ts`.
 import { flowLead, flowText, rejoinableFlows, type InlineFlow } from './inline-runs'
@@ -869,15 +875,21 @@ function layoutInFlow(
       // it has its own geometry box, so push it as a leaf the fidelity probe pairs.
       if (node.kind === 'box' && children.length === 0) {
         const own = declaredHeight(node, width, vh)
-        // BUG-143 — a fold-synthesized BACKING SURFACE does not grow with the
-        // content perturbation, because the page does not: its height is a pinned
-        // constant in the CSS the renderer emits, and longer copy cannot change a
-        // constant. Growing it modelled a panel that stretches to fit — the exact
+        // BUG-143 — a BACKING SURFACE does not grow with the content perturbation,
+        // because the page does not: its height is a pinned constant in the CSS the
+        // renderer emits, and longer copy cannot change a constant. REQ-332 — true
+        // of a captured backdrop on identical terms (the renderer pins its height
+        // from the same keyframes), and it has to be, or the containment
+        // assertions REQ-332 enables would be graded against a band that grew
+        // and a run that grew by a different amount.
+        //
+        // Growing it modelled a panel that stretches to fit — the exact
         // behaviour whose ABSENCE is the defect — and so muted the half of the
-        // alarm that content growth is there to raise. Measured on the reproduction
-        // this was reported from: 0 of 14 panels move while 46 of 53 runs do.
+        // alarm that content growth is there to raise. Measured on the
+        // reproduction this was reported from: 0 of 14 panels move while 46 of
+        // 53 runs do.
         if (own !== undefined) {
-          box.height = own * (isSynthesizedSurfaceId(node.id) ? 1 : opts.contentScale)
+          box.height = own * (isBackingSurfaceId(node.id) ? 1 : opts.contentScale)
         }
         ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node, ctx) })
         return { advance: adv(box.height), box }
@@ -1163,7 +1175,11 @@ export function deriveSurfaceBacking(
       const own = run.backedBy !== undefined ? byId.get(run.backedBy) : undefined
       if (own) declared.add(`${run.path}|${own.path}`)
       for (const surface of surfaces) {
-        if (!isSynthesizedSurfaceId(surface.id)) continue
+        // REQ-332 — a captured backdrop backs the copy standing on it exactly as a
+        // reconstructed band does, so it is attributable here too. Without this no
+        // run on a captured band could name a backing surface at all, and the
+        // containment probe had nothing to hold those bands to.
+        if (!isBackingSurfaceId(surface.id)) continue
         if (!overhang(run.box, surface.box, 2)) covered.add(`${run.path}|${surface.path}`)
       }
     }
@@ -1216,6 +1232,42 @@ export function evaluateLayout(
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
   layout(doc.root, rootFrame, '0', ctx)
 
+  // REQ-332 — a declared clip cuts its subtree down to its own box, ONCE, before
+  // any probe reads a leaf.
+  //
+  // Every envelope probe below asks a question about where a leaf is painted, and
+  // a leaf inside a clipping ancestor is painted only where the two boxes
+  // overlap. Answering that in each probe would be three answers to one question,
+  // and the three would drift; answering it here means the horizontal-clip check,
+  // the overlap scan and the containment probe all read the painted extent by
+  // construction. A leaf the clip removes entirely is dropped, because a leaf
+  // that paints nothing can neither overflow the viewport, collide with a
+  // neighbour, nor escape the surface behind it.
+  const clipBoxes: Array<{ path: string; box: EvalBox }> = []
+  const collectClips = (node: L1Node, path: string): void => {
+    if (node.clip) {
+      const box = ctx.boxes.get(path)
+      if (box) clipBoxes.push({ path, box })
+    }
+    childrenOf(node).forEach((child, i) => collectClips(child, `${path}.${i}`))
+  }
+  collectClips(doc.root, '0')
+  if (clipBoxes.length) {
+    ctx.leaves = ctx.leaves.filter((leaf) => {
+      for (const clip of clipBoxes) {
+        // A clip bounds its DESCENDANTS, never itself and never a sibling.
+        if (!leaf.path.startsWith(`${clip.path}.`)) continue
+        const x = Math.max(leaf.box.x, clip.box.x)
+        const y = Math.max(leaf.box.y, clip.box.y)
+        const right = Math.min(leaf.box.x + leaf.box.width, clip.box.x + clip.box.width)
+        const bottom = Math.min(leaf.box.y + leaf.box.height, clip.box.y + clip.box.height)
+        if (right <= x || bottom <= y) return false
+        leaf.box = { x, y, width: right - x, height: bottom - y }
+      }
+      return true
+    })
+  }
+
   const findings: LayoutFinding[] = [...ctx.clips]
 
   // Horizontal clip: any leaf extending beyond the viewport width.
@@ -1230,17 +1282,25 @@ export function evaluateLayout(
   }
 
   // Overlap: any two non-empty leaf boxes that intersect. Slots are inert
-  // placeholders (Phase-D seams), and a *fold-synthesized* backing surface
-  // (`section-band-*` / `section-bg-*` / `card-*`, BUG-14) is the fill painted
-  // behind the runs it backs — a background overlapping its own content is by
-  // design, not a collision, and a card sits on its band for the same reason. A
-  // genuine captured standalone surface (`box-*`) is real painted content and
-  // still participates, so two of them colliding is still reported. Either way a
-  // box that overflows the viewport is caught by the horizontal-clip check.
+  // placeholders (Phase-D seams), and a BACKING SURFACE (BUG-14's synthesized
+  // `section-band-*` / `section-bg-*` / `card-*`, and REQ-332's captured
+  // `backdrop-*`) is the fill painted behind the runs it backs — a background
+  // overlapping its own content is by design, not a collision, and a card sits on
+  // its band for the same reason. A genuine standalone painted panel (`box-*` — a
+  // divider, a decorative slab) is real content and still participates, so two of
+  // those colliding is still reported. Either way a box that overflows the
+  // viewport is caught by the horizontal-clip check.
+  //
+  // REQ-332 — the test is {@link isBackingSurfaceId} rather than
+  // {@link isSynthesizedSurfaceId} because a section band does not stop being a
+  // section band by having been captured instead of reconstructed. Keyed on the
+  // narrower predicate, a page whose eleven bands all arrived as capture elements
+  // got the exemption zero times and failed for painting its own copy's
+  // background.
   const solid = ctx.leaves.filter(
     (l) =>
       l.kind !== 'slot' &&
-      !(l.kind === 'box' && isSynthesizedSurfaceId(l.id)) &&
+      !(l.kind === 'box' && isBackingSurfaceId(l.id)) &&
       l.box.height > 0 &&
       l.box.width > 0,
   )
@@ -1950,7 +2010,11 @@ function keepsAbsolute(node: L1Node): boolean {
 function synthesizedSurfacePaths(doc: L1Document): Map<string, string> {
   const out = new Map<string, string>()
   const walk = (node: L1Node, path: string): void => {
-    if (isSynthesizedSurfaceId(node.id)) out.set(path, node.id!)
+    // REQ-332 — a captured backdrop is a backing surface here too. It is a leaf
+    // today, so the escape probe finds it in the leaf scan either way; keyed on
+    // the narrower predicate this map would disagree with the attribution that
+    // populates it the moment one ever owns its content.
+    if (isBackingSurfaceId(node.id)) out.set(path, node.id!)
     childrenOf(node).forEach((child, i) => walk(child, `${path}.${i}`))
   }
   walk(doc.root, '0')
