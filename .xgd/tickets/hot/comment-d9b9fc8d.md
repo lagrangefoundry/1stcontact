@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-25T21:47:24.703559+00:00'
+updated_at: '2026-09-26T18:32:44.283662+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4816,5 +4816,11 @@ open(p, 'w').write(s)
 PY
 sed -E 's/=.*/=<set>/' ~/Documents/secrets/1c.dev.env
 ```
+
+<!-- xgd-turn id="95b122fe-8778-480b-b826-034b32d2d391-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-26T18:32:43.712665+00:00" -->
+#### You
+I just made a number of L1 improvements - can you walk me through the local deploy again please?
 
 <!-- xgd-chat-end -->
