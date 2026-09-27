@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:51:38.235084+00:00'
+updated_at: '2026-09-27T00:52:16.549935+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5103,5 +5103,44 @@ are these the same as:
 CLOUDFLARE_API_TOKEN
 
 CLOUDFLARE_ACCOUNT_ID?
+
+<!-- xgd-turn id="3728afc9-8999-40e3-b7b3-46ae35c430be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T00:52:15.102550+00:00" -->
+#### Claude
+**No — completely different things, and confusing them is the specific mistake `bin/access-token` was written to make impossible.**
+
+| | what it is | who accepts it |
+|---|---|---|
+| `CLOUDFLARE_API_TOKEN` | an **API** credential for the management plane | `api.cloudflare.com` — wrangler deploys, D1, Workers AI, the R2 REST API |
+| `CLOUDFLARE_ACCOUNT_ID` | not a credential at all — an identifier | — |
+| `CF_ACCESS_CLIENT_ID` / `_SECRET` | an **Access service token** — an identity presented at the edge | `app.1stcontact.io`, as `CF-Access-Client-Id` / `CF-Access-Client-Secret` headers |
+
+From the script's own header:
+
+> **THE API TOKEN IS THE PROVISIONER, NEVER THE CREDENTIAL.** `CLOUDFLARE_API_TOKEN` authenticates to `api.cloudflare.com`; it is not an Access credential and presenting it to `app.1stcontact.io` earns the same 302 to the login page as presenting nothing.
+
+The relationship is one-directional: `bin/access-token` uses `CLOUDFLARE_API_TOKEN` **once**, to *create* the service token. After that the API token is never involved in a copy, and the service token is never involved in a deploy.
+
+## Your client id is already known
+
+It's in the file I just committed, and it is **not** a secret:
+
+```bash
+export CF_ACCESS_CLIENT_ID='29edd0e0ede45619455f21128c7b88ce.access'
+export CF_ACCESS_CLIENT_SECRET='…'   # password manager
+```
+
+That hex string is exactly what §I16 was about — Cloudflare mints it independently of the `--name 1stcontact-publish` label you supplied, and puts the *minted* id in the JWT's `common_name`. That's why `SERVICE_TOKEN_IDENTITIES` now maps all three spellings.
+
+**Only the secret is unknown**, and Cloudflare shows it once by design. If it isn't in your password manager:
+
+```bash
+bin/access-token --rotate --name 1stcontact-publish
+```
+
+That issues a fresh secret, prints it to your terminal and writes it to no file. Rotating is cheap — the old secret stops working, nothing else changes, and the client id stays the same, so the `wrangler.toml` mapping I committed keeps matching.
+
+One ordering note for the walkthrough: `--rotate` needs `CLOUDFLARE_API_TOKEN` with **Access: Service Tokens** and **Access: Apps and Policies**, both Edit. That's a wider scope than the deploy token — if `1c_Admin_Token` doesn't carry it, the rotate fails at the API rather than at the gate.
 
 <!-- xgd-chat-end -->
