@@ -1165,6 +1165,38 @@ export interface KbSkew {
    */
   stale: string[]
   /**
+   * Projections whose rendered output differs from the file in the corpus (BUG-156).
+   *
+   * COVERAGE IS NOT CURRENCY, which is BUG-48's sentence one level further out.
+   * The two lists above ask whether the index covers the corpus; this asks
+   * whether the corpus covers its own source. `REF-l1`, `REF-behaviors` and
+   * `REF-surface` are not written documents — they are rendered from the behavior
+   * catalogue, the L1 schemas and the declared control surface by
+   * {@link writeProjections}, which runs only inside a build. So a projection
+   * whose SOURCE has moved is a file that has NOT moved: same mtime, same
+   * manifest entry, no skew by either test above, and a stage that correctly
+   * reports nothing to do. On 2026-09-26 `REF-l1` was two days behind
+   * `l1/schema.ts` and the index was perfectly coherent with it.
+   *
+   * WORSE THAN AN UNINDEXED DOCUMENT, and failed on for that reason. A document
+   * the index misses is unreachable; this one is retrievable, confident and
+   * wrong — the assistant answers questions about the L1 vocabulary from a
+   * document describing a vocabulary the code no longer has.
+   *
+   * THE TEST IS THE RENDERING, NOT A STAMP. The projections are pure functions of
+   * declarations already in the tree, so the current answer is computable here
+   * with no credential and no request — the same derivation `l1VocabularyGaps`
+   * makes for a different question (is it COMPLETE?) and for the same reason a
+   * written list of what the document ought to say is the artefact that goes
+   * stale without saying so.
+   *
+   * ONLY PROJECTIONS THE CORPUS ACTUALLY HOLDS. Whether a corpus is missing a
+   * document is the axis BUG-48 settled — the directory is the boundary — and a
+   * corpus that was never meant to carry the projected namespace is not stale for
+   * lacking it. What this adds is that one it DOES carry must be the current one.
+   */
+  outdated: string[]
+  /**
    * Documents the corpus predicate excludes — present as text, indexed never.
    *
    * The awareness map, and anything that arrives beside it. Reported rather than
@@ -1193,6 +1225,13 @@ export interface KbSkew {
  * the bundle's own text through `bundleDocReader` — so the question this asks is
  * exactly "did the index get everything the index was supposed to get", and it
  * cannot drift from what indexing actually does.
+ *
+ * AND WHETHER THE CORPUS ITSELF IS CURRENT (BUG-156). Two of the three parts are
+ * derived from the third, but the corpus has a source of its own for the
+ * projections, and a document rendered from code is exactly as capable of going
+ * behind as an index is. {@link KbSkew.outdated} asks the same question of the
+ * corpus that `stale` asks of the index, by the same test — inequality against
+ * what its producer would write now.
  */
 export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise<KbSkew> {
   const lib = await km()
@@ -1229,13 +1268,33 @@ export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise
     else if (inDocs !== doc.updated_at || inChunks !== doc.updated_at) stale.push(doc.uid)
   }
 
+  // The projections re-rendered and compared (BUG-156). HERE RATHER THAN IN THE
+  // STAGE, because {@link kbEnsure} triggers on this one call and `1c assets`
+  // refuses on it: a stage with its own idea of staleness is free to disagree
+  // with the check that gates the inline, and then the build passes and the ship
+  // refuses. The membership comes from the same root the projections would be
+  // written into, so what is compared is exactly what a build here would write —
+  // not what a build somewhere else would.
+  const membership = corpusMembership(root)
+  const outdated: string[] = []
+  for (const doc of projections()) {
+    const held = bundle.docs[`${doc.id}.md`]
+    if (held === undefined) continue
+    if (held.text !== projectedDocument(doc, membership)) outdated.push(doc.id)
+  }
+
   const indexed = new Set(corpus.map((doc) => doc.uid))
   const exempt = Object.keys(bundle.docs)
     .filter((name) => name.endsWith('.md'))
     .map((name) => name.slice(0, -'.md'.length))
     .filter((uid) => !indexed.has(uid))
 
-  return { missing: missing.sort(), stale: stale.sort(), exempt: exempt.sort() }
+  return {
+    missing: missing.sort(),
+    stale: stale.sort(),
+    outdated: outdated.sort(),
+    exempt: exempt.sort(),
+  }
 }
 
 /**
@@ -1249,15 +1308,33 @@ export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise
  * connects a bad answer back to a line that scrolled past weeks ago.
  *
  * NAMES THE DOCUMENTS AND THE FIX, because "the index is stale" is a diagnosis an
- * operator cannot act on. Which documents, in which of the two states, and the
- * one command that repairs both.
+ * operator cannot act on. Which documents, in which of the three states, and the
+ * one command that repairs all of them.
+ *
+ * THE OPENING SENTENCE NAMES THE DISAGREEMENT IT FOUND (BUG-156). The two index
+ * states and the currency state have different subjects — one is the index
+ * failing the corpus, the other the corpus failing its source — and an operator
+ * told the index is behind when the index is fine looks in the wrong place.
  */
 export function kbSkewError(skew: KbSkew): string | null {
-  if (skew.missing.length === 0 && skew.stale.length === 0) return null
-  const lines = [
-    'The system KB corpus and its index disagree, so this bundle would ship ' +
-      'documents the assistant cannot retrieve.',
-  ]
+  if (skew.missing.length === 0 && skew.stale.length === 0 && skew.outdated.length === 0) {
+    return null
+  }
+  const lines: string[] = []
+  if (skew.missing.length > 0 || skew.stale.length > 0) {
+    lines.push(
+      'The system KB corpus and its index disagree, so this bundle would ship ' +
+        'documents the assistant cannot retrieve.',
+    )
+  }
+  if (skew.outdated.length > 0) {
+    if (lines.length > 0) lines.push('')
+    lines.push(
+      'A projected reference in this corpus no longer matches the declarations it ' +
+        'is rendered from, so this bundle would ship a document that is ' +
+        'retrievable, confident and wrong.',
+    )
+  }
   if (skew.missing.length > 0) {
     lines.push(
       '',
@@ -1272,6 +1349,14 @@ export function kbSkewError(skew: KbSkew): string | null {
       `  STALE in the index (${skew.stale.length}) — ranked by vectors built ` +
         'from text they no longer have:',
       ...skew.stale.map((uid) => `    ${uid}`),
+    )
+  }
+  if (skew.outdated.length > 0) {
+    lines.push(
+      '',
+      `  OUTDATED projections (${skew.outdated.length}) — rendered from source ` +
+        'that has moved since the file was written:',
+      ...skew.outdated.map((uid) => `    ${uid}`),
     )
   }
   lines.push('', 'Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order).')
@@ -1290,11 +1375,16 @@ export class KbSkewError extends Error {
  * Refuse a skewed bundle, or return the corpus that agrees with its index.
  *
  * The one call `1c assets` makes, so the check cannot be half-applied: there is
- * no path that computes the skew and then decides what to do about it.
+ * no path that computes the skew and then decides what to do about it. It is also
+ * the one call {@link kbEnsure} triggers on, which is why an outdated projection
+ * belongs in the skew rather than beside it (BUG-156): the stage and the shipping
+ * step are then incapable of disagreeing about what "behind" means.
  */
 export async function requireCoherentKb(bundle: KbBundle, root: string = kbRoot()): Promise<KbSkew> {
   const skew = await kbSkew(bundle, root)
-  if (skew.missing.length > 0 || skew.stale.length > 0) throw new KbSkewError(skew)
+  if (skew.missing.length > 0 || skew.stale.length > 0 || skew.outdated.length > 0) {
+    throw new KbSkewError(skew)
+  }
   return skew
 }
 
@@ -1371,8 +1461,18 @@ export interface KbEnsureOutcome {
  *
  * SO A BUILD THAT TOUCHES NO KB DOCUMENT COSTS NOTHING NEW. `1c kb build` needs a
  * Workers AI credential and a round trip, and nearly every build has no business
- * with either. On a coherent index this reads two manifests off disk, says so in
- * one line, and returns: no token is read and no request is made.
+ * with either. On a coherent index this reads two manifests off disk, renders the
+ * three projections from declarations the process has already loaded, says so in
+ * one line, and returns: no token is read and no request is made. The rendering is
+ * what BUG-156 added, and it is local work of the same order as the manifests —
+ * the property REQ-322 bought is that a build with nothing to do spends nothing
+ * on the network, and that survives unchanged.
+ *
+ * AND A DECLARATION THAT MOVED IS A KB DOCUMENT THAT MOVED (BUG-156). Three of
+ * the corpus documents are rendered from code rather than written, so "touched no
+ * KB document" was never the same question as "touched no source the KB is made
+ * of" — and it is the second one this stage has to answer, because the first one
+ * is answered yes by every build that changes a schema.
  *
  * AND A BUILD THAT CANNOT FINISH FAILS BEFORE IT STARTS. With the index behind
  * and no usable credential, the refusal is raised HERE — naming the credential
@@ -1420,9 +1520,18 @@ export async function kbEnsure(
   try {
     const skew = await requireCoherentKb(bundle, root)
     const n = Object.keys(bundle.docs).length
+    const projected = Object.keys(bundle.docs).filter((name) => isProjected(name)).length
+    // BOTH HALVES OF WHAT WAS CHECKED, because the old line was true and useless
+    // (BUG-156). "The index covers all 12 corpus document(s)" was a complete
+    // account of a check that never asked whether the corpus was current, printed
+    // on every build while `REF-l1` sat two days behind its schema. A line that
+    // claims only what it verified is the difference between reassurance and
+    // evidence.
     return {
       action: 'current',
-      report: `kb: the index covers all ${n} corpus document(s) — nothing to build.`,
+      report:
+        `kb: the index covers all ${n} corpus document(s) and ${projected} ` +
+        `projection(s) match their source — nothing to build.`,
       skew,
     }
   } catch (err) {

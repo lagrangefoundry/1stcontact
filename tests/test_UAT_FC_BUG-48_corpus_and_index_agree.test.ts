@@ -248,6 +248,10 @@ describe('BUG-48 — the corpus and the index are one artefact', () => {
     const message = kbSkewError({
       missing: ['REF-l1', 'REF-surface'],
       stale: ['DOC-17'],
+      // BUG-156's third state, empty here: this case is about the two index
+      // states and their message, and a currency finding mixed in would make the
+      // assertions below unable to say which sentence named which document.
+      outdated: [],
       exempt: ['awareness'],
     })
     expect(message).not.toBeNull()
