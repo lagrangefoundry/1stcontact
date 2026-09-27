@@ -6,9 +6,9 @@ title: 'values-diff/probes: a rotated collage and a wrong mask both read as clea
   and content-robustness wraps a nowrap run'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:35.067519+00:00'
-updated_at: '2026-09-27T00:27:14.247714+00:00'
+updated_at: '2026-09-27T00:31:39.960443+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -672,3 +672,27 @@ One failure found and resolved: REQ-302's fixture, above. `tsc --noEmit` clean o
   `boxes` + `width` on `LayoutFinding`
 - `tests/test_UAT_FC_REQ-302_a_flow_placed_run_shrinks_to_fit.test.ts` — fixture
   amended (see above); REQ-302's assertions unchanged
+
+
+## Post-merge baseline on `xgd-working` (main checkout only)
+
+Four suites in the scope fail in the main checkout after the merge. All four are
+real-bundle tests — they read a retained third-party capture from
+`storage/references/`, which is gitignored, so they silently return early in every
+branch worktree and can only be observed here:
+
+| suite | failure |
+|---|---|
+| `bug14-fold-surface-hierarchy` | `real_captures_get_bands_and_treated_cards` |
+| `bug20-chip-self-surface` | `real_gigabytealchemy_badges_fold_as_pills` |
+| `req96-control-composition` | `gigabyte_submit_recovers_its_per_width_position` (`122.75` vs `123`) |
+| `test_UAT_FC_REQ-278_flow_recovery_preserves_geometry` | `the_stored_references_are_measured_in_the_units_BUG-113_used` |
+
+**None of them is this ticket's.** Each was re-run in the main checkout with all
+nine of this ticket's source files reverted to `xgd-working`'s tip immediately
+before the merge (`e6ae7df0b3`) and `mask-geometry.ts` moved aside, and each fails
+**identically** in that state — the sub-pixel shapes point at REQ-333's
+`layoutBoxOf`, which un-inflates a rotated element's AABB and therefore moves
+real-bundle geometry by fractions of a pixel. REQ-333 is at
+`ready_to_reconcile`; recorded here so the next reader does not attribute them to
+this ticket's commits.
