@@ -5,9 +5,9 @@ type: bug
 title: A stale projection is invisible to the KB build that generates it
 created_by: EPIC-16
 created_at: '2026-09-27T00:13:07.945050+00:00'
-updated_at: '2026-09-27T00:54:04.455766+00:00'
+updated_at: '2026-09-27T00:54:09.725067+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-96d8aca6
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.390
+  story_points: 3
 ---
 
 `1c kb ensure` cannot detect a stale projection, so `bin/build` will never rebuild
