@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T21:29:29.104072+00:00'
+updated_at: '2026-09-27T22:06:54.133115+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4531,5 +4531,24 @@ This needs a turn-taking rule at the UX level, not just a spend cap — somethin
 Recorded as 14.5–14.9 on the epic; 14.4's positions 1 and 6 are withdrawn as stated.
 
 The next thing worth playing out is the one both of us keep deferring: **who answers "let's do the blog next"** — a message that is simultaneously a plan change and a design commitment. Topology 3 has no owner to default to, so that rule *is* the design. Want to work a few concrete exchanges?
+
+<!-- xgd-turn id="f326b5f8-cb9c-43ea-adfc-11133d3082ff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T22:06:53.704363+00:00" -->
+#### You
+Yes I think it would be interesting to do some role-playing but I'm not sure we're ready let's keep talking about the roles a little bit first.
+
+on your question above, I suggest we use @name to direct questions. Anything that is undirected is a question for the user. But instead of "Bob: let's do the blog next", bob would say "Bob: @Alice - lets do the blog next, Do you have any questions for Martin?" Or "Bob: should we do the blog next?" is a question for me, equivalent to "Bob: @Martin, should we do the blog next"
+
+The user should be able to see this and work out that they can use @ too. Question: who responds to a user question if it is undirected? Ideally logistics and planning questions trigger Bob and Design and content questions trigger Alice - can we make that happen?
+
+The key thing we need to get right and understand really clearly is Bob's role. I am thinking of Bob as a meeting chair and executive assistant.
+
+Alice opens the meeting, explains the roles - defering to Bob on logistics
+Bob runs data collection through cards and discussion to build a high level project specification - what does the user want (Alice can ask pertinent questions/refinements - Bob drives)
+Bob prompts Alice to create a plan - once created Bob owns the plan and is responsible for (1) Initiating a phase (2) steering the conversation (gently) if it gets off topic (3) closing a phase - getting agreement from Alice and Martin that we have finished.
+Bob and Martin can discuss the plan while Alice is occupied
+Bob can explain what Alice is doing
+So Bob's job is to keep advancing the work appropriately prompting Alice and the user for decisions - I guess important rule - Bob makes no judgement calls, even the judgement as to whether a phase of the plan is complete is left to Alice and the User. Bob is purely a facilitator.
 
 <!-- xgd-chat-end -->
