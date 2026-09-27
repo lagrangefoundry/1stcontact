@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T23:18:34.502127+00:00'
+updated_at: '2026-09-27T23:20:38.589055+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4844,5 +4844,81 @@ Either way I suggest we punt on this for now. Perhaps with some real conversatio
 On the role play, I think Bob's job is easy - Martin says "You know I still have a problem with the way the Hero image looks on mobile" - bob says "Got it - I'll put that on the list"
 
 What I am actually more concerned about is the slight of hand you played (no disrespect) in resolving the last turn I gave you. We need to pick that apart mechanically. There are lots of effective UX outcomes to a complex turn like that but what ACTUALLY happens behind the scenes here - what is mechanical, what does Bob do, what does Alice see - how do we pull a coherent rabbit out of that hat?
+
+<!-- xgd-turn id="a9caa659-1b5e-4dda-8266-b55973cfe29c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T23:20:37.976681+00:00" -->
+#### Claude
+Fair hit, and the sleight of hand was real — let me name it precisely before patching it.
+
+## Drift: conceded, and your taxonomy mostly dissolves type 1
+
+You're right that my gate was circular — if Alice's engagement is the detector, Bob adds nothing. And your split is the useful one.
+
+Worth keeping from it: **type 1 isn't drift at all under your own observation.** If order flexibility is cheap so long as things get closed, then an out-of-order item is just unordered input, and Bob's move is bookkeeping — exactly your *"Got it, I'll put that on the list."* No steering, no judgement, no gate. That deletes the hard case. Type 2 (the ex-girlfriend in Leeds) is rare, obvious, and needs one line of redirect that we can write when we've seen real ones. Punt accepted.
+
+## What I actually faked
+
+Reading my own transcript back, here's what had no mechanism behind it:
+
+1. **I segmented your message into four items with four owners.** Nothing does that. A message is one string, and splitting it into owned items is interpretation — semantic judgement, which is the thing we forbade on Haiku.
+2. **I ordered them**, Bob first, and had Bob announce the scheduling decision.
+3. **I had Alice batch two items**, which requires her to have seen both — contradicting (1), because a router that gave Alice only her items would have hidden the blog question from her entirely.
+4. **I had Bob predict Alice's behaviour** — *"the background colour is Alice's and she has it."* He cannot know the second half. That's a straight bug.
+5. **I had Bob know this was the second mention of the background.** Legitimate only if there's a lookup behind it; as written it's free-text recall, i.e. Bob interpreting.
+6. **I had Alice know the font was already in flight.** Legitimate only if in-flight work is in the shared structure rather than in her memory of her own promise.
+
+(1) is the load-bearing one. Item-level routing needs a semantic segmenter, and a segmenter starves each agent of the context that made the good outcome possible. My "three tiers of default addressing" from last turn is built on the same sand.
+
+## The mechanism: don't route messages, constrain move sets
+
+**Both agents see the whole message. The `@` determines who is obliged to act, not who reads.** Ownership ambiguity stops mattering if the two agents have *disjoint capabilities*.
+
+Bob's legal moves are a closed list: report state · log an item · ask a process question · note a repetition · name whose move-set something falls in · **say nothing**. He is not *forbidden* from answering "is a blog a good idea" — he is **incapable** of it, because no move in his set produces a substantive answer, and no tool in his surface writes to the site.
+
+So on the blog item, both agents spoke and did not collide — not because they divided the item, but because *the only moves available to each were different kinds of move on the same item*. Bob: "not on the list, shall I add it?" Alice: "I'll push back once; here's what I'd build instead." That's what made my transcript read coherently, and it survives the audit. The segmenter doesn't.
+
+**That's the rabbit: ambiguity is absorbed by disjoint move sets rather than resolved by a router.** It also kills the whole class of misroute failures, because nothing is routed.
+
+Bob's move set must include **"nothing to add"** explicitly, or a cheap model will fill every silence. The constraint prevents *conflict*; only an empty move prevents *noise*.
+
+## What actually happens, per client message
+
+1. **Message appends to the room** — the durable additive transcript, the derived feed from 14.8.
+2. **Bob is invoked**: room tail + full plan state. Constrained move set, no site-writing tools.
+3. **Bob's turn appends**; his clerical writes land in the shared structure.
+4. **Alice is invoked** — if addressed, or if any part of the message is unaddressed — with the client's messages **verbatim**, her own prior turns and tool results, and **the plan state as it now stands**.
+5. Alice's moves: everything design and content, plus *authoring* the plan. She cannot tick a task off — that's Bob's clerical write — but she can declare a phase not closeable.
+
+**Ordering is Bob-then-Alice, deterministic, costing ~1s.** Not a scheduler and not a race: Bob runs first so his state write is available to Alice, and because his turn is ~1s against her 2–9 minutes it's ~1% overhead. This does *not* reinstate the pipeline, because Bob cannot withhold or rewrite — Alice gets the client verbatim regardless of what Bob does.
+
+**Waking Alice is a syntactic test, never Bob's call.** If Bob decided when Alice gets involved, Haiku would be gating Opus. So: Alice is invoked unless the message's only address is `@Bob`. And critically — **receiving is not being invoked.** Alice's context accumulates everything the client says even when she isn't asked to act; appending costs nothing until the next call.
+
+### The part that makes the asymmetry actually work
+
+**Bob's turns are losslessly compressible, precisely because he makes no judgements.** Every move in his set is either a statement of state, a mutation of state, or a question whose answer becomes state. So Alice never needs Bob's turns verbatim — she needs the plan state, which subsumes them. That's the mechanism behind "filter the agents, never the client," and it's not a heuristic: it's a consequence of Bob's move set being closed.
+
+An open process question is itself state (*open: blog, awaiting client*), so even that compresses.
+
+## The gaps this leaves, honestly
+
+**The repetition receipt needs a narrower definition.** "Second time you've raised this" over free text is semantic. Make it a lookup: **every change Alice makes is logged with a subject**, and Bob matches mentions against that log. So the receipt is only available for things that were *supposedly already addressed* — which is the only case where "still" carries information anyway. Narrower, mechanical, and better.
+
+**In-flight work must live in the shared structure**, or Alice's "that's already going in" is her remembering a promise rather than reading a fact. Another requirement falling out of the audit: the task list needs an *in progress* state and needs to know which agent or worker holds it.
+
+**Redundancy remains possible.** Two agents may both speak usefully but the client may only have wanted one reply. Move sets don't solve that; only Bob's empty move does, and how eagerly he takes it is a tuning question we'll only answer from real transcripts.
+
+## Bob's turn, with the bug removed
+
+> **Bob** — Mine first.
+> [state card]
+> **Bob** — The background colour is Alice's. On the blog — you left that unchecked at the start, so it isn't on the list. Shall I add it after the homepage, or get into it now?
+> **Bob** — One receipt: the background last changed four turns ago, when we went to A.
+
+Three edits: no prediction about Alice, no announcement of scheduling she didn't agree to, and the receipt is now sourced from the change log rather than from recall.
+
+---
+
+Recorded as 14.12 on the epic — the audit, disjoint move sets, the invocation sequence, and the compressibility argument, which I think is the strongest structural result we've got so far.
 
 <!-- xgd-chat-end -->
