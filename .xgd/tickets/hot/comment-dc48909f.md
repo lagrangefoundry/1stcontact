@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-27T20:39:49.534725+00:00'
+updated_at: '2026-09-27T21:09:54.942100+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -190,5 +190,61 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="4b3d2ad9-6751-4b2d-bcbe-47a280660022-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T21:09:52.924752+00:00" -->
+#### Claude
+Good — that reframes the work. Let me check one feasibility question before I answer, because it decides the shape.
+
+No blocking questions — the one fork I raised (ambient vs responsive) is answered by building **one** primitive that does both, which is what your own "Related" note asks for. Let me confirm the protocol, then state my decisions and build.
+
+Now let me scope the ticket. I'll write the addendum to a file and append it (per the body-file idiom).
+
+Ticket scoped. Now cutting the branch.
+
+Now the schema. Inserting the timed-animation primitive after the scroll-motion schemas:
+
+Now the `parts` declaration on the image node:
+
+Now the types exports and the motion projection:
+
+Now the motion projection — extending the claim model with a target so part-scoped tracks don't falsely contest:
+
+Now the claim model gains a target, and `l1MotionClaims` reads animate tracks:
+
+Now the validator. Let me read the existing exclusivity rule:
+
+Now the per-track checks. Let me see how `checkEntrance`/scroll-track checks are wired into `walk`:
+
+Now the per-track validation function and its wiring:
+
+Now check the package index exports, then typecheck the schema package:
+
+Schema layer typechecks. Now the renderer — the largest piece. Let me read the image emission and the reveal wiring precisely:
+
+Now the renderer. First the animate compiler, modelled on `scrollTrackRules`:
+
+Now the drawings input, the inline emission, and the wiring:
+
+Now the inline-drawing resolver and the image emission:
+
+Now wire `animate` into `emitNode`, including the `in-view` observer handle:
+
+Now the render plumbing in `tools/generate`:
+
+No errors in my code. Now the three render call sites need to lend the store read:
+
+No new authoring op needed — L1 is written verbatim and validated, so the language *is* the API. Now the UATs:
+
+The ticket claims a refusal I decided against (the validator can't see the drawing). Let me correct that one clause rather than leave a contradiction:
+
+Body preserved and corrected. Now the UATs:
+
+23 of 24 pass on the first run. The one failure is my assertion, not the code — the renderer relativizes URLs (REQ-109's flatness rule):
+
+All 24 UATs pass. Now regression — the sibling motion suites and the L1 core, since I changed a shared claim model:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
