@@ -8,9 +8,14 @@
  * score carried no value delta under it at all. Every number was wrong in the
  * same direction, and each for its own reason:
  *
- *   - item 1: `transformRotateDeg` was read off the leaf while the page painted
- *     the rotation on an ancestor, so four photographs rotated 3–8° projected `0`
- *     on BOTH sides and compared clean;
+ *   - item 1: `transformRotateDeg` was defaulted to the identity whenever the
+ *     projection could not read the transform chain, so a `0` meaning "we did not
+ *     look" landed in the same field as a `0` meaning "upright" and the pair
+ *     compared clean. (The other half of the filed item — reading the rotation off
+ *     an ANCESTOR, which is why four photographs rotated 3–8° projected `0` on both
+ *     sides — was landed independently by REQ-333 while this was in flight, and is
+ *     its evidence, not repeated here. What is pinned below is the third outcome
+ *     REQ-333 still conflates with 'none', and the diff report it feeds.)
  *   - item 2: `mask` was compared by PRESENCE, so a feather that erases a fifth
  *     of a photograph was indistinguishable from the reference's, which erases
  *     nothing — and the axis went from 3 MEDIUM deltas to 0 while the page got
@@ -55,89 +60,87 @@ function stub(transform: string | undefined, parent: StubEl | null = null): Stub
 }
 
 /**
- * `transformFields` and the two helpers it calls, sliced out of `EXTRACT_SCRIPT`
- * and built with stubbed browser globals.
+ * `transformFields` over `accTransformOf`, sliced out of `EXTRACT_SCRIPT` with
+ * the helpers they call and built with a stubbed `getComputedStyle`.
  *
- * The slice is by the function's own source text rather than by line number, so
- * it cannot silently start testing a different function after an edit above it.
+ * The slice is by the functions' own source text rather than by line number, so
+ * it cannot silently start testing different code after an edit above it. The
+ * pair is driven together because that is how the projection uses them: one
+ * ancestor walk per element, and the fields read off its result.
  */
-function transformFieldsOffline(): (el: StubEl, s: Record<string, string>) => Record<string, unknown> {
-  const from = EXTRACT_SCRIPT.indexOf('function decomposeTransform(')
-  const to = EXTRACT_SCRIPT.indexOf('// REQ-48 (item 1) -- declared motion', from)
+function transformFieldsOffline(): (el: StubEl) => Record<string, unknown> {
+  const from = EXTRACT_SCRIPT.indexOf('var TF_UNREADABLE')
+  const to = EXTRACT_SCRIPT.indexOf("// REQ-333 -- the element's LAYOUT box", from)
   expect(from).toBeGreaterThan(0)
   expect(to).toBeGreaterThan(from)
   const src = EXTRACT_SCRIPT.slice(from, to)
-  // The only two globals the slice reaches for. `documentElement` is the walk's
-  // stop condition and is a sentinel no stub chain contains.
+  // The only global the slice reaches for: the chain walk reads each ancestor's
+  // computed transform, and a stub element simply carries its own.
   const build = new Function(
     'getComputedStyle',
-    'document',
-    `${src}\nreturn transformFields`,
-  ) as (
-    gcs: (n: StubEl) => Record<string, string>,
-    doc: { documentElement: unknown },
-  ) => (el: StubEl, s: Record<string, string>) => Record<string, unknown>
-  return build((n: StubEl) => n.style, { documentElement: Symbol('html') })
+    `${src}\nreturn function (el) { return transformFields(accTransformOf(el)) }`,
+  ) as (gcs: (n: StubEl) => Record<string, string>) => (el: StubEl) => Record<string, unknown>
+  return build((n: StubEl) => n.style)
 }
 
 describe('BUG-153 item 1 — the projection reads the transform the page paints', () => {
   const transformFields = transformFieldsOffline()
 
-  it('test_UAT_FC_BUG-153_rotation_on_the_wrapper_reaches_the_photograph', () => {
-    // The filed shape verbatim: `<img>` inside a wrapper div the stylesheet
-    // rotates. `transform` is not inherited, so the leaf's own computed value is
-    // `none` and the old projection wrote `0` — the same `0` the reproduction
-    // wrote, which is why four rotated photographs compared clean.
+  it('test_UAT_FC_BUG-153_a_readable_chain_still_projects_the_two_numbers', () => {
+    // The readable path, on the filed shape: `<img>` inside a wrapper div the
+    // stylesheet rotates. REQ-333 landed the ancestor walk that reads it; what is
+    // pinned HERE is that the third outcome did not swallow the other two — a
+    // projection that answered `transformUnreadable` for everything would satisfy
+    // every assertion below and fail this one.
     const wrapper = stub('matrix(0.996195, -0.0871557, 0.0871557, 0.996195, 0, 0)') // rotate(-5deg)
     const img = stub('none', wrapper)
 
-    expect(transformFields(img, img.style)).toEqual({ transformRotateDeg: -5, transformScale: 1 })
-  })
-
-  it('test_UAT_FC_BUG-153_the_four_collage_rotations_all_read_through', () => {
-    // All four of the page's photographs, so the fix is a rule and not a case:
-    // -5°, 3°, -8°, 4°, each painted by the wrapper and none by the image.
-    const rot = (deg: number): string => {
-      const r = (deg * Math.PI) / 180
-      return `matrix(${Math.cos(r)}, ${Math.sin(r)}, ${-Math.sin(r)}, ${Math.cos(r)}, 0, 0)`
-    }
-    const read = (deg: number): unknown =>
-      transformFields(stub('none', stub(rot(deg))), { transform: 'none' }).transformRotateDeg
-
-    expect([-5, 3, -8, 4].map(read)).toEqual([-5, 3, -8, 4])
-  })
-
-  it('test_UAT_FC_BUG-153_transforms_compose_up_the_whole_chain', () => {
-    // Not just the parent: rotation is additive and uniform scale multiplicative
-    // over the chain, so a photograph in a rotated wrapper in a scaled section
-    // reports what the eye sees, not what its own rule says.
-    const section = stub('matrix(2, 0, 0, 2, 0, 0)') // scale(2)
-    const wrapper = stub('matrix(0.9848, 0.1736, -0.1736, 0.9848, 0, 0)', section) // rotate(10deg)
-    const img = stub('matrix(0.9848, 0.1736, -0.1736, 0.9848, 0, 0)', wrapper) // rotate(10deg)
-
-    expect(transformFields(img, img.style)).toEqual({ transformRotateDeg: 20, transformScale: 2 })
+    expect(transformFields(img)).toEqual({ transformRotateDeg: -5, transformScale: 1 })
   })
 
   it('test_UAT_FC_BUG-153_an_upright_page_still_reads_upright', () => {
     // The identity is EARNED: a chain with no transform anywhere reports 0/1 and
     // carries no unreadable flag, so a non-zero reading always means the page
     // really is transformed.
-    expect(transformFields(stub('none', stub(undefined)), { transform: 'none' })).toEqual({
+    expect(transformFields(stub('none', stub(undefined)))).toEqual({
       transformRotateDeg: 0,
       transformScale: 1,
     })
   })
 
   it('test_UAT_FC_BUG-153_an_undecomposable_transform_is_not_projected_as_upright', () => {
-    // The third outcome the old shape could not express. `matrix3d` fell back to
-    // the identity, which put a zero meaning "we did not look" into the same
-    // field as a zero meaning "upright". Both value fields are ABSENT now, and
-    // the flag says why.
-    const wrapper = stub('matrix3d(1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1)')
-    const fields = transformFields(stub('none', wrapper), { transform: 'none' })
+    // The third outcome the projection could not express: `null` meant both "no
+    // transform" and "a transform I could not read", so an unreadable chain fell
+    // back to the identity and put a zero meaning "we did not look" into the same
+    // field as a zero meaning "upright". A skew is the ordinary spelling that does
+    // it — it paints, it has a linear part, and this projection carries no reader
+    // for it. Both value fields are ABSENT now, and the flag says why.
+    const fields = transformFields(stub('none', stub('skewX(20deg)')))
 
     expect(fields).toEqual({ transformUnreadable: true })
     expect(fields.transformRotateDeg).toBeUndefined()
+  })
+
+  it('test_UAT_FC_BUG-153_an_unreadable_link_poisons_the_whole_chain', () => {
+    // Not "the readable part": the links below an unreadable one still PAINT, so
+    // what is left is not the element's effective transform and must not be
+    // projected as one. A readable rotation under an unreadable skew reports
+    // unreadable, not -5°.
+    const outer = stub('skewX(20deg)')
+    const wrapper = stub('matrix(0.996195, -0.0871557, 0.0871557, 0.996195, 0, 0)', outer)
+
+    expect(transformFields(stub('none', wrapper))).toEqual({ transformUnreadable: true })
+  })
+
+  it('test_UAT_FC_BUG-153_a_translation_only_transform_is_read_not_declined', () => {
+    // The distinction earns its keep in both directions. A translate has no linear
+    // part at all and is already folded into every rect the extractor records, so
+    // it is FULLY read and reports upright — flagging it would put a permanent
+    // unmeasured row on most pages and hide the chains that really are unreadable.
+    expect(transformFields(stub('translate(12px, -4px)'))).toEqual({
+      transformRotateDeg: 0,
+      transformScale: 1,
+    })
   })
 })
 
@@ -192,7 +195,7 @@ describe('BUG-153 item 1 — a difference in effective rotation is a delta the d
     const rows = report.unmeasuredAxes.filter((u) => u.axis === 'transformRotateDeg')
     expect(rows).toHaveLength(1)
     expect(rows[0].side).toBe('reference')
-    expect(rows[0].reason).toMatch(/matrix3d|cannot decompose/)
+    expect(rows[0].reason).toMatch(/cannot decompose/)
   })
 
   it('test_UAT_FC_BUG-153_a_readable_page_reports_no_unmeasured_transform', () => {

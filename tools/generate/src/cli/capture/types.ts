@@ -484,7 +484,7 @@ export interface ElementGeometry {
   transformScale?: number
   /**
    * BUG-153 (item 1) — set when the element's effective transform chain held a
-   * value this projection could not decompose (`matrix3d`, or an unparseable
+   * value this projection could not decompose (a skew, or an unparseable
    * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
    * are ABSENT rather than defaulted to the identity.
    *

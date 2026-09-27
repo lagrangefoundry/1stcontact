@@ -244,7 +244,7 @@ export interface ValueElement {
   transformScale?: number
   /**
    * BUG-153 (item 1) — set when the element's effective transform chain held a
-   * value this projection could not decompose (`matrix3d`, or an unparseable
+   * value this projection could not decompose (a skew, or an unparseable
    * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
    * are ABSENT rather than defaulted to the identity.
    *
@@ -3651,7 +3651,7 @@ export function diffManifests(
       ...observedUnmeasuredAxes(expected, actual, opts.declaredUnmeasured),
       // BUG-153 (item 1) — and the axes THIS PAIR OF PAGES could not be read on,
       // which the declaration table structurally cannot hold: it says which side
-      // has no reader at all, and an undecomposable `matrix3d` is a reader that
+      // has no reader at all, and an undecomposable transform is a reader that
       // exists and ran into something it could not decompose on this document.
       // Both are the same fact to the gate — "compared, and not evaluated here" —
       // so both arrive in the same list rather than in a second one nothing reads.
@@ -3698,7 +3698,7 @@ export function diffManifests(
 function unreadableTransformAxes(expected: ValueManifest, actual: ValueManifest): UnmeasuredAxis[] {
   const REASON =
     'the effective transform chain held a value this projection cannot decompose ' +
-    '(matrix3d or an unparseable spelling), so the axis was not defaulted to the identity'
+    '(a skew, or an unparseable spelling), so the axis was not defaulted to the identity'
   const out: UnmeasuredAxis[] = []
   const any = (m: ValueManifest): boolean => (m.elements ?? []).some((el) => el.transformUnreadable)
   if (any(expected)) out.push({ axis: 'transformRotateDeg', scope: 'element', side: 'reference', reason: REASON })
