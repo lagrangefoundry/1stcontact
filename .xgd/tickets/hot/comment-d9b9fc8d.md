@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:26:17.712154+00:00'
+updated_at: '2026-09-27T00:51:38.235084+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5088,5 +5088,20 @@ No branch cut and no UATs: this is documentation, production config, an ops SQL 
 The `.dev.vars~` one is worth acting on. `.gitignore:67-68` has `.dev.vars` and `.dev.vars.*`; a trailing tilde matches neither, so a copy of your Anthropic, Resend, OpenAI and Cloudflare keys is sitting in the tree one careless `git add -A` away from history — and unlike the caches, that is the commit you cannot take back by reverting.
 
 Want me to add the five entries? `.dev.vars*` (covers the tilde), `.pnpm-store/`, `/storage/`, `.xgd/working-merge.lock`, `.xgd/_changes/` — the last two matching the `_staging`/`_locks` convention the file already uses.
+
+<!-- xgd-turn id="3728afc9-8999-40e3-b7b3-46ae35c430be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T00:51:37.086332+00:00" -->
+#### You
+```bash
+export CF_ACCESS_CLIENT_ID='…'              # password manager
+export CF_ACCESS_CLIENT_SECRET='…'
+```
+
+are these the same as:
+
+CLOUDFLARE_API_TOKEN
+
+CLOUDFLARE_ACCOUNT_ID?
 
 <!-- xgd-chat-end -->
