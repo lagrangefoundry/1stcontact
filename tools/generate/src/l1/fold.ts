@@ -58,6 +58,7 @@ import {
   type L1TextRun,
   type L1TextRunAxes,
   type L1TextResponsive,
+  type L1Transform,
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
 // REQ-157 — from the TABLE, not the command. `responsive-diff.ts` is
@@ -918,10 +919,20 @@ function foldBlendMode(v: string | null | undefined): L1BlendMode | undefined {
 }
 
 const BORDER_STYLES = new Set(['solid', 'dashed', 'dotted', 'double'])
-/** A captured box-border treatment → the L1 structured border, else undefined. */
+/**
+ * A captured box-border treatment → the L1 structured border, else undefined.
+ *
+ * REQ-336 — `colorToHexAlpha`, not `colorToHex`. A border is a colour the BROWSER
+ * composites at paint time, so a translucent one is a real property of the page:
+ * `rgba(255,255,255,.3)` is a hairline you can see the photograph through, and
+ * truncating it to six digits paints a solid white ring. `colorToHex` would also
+ * have *refused* the 8-digit literal the capture now records (its hex branch takes
+ * three or six digits and slices, so `#ffffff4d` came back `#ffffff`), which is the
+ * second half of the same loss and why both sites change together.
+ */
 function foldBorder(b: ValueElement['border']): L1Border | undefined {
   if (!b || !(b.widthPx > 0)) return undefined
-  const color = colorToHex(b.color)
+  const color = colorToHexAlpha(b.color)
   if (!color) return undefined
   const border: L1Border = { widthPx: b.widthPx, color }
   if (b.style && BORDER_STYLES.has(b.style)) border.style = b.style as L1Border['style']
@@ -1205,6 +1216,57 @@ function foldMask(
   if (!opaque) return undefined
   const featherPx = Math.round(run(opaque.at, fadedEnd === 'start' ? first.at : outer.at) * box.height)
   return featherPx > 0 ? { shape: atTop ? 'featherTop' : 'featherBottom', featherPx } : undefined
+}
+
+/**
+ * REQ-336 — the captured wrapper transform → the L1 node's `transform` axis.
+ *
+ * A collage's photographs are turned a few degrees each by a `transform:rotate()`
+ * on the `<div>` that wraps them. The capture has recorded that as
+ * `transformRotateDeg` all along, `l1TransformSchema` has had `rotateDeg` all
+ * along, and the renderer emits `rotate(<deg>)` — the fold was the only stage that
+ * had nowhere to put it, so four turned pictures reproduced square-on and the
+ * rotation was worth every one of the ranked pixel regions on faelan.com.
+ *
+ * A NODE FIELD, not an axis (the shape `mask` has): `transform` lives on
+ * `nodeAxisGroupsShape`, so every leaf kind can carry one and this is read at each
+ * of them rather than inside `imageAxes`. A wrapper rotation on a headline is the
+ * same loss as one on a photograph.
+ *
+ * Out-of-envelope values are DROPPED rather than clamped: a rotation past ±3600°
+ * (ten turns) or a non-positive scale is not a design this can half-honour, and
+ * `validateL1` would refuse the document rather than ignore the field — which
+ * would cost the whole fold over one element. The drop is not silent: it is
+ * exactly what {@link droppedAxesOf} reports as a residual.
+ *
+ * The identity is not a transform. `rotate(0deg)` / `scale(1)` move no pixel, and
+ * emitting one would cost a composite layer and promote the node into the
+ * positioned paint layer for nothing — the same reason `foldFilter` drops an
+ * identity function.
+ */
+function foldTransform(el: ValueElement): L1Transform | undefined {
+  const transform: L1Transform = {}
+  const rot = el.transformRotateDeg
+  if (
+    rot !== undefined &&
+    Number.isFinite(rot) &&
+    rot !== 0 &&
+    rot >= L1_ENVELOPE.rotateDeg.min &&
+    rot <= L1_ENVELOPE.rotateDeg.max
+  ) {
+    transform.rotateDeg = round2(rot)
+  }
+  const scale = el.transformScale
+  if (
+    scale !== undefined &&
+    Number.isFinite(scale) &&
+    scale !== 1 &&
+    scale >= L1_ENVELOPE.transformScale.min &&
+    scale <= L1_ENVELOPE.transformScale.max
+  ) {
+    transform.scale = round2(scale)
+  }
+  return Object.keys(transform).length ? transform : undefined
 }
 
 /** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
@@ -1532,10 +1594,37 @@ function residualKindOf(el: ValueElement): FoldResidual['kind'] {
   return RESIDUAL_KIND_BY_LEAF[classifyElement(el)]
 }
 
+/**
+ * The painted pixel-mover axes {@link capturedAxesOf} enumerates.
+ *
+ * REQ-336 — a NAMED UNION rather than `string`, so {@link axisCarriedBy} cannot
+ * fall out of step with it: the axis-by-axis decision there is an exhaustive
+ * switch over this union, so adding an axis below is a compile error until
+ * somebody says whether an emitted leaf carries it. That is the whole guard
+ * against the instrument going blind again the way it did here — `transformRotateDeg`
+ * was in this list, and reported on nothing.
+ */
+type CapturedAxis =
+  | 'objectFit'
+  | 'intrinsicAspect'
+  | 'backgroundImageUrl'
+  | 'surfaceFill'
+  | 'surfaceGradient'
+  | 'border'
+  | 'borderRadiusPx'
+  | 'boxShadow'
+  | 'backdropFilter'
+  | 'blendMode'
+  | 'opacity'
+  | 'maskEdge'
+  | 'transformRotateDeg'
+  | 'transformScale'
+  | 'accessibleName'
+
 /** The painted pixel-mover axes present on an element — the residual's substance (B2). */
-function capturedAxesOf(el: ValueElement): string[] {
-  const axes: string[] = []
-  const has = (name: string, v: unknown): void => {
+function capturedAxesOf(el: ValueElement): CapturedAxis[] {
+  const axes: CapturedAxis[] = []
+  const has = (name: CapturedAxis, v: unknown): void => {
     if (v !== null && v !== undefined && v !== '' && v !== 0) axes.push(name)
   }
   has('objectFit', el.objectFit)
@@ -1554,6 +1643,82 @@ function capturedAxesOf(el: ValueElement): string[] {
   if (el.transformScale !== undefined && el.transformScale !== 1) axes.push('transformScale')
   has('accessibleName', el.accessibleName)
   return axes
+}
+
+/**
+ * REQ-336 — does the leaf the fold emitted carry this captured axis? `undefined`
+ * when the node alone cannot say.
+ *
+ * A residual used to be a per-ELEMENT fact (emitted / not emitted) when the thing
+ * it describes is a per-AXIS one. An element can fold faithfully in six axes and
+ * lose the seventh, and that was indistinguishable from losing nothing: the four
+ * rotated photographs on faelan.com were emitted as image leaves, so no residual
+ * was ever considered for them, and `foldResiduals` read `[]` on a fold that had
+ * just dropped four rotations it can already print the name of.
+ *
+ * THREE ANSWERS, NOT TWO. `false` claims a drop, and a false claim is worse than
+ * silence here — this list is the completeness signal the growth loop reads
+ * (DOC-21), so a row nobody can act on costs more than a row that is missing.
+ * `undefined` is therefore the honest answer wherever the axis has no destination
+ * ON THE NODE:
+ *
+ *   - a text run's `surfaceFill` / `surfaceGradient` / `border` / `borderRadiusPx` /
+ *     `boxShadow` are read off an ANCESTOR (the enclosing card) or off the run's own
+ *     element, and either way they are carried by the card/band boxes rebuilt AFTER
+ *     this loop, not by the text node. Judging them from the node would report a
+ *     residual for every run on a page with a background colour.
+ *   - `intrinsicAspect` is a property of the ASSET, not a declared axis: L1 has no
+ *     aspect field, and the rendered box already states the shape.
+ *   - `accessibleName` is a name, not a painted axis. On an image it is `alt`; on a
+ *     run it is the copy itself.
+ */
+function axisCarriedBy(axis: CapturedAxis, node: L1Node): boolean | undefined {
+  const axes = (node as { axes?: Record<string, unknown> }).axes
+  const on = (key: string): boolean => axes !== undefined && axes[key] !== undefined
+  // The kinds whose OWN axis bag carries a surface treatment. A text leaf's does
+  // not (see the doc comment above), and a `slot` / `container` paints nothing.
+  const surfaceKind = node.kind === 'box' || node.kind === 'image'
+  switch (axis) {
+    case 'transformRotateDeg':
+      return node.transform?.rotateDeg !== undefined
+    case 'transformScale':
+      return node.transform?.scale !== undefined
+    case 'maskEdge':
+      return node.mask !== undefined
+    case 'objectFit':
+      return node.kind === 'image' ? on('objectFit') : undefined
+    case 'backgroundImageUrl':
+      return node.kind === 'box' ? on('backgroundImageUrl') : undefined
+    case 'surfaceFill':
+      return node.kind === 'box' ? on('surfaceFill') : undefined
+    case 'surfaceGradient':
+      return node.kind === 'box' ? on('surfaceGradient') : undefined
+    case 'backdropFilter':
+      return node.kind === 'box' ? on('backdropBlurPx') : undefined
+    case 'border':
+      return surfaceKind ? on('border') : undefined
+    case 'borderRadiusPx':
+      return surfaceKind ? on('borderRadiusPx') : undefined
+    case 'boxShadow':
+      return surfaceKind ? on('boxShadow') : undefined
+    case 'blendMode':
+      return surfaceKind ? on('blendMode') : undefined
+    case 'opacity':
+      return surfaceKind ? on('opacity') : undefined
+    case 'intrinsicAspect':
+    case 'accessibleName':
+      return undefined
+  }
+}
+
+/**
+ * REQ-336 — the painted axes an EMITTED leaf lost: the set difference between what
+ * {@link capturedAxesOf} found on the element and what {@link axisCarriedBy} can see
+ * on the node the fold produced for it. Capped to that enumeration by construction,
+ * so it can never become a diff of every key.
+ */
+function droppedAxesOf(el: ValueElement, node: L1Node): CapturedAxis[] {
+  return capturedAxesOf(el).filter((axis) => axisCarriedBy(axis, node) === false)
 }
 
 /** A captured `TextGradient` → an L1 gradient axis (≥2 hex stops), else undefined. */
@@ -1864,10 +2029,14 @@ interface SurfaceRow {
   run?: { backedBy?: string }
 }
 
-/** A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis. */
+/**
+ * A captured asymmetric left-accent border (a card rule) → the L1 `borderLeft` axis.
+ * REQ-336 — alpha-preserving on the same terms as {@link foldBorder}: an accent rule
+ * is a border, and a translucent one is the common quote-bar idiom.
+ */
 function foldBorderLeftAxis(bl: ValueElement['borderLeft']): L1Border | undefined {
   if (!bl || !(bl.widthPx > 0)) return undefined
-  const color = colorToHex(bl.color)
+  const color = colorToHexAlpha(bl.color)
   if (!color) return undefined
   return { widthPx: bl.widthPx, color }
 }
@@ -2913,6 +3082,26 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const signal = (el: ValueElement, reason: string, presentWidths: number[]): void => {
     residuals?.push({ kind: residualKindOf(el), reason, capturedAxes: capturedAxesOf(el), widths: presentWidths })
   }
+  /**
+   * REQ-336 — the same signal for a leaf the fold DID emit, naming the painted axes
+   * that leaf does not carry ({@link droppedAxesOf}). `signal` above reports an
+   * element with no L1 leaf at all; this reports the other half of the same
+   * question, which had no voice: a photograph emitted with its fit, its rounding,
+   * its shadow and its feather intact, and its rotation thrown away.
+   *
+   * Silent when the leaf carried everything, so the list stays a list of gaps.
+   */
+  const signalDropped = (el: ValueElement, node: L1Node, presentWidths: number[]): void => {
+    if (!residuals) return
+    const dropped = droppedAxesOf(el, node)
+    if (!dropped.length) return
+    residuals.push({
+      kind: residualKindOf(el),
+      reason: `axes dropped from an emitted ${residualKindOf(el)} leaf`,
+      capturedAxes: dropped,
+      widths: presentWidths,
+    })
+  }
 
   const children: L1Node[] = []
   /**
@@ -3082,6 +3271,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // own, since the capture reads the a11y role off the element bearing the href.
       const heading = foldHeading(widest)
       if (heading) node.heading = heading
+      // REQ-336 — a rotated run (an angled pull-quote, a tilted badge) is the same
+      // loss as a rotated photograph: `transform` is a node field, so the text leaf
+      // carries one on exactly the terms the image and box leaves do.
+      const textTransform = foldTransform(widest)
+      if (textTransform) node.transform = textTransform
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
@@ -3090,6 +3284,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
       recordClip(node, framed)
+      signalDropped(widest, node, presentWidths)
       // BUG-142 — the run's measured height. The POSITION comes off the flow
       // root's box only for a rejoined run (above); the HEIGHT comes off it
       // wherever the capture recorded one.
@@ -3251,6 +3446,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // `foldMask`). A node axis, beside `padding`, not one of the image axes.
       const mask = foldMask(widest.maskEdge, widest.box)
       if (mask) node.mask = mask
+      // REQ-336 — the wrapper rotation the capture records (see `foldTransform`).
+      // A node field beside `mask`, for the same reason and read on the same terms.
+      const transform = foldTransform(widest)
+      if (transform) node.transform = transform
       // REQ-269 — a linked image is a link like any other; the renderer WRAPS this
       // one (a void element cannot be an anchor) rather than retagging it.
       const imageLink = foldLink(widest)
@@ -3263,6 +3462,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
       recordClip(node, framed)
+      signalDropped(widest, node, presentWidths)
       continue
     }
 
@@ -3303,6 +3503,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // same terms as the image leaf above.
       const boxMask = foldMask(widest.maskEdge, widest.box)
       if (boxMask) node.mask = boxMask
+      // REQ-336 — a painted surface can be turned too; read on the same terms as
+      // the image leaf above, because `transform` is a node field on every kind.
+      const boxTransform = foldTransform(widest)
+      if (boxTransform) node.transform = boxTransform
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
@@ -3326,6 +3530,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         children.push(node)
         recordClip(node, framed)
       }
+      signalDropped(widest, node, presentWidths)
       continue
     }
 

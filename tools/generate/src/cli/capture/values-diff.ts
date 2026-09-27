@@ -1763,11 +1763,18 @@ function shapeLabel(radiusPx: number | undefined): string {
 const SHADOW_LENGTH_TOL_PX = 1
 
 /**
- * REQ-331 — how far apart two shadow ALPHAS may be. One step of 8-bit alpha:
+ * REQ-331 — how far apart two colour ALPHAS may be. One step of 8-bit alpha:
  * `#00000099` is `0.6` and `#0000009a` is `0.604`, which is rounding, whereas
  * the defect this axis was built to catch is `0.6` reproduced as `1.0`.
+ *
+ * REQ-336 — shared with the BORDER and TEXT colour axes, which the capture now
+ * records with their alpha too (`rgbToHexA`). One tolerance because it is one
+ * question: `colorDistance` resolves both sides through `colorToHex`, which slices
+ * an 8-digit literal down to six, so ΔEOK alone reads `#ffffff4d` and `#ffffff` as
+ * the SAME COLOUR — a 30%-white ring reproduced solid white scores zero. The alpha
+ * has to be compared beside the distance or it is not compared at all.
  */
-const SHADOW_ALPHA_TOL = 1.5 / 255
+const COLOR_ALPHA_TOL = 1.5 / 255
 
 /** The alpha of a `#rrggbb` / `#rrggbbaa` literal, 0…1 (opaque when unstated). */
 function alphaOf(hex: string): number {
@@ -1928,7 +1935,14 @@ const KIND_PARAMS: Record<ObjectKind, string[]> = {
     'renderedTextBox',
     'box',
   ],
-  image: ['name', 'objectFit', 'aspect', 'box'],
+  // REQ-336 — the RING. An image's card compared five parameters and `border` was
+  // not one of them, although the capture records a border per field: a
+  // `rgba(255,255,255,.3)` hairline around a photograph reproduced solid white and
+  // the card read complete. A border delta did reach the card once one FIRED (the
+  // append pass below catches any unmapped property) — so the gap was not that it
+  // could never appear, it was that a reader could not SEE the ring on either side
+  // to notice the two disagreed. A fixed row says what both sides painted.
+  image: ['name', 'objectFit', 'aspect', 'border', 'box'],
   // REQ-308 — a control's card carries its TYPE too. It is the substance of the
   // only ink a placeholder-only control has, and its absence here is how a row
   // reading `placeholderColor #746f69` on both sides looked complete beside a
@@ -1965,6 +1979,7 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
   placeholderColor: ['placeholderColor'],
   objectFit: ['objectFit'],
   aspect: ['aspect'],
+  border: ['border'],
   name: [],
 }
 
@@ -2016,6 +2031,10 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return el.objectFit ?? '—'
     case 'aspect':
       return el.intrinsicAspect != null ? `${el.intrinsicAspect.toFixed(2)}:1` : '—'
+    // REQ-336 — the same label the flat delta list uses, so a reader comparing the
+    // two is reading one spelling of the value (`4px solid #ffffff4d`).
+    case 'border':
+      return el.border ? borderLabel(el.border) : '—'
     default:
       return '—'
   }
@@ -2650,7 +2669,7 @@ export function diffManifests(
       const a = paintedShadowLayers(actShadow)
       const near = (x: number, y: number): boolean => Math.abs(x - y) <= shadowLengthTol
       const sameColor = (x: string, y: string): boolean =>
-        colorDistance(x, y) <= colorTol && Math.abs(alphaOf(x) - alphaOf(y)) <= SHADOW_ALPHA_TOL
+        colorDistance(x, y) <= colorTol && Math.abs(alphaOf(x) - alphaOf(y)) <= COLOR_ALPHA_TOL
       const differs =
         e.length !== a.length ||
         e.some((l, i) => {
@@ -2685,6 +2704,12 @@ export function diffManifests(
           !!a &&
           Math.abs(e.widthPx - a.widthPx) <= borderWidthTol &&
           colorDistance(e.color, a.color) <= colorTol &&
+          // REQ-336 — and its TRANSLUCENCY. A 4px `rgba(255,255,255,.3)` ring is a
+          // hairline the photograph shows through; reproduced opaque it is a white
+          // frame. Both sides read `#ffffff` until the capture kept the alpha, so
+          // this axis was structurally unable to disagree about the one thing that
+          // was wrong with it.
+          Math.abs(alphaOf(e.color) - alphaOf(a.color)) <= COLOR_ALPHA_TOL &&
           styleOk)
       if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
     }
@@ -3125,7 +3150,12 @@ export function diffManifests(
     // reference data, not a real target — never a hard delta (REQ-35).
     if (!exp.colorInferred) {
       const dE = colorDistance(exp.color, act.color)
-      if (dE > colorTol) push(exp, 'color', exp.color, act.color, dE)
+      // REQ-336 — a 90%-white paragraph (`#ffffffe6`) against a pure-white one is
+      // the same blind spot the border had: ΔEOK sees six digits, so the tonal
+      // difference the page authored was worth zero. The alpha step is reported at
+      // the same `color` axis rather than a new one — it is the same value.
+      const dA = Math.abs(alphaOf(exp.color) - alphaOf(act.color))
+      if (dE > colorTol || dA > COLOR_ALPHA_TOL) push(exp, 'color', exp.color, act.color, Math.max(dE, dA))
     }
     // REQ-58 (item 3b) — card/panel fill behind the run, compared like `color`
     // (ΔE). The card background is not its own object, so without this a

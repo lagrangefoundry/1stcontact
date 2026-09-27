@@ -427,8 +427,12 @@ describe('AC-732 the fold carries the text pixel-mover families and populates th
       run('Small Caps', { x: 20, y: 170, width: w - 40, height: 30 }, { fontVariant: 'small-caps' }),
       run('Bullet Item', { x: 40, y: 220, width: w - 60, height: 30 }, { listMarker: 'disc' }),
       run('Glow', { x: 20, y: 270, width: w - 40, height: 30 }, { textShadow: 'rgb(0, 0, 0) 0px 2px 6px' }),
-      // Geometry-affecting treatments: the pinned geometry is already
-      // post-transform, so these must NOT be folded onto the leaf.
+      // REQ-336 — the transform IS folded now, and the mask still is not. When
+      // this was written the capture's `box` was the post-transform bounding rect,
+      // so replaying the rotation would have applied it twice; REQ-333 changed
+      // that — `box` is the element's LAYOUT box and `clip` is the rotated rect —
+      // and a rotation replayed against a layout box is the page's own paint. The
+      // premise moved, so the expectation moves with it.
       run(
         'Rotated',
         { x: 20, y: 320, width: w - 40, height: 30 },
@@ -462,11 +466,16 @@ describe('AC-732 the fold carries the text pixel-mover families and populates th
     expect(axesOf('Underlined').gradientFill).toBeUndefined()
     expect(axesOf('Glow').listMarker).toBeUndefined()
 
-    // The geometry-affecting treatments are deliberately NOT folded (folding them
-    // would apply the effect twice against the post-transform box already pinned).
+    // REQ-336 — the rotation and the scale are carried, on the text leaf as on
+    // every other kind (`transform` is a node field, not an image axis), and the
+    // renderer paints them. A collage's photographs were the filed instance; a
+    // tilted run was lost the same way.
     const rotated = byText.get('Rotated')
     if (!rotated || rotated.kind !== 'text') throw new Error('no Rotated leaf')
-    expect(rotated.transform).toBeUndefined()
+    expect(rotated.transform).toEqual({ rotateDeg: 12, scale: 1.4 })
+    // The MASK is still not folded on a text leaf — a feather is a box-shaped edge
+    // and a run is not that box. REQ-336 makes the drop audible instead of silent:
+    // the fold now files a residual naming `maskEdge` on this very leaf.
     expect(rotated.mask).toBeUndefined()
 
     // Strong observation: each treatment paints through the renderer.
@@ -477,6 +486,9 @@ describe('AC-732 the fold carries the text pixel-mover families and populates th
     expect(css).toContain('font-variant-caps: small-caps')
     expect(css).toContain('list-style-type: disc')
     expect(css).toMatch(/text-shadow:\s*0px 2px 6px #000000/)
+    // REQ-336 — and the transform reaches the browser as the page's own two terms.
+    expect(css).toContain('rotate(12deg)')
+    expect(css).toContain('scale(1.4)')
 
     // Re-folding the same reproduction yields the same treatments (idempotent).
     const again = foldToL1(capture, {

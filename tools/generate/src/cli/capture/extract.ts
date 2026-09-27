@@ -564,12 +564,39 @@ export const EXTRACT_SCRIPT = `(() => {
   }
   // #rrggbb for a painted colour, or null when fully transparent (unpainted, e.g.
   // a background-clip:text fill). Alpha is intentionally dropped: callers that
-  // care about translucency use rgbaOf + composite() instead. Contract preserved
-  // for every existing caller (text/border colour resolution).
+  // care about translucency use rgbaOf + composite() instead.
+  //
+  // REQ-336 — that is the right contract for a colour the capture has already
+  // resolved against what sits behind it (a band fill, a palette sample), and the
+  // wrong one for a colour the browser composites at paint time. The border, the
+  // outline and the run colour moved to rgbToHexA below for exactly that reason;
+  // what is left here is the composited family.
   function rgbToHex(str) {
     var c = rgbaOf(str);
     if (!c || c[3] === 0) return null;
     return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+  }
+  // REQ-336 — the same read with its ALPHA KEPT: '#rrggbb' when the colour is
+  // opaque, '#rrggbbaa' when it is not. rgbToHex's contract above is right for a
+  // colour the capture has already composited against what is behind it (a band
+  // fill, a palette sample) and wrong for one the BROWSER composites itself: a
+  // ring authored rgba(255,255,255,.3) and a paragraph authored #ffffffe6 were
+  // both recorded #ffffff, so a 30%-white 4px ring around a photograph reproduced
+  // as solid white and the comparison could not disagree — both sides were
+  // flattened by the same read, which is worth zero deltas and a visible
+  // difference.
+  //
+  // An opaque colour is written in SIX digits, not eight, so every value this
+  // already recorded stays byte-identical and no bundle needs re-capturing to
+  // keep comparing clean: this only adds digits where there were digits to add.
+  // (colorToHexAlpha on the TS side spells it the same way, for the same reason —
+  // two spellings of one value is drift.)
+  function rgbToHexA(str) {
+    var c = rgbaOf(str);
+    if (!c || c[3] === 0) return null;
+    var hex = '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+    var a = Math.round(c[3] * 255);
+    return a >= 255 ? hex : hex + h2(a);
   }
   // REQ-72 — resolve a gradient's colour tokens to #rrggbb so normalizeGradient can
   // parse the stops. A gradient authored with Tailwind classes computes to a modern
@@ -1074,7 +1101,7 @@ export const EXTRACT_SCRIPT = `(() => {
       var w = Math.round(parseFloat(cs.borderLeftWidth)) || 0;
       var st = cs.borderLeftStyle;
       if (w > 0 && st && st !== 'none') {
-        var c = rgbToHex(cs.borderLeftColor);
+        var c = rgbToHexA(cs.borderLeftColor);
         if (c) return { width: w, color: c, box: absBox(chain[i]), self: chain[i] === el };
       }
     }
@@ -1093,7 +1120,7 @@ export const EXTRACT_SCRIPT = `(() => {
       var w = Math.round(parseFloat(s['border' + sides[i] + 'Width'])) || 0;
       var st = s['border' + sides[i] + 'Style'];
       if (w > 0 && st && st !== 'none' && (!best || w > best.width)) {
-        var c = rgbToHex(s['border' + sides[i] + 'Color']);
+        var c = rgbToHexA(s['border' + sides[i] + 'Color']);
         if (c) best = { width: w, color: c, style: st };
       }
     }
@@ -1107,7 +1134,7 @@ export const EXTRACT_SCRIPT = `(() => {
     var w = Math.round(parseFloat(s.outlineWidth)) || 0;
     var st = s.outlineStyle;
     if (w > 0 && st && st !== 'none') {
-      return w + 'px ' + st + ' ' + (rgbToHex(s.outlineColor) || '');
+      return w + 'px ' + st + ' ' + (rgbToHexA(s.outlineColor) || '');
     }
     return null;
   }
@@ -2292,7 +2319,7 @@ export const EXTRACT_SCRIPT = `(() => {
       // REQ-35: when the painted colour is unresolvable (transparent / not
       // painted), rgbToHex returns null and we fall back to a sentinel — flag it
       // low-confidence so the values-diff won't hold a re-render to a guess.
-      var resolvedColor = rgbToHex(s.color);
+      var resolvedColor = rgbToHexA(s.color);
       // REQ-63 — the run's own painted box border (was fields-only). A card /
       // heading hairline or bottom rule is now a comparable value on text runs.
       var runBorder = boxBorderOf(s);

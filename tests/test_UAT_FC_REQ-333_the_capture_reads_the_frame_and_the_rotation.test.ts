@@ -229,7 +229,13 @@ describe('REQ-333 issue 2 — a single-purpose wrapper frames the image it holds
     // photograph is 108px, which IS the disc. Read as `parseFloat('50%')` it was 50.
     expect(circle.borderRadiusPx).toBe(108)
     expect(circle.borderWidthPx).toBe(4)
-    expect(circle.borderColor).toBe('#ffffff')
+    // REQ-336 — and at the ring's OWN ALPHA. This read `#ffffff` when the value
+    // above it was written, against the `rgba(255,255,255,.3)` this test's own
+    // comment quotes: the capture flattened every border colour to opaque by
+    // contract, so a 30%-white hairline was recorded as solid white and painted as
+    // a white frame. The width and the attribution are REQ-333's finding; the
+    // fourth channel is REQ-336's.
+    expect(circle.borderColor).toBe('#ffffff4d')
     expect(circle.borderStyle).toBe('solid')
     expect(circle.boxShadow).toContain('rgba(0, 0, 0, 0.6)')
     // BOTH layers — the pale outer glow is what separates a photograph from the dark
