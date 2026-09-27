@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-336
 created_by: xgd
 created_at: '2026-09-27T20:00:18.980252+00:00'
-updated_at: '2026-09-27T20:32:24.234821+00:00'
+updated_at: '2026-09-27T20:39:45.968380+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -75,5 +75,14 @@ Let me verify the tests actually discriminate — temporarily disable the fix an
 Now the regression scope — the fold, capture, values-diff and gate suites:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="fe605d49-cc78-4090-adce-1a5ea8cba262-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:39:45.491593+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
