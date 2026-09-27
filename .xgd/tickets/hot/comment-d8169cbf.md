@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T20:39:41.236984+00:00'
+updated_at: '2026-09-27T20:42:19.946241+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4376,5 +4376,83 @@ We just need to establish the roles correctly, Alice is the consultant, Bob is t
 - **Panel or stream for the standing plan?** I'd say panel, with widgets for moments. <-- what is the diffence between a panel, a widget and a stream?
   
   Lets take a moment on vocabularly. I used the word widget, but I was reaching for "card" I think that is what we called them - lets refer to custom UI that can be dropped into the conversation stream as cards. These can be interactive (buttons, check boxes, sliders) but don't have to be. They can display structured data in a mini-UI. For now lets assume that they are dropped into the conversation stream
+
+<!-- xgd-turn id="a2bbb82c-a6e8-4662-aa3d-69612683a3b4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:42:19.497778+00:00" -->
+#### Claude
+Two concessions and one genuine correction to what I said. Let me check something first, because it decides the live-to-do-card question.
+
+Two of your three pushbacks land, and one changes Finding 14. Let me answer the vocabulary question first since it's load-bearing.
+
+## Vocabulary
+
+- **stream** — the chronological conversation itself. Scrolls. Append-only.
+- **card** — custom UI dropped into the stream. Interactive or not. Your word; adopted, and it matches the code, which already calls them cards (`card_kind`, `cardRegistry`, `cardEvent`).
+- **panel** — persistent UI *outside* the stream. We already have several: the site preview pane, the Library, the tool pane, the summary pane. Doesn't scroll away, isn't tied to a moment.
+
+So "panel vs stream" was: does the plan live in a place that persists, or at a point in the conversation. Which I'll come back to, because I found something that reframes it.
+
+## On the group chat — you're right, and I was arguing against a different topology
+
+I conflated two shapes. **Pipeline**: client → Bob → Alice → Bob → client. That's the one with the round trip and the register filtering, and my objection to it stands. **Group**: all three on one stream, Alice speaks to the client directly, Bob speaks directly, everyone sees everything. Bob's turns are concurrent with Alice's, not in series with them.
+
+Your shape is the second. No round trip is added, nothing gets filtered, and the human precedent is real — a consultant with a good EA in the room is more effective, not less, and the client talks to both.
+
+There's a win I'd missed, too: **the client can address Bob.** "What's left?" and "actually, skip the blog" become cheap remarks to the assistant rather than challenges to the consultant's judgement. Today, correcting the plan means arguing with the person who proposed it. A separate addressee makes plan correction low-stakes — that's a UX gain no panel gets you.
+
+**But your stated goal — freeing Alice's context from "what comes next" — does not follow from group chat by itself.** If Bob's forty clerical turns land in Alice's message history, Alice's context gets *bigger*, and she now has process chatter in it. The mechanism has to be asymmetric:
+
+> **A group chat in the UI need not be a group chat in the context.** The client sees three participants on one stream. Alice receives the plan's *current state* — small, structured, injected as fact — and not Bob's transcript. Bob receives the conversation, because reconciling is his job.
+
+That's the thing to design deliberately, and it's what makes the context relief real rather than nominal. It also has precedent in what already works here: the page digest reaches Alice as compact fact every turn and is demonstrably worked from, while prose coaching is ignored in 100 of 102 turns.
+
+## What group chat makes us design
+
+**Bob's register, narrowly.** Not "Bob speaks like a cheap model" — the risk is subtler: if Bob ever offers an opinion about the website, the product has two consultants and one of them is Haiku. An EA works in the human world *because* everyone can tell the difference. Bob tracks, schedules, reminds, lists, confirms. He never says "that's a nice choice."
+
+**Addressing discipline.** The client types "let's do the blog next." That's simultaneously a plan change (Bob's) and a design commitment (Alice's). Who answers? Both answering is worse than either. This is the core mechanic and I think it's where the design actually lives — worth playing out on concrete exchanges, which is what you're proposing.
+
+**Narration composes for free.** Once it's a group chat, Bob narrating the wait isn't a special feature — it's just Bob's ordinary turn during Alice's long one. Nice property of your shape.
+
+## Non-interactive cards — conceded, and I found the thing that breaks them
+
+You're right that I framed cards too narrowly around answerability. The code agrees with you: a card's `id` is documented as "empty for display-only," so non-interactive is already first-class.
+
+But two facts from the vendored source:
+
+**A card element persists and is addressable.** `getCards()` returns `{id, element}` and the panel retains the element it rendered. So a to-do card *can* be mutated in place — live cards are supported by the existing structure.
+
+**Cards do not survive a reload.** Transcript replay goes through `appendMessage(role, markdown)` — **markdown only**. Cards are stream events and aren't in the transcript. The client comes back tomorrow and every card in the history is gone.
+
+Which points at the unification of your two pieces, and I think it's the real design principle here:
+
+> **A card is a projection of the shared structure, not a message.** If the to-do card renders a slice of project state, then live-update and reload-survival both fall out for free, and the panel-vs-stream question mostly dissolves. If it's a one-shot message, both are broken and the plan is stale six turns later.
+
+That's why (1) and (2) in your vision are one thing, not two. The structure is the model; cards are views of it.
+
+## Feature checklist — conceded
+
+Not taste, requirements. My rule was too broad; a feature list is exactly the kind of fact only the client has.
+
+One caution survives, and it's about the rendering rather than the idea: **a checkbox list gives every item equal visual weight, which implies equal cost.** "Contact form" and "recurring payments" are not the same size, and the card as drawn says they are. Wix ADI's feature picker produced bloated sites for roughly this reason — clients check eight boxes, use three, and five half-built pages decay. So: short list, and framed as *what we build first* rather than a catalogue.
+
+## The identity question, concretely
+
+Not about what we're designing — about what the plan is *attached to*, and therefore how long it lives. Three scenarios:
+
+- The client closes the tab and comes back in three weeks. New conversation. **Is the plan still there?**
+- The chat ticket gets lost or bricked — which has happened twice during this epic. **Does the plan go with it?**
+- The business wants a second site later. **One plan or two?**
+
+Today decisions live in the chat ticket body, so the answer to all three is: gone, gone, and undefined. If the plan hangs off the business, it survives all three.
+
+The genuine ambiguity is that it may be two layers: "get this business online" is per-client-forever (DOC-33's Act I), while "build this site" is per-site. Worth settling, but not before the group-chat mechanics — those will tell us what state actually needs to exist.
+
+---
+
+I've corrected Finding 14 on the epic: group chat conceded with the pipeline/group distinction, the asymmetric-context requirement, non-interactive cards, the reload gap, and the feature-list concession. My position 1 and 6 are now withdrawn as stated.
+
+Want to play out the addressing discipline on a concrete exchange? That's where I think the remaining disagreement actually is — not whether Bob speaks, but who answers a message that belongs to both of them.
 
 <!-- xgd-chat-end -->
