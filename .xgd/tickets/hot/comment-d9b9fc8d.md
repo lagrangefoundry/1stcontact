@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:18:05.936614+00:00'
+updated_at: '2026-09-27T00:23:40.604044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5051,5 +5051,11 @@ bin/copy-to-cloud --origin http://127.0.0.1:8799 --chats "Lagrange Foundry"
 - Chats travel **to-cloud only**. `copy-from-cloud --chats` is refused, because the local builder is the open end and a conversation is whatever the customer typed.
 
 One stale doc I noticed but didn't change: `bin/copy-to-cloud`'s header still says the default origin is `localhost:8788`. The code moved to 8789 with BUG-150 (`copy.ts:56`); you're passing `--origin` explicitly either way. Want me to fix the comment?
+
+<!-- xgd-turn id="f0a3e746-85b6-4dec-94a2-9af27e32b210-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T00:23:39.165515+00:00" -->
+#### You
+please commit everything
 
 <!-- xgd-chat-end -->
