@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T20:16:05.106725+00:00'
+updated_at: '2026-09-27T20:22:15.253383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4281,5 +4281,76 @@ There are two other pieces in my vision here:
 (2) Interaction widgets that either AI can insert into the chat stream. We already have this implemented for "User Questions" from Claude. We would create some others - a todo list that could display the task list and the state of the tasks, a questionairre that could ask questions of the user and have them select different options. etc.
 
 What are your thoughts - lets stick with the UX and AX for now and worry about the implementation when we have enough clarity
+
+<!-- xgd-turn id="c899c8df-a213-4de1-a424-7b2527c83faf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:22:14.390159+00:00" -->
+#### Claude
+I'll verify where the project state actually lives before designing on top of it — that's the one factual question in there.
+
+Delegation landed since we parked it. Let me get the details.
+
+Now the widget mechanism — that's the pattern any new widget inherits.
+
+Found the card mechanism — it's in the framework's chat component. Let me read its contract.
+
+Three of your four pieces already exist in part — including one you asked about and one you'd forgotten you'd built. Recorded as Finding 14; here's the substance.
+
+## Where the decisions live — the chat ticket
+
+| what | where |
+|---|---|
+| ledger — `### Decision N` | the **chat** ticket's **body** |
+| standing note | `fields.frame` on the same chat ticket |
+| feed cursor, unaccounted turn | `fields.kb_cursor`, `fields.pending_turn` |
+
+The body rather than a comment for a stated reason: the knowledge component indexes a ticket's **title and body and not comments**, so a ledger in a comment would be unsearchable, and a chat ticket with an empty body contributes a content-free vector to the client's corpus.
+
+Two consequences that bear directly on your design:
+
+**There is no plan, no task list, no position, and no state on a decision.** LF's ledger is 47 flat `Decision N` entries — no section, no `open`/`inherited`/`parked`, no `supersedes`. Same gap Finding 13 found from the playbook side.
+
+**The identity is the conversation, and the engagement outlives it.** DOC-33 §2 says Act I runs *once per client, ever*. LF spans days, many sittings and several lost sessions — and this epic has watched that ticket brick twice and be hand-repaired once. **A plan keyed on the chat ticket dies with the chat ticket.** I'd put the structure on the business.
+
+## The two-model split already shipped — pointing down, not across
+
+`claude` = `claude-opus-5` @ 64000. `claude_builder` = **`claude-haiku-4-5`** @ 32000. `delegation.json`: `enabled: true`. REQ-295 adopted the surface Finding 1 flagged as built-and-unconsumed, so Alice-delegates-to-Haiku is live today.
+
+But a worker is *subordinate and transient*: its system prompt is its role's priming, its only input from Alice is one brief turn (goal + `accept` checks), it can't converse and it reports once. **Bob is a different topology, not a second instance of that one** — peer and durable, not subordinate and transient.
+
+## The widget channel exists end to end. We adopt none of it.
+
+`cards.js` is vendored into `apps/control-app/dist-assets/webui/webui-chat/src/` — `createCardRegistry`, kind→renderer, unknown kinds render a visible non-throwing fallback. `mountChat` takes `{cards, cardRegistry}`. The protocol has `cardEvent`/`addCard`, and `manager.answerCard` resumes a paused turn. **`apps/control-app/src/` contains zero registrations and emits zero cards.** Fifth adoption gap this epic.
+
+The "User Questions" you remember is `interactive.js` → card kind `claude_code_question` — the *CLI* backend, where a question is a protocol event. **`ClaudeAPIBackend` has no card emission path at all.** But the API shape is simpler than the CLI one: **a tool that posts a card and whose result is the client's answer.** The model already understands call-a-tool-get-a-result; the tool call *is* the pause. That's the one genuine build in your vision.
+
+## Where I'd push back
+
+**Bob should not be in the conversational path.** A broker adds a round trip to turns already running 2–9 minutes, and hands the product's hardest judgement — register — to the cheap model. What makes Alice good is unmediated contact with the client's own words and hesitation.
+
+And the evidence says an executive *container* isn't the missing thing. Finding 13: 24 of 102 turns offered options, 45 asked a direct question — Alice isn't passive, she's **positionless**. She has nowhere to stand, because nothing represents where the engagement is.
+
+So: **Bob's output is state, not prose.** He reconciles what happened against the plan, writes task state and position, and that arrives in Alice's next turn as *fact* through the digest channel. That's the whole argument — coaching prose is measurably ignored (2 of 102 turns carried process language) while the page digest is demonstrably worked from. A gate is a checkable condition; leadership falls out of it without exhortation.
+
+Four rules I'd hold:
+
+- **Write authority splits by kind.** Alice owns decisions (judgement); Bob owns task state and position (bookkeeping). Bob must never open or settle a decision, or design calls land on Haiku.
+- **One shared representation.** Bob keeps no notes of his own — otherwise the two world models diverge and the client hears it.
+- **Bob may narrate the wait.** The one place a second voice is clearly additive: nine silent minutes currently read as failure, and a cheap fast agent saying what Alice is building costs almost nothing. Narrator of a wait, never broker of an exchange.
+- **Bound what Alice may create.** 61 note rewrites and 45 decisions in one engagement. Give her a task list and she'll make forty items unless the shape forbids it.
+
+## On the widgets specifically
+
+**The standing plan belongs in a panel, not the stream.** A stream is chronological; a plan is current. A to-do list pasted into history is stale misinformation six turns later — and a stream widget *demands* a response where a panel can be glanced at and ignored. That's precisely what makes it flexible structure rather than hoops. Reserve in-stream widgets for *moments*: "those three are done — move to X?"
+
+**A widget's value is that it's answerable without vocabulary.** That's the register problem solved structurally rather than by inference: two rendered pages and "which of these?" needs no shared language. Your variant discovery, generalised. It must never be a form — the client can always ignore it and type.
+
+**Keep questionnaires to facts only the client has** — hours, phone, service list. Never taste. Both CHAT-21 and the LF evidence say taste gets settled by choosing between rendered artifacts, not by answering questions about them.
+
+## Three things I need from you before this is designable
+
+1. **The structure's identity** — business, site, or conversation. I'd say business.
+2. **Does Bob ever speak?** My answer is: only as narrator of a wait.
+3. **Panel or stream for the standing plan?** I'd say panel, with widgets for moments.
 
 <!-- xgd-chat-end -->
