@@ -14,6 +14,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-35d04e57
 ---
 
 `1c kb ensure` cannot detect a stale projection, so `bin/build` will never rebuild
