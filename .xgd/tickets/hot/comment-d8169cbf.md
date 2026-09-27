@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T20:22:15.253383+00:00'
+updated_at: '2026-09-27T20:39:41.236984+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4352,5 +4352,29 @@ Four rules I'd hold:
 1. **The structure's identity** — business, site, or conversation. I'd say business.
 2. **Does Bob ever speak?** My answer is: only as narrator of a wait.
 3. **Panel or stream for the standing plan?** I'd say panel, with widgets for moments.
+
+<!-- xgd-turn id="a2bbb82c-a6e8-4662-aa3d-69612683a3b4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:39:40.828711+00:00" -->
+#### You
+**Bob should not be in the conversational path.** A broker adds a round trip to turns already running 2–9 minutes, and hands the product's hardest judgement — register — to the cheap model. What makes Alice good is unmediated contact with the client's own words and hesitation.n <--- so lets discuss this. I think you may be wrong - my thought is to absolutely have a GROUP chat. 
+
+We just need to establish the roles correctly, Alice is the consultant, Bob is the executive assistant - this exists and works well in the human world. Yes Alice makes the judgement calls, but its context is free from having to worry about "what comes next" - Bob does that for it.
+
+**Bob may narrate the wait.** The one place a second voice is clearly additive: nine silent minutes currently read as failure, and a cheap fast agent saying what Alice is building costs almost nothing. Narrator of a wait, never broker of an exchange. <-- oh that's an interesting idea
+**A widget's value is that it's answerable without vocabulary.** That's the register problem solved structurally rather than by inference: two rendered pages and "which of these?" needs no shared language. Your variant discovery, generalised. It must never be a form — the client can always ignore it and type. <-- that is one of the values - I can also see value in a ToDo list card for instance that is non-interactive - it is a graphical representation of structured data
+
+**Keep questionnaires to facts only the client has** — hours, phone, service list. Never taste. Both CHAT-21 and the LF evidence say taste gets settled by choosing between rendered artifacts, not by answering questions about them.** <-- No not taste, but I could imagine a list of possible features..."Which of these do you need on your website:**
+**[] contact form**
+**[] blog**
+**[] recurring payments**
+**..."**
+
+**The structure's identity** — business, site, or conversation. I'd say business. <-- I don't understand the question we are designing a conversational UX/AX for building business websites...
+
+- **Does Bob ever speak?** My answer is: only as narrator of a wait. <-- I don't agree with you yet, lets play it out. 
+- **Panel or stream for the standing plan?** I'd say panel, with widgets for moments. <-- what is the diffence between a panel, a widget and a stream?
+  
+  Lets take a moment on vocabularly. I used the word widget, but I was reaching for "card" I think that is what we called them - lets refer to custom UI that can be dropped into the conversation stream as cards. These can be interactive (buttons, check boxes, sliders) but don't have to be. They can display structured data in a mini-UI. For now lets assume that they are dropped into the conversation stream
 
 <!-- xgd-chat-end -->
