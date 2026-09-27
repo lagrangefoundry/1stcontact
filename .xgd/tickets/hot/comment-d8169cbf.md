@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T20:42:19.946241+00:00'
+updated_at: '2026-09-27T21:27:02.439867+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4454,5 +4454,22 @@ The genuine ambiguity is that it may be two layers: "get this business online" i
 I've corrected Finding 14 on the epic: group chat conceded with the pipeline/group distinction, the asymmetric-context requirement, non-interactive cards, the reload gap, and the feature-list concession. My position 1 and 6 are now withdrawn as stated.
 
 Want to play out the addressing discipline on a concrete exchange? That's where I think the remaining disagreement actually is — not whether Bob speaks, but who answers a message that belongs to both of them.
+
+<!-- xgd-turn id="a745a6f5-dd23-4e35-9fe4-92a6d38932f9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T21:27:02.308755+00:00" -->
+#### You
+There are three ways to construct the group chat. Lets define some vocabulary. 
+Chat session - a chat history with an LLM model we store these in comments attached to chat tickets. I will also use the term Agent to refer to the system of LLM + session
+
+Now let us suppose that we have a tool that allows an agent X to (1) append turns into the history of another agent, Y's, session as a participant in that conversation and (2) get notified (called) when changes occur to session Y.
+
+Then there are 4 ways we could construct the Alice, Bob, User chat:
+1) take our existing chat session between User-Alice and add Bob via a tool so Bob has its own context
+2) invert that make the primary conversation session be Bobs and add Alice via tool - so Alice has its own context
+3) The group chat is no longer any agent's context it is purely a group chat, A and B both have thwir own chat sessions and interact with the group chat via the tool
+4) This is not really a standalone option in is a variant that could be applied to 1, 2 or 3 the variation is that we try to be more clever about the shared context and choose to exclude some messages from Alice (or Bob - but probably mostly Alice as the expensive session)
+
+One other thought. I agree that the user can talk directly to Bob, but I also see Bob helping to solve the "Alice is too passive" problem that I see today. If I ask the consultant "Hey do you really think this looks like a premium site? How can we improve it" - I get some great answers - but I can't train the user to keep pushing the consultant like that. However, I can get Bob to do it
 
 <!-- xgd-chat-end -->
