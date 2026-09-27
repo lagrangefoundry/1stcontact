@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-25T04:38:51.632083+00:00'
+updated_at: '2026-09-27T20:05:58.656417+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1954,5 +1954,15 @@ Two explicit do-not-touch notes, since both are easy to get wrong:
 Evidence is quoted verbatim in the body — `u4ej95`'s compound ask against its four correctly-split answers, and `ya6wkq`'s six invented passes against the one check it was asked — with the tool-outcome counts showing both workers wrote cleanly.
 
 Also recorded on EPIC-20: the pointer to BUG-68, why REQ-321 was abandoned rather than deleted, and that the re-test needs no ticket. That last one is the cheapest information available — REQ-300 accounted for two of the five failures and nobody has delegated since it shipped, apart from the single run that was accepted. Your next settled-decision-in-several-places pass is the test.
+
+<!-- xgd-turn id="a5479f38-ff01-4929-8f41-ae84b395192f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:05:58.412867+00:00" -->
+#### You
+I would like to talk about the delegation feature. It is not really getting used - certainly not to the extent we hoped. At the extreme we could take away direct access to L1 write changes from the primary give it read only and force it to use delegation to make changes. This is actually not so bad, it is the same way that the image tool works - the AI creates a detailed prompt explaining what it needs, then the image creation model executes it. What if the delegates were the L1 experts.
+
+Before we go there, can you help me review how the delegation capability is presented to the primary...can we look at exactly how it delegates, what the delegates can do, what they return, what is and is not working?
+
+Please can you pull actually examples of the prompts that are being given to the delegates by the primary and the actual responses that it gets back
 
 <!-- xgd-chat-end -->
