@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:58:29.301748+00:00'
+updated_at: '2026-09-27T23:18:34.502127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4829,5 +4829,20 @@ Which suggests the v2 blend might keep the seam **rhetorically** while dropping 
 Recorded as 14.11 on the epic, including the item-level routing correction and the plumbing retraction.
 
 Your move — and if you want to make it harder, the case I haven't tested is you disagreeing with Bob about the plan while Alice is mid-render.
+
+<!-- xgd-turn id="a9caa659-1b5e-4dda-8266-b55973cfe29c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T23:18:33.868937+00:00" -->
+#### You
+Agreed on a couple of turns, and I'd add a second condition that costs Bob no judgement at all: **drift is the client off-plan *****and***** Alice not engaging.** If Alice is actively working the tangent, it isn't drift by definition — she's the one who can tell it's material. <-- if Alice can spot the drift we don't need Bob to do it. I also see two kinds of drift possible - (1) not sticking to discussion relevant to the current phase - getting into the details of the background color when we are in the phase on messaging (2) departing from discussion about the project altogether
+
+(1) is much more subtle and tricky - our non-technical clients may want to just address things as they occur to them and whist there may be some value to ordering things its probably not that bad if the order varies so long as things can be decided and closed.
+(2) At the point where Martin starts talking about his former girlfriend in Leeds and the three kids ha has that still live there - we are probably ready for the right kind of redirect.
+
+Either way I suggest we punt on this for now. Perhaps with some real conversational examples we can start to see the right way to do it.
+
+On the role play, I think Bob's job is easy - Martin says "You know I still have a problem with the way the Hero image looks on mobile" - bob says "Got it - I'll put that on the list"
+
+What I am actually more concerned about is the slight of hand you played (no disrespect) in resolving the last turn I gave you. We need to pick that apart mechanically. There are lots of effective UX outcomes to a complex turn like that but what ACTUALLY happens behind the scenes here - what is mechanical, what does Bob do, what does Alice see - how do we pull a coherent rabbit out of that hat?
 
 <!-- xgd-chat-end -->
