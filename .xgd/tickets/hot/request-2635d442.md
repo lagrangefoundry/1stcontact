@@ -6,10 +6,10 @@ title: 'fold: a captured wrapper rotation is dropped so four collage photographs
   unturned, and a translucent border colour is flattened to opaque'
 created_by: repro-console:repro-faelan-com#3
 created_at: '2026-09-27T00:56:43.019398+00:00'
-updated_at: '2026-09-27T20:47:37.169248+00:00'
+updated_at: '2026-09-27T20:48:53.264026+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-5365b5a4
+  commits:
+  - working_sha: c21c24e18f6ab886957f20ef2b1e33b4cdbd604f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8b247802395751af3d1a51adc777324f0b6c00ba
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.394
 ---
 
 Loop 1, iteration 3 of `repro-faelan-com` against the stored reference bundle
