@@ -465,13 +465,31 @@ head_sampling_rate = 1
 [env.production.vars]
 TENANT_ID = "biz_51a6746495c8057e886ff98d4208e6b9"
 # See the top-level block: break glass, empty until it is needed ([[REQ-185]]).
-PLATFORM_ADMINS = ""
+# TEMPORARILY NON-EMPTY (EPIC-16 §I3, 2026-09-21). The database was rebaselined
+# and `users` is empty, so `admit` refuses every caller `no_user` and nobody can
+# enter the deployed builder — the lockout DOC-40 §6 promises this var prevents.
+# ONE ADDRESS, AND IT IS THE ONE ACCESS ADMITS. `ACCESS.md`'s granted-identities
+# table is the record of the policy, and it lists a single human. Naming anyone
+# else here would seed a `users` row for an identity Access refuses at the edge —
+# a row that can never be used, and a second name to revoke later.
+# It is also `SERVICE_TOKEN_IDENTITIES`'s target below, so this one row admits
+# both the operator in a browser and `bin/copy-to-cloud` from their laptop.
+# RESTORE TO "" once the rows exist; the repair survives emptying it.
+PLATFORM_ADMINS = "martin-github@westhead.me"
 # See the top-level block. The name is the Service Auth token ACCESS.md's identity
 # table already records; the address is the operator that table already names. A
 # named environment inherits nothing, so the local empty above does not reach here
 # — and an empty here would leave a copy to the cloud authenticating and then
 # being refused, which is the bug ([[BUG-59]]).
-SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me"
+# THE KEY IS THE `common_name` CLOUDFLARE SENDS, WHICH IS NOT THE TOKEN'S LABEL
+# (EPIC-16 §I16, 2026-09-21). `bin/access-token --name 1stcontact-publish` sets a
+# friendly name in the dashboard; Cloudflare mints the client id separately and
+# puts THAT in the JWT. `actingEmail` compares against the left-hand side here, so
+# the label alone matched nothing and every real service-token call was refused
+# `no_email`. The label is kept — it is what ACCESS.md's identity table names and
+# what a reader looks for — and both client-id spellings are added beside it,
+# because an unmatched entry costs nothing and a missing one costs the call.
+SERVICE_TOKEN_IDENTITIES = "1stcontact-publish=martin-github@westhead.me,29edd0e0ede45619455f21128c7b88ce=martin-github@westhead.me,29edd0e0ede45619455f21128c7b88ce.access=martin-github@westhead.me"
 ACCESS_TEAM_DOMAIN = "lagrangefoundry.cloudflareaccess.com"
 ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 # See the top-level block: restated rather than inherited, on purpose ([[REQ-196]]).
