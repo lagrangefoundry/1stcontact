@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:03:01.895252+00:00'
+updated_at: '2026-09-27T21:04:41.157145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2174,5 +2174,35 @@ That was a very complicated answer to a simple question. Let me make it more exp
 What if when the delegate comes back, we continue to get the self report as we do today, AND the delgation machinery mechanically derives a delta (I know we can already do this, It allows the AI to see changes I have made) that is returned with it to the primary
 
 Would that make sense? How big is such a delta? Regardless of size, I think it is necessary visibility?
+
+<!-- xgd-turn id="8266f3b0-5efb-4b09-85ed-73c4b2a7d9ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T21:04:41.080413+00:00" -->
+#### Claude
+You're right, that was too long. Let me just measure it.
+
+Direct answer: **yes, and it's effectively free.**
+
+Real sizes, from the actual change log, for every delegation that has run:
+
+| worker | records | full | envelope only |
+|---|---|---|---|
+| `u4ej95` | 2 | 435 B (~110 tok) | 150 B (~37 tok) |
+| `3bje6q` | 5 | 3.7 KB (~930 tok) | 412 B (~103 tok) |
+| `ya6wkq` | 18 | 8.2 KB (~2,050 tok) | 2.0 KB (~500 tok) |
+| `qen037` | 23 | 9.5 KB (~2,375 tok) | 2.4 KB (~600 tok) |
+| `msskzt` | 26 | 11 KB (~2,770 tok) | 2.8 KB (~690 tok) |
+
+(`q73amk`/`tql0pf` show zero — those are the two REQ-300-blocked runs whose few writes went to a page later removed.)
+
+So: **worst case in the whole corpus is ~2,800 tokens, and ~700 if you drop `before`/`after`.**
+
+For scale: `3bje6q` cost $0.37 and returned an empty summary. Its delta is **103 tokens**. The consultant's turns run 10–24 requests across ~190k of prefix — 700 tokens is below noise. You are buying complete visibility for roughly 0.4% of one delegation's cost.
+
+One design choice worth making deliberately: `before`/`after` are identical in **82%** of `l1.set` records (they're text renderings, and padding/colour edits don't change text). So carry them **only when they differ** — that's near-full fidelity at near-envelope size, and it keeps the 18% where the text genuinely changed, which is exactly where you'd want it.
+
+And yes, it's necessary rather than nice-to-have, for the reason your framing implies: the self-report is the worker's word, the delta is the host's. It's the only field that survives a worker that reports nothing — which is 2 of 7 runs so far, both with real writes on the site.
+
+Shall I scope it? It's two tickets: the framework side (capture the watermark either side of `delegate`, put the slice on the result) and, if you want the delta to verify style checks rather than just locate them, ours (`JournalRecord` carries which fields changed, not a text rendering).
 
 <!-- xgd-chat-end -->
