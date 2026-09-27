@@ -5,10 +5,10 @@ type: bug
 title: A stale projection is invisible to the KB build that generates it
 created_by: EPIC-16
 created_at: '2026-09-27T00:13:07.945050+00:00'
-updated_at: '2026-09-27T00:13:07.945050+00:00'
+updated_at: '2026-09-27T00:40:53.500740+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
