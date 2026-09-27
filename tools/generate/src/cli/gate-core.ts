@@ -49,7 +49,11 @@ import {
   chooseRecovery,
   sampleFidelityProbe,
 } from '../l1/probes'
-import type { AcceptanceReport, EnvelopeReport } from '../l1/probes'
+// BUG-158 — `EvalBox` from the probes module, NOT a second rect type declared
+// here. The boxes a collision carries are the probe's own, unchanged, so the type
+// has to be the probe's own too: a structurally-identical local copy would let
+// the two drift and read to a caller as if they were different facts.
+import type { AcceptanceReport, EnvelopeReport, EvalBox } from '../l1/probes'
 import { mountBehaviours } from '../l1/forms'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
@@ -170,6 +174,26 @@ export interface LayoutCollision {
   height?: number
   /** Index paths of the leaves involved. */
   paths: string[]
+  /**
+   * BUG-158 — the resolved box of each path in {@link paths}, in the same order,
+   * carried straight through from the probe finding this record was built from
+   * (see `LayoutFinding.boxes`).
+   *
+   * BUG-153 item 3 put these on the probe's own finding so that the overhang the
+   * `detail` asserts is arithmetic a reader can close, and that landed — but the
+   * only path from a probe finding into `gate.json` rebuilds the record field by
+   * field, and this field was not among them. So the artifact a diagnosing round
+   * actually opens went on carrying `{kind, detail, width, height, paths}`: a
+   * sentence claiming an 8px overhang with no number in the record to put against
+   * it, and no route to one short of re-running the evaluator. A measurement that
+   * exists one layer in and not at the boundary is, to every reader of the
+   * boundary, a measurement that does not exist.
+   *
+   * OPTIONAL for the reason it is optional on the probe finding: a finding may be
+   * raised where only a path is in hand, and absent is a truthful "not recorded"
+   * rather than a fabricated rect.
+   */
+  boxes?: EvalBox[]
 }
 
 /**
@@ -194,6 +218,10 @@ export function layoutCollisions(...reports: EnvelopeReport[]): LayoutCollision[
         width,
         ...(height !== undefined ? { height } : {}),
         paths: [...f.paths],
+        // BUG-158 — copied, not aliased, for the same reason `paths` is: a
+        // collision list is handed to callers that outlive the report it came
+        // from, and a shared rect is a rect someone else can move.
+        ...(f.boxes ? { boxes: f.boxes.map((b) => ({ ...b })) } : {}),
       })),
     ),
   )

@@ -243,7 +243,11 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     const first = report.layout.findings[0]
     // BUG-143 — plus `height`, the viewport height the sample was taken at: with
     // height an axis, a width alone no longer identifies where to go and look.
-    expect(Object.keys(first).sort()).toEqual(['detail', 'height', 'kind', 'paths', 'width'])
+    // BUG-158 — and plus `boxes`, the resolved rect of each path. The record has
+    // to carry the geometry its `detail` asserts, or the sentence is a
+    // measurement the artifact does not contain; this pin is where that became
+    // visible, and it says six keys now rather than five.
+    expect(Object.keys(first).sort()).toEqual(['boxes', 'detail', 'height', 'kind', 'paths', 'width'])
     expect(first.kind).toBe('overlap')
     expect(CLEAN_COVERAGE.findings).toEqual([]) // the shape is shared, the source is not
 
