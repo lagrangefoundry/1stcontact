@@ -797,6 +797,44 @@ export function claudeCommand(env: NodeJS.ProcessEnv = process.env, opts: AiComm
   }
 }
 
+/**
+ * The credential variables a round is NOT given ([[BUG-155]]).
+ *
+ * A round must run on the operator's own Claude Code login, and the CLI prefers
+ * any of these over that login. Since the console server inherits the shell it
+ * was started from, and `bin/deploy` requires `ANTHROPIC_API_KEY` to be exported
+ * in exactly such a shell, which credential a round ran on was decided by which
+ * terminal happened to launch the server — and when that exported key was stale
+ * every attempt died on a 401 after ten CLI retries, three minutes apiece.
+ *
+ * REMOVED BY NAME, NOT REPLACED BY A MINIMAL ENVIRONMENT. The round needs the
+ * server's environment: `PATH` to find `node`, `git`, `xgd` and `1c`, `HOME` to
+ * find the CLI's own login, and {@link AI_COMMAND_ENV}/{@link AI_MODEL_ENV},
+ * which are deliberate operator overrides read from that same place. So this is
+ * a subtraction of the five names that redirect authentication and nothing else.
+ */
+export const AI_STRIPPED_CREDENTIAL_ENV: readonly string[] = [
+  'ANTHROPIC_API_KEY',
+  'ANTHROPIC_AUTH_TOKEN',
+  'ANTHROPIC_BASE_URL',
+  'CLAUDE_CODE_USE_BEDROCK',
+  'CLAUDE_CODE_USE_VERTEX',
+]
+
+/**
+ * The environment a round is given.
+ *
+ * Pure, and exported, for the same reason {@link claudeCommand} is: the console's
+ * strongest claim about a round — that it runs on the operator's subscription —
+ * was previously a property of the launching shell, which no test could reach.
+ * Computing it here makes it assertable without spawning anything.
+ */
+export function claudeEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const sanitised: NodeJS.ProcessEnv = { ...env }
+  for (const name of AI_STRIPPED_CREDENTIAL_ENV) delete sanitised[name]
+  return sanitised
+}
+
 // ── the transcript ───────────────────────────────────────────────────────────
 
 /** One-line-per-thing, for a `<pre>` a human reads while it happens. */
@@ -1191,7 +1229,13 @@ export function spawnAiRunner(env: NodeJS.ProcessEnv = process.env): AiRunner {
 function attempt(env: NodeJS.ProcessEnv, opts: AiRunOptions, resume: string | undefined): Promise<AiOutcome> {
   return new Promise<AiOutcome>((resolve) => {
     const { command, args } = claudeCommand(env, { resume })
-    const child = spawn(command, args, { cwd: opts.cwd, stdio: ['pipe', 'pipe', 'pipe'] })
+    // THE ENVIRONMENT IS STATED, NOT INHERITED ([[BUG-155]]) — the same argument
+    // as the argv above. See {@link claudeEnv}.
+    const child = spawn(command, args, {
+      cwd: opts.cwd,
+      env: claudeEnv(env),
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
     let pending = ''
     let finalText = ''
     let stderr = ''
