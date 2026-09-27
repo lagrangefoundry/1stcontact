@@ -207,7 +207,8 @@ business against, so `/api/businesses` answers with the configured tenant and no
 
 ```bash
 eval "$(./bin/access-sim --print-token)"
-./bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup lf.json "Lagrange Foundry"
+./bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"            # the local site → the cloud
+./bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup lf.json "Lagrange Foundry"   # ⚠ backup ONLY — writes nothing
 ```
 
 `--print-env` and `--print-token` configure opposite sides of the wire and are deliberately
@@ -253,6 +254,172 @@ curl -X POST -H 'content-type: application/json' -d '{}' \
 **There is no operator in the seed.** `PLATFORM_ADMINS` is how somebody privileged comes to exist
 in an empty database (REQ-185) — set it in `.dev.vars.local` alongside the two vars above, sign in
 once, and empty it. Using it *writes* the membership, so the repair outlives the var.
+
+## Recipes: moving content between builders
+
+Everything below is a copy between **two builders** — the one on your laptop and the
+one at `app.1stcontact.io`. Both sit behind a gate, so every copy needs **two
+credentials, one per end**, and which end is read and which is written depends only on
+the direction you are going ([[BUG-134]]).
+
+Read this section before the detail above it. The reasoning is up there; these are the
+commands.
+
+### First, the four things that must be true
+
+| # | What | How to get it |
+|---|---|---|
+| 1 | You are on the Access allow-list | You must be **`martin-github@westhead.me`** — see [Granted identities](#granted-identities). Cloudflare will not email a one-time PIN to an address no policy admits, so a code that never arrives usually means the wrong address, not a broken mailbox. |
+| 2 | You exist in the deployed database | A fresh deployment has no `users` row, so Access lets you in at the edge and the application refuses you `no_user`. Set `PLATFORM_ADMINS = "martin-github@westhead.me"` in `wrangler.toml` under **`[env.production.vars]`** (a named environment inherits nothing — the top-level copy does not reach it), `bin/deploy control-app`, sign in once, accept the terms. That writes the user, account, `owner` membership and entitlement. Then set it back to `""`: the repair outlives the var, which is what makes it break glass rather than a standing second way in. |
+| 3 | A **cloud** credential pair | `bin/access-token` → `CF_ACCESS_CLIENT_ID` + `CF_ACCESS_CLIENT_SECRET`. The secret is shown **only** at creation or rotation; if you no longer have it, `bin/access-token --rotate`. |
+| 4 | A **local** credential pair | `bin/access-sim --print-token` → the defaults are `local-dev.access` / `local-dev-secret`. Put them in `LOCAL_ACCESS_CLIENT_ID` / `LOCAL_ACCESS_CLIENT_SECRET`, **not** the `CF_` names — the script prints them under the cloud names because it is usually the cloud stand-in. |
+
+⚠️ **`SERVICE_TOKEN_IDENTITIES` is keyed on the client id, not the token's name.**
+`bin/access-token --name 1stcontact-publish` sets a label you see in the dashboard;
+Cloudflare mints the client id separately and puts **that** in the JWT's `common_name`.
+A mapping written from the label matches nothing, and every call is refused `no_email`
+with the generic "cannot open this for you" message. Map the client id — with and
+without its `.access` suffix — to the operator's address:
+
+```toml
+# apps/control-app/wrangler.toml, [env.production.vars]
+SERVICE_TOKEN_IDENTITIES = "<client-id>=martin-github@westhead.me,<client-id>.access=martin-github@westhead.me"
+```
+
+The simulator does not have this problem: it derives its own `common_name` from its own
+client id, which is why the local path works with the label and the deployed one does
+not.
+
+### Set up the shell, once per session
+
+```bash
+cd /path/to/1stcontact
+
+# local end — the simulator must be running, and copies go through IT (port 8799),
+# never straight at the builder on 8788
+./bin/access-sim &
+eval "$(./bin/access-sim --print-token | sed 's/CF_ACCESS_/LOCAL_ACCESS_/')"
+
+# cloud end
+export CF_ACCESS_CLIENT_ID='...'        # from bin/access-token
+export CF_ACCESS_CLIENT_SECRET='...'
+```
+
+**Always pass `--origin http://127.0.0.1:8799`.** The default is `localhost:8788`, the
+builder itself, and with `ACCESS_DEV_OPEN` that resolves every request to `TENANT_ID` —
+so it can only ever reach the *1st Contact* business, whatever you name on the command
+line. The simulator is the only local front door that can reach any other business.
+
+### Recipe: a site, laptop → cloud
+
+**The business must already exist on the far side.** These commands never mint one: a
+deployment acquiring a business nobody signed up for, from a laptop script, is the
+failure that refusal exists to prevent. Create it in the deployed builder first
+(Contacts tab → the *fulfil* action, or `POST /api/admin/businesses`), matching the
+local name **exactly** — the name is the only thing that means the same on both sides,
+because the ids are minted independently.
+
+```bash
+./bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+If the destination already holds authored changes — and a newly provisioned business
+does, because it comes with a starter site — you get a refusal naming the business and
+the change count. Read it, then:
+
+```bash
+./bin/copy-to-cloud --force --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+**The site key changes.** The business id may match on both sides (it does for *1st
+Contact*, because both read it from `TENANT_ID`), but the import mints a fresh site key.
+Anything that names a site — `APEX_SITE_KEY` above all — must be read back from the
+destination afterwards, never copied from your local store:
+
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --remote --json \
+  --command "select t.name, s.id from tenants t left join sites s on s.tenant_id = t.id;"
+```
+
+### Recipe: a site, cloud → laptop
+
+Same credentials, ends swapped:
+
+```bash
+./bin/copy-from-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+A fresh clone's builder comes up signed-in and empty — `bin/seed` writes people and no
+sites — so this is how a site gets onto a new machine.
+
+### Recipe: a backup, and nothing else
+
+⚠️ **`--backup` is a mode, not an extra.** It writes the *source* side's export to the
+file and **touches the destination not at all**. The success line it prints names the
+site, the page count and the asset count, which reads exactly like a completed copy; it
+is not one.
+
+```bash
+./bin/copy-to-cloud   --origin http://127.0.0.1:8799 --backup lf.json "Lagrange Foundry"  # reads local
+./bin/copy-from-cloud --origin http://127.0.0.1:8799 --backup prod.json "Lagrange Foundry" # reads cloud
+```
+
+To get both a copy and a backup, run the command twice.
+
+### Contacts
+
+`--contacts` is a **known flag that does not work**, and the two directions refuse it
+differently on purpose:
+
+- `bin/copy-from-cloud --contacts` — **refused, permanently.** Contacts are real
+  people's data and the local builder runs with `ACCESS_DEV_OPEN=1`, reachable on
+  loopback with no identity check. Pulling customer records onto a laptop is not a
+  smaller version of copying a site.
+- `bin/copy-to-cloud --contacts` — **not implemented yet.** A different sentence for a
+  different reason.
+
+Neither is an unknown-argument error. The flag is known; the answer is no.
+
+### Recipe: chat transcripts
+
+`--chats` carries a business's conversation history ([[REQ-294]]) — every chat ticket,
+its transcript, its engagement ledger and the standing note it keeps about its own
+engagement. It exists because a site copy carries the site and none of the consultant
+conversations that produced it, and the reasoning behind a long-lived site's decisions
+lives in those conversations.
+
+```bash
+./bin/copy-to-cloud --chats --origin http://127.0.0.1:8799 "Lagrange Foundry"
+```
+
+**It is a second pair of routes, not a bigger site payload** — `/api/chats/export` and
+`/api/chats/import` — so a `--site` copy still carries a site and nothing else, and the
+two classes are copied by two commands.
+
+**Run it twice and nothing doubles.** Conversations are matched by session id and each
+is written whole or not at all. One the far side already holds is *kept and counted*
+rather than refusing the set — deliberately not `--site`'s 409, because a history is
+many objects and refusing all of them because one is present would stop every later
+conversation from ever landing. `--force` replaces such a conversation; without it the
+far side's own turns are never overwritten.
+
+`--backup` works here too, writing the source side's conversation export to a file and
+touching the destination not at all.
+
+⚠️ **The far side needs the routes.** These landed after the first production deploy, so
+a deployment older than [[REQ-294]] answers 404 and the copy fails. `bin/deploy
+control-app` first if in doubt.
+
+### When a copy is refused
+
+| What you see | What it means |
+|---|---|
+| `refused with 401: … no Access token was presented` | That end has no credential. The message names which end and which two variables. |
+| `refused with 403: access-sim: that … pair is not this simulator's` | The `LOCAL_ACCESS_*` pair is not what the running simulator accepts. `./bin/access-sim --print-token` prints the one it does. |
+| `refused with 403: 1st Contact cannot open this for you at the moment` | **Not a missing credential**, whatever the advice printed underneath says. Access accepted the credential and the *application* refused it. Almost always `SERVICE_TOKEN_IDENTITIES` — see the warning at the top of this section. `npx wrangler tail --env production` prints an `admission_denied` line naming the reason. |
+| `No business called '<name>' at … What that side offers: 'biz_…'` | The offer is a bare **id** rather than a list of **names**, which means that end is running dev-open: `.dev.vars` sets `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` to `""`, and `ACCESS_DEV_OPEN` engages when both are empty, so the Worker resolves everything to `TENANT_ID` and can reach no other business. Restart `wrangler dev` with **both** env files — `--env-file .dev.vars --env-file ../../.dev.vars.local` — the second being what `bin/access-sim --print-env` wrote. Names in the offer means admission is working. |
+| `409 … holds N sites, so there is no unambiguous` | Export refuses to guess which site you meant rather than handing back one you were not asking for. |
+
 
 ## The sign-in paths must bypass Access ([[REQ-202]])
 
