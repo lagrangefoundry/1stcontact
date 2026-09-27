@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:08:56.366656+00:00'
+updated_at: '2026-09-27T22:24:26.625646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4608,5 +4608,25 @@ The interesting case is client-says-done / Alice-says-not-yet. That's not a stal
 ---
 
 Recording this as 14.10 on the epic. When you're ready for role-play, the exchange I'd most want to see is the drift case — a client wandering into something that turns out to be the positioning — because that's where Bob's register either earns the design or wrecks it.
+
+<!-- xgd-turn id="90ac4365-a13b-4c5f-b8a7-d9ec30fbd0a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T22:24:26.051557+00:00" -->
+#### You
+**One thing to pin down before role-play**, because it'll come up constantly: your example `@Alice — let's do the blog next, do you have any questions for Martin?` has two addressees in one turn. Natural speech, but it breaks the routing rule. Suggest: one turn, one *acting* addressee — others read only. <-- I agree with the principal. I am confused about the ambiguity of that particular statement. That example seems clearly directed at Alice, it is a prompt for Alice to ask questions of Martin.
+
+I agree that we don't really need and @Martin typically, but it would be good if it brought you correctly and was appropriately interpreted if it ever comes up. I think it's hard to imagine that it won't on occasion. 
+
+Fix: **Bob may note drift, never correct it.** "We're some way from the gallery — happy to keep going, or come back to it?" <-- agree
+
+**The opening.** I'd push back on Alice explaining Bob's role. The expert introducing her assistant's authority is a strange first impression, and you don't want Alice vouching for Bob's lane. But you also don't want a client who came for a designer greeted by an admin bot. Resolution: **Alice greets and says what she's for; Bob says what he's for. Nobody explains anybody else.** Bob's line to the client is also unaddressed, so the protocol is modelled in the first three seconds. <-- agree
+
+**Bob driving the project spec is the one part I'd hold against evidence.** A Haiku-run requirements interview is close to the wizard pattern CHAT-21 retired, and Finding 13's result is that taste gets settled by choosing between rendered artifacts, not by answering questions about them. So: Bob collects *facts* (hours, features, contact details — your checklist card is exactly right here), the spec stays thin, and the moment anything is renderable, Alice renders. The risk isn't that Bob asks badly; it's that a structured collection phase feels productive while front-loading questions the client can't answer. <-- in my view this is literally running down a checklist, it is probably more of a decision tree but it is scripted in advance. There are only so many things that we can offer a client and we need to know which ones the client wants. The idea of this section is that the executive assistant has a clipboard and is running through a questionnaire with the cl to understand the clients needs. This is asking questions like do you need a blog yes or no, not trying to understand the answers. This active questionnaire may include questions like who is your intended audience what is the primary purpose of the site? What is your metric for success? But the haiku does not need to understand the answers. The answer answers are material for Alice.
+
+**What Bob does when the client disagrees with Alice.** He must not adjudicate — that's a design judgement wearing process clothing ("let's split the difference" is a design decision). I'd say: Bob may record the outcome and nothing else. Disagreements between client and Alice are theirs. <-- yes I totally agree we have a principal that Alice is allowed to push back once but the client ultimately has the say but again that is instructions for Alice. Bob needs to stay out of the conversation
+
+Lets do the role play...
+
+One other thought that I want to capture here. I want to discuss whether we should think of Alice and Bob as two agents and this as a three-way conversation or whether we should actually think of Alice and Bob as aspects a single agent. I do think we need two models and two different perspectives here but I wonder if the smoothest presentation to the customer would actually be to hide Bob's prompts to Alice and A's prompts to B and make everything appear to come from a single consultant.
 
 <!-- xgd-chat-end -->
