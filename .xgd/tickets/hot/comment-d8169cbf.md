@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:24:26.625646+00:00'
+updated_at: '2026-09-27T22:26:29.666120+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4628,5 +4628,113 @@ Fix: **Bob may note drift, never correct it.** "We're some way from the gallery 
 Lets do the role play...
 
 One other thought that I want to capture here. I want to discuss whether we should think of Alice and Bob as two agents and this as a three-way conversation or whether we should actually think of Alice and Bob as aspects a single agent. I do think we need two models and two different perspectives here but I wonder if the smoothest presentation to the customer would actually be to hide Bob's prompts to Alice and A's prompts to B and make everything appear to come from a single consultant.
+
+<!-- xgd-turn id="90ac4365-a13b-4c5f-b8a7-d9ec30fbd0a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T22:26:29.258929+00:00" -->
+#### Claude
+You're right about the ambiguity — I got that rule wrong. **The `@` is the address; a name in the body is a reference.** `@Alice — do you have questions for Martin?` is unambiguously one address with one mention, and my "two addressees" reading was careless. And `@Martin` should absolutely resolve — it's an address to the client, semantically identical to undirected. It costs nothing to support and it'll get typed.
+
+On the clipboard: your framing resolves my concern — **Bob is a recording instrument, not an interviewer.** One distinction I'd carry into the script, because the transcript below demonstrates it: *facts* (blog yes/no, hours) are decisions the client owns and Bob can bank. *Positioning* answers ("who's it for", "what's success") are **material, not decisions** — a client's first answer there is usually generic, and if it's banked as fact it becomes an anchor Alice defers to. So Bob records them verbatim and nothing treats them as settled.
+
+Now the role play. I've scripted both parties so I can drive the hard cases deliberately; I'll hand you Martin at the end.
+
+---
+
+**Kestrel Framing — bespoke picture framing workshop. Client: Martin.**
+
+> **Alice** — Hello — I'm Alice. I design and build the site with you. I'll show you real pages rather than describe them, and I'll tell you what I actually think; you can always overrule me.
+>
+> **Bob** — I'm Bob. I keep track of what we've agreed and what's next, so Alice doesn't have to carry it. Ask me anything about the plan. If you want one of us specifically, put an `@` before the name.
+
+> **Bob** — Before Alice starts, a short list so we know what we're building. Nothing here is final.
+>
+> ┌─ **What should the site do?** ── *we'll build the first things first* ─┐
+> │ ☑ show your work  ☑ let people contact you  ☑ opening hours          │
+> │ ☐ online booking  ☐ blog  ☐ take payments online                     │
+> └──────────────────────────────────────────────────────────────────────┘
+>
+> **Bob** — Two more, then I'll hand over. Rough answers are fine.
+>
+> ┌─ **Who's it for?** ─────────────────────────────────────────────────┐
+> │ People who want something framed properly                          │
+> ├─ **What would make this site a success?** ──────────────────────────┤
+> │ People ringing up                                                  │
+> └────────────────────────────────────────────────────────────────────┘
+>
+> **Bob** — Recorded. @Alice — that's the list. Anything before you start?
+>
+> **Alice** — One thing. Martin, when you say "framed properly" — what's the framing you *don't* do?
+>
+> **Martin** — I don't touch the cheap clip-frame stuff.
+
+That exchange is the material/decision split working: Bob's question got a generic answer, Alice's refinement got the real one in nine words. Bob asks, Alice extracts.
+
+> **Bob** — Opening phase one: the homepage. @Alice, over to you.
+>
+> **Alice** — Two versions. A few minutes.
+>
+> **Bob** — She's rendering two homepage drafts, desktop and mobile. Four minutes or so.
+>
+> **Alice** — ┌─ A ──────────┬─ B ──────────┐ A leads on a single large frame and nothing else. B leads on the workshop bench. Which is closer?
+
+**The drift case:**
+
+> **Martin** — A, definitely. Sorry, this probably isn't relevant — the reason I'm fussy is I spent nine years framing for a gallery in Leeds, and the things they'd let out the door were shocking. Mouldings not mitred. Tape on the back of a four-figure print. I left because I couldn't keep doing it.
+>
+> **Bob** — We're some way from the homepage now — happy to keep going, or come back to it?
+>
+> **Alice** — @Bob, stay on this.
+>
+> **Alice** — Martin, that's the most useful thing you've said. *Gallery-standard work, done properly, for private clients* — that's a position, and it's exactly why A is working: one frame, shown close, nothing to hide behind. It's your earlier answer with nine years behind it. Can I use it?
+>
+> **Martin** — I wasn't planning to put the gallery thing on the site.
+>
+> **Alice** — Not their name, and not why you left. But "nine years framing for a Leeds gallery" earns everything else on the page. One line.
+
+Bob's note fires as a question, Alice vetoes, and the veto is what saves the positioning. A Bob who said *"let's get back to the homepage"* loses the best material in the engagement — and nobody would ever know.
+
+**The close:**
+
+> **Bob** — Homepage direction: A, with a line about the workshop. @Alice, @Martin — is the phase closed?
+>
+> **Martin** — Yes, looks good to me.
+>
+> **Alice** — Not quite. The headline type is still the default and it's letting the page down — it reads high-street, not gallery. Ten minutes. I'd rather not close on it.
+>
+> **Martin** — Go on then.
+>
+> **Bob** — Staying open. I'll ask again when Alice is done.
+
+There's your non-passivity, produced by a facilitator asking a clerical question. Alice contradicts a satisfied client because she was *asked a closed question she couldn't dodge*.
+
+---
+
+## Now the same passage as a single consultant
+
+> **Consultant** — A or B?
+>
+> **Martin** — A. Sorry, probably not relevant, but I spent nine years framing for a gallery in Leeds…
+>
+> **Consultant** — That's the most useful thing you've said. *Gallery-standard work for private clients* — that's why A works. Can I use it?
+>
+> **Martin** — I wasn't planning to put the gallery thing on the site.
+>
+> **Consultant** — Not their name. But "nine years framing for a Leeds gallery" earns the page. — I think we're done with the homepage, then. Although — actually, the headline type is letting it down, it reads high-street. Let me fix that first.
+
+The extraction survives. Four things don't:
+
+1. **"Although — actually" is the tell.** Volunteering an objection to your own work reads as dithering. The identical sentence from Alice read as rigour *because Bob asked.* Interrogation only lands as rigour when it comes from the chair — **a consultant who publicly interrogates herself reads as unsure.** This is the decisive argument, and it's fatal to the single persona: it destroys the mechanism that motivated the design.
+2. **The drift note is unwriteable.** One entity can't simultaneously be absorbed in the conversation and observe that it's drifting. Drift goes unmanaged, not managed invisibly.
+3. **Martin never learns he can ask about the plan**, because there's nobody to ask. Plan correction goes back to arguing with your designer.
+4. **The judgement becomes invisible.** Nobody sees that a call was made to follow the tangent — so the client can't disagree with it.
+
+**My answer: keep them visible, but don't render them symmetrically.** Bob as the meeting's scaffolding — short clerical lines and cards, visually lighter — not a second chat personality competing for the relationship. That keeps addressability and modelling without "two bots talking at me."
+
+And take the half of your instinct that's right: **hide the plumbing.** Plan state injected into Alice, context composition, routing mechanics — none of that is conversation and none of it should appear. The rule: **anything that is a question, a decision, or a position is visible; anything that is plumbing is hidden.** Bob's routing line is borderline and could decay — useful in the first ten minutes to teach the protocol, noise by hour two.
+
+---
+
+Recorded on the epic. **Your turn — you're Martin.** Pick it up from Bob's last line above, and try to break it: talk to Bob while Alice is working, push back on the plan, or wander somewhere I'd have to judge. I'll hold both Alice and Bob honest to the rules we've set, including the ones that turn out to be wrong.
 
 <!-- xgd-chat-end -->
