@@ -6,9 +6,9 @@ title: 'capture: a variable font face collapses to its lowest declared weight, a
   a whole-page wrapper is captured as one band'
 created_by: repro-console:repro-joyfulculinarycreations-com#2
 created_at: '2026-09-27T00:01:14.275133+00:00'
-updated_at: '2026-09-27T00:33:56.147146+00:00'
+updated_at: '2026-09-27T01:13:07.815591+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -523,3 +523,157 @@ there to pin what must *not* change.
 As the ticket says: both fixes change what `capture.json` records, and `1c refold`
 cannot pick either up. The stored references need a re-capture before the gate
 figures move.
+
+
+---
+
+# Re-measurement — `repro-console:repro-gigabytealchemy-ai#9`
+
+Iteration **9** of `repro-gigabytealchemy-ai` against
+`storage/references/gigabytealchemy.ai/index`, re-captured this round at
+`capturedAt: 2026-09-26T23:35:01.861Z` (`captureSchema: 7`).
+
+**This ticket's class on a second bundle, with a before-and-after that prices
+it — and confirmation that the fix already committed here is the right one and
+is waiting on a re-capture, not on more work.**
+
+## The class, on gigabytealchemy.ai — Cinzel, one file, three declared weights
+
+`assets/css2` in the bundle is the mirrored Google Fonts stylesheet, and it
+declares the **one mirrored file** three times, same family, same style:
+
+```css
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 400; font-display: swap;
+  src: url(https://fonts.gstatic.com/s/cinzel/v26/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2) format('woff2'); … }
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 600; …
+  src: url(…/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2) format('woff2'); … }
+@font-face { font-family: 'Cinzel'; font-style: normal; font-weight: 700; …
+  src: url(…/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2) format('woff2'); … }
+```
+
+(`assets[].src` for it is
+`https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap`
+— the family is requested at three weights and answered with one variable file,
+exactly the Oswald/Raleway/Karla shape this ticket describes.)
+
+`capture.json` — `theme.fonts[0]`, first-wins:
+
+```json
+{ "family": "Cinzel, serif", "role": "body",
+  "weights": [ 600 ],
+  "faces": [ { "src": "assets/8vIJ7ww63mVu7gt79mT7PkRXMw.woff2", "weight": 400, "style": "normal" } ] }
+```
+
+`weights: [600]` is the only weight the page's copy actually paints. The one
+kept face says **400**. The two numbers in the same object disagree, and the
+face is the one the renderer emits from.
+
+## What it costs, priced against the previous iteration
+
+The reproduction's L1 is byte-identical to iteration 8's apart from one width
+(`169.94` → `169.91` on the wordmark at 320px). The served document differs in
+exactly one meaningful line:
+
+```
+iteration 8:  @font-face { font-family: "Cinzel"; src: url("assets/8vIJ…woff2") format("woff2"); font-weight: 600; font-display: swap }
+iteration 9:  @font-face { font-family: "Cinzel"; src: url("assets/8vIJ…woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap }
+```
+
+The wordmark run asks for `fontWeight: 600` at `fontFamily: "Cinzel, serif"`, so
+at 400 the browser synthesises the weight instead of using the face. The
+perceptual cost, `gate.json` to `gate.json`:
+
+| | iteration 8 | iteration 9 |
+|---|---|---|
+| perceptual mean | **0.22**/255 | **0.62**/255 |
+| pixels over threshold | **0.00%** | **0.22%** |
+| ranked regions | **0** | **7** |
+| `values.deltas` | 4 | 4 (identical — the same four hero `surfaceFill`) |
+
+All 7 regions, **8402.53 of 8402.53 of the ranked score, 100%**, sit inside
+`'Gigabyte Alchemy'` — `regions.json` names it on both sides of every one of
+them at `ofRegion: 1`. Diffing the two iterations' `actual.png` directly: 13,905
+pixels differ by more than 8/255, and their bounding box is
+`(91, 94) → (772, 152)` — the wordmark's ink and nothing else on a 1280×4376
+page.
+
+The region readout is the signature of a substituted face rather than a moved or
+recoloured one. Region 1 (`(272, 96) 496×64`, score 7622.77, mean 71.91):
+
+```
+readout.meanRgb   ref [73.24, 56.30, 40.07]   actual [67.78, 52.32, 37.62]
+readout.deltaRgb      [-5.46, -3.98, -2.45]
+readout.meanAbsDiff  47.39      readout.peakColumnDiff  144.36
+```
+
+Mean colour agrees to ~5/255 while individual columns disagree by up to 144 —
+same ink, different glyph outlines. And the element box is identical on both
+sides (`{x: 88, y: 82.5, w: 685.31, h: 90}`), so nothing moved.
+
+**`values-diff` cannot see it, and that is within tolerance rather than a
+defect.** `renderedTextBox` is `685.3125` wide on the reference and `679.40625`
+on ours — a real 5.90625px of accumulated advance-width error from the
+synthesised weight — but `relW = 5.90625 / 685.3125 = 0.862%`, under
+`renderedTextBoxToleranceRatio`'s exact default of `0.012`
+(`values-diff.ts:2371, 2537-2539`). So a wrong typeface costs 0 value deltas and
+100% of the pixel score. Worth knowing when reading a future `pass` on this
+bundle; not an argument for tightening the ratio on this evidence alone.
+
+## The fix here is the right fix, and it needs a re-capture
+
+Reading `fontFacesByFamilyOf` (`tools/generate/src/cli/capture/pipeline.ts:220-266`)
+against the css2 above: three declarations, one `src`, one family, one style, so
+the first builds `{src, weight: 400}` with `span = {min: 400, max: 400}` and the
+second and third take the `kept` branch and widen it to
+`{min: 400, max: 700}` → `weight: [400, 700]`. The wordmark's 600 then falls
+inside the declared range and resolves to the face instead of a synthesised
+bold. **This bundle needs nothing added to this ticket's change.**
+
+What it needs is a **re-capture**. The bundle was captured at **16:35:01 −07:00**
+and `757a4c1686` ("widen a variable face's weight range") landed at **17:32:57
+−07:00**, 58 minutes later. `1c refold` cannot close that window — it re-derives
+the fold from the oracle the bundle already holds and never re-runs the extractor
+— and `theme.fonts[].faces[].weight` is written by the capture. So the operator
+pressing **recapture** is the only thing that will move this bundle's `400` to
+`[400, 700]`.
+
+### How to confirm it once re-captured
+
+```
+python3 -c "
+import json; c=json.load(open('storage/references/gigabytealchemy.ai/index/capture.json'))
+print(c['capturedAt']); print(c['theme']['fonts'][0])"
+```
+
+- **wrong, today:** `2026-09-26T23:35:01.861Z` and
+  `faces: [{'src': 'assets/8vIJ…woff2', 'weight': 400, 'style': 'normal'}]`
+  beside `weights: [600]`.
+- **right, after a re-capture on or after `757a4c1686`:** `'weight': [400, 700]`.
+
+Then the render should carry it:
+
+```
+node tools/generate/bin/1c.mjs render repro-gigabytealchemy-ai --out /tmp/r
+grep -o '@font-face { font-family: "Cinzel"[^}]*}' /tmp/r/home.html
+```
+
+- **wrong, today:** `… font-weight: 400; font-style: normal; font-display: swap }`
+- **right:** `… font-weight: 400 700; …` — and the 7 wordmark regions and the
+  mean go back to iteration 8's `0.22 / 0.00% / 0 regions`.
+
+(`1c` is not on `PATH` in an agent session; `node tools/generate/bin/1c.mjs` from
+the repo root is the same binary. Neither command above drives a browser.)
+
+## The round's other two tickets
+
+Filed this round and unrelated to this ticket, named so they are not re-derived: **REQ-337** (`recovery: a content-derived bottom-padding track carries no segments` — 12 of 12 `responsivePadding.bottomPx` tracks interpolate through a snapped reflow window) and **BUG-160** (the probe's measured-height ladder does the same, which is what the `structural-failure` verdict is made of).
+
+## A control inside this bundle
+
+The page's other family is the UA stack
+`ui-sans-serif, system-ui, sans-serif, …`, which mirrors no file at all
+(`faces: []`) and paints five weights (`300, 400, 500, 600, 700`) from system
+faces. `values-diff` matches `fontFamily`, `fontSizePx` and `fontWeight` on all
+59 paired runs and reports **0** typography deltas — so on this bundle the entire
+typographic residual is the one mis-declared Cinzel face, with no other font
+effect to separate it from.
