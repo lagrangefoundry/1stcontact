@@ -5,18 +5,25 @@ type: bug
 title: A stale projection is invisible to the KB build that generates it
 created_by: EPIC-16
 created_at: '2026-09-27T00:13:07.945050+00:00'
-updated_at: '2026-09-27T00:52:42.818685+00:00'
+updated_at: '2026-09-27T00:54:04.455766+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-35d04e57
+  commits:
+  - working_sha: 00140a13965038f1324dca03e4c9eb841bbeeb19
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3450d87ce986db7c17987f9c3a18eeb0b4cfe1dd
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.390
 ---
-
 
 `1c kb ensure` cannot detect a stale projection, so `bin/build` will never rebuild
 one — and the projections are the corpus documents most likely to be wrong,
