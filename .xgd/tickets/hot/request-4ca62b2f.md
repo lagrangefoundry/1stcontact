@@ -6,9 +6,9 @@ title: 'recovery: a content-derived bottom-padding track carries no segments, so
   interpolates through a reflow window the geometry holds'
 created_by: repro-console:repro-gigabytealchemy-ai#9
 created_at: '2026-09-27T01:12:22.021251+00:00'
-updated_at: '2026-09-27T01:12:22.021251+00:00'
+updated_at: '2026-09-27T01:12:54.759541+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -327,3 +327,10 @@ its class rather than re-filed:
 [[DOC-53]] · [[DOC-19]] · [[DOC-23]] · [[DOC-27]] · [[DOC-30]] · [[EPIC-12]]
 §7.1 · [[REQ-88]] (the responsive ladder) · [[REQ-278]] / [[REQ-324]]
 (`promoteToFlow`, `withContentInset`) · [[REQ-277]] (the unmeasured set)
+
+
+---
+
+**Companion ticket filed by the same round:** **BUG-160** — `probes/values-diff: the oracle measured-height ladder ignores segments`. Fix it first: it is the reason the 20 `escape` findings quoted above cannot be read at face value, and it is why this ticket's own "right result" for command 3 is stated as *re-measure*, not as a number.
+
+Also appended this round: **REQ-334** (the Cinzel `@font-face` weight — 100% of the ranked pixel score, fix landed, needs a re-capture) and **REQ-302** (its issues 2 and 4, re-measured on this bundle).
