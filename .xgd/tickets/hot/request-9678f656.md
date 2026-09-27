@@ -6,7 +6,7 @@ title: No way to author an animated or interactive illustration — drawings are
   and raster art cannot be driven at all
 created_by: xgd
 created_at: '2026-09-27T00:30:19.279491+00:00'
-updated_at: '2026-09-27T20:45:17.759211+00:00'
+updated_at: '2026-09-27T21:03:16.074163+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -112,7 +112,7 @@ An `image` node may carry **`parts: true`**, which declares that its drawing is 
 - The inlined drawing is announced to assistive technology as one image carrying the node's `alt`, exactly as the `<img>` form was.
 - A part is transformed about **its own centre**, not about the drawing's viewBox origin, so a rotation or a scale on an arm turns where an author expects it to.
 - **Two parts of one drawing animate independently.** This is the capability the body asks for and the one nothing else here delivers: the arms may move while the parchment does not, and a hover-triggered part track is reachable because the drawing is now real DOM with real pointer events.
-- Naming a part on a node that has not declared `parts` is refused, and so is a part track whose target id is not in the document.
+- Naming a part on a node that has not declared `parts` is **refused** — the envelope can see that, and the author's mistake is one word while the symptom would be a page that simply does not move. Naming a part the drawing does not actually contain is **dropped** rather than refused: only the render holds the drawing, and a renderer that refused a document would take a site off the air over a renamed id. The track emits nothing, so there is no dead rule to mislead whoever debugs it.
 
 ### What remains out of scope, stated deliberately
 
