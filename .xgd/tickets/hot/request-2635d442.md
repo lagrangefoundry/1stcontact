@@ -6,9 +6,9 @@ title: 'fold: a captured wrapper rotation is dropped so four collage photographs
   unturned, and a translucent border colour is flattened to opaque'
 created_by: repro-console:repro-faelan-com#3
 created_at: '2026-09-27T00:56:43.019398+00:00'
-updated_at: '2026-09-27T20:48:53.264026+00:00'
+updated_at: '2026-09-27T20:48:59.841304+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -27,6 +27,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.394
+  story_points: 5
 ---
 
 Loop 1, iteration 3 of `repro-faelan-com` against the stored reference bundle
