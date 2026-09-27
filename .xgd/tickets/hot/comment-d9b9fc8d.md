@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T01:02:50.116945+00:00'
+updated_at: '2026-09-27T01:07:24.443099+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5168,6 +5168,61 @@ INTERNAL: Copy of 'Lagrange Foundry's conversations was refused with 409: {"erro
 Pass --force to replace it anyway. Nothing was written.
 ((.venv-working) ) martin@nyx 1stcontact %
 
+```
+
+<!-- xgd-turn id="8fb460c4-f603-4a00-a777-bf58ceb3e0fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T01:07:22.448371+00:00" -->
+#### Claude
+The site landed. The chats refusal is real, and **`--force` will not get past it — don't run it.**
+
+## Why `--force` can't work here
+
+`writeChats` calls `reAddress` at `chat-copy.ts:549`, first thing. `force` is only consulted at `:573`, inside the per-conversation loop that `reAddress` never returns from. The throw is unconditional.
+
+You got that advice because `push.ts:434` attaches it to **any** 409:
+
+```js
+const conflicted = res.status === 409
+… conflicted ? 'Pass --force to replace it anyway. Nothing was written.' : …
+```
+
+That line was written for BUG-51 — *"409 is not an error to diagnose, it is a question to answer"* — and it's right about the site route, where 409 means "the target carries builder changes". The chats route reuses 409 for a `ChatAddressError`, which is not a question `--force` answers. The advice is misattributed.
+
+## What the 9 actually are
+
+They're not conversations. They're **delegate sub-agent sessions**. From your own local store:
+
+```
+session: site-site_936dd7c92e5e14df694dd9a80433aa4f   tool: Delegate   role: consultant
+  └─ summary: { backend: "claude_builder", role: "builder",
+                session: "worker-builder-2-qen037" }
+```
+
+The consultant conversation is the one with the `site-` prefix, and it re-addresses fine. Each `Delegate` call spawns a worker whose session id is `worker-<role>-<n>-<random>` — minted by the delegation machinery, not by `sessionIdFor` or `businessSessionIdFor`. So `addressOf` returns `null` and the whole payload is refused.
+
+One unaddressable id blocks all ten, because `readChats` takes every `type=chat` ticket with a non-empty session id and `reAddress` refuses the payload whole.
+
+## The real defect
+
+`addressOf` collapses two genuinely different situations into `null`:
+
+- **"carries another store's id I cannot translate"** — dangerous. BUG-137 exactly: an id embedded in a derived key drifting from the thing that derives it, arriving addressed to nothing and reading as data loss months later.
+- **"carries no store id at all"** — `worker-builder-2-qen037` embeds no site key and no business id. Nothing about it is source-specific, so nothing about it becomes wrong in the destination.
+
+The second case doesn't need re-addressing; it needs to be carried verbatim. BUG-137's refusal should stay as the backstop for the first, which is what it was written for.
+
+I'd fix it at `reAddress`, not by filtering the export — filtering would silently drop the delegate transcripts, and those are where the builder's actual work is recorded. Want me to file it?
+
+## Two notes on the site copy that did land
+
+**It carried one page, `styleb.json`, with an empty `nav.entries`.** I checked your backup rather than assuming — that is genuinely what the local store holds. The `home` and `stylea` pages in the tool transcripts are from Sep 22 and are no longer in the draft. Worth your eye before you go further, but the copy didn't lose them.
+
+**Nothing is live yet.** `copy-to-cloud` copies a *draft*; `1c publish` is what mints a revision and makes it serve. The cloud site's live revision is untouched.
+
+```
+local  biz_5b101742d436573a04a2512fb7ecdbb5 / site_936dd7c92e5e14df694dd9a80433aa4f
+cloud  biz_33086a94838ac8ad14cecbb919b525c2 / site_23c1afb3739dadf62347a5008e8a7dea
 ```
 
 <!-- xgd-chat-end -->
