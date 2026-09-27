@@ -450,7 +450,7 @@ export const EXTRACT_SCRIPT = `(() => {
   // Measured on a reproduction whose testimonial carousel lays two slides
   // off-stage: docW came back 1699.75 at a 1280px viewport, every 1280-wide band
   // failed the x + width >= docW - 1 test, and all eleven were dropped --
-  // bandSlices returned [] (so overlay / contentAnchor / textAlign read
+  // bandSlicesIn returned [] (so overlay / contentAnchor / textAlign read
   // UNMEASURED, the standing blind spot REQ-269 exists to remove, standing again
   // by another route) and fieldsUnder lost nine records the served CSS
   // demonstrably paints. The REFERENCE never tripped it, because its .swiper
@@ -1909,21 +1909,35 @@ export const EXTRACT_SCRIPT = `(() => {
   // The truthful definition is geometric, which is the same move BUG-22 made for
   // surfaces: a band is a full-bleed painted slice of the page, and what belongs
   // to it is what sits inside it. That answer is identical on a conventionally
-  // nested page (an ancestor contains its descendants), so nothing here changes
-  // what a reference capture reports -- the whole path is reached only when the
-  // top-level scan has already degenerated to one body-spanning band.
+  // nested page (an ancestor contains its descendants). REQ-334 -- it is asked of
+  // any band root that is really the whole page, not only of a document whose
+  // top-level scan degenerated to one band; see the gate at the band assembly.
 
-  // The full-bleed painted slices of the document, in document order, with the
+  // The full-bleed painted slices of ONE band root, in document order, with the
   // vertical gaps between them filled so no painted content falls outside every
   // slice. Returns [] when fewer than two slices can be found, which is the
-  // honest answer for a page that really is one band.
-  function bandSlices() {
+  // honest answer for a root that really is one band.
+  //
+  // REQ-334 -- per root rather than per document, and bounded by that root in both
+  // senses: only backdrops in its own SUBTREE are candidates, and the slices it
+  // returns tile its own BOX rather than the page. A page-builder page's <header>
+  // is a sibling of the full-page wrapper and absolutely positioned over the
+  // wrapper's first slice; without the subtree test it would be admitted as a band
+  // of the wrapper as well as remaining a band in its own right, and the two copies
+  // would overlap.
+  function bandSlicesIn(rootEl, rootBox) {
     var bgs = backdropBoxes();
     var cand = [];
+    var top = rootBox.y, bottom = rootBox.y + rootBox.height;
     for (var i = 0; i < bgs.length; i++) {
+      // The root's own paint is the page the slices sit ON, not a slice: admitting
+      // it would make one candidate that contains every other, and the
+      // outermost-wins rule below would then swallow the lot into a single band.
+      if (bgs[i].el === rootEl || !rootEl.contains(bgs[i].el)) continue;
       var b = absBox(bgs[i].el);
       if (b.height < BACKDROP_MIN_HEIGHT) continue;
       if (!(b.x <= BACKDROP_EDGE_TOL && b.x + b.width >= layoutW - BACKDROP_EDGE_TOL)) continue;
+      if (b.y + b.height <= top || b.y >= bottom) continue;
       cand.push({ el: bgs[i].el, box: b });
     }
     // Outermost wins: a backdrop whose vertical range sits inside one already kept
@@ -1957,17 +1971,17 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     if (kept.length < 2) return [];
     var out = [];
-    var cursor = 0;
+    var cursor = top;
     for (var m = 0; m < kept.length; m++) {
       var bx = kept[m].box;
       var start = Math.max(bx.y, cursor);
-      var end = bx.y + bx.height;
+      var end = Math.min(bx.y + bx.height, bottom);
       if (end - start < BACKDROP_MIN_HEIGHT) continue;
       // A stretch of page that paints no backdrop of its own is still a section --
-      // it is the body background showing through. Without it the content standing
-      // on that stretch would have to be assigned to a band it is not inside.
+      // it is the root's own background showing through. Without it the content
+      // standing on that stretch would have to be assigned to a band it is not inside.
       if (start - cursor >= BACKDROP_MIN_HEIGHT) {
-        out.push({ el: document.body, box: { x: 0, y: cursor, width: layoutW, height: start - cursor }, layers: [] });
+        out.push({ el: rootEl, box: { x: 0, y: cursor, width: layoutW, height: start - cursor }, layers: [] });
       }
       // BUG-151 -- layoutW, so a slice that QUALIFIED by spanning the viewport is
       // recorded as spanning it. Boxing these docW-wide on a sideways-scrolling
@@ -1977,8 +1991,8 @@ export const EXTRACT_SCRIPT = `(() => {
       out.push({ el: kept[m].el, box: { x: 0, y: start, width: layoutW, height: end - start }, layers: kept[m].layers });
       cursor = end;
     }
-    if (docH - cursor >= BACKDROP_MIN_HEIGHT) {
-      out.push({ el: document.body, box: { x: 0, y: cursor, width: layoutW, height: docH - cursor }, layers: [] });
+    if (bottom - cursor >= BACKDROP_MIN_HEIGHT) {
+      out.push({ el: rootEl, box: { x: 0, y: cursor, width: layoutW, height: bottom - cursor }, layers: [] });
     }
     return out;
   }
@@ -2019,10 +2033,10 @@ export const EXTRACT_SCRIPT = `(() => {
   }
 
   // REQ-270 -- the paint of a geometric slice, which is not the paint of the box
-  // that FILLS it. bandSlices keeps every backdrop it swallowed (see there); the
+  // that FILLS it. bandSlicesIn keeps every backdrop it swallowed (see there); the
   // image a band shows is the one on its TOPMOST painted layer, and the slice
   // element itself is only the fallback. Document-ordered smallest-last by
-  // bandSlices' own sort, so the last layer that paints an image is the top one.
+  // bandSlicesIn's own sort, so the last layer that paints an image is the top one.
   //
   // backgroundColor is deliberately NOT taken from the layer: the fill is what
   // the outermost box paints, and an image layer's own colour is usually
@@ -2609,42 +2623,60 @@ export const EXTRACT_SCRIPT = `(() => {
   if (bandRoots.length === 0) {
     bandRoots = [{ el: document.body, box: { x: 0, y: 0, width: docW, height: docH } }];
   }
-  // REQ-269 -- when the top-level scan degenerates to ONE band covering the whole
-  // page, segment geometrically instead (see bandSlices). This is the shape every
-  // L1 reproduction has, so until it landed no section-level value could be
-  // compared on any reproduction at all. A page whose top-level scan already found
-  // real bands never reaches this, and neither does one that genuinely is a single
-  // band -- bandSlices returns [] rather than inventing a second one.
-  var geometricBands =
-    bandRoots.length === 1 &&
-    bandRoots[0].box.height >= docH - 2 &&
-    bandRoots[0].box.width >= layoutW - 2
-      ? bandSlices()
-      : [];
+  // REQ-269 / REQ-334 -- a band root that is really the whole PAGE is segmented
+  // geometrically (see bandSlicesIn) rather than emitted as one band.
+  //
+  // REQ-269 asked this of the DOCUMENT: it fired only where the top-level scan had
+  // degenerated to a single body-spanning child, which is the shape every L1
+  // reproduction has and almost no authored page does. That is the wrong question
+  // for the commonest page on the web. An Elementor / Divi / Gutenberg <body> has
+  // THREE children -- <header>, one full-page wrapper <div>, <footer> -- so the
+  // count test failed and joyfulculinarycreations.com's 4440px wrapper was emitted
+  // whole, carrying its own (transparent) background as the band's fill: two
+  // sections, both background 'none', for a page painting a photographic hero,
+  // three grey bands, a white band and a yellow footer. Nothing downstream can
+  // compare a band that is not in the list, and all twelve of that round's
+  // unmeasured axes traced to this one cause.
+  //
+  // Asked per ROOT the answer is unchanged wherever REQ-269 already answered -- a
+  // lone body-spanning root still qualifies -- and right on the page-builder shape:
+  // the wrapper is sliced, while the header and footer stay exactly as the
+  // top-level scan found them. A root that genuinely is one band is unaffected,
+  // because bandSlicesIn returns [] rather than inventing a second slice.
+  //
+  // 'Really the whole page' is full layout width and most of the document height.
+  // A hero, a footer or a testimonial band is full-bleed too, and slicing one of
+  // those would report its inner cards as sections; only a root tall enough to BE
+  // the page is a wrapper standing in for the body.
+  var PAGE_ROOT_HEIGHT_RATIO = 0.6;
+  function slicesForRoot(br) {
+    if (br.box.width < layoutW - 2) return [];
+    if (br.box.height < docH * PAGE_ROOT_HEIGHT_RATIO) return [];
+    var sl = bandSlicesIn(br.el, br.box);
+    return sl.length > 1 ? sl : [];
+  }
 
-  if (geometricBands.length > 1) {
-    // Collected ONCE from the flat root and partitioned by geometry, rather than
-    // per band: every run is a sibling of every other, so a per-band DOM walk
-    // would collect the whole page into each slice.
-    var flatRoot = bandRoots[0].el;
-    var flatGrp = itemGroup(flatRoot);
-    var flatContent = runsUnder(flatRoot, flatGrp.roots);
-    var flatFields = fieldsUnder(flatRoot, flatGrp.roots);
+  // The geometric path for one page-wide root: its content is collected ONCE from
+  // the root and partitioned by geometry, rather than per slice. A slice is not a
+  // DOM subtree -- on the flat-tree (L1 reproduction) shape every run is a sibling
+  // of every other, so a per-slice DOM walk would collect the whole root into each.
+  function pushGeometricBands(rootEl, slices) {
+    var flatGrp = itemGroup(rootEl);
+    var flatContent = runsUnder(rootEl, flatGrp.roots);
+    var flatFields = fieldsUnder(rootEl, flatGrp.roots);
     assignArrangement(flatContent.concat(flatFields));
-    var perSlice = geometricBands.map(function () { return { content: [], fields: [], items: [] }; });
-    flatContent.forEach(function (r) { perSlice[sliceIndexFor(r.box, geometricBands)].content.push(r); });
-    flatFields.forEach(function (f) { perSlice[sliceIndexFor(f.box, geometricBands)].fields.push(f); });
+    var perSlice = slices.map(function () { return { content: [], fields: [], items: [] }; });
+    flatContent.forEach(function (r) { perSlice[sliceIndexFor(r.box, slices)].content.push(r); });
+    flatFields.forEach(function (f) { perSlice[sliceIndexFor(f.box, slices)].fields.push(f); });
     // REQ-302 -- no itemsAt on this path, deliberately. A geometric slice is not
-    // a DOM subtree: its runs were collected once from the flat root and then
+    // a DOM subtree: its runs were collected once from the root and then
     // PARTITIONED by box, so "the index this row sits at within this slice's
     // content" is not a question the walk answered. The projection appends,
-    // which is what it did before and is the only truthful answer here. This is
-    // the flat-tree (L1 reproduction) path, where the tree's own order already
-    // came from the reference bundle the fold was built from.
-    flatGrp.roots.forEach(function (rootEl, ri) {
-      perSlice[sliceIndexFor(absBox(rootEl), geometricBands)].items.push(flatGrp.items[ri]);
+    // which is what it did before and is the only truthful answer here.
+    flatGrp.roots.forEach(function (itemRoot, ri) {
+      perSlice[sliceIndexFor(absBox(itemRoot), slices)].items.push(flatGrp.items[ri]);
     });
-    geometricBands.forEach(function (br, bi) {
+    slices.forEach(function (br, bi) {
       var s = getComputedStyle(br.el);
       // REQ-271 -- the band's OWN painted fill, null when it paints none. Not
       // laundered into bodyBg: a band that paints nothing and a band that paints
@@ -2666,8 +2698,11 @@ export const EXTRACT_SCRIPT = `(() => {
         fields: perSlice[bi].fields,
       });
     });
-  } else {
+  }
+
   bandRoots.forEach(function (br) {
+    var slices = slicesForRoot(br);
+    if (slices.length > 1) { pushGeometricBands(br.el, slices); return; }
     var band = br.el;
     var s = getComputedStyle(band);
     // REQ-271 -- see the geometric path above: the band's own fill, or null.
@@ -2703,7 +2738,6 @@ export const EXTRACT_SCRIPT = `(() => {
       fields: fields,
     });
   });
-  }
 
   // ── type scale & spacing ───────────────────────────────────────────────────
   var sizes = {};

@@ -203,27 +203,60 @@ function fontFacesFromStylesheets(responses: CapturedResponse[]): RawFontFace[] 
  * way to know which path was which. Carrying the face keeps the descriptor bound
  * to the file it describes all the way to `@font-face`.
  *
- * Deduplication is by `src`, as before — the same file declared twice is one face
- * — and the FIRST declaration wins, which is the CSS cascade's own answer.
+ * Deduplication is by `src` — the same file is one face. Which WEIGHT that one
+ * face answers for is REQ-334's correction: first-wins was the CSS cascade's
+ * answer for a genuine redeclaration and the wrong answer for a VARIABLE family.
+ * Google Fonts answers Oswald's whole 200..700 range with a single latin-subset
+ * `.woff2` and declares that one file in six `@font-face` blocks, one per weight;
+ * keeping the first block recorded the face at 200, so every run asking for 300
+ * or 500 resolved to the lightest instance and painted narrower than the
+ * reference (59 of joyfulculinarycreations.com's 65 value deltas). Repeated
+ * declarations of one file by one family and style therefore WIDEN the face to
+ * the `[min, max]` of every weight declared for it — the pair
+ * {@link ThemeFontFace.weight} already accepts, `l1FontFaceSchema.weight` already
+ * validates and the renderer already emits as `font-weight: min max`. First-wins
+ * still governs `style`, and a file redeclared at one weight is unchanged.
  */
 function fontFacesByFamilyOf(
   faces: RawFontFace[],
   urlToLocal: Map<string, string>,
 ): Map<string, ThemeFontFace[]> {
   const byFamily = new Map<string, ThemeFontFace[]>()
+  // REQ-334 — the running min/max behind each kept face. `ThemeFontFace.weight`
+  // is the published shape (one number, or the pair); this is the span it is
+  // derived from, so a third declaration widens what the second already widened.
+  const span = new Map<ThemeFontFace, { min: number; max: number }>()
+  // An undeclared `font-style` is CSS's `normal`, so the two must compare equal:
+  // otherwise a sheet that states the style on some blocks and not others would
+  // read as two different faces of the same file.
+  const styleOf = (s: string | null | undefined): string => s ?? 'normal'
   for (const face of faces) {
     for (const url of face.srcUrls) {
       const src = urlToLocal.get(url)
       if (!src) continue
       const merged = byFamily.get(face.family) ?? []
-      if (merged.some((f) => f.src === src)) continue
+      const lo = face.weight ?? null
+      const hi = face.weightMax ?? lo
+      const kept = merged.find((f) => f.src === src)
+      if (kept) {
+        // Same file under a DIFFERENT style is a redeclaration the cascade
+        // settles first-wins, exactly as before.
+        if (styleOf(kept.style) !== styleOf(face.style)) continue
+        const cur = span.get(kept)
+        // A block that declares no weight at all contributes no bound: CSS's
+        // default 400 is not something the sheet said, and inventing it here
+        // would widen a real range with a fabricated edge.
+        if (lo === null || hi === null || cur === undefined) continue
+        const next = { min: Math.min(cur.min, lo), max: Math.max(cur.max, hi) }
+        span.set(kept, next)
+        kept.weight = next.min === next.max ? next.min : [next.min, next.max]
+        continue
+      }
       const built: ThemeFontFace = { src }
       // A variable face's range is the pair; a static face's is the one number.
-      if (face.weight !== null && face.weight !== undefined) {
-        built.weight =
-          face.weightMax !== null && face.weightMax !== undefined && face.weightMax !== face.weight
-            ? [face.weight, face.weightMax]
-            : face.weight
+      if (lo !== null && hi !== null) {
+        built.weight = hi !== lo ? [lo, hi] : lo
+        span.set(built, { min: lo, max: hi })
       }
       if (face.style) built.style = face.style
       merged.push(built)
