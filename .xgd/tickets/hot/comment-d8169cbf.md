@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:06:54.133115+00:00'
+updated_at: '2026-09-27T22:08:56.366656+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4550,5 +4550,63 @@ Bob prompts Alice to create a plan - once created Bob owns the plan and is respo
 Bob and Martin can discuss the plan while Alice is occupied
 Bob can explain what Alice is doing
 So Bob's job is to keep advancing the work appropriately prompting Alice and the user for decisions - I guess important rule - Bob makes no judgement calls, even the judgement as to whether a phase of the plan is complete is left to Alice and the User. Bob is purely a facilitator.
+
+<!-- xgd-turn id="f326b5f8-cb9c-43ea-adfc-11133d3082ff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T22:08:56.010635+00:00" -->
+#### Claude
+## Your routing question — yes, and without a classifier
+
+Don't build a classifier. **Bob is the default addressee of an undirected message**, because he's the chair. He either answers it (logistics) or hands it over with one visible line — `@Alice, this one's yours`. The routing judgement is "is this mine?", which is cheap and not a design judgement, so it's safe on Haiku. And the client *sees* the handoff, which is how they learn the protocol.
+
+Two things make this work rather than being the pipeline I objected to:
+
+**Bob may route, never rephrase.** The client's message stays in the room verbatim; Alice reads the client's own words. The moment Bob summarises the message for Alice, we're back in the failure mode where the cheap model decides what matters.
+
+**Last-speaker continuity beats default routing.** If the client and Alice are mid-exchange on the gallery, an undirected message goes to Alice, not Bob. A chair who interjects between two people mid-exchange is a bad chair. Bob takes undirected messages at boundaries and when nothing's in flight.
+
+And there's a bonus that falls out: Bob's routing turn is ~1 second against Alice's 2–9 minutes, so **the fast cheap agent makes the slow expensive one feel responsive.** The client gets acknowledgement immediately, then a considered answer. That's ~1% latency overhead buying most of the dead-air problem.
+
+## One simplification to your @ convention
+
+You can drop `@Martin` entirely. If undirected means "for the client," then **`@` is how you address an agent, and unaddressed is the client.** Your own example shows it — "Bob: should we do the blog next?" needs no `@`. Halving the convention makes it easier to infer from watching.
+
+It also bounds my loop hazard usefully: if agent-to-agent talk *requires* an explicit `@`, it's visible and countable, and a budget is enforceable on something the client can see.
+
+**One thing to pin down before role-play**, because it'll come up constantly: your example `@Alice — let's do the blog next, do you have any questions for Martin?` has two addressees in one turn. Natural speech, but it breaks the routing rule. Suggest: one turn, one *acting* addressee — others read only.
+
+## On Bob's role — mostly yes, with one hole that will bite
+
+The core distinction in your spec is right and it's the thing that makes Haiku safe: **Bob owns the process, not the content.** Chair, not participant. And "Bob prompts Alice to create the plan, then Bob owns the plan" is a better split than what I proposed earlier — plan *authorship* is judgement (which stages, what order, what to skip; Finding 13 showed LF's sequence deviated legitimately), plan *administration* is clerical. Alice authors, Bob administers.
+
+### The hole: steering is a judgement call
+
+"Steering gently if it gets off topic" is the one item on your list that isn't facilitation. **Deciding something is off-topic is exactly a judgement about what matters** — and it's the highest-stakes one in this product, because a wandering client is often a client handing you the thing that matters most. DOC-33 and Finding 13 both frame the engagement as *extraction*. A client who starts talking about why they left their last job may be giving you the positioning. If Haiku decides that's off-topic and steers, the product destroys its best material.
+
+Fix: **Bob may note drift, never correct it.** "We're some way from the gallery — happy to keep going, or come back to it?" is a question, so the judgement stays with the human. "Let's get back to the gallery" is Bob deciding. Same information, opposite authority. I'd also give Alice a veto on a steer — she's the one who can tell whether a tangent is material.
+
+### Your no-judgement rule turns out to be the good version of Bob-as-interrogator
+
+This is the part I like most. You said even "is this phase complete" goes to Alice and the client. But notice what that means Bob has to say: **"@Alice, are we done with this phase?"** — which is a question Alice cannot answer without taking a position on the artifact.
+
+So the position-forcing pressure we wanted from 14.6 falls out of pure facilitation. No adversarial script needed, which dissolves the ritual failure mode I raised: the challenges are *process events*, not staged critiques, so they can't degenerate into a routine Alice learns to defend against. Bob-as-chair is a safer route to Bob-as-interrogator than Bob-as-interrogator was.
+
+The interesting case is client-says-done / Alice-says-not-yet. That's not a stall — that's precisely the non-passivity you're after: "I'd want to fix the type before we call this done" is a position. **Phase close is the natural forcing gate.**
+
+### Three smaller things
+
+**The opening.** I'd push back on Alice explaining Bob's role. The expert introducing her assistant's authority is a strange first impression, and you don't want Alice vouching for Bob's lane. But you also don't want a client who came for a designer greeted by an admin bot. Resolution: **Alice greets and says what she's for; Bob says what he's for. Nobody explains anybody else.** Bob's line to the client is also unaddressed, so the protocol is modelled in the first three seconds.
+
+**Bob explaining what Alice is doing must be grounded, not guessed.** An assistant confidently describing work that isn't happening is worse than silence. There's a real hook: `tool_activity` events already stream and feed the tool pane (`toolPane.consume(ev.meta)`). Bob narrating = Bob reading that feed. Factual, cheap, no judgement — and it fails safe, because if there's no activity there's nothing to narrate.
+
+**Bob driving the project spec is the one part I'd hold against evidence.** A Haiku-run requirements interview is close to the wizard pattern CHAT-21 retired, and Finding 13's result is that taste gets settled by choosing between rendered artifacts, not by answering questions about them. So: Bob collects *facts* (hours, features, contact details — your checklist card is exactly right here), the spec stays thin, and the moment anything is renderable, Alice renders. The risk isn't that Bob asks badly; it's that a structured collection phase feels productive while front-loading questions the client can't answer.
+
+## One thing your spec doesn't cover
+
+**What Bob does when the client disagrees with Alice.** He must not adjudicate — that's a design judgement wearing process clothing ("let's split the difference" is a design decision). I'd say: Bob may record the outcome and nothing else. Disagreements between client and Alice are theirs.
+
+---
+
+Recording this as 14.10 on the epic. When you're ready for role-play, the exchange I'd most want to see is the drift case — a client wandering into something that turns out to be the positioning — because that's where Bob's register either earns the design or wrecks it.
 
 <!-- xgd-chat-end -->
