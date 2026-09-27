@@ -5,15 +5,17 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-27T22:31:31.949374+00:00'
+updated_at: '2026-09-27T22:33:00.733755+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: epic_children
 status: draft
 fields:
   epic_parent: epic-0923bb64
   priority: medium
   auto_merge_back: true
   needs_review: false
+  epic_children:
+  - x
 ---
 
 ## Why
