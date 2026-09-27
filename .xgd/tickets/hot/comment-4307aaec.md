@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-153
 created_by: xgd
 created_at: '2026-09-26T22:56:31.752848+00:00'
-updated_at: '2026-09-27T00:02:03.136546+00:00'
+updated_at: '2026-09-27T00:08:17.786936+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -117,5 +117,14 @@ Now the version bump and commit:
 Now merge back to `xgd-working` under the lock:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="3fbd11c5-da99-4448-9be7-2bc440132bca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T00:08:15.588296+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
