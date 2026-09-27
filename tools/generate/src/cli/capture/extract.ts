@@ -117,10 +117,28 @@ export interface RawGeometry {
   textShadow: string | null
   /** REQ-48 (item 3) — computed `mask-image` or `clip-path` when the element is masked/clipped, else null. */
   maskEdge: string | null
-  /** REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix (0 when none). */
-  transformRotateDeg: number
-  /** REQ-48 (item 1) — transform uniform scale, decomposed from the matrix (1 when none). */
-  transformScale: number
+  /**
+   * REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix
+   * (0 when none). BUG-153 (item 1) — the EFFECTIVE rotation, composed with every
+   * transform this element's ancestors paint, because `transform` is not an
+   * inherited property and a collage rotates the wrapper, not the photograph.
+   * Absent when {@link transformUnreadable}.
+   */
+  transformRotateDeg?: number
+  /** REQ-48 (item 1) — effective transform uniform scale (1 when none). Absent when {@link transformUnreadable}. */
+  transformScale?: number
+  /**
+   * BUG-153 (item 1) — set when the element's effective transform chain held a
+   * value this projection could not decompose (`matrix3d`, or an unparseable
+   * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
+   * are ABSENT rather than defaulted to the identity.
+   *
+   * A zero that means "we did not look" must not be comparable to a zero that
+   * means "upright": the comparator's both-sides guard skips the pair, and the
+   * diff reports the axis as unmeasured so the silence is stated instead of read
+   * as agreement.
+   */
+  transformUnreadable?: true
   /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
   motion: 'animation' | 'transition' | 'both' | null
 }
@@ -1357,22 +1375,101 @@ export const EXTRACT_SCRIPT = `(() => {
   function maskEdgeOf(s) {
     return paintedOrNull(s.maskImage || s.webkitMaskImage) || paintedOrNull(s.clipPath);
   }
-  // REQ-48 (item 1) -- decompose the 2D transform matrix into rotation (deg) and
-  // uniform scale. matrix(a,b,c,d,e,f): rotation = atan2(b,a), scale = hypot(a,b).
-  // Translation (e,f) is already folded into the getBoundingClientRect box, so it
-  // needs no field. matrix3d and an unparseable value fall back to identity.
-  function transformOf(s) {
-    var t = s.transform;
-    if (!t || t === 'none') return { rotate: 0, scale: 1 };
-    var m = t.match(/matrix\(([^)]+)\)/);
-    if (!m) return { rotate: 0, scale: 1 };
+  // REQ-48 (item 1) -- decompose ONE element's 2D transform matrix into rotation
+  // (deg) and uniform scale. matrix(a,b,c,d,e,f): rotation = atan2(b,a),
+  // scale = hypot(a,b). Translation (e,f) is already folded into the
+  // getBoundingClientRect box, so it needs no field.
+  //
+  // BUG-153 (item 1) -- \`readable: false\` is the THIRD outcome, and the one the
+  // old shape could not express. A \`matrix3d\` or an unparseable value used to
+  // fall back to the identity, which put a zero meaning "we did not look" into
+  // the same field as a zero meaning "upright" -- indistinguishable to the
+  // comparator, which then reported the pair as clean. Returned as a fact so the
+  // caller can decline to project the axis at all (see {@link effectiveTransformOf}).
+  function decomposeTransform(t) {
+    if (!t || t === 'none') return { rotate: 0, scale: 1, readable: true };
+    // BUG-153 (item 1) -- the parentheses are DOUBLE-escaped, and that is the
+    // second reason this axis read zero on every element of every page.
+    //
+    // This whole function lives inside a TEMPLATE LITERAL. In one, a backslash
+    // before a character that is not a recognised escape is dropped: the source
+    // \`\\(\` reaches the browser as a bare \`(\`, so the regex the engine
+    // actually compiled was \`/matrix(([^)]+))/\` -- a capturing group where a
+    // literal paren was meant. Against \`matrix(0.996, -0.087, ...)\` that made
+    // \`m[1]\` start with the paren, \`parseFloat('(0.996')\` NaN, and the
+    // function return the identity -- for EVERY element, including one carrying
+    // its own \`transform: rotate(…)\`, since REQ-48 added the axis. Neither
+    // \`tsc\` nor any test could see it: the literal is a string to the compiler
+    // and a browser is what evaluates it.
+    var m = t.match(/matrix\\(([^)]+)\\)/);
+    if (!m) return { rotate: 0, scale: 1, readable: false };
     var p = m[1].split(',');
     var a = parseFloat(p[0]), b = parseFloat(p[1]);
-    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1 };
+    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1, readable: false };
     return {
-      rotate: Math.round(Math.atan2(b, a) * 180 / Math.PI),
-      scale: Math.round(Math.sqrt(a * a + b * b) * 100) / 100,
+      rotate: Math.atan2(b, a) * 180 / Math.PI,
+      scale: Math.sqrt(a * a + b * b),
+      readable: true,
     };
+  }
+  // BUG-153 (item 1) -- the EFFECTIVE transform: this element's own, composed
+  // with every transform its ancestors paint.
+  //
+  // \`transform\` is not an inherited property, so \`getComputedStyle(img).transform\`
+  // on a photograph inside a rotated wrapper is \`none\` -- and measured on
+  // faelan.com that is the normal authoring shape, not an edge case: all four
+  // collage photographs are rotated 3-8deg by a wrapper div
+  // (\`.photo-circle{transform:rotate(-5deg)}\`, and three more), and every one of
+  // them projected \`transformRotateDeg: 0\`. Because BOTH sides of a diff are read
+  // by this same extractor, both reported the same wrong zero and the dominant
+  // defect on the page -- 91.76% of its ranked pixel score -- carried zero value
+  // deltas under it. A ruler that reads a property off the leaf while the page
+  // paints it on an ancestor is not measuring the page.
+  //
+  // Composition is exact for the rotate+uniform-scale subset this axis holds:
+  // rotate(a)scale(s1) . rotate(b)scale(s2) = rotate(a+b)scale(s1*s2). A skew or
+  // a non-uniform scale anywhere in the chain decomposes to a rotation and a
+  // \`scale\` that is the mean of the two axes -- the same approximation the
+  // single-element form has always made, now made over the chain.
+  //
+  // The walk stops at \`documentElement\` exactly as {@link clipOf}'s does: the
+  // same "an ancestor paints this, not the leaf" shape, and the same boundary.
+  function effectiveTransformOf(el, s) {
+    var rotate = 0, scale = 1, readable = true, seen = false;
+    var own = decomposeTransform(s.transform);
+    rotate += own.rotate; scale *= own.scale;
+    if (!own.readable) readable = false;
+    if (s.transform && s.transform !== 'none') seen = true;
+    var node = el && el.parentElement;
+    while (node && node.nodeType === 1 && node !== document.documentElement) {
+      var cs = getComputedStyle(node);
+      var t = cs.transform;
+      if (t && t !== 'none') {
+        seen = true;
+        var d = decomposeTransform(t);
+        rotate += d.rotate; scale *= d.scale;
+        if (!d.readable) readable = false;
+      }
+      node = node.parentElement;
+    }
+    return {
+      rotate: Math.round(rotate),
+      scale: Math.round(scale * 100) / 100,
+      // Only a transform we actually SAW and could not read is unreadable. A page
+      // with no transform anywhere is upright, measured, and says so.
+      readable: readable || !seen,
+    };
+  }
+  // BUG-153 (item 1) -- the transform fields an element projects, from ONE
+  // ancestor walk. When the chain could not be read, the two value fields are
+  // omitted ENTIRELY and \`transformUnreadable\` is set instead: an axis nobody
+  // could read must not arrive as a number the comparator will happily compare
+  // against another side's number and call clean. The diff reports the flag as
+  // an unmeasured axis (see \`values-diff.ts\`), which is the honest reading.
+  function transformFields(el, s) {
+    var t = effectiveTransformOf(el, s);
+    if (!t.readable) return { transformUnreadable: true };
+    return { transformRotateDeg: t.rotate, transformScale: t.scale };
   }
   // REQ-48 (item 1) -- declared motion. Keyframe animation (entrance / scroll-
   // reveal) and a non-zero transition (hover) leave no signal in a resting frame,
@@ -2138,8 +2235,7 @@ export const EXTRACT_SCRIPT = `(() => {
         opacity: opacityOf(s),
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
-        transformRotateDeg: transformOf(s).rotate,
-        transformScale: transformOf(s).scale,
+        ...transformFields(el, s),
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),
@@ -2232,8 +2328,7 @@ export const EXTRACT_SCRIPT = `(() => {
         opacity: opacityOf(s),
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
-        transformRotateDeg: transformOf(s).rotate,
-        transformScale: transformOf(s).scale,
+        ...transformFields(el, s),
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),

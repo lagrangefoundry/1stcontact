@@ -341,14 +341,24 @@ export const GEOMETRY_AXES: readonly AnyElementAxis<ElementGeometry, RawGeometry
   {
     axis: 'transformRotateDeg',
     role: 'compared',
-    note: 'REQ-48 (item 1) — rotation in degrees decomposed from the transform matrix; half the `transform` axis.',
+    note: 'REQ-48 (item 1) / BUG-153 (item 1) — EFFECTIVE rotation in degrees: this element\'s own transform matrix composed with every transform its ancestors paint, because `transform` does not inherit and a collage rotates the wrapper. Half the `transform` axis.',
     ...sharedGeometry((g) => g.transformRotateDeg),
   },
   {
     axis: 'transformScale',
     role: 'compared',
-    note: 'REQ-48 (item 1) — uniform scale decomposed from the transform matrix; the other half of `transform`.',
+    note: 'REQ-48 (item 1) / BUG-153 (item 1) — effective uniform scale, ancestors composed in; the other half of `transform`.',
     ...sharedGeometry((g) => g.transformScale),
+  },
+  {
+    axis: 'transformUnreadable',
+    // `carried`, not `compared`: it is not a property of the page, it is a
+    // property of THIS READING of the page, and the two axes it stands in for are
+    // the compared ones. Declared all the same so it travels through the same
+    // projection every other field does, rather than being spliced in beside it.
+    role: 'carried',
+    note: 'BUG-153 (item 1) — the effective transform chain could not be decomposed here, so the two transform axes above are ABSENT rather than defaulted to the identity. Read by the diff, which reports the axis as unmeasured instead of comparing two silences.',
+    ...sharedGeometry((g) => g.transformUnreadable),
   },
   {
     axis: 'motion',

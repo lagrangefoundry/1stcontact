@@ -109,6 +109,25 @@ export interface LayoutFinding {
   detail: string
   /** Paths of the leaves involved. */
   paths: string[]
+  /**
+   * BUG-153 (item 3) — the resolved box of each path in {@link paths}, in the
+   * same order, and the width the evaluation ran at.
+   *
+   * A finding whose whole record is `{kind, detail, paths}` cannot be checked
+   * from the artifact: `l1-gate --json` said `'FAELAN' overlaps 'Artist •
+   * Musician • Creator'` at twelve width×height samples and carried no number an
+   * operator could put against it, so the only way to find out whether the two
+   * boxes really intersected — and by how much — was to re-run the evaluator.
+   * `regions.json` has carried `bbox` and both sides' nodes since it existed;
+   * this is the same fact, in the artifact that makes the verdict.
+   *
+   * OPTIONAL because a finding may be raised where only a path is in hand (a
+   * pinned-box content overflow names the node, not a pair of leaf boxes), and
+   * absent is a truthful "not recorded" rather than a fabricated rect.
+   */
+  boxes?: EvalBox[]
+  /** BUG-153 (item 3) — the width this evaluation ran at, so a finding stands alone. */
+  width?: number
 }
 
 /** The result of analytically laying an L1 document out at one width. */
@@ -419,6 +438,32 @@ function takeMeasured(ctx: Ctx, node: L1Text, width: number): number | undefined
  * text or a narrower column yields more lines and a taller box. The probe only
  * needs the *behaviour* (does growing content break the envelope?), so absolute
  * fidelity to a browser's shaper is not required.
+ *
+ * BUG-153 (item 3) — EXCEPT that a run the document paints `white-space: nowrap`
+ * does not wrap, at any content scale, and the model wrapped it anyway.
+ *
+ * `nowrap` is not a hint here, it is what the renderer emits: `render.ts` puts
+ * `white-space: nowrap` on the run's own class from `axes.nowrapFromPx` (REQ-88),
+ * unconditionally at or below the ladder's floor and inside a
+ * `@media (min-width: nowrapFromPx)` above it. So above that width the run is one
+ * line no matter how much copy it holds, and a line count derived from
+ * `chars / perLine` is a model of a run that does not exist.
+ *
+ * Measured on faelan.com: the whole `structural-failure` verdict — 18
+ * content-robustness findings, and `l1-gate`'s only failing probe — was this.
+ * The footer line `'© 2025 Faelan Westhead. All rights reserved.'` carries
+ * `nowrapFromPx: 375`; at 375px the model gave it 3 lines under the 2.5x content
+ * perturbation, grew the oracle's measured 20px to 60px, and reported it escaping
+ * its 84px band by exactly 8px. The tell is which widths fired: 375 and not 320.
+ * At 320 the run is below `nowrapFromPx`, genuinely wraps, and the fold had
+ * already given that band the room — so the only samples where the model and the
+ * renderer disagreed were the only samples that reported a defect.
+ *
+ * This does not make the page content-robust: a `nowrap` run whose copy grows
+ * 2.5x overflows its column horizontally, and the horizontal-clip scan in
+ * {@link evaluateLayout} is where that is expressed. What it stops is the probe
+ * naming the wrong failure — `escape` prescribes "make the surface size itself
+ * from its content", and the band's height was never the problem.
  */
 function estimateTextHeight(
   content: L1Text['text'],
@@ -426,14 +471,29 @@ function estimateTextHeight(
   lineHeightPx: number | undefined,
   availWidth: number,
   scale: number,
+  nowrap = false,
 ): number {
   const fs = fontSizePx > 0 ? fontSizePx : 16
   const lh = lineHeightPx && lineHeightPx > 0 ? lineHeightPx : Math.round(fs * 1.4)
+  if (nowrap) return lh
   const avgChar = fs * 0.5
   const perLine = Math.max(1, Math.floor(Math.max(1, availWidth) / avgChar))
   const chars = Math.max(1, Math.ceil(runCharCost(content) * scale))
   const lines = Math.max(1, Math.ceil(chars / perLine))
   return lines * lh
+}
+
+/**
+ * BUG-153 (item 3) — is this run painted `white-space: nowrap` at this width?
+ *
+ * Mirrors the renderer's own rule (`render.ts`, REQ-88) rather than restating a
+ * looser version of it: the pin starts at `nowrapFromPx` and holds at every
+ * width from there up. A run with no `nowrapFromPx` wraps, which is what the
+ * model has always assumed for every run.
+ */
+function isNowrapAt(node: L1Text, width: number): boolean {
+  const from = node.axes?.nowrapFromPx
+  return from !== undefined && width >= from
 }
 
 /**
@@ -798,12 +858,17 @@ function layoutInFlow(
   switch (node.kind) {
     case 'text': {
       const a = node.axes ?? {}
+      // BUG-153 (item 3) — decided ONCE and passed to both calls below, so the
+      // perturbed height and the unperturbed baseline it is divided by can never
+      // disagree about whether the run wraps.
+      const nowrap = isNowrapAt(node, width)
       const natural = estimateTextHeight(
         node.text,
         a.fontSizePx ?? 16,
         a.lineHeightPx,
         box.width,
         opts.contentScale,
+        nowrap,
       )
       // A pinned text keyframe may pin a height; otherwise the height is natural.
       const pinnedH = declaredHeight(node, width, vh)
@@ -823,7 +888,7 @@ function layoutInFlow(
               : natural /
                 Math.max(
                   1,
-                  estimateTextHeight(node.text, a.fontSizePx ?? 16, a.lineHeightPx, box.width, 1),
+                  estimateTextHeight(node.text, a.fontSizePx ?? 16, a.lineHeightPx, box.width, 1, nowrap),
                 ))
       box.height =
         pinnedH !== undefined ? pinnedH * opts.contentScale : (grown ?? natural)
@@ -1028,6 +1093,10 @@ function layoutInFlow(
           kind: 'clip',
           detail: `content height ${Math.round(contentHeight)}px exceeds pinned box height ${pinnedH}px`,
           paths: [path],
+          // BUG-153 (item 3) — the box as pinned; the overflowing content height
+          // is already in `detail` and has no rect of its own.
+          boxes: [{ ...box, height: pinnedH }],
+          width,
         })
       }
       // The node's own resolved height, so a translate expressed as a share of it
@@ -1277,6 +1346,8 @@ export function evaluateLayout(
         kind: 'clip',
         detail: `leaf right edge ${Math.round(leaf.box.x + leaf.box.width)}px exceeds viewport ${width}px`,
         paths: [leaf.path],
+        boxes: [leaf.box],
+        width,
       })
     }
   }
@@ -1319,6 +1390,10 @@ export function evaluateLayout(
           kind: 'overlap',
           detail: `${solid[i].text ?? solid[i].kind} overlaps ${solid[j].text ?? solid[j].kind}`,
           paths: [solid[i].path, solid[j].path],
+          // BUG-153 (item 3) — both boxes, in `paths` order, so the intersection
+          // the finding asserts is arithmetic a reader can close.
+          boxes: [solid[i].box, solid[j].box],
+          width,
         })
       }
     }
@@ -1361,6 +1436,9 @@ export function evaluateLayout(
             `${run.text ? `'${run.text}'` : run.kind} is no longer covered by its backing surface ` +
             `${surface.id ?? surfacePath} — ${Math.round(out.px)}px ${out.side}`,
           paths: [runPath, surfacePath],
+          // BUG-153 (item 3) — the run then the surface, in `paths` order.
+          boxes: [run.box, surface.box],
+          width,
         })
       }
     }

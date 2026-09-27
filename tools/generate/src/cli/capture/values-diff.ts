@@ -57,6 +57,8 @@ import { colorDistance } from './color-values'
 // table. The fold reads the same module, so the two sides cannot drift.
 import { filterChain, filterPaints, paintedShadowLayers, shadowLabel } from './treatments'
 import { isBandPaint } from '../perceptual-core'
+// BUG-153 (item 2) — what a mask DOES to its box, rather than whether one exists.
+import { maskCoverage, maskCoverageLabel } from './mask-geometry'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
 // longer projects anything itself.
@@ -236,10 +238,22 @@ export interface ValueElement {
   textShadow?: string | null
   /** REQ-48 (item 3) — computed `mask-image`/`clip-path` when masked/clipped, else null. */
   maskEdge?: string | null
-  /** REQ-48 (item 1) — transform rotation in degrees (0 when none). */
+  /** REQ-48 (item 1) / BUG-153 (item 1) — EFFECTIVE transform rotation in degrees, ancestors composed in (0 when none). */
   transformRotateDeg?: number
-  /** REQ-48 (item 1) — transform uniform scale (1 when none). */
+  /** REQ-48 (item 1) / BUG-153 (item 1) — effective transform uniform scale (1 when none). */
   transformScale?: number
+  /**
+   * BUG-153 (item 1) — set when the element's effective transform chain held a
+   * value this projection could not decompose (`matrix3d`, or an unparseable
+   * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
+   * are ABSENT rather than defaulted to the identity.
+   *
+   * A zero that means "we did not look" must not be comparable to a zero that
+   * means "upright": the comparator's both-sides guard skips the pair, and the
+   * diff reports the axis as unmeasured so the silence is stated instead of read
+   * as agreement.
+   */
+  transformUnreadable?: true
   /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
   motion?: 'animation' | 'transition' | 'both' | null
   /**
@@ -633,6 +647,25 @@ export interface ValuesDiffReport {
    * an extra object in the reproduction is a defect the flat list never named.
    */
   unpairedActual: UnpairedObject[]
+  /**
+   * BUG-153 (item 4) — the repro objects lifted OUT of {@link unpairedActual}
+   * because they are a band's own paint (see `isBandPaint`), rather than dropped
+   * from the tally in silence.
+   *
+   * REQ-271's exclusion is right and stays: the two sides represent band paint in
+   * structurally different places, so a reproduction's full-bleed band box can
+   * never pair with anything and counting it as an unpaired object would state a
+   * reproduction gap no fold could close. What was wrong was the REPORT. On
+   * faelan.com three of the reproduction's fourteen elements paired with nothing,
+   * `elementCounts` said `{ expected: 11, actual: 14 }` a few lines above, and
+   * `unpairedActual` said `0` — so the gate's unmeasured tally read zero while
+   * three elements had entered the comparison and left it unmatched.
+   *
+   * Exactly the shape REQ-308's {@link nonSurfaceSections} already has on the
+   * section side, and for the same reason: an exclusion nobody can see is
+   * indistinguishable from a measurement nobody made.
+   */
+  bandPaintActual: UnpairedObject[]
   /**
    * BUG-102 — how each *reference* section paired with a repro band, in document
    * order. The flat list reported `§0` as a delta while carrying nothing that said
@@ -1665,6 +1698,18 @@ export interface DiffOptions {
   borderRadiusTolerancePx?: number
   /** REQ-63 — element opacity tolerance, 0–1 (default 0 exact; `tolerant` 0.02). */
   opacityValueTolerance?: number
+  /**
+   * BUG-153 (item 2) — mask coverage tolerance, as a fraction of the masked box's
+   * AREA (default 0.02; `tolerant` 0.05).
+   *
+   * Not zero even in the exact mode, unlike the authored axes beside it: the two
+   * sides' coverage is resolved on a sampling grid against two boxes that differ
+   * by sub-pixel layout, so a pair of masks that paint the same thing land within
+   * a fraction of a percent of each other rather than on the same number. Two
+   * points of the box's area is far below what an eye reads and far above that
+   * floor — the case this exists for is 30.9% against 99.0%.
+   */
+  maskCoverageTolerance?: number
 }
 
 function gradientLabel(g: TextGradient | null | undefined): string {
@@ -2332,6 +2377,18 @@ export function diffManifests(
   // rounding band under `tolerant`. A ghosted (partial-opacity) element vs a solid
   // one exceeds it, while `0.5`↔`0.5` re-render rounding does not.
   const opacityValueTol = tol(opts.opacityValueTolerance, 0, 0.02)
+  // BUG-153 (item 2) — see {@link DiffOptions.maskCoverageTolerance}.
+  const maskCoverageTol = tol(opts.maskCoverageTolerance, 0.02, 0.05)
+  /**
+   * BUG-153 (item 2) — set when a pair of DIFFERING mask strings could not both
+   * be resolved to a coverage, so the axis went uncompared on this run.
+   *
+   * Reported as an unmeasured axis rather than as nothing at all: the whole point
+   * of measuring the geometry is that a present-on-both-sides mask used to read
+   * clean, and swapping one silence for a narrower one would repeat the defect at
+   * a smaller scale.
+   */
+  let maskGeometryUnresolved = false
 
   // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
   // *join key* and the verbatim-text comparison, so a footer that differs only by
@@ -2669,7 +2726,7 @@ export function diffManifests(
     // (blur radii, mask gradients) drift across engines and would be noise.
     compareTreatment(exp, act, 'filter', exp.filter, act.filter)
     compareTreatment(exp, act, 'textShadow', exp.textShadow, act.textShadow)
-    compareTreatment(exp, act, 'mask', exp.maskEdge, act.maskEdge)
+    compareMask(exp, act)
     // REQ-63 — effects beyond REQ-48's set. Frosted-glass (backdrop-filter) and an
     // outline are presence signals (value strings drift across engines); blend mode
     // and injected pseudo-content carry a meaningful discrete value, so compare it.
@@ -2768,6 +2825,48 @@ export function diffManifests(
     const chainE = filterChain(e)
     const chainA = filterChain(a)
     if (chainE !== chainA) push(exp, property, chainE, chainA)
+  }
+
+  /**
+   * BUG-153 (item 2) — the `mask` axis, compared by what the mask DOES to the box
+   * rather than by whether one exists.
+   *
+   * Presence is still the first question, and still the right one: a missing
+   * feather against a present one is pixel-obvious and needs no geometry. Where
+   * the old comparator stopped is where a mask is present on BOTH sides — it
+   * called that clean, which made "the fold emits no mask" (3 MEDIUM deltas) look
+   * like a worse reading than "the fold emits a mask that erases a fifth of the
+   * photograph" (0 deltas). See `mask-geometry.ts` for the measured case.
+   *
+   * The comparison is the OPAQUE FRACTION of each side's own box, resolved
+   * against that side's own geometry, so a vendor prefix or an equivalently-
+   * spelled size keyword is not a delta and a visibly different feather is. The
+   * erased fraction rides along in the label because "we erased a fifth of it"
+   * and "we softened the corners" are different defects with the same opaque
+   * fraction.
+   *
+   * When either side's mask cannot be resolved exactly — a `clip-path` polygon, a
+   * linear feather, an off-centre gradient — the pair is recorded as UNMEASURED
+   * rather than passed over in silence. Two strings that are literally identical
+   * are exempt: there is nothing there to be silent about.
+   */
+  const compareMask = (exp: ValueElement, act: ValueElement): void => {
+    const e = exp.maskEdge
+    const a = act.maskEdge
+    if (e === undefined || a === undefined) return
+    if (!!e !== !!a) {
+      push(exp, 'mask', e ? 'present' : 'none', a ? 'present' : 'none')
+      return
+    }
+    if (!e || !a) return
+    const ce = maskCoverage(e, exp.box)
+    const ca = maskCoverage(a, act.box)
+    if (!ce || !ca) {
+      if (e !== a) maskGeometryUnresolved = true
+      return
+    }
+    const d = Math.max(Math.abs(ce.opaque - ca.opaque), Math.abs(ce.erased - ca.erased))
+    if (d > maskCoverageTol) push(exp, 'mask', maskCoverageLabel(ce), maskCoverageLabel(ca), d)
   }
 
   // REQ-63 — emit a delta when a treatment's discrete VALUE differs (not just its
@@ -3172,8 +3271,15 @@ export function diffManifests(
   const actualAt = new Map<ValueElement, number>(actual.elements.map((el, i) => [el, i]))
   const reproWidth = actual.viewport?.width ?? 0
   const reproSections = actual.sections ?? []
+  // BUG-153 (item 4) — REQ-308's discipline, applied to the element list: a
+  // reproduction object lifted OUT of the unpaired tally is REPORTED, so the drop
+  // in the count is visible rather than silent.
+  const bandPaintActual: UnpairedObject[] = []
   const leftover = (el: ValueElement): void => {
-    if (isBandPaint(el, reproSections, reproWidth)) return
+    if (isBandPaint(el, reproSections, reproWidth)) {
+      bandPaintActual.push(toUnpaired(el, actualAt.get(el)))
+      return
+    }
     unpairedActual.push(toUnpaired(el, actualAt.get(el)))
   }
   for (const q of queues.values()) for (const el of q) leftover(el)
@@ -3532,6 +3638,7 @@ export function diffManifests(
     suppressed,
     objects: cards,
     unpairedActual,
+    bandPaintActual,
     sectionPairing,
     unpairedSections,
     nonSurfaceSections,
@@ -3540,7 +3647,30 @@ export function diffManifests(
     // into: the side that CAN read the axis carried a value and the other side
     // had nothing to compare it with. Not the whole declaration, which is true
     // of every comparison and would put a permanent row on every report.
-    unmeasuredAxes: observedUnmeasuredAxes(expected, actual, opts.declaredUnmeasured),
+    unmeasuredAxes: [
+      ...observedUnmeasuredAxes(expected, actual, opts.declaredUnmeasured),
+      // BUG-153 (item 1) — and the axes THIS PAIR OF PAGES could not be read on,
+      // which the declaration table structurally cannot hold: it says which side
+      // has no reader at all, and an undecomposable `matrix3d` is a reader that
+      // exists and ran into something it could not decompose on this document.
+      // Both are the same fact to the gate — "compared, and not evaluated here" —
+      // so both arrive in the same list rather than in a second one nothing reads.
+      ...unreadableTransformAxes(expected, actual),
+      // BUG-153 (item 2) — and the mask pairs this run could not resolve.
+      ...(maskGeometryUnresolved
+        ? [
+            {
+              axis: 'maskEdge',
+              scope: 'element' as const,
+              side: 'reference' as const,
+              reason:
+                'the two sides painted DIFFERENT mask values and at least one is a shape this ' +
+                'projection cannot resolve to a coverage (a clip-path polygon, a linear feather, ' +
+                'an off-centre gradient), so the mask was compared by presence only',
+            },
+          ]
+        : []),
+    ],
     // BUG-139 — the declinations, ALWAYS carried, empty when this run declined
     // nothing. Unconditional where `sectionsNotComparable` below is conditional,
     // because an empty array is the measurement "asked, and nothing was declined"
@@ -3549,6 +3679,31 @@ export function diffManifests(
     notComparableAxes,
     ...(sectionsNotComparable ? { sectionsNotComparable } : {}),
   }
+}
+
+/**
+ * BUG-153 (item 1) — the transform axis, per side, where this run's own elements
+ * carried a transform chain the projection could not decompose.
+ *
+ * The extractor omits `transformRotateDeg` / `transformScale` on such an element
+ * rather than defaulting them to the identity, which makes the comparator's
+ * both-sides guard skip the pair — correct, and silent. This is the statement:
+ * an axis nobody could read is not a clean one, so it reaches the gate's
+ * unmeasured tally exactly as REQ-274's one-sided axes do.
+ *
+ * One row per SIDE that had at least one such element, never one per element: the
+ * gate enumerates these by name and a page with forty rotated layers would
+ * otherwise print forty identical lines.
+ */
+function unreadableTransformAxes(expected: ValueManifest, actual: ValueManifest): UnmeasuredAxis[] {
+  const REASON =
+    'the effective transform chain held a value this projection cannot decompose ' +
+    '(matrix3d or an unparseable spelling), so the axis was not defaulted to the identity'
+  const out: UnmeasuredAxis[] = []
+  const any = (m: ValueManifest): boolean => (m.elements ?? []).some((el) => el.transformUnreadable)
+  if (any(expected)) out.push({ axis: 'transformRotateDeg', scope: 'element', side: 'reference', reason: REASON })
+  if (any(actual)) out.push({ axis: 'transformRotateDeg', scope: 'element', side: 'reproduction', reason: REASON })
+  return out
 }
 
 /** The `{engine}:{width}:{state}` pairing key for one projection (REQ-48). */
