@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:33:34.267603+00:00'
+updated_at: '2026-09-27T21:38:54.124064+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2253,5 +2253,17 @@ Snapshot the draft document before the delegation, diff the tree after. Not per-
 So: **yes, do it as a real diff.** It is smaller than the journal record, it survives a silent worker, and it converts most of the accept list from something the worker asserts into something the host demonstrates.
 
 Want me to scope it? I'd make it one ticket — snapshot-and-diff either side of `delegate`, returned on the result beside the self-report — rather than the two I split it into last turn, since a tree diff makes the `JournalRecord` change unnecessary.
+
+<!-- xgd-turn id="cb5a1f33-d237-48ea-bdf9-160360d73e5d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T21:38:53.911474+00:00" -->
+#### You
+Well lets talk about the entire feature and see if we are aligned. I think it goes like this:
+1) remove direct access to the L1 WRITE capabilities to the primary
+2) Include the automatic creation of a diff showing the before/after changes made by a delegate at the end of its turn. Have it return its self-report and append this diff.
+3) Improve the self report
+4) Adjust the prompting to the primary session to accommodate these changes.
+
+Agree?
 
 <!-- xgd-chat-end -->
