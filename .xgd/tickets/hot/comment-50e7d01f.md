@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:04:41.157145+00:00'
+updated_at: '2026-09-27T21:28:34.633813+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2204,5 +2204,11 @@ One design choice worth making deliberately: `before`/`after` are identical in *
 And yes, it's necessary rather than nice-to-have, for the reason your framing implies: the self-report is the worker's word, the delta is the host's. It's the only field that survives a worker that reports nothing — which is 2 of 7 runs so far, both with real writes on the site.
 
 Shall I scope it? It's two tickets: the framework side (capture the watermark either side of `delegate`, put the slice on the result) and, if you want the delta to verify style checks rather than just locate them, ours (`JournalRecord` carries which fields changed, not a text rendering).
+
+<!-- xgd-turn id="2db4de72-6a60-4eb2-9813-16f0d84b9a26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T21:28:34.337552+00:00" -->
+#### You
+One design choice worth making deliberately: `before`/`after` are identical in **82%** of `l1.set` records (they're text renderings, and padding/colour edits don't change text). So carry them **only when they differ** — that's near-full fidelity at near-envelope size, and it keeps the 18% where the text genuinely changed, which is exactly where you'd want it. <-- when I said a delta - I really meant a delta like diff before after - is that the wrong model?
 
 <!-- xgd-chat-end -->
