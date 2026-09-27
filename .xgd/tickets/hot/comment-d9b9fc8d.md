@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:23:40.604044+00:00'
+updated_at: '2026-09-27T00:26:17.712154+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5057,5 +5057,36 @@ One stale doc I noticed but didn't change: `bin/copy-to-cloud`'s header still sa
 <!-- xgd-chat role="user" ts="2026-09-27T00:23:39.165515+00:00" -->
 #### You
 please commit everything
+
+<!-- xgd-turn id="f0a3e746-85b6-4dec-94a2-9af27e32b210-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T00:26:17.608402+00:00" -->
+#### Claude
+Nothing here is gitignored — I checked each path. `git add -A` would commit 578M of `.pnpm-store`, 411M of `storage/`, and **`apps/control-app/.dev.vars~`, a backup of your secrets file** (`.gitignore` has `.dev.vars` and `.dev.vars.*`, and `.dev.vars~` matches neither). So I committed the actual work by explicit path and left the rest.
+
+One judgement call worth stating: I did include `fonts/platform.json` (2.1MB, previously untracked) because `mirror.ts:27` is explicit — *"`fonts/mirror/` is a build product on the way to R2 and is gitignored; `fonts/platform.json` — every path, size and digest — is what the repository carries."*
+
+Two commits on `xgd-working`:
+
+| | |
+|---|---|
+| `18fda7dfe1` | ACCESS.md + `wrangler.toml` + `db/ops/rebaseline-remote.sql` — one story (§I3, §I16): the rebaseline wipes `users`, the break-glass var gets you back in, and `SERVICE_TOKEN_IDENTITIES` is keyed on the minted client id rather than the token's label |
+| `293a70ac70` | `fonts/platform.json` + `tools/generate/src/cli/ai/platform-fonts.json` |
+
+No branch cut and no UATs: this is documentation, production config, an ops SQL script and a generated manifest. No product code changed.
+
+**Left uncommitted, deliberately:**
+
+```
+?? .pnpm-store/                    578M package cache
+?? storage/                        411M scratch — dev pidfiles, logs, node_modules
+?? apps/control-app/.dev.vars~     editor backup of your secrets file
+?? .xgd/working-merge.lock         runtime lock (pid + start time)
+?? .xgd/_changes/                  xgd runtime log
+```
+
+The `.dev.vars~` one is worth acting on. `.gitignore:67-68` has `.dev.vars` and `.dev.vars.*`; a trailing tilde matches neither, so a copy of your Anthropic, Resend, OpenAI and Cloudflare keys is sitting in the tree one careless `git add -A` away from history — and unlike the caches, that is the commit you cannot take back by reverting.
+
+Want me to add the five entries? `.dev.vars*` (covers the tilde), `.pnpm-store/`, `/storage/`, `.xgd/working-merge.lock`, `.xgd/_changes/` — the last two matching the `_staging`/`_locks` convention the file already uses.
 
 <!-- xgd-chat-end -->
