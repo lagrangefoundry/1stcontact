@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T01:07:24.443099+00:00'
+updated_at: '2026-09-27T01:09:56.074416+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5224,5 +5224,11 @@ I'd fix it at `reAddress`, not by filtering the export — filtering would silen
 local  biz_5b101742d436573a04a2512fb7ecdbb5 / site_936dd7c92e5e14df694dd9a80433aa4f
 cloud  biz_33086a94838ac8ad14cecbb919b525c2 / site_23c1afb3739dadf62347a5008e8a7dea
 ```
+
+<!-- xgd-turn id="1f7ca1a3-17c8-47c1-bdc9-50480532aa7f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T01:09:54.574611+00:00" -->
+#### You
+I'm confused are you going to give me a ticket to fix this please?
 
 <!-- xgd-chat-end -->
