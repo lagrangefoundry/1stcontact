@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T20:46:29.403497+00:00'
+updated_at: '2026-09-27T20:53:12.399047+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2095,5 +2095,74 @@ I haven't filed anything — say the word and I'll put (1) up as a child of EPIC
 <!-- xgd-chat role="user" ts="2026-09-27T20:46:29.036417+00:00" -->
 #### You
 Can the primary be returned a delta on the L1 to show it what changed? (In addition to the self-report)
+
+<!-- xgd-turn id="771dc344-7617-4dc9-951e-10f8049ea8a8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:53:12.140672+00:00" -->
+#### Claude
+Good question — and the machinery may already be there. Let me check what the change log actually records and what a delta would cost.
+
+The plumbing largely exists — but there's a catch worth knowing before you design on it.
+
+Yes — and the primitive already exists, is already exercised by the consultant, and there's a sharp limit worth knowing before you design on it.
+
+**Yes — and you already have the primitive.** Recorded on EPIC-20.
+
+## It exists and the consultant already uses it
+
+`site_changes` is an append-only log keyed `(site_id, at)` where `at` is a per-site monotonic counter — now at **424 over 502 records**, covering **17 op kinds** (`l1.set` 337, plus `palette.*`, `page.*`, `asset.*`, `component.*`, `config.set`, `copy.set`, `document.set`).
+
+`list_changes({since: N})` already returns `{changes, now, since, truncated}` — and **`now` is the watermark**. The consultant called it 21 times last session with `since:` values it tracks itself (310, 328, 342 … 409). Nothing needs inventing; it needs bracketing.
+
+## Three tiers
+
+**Tier 0 — prose only, zero code.** One paragraph in `templates/delegation-method`: note `now` before you delegate, read `list_changes({since: W})` after. Testable immediately. Weakness: forgettable, and the caller pays for the fetch.
+
+**Tier 1 — the framework returns it.** Host captures the watermark either side of `delegate`. Three things Tier 0 can't give:
+
+- It can't be forgotten.
+- **Provenance.** The result shape is declared `provenance: "untrusted"` because it's the worker's words. A host-observed delta would be the *first trusted field* in a delegation result.
+- **It survives a silent worker — and nothing else does.** `3bje6q` would have returned *"5 elements replaced, page `styleb`, paths 0.4.1 / 0.5.1 / 0.7.1 / 0.8.1 / 0.10, at 420..424"* instead of an empty summary and five `unreported`. Same for `qen037`'s 22 writes. That converts both silent failures from *total loss, re-inspect everything* into *work landed, here's where, account missing*.
+
+## The ceiling, and it's sharp
+
+`before`/`after` is a **text rendering**, bounded at `JOURNAL_TEXT_LIMIT = 300`. `journal.ts` says so deliberately: *"where the change is textual, the before and after text"*. Measured:
+
+| | count |
+|---|---|
+| `l1.set` records | 337 |
+| `before == after` | **276 (82%)** |
+| both empty | 60 |
+| delta shows something | 61 (18%) |
+
+All five of `3bje6q`'s records are `before == after` — padding edits don't change text, and that's most of what a worker does. So the delta says **which paths, which page, which op, what order, when** — not what changed inside them. It cannot settle *"the keyframe at 1024 is identical to the static padding."* **An envelope, not a diff.**
+
+## The envelope is worth more than it sounds
+
+**Four of the seven briefs ever written asked for a containment check** — `u4ej95`, `qen037`, `ya6wkq`, `msskzt` — all of the form *"the page `home` has zero changes recorded against it during your work"*. Two even name the mechanism (*"verify with list_changes"*). None got a trustworthy answer, because the worker was asked to audit its own containment.
+
+A host-observed delta settles that whole class mechanically, across all 17 op kinds — a worker that touched a palette colour or added a page outside its brief lands in the same window. It's the most common hand-written check in the corpus and the one thing a self-report structurally cannot supply. It also corroborates `changed` from outside: worker claims five writes, log shows five at those paths.
+
+## Cost
+
+`3bje6q`'s window: **3,836 bytes ≈ 960 tokens**. A 25-write run ≈ 19KB ≈ 4.8k tokens. Against `get_l1` per element (180–220 transcript lines apiece) that's an order of magnitude cheaper, paid once at the end.
+
+One caveat: D1 retains everything, but the file-backed journal caps at `JOURNAL_WINDOW = 500` and the log already holds 502 records — so a caller must bracket with the live watermark, never a remembered older number, or it gets `truncated: true`.
+
+## To verify checks rather than just bound them
+
+The record needs a **structural** delta — which L1 fields changed, old→new — not a text rendering. That's `JournalRecord` in `tools/generate/src/store/journal-model.ts`, which is **ours**, not the framework's. It's also the precondition for your read-only-primary idea: with a structural delta the caller verifies a style change without a single `get_l1`, and the last reason to keep write tools on the expensive side disappears.
+
+## Revised ordering
+
+The delta doesn't replace fixing the report — it de-risks it, and it outranks the framework fixes because it's the only one that recovers value from an already-failed run.
+
+1. Tier 0 prose — no code, testable now
+2. Stop leaking the consultant's ledger to the worker + `act-rather-than-narrate` (ours)
+3. Tier 1 watermark on the result (framework, needs a host hook)
+4. Structural `JournalRecord` delta (ours) — gates the read-only primary
+5. Cap exhaustion must not read as `silent`; ask a silent worker once
+
+Items 1, 2 and 4 are this repo and each needs its own ticket and branch — I haven't cut any. Item 1 is prose-only so it's outside free-coding; 2 and 4 aren't.
 
 <!-- xgd-chat-end -->
