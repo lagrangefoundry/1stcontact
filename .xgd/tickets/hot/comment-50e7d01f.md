@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T22:26:56.904062+00:00'
+updated_at: '2026-09-27T22:35:33.517417+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2373,5 +2373,55 @@ Say the word and I'll file 1–6. Also worth noting: the doc is a document chang
 Surely the delta we discussed can be trusted, no?
 
 Please construct the tickets and make sure they reference DOC-60
+
+<!-- xgd-turn id="4dddfe16-5461-4019-84b4-fcecc83f0eef-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T22:35:32.784822+00:00" -->
+#### Claude
+Yes — trusted, and I said so in DOC-60; let me be precise about the one boundary. Then I'll file.
+
+Confirmed on trust — and DOC-60 needs one added precision. Writing the six bodies now.
+
+Now filing — the five in this repo, then the upstream one.
+
+My linkage loop was wrong — I appended to the children instead of the epic. Checking for damage and fixing.
+
+`null` removes it. Cleaning the other four and linking them to the epic properly.
+
+Only the audit line remains — the field itself is gone. Now linking them to the epic correctly.
+
+All linked. Filed and cross-referenced.
+
+## On trust — yes, and DOC-60 now says it plainly
+
+The diff **is** trusted, and I'd said so; I've added a section making it explicit rather than implied, because there are two boundaries worth pinning so "trusted" doesn't get read wider than it's meant:
+
+- **Trusted about *what* changed, not about *whether it was right*.** The diff will faithfully report a worker that did exactly the wrong thing. Judging the result against the brief stays with the consultant. That's not a weakness — it's the same division the design rests on: brief carries judgement, worker carries labour, diff carries evidence.
+- **It speaks for a *window*, not an *actor*.** Anything that changed the draft between the two captures appears in it. In practice the delegating session is blocked awaiting its worker, so the only other writer would be a different session or the page editor — but it must be described as *what changed while the worker was running*, never *what the worker changed*, or someone will eventually lean on an attribution it doesn't make.
+
+Neither weakens the keystone: a silent worker plus a trusted diff is a recoverable delegation; a silent worker alone is a loss.
+
+## Filed
+
+| # | ticket | repo | state |
+|---|---|---|---|
+| — | **DOC-60** the design | 1stcontact | `doc_kind: architecture` |
+| 1 | **BUG-71** a delegation result does not account for work the worker did not report | **lagrange-framework** | filed |
+| 2 | **REQ-340** the host derives a structural diff of a delegation's L1 changes | 1stcontact | blocked on BUG-71 |
+| 3 | **REQ-339** a worker must not read the consultant's session record, and must not re-narrate | 1stcontact | **unblocked — ships first** |
+| 4 | **REQ-341** the builder role's grant covers what briefs actually ask for | 1stcontact | unblocked |
+| 5 | **REQ-342** delegate-first: the consultant commissions construction rather than performing it | 1stcontact | blocked on REQ-340 |
+| 6 | **REQ-343** the consultant stops writing L1 | 1stcontact | gated on evidence |
+
+All six reference DOC-60 by section, carry `epic_parent: epic-0923bb64`, and are listed in EPIC-20's body and `epic_children`. Each body is written as behaviour statements so UATs have ticket language to trace to. BUG-71 is filed upstream with the 1stcontact design named as its consumer, and states that the host-side derivation is ours and not asked for there.
+
+Suggested order: **3 → 2 → 5 → 6**, with **4** alongside 3.
+
+Two notes:
+
+- I made a mistake linking the tickets — I appended `epic_children` to the five children instead of to the epic. Caught it, removed the field from all five (only a harmless `last_field_updated: epic_children` audit line remains), and linked them to EPIC-20 properly.
+- DOC-60's §"The tickets" opens with "Six" and then enumerates the document alongside the six; the appended section notes that the six are the work and the document isn't one of them.
+
+No branches cut and no code touched. REQ-339 and REQ-340 are code (`host-core.ts`) and need free-coding branches; REQ-341, 342 and 343 are configuration and prose, so they fall outside it.
 
 <!-- xgd-chat-end -->
