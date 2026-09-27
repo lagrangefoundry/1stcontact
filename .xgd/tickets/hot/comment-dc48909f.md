@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-27T20:09:08.166212+00:00'
+updated_at: '2026-09-27T20:24:06.671625+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,15 @@ Two things to settle before I'd write anything down:
 2. **Is hover-driven illustration in scope for this ticket, or is ambient motion enough for now?** That's the B-versus-C fork, and it decides whether this is one ticket or two.
 
 I've made no code changes. Tell me which way you're leaning and I'll scope the ticket body to match.
+
+<!-- xgd-turn id="c99190b5-9d52-4c70-bbe4-11baa19e3b76-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:24:06.045643+00:00" -->
+#### You
+There's a lot of details that I am not following here.
+
+I hear you see 3 "Walls". 1 and 2 have relatively straightforward fixes, Wall 3 has more structural issues that you can't see easy changes to satisfy?
+
+Rather than getting into the implementation weeds can you tell me what capabilities I can get with the easy fixes, and what capabilities remain blocked please?
 
 <!-- xgd-chat-end -->
