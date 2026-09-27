@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:52:16.549935+00:00'
+updated_at: '2026-09-27T01:02:50.116945+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5142,5 +5142,32 @@ bin/access-token --rotate --name 1stcontact-publish
 That issues a fresh secret, prints it to your terminal and writes it to no file. Rotating is cheap — the old secret stops working, nothing else changes, and the client id stays the same, so the `wrangler.toml` mapping I committed keeps matching.
 
 One ordering note for the walkthrough: `--rotate` needs `CLOUDFLARE_API_TOKEN` with **Access: Service Tokens** and **Access: Apps and Policies**, both Edit. That's a wider scope than the deploy token — if `1c_Admin_Token` doesn't carry it, the rotate fails at the API rather than at the gate.
+
+<!-- xgd-turn id="8fb460c4-f603-4a00-a777-bf58ceb3e0fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T01:02:48.342994+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+backed up 'Lagrange Foundry' from http://127.0.0.1:8799
+  site    site_936dd7c92e5e14df694dd9a80433aa4f
+  pages   1 (styleb.json)
+  assets  20
+  file    /Users/martin/lagrangefoundry/1stcontact/storage/backups/lagrange-foundry.json
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+copied 'Lagrange Foundry' http://127.0.0.1:8799 → https://app.1stcontact.io
+  from    biz_5b101742d436573a04a2512fb7ecdbb5
+  to      biz_33086a94838ac8ad14cecbb919b525c2
+  site    site_23c1afb3739dadf62347a5008e8a7dea
+  pages   1 (styleb.json)
+  assets  20
+  site.json yes
+((.venv-working) ) martin@nyx 1stcontact % bin/copy-to-cloud --origin http://127.0.0.1:8799 --chats "Lagrange Foundry"
+INTERNAL: Copy of 'Lagrange Foundry's conversations was refused with 409: {"error":"9 conversation(s) carry a session id in no form this product mints, so there is nothing to re-address them onto. Nothing was written.","sessions":["worker-builder-1-3bje6q","worker-builder-1-g62erw","worker-builder-1-hcd48w","worker-builder-1-msskzt","worker-builder-1-q73amk","worker-builder-1-u4ej95","worker-builder-1-ya6wkq","worker-builder-2-qen037","worker-builder-2-tql0pf"]}
+Pass --force to replace it anyway. Nothing was written.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
