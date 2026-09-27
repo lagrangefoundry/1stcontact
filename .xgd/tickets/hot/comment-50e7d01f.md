@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T22:35:33.517417+00:00'
+updated_at: '2026-09-27T23:20:35.293844+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2423,5 +2423,11 @@ Two notes:
 - DOC-60's §"The tickets" opens with "Six" and then enumerates the document alongside the six; the appended section notes that the six are the work and the document isn't one of them.
 
 No branches cut and no code touched. REQ-339 and REQ-340 are code (`host-core.ts`) and need free-coding branches; REQ-341, 342 and 343 are configuration and prose, so they fall outside it.
+
+<!-- xgd-turn id="97977596-60fa-4a5c-81c0-154229003944-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T23:20:34.361497+00:00" -->
+#### You
+Please review the questions in the transcript on BUG-71. Do you agree with the ticket's recommendation?
 
 <!-- xgd-chat-end -->
