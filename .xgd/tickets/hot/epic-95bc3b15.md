@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-27T20:21:47.800837+00:00'
+updated_at: '2026-09-27T21:29:03.288050+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1511,3 +1511,127 @@ Recorded as analysis, not as a decision:
 
 Nothing filed. Analysis pending the operator's call on (a) the structure's identity,
 (b) whether Bob ever speaks, (c) panel vs stream for the standing plan.
+
+
+### 14.5 Revision — group chat conceded; the topology question
+
+Recorded after the operator pushed back on 14.4. **Positions 1 and 6 of 14.4 are
+withdrawn as stated.**
+
+**The pipeline / group distinction.** 14.4's objection was to a *pipeline* —
+client → Bob → Alice → Bob → client — where Bob relays and therefore filters. It does
+not apply to a *group*: all three on one stream, both agents speaking directly, Bob's
+turns concurrent with Alice's rather than in series. The operator's shape is the
+second, the human precedent (consultant + EA in the room) is real, and the round-trip
+and register-filtering objections dissolve. Conceded.
+
+Retained gain: **the client can address Bob**, which makes plan correction a cheap
+remark to the assistant rather than a challenge to the consultant's judgement.
+
+**Asymmetric context is the load-bearing requirement.** Group chat alone does not
+deliver the operator's stated goal (freeing Alice's context from "what comes next") —
+if Bob's clerical turns land in Alice's history at full fidelity, Alice's context grows
+and now carries process chatter. A group chat *in the UI* need not be a group chat *in
+the context*: the client sees three participants; Alice receives the client verbatim
+plus plan state as compact fact, and not Bob's transcript. The rule is **filter the
+agents, never the client** — Alice's value is unmediated contact with how the client
+said it, so that is the one thing no composition may compress.
+
+**Cards.** Non-interactive cards conceded — the framework already documents `id` as
+"empty for display-only", so a card rendering structured data is first-class. Two facts
+found: `getCards()` returns `{id, element}` and the panel retains the element, so a
+card *can* be mutated in place; but transcript replay goes through
+`appendMessage(role, markdown)` — **markdown only** — so cards are absent from history
+on reload. Hence: **a card is a projection of the shared structure, not a message.**
+Live update and reload-survival both follow from that; neither is available to a
+one-shot stream event. This is what makes the operator's pieces (1) and (2) one thing.
+
+**Feature checklist conceded** — requirements, not taste. Surviving caution: a checkbox
+list gives every item equal visual weight, implying equal cost, and "contact form" and
+"recurring payments" are not the same size. Frame as *what we build first*, not a
+catalogue.
+
+### 14.6 Bob as interrogator — a better remedy than Finding 13 proposed
+
+The operator's observation: *"If I ask the consultant 'do you really think this looks
+like a premium site?' I get some great answers — but I can't train the user to keep
+pushing like that. However, I can get Bob to do it."*
+
+This supersedes 14.4's remedy. Finding 13 diagnosed Alice as **positionless** and
+proposed supplying state and expecting leadership to follow — a *supply-side* fix that
+depends on Alice choosing to lead. A challenge is a position-forcing device: "does this
+read premium?" leaves no way to answer without taking a position on the artifact. So
+this is a **demand-side** mechanism for the same diagnosis, and it is the stronger bet
+for a measured reason — the capability is already observed (the operator gets good
+answers when pushing), so the mechanism only has to *trigger* it rather than create it.
+Finding 13 measured the supply-side approach failing: 2 of 102 turns carried process
+language from coaching prose.
+
+**Why a cheap model can do this.** Posing a good challenge does not require design
+judgement; answering one does. "The brief says premium — does this page read premium?"
+is a scripted move against a stated goal and an artifact. That asymmetry is what keeps
+taste on Opus while the pressure comes from Haiku.
+
+**Unclaimed additional benefit: it models the behaviour for the client.** A client
+watching Bob ask "does this read premium?" learns that this is a thing one may ask.
+That addresses the register problem socially rather than by inference, and it is the
+answer to "I can't train the user" — you do not train them, you show them.
+
+**Two failure modes.**
+1. *Ritual.* A challenge that always fires becomes noise and Alice learns a ritual
+   defence — both models pattern-match. So challenges must be anchored to an artifact
+   and a stated goal, and must be able to **not fire**.
+2. *Visible correction.* The client watches their consultant being pushed. Read one way
+   that is rigour; read another it is a consultant who needed correcting. Which it is
+   depends entirely on Bob's register — he must challenge against *the brief*, never
+   against his own opinion of the site.
+
+### 14.7 The four topologies
+
+Vocabulary from the operator: a **chat session** is an LLM history — stored here as the
+whole session file in a `chat_transcript` comment on the chat ticket (`ai.ts`,
+`chat-copy.ts`), so the operator's description is exactly this repository's mechanism.
+An **agent** is model + session. The postulated tool: X may (1) append turns to Y's
+session as a participant and (2) be notified when Y's session changes.
+
+| | room is | consequence |
+|---|---|---|
+| **1** | Alice's session | every Bob turn is in Alice's context at full fidelity — defeats the context goal unless 4 is applied. Alice is structurally host, so "who answers" defaults to her. **Only incrementally buildable option**, and reversible: switch Bob off and the product is exactly today's. |
+| **2** | Bob's session | right economics — the cheap model holds the history, the expensive one is summoned. But **Alice loses continuity**: a briefed summons destroys the unmediated contact that is her whole value, and whoever composes her brief is judging "what matters" on Haiku. The Wix-ADI failure shape: the cheap orchestrator decides what the expensive designer may know. |
+| **3** | nobody's — a durable artifact both participate in | cleanest; makes 4 the normal mechanism rather than an exclusion list, since each agent's view is *already* a projection. Forces the addressing discipline to be designed explicitly instead of falling out of who owns the room — a cost, but that is the hard problem and 1 and 2 both hide it behind an accident of ownership. Most work. |
+| **4** | variant | reframe: not *excluding* messages but *composing* each participant's view. |
+
+**Analysis favours 3, reached by starting at 1.** Build 1 because it is incremental and
+reversible, but treat the room as an artifact from day one, with Alice's session a view
+that currently happens to be complete — then 4 is a dial rather than a refactor.
+Starting at 2 makes an architectural bet on the cheap model's judgement that is hard to
+undo. Note also that 1 and 2 both *become* 3 once 4 is applied: filtering Alice's view
+concedes that the room is not her context.
+
+### 14.8 Primitive (2) already exists, and its design note constrains the room
+
+REQ-160 / `session-delta.ts` is the notification primitive in general form: a cursor
+over the change feed, delivering a per-turn delta **separately from the description**,
+because — its words — *"a map is a description, not a notification."*
+
+Two lessons transfer directly:
+
+- It **rejected a change-log ticket** (DOC-39 §5.1) for reasons that apply to a written
+  room: rewritten on every append, a compare-and-set contention point, unbounded growth
+  in one body. So topology 3's room should be **derived — a cursor over the transcript —
+  rather than a shared mutable object.** The feed is complete because it is derived from
+  the corpus rather than written beside it.
+- Its known gap is that the feed is *reliably additive and unreliably subtractive*. A
+  chat room is purely additive, so that gap does not bite here.
+
+### 14.9 The loop hazard, inherent to the postulated tool
+
+Primitive (1) plus primitive (2) is a cycle: Alice appends → Bob is notified → Bob
+appends → Alice is notified → … Two agents that can each wake the other have no natural
+stopping point, and with Bob's purpose being to *push*, the pressure is toward more
+exchanges rather than fewer. This needs a turn-taking rule at the UX level and not only
+a spend cap — e.g. a user message opens a round, Bob may challenge once per Alice turn,
+and Alice's answer closes it. Unbounded agent-to-agent chatter in front of a waiting
+client is the failure the client actually sees.
+
+Nothing filed.
