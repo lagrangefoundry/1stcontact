@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T23:20:35.293844+00:00'
+updated_at: '2026-09-27T23:24:20.670520+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2429,5 +2429,65 @@ No branches cut and no code touched. REQ-339 and REQ-340 are code (`host-core.ts
 <!-- xgd-chat role="user" ts="2026-09-27T23:20:34.361497+00:00" -->
 #### You
 Please review the questions in the transcript on BUG-71. Do you agree with the ticket's recommendation?
+
+<!-- xgd-turn id="97977596-60fa-4a5c-81c0-154229003944-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T23:24:19.723444+00:00" -->
+#### Claude
+Strong investigation. Let me verify the load-bearing claims myself before I agree — particularly #3, which is the one that changes the design.
+
+Confirmed on the exhaustion signal. Now the critical one — the retry being useless at `windowTurns < 2`.
+
+Fully confirmed — `isExchangeStart` is false for any `tool_result`-bearing message, so the whole work turn is one exchange and `keep=1` slices it away. Now the fixture claim and the provenance one.
+
+Every load-bearing claim checks out — including the sharp one. One fact decides my answer on the retry, so let me check it.
+
+Verified all four load-bearing claims independently — the investigation is accurate. **I agree with three recommendations as written, the fourth with one addition, and the scope correction unreservedly.** One correction to its risk assessment.
+
+## 1 · (A) or (B) for the exhaustion signal — agree, (A)
+
+Confirmed: `api_tools.js:942` and `:949` yield byte-identical `doneEvent`s, and `manager.js` reads only `interrupted`, `occupancy_tokens` and `turnSpend` (allowlist `usage`/`requests`/`cost_usd`) before `continue`. A new key on the adapter's terminal meta reaches nobody.
+
+(A) is right and (B) is worse than the scope saving is worth. `doneEvent`'s contract is *how* the turn ended, and `interrupted` already does this exact translation — cap exhaustion is the same category of fact. (B) makes a non-tool-call masquerade as tool activity; `collect` folding it into `ContentBlock(TOOL_ACTIVITY)` puts it in every operator's transcript as though a tool ran, and anything downstream that counts tool activity gets a wrong number. (A) also gives a durable `turn_end` record, which 1stcontact wants in its own `turn_log` regardless of delegation.
+
+Don't over-build it: the cap is a known constant, so a flag is enough. What would help a caller decide whether to re-delegate is how much of the brief remained, and only the worker knows that — which is the nudge's job, not the flag's.
+
+## 2 · `windowTurns < 2` — agree with (a), and the risk is lower than stated
+
+The finding is real and I verified it end to end: `isExchangeStart` is false for any `tool_result`-bearing user message, so the worker's entire tool loop is one exchange; `boundDialogue` runs *after* the nudge joins (`claude_api.js:342-348`); so `starts = [brief, nudge]`, `keep = max(1, windowTurns)`, and at 0 or 1 the slice begins at the nudge — the work is gone. Asking for a report there would produce an invented one. Skipping the nudge is correct.
+
+**But the correction:** 1stcontact sets `windowTurns` nowhere, so our builder runs at `DEFAULT_WINDOW_TURNS = 40`. The `windowTurns: 0` is a **test fixture** choice, not a deployment one — the comment *"a worker gets the cheap frame, which is the whole economic point"* is the fixture asserting that, not the product. So the guard is right to exist, but it guards a configuration nobody currently ships, and the nudge will fire for us. That also means the fixture is the thing to change to exercise the two-turn path — which you'd already spotted.
+
+Two additions: when the nudge is skipped, say **why** in the outcome — *"silent, not nudged because the window could not carry the work"* is actionable (fix config); bare `silent` isn't. And keep (c), a per-turn window override, out of scope but noted: a nudge needs exactly the work turn plus itself, so bounding it with a policy meant for long conversations is a category error. It's the principled fix if cheap workers ever matter.
+
+## 3 · `exhausted` wins — agree
+
+The asymmetry settles it. A false negative costs the caller one inspection; a false positive means believing a truncated job is done and shipping it to a client. `UNREPORTED`'s doc comment already sets that direction.
+
+One thing to make explicit: `exhausted` must **carry the nudged report's content**, not replace it. Since `reconcile` computes `accepted: outcome === REPORTED && checks.every(passed)`, a successful post-exhaustion nudge yields `accepted: false` with every check `passed` — which is exactly right, and is a state the surface prose has to explain, or it reads as a contradiction.
+
+## 4 · The over-marked `account` — agree, with one addition
+
+Verified the obstacle: `hits()` takes `items = Array.isArray(result) ? result : [result]` and reads `HIT_PROVENANCE_KEY` at each item's top level. A single mapping is one item, so `per_hit` marks the whole result. You're right that it's the inverted disaster, not the fix.
+
+I considered the alternative of keeping the account out of the result entirely — return the bracket and let the caller read the account through its own trusted surface. **Rejected:** that costs an extra Opus-rate request carrying ~190k of prefix, which dwarfs the account, and it can be forgotten, which was my own argument against doing this in prose in the first place.
+
+So: keep `untrusted`, carry the trust claim in the shape prose. **The addition:** make the account *independently checkable* rather than merely asserted — have it carry the watermark bracket, so a caller that ever doubts can verify against its own read surface for two integers' worth of payload. Over-marking then costs nothing real: the field is marked untrusted and happens to be verifiable. That matters because a sentence in a shape description is the same fragile channel as DOC-60 §F4 — stated once, far behind in the prefix.
+
+And file the per-field provenance gap as **its own upstream ticket**, not a note on BUG-71. A limitation recorded on a ticket that then closes is a limitation lost.
+
+## 5 · Scope correction — agree
+
+My two-file line was a guess from outside the repo. BUG-68's 10-file precedent is the right model.
+
+## On your rejected alternative (telling the worker it's on its last iteration)
+
+Right not to put model-facing prose in `api_tools` — but the *right place* for that is host-side, in the worker's own priming, which needs no framework change. That gives three layers, only one upstream: **REQ-339** removes the re-narration that burned `qen037`'s iterations, a worker-side line about bounded tool calls reduces the pressure further, and BUG-71's flag makes exhaustion legible when it still happens.
+
+---
+
+Net: proceed as recommended. The one thing I'd reorder inside BUG-71 is to treat **item 3 (the account hook) as the priority** — a skipped nudge or an exhausted run plus a trusted, checkable account is still a recoverable delegation, which is what DOC-60 gates REQ-343 on.
+
+Want me to record these decisions on BUG-71? You said you'd write the agreed decisions into the body, so I've deliberately not touched it to avoid us both writing the same section.
 
 <!-- xgd-chat-end -->
