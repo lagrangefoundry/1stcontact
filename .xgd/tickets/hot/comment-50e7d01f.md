@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T22:15:34.516205+00:00'
+updated_at: '2026-09-27T22:26:56.904062+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2365,5 +2365,13 @@ Two things worth your call:
 2. **Ticket 4 widens the builder's authority** — that's the one place this design gives the cheap model *more* power rather than better supervision. The alternative is keeping structural writes on the primary, which I argued against in the doc (§4) but it's a genuine fork.
 
 Say the word and I'll file 1–6. Also worth noting: the doc is a document change so it's outside free-coding, but tickets 2, 3, 4 and 6 are code or config in this repo and each needs its own branch — I haven't cut any.
+
+<!-- xgd-turn id="4dddfe16-5461-4019-84b4-fcecc83f0eef-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T22:26:56.466280+00:00" -->
+#### You
+Surely the delta we discussed can be trusted, no?
+
+Please construct the tickets and make sure they reference DOC-60
 
 <!-- xgd-chat-end -->
