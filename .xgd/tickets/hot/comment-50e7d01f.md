@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T20:53:12.399047+00:00'
+updated_at: '2026-09-27T21:03:01.895252+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2164,5 +2164,15 @@ The delta doesn't replace fixing the report — it de-risks it, and it outranks 
 5. Cap exhaustion must not read as `silent`; ask a silent worker once
 
 Items 1, 2 and 4 are this repo and each needs its own ticket and branch — I haven't cut any. Item 1 is prose-only so it's outside free-coding; 2 and 4 aren't.
+
+<!-- xgd-turn id="8266f3b0-5efb-4b09-85ed-73c4b2a7d9ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T21:03:01.276701+00:00" -->
+#### You
+That was a very complicated answer to a simple question. Let me make it more explicit.
+
+What if when the delegate comes back, we continue to get the self report as we do today, AND the delgation machinery mechanically derives a delta (I know we can already do this, It allows the AI to see changes I have made) that is returned with it to the primary
+
+Would that make sense? How big is such a delta? Regardless of size, I think it is necessary visibility?
 
 <!-- xgd-chat-end -->
