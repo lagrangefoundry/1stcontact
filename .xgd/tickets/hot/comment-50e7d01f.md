@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:28:34.633813+00:00'
+updated_at: '2026-09-27T21:33:34.267603+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2210,5 +2210,48 @@ Shall I scope it? It's two tickets: the framework side (capture the watermark ei
 <!-- xgd-chat role="user" ts="2026-09-27T21:28:34.337552+00:00" -->
 #### You
 One design choice worth making deliberately: `before`/`after` are identical in **82%** of `l1.set` records (they're text renderings, and padding/colour edits don't change text). So carry them **only when they differ** — that's near-full fidelity at near-envelope size, and it keeps the 18% where the text genuinely changed, which is exactly where you'd want it. <-- when I said a delta - I really meant a delta like diff before after - is that the wrong model?
+
+<!-- xgd-turn id="2db4de72-6a60-4eb2-9813-16f0d84b9a26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T21:33:33.881209+00:00" -->
+#### Claude
+Not the wrong model — it's the *right* one. It's just not what the journal gives you. And I can measure a real structural diff, because the worker's transcript holds both sides: `get_l1`'s result is the element before, `set_l1`'s input is the element after.
+
+My pairing is wrong — the "before" is coming back empty, so I'm mis-reading the payload shape. Let me look at the actual JSON.
+
+Your model is right, and better than what I described. I had the wrong mechanism in mind — I was reaching for the journal's `before`/`after`, which is a *text rendering for a human reading a change log*. A real tree diff is both smaller and far more informative. Measured on two of `3bje6q`'s writes where the transcript holds both sides:
+
+| | bytes | tokens | what it tells you |
+|---|---|---|---|
+| Full element (after) | 2,582 B | ~645 | everything, mostly unchanged |
+| Journal record | ~750 B | ~190 | *which path* — `before == after`, so nothing about the change |
+| **True structural diff** | **287 B** | **~72** | **exactly what changed** |
+
+The entire diff for one write is one line:
+
+```
+0.8.1.responsivePadding: <absent> → {bottomPx:{keyframes:[320:29, 375:29, 768:45, 1024:64]},
+                                     topPx:{keyframes:[320:5, 375:5, 768:7, 1024:10]}}
+```
+
+**15% of the element's size.** Extrapolated across the run: 5 writes ≈ 1.4 KB ≈ **360 tokens** for a complete, exact, field-level account.
+
+## Why this is the important version
+
+The diff **answers the consultant's actual accept checks mechanically**, which the journal envelope cannot:
+
+- *"the keyframe value at 1024 is identical to that element's static padding"* — visible in the diff.
+- *"No element's fontSizePx, colour, width, text or src was changed"* — provable **from the diff's shape alone**: nothing but `responsivePadding` appears in it.
+- *"reveal, sticky, stacked and zoom are all still present"* — same, by absence.
+
+That's four of five checks settled from 360 tokens with **zero trust in the worker**. My earlier "envelope, not a diff" framing was describing the wrong artifact.
+
+## How to derive it
+
+Snapshot the draft document before the delegation, diff the tree after. Not per-write accumulation — the brief itself warns *"addresses regenerate after every write"*, so path-keyed per-write diffs can misalign, whereas a single before/after tree diff is immune to that. Both reads and the diff are host-side and cost no tokens; only the diff enters the conversation. The watermark from `list_changes` (`set_l1` already returns `now`) gives you a free early-out when nothing changed.
+
+So: **yes, do it as a real diff.** It is smaller than the journal record, it survives a silent worker, and it converts most of the accept list from something the worker asserts into something the host demonstrates.
+
+Want me to scope it? I'd make it one ticket — snapshot-and-diff either side of `delegate`, returned on the result beside the self-report — rather than the two I split it into last turn, since a tree diff makes the `JournalRecord` change unnecessary.
 
 <!-- xgd-chat-end -->
