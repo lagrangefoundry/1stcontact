@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-26T21:26:31.801418+00:00'
+updated_at: '2026-09-27T20:42:19.946241+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4266,5 +4266,193 @@ The landscape is machine-generated, so this can't be patched by hand. Whatever r
 DOC-33 has now been contradicted by three independent passes — CHAT-21 (motivation), DOC-35 §10 (the decision-set/order weld), and LF (observed behaviour). All three say restructure, not amend. Beyond DOC-35 §10.2's four, a revision needs: variants as the primary decision instrument up front with DOC-35 §9.5's dose; every stage carrying an artifact or being marked optional; the plain pass retired in text; the design-system lock moved or dropped; engagement as extraction; and a ledger that can say `section` / `state` / `supersedes` — §5's whole routing mechanism depends on fields `record_decision` doesn't have, which is why LF's ledger is 47 flat "Decision N" entries with D27 and D28 identical.
 
 All of this is Finding 13 on EPIC-19, with the tables. Nothing filed — tell me whether you want the rewrite as a revised DOC-33 or as the sibling doc CHAT-21 proposed, and I'll scope it.
+
+<!-- xgd-turn id="c899c8df-a213-4de1-a424-7b2527c83faf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:16:04.655850+00:00" -->
+#### You
+I've been thinking about this and I have a fairly radical idea - we have two agents, one (call it Alice) is the craftsperson the expert designer, the other (call it Bob) is the executive assistant.
+
+Alice is the consultant that I have been working with all along - and Opus 5+ level model with judgement and opinions. Bob is a basic model (Haiku?) that keeps everything on track, it checks progress against the plan, drives check ins with the user provides the executive container for the conversation.
+
+There are two other pieces in my vision here: 
+(1) A shared project data structure - we have the start of this now with our decisions that are being recorded. I think this also needs a task list and a plan. I don't recall where our decisions are being recorded - in a ticket? The chat ticket or a different one? We should drill into this
+
+(2) Interaction widgets that either AI can insert into the chat stream. We already have this implemented for "User Questions" from Claude. We would create some others - a todo list that could display the task list and the state of the tasks, a questionairre that could ask questions of the user and have them select different options. etc.
+
+What are your thoughts - lets stick with the UX and AX for now and worry about the implementation when we have enough clarity
+
+<!-- xgd-turn id="c899c8df-a213-4de1-a424-7b2527c83faf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:22:14.390159+00:00" -->
+#### Claude
+I'll verify where the project state actually lives before designing on top of it — that's the one factual question in there.
+
+Delegation landed since we parked it. Let me get the details.
+
+Now the widget mechanism — that's the pattern any new widget inherits.
+
+Found the card mechanism — it's in the framework's chat component. Let me read its contract.
+
+Three of your four pieces already exist in part — including one you asked about and one you'd forgotten you'd built. Recorded as Finding 14; here's the substance.
+
+## Where the decisions live — the chat ticket
+
+| what | where |
+|---|---|
+| ledger — `### Decision N` | the **chat** ticket's **body** |
+| standing note | `fields.frame` on the same chat ticket |
+| feed cursor, unaccounted turn | `fields.kb_cursor`, `fields.pending_turn` |
+
+The body rather than a comment for a stated reason: the knowledge component indexes a ticket's **title and body and not comments**, so a ledger in a comment would be unsearchable, and a chat ticket with an empty body contributes a content-free vector to the client's corpus.
+
+Two consequences that bear directly on your design:
+
+**There is no plan, no task list, no position, and no state on a decision.** LF's ledger is 47 flat `Decision N` entries — no section, no `open`/`inherited`/`parked`, no `supersedes`. Same gap Finding 13 found from the playbook side.
+
+**The identity is the conversation, and the engagement outlives it.** DOC-33 §2 says Act I runs *once per client, ever*. LF spans days, many sittings and several lost sessions — and this epic has watched that ticket brick twice and be hand-repaired once. **A plan keyed on the chat ticket dies with the chat ticket.** I'd put the structure on the business.
+
+## The two-model split already shipped — pointing down, not across
+
+`claude` = `claude-opus-5` @ 64000. `claude_builder` = **`claude-haiku-4-5`** @ 32000. `delegation.json`: `enabled: true`. REQ-295 adopted the surface Finding 1 flagged as built-and-unconsumed, so Alice-delegates-to-Haiku is live today.
+
+But a worker is *subordinate and transient*: its system prompt is its role's priming, its only input from Alice is one brief turn (goal + `accept` checks), it can't converse and it reports once. **Bob is a different topology, not a second instance of that one** — peer and durable, not subordinate and transient.
+
+## The widget channel exists end to end. We adopt none of it.
+
+`cards.js` is vendored into `apps/control-app/dist-assets/webui/webui-chat/src/` — `createCardRegistry`, kind→renderer, unknown kinds render a visible non-throwing fallback. `mountChat` takes `{cards, cardRegistry}`. The protocol has `cardEvent`/`addCard`, and `manager.answerCard` resumes a paused turn. **`apps/control-app/src/` contains zero registrations and emits zero cards.** Fifth adoption gap this epic.
+
+The "User Questions" you remember is `interactive.js` → card kind `claude_code_question` — the *CLI* backend, where a question is a protocol event. **`ClaudeAPIBackend` has no card emission path at all.** But the API shape is simpler than the CLI one: **a tool that posts a card and whose result is the client's answer.** The model already understands call-a-tool-get-a-result; the tool call *is* the pause. That's the one genuine build in your vision.
+
+## Where I'd push back
+
+**Bob should not be in the conversational path.** A broker adds a round trip to turns already running 2–9 minutes, and hands the product's hardest judgement — register — to the cheap model. What makes Alice good is unmediated contact with the client's own words and hesitation.
+
+And the evidence says an executive *container* isn't the missing thing. Finding 13: 24 of 102 turns offered options, 45 asked a direct question — Alice isn't passive, she's **positionless**. She has nowhere to stand, because nothing represents where the engagement is.
+
+So: **Bob's output is state, not prose.** He reconciles what happened against the plan, writes task state and position, and that arrives in Alice's next turn as *fact* through the digest channel. That's the whole argument — coaching prose is measurably ignored (2 of 102 turns carried process language) while the page digest is demonstrably worked from. A gate is a checkable condition; leadership falls out of it without exhortation.
+
+Four rules I'd hold:
+
+- **Write authority splits by kind.** Alice owns decisions (judgement); Bob owns task state and position (bookkeeping). Bob must never open or settle a decision, or design calls land on Haiku.
+- **One shared representation.** Bob keeps no notes of his own — otherwise the two world models diverge and the client hears it.
+- **Bob may narrate the wait.** The one place a second voice is clearly additive: nine silent minutes currently read as failure, and a cheap fast agent saying what Alice is building costs almost nothing. Narrator of a wait, never broker of an exchange.
+- **Bound what Alice may create.** 61 note rewrites and 45 decisions in one engagement. Give her a task list and she'll make forty items unless the shape forbids it.
+
+## On the widgets specifically
+
+**The standing plan belongs in a panel, not the stream.** A stream is chronological; a plan is current. A to-do list pasted into history is stale misinformation six turns later — and a stream widget *demands* a response where a panel can be glanced at and ignored. That's precisely what makes it flexible structure rather than hoops. Reserve in-stream widgets for *moments*: "those three are done — move to X?"
+
+**A widget's value is that it's answerable without vocabulary.** That's the register problem solved structurally rather than by inference: two rendered pages and "which of these?" needs no shared language. Your variant discovery, generalised. It must never be a form — the client can always ignore it and type.
+
+**Keep questionnaires to facts only the client has** — hours, phone, service list. Never taste. Both CHAT-21 and the LF evidence say taste gets settled by choosing between rendered artifacts, not by answering questions about them.
+
+## Three things I need from you before this is designable
+
+1. **The structure's identity** — business, site, or conversation. I'd say business.
+2. **Does Bob ever speak?** My answer is: only as narrator of a wait.
+3. **Panel or stream for the standing plan?** I'd say panel, with widgets for moments.
+
+<!-- xgd-turn id="a2bbb82c-a6e8-4662-aa3d-69612683a3b4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:39:40.828711+00:00" -->
+#### You
+**Bob should not be in the conversational path.** A broker adds a round trip to turns already running 2–9 minutes, and hands the product's hardest judgement — register — to the cheap model. What makes Alice good is unmediated contact with the client's own words and hesitation.n <--- so lets discuss this. I think you may be wrong - my thought is to absolutely have a GROUP chat. 
+
+We just need to establish the roles correctly, Alice is the consultant, Bob is the executive assistant - this exists and works well in the human world. Yes Alice makes the judgement calls, but its context is free from having to worry about "what comes next" - Bob does that for it.
+
+**Bob may narrate the wait.** The one place a second voice is clearly additive: nine silent minutes currently read as failure, and a cheap fast agent saying what Alice is building costs almost nothing. Narrator of a wait, never broker of an exchange. <-- oh that's an interesting idea
+**A widget's value is that it's answerable without vocabulary.** That's the register problem solved structurally rather than by inference: two rendered pages and "which of these?" needs no shared language. Your variant discovery, generalised. It must never be a form — the client can always ignore it and type. <-- that is one of the values - I can also see value in a ToDo list card for instance that is non-interactive - it is a graphical representation of structured data
+
+**Keep questionnaires to facts only the client has** — hours, phone, service list. Never taste. Both CHAT-21 and the LF evidence say taste gets settled by choosing between rendered artifacts, not by answering questions about them.** <-- No not taste, but I could imagine a list of possible features..."Which of these do you need on your website:**
+**[] contact form**
+**[] blog**
+**[] recurring payments**
+**..."**
+
+**The structure's identity** — business, site, or conversation. I'd say business. <-- I don't understand the question we are designing a conversational UX/AX for building business websites...
+
+- **Does Bob ever speak?** My answer is: only as narrator of a wait. <-- I don't agree with you yet, lets play it out. 
+- **Panel or stream for the standing plan?** I'd say panel, with widgets for moments. <-- what is the diffence between a panel, a widget and a stream?
+  
+  Lets take a moment on vocabularly. I used the word widget, but I was reaching for "card" I think that is what we called them - lets refer to custom UI that can be dropped into the conversation stream as cards. These can be interactive (buttons, check boxes, sliders) but don't have to be. They can display structured data in a mini-UI. For now lets assume that they are dropped into the conversation stream
+
+<!-- xgd-turn id="a2bbb82c-a6e8-4662-aa3d-69612683a3b4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:42:19.497778+00:00" -->
+#### Claude
+Two concessions and one genuine correction to what I said. Let me check something first, because it decides the live-to-do-card question.
+
+Two of your three pushbacks land, and one changes Finding 14. Let me answer the vocabulary question first since it's load-bearing.
+
+## Vocabulary
+
+- **stream** — the chronological conversation itself. Scrolls. Append-only.
+- **card** — custom UI dropped into the stream. Interactive or not. Your word; adopted, and it matches the code, which already calls them cards (`card_kind`, `cardRegistry`, `cardEvent`).
+- **panel** — persistent UI *outside* the stream. We already have several: the site preview pane, the Library, the tool pane, the summary pane. Doesn't scroll away, isn't tied to a moment.
+
+So "panel vs stream" was: does the plan live in a place that persists, or at a point in the conversation. Which I'll come back to, because I found something that reframes it.
+
+## On the group chat — you're right, and I was arguing against a different topology
+
+I conflated two shapes. **Pipeline**: client → Bob → Alice → Bob → client. That's the one with the round trip and the register filtering, and my objection to it stands. **Group**: all three on one stream, Alice speaks to the client directly, Bob speaks directly, everyone sees everything. Bob's turns are concurrent with Alice's, not in series with them.
+
+Your shape is the second. No round trip is added, nothing gets filtered, and the human precedent is real — a consultant with a good EA in the room is more effective, not less, and the client talks to both.
+
+There's a win I'd missed, too: **the client can address Bob.** "What's left?" and "actually, skip the blog" become cheap remarks to the assistant rather than challenges to the consultant's judgement. Today, correcting the plan means arguing with the person who proposed it. A separate addressee makes plan correction low-stakes — that's a UX gain no panel gets you.
+
+**But your stated goal — freeing Alice's context from "what comes next" — does not follow from group chat by itself.** If Bob's forty clerical turns land in Alice's message history, Alice's context gets *bigger*, and she now has process chatter in it. The mechanism has to be asymmetric:
+
+> **A group chat in the UI need not be a group chat in the context.** The client sees three participants on one stream. Alice receives the plan's *current state* — small, structured, injected as fact — and not Bob's transcript. Bob receives the conversation, because reconciling is his job.
+
+That's the thing to design deliberately, and it's what makes the context relief real rather than nominal. It also has precedent in what already works here: the page digest reaches Alice as compact fact every turn and is demonstrably worked from, while prose coaching is ignored in 100 of 102 turns.
+
+## What group chat makes us design
+
+**Bob's register, narrowly.** Not "Bob speaks like a cheap model" — the risk is subtler: if Bob ever offers an opinion about the website, the product has two consultants and one of them is Haiku. An EA works in the human world *because* everyone can tell the difference. Bob tracks, schedules, reminds, lists, confirms. He never says "that's a nice choice."
+
+**Addressing discipline.** The client types "let's do the blog next." That's simultaneously a plan change (Bob's) and a design commitment (Alice's). Who answers? Both answering is worse than either. This is the core mechanic and I think it's where the design actually lives — worth playing out on concrete exchanges, which is what you're proposing.
+
+**Narration composes for free.** Once it's a group chat, Bob narrating the wait isn't a special feature — it's just Bob's ordinary turn during Alice's long one. Nice property of your shape.
+
+## Non-interactive cards — conceded, and I found the thing that breaks them
+
+You're right that I framed cards too narrowly around answerability. The code agrees with you: a card's `id` is documented as "empty for display-only," so non-interactive is already first-class.
+
+But two facts from the vendored source:
+
+**A card element persists and is addressable.** `getCards()` returns `{id, element}` and the panel retains the element it rendered. So a to-do card *can* be mutated in place — live cards are supported by the existing structure.
+
+**Cards do not survive a reload.** Transcript replay goes through `appendMessage(role, markdown)` — **markdown only**. Cards are stream events and aren't in the transcript. The client comes back tomorrow and every card in the history is gone.
+
+Which points at the unification of your two pieces, and I think it's the real design principle here:
+
+> **A card is a projection of the shared structure, not a message.** If the to-do card renders a slice of project state, then live-update and reload-survival both fall out for free, and the panel-vs-stream question mostly dissolves. If it's a one-shot message, both are broken and the plan is stale six turns later.
+
+That's why (1) and (2) in your vision are one thing, not two. The structure is the model; cards are views of it.
+
+## Feature checklist — conceded
+
+Not taste, requirements. My rule was too broad; a feature list is exactly the kind of fact only the client has.
+
+One caution survives, and it's about the rendering rather than the idea: **a checkbox list gives every item equal visual weight, which implies equal cost.** "Contact form" and "recurring payments" are not the same size, and the card as drawn says they are. Wix ADI's feature picker produced bloated sites for roughly this reason — clients check eight boxes, use three, and five half-built pages decay. So: short list, and framed as *what we build first* rather than a catalogue.
+
+## The identity question, concretely
+
+Not about what we're designing — about what the plan is *attached to*, and therefore how long it lives. Three scenarios:
+
+- The client closes the tab and comes back in three weeks. New conversation. **Is the plan still there?**
+- The chat ticket gets lost or bricked — which has happened twice during this epic. **Does the plan go with it?**
+- The business wants a second site later. **One plan or two?**
+
+Today decisions live in the chat ticket body, so the answer to all three is: gone, gone, and undefined. If the plan hangs off the business, it survives all three.
+
+The genuine ambiguity is that it may be two layers: "get this business online" is per-client-forever (DOC-33's Act I), while "build this site" is per-site. Worth settling, but not before the group-chat mechanics — those will tell us what state actually needs to exist.
+
+---
+
+I've corrected Finding 14 on the epic: group chat conceded with the pipeline/group distinction, the asymmetric-context requirement, non-interactive cards, the reload gap, and the feature-list concession. My position 1 and 6 are now withdrawn as stated.
+
+Want to play out the addressing discipline on a concrete exchange? That's where I think the remaining disagreement actually is — not whether Bob speaks, but who answers a message that belongs to both of them.
 
 <!-- xgd-chat-end -->

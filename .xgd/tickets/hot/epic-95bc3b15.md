@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-26T21:25:58.909013+00:00'
+updated_at: '2026-09-27T20:21:47.800837+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1376,3 +1376,138 @@ What a revision has to carry, beyond DOC-35 §10.2's four:
    indistinguishable from one nobody wrote.
 
 Nothing filed. This is analysis pending the operator's call on shape.
+
+
+---
+
+## Finding 14 — The two-agent proposal (Alice / Bob), measured against what already exists
+
+The operator's proposal: **Alice**, the craftsperson — the existing consultant on an
+Opus-class model, judgement and opinions — and **Bob**, an executive assistant on a
+cheap model that tracks progress against a plan, drives check-ins and provides the
+executive container for the conversation. Plus (1) a shared project data structure
+holding decisions, a task list and a plan, and (2) interaction widgets either agent
+can insert into the chat stream.
+
+Three of the four pieces already exist in part. Measured state, 2026-09-27:
+
+### 14.1 The two-model topology is already live — as delegation, not as an executive
+
+| | |
+|---|---|
+| `backends.json` → `claude` | `claude-opus-5`, `max_tokens` 64000 — Alice |
+| `backends.json` → `claude_builder` | `claude-haiku-4-5`, `max_tokens` 32000 |
+| `delegation.json` | `enabled: true`, `workers: { builder: { backend: claude_builder } }` |
+
+REQ-295 adopted lagrange-framework REQ-148's `delegation` surface, which Finding 1
+of this epic recorded as built-upstream-and-unconsumed. So the expensive-judgement /
+cheap-construction split shipped. **Its direction is downward**: Alice holds the
+engagement and hands bounded pieces of work to a worker whose system prompt is its
+role's priming and whose only input from Alice is one brief turn (goal + `accept`
+checks). The worker cannot converse, cannot see the client, and reports once.
+
+Bob is a *different* topology, not a second instance of this one. A worker is
+subordinate and transient; an executive is peer and durable.
+
+### 14.2 Where the decisions actually live — the operator's question
+
+**The chat ticket.** Not a comment, not a separate ticket.
+
+| what | where |
+|---|---|
+| engagement ledger (`### Decision N`) | the `chat` ticket's **body** |
+| standing note | `fields.frame` on the same chat ticket |
+| feed cursor / unaccounted turn | `fields.kb_cursor`, `fields.pending_turn` |
+
+`ledger-core.ts` records why the body: the knowledge component indexes a ticket's
+title and body and **does not index comments**, so a ledger in a comment would be
+unsearchable and a chat ticket with an empty body would contribute a content-free
+vector to the client's corpus. `fields.frame` is the framework's `SummaryStore`
+frame zone re-homed onto the same ticket (REQ-283) — rewritten in place, capped via
+upstream's own `checkFrame`, raising rather than truncating.
+
+Consequences for a shared project structure:
+
+- **There is no plan, no task list, no position, and no state on a decision.** LF's
+  ledger is 47 flat `Decision N` entries — no `section`, no `inherited`/`open`/
+  `parked`, no `supersedes`. Finding 13.9 item 7 is the same gap seen from the
+  playbook side.
+- **The identity is the conversation, and the engagement outlives it.** DOC-33 §2:
+  Act I "runs once per client, ever." The LF engagement spans days, many sittings
+  and several lost sessions. A plan keyed on the chat ticket dies with the chat
+  ticket — and this epic has watched that ticket brick twice (Findings 12, and the
+  D1 ceiling work) and be repaired by hand once (BUG-116).
+- So the structure's home is a **question to settle before anything is built**:
+  business, site, or conversation. Analysis favours the business — it is the only
+  identity that matches "once per client, ever" and survives a lost conversation.
+
+### 14.3 The widget channel exists end to end, and 1stcontact adopts none of it
+
+lagrange-framework REQ-14 built it:
+
+| layer | artifact |
+|---|---|
+| stream protocol | `stream.js` `cardEvent(cardKind, payload, {id})`; `response.js` `addCard` |
+| resume | `manager.answerCard` — answers an interactive card, resuming the paused turn |
+| client registry | `webui-chat/src/cards.js` — `createCardRegistry`, kind → renderer, unknown kind renders a visible non-throwing fallback |
+| panel wiring | `mountChat({ cards, cardRegistry })`, `getCards()`, `answerCard` hook |
+
+It is vendored into this repo at
+`apps/control-app/dist-assets/webui/webui-chat/src/cards.js`. **1stcontact registers
+zero renderers and emits zero card events** — `createCardRegistry` / `card_kind` /
+`cardRegistry` appear nowhere in `apps/control-app/src/`. Fifth instance of this
+epic's standing pattern (after delegation, the development surface, agent/summary,
+and the product tier).
+
+**The one genuine gap.** The only emitter is `interactive.js` — the bidirectional
+Claude Code CLI backend, where a permission prompt or `AskUserQuestion` arrives as a
+protocol event and maps to card kind `claude_code_question`. That is the "User
+Questions" the operator remembers, and it belongs to the *CLI* path. `ClaudeAPIBackend`
+— what this product runs on — has no card emission path at all.
+
+For the API backend the natural shape is different and simpler: **a tool that posts a
+card and whose result is the client's answer.** The model already understands
+call-a-tool-get-a-result; the pause is the tool call, and no new turn-suspension
+concept is needed on the model's side. That is the framework piece to build.
+
+### 14.4 Design position on the division of labour
+
+Recorded as analysis, not as a decision:
+
+1. **Bob should not be in the conversational path.** A broker between Alice and the
+   client adds a round trip to turns that already run 2–9 minutes, and hands the
+   product's hardest judgement — register — to the cheap model. What makes Alice good
+   is unmediated contact with the client's own words and hesitation.
+2. **Bob's output is state, not prose.** He reconciles what happened against the plan
+   and writes task state and position into the shared structure; that structure is
+   injected into Alice's next turn as *fact*, through the per-turn digest channel
+   already proven to work (`page-digest`). Finding 13's measurement is the argument:
+   coaching prose is ignored (2 of 102 turns carried process language) while the page
+   digest is demonstrably worked from.
+3. **Write authority splits by kind.** Alice owns decisions — judgement. Bob owns task
+   state and position — bookkeeping. Bob must not be able to open or settle a
+   decision, or design calls land on Haiku.
+4. **One shared representation, not two.** A planner whose picture comes from a summary
+   while the craftsperson's comes from the live conversation will diverge, and the
+   client will hear it. Bob keeps no notes of his own.
+5. **Bob may narrate the wait.** The one place a second voice is clearly additive:
+   nine silent minutes currently read as failure, and a cheap fast agent saying what
+   Alice is doing costs almost nothing. Narrator of a wait, never broker of an exchange.
+6. **The standing plan belongs in a panel, not the stream.** A stream is chronological;
+   a plan is current. A to-do list pasted into history is stale misinformation six
+   turns later, and a stream widget demands a response where a panel can be glanced at
+   and ignored — which is what makes it flexible structure rather than hoops. Reserve
+   in-stream widgets for *moments*.
+7. **A widget's value is that it is answerable without vocabulary** — the register-free
+   channel. Two rendered pages and "which of these?" needs no shared language, which is
+   Finding 13's variant result generalised. It must never be a form: the client can
+   always ignore it and type instead.
+8. **Restrict questionnaires to facts only the client has** — hours, phone number,
+   service list. Never to taste; CHAT-21 and Finding 13 both say taste is settled by
+   choosing between rendered artifacts, not by answering questions about them.
+9. **Bound what Alice may create.** Measured over one engagement: 61 standing-note
+   rewrites and 45 decisions. Given a task list she will generate forty items unless
+   the shape forbids it — tasks should mostly be instantiated from the plan, with a cap.
+
+Nothing filed. Analysis pending the operator's call on (a) the structure's identity,
+(b) whether Bob ever speaks, (c) panel vs stream for the standing plan.

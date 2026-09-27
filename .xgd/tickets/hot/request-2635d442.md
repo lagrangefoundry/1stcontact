@@ -6,9 +6,9 @@ title: 'fold: a captured wrapper rotation is dropped so four collage photographs
   unturned, and a translucent border colour is flattened to opaque'
 created_by: repro-console:repro-faelan-com#3
 created_at: '2026-09-27T00:56:43.019398+00:00'
-updated_at: '2026-09-27T20:09:46.397657+00:00'
+updated_at: '2026-09-27T20:47:37.169248+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -563,3 +563,145 @@ diff of every key.
 The second line is the test that separates a real fix from a suppression: the
 list must be non-empty **now** and empty **after** issue 1, and a change that
 only ever prints `[]` passes neither.
+
+
+---
+
+## What landed — the implementation, and the decisions the filing did not state
+
+All three issues are in one change, on one branch, in the order the summary table
+asked for. What follows records the parts that are a **technical consequence** of
+what was asked rather than something asked for directly, so the matrix has the
+language for them.
+
+### Issue 1 — `foldTransform`, read at every leaf branch
+
+A single `foldTransform(el): L1Transform | undefined` beside `foldMask`, called
+from all three leaf branches — **text, image and box** — because `transform` is a
+node field on `nodeAxisGroupsShape`, not an image axis. The filing asked for this
+(*"whoever fixes this should fix it where every leaf can reach it"*); the tests
+pin a rotated run and a rotated panel alongside the four photographs.
+
+Three decisions the filing left open:
+
+- **The identity is not a transform.** `rotate(0deg)` / `scale(1)` move no pixel,
+  and emitting one would cost a composite layer and promote the node into the
+  positioned paint layer for nothing — the same reason `foldFilter` drops an
+  identity function. So `rotateDeg === 0` and `scale === 1` yield no `transform`
+  key at all, not a `transform` containing an identity.
+- **An out-of-envelope value is DROPPED, not clamped.** `L1_ENVELOPE.rotateDeg` is
+  ±3600 and `L1_ENVELOPE.transformScale` bounds the scale; `validateL1` *refuses*
+  a document that breaches either, which would cost the whole fold — every element
+  of it — over one absurd value on one node. A ten-turn rotation is also not a
+  design that can be half-honoured, so the axis is dropped and the document still
+  validates. **The drop is not silent: it is exactly what issue 3's residual
+  reports**, which is how the two halves check each other.
+- **Both terms are rounded to 2dp** (`round2`), on the same terms as every other
+  captured length the fold carries — a computed-style rotation arrives with float
+  noise and two spellings of one angle is drift.
+
+The filing's *"will not create new layout findings"* is pinned as a measurement
+rather than left as a promise: a turned photograph and an untouched one fold to
+**identical geometry keyframes**, because a CSS transform paints outside the
+layout box without changing it.
+
+**One pre-existing expectation inverted.** `reconciliation-l1-fold-full-language.test.ts`
+(AC-732) asserted `rotated.transform` was `undefined`, on the stated premise that
+*"the pinned geometry is already post-transform, so these must NOT be folded"*.
+That premise was true when it was written and is not now: **REQ-333 changed `box`
+to the element's LAYOUT box, with the rotated rect recorded separately as
+`clip`** — so replaying the rotation no longer applies it twice, it paints what the
+page paints. The expectation moves with the premise, to `{ rotateDeg: 12, scale:
+1.4 }` plus the two CSS terms. The **mask** half of that same assertion is
+unchanged and still `undefined` (a feather is a box-shaped edge and a run is not
+that box) — but it is no longer silent, because issue 3 now files a residual
+naming `maskEdge` on that very leaf.
+
+### Issue 2 — four stages move together, and none of them shows alone
+
+1. **Capture** — `rgbToHexA`, an alpha-preserving sibling of `rgbToHex` inside
+   `EXTRACT_SCRIPT`, used for the border colour (`boxBorderOf`), the **left-border
+   accent chain** (`borderLeftColor`, which the filing did not name but is the same
+   read and the same loss), the outline colour and the run colour. `rgbToHex` keeps
+   its contract for the **composited** family — a colour the capture has already
+   resolved against what sits behind it (a band fill, a palette sample) — which is
+   what that contract was always right about.
+2. **An opaque colour is still written in SIX digits**, not eight. This is what
+   makes the change not a re-capture-the-world change: every value already recorded
+   stays byte-identical and only gains digits where there were digits to add. It is
+   also the spelling `colorToHexAlpha` already uses on the TS side — two spellings
+   of one value is drift.
+3. **Fold** — `foldBorder` and `foldBorderLeftAxis` use `colorToHexAlpha`. This is
+   not merely a truncation fix: `colorToHex`'s hex branch takes three or six digits
+   and **slices**, so it would have *re-flattened* the 8-digit literal the capture
+   now writes. The **text-colour path needed no change** — `el.color` passes
+   straight into the `color` axis without going through `colorToHex` — which is
+   worth recording because the filing listed it as a site to change.
+4. **Comparator** — the alpha is compared **beside** ΔEOK on both the `border` and
+   the `color` axes. This is the consequence the filing did not state and without
+   which nothing shows: `colorDistance` resolves each side through `colorToHex`, so
+   ΔEOK alone reads `#ffffff4d` and `#ffffff` as the **same colour** and a
+   30%-white ring reproduced solid white scores zero. REQ-331's `SHADOW_ALPHA_TOL`
+   is therefore renamed `COLOR_ALPHA_TOL` and shared by all three axes — one
+   tolerance because it is one question, and the alpha step is reported at the
+   existing `color` / `border` axis rather than as a new axis, because it is the
+   same value.
+5. **Object card** — `border` is a **fixed** row on the image card, not an
+   appended-on-delta one. A border delta did reach the card once one fired (the
+   append pass catches any unmapped property), so the gap was never that it could
+   not appear — it was that a reader could not see the ring **on either side** to
+   notice the two disagreed. A fixed row says what both sides painted even when
+   they agree.
+
+**Two false-positive guards** are pinned: the same translucency on both sides is
+not a delta, and an opaque colour compares exactly as it did before.
+
+### Issue 3 — the residual becomes a per-axis fact
+
+`signalDropped(el, node, widths)` beside the existing `signal(...)`, called at all
+three leaf branches after the node is built. It reports the set difference between
+what `capturedAxesOf` found on the element and what the node the fold produced
+actually carries — the filing's proposed shape, with two additions it did not
+state:
+
+- **`axisCarriedBy` returns THREE answers, not two.** `false` claims a drop, and a
+  false claim is worse than silence here: this list is the completeness signal the
+  growth loop reads (DOC-21), so a row nobody can act on costs more than a row
+  that is missing. `undefined` is therefore the honest answer wherever the axis has
+  no destination **on the node** — a text run's `surfaceFill` / `surfaceGradient` /
+  `border` / `borderRadiusPx` / `boxShadow` are read off the enclosing card and
+  carried by the card/band boxes rebuilt *after* the fold's loop, not by the text
+  node; `intrinsicAspect` is a property of the asset with no L1 field; and
+  `accessibleName` is a name, not a painted axis. Judging any of them from the node
+  would file a residual for every run on every page with a background colour.
+- **`CapturedAxis` is a named union rather than `string`**, and `axisCarriedBy` is
+  an exhaustive switch over it. Adding an axis to `capturedAxesOf` is now a
+  **compile error** until somebody says whether an emitted leaf carries it. That is
+  the standing guard against the instrument going blind the same way twice —
+  `transformRotateDeg` was already in that vocabulary and reported on nothing.
+
+The vocabulary being per-axis means it reports **more** than the axis that sent
+it: a `maskEdge` on a text run is folded by no text branch, and that is now an
+audible framework gap rather than a silent one.
+
+**Both directions are pinned, which is what separates a fix from a suppression:**
+a dropped axis on an emitted leaf is named (a live instance, via the
+out-of-envelope rotation above), and the four-photograph collage that issue 1
+fixes reports `[]` — empty for the true reason, because the identical shape beside
+it is not.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-336_a_turned_photograph_and_a_translucent_ring.test.ts` —
+15 UATs across the three issues. The capture leg is driven through the **real
+`EXTRACT_SCRIPT` under jsdom** rather than against a recorded artifact, because
+the artifact is exactly what was wrong. Every number in it is faelan.com's own,
+inlined rather than read, because the reference bundle is untracked.
+
+Regression scope run green: 48 test files / 367 tests across the fold, capture,
+values-diff, gate, L1-surface/envelope and residual-consumer suites, plus
+`tsc --noEmit` on `tools/generate`.
+
+**Issue 2 still needs a [recapture]** before this bundle's evidence moves, as
+filed — `1c refold` re-derives the fold from an oracle whose alpha was already
+lost. Issue 1 needs only a `1c refold`.

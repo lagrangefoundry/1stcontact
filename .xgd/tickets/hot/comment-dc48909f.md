@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-27T20:09:08.166212+00:00'
+updated_at: '2026-09-27T20:39:49.534725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,84 @@ Two things to settle before I'd write anything down:
 2. **Is hover-driven illustration in scope for this ticket, or is ambient motion enough for now?** That's the B-versus-C fork, and it decides whether this is one ticket or two.
 
 I've made no code changes. Tell me which way you're leaning and I'll scope the ticket body to match.
+
+<!-- xgd-turn id="c99190b5-9d52-4c70-bbe4-11baa19e3b76-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:24:06.045643+00:00" -->
+#### You
+There's a lot of details that I am not following here.
+
+I hear you see 3 "Walls". 1 and 2 have relatively straightforward fixes, Wall 3 has more structural issues that you can't see easy changes to satisfy?
+
+Rather than getting into the implementation weeds can you tell me what capabilities I can get with the easy fixes, and what capabilities remain blocked please?
+
+<!-- xgd-turn id="c99190b5-9d52-4c70-bbe4-11baa19e3b76-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:24:46.233078+00:00" -->
+#### Claude
+Let me restate the shape, because I'd put the line in a slightly different place than you did.
+
+**Wall 2 is the genuinely easy one.** The machinery for it already exists — I'd be reusing what REQ-325/328/329 built, not inventing anything.
+
+**Wall 1 is cheap to *unlock* but not cheap to do *cleanly*.** Flipping the switch takes an afternoon. But motion inside a drawing is motion the platform cannot turn off — a visitor who has asked their OS for "no animation" gets it anyway, and our own screenshot gate starts photographing a moving target. Doing it properly means routing it through the renderer, which is real work. So it's not in the same bucket as Wall 2.
+
+**Wall 3 is structural**, yes — and the important thing is that Wall 1 does *not* get you a discount on it. They look adjacent but they're different features.
+
+---
+
+## What the easy work buys you
+
+**Whole-illustration motion, on a loop, on a trigger you choose.**
+
+- A plate that **breathes, pulses, drifts or slowly rotates**, indefinitely, not just once on arrival.
+- Motion that starts **on page load, on hover, or when it scrolls into view** — your pick per element.
+- **Several motions layered on one element** — drift while it also fades in — with the platform refusing the combinations that would silently cancel each other out.
+- Full control of the timing feel: duration, easing, how many repetitions, whether it reverses.
+- All of it **honours "no animation" preferences** and degrades to your static design, because it's built on the path that already does that.
+
+Concretely: your field-lines plate can drift. Your spiral can breathe. A diagram can pulse gently under the cursor and settle when the cursor leaves.
+
+**If we also unlock the drawing surface** (Wall 1), you additionally get ambient motion *inside* a single drawing — parts moving independently of each other, which whole-element motion can't do. Field lines that actually drift relative to a fixed frame. That's a real gain, and it's the one that carries the reduced-motion compromise.
+
+---
+
+## What stays blocked
+
+**Anything the cursor drives inside a drawing.** This is the centre of what you described, and it's worth being blunt: *"the arms begin to draw each other on hover"* is not reachable by the easy work, and not reachable by unlocking the drawing surface either.
+
+The reason is simple and not about our rules. A drawing reaches the page as an image, and browsers deliberately make images deaf to the mouse — an image cannot know the cursor is over it. Motion *inside* it can only be ambient: started on load, running on its own clock, unaware of the visitor. Even the one attribute you flagged as "most of what I actually wanted" — the hover trigger — does nothing from inside an image.
+
+So, specifically blocked:
+
+- **The lever that lifts its load when you point at it.** Hover-triggered, part-level.
+- **The diagram that assembles itself element by element on approach.** Sequenced, part-level, triggered.
+- **The portrait whose eyes follow the cursor.** Needs to know where the cursor is.
+- **Any sequence where one part moves and another deliberately holds still, on demand.**
+
+Fixing that class means the page holding the drawing *directly* rather than as an image — which is Wall 3, and it's a real project: new vocabulary for naming a part, and a chunk of our capture-and-verify pipeline to teach.
+
+**Also blocked, and I'd suggest writing it off:** turning an existing PNG into something with movable parts. There's no path to it in the codebase and nothing that grows into one cheaply. Realistically the answer is "if you want an illustration to perform, author it as a drawing, not a PNG."
+
+---
+
+## The decision I'd put to you
+
+The easy work gets you **ambient** — illustrations that are alive but not *responsive*. It's genuinely more than you have and it ships soon.
+
+Your ticket's own framing — "comes to life **under the cursor**" — is the responsive kind, and that's the structural project.
+
+So: **do you want the ambient version now, or is the responsive version the actual ask?** If it's the latter, I'd rather scope this ticket to that and not spend effort on the drawing-surface unlock, since it buys nothing toward it and costs us the "no animation" guarantee.
+
+Nothing changed in the code. Say which and I'll scope the ticket.
+
+<!-- xgd-turn id="4b3d2ad9-6751-4b2d-bcbe-47a280660022-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:39:48.616106+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
