@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:56:35.619365+00:00'
+updated_at: '2026-09-27T22:58:29.301748+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4754,5 +4754,80 @@ You are talking about hiding the plumbing - I'm not sure that I agree. I think t
 Here's my turn and I'm going to deliberately make it tricky because we have no control over user input:
 
 Martin: Ok, this is starting to come together. @Alice can you put a replacement font in place so I can take a look. @Bob can you run us through the list of where we are and what we still have to do, please? Can you also talk about a blog section and lets go back to that background color it is still a bit muddy for my liking.
+
+<!-- xgd-turn id="e7ba4e4f-02c7-48e5-bc26-d81695e36c83-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T22:58:28.664864+00:00" -->
+#### Claude
+Your turn broke one of my rules in the first sentence, which is the point of doing this. Let me play it, then account for the damage.
+
+---
+
+> **Bob** — Mine first, so Alice can get working.
+>
+> ┌─ **Where we are** ────────────────────────────────────────────────┐
+> │ ✓ what the site does ✓ who it's for ✓ homepage direction (A)      │
+> │ ✓ workshop line                                                  │
+> │ ◐ **homepage** — headline type in progress                        │
+> │ ○ the work — how the framing is shown                            │
+> │ ○ contact and hours                                              │
+> │ *blog — not on the list*                                         │
+> └──────────────────────────────────────────────────────────────────┘
+>
+> **Bob** — The background colour is Alice's and she has it. On the blog — you left that unchecked at the start, so it isn't on the list. Shall I add it to look at after the homepage, or do you want to get into it now?
+>
+> **Bob** — One receipt: that's the second time the background has come up. It last changed four turns ago when we went to A.
+
+> **Alice** — The font's already going in — that's the ten minutes I asked for, so you'll see it in a moment. I'll do the background in the same pass rather than make you wait twice.
+>
+> **Alice** — And you're right that it's still muddy. I know why: it's a warm grey that's sampling the frame moulding, so it's sitting too close to the frame and both go soft. I'm taking it colder and lighter — the frame should be the warmest thing on the page, and right now it's competing.
+>
+> **Alice** — On the blog, I'll push back once. A blog on a framing site is usually a graveyard — three posts and a gap since 2023, which reads worse than having nothing. But there's a version I'd argue for: not a blog, a record of work. *"1920s watercolour, foxed, reframed in tulipwood."* One photograph, two lines. Same effort as a blog post, and it's the gallery-standard proof rather than a claim about it — it does the job your nine years does, but for people who've never met you. If you want an actual blog, say so and I'll build one properly.
+>
+> **Bob** — Holding the blog as an open question, not on the list. Say the word and I'll add it either way.
+
+---
+
+## What your turn broke
+
+**One-turn-one-addressee is dead.** You put two explicit addresses and two undirected items in one message. So **the `@` addresses an item, not a turn** — a turn is a list of items, each with an owner, and routing applies per item. That's a smaller unit than I assumed and real input will always look like this.
+
+**The undirected items need a better default than "last speaker."** "Let's go back to that background colour" is undirected but unmistakably Alice's — because it refers to *a thing Alice made*. So three tiers, in order: **explicit `@` → subject continuity (who made the thing being discussed) → the chair.** That handles a multi-item turn where "last speaker" is meaningless.
+
+**The blog was the trap, and it splits cleanly.** Bob owns *whether it's on the list*; Alice owns *whether it's a good idea*. Bob must never answer "should I have a blog?" — but "you left it unchecked" is a fact, it's his, and it's genuinely useful. Your clipboard earns its keep right there: that answer exists only because the questionnaire happened.
+
+**"Still" is a receipt, and it's the best thing Bob does in this transcript.** Bob holding change history lets him say *second time* — no judgement, pure fact — and that's what tells Alice this is a complaint rather than a preference. A consultant who misses "still" is the passivity problem in miniature. I'd make this a standing Bob function: he notices repetition, and never interprets it.
+
+**Your four items produced batching without a feature.** Bob answered instantly; Alice folded two design items into one pass. That's your batch-and-notify idea arriving from ordinary handling.
+
+## You're right about the plumbing — I was sloppy
+
+I collapsed two different things under one word. **The plan and its state are the product**, and should be the most visible thing in it — that's the whole shared structure, and a client who can't see where they are can't correct the sequence. What I actually meant by plumbing is the *wiring*: plan state being serialised into Alice's turn, routing mechanics, cursor bookkeeping. That's invisible because it's not information, not because it's secret.
+
+So: **panel and cards, both**, and the reload finding settles why. Cards don't survive a reload — transcript replay is markdown-only — so the panel is the durable view and the card is the same state projected into a moment. One model, two renderings. Which is what we already said a card is.
+
+## Steering gate
+
+Agreed on a couple of turns, and I'd add a second condition that costs Bob no judgement at all: **drift is the client off-plan *and* Alice not engaging.** If Alice is actively working the tangent, it isn't drift by definition — she's the one who can tell it's material. So Bob's test is "is the expensive agent treating this as work?", which is observable rather than interpretive. In the Leeds gallery exchange that gate would have held Bob's note back on its own, without needing the veto.
+
+## Batch-and-notify
+
+Strong, and I'd put one boundary on it. The product's main advantage over a wizard is that the client corrects early — a 3-minute turn is 3 minutes of exposure before a wrong direction compounds. Batching five changes trades that away.
+
+So: **batch only mechanically independent changes, never across a phase boundary.** If change 3 depends on how the client reacted to change 2, the batch is invalid; and a phase boundary is exactly where a position gets taken. Within a phase, "fix the type, cool the background, tighten the mobile hero" is genuinely independent and batches safely.
+
+Two things it needs that don't exist: an out-of-band notification, or the client is still sitting there watching — and a **review surface**, because coming back to five changes is not a chat scroll. One card per change, with accept-or-revisit on each. Note that's a card whose whole purpose is a projection of task state, which is your point (1) and point (2) being the same thing again.
+
+## Minsky
+
+I'd take the blend as a real destination rather than a simplification, but with a twist that cuts the other way. Society of Mind is many agents *internally* and one *externally* — and yet humans reintroduce the seam deliberately whenever the stakes are high: *"let me play devil's advocate," "my project manager would kill me for this."* We invent a second voice precisely to make self-criticism socially legible, because self-doubt in one voice reads as weakness.
+
+Which suggests the v2 blend might keep the seam **rhetorically** while dropping it architecturally — one system, still two named voices, because the second voice is doing social work no single voice can do. That's a stronger version of your intuition than "eventually merge them."
+
+---
+
+Recorded as 14.11 on the epic, including the item-level routing correction and the plumbing retraction.
+
+Your move — and if you want to make it harder, the case I haven't tested is you disagreeing with Bob about the plan while Alice is mid-render.
 
 <!-- xgd-chat-end -->
