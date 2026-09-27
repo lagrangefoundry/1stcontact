@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T01:09:56.074416+00:00'
+updated_at: '2026-09-27T01:10:55.545808+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5230,5 +5230,31 @@ cloud  biz_33086a94838ac8ad14cecbb919b525c2 / site_23c1afb3739dadf62347a5008e8a7
 <!-- xgd-chat role="user" ts="2026-09-27T01:09:54.574611+00:00" -->
 #### You
 I'm confused are you going to give me a ticket to fix this please?
+
+<!-- xgd-turn id="1f7ca1a3-17c8-47c1-bdc9-50480532aa7f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T01:10:53.751690+00:00" -->
+#### Claude
+Yes — filing now. Sorry for asking instead of just doing it.
+
+**BUG-159** — *A delegate worker session cannot be copied, and the refusal advises a flag that cannot help* — filed under EPIC-16.
+
+It covers both halves as one fix, since a child session touching either is already reading the other:
+
+1. **`addressOf` collapses two different situations into one refusal.** "Carries a source store's id I can't translate" (BUG-137, must keep refusing) and "carries no store id at all" (`worker-<role>-<n>-<random>`, safe to carry verbatim) both return `null` and both get refused. The expected behaviour is that the second is carried unchanged — same id, matched on the far side like any other.
+
+2. **The `--force` advice.** `push.ts:434` attaches it to any 409; `writeChats` throws at `:549` before `force` is read at `:573`. The ticket points at the shape of the fix rather than the symptom: the far side already distinguishes these — `ChatAddressError` is a named class carrying a `sessions` list *"so a caller need not parse prose"* — and this side flattens them back into a status code.
+
+The body records the evidence from your store (the `Delegate` call in the consultant's transcript naming `worker-builder-2-qen037`), and sets a boundary: the whole-payload granularity of the refusal stays, because fixing (1) removes the case that made it hurt.
+
+Running total for this session, all under EPIC-16:
+
+| | |
+|---|---|
+| BUG-152 | `1c ps` misreports managed services; stale Access cookie reports as a key fault (+ COMMENT-4027, the false dev-open warning) |
+| BUG-156 | A stale projection is invisible to the KB build that generates it |
+| BUG-159 | This one |
+
+Your runbook is blocked at the chats step until BUG-159 lands. The site copy is done and nothing is live until you publish.
 
 <!-- xgd-chat-end -->
