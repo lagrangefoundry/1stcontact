@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T20:30:34.847310+00:00'
+updated_at: '2026-09-27T20:46:29.403497+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2089,5 +2089,11 @@ Three things, and (d) has the best ratio because it hits (c) and the output-toke
 3. A worker ending its turn without calling `report` should be asked once, not have its work discarded from the caller's view. **Framework.**
 
 I haven't filed anything — say the word and I'll put (1) up as a child of EPIC-20 and (2)+(3) upstream beside BUG-68. Worth noting (1) is a code change in this repo, so it needs its own ticket and branch rather than this session.
+
+<!-- xgd-turn id="771dc344-7617-4dc9-951e-10f8049ea8a8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:46:29.036417+00:00" -->
+#### You
+Can the primary be returned a delta on the L1 to show it what changed? (In addition to the self-report)
 
 <!-- xgd-chat-end -->
