@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:38:54.124064+00:00'
+updated_at: '2026-09-27T21:42:33.429194+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2265,5 +2265,53 @@ Well lets talk about the entire feature and see if we are aligned. I think it go
 4) Adjust the prompting to the primary session to accommodate these changes.
 
 Agree?
+
+<!-- xgd-turn id="cb5a1f33-d237-48ea-bdf9-160360d73e5d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T21:42:32.423153+00:00" -->
+#### Claude
+Broadly yes — with one reordering and two gaps. Let me check one thing first, because it bears on step 1.
+
+Agreed on all four as the right set. Three adjustments.
+
+## Reorder: step 1 goes last, and gated
+
+Today 2 of 7 delegations lose their account entirely. Remove the primary's write tools first and every construction goes through a channel that drops its answer ~29% of the time — and the primary can't even repair a bad write itself. Step 2 is what *makes* step 1 safe: with a host-derived diff, a silent worker is still a legible worker.
+
+So: **2 → 3 → 4 → 1**, with 1 gated on evidence (say, ten consecutive delegations where the diff and the report agree). Same four steps, ends swapped.
+
+## Gap: the worker's context is broken, and it's not in your list
+
+This is the highest-ratio item and it's cheap. The consultant's standing note is delivered to every worker (`deps.ledger(slug)` is per-site; `session.summary` is registered on the one provider registry all roles assemble from). A worker reads it on turn 1 as a resumption — *"Thank you for the standing note, I see I'm in the middle of a multi-section spacing task"* — and then re-narrates its full state on **every** iteration: 14× in `3bje6q`, 34× in `qen037`. `builder_reminders` has no `act-rather-than-narrate` line, which the consultant does have.
+
+That's why `3bje6q` spent **14,421 output tokens to make five writes**. It's also the mechanism behind one of the two silences: `qen037` burned its 50 iterations partly on narration and hit the cap before it could report.
+
+Fix the worker's context and you get a cheaper worker, a faster worker, and one of the two report losses, from a two-line change in this repo. I'd make it **step 0**.
+
+## Split step 3 — "improve the self-report" is two different things
+
+The report's *content* isn't the problem; `msskzt`'s was excellent. The problem is it gets **lost**, by two unrelated mechanisms that reach the caller identically as `silent`:
+
+- `MAX_TOOL_ITERATIONS = 50` exhaustion (`qen037`, 51 calls, cut off mid-sentence)
+- the model emitting a complete `<invoke name="ReportResult">…</invoke>` block as message **text** (`3bje6q` — not truncated, the closing tag is there)
+
+So step 3 is *make the report unlosable* — distinguish cap-exhaustion from silence, and ask a silent worker once before discarding its account. Both are framework (`api_tools.js`, `delegation_toolbox.js`), beside BUG-68.
+
+## One decision step 1 needs
+
+The builder role has `ReadSite, AuthorPages, ManageComponents, MeasureDrawings, DrawImages`. The consultant additionally has **`ManagePages`, `WriteConfig`, `ManagePalette`**. Strip write from the primary and nobody can create a page, add a palette colour, or change config.
+
+This isn't hypothetical: `tql0pf`'s brief told it to *"add four palette colours and use the named colours everywhere"* — to a role that cannot create one. It never got that far (REQ-300 blocked it first, which accounts for all 10 of its failed calls), so we have no observed refusal — but the brief was already asking for authority the role doesn't have. So step 1 means deciding either *widen the builder grant* or *keep a narrow set of structural writes on the primary*. I'd widen the builder: "read-only primary" is a cleaner line to hold than "read-only except pages, palette and config."
+
+## So
+
+**0.** Stop leaking the ledger to workers; add `act-rather-than-narrate` to `builder_reminders`. *(ours, small)*
+**1.** Host-derived tree diff on the result, beside the self-report. *(framework hook + ours)*
+**2.** Make the report unlosable — cap-exhaustion ≠ silent; ask once. *(framework)*
+**3.** Widen the builder grant to cover what briefs actually ask for. *(ours)*
+**4.** Reprompt the primary for delegate-first, including a tail reminder — delegation is standing behaviour and is currently stated once, before the cache boundary. *(ours)*
+**5.** Remove the primary's write groups, gated on 1+2 holding. *(ours)*
+
+Want me to write that into EPIC-20 as the plan and scope the children? Items 0, 3, 4, 5 are code or config in this repo and each needs its own ticket and branch — I haven't cut any yet.
 
 <!-- xgd-chat-end -->
