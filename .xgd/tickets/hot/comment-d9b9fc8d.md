@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T00:12:34.804722+00:00'
+updated_at: '2026-09-27T00:18:05.936614+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4976,5 +4976,80 @@ The `1c ps` bug is display-only; it drops `listenerPid` from the managed set and
 Yes please -
 
 Then can you walk me through (1) deploying the latest code to the cloud and (2) copying the latest version of lf and its chats to the cloud please
+
+<!-- xgd-turn id="67a46940-e592-4631-9506-979428061f89-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T00:18:05.055536+00:00" -->
+#### Claude
+Filed **BUG-156** — *A stale projection is invisible to the KB build that generates it* — under EPIC-16.
+
+While checking the copy credentials I found a third misreport and, because a freshly-created bug lands at `ready_to_reconcile` with its body already frozen, attached it to BUG-152 as **COMMENT-4027**: `bin/dev up` prints *".dev.vars.local is EMPTY — the Worker is in dev-open mode"*, and the Worker is **not** in dev-open mode. Your `~/Documents/secrets/1c.dev.env` sets `ACCESS_TEAM_DOMAIN`/`ACCESS_AUD`/`SERVICE_TOKEN_IDENTITIES` — the middle layer of three — so the gate is on and access-sim signs people in fine. BUG-146 established that this question must be asked of the composed overlay; it only ever asks the half that catches a *half*-configured pair. This also confirms yesterday's diagnosis rather than changing it: the domain those vars name is `http://127.0.0.1:8799`, so the sim really is the verifier and the `local-dev-88241` cookie really is just stale.
+
+---
+
+# 1. Deploying the latest code to the cloud
+
+**Run `bin/kb-release` first.** This is BUG-156 biting in the one place it costs something: `1c assets` **inlines the KB index** into what ships, and `REF-l1` is two days behind the L1 schemas. Skip this and production gets an assistant describing the pre-REQ-329 vocabulary. It needs `CLOUDFLARE_API_TOKEN` = `1c_Admin_Token` and `NODE_USE_ENV_PROXY=1`.
+
+```bash
+bin/kb-release          # rebuild the corpus + both indexes + the map
+bin/build               # preflight → kb ensure (no-op now) → assets → typecheck → bundle
+bin/deploy --dry-run    # same hooks, same wrangler invocation, uploads nothing
+bin/deploy              # --env production, both apps
+bin/smoke               # your terminal — mine can't reach the network
+```
+
+**What `bin/deploy` actually does per app,** in order: the migrate hook (`10-d1-site-store`, D1 migrations against the *cloud* database), the four secrets hooks, then `wrangler deploy --env production`, then it prints the **capability report**. Read that report — it is the one place that says what is degraded in the shipped product, and it exists because a key with the wrong scope once passed and shipped.
+
+**Two things about your working tree:**
+
+Your uncommitted `apps/control-app/wrangler.toml` changes are load-bearing for step 2 — `PLATFORM_ADMINS = "martin-github@westhead.me"` (§I3, the rebaseline lockout) and the three-spelling `SERVICE_TOKEN_IDENTITIES` (§I16, because Cloudflare puts the *client id* in the JWT, not the token's label). The deploy reads the working tree, so they will ship. But they are uncommitted, and a clean checkout would deploy a build that authenticates and is then refused.
+
+The secrets hooks read from **your shell**, not from any file. Unset, with the value already in the Worker's store, they leave it alone and say so — safe, but the credential goes unprobed. To get real probes:
+
+```bash
+set -a; . ~/Documents/secrets/1c.dev.env; set +a
+```
+
+That also supplies the `CLOUDFLARE_API_TOKEN` wrangler wants. Be aware it sets `ACCESS_TEAM_DOMAIN` to the simulator — harmless for the deploy, confusing for anything else in that shell.
+
+**Fonts are not in this.** `bin/deploy --fonts` is a separate invocation on purpose: 1.35GB, one bucket, a completely different cadence. Only if the mirror changed.
+
+# 2. Copying LF and its chats to the cloud
+
+**Deploy first.** The import lands through the Worker's own bindings and its own store — that is the whole design, so there is no second writer that could disagree about what a site is made of. The schema therefore has to be migrated before the data arrives.
+
+**Two credentials, because there are two gates** (BUG-134):
+
+| end | what it needs |
+|---|---|
+| **cloud** — `app.1stcontact.io` | `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET`, the service token from `bin/access-token`, in your password manager. **Not** `CLOUDFLARE_API_TOKEN` — that's the provisioner, and presenting it earns a 302 to the login page. |
+| **local** — your builder | Gated, per the finding above. So point `--origin` at **access-sim on 8799**, which is the thing that exchanges a service-token pair for a JWT, and give it its own pair. |
+
+```bash
+export CF_ACCESS_CLIENT_ID='…'              # password manager
+export CF_ACCESS_CLIENT_SECRET='…'
+export LOCAL_ACCESS_CLIENT_ID='local-dev.access'
+export LOCAL_ACCESS_CLIENT_SECRET='local-dev-secret'
+
+# backup first: writes the LOCAL export to a file, touches the cloud not at all
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
+
+bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --chats "Lagrange Foundry"
+```
+
+**Two runs is not redundancy, it's the design** (REQ-294). `--site` carries `site.json`, the page documents and the asset bytes. `--chats` is a second pair of routes carrying every chat ticket, its transcript, its engagement ledger and its standing note — so a site copy still carries a site and nothing else. It exists precisely because an earlier run carried the LF site to production and none of the conversations that produced it.
+
+**What to expect:**
+
+- `<business>` is the **name as it reads in the builder** — it resolves to a different id on each side, so the name is the only thing that means the same in both places. Confirm the exact spelling before you run it.
+- The target business **must already exist** in the cloud. This never mints a tenant; it will fail naming what that side does offer.
+- **409 on the site copy** means the cloud target carries changes authored in the builder (BUG-51). `--force` says you mean it — take the backup first, because that refusal is the guard that once failed to stop a demo site being destroyed.
+- **Chats are matched by session id**, so re-running duplicates no turn. A conversation the cloud already holds is *kept* and counted; `--force` replaces it.
+- Chats travel **to-cloud only**. `copy-from-cloud --chats` is refused, because the local builder is the open end and a conversation is whatever the customer typed.
+
+One stale doc I noticed but didn't change: `bin/copy-to-cloud`'s header still says the default origin is `localhost:8788`. The code moved to 8789 with BUG-150 (`copy.ts:56`); you're passing `--origin` explicitly either way. Want me to fix the comment?
 
 <!-- xgd-chat-end -->
