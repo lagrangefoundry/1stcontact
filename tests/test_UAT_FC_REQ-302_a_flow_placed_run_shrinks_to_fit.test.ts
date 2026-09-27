@@ -45,7 +45,7 @@ const WORDMARK = 'Gigabyte Alchemy'
 /** The width the wordmark was captured at, and must still render at. */
 const WORDMARK_PX = 686
 
-function el(over: Partial<ValueElement> & { text: string }): ValueElement {
+function el(over: Partial<ValueElement> & { text: string }, lines = 1): ValueElement {
   const base = {
     role: 'body',
     color: '#111111',
@@ -56,15 +56,31 @@ function el(over: Partial<ValueElement> & { text: string }): ValueElement {
     ...over,
   } as ValueElement
   // One rendered line at every width — what the fold reads to decide the run
-  // cannot wrap, which is the gate REQ-117's floor sits behind.
+  // cannot wrap, which is the gate REQ-117's floor sits behind. `lines > 1` is the
+  // opposite declaration: a run the reference wrapped, which the fold leaves
+  // breakable and the perturbation probe is therefore free to grow downwards.
   const b = base.box!
-  return { ...base, renderedTextBox: { x: b.x, y: b.y, width: b.width, height: 21 } }
+  return {
+    ...base,
+    renderedTextBox: { x: b.x, y: b.y, width: b.width, height: lines === 1 ? 21 : lines * 29 },
+  }
 }
 
 /**
- * A stack of runs tight enough that grown copy overruns the line below, which
- * is what makes `promoteToFlow` choose flow — so the frame under test is the
- * one REQ-278 actually produces, not one this fixture declares.
+ * A stack of runs tight enough that grown copy overruns the run below, which is
+ * what makes `promoteToFlow` choose flow — so the frame under test is the one
+ * REQ-278 actually produces, not one this fixture declares.
+ *
+ * BUG-153 (item 3) — the run that GROWS is the wrapped paragraph above the
+ * wordmark, not the wordmark itself. The wordmark is captured on one line at
+ * every width, which is the whole reason REQ-117's floor applies to it — and a
+ * run the renderer pins `white-space: nowrap` cannot gain a line, so it cannot
+ * overrun anything downwards and the probe no longer says it does. The fixture
+ * used to lean on exactly that contradiction (a run that cannot wrap, wrapping)
+ * to reach flow. What REQ-302 asserts is unchanged: a relaxed, floored run that
+ * lands in the flow frame resets its width to `fit-content`. It gets there here
+ * by being COLLIDED WITH, which is the ordinary way a pinned sibling joins a
+ * flowed region.
  */
 function stackedCapture(): MultiStateCapture {
   const projections: StateProjection[] = LADDER.map((width) => ({
@@ -76,6 +92,15 @@ function stackedCapture(): MultiStateCapture {
       viewport: { width, height: 900 },
       sections: [],
       elements: [
+        el(
+          {
+            text:
+              'An introductory paragraph long enough that the reference wrapped it onto two ' +
+              'lines at every captured width, which is what leaves it breakable.',
+            box: { x: 24, y: 20, width: width - 48, height: 58 },
+          },
+          2,
+        ),
         el({ text: WORDMARK, box: { x: 24, y: 100, width: WORDMARK_PX, height: 90 } }),
         el({ text: 'Line one of the body copy here', box: { x: 24, y: 220, width: width - 48, height: 29 } }),
         el({ text: 'Line two of the body copy here', box: { x: 24, y: 260, width: width - 48, height: 29 } }),

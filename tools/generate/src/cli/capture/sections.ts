@@ -158,6 +158,10 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.verticalAlign !== undefined) run.verticalAlign = r.verticalAlign
   run.transformRotateDeg = r.transformRotateDeg
   run.transformScale = r.transformScale
+  // BUG-153 (item 1) — the "the chain held something we could not decompose" flag
+  // travels with the two values it replaces, or the persisted side would read an
+  // absent rotation as "no transform" and compare it as clean.
+  if (r.transformUnreadable) run.transformUnreadable = true
   run.motion = r.motion
   return run
 }
@@ -193,6 +197,8 @@ function toField(f: RawField): Field {
     maskEdge: f.maskEdge,
     transformRotateDeg: f.transformRotateDeg,
     transformScale: f.transformScale,
+    // BUG-153 (item 1) — see toContentRun above.
+    ...(f.transformUnreadable ? { transformUnreadable: true as const } : {}),
     motion: f.motion,
     objectFit: f.objectFit,
     // REQ-63 — how the image crops within its box.

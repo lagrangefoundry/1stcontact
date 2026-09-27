@@ -6,10 +6,10 @@ title: 'values-diff/probes: a rotated collage and a wrong mask both read as clea
   and content-robustness wraps a nowrap run'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:35.067519+00:00'
-updated_at: '2026-09-27T00:01:11.719266+00:00'
+updated_at: '2026-09-27T00:31:39.960443+00:00'
 completed_at: null
 last_field_updated: body
-status: free_coding
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -17,6 +17,18 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-4307aaec
+  commits:
+  - working_sha: 18389b822e2707419728e86e6a3e83d911bb6583
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: da3c01e5846bbf1a44dec207cd4a9ee5df1306c7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d94d62a9e8b8ce702b68402271054b4c70380b04
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.387
+  story_points: 5
 ---
 
 Found by loop 1, iteration 2 of `repro-faelan-com` against
@@ -381,11 +393,11 @@ All four items are implemented. The report below records what was built, the
 decisions taken where the ticket's own proposals were incomplete or in tension,
 and one defect found during implementation that the ticket did not name.
 
-## Item 1 — TWO causes, not one
+## Item 1 — TWO causes, and REQ-333 landed both of them first
 
-The ancestor-composition defect the ticket diagnosed is real and is fixed. While
-proving it offline, a **second and deeper cause** turned up, and it accounts for
-the same symptom on its own:
+The item diagnosed one cause (the axis is read off the leaf while the page paints
+the rotation on an ancestor). While proving it offline a **second and deeper
+cause** turned up, sufficient on its own:
 
 `EXTRACT_SCRIPT` is a template literal. Inside one, a backslash before a
 character that is not a recognised escape is **dropped**. The source
@@ -393,43 +405,64 @@ character that is not a recognised escape is **dropped**. The source
 capturing group where a literal parenthesis was meant. Against
 `matrix(0.996, -0.087, …)` the group captured `"(0.996, -0.087, …"`,
 `parseFloat("(0.996")` gave `NaN`, and the guard below it returned the identity.
-
-So `transformOf` returned `{rotate: 0, scale: 1}` for **every element of every
-page since REQ-48 added the axis** — including an element carrying its own
+So the axis returned `{rotate: 0, scale: 1}` for **every element of every page
+since REQ-48 added it** — including an element carrying its own
 `transform: rotate(…)`, which the ancestor fix alone would not have rescued.
 Neither `tsc` nor any test could see it: the literal is a string to the compiler,
 and only a browser evaluates it. Proven by reconstructing the pre-fix runtime
 text and driving the function:
 
 ```
-$ node /tmp/verify-orig.mjs
 RUNTIME TEXT:   var m = t.match(/matrix(([^)]+))/);
 rotate(-5deg) -> {"rotate":0,"scale":1}
 rotate(20deg) -> {"rotate":0,"scale":1}
 ```
 
-Both causes are fixed:
+**Both of those causes were independently found and fixed by REQ-333 while this
+was in flight, and REQ-333's commits landed on `xgd-working` first** (16:45
+against 17:01 the same afternoon). Its `accTransformOf` does the ancestor walk;
+its `linearPartOf` reads `matrix()`, `matrix3d()` AND a declared function list,
+composing the chain as 2×2 matrix products rather than by summing degrees; and
+it double-escaped the same regex, plus two more in the gradient extractor, and
+pinned the whole class with a guard UAT over the literal's text. It also carries
+consequences this ticket did not reach — `layoutBoxOf` recovering the layout box
+from the AABB a rotation inflates, and `frameOf` attributing a wrapper's crop
+and ring to the image it frames.
 
-- the regex is double-escaped (`\\(`) so the browser compiles the literal paren;
-- `transformOf` becomes `effectiveTransformOf(el, s)`, which walks from the
-  element up to `documentElement` — the same walk and the same boundary
-  `clipOf` already uses — composing rotations additively and uniform scales
-  multiplicatively. That composition is exact for the rotate+uniform-scale
-  subset this axis holds.
+REQ-333's implementation is strictly the more capable one, so the merge takes it
+wholesale and **this ticket's contribution to item 1 is the one thing REQ-333
+still conflates: the THIRD outcome.** The two earlier spellings written here
+(`decomposeTransform`, `effectiveTransformOf`) are gone; nothing is kept in
+parallel.
 
-**The third outcome.** The ticket's rule — *"a zero that means 'we did not look'
-must not be comparable to a zero that means 'upright'"* — is implemented as a
-distinct projected state rather than a defaulted number. Where the chain holds a
-value the projection cannot decompose (`matrix3d`, an unparseable spelling),
-`transformRotateDeg` and `transformScale` are **absent** and a new carried axis
-`transformUnreadable: true` is set in their place. The diff reports that as a
-row in `values.unmeasuredAxes`, naming the side — which is the ticket's
-"reported in `unmeasuredAxes` rather than defaulted to the identity", applied to
-the case that survives the extractor fix rather than as a temporary stand-in for
-it. A page with no transform anywhere still reports `0` / `1` and carries no
-flag, so a non-zero reading always means the page really is transformed.
+**The third outcome.** The item's rule — *"a zero that means 'we did not look'
+must not be comparable to a zero that means 'upright'"* — needs a projected state
+that is neither of the two numbers, and `linearPartOf` had no way to say it:
+`null` meant both "this element has no transform" and "this element has one I
+could not read", so an unreadable chain fell back to the identity and the
+comparator, handed two of them, called the pair clean. Implemented as:
 
-The ticket's other two candidates for the same treatment — ancestor `overflow`
+- `linearPartOf` returns a third value, `TF_UNREADABLE`, for a transform it saw
+  and could not decompose — an unparseable `matrix()`/`matrix3d()`, or a spelling
+  its function list does not carry (a skew is the ordinary one). A value spelled
+  only out of the translate family still returns `null`, because it genuinely has
+  no linear part and translation is already folded into every rect the extractor
+  records; flagging it would put a permanent unmeasured row on most pages and
+  bury the chains that really are unreadable.
+- `accTransformOf` carries `readable` out beside the numbers. One unreadable link
+  makes the **whole** effective transform unknown rather than partially known:
+  the links below it still paint, so what is left is not the element's transform
+  and must not be projected as one.
+- `transformFields(tf)` is the single projection site for both leaf kinds. Where
+  the chain was unreadable, `transformRotateDeg` and `transformScale` are
+  **absent** and `transformUnreadable: true` is set in their place. The diff
+  reports that as a row in `values.unmeasuredAxes`, naming the side — the item's
+  "reported in `unmeasuredAxes` rather than defaulted to the identity", applied
+  to the case that survives REQ-333's extractor fix rather than as a stand-in
+  for it. A page with no transform anywhere still reports `0` / `1` and carries
+  no flag, so a non-zero reading always means the page really is transformed.
+
+The item's other two candidates for the same treatment — ancestor `overflow`
 clipping and ancestor `opacity` — are **not** implemented. `overflow` clipping is
 already read from the ancestor chain (`clipOf`, REQ-332); ancestor `opacity` is
 left alone because it is a compositing group rather than a value composed onto
@@ -543,28 +576,45 @@ Every item RAISES what the instrument reports, which is the point of all four:
 | `bandPaintActual` | not reported | 3 |
 | content-robustness findings | 18 (`structural-failure`) | the two 8px footer escapes and the four `Faelan` overlaps gone |
 
-## Found but NOT fixed — the same escaping defect, two functions away
+## Found, and fixed by REQ-333 — the same escaping defect, two functions away
 
 The template-literal escape sweep that found item 1's regex found two more in
-`EXTRACT_SCRIPT`, in the gradient colour-stop extractor
-(`extract.ts`, the `gradientStops` region):
+`EXTRACT_SCRIPT`, in the gradient colour-stop extractor: `/url\([^)]*\)/g` and
+the `rgba?\(`/`hsla?\(` alternation both shipped having lost the closing
+parenthesis from the match, which left a stray `)` behind on a stripped `url()`
+and returned unparseable colours (`"rgba(3, 7, 23, 0.3"`). This was filed here as
+outside every Wrong/Right pair and deliberately left alone rather than fixed
+silently — and **REQ-333 fixed all three regexes in the same pass that fixed
+item 1's**, so there is nothing left to scope. Recorded because the class, not
+the instance, is the finding: any regex inside that literal is one escape away
+from compiling into something that still matches and still returns a number.
 
-```
-source:   /url\([^)]*\)/g                    runtime: /url([^)]*)/g
-source:   /(rgba?\([^)]*\)|hsla?\([^)]*\)|…) runtime: /(rgba?([^)]*)|hsla?([^)]*)|…)
-```
+## Merge with REQ-333, and the one existing UAT amended
 
-Both lose the closing parenthesis from the match. Measured:
+Merging `xgd-working` after REQ-333 landed left two things to settle beyond the
+transform code itself.
 
-```
-"url(https://x.png) linear-gradient(red, blue)".replace(/url([^)]*)/g, "")
-  -> ") linear-gradient(red, blue)"        // a stray ) is left behind
-match "linear-gradient(rgba(3, 7, 23, 0.3), …)"
-  -> ["rgba(3, 7, 23, 0.3", "rgba(3, 7, 23, 0.3"]   // unparseable colours
-```
+**`package.json`** takes working's version; the bump is re-applied on top.
 
-This is outside every Wrong/Right pair in this ticket and is left alone rather
-than fixed silently. It wants its own scope — flagged here so it is not lost.
+**`tests/test_UAT_FC_REQ-302_a_flow_placed_run_shrinks_to_fit.test.ts` is
+amended, for a reason that is item 3's model and not an accommodation.** REQ-302
+asserts that a *flow-placed* relaxed run resets its width to `fit-content`, so
+its fixture has to make `promoteToFlow` actually choose flow — which it did by
+declaring a stack of runs each captured on ONE line at every width (the condition
+REQ-117's floor sits behind) and then relying on the perturbation probe growing
+the top one downwards into the run below. Those are contradictory: a run the
+renderer pins `white-space: nowrap` cannot gain a line, so it cannot overrun
+anything downwards, and after item 3 the probe correctly no longer says it does —
+no overlap pair, no promoted region, nothing in flow. The fixture gains a wrapped
+two-line paragraph ABOVE the wordmark, so the run that grows is one that really
+can wrap and the wordmark reaches flow by being collided WITH, which is the
+ordinary way a pinned sibling joins a flowed region. REQ-302's own assertions are
+untouched and still pass: `fit-content` on every relaxed rung, `auto` on none,
+and REQ-117's `min-width: 686px` floor intact.
+
+This is the honest shape of item 3's cost: suppressing a finding the model was
+wrong about also removes it as an input to flow recovery. A run that genuinely
+leaves its box sideways is still caught by the existing horizontal-clip scan.
 
 ## Test plan
 
@@ -572,13 +622,23 @@ Two UAT files, both running without a browser (`chromiumAvailable()` is false in
 this sandbox, so a browser-gated leg would report SKIPPED and leave the fix with
 no evidence):
 
-`tests/test_UAT_FC_BUG-153_the_ruler_reads_the_page.test.ts` — 16 UATs over
-items 1, 2 and 4. Item 1's extractor leg slices `transformFields` and its two
-helpers **out of `EXTRACT_SCRIPT`'s own text** and builds them with `new
-Function` and stub styles, so the browser-evaluated string is really the code
-under test; the slice is keyed on the function's source text, not a line number.
-Items 1 (diff side), 2 and 4 run through `diffManifests`, and item 4 also through
-`reconcileGates` so the fact is proven to reach `gate.json`.
+`tests/test_UAT_FC_BUG-153_the_ruler_reads_the_page.test.ts` — 16 UATs over items
+1, 2 and 4. Item 1's extractor leg slices `TF_UNREADABLE`, `linearPartOf`,
+`mul2`, `accTransformOf` and `transformFields` **out of `EXTRACT_SCRIPT`'s own
+text** and builds them with `new Function` and stub styles, so the
+browser-evaluated string is really the code under test; the slice is keyed on the
+functions' source text, not a line number, and drives the pair the way the
+projection does (one ancestor walk, fields read off its result). The four legs
+that matter for the third outcome: an unreadable chain projects the flag and
+NEITHER number; an unreadable link poisons the whole chain rather than yielding
+the readable remainder; a translate-only transform is read, not declined; and a
+readable chain still projects both numbers — that last one is the guard that a
+projection answering `transformUnreadable` for everything would fail. The two
+legs that restated REQ-333's ancestor composition over four rotations and a
+three-deep chain are **removed**: that behaviour is REQ-333's, its own UATs prove
+it over a parsed DOM, and asserting it twice here would claim it as this
+ticket's. Items 1 (diff side), 2 and 4 run through `diffManifests`, and item 4
+also through `reconcileGates` so the fact is proven to reach `gate.json`.
 
 `tests/test_UAT_FC_BUG-153_a_nowrap_run_does_not_wrap.test.ts` — 7 UATs over
 item 3, on a synthetic document that reproduces the filed shape (84px band, a
@@ -588,16 +648,19 @@ is `nowrapFromPx`, so the "still reports a real escape" leg differs from the
 "no longer escapes" leg in nothing else — a fix that simply stopped growing every
 run would fail it.
 
-Regression scope run green: all 122 suites importing any changed module
-(`values-diff`, `gate-core`, `gate`, `probes`, `value-axes`, `extract`,
-`sections`, `mask-geometry`), in six batches — 1 pre-existing failure,
-`reconciliation-builder-workspace-origin.test.ts`, which fails identically in the
-main checkout and imports none of the changed modules.
+Regression scope run green after the merge: all 93 suites importing any changed
+module (`values-diff`, `gate-core`, `gate`, `probes`, `value-axes`, `extract`,
+`sections`, `mask-geometry`, the `l1` barrel, `evaluateLayout`/`promoteToFlow`),
+in four batches — plus REQ-333's three suites and `req88-viewport-relative-and-nowrap`.
+One failure found and resolved: REQ-302's fixture, above. `tsc --noEmit` clean on
+`tools/generate`, and `EXTRACT_SCRIPT` extracted from the literal and
+`node --check`ed so the emitted script is known to parse.
 
 ## Files
 
-- `tools/generate/src/cli/capture/extract.ts` — `decomposeTransform` (regex fix +
-  the readable/unreadable outcome), `effectiveTransformOf`, `transformFields`
+- `tools/generate/src/cli/capture/extract.ts` — `TF_UNREADABLE`, the third
+  outcome in `linearPartOf`, `readable` on `accTransformOf`, `transformFields`,
+  and the two projection sites
 - `tools/generate/src/cli/capture/mask-geometry.ts` — new
 - `tools/generate/src/cli/capture/values-diff.ts` — `compareMask`,
   `unreadableTransformAxes`, `bandPaintActual`, `maskCoverageTolerance`
@@ -607,3 +670,29 @@ main checkout and imports none of the changed modules.
   report, the pass rung, and the console
 - `tools/generate/src/l1/probes.ts` — `isNowrapAt`, the `nowrap` argument,
   `boxes` + `width` on `LayoutFinding`
+- `tests/test_UAT_FC_REQ-302_a_flow_placed_run_shrinks_to_fit.test.ts` — fixture
+  amended (see above); REQ-302's assertions unchanged
+
+
+## Post-merge baseline on `xgd-working` (main checkout only)
+
+Four suites in the scope fail in the main checkout after the merge. All four are
+real-bundle tests — they read a retained third-party capture from
+`storage/references/`, which is gitignored, so they silently return early in every
+branch worktree and can only be observed here:
+
+| suite | failure |
+|---|---|
+| `bug14-fold-surface-hierarchy` | `real_captures_get_bands_and_treated_cards` |
+| `bug20-chip-self-surface` | `real_gigabytealchemy_badges_fold_as_pills` |
+| `req96-control-composition` | `gigabyte_submit_recovers_its_per_width_position` (`122.75` vs `123`) |
+| `test_UAT_FC_REQ-278_flow_recovery_preserves_geometry` | `the_stored_references_are_measured_in_the_units_BUG-113_used` |
+
+**None of them is this ticket's.** Each was re-run in the main checkout with all
+nine of this ticket's source files reverted to `xgd-working`'s tip immediately
+before the merge (`e6ae7df0b3`) and `mask-geometry.ts` moved aside, and each fails
+**identically** in that state — the sub-pixel shapes point at REQ-333's
+`layoutBoxOf`, which un-inflates a rotated element's AABB and therefore moves
+real-bundle geometry by fractions of a pixel. REQ-333 is at
+`ready_to_reconcile`; recorded here so the next reader does not attribute them to
+this ticket's commits.

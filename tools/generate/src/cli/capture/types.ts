@@ -483,6 +483,18 @@ export interface ElementGeometry {
   /** REQ-48 (item 1) — transform uniform scale factor, decomposed from the matrix (1 when none). */
   transformScale?: number
   /**
+   * BUG-153 (item 1) — set when the element's effective transform chain held a
+   * value this projection could not decompose (a skew, or an unparseable
+   * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
+   * are ABSENT rather than defaulted to the identity.
+   *
+   * A zero that means "we did not look" must not be comparable to a zero that
+   * means "upright": the comparator's both-sides guard skips the pair, and the
+   * diff reports the axis as unmeasured so the silence is stated instead of read
+   * as agreement.
+   */
+  transformUnreadable?: true
+  /**
    * REQ-48 (item 1) — declared motion: `animation` (keyframes / entrance /
    * scroll-reveal), `transition` (hover-transition), `both`, or null. Presence is
    * what the resting frame can't hold — a hover-scale or entrance leaves no signal

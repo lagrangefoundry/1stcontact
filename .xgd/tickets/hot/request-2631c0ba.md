@@ -6,9 +6,9 @@ title: 'capture: a variable font face collapses to its lowest declared weight, a
   a whole-page wrapper is captured as one band'
 created_by: repro-console:repro-joyfulculinarycreations-com#2
 created_at: '2026-09-27T00:01:14.275133+00:00'
-updated_at: '2026-09-27T00:15:13.344030+00:00'
+updated_at: '2026-09-27T00:32:45.881450+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -419,3 +419,98 @@ digest re-read correctly out of the file it names, the region records carry the
 geometry and both sides' leads, and the `nonSurfaceSections` reason text
 correctly declines to charge the reproduction for a partner the comparison
 itself cannot supply.
+
+---
+
+## Implementation — what landed
+
+Both fixes are capture-side, in the two places the ticket names. Nothing
+downstream of the capture changed: `l1FontFaceSchema.weight`, `render.ts`'s
+`font-weight: ${min} ${max}`, `buildSections` and the comparator are all
+untouched and already accepted the shapes the capture now writes.
+
+### Issue 1 — `fontFacesByFamilyOf` (`tools/generate/src/cli/capture/pipeline.ts`)
+
+Repeated `@font-face` declarations of the **same mirrored `src`, by the same
+family and the same style**, no longer discard the later blocks. The kept face's
+weight widens to the `[min, max]` of every weight declared for that file, so
+Oswald's six Google-Fonts blocks (200…700) become one face at `[200, 700]`
+instead of one face at 200.
+
+Three consequences of that rule, each pinned by a UAT:
+
+- **First-wins still governs `style`.** A file redeclared under a *different*
+  style is a genuine redeclaration and is dropped exactly as before, so an
+  italic block can never stretch the normal face's range. An absent
+  `font-style` compares equal to `normal`, which is what CSS means by it —
+  otherwise a sheet that states the style on some blocks and not others would
+  read as two faces of one file.
+- **A block declaring no weight contributes no bound.** CSS's default 400 is not
+  something the sheet said, and using it would widen a measured range with a
+  fabricated edge; such a block is ignored for the range, as it is today.
+- **A static family is untouched.** Lato — one file per weight — still yields
+  three faces at 300 / 400 / 700. It is the control inside the same bundle and
+  the regression test for the whole change.
+
+### Issue 2 — the band gate and `bandSlices` (`tools/generate/src/cli/capture/extract.ts`)
+
+The geometric fallback is now asked **per band root** instead of once per
+document. A root qualifies when it spans the full layout width and is
+**at least 60% of the document height** (`PAGE_ROOT_HEIGHT_RATIO`) — "most of
+the document", stated as a constant. That is the line between a wrapper standing
+in for the body and an ordinary full-bleed band: a hero, a testimonial strip or a
+footer is full-bleed too, and slicing one of those would report its inner cards
+as sections.
+
+`bandSlices()` became `bandSlicesIn(rootEl, rootBox)` and is bounded by that root
+in both senses:
+
+- **Only the root's own subtree is a candidate.** This is the header guard the
+  ticket asks for, applied at selection rather than at re-assembly: a page
+  builder's `<header>` is a *sibling* of the wrapper, absolutely positioned over
+  the wrapper's first slice, so without the subtree test it would be admitted as
+  a band of the wrapper *and* remain a band in its own right, and the two copies
+  would overlap. The root element itself is excluded for the same reason it
+  always was implicitly — its own paint is the page the slices sit on, and
+  admitting it would give the outermost-wins rule one candidate containing every
+  other, collapsing the lot back to a single band.
+- **The slices tile the root's box, not the page.** The gap-filling cursor runs
+  from the root's top to its bottom and slices are clamped there, and a gap that
+  paints no backdrop of its own is attributed to **the root element** rather than
+  to `document.body` — on a wrapper it is the wrapper's background showing
+  through, which is a different fact from the body's.
+
+The two emit paths (geometric / DOM) are now one loop over the band roots rather
+than an either-or over the whole document, so a page can have both: on the
+Elementor shape the wrapper is sliced while the `<header>` and `<footer>` stay
+exactly the bands the top-level scan found.
+
+Nothing is invented where there is nothing to find. `bandSlicesIn` still returns
+`[]` when it cannot find at least two slices, so a page-tall root that genuinely
+is one band is emitted whole, and a conventionally segmented page — where no root
+is page-tall — is byte-identical to before. Both are UATs.
+
+### Evidence
+
+`tests/test_UAT_FC_REQ-334_variable_face_range_and_page_wrapper_bands.test.ts`,
+nine UATs, no mocks of anything we own:
+
+- The face tests drive the real `runCapturePipeline` over an **injected driver** —
+  the browser is the one external boundary — so the byte parsing, asset
+  mirroring, face merge, `buildTheme`, `fontResourcesFromTheme` and
+  `renderL1Document` are all real. One of them asserts on the served document:
+  `font-weight: 200 700`, with the whole-range block the *only* Oswald face.
+- The band tests drive the real `EXTRACT_SCRIPT` under jsdom and the real
+  `buildSections` — the harness BUG-15 and BUG-22 already use — over the
+  `<header>` + full-page wrapper + `<footer>` shape, and assert the recovered
+  bands' boxes and their own measured paint (`image` / `color`, not `none`).
+
+Six of the nine fail on the pre-change tree; the three that pass either way are
+the controls (static family, conventional page, single-band wrapper) and are
+there to pin what must *not* change.
+
+### Re-capture is still required
+
+As the ticket says: both fixes change what `capture.json` records, and `1c refold`
+cannot pick either up. The stored references need a re-capture before the gate
+figures move.

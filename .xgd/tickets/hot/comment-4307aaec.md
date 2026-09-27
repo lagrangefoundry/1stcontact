@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-153
 created_by: xgd
 created_at: '2026-09-26T22:56:31.752848+00:00'
-updated_at: '2026-09-27T00:08:17.786936+00:00'
+updated_at: '2026-09-27T00:32:35.683368+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -126,5 +126,35 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="3fbd11c5-da99-4448-9be7-2bc440132bca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T00:32:35.117727+00:00" -->
+#### Claude
+Free-coding of BUG-153 is complete and landed on `xgd-working`.
+
+## What happened since the last session
+
+The branch `free-BUG-153` already held the four-item fix (commit `18389b82`), but merging `xgd-working` back revealed that **REQ-333 had landed independently, fixing the same two root causes under item 1** — the template-literal escape (`/matrix\(…\)/` shipping as `/matrix((…))/`) *and* the ancestor-transform composition — with a strictly more capable implementation (`matrix3d`, declared function lists, 2×2 products, plus `layoutBoxOf` and `frameOf`). REQ-333's commits landed first (16:45 vs 17:01).
+
+So I resolved it as supersession rather than a hand-merge:
+
+- **Merge commit `beab9b22`** — mechanical: `extract.ts` and `package.json` take working's side wholesale. `decomposeTransform` / `effectiveTransformOf` are gone, not kept in parallel.
+- **Commit `da3c01e5`** — BUG-153's remaining, genuinely unique contribution re-applied on top of REQ-333's machinery: the **third outcome**. `linearPartOf`'s `null` meant both "no transform" and "one I could not read"; it now returns `TF_UNREADABLE` for a skew or an unparseable matrix while translate-only still returns `null`. `accTransformOf` carries `readable` out (one bad link poisons the whole chain), and a single `transformFields(tf)` site omits both value axes and sets `transformUnreadable`, which values-diff reports as an unmeasured axis. Items 2, 3 and 4 merged cleanly and are unchanged.
+
+## One real regression found and fixed
+
+`test_UAT_FC_REQ-302_a_flow_placed_run_shrinks_to_fit` broke. Its fixture reached the flow frame by declaring every run one-line-at-every-width (i.e. nowrap, which is why REQ-117's floor applies) and then relying on the probe growing the top one *downwards* — contradictory, and after item 3 the probe correctly refuses. I amended the fixture with a wrapped paragraph above the wordmark so the run that grows really can wrap; REQ-302's own assertions are untouched and pass. Two of my UAT legs that merely restated REQ-333's composition were removed; four now pin the third outcome.
+
+## Verification
+
+- 93 in-scope suites green on the branch; `tsc --noEmit` clean on `tools/generate`; `EXTRACT_SCRIPT` extracted from the literal and `node --check`ed.
+- Four real-bundle suites fail in the main checkout (`bug14`, `bug20`, `req96`, `REQ-278`). I baselined each by reverting all nine of my source files to `e6ae7df0b3` in place — **all four fail identically**, so they are REQ-333's `layoutBoxOf` sub-pixel shift, not mine. Recorded in the ticket body with the baseline SHA.
+
+## Ticket state
+
+`BUG-153` → `status: free_coded`, `commits: [18389b82…, da3c01e5…, d94d62a9…]` (the third is the gate's own auto-bump), `version: 0.2.387`, `story_points: 5`. Body updated to describe the implementation as it now stands, including the REQ-333 supersession, the REQ-302 amendment, and the note that the url/rgba escaping defect I had flagged as "not fixed" was also closed by REQ-333. Branch and worktree cleaned; both locks released.
+
+Promotion to `ready_to_reconcile` is yours to make.
 
 <!-- xgd-chat-end -->

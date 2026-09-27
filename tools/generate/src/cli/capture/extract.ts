@@ -117,10 +117,28 @@ export interface RawGeometry {
   textShadow: string | null
   /** REQ-48 (item 3) — computed `mask-image` or `clip-path` when the element is masked/clipped, else null. */
   maskEdge: string | null
-  /** REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix (0 when none). */
-  transformRotateDeg: number
-  /** REQ-48 (item 1) — transform uniform scale, decomposed from the matrix (1 when none). */
-  transformScale: number
+  /**
+   * REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix
+   * (0 when none). BUG-153 (item 1) — the EFFECTIVE rotation, composed with every
+   * transform this element's ancestors paint, because `transform` is not an
+   * inherited property and a collage rotates the wrapper, not the photograph.
+   * Absent when {@link transformUnreadable}.
+   */
+  transformRotateDeg?: number
+  /** REQ-48 (item 1) — effective transform uniform scale (1 when none). Absent when {@link transformUnreadable}. */
+  transformScale?: number
+  /**
+   * BUG-153 (item 1) — set when the element's effective transform chain held a
+   * value this projection could not decompose (a skew, or an unparseable
+   * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
+   * are ABSENT rather than defaulted to the identity.
+   *
+   * A zero that means "we did not look" must not be comparable to a zero that
+   * means "upright": the comparator's both-sides guard skips the pair, and the
+   * diff reports the axis as unmeasured so the silence is stated instead of read
+   * as agreement.
+   */
+  transformUnreadable?: true
   /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
   motion: 'animation' | 'transition' | 'both' | null
 }
@@ -1383,31 +1401,42 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!m) return { rotate: 0, scale: 1 };
     var p = m[1].split(',');
     var a = parseFloat(p[0]), b = parseFloat(p[1]);
-    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1 };
+    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1, readable: false };
     return {
-      rotate: Math.round(Math.atan2(b, a) * 180 / Math.PI),
-      scale: Math.round(Math.sqrt(a * a + b * b) * 100) / 100,
+      rotate: Math.atan2(b, a) * 180 / Math.PI,
+      scale: Math.sqrt(a * a + b * b),
+      readable: true,
     };
   }
-  // REQ-333 -- the linear part of one element's own transform, as a 2x2 matrix, or
-  // null for 'none' / unreadable. \`matrix()\` and \`matrix3d()\` are what a laying-out
+  // BUG-153 (item 1) -- the sentinel \`linearPartOf\` returns for a transform it
+  // saw and could not decompose. Identity-compared, never composed.
+  var TF_UNREADABLE = { unreadable: true };
+  // REQ-333 -- the linear part of one element's own transform, as a 2x2 matrix,
+  // \`null\` when it has none, or \`TF_UNREADABLE\` when it has one this cannot
+  // read. \`matrix()\` and \`matrix3d()\` are what a laying-out
   // engine reports; the declared function list is what an engine that does no layout
   // reports, and reading both means the accumulation below is measurable without a
   // browser as well as inside one. Translation is deliberately dropped: it is
   // already folded into every rect this file records.
+  //
+  // BUG-153 (item 1) -- \`TF_UNREADABLE\` is the THIRD outcome, and the one this
+  // function could not express while \`null\` carried both of its meanings. A value
+  // we SAW and could not decompose came back indistinguishable from 'none', which
+  // put a zero meaning "we did not look" into the same field as a zero meaning
+  // "upright" -- and the comparator, handed two of them, reported the pair clean.
   function linearPartOf(t) {
     if (!t || t === 'none') return null;
     var m = /matrix\\(([^)]+)\\)/.exec(t);
     if (m) {
       var p = m[1].split(',');
       var r = { a: parseFloat(p[0]), b: parseFloat(p[1]), c: parseFloat(p[2]), d: parseFloat(p[3]) };
-      return (isNaN(r.a) || isNaN(r.b) || isNaN(r.c) || isNaN(r.d)) ? null : r;
+      return (isNaN(r.a) || isNaN(r.b) || isNaN(r.c) || isNaN(r.d)) ? TF_UNREADABLE : r;
     }
     var m3 = /matrix3d\\(([^)]+)\\)/.exec(t);
     if (m3) {
       var q = m3[1].split(',');
       var r3 = { a: parseFloat(q[0]), b: parseFloat(q[1]), c: parseFloat(q[4]), d: parseFloat(q[5]) };
-      return (isNaN(r3.a) || isNaN(r3.b) || isNaN(r3.c) || isNaN(r3.d)) ? null : r3;
+      return (isNaN(r3.a) || isNaN(r3.b) || isNaN(r3.c) || isNaN(r3.d)) ? TF_UNREADABLE : r3;
     }
     var acc = null;
     var re = /(rotatez|rotate|scalex|scaley|scale)\\(([^)]*)\\)/gi;
@@ -1434,6 +1463,19 @@ export const EXTRACT_SCRIPT = `(() => {
       }
       acc = acc === null ? step : mul2(acc, step);
     }
+    // BUG-153 (item 1) -- nothing accumulated, and that has two causes. A value
+    // spelled only out of the translate family genuinely HAS no linear part and
+    // is fully read (translation is already folded into every rect this file
+    // records). Anything else -- a skew, a spelling this list does not carry --
+    // is a transform that paints and was not decomposed, and saying so is the
+    // whole point of the distinction.
+    if (acc === null) {
+      var names = ('' + t).match(/([a-zA-Z0-9]+)\\s*\\(/g) || [];
+      for (var i = 0; i < names.length; i++) {
+        if (!/^(translate3d|translatex|translatey|translatez|translate|perspective)\\s*\\($/i.test(names[i])) return TF_UNREADABLE;
+      }
+      return null;
+    }
     return acc;
   }
   // The 2x2 product \`x . y\`, outer transform on the left (CSS composition order).
@@ -1455,16 +1497,23 @@ export const EXTRACT_SCRIPT = `(() => {
   // reading the leaf alone recorded \`transformRotateDeg: 0\` for all four: 91.76% of
   // one round's ranked pixel residual with ZERO value deltas to name it, because
   // both sides agreed on the same wrong zero.
+  //
+  // BUG-153 (item 1) -- \`readable\` rides out with the numbers. One undecomposable
+  // link anywhere in the chain makes the WHOLE effective transform unknown, not
+  // partially known: the links below it still paint, so what is left is not the
+  // element's transform and must not be projected as one.
   function accTransformOf(el) {
     var acc = null;
+    var readable = true;
     var node = el;
     var guard = 0;
     while (node && node.nodeType === 1 && guard++ < 64) {
       var part = linearPartOf(getComputedStyle(node).transform);
-      if (part) acc = acc === null ? part : mul2(part, acc);
+      if (part === TF_UNREADABLE) readable = false;
+      else if (part) acc = acc === null ? part : mul2(part, acc);
       node = node.parentElement;
     }
-    if (!acc) return { rotate: 0, scale: 1, radians: 0, scaleExact: 1 };
+    if (!acc) return { rotate: 0, scale: 1, radians: 0, scaleExact: 1, readable: readable };
     var radians = Math.atan2(acc.b, acc.a);
     var scaleExact = Math.sqrt(acc.a * acc.a + acc.b * acc.b);
     return {
@@ -1472,7 +1521,22 @@ export const EXTRACT_SCRIPT = `(() => {
       scale: Math.round(scaleExact * 100) / 100,
       radians: radians,
       scaleExact: scaleExact,
+      readable: readable,
     };
+  }
+  // BUG-153 (item 1) -- the transform fields an element projects, out of the chain
+  // {@link accTransformOf} has already walked.
+  //
+  // Where that chain could not be read, the two value fields are omitted ENTIRELY
+  // and \`transformUnreadable\` is set instead. An axis nobody could read must not
+  // arrive as a NUMBER, because the comparator will compare it against the other
+  // side's number and call the pair clean -- which is how a page whose transform
+  // went unmeasured reported as upright and agreed. The diff reports the flag as
+  // an unmeasured axis (see values-diff.ts), which is the honest reading: the
+  // silence is stated rather than scored as agreement.
+  function transformFields(tf) {
+    if (tf && tf.readable === false) return { transformUnreadable: true };
+    return { transformRotateDeg: tf.rotate, transformScale: tf.scale };
   }
   // REQ-333 -- the element's LAYOUT box, recovered from the rect a rotation
   // inflated.
@@ -2323,9 +2387,9 @@ export const EXTRACT_SCRIPT = `(() => {
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
         // REQ-333 -- the transform that PAINTS this run, ancestors included (see
-        // accTransformOf). A run inside a tilted card is tilted.
-        transformRotateDeg: runTf.rotate,
-        transformScale: runTf.scale,
+        // accTransformOf). A run inside a tilted card is tilted. BUG-153 (item 1)
+        // -- absent, and flagged, when that chain could not be decomposed.
+        ...transformFields(runTf),
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),
@@ -2424,8 +2488,8 @@ export const EXTRACT_SCRIPT = `(() => {
         opacity: opacityOf(s),
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
-        transformRotateDeg: fieldTf.rotate,
-        transformScale: fieldTf.scale,
+        // BUG-153 (item 1) -- absent, and flagged, when the chain could not be read.
+        ...transformFields(fieldTf),
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),

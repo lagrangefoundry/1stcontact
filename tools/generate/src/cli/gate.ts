@@ -189,6 +189,18 @@ export function formatGateReport(report: GateReport, ref: string): string {
           ),
         ]
       : []),
+    // BUG-153 (item 4) — and the reproduction ELEMENTS lifted out of the unpaired
+    // count for the same reason one level down. Without it `0 unpaired` reads as
+    // "every element matched" on a page where three did not.
+    ...(report.values.bandPaintActual > 0
+      ? [
+          wrap(
+            `⚠ ${report.values.bandPaintActual} reproduction element(s) are a band's own paint — ` +
+              `the reference holds that on its section record, so NOT counted as unpaired`,
+            '               ',
+          ),
+        ]
+      : []),
     // REQ-274 — the axes the values line above did NOT speak for. Only one side
     // of the projection can read them, so the comparator skipped them in silence
     // and `0 delta(s)` covers less of the page than it reads as. Silent when the
