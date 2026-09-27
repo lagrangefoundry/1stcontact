@@ -6,7 +6,7 @@ title: 'capture: a variable font face collapses to its lowest declared weight, a
   a whole-page wrapper is captured as one band'
 created_by: repro-console:repro-joyfulculinarycreations-com#2
 created_at: '2026-09-27T00:01:14.275133+00:00'
-updated_at: '2026-09-27T01:13:07.815591+00:00'
+updated_at: '2026-09-27T01:19:51.907843+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -677,3 +677,76 @@ faces. `values-diff` matches `fontFamily`, `fontSizePx` and `fontWeight` on all
 59 paired runs and reports **0** typography deltas — so on this bundle the entire
 typographic residual is the one mis-declared Cinzel face, with no other font
 effect to separate it from.
+
+
+---
+
+## Iteration 3 re-measurement — `repro-console:repro-joyfulculinarycreations-com#3`
+
+**Both issues in this ticket are CONFIRMED FIXED, end to end, including the re-capture they needed.**
+
+The bundle has been re-captured since this ticket was filed:
+`/Users/martin/lagrangefoundry/1stcontact/storage/references/joyfulculinarycreations.com/index`
+now reads `capturedAt 2026-09-27T00:47:21.132Z`, `captureSchema 7` (iteration 2 measured
+`2026-09-26T22:09:36.409Z`). Artifacts:
+`/Users/martin/lagrangefoundry/1stcontact/storage/tmp/repro-console/repro-joyfulculinarycreations-com/iteration-3/`.
+
+### Issue 1 — the variable font face collapsed to one weight
+
+Fixed. `page.json` `data.page.l1.resources.fonts` now declares **seven** faces with the variable
+ranges intact and the italic file declared italic:
+
+```json
+[ {"family":"Lato","src":"/assets/lato-s6u9w4bmutphh7usswipgq.woff2","weight":300,"style":"normal"},
+  {"family":"Lato","src":"/assets/lato-s6uyw4bmutphjx4wxg.woff2","weight":400,"style":"normal"},
+  {"family":"Lato","src":"/assets/lato-s6u9w4bmutphh6uvswipgq.woff2","weight":700,"style":"normal"},
+  {"family":"Oswald","src":"/assets/oswald-tk3iwkuhhaijg752gt8g.woff2","weight":[200,700],"style":"normal"},
+  {"family":"Raleway","src":"/assets/raleway-1ptug8zys_skggpnyc0itw.woff2","weight":[100,900],"style":"normal"},
+  {"family":"Karla","src":"/assets/karla-qkbvxvyc6trat7rqht6e4q.woff2","weight":[200,800],"style":"italic"},
+  {"family":"Karla","src":"/assets/karla-qkbbxvyc6trat7rvltw.woff2","weight":[200,800],"style":"normal"} ]
+```
+
+Lato — the static family this ticket named as the zero-delta control — is still three separate files
+at 300/400/700, so the dedupe-by-file change did not flatten the case it was supposed to leave alone.
+
+The measurement confirms it rather than just the declaration. `values-diff.json` is down from
+**65 deltas to 14**, and **none of the 14 is a typography axis** — no `fontWeight`, no `fontFamily`,
+no `color`, no `letterSpacing`. The strongest single check is glyph advance: `renderedTextBox`
+**widths** now agree to 4dp across all four families, e.g.
+
+| run | family / weight | ref width | ours width |
+|---|---|---|---|
+| "In-home weekly, bi-weekly or monthly service" | Karla 500 | 134.796875 | 134.796875 |
+| "In home service or delivery" | Karla 500 | 152.578125 | 152.578125 |
+| "For expecting mothers, and small groups for kids and adults." | Karla 500 | 162.828125 | 162.828125 |
+| "What people are saying" | Oswald 200 | 369.921875 | 369.921875 |
+
+The three `renderedTextBox` deltas that remain on those runs are **height** only, and they are a
+different defect — the capture recording the run's own `line-height` (18) rather than the containing
+block's 24px strut. Filed this round as REQ-338 issue 7, not here.
+
+### Issue 2 — the geometric band slicer gated on `bandRoots.length === 1`
+
+Fixed. The Elementor full-page wrapper is no longer captured as one 4744px band with
+`background: 'none'`:
+
+- `capture.json` `sections` is **10** entries with real per-band boxes and backgrounds — e.g.
+  `sections[6]` is `{"box":{"x":0,"y":2949.515625,"width":1280,"height":525.015625},"background":{"kind":"color","color":"#ffffff"}}`;
+- `multistate.json` carries **11** bands in every one of the 7 projections;
+- `gate.json` `values.sectionPairing` has 10 entries, 9 of them paired with `overlap` ≥ 0.8 and one
+  reference band unpaired for a reason the instrument itself explains (`§0`, the transparent absolute
+  header, "paints NOTHING … no reproduction band could ever be its counterpart").
+
+And the number this issue was measured by moved the right way: **`unmeasured 12 → 4`**, with
+`unmeasuredAxes: []` — the 12 axes are gone. The 4 that remain are 1 band (the transparent header
+above), 2 populations and 1 probe (`§1.contentAnchor`, declined because the header sits inside the
+hero band), none of which is this issue.
+
+### What this round found instead
+
+The round's gap is **REQ-338** — the fold paints each band two or three times (`backdrop-N`,
+`section-bg-N`, `section-band-N`) and the least faithful copy is emitted last, so the hero photograph
+is buried under an opaque black plate and the testimonial band is flooded with a scrim colour that
+belongs to a panel 255px in. That is 75.6% of this page's pixel disagreement and 98.7% of its ranked
+region score, at **zero value deltas**. Three instrument defects went to **BUG-161**; iteration 3's
+re-measurement of REQ-332's four issues went there as a comment.
