@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-26T21:19:12.303352+00:00'
+updated_at: '2026-09-27T00:12:34.804722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4968,5 +4968,13 @@ The `1c ps` bug is display-only; it drops `listenerPid` from the managed set and
 §Q records it but there's no ticket: **`bin/build` will never rebuild `REF-l1`.** `1c kb ensure` compares the mtime of `kb/system/*.md` against the index manifests, and `REF-l1` is a *projection* of `l1NodeSchema` / `l1DocumentSchema` that only gets rewritten during a build. It was projected Sep 24 00:19; your L1 commits landed Sep 26 12:50–13:03. The file hasn't moved, so there's no skew, so nothing rebuilds — the assistant's reference to the L1 vocabulary is describing the pre-REQ-329 schema.
 
 `bin/kb-release` fixes it today. But the general shape — a projection whose freshness is testable (`l1VocabularyGaps` already derives the expectation from the live declarations) and which `ensure` never tests — is BUG-48's lesson one level further out. Want that as its own ticket?
+
+<!-- xgd-turn id="67a46940-e592-4631-9506-979428061f89-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T00:12:33.183278+00:00" -->
+#### You
+Yes please -
+
+Then can you walk me through (1) deploying the latest code to the cloud and (2) copying the latest version of lf and its chats to the cloud please
 
 <!-- xgd-chat-end -->
