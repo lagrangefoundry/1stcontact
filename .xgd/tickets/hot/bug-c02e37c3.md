@@ -5,9 +5,9 @@ type: bug
 title: A stale projection is invisible to the KB build that generates it
 created_by: EPIC-16
 created_at: '2026-09-27T00:13:07.945050+00:00'
-updated_at: '2026-09-27T00:40:53.500740+00:00'
+updated_at: '2026-09-27T00:52:42.818685+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-96d8aca6
@@ -16,6 +16,7 @@ fields:
   priority: medium
   chat_comment: comment-35d04e57
 ---
+
 
 `1c kb ensure` cannot detect a stale projection, so `bin/build` will never rebuild
 one — and the projections are the corpus documents most likely to be wrong,
@@ -83,3 +84,64 @@ mechanism.
 Hand-written `system_kb` documents are out of scope. Those live in tickets and their
 staleness is an editorial question with no derivable answer; the projections are
 mechanical and theirs is a diff. Detecting one is not evidence the other is possible.
+## How it was done
+
+`kbSkew` gained a third list beside `missing` and `stale` — `outdated`, the
+projections whose rendered output differs from the text the bundle holds. It is
+computed in `kbSkew` itself, not beside it, so `requireCoherentKb` refuses on it
+and `kbEnsure` triggers on it through the one call they already share: the build
+stage and the shipping step are then structurally incapable of disagreeing about
+what "behind" means. `1c assets` therefore refuses an outdated projection too, in
+the same words — which is the position BUG-48 took and this does not revisit:
+producing a stale tree is legitimate, shipping one never is.
+
+The rebuild needs no new mechanism. `kbEnsure`'s existing catch runs `runKbBuild`,
+whose first step is `writeProjections`; rewriting the file makes it newer than the
+manifest, which is already `kbSkew`'s trigger, and both indexes and the map follow
+from there. For the same reason the existing no-credential refusal covers the new
+trigger unchanged: an outdated projection with no usable credential fails in this
+stage, naming both the credential and the projection, before anything in the
+corpus is rewritten.
+
+REQ-322's property survives and is asserted rather than assumed: the comparison is
+a rendering of declarations the process has already loaded, so a build with
+nothing to do still reads no token and makes no request.
+
+## What the refusal and the report say
+
+The refusal names the outdated projections under their own heading and opens with
+its own sentence, because the two index states and this one have different
+subjects — one is the index failing the corpus, the other the corpus failing its
+source. An operator told the index is behind when the index is fine looks in the
+wrong place.
+
+The line printed when there is nothing to do now claims only what it checked:
+*"the index covers all 12 corpus document(s) and 3 projection(s) match their
+source — nothing to build."* The old line was a complete and honest account of a
+check that never asked the second question, which is exactly why it was worth
+nothing — it read as reassurance while `REF-l1` sat two days behind its schema.
+
+## Boundary: presence stays BUG-48's axis
+
+Whether a corpus is *missing* a projection is not this ticket's question. BUG-48
+settled that axis — the directory is the boundary — and a corpus that was never
+meant to carry the projected namespace is coherent, not stale, for lacking it.
+What this adds is that a projection the corpus *does* carry must be the current
+one. The narrower rule is also what lets every existing suite bring its own
+corpus without inheriting three documents it never asked for.
+
+## Note on the BUG-48 suite
+
+`kbSkewError`'s finding gained a required field, so the one hand-built `KbSkew`
+literal in BUG-48's suite carries `outdated: []`. Mechanical, and empty on
+purpose: that case is about the two index states and their message, and a currency
+finding mixed into it would leave its assertions unable to say which sentence
+named which document.
+
+## Out of scope, found while here
+
+`l1VocabularyGaps` reports 45 gaps against the *current* `l1/schema.ts` — the
+projection **generator** has fallen behind the schema, independently of any file
+on disk. Four tests in `test_UAT_FC_BUG-48_the_reference_covers_its_source.test.ts`
+fail on a clean tree because of it. That is `projectL1Vocabulary` needing to render
+what REQ-329/330/331 added, not a currency question, and it is left alone here.
