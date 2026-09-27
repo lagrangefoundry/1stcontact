@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T21:27:02.439867+00:00'
+updated_at: '2026-09-27T21:29:29.104072+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4471,5 +4471,65 @@ Then there are 4 ways we could construct the Alice, Bob, User chat:
 4) This is not really a standalone option in is a variant that could be applied to 1, 2 or 3 the variation is that we try to be more clever about the shared context and choose to exclude some messages from Alice (or Bob - but probably mostly Alice as the expensive session)
 
 One other thought. I agree that the user can talk directly to Bob, but I also see Bob helping to solve the "Alice is too passive" problem that I see today. If I ask the consultant "Hey do you really think this looks like a premium site? How can we improve it" - I get some great answers - but I can't train the user to keep pushing the consultant like that. However, I can get Bob to do it
+
+<!-- xgd-turn id="a745a6f5-dd23-4e35-9fe4-92a6d38932f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T21:29:28.248787+00:00" -->
+#### Claude
+Your last point is the strongest idea in this thread, and it inverts my Finding 13 argument. Let me check one thing about session storage first, since it decides how expensive each topology is.
+
+`session-delta.ts` sounds like half the primitive you're postulating. Let me check.
+
+That last point is better than my Finding 13 remedy, on the same diagnosis. And one of your two primitives already exists here.
+
+## Bob as interrogator — this is better than what I proposed
+
+Finding 13 diagnosed Alice as **positionless** and my remedy was supply-side: give her state and expect leadership to follow. Yours is demand-side, on the same diagnosis, and it's stronger.
+
+A challenge is a position-forcing device. "Does this read premium?" leaves no way to answer without taking a position on the artifact. And the decisive difference: **the capability is already observed** — you get good answers when you push — so the mechanism only has to *trigger* it, not create it. My version needed Alice to change behaviour, and Finding 13 measured exactly that approach failing: 2 of 102 turns carried process language from all the coaching prose in the priming.
+
+**Why Haiku can do this.** Posing a good challenge doesn't require design judgement; answering one does. "The brief says premium — does this page read premium?" is a scripted move against a stated goal and a rendered artifact. That asymmetry is the whole trick: pressure from Haiku, taste on Opus.
+
+**And a benefit you didn't claim: it models the behaviour for the client.** A client watching Bob ask "does this read premium?" learns that this is a thing one may ask. That's the answer to "I can't train the user" — you don't train them, you show them, every engagement, for free. It's also the register problem solved socially rather than by inference.
+
+Two failure modes to design against:
+
+1. **Ritual.** A challenge that always fires becomes noise, and Alice learns a ritual defence — both models pattern-match. Challenges must be anchored to an artifact and a stated goal, and must be able to **not fire**.
+2. **Visible correction.** The client watches their consultant being pushed. That reads as rigour or as a consultant who needed correcting, and which one depends entirely on Bob's register: he must challenge against *the brief*, never against his own opinion of the site. The moment Bob has a view on the design, the product has two consultants and one is Haiku.
+
+## The four topologies
+
+Your vocabulary maps exactly onto what's here — the whole session file is a `chat_transcript` comment on the chat ticket (`ai.ts`, `chat-copy.ts`).
+
+**(1) Room is Alice's session.** Every Bob turn sits in Alice's context at full fidelity — which defeats your context goal unless you apply (4). Alice is structurally the host, so "who answers" defaults to her. But it's the **only incrementally buildable option**, and it's reversible: switch Bob off and the product is exactly today's.
+
+**(2) Room is Bob's session.** The economics are right — cheap model holds the history, expensive one is summoned. It matches your goal most directly on paper. But **Alice loses continuity**, and that's the thing I'd defend hardest: a briefed summons destroys unmediated contact with how the client said it, which is her entire value. Worse, whoever composes Alice's brief is deciding "what matters" — judgement, on Haiku, re-entering by the back door. This is the Wix ADI failure shape: the cheap orchestrator decides what the expensive designer is allowed to know.
+
+**(3) Room is nobody's context.** Cleanest. It makes (4) the normal mechanism rather than an exclusion list, because each agent's view is *already* a projection. It forces the addressing discipline to be designed explicitly instead of falling out of who happens to own the room — a cost, but that's the hard problem, and 1 and 2 both hide it behind an accident of ownership. Most work.
+
+**(4) Reframe it.** Not *excluding* messages — **composing** each participant's view. The rule I'd hold: **filter the agents, never the client.** Alice gets the client verbatim always, plus plan state as compact fact, minus Bob's clerical chatter. Bob gets everything, because he's cheap and reconciling is his job.
+
+**I'd go for 3, reached by starting at 1.** Build 1 — incremental, reversible — but treat the room as an artifact from day one, with Alice's session a *view* that currently happens to be complete. Then (4) is a dial you turn, not a refactor. Starting at 2 bets the architecture on the cheap model's judgement, and that's hard to undo. Note that 1 and 2 both *become* 3 the moment you apply (4): filtering Alice's view concedes the room was never her context.
+
+## Your primitive (2) already exists
+
+REQ-160 / `session-delta.ts` is exactly it, in general form: a cursor over the change feed, delivering a per-turn delta **separately from the description** — because, in its words, *"a map is a description, not a notification."*
+
+Two lessons transfer straight to your room:
+
+- It **rejected a change-log ticket** for reasons that apply to a written room: rewritten on every append, a compare-and-set contention point, unbounded growth in one body. So topology 3's room wants to be **derived — a cursor over the transcript — not a shared mutable object.** A derived feed is automatically complete because it comes from the corpus rather than sitting beside it.
+- Its known gap is *reliably additive, unreliably subtractive*. A chat room is purely additive, so that gap doesn't bite.
+
+## The hazard your tool design creates
+
+Primitive (1) + primitive (2) is a cycle: Alice appends → Bob wakes → Bob appends → Alice wakes → … Two agents that can each wake the other have no natural stopping point, and since Bob's *purpose* is to push, the pressure runs toward more exchanges rather than fewer.
+
+This needs a turn-taking rule at the UX level, not just a spend cap — something like: a user message opens a round, Bob may challenge once per Alice turn, Alice's answer closes it. **Unbounded agent-to-agent chatter in front of a waiting client is the failure the client actually experiences**, and it's the one thing that would make this feel worse than today rather than better.
+
+---
+
+Recorded as 14.5–14.9 on the epic; 14.4's positions 1 and 6 are withdrawn as stated.
+
+The next thing worth playing out is the one both of us keep deferring: **who answers "let's do the blog next"** — a message that is simultaneously a plan change and a design commitment. Topology 3 has no owner to default to, so that rule *is* the design. Want to work a few concrete exchanges?
 
 <!-- xgd-chat-end -->
