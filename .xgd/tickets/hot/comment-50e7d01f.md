@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T21:42:33.429194+00:00'
+updated_at: '2026-09-27T22:11:31.097335+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2313,5 +2313,11 @@ This isn't hypothetical: `tql0pf`'s brief told it to *"add four palette colours 
 **5.** Remove the primary's write groups, gated on 1+2 holding. *(ours)*
 
 Want me to write that into EPIC-20 as the plan and scope the children? Items 0, 3, 4, 5 are code or config in this repo and each needs its own ticket and branch — I haven't cut any yet.
+
+<!-- xgd-turn id="f1649c92-2e3f-42eb-8ae0-5c67841b74be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T22:11:31.026259+00:00" -->
+#### You
+This is important it deserves a design document first and then can you lay out the tasks by the tickets the need (try to keep the ticket count as small as is reasonable)
 
 <!-- xgd-chat-end -->
