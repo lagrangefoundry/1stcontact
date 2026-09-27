@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T22:11:31.097335+00:00'
+updated_at: '2026-09-27T22:15:34.516205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2319,5 +2319,51 @@ Want me to write that into EPIC-20 as the plan and scope the children? Items 0, 
 <!-- xgd-chat role="user" ts="2026-09-27T22:11:31.026259+00:00" -->
 #### You
 This is important it deserves a design document first and then can you lay out the tasks by the tickets the need (try to keep the ticket count as small as is reasonable)
+
+<!-- xgd-turn id="f1649c92-2e3f-42eb-8ae0-5c67841b74be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T22:15:33.718193+00:00" -->
+#### Claude
+No existing delegation doc. Writing it as a new DOC, then the ticket breakdown.
+
+**DOC-60 — *Commissioned construction: the primary stops writing L1*** (`doc-53e05036`, `doc_kind: architecture`), linked from EPIC-20.
+
+## What the doc argues
+
+Your four steps, with the keystone identified and the order changed. Its central claim: **the worker builds well and reports badly** — 80 writes over 266 calls with 17 refusals (15 of them one platform bug), every write correct, and one delegation in seven returning a usable answer. That reframes the work from "the delegate isn't good enough" to "the reporting channel loses its payload", which is why it argues for *widening* the delegate rather than hedging.
+
+The keystone is not the grant change, it's the **host-derived diff** — because three things follow from it that nothing else gives: it's the first trusted field in a result (everything else is `provenance: untrusted` by declaration), it's the only thing that survives a silent worker, and it settles four of `3bje6q`'s five accept checks with no trust in the worker at all. At 287 bytes / ~72 tokens per write it's cheap enough to be unconditional.
+
+Sections: the finding and the economics · the four faults with measurements · the design · why this order and what gates the last step · what this is **not** (five explicit absences, including that the worker's transcript still must not enter the caller's context) · how we'll know it worked (five metrics with today's values) · the tickets.
+
+## The tickets — six, and only DOC-60 exists
+
+| # | ticket | repo | state |
+|---|---|---|---|
+| — | **DOC-60** the design | ours | **created** |
+| 1 | a delegation result must account for the work whether or not the worker reports — host hook for an externally-derived account, cap-exhaustion reported as itself, silent worker asked once | **lagrange-framework** | to file |
+| 2 | the diff provider — snapshot the draft either side, diff the tree, feed the hook | ours | blocked on 1 |
+| 3 | the worker's context — no consultant ledger, add `act-rather-than-narrate` | ours | **unblocked, ships first** |
+| 4 | widen `builder` to `ManagePages`, `ManagePalette`, `WriteConfig` | ours | unblocked |
+| 5 | delegate-first prose + per-turn tail entry | ours | blocked on 2 |
+| 6 | remove the consultant's L1 write groups | ours | gated |
+
+Where I folded and where I didn't, since you asked for the minimum:
+
+- **Folded:** the three framework changes are one ticket, not three — the hook, the cap distinction and the ask-once all serve a single property ("the result accounts for the work"), and they're all `delegation_toolbox.js`/`api_tools.js`.
+- **Not folded, 2 and 3:** both touch `host-core.ts`, so folding is tempting — but 2 is blocked on the upstream hook and 3 is the cheapest fix in the document. Folding would block the cheap win behind the dependency.
+- **Not folded, 5 and 6:** both edit `instances.json`/`priming.json`, but 6 waits on ten recorded delegations. A ticket sitting half-done for a week is worse than two tickets.
+- **4 before 6 deliberately:** a widened worker needs exercising while the consultant can still write, because that's the only window where a grant gap shows up cheaply.
+
+The gate on 6 is stated as a checkable fact, not a judgement: ten consecutive delegations where the diff and the self-report don't contradict each other, and none returns `silent` with writes in its diff.
+
+## Before I file
+
+Two things worth your call:
+
+1. **Ticket 1 is cross-repo** — it gets filed in lagrange-framework and no code here. Tickets 2 and 5 are blocked until it lands, so if you'd rather not wait, ticket 3 and ticket 4 can both ship immediately and independently.
+2. **Ticket 4 widens the builder's authority** — that's the one place this design gives the cheap model *more* power rather than better supervision. The alternative is keeping structural writes on the primary, which I argued against in the doc (§4) but it's a genuine fork.
+
+Say the word and I'll file 1–6. Also worth noting: the doc is a document change so it's outside free-coding, but tickets 2, 3, 4 and 6 are code or config in this repo and each needs its own branch — I haven't cut any.
 
 <!-- xgd-chat-end -->
