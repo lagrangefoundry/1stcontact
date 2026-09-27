@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-5365b5a4
 ---
 
 Loop 1, iteration 3 of `repro-faelan-com` against the stored reference bundle
