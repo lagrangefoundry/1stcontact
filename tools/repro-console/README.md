@@ -191,6 +191,16 @@ REPRO_CONSOLE_AI_MODEL=opus         # a different model
 REPRO_CONSOLE_RAIL=off              # don't wait for the rail this round
 ```
 
+**A round runs on the operator's Claude Code login, whatever shell started the
+server** ([[BUG-155]]). `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN`,
+`ANTHROPIC_BASE_URL`, `CLAUDE_CODE_USE_BEDROCK` and `CLAUDE_CODE_USE_VERTEX` are
+removed from the child's environment at the spawn, because the CLI prefers any of
+them over the login it is signed in with — and a terminal that ran `bin/deploy`
+first has an exported key in it. Everything else, the two variables above
+included, is the server's own environment. The list is `AI_STRIPPED_CREDENTIAL_ENV`
+and the environment is computed by `claudeEnv`, so what a round would be given is
+assertable without spawning anything, the way the argv already is.
+
 The **regression rail** ([[REQ-255]]) runs read-only once per iteration and its
 findings are shown beside the links, so each round sees the cross-site state
 rather than only this site's. Its verdict never fails the iteration — that
