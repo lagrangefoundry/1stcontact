@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T20:05:58.656417+00:00'
+updated_at: '2026-09-27T20:30:34.847310+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1964,5 +1964,130 @@ I would like to talk about the delegation feature. It is not really getting used
 Before we go there, can you help me review how the delegation capability is presented to the primary...can we look at exactly how it delegates, what the delegates can do, what they return, what is and is not working?
 
 Please can you pull actually examples of the prompts that are being given to the delegates by the primary and the actual responses that it gets back
+
+<!-- xgd-turn id="a5479f38-ff01-4929-8f41-ae84b395192f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-27T20:30:34.340885+00:00" -->
+#### Claude
+I'll pull the epic, the framework code, and the actual worker transcripts — in parallel.
+
+BUG-68's refusals (`compound_check`, `unasked_check`) are already in the installed surface — so that landed. Now the actual worker transcripts.
+
+Now the actual briefs and reports — those are in the `tool_transcript` comments.
+
+Found it — the 09-26 session made **one** `Delegate` call and **zero** `set_l1` calls. Let me read the brief and the result verbatim.
+
+The worker went **silent** — never reported. Let me see what it actually did.
+
+The worker made **only 5 `describe_page` calls** — no `get_l1`, no `set_l1` — yet narrates writing. Let me check its grant and how it ended.
+
+Correction: my earlier histogram regex excluded digits, so it hid `get_l1`/`set_l1`. The worker **did** do the work. Redoing this properly.
+
+Important: on 09-22 the consultant passed `accept` as a **bare string**, not a list. Let me fix the extractor and get all six cleanly.
+
+The two missing briefs are recoverable from the worker side — the brief *is* the worker's user turn. Extracting all seven.
+
+Now the configuration and the framework runtime, to explain the two silent workers.
+
+Both silences explained — and they have *different* causes. Now the prose the consultant actually reads.
+
+One more thing to confirm — the workers keep thanking someone for a "standing note" they shouldn't have.
+
+Last data pass: did any worker write actually fail, and what did all this cost?
+
+Recorded on EPIC-20. Here's the review, from the installed framework, this repo's config, and every delegation that has ever run — recovered from `turn_spend.attributed` plus the consultant's and each worker's own transcript comments in the local dev D1. Times local (PDT).
+
+## 1. What the consultant is shown
+
+Three things, and the third is the finding.
+
+- **`templates/delegation-method`** — `priming.json` entry **[2] of 7, before the cache boundary**. Four paragraphs: hand over large-payload/small-decision work; write the brief for someone who cannot see the conversation; ask for exactly the checks you'd have made yourself; believe a passed check and move on.
+- **The surface's own prose** (`delegation_surface.json`) — which is where the authority model is actually stated: brief carries intent, role carries permission, one level, the worker's turns never enter yours.
+- **Nothing in the per-turn tail.** `reminders` has nine entries; none mentions delegation. Compare `act-rather-than-narrate`, which *is* in the tail because standing behaviour needs repeating. Delegation is standing behaviour and is read once, then sits ~186k of prefix behind the model.
+
+## 2. What a worker is
+
+`builder` grant: `ReadSite, AuthorPages, ManageComponents, MeasureDrawings, DrawImages` + `SeeSite`. Missing vs consultant: `ManagePages`, `WriteConfig`, `ManagePalette`. Backend `claude_builder` = `claude-haiku-4-5`, `max_tokens` 32000. `delegation.json` is `enabled: true`.
+
+The brief arrives as the worker's **single user turn** — goal verbatim, then the `accept` entries as bullets under *"Before you report, make each of these checks… Quote each one back exactly as written here"*. One turn; the whole tool loop happens inside it.
+
+## 3. A real brief and its answer
+
+**Yesterday, 17:30 PDT** — the consultant's brief was textbook (1,849 chars, five discrete one-sentence checks):
+
+> On the site's only page (id `styleb`, slug `home`), tighten vertical spacing at narrow widths ONLY. The page is currently about 5,950px tall on a 375px-wide phone… Desktop spacing is settled and must not change.
+> The rows sit at these addresses: 0.4.1 (THE THESIS), 0.5.1 (PORTFOLIO), 0.7.1 (LAGRANGE FOUNDRY), 0.8.1 (FOUNDER), and 0.10 (CONTACT)…
+> For each of those rows, KEEP the existing `padding` exactly as it is, and ADD a `responsivePadding` block… at 320 and 375, about 45% of the desktop value; at 768, about 70%; at 1024 and above, exactly the current desktop value…
+> Do not change any font size, colour, width, image, text, or the `reveal`, `sticky`, `stacked` or `zoom` fields.
+
+What came back:
+
+```json
+{"outcome": "silent", "accepted": false, "summary": "", "changed": [], "decisions": [],
+ "checks": [ {"verdict": "unreported"} ×5 ]}
+```
+
+The worker had **done the entire job** — five `get_l1`/`set_l1` pairs, all five rows written, every check verified in its own narration — and then emitted a **complete, well-formed `<invoke name="ReportResult">…</invoke>` block as message text.** Not truncated; the closing tag is there. The host saw no tool call. Five element writes sat committed on the site and the caller was told nothing, for $0.37.
+
+The one that worked, **09-24, `msskzt`** — six discrete checks, six quoted back verbatim, `accepted: true`, 27 items in `changed`, 334-char summary. 70 tool calls, 25 writes, one refusal.
+
+## 4. Every delegation ever
+
+| worker | date | calls | `set_l1` | failed | reported | verdict |
+|---|---|---|---|---|---|---|
+| `q73amk` | 09-22 | 28 | 4 | 5 | yes | **genuinely blocked** (REQ-300) |
+| `tql0pf` | 09-22 | 26 | 4 | 10 | yes | answered the *goal* as a check |
+| `u4ej95` | 09-22 | 13 | 2 | 0 | yes | pairing artifact |
+| `qen037` | 09-22 | 51 | 22 | 1 | **no** | **silent** |
+| `ya6wkq` | 09-22 | 54 | 18 | 0 | yes | answered six invented checks |
+| `msskzt` | 09-24 | 70 | 25 | 1 | yes | **accepted** |
+| `3bje6q` | 09-26 | 24 | 5 | 0 | **no** | **silent** |
+
+Plus two sessions stood up with zero turns (`hcd48w`, `g62erw`).
+
+**80 element writes, 266 tool calls, 17 refusals — 15 of them the two REQ-300 runs.** On the five unblocked runs Haiku drove a 60-operation surface with 0–1 refusals each. Every write stayed; none has been reported wrong.
+
+**One delegation in seven gave the caller a usable answer. The construction isn't what's failing — the report is.**
+
+## 5. What's broken: four defects, one fixed
+
+**(a) `accept` as a bare string — fixed.** All four 09-22 briefs passed `accept` as a string; the framework coerced it to one check. Two held several sentences (528ch/5, 828ch/9), so no answer could ever pair. BUG-68's `compound_check` refusal is now in the installed surface, and `3bje6q`'s five discrete checks show the consultant has learned. Closed.
+
+**(b) A worker can write its report as prose.** Above. Host has no recovery.
+
+**(c) `MAX_TOOL_ITERATIONS = 50` truncates silently.** `qen037` made **51 calls**, hit the cap, cut off mid-sentence — *"Let me continue systematically with the remaining divider rules."* 22 writes landed, two brief items outstanding, `outcome: silent`.
+
+(b) and (c) reach the caller **identically** despite sharing nothing — `silent`, empty summary, everything unreported, real writes on the site. That's the worst shape available: the caller must now re-inspect everything, which is the exact cost delegation exists to remove.
+
+**(d) The consultant's ledger is delivered to the worker, and derails it.** `host-core.ts` resolves `deps.ledger(slug)` **per site**, and `registerMemoryProviders` registers `session.summary` on the one `providers` registry every role is built from. The worker-toolbox comment says a worker composes *"no ledger… no session context"* — true of its **tools**, false of its **priming**. So on turn 1:
+
+> *"Thank you for the standing note. I see I'm in the middle of a multi-section spacing task. Let me pick up where I left off."*
+
+It then re-narrates its full state on **every** iteration — *"I'm picking up mid-engagement. My standing note shows… I've completed:"* — **14×** in `3bje6q`, **34×** in `qen037`, 9× in `ya6wkq`. `builder_reminders` has only `site.line` and `site.digest`; the worker has **no `act-rather-than-narrate` line**.
+
+Cost: `3bje6q` spent **14,421 output tokens for five writes** — ~2,900 per write, nearly all status narration. And it's the mechanism behind (c): `qen037` burned iterations narrating and ran out before reporting.
+
+## 6. The economics argue your way
+
+| | writes | spend | per write |
+|---|---|---|---|
+| Consultant (Opus 5), 09-25→27 | 94 | $50.76 | **$0.54** |
+| Workers (Haiku), 5 metered runs | 37 | $1.70 | **$0.046** |
+
+**~12× cheaper per element write**, and the consultant figure is whole-turn so it's an upper bound. Over the metered window workers did **27% of element writes for 2.9% of spend**, at indistinguishable quality.
+
+## 7. On making the primary read-only
+
+The evidence backs the direction and re-orders the work. Haiku *can* be the L1 expert — the analogy to the image tool holds better than I'd have guessed. What it can't yet do reliably is **report**: 2 of 7 runs lost the account of correct work entirely.
+
+Route 100% of construction through a channel that drops its answer 29% of the time and the consultant's only recovery is the re-inspection the design exists to avoid — and it would be re-inspecting with read tools at Opus rates. So: **make the report unlosable, then narrow the grant.**
+
+Three things, and (d) has the best ratio because it hits (c) and the output-token cost at once:
+
+1. Stop giving a worker the consultant's ledger; add `act-rather-than-narrate` to `builder_reminders`. **Ours** — `host-core.ts` + `priming.json`.
+2. Iteration-cap exhaustion must not surface as `silent`. **Framework.**
+3. A worker ending its turn without calling `report` should be asked once, not have its work discarded from the caller's view. **Framework.**
+
+I haven't filed anything — say the word and I'll put (1) up as a child of EPIC-20 and (2)+(3) upstream beside BUG-68. Worth noting (1) is a code change in this repo, so it needs its own ticket and branch rather than this session.
 
 <!-- xgd-chat-end -->
