@@ -662,8 +662,21 @@ function maskDecls(m: L1Mask): string[] {
     case 'blob':
       return [`clip-path: polygon(${blobPoints(m.roughness ?? 0.5, m.seed ?? 0)})`]
     case 'featherRadial': {
-      const inner = m.featherPx !== undefined ? `calc(100% - ${Math.max(0, m.featherPx)}px)` : '60%'
-      const g = `radial-gradient(closest-side, #000 ${inner}, transparent 100%)`
+      // REQ-333 — the ending shape is the document's when it names one. `extentPct`
+      // is in CSS box-dimension units (`50` === `closest-side`), so an extent wider
+      // than the box — the whole point of the axis — is expressible, and the opaque
+      // stop is then a fraction OF THAT shape rather than a band measured in from
+      // the closest side. Absent, both fall through to the historical emission, so
+      // no existing document changes meaning.
+      const stop =
+        m.opaqueStopPct !== undefined
+          ? `${num(Math.max(0, Math.min(100, m.opaqueStopPct)))}%`
+          : m.featherPx !== undefined
+            ? `calc(100% - ${Math.max(0, m.featherPx)}px)`
+            : '60%'
+      const extent = m.extentPct === undefined ? undefined : num(Math.max(1, Math.min(400, m.extentPct)))
+      const ending = extent === undefined ? 'closest-side' : `ellipse ${extent}% ${extent}% at 50% 50%`
+      const g = `radial-gradient(${ending}, #000 ${stop}, transparent 100%)`
       return [`-webkit-mask-image: ${g}`, `mask-image: ${g}`]
     }
     case 'featherTop':
@@ -2019,9 +2032,20 @@ function num(n: number): string {
 /**
  * REQ-88 — the centred column's *extent* as a CSS length expression:
  * `min(maxWidthPx, min(containerPx, 100vw) - 2 * insetPx)`.
+ *
+ * REQ-333 — the subtraction is wrapped in its OWN `calc()`, not in bare
+ * parentheses. A parenthesised math sub-expression is legal only *inside* a math
+ * function, so `width: (min(896px, 100vw) - 48px)` is an invalid declaration the
+ * browser DROPS: the run keeps `position: absolute` with no width, shrinks to fit,
+ * and the `text-align: center` emitted beside it becomes a no-op — three CRITICAL
+ * centring deltas on faelan.com. The `maxWidthPx` branch happened to wrap it in
+ * `min(…)` and the keyframe-track path in `calc(…)`, which is why only the one
+ * uncapped, full-width, untracked case was ever wrong. Returning a self-contained
+ * value makes the helper safe at EVERY call site rather than correct only at the
+ * ones that remember to wrap it — `calc()` nests inside `calc()` and `min()` alike.
  */
 function columnExtentCss(col: L1Column): string {
-  const inner = `(min(${num(col.containerPx)}px, 100vw) - ${num(col.insetPx * 2)}px)`
+  const inner = `calc(min(${num(col.containerPx)}px, 100vw) - ${num(col.insetPx * 2)}px)`
   return col.maxWidthPx === undefined ? inner : `min(${num(col.maxWidthPx)}px, ${inner})`
 }
 
@@ -3957,6 +3981,20 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       // own: the anchor is the run's SUBSTANCE, not an ornament, and a link
       // rendered as bare text is the failure this axis exists to prevent.
       const href = run.link && isSafeUrl(run.link.href) ? relativizeUrl(run.link.href.trim()) : undefined
+      // REQ-333 — a synthesised `<a>` must not inherit UA LINK STYLING it was not
+      // asked for. `a:-webkit-any-link { color: -webkit-link }` is a rule on the
+      // ELEMENT, so it beats the sentence's inherited colour: a white hero run
+      // whose linked word carried no `color` of its own painted `#0000ee`, where
+      // the page (whose own Tailwind base resets `a { color: inherit }`) paints
+      // white. "This run overrides nothing" means INHERIT, so that is what is
+      // emitted — and the same for the UA underline, which is a decoration the
+      // document asks for through `textDecoration` or not at all. Both are
+      // *unshifted*, so a run that does carry its own value still wins. This is the
+      // mirror of the node-level link path, which has always reset both.
+      if (href !== undefined) {
+        if (a.textDecoration === undefined) decls.unshift('text-decoration: none')
+        if (!c) decls.unshift('color: inherit')
+      }
       if (decls.length === 0 && href === undefined) return words
       const runClass = `${nodeClass}-r${i}`
       const classAttr = decls.length === 0 ? '' : ` class="${runClass}"`

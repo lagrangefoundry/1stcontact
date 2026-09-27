@@ -535,6 +535,29 @@ export const l1MaskSchema = z
     ]),
     featherPx: finite.nonnegative().optional(),
     /**
+     * REQ-333 — `featherRadial` only: the ending ellipse's radii, as a percentage
+     * of the box's OWN width and height (CSS `radial-gradient(ellipse P% P% …)`
+     * units, where `50` is exactly `closest-side`). Absent keeps the historical
+     * `closest-side` emission, so every existing document means what it always did.
+     *
+     * This axis exists because the common "soft-edged photograph" idiom
+     * (`radial-gradient(ellipse 92% 92% at 50% 50%, black 72%, transparent 100%)`)
+     * puts its ending shape OUTSIDE the box — which is precisely how the idiom gets
+     * a *subtle* edge, a whisper at the corners rather than a vignette over half the
+     * frame. With one parameter measured from the closest side, the substrate could
+     * not write that down at all: faelan.com's three collage photographs folded to a
+     * feather that erased 21.5% of each of them, and the only alternative under the
+     * old axis was to carry no mask at all.
+     */
+    extentPct: finite.min(1).max(400).optional(),
+    /**
+     * REQ-333 — `featherRadial` only: where the opaque core ends, as a percentage of
+     * the ending shape ({@link extentPct}). This is the gradient's own last
+     * fully-opaque colour stop. Absent derives the stop from {@link featherPx}
+     * exactly as before.
+     */
+    opaqueStopPct: finite.min(0).max(100).optional(),
+    /**
      * REQ-136 — `parallelogram` only: how far the top edge leans, as a percentage
      * of the box width. Positive leans right, negative leans left; the bounds keep
      * a lean from consuming the whole box (at ±50 the shape degenerates to a

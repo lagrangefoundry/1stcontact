@@ -117,28 +117,10 @@ export interface RawGeometry {
   textShadow: string | null
   /** REQ-48 (item 3) — computed `mask-image` or `clip-path` when the element is masked/clipped, else null. */
   maskEdge: string | null
-  /**
-   * REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix
-   * (0 when none). BUG-153 (item 1) — the EFFECTIVE rotation, composed with every
-   * transform this element's ancestors paint, because `transform` is not an
-   * inherited property and a collage rotates the wrapper, not the photograph.
-   * Absent when {@link transformUnreadable}.
-   */
-  transformRotateDeg?: number
-  /** REQ-48 (item 1) — effective transform uniform scale (1 when none). Absent when {@link transformUnreadable}. */
-  transformScale?: number
-  /**
-   * BUG-153 (item 1) — set when the element's effective transform chain held a
-   * value this projection could not decompose (`matrix3d`, or an unparseable
-   * spelling), in which case {@link transformRotateDeg} and {@link transformScale}
-   * are ABSENT rather than defaulted to the identity.
-   *
-   * A zero that means "we did not look" must not be comparable to a zero that
-   * means "upright": the comparator's both-sides guard skips the pair, and the
-   * diff reports the axis as unmeasured so the silence is stated instead of read
-   * as agreement.
-   */
-  transformUnreadable?: true
+  /** REQ-48 (item 1) — transform rotation in degrees, decomposed from the matrix (0 when none). */
+  transformRotateDeg: number
+  /** REQ-48 (item 1) — transform uniform scale, decomposed from the matrix (1 when none). */
+  transformScale: number
   /** REQ-48 (item 1) — declared motion: animation / transition / both / null. */
   motion: 'animation' | 'transition' | 'both' | null
 }
@@ -1027,10 +1009,25 @@ export const EXTRACT_SCRIPT = `(() => {
   // Largest painted corner radius (px). Rounded-vs-square is visually obvious but
   // tiny in pixels, so it is captured as an explicit rendered value, not left to
   // an image diff to (barely) see.
-  function borderRadiusOf(s) {
+  // REQ-333 -- a PERCENTAGE radius resolves against the box, not against the number.
+  // \`border-radius: 50%\` -- the idiomatic circular crop -- computes to the string
+  // '50%', and parseFloat read it as 50px: a 216px photograph came back with a 50px
+  // corner rounding where the page paints a disc. The box is passed in because the
+  // radius is only meaningful against one, and a caller with no box keeps the old
+  // reading (a bare number is already px).
+  function borderRadiusOf(s, box) {
     var vals = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomLeftRadius, s.borderBottomRightRadius];
     var max = 0;
-    for (var i = 0; i < vals.length; i++) { var v = parseFloat(vals[i]); if (!isNaN(v) && v > max) max = v; }
+    for (var i = 0; i < vals.length; i++) {
+      var raw = ('' + (vals[i] || '')).trim().split(/\\s+/)[0];
+      var v = parseFloat(raw);
+      if (isNaN(v)) continue;
+      if (/%$/.test(raw)) {
+        if (!box || !(box.width > 0) || !(box.height > 0)) continue;
+        v = (v / 100) * Math.min(box.width, box.height);
+      }
+      if (v > max) max = v;
+    }
     return Math.round(max);
   }
   function boxShadowOf(s) {
@@ -1375,101 +1372,173 @@ export const EXTRACT_SCRIPT = `(() => {
   function maskEdgeOf(s) {
     return paintedOrNull(s.maskImage || s.webkitMaskImage) || paintedOrNull(s.clipPath);
   }
-  // REQ-48 (item 1) -- decompose ONE element's 2D transform matrix into rotation
-  // (deg) and uniform scale. matrix(a,b,c,d,e,f): rotation = atan2(b,a),
-  // scale = hypot(a,b). Translation (e,f) is already folded into the
-  // getBoundingClientRect box, so it needs no field.
-  //
-  // BUG-153 (item 1) -- \`readable: false\` is the THIRD outcome, and the one the
-  // old shape could not express. A \`matrix3d\` or an unparseable value used to
-  // fall back to the identity, which put a zero meaning "we did not look" into
-  // the same field as a zero meaning "upright" -- indistinguishable to the
-  // comparator, which then reported the pair as clean. Returned as a fact so the
-  // caller can decline to project the axis at all (see {@link effectiveTransformOf}).
-  function decomposeTransform(t) {
-    if (!t || t === 'none') return { rotate: 0, scale: 1, readable: true };
-    // BUG-153 (item 1) -- the parentheses are DOUBLE-escaped, and that is the
-    // second reason this axis read zero on every element of every page.
-    //
-    // This whole function lives inside a TEMPLATE LITERAL. In one, a backslash
-    // before a character that is not a recognised escape is dropped: the source
-    // \`\\(\` reaches the browser as a bare \`(\`, so the regex the engine
-    // actually compiled was \`/matrix(([^)]+))/\` -- a capturing group where a
-    // literal paren was meant. Against \`matrix(0.996, -0.087, ...)\` that made
-    // \`m[1]\` start with the paren, \`parseFloat('(0.996')\` NaN, and the
-    // function return the identity -- for EVERY element, including one carrying
-    // its own \`transform: rotate(…)\`, since REQ-48 added the axis. Neither
-    // \`tsc\` nor any test could see it: the literal is a string to the compiler
-    // and a browser is what evaluates it.
+  // REQ-48 (item 1) -- decompose the 2D transform matrix into rotation (deg) and
+  // uniform scale. matrix(a,b,c,d,e,f): rotation = atan2(b,a), scale = hypot(a,b).
+  // Translation (e,f) is already folded into the getBoundingClientRect box, so it
+  // needs no field. matrix3d and an unparseable value fall back to identity.
+  function transformOf(s) {
+    var t = s.transform;
+    if (!t || t === 'none') return { rotate: 0, scale: 1 };
     var m = t.match(/matrix\\(([^)]+)\\)/);
-    if (!m) return { rotate: 0, scale: 1, readable: false };
+    if (!m) return { rotate: 0, scale: 1 };
     var p = m[1].split(',');
     var a = parseFloat(p[0]), b = parseFloat(p[1]);
-    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1, readable: false };
+    if (isNaN(a) || isNaN(b)) return { rotate: 0, scale: 1 };
     return {
-      rotate: Math.atan2(b, a) * 180 / Math.PI,
-      scale: Math.sqrt(a * a + b * b),
-      readable: true,
+      rotate: Math.round(Math.atan2(b, a) * 180 / Math.PI),
+      scale: Math.round(Math.sqrt(a * a + b * b) * 100) / 100,
     };
   }
-  // BUG-153 (item 1) -- the EFFECTIVE transform: this element's own, composed
-  // with every transform its ancestors paint.
-  //
-  // \`transform\` is not an inherited property, so \`getComputedStyle(img).transform\`
-  // on a photograph inside a rotated wrapper is \`none\` -- and measured on
-  // faelan.com that is the normal authoring shape, not an edge case: all four
-  // collage photographs are rotated 3-8deg by a wrapper div
-  // (\`.photo-circle{transform:rotate(-5deg)}\`, and three more), and every one of
-  // them projected \`transformRotateDeg: 0\`. Because BOTH sides of a diff are read
-  // by this same extractor, both reported the same wrong zero and the dominant
-  // defect on the page -- 91.76% of its ranked pixel score -- carried zero value
-  // deltas under it. A ruler that reads a property off the leaf while the page
-  // paints it on an ancestor is not measuring the page.
-  //
-  // Composition is exact for the rotate+uniform-scale subset this axis holds:
-  // rotate(a)scale(s1) . rotate(b)scale(s2) = rotate(a+b)scale(s1*s2). A skew or
-  // a non-uniform scale anywhere in the chain decomposes to a rotation and a
-  // \`scale\` that is the mean of the two axes -- the same approximation the
-  // single-element form has always made, now made over the chain.
-  //
-  // The walk stops at \`documentElement\` exactly as {@link clipOf}'s does: the
-  // same "an ancestor paints this, not the leaf" shape, and the same boundary.
-  function effectiveTransformOf(el, s) {
-    var rotate = 0, scale = 1, readable = true, seen = false;
-    var own = decomposeTransform(s.transform);
-    rotate += own.rotate; scale *= own.scale;
-    if (!own.readable) readable = false;
-    if (s.transform && s.transform !== 'none') seen = true;
-    var node = el && el.parentElement;
-    while (node && node.nodeType === 1 && node !== document.documentElement) {
-      var cs = getComputedStyle(node);
-      var t = cs.transform;
-      if (t && t !== 'none') {
-        seen = true;
-        var d = decomposeTransform(t);
-        rotate += d.rotate; scale *= d.scale;
-        if (!d.readable) readable = false;
+  // REQ-333 -- the linear part of one element's own transform, as a 2x2 matrix, or
+  // null for 'none' / unreadable. \`matrix()\` and \`matrix3d()\` are what a laying-out
+  // engine reports; the declared function list is what an engine that does no layout
+  // reports, and reading both means the accumulation below is measurable without a
+  // browser as well as inside one. Translation is deliberately dropped: it is
+  // already folded into every rect this file records.
+  function linearPartOf(t) {
+    if (!t || t === 'none') return null;
+    var m = /matrix\\(([^)]+)\\)/.exec(t);
+    if (m) {
+      var p = m[1].split(',');
+      var r = { a: parseFloat(p[0]), b: parseFloat(p[1]), c: parseFloat(p[2]), d: parseFloat(p[3]) };
+      return (isNaN(r.a) || isNaN(r.b) || isNaN(r.c) || isNaN(r.d)) ? null : r;
+    }
+    var m3 = /matrix3d\\(([^)]+)\\)/.exec(t);
+    if (m3) {
+      var q = m3[1].split(',');
+      var r3 = { a: parseFloat(q[0]), b: parseFloat(q[1]), c: parseFloat(q[4]), d: parseFloat(q[5]) };
+      return (isNaN(r3.a) || isNaN(r3.b) || isNaN(r3.c) || isNaN(r3.d)) ? null : r3;
+    }
+    var acc = null;
+    var re = /(rotatez|rotate|scalex|scaley|scale)\\(([^)]*)\\)/gi;
+    var f;
+    while ((f = re.exec(t))) {
+      var fn = f[1].toLowerCase();
+      var args = f[2].split(',');
+      var step = null;
+      if (fn === 'rotate' || fn === 'rotatez') {
+        var deg = parseFloat(args[0]);
+        if (isNaN(deg)) continue;
+        if (/rad\\s*$/i.test(args[0])) deg = deg * 180 / Math.PI;
+        else if (/turn\\s*$/i.test(args[0])) deg = deg * 360;
+        var rad = deg * Math.PI / 180;
+        step = { a: Math.cos(rad), b: Math.sin(rad), c: -Math.sin(rad), d: Math.cos(rad) };
+      } else {
+        var s1 = parseFloat(args[0]);
+        if (isNaN(s1)) continue;
+        var s2 = args.length > 1 ? parseFloat(args[1]) : s1;
+        if (isNaN(s2)) s2 = s1;
+        if (fn === 'scalex') step = { a: s1, b: 0, c: 0, d: 1 };
+        else if (fn === 'scaley') step = { a: 1, b: 0, c: 0, d: s1 };
+        else step = { a: s1, b: 0, c: 0, d: s2 };
       }
+      acc = acc === null ? step : mul2(acc, step);
+    }
+    return acc;
+  }
+  // The 2x2 product \`x . y\`, outer transform on the left (CSS composition order).
+  function mul2(x, y) {
+    return {
+      a: x.a * y.a + x.c * y.b,
+      b: x.b * y.a + x.d * y.b,
+      c: x.a * y.c + x.c * y.d,
+      d: x.b * y.c + x.d * y.d,
+    };
+  }
+  // REQ-333 -- the transform that actually PAINTS this element: its own composed
+  // with every ancestor's.
+  //
+  // \`transform\` does not inherit, so \`getComputedStyle(img).transform\` on
+  // \`<div style="transform:rotate(3deg)"><img></div>\` is 'none' -- correct for the
+  // \`<img>\`, and wrong for the painted result. A wrapper carrying the rotation is
+  // the ordinary way a page tilts a photograph (four of them on faelan.com), and
+  // reading the leaf alone recorded \`transformRotateDeg: 0\` for all four: 91.76% of
+  // one round's ranked pixel residual with ZERO value deltas to name it, because
+  // both sides agreed on the same wrong zero.
+  function accTransformOf(el) {
+    var acc = null;
+    var node = el;
+    var guard = 0;
+    while (node && node.nodeType === 1 && guard++ < 64) {
+      var part = linearPartOf(getComputedStyle(node).transform);
+      if (part) acc = acc === null ? part : mul2(part, acc);
       node = node.parentElement;
     }
+    if (!acc) return { rotate: 0, scale: 1, radians: 0, scaleExact: 1 };
+    var radians = Math.atan2(acc.b, acc.a);
+    var scaleExact = Math.sqrt(acc.a * acc.a + acc.b * acc.b);
     return {
-      rotate: Math.round(rotate),
-      scale: Math.round(scale * 100) / 100,
-      // Only a transform we actually SAW and could not read is unreadable. A page
-      // with no transform anywhere is upright, measured, and says so.
-      readable: readable || !seen,
+      rotate: Math.round(radians * 180 / Math.PI),
+      scale: Math.round(scaleExact * 100) / 100,
+      radians: radians,
+      scaleExact: scaleExact,
     };
   }
-  // BUG-153 (item 1) -- the transform fields an element projects, from ONE
-  // ancestor walk. When the chain could not be read, the two value fields are
-  // omitted ENTIRELY and \`transformUnreadable\` is set instead: an axis nobody
-  // could read must not arrive as a number the comparator will happily compare
-  // against another side's number and call clean. The diff reports the flag as
-  // an unmeasured axis (see \`values-diff.ts\`), which is the honest reading.
-  function transformFields(el, s) {
-    var t = effectiveTransformOf(el, s);
-    if (!t.readable) return { transformUnreadable: true };
-    return { transformRotateDeg: t.rotate, transformScale: t.scale };
+  // REQ-333 -- the element's LAYOUT box, recovered from the rect a rotation
+  // inflated.
+  //
+  // \`getBoundingClientRect()\` on a transformed element is the axis-aligned bounding
+  // box of the ROTATED element, and everything downstream (the fold, the probes,
+  // values-diff) reads \`box\` as the layout box. Recorded raw, a 450x599.7
+  // photograph rotated 4deg came back as 490.7x629.6 and reproduced unrotated and
+  // stretched into the inflated rectangle.
+  //
+  // An affine transform maps the box's centre to the parallelogram's centre, and an
+  // AABB's centre IS its content's centre, so the centre survives untouched and only
+  // the extent has to be undone: W = s(w|cos| + h|sin|), H = s(w|sin| + h|cos|) is
+  // two equations in w and h. Near 45deg the pair stops distinguishing them (the
+  // determinant cos2t goes to zero) and the transform-independent layout metrics
+  // answer instead.
+  function layoutBoxOf(el, tf, rect) {
+    var b = rect || absBox(el);
+    if (!tf || (Math.abs(tf.radians) < 1e-6 && Math.abs(tf.scaleExact - 1) < 1e-6)) return b;
+    var co = Math.abs(Math.cos(tf.radians));
+    var si = Math.abs(Math.sin(tf.radians));
+    var det = co * co - si * si;
+    var s = tf.scaleExact > 1e-6 ? tf.scaleExact : 1;
+    var w = 0, h = 0;
+    if (Math.abs(det) > 0.2) {
+      w = (b.width * co - b.height * si) / det / s;
+      h = (b.height * co - b.width * si) / det / s;
+    }
+    if (!(w > 0) || !(h > 0)) {
+      w = (el && el.offsetWidth) || b.width;
+      h = (el && el.offsetHeight) || b.height;
+    }
+    return { x: b.x + b.width / 2 - w / 2, y: b.y + b.height / 2 - h / 2, width: w, height: h };
+  }
+  // REQ-333 -- the wrapper an image is FRAMED by, or null.
+  //
+  // \`overflow: hidden\` plus \`border-radius\` on a single-purpose wrapper div is the
+  // idiomatic way to crop a photograph on the web, and the ring and the drop shadow
+  // go on the same element. Read off the \`<img>\`, all of it comes back blank: one
+  // circular photograph with a white ring and two shadows reproduced as a bare
+  // hard-edged square, with 0 value deltas because both sides reported the same
+  // absent framing. The proof that this is attribution and not a missing axis is in
+  // the same page -- the three photographs that put their radius, shadow and mask on
+  // the \`<img>\` itself were all recorded correctly.
+  //
+  // A frame is a wrapper with exactly ONE element child (this image) and no text of
+  // its own -- it exists to frame, so its paint is the image's paint. A wrapper that
+  // paints nothing is not a frame and is not reported as one.
+  function frameOf(el, box) {
+    var p = el.parentElement;
+    if (!p || p.nodeType !== 1) return null;
+    if (!p.children || p.children.length !== 1 || p.children[0] !== el) return null;
+    if (('' + (p.textContent || '')).trim() !== '') return null;
+    var ps = getComputedStyle(p);
+    var border = boxBorderOf(ps);
+    var frame = {
+      style: ps,
+      borderRadiusPx: borderRadiusOf(ps, box),
+      borderWidthPx: border.width,
+      borderColor: border.color,
+      borderStyle: border.style,
+      boxShadow: boxShadowOf(ps),
+      maskEdge: maskEdgeOf(ps),
+    };
+    var paints = frame.borderRadiusPx > 0 || frame.borderWidthPx > 0 || frame.boxShadow || frame.maskEdge;
+    return paints ? frame : null;
   }
   // REQ-48 (item 1) -- declared motion. Keyframe animation (entrance / scroll-
   // reveal) and a non-zero transition (hover) leave no signal in a resting frame,
@@ -1718,8 +1787,8 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!css || css === 'none' || css.indexOf('gradient(') === -1) return [];
     // url(...) is stripped first: a background-image is a LAYER LIST, and a
     // photograph's own URL can carry a #fragment that reads as a hex colour.
-    var src = css.replace(/url\([^)]*\)/g, '');
-    var re = /(rgba?\([^)]*\)|hsla?\([^)]*\)|oklab\([^)]*\)|oklch\([^)]*\)|lab\([^)]*\)|lch\([^)]*\)|#[0-9a-fA-F]{3,8})/g;
+    var src = css.replace(/url\\([^)]*\\)/g, '');
+    var re = /(rgba?\\([^)]*\\)|hsla?\\([^)]*\\)|oklab\\([^)]*\\)|oklch\\([^)]*\\)|lab\\([^)]*\\)|lch\\([^)]*\\)|#[0-9a-fA-F]{3,8})/g;
     var out = [], m;
     while ((m = re.exec(src))) {
       var c = rgbaOf(m[1]);
@@ -2125,7 +2194,11 @@ export const EXTRACT_SCRIPT = `(() => {
       // the border box already is that; for an inline one the rect is the content
       // area, so \lineBoxOf\ converts it (and returns null for every other case,
       // leaving the rect exactly as it was).
-      var runBox = ownRun ? (lineBoxOf(el, s) || absBox(el)) : (glyphs || absBox(el));
+      // REQ-333 -- the run's box is the LAYOUT box: a rotated rect is recorded
+      // un-inflated, because every consumer reads \`box\` as the space the content
+      // occupies and \`transformRotateDeg\` as how that space is then turned.
+      var runTf = accTransformOf(el);
+      var runBox = layoutBoxOf(el, runTf, ownRun ? (lineBoxOf(el, s) || absBox(el)) : (glyphs || absBox(el)));
       // A text-fill gradient is a background-image gradient clipped to the text
       // (background-clip: text). Capture the raw gradient CSS for TS-side
       // normalization; ignore non-clipped backgrounds (those are band fills).
@@ -2210,7 +2283,7 @@ export const EXTRACT_SCRIPT = `(() => {
         box: runBox,
         // REQ-58 (T1) — tight rendered-text bounds (glyph extent, padding-excluded).
         renderedTextBox: glyphs,
-        borderRadiusPx: borderRadiusOf(s),
+        borderRadiusPx: borderRadiusOf(s, runBox),
         // REQ-63 — box border on text runs (thickest painted side + style).
         borderWidthPx: runBorder.width,
         borderColor: runBorder.color,
@@ -2235,7 +2308,10 @@ export const EXTRACT_SCRIPT = `(() => {
         opacity: opacityOf(s),
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
-        ...transformFields(el, s),
+        // REQ-333 -- the transform that PAINTS this run, ancestors included (see
+        // accTransformOf). A run inside a tilted card is tilted.
+        transformRotateDeg: runTf.rotate,
+        transformScale: runTf.scale,
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),
@@ -2298,17 +2374,23 @@ export const EXTRACT_SCRIPT = `(() => {
       var intrinsicAspect = (isImg && el.naturalHeight > 0)
         ? Math.round((el.naturalWidth / el.naturalHeight) * 100) / 100
         : null;
-      var fieldBorder = boxBorderOf(s);
+      // REQ-333 -- the painted transform (ancestors included) and the layout box it
+      // inflated, then the FRAME this image is cropped and ringed by. Order matters:
+      // the frame's percentage radius resolves against the box it is attributed to.
+      var fieldTf = accTransformOf(el);
+      var fieldBox = layoutBoxOf(el, fieldTf);
+      var frame = isImg ? frameOf(el, fieldBox) : null;
+      var fieldBorder = frame ? { width: frame.borderWidthPx, color: frame.borderColor, style: frame.borderStyle } : boxBorderOf(s);
       // REQ-308 -- the control's own type (see controlTypographyOf). Null for
       // every text-free element that is not a form control.
       var fieldType = controlTypographyOf(el, s);
       var fieldRecord = {
-        box: absBox(el),
-        borderRadiusPx: borderRadiusOf(s),
+        box: fieldBox,
+        borderRadiusPx: frame ? frame.borderRadiusPx : borderRadiusOf(s, fieldBox),
         borderWidthPx: fieldBorder.width,
         borderColor: fieldBorder.color,
         borderStyle: fieldBorder.style,
-        boxShadow: boxShadowOf(s),
+        boxShadow: frame && frame.boxShadow ? frame.boxShadow : boxShadowOf(s),
         a11yRole: a11yRoleOf(el),
         // REQ-269 -- the navigation target (see hrefOf), next to the role the same
         // attribute decides. Null when nothing encloses this element in a link.
@@ -2321,14 +2403,15 @@ export const EXTRACT_SCRIPT = `(() => {
         zIndex: zIndexOf(s),
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
-        maskEdge: maskEdgeOf(s),
+        maskEdge: maskEdgeOf(s) || (frame ? frame.maskEdge : null),
         // REQ-63 — effects: frosted-glass, blend, opacity, outline, pseudo-content.
         backdropFilter: paintedOrNull(s.backdropFilter || s.webkitBackdropFilter),
         blendMode: paintedOrNull(s.mixBlendMode),
         opacity: opacityOf(s),
         outline: outlineOf(s),
         pseudo: pseudoOf(el),
-        ...transformFields(el, s),
+        transformRotateDeg: fieldTf.rotate,
+        transformScale: fieldTf.scale,
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),

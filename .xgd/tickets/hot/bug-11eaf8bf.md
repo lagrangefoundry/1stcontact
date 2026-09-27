@@ -6,9 +6,9 @@ title: 'values-diff/probes: a rotated collage and a wrong mask both read as clea
   and content-robustness wraps a nowrap run'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:35.067519+00:00'
-updated_at: '2026-09-26T23:36:51.833506+00:00'
+updated_at: '2026-09-27T00:01:11.719266+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -371,3 +371,239 @@ three `generic` band boxes listed.
 **Right (fixed):** either `elementCounts.actual` is 11 and the three band
 elements are gone from the element projection, or `unpairedActual` has length 3
 and `gate.json`'s unmeasured tally includes them.
+
+
+---
+
+# Implementation (free-coded, BUG-153)
+
+All four items are implemented. The report below records what was built, the
+decisions taken where the ticket's own proposals were incomplete or in tension,
+and one defect found during implementation that the ticket did not name.
+
+## Item 1 — TWO causes, not one
+
+The ancestor-composition defect the ticket diagnosed is real and is fixed. While
+proving it offline, a **second and deeper cause** turned up, and it accounts for
+the same symptom on its own:
+
+`EXTRACT_SCRIPT` is a template literal. Inside one, a backslash before a
+character that is not a recognised escape is **dropped**. The source
+`/matrix\(([^)]+)\)/` therefore reached the browser as `/matrix(([^)]+))/` — a
+capturing group where a literal parenthesis was meant. Against
+`matrix(0.996, -0.087, …)` the group captured `"(0.996, -0.087, …"`,
+`parseFloat("(0.996")` gave `NaN`, and the guard below it returned the identity.
+
+So `transformOf` returned `{rotate: 0, scale: 1}` for **every element of every
+page since REQ-48 added the axis** — including an element carrying its own
+`transform: rotate(…)`, which the ancestor fix alone would not have rescued.
+Neither `tsc` nor any test could see it: the literal is a string to the compiler,
+and only a browser evaluates it. Proven by reconstructing the pre-fix runtime
+text and driving the function:
+
+```
+$ node /tmp/verify-orig.mjs
+RUNTIME TEXT:   var m = t.match(/matrix(([^)]+))/);
+rotate(-5deg) -> {"rotate":0,"scale":1}
+rotate(20deg) -> {"rotate":0,"scale":1}
+```
+
+Both causes are fixed:
+
+- the regex is double-escaped (`\\(`) so the browser compiles the literal paren;
+- `transformOf` becomes `effectiveTransformOf(el, s)`, which walks from the
+  element up to `documentElement` — the same walk and the same boundary
+  `clipOf` already uses — composing rotations additively and uniform scales
+  multiplicatively. That composition is exact for the rotate+uniform-scale
+  subset this axis holds.
+
+**The third outcome.** The ticket's rule — *"a zero that means 'we did not look'
+must not be comparable to a zero that means 'upright'"* — is implemented as a
+distinct projected state rather than a defaulted number. Where the chain holds a
+value the projection cannot decompose (`matrix3d`, an unparseable spelling),
+`transformRotateDeg` and `transformScale` are **absent** and a new carried axis
+`transformUnreadable: true` is set in their place. The diff reports that as a
+row in `values.unmeasuredAxes`, naming the side — which is the ticket's
+"reported in `unmeasuredAxes` rather than defaulted to the identity", applied to
+the case that survives the extractor fix rather than as a temporary stand-in for
+it. A page with no transform anywhere still reports `0` / `1` and carries no
+flag, so a non-zero reading always means the page really is transformed.
+
+The ticket's other two candidates for the same treatment — ancestor `overflow`
+clipping and ancestor `opacity` — are **not** implemented. `overflow` clipping is
+already read from the ancestor chain (`clipOf`, REQ-332); ancestor `opacity` is
+left alone because it is a compositing group rather than a value composed onto
+the leaf, and folding it into the leaf's own `opacity` would misreport which
+element is ghosted. Neither is named in the item's Wrong/Right pair.
+
+## Item 2 — coverage, not the string
+
+`maskEdge` is now compared by a **derived, engine-independent scalar resolved
+against each side's own box**, exactly as proposed: the fraction of the box at
+full opacity, and the fraction erased outright, both carried in the delta's
+label. New module `tools/generate/src/cli/capture/mask-geometry.ts`.
+
+Resolution is **numeric** — the box is sampled on a 64×64 grid and each sample's
+alpha evaluated against the gradient — rather than closed-form, because the
+closed form differs per ending-shape keyword while a grid is one piece of code
+for all of them and generalises to shapes nobody wants to integrate by hand. It
+reproduces the ticket's own arithmetic: on the 330.33 × 222.17 box the
+`closest-side` / 62px feather resolves to **30.9% opaque / 21.2% erased** against
+the ticket's hand-computed 30.6% / 21.5% (the erased figure is the grid's
+estimate of `1 − π/4`), and the reference gradient resolves to **99.0% opaque**.
+
+Presence is still the first question and still the right one, so a feather
+present on one side and absent on the other is reported exactly as REQ-48 always
+reported it. The tolerance is 2% of the box's area (5% under `--tolerant`), and
+is deliberately non-zero even in the exact mode: the two sides' boxes differ by
+sub-pixel layout, so a pair of masks that paint the same thing land near each
+other rather than on the same number.
+
+**Where it cannot resolve the shape it declines rather than guessing** — a
+`clip-path` polygon, a linear feather, an off-centre gradient. When the two sides
+then carry *different* strings, the run records a `maskEdge` row in
+`values.unmeasuredAxes`: swapping the wide silence this item is about for a
+narrower one would repeat the defect at a smaller scale.
+
+## Item 3 — nowrap, and the one proposal deliberately not taken
+
+`estimateTextHeight` takes a `nowrap` argument and returns `1 × lineHeight` when
+set; `isNowrapAt(node, width)` decides it by mirroring the renderer's own rule
+(`render.ts`, REQ-88: the pin starts at `axes.nowrapFromPx` and holds at every
+width from there up). It is decided **once** per text node and passed to both the
+perturbed call and the unperturbed baseline it is divided by, so the growth ratio
+is 1 and BUG-113's measured height stands.
+
+Measured against the filed document
+(`storage/tmp/repro-console/repro-faelan-com/iteration-2/page.json`, driven
+through `contentRobustnessProbe`): **26 findings → 14**, and the two the item
+closes the arithmetic on are gone —
+
+- both `'© 2025 Faelan Westhead. All rights reserved.' … 8px below its bottom
+  edge` escapes at 375, which were 100% of the `structural-failure` verdict;
+- all four `Faelan overlaps Worlds End Studio founder, DJ, Producer and Fiddle
+  Player` overlaps at 320 and 375;
+- and six of the twelve `FAELAN overlaps Artist • Musician • Creator`.
+
+The residual 14 are an artifact of driving the probe **without the oracle's
+measured heights** (`1c l1-gate` supplies them; that path needs a browser, which
+this sandbox blocks). Without them the estimator gives `FAELAN` its full 96px
+`lineHeightPx` where the pinned keyframes place the next run 68px below it, so
+the pair overlaps at 320–768 even at `contentScale: 1` — a missing-oracle
+artifact, not a model defect, and the reason the ticket's `on-sample PASS` and
+this run disagree.
+
+**Not implemented: the horizontal `clip` finding.** The item's proposal ends
+*"then let the widened run produce the horizontal `clip` finding the model can
+already express"*, which would require widening a nowrap run's box to its
+single-line natural width. That directly contradicts the item's own stated
+oracle — **"on this bundle, `0 findings` … `l1-gate` passes, and `gate.json`'s
+verdict moves off `structural-failure`"** — because at 375 the footer run's
+single-line natural width under 2.5× content is ~770px against a 375px viewport,
+which fires the viewport-overflow clip check that already exists. Widening would
+also inject new `overlap` findings from the wider box. The checkable half of the
+item is the one implemented; a run that genuinely leaves the viewport is still
+caught by the existing horizontal-clip scan.
+
+**The item's second ask is implemented.** `LayoutFinding` now carries `boxes` —
+one resolved box per entry in `paths`, in the same order — and the `width` the
+evaluation ran at, on every emitter (`overlap`, `escape`, and both `clip`
+kinds). The intersection or overhang a finding asserts is now arithmetic a
+reader can close from the artifact, as `regions.json` has always allowed.
+
+## Item 4 — reported, not dropped
+
+REQ-271's exclusion is kept: a reproduction's full-bleed band box can never pair
+with anything, so counting it as an unpaired object would state a gap no fold
+could close. What was wrong was the **report**, so the ticket's second option is
+taken, in the shape REQ-308 already established one level up.
+
+`ValuesDiffReport` gains `bandPaintActual` — the repro elements lifted OUT of
+`unpairedActual`, carrying the same `UnpairedObject` record with each one's
+manifest index. `gate.json` gains `values.bandPaintActual` as a count, the pass
+rung names it, and `1c gate`'s console prints a `⚠` line for it. The three
+numbers a reader was asked to reconcile —
+`matched + unpairedActual + bandPaintActual = elementCounts.actual` — now add up,
+which is the fact the report could not state.
+
+The ticket's first option (stop projecting a band as an element) was **not**
+taken: REQ-271 records that a full-bleed textless box is exactly what the fold
+reads to rebuild a backdrop (BUG-27), so removing it upstream would take a hero
+photograph out of the fold's input on a page-builder site.
+
+## Expected effect on this bundle
+
+Every item RAISES what the instrument reports, which is the point of all four:
+
+| | before | after |
+|---|---|---|
+| `transform` deltas | 0 | up to 4 (one per rotated photograph) |
+| `mask` deltas | 0 | 3 |
+| `unmeasuredAxes` | `[]` | non-empty wherever a transform or a mask could not be read |
+| `bandPaintActual` | not reported | 3 |
+| content-robustness findings | 18 (`structural-failure`) | the two 8px footer escapes and the four `Faelan` overlaps gone |
+
+## Found but NOT fixed — the same escaping defect, two functions away
+
+The template-literal escape sweep that found item 1's regex found two more in
+`EXTRACT_SCRIPT`, in the gradient colour-stop extractor
+(`extract.ts`, the `gradientStops` region):
+
+```
+source:   /url\([^)]*\)/g                    runtime: /url([^)]*)/g
+source:   /(rgba?\([^)]*\)|hsla?\([^)]*\)|…) runtime: /(rgba?([^)]*)|hsla?([^)]*)|…)
+```
+
+Both lose the closing parenthesis from the match. Measured:
+
+```
+"url(https://x.png) linear-gradient(red, blue)".replace(/url([^)]*)/g, "")
+  -> ") linear-gradient(red, blue)"        // a stray ) is left behind
+match "linear-gradient(rgba(3, 7, 23, 0.3), …)"
+  -> ["rgba(3, 7, 23, 0.3", "rgba(3, 7, 23, 0.3"]   // unparseable colours
+```
+
+This is outside every Wrong/Right pair in this ticket and is left alone rather
+than fixed silently. It wants its own scope — flagged here so it is not lost.
+
+## Test plan
+
+Two UAT files, both running without a browser (`chromiumAvailable()` is false in
+this sandbox, so a browser-gated leg would report SKIPPED and leave the fix with
+no evidence):
+
+`tests/test_UAT_FC_BUG-153_the_ruler_reads_the_page.test.ts` — 16 UATs over
+items 1, 2 and 4. Item 1's extractor leg slices `transformFields` and its two
+helpers **out of `EXTRACT_SCRIPT`'s own text** and builds them with `new
+Function` and stub styles, so the browser-evaluated string is really the code
+under test; the slice is keyed on the function's source text, not a line number.
+Items 1 (diff side), 2 and 4 run through `diffManifests`, and item 4 also through
+`reconcileGates` so the fact is proven to reach `gate.json`.
+
+`tests/test_UAT_FC_BUG-153_a_nowrap_run_does_not_wrap.test.ts` — 7 UATs over
+item 3, on a synthetic document that reproduces the filed shape (84px band, a
+44-character footer line, `nowrapFromPx: 375`) and is validated by `validateL1`
+so the axis under test is the one the renderer reads. The fixture's only variable
+is `nowrapFromPx`, so the "still reports a real escape" leg differs from the
+"no longer escapes" leg in nothing else — a fix that simply stopped growing every
+run would fail it.
+
+Regression scope run green: all 122 suites importing any changed module
+(`values-diff`, `gate-core`, `gate`, `probes`, `value-axes`, `extract`,
+`sections`, `mask-geometry`), in six batches — 1 pre-existing failure,
+`reconciliation-builder-workspace-origin.test.ts`, which fails identically in the
+main checkout and imports none of the changed modules.
+
+## Files
+
+- `tools/generate/src/cli/capture/extract.ts` — `decomposeTransform` (regex fix +
+  the readable/unreadable outcome), `effectiveTransformOf`, `transformFields`
+- `tools/generate/src/cli/capture/mask-geometry.ts` — new
+- `tools/generate/src/cli/capture/values-diff.ts` — `compareMask`,
+  `unreadableTransformAxes`, `bandPaintActual`, `maskCoverageTolerance`
+- `tools/generate/src/cli/capture/value-axes.ts` — the `transformUnreadable` row
+- `tools/generate/src/cli/capture/types.ts`, `sections.ts` — the flag's persistence
+- `tools/generate/src/cli/gate-core.ts`, `gate.ts` — `bandPaintActual` on the
+  report, the pass rung, and the console
+- `tools/generate/src/l1/probes.ts` — `isNowrapAt`, the `nowrap` argument,
+  `boxes` + `width` on `LayoutFinding`

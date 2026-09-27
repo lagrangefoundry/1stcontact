@@ -288,6 +288,12 @@ export function devSelection(ctx: DevContext): readonly DevService[] {
  * site the listener is a grandchild of what `up` spawned — so passing only `pid`
  * made `1c ps` report a service `up` had started as belonging to nobody, which is
  * the signal an operator reads before reaching for `reap` ([[BUG-147]]).
+ *
+ * THE ONLY PLACE THAT SET IS COMPOSED. `1c ps` and every `bin/dev` verb reach the
+ * table through here, because [[BUG-152]] was the `ps` verb composing a second one
+ * out of `pid` alone: the fix above was correct and the command an operator reads
+ * did not have it. A caller that assembles its own `managedPids` is free to be
+ * wrong about what "managed" means, and only one of the two can be right.
  */
 export function devTable(ctx: DevContext): DevProcessTable {
   return devProcessTable({
