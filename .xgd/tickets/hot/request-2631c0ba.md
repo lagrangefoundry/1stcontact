@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-0b5dcaae
 ---
 
 # capture: a variable font face collapses to its lowest declared weight, and a whole-page wrapper is captured as one band
