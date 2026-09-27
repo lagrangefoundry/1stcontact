@@ -5,7 +5,7 @@ type: request
 title: The builder role's grant covers what briefs actually ask for
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:22.341849+00:00'
-updated_at: '2026-09-27T22:32:57.664353+00:00'
+updated_at: '2026-09-27T22:33:36.187684+00:00'
 completed_at: null
 last_field_updated: epic_children
 status: draft
@@ -14,8 +14,6 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
-  epic_children:
-  - x
 ---
 
 ## Why
