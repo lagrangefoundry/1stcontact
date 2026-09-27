@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-26T21:26:31.801418+00:00'
+updated_at: '2026-09-27T20:16:05.106725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4266,5 +4266,20 @@ The landscape is machine-generated, so this can't be patched by hand. Whatever r
 DOC-33 has now been contradicted by three independent passes — CHAT-21 (motivation), DOC-35 §10 (the decision-set/order weld), and LF (observed behaviour). All three say restructure, not amend. Beyond DOC-35 §10.2's four, a revision needs: variants as the primary decision instrument up front with DOC-35 §9.5's dose; every stage carrying an artifact or being marked optional; the plain pass retired in text; the design-system lock moved or dropped; engagement as extraction; and a ledger that can say `section` / `state` / `supersedes` — §5's whole routing mechanism depends on fields `record_decision` doesn't have, which is why LF's ledger is 47 flat "Decision N" entries with D27 and D28 identical.
 
 All of this is Finding 13 on EPIC-19, with the tables. Nothing filed — tell me whether you want the rewrite as a revised DOC-33 or as the sibling doc CHAT-21 proposed, and I'll scope it.
+
+<!-- xgd-turn id="c899c8df-a213-4de1-a424-7b2527c83faf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T20:16:04.655850+00:00" -->
+#### You
+I've been thinking about this and I have a fairly radical idea - we have two agents, one (call it Alice) is the craftsperson the expert designer, the other (call it Bob) is the executive assistant.
+
+Alice is the consultant that I have been working with all along - and Opus 5+ level model with judgement and opinions. Bob is a basic model (Haiku?) that keeps everything on track, it checks progress against the plan, drives check ins with the user provides the executive container for the conversation.
+
+There are two other pieces in my vision here: 
+(1) A shared project data structure - we have the start of this now with our decisions that are being recorded. I think this also needs a task list and a plan. I don't recall where our decisions are being recorded - in a ticket? The chat ticket or a different one? We should drill into this
+
+(2) Interaction widgets that either AI can insert into the chat stream. We already have this implemented for "User Questions" from Claude. We would create some others - a todo list that could display the task list and the state of the tasks, a questionairre that could ask questions of the user and have them select different options. etc.
+
+What are your thoughts - lets stick with the UX and AX for now and worry about the implementation when we have enough clarity
 
 <!-- xgd-chat-end -->
