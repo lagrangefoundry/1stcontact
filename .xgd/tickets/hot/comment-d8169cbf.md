@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T22:26:29.666120+00:00'
+updated_at: '2026-09-27T22:56:35.619365+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4736,5 +4736,23 @@ And take the half of your instinct that's right: **hide the plumbing.** Plan sta
 ---
 
 Recorded on the epic. **Your turn — you're Martin.** Pick it up from Bob's last line above, and try to break it: talk to Bob while Alice is working, push back on the plan, or wander somewhere I'd have to judge. I'll hold both Alice and Bob honest to the rules we've set, including the ones that turn out to be wrong.
+
+<!-- xgd-turn id="e7ba4e4f-02c7-48e5-bc26-d81695e36c83-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-27T22:56:34.769709+00:00" -->
+#### You
+Ok good before trying to drive the role play I want to respond.
+
+I think phase 1 is to keep them visible, but I can imagine a more sophisticated product that ultimately blended these (it is my intuition that this is actually how humans actually do it cf Society of Mind Minsky).
+
+The steering is definitely a subtlety. I would expect to let the user wander for a couple of turns before feeling like Bob should step in with a question.
+
+I wonder if Bob and Alice could actually work unsupervised on a list of actions. (1) have a discussion and resolve a list of 5 changes (2) each change will require Alice (and its delegates) 3-9 minutes (3) Let Bob prompt Alice through the change turns and notify the user when the site is ready for them to react? (Managing turn latency is important for us a batch and notify approach could be powerful - not for v1, of course).
+
+You are talking about hiding the plumbing - I'm not sure that I agree. I think the plumbing is a shared plan / task list created by A checked off by B - its critical that the user also gets to see that and can understand the stages of the process and where we are. It might be worth a panel - certainly worth cards. 
+
+Here's my turn and I'm going to deliberately make it tricky because we have no control over user input:
+
+Martin: Ok, this is starting to come together. @Alice can you put a replacement font in place so I can take a look. @Bob can you run us through the list of where we are and what we still have to do, please? Can you also talk about a blog section and lets go back to that background color it is still a bit muddy for my liking.
 
 <!-- xgd-chat-end -->
