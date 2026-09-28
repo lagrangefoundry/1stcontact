@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T04:29:02.522556+00:00'
+updated_at: '2026-09-28T16:43:24.295246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5340,5 +5340,21 @@ Four tools and one rule. No roster, no nomination, no round structure.
 ---
 
 Recorded as 14.18: the tool loop cited, the pointer-on-tool-result mechanism, and the scope reduction that topology 2 buys — four tools, no room object.
+
+<!-- xgd-turn id="6c8d8bb1-816c-4bdb-a810-1d55d88b81b4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T16:43:24.019781+00:00" -->
+#### You
+I had no idea that was how tool use worked.
+
+Notice that that tool model gets us interjection almost for free.
+
+We need the ability to add very small packets to tool-use results.
+
+I think we need:
+1) a hook to add notifications such as 1 message queued for you
+2) to make sure that the tool use is metered (warnings at 75%, 90%, and then a count down from say 95%)
+3) external visibility on the tool calls (e.g. create a progress bar)
+4) a tool so the AI can fetch queued messages (this can be the same tool that allows the AI to fetch messages from another chat)
 
 <!-- xgd-chat-end -->
