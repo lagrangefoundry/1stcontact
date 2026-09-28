@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T00:10:10.944133+00:00'
+updated_at: '2026-09-28T03:20:20.097754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5010,5 +5010,15 @@ Bob's turns aren't blocked by Alice's, because they're separate sessions. That's
 Recorded as 14.13 on the epic: suppression-not-routing with the failure-asymmetry argument, the room/workshop split, and BUG-122's queue/interject as the existing hook.
 
 The thing I'd want to test next is the reconcile moment — Alice returning with a rendered homepage into a room where you and Bob have just decided to do the contact page first. That's where the seams will show.
+
+<!-- xgd-turn id="1fd35a93-9561-4b34-89ed-cee954df1417-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T03:20:19.693737+00:00" -->
+#### You
+So your shape is arguably topology 3 with Bob as host, and the objection I raised doesn't apply to it. Conceded. <-- no, actually there is an important difference, Bob does not get its own self talk it does not have a space where it can talk to itself every utterance of Bob appears on this transcript and Bob's context contains all the messages added by Alice. I'm not sure if I completely understand the consequences of two verses three but let's work on the assumption that we go with Bob as the hosting context for the group chat, at least for now.
+
+Mid-turn - actually, we don't need to drop it. This is Bob's context, we don't need to have Bob fully occupied when Alice is busy, do we? When Alice is busy the two things that it would be nice to have, one would be updates from bob on what's going on, the other is the opportunity to continue the discussion with Bob while Alice is busy. Bob can continue to add things to a to-do list and can answer a factual questions
+
+In fact, is it the right thing to have Bob do the updates, what if Alice just used the cross chat tool to insert key updates into the chat. That would not be crazy expensive would it? And then Bob is completely free to discuss logistics with the user?
 
 <!-- xgd-chat-end -->
