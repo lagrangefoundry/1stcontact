@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T03:02:16.294638+00:00'
+updated_at: '2026-09-28T22:57:30.256629+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2559,5 +2559,11 @@ Cross-referenced both ways: BUG-71 now ends with a pointer to REQ-179, and EPIC-
 | REQ-343 read-only primary | 1stcontact | gated on evidence |
 
 Nothing in this repo is coded yet and no branches are cut. REQ-339 is the one that's both unblocked and cheapest — two changes in `host-core.ts` and `priming.json`, and it's the fix that attacks the re-narration, the iteration-cap pressure and the output-token cost together. Say the word and I'll scope its branch.
+
+<!-- xgd-turn id="9a7d13bc-38ef-4353-b755-8b45879f0885-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T22:57:27.596152+00:00" -->
+#### You
+ok can you review where we are on this - is this ready to try?
 
 <!-- xgd-chat-end -->
