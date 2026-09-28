@@ -24,7 +24,7 @@ import {
   renderL1Email,
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition, ImageDeliveryManifest } from '@1stcontact/framework/worker'
-import { resolveSiteLocale } from '@1stcontact/site-schema'
+import { l1InlinedDrawings, resolveSiteLocale } from '@1stcontact/site-schema'
 import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
 // re-exports it while importing `node:path` and the filesystem helpers. A
@@ -72,6 +72,25 @@ export interface RenderSiteOptions {
    * single place an `<img>` is written.
    */
   delivery?: ImageDeliveryManifest
+  /**
+   * [[REQ-335]] — read one of the site's assets, so a drawing an `image` asked to
+   * have placed IN the page can be.
+   *
+   * THE RENDERER CANNOT DO THIS ITSELF and must not learn how. The L1 emitter is
+   * pure and synchronous by construction; a store read is neither. So the read is a
+   * capability the caller lends — the same shape as `resolveModule` beside it, and
+   * the same shape `mounts` takes inside the emitter: whoever holds the thing the
+   * render needs does the work and hands the result in.
+   *
+   * ONLY THE DRAWINGS A PAGE ACTUALLY ASKED FOR ARE READ. `l1InlinedDrawings`
+   * answers which, per page, so a site that declares no `parts` — every site that
+   * exists before this — performs no extra read at all.
+   *
+   * A CALLER THAT LENDS NOTHING LOSES NOTHING IT HAD. Every drawing stays the
+   * `<img>` it was, so a render path that has no store to read from (or has not been
+   * taught to) keeps rendering exactly the page it rendered before.
+   */
+  readAsset?: (name: string) => Promise<Uint8Array | null>
   /**
    * [[BUG-94]] — render the site's EMAIL pages too, each through the email
    * target, in addition to the pages a published revision serves.
@@ -180,6 +199,38 @@ function renderModuleInstances(
   return parts
 }
 
+/**
+ * [[REQ-335]] — read the drawings this page asked to have placed in it.
+ *
+ * Returns `undefined` where there is nothing to hand the renderer, which is the
+ * difference between "this render has no drawings" and "this render has an empty
+ * map": both behave identically, and the first is the one that costs nothing.
+ *
+ * ONE UNREADABLE DRAWING IS NOT A BROKEN PAGE. A missing asset, a store that throws,
+ * bytes that are not valid UTF-8: each leaves that one entry out of the map, and the
+ * node it belonged to renders as the `<img>` it always was. The alternative — failing
+ * the page — would mean a deleted asset takes a site off the air, which is a worse
+ * answer than a still illustration.
+ */
+async function pageDrawings(
+  page: Page,
+  readAsset: ((name: string) => Promise<Uint8Array | null>) | undefined,
+): Promise<Readonly<Record<string, string>> | undefined> {
+  if (!readAsset || !page.l1) return undefined
+  const names = l1InlinedDrawings(page.l1)
+  if (names.length === 0) return undefined
+  const drawings: Record<string, string> = {}
+  for (const name of names) {
+    try {
+      const bytes = await readAsset(name)
+      if (bytes) drawings[name] = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+    } catch {
+      // Left out of the map on purpose — see above.
+    }
+  }
+  return Object.keys(drawings).length > 0 ? drawings : undefined
+}
+
 /** Build a complete HTML document for one page. */
 function renderPage(
   site: Site,
@@ -187,6 +238,7 @@ function renderPage(
   resolveModule: ModuleResolver,
   edit: boolean,
   delivery?: ImageDeliveryManifest,
+  drawings?: Readonly<Record<string, string>>,
 ): string {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
@@ -206,7 +258,7 @@ function renderPage(
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
   })
-  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit, delivery }) : null
+  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit, delivery, drawings }) : null
   const body = l1 ? l1.html : rendered.join('\n')
 
   const head = [
@@ -435,7 +487,7 @@ export async function renderSiteFiles(
     const html =
       page.kind === 'email'
         ? renderEmailPage(site, page)
-        : renderPage(site, page, resolveModule, edit, opts.delivery)
+        : renderPage(site, page, resolveModule, edit, opts.delivery, await pageDrawings(page, opts.readAsset))
     // A message with no document has no file — see {@link renderEmailPage}.
     if (html === null) continue
     const file = `${page.slug}.html`

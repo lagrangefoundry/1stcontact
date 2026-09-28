@@ -10,6 +10,11 @@ export { l1PlainText, l1TextRuns } from './text'
 // the validator that refuses a collision and the renderer that emits the result:
 // per entrance behaviour, per scroll track, and across every trigger at once.
 export {
+  l1AnimateTrackProperties,
+  l1AnimateTracks,
+  // [[REQ-335]] — the frame-strip track kind, and the target it claims.
+  l1IsFrameTrack,
+  L1_FRAME_TARGET,
   l1EntranceSteps,
   l1MotionClaims,
   l1ScrollTrackProperties,
@@ -52,6 +57,9 @@ export {
   // references at all, so the per-turn digest can name each one.
   l1AssetReferences,
   l1AssetKey,
+  // [[REQ-335]] — the same walk, asked which drawings must be read from the store
+  // before a render can place them in the page.
+  l1InlinedDrawings,
   danglingFontFamilies,
   isSafeUrl,
   L1_ENVELOPE,

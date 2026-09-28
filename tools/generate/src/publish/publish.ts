@@ -416,7 +416,13 @@ export async function publishSite(
         { onProgress: opts.onLadderProgress, open },
       )
     : EMPTY_LADDER
-  const rendered = await renderSiteFiles(snapshot.result.value, { delivery: ladder.manifest })
+  // [[REQ-335]] — the same reader the ladder was handed, lent to the render for the
+  // same reason: a drawing an `image` asked to have placed in the page is bytes the
+  // store holds and the pure L1 emitter cannot fetch.
+  const rendered = await renderSiteFiles(snapshot.result.value, {
+    delivery: ladder.manifest,
+    readAsset: (name) => store.readAsset(slug, name),
+  })
   const entry: RevisionEntry = {
     id,
     publishedAt: opts.now ?? new Date().toISOString(),

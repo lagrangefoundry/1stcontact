@@ -235,6 +235,13 @@ export class PreviewRenderer {
     if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
     const rendered = await renderSiteFiles(snapshot.result.value, {
       edit: channel === 'edit',
+      // [[REQ-335]] — a drawing placed IN the page needs its bytes, and this class
+      // holds the store they are in. Lent to every channel, unlike the delivery
+      // ladder beside it: a ladder is something a PUBLISH built and the draft
+      // therefore has none, while a drawing exists as soon as it was written, so
+      // withholding it would make the builder's preview disagree with the page it
+      // is previewing.
+      readAsset: (name) => this.store.readAsset(slug, name),
       // [[BUG-94]] — THE BUILDER RENDERS THE SITE'S MESSAGES; PUBLISH DOES NOT.
       // An email page has no public address, and [[REQ-247]] enforced that by
       // writing no file for one — in `renderSiteFiles`, which this module reads

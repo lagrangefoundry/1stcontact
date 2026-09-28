@@ -13,8 +13,12 @@
  */
 import {
   isSafeUrl,
+  L1_FRAME_TARGET,
+  l1AnimateTracks,
+  l1IsFrameTrack,
   l1EntranceSteps,
   l1ScrollTracks,
+  validateSvg,
   mapL1PaletteRefs,
   resolveL1Palette,
   resolveSiteLocale,
@@ -23,6 +27,8 @@ import {
   L1_EDIT_PATH_ATTR,
   L1_EDIT_SEGMENT_ATTR,
   L1_ZOOM_OVERLAY_FIELDS,
+  type L1Animation,
+  type L1TimedTrack,
   type L1Color,
   type L1Link,
   type L1Palette,
@@ -1348,6 +1354,221 @@ function scrollTrackRules(
   return { rules, keyframes }
 }
 
+// ── REQ-335 timed animation: the clock as a driver ────────────────────────────
+//
+// The third and last driver, and deliberately the SAME compilation as REQ-325's
+// scroll track: ordered stops become one `@keyframes` block the renderer names,
+// and a list of tracks becomes one comma-joined entry per track in each
+// `animation-*` longhand — which is how CSS itself composes animations. What
+// differs is only the timeline (the clock instead of view progress) and the
+// target (optionally a part inside the node's inlined drawing instead of the node).
+//
+// Sharing the compilation is the point rather than an economy. The envelope refuses
+// two animations that claim one property of one element, and it enforces that
+// against `l1MotionClaims` — a reading the emitter also has to agree with, or the
+// rule refuses the wrong documents and lets the real ones through.
+
+/**
+ * The selector a track animates: the node itself, or a part inside its drawing.
+ *
+ * SCOPED BY THE NODE'S OWN CLASS, which is what lets the accepted bytes reach the
+ * page unaltered. Two copies of one drawing on a page carry the same ids, and a
+ * bare `#left-arm` would match both; `.l1-n7 #left-arm` matches only the copy this
+ * node emitted. So nothing rewrites the drawing, nothing has to invent unique ids
+ * for it, and the document a validator accepted is the document a browser receives
+ * — the property `validateSvg` exists to provide, preserved through the render.
+ *
+ * The part name is written through the CSS identifier escape rather than
+ * interpolated raw: the document never names a selector, and this is the one place
+ * a document-supplied string reaches one.
+ */
+function partSelector(selector: string, part: string | undefined): string {
+  if (part === undefined) return selector
+  // REQ-335 — a FRAME TRACK's target is the picture inside the node's window, not
+  // the node and not an id in a drawing. A descendant selector rather than a child
+  // one, because a publish that built a delivery ladder wraps that same `<img>` in
+  // a `<picture>` — the strip mechanism must not stop working the day the site
+  // gains responsive renditions.
+  if (part === L1_FRAME_TARGET) return `${selector} img`
+  return `${selector} #${cssIdent(part)}`
+}
+
+/**
+ * REQ-335 — the `translate` that brings one frame of a strip into the node's
+ * window, as a percentage of the strip's OWN width.
+ *
+ * The strip is laid out `frames` times the width of the window, so sliding it left
+ * by `1/frames` of itself advances exactly one frame — at any window size, and
+ * whatever the frames' aspect ratio turns out to be. That is why the window is
+ * built out of an explicit width rather than out of `object-fit`: a fit-based
+ * construction has to assume the box and the frame share an aspect ratio, and
+ * silently shows parts of two frames when they do not.
+ */
+function frameOffset(index: number, frames: number): string {
+  return `translate: ${num((-index / frames) * 100)}% 0`
+}
+
+/**
+ * Escape an authored `id` for use in a CSS selector.
+ *
+ * A part name is an `id` in a drawing, so it is whatever the drawing's author
+ * wrote. Every character outside the conservative identifier set is emitted as a
+ * CSS unicode escape, which means a name carrying a `}`, a quote or a newline
+ * closes nothing and opens nothing — the same construction `cssUrl` uses for the
+ * same reason, and the reason the emitter is the sole selector sink.
+ */
+function cssIdent(name: string): string {
+  return name.replace(/[^\w-]/g, (c) => `\\${c.codePointAt(0)!.toString(16)} `)
+}
+
+/**
+ * REQ-335 — compile one node's timed motion into its `@keyframes` blocks and the
+ * animations that run them.
+ *
+ * Tracks are grouped by TARGET, because each target is a different element and so
+ * needs its own rule: a node with a track on `#left-arm` and another on `#lever`
+ * emits two rules, while two tracks on the node itself emit one rule carrying two
+ * comma-joined animations. Grouping rather than one-rule-per-track is what keeps
+ * the composed case working — a second `animation-name` declaration on one selector
+ * would replace the first, which is exactly the clobber the list form avoids.
+ *
+ * `unresolvable` names the parts the node's drawing does not actually contain.
+ * Those tracks are dropped: the drawing is the authority on what ids it has, and a
+ * rule for an id nobody drew would be dead CSS that reads, to anyone debugging it,
+ * as though the animation were emitted and the browser ignored it.
+ */
+function animateRules(
+  selector: string,
+  name: string,
+  motion: L1Animation,
+  revealed: string,
+  unresolvable: (part: string) => boolean,
+  /** REQ-335 — how many frames the node's strip holds, if it declared one. */
+  frames: number | undefined,
+): { rules: Rule[]; keyframes: KeyframesRule[] } {
+  const all = l1AnimateTracks(motion)
+  const composed = Array.isArray(motion)
+  // The authored index is carried through the grouping, because it is what names
+  // the `@keyframes` block — a name has to be stable against a document that
+  // reorders nothing, and position within a target's group is not.
+  //
+  // REQ-335 — a frame track with no strip to step drops on exactly the terms an
+  // unresolvable part does. The envelope refuses that document, so this is the
+  // renderer declining to trust the layer above it rather than a path an author can
+  // reach — and an inert picture is the right answer if one ever does.
+  const live = all
+    .map((track, index) => ({ track, index }))
+    .filter(({ track }) =>
+      l1IsFrameTrack(track)
+        ? frames !== undefined
+        : track.part === undefined || !unresolvable(track.part),
+    )
+  if (live.length === 0) return { rules: [], keyframes: [] }
+
+  const keyframes: KeyframesRule[] = live.map(({ track, index }) => ({
+    // One track keeps the unindexed name, so a single-track document's CSS reads
+    // as simply as it was written; a composition indexes by authored position.
+    name: composed ? `${name}${index}` : name,
+    // REQ-335 — A FRAME TRACK IS TWO KEYFRAMES AND A STEP FUNCTION. The first and
+    // last frames of the range are the only values written; every frame between
+    // them is a stop the browser lands on because the timing function is
+    // `steps(n, jump-none)`, which takes exactly `n` values and includes both ends.
+    // Writing each frame out as its own keyframe would say the same thing in `n`
+    // times the CSS and would interpolate between them unless every interval also
+    // carried a step function of its own.
+    stops: l1IsFrameTrack(track)
+      ? [
+          { atPct: 0, decls: [frameOffset(track.frames.from, frames!)] },
+          { atPct: 100, decls: [frameOffset(track.frames.to, frames!)] },
+        ]
+      : track.stops.map((stop) => {
+      const decls: string[] = []
+      if (stop.opacity !== undefined) decls.push(`opacity: ${num(stop.opacity)}`)
+      // The independent `translate` / `scale` / `rotate` properties, not
+      // `transform`: the target may carry a static `transform` of its own (a
+      // node's authored offset, or a `transform` attribute the drawing's author
+      // wrote on the part), and the two families compose natively instead of the
+      // animation replacing it. The same choice REQ-100 and REQ-325 both made.
+      if (stop.translateXPct !== undefined || stop.translateYPct !== undefined) {
+        decls.push(`translate: ${num(stop.translateXPct ?? 0)}% ${num(stop.translateYPct ?? 0)}%`)
+      }
+      if (stop.scale !== undefined) decls.push(`scale: ${num(stop.scale)}`)
+      if (stop.rotateDeg !== undefined) decls.push(`rotate: ${num(stop.rotateDeg)}deg`)
+      return { atPct: stop.at * 100, decls }
+    }),
+  }))
+
+  const byTarget = new Map<string, Array<{ track: L1TimedTrack; kf: string }>>()
+  live.forEach(({ track }, i) => {
+    const key = l1IsFrameTrack(track) ? L1_FRAME_TARGET : (track.part ?? '')
+    const group = byTarget.get(key)
+    const entry = { track, kf: keyframes[i].name }
+    if (group) group.push(entry)
+    else byTarget.set(key, [entry])
+  })
+
+  const rules: Rule[] = []
+  for (const [part, group] of byTarget) {
+    const target = partSelector(selector, part === '' ? undefined : part)
+    // A PART TURNS ABOUT ITS OWN CENTRE. An SVG element's `transform-box` defaults
+    // to the viewBox origin, so a rotation authored as "turn the arm" would swing
+    // the arm around the corner of the drawing instead — technically what CSS was
+    // asked for and never what the author meant. Emitted for every part, including
+    // ones that only translate, so a track gaining a rotation later does not
+    // silently change where the target pivots.
+    if (part !== '' && part !== L1_FRAME_TARGET) {
+      rules.push({ selector: target, decls: ['transform-box: fill-box', 'transform-origin: center'] })
+    }
+    // A hover-triggered track is the SAME rule under a `:hover` selector, and an
+    // in-view one the same rule gated on the class REQ-100's observer already sets
+    // — so neither trigger needs a mechanism of its own, and `in-view` inherits the
+    // fail-visible property of the marker it borrows: no script, a thrown error or
+    // a reduced-motion preference and the class never arrives.
+    const groups = new Map<string, Array<{ track: L1TimedTrack; kf: string }>>()
+    for (const entry of group) {
+      const trigger = entry.track.trigger ?? 'load'
+      const g = groups.get(trigger)
+      if (g) g.push(entry)
+      else groups.set(trigger, [entry])
+    }
+    for (const [trigger, entries] of groups) {
+      const per = (f: (t: L1TimedTrack) => string): string => entries.map((e) => f(e.track)).join(', ')
+      const where =
+        trigger === 'hover'
+          ? partSelector(`${selector}:hover`, part === '' ? undefined : part)
+          : trigger === 'in-view'
+            ? partSelector(`${MOTION_MARKER} ${selector}.${revealed}`, part === '' ? undefined : part)
+            : target
+      rules.push({
+        media: NO_REDUCED_MOTION,
+        selector: where,
+        decls: [
+          `animation-name: ${entries.map((e) => e.kf).join(', ')}`,
+          `animation-duration: ${per((t) => `${num(t.durationMs)}ms`)}`,
+          `animation-delay: ${per((t) => `${num(t.delayMs ?? 0)}ms`)}`,
+          // REQ-335 — a frame track's timing function is DERIVED, not authored:
+          // `jump-none` over one step per frame takes exactly the range's frames and
+          // lands on both ends, so the last pass finishes showing the frame the
+          // author named rather than one past it.
+          `animation-timing-function: ${per((t) =>
+            l1IsFrameTrack(t)
+              ? `steps(${t.frames.to - t.frames.from + 1}, jump-none)`
+              : (t.easing ?? 'ease'),
+          )}`,
+          `animation-iteration-count: ${per((t) => (t.iterations === undefined ? '1' : t.iterations === 'infinite' ? 'infinite' : num(t.iterations)))}`,
+          `animation-direction: ${per((t) => t.direction ?? 'normal')}`,
+          // Both ends held, on REQ-325's terms: a finite track that has run holds
+          // its last stop rather than snapping back to the design, and a delayed
+          // one paints its first stop while it waits rather than jumping when it
+          // starts.
+          `animation-fill-mode: ${per(() => 'both')}`,
+        ],
+      })
+    }
+  }
+  return { rules, keyframes }
+}
+
 // ── REQ-108 pointer accent: the texture, redrawn under the reader's hand ──────
 //
 // The construction is REQ-100's, one step further. A document names a *typed
@@ -2198,6 +2419,48 @@ function deliveryFor(src: string, state: RenderState): ImageDelivery | undefined
   return Object.prototype.hasOwnProperty.call(state.delivery, name)
     ? state.delivery[name]
     : undefined
+}
+
+/**
+ * REQ-335 — the source of a node's drawing, if this render can place it in the
+ * page, or `null`.
+ *
+ * FOUR WAYS TO GET `null`, and every one of them ends in the `<img>` the node was
+ * before: the node did not declare `parts`; the caller supplied no drawing for it;
+ * the reference is not to a site asset at all; or the bytes do not pass the content
+ * validator. None of them is an error, because none of them is recoverable at
+ * render time and all of them have a correct, inert answer — a still illustration
+ * rather than a hole in the page.
+ *
+ * `deliveryAssetName` is the key, reused rather than re-derived: two normalisations
+ * of "which asset is this `src`" would eventually disagree, and the one that
+ * already exists is the one the delivery ladder is keyed by.
+ */
+function drawingFor(node: L1Image, state: RenderState): string | null {
+  if (node.parts !== true || !state.drawings) return null
+  const name = deliveryAssetName(node.src)
+  if (name === null) return null
+  if (!Object.prototype.hasOwnProperty.call(state.drawings, name)) return null
+  const source = state.drawings[name]
+  if (typeof source !== 'string' || source === '') return null
+  return validateSvg(source).ok ? source : null
+}
+
+/**
+ * Does this drawing declare the given `id`?
+ *
+ * Read off the ACCEPTED source, which is why a regex is enough: `validateSvg` has
+ * already proved the document is the closed grammar it names — every attribute
+ * quoted, no CDATA, no unrecognised construct — so there is no hidden second way
+ * for an `id` to appear or for one of these matches to be something other than an
+ * id. Reaching for a parser here would mean adding one to a package that has no
+ * dependencies, to answer a question the validated form already answers.
+ */
+function drawingHasPart(source: string, part: string): boolean {
+  for (const match of source.matchAll(/\sid\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) {
+    if ((match[1] ?? match[2]) === part) return true
+  }
+  return false
 }
 
 /**
@@ -3826,6 +4089,8 @@ interface RenderState {
   delivery?: ImageDeliveryManifest
   /** REQ-93 — pre-rendered behavior-module HTML, keyed by the slot name it binds to. */
   mounts?: Readonly<Record<string, string>>
+  /** REQ-335 — validated drawing source, keyed by asset name; see {@link L1RenderOptions.drawings}. */
+  drawings?: Readonly<Record<string, string>>
   /** REQ-96 — the mounted behavior's declared leaf elements, keyed by control name. */
   controls?: Readonly<Record<string, L1ControlElement>>
   /** REQ-100 — set once any node reveals, so a motionless page ships no script. */
@@ -4049,7 +4314,15 @@ function emitNode(
   // the observer to find, and the edit channel ships no observer; leaving it on
   // would advertise a motion the page cannot perform.
   const marks = [name]
-  if (node.reveal && !state.edit) marks.push(REVEAL_CLASS)
+  // REQ-335 — an `in-view` timed track borrows REQ-100's observer rather than
+  // bringing a second one, so it needs the same handle. Asked of the node, not of
+  // the reveal axis: a node may be driven by the observer without having an
+  // entrance at all, which is the case a hero illustration that only drifts is.
+  const wantsObserver =
+    node.reveal !== undefined ||
+    (node.animate !== undefined &&
+      l1AnimateTracks(node.animate).some((t) => t.trigger === 'in-view'))
+  if (wantsObserver && !state.edit) marks.push(REVEAL_CLASS)
   if (accentRules.length) marks.push(POINTER_CLASS)
   const cls = marks.join(' ')
 
@@ -4364,7 +4637,26 @@ function emitNode(
         delivery && Number.isFinite(delivery.width) && Number.isFinite(delivery.height) &&
         delivery.width > 0 && delivery.height > 0
       const dims = intrinsic ? ` width="${num(delivery!.width)}" height="${num(delivery!.height)}"` : ''
-      const img = `<img class="${cls}"${idAttr}${editAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr}${dims} alt="${escapeHtml(node.alt)}" />`
+      // REQ-335 — THE FILM STRIP: the node becomes a WINDOW, and the picture inside
+      // it becomes the thing that moves.
+      //
+      // The two cannot be one element. The node's box is one frame wide and the
+      // strip is `frames` times that, so something has to be clipped by something
+      // else — and a replaced element cannot be clipped by itself. So the node's
+      // class, its id, its edit hooks and every geometry, sizing and paint rule this
+      // emitter wrote for it land on a wrapper, exactly as they land on the `<img>`
+      // when there is no strip, and the `<img>` inside is sized off that wrapper.
+      //
+      // WHICH MEANS THE WINDOWING IS STATIC. There is no animation in any of this:
+      // a strip with no track, a visitor who asked for no motion, a browser that ran
+      // no CSS animation and the frozen frame a capture photographs all show frame
+      // 0, because the offset that shows frame 0 is a plain declaration. Motion is
+      // the only part that sits behind the reduced-motion gate — which is the whole
+      // reason this is a strip rather than an animated GIF, whose first frame is not
+      // a state anything in the page can ask for.
+      const strip = node.kind === 'image' ? node.frames : undefined
+      const imgAttrs = strip === undefined ? ` class="${cls}"${idAttr}${editAttrs}` : ''
+      const img = `<img${imgAttrs} src="${escapeHtml(src)}"${srcset}${sizesAttr}${dims} alt="${escapeHtml(node.alt)}" />`
       // REQ-222 — FORMAT NEGOTIATION, WHICH A STATIC PUBLISH CAN ONLY EXPRESS IN
       // THE SHAPE OF WHAT IT EMITS. There is no request to vary on `Accept`
       // against, so the choice has to be in the markup: the browser takes the
@@ -4387,7 +4679,67 @@ function emitNode(
       // deployment with no ladder, the draft channel: all of them emit the bare
       // `<img>` that shipped before this existed, byte for byte.
       const sources = pictureSources(delivery, sizesAttr)
-      const picture = sources === '' ? img : `<picture style="display:contents">${sources}${img}</picture>`
+      // REQ-335 — THE DRAWING PLACED IN THE PAGE, when this node asked for that and
+      // the render was handed bytes that pass the content validator.
+      //
+      // A `<span>` wrapper carrying the node's class, rather than the drawing's own
+      // `<svg>` root carrying it: the accepted bytes then reach the page byte for
+      // byte, with nothing rewritten and no id renamed — the property `validateSvg`
+      // exists to provide, and the property a sanitiser that edits-and-continues
+      // cannot offer. Every geometry, sizing and paint rule the emitter wrote for
+      // this node lands on the wrapper exactly as it landed on the `<img>`, and the
+      // drawing is sized to fill it (a `width`/`height` the drawing's author wrote
+      // is a presentation attribute, and a stylesheet rule beats one).
+      //
+      // ANNOUNCED AS ONE IMAGE. `role="img"` with the node's `alt` makes the whole
+      // subtree a single graphic to assistive technology, which is what the `<img>`
+      // it replaces already was; without it a screen reader would walk hundreds of
+      // anonymous paths. An empty `alt` means decorative, so it is announced as
+      // nothing at all — the same reading `<img alt="">` has.
+      if (strip !== undefined) {
+        // `overflow` is emitted in one other place (REQ-332's `clip` axis) and only
+        // where a document asked for it. This is not that: a window is what a strip
+        // IS, not a style applied to one, and a strip whose frames all showed at
+        // once would not be a design choice that went wrong — it would be the
+        // feature not existing.
+        base.push('overflow: hidden')
+        state.rules.push({
+          selector: `${selector} img`,
+          decls: [
+            'display: block',
+            // `max-width` is reset because the document's own reset caps images at
+            // their container, which is exactly the cap a strip has to exceed.
+            'max-width: none',
+            `width: ${num(strip * 100)}%`,
+            'height: 100%',
+            // The resting frame. See {@link l1ImageSchema}'s `frames`: frame 0 is
+            // the poster, so a track that plays 2…5 still settles here.
+            frameOffset(0, strip),
+          ],
+        })
+      }
+      const drawing = drawingFor(node, state)
+      if (drawing !== null) {
+        state.rules.push({
+          selector: `${selector} > svg`,
+          decls: ['display: block', 'width: 100%', 'height: 100%'],
+        })
+      }
+      // The inlined form stands in for the `<img>` rather than short-circuiting past
+      // it, so a drawing that also links or zooms keeps both: the `<a>` and the
+      // magnify overlay wrap whatever the picture turned out to be, exactly as they
+      // wrapped a `<picture>` when a publish built one.
+      const role = node.alt === '' ? ' role="presentation"' : ` role="img" aria-label="${escapeHtml(node.alt)}"`
+      // A strip's `<picture>` keeps its `display:contents`, so the delivery ladder
+      // still participates in the wrapper's layout rather than inserting a box
+      // between the window and the strip.
+      const framed = sources === '' ? img : `<picture style="display:contents">${sources}${img}</picture>`
+      const picture =
+        drawing !== null
+          ? `<span class="${cls}"${idAttr}${editAttrs}${role}>${drawing}</span>`
+          : strip !== undefined
+            ? `<span class="${cls}"${idAttr}${editAttrs}>${framed}</span>`
+            : framed
       // REQ-327 — the magnify role. Refused with `link` by the envelope validator,
       // and guarded here too for the same reason `acts` is: the emitter emits ONE
       // interactive element, and a document that reached it carrying both must
@@ -4589,6 +4941,33 @@ function emitNode(
     const { rules, keyframes } = scrollTrackRules(selector, `${name}-sc`, node.scrollTrack)
     state.rules.push(...rules)
     ;(state.keyframes ??= []).push(...keyframes)
+  }
+
+  // REQ-335 — the clock-driven property track.
+  //
+  // REQ-116 — withheld from the edit render on REQ-100's and REQ-325's shared
+  // terms: that channel renders settled, and a track's first stop is not the
+  // settled state. A dialog panel is NOT excluded here, unlike a scroll track: a
+  // timed animation needs no timeline to advance, so a panel's illustration moves
+  // as soon as the panel is open, which is when a reader is looking at it.
+  if (node.animate && !state.edit) {
+    // Which parts the drawing actually has can only be answered where the drawing
+    // is, so it is answered here and handed to the compiler as a predicate rather
+    // than the compiler learning about assets. A node with no inlined drawing has
+    // no parts at all, so every part-scoped track on it drops — which is the same
+    // inert degradation `drawingFor` returning `null` produces for the markup.
+    const drawing = node.kind === 'image' ? drawingFor(node, state) : null
+    const { rules, keyframes } = animateRules(
+      selector,
+      `${name}-an`,
+      node.animate,
+      REVEALED_CLASS,
+      (part) => drawing === null || !drawingHasPart(drawing, part),
+      node.kind === 'image' ? node.frames : undefined,
+    )
+    state.rules.push(...rules)
+    ;(state.keyframes ??= []).push(...keyframes)
+    if (rules.length > 0 && wantsObserver) state.hasReveal = true
   }
 
   // REQ-108 — the accent overlay's own rules (resolved at the top of the emitter).
@@ -4804,6 +5183,27 @@ export interface L1RenderOptions {
    * is a 404 the page cannot recover from, so the manifest is a record.
    */
   delivery?: ImageDeliveryManifest
+  /**
+   * REQ-335 — the SOURCE of each drawing an `image` node asked to have placed in
+   * the page, keyed by asset name (`hero.svg`, the key {@link deliveryAssetName}
+   * derives).
+   *
+   * SUPPLIED BY THE CALLER, on exactly `mounts`' terms and for its reason. Reading
+   * an asset is a store operation and the store is asynchronous, which the pure,
+   * synchronous L1 emitter must not own; so the caller — which already holds the
+   * store — reads the bytes and hands them in here. Nothing about this is a mode:
+   * a render that supplies no drawing for a node is not a render that was told the
+   * wrong thing, it is one that has no bytes, and it emits the `<img>` the node
+   * always was.
+   *
+   * THE BYTES ARE RE-VALIDATED HERE ANYWAY, by `validateSvg`, before one of them
+   * reaches the page. Layer 2 does not trust Layer 1 — the same rule `srcsetAttr`
+   * states about a delivery manifest, and a stronger obligation here: an asset
+   * store legitimately holds operator-placed SVGs that were vouched for by a human
+   * and never passed a content validator, and inlining one of those would be a
+   * stored-XSS sink that the `<img>` channel it arrived on had closed for free.
+   */
+  drawings?: Readonly<Record<string, string>>
 }
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
@@ -4818,6 +5218,7 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
     mounts: opts.mounts,
     edit: opts.edit,
     delivery: opts.delivery,
+    drawings: opts.drawings,
   }
   // The document's root node list is the single `doc.root`, so its address is
   // `0` — the same "index the list, then walk `children`" rule a fragment uses.

@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import path from 'node:path'
 import type { LoadedSite } from '../store/loadSite'
 import { copyDir, emptyDir, pathExists, writeText } from '../store/fsutil'
@@ -39,7 +40,24 @@ export async function renderSite(
   outDir: string,
   opts: RenderSiteOptions = {},
 ): Promise<string[]> {
-  const rendered = await renderSiteFiles(loaded, opts)
+  // [[REQ-335]] — the writer already knows where this site's assets are: it copies
+  // the directory through, four lines below. Lending a read of it is what makes a
+  // drawing placed IN the page work under `1c render` as well as under the builder,
+  // and it is the one place in the render path that can do so without a store — the
+  // reason this file exists at all is that it is the half that has a filesystem.
+  //
+  // A caller's own reader wins, so a test or a host that has a store keeps using it.
+  const assetsDir = path.join(loaded.sourceDir, 'assets')
+  const rendered = await renderSiteFiles(loaded, {
+    readAsset: async (name) => {
+      const file = path.join(assetsDir, name)
+      // Confined to the assets root, so a name that climbed out of it reads nothing
+      // (the store port states the same rule; this is the filesystem half of it).
+      if (path.relative(assetsDir, file).startsWith('..')) return null
+      return pathExists(file) ? new Uint8Array(fs.readFileSync(file)) : null
+    },
+    ...opts,
+  })
   emptyDir(outDir)
   for (const [rel, text] of rendered.files) {
     writeText(path.join(outDir, rel), text)

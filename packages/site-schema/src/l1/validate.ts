@@ -15,7 +15,14 @@
  */
 import { L1_ZOOM_OVERLAY_FIELDS, l1DocumentSchema } from './schema'
 import { collectL1PaletteRefs } from './palette'
-import { l1EntranceSteps, l1MotionClaims, l1ScrollTracks } from './motion'
+import {
+  L1_FRAME_TARGET,
+  l1AnimateTracks,
+  l1EntranceSteps,
+  l1IsFrameTrack,
+  l1MotionClaims,
+  l1ScrollTracks,
+} from './motion'
 import type { L1Palette } from './palette'
 import { projectIssues } from '../issues'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
@@ -117,6 +124,49 @@ export const L1_ENVELOPE = {
    * rule already implies, in one number an author can read before meeting it.
    */
   scrollTracks: { min: 2, max: 3 },
+  /**
+   * REQ-335 — how many timed tracks one node may compose.
+   *
+   * The floor is two for the reason `scrollTracks`' is. The ceiling is NOT the
+   * same shape of argument, and deliberately so: a scroll track can only aim at the
+   * node, so three exhausts the properties available and a fourth could animate
+   * nothing. A timed track can aim at a PART, and a performing illustration is
+   * exactly the case where many tracks contest nothing at all — arms, lever, eyes,
+   * field lines, each on its own clock. So the ceiling bounds the WALK rather than
+   * restating the exclusivity rule, and it is set where a drawing stops being a
+   * drawing and starts being an animation the browser has to composite frame by
+   * frame.
+   */
+  animateTracks: { min: 2, max: 12 },
+  /**
+   * REQ-335 — one cycle of a timed track, in milliseconds.
+   *
+   * Not `transitionMs`, which is the right bound for a transition and the wrong one
+   * here: an ambient drift is *supposed* to take half a minute, and capping it at a
+   * transition's ten seconds would force an author to fake a slow loop with a fast
+   * one, which is the design arriving wrong rather than not arriving. The floor is
+   * one frame at 60Hz — below it the cycle completes inside a paint and the target
+   * simply sits at a value nobody chose.
+   */
+  animateDurationMs: { min: 16, max: 60_000 },
+  /**
+   * REQ-335 — how many times a finite track repeats. `infinite` is a separate,
+   * unbounded spelling: a loop that never ends costs the compositor the same
+   * whether it is declared as forever or as ten thousand cycles, so the bound here
+   * is about a COUNT being meaningful, not about total running time.
+   */
+  animateIterations: { min: 1, max: 1000 },
+  /**
+   * REQ-335 — how many frames one film strip may hold.
+   *
+   * The floor is two, because a one-frame strip is a picture and already has a
+   * spelling. The ceiling is a DOWNLOAD bound rather than a taste one: every frame
+   * of a strip is fetched before the first one paints, so a strip is as heavy as
+   * the whole sequence no matter how much of it a track plays. At 240 a
+   * second-and-a-half of hand-drawn motion at film rate is expressible and a
+   * multi-megabyte sheet that stalls a hero image is not.
+   */
+  frameCount: { min: 2, max: 240 },
 } as const
 
 /**
@@ -196,6 +246,26 @@ export const L1_STRUCTURAL_RULES = {
   /** REQ-329 — a property a `scrollTrack` animates is that track's alone. Every motion on a node composes with every other (an entrance, a scroll track, a hover, a focus state — each with its own trigger), because each moves an independent CSS property; but a CSS animation wins the properties it names outright against any transition or state declaration, so a second claim on one of them moves no pixel and says nothing about why. Refused naming the property and both claimants, rather than resolved by precedence — which is REQ-325's `oneMotionDriver` narrowed from the whole pairing to the actual contest. */
   animatedPropertyIsExclusive:
     'a property a `scrollTrack` animates cannot be animated by anything else on the node',
+  /** REQ-335 — a timed track is read from the start of its cycle to the end, so its stops ascend strictly by `at`, on `ascendingScrollStops`' terms and for its reason. */
+  ascendingAnimateStops: "animate stops must be sorted strictly ascending by 'at'",
+  /** REQ-335 — an `animate` stop that names no property moves nothing and interpolates nothing, so it is a stop the renderer would emit and the reader would never see. */
+  animateStopMoves:
+    'an animate stop must name at least one of `opacity` / `translateXPct` / `translateYPct` / `scale` / `rotateDeg`',
+  /** REQ-335 — a `part` names an `id` inside a drawing the renderer has placed IN the page, which only an `image` declaring `parts` asks it to do. Named anywhere else the track would compile a selector that matches nothing: motion that is accepted, emitted, and then never seen. Refused rather than silently inert, because the author's mistake is one word and the symptom is a page that simply does not move. */
+  animatePartNeedsPartsImage:
+    'an `animate` track can only name a `part` on an `image` that declares `parts`',
+  /** REQ-335 — a frame track steps the strip its node declared, so a node with no strip has no frames to step. Refused rather than dropped, on `animatePartNeedsPartsImage`' terms: the author omitted one field and the symptom would be a picture that simply never moves. */
+  frameTrackNeedsFramesImage:
+    'a frame track can only appear on an `image` that declares `frames`',
+  /** REQ-335 — a frame range runs forward through the strip: `to` must exceed `from`, because a range of one frame is a still and a range that runs backwards is a `direction`. */
+  ascendingFrameRange: 'a frame range must run forward — `to` must be greater than `from`',
+  /** REQ-335 — a frame range names frames of the strip the node declared, so a `to` at or past the frame count names a frame that is not in the file. Refused with the numbers in it: the page would otherwise show a sliver of nothing at the end of every pass. */
+  frameRangeWithinStrip: 'a frame range must fall inside the strip its node declares',
+  /** REQ-335 — `parts` places a DRAWING in the page so its ids can be animated; `frames` makes the box a window onto one frame of a strip. They are different mechanisms for different art, they would fight over the same element, and a node is one or the other. */
+  partsAndFramesExclusive: 'an `image` cannot declare both `parts` and `frames`',
+  /** REQ-335 — a strip's box is a window whose fit and position are the frame mechanism's, so an `objectFit` or `objectPosition` alongside `frames` is an instruction the renderer must ignore. Refused rather than ignored, because an axis that is accepted and does nothing is the failure this envelope exists to prevent. */
+  framesOwnsObjectFit:
+    'an `image` that declares `frames` cannot also carry `objectFit` or `objectPosition`',
 } as const
 
 /**
@@ -474,6 +544,12 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
   }
 
   if (node.scrollTrack) checkScrollMotion(node.scrollTrack, `${path}/scrollTrack`, errors)
+
+  // REQ-335 — the third driver. `node` rather than `node.animate` alone, because
+  // the one refusal that is not about a number needs to know the node's KIND: a
+  // `part` is only addressable on an image that asked for its drawing to be placed
+  // in the page.
+  if (node.animate) checkAnimation(node, `${path}/animate`, errors)
 
   // REQ-329 — and the one rule that spans the triggers. Checked here rather than
   // inside either axis because the contest is between them: an entrance, a scroll
@@ -780,6 +856,7 @@ function checkScrollMotion(
 
   tracks.forEach((track, index) => {
     const base = composed ? `${path}/${index}` : path
+
     let prevAt: number | undefined
     track.stops.forEach((stop, i) => {
       const at = `${base}/stops/${i}`
@@ -816,6 +893,166 @@ function checkScrollMotion(
 }
 
 /**
+ * REQ-335 — the timed tracks' own bounds, and the one rule about where a `part`
+ * may be named.
+ *
+ * Deliberately the same shape as {@link checkScrollMotion}: per-track paths so an
+ * author with several tracks is told WHICH one is out of range rather than that
+ * some stop on this node is, and a single track keeping the unindexed path so its
+ * refusals read as an author writing one track expects.
+ *
+ * Which properties a track animates is NOT read here, for {@link
+ * checkScrollMotion}'s reason — the contest is with the node's other motions, and
+ * {@link checkMotionComposition} is the only place that can see all of them.
+ */
+function checkAnimation(node: L1Node, path: string, errors: ValidationError[]): void {
+  const motion = node.animate
+  if (!motion) return
+  const tracks = l1AnimateTracks(motion)
+  const composed = Array.isArray(motion)
+  if (
+    composed &&
+    !inRange(tracks.length, L1_ENVELOPE.animateTracks.min, L1_ENVELOPE.animateTracks.max)
+  ) {
+    errors.push({
+      path,
+      message: `${tracks.length} animate tracks out of range [${L1_ENVELOPE.animateTracks.min}, ${L1_ENVELOPE.animateTracks.max}]`,
+    })
+  }
+
+  // WHETHER A PART IS ADDRESSABLE AT ALL is a property of the node, not of the
+  // track: the drawing is placed in the page once, for every track on it. The same
+  // for a strip — it is the node that declares how many frames the file holds, so
+  // a frame track is answerable to the node rather than to itself.
+  const addressable = node.kind === 'image' && node.parts === true
+  const strip = node.kind === 'image' ? node.frames : undefined
+
+  tracks.forEach((track, index) => {
+    const base = composed ? `${path}/${index}` : path
+
+    // REQ-335 — the frame track's own three refusals, all of them about the RANGE
+    // being one the strip can actually serve. Everything below this point is shared
+    // with the property track, because the timing fields are the same fields: a
+    // frame track is the same clock pointed at a different subject.
+    if (l1IsFrameTrack(track)) {
+      if (strip === undefined) {
+        errors.push({
+          path: `${base}/frames`,
+          message: L1_STRUCTURAL_RULES.frameTrackNeedsFramesImage,
+        })
+      }
+      if (track.frames.to <= track.frames.from) {
+        errors.push({
+          path: `${base}/frames`,
+          message: `${L1_STRUCTURAL_RULES.ascendingFrameRange} (got ${track.frames.from}…${track.frames.to})`,
+        })
+      }
+      if (strip !== undefined && track.frames.to >= strip) {
+        errors.push({
+          path: `${base}/frames/to`,
+          message: `${L1_STRUCTURAL_RULES.frameRangeWithinStrip}: frame ${track.frames.to} is past the last of ${strip}`,
+        })
+      }
+    } else if (track.part !== undefined && !addressable) {
+      errors.push({
+        path: `${base}/part`,
+        message: L1_STRUCTURAL_RULES.animatePartNeedsPartsImage,
+      })
+    }
+    if (
+      !inRange(
+        track.durationMs,
+        L1_ENVELOPE.animateDurationMs.min,
+        L1_ENVELOPE.animateDurationMs.max,
+      )
+    ) {
+      errors.push({
+        path: `${base}/durationMs`,
+        message: `durationMs ${track.durationMs} out of range [${L1_ENVELOPE.animateDurationMs.min}, ${L1_ENVELOPE.animateDurationMs.max}]`,
+      })
+    }
+    // A delay is a transition's quantity with a different driver, so it takes the
+    // same bound rather than a second answer to one question.
+    if (track.delayMs !== undefined) {
+      if (!inRange(track.delayMs, L1_ENVELOPE.transitionMs.min, L1_ENVELOPE.transitionMs.max)) {
+        errors.push({
+          path: `${base}/delayMs`,
+          message: `delayMs ${track.delayMs} out of range [${L1_ENVELOPE.transitionMs.min}, ${L1_ENVELOPE.transitionMs.max}]`,
+        })
+      }
+    }
+    if (typeof track.iterations === 'number') {
+      if (
+        !inRange(
+          track.iterations,
+          L1_ENVELOPE.animateIterations.min,
+          L1_ENVELOPE.animateIterations.max,
+        )
+      ) {
+        errors.push({
+          path: `${base}/iterations`,
+          message: `iterations ${track.iterations} out of range [${L1_ENVELOPE.animateIterations.min}, ${L1_ENVELOPE.animateIterations.max}]`,
+        })
+      }
+    }
+
+    // A frame track has no stops: its values are the frames, and the only thing to
+    // say about them was said above. Everything below belongs to the property track.
+    if (l1IsFrameTrack(track)) return
+
+    let prevAt: number | undefined
+    track.stops.forEach((stop, i) => {
+      const at = `${base}/stops/${i}`
+      if (prevAt !== undefined && stop.at <= prevAt) {
+        errors.push({
+          path: at,
+          message: `${L1_STRUCTURAL_RULES.ascendingAnimateStops} (got ${stop.at} after ${prevAt})`,
+        })
+      }
+      prevAt = stop.at
+      if (
+        stop.opacity === undefined &&
+        stop.translateXPct === undefined &&
+        stop.translateYPct === undefined &&
+        stop.scale === undefined &&
+        stop.rotateDeg === undefined
+      ) {
+        errors.push({ path: at, message: L1_STRUCTURAL_RULES.animateStopMoves })
+      }
+      // The same three bounds the static transform axis and the scroll stop take,
+      // for the reason `checkScrollMotion` gives: one quantity, one answer.
+      for (const key of ['translateXPct', 'translateYPct'] as const) {
+        const v = stop[key]
+        if (v !== undefined && !inRange(v, L1_ENVELOPE.translatePct.min, L1_ENVELOPE.translatePct.max)) {
+          errors.push({
+            path: `${at}/${key}`,
+            message: `${key} ${v} out of range [${L1_ENVELOPE.translatePct.min}, ${L1_ENVELOPE.translatePct.max}]`,
+          })
+        }
+      }
+      if (
+        stop.scale !== undefined &&
+        !inRange(stop.scale, L1_ENVELOPE.transformScale.min, L1_ENVELOPE.transformScale.max)
+      ) {
+        errors.push({
+          path: `${at}/scale`,
+          message: `scale ${stop.scale} out of range [${L1_ENVELOPE.transformScale.min}, ${L1_ENVELOPE.transformScale.max}]`,
+        })
+      }
+      if (
+        stop.rotateDeg !== undefined &&
+        !inRange(stop.rotateDeg, L1_ENVELOPE.rotateDeg.min, L1_ENVELOPE.rotateDeg.max)
+      ) {
+        errors.push({
+          path: `${at}/rotateDeg`,
+          message: `rotateDeg ${stop.rotateDeg} out of range [${L1_ENVELOPE.rotateDeg.min}, ${L1_ENVELOPE.rotateDeg.max}]`,
+        })
+      }
+    })
+  })
+}
+
+/**
  * REQ-329 — the node's motions read TOGETHER: every property each one moves, and
  * a refusal wherever an animation's property is claimed twice.
  *
@@ -842,17 +1079,30 @@ function checkScrollMotion(
  * added beside it reads as the incumbent.
  */
 function checkMotionComposition(node: L1Node, path: string, errors: ValidationError[]): void {
+  // REQ-335 — KEYED BY TARGET AND PROPERTY, not by property alone. A contest is two
+  // motions moving one property OF ONE ELEMENT; two timed tracks rotating two
+  // different parts of a drawing are the composition this exists to permit, and a
+  // property-only key could not tell them apart and would have refused both. The
+  // node itself is one target among several, spelled as the empty string because a
+  // part `id` is non-empty by schema and so can never collide with it.
   const owner = new Map<string, { at: string; animated: boolean }>()
   for (const claim of l1MotionClaims(node)) {
-    const held = owner.get(claim.property)
+    const key = `${claim.target ?? ''}\u0000${claim.property}`
+    const held = owner.get(key)
     if (held === undefined) {
-      owner.set(claim.property, claim)
+      owner.set(key, claim)
       continue
     }
     if (!held.animated && !claim.animated) continue
+    const where =
+      claim.target === undefined
+        ? ''
+        : claim.target === L1_FRAME_TARGET
+          ? ' on the frame strip'
+          : ` on part '${claim.target}'`
     errors.push({
       path: `${path}/${claim.at}`,
-      message: `${L1_STRUCTURAL_RULES.animatedPropertyIsExclusive}: '${claim.property}' is already animated by \`${held.at}\``,
+      message: `${L1_STRUCTURAL_RULES.animatedPropertyIsExclusive}: '${claim.property}'${where} is already animated by \`${held.at}\``,
     })
   }
 }
@@ -1015,6 +1265,25 @@ function walk(
       path: `${path}/heading/level`,
       message: `heading level ${heading.level} is out of range — an outline depth is a whole number 1…6`,
     })
+  }
+  // REQ-335 — the film strip's node-level refusals: the two mechanisms are
+  // exclusive, the frame count is bounded, and a strip owns its own fit. Stated
+  // here rather than in the shape for `zoomOrLink`'s reason — each field is
+  // well-formed on its own and it is the COMBINATION that cannot be rendered as
+  // written.
+  if (node.kind === 'image' && node.frames !== undefined) {
+    if (node.parts === true) {
+      errors.push({ path: `${path}/frames`, message: L1_STRUCTURAL_RULES.partsAndFramesExclusive })
+    }
+    if (!inRange(node.frames, L1_ENVELOPE.frameCount.min, L1_ENVELOPE.frameCount.max)) {
+      errors.push({
+        path: `${path}/frames`,
+        message: `frames ${node.frames} out of range [${L1_ENVELOPE.frameCount.min}, ${L1_ENVELOPE.frameCount.max}]`,
+      })
+    }
+    if (node.axes?.objectFit !== undefined || node.axes?.objectPosition !== undefined) {
+      errors.push({ path: `${path}/axes`, message: L1_STRUCTURAL_RULES.framesOwnsObjectFit })
+    }
   }
   if (node.kind === 'image' && !isSafeUrl(node.src)) {
     errors.push({
@@ -1373,6 +1642,40 @@ export function l1AssetReferences(input: unknown): L1AssetReference[] {
  * keep one rule is to export it rather than to describe it.
  */
 export const l1AssetKey = assetKey
+
+/**
+ * REQ-335 — the asset name of every drawing a subtree asked to have placed IN the
+ * page, deduplicated.
+ *
+ * WHY ANYTHING NEEDS TO ASK. The renderer is pure and synchronous and cannot read
+ * an asset; its caller can, but a caller that read every SVG the site holds would
+ * pay for the feature on every render of every page that does not use it. So the
+ * caller asks this what to fetch, and fetches exactly that — nothing for a site
+ * that declares no `parts`, which is every site that exists today.
+ *
+ * The same structural walk as {@link l1AssetReferences}, for its reason: a drawing
+ * declared inside a behavior module's `slots` is L1 no type describes, and it is as
+ * real as one in the page's own document. The key is {@link l1AssetKey}'s, so what
+ * a caller fetches is keyed the way the renderer will look it up.
+ */
+export function l1InlinedDrawings(input: unknown): string[] {
+  const names = new Set<string>()
+  const walk = (v: unknown): void => {
+    if (Array.isArray(v)) {
+      v.forEach(walk)
+      return
+    }
+    if (typeof v !== 'object' || v === null) return
+    const node = v as Record<string, unknown>
+    if (node.kind === 'image' && node.parts === true && typeof node.src === 'string') {
+      const key = assetKey(node.src)
+      if (key !== null && key !== '') names.add(key)
+    }
+    for (const item of Object.values(node)) walk(item)
+  }
+  walk(input)
+  return [...names]
+}
 
 /**
  * Validate an L1 document against the schema **and** the envelope. Returns the

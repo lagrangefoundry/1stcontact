@@ -1672,6 +1672,219 @@ export const l1ScrollMotionSchema = z.union([
   z.array(l1ScrollTrackSchema).min(2),
 ])
 
+// ── REQ-335 timed animation: the looping, re-triggerable form ─────────────────
+//
+// `reveal` fires once and is spent; `scrollTrack` is driven by the reader's
+// descent; `interaction` states only name a second resting place. None of them
+// can express a SEQUENCE that repeats, and none can address part of a drawing —
+// which is the whole of REQ-335's complaint.
+//
+// This is the third driver and the last one missing: the clock. It is deliberately
+// the same SHAPE as a scroll track (ordered stops, one property set, a list form
+// that composes) so that the three drivers read as one model rather than three
+// dialects, and so the one exclusivity rule in the envelope covers all of them
+// instead of gaining a third special case.
+//
+// WHAT IT IS NOT: a way to name a keyframe, a selector, a script or a timing
+// string. A track is a typed value bag exactly like every other pixel-mover here;
+// the renderer is the sole thing that knows `@keyframes` exists.
+
+/**
+ * What starts a {@link l1AnimateTrackSchema}.
+ *
+ * - `load` — as soon as the page paints. The default, and the ambient case.
+ * - `in-view` — when the node reaches the reader, driven by REQ-100's existing
+ *   entrance observer rather than a second one of its own.
+ * - `hover` — while the pointer is over the node. Compiles to a `:hover` selector
+ *   and needs no script at all.
+ *
+ * A closed set, for the reason every other L1 enum is closed: a trigger is a
+ * mechanism the renderer owns, and an author naming one it did not implement is a
+ * document that renders differently from what it says.
+ */
+export const l1AnimateTriggerSchema = z.enum(['load', 'in-view', 'hover'])
+
+/** How a finite animation repeats. `alternate` is what makes a breath a breath. */
+export const l1AnimateDirectionSchema = z.enum([
+  'normal',
+  'reverse',
+  'alternate',
+  'alternate-reverse',
+])
+
+/**
+ * One stop of a timed track: the values the target takes at a point in the cycle.
+ *
+ * `at` is progress through the CYCLE, 0..1 — the same normalised reading
+ * {@link l1ScrollStopSchema} gives it, so one mental model covers both drivers.
+ *
+ * The property set is {@link l1ScrollStopSchema}'s plus the two axes an
+ * illustration needs and a scrolling box does not: a horizontal offset, and a
+ * rotation. An arm that lifts rotates; a scroll track that only ever moved a
+ * whole plate down the page never needed to. A property no stop mentions is not
+ * animated, so a track can rotate without fading.
+ */
+export const l1AnimateStopSchema = z
+  .object({
+    /** Progress through the cycle, 0..1. */
+    at: finite.min(0).max(1),
+    opacity: finite.min(0).max(1).optional(),
+    /** Horizontal offset as a share of the target's own width. */
+    translateXPct: finite.optional(),
+    /** Vertical offset as a share of the target's own height. */
+    translateYPct: finite.optional(),
+    scale: finite.positive().optional(),
+    rotateDeg: finite.optional(),
+  })
+  .strict()
+
+/**
+ * **A property track whose driver is the clock.**
+ *
+ * The capability REQ-335 asks for in three places at once: motion that loops,
+ * motion that expresses a sequence rather than a second state, and motion that can
+ * be aimed at PART of a drawing instead of at the whole node.
+ *
+ * `part` is that last one, and it is the only field here that is not about timing.
+ * It names an `id` inside the node's drawing — `left-arm`, not `#left-arm`, because
+ * a document never writes a selector. It is legal only on an `image` that has
+ * declared `parts` (see {@link l1ImageSchema}), refused by {@link
+ * L1_STRUCTURAL_RULES} otherwise: a part named on a node whose drawing is not in
+ * the page would animate nothing and say nothing about why.
+ *
+ * DEGRADES TO THE DESIGN, NEVER TO A BLANK, on exactly {@link
+ * l1ScrollTrackSchema}'s terms. The animation is emitted behind
+ * `prefers-reduced-motion`, so a visitor who asked for no motion gets the target's
+ * authored opacity, position, scale and rotation — nothing is hidden in CSS
+ * waiting for a clock to reveal it. This is also why REQ-335's option A was
+ * refused rather than built: SMIL inside a drawing has no media-query gate and can
+ * be paused only by script, so the same guarantee is unreachable there.
+ *
+ * COMPOSES WITH THE OTHER DRIVERS, PER PROPERTY AND PER TARGET (REQ-329's rule,
+ * widened rather than duplicated). A node may carry an entrance, a scroll track,
+ * hover states and a timed track at once. Two animations may not claim the same
+ * property ON THE SAME TARGET — within one CSS animation list the last to name a
+ * property wins and the earlier one moves no pixel. Two tracks aimed at DIFFERENT
+ * parts never contest, which is the whole point: the arms move while the parchment
+ * does not.
+ */
+export const l1AnimateTrackSchema = z
+  .object({
+    /**
+     * An `id` inside this node's drawing, without the `#`. Absent → the node
+     * itself is the target.
+     */
+    part: z.string().min(1).optional(),
+    /** What starts it — `load` (the default), `in-view` or `hover`. */
+    trigger: l1AnimateTriggerSchema.optional(),
+    /** One cycle, in milliseconds. Positive: a zero-length animation is a state. */
+    durationMs: finite.positive(),
+    /** Held before the first cycle. */
+    delayMs: finite.nonnegative().optional(),
+    /** Timing curve — the same closed enum a transition uses. */
+    easing: l1EasingSchema.optional(),
+    /** A repeat count, or `infinite` for the ambient case. Absent → one cycle. */
+    iterations: z.union([finite.positive(), z.literal('infinite')]).optional(),
+    /** How successive cycles run. Absent → `normal`. */
+    direction: l1AnimateDirectionSchema.optional(),
+    /** The values across the cycle — two or more stops (one stop is a constant). */
+    stops: z.array(l1AnimateStopSchema).min(2),
+  })
+  .strict()
+
+/**
+ * REQ-335 — a node's timed motion: ONE track, or two-or-more composed.
+ *
+ * The list form is what makes a performing illustration expressible at all: a
+ * drawing whose arms, lever and eyes each move on their own clock is one node
+ * carrying one track per part. A single object is the one-track case, and **a
+ * one-element array is not a legal spelling of it** — see
+ * {@link l1EntranceSchema} for why two spellings of one thing is the drift this
+ * schema refuses everywhere.
+ */
+/**
+ * **A track whose driver is the clock and whose subject is WHICH FRAME IS SHOWING.**
+ *
+ * REQ-335's second half, and the half that reaches art the platform did not draw.
+ * A property track moves a whole picture — it can drift, breathe, turn or fade it,
+ * and that is all it can ever do, because a picture is one flat thing to the page.
+ * A frame track plays an animation somebody ANIMATED: a strip of frames in one
+ * file, stepped through in time, so the motion is whatever the animator drew rather
+ * than whatever this schema happens to have an axis for.
+ *
+ * WHY A STRIP AND NOT AN ANIMATED GIF — the obvious answer, refused on evidence. A
+ * GIF begins the instant it decodes and runs on a clock nothing in the page can
+ * reach: there is no property that pauses it, no way to restart it, and no way to
+ * hold it still for a visitor who has asked their system for no motion. It cannot
+ * be given the `hover` and `in-view` triggers REQ-335 asks for, and it cannot honour
+ * the reduced-motion gate every other motion here passes through. A strip gives all
+ * of that away for free, because the thing being animated is an ordinary CSS
+ * property and the platform already knows how to gate one.
+ *
+ * `frames` names an INCLUSIVE range of the strip its node declared (see
+ * {@link l1ImageSchema}'s `frames`), so one file can hold several sequences and a
+ * node can play the one it wants. Both ends are written out rather than defaulted:
+ * the author already had to know the strip's length to declare it, and a range that
+ * runs off the end is then a refusal with a number in it instead of a page showing
+ * a frame that is not there.
+ *
+ * NO `easing`, deliberately. A frame either is showing or is not, so the timing
+ * function is `steps()` and is derived from the range — an author who could write
+ * `ease-in` here would be writing a value the renderer must ignore, which is the
+ * "accepted and then inert" failure this envelope refuses everywhere else.
+ *
+ * NO `part`. A strip is one picture per frame; there is nothing inside it to name.
+ * The two mechanisms are exclusive on a node for the same reason
+ * ({@link L1_STRUCTURAL_RULES.partsAndFramesExclusive}).
+ */
+export const l1FrameTrackSchema = z
+  .object({
+    /**
+     * The inclusive frame range to play, indexed from 0 within the node's strip.
+     * `to` must be greater than `from` (a single frame is a still) and must fall
+     * inside the strip — both refused by {@link L1_STRUCTURAL_RULES}.
+     */
+    frames: z
+      .object({
+        from: z.number().int().nonnegative(),
+        to: z.number().int().nonnegative(),
+      })
+      .strict(),
+    /** What starts it — `load` (the default), `hover` or `in-view`. */
+    trigger: l1AnimateTriggerSchema.optional(),
+    /** One pass through the range, in milliseconds. */
+    durationMs: finite.positive(),
+    /** Held before the first pass. */
+    delayMs: finite.nonnegative().optional(),
+    /** A repeat count, or `infinite` for a looping cycle. Absent -> one pass. */
+    iterations: z.union([finite.positive(), z.literal('infinite')]).optional(),
+    /** How successive passes run. `alternate` plays the sequence back and forth. */
+    direction: l1AnimateDirectionSchema.optional(),
+  })
+  .strict()
+
+/**
+ * REQ-335 — a node's timed motion: ONE track, or two-or-more composed.
+ *
+ * The list form is what makes a performing illustration expressible at all: a
+ * drawing whose arms, lever and eyes each move on their own clock is one node
+ * carrying one track per part. A single object is the one-track case, and **a
+ * one-element array is not a legal spelling of it** — see
+ * {@link l1EntranceSchema} for why two spellings of one thing is the drift this
+ * schema refuses everywhere.
+ *
+ * The two track kinds are told apart by the field each one cannot do without —
+ * `stops` for a property track, `frames` for a frame track — and both are
+ * `.strict()`, so neither can be written in a way that reads as the other. They
+ * compose in one list: a plate may drift on its own clock while the film strip
+ * inside it plays, because they move different elements.
+ */
+export const l1AnimationSchema = z.union([
+  l1AnimateTrackSchema,
+  l1FrameTrackSchema,
+  z.array(z.union([l1AnimateTrackSchema, l1FrameTrackSchema])).min(2),
+])
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
@@ -1814,6 +2027,11 @@ const nodeAxisGroupsShape = {
    * trigger. REQ-329 — one track, or a list of two or more that compose.
    */
   scrollTrack: l1ScrollMotionSchema.optional(),
+  /**
+   * REQ-335 — properties driven by the CLOCK: looping, sequenced, and aimable at a
+   * named part of a drawing. One track, or a list of two or more that compose.
+   */
+  animate: l1AnimationSchema.optional(),
   /**
    * BUG-112 — **this node is deliberately stacked over what it overlaps.**
    *
@@ -2090,6 +2308,62 @@ export const l1ImageSchema = z
     id: z.string().optional(),
     src: z.string(),
     alt: z.string(),
+    /**
+     * REQ-335 — **place this drawing IN the page, so its parts are addressable.**
+     *
+     * An `<img>` is a window onto another document: nothing in the page can reach
+     * an `id` inside it, and a browser deliberately gives it no pointer events, so
+     * neither CSS nor a hover can ever touch one of its parts. That is the wall
+     * REQ-335 hit, and it is a property of the channel rather than of our rules —
+     * which is why permitting animation inside the FILE would not have moved it.
+     *
+     * Declaring `parts` asks the renderer to emit the drawing's own markup inline
+     * instead, at which point an `id` in it is an ordinary element in an ordinary
+     * cascade: an {@link l1AnimateTrackSchema} may name it, and a `hover` trigger
+     * on it actually fires.
+     *
+     * IT IS A DECLARATION, NOT A PAYLOAD. The drawing's bytes stay the one asset
+     * the generated-image channel (REQ-130) already wrote and already validated;
+     * this node names it by `src` exactly as before. A render that cannot be handed
+     * those bytes, or is handed bytes that do not pass the content validator, emits
+     * the plain `<img>` and no part motion — an inert degradation, on the terms a
+     * `slot` with no module bound to it already renders by.
+     *
+     * Only a DRAWING can be inlined. A raster illustration has no parts to name and
+     * nothing in the platform turns one into a drawing, so `parts` on a PNG is
+     * simply the `<img>` it always was.
+     */
+    parts: z.literal(true).optional(),
+    /**
+     * REQ-335 — **this `src` is a FILM STRIP of N equal-width frames laid left to
+     * right, and this node is a window onto one of them.**
+     *
+     * The declaration that makes hand-animated motion expressible at all. Without
+     * it the file is one picture and the box shows all of it; with it the box shows
+     * exactly `1/N` of the file's width, and an {@link l1FrameTrackSchema} may step
+     * which `1/N` that is.
+     *
+     * IT CHANGES THE LAYOUT, NOT ONLY THE MOTION, which is why it lives on the node
+     * rather than on the track. A visitor who has asked for no motion, a browser
+     * that ran no animation, a capture taken with motion frozen: all of them must
+     * still see ONE frame rather than the whole strip squashed into the box. So the
+     * windowing is static and unconditional, and the animation is the only part
+     * behind the reduced-motion gate.
+     *
+     * THE RESTING FRAME IS FRAME 0. A track that plays `2..5` still settles to 0
+     * when it is not running and under reduced motion, so a strip's first frame is
+     * its poster and should be the one the illustration is designed to sit at.
+     *
+     * The box should carry the frames' own aspect ratio. Nothing here can read the
+     * file to check that, so it is the author's to get right — but the failure is
+     * gentle: a mismatched box stretches every frame equally rather than showing
+     * parts of two.
+     *
+     * Exclusive with `parts` ({@link L1_STRUCTURAL_RULES.partsAndFramesExclusive}):
+     * a strip is stepped, a drawing is placed in the page, and a node is one or the
+     * other.
+     */
+    frames: z.number().int().min(2).optional(),
     axes: l1ImageAxesSchema.optional(),
     ...nodeAxisGroupsShape,
     /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */

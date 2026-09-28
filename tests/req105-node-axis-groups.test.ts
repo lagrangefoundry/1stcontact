@@ -226,6 +226,20 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
           { at: 1, opacity: 1, translateYPct: 0 },
         ],
       },
+      // REQ-335 — the timed track: the same shared group, carried by every kind
+      // for `scrollTrack`'s reason. A kind that could be driven by the reader's
+      // descent but not by a clock would be exactly the per-kind drift this sweep
+      // exists to catch. The `part` field it may also carry is image-only and is a
+      // structural rule, so it does not bear on what a KIND admits.
+      animate: {
+        durationMs: 4000,
+        iterations: 'infinite',
+        direction: 'alternate',
+        stops: [
+          { at: 0, rotateDeg: -1 },
+          { at: 1, rotateDeg: 1 },
+        ],
+      },
       // REQ-332 — the declared clip intent, carried by every kind for the same
       // reason `stacked` is: cutting content off at the box edge is a property
       // of the box, so a kind that could hold children but not clip them would
