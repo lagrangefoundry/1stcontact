@@ -6,6 +6,7 @@ import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
+import { L1_DECLARATION } from '../tools/generate/src/cli/ai/toolbox-core'
 import {
   BUILDER_ROLE,
   CONSULTANT_ROLE,
@@ -80,6 +81,20 @@ const ENABLED = { ...delegationDocument, enabled: true }
  * say today.
  */
 const DISABLED = { ...delegationDocument, enabled: false }
+
+/**
+ * DELEGATION ON AND THE CONSULTANT STILL WRITING — condition 2's deployment
+ * ([[REQ-343]]).
+ *
+ * The grant was additive unconditionally when this ticket landed, and since
+ * REQ-343 it is additive where `primary_writes` says so. That key is the
+ * consultant's hands and this document is the position that keeps them, so
+ * condition 2 is exercised against it: "gains delegate and loses nothing" is still
+ * a requirement, of the configuration it is a requirement of. What the SHIPPED
+ * position does to the caller's own tools is REQ-343's evidence and sits in its
+ * suite, not restated here.
+ */
+const WRITING = { ...delegationDocument, enabled: true, primary_writes: true }
 
 /** What the worker runs on, and what the consultant runs on. Read, never restated. */
 const WORKER_MODEL = backendsDocument.claude_builder.model
@@ -186,6 +201,22 @@ function twoSided(caller: ModelStep[], worker: ModelStep[]): ScriptedClient {
 /** The tools a request offered, by name. */
 function toolNames(req: ModelRequest): string[] {
   return req.tools.map((tool) => tool.name).sort()
+}
+
+/**
+ * The tool names the declaration groups under a WRITE ([[REQ-343]]).
+ *
+ * Read out of the declaration rather than listed, so a construction tool added
+ * upstream is covered without an edit here.
+ */
+function writeTools(): string[] {
+  const groups = L1_DECLARATION.groups as Array<{ effect: string; operations: string[] }>
+  const operations = L1_DECLARATION.operations as Array<{ op: string; tool: string }>
+  const named = new Map(operations.map((entry) => [entry.op, entry.tool]))
+  return groups
+    .filter((group) => group.effect === 'write')
+    .flatMap((group) => group.operations)
+    .map((op) => named.get(op) ?? op)
 }
 
 /** Every request addressed to the worker's model, in order. */
@@ -325,12 +356,13 @@ describe('REQ-295 — delegating construction', () => {
   // ── condition 2 ────────────────────────────────────────────────────────────
 
   it('test_UAT_FC_REQ-295_with_the_switch_on_the_consultant_gains_delegate_and_loses_nothing', async () => {
-    // The grant is ADDITIVE. The consultant can still author a page itself, and
-    // delegating is a decision it makes per piece of work rather than a
-    // capability it lost — so what this asserts is a strict superset, not a
-    // different set. The undelegated half is installed explicitly, because the
-    // bundled document now ships ON and leaving it alone would compare the
-    // delegating shape against itself.
+    // The grant is ADDITIVE where `primary_writes` leaves the consultant its
+    // hands: it can still author a page itself, and delegating is then a decision
+    // it makes per piece of work rather than a capability it lost — so what this
+    // asserts is a strict superset, not a different set. Both halves are installed
+    // explicitly: the bundled document ships ON and, since [[REQ-343]], ships the
+    // consultant NARROWED, so leaving either alone would compare the delegating
+    // shape against itself or against a deployment that is not this case's.
     configureDelegation(DISABLED)
     const withoutSession = await openSession('additive-off')
     const off = scriptedClient([says('Fine.')])
@@ -338,7 +370,7 @@ describe('REQ-295 — delegating construction', () => {
     await drain(await post('/api/ai/prompt', { sessionId: withoutSession, text: 'Hello' }))
     const before = toolNames(off.seen[0])
 
-    configureDelegation(ENABLED)
+    configureDelegation(WRITING)
     resetAiHost()
     resetChatHost()
 
@@ -402,14 +434,21 @@ describe('REQ-295 — delegating construction', () => {
     // than here, so the two tickets' evidence does not sit under one name.
     expect(offered).not.toContain('publish')
     expect(offered).not.toContain('add_asset')
-    // AND NOTHING THE CALLER DOES NOT ITSELF HAVE. The grant is a NARROWING of
-    // the consultant's, so the worker's tools are a subset of the caller's plus
-    // its own report — stated as a subset rather than as a list, because which
-    // surfaces a deployment composes at all is its own business (this one has no
-    // browser, so neither side has a camera).
+    // AND NOTHING THE CALLER DOES NOT ITSELF HAVE, APART FROM THE CONSTRUCTION
+    // TOOLS ([[REQ-343]]). This was an unqualified subset claim, and the writes are
+    // the exception the shipped document now makes of it: with
+    // `primary_writes: false` the caller holds no write tool and the worker holds
+    // every one it was granted, which is the point of that ticket rather than an
+    // escalation. What the claim is FOR survives — a worker reaching a surface the
+    // caller never had — and the worker's authority itself is pinned exactly, as a
+    // whole document, in the sibling config suite. Stated as a subset rather than
+    // as a list because which surfaces a deployment composes at all is its own
+    // business (this one has no browser, so neither side has a camera).
     const callerTools = toolNames(callerRequests(client)[0])
+    const writes = writeTools()
     for (const tool of offered) {
       if (tool === REPORT_TOOL) continue
+      if (writes.includes(tool)) continue
       expect(callerTools).toContain(tool)
     }
     // CONDITION 6 — and it cannot hand the work on again. `report` is the whole
@@ -704,16 +743,23 @@ describe('REQ-341 — a worker may write pages, the palette and the configuratio
     expect(offered).not.toContain('publish')
     expect(offered).not.toContain('add_asset')
 
-    // AND THE CALLER STILL HOLDS EVERYTHING THE WORKER DOES, which is the half of
-    // the change that is about ORDER rather than authority: for the duration of
-    // this step both roles can write, so a brief the worker refuses is work the
-    // consultant can still do itself. Stated as a subset so that narrowing the
-    // consultant — DOC-60's gated final step — fails here first if it is taken by
-    // accident rather than on purpose.
+    // THAT TRIPWIRE HAS NOW FIRED, ON PURPOSE ([[REQ-343]]). It read "the caller
+    // still holds everything the worker does", stated as a subset precisely so
+    // that narrowing the consultant would fail here first if it were taken by
+    // accident. It was taken deliberately, behind a deploy-time key, and the
+    // sentence it protected — "for the duration of this step both roles can write"
+    // — was always about an ORDER of work rather than about authority. So the
+    // claim keeps its subject and loses the writes: everything the worker holds
+    // outside construction, the caller holds too.
     const callerTools = toolNames(callerRequests(client)[0])
+    const writes = writeTools()
     for (const tool of offered) {
       if (tool === REPORT_TOOL) continue
+      if (writes.includes(tool)) continue
       expect(callerTools).toContain(tool)
     }
+    // AND WITH THE KEY IN THE OTHER POSITION THE ORIGINAL CLAIM STILL HOLDS, which
+    // is what makes the narrowing a setting rather than a deletion — asserted in
+    // REQ-343's own suite, where the flip-back is the subject.
   })
 })

@@ -401,8 +401,16 @@ describe('REQ-295 — with the switch off the consultant is not told how to dele
 
     const rendered = await bind(true).get(DELEGATION_METHOD_PROVIDER)({})
     // The SHIPPED words, not a copy of them: the prose is configuration and the
-    // condition is code, which is the split this host keeps everywhere.
-    expect(rendered).toBe(primingDocument.templates['delegation-method'])
+    // condition is code, which is the split this host keeps everywhere. The
+    // method gained a `{framing}` slot in [[REQ-343]] — two framings over one
+    // body — so the shipped words are the template WITH its framing filled, and
+    // still not a copy of either half.
+    expect(rendered).toBe(
+      primingDocument.templates['delegation-method'].replace(
+        '{framing}',
+        primingDocument.templates['delegation-method-choosing'],
+      ),
+    )
     // …and what it has to say. Re-inspecting checked work does not save the
     // tokens, it moves them to the more expensive side.
     expect(rendered).toMatch(/believe them/i)

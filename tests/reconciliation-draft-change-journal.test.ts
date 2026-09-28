@@ -32,6 +32,7 @@ import {
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { calls, says, scriptedClient, sentText } from './support/scripted-model-client'
 import { JOURNAL_TEXT_LIMIT, JOURNAL_WINDOW, revisionDir } from '../tools/generate/src/store'
 import type { ChangeSlice, JournalRecord } from '../tools/generate/src/store'
@@ -640,15 +641,29 @@ describe('story-6cd17452 — the change-reading operation is declared, granted a
 // the real thing.
 
 describe('story-6cd17452 — a session is TOLD when the site moved under it', () => {
+  /**
+   * THE SESSION WRITING THE SITE ITSELF ([[REQ-343]]).
+   *
+   * The criterion turns on telling the session's OWN writes from somebody else's,
+   * so the case needs turns in which the session writes — and the shipped document
+   * commissions construction instead, leaving the consultant no write tool. Which
+   * role holds the hands is not what "somebody else moved the site" is about: the
+   * signal is a counter comparison either way, and a delegated write moves the
+   * same counter. So the configuration in which the session writes is installed.
+   */
+  const WRITING = { ...delegationDocument, primary_writes: true }
+
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'journal-signal-'))
     cmdNew(SLUG, { cwd, sandbox: true })
     seedPage()
     rmSync(sessionsDir({ cwd, sandbox: true }), { recursive: true, force: true })
+    configureDelegation(WRITING)
     resetAiHost()
   })
   afterEach(() => {
     setModelClient(null)
+    configureDelegation(null)
     resetAiHost()
     rmSync(cwd, { recursive: true, force: true })
   })

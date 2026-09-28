@@ -39,10 +39,42 @@
     "at start-up naming the role and the backend, rather than at the first",
     "delegation — which is the same rule `configureBackends` applies one file over,",
     "and for the same reason: a configuration failure discovered mid-conversation",
-    "is a configuration failure discovered by a customer."
+    "is a configuration failure discovered by a customer.",
+    "",
+    "WHAT `primary_writes: false` MEANS ([[REQ-343]]), and it is the second half of",
+    "the same question. `enabled` says whether there are workers; this says whether",
+    "the consultant still writes now that there are. With it off the consultant",
+    "keeps every read, every measurement and every camera and holds none of the",
+    "write groups: its route to a change in the site is a brief to a worker and",
+    "nothing else. That is DOC-60's end state, and the measured case for it is that",
+    "workers did 27% of the element writes for 2.9% of the spend — $0.046 an",
+    "element write against $0.54.",
+    "",
+    "IT SHIPS OFF, AND `true` IS THE FLIP-BACK, which is the whole reason it is a",
+    "key rather than an edit to `instances.json`. Restoring the consultant's hands",
+    "is this one value and a redeploy, not a revert: the grant it goes back to is",
+    "the one `instances.json` still states, so nothing has to remember what was",
+    "taken away. Absent reads as `false` — the design rather than the state the",
+    "design replaced — and the shipped document states it anyway so that an",
+    "operator reads the value here rather than deriving it from code.",
+    "",
+    "`enabled: false` DOMINATES IT, and structurally rather than by a check. The",
+    "narrowing is applied at exactly the point the delegation surface is composed,",
+    "so there is no reachable setting of these two keys where the consultant has",
+    "lost its write groups and has no worker to commission — not with the switch",
+    "off, and not with the switch on and no worker role bound. The rollback above",
+    "stays a true rollback without this document having to say so twice.",
+    "",
+    "WHICH GROUPS GO IS DERIVED AND NOT LISTED HERE. Every group in",
+    "`l1-surface.json` declares its `effect`, and the narrowed grant is the",
+    "consultant's entry filtered to the ones declared `read`. A write group added",
+    "to the surface later is withheld without an edit to this file, and there is no",
+    "second list of group names to fall behind the first."
   ],
 
   "enabled": true,
+
+  "primary_writes": false,
 
   "workers": {
     "builder": { "backend": "claude_builder" }

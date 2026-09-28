@@ -105,6 +105,75 @@ export const L1_DECLARATION: Record<string, unknown> = l1Surface as Record<strin
 export const L1_INSTANCES: Record<string, unknown> = l1Instances as Record<string, unknown>
 
 /**
+ * A role's grant with every group the surface declares a WRITE removed
+ * ([[REQ-343]]).
+ *
+ * DERIVED FROM THE DECLARATION AND NOT FROM A LIST HERE, which is the whole point
+ * of doing it this way. Every group in `l1-surface.json` carries an `effect`, so
+ * the set of groups a read-only session keeps is a projection of the surface
+ * rather than a second inventory of it — and a write group added to the surface
+ * next month is withheld with no edit anywhere. A hand-written list of the
+ * consultant's write groups is precisely the text that still describes last
+ * month's surface, and it would fail in the expensive direction: a group missing
+ * from it stays granted.
+ *
+ * `instances.json` IS LEFT ALONE, and that is what makes the narrowing
+ * reversible. It goes on stating the consultant's MAXIMUM authority, so restoring
+ * that authority is one configuration key rather than a diff nobody kept — see
+ * `delegation.json`, which owns the key and the argument for it.
+ *
+ * ONE-DIRECTIONAL, like the surface narrowing at the end of {@link l1SurfaceSet}:
+ * this only ever removes group names, so no arrangement of declarations can widen
+ * a grant through it.
+ *
+ * A SURFACE NOBODY DECLARED IS A THROW rather than a pass-through, and so is a
+ * scope this cannot read. Passing either through would leave the scope granted
+ * whole, which on this path means granting writes because a declaration was
+ * missing or an axis was unfamiliar — a start-up failure naming the surface is the
+ * only safe direction. Every grant this is applied to is group-scoped; a surface
+ * scoped some other way (the corpus names documents, the agent surface names
+ * operations) does not belong in the document this narrows and says so here rather
+ * than by quietly keeping its authority.
+ */
+export function readOnlyGrant(
+  instance: Record<string, unknown>,
+  declarations: readonly Record<string, unknown>[],
+): Record<string, unknown> {
+  const readGroups = new Map<string, Set<string>>()
+  for (const declaration of declarations) {
+    const groups = (declaration.groups ?? []) as Array<{ group?: unknown; effect?: unknown }>
+    readGroups.set(
+      String(declaration.surface),
+      new Set(
+        groups.filter((entry) => entry.effect === 'read').map((entry) => String(entry.group)),
+      ),
+    )
+  }
+  const narrowed: Record<string, unknown> = {}
+  for (const [surface, scope] of Object.entries(instance)) {
+    const allowed = readGroups.get(surface)
+    if (!allowed) {
+      throw new Error(
+        `Cannot narrow a grant for surface '${surface}': no declaration for it was ` +
+          `supplied (declared: ${[...readGroups.keys()].sort().join(', ') || 'none'}).`,
+      )
+    }
+    const granted = (scope as { groups?: unknown })?.groups
+    if (!Array.isArray(granted)) {
+      throw new Error(
+        `Cannot narrow a grant for surface '${surface}': its scope names no groups ` +
+          `(got ${JSON.stringify(scope)}).`,
+      )
+    }
+    narrowed[surface] = {
+      ...(scope as Record<string, unknown>),
+      groups: granted.filter((group) => allowed.has(String(group))),
+    }
+  }
+  return narrowed
+}
+
+/**
  * The surface's OWN version, distinct from the declaration FORMAT version.
  *
  * DOC-20's envelope has no field for it — `version:` there is the format's — so

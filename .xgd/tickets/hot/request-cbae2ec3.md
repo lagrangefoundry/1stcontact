@@ -6,10 +6,10 @@ title: 'Delegate-first: the consultant commissions construction rather than perf
   it'
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:29.639548+00:00'
-updated_at: '2026-09-28T22:17:24.603211+00:00'
+updated_at: '2026-09-28T22:25:47.470521+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   epic_parent: epic-0923bb64
   priority: high

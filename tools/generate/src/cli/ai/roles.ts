@@ -108,12 +108,17 @@ export const SETTINGS_ROLE = 'settings'
  * is composed with is scoped to no roles, so the one-level floor is a property of
  * the grant rather than a check somewhere that could be forgotten.
  *
- * THE CONSULTANT LOSES NOTHING TO IT — yet. Its own grant is unchanged here and
- * delegating is a decision it makes per piece of work, not a capability it gave
- * up, so for now BOTH roles can write. That is deliberate and it is the cheap
- * order: a grant gap found while the caller can still do the work itself is a
+ * AND IT IS NOW THE ONLY ROLE THAT WRITES A SITE'S L1 ([[REQ-343]]). It began beside a
+ * consultant that could still build a page itself — deliberately, and it was the
+ * cheap order: a grant gap found while the caller can do the work itself is a
  * brief to widen, and the same gap found after the caller's write groups are gone
- * is a stuck engagement. Narrowing the consultant is DOC-60's gated final step.
+ * is a stuck engagement. That order has been run, which is what the grant above
+ * records. With `primary_writes: false` the consultant keeps every read and holds no
+ * write group of the L1 surface, so construction arrives here or not at all — and
+ * `true` puts its hands back in one configuration key, which is why the narrowing
+ * is a setting rather than a deletion. What it keeps is what is not L1: the
+ * client's catalogue and a picture's recipe, which are nearer curation than
+ * construction and are not this role's business either way.
  */
 export const BUILDER_ROLE = 'builder'
 
@@ -755,11 +760,31 @@ export function registerSiteProviders(
      * the prompt this repository sent before delegation existed.
      */
     delegating?: boolean
+    /**
+     * Whether the consultant still writes L1 itself ([[REQ-343]]).
+     *
+     * BESIDE {@link delegating} AND NOT DERIVED FROM IT, because they are two
+     * facts and only the host knows the second: delegation can be composed with
+     * the consultant still holding its own write groups, which is what every
+     * deployment looked like before this key existed and what `primary_writes:
+     * true` restores. What it selects is the method's framing — see
+     * {@link delegationMethod}.
+     *
+     * A VALUE AND NOT A CALLBACK, for {@link delegating}'s reason exactly: the
+     * grant is settled when the Toolbox is built and cannot change under a
+     * running conversation, and the entry it fills sits in the cached prefix.
+     *
+     * DEFAULTS TO TRUE, which is the framing that was here before REQ-343. A host
+     * that forgot it describes a choice to a session that has one; the direction
+     * that matters is that it never describes a choice to a session that has not,
+     * and the host passes the value it narrowed the grant with.
+     */
+    writing?: boolean
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(DELEGATION_METHOD_PROVIDER, async () =>
-    delegationMethod(binding.delegating === true),
+    delegationMethod(binding.delegating === true, binding.writing !== false),
   )
   // [[REQ-342]] — THE SAME FACT, BOUND TWICE, because the method is stated in the
   // cached prefix and repeated in the per-turn tail. One binding site and one
@@ -1237,7 +1262,7 @@ export function toolTranscriptNote(): string {
 }
 
 /**
- * How the consultant hands work over, or `null` ([[REQ-295]]).
+ * How the consultant hands work over, or `null` ([[REQ-295]], [[REQ-343]]).
  *
  * THE WORDS ARE THE CONFIGURATION'S AND THE CONDITION IS THE CODE'S, which is the
  * split this file keeps everywhere — see {@link interruptedSignal}, whose prose
@@ -1248,9 +1273,27 @@ export function toolTranscriptNote(): string {
  * sends byte-for-byte the prompt this host sent before delegation existed. Prose
  * telling a session how to use a tool it has not got is an instruction to reach
  * for one, and a model will offer it, apologise for it, or probe for it.
+ *
+ * TWO FRAMINGS AND ONE BODY ([[REQ-343]]), and `writing` picks the framing. The
+ * sentence above is the reason for the second one, read the other way round:
+ * [[REQ-342]]'s opening says construction is commissioned here and not performed,
+ * which is true of the deployment that ships and false of the one that flips
+ * `primary_writes` back — and prose telling a session that building is not its
+ * work, read by a session holding every write group, suppresses tools it has just
+ * as surely as the other direction invents ones it has not. So the flip-back
+ * reaches the prose and not only the grant. The method behind the framing — how to
+ * write a brief, what to ask to have checked, what comes back and what the record
+ * cannot settle — is true either way and is not duplicated.
+ *
+ * `writing` DEFAULTS TO TRUE, which is the framing that fits a consultant with its
+ * hands. The host passes the value it composed the grant from, so the prose cannot
+ * describe a session the grant does not match.
  */
-export function delegationMethod(delegating: boolean): string | null {
-  return delegating ? template('delegation-method') : null
+export function delegationMethod(delegating: boolean, writing = true): string | null {
+  if (!delegating) return null
+  return fill(template('delegation-method'), {
+    framing: template(writing ? 'delegation-method-choosing' : 'delegation-method-commissioning'),
+  })
 }
 
 /**

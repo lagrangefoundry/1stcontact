@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T22:13:30.915468+00:00'
+updated_at: '2026-09-28T22:27:42.445988+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5613,5 +5613,68 @@ Epic 14.18/14.19 record both. Live ticket set is now six: LF REQ-180 (channel) �
 ok so I am talking with EPIC-2 in LF we are going to "fix the room" to make this work, it seems like the right solution.
 
 Can you check that our REQ's are consistent with that, and remind me what our current set of REQ's looks like?
+
+<!-- xgd-turn id="05c7973e-8431-46d3-9328-b021938a7a95-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T22:19:25.507172+00:00" -->
+#### Claude
+EPIC-2 §16 has already mapped our protocol onto it and found three mismatches. Let me get the rest of the facts before reporting.
+
+Now I have the full picture. Making the alignment edits:
+
+⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
+Error: API Error: Connection lost mid-response. The response above may be incomplete.
+
+<!-- xgd-turn id="f7139981-e5bf-4a91-b01d-ead91756d1aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T22:25:35.174076+00:00" -->
+#### You
+ok so I am talking with EPIC-2 in LF we are going to "fix the room" to make this work, it seems like the right solution.
+
+Can you check that our REQ's are consistent with that, and remind me what our current set of REQ's looks like?
+
+<!-- xgd-turn id="f7139981-e5bf-4a91-b01d-ead91756d1aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T22:27:38.155539+00:00" -->
+#### Claude
+Finishing the doc corrections, then the summary.
+
+Checked against EPIC-2, and the short version is: **the room is already built — adopt it, don't rebuild it.** EPIC-2 §16 had already mapped our protocol onto itself: 5 of our 9 steps are shipped behaviour, 1 is correctly scoped to us, 3 need deciding.
+
+## What changed for consistency
+
+**LF REQ-183 (the room) → abandoned.** EPIC-2 §1 is our argument, three weeks earlier and sharper — *"the room is a bulletin board, not a session… it does not hold anyone's reasoning"* — with the same three consequences we derived (compaction, restart, ownership of the medium). REQ-153/154/155/156 are all `ready_to_reconcile`.
+
+**LF REQ-182 (cursor) → rescoped, not abandoned.** `GroupPull` + `Brief.Pointer{new, cursor}` already *is* "notify with a count, pull the content", and cross-session read is REQ-156 (whose finding was that the `agent` surface already takes a `session` ref and gates it — self-scope is a permission, not a structure). What's genuinely missing is **mid-turn** access: a pointer reaching a turn already in flight, and `GroupPull` callable from inside it without ending the turn. The ticket now says explicitly that if it finds itself defining a cursor, it has gone wrong.
+
+**LF REQ-180 gained a limit.** EPIC-2 §3 rejected push-as-reminder because a per-turn-varying reminder is **frozen at spawn in persistent CLI mode**. Same constraint binds our signals channel — it's an API-path mechanism, and the capability split must declare it false per-adapter. It doesn't compete with pull; it's how the pointer reaches a turn in flight.
+
+**REQ-345, REQ-346 gained dependencies.** The room is the queue's durable home (`post_turn` waits for the lease rather than rejecting), so what's left ours is the composer that throws the draft away. And REQ-346's activity read already exists — `GET /ai/activity`, `POST /ai/stop`, `webui-room`'s pill — with the wiring being **LF REQ-185**.
+
+## One of our claims was wrong
+
+DOC-61/62 §4 said *asymmetric delivery* was why we should take EPIC-2's conclusions and not its code. EPIC-2 answers it correctly: that epic is notify-and-pull for **everyone**, and push for the cheap member is one optional field on `Brief`. Withdrawn.
+
+**The asymmetry we missed is concurrency.** A ring serialises its members, so a ring holding a ten-minute member and a one-second member leaves the fast one idle 99% of the time. "The client and Bob interact while Alice works" isn't a delivery question — it's a second turn-taking mode (their F2). Two more that bite us: **F1**, a mid-turn post closes the poster's turn, so REQ-346's milestone label has no safe source yet; **F3**, `CHAIR_FRAMING` tells the chair to end rounds and name decisions, which collides with Bob being forbidden decisions.
+
+Also worth knowing before you design step 5: **a member busy when its turn comes is not waited for** — prompted, times out, recorded silent, counts as a pass. For a ten-minute consultant that's the normal case.
+
+## Current set — six live, two abandoned
+
+| ticket | repo | state |
+|---|---|---|
+| **LF REQ-180** — per-request signals channel + capability split | framework | unblocked, **first** |
+| **LF REQ-181** — loop meters itself; exhaustion becomes an instruction | framework | blocked on 180. Two currencies: iterations, wall-clock |
+| **LF REQ-182** — mid-turn pointer + `GroupPull` from inside a turn | framework | blocked on 180; rescoped onto REQ-153 |
+| **REQ-345** — queued words reach her before her report | ours | blocked on 180 + 182; composer half is ours |
+| **REQ-346** — both workers visible, one interruptible | ours | blocked on LF REQ-185; label blocked on F1 |
+| ~~REQ-344~~ — context gauge | ours | **abandoned** — misdiagnosis |
+| ~~LF REQ-183~~ — the room | framework | **abandoned** — EPIC-2 built it |
+
+Plus, not ours to file: **F1** (turn-completing vs non-completing post) and **F2** (two-speed room) belong under EPIC-2 where the mechanism lives. Those are the two things "fixing the room" needs to mean for our steps 4 and 5 to work — worth raising in that conversation, since EPIC-2 §16 says F2 should be filed as its own mode rather than bolted onto `run()`.
+
+## One thing blocked
+
+The ticket store has a **stale merge**: `MERGE_HEAD` present, `.xgd/working-merge.lock` held by REQ-343 under **pid 17376, which is dead**. My DOC-61 edit is written and staged but uncommitted (readers see it; a `merge --abort` would lose it — body saved at `$TMPDIR/doc-bfc310fc.body`). Two edits are still pending on it: DOC-62 §4/§9 + its Open list, and the epic's 14.20. I haven't touched the merge — finishing or aborting someone else's is your call. Tell me which and I'll apply the rest.
 
 <!-- xgd-chat-end -->

@@ -118,7 +118,15 @@ describe('BUG-129 — a session granted what the deployment grants still opens',
     //    stayed green while production could not start. Four surfaces, from
     //    four different plugins, all of them reached only through the Worker's
     //    wiring.
-    for (const op of ['add_page', 'capture_site', 'write_image', 'list_assets']) {
+    //
+    //    IT USED TO NAME `add_page` AND `write_image` ([[REQ-343]]), which are L1
+    //    WRITES — and the consultant holds none of those where construction is
+    //    commissioned, so the manual it primes with does not project them. Two
+    //    ops from two further plugin surfaces replace them, which is nearer what
+    //    this list has always claimed than three L1 ops and a camera were: what
+    //    is under test is that the DEPLOYMENT'S grant reaches the manual, and
+    //    those surfaces are granted whichever way that key is set.
+    for (const op of ['list_pages', 'capture_site', 'list_library', 'list_assets']) {
       expect(priming, `the manual does not project ${op}`).toContain(op)
     }
 

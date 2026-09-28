@@ -268,7 +268,11 @@ describe('BUG-63 — the assembled priming is the document it always was', () =>
 
     expect(system).toContain('consultant')
     // The manual is delivered on its own, so the session still knows how to act.
-    expect(system).toMatch(/set_l1/)
+    // `get_l1` and not `set_l1` since [[REQ-343]]: what is under test is that the
+    // manual is PROJECTED at all, and the representative operation has to be one
+    // the consultant holds — under the shipped document it holds every read and no
+    // write.
+    expect(system).toMatch(/get_l1/)
     // …and names no KM section, because there is nothing to name. A landscape
     // for a corpus that does not exist is an instruction to use a tool the
     // session was never granted.

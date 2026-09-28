@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import {
   resetChatHost,
@@ -10,6 +10,7 @@ import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { splitBusinessPrefix, type Scope } from '../apps/control-app/src/scope'
 import { IMAGE_SECRET, imageSurface } from '../apps/control-app/src/imagegen'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -185,12 +186,35 @@ async function fetchScoped(url: string): Promise<{ businessId: string | null; re
   return { businessId, res }
 }
 
+/**
+ * THE SESSION THAT DRAWS ITS OWN PICTURE, installed rather than assumed
+ * ([[REQ-343]]).
+ *
+ * `write_image` is declared a WRITE, so the consultant holds it only where
+ * `primary_writes` leaves it the write groups — under the shipped document
+ * drawing an image is a worker's job and the picture arrives through a
+ * delegation. What these cases are about is what happens to a picture ONCE MADE:
+ * that it appears in the turn that made it, that it carries a line which fetches
+ * its bytes, and that a deployment with nowhere to show it renders no line. None
+ * of that is a claim about which role drew it, so the cases install the
+ * configuration in which the consultant draws and go on asserting what they
+ * always did.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 describe('REQ-217 — the picture is in the conversation that made it', () => {
   beforeAll(async () => {
     await APPLIED
   })
 
+  afterEach(() => {
+    configureDelegation(null)
+    resetAiHost()
+    resetChatHost()
+  })
+
   it('test_UAT_FC_REQ-217_a_drawing_the_turn_made_is_fetchable_from_the_turn', async () => {
+    configureDelegation(WRITING)
     resetAiHost()
     resetChatHost()
     const { scope, slug } = await business('req217-draw')

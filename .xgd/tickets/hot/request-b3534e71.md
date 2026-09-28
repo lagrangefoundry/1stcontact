@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T22:16:38.198485+00:00'
+updated_at: '2026-09-28T22:25:23.889963+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -107,12 +107,28 @@ the change signal, session binding, a picture in a turn — installs `primary_wr
 true` to keep its own subject testable. None of those cases is about who holds the
 write tools, and each says so where it installs it.
 
-**The prose follows the key.** `delegationMethod` already returns a template or `null` on
-one condition; it takes the second and swaps the paragraph that frames handing work over
-as a choice for one that says construction is commissioned. The rest of the method — how
-to write a brief, what to ask to have checked, believing the checks — is true either way
-and is not duplicated. The words stay in `priming.json` and the condition stays in code,
-which is where REQ-295 put that seam.
+**The prose follows the key, in both tiers.** `delegationMethod` already returns a
+template or `null` on one condition; it takes the second and swaps the paragraph that
+frames the work. REQ-342 landed first and wrote that paragraph — *construction is
+commissioned here, not performed* — so this ticket rebases onto it rather than rewriting
+it: REQ-342's opening becomes the framing a `primary_writes: false` deployment sends, and
+the second framing exists for the FLIP-BACK. That direction is the one that matters to a
+rollback: prose telling a session that building is not its work, read by a session holding
+every write group, suppresses tools it has just as surely as the other direction invents
+ones it has not. The rest of the method — how to write a brief, what to ask to have
+checked, what comes back, what the record cannot settle — is true either way and is not
+duplicated.
+
+**And the tail moves with it.** REQ-342 put the standing instruction in the per-turn
+reminder, which is re-assembled and re-sent on every turn, so a tail that contradicts the
+grant repeats that contradiction for the life of the engagement. `delegationReminder` takes
+the same second condition and the same pair of framings. A flip-back that reached the
+preamble and not the tail would not be a flip-back.
+
+**One rule in three places.** An absent `primary_writes` reads as `false`, the document
+ships it `false`, and a caller that never answered the question gets the same framing —
+rather than a fourth state nobody deployed. The words stay in `priming.json` and the
+condition stays in code, which is where REQ-295 put that seam.
 
 **Consequence worth naming: `DrawImages` goes too.** `write_image` is declared
 `effect: "write"`, so the derivation withholds it and drawing an image becomes a worker's
@@ -137,11 +153,12 @@ they are facts about recorded runs rather than judgements — but they gate noth
 ## Dependencies
 
 DOC-60's preceding tickets that this rests on have landed: the result-accounting ticket,
-the diff provider, the worker's context and the builder's grant. **REQ-342 is not a
-dependency.** It rewrites the whole method template and puts a standing line in the
-per-turn tail; this ticket only swaps the one paragraph that would be false in a
-deployment where the consultant cannot write, and leaves REQ-342 free to rewrite both
-variants when it lands.
+the diff provider, the worker's context and the builder's grant. **REQ-342 was not a
+dependency, and it landed first.** It rewrote the whole method template and put a standing
+line in the per-turn tail. Neither the key nor the derivation needed it; what it changed is
+that the framing this ticket installs for the shipped configuration is REQ-342'''s own words
+rather than new ones, and that the second framing — the flip-back'''s — has a tail half as
+well as a preamble half.
 
 ## Not in scope
 
@@ -151,5 +168,5 @@ than L1: the consultant goes on registering a client's file through the catalogu
 writes L1 and both are nearer curation than construction — and those grants travel
 with their surfaces rather than sitting in the document this narrows. Any change to `enabled`,
 which stays exactly as it is because it is the rollback: this ticket adds a key beside it
-and gives it no new meaning. REQ-342's per-turn reminder, and its rewrite of the method
-prose beyond the framing paragraph.
+and gives it no new meaning. Any rewrite of REQ-342'''s method prose or standing line beyond
+giving each of them a second framing.
