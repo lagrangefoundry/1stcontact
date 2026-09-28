@@ -6,10 +6,10 @@ title: No way to author an animated or interactive illustration — drawings are
   and raster art cannot be driven at all
 created_by: xgd
 created_at: '2026-09-27T00:30:19.279491+00:00'
-updated_at: '2026-09-27T21:03:16.074163+00:00'
+updated_at: '2026-09-28T19:10:00.038402+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
@@ -74,7 +74,9 @@ Write a drawing containing `<circle><animate attributeName="cx" values="20;80;20
 
 ## Scope as built (REQ-335)
 
-**One primitive, not three features.** The "Related" note above asks for one coherent model of *what animates, when it is triggered, and how several animations on one node compose*. That is what this delivers: a single **timed animation track** (`animate`) that a node may carry, and which may be aimed either at the node itself or at a **named part inside an inlined drawing**. B and C are the same primitive pointed at two different targets, so there is one schema, one collision rule, one reduced-motion gate and one emitter rather than two of each.
+**One primitive, not four features.** The "Related" note above asks for one coherent model of *what animates, when it is triggered, and how several animations on one node compose*. That is what this delivers: a single **timed motion** field (`animate`) that a node may carry, one track or several composed, each aimed at one of three subjects — the **node itself**, a **named part inside a drawing placed in the page**, or **which frame of a film strip is showing**. B, C and D are one primitive pointed at three targets, so there is one trigger set, one loop model, one collision rule, one reduced-motion gate and one emitter rather than three of each.
+
+The four lettered sections below are the request's own A/B/C plus **D — a film strip, stepped**, which is where the body's strongest examples (arms that draw each other, a lever that lifts its load, a diagram that assembles itself) actually become reachable: those are motion an animator draws frame by frame, not motion this schema has an axis for.
 
 ### A — declarative SMIL is deliberately NOT permitted
 
@@ -114,8 +116,33 @@ An `image` node may carry **`parts: true`**, which declares that its drawing is 
 - **Two parts of one drawing animate independently.** This is the capability the body asks for and the one nothing else here delivers: the arms may move while the parchment does not, and a hover-triggered part track is reachable because the drawing is now real DOM with real pointer events.
 - Naming a part on a node that has not declared `parts` is **refused** — the envelope can see that, and the author's mistake is one word while the symptom would be a page that simply does not move. Naming a part the drawing does not actually contain is **dropped** rather than refused: only the render holds the drawing, and a renderer that refused a document would take a site off the air over a renamed id. The track emits nothing, so there is no dead rule to mislead whoever debugs it.
 
+### D — a film strip, stepped: motion somebody animated
+
+B and C both move a picture the way *this schema* has axes to move it — drift, breathe, turn, fade. Neither can play motion an **animator drew**, and the body's strongest examples are exactly that: arms that draw each other, a lever that lifts its load, a diagram that assembles itself element by element. A property track cannot express those; a sequence of drawn frames can.
+
+**Why a strip and not an animated GIF.** The obvious answer is refused on evidence, not taste. A GIF begins the instant it decodes and runs on a clock nothing in the page can reach: no property pauses it, nothing restarts it, and there is no way to hold it still for a visitor who has asked their system for no motion. It therefore cannot be given the `hover` and `in-view` triggers this request asks for, and it cannot pass the reduced-motion gate every other motion here passes through. The same two facts that refused A refuse the GIF. A strip gives all of it away for free, because the thing being animated is an ordinary CSS property and the platform already knows how to gate one.
+
+**The declaration is on the node, because it changes the layout.** An `image` may carry **`frames: N`** — *this `src` is a strip of N equal-width frames laid left to right, and this box is a window onto one of them*. The box then shows exactly `1/N` of the file's width. This windowing is **static and unconditional**: a strip with no track, a visitor who asked for no motion, a browser that ran no animation, and a capture taken with motion frozen all show **frame 0** rather than the whole strip squashed into the box. Motion is the only part behind the gate. Frame 0 is the strip's poster and should be the pose the illustration is designed to rest at.
+
+A node becomes a **window with the picture inside it**, because one element cannot be both: the box is one frame wide, the strip is `frames` times that, and a replaced element cannot clip itself. The node's class, id, edit hooks and every geometry, sizing and paint rule land on the wrapper exactly as they landed on the `<img>` — including inside `<picture>`, so format negotiation and the delivery ladder keep working — and the strip is announced to assistive technology as the one picture it was, carrying the node's `alt`.
+
+**A frame track** is the second kind of timed track a node may carry. It names
+
+- **`frames: { from, to }`** — an inclusive frame range of the strip, indexed from 0, so one file can hold several sequences and a node can play the one it wants. Both ends are written out rather than defaulted: the author already had to know the strip's length to declare it, and a range running off the end is then a refusal with a number in it instead of a page showing a frame that is not there.
+- **`durationMs`**, and optionally **`delayMs`**, **`iterations`** (a count or `infinite`), **`direction`**, and **`trigger`** (`load`, `hover`, `in-view`) — the same triggers, loop and composition model B already defines, so *"plays while the cursor is over it and stops when it leaves"* and *"starts when the reader scrolls to it"* are the existing mechanism pointed at a new subject.
+- **No `easing`.** A frame either is showing or is not, so the timing function is `steps(n, jump-none)` **derived from the range** — `n` frames, landing on both ends, so a pass finishes on the frame the author named rather than one past it. An author who could write `ease-in` here would be writing a value the renderer must ignore, which is the accepted-and-inert failure this envelope refuses everywhere.
+- **No `part`.** A strip is one picture per frame; there is nothing inside it to name. `parts` and `frames` are refused together on a node for the same reason — a strip is stepped, a drawing is placed in the page, and a node is one or the other.
+
+**A strip plays while its plate moves.** A frame track's subject is the picture inside the window; a property track's subject is the node itself. They are different elements, so they compose in one list rather than contesting: the film can run while the plate holding it drifts. Two frame tracks on one node *do* contest — both claim the same picture — and are refused by the same collision rule B states, naming both claimants.
+
+**Refused rather than silently inert**, each because the author's mistake is one field and the symptom would be a picture that simply never moves: a frame track on a node that declared no `frames`; a range that does not run forward (`to` must exceed `from` — one frame is a still, and backwards is a `direction`); a range at or past the frame count; `objectFit` or `objectPosition` alongside `frames`, since a strip's box is a window whose fit and position are the frame mechanism's to set.
+
+**The strip's frame count is bounded** — two at the floor, because a one-frame strip is a picture and already has a spelling, and a ceiling that is a *download* bound rather than a taste one: every frame of a strip is fetched before the first one paints, so a strip is as heavy as all of it.
+
+**Where the frames come from is a content question, not a code one.** A strip is an ordinary image asset on the existing generated-image channel; nothing here reads it, and nothing needs to. An operator-supplied strip and a generated one are the same file to this mechanism.
+
 ### What remains out of scope, stated deliberately
 
-**Raster decomposition is a non-goal.** There is no path from a generated PNG to independently addressable parts, and nothing in the platform grows into one cheaply. The answer for an illustration that should perform is to author it as a drawing. This is recorded so the migration story is not left implied.
+**Raster DECOMPOSITION is a non-goal — but a raster illustration is not stuck.** There is no path from a generated PNG to independently addressable parts, and nothing in the platform grows into one cheaply; that half of the body's third wall stands. What the body implies and this does not accept is that a raster is therefore inert: a piece of it can be **composed over** rather than cut out of. A second `image` node placed over the first, windowed onto the region that should move and carrying a track from B, moves that part of a photograph with nothing new built — and because it sits exactly on top at rest, a visitor who asked for no motion sees the original illustration pixel for pixel. Where the overlay must be a free-form silhouette rather than a rectangle or a soft shape, the transparency has to be in a supplied file; where the movement is large enough to expose what was beneath it, the base needs retouching. Both are asset work, not platform work. This is recorded because the migration story for a site already built on generated imagery is otherwise left implied.
 
 **An inlined drawing does not round-trip through capture.** The fold recovers no motion today — neither `reveal` nor `scrollTrack` is ever produced from a capture — and an inlined drawing joins them: it is an authored structure, never a folded one. The round-trip gate projects from the L1 document and supplies no drawings, so a document using `parts` renders there as the plain `<img>` and the gate is unaffected rather than weakened.
