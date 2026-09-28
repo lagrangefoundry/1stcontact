@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:59:25.777216+00:00'
+updated_at: '2026-09-28T04:11:32.494897+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5206,5 +5206,16 @@ The cost is real though: **utterances-as-tool-calls pulls against token-by-token
 ---
 
 Recorded as 14.16: the upstream queue semantics found intact, the delivery-point divergence, host-enforced in-turn delivery, and the streaming trade-off as the open implementation question.
+
+<!-- xgd-turn id="fbf1c89c-b3ac-42ee-bd3e-3467a5126c6d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T04:11:31.716405+00:00" -->
+#### You
+I'm not following your end of turn story at all - this is my mental model:
+Alice works for 10 mins giving periodic updates to the group - each is a tool call
+Alice calls the tool to check the queue
+Alice gives the final tool call to post her report and respond to any messages she missed
+
+I like this its clean - it has the disadvantage that any of these tool calls could be missed but that's the cost of the group chat. We cannot insert anything into any of these turns (there is no interjection) so there is no mechanical way to help Alice out - if it stops without giving a report we can poke it "Please complete" but I think that's it.
 
 <!-- xgd-chat-end -->
