@@ -6,9 +6,9 @@ title: A delegate worker session cannot be copied, and the refusal advises a fla
   that cannot help
 created_by: EPIC-16
 created_at: '2026-09-27T01:10:39.233554+00:00'
-updated_at: '2026-09-28T23:31:55.798356+00:00'
+updated_at: '2026-09-28T23:32:00.995801+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-96d8aca6
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.401
+  story_points: 4
 ---
 
 `bin/copy-to-cloud --chats` cannot carry the Lagrange Foundry history. Nine
