@@ -374,16 +374,17 @@ describe('REQ-295 — delegating construction', () => {
     expect(primed).not.toContain('You are a design consultant')
 
     // CONDITION 5 — the worker's capabilities are the builder role's grant. A
-    // brief asking for a page to be deleted would be refused, because the tool
-    // is not there to call.
+    // brief asking for something outside it is refused, because the tool is not
+    // there to call.
     const offered = toolNames(first)
     expect(offered).toContain('set_l1')
     expect(offered).toContain('get_l1')
-    // Creating and deleting pages, publishing, and the site's configuration are
-    // the consultant's judgement and not the builder's hands.
-    expect(offered).not.toContain('add_page')
-    expect(offered).not.toContain('delete_page')
+    // Publishing reaches the public internet and registering a file reaches the
+    // operator's machine; neither is construction, and the worker has neither.
+    // What the grant DOES cover is [[REQ-341]]'s case below — stated there rather
+    // than here, so the two tickets' evidence does not sit under one name.
     expect(offered).not.toContain('publish')
+    expect(offered).not.toContain('add_asset')
     // AND NOTHING THE CALLER DOES NOT ITSELF HAVE. The grant is a NARROWING of
     // the consultant's, so the worker's tools are a subset of the caller's plus
     // its own report — stated as a subset rather than as a list, because which
@@ -599,5 +600,103 @@ describe('REQ-295 — delegating construction', () => {
     // are on the record; neither is recorded as the other.
     const byCaller = records.filter((record) => record.session === sessionId)
     expect(byCaller.map((record) => record.operation)).toContain('delegate')
+  })
+})
+
+/**
+ * [[REQ-341]] — **the worker's grant covers what briefs actually ask for**.
+ *
+ * WHY IT LIVES IN THIS FILE. The subject is the worker's authority, which is what
+ * every case above is about, and the evidence has to be the tools a real
+ * delegation actually offered a real worker — the same route, the same manager,
+ * the same delegation surface out of the shared store, the same double. Standing a
+ * second harness up beside this one would give two answers to one question and
+ * two places for the answer to rot.
+ *
+ * WHAT MAKES IT EVIDENCE RATHER THAN A RESTATEMENT OF `instances.json`. The grant
+ * is read by `l1SurfaceSet`, narrowed to the surfaces this deployment composed,
+ * merged with whatever grants travel with a surface, and turned into a tool set by
+ * the framework. A group named in the document and a tool offered to the model are
+ * therefore several steps apart, and the whole point of the ticket is the one at
+ * the far end: a brief that asks for a page or a palette colour meets a tool.
+ */
+describe('REQ-341 — a worker may write pages, the palette and the configuration', () => {
+  beforeAll(async () => {
+    await applySchema()
+  })
+
+  afterEach(() => {
+    setModelClient(null)
+    configureDelegation(null)
+    resetAiHost()
+    resetChatHost()
+  })
+
+  it('test_UAT_FC_REQ-341_a_brief_asking_for_a_page_a_palette_colour_or_a_setting_meets_a_tool', async () => {
+    configureDelegation(ENABLED)
+    resetAiHost()
+    resetChatHost()
+
+    const sessionId = await openSession('grant')
+    const client = delegationScript()
+    setModelClient(client)
+
+    await drain(
+      await post('/api/ai/prompt', {
+        sessionId,
+        // The brief that was the ticket's own evidence: it asked a role that
+        // could not create a palette colour to create four.
+        text: 'Add four palette colours and use the named colours everywhere, never raw hex.',
+      }),
+    )
+
+    const first = workerRequests(client)[0]
+    expect(first).toBeDefined()
+    const offered = toolNames(first)
+
+    // THE PAGES THEMSELVES — which pages the site has, what each is called and
+    // where it sits, rather than what is on them.
+    for (const tool of ['add_page', 'copy_page', 'update_page', 'remove_page']) {
+      expect(offered).toContain(tool)
+    }
+    // THE PALETTE — a colour added, renamed, set or removed moves every place
+    // that uses it at once, which is the whole reason a brief names colours
+    // rather than hex.
+    for (const tool of [
+      'add_palette_color',
+      'rename_palette_color',
+      'set_palette_color',
+      'remove_palette_color',
+    ]) {
+      expect(offered).toContain(tool)
+    }
+    // THE SITE'S CONFIGURATION — the settings that belong to the whole site
+    // rather than to any one page.
+    expect(offered).toContain('set_config')
+
+    // AND THE ONE-LEVEL FLOOR IS UNMOVED. The worker is composed with the
+    // delegation surface scoped to no roles, so the floor is a property of the
+    // grant rather than a check somewhere that could be forgotten — `report` is
+    // the whole of that surface a worker ever has. This is the assertion that
+    // would fail if "widen the worker" had been read as "give the worker the
+    // consultant's whole toolbox".
+    expect(offered).toContain(REPORT_TOOL)
+    expect(offered).not.toContain(DELEGATE_TOOL)
+    // Publishing reaches the public internet; registering a file reaches the
+    // operator's machine. Neither is construction and neither moved.
+    expect(offered).not.toContain('publish')
+    expect(offered).not.toContain('add_asset')
+
+    // AND THE CALLER STILL HOLDS EVERYTHING THE WORKER DOES, which is the half of
+    // the change that is about ORDER rather than authority: for the duration of
+    // this step both roles can write, so a brief the worker refuses is work the
+    // consultant can still do itself. Stated as a subset so that narrowing the
+    // consultant — DOC-60's gated final step — fails here first if it is taken by
+    // accident rather than on purpose.
+    const callerTools = toolNames(callerRequests(client)[0])
+    for (const tool of offered) {
+      if (tool === REPORT_TOOL) continue
+      expect(callerTools).toContain(tool)
+    }
   })
 })

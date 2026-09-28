@@ -180,37 +180,53 @@ describe('REQ-295 — the worker runs a cheaper model and the consultant does no
 
 // ── the worker's grant ───────────────────────────────────────────────────────
 
-describe('REQ-295 — the builder has the construction half and not the judgement half', () => {
-  it('test_UAT_FC_REQ-295_the_builder_grant_is_narrower_than_the_consultants_and_takes_nothing_from_it', () => {
+describe('REQ-295 — the worker\'s authority is its role\'s grant and never its brief', () => {
+  it('test_UAT_FC_REQ-341_a_worker_may_manage_pages_the_palette_and_the_sites_configuration', () => {
     const consultant = L1_INSTANCES[CONSULTANT_ROLE] as { l1: { groups: string[] } }
     const builder = L1_INSTANCES[BUILDER_ROLE] as {
       l1: { groups: string[] }
       fidelity: { groups: string[] }
     }
 
-    // CONDITION 5. The brief is open prose and no phrasing of it can widen the
-    // worker, because authority comes from THIS and not from the goal.
+    // [[REQ-341]] SUPERSEDES REQ-295's CONDITION 5 ON THESE THREE GROUPS, and
+    // this case is where that shows. REQ-295 withheld `ManagePages`,
+    // `WriteConfig` and `ManagePalette` on the argument that pages, configuration
+    // and palette are the consultant's judgement rather than the builder's hands;
+    // briefs then asked for all three, and a brief outside the grant buys a
+    // worker that is refused rather than a worker that obeys. The rest of
+    // condition 5 is untouched: the brief is still open prose and no phrasing of
+    // it can widen the worker, because authority comes from THIS and not the goal.
+    for (const granted of ['ManagePages', 'WriteConfig', 'ManagePalette']) {
+      expect(builder.l1.groups).toContain(granted)
+    }
     expect(builder.l1.groups).toEqual([
       'ReadSite',
       'AuthorPages',
+      'ManagePages',
       'ManageComponents',
+      'WriteConfig',
+      'ManagePalette',
       'MeasureDrawings',
       'DrawImages',
     ])
     expect(builder.fidelity.groups).toEqual(['SeeSite'])
 
-    // Creating and deleting pages, the site's configuration and its palette are
-    // the consultant's judgement and not the builder's hands.
-    for (const withheld of ['ManagePages', 'WriteConfig', 'ManagePalette']) {
-      expect(consultant.l1.groups).toContain(withheld)
+    // AND NOTHING ELSE ABOUT THE ROLE MOVED. Publishing reaches the public
+    // internet and registering a file reaches the operator's machine; neither is
+    // construction, and neither was granted to the consultant's worker by
+    // widening it to cover construction.
+    for (const withheld of ['Publish', 'ManageAssets']) {
       expect(builder.l1.groups).not.toContain(withheld)
     }
 
-    // AND THE CONSULTANT KEEPS EVERYTHING. The grant is ADDITIVE: the narrower
-    // design — moving construction out of the consultant so delegating is
-    // compulsory — is deliberately not taken here, and this is where that would
-    // first show up if it were taken by accident.
+    // AND THE CONSULTANT KEEPS EVERYTHING. Widening the worker takes nothing off
+    // the caller — for the duration of this step BOTH roles can write, which is
+    // the cheap order: a grant gap found while the caller can still do the work
+    // itself is a brief to widen rather than a stuck engagement. Narrowing the
+    // consultant is DOC-60's gated final step and this is where doing it by
+    // accident would first show up.
     for (const group of builder.l1.groups) expect(consultant.l1.groups).toContain(group)
+    expect(consultant.l1.groups).toEqual(builder.l1.groups)
   })
 
   it('test_UAT_FC_REQ-295_both_grants_validate_against_the_declarations_they_name', async () => {

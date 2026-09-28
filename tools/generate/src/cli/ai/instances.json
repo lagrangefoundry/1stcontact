@@ -22,7 +22,10 @@
       "groups": [
         "ReadSite",
         "AuthorPages",
+        "ManagePages",
         "ManageComponents",
+        "WriteConfig",
+        "ManagePalette",
         "MeasureDrawings",
         "DrawImages"
       ]
