@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-28T16:56:09.923271+00:00'
+updated_at: '2026-09-28T19:07:26.708343+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1773,5 +1773,178 @@ what costs tokens.
 assembly point needs widening from per-turn to per-request. (3) is a client consumer of existing
 events. (2) is new, is host-enforced, and is the one that fixes an observed silent failure.
 Build (2) first.
+
+Nothing filed.
+
+
+### 14.13 Correction — the occupancy gauge is BUILT, shipped, and the consultant is the one role that does not name it
+
+14.12 said three currencies are measured and the model is told none. That is wrong on the
+third, and the correction makes it the cheapest item on the whole list.
+
+`budgetProvider` (LF REQ-169, `components/ai/js/src/defaults.js`) is a shipped framework
+provider that renders occupancy, the window, the percentage and the room left; it returns
+`null` when nothing has been measured so the entry *and* its separator disappear; and its
+doc states the design intent in the operator's own terms — *"It arrives unasked, which is
+the point. It is a priming entry and never an operation: the failure being fixed is that
+cost is invisible at the moment of choosing, and a session that thought to check how full
+it was would not have needed to."* `manager.js:861` puts `occupancyTokens` and
+`contextWindow` into the turn context *before* the turn runs, for the stated reason that
+the gauge is only useful at the moment of choosing.
+
+**And `tools/generate/src/cli/ai/priming.json` names it in `settings_reminders` and not in
+`reminders`.** The settings assistant has a fuel gauge. The site consultant — the role that
+asked for one, in the words quoted in [[REQ-284]] — does not. [[REQ-284]] does not close
+this: its commit prices *looking* and rewrites the `interrupted-turn` advice; it adds no
+gauge entry. One line of configuration, in a file this repository owns.
+
+**The gap that is real, and is the tool loop's:** `session.occupancyTokens` is what the
+*previous* turn's last request carried, and is deliberately in-memory only. So during a
+fifty-iteration ten-minute turn the gauge is **frozen at the reading from before the turn
+began** — which is exactly the turn that is filling the context with screenshots. The loop
+already collects a `usage` record per request and already has an `onUsage` hook; a live
+figure is a matter of routing what it holds into the per-request channel.
+
+Also standing, from the existing ledger rather than new: [[REQ-286]] removes the
+browser quota (*wrong currency*), and [[REQ-283]] carries the ledger-read and the bounded
+standing frame. The metering that matters was never absent from the plan — what is absent
+is disclosure of *iterations* and *wall-clock*, and a gauge that moves inside a turn.
+
+### 14.14 Is the per-request tail excessive? — it is the price of it existing at all
+
+Asked directly: yes, `turnTail` re-sends the tail on every request of a turn, ~50 times
+in the worst case, and REQ-144's own doc says so deliberately — *"Applied on every request
+of a turn, not only its first — the reminder was in front of the model on all N+1 of them
+before this moved, and it still is."*
+
+The reason it is not waste: **nothing from `turnTail` is written back into
+`state.messages`.** So on iteration 2 the iteration-1 tail is simply gone. The choice is
+not *resend or send once* — it is **resend or absent**. Ephemerality and repetition are
+the same property, and the property is what makes a stale "1 message queued" impossible.
+
+Measured, so the size is not a guess: the consultant's nine reminder entries are **739
+characters, ≈184 tokens**; the settings assistant's five are 379; the builder's four are
+467. At fifty iterations that is ≈9k uncached input tokens per turn for the reminder — and
+it buys the only channel into a turn we have. The figure worth measuring, and not yet
+measured, is `volatile` (the session summary), which rides the same tail and is larger.
+
+**Correction to 14.12's suggested shape.** 14.12 proposed making the reminder itself a
+per-request thunk. That is wrong: `assembleReminders` runs *providers* — async, some of
+them reading the corpus — and running that fifty times a turn is real waste for text that
+cannot change mid-turn. The right shape is **two channels with different clocks**:
+
+- **standing guidance** — assembled once per turn as today, delivered per request because
+  that is the only way it is present at all;
+- **signals** — assembled per request from cheap in-memory counters only (queue length,
+  `iter`, the loop's own `usages`), no providers, no I/O.
+
+And a quiet loop must cost nothing: `systemBlock` already drops empty parts without even a
+separator, so a turn with nothing queued and no warning due appends zero bytes.
+
+### 14.15 Sidebar — room vs the cheap model's context, on the merits
+
+Setting the current implementation aside and asking which design is right. Topology 2
+(the room *is* Bob's conversation, Alice posts into it) loses to topology 3 (the room is
+nobody's context; each member reads at a cursor) on four counts, and the first is decisive.
+
+**1. Compaction is a property of a context, and a room inside a context inherits it.**
+Bob's messages array would hold two things with different lifetimes — the shared record,
+and Bob's private working state. When Bob compacts under *his* context pressure, the
+shared record is summarised away by an operation that has nothing to do with the record's
+value. 14.8's lesson arrived at this from the other direction: derive the feed from the
+corpus rather than write it beside it.
+
+**2. A restart truncates it silently.** LF REQ-168 bounds a warm API conversation and
+re-seeds a cold one from a *window*, so topology 2's room survives a process restart only
+as far back as the window reaches. Topology 3's room is the durable artifact itself — the
+chat ticket transcript, which is already reload-safe and already carries the ledger.
+
+**3. The chair would own the medium.** 14.10 took REQ-154 §3's rule that the chair holds
+no domain. A chair who also *is* the transcript is a lossy relay by construction: Alice
+sees the room only in whatever Bob passed her at a turn boundary, and every question about
+what the client actually said becomes a question about Bob's summarising.
+
+**4. Read rates are wildly asymmetric and a cursor is what absorbs that.** Alice's turns
+are ten minutes, Bob's about a second, the client's irregular. A cursor lets each read at
+its own rate — and lets Alice read *mid-turn*, which is 14.11's mechanism exactly: the
+packet says *2 new, from cursor 41* and `pull(41)` spends the tokens. In topology 2 there
+is no cursor to be at.
+
+**The client is already a topology-3 reader.** The browser scrolls a durable transcript it
+does not own. Making the agents' room Bob's context would mean the two halves of the
+product disagree about what the room is.
+
+**What topology 3 costs, honestly:**
+
+- **Coherence is no longer free.** A member who only pulls deltas has no standing summary
+  of the engagement; topology 2 gets that from Bob's context for nothing. So topology 3
+  *requires* the bounded standing frame — which is [[REQ-283]] item 2, already scoped. The
+  dependency is worth stating plainly: **no standing frame, no room.**
+- **Latency for the fast member.** If Bob must `pull` before answering, his ~1s turn pays
+  a round trip first. The answer is that delivery need not be symmetric even though
+  ownership is: **push the delta to the cheap fast member, notify-and-pull for the
+  expensive slow one.** Bob's context is small and the delta is small, so pushing to him is
+  free; Alice is the one for whom a pull is a real choice. The generalised group component
+  does not do this, which is one more reason to take its *conclusions* rather than its code.
+- **Additive only.** REQ-160's known gap (reliably additive, unreliably subtractive) does
+  not bite: a chat room is append-only. `pass` must not advance the pointer — 14.10.
+
+**The design, in one line:** the room is the durable transcript; membership is a cursor;
+ownership is nobody's; **delivery is asymmetric and matched to each member's cost.**
+
+### 14.16 Candidate requirements — the mechanism, in dependency order
+
+Not yet filed. Framework unless marked. Sizes are impressions, not estimates.
+
+**LF-1 — a per-request `signals` channel on the tool loop.** A second volatile channel
+beside `volatile`/`reminder`, evaluated by each adapter's `_callModel` (so per request)
+from in-memory state only, delivered by `turnTail`, never written back to `state.messages`.
+Both wires already call `turnTail` per request; this widens *what* they may put in it.
+Everything else here depends on it. **Small, and first.**
+
+**LF-2 — the tool loop publishes and enforces its own budget.** Iterations (`iter` vs
+`MAX_TOOL_ITERATIONS = 50`) and wall-clock (`timeout = 600`) disclosed through LF-1 at 75%
+and 90% with a countdown from 95%; and the half that matters most — **exhaustion becomes a
+delivered instruction rather than a silent `doneEvent`**: the last iteration says so, so a
+report gets written. The timeout path currently *throws*, which is an error raised where a
+report was wanted. This is the only item that needs no cooperation from the model to be
+useful, which is why it is the one to build first after LF-1. Ref Finding 13's 2-in-102.
+
+**LF-3 — the gauge moves inside the turn.** Route the loop's per-request `usages` /
+`onUsage` into LF-1 so occupancy is live rather than frozen at the pre-turn reading.
+Extends LF REQ-169's provider rather than replacing it.
+
+**LF-4 — split the `inject` capability.** `inject: false` is true of a stream and false of
+a turn (14.11). Declare the two separately so hosts stop designing around an impossibility
+that only holds for one of them. Capability + DOC-21 §6 wording. **Tiny, and mostly a doc.**
+
+**LF-5 — one cursor operation, two uses.** `pull(since)` over a transcript, where
+"messages queued for me" and "another participant's room" are two cursors on the same
+operation; the notification carries a count and a cursor and never the content (REQ-160's
+rule). This is (1) and (4) of the operator's four as a single primitive.
+
+**LF-6 — the room as a derived cursor with asymmetric delivery.** 14.15. Depends on LF-5
+and on a standing frame; push to cheap members, notify-and-pull for expensive ones; `pass`
+does not advance the pointer; the chair holds no domain. **Largest item; wants a design
+note before a request.**
+
+**LF-7 — the bounded standing frame.** Probably already [[REQ-283]] item 2 — check before
+filing rather than duplicating. Named here because LF-6 cannot ship without it.
+
+**FC-8 (1stcontact) — give the consultant the gauge.** Add `session-budget` to `reminders`
+in `priming.json`. **One line**, unblocked, independent of every other item, and it closes
+the *"I am driving with no fuel gauge"* quote that opened Finding 5. Do it now.
+
+**FC-9 (1stcontact) — queue transport.** [[BUG-122]]: the client-side queue is built
+upstream in `webui-chat` (pending bubbles, coalescing, "already too late" rule) and this
+repository drops the words. Delivered as LF-1 notification + LF-5 pull — *before* her
+report, not upstream's after-the-turn new turn (14.10).
+
+**FC-10 (1stcontact) — the progress surface.** Consume `toolIssueEvent` / `toolEvent`
+(both already emitted, REQ-175) with LF-2's denominator and Alice's milestone posts as the
+label. Activity indicator for both workers; interrupt meaningful only for Alice (14.10).
+
+Order: **FC-8 now** (one line) → **LF-1** → **LF-2** (+ **LF-4**, doc-sized) → **LF-3** →
+**LF-5** → **FC-9** → **FC-10** → **LF-7 check** → **LF-6**.
 
 Nothing filed.
