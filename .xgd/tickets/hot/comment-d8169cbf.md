@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-27T23:20:38.589055+00:00'
+updated_at: '2026-09-28T00:07:27.856200+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4920,5 +4920,17 @@ Three edits: no prediction about Alice, no announcement of scheduling she didn't
 ---
 
 Recorded as 14.12 on the epic — the audit, disjoint move sets, the invocation sequence, and the compressibility argument, which I think is the strongest structural result we've got so far.
+
+<!-- xgd-turn id="910715f2-3c0b-429b-883b-60492c999cc0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T00:07:27.768456+00:00" -->
+#### You
+So, I think that is close but  I have to push back on "**Waking Alice is a syntactic test, never Bob's call.** If Bob decided when Alice gets involved, Haiku would be gating Opus. So: Alice is invoked unless the message's only address is `@Bob`." I don't think this is quite right. @name is not a formal syntax it's scope is implied. It could be the preceding sentence "Please add a blog page to the plan, @Bob" or the subsequent one - determining if any of the sentence is undirected requires LLM judgement, in general. Plus the user will get it wrong: "@Bob what do you think of the final CTA?" 
+
+To avoid Haiku judgement Alice has to be woken on every user turn. Now there is a version of this in which we say that Haiku is good enough to make routing decisions, in which case it is Bob's call whether we wake Alice or not. I think that's worth concideration...
+
+We should also talk about the mechanics of User-Bob conversations while Alice is busy - that might need some new engineering thoughts.
+
+This conversation and that last question in particular push we towards this as being Bob's context with Alice as a listener - all Alice's self-think gets routed to its own chat and Bob does the narration, as we discussed and the user and Bob can interact while Alice is busy.
 
 <!-- xgd-chat-end -->
