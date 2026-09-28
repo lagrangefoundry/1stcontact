@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T19:10:26.960933+00:00'
+updated_at: '2026-09-28T19:31:52.346200+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -36,7 +36,9 @@ EPIC-20 exists to remove.
    element, author a page, write configuration or change the palette.
 
 2. **Construction is commissioned.** The consultant's route to a change in the site is a
-   brief to a worker and nothing else.
+   brief to a worker and nothing else. Its method prose says so: a deployment where it
+   cannot write must not be told to weigh handing work over against doing it itself,
+   because there is nothing to weigh.
 
 3. **The delegation rollback still works.** With delegation disabled in configuration the
    surface is not composed at all, so this ticket must not leave a state in which the
@@ -52,22 +54,29 @@ EPIC-20 exists to remove.
 `delegation.json` gains a second top-level key beside `enabled`:
 
 ```
-"primary_writes": true
+"primary_writes": false
 ```
 
-`true` is today: both roles can write. `false` is this ticket's end state: the consultant
-holds the read groups only.
+`false` is this ticket's end state and **is what ships**: the consultant holds the read
+groups only. `true` is the previous behaviour, where both roles can write, and it is the
+flip-back.
+
+**Absent means `false`.** The shipped document states the key anyway, so the value is
+readable where an operator looks rather than resolved in code; but a replacement document
+that omits it gets the design rather than the state the design replaced. Present and not a
+boolean is a start-up refusal naming the key, as `enabled` already is.
 
 **`enabled` dominates it, structurally rather than by a check.** The narrowing is applied
 at exactly the point the delegation surface is composed — the same non-null runtime that
 composes `delegate` — so there is no reachable configuration in which the consultant has
-lost its write groups and has no worker to commission. That is behaviour 3 held as a
-property of the wiring rather than as a rule someone has to remember:
+lost its write groups and has no worker to commission. That covers both ways the surface
+can be absent: the switch off, and a switch on with no worker role bound. Behaviour 3 is
+then a property of the wiring rather than a rule someone has to remember:
 
-| `enabled` | `primary_writes` | consultant's L1 grant | `delegate` | method prose |
+| `enabled` | `primary_writes` | consultant's L1 grant | `delegate` | method framing |
 |---|---|---|---|---|
-| `true` | `true` (ships) | full, as `instances.json` | yes | delegate-first |
-| `true` | `false` (end state) | read groups only | yes | commission-only |
+| `true` | `false` (ships) | read groups only | yes | commissioning |
+| `true` | `true` | full, as `instances.json` | yes | choosing |
 | `false` | ignored | full, as `instances.json` | no | none |
 
 **The withheld groups are derived, not listed.** Every group in `l1-surface.json` declares
@@ -77,14 +86,14 @@ added later is withheld without an edit, and `instances.json` goes on stating th
 consultant's maximum authority — which is what makes the rollback restore the right thing
 without recording it anywhere else.
 
-**Absent means `true`.** A document that omits the key leaves the consultant its hands.
-The omission has to fail in that direction: the other one turns a forgotten key into a
-primary that cannot build. Present and not a boolean is a start-up refusal naming the key,
-as `enabled` already is.
+**Only the consultant narrows.** The worker's own grant is untouched, and so is every
+other role: a role that does not delegate has nothing to commission with.
 
 **The prose follows the key.** `delegationMethod` already returns a template or `null` on
-one condition; it takes the second condition and returns the commission-only text when the
-consultant cannot write. The words stay in `priming.json` and the condition stays in code,
+one condition; it takes the second and swaps the paragraph that frames handing work over
+as a choice for one that says construction is commissioned. The rest of the method — how
+to write a brief, what to ask to have checked, believing the checks — is true either way
+and is not duplicated. The words stay in `priming.json` and the condition stays in code,
 which is where REQ-295 put that seam.
 
 **Consequence worth naming: `DrawImages` goes too.** `write_image` is declared
@@ -94,28 +103,31 @@ derivation exists to avoid. The builder holds the group already.
 
 ## The gate
 
-This ticket is held until the record shows, over **ten consecutive delegations**:
+DOC-60 held this ticket until the record showed, over **ten consecutive delegations**:
 
 - no delegation returns `silent` while its diff contains writes; and
 - no delegation's diff contradicts its own self-report.
 
-Both are facts about recorded runs rather than judgements, so the gate can be checked
-rather than argued. Today the first condition fails at **2 of 7** and the second is
-unmeasurable, which is the point of the diff.
-
-**What the gate now governs is the key, not the merge.** The code lands with
-`primary_writes: true`, which is inert — the shipped behaviour is byte-for-byte today's.
-The gate is the condition for setting it `false` in a deployment, so the evidence no
-longer blocks the implementation.
+**The key discharges the gate rather than satisfying it.** The gate existed because
+removing the consultant's hands by merge is a one-way door: a delegation surface that
+loses writes silently would stand up a deployment that cannot build and cannot be talked
+out of it. With the narrowing behind a deploy-time key that restores the full grant in one
+edit, the door swings both ways, and waiting ten delegations to begin saving the twelve-fold
+difference costs more than the risk it removes. The two conditions remain worth watching —
+they are facts about recorded runs rather than judgements — but they gate nothing here.
 
 ## Dependencies
 
-All of DOC-60's preceding tickets: the upstream result-accounting ticket, the diff
-provider, the worker's context, the builder's grant, and the delegate-first prose. This
-is the only ticket in the set that is gated on evidence rather than on code.
+DOC-60's preceding tickets that this rests on have landed: the result-accounting ticket,
+the diff provider, the worker's context and the builder's grant. **REQ-342 is not a
+dependency.** It rewrites the whole method template and puts a standing line in the
+per-turn tail; this ticket only swaps the one paragraph that would be false in a
+deployment where the consultant cannot write, and leaves REQ-342 free to rewrite both
+variants when it lands.
 
 ## Not in scope
 
 Any change to what a worker may do — that is the grant ticket. Any change to `enabled`,
 which stays exactly as it is because it is the rollback: this ticket adds a key beside it
-and gives it no new meaning.
+and gives it no new meaning. REQ-342's per-turn reminder, and its rewrite of the method
+prose beyond the framing paragraph.
