@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T00:08:17.041752+00:00'
+updated_at: '2026-09-28T00:09:41.172235+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2495,5 +2495,29 @@ Want me to record these decisions on BUG-71? You said you'd write the agreed dec
 <!-- xgd-chat role="user" ts="2026-09-28T00:08:16.703739+00:00" -->
 #### You
 Can you add those decisions to the ticket please?
+
+<!-- xgd-turn id="8f04282e-20bb-474f-94fc-e4d73afd1f39-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T00:09:40.867700+00:00" -->
+#### Claude
+Recorded on **BUG-71** (`bug-9554680b`, lagrange-framework) as a `## Decisions (2026-09-27, from EPIC-20 / DOC-60)` section, keyed to the transcript's own numbering. The body is now 239 lines.
+
+What's in it:
+
+1. **Route (A)** for the exhaustion signal, with (B) rejected on the type-lie cost — a `tool_activity` that isn't a tool call lands in every operator's transcript via `ContentBlock(TOOL_ACTIVITY)`. Plus: don't over-build, a flag suffices; what the caller needs to decide about re-delegating is how much of the brief remained, which is the nudge's job.
+2. **Skip the nudge below `windowTurns` 2**, with the added requirement that the outcome says the nudge was skipped *and why* — and the correction that 1stcontact sets `windowTurns` nowhere, so it runs at the default 40 and the nudge will fire. The `0` is the fixture's assertion, not the product's. Route (c) recorded as the principled fix, out of scope.
+3. **`exhausted` wins**, with the requirement that it *carries* the nudged report rather than replacing it — and a note that `accepted: false` with every check `passed` is the correct result and must be explained in the shape prose or it reads as a contradiction.
+4. **Keep `untrusted`**, plus the addition: carry the watermark bracket so the account is *independently checkable* rather than trusted on the strength of a sentence — two integers, and it makes over-marking harmless. The keep-it-out-of-the-result alternative is recorded as considered and rejected, with the reason. Per-field provenance gets its own ticket in that repo, not a note here.
+5. **Scope as corrected** — BUG-68's 10-file precedent.
+6. **Item 3 (the account hook) first** within the ticket, because it's the one with a consumer waiting (REQ-343's gate).
+
+I also recorded the rejected last-iteration-warning alternative as settled, noting the right home is the worker's priming host-side — so it isn't re-litigated.
+
+The section opens by stating it **supersedes the "Scope" paragraph** above it, since that paragraph was mine from outside the repo and named too few files. The original text is left intact rather than rewritten.
+
+Two follow-ups I have *not* done:
+
+- **The per-field provenance ticket** in lagrange-framework — decision 4 says it should be its own ticket. Say the word and I'll file it.
+- BUG-71 is still `status: draft`. The investigating session said it would write the agreed decisions into the body before touching code; that's now done, so it may want to move the status itself — I left it alone rather than advancing another session's ticket.
 
 <!-- xgd-chat-end -->
