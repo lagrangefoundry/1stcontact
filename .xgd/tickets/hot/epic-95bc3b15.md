@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-28T20:36:15.972385+00:00'
+updated_at: '2026-09-28T22:02:29.015159+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1991,3 +1991,70 @@ ticket of its own.
 **Still owed, and named in the doc so it is not lost:** `volatile` — the session summary —
 rides the same per-request tail as the reminder and is larger, and is the one figure in
 this design that has not been measured.
+
+
+### 14.18 [[DOC-62]] — the experience design, and DOC-61 demoted to its mechanism half
+
+[[DOC-61]] was too narrow: judged by its title it read as an implementation appendix to a
+document that did not exist. It now *is* that appendix, retitled *"Mechanism: reaching a
+working turn between its tool calls, publishing its budget, and the cursor primitive"*, and
+the document it is an appendix to is:
+
+**[[DOC-62]] — *Building a site with two AIs: the client, the consultant and the
+interrogator — roles, the room, and what each participant experiences*.**
+
+It carries the UX and the AX as one design, because they are one: §1 the participants and
+the two asymmetries (cost, latency) everything else is downstream of; §2 what the session is
+like today on both sides; §3 the division of labour, marked settled / open, including the
+interrogator's real job (pressure against the brief) and its two failure modes; §4 the room,
+the four topologies and the answer; §5 what the client sees; §6 what each AI can perceive and
+do; §7 the shared structure and its unsettled identity; §8 the method and what a second agent
+fixes that priming cannot; §9–§12 not-this, measurements, where implementation lives, open
+questions. All seven tickets now reference it alongside DOC-61.
+
+**A correction to 14.10's label.** 14.10 recorded *"topology 2 conceded — the room is the
+`chat_transcript` comment that already exists"*. The substance of that — a durable transcript
+on the chat ticket — is topology **3**, and 14.7's own analysis favoured 3 independently. Only
+the label was wrong, because the cheap model was described as "holding" the room. DOC-62 §4
+states 3 as the answer and keeps 14.7's build advice: start at 1 because it is incremental and
+reversible, but treat the room as an artifact from day one so composing views is a dial rather
+than a refactor.
+
+### 14.19 The context gauge was a misdiagnosis — [[REQ-344]] abandoned
+
+Raised by the operator against his own earlier finding, and it is right:
+
+> That is NOT the gauge we discussed — we talked about managing the number of tool iterations
+> and feeding that back to whoever was making the calls in the results. We have technology for
+> rolling the chat history window AND keeping two forms of summary, all of which is available
+> in chunk level search to the AI — what would it do with its context size?
+
+**Nothing.** The window is a host-managed resource with host-side remedies: LF REQ-168 rolls
+it, [[REQ-283]] keeps a bounded standing frame *and* an append-only ledger, the ledger body is
+KB-indexed at chunk level so what falls out stays reachable, and `_compactionDue` acts without
+consulting the model. There is no cliff to steer away from, so a percentage buys no decision —
+and it invites false economy, a session skipping a screenshot it should take to protect
+something it cannot release.
+
+**The sharper point, and why Finding 5 went wrong.** The consultant's *"the turn simply ends
+[…] indistinguishable from having finished"* is a true report of a **misidentified cause**.
+Finding 5 read it as context exhaustion and built the fuel-gauge line of work on that reading.
+The code says the silent-stop path is **iteration-cap exhaustion** in `runToolLoop`, with the
+wall-clock timeout as the other exit. Neither is a context event. So the gauge was an answer to
+the right symptom and the wrong mechanism, and it survived a week because nobody had read the
+loop.
+
+What this changes, concretely:
+
+- **[[REQ-344]] is abandoned.** The `session-budget` entry is *not* added to the consultant's
+  reminders. The argument is recorded on the ticket rather than deleted with it.
+- **LF REQ-181 loses its fourth item.** Live occupancy inside a turn is out of scope for the
+  same reason; the ticket now meters **two** currencies, iterations and wall-clock, both of
+  which bind absolutely and neither of which the model can learn any other way.
+- **[[DOC-61]] §F2 is rewritten as a withdrawn fault** rather than deleted, and its numbering
+  kept as filed so the rejection stays legible.
+- **[[DOC-62]] gains a rule** from it: *meter what actually binds*. A signal is worth a packet
+  only if the participant can act on it — and showing a non-binding resource does not produce
+  care, it produces false economy.
+- **What survives for cost** is the price of the call at the point of the call, which
+  [[REQ-284]] already shipped.
