@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:20:20.097754+00:00'
+updated_at: '2026-09-28T03:21:44.126986+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5020,5 +5020,61 @@ So your shape is arguably topology 3 with Bob as host, and the objection I raise
 Mid-turn - actually, we don't need to drop it. This is Bob's context, we don't need to have Bob fully occupied when Alice is busy, do we? When Alice is busy the two things that it would be nice to have, one would be updates from bob on what's going on, the other is the opportunity to continue the discussion with Bob while Alice is busy. Bob can continue to add things to a to-do list and can answer a factual questions
 
 In fact, is it the right thing to have Bob do the updates, what if Alice just used the cross chat tool to insert key updates into the chat. That would not be crazy expensive would it? And then Bob is completely free to discuss logistics with the user?
+
+<!-- xgd-turn id="1fd35a93-9561-4b34-89ed-cee954df1417-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T03:21:43.821829+00:00" -->
+#### Claude
+Right — and that distinction has consequences worth spelling out, because two of them are load-bearing.
+
+## What Bob having no private context buys
+
+**The model we trust least has no private state.** Every belief Bob holds is visible in the room, so he cannot accumulate a wrong one off-camera. Alice can — she has a workshop — and that's fine, because she's the one whose judgement we're paying for. That's a principled reason for the asymmetry rather than an arbitrary one: **design requires exploration (dead ends, rejected variants) the client shouldn't see; facilitation has nothing to explore.**
+
+**Bob is fully auditable by construction.** When something goes wrong in the process — a phase closed that shouldn't have been, an item silently dropped — the whole causal chain is in the transcript, in plain language. No reconstruction needed.
+
+One nuance so the rule doesn't overreach: no private *memory* doesn't mean no reasoning. A turn's internal reasoning is ephemeral either way — it doesn't persist into the next turn. What Bob lacks is a *session of his own*, which is the thing that could drift.
+
+**And the practical clincher, which I think decides it:** if the room is Bob's session, **the room already exists as a durable artifact.** It's the `chat_transcript` comment on the chat ticket — reload-safe, indexed, with the ledger already living alongside it. Topology 3 would need a new durable room object with its own lifecycle; topology 2 inherits one that's been in production for months. That's the difference between a new mechanism and a new participant, and it's a strong argument for your choice that I hadn't weighted.
+
+The cost is that Bob's context grows with the room, unbounded. But Bob is the cheap one, so the unbounded thing is in the right place.
+
+## Alice posting her own updates — yes, and it's nearly free
+
+Your instinct on cost is right, and here's why it's not close: **an update is a tool call inside a turn Alice is already making.** It isn't a new inference pass. The expensive thing is *invoking* Alice — waking her, reading her context. A tool call mid-turn costs its own tokens and nothing else. So the marginal cost of Alice saying "this is taking longer, the background's involved too" is negligible against the turn it sits inside.
+
+Mechanically it works too: the framework streams events during a turn, so a tool whose side effect is an append to the room surfaces live rather than at turn end.
+
+**And it's better than what I proposed.** Bob narrating from the tool-activity feed means Bob interpreting *what tool calls mean* — judgement-adjacent, on the model we don't trust with judgement, and it occupies the agent we specifically want free. Alice knows why she's doing what she's doing; the feed only knows that `screenshot` fired twice. *"I'm taking the background colder because the frame's competing"* versus *"she's rendering."* Not close.
+
+**So I'd drop Bob's narration entirely.** That removes a Bob responsibility, removes a judgement risk, and frees the parallelism you're after. Three way split instead:
+
+- **Alice** posts intent, in her own voice, from inside her turn.
+- **The UI** shows activity — the tool pane and a progress indicator already exist. Ambient "still working" needs no agent at all.
+- **Bob** does logistics with the client, uninterrupted.
+
+## The one bound Alice needs
+
+A model given a recording mechanism over-uses it — Finding 13 measured 61 standing-note rewrites and 45 decisions in a single engagement. Told to post progress, she will post progress instead of working.
+
+So bound it to the case that carries information: **post when the work diverges from what you said you'd do.** "Ten minutes on the type" becoming "fifteen, because the background's in it too" is worth the client's attention. "Still going" is not — that's the progress indicator's job, and it costs nothing.
+
+## Mid-turn narrows to one case, and Bob's move set already handles it
+
+You're right that the group chat fixes most of BUG-122 for free: a mid-turn message reaches Bob, who isn't busy, and gets answered. The dropped-on-the-floor behaviour was a one-agent artifact.
+
+What survives is narrower: **a mid-turn message that's for Alice still cannot reach her.** And Bob must not answer it — his move set forbids substantive replies. So his only legal move is the process question:
+
+> **Bob** — She's mid-render on the type. Shall I hold that for her, or stop her and start again with it?
+
+Which *is* the queue-versus-interject choice, surfaced as a question, decided by the client. Bob presents the option and makes no judgement; the framework's two existing submit intents are the two answers. That's the mechanism I was missing last turn, and it falls out of the move set rather than needing anything new.
+
+Alice's reconcile-on-return still stands regardless — while she worked, you and Bob may have reordered the plan under her.
+
+---
+
+Recorded as 14.14: topology 2 adopted with the transparency and durable-room arguments, Bob's narration withdrawn in favour of Alice self-reporting, the divergence bound, and queue/interject as a Bob process question.
+
+Next seam worth testing is still the reconcile — Alice coming back with a finished homepage into a room where you and Bob have just moved the contact page to the front.
 
 <!-- xgd-chat-end -->
