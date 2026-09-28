@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:04:31.336776+00:00'
+updated_at: '2026-09-28T04:06:50.989885+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -254,5 +254,60 @@ All 24 UATs pass. Now regression — the sibling motion suites and the L1 core, 
 Can you define plainly what your three walls are? I am still struggling to understand exactly what each one is you seem to talk about them but don't define what they really are in simple terms.
 
 Let's talk about this for a moment. I was expecting that we would supply animated gifs - that is images with the animation built-in and a simple control triggered on the page that starts and stops the animation. If the mouse cursor is over an image for example the animation begins. Alternatively if we scroll down to an image, the animation begins. And likewise we would have a stop control when the mouse Cursor is moved off the image the animation stops. Once we scroll beyond the image it stops… Or whatever. I am not expecting that we would capture the movement mechanics or make them anything more complex than a loop but surely we can start and stop an animated gifs no?
+
+<!-- xgd-turn id="9f552803-9c3c-47d6-a792-9f874d9d5f49-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T04:06:50.249848+00:00" -->
+#### Claude
+Let me check one thing before I answer, so I report the state accurately.
+
+Fair challenge. I'd been using "walls" as shorthand for the ticket's own three complaints without ever restating them. Plainly:
+
+## The three walls
+
+1. **You can't put movement inside a picture we generate.** When we write an SVG drawing, a checker inspects every tag and rejects anything not on an approved list. The animation tags aren't on it.
+2. **You can't loop movement on the page.** What existed could fade something in once as you scroll past it, or change its colour while hovered. Nothing repeated, and nothing ran a sequence of steps.
+3. **You can't move one piece of a picture.** To the page, a picture is a single flat rectangle. There's no way to say "the arm" as separate from "the background behind it".
+
+Wall 2 was easy. Wall 1 turned out to be a bad idea (movement inside the file can't be switched off for people who've asked for no animation). Wall 3 was the structural one.
+
+---
+
+## On animated GIFs — the honest answer
+
+**No, you can't start and stop an animated GIF.** That's not our rules, it's the browser: a GIF begins the instant it loads and runs on its own schedule. There's no attribute, no styling property, and no non-scripted way to pause it, restart it, or ask it how far through it is. It also can't be stopped for someone who's asked their machine for no animation — which is its own problem, and the same reason I ruled out putting movement inside our SVG drawings.
+
+So the specific mechanism you had in mind doesn't exist. **But the effect you described absolutely does**, two ways:
+
+**(a) Two files, swapped.** Show a still frame normally; show the animated file while hovered or in view. One line of styling, no scripting. Downsides: "stop" means "snap back to the still", restarting replays from frame one rather than resuming, and you need an extra still image for every animation.
+
+**(b) One image holding all the frames in a strip, and the page steps through it.** This is the one I'd recommend. You get a genuine start, a genuine stop, a clean loop, instant stop-and-resume, and it switches itself off for anyone who's asked for no animation — all with no scripting. It's the standard technique for exactly this.
+
+---
+
+## Where that leaves what's on disk
+
+Worth being clear, because the gap is smaller than it sounds.
+
+**What I built already gives you your trigger model.** Start on load, start on hover, start when scrolled into view; loop forever or a set number of times; stop when the cursor leaves or when it scrolls away. That's precisely what you described. I built it, and 24 tests pass against it.
+
+**What it moves today is the whole picture** — drift, breathe, rotate, fade. It does not step through frames, and it doesn't touch GIFs.
+
+So option (b) is **one more thing a loop is allowed to move**: which frame of a strip is showing. That's a small addition on top of machinery that's already working and tested, not a different design.
+
+**And I over-built.** The part-addressing — moving the arm independently of the parchment — is more than you asked for. You said you don't want the movement mechanics, and that feature *is* the movement mechanics. It's built and passing. My honest read: it was the cheapest of the three pieces, because our drawing format already allowed naming pieces, so nothing new had to be permitted. But it's surface area you didn't ask for, and surface area is the thing that costs over time.
+
+---
+
+## What I'd do
+
+Add frame-stepping (option b) to the loop primitive that already exists, so a strip of frames plays on hover or on scroll-into-view and stops cleanly. Keep the whole-picture motion, since it's the same mechanism and already done.
+
+**Two things I need from you:**
+
+1. **Keep or cut the part-addressing?** I lean keep — it's built, tested, and costs nothing further. But it's your call and cutting it is clean.
+2. **Where do the frames come from?** Option (b) needs one image containing the frames side by side. Can our image generation produce a consistent strip of frames of the same illustration? If not, this is a content problem rather than a code one, and (a) — a still plus a hand-made animated file the operator supplies — becomes the realistic path. I don't know the answer and it changes what I build.
+
+Nothing is committed. Two notes on state: the tests I ran are green for everything I touched, and separately, six suites can't run in this working copy at all because a generated build folder only exists in the main checkout — that's environmental, not my change.
 
 <!-- xgd-chat-end -->
