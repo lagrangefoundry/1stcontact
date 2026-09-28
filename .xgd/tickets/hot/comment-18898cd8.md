@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T20:06:15.530507+00:00'
+updated_at: '2026-09-28T20:28:47.351686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,44 @@ Full node suite passed (exit 0). Now the workers-level UAT, which is where the r
 <!-- xgd-chat role="user" ts="2026-09-28T20:06:14.381265+00:00" -->
 #### You
 PLease continue
+
+<!-- xgd-turn id="2e1ab446-9b8e-4259-ba3e-cf35b2bd7571-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T20:28:46.692467+00:00" -->
+#### Claude
+The full workers suite got OOM-killed (137). Running it in chunks, starting with the ones the narrowing can affect:
+
+Three failures, all one tripwire — REQ-341's own comment says it was planted to fire exactly here ("fails here first if it is taken by accident rather than on purpose"). Taking it on purpose:
+
+Pre-existing failure, independent of this change (it reproduces with my source edits stashed). Now the rest of the workers suite, in batches to avoid the OOM:
+
+Now BUG-43 and REQ-217 — both drive real writes through the consultant:
+
+Now the remaining at-risk files:
+
+Both pre-existing (same failure with my source reverted). Running the node suite and static checks:
+
+Background runs start in the main checkout — that explains the earlier "exit 0". These worktree failures are environmental. Let me get the complete list and classify it properly:
+
+Two left that are mine — REQ-127 and BUG-39:
+
+Waiting on the final node suite. Meanwhile, here's where things stand:
+
+**Implemented** — `primary_writes` in `delegation.json`, shipping `false` as you asked (and absent reads as `false` too, so a replacement document that omits it gets the design rather than the state it replaced).
+
+- `delegation.ts` validates it: non-boolean is a start-up refusal naming the key, same as `enabled`.
+- `readOnlyGrant` in `toolbox-core.ts` derives the withheld set from each group's declared `effect`, so nothing hand-maintains a list of write groups.
+- `host-core.ts` narrows the consultant's grant at the same non-null `runtime` that composes `delegate` — so `enabled: false`, and `enabled: true` with no worker bound, both leave it its full grant. "Can't write" and "can commission" are one condition, not two.
+- The method prose gained a `{framing}` slot: one shared body, `delegation-method-choosing` vs `-commissioning`. That's the minimum REQ-342 doesn't cover — it's free to rewrite both when it lands.
+
+**Two things you should know.**
+
+`DrawImages` is declared `effect: "write"`, so `write_image` went with the rest — I flagged this before and you didn't rule on it, so I implemented the derivation as designed. The visible consequence: drawing a picture mid-conversation is now a worker's job (REQ-217's suite had to install the flip-back to keep testing what it's about). Say the word and I'll add the exception, but it costs the derivation its main virtue.
+
+The narrowing is deployment-wide, so `1c chat` lost its hands too. That's `delegation.ts`'s stated rule — both hosts must agree — but it means a fair number of suites that used the CLI consultant as a *harness* now install `primary_writes: true`: REQ-122, REQ-127, REQ-174, BUG-39, BUG-43, REQ-217, and three reconciliation files. Each keeps its own subject; none of them was about who holds the write tools.
+
+**Pre-existing failures I confirmed are not mine** (same failure with my source stashed): `REQ-295_a_worker_that_never_reported...` and `REQ-296_a_worker_is_guarded_against_its_own_smaller_window` — both "the worker made two requests, not one", one root cause worth its own ticket. Plus `AC1058` (expects no `Delegate`), and a batch of environmental ones in this worktree (BUG-48, BUG-124, REQ-180, REQ-273, req51, req101, bug32, font-provenance, BUG-49, BUG-64, REQ-185).
+
+Not yet committed — I'll do that once the final suite confirms, then set `status=free_coded`.
 
 <!-- xgd-chat-end -->
