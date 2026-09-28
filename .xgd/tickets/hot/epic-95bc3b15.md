@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-28T19:44:34.181952+00:00'
+updated_at: '2026-09-28T19:46:26.515997+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -1956,3 +1956,37 @@ Order: **FC-8 now** (one line) → **LF-1** → **LF-2** (+ **LF-4**, doc-sized)
 **LF-5** → **FC-9** → **FC-10** → **LF-7 check** → **LF-6**.
 
 Nothing filed.
+
+
+### 14.17 Filed (2026-09-28) — [[DOC-61]] and seven tickets
+
+The mechanism half of Finding 14 now has a design document of its own: **[[DOC-61]] —
+*The interjection channel: what can reach a working session, and what it costs*.** It
+carries §14.11–§14.16's reasoning in the shape DOC-60 established (the finding, what is
+already built, the faults, the design, the order, the tickets) and it is the reference the
+work tickets point at. Nothing in 14.10–14.16 is superseded; the doc is where the design
+now lives, and this finding is where the thread stays.
+
+| # | ticket | repo | state |
+|---|---|---|---|
+| 1 | [[REQ-344]] — the consultant is told how full its context is | ours | **unblocked, ships first** (one line of `priming.json`) |
+| 2 | LF REQ-180 — the per-request signals channel, and the capability that says so | framework | unblocked |
+| 3 | LF REQ-181 — the tool loop meters itself; exhaustion becomes an instruction | framework | blocked on 2 |
+| 4 | LF REQ-182 — one cursor, two uses: notified of a count, pull the content | framework | blocked on 2 |
+| 5 | [[REQ-345]] — words typed during a turn reach the consultant before her report | ours | blocked on 2 and 4 |
+| 6 | [[REQ-346]] — both workers visible, only one worth interrupting | ours | blocked on 3 |
+| 7 | LF REQ-183 — the room is a cursor over a durable transcript | framework | **gated** on 4 and [[REQ-283]]; design note first |
+
+Four of the seven are upstream, which is the honest split: the channel, the meter, the
+cursor and the room are all properties of how a turn is driven, and this repository is one
+adopter of that. What is ours is the gauge entry, the queue's transport, and the chrome.
+
+**What changed in the design between 14.12 and the doc:** the reminder does *not* become a
+per-request thunk (providers would run fifty times a turn); it gains a sibling channel with
+a faster clock. And the standing frame is not new work — [[REQ-283]] item 2 already decided
+it as `fields.frame` on the chat ticket, which makes it the gate on the room rather than a
+ticket of its own.
+
+**Still owed, and named in the doc so it is not lost:** `volatile` — the session summary —
+rides the same per-request tail as the reminder and is larger, and is the one figure in
+this design that has not been measured.
