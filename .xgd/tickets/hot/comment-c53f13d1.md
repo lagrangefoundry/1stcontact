@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-340
 created_by: xgd
 created_at: '2026-09-28T04:28:39.179389+00:00'
-updated_at: '2026-09-28T04:42:46.696665+00:00'
+updated_at: '2026-09-28T19:02:41.275484+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,11 @@ Three decisions I'll make myself unless you object:
 I recommend **A** — it's where all the work and all the evidence is, and REQ-342 and REQ-343 are both waiting behind it. But A has one hazard I want named rather than discovered: the wiring is **inert and silent** until upstream lands, because the framework discards the unknown option. I'd close that with a UAT that probes the installed declaration for the `account` result field, so the day BUG-71 arrives, the seam announces itself instead of quietly starting to work.
 
 Which way?
+
+<!-- xgd-turn id="f1e078a5-63b7-4131-afeb-2f917d5fb6dc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T19:02:39.918599+00:00" -->
+#### You
+BUG-71 has landed - does that resolve your question?
 
 <!-- xgd-chat-end -->
