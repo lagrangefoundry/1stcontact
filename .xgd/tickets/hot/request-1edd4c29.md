@@ -5,9 +5,9 @@ type: request
 title: The builder role's grant covers what briefs actually ask for
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:22.341849+00:00'
-updated_at: '2026-09-28T04:51:00.715335+00:00'
+updated_at: '2026-09-28T04:51:18.344596+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-0923bb64
@@ -20,6 +20,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.396
+  story_points: 2
 ---
 
 ## Why
