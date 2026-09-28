@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T19:29:15.148155+00:00'
+updated_at: '2026-09-28T19:59:19.347376+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -64,5 +64,39 @@ No code written. Say the word and I'll cut the branch.
 <!-- xgd-chat role="user" ts="2026-09-28T19:29:13.322275+00:00" -->
 #### You
 Are you dependant on REQ-342? If not please proceed. And make the detault primarty_writes: false please
+
+<!-- xgd-turn id="5f9eeeec-598d-4303-9a82-cc72b4e962e7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:59:19.220944+00:00" -->
+#### Claude
+REQ-342 is unstarted (no status) and I'm not dependent on it. Proceeding.
+
+Now let me update the ticket body for the `false` default and the prose scope, then implement.
+
+Now the implementation. Starting with the config document and its validator:
+
+Now let me write the changes. First the config document and validator:
+
+Now the validator in `delegation.ts`:
+
+Now the derivation in `toolbox-core.ts`:
+
+Now wire it in `host-core.ts` at the point the delegation surface is composed:
+
+Now pass it into the consultant's toolbox:
+
+Now `roles.ts` — the provider, the function, and the stale `BUILDER_ROLE` note:
+
+Now host-core: pass `writing` to the binding, and fix the stale "ADDITIVE AND NOTHING ELSE" comment.
+
+Now the delegation.ts header, then typecheck:
+
+Now the full node suite to find anything else the narrowing moves:
+
+Now the node-level UAT suite:
+
+Full node suite passed (exit 0). Now the workers-level UAT, which is where the real composed session lives:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
