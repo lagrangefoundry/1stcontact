@@ -5,7 +5,7 @@ type: request
 title: Both workers are visible while they work, and only one is worth interrupting
 created_by: EPIC-19
 created_at: '2026-09-28T19:44:33.285161+00:00'
-updated_at: '2026-09-28T20:36:54.212156+00:00'
+updated_at: '2026-09-28T22:17:43.515953+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -72,3 +72,32 @@ This delivers **§5 — *what the client sees*: activity for both workers, and t
 consultant and the interrogator*. [[DOC-61]] is the mechanism half and scopes this
 ticket; DOC-62 is why it matters and what the session is supposed to feel like on both
 sides. A UAT here should be readable as a claim about that experience.
+
+
+## Alignment with [[EPIC-2]] (2026-09-28)
+
+Both halves of this ticket have an upstream counterpart, and one of them has a blocker this
+ticket did not know about.
+
+**The activity read and the stop already exist.** EPIC-2 §16 step 9: `webui-room`'s state
+pill and strip ([[REQ-155]]), `GET /ai/activity` and `POST /ai/stop`, with the host wiring
+being LF [[REQ-185]] — the Flock tab, which drives [[REQ-154]]'s orchestrator from a host for
+the first time. So this ticket consumes REQ-185's wiring and `webui-room`'s components rather
+than building an indicator from scratch. Check what REQ-185 lands before writing any of it.
+
+**The milestone-sourced label is blocked on EPIC-2 F1.** This ticket wants the expensive
+worker's indicator to carry *what she is doing*, sourced from her own milestone posts. EPIC-2
+§16 F1: a mid-turn `GroupSay` **is** a posted turn closing that member's wait, so her first
+milestone post advances the cycle eight minutes before her report. Until the room can
+distinguish a post that completes a turn from one that does not, a milestone cannot be posted
+safely and this label has no source.
+
+Two consequences for scope:
+
+- The activity indicator ships on **REQ-185's** state without the milestone label, and the
+  label follows F1. A neutral state is explicitly better than a stale one — as this ticket
+  already says — so that split is not a compromise.
+- **Addressing is a parameter, not a mention** (EPIC-2 §16 F3): `GroupSay` takes `to`, and
+  nothing parses `@Name` out of contribution text. If this surface offers `@Bob` in the
+  composer it is a **UI affordance that must translate a label to a ticket** — REQ-185's job
+  on the framework side, and ours to not misrepresent as a room feature.
