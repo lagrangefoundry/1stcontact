@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:31:10.620325+00:00'
+updated_at: '2026-09-28T16:52:51.034544+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -418,5 +418,11 @@ At rest the overlay sits exactly on top of the original. For a visitor who's ask
 So the plan reduces to: keep the looping/trigger primitive that's built and tested, delete the part-addressing, and write up the overlay technique as the supported way to make an illustration perform.
 
 **One open question, and it's the same one as before:** does frame-stepping still matter to you? The overlay technique covers move/rotate/scale/fade of pieces. It does *not* cover an animation someone has drawn frame by frame. If you want that too, I still need to know whether we can produce a strip of frames or whether the operator supplies the file.
+
+<!-- xgd-turn id="5ca9ef2f-2e4c-4cc7-95d3-87634fe86cda-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T16:52:49.949199+00:00" -->
+#### You
+Yeah I think the frame stepping is important - can you do that?
 
 <!-- xgd-chat-end -->
