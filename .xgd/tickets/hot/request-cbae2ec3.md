@@ -6,9 +6,9 @@ title: 'Delegate-first: the consultant commissions construction rather than perf
   it'
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:29.639548+00:00'
-updated_at: '2026-09-28T20:34:22.291139+00:00'
+updated_at: '2026-09-28T22:16:51.968180+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: commits
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -16,6 +16,10 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d0ca10c4
+  commits:
+  - working_sha: 48c4f140f2208c2352e4ff25c0dd2156ee0b84b2
+    reconcile_sha: null
+    main_sha: null
 ---
 
 ## Why
