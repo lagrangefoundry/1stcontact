@@ -3,7 +3,9 @@ import {
   BUILDER_ROLE,
   CONSULTANT_ROLE,
   DELEGATION_METHOD_PROVIDER,
+  DELEGATION_REMINDER_PROVIDER,
   delegationMethod,
+  delegationReminder,
   registerSiteProviders,
 } from '../tools/generate/src/cli/ai/roles'
 import {
@@ -235,7 +237,8 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
   it('test_UAT_FC_REQ-343_the_method_prose_describes_commissioning_where_the_consultant_cannot_write', async () => {
     // BEHAVIOUR 2. "Its method prose says so: a deployment where it cannot write
     // must not be told to weigh handing work over against doing it itself,
-    // because there is nothing to weigh."
+    // because there is nothing to weigh." Which is [[REQ-342]]'s own opening, and
+    // it is the framing this deployment ships.
     const rendered = await (await bind(true, false)).get(DELEGATION_METHOD_PROVIDER)({})
     const templates = primingDocument.templates as Record<string, string>
     expect(rendered).toBe(
@@ -244,25 +247,51 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
         templates['delegation-method-commissioning'],
       ),
     )
-    // The framing that would be false is GONE, not merely outweighed: prose
-    // telling a session to do the work itself is an instruction it cannot follow.
-    expect(rendered).not.toContain('do it yourself')
-    expect(rendered).not.toContain('Keep for yourself')
-    // …and the shared body is still there. How to write a brief and what to ask
-    // to have checked are true either way, which is why they are stated once.
+    // The framing that would be false is GONE, not merely outweighed: a session
+    // holding no write group told that building is one of two ways work can happen
+    // will reach for the way it has not got.
+    expect(rendered).toContain('commissioned here, not performed')
+    expect(rendered).not.toContain('one of\ntwo ways building work can happen')
+    expect(rendered).not.toContain('choosing between them is yours')
+    // …and the shared body is still there. How to write a brief, what to ask to
+    // have checked and what the record cannot settle are true either way, which is
+    // why they are stated once.
     expect(rendered).toMatch(/Write the brief/)
     expect(rendered).toMatch(/believe them/i)
+    expect(rendered).toMatch(/not whether it should have/i)
   })
 
   it('test_UAT_FC_REQ-343_the_flip_back_restores_the_framing_with_the_grant', async () => {
     // Where `primary_writes: true` puts the consultant's hands back, the prose
-    // goes back with them — a session that HAS the choice is told how to make it.
+    // goes back with them — and this is the direction that matters most to a
+    // rollback: prose telling a session that building is not its work, read by a
+    // session holding every write group, suppresses tools it has.
     const rendered = await (await bind(true, true)).get(DELEGATION_METHOD_PROVIDER)({})
     const templates = primingDocument.templates as Record<string, string>
     expect(rendered).toBe(
       templates['delegation-method'].replace('{framing}', templates['delegation-method-choosing']),
     )
-    expect(rendered).toContain('do it yourself')
+    expect(rendered).toContain('choosing between them is yours')
+    expect(rendered).not.toContain('commissioned here, not performed')
+  })
+
+  it('test_UAT_FC_REQ-343_the_flip_back_reaches_the_per_turn_tail_as_well', async () => {
+    // [[REQ-342]] PUT THE STANDING INSTRUCTION IN THE TAIL, which is re-sent on
+    // every turn — so a tail that contradicts the grant contradicts it for the
+    // life of the engagement, and the flip-back has to reach it or it is not a
+    // flip-back.
+    const templates = primingDocument.templates as Record<string, string>
+    const shipped = await (await bind(true, false)).get(DELEGATION_REMINDER_PROVIDER)({})
+    expect(shipped).toBe(templates['delegation-reminder'])
+    expect(shipped).toMatch(/commissioned, not performed/i)
+
+    const flipped = await (await bind(true, true)).get(DELEGATION_REMINDER_PROVIDER)({})
+    expect(flipped).toBe(templates['delegation-reminder-choosing'])
+    expect(flipped).not.toMatch(/not performed/i)
+
+    // And off is still off on both halves, whichever way the second key is set.
+    expect(await (await bind(false, false)).get(DELEGATION_REMINDER_PROVIDER)({})).toBeNull()
+    expect(await (await bind(false, true)).get(DELEGATION_REMINDER_PROVIDER)({})).toBeNull()
   })
 
   it('test_UAT_FC_REQ-343_with_delegation_off_there_is_no_framing_to_choose', async () => {
@@ -271,6 +300,21 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
     expect(await (await bind(false, false)).get(DELEGATION_METHOD_PROVIDER)({})).toBeNull()
     expect(await (await bind(false, true)).get(DELEGATION_METHOD_PROVIDER)({})).toBeNull()
     expect(delegationMethod(false, false)).toBeNull()
+  })
+
+  it('test_UAT_FC_REQ-343_an_unanswered_framing_is_the_shipped_one', () => {
+    // ONE RULE IN ALL THREE PLACES. `delegation.json` reads an absent
+    // `primary_writes` as `false`, the document ships it `false`, and a caller that
+    // never answered the question gets the same — rather than a fourth state
+    // nobody deployed.
+    const templates = primingDocument.templates as Record<string, string>
+    expect(delegationMethod(true)).toBe(
+      templates['delegation-method'].replace(
+        '{framing}',
+        templates['delegation-method-commissioning'],
+      ),
+    )
+    expect(delegationReminder(true)).toBe(templates['delegation-reminder'])
   })
 
   it('test_UAT_FC_REQ-343_the_two_framings_share_one_body', () => {

@@ -247,9 +247,15 @@ describe('REQ-342 — a deployment that commissions nothing is told nothing', ()
     // answered the question.
     expect(delegationReminder(false)).toBeNull()
 
-    // With the switch on, both render — the SHIPPED words, not a copy of them.
+    // With the switch on, both render — the SHIPPED words, not a copy of them. The
+    // method gained a `{framing}` slot in [[REQ-343]], so the shipped words are the
+    // body WITH the shipped framing filled: `primary_writes` is off in the document
+    // this deployment ships, and this binding answers the question the same way.
     expect(await bind(true).get(DELEGATION_METHOD_PROVIDER)({})).toBe(
-      primingDocument.templates['delegation-method'],
+      primingDocument.templates['delegation-method'].replace(
+        '{framing}',
+        primingDocument.templates['delegation-method-commissioning'],
+      ),
     )
     expect(await bind(true).get(DELEGATION_REMINDER_PROVIDER)({})).toBe(
       primingDocument.templates['delegation-reminder'],

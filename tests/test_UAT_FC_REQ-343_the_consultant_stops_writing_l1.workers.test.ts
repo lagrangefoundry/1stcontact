@@ -11,6 +11,7 @@ import {
   scriptedClient,
   sentText,
   systemText,
+  turnTailText,
   type ModelRequest,
 } from './support/scripted-model-client'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
@@ -204,12 +205,18 @@ describe('REQ-343 — the consultant reads the whole site and writes no part of 
     const request = await turnUnder(SHIPPED, 'prose')
     const primed = systemText(request)
 
-    expect(primed).toContain('Handing construction over')
-    expect(primed).toContain('is your only route to a change in a page')
+    expect(primed).toContain('Commissioning construction')
+    expect(primed).toContain('commissioned here, not performed')
     // The framing that would be false is GONE rather than outweighed.
-    expect(primed).not.toContain('do it yourself')
+    expect(primed).not.toContain('choosing between them is yours')
     // …and the method behind it still arrived: how to brief, and what to check.
     expect(primed).toContain('Write the brief')
+    // AND THE STANDING LINE IN THE TAIL AGREES WITH IT ([[REQ-342]] put it there,
+    // and it is re-sent on every turn, so a tail against the grant is the
+    // contradiction that would repeat for the life of the engagement). Read off
+    // the TAIL and not the prefix, because that is the field it rides — see the
+    // REQ-342 suite's header for why the two halves are read separately.
+    expect(turnTailText(request)).toContain('Construction is commissioned, not performed')
     expect(sentText(request)).not.toContain('set_l1')
   })
 
@@ -232,8 +239,13 @@ describe('REQ-343 — the consultant reads the whole site and writes no part of 
     // The route to a worker is still there either way — the key moves the hands,
     // not the delegation.
     expect(writing).toContain(DELEGATE_TOOL)
-    // AND THE PROSE COMES BACK WITH THE GRANT.
-    expect(systemText(await turnUnder(WRITING, 'back-prose'))).toContain('do it yourself')
+    // AND THE PROSE COMES BACK WITH THE GRANT — both halves of it: the framing
+    // stated once at priming, and the standing line the tail repeats every turn.
+    const back = await turnUnder(WRITING, 'back-prose')
+    expect(systemText(back)).toContain('choosing between them is yours')
+    expect(systemText(back)).not.toContain('commissioned here, not performed')
+    expect(turnTailText(back)).not.toContain('Construction is commissioned, not performed')
+    expect(turnTailText(back)).toContain('Hand building work over')
   })
 
   // ── behaviour 3: the rollback still works ──────────────────────────────────

@@ -408,7 +408,7 @@ describe('REQ-295 — with the switch off the consultant is not told how to dele
     expect(rendered).toBe(
       primingDocument.templates['delegation-method'].replace(
         '{framing}',
-        primingDocument.templates['delegation-method-choosing'],
+        primingDocument.templates['delegation-method-commissioning'],
       ),
     )
     // …and what it has to say. Re-inspecting checked work does not save the
