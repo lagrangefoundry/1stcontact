@@ -164,10 +164,18 @@ export interface ChatsTarget {
 /**
  * A history that cannot be re-addressed onto this destination ([[BUG-137]]).
  *
- * REFUSAL AND NOT A PASS-THROUGH. A conversation that arrives addressed to
- * nothing reports success and reads as data loss months later — which is the
- * whole of the bug this class exists to make impossible to repeat. Raised before
- * anything is written, so a refusal leaves the destination exactly as it was.
+ * REFUSAL AND NOT A PASS-THROUGH. A conversation that arrives carrying a source
+ * store's address reports success and reads as data loss months later — which is
+ * the whole of the bug this class exists to make impossible to repeat. Raised
+ * before anything is written, so a refusal leaves the destination exactly as it
+ * was.
+ *
+ * AND ONLY FOR A CONVERSATION THAT CARRIES ONE ([[BUG-159]]). A session id with no
+ * store address in it — a delegate worker's — has nothing that becomes false on
+ * arrival, so it is not this class's business; see {@link addressOf}. The
+ * whole-payload granularity is what makes that distinction load-bearing rather
+ * than tidy: while both were refused here, one unaddressable sub-agent log
+ * prevented every conversation in the payload from moving.
  */
 export class ChatAddressError extends Error {
   readonly name = 'ChatAddressError'
@@ -209,13 +217,43 @@ const BUSINESS_SESSION_PREFIX = businessSessionIdFor('')
 /** Which of the two a conversation is, and the source id it names. */
 type ChatSubject = 'site' | 'business'
 
-interface ChatAddress {
-  subject: ChatSubject
-  /** The SOURCE's site key or business id, as the session id carries it. */
-  id: string
-}
+/**
+ * What a session id is addressed to — or that it is addressed to nothing
+ * ([[BUG-159]]).
+ *
+ * `'none'` IS A THIRD ANSWER AND NOT A DEGREE OF FAILURE. A session id either
+ * carries one of this product's two derived addresses or it carries no address at
+ * all, and those two facts have opposite consequences for a copy. `'site'` and
+ * `'business'` name an id that is true only in the store it came from and must be
+ * re-derived ([[BUG-137]]); `'none'` names an id that is true everywhere and must
+ * be carried exactly as it is. Collapsing them — which is what this type not
+ * existing meant — refused the second in the first's name.
+ */
+type ChatAddress =
+  | { subject: ChatSubject; id: string }
+  | { subject: 'none' }
 
-/** Read a session id back to what it is about, or `null` for a form we do not mint. */
+/**
+ * Read a session id back to what it is about ([[BUG-159]]).
+ *
+ * THREE OUTCOMES, BECAUSE THERE ARE THREE SITUATIONS. Two of them are the
+ * derivers' own forms and carry a source-store id. The third is `'none'`: an id
+ * that neither deriver minted, so there is nothing in it that names the source
+ * and nothing in it that becomes false on arrival.
+ *
+ * `'none'` IS THE HONEST ANSWER FOR A DELEGATE WORKER, which is the case that
+ * made this function wrong. `worker-<role>-<n>-<random>` is minted per delegation
+ * by the delegation machinery rather than by either deriver, and embeds no site
+ * key, no business id and nothing else that is local to a store. It used to be
+ * refused as unreadable — and a refusal is whole-payload, so nine sub-agent logs
+ * stopped the one consultant conversation that produced them from moving at all.
+ *
+ * `null` IS WHAT IS LEFT, AND IT IS NARROW: an id that CLAIMS one of the two
+ * addresses and then names neither — `site-` or `business-` with nothing after
+ * it. That is a source-store address this destination cannot re-derive, which is
+ * [[BUG-137]] exactly and stays a refusal. Absence of an address is not the same
+ * statement as an address that points nowhere.
+ */
 function addressOf(sessionId: string): ChatAddress | null {
   for (const [subject, prefix] of [
     ['site', SITE_SESSION_PREFIX],
@@ -225,14 +263,26 @@ function addressOf(sessionId: string): ChatAddress | null {
     const id = sessionId.slice(prefix.length)
     return id === '' ? null : { subject, id }
   }
-  return null
+  return { subject: 'none' }
 }
 
 /** Where one carried conversation lands, in the destination's own vocabulary. */
 interface ReAddressed {
   sessionId: string
-  /** The registry name the destination registers for this subject. */
-  backend: string
+  /**
+   * The registry name the destination registers for this subject, or `null` where
+   * the source's own name is already right here ([[BUG-159]]).
+   *
+   * `null` IS "LEAVE IT ALONE", NOT "CLEAR IT". A backend name is derived from the
+   * same thing the session id is — `claude+site:<key>`, `claude+business:<id>` —
+   * so a re-addressed conversation needs its name re-derived beside its id. A
+   * session with no store address has no such name: a delegate worker's backend is
+   * registered as `<configured backend>#<worker session id>`, which embeds the one
+   * id that travels unchanged and nothing else. Re-deriving it would replace a
+   * true name with a name for a different conversation; inventing one would invent
+   * a fact. So the field admits the absence rather than making one up.
+   */
+  backend: string | null
 }
 
 /**
@@ -243,6 +293,13 @@ interface ReAddressed {
  * function that mints it — `sessionIdFor`, `businessSessionIdFor`,
  * `siteBackendName`, `businessBackendName` — with the DESTINATION's id. Nothing
  * is spelled twice, so the mapping cannot come apart from the minting.
+ *
+ * AND ONLY WHAT IS ADDRESSED IS RE-ADDRESSED ([[BUG-159]]). A session id carrying
+ * no store address is put in the map under itself: it has nothing to re-derive
+ * and nothing that stops being true here, so carrying it verbatim means in the
+ * destination precisely what it meant in the source. It is still in the map rather
+ * than skipped, because the map is also what says which conversations this import
+ * may write.
  *
  * AMBIGUITY IS REFUSED RATHER THAN GUESSED, in the words `/api/export` already
  * refuses it. A payload naming two source sites has no unambiguous destination
@@ -267,14 +324,18 @@ function reAddress(chats: readonly ChatRecord[], target: ChatsTarget): Map<strin
       continue
     }
     addresses.set(sessionId, address)
+    // A session addressed to nothing names no source site and no source business,
+    // so it takes no part in the two ambiguity checks below ([[BUG-159]]). Counting
+    // it would be counting a source id it has not got.
+    if (address.subject === 'none') continue
     ;(address.subject === 'site' ? sourceSites : sourceBusinesses).add(address.id)
   }
 
   if (unreadable.length > 0) {
     throw new ChatAddressError(
-      `${unreadable.length} conversation(s) carry a session id in no form this ` +
-        'product mints, so there is nothing to re-address them onto. Nothing was ' +
-        'written.',
+      `${unreadable.length} conversation(s) carry a session id that says it is ` +
+        'about a site or a business and then names neither, so there is nothing to ' +
+        're-address them onto. Nothing was written.',
       unreadable,
     )
   }
@@ -304,6 +365,16 @@ function reAddress(chats: readonly ChatRecord[], target: ChatsTarget): Map<strin
 
   const landing = new Map<string, ReAddressed>()
   for (const [sessionId, address] of addresses) {
+    // ADDRESSED TO NOTHING MEANS IT LANDS AS ITSELF ([[BUG-159]]). The id is the
+    // one the far side will match on and the one the source matched on, because
+    // there is nothing in it that was ever about the source's store. That the two
+    // are the same string is also what makes the stray-archiving pass in
+    // {@link writeChats} a no-op for it, which is correct: this import moved it
+    // away from nothing.
+    if (address.subject === 'none') {
+      landing.set(sessionId, { sessionId, backend: null })
+      continue
+    }
     landing.set(
       sessionId,
       address.subject === 'site'
@@ -341,6 +412,13 @@ const SESSION_HEADER_RE = /^<!--\s*xgd-session\s*\n(.*?)\n-->\s*/s
  * *"Unknown backend claude+site:…"*. `chat_ticket_uid` names the ticket the
  * session is homed on, which is the destination's and not the source's.
  *
+ * `backend` IS LEFT ALONE WHERE THE SESSION CARRIES NO STORE ADDRESS
+ * ([[BUG-159]]) — see {@link ReAddressed.backend}. A delegate worker's registry
+ * name embeds its own session id and nothing local to a store, so it is already
+ * the right name here; the other two header fields below are still the
+ * destination's business, because they are statements about where this record
+ * lives rather than about what produced it.
+ *
  * `backend_ref` IS CLEARED, on {@link NOT_PORTABLE_FIELDS}' own rule one layer
  * down: it names a conversation on a host that was RUNNING, and the destination
  * was running nothing. The library reads an absent ref as the cold-start path —
@@ -365,7 +443,9 @@ function reAddressTranscript(body: string, landing: ReAddressed, chatUid: string
   }
   if (typeof meta !== 'object' || meta === null) return body
   meta.id = landing.sessionId
-  if (typeof meta.backend === 'string' && meta.backend !== '') meta.backend = landing.backend
+  if (landing.backend !== null && typeof meta.backend === 'string' && meta.backend !== '') {
+    meta.backend = landing.backend
+  }
   if (typeof meta.backend_ref === 'string' && meta.backend_ref !== '') meta.backend_ref = ''
   if (typeof meta.chat_ticket_uid === 'string' && meta.chat_ticket_uid !== '') {
     meta.chat_ticket_uid = chatUid
@@ -591,9 +671,18 @@ export async function writeChats(
     // `backend` IS RE-DERIVED beside it, and only where the source recorded one:
     // an empty backend means the conversation never started, and inventing a
     // name for it would be inventing a fact.
+    //
+    // AND ONLY WHERE THE SOURCE'S NAME IS ACTUALLY THE SOURCE'S ([[BUG-159]]). A
+    // session carrying no store address carries a backend name with no store id in
+    // it either, and re-deriving that would name a different conversation's
+    // backend. See {@link ReAddressed.backend}.
     const carriedFields = portableOf(chat.fields ?? {})
     const fields: Record<string, unknown> = { ...carriedFields, session_id: sessionId }
-    if (typeof carriedFields.backend === 'string' && carriedFields.backend !== '') {
+    if (
+      place.backend !== null &&
+      typeof carriedFields.backend === 'string' &&
+      carriedFields.backend !== ''
+    ) {
       fields.backend = place.backend
     }
     const title = chat.title ?? sessionId

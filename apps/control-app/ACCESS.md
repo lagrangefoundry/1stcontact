@@ -396,6 +396,13 @@ lives in those conversations.
 `/api/chats/import` — so a `--site` copy still carries a site and nothing else, and the
 two classes are copied by two commands.
 
+**Delegate worker sessions cross too** ([[BUG-159]]). On a delegated build the builder's
+actual work is in the worker sessions hanging off the consultant conversation, and their
+ids — `worker-<role>-<n>-<random>` — carry no site key and no business id, so there is
+nothing in them to re-address and nothing that becomes false on arrival. They land under
+the ids they already had. They used to be refused as unaddressable, and because a refusal
+takes the whole payload the consultant conversation went with them.
+
 **Run it twice and nothing doubles.** Conversations are matched by session id and each
 is written whole or not at all. One the far side already holds is *kept and counted*
 rather than refusing the set — deliberately not `--site`'s 409, because a history is
@@ -419,6 +426,7 @@ control-app` first if in doubt.
 | `refused with 403: 1st Contact cannot open this for you at the moment` | **Not a missing credential**, whatever the advice printed underneath says. Access accepted the credential and the *application* refused it. Almost always `SERVICE_TOKEN_IDENTITIES` — see the warning at the top of this section. `npx wrangler tail --env production` prints an `admission_denied` line naming the reason. |
 | `No business called '<name>' at … What that side offers: 'biz_…'` | The offer is a bare **id** rather than a list of **names**, which means that end is running dev-open: `.dev.vars` sets `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` to `""`, and `ACCESS_DEV_OPEN` engages when both are empty, so the Worker resolves everything to `TENANT_ID` and can reach no other business. Restart `wrangler dev` with **both** env files — `--env-file .dev.vars --env-file ../../.dev.vars.local` — the second being what `bin/access-sim --print-env` wrote. Names in the offer means admission is working. |
 | `409 … holds N sites, so there is no unambiguous` | Export refuses to guess which site you meant rather than handing back one you were not asking for. |
+| `409 … says it is about a site or a business and then names neither` | A `--chats` history carries a session id minted by one of the two derivers from nothing, so it points at a site or a business the destination cannot resolve ([[BUG-137]]). Nothing was written, and `--force` is not the answer — which is why it is no longer suggested ([[BUG-159]]). A delegate worker's `worker-…` session is **not** this: it carries no store address, crosses under the id it already had, and is not refused. |
 
 
 ## The sign-in paths must bypass Access ([[REQ-202]])
