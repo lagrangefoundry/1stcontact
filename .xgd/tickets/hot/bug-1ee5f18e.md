@@ -6,9 +6,9 @@ title: A delegate worker session cannot be copied, and the refusal advises a fla
   that cannot help
 created_by: EPIC-16
 created_at: '2026-09-27T01:10:39.233554+00:00'
-updated_at: '2026-09-28T23:13:04.218589+00:00'
+updated_at: '2026-09-28T23:31:03.713507+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-96d8aca6
@@ -126,3 +126,116 @@ said they are, not by re-deciding from the status.
 The whole-payload granularity of the refusal stays. Per-conversation partial
 imports are a different decision with a different failure mode and are not in
 scope here; fixing (1) removes the case that made the granularity hurt.
+
+---
+
+## What was changed
+
+### 1. `addressOf` answers three ways instead of two
+
+`ChatAddress` gains a `subject: 'none'` member and `addressOf` returns it for a
+session id neither deriver minted. `null` survives, narrowed to the one form that
+is genuinely unaddressable: an id that CLAIMS one of the two addresses and then
+names neither — `sessionIdFor('')` / `businessSessionIdFor('')`, a prefix with
+nothing after it. Absence of an address is not the same statement as an address
+pointing nowhere.
+
+`reAddress` puts a `'none'` session in the landing map **under its own id**. It
+takes no part in the two ambiguity checks, because it names no source site and no
+source business to be ambiguous about. It is still in the map rather than skipped,
+because the map is also what says which conversations `writeChats` may write.
+
+The refusal's sentence changes with its meaning, from *"in no form this product
+mints"* to *"says it is about a site or a business and then names neither"*.
+
+### 2. What travels verbatim with it, and what does not
+
+A `'none'` landing carries `backend: null`, and `null` means *leave it alone* —
+not *clear it*. A delegate worker's backend is registered as `<configured
+backend>#<worker session id>`, which embeds the one id that travels unchanged and
+nothing local to a store, so re-deriving it from the destination's site key would
+replace a true name with a name for a different conversation. Both places that
+re-derived it — `fields.backend` in `writeChats` and `backend` in the session
+file's header — are now conditional on the landing having a name to give.
+
+Everything else about the header is unchanged and stays the destination's:
+`chat_ticket_uid` is re-homed on the row minted here, and `backend_ref` is
+cleared, because those are statements about where the record lives rather than
+about what produced it. The turns beneath the header, the engagement ledger and
+`tool_transcript` cross byte for byte, as they already did.
+
+### 3. The advice is the far side's statement, not this side's guess
+
+`postPayload` advises `--force` on a 409 **only where the far side declared that
+the flag is the answer**. `/api/import` already names `force` in the body of
+exactly that 409 — *"so a caller that is not a person can tell 'refused, and here
+is the way to mean it' from 'refused' without parsing a sentence"* — and this is
+that caller. Read off that key rather than re-decided from the status. A body this
+side cannot parse is a no: a refusal nobody said the flag answers gets the far
+side's own sentence and nothing added to it.
+
+This also stops the advice appearing on `/api/import`'s *"holds N sites"* 409,
+which `--force` could never answer either.
+
+### 4. Granularity unchanged
+
+The whole-payload refusal stays exactly as it was, per the Boundary above. What
+changed is which conversations are in the refused class.
+
+## Technical consequences, recorded here rather than left to be discovered
+
+**[[BUG-137]]'s "any id in no recognised form is refused" is superseded.** Its UAT
+proved the claim with a hand-written `sess-…`, which this ticket deliberately now
+carries. The test is re-pointed at the form that must still be refused (a prefix
+naming nothing) and renamed to say so:
+`test_UAT_FC_BUG-137_a_session_id_addressed_to_a_site_it_does_not_name_is_refused`.
+The rest of BUG-137 stands untouched and is asserted alongside the new behaviour.
+
+**`[[REQ-289]]`'s 409 fixture was not faithful to the route** and is corrected:
+its fake body now carries the `force` member `/api/import` really sends, because
+that is what the advice is now read off.
+
+**The runbooks' `--help` is derived from their header rather than a line range.**
+Describing this change in `bin/copy-to-cloud`'s header silently truncated its own
+`--help`: the text was emitted by `sed -n '2,132p'`, a count that was exact until
+it was not, and what fell off the end was the `--print-token` trap that stops an
+operator setting the CLOUD credential for the LOCAL end ([[BUG-134]]) — exit code
+0 throughout. Both scripts now print every leading comment line and stop at the
+first that is not one, which is a fact about the file instead of a number to keep
+in step with it. `bin/copy-from-cloud` is changed with it because it is a matched
+pair everywhere else and carried the same number in the same place.
+
+**The two chat-copy suites now share their fixtures.** Seeding a conversation the
+way the library seeds one, the empty row the deployed builder auto-creates, and
+the two route calls moved to `tests/support/chat-history.ts`. They are setup
+rather than claim, and there are now two suites making claims about this pair of
+routes.
+
+## Test plan
+
+New:
+
+- `tests/test_UAT_FC_BUG-159_delegate_worker_sessions_cross.workers.test.ts` — in
+  workerd over real D1, through `route()`:
+  - a delegated build's consultant conversation and its two worker sessions all
+    land; the workers under the ids they already had, with their backend name,
+    ledger, transcript turns and tool record intact, `chat_ticket_uid` re-homed
+    and `backend_ref` cleared; the consultant conversation still re-addressed onto
+    the destination's own site key;
+  - a second copy of the same payload creates nothing, replaces nothing, keeps all
+    three and adds no comment — which is what makes carrying an id verbatim safe;
+  - one unaddressable conversation still refuses the whole payload, names only
+    itself, and leaves the destination holding nothing.
+- `tests/test_UAT_FC_BUG-159_force_advice_follows_the_far_side.test.ts` — through
+  `copyChats` / `copySite` with only the transport injected: the observed 409 does
+  not mention `--force` while still carrying the far side's sentence and ids;
+  BUG-51's 409 still does; `/api/import`'s *"holds 2 sites"* 409 no longer does.
+- `tests/test_UAT_FC_BUG-159_runbook_help_is_derived_from_its_header.test.ts` —
+  each runbook's `--help` against a copy of itself with one extra header line,
+  which is the edit that broke it; asserted pre-fix to fail.
+
+Regression scope run green: the BUG-137, REQ-294 (both halves), REQ-309, REQ-289,
+BUG-134, BUG-36, BUG-84, REQ-247 and REQ-290 suites, plus `tsc` on both projects.
+(`test_UAT_FC_BUG-134_the_command_reads_the_local_pair_from_its_own_variables` and
+three REQ-115 cases fail identically at the branch point in a fresh worktree and
+are unrelated to this change.)
