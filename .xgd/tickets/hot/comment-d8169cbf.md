@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T04:14:22.627870+00:00'
+updated_at: '2026-09-28T04:24:29.892074+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5279,5 +5279,17 @@ Conceded, and the framework agrees with you rather than with my "refuse the repo
 ---
 
 Recorded as 14.17 — and this is the seventh built-and-unconsumed framework capability this epic has found, but the first one that implements most of a design we'd derived from scratch. Worth reading `group_surface.json` and `group.js` yourself before we go further; the round-versus-continuous question is the one that decides whether we adopt or diverge.
+
+<!-- xgd-turn id="1c92fbac-f10f-4210-bfa5-c513cfb57a59-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T04:24:29.306953+00:00" -->
+#### You
+**One API request is uninjectable. A product-level turn is not one request.** Alice's ten minutes is a host-driven loop: model returns tool calls → host runs them → host appends results → next request. The host authors a message at *every* boundary, so anything we want Alice to see can ride on the next tool result. That isn't interjection; it's the ordinary mechanism. <-- I don't agree with this - where does this machinery live?
+
+Today I ask the consultant - "Please change the size of the subheadings they are too small" -> there is no loop here - the consultant goes away, makes a bunch of calls to find the subheadings and reset them and comes back minutes later.
+
+Now maybe what you are saying is that the result of ANY tool call could include "there are 3 new messages in the group chat" - that would be an interesting way to ADD interjection to the model but there is no loop?
+
+I know that whe buillt a group chat room - it is over complex and broken - we can look at the implementation but I was thinking to start over rather than fix it - I have spent a lot of time trying and failing to get it debugged. Although it might be close. That is architecture 3. We just agreed that 2 was that right answer
 
 <!-- xgd-chat-end -->
