@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T00:07:27.856200+00:00'
+updated_at: '2026-09-28T00:10:10.944133+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4932,5 +4932,83 @@ To avoid Haiku judgement Alice has to be woken on every user turn. Now there is 
 We should also talk about the mechanics of User-Bob conversations while Alice is busy - that might need some new engineering thoughts.
 
 This conversation and that last question in particular push we towards this as being Bob's context with Alice as a listener - all Alice's self-think gets routed to its own chat and Bob does the narration, as we discussed and the user and Bob can interact while Alice is busy.
+
+<!-- xgd-turn id="910715f2-3c0b-429b-883b-60492c999cc0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T00:10:08.076807+00:00" -->
+#### Claude
+Two things to check before I answer, because both bear directly on the mid-turn problem.
+
+Found something that settles the mid-turn question — the framework already modelled it and we drop it on the floor.
+
+## The syntactic test is dead — you're right
+
+`@` scope is implied, and `@Bob what do you think of the final CTA?` is a client addressing the wrong agent. No syntax survives that.
+
+But notice the misaddress is harmless under disjoint move sets: Bob *cannot* answer it, so his only legal move is to name whose it is. And if Alice wakes anyway, the wrong `@` costs nothing at all — she sees a design question and answers it. **The misaddress problem only exists if something gates on the `@`.** So stop gating on it.
+
+### On letting Haiku route — the argument against is failure asymmetry, not capability
+
+Haiku probably *is* good enough to route most turns. That's not the question. The question is what happens when it's wrong, and the two directions are not symmetric:
+
+- **Wrongly waking Alice** costs an Opus context read. Visible, bounded, measurable.
+- **Wrongly not waking her** means the consultation silently didn't happen. The client asked something substantive and got a clerical reply. Nobody ever finds out — there's no error, no log line, nothing to measure.
+
+**Never give the cheap model the decision whose failure mode is invisible.** That's the same principle as Finding 13's uat_coverage problems: a gap that reports success is worse than one that reports failure.
+
+So: **default-wake, with a closed suppression list.** And the distinction that makes it safe is that suppression is not routing — it's a veto with a default of yes, and every member of the list is a case where *Bob asked the question*:
+
+- the client answered a process question Bob posed
+- the client acknowledged ("thanks", "ok")
+- the client asked for plan state
+
+"Is this a reply to my own open question?" is nearly mechanical, and anything not on the list wakes Alice. Failure mode becomes "we spent money we needn't have," never "the consultant was kept out of the room." Their example — `@Bob what do you think of the final CTA?` — isn't a reply to a Bob question, so Alice wakes. Right answer, right reason.
+
+Worth adding: Alice's wake is cheaper than it looks if her context is cached and she has an explicit **"nothing from me"** move. Suppression is then an optimisation, not a safety mechanism — which is exactly the status it should have.
+
+## Topology 2 as you've now described it — I don't object
+
+The distinction that matters was never *whose session file holds the room*. It's **whether Alice receives the client verbatim.** What I attacked was Alice-as-*briefed* — a memo composed by Haiku. "Alice as **listener**" satisfies the continuity requirement completely: she's in the room, she just doesn't own it.
+
+So your shape is arguably topology 3 with Bob as host, and the objection I raised doesn't apply to it. Conceded.
+
+### "Alice's self-think gets routed to its own chat" is the real structural gain
+
+That's the part I'd promote from implementation detail to architecture:
+
+- **The room** — client utterances, Bob's turns, Alice's utterances. Durable, additive, shown to the client, and the only thing either agent quotes.
+- **Alice's workshop** — her tool calls, her delegates' turns, intermediate renders, dead ends. Not in the room. Reaches the client only as Bob's narration and the tool pane.
+
+Alice's context = room + her own workshop. Bob's context = room + plan state + the tool-activity feed. Bob can narrate because the feed already exists (`toolPane.consume(ev.meta)`), and he narrates *facts* — no judgement, fails safe, because no activity means nothing to say.
+
+## Mid-turn mechanics — the framework already named this and we drop it
+
+From `chat.js:641-648`, BUG-122: **`webui-chat` routes a submit made while the assistant is streaming to one of two intents — `onQueue` or `onInterject`.** Say-this-after versus say-this-now. 1stcontact **passes no queue transport**, so both are *echoed to the client and then dropped*, surviving only as a recoverable draft on next load.
+
+So the vocabulary and the client-side affordance exist, and the behaviour today is that the client's words vanish. Sixth adoption gap this epic — and the one with the most direct user harm.
+
+### What's actually possible, honestly
+
+**An API turn cannot receive a message mid-flight.** It's a request/response; there's no channel into it. So there are exactly three moves, and the framework's two intents map onto them:
+
+**Interject = abort and restart.** Kill Alice's turn, re-invoke with the new message in context. Costs the work in flight, which with caching is less than it sounds, and it's what a human does when someone changes their mind. Note this is a *client* action — so the judgement stays with the human and Bob never decides to stop Alice.
+
+**Queue = deliver after.** The message lands in the room and Alice picks it up next turn. Right for anything additive.
+
+**And a third, which is not optional: Alice must re-read the room before committing.** While she worked, the room moved — Bob may have added the blog, the client may have dropped the homepage entirely in conversation with Bob. Alice returning to present work on something that's been abandoned, as though nothing happened, is the failure that would make the group chat feel broken. So her turn's last act is a `read_room_since(cursor)` tool call — the same shape as `list_changes`, which exists and is well-understood here. `session-delta`'s cursor pattern is the precedent.
+
+**Who chooses queue vs interject?** The client, via the affordance the framework already exposes. Not Bob — "is this urgent enough to stop her?" is a judgement about content, and giving it to Haiku would let the cheap model throw away the expensive model's work.
+
+### And the plain win
+
+Bob's turns aren't blocked by Alice's, because they're separate sessions. That's the entire latency argument for two agents, and it's free under any topology where Bob has his own session — no new engineering at all. The client talks to Bob about the plan for four minutes while Alice renders, and the only new mechanism needed is Alice's reconcile-on-return.
+
+**One accepted cost:** the client and Bob may agree something that invalidates work in flight. Bob can't stop Alice and shouldn't be able to. So wasted work is possible, and the reconcile step is what keeps it from becoming *incoherent* work. That's the right trade.
+
+---
+
+Recorded as 14.13 on the epic: suppression-not-routing with the failure-asymmetry argument, the room/workshop split, and BUG-122's queue/interject as the existing hook.
+
+The thing I'd want to test next is the reconcile moment — Alice returning with a rendered homepage into a room where you and Bob have just decided to do the contact page first. That's where the seams will show.
 
 <!-- xgd-chat-end -->
