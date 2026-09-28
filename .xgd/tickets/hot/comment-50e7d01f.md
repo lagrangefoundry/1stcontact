@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T00:09:41.172235+00:00'
+updated_at: '2026-09-28T02:58:33.890433+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2519,5 +2519,11 @@ Two follow-ups I have *not* done:
 
 - **The per-field provenance ticket** in lagrange-framework — decision 4 says it should be its own ticket. Say the word and I'll file it.
 - BUG-71 is still `status: draft`. The investigating session said it would write the agreed decisions into the body before touching code; that's now done, so it may want to move the status itself — I left it alone rather than advancing another session's ticket.
+
+<!-- xgd-turn id="432607e0-cf15-42de-80d8-d51822950962-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T02:58:32.414390+00:00" -->
+#### You
+ok yes go ahead and file it
 
 <!-- xgd-chat-end -->
