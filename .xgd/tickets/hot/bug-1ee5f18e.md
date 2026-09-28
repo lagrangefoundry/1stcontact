@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-758df7a2
 ---
 
 `bin/copy-to-cloud --chats` cannot carry the Lagrange Foundry history. Nine
