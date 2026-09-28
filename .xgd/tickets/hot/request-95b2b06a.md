@@ -5,9 +5,9 @@ type: request
 title: Words typed during a turn reach the consultant before her report
 created_by: EPIC-19
 created_at: '2026-09-28T19:44:09.354358+00:00'
-updated_at: '2026-09-28T19:44:09.354358+00:00'
+updated_at: '2026-09-28T20:36:51.419997+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-95bc3b15
@@ -67,3 +67,11 @@ guidance, not the transport.
   session where the turn makes at least one further tool call.
 - A turn that makes no further tool call after the message is queued still delivers it
   rather than dropping it — the fallback path exists and is observable as the fallback.
+
+
+## Experience design
+
+This delivers **§5 — *what the client sees*: queued words are visible as queued and reach the consultant before her report** of [[DOC-62]] — *Building a site with two AIs: the client, the
+consultant and the interrogator*. [[DOC-61]] is the mechanism half and scopes this
+ticket; DOC-62 is why it matters and what the session is supposed to feel like on both
+sides. A UAT here should be readable as a claim about that experience.
