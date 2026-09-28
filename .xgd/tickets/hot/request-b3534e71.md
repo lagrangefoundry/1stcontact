@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T22:37:16.711790+00:00'
+updated_at: '2026-09-28T22:37:36.894934+00:00'
 completed_at: null
 last_field_updated: commits
 status: free_coded
@@ -19,7 +19,7 @@ fields:
   - working_sha: 0f380ec7739d76edbcdb03e4d437a9654f357cef
     reconcile_sha: null
     main_sha: null
-  - working_sha: 08106ec21a8a8cd2a663cbffc5f6964812493711
+  - working_sha: 08106ec21a127c9e62cc8babed736f78a1e77ce6
     reconcile_sha: null
     main_sha: null
   - working_sha: ba9f6d8c24294ff10af2db49b9bbe1836394b654
