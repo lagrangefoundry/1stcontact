@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T16:52:51.034544+00:00'
+updated_at: '2026-09-28T17:25:11.519655+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -424,5 +424,19 @@ So the plan reduces to: keep the looping/trigger primitive that's built and test
 <!-- xgd-chat role="user" ts="2026-09-28T16:52:49.949199+00:00" -->
 #### You
 Yeah I think the frame stepping is important - can you do that?
+
+<!-- xgd-turn id="5ca9ef2f-2e4c-4cc7-95d3-87634fe86cda-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T17:25:11.105277+00:00" -->
+#### Claude
+Now I'll implement frame-stepping. Starting with the schema:
+
+Now the types and the motion claim model:
+
+Now the validator rules:
+
+Now the UATs for frame-stepping:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
