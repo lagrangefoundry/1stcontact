@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T19:31:52.346200+00:00'
+updated_at: '2026-09-28T20:20:00.931000+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -127,7 +127,11 @@ variants when it lands.
 
 ## Not in scope
 
-Any change to what a worker may do — that is the grant ticket. Any change to `enabled`,
+Any change to what a worker may do — that is the grant ticket. Any surface other
+than L1: the consultant goes on registering a client's file through the catalogue
+(`place_on_site`) and re-editing a picture's recipe (`edit_image`), because neither
+writes L1 and both are nearer curation than construction — and those grants travel
+with their surfaces rather than sitting in the document this narrows. Any change to `enabled`,
 which stays exactly as it is because it is the rollback: this ticket adds a key beside it
 and gives it no new meaning. REQ-342's per-turn reminder, and its rewrite of the method
 prose beyond the framing paragraph.
