@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T17:02:02.266862+00:00'
+updated_at: '2026-09-28T19:27:33.826052+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -67,5 +67,11 @@ Which do you want:
 - UATs in the shape of `test_UAT_FC_REQ-339_a_worker_is_told_to_act.test.ts`: assert against text read back out of `priming.json`, never against a constant holding a copy.
 
 Say A, B or C and I'll cut the branch and go.
+
+<!-- xgd-turn id="ce3296c5-19cd-459a-af67-bdd8aec93917-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T19:27:31.463966+00:00" -->
+#### You
+340 and 71 have landed - please proceed
 
 <!-- xgd-chat-end -->
