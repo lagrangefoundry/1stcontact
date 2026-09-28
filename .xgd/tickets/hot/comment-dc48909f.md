@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:06:50.989885+00:00'
+updated_at: '2026-09-28T04:17:01.459526+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -309,5 +309,11 @@ Add frame-stepping (option b) to the loop primitive that already exists, so a st
 2. **Where do the frames come from?** Option (b) needs one image containing the frames side by side. Can our image generation produce a consistent strip of frames of the same illustration? If not, this is a content problem rather than a code one, and (a) — a still plus a hand-made animated file the operator supplies — becomes the realistic path. I don't know the answer and it changes what I build.
 
 Nothing is committed. Two notes on state: the tests I ran are green for everything I touched, and separately, six suites can't run in this working copy at all because a generated build folder only exists in the main checkout — that's environmental, not my change.
+
+<!-- xgd-turn id="ff8dd2e0-d9ae-40b7-934d-8c5823828834-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T04:16:59.492123+00:00" -->
+#### You
+tell me more about the part-addressing what does it do exactly? We can select a rectangular bounding box area with in a picture and move it? Rotate it? Resize it? What is left "under it" does it effectively float a copy of itself over the full image?
 
 <!-- xgd-chat-end -->
