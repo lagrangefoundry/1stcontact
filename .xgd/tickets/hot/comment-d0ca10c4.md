@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T20:07:29.067280+00:00'
+updated_at: '2026-09-28T20:08:35.556756+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,13 @@ One thing you should know, unrelated to this change: **the installed shared stor
 <!-- xgd-chat role="user" ts="2026-09-28T20:07:28.660054+00:00" -->
 #### You
 bin/install run - please proceed
+
+<!-- xgd-turn id="15261228-9b8c-4390-9a5f-6ed16d085016-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T20:08:34.655410+00:00" -->
+#### Claude
+Store confirmed refreshed (`account`, `exhausted`, `nudge_skipped` all present in the installed `delegation_surface.json`). Both node sweeps are running — branch and unchanged-main baseline — so I can diff the failure lists rather than guess which reds are environmental.
+
+I also corrected the stale memory: workers suites *do* run in this sandbox via `vitest.workers.config.mts`; the old EPERM/OOM note came from bare `npx vitest run` picking up the multi-project root config.
 
 <!-- xgd-chat-end -->
