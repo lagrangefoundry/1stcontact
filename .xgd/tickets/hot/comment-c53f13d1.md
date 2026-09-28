@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-340
 created_by: xgd
 created_at: '2026-09-28T04:28:39.179389+00:00'
-updated_at: '2026-09-28T19:02:41.275484+00:00'
+updated_at: '2026-09-28T19:26:16.383219+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,51 @@ Which way?
 <!-- xgd-chat role="user" ts="2026-09-28T19:02:39.918599+00:00" -->
 #### You
 BUG-71 has landed - does that resolve your question?
+
+<!-- xgd-turn id="f1e078a5-63b7-4131-afeb-2f917d5fb6dc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:26:14.569631+00:00" -->
+#### Claude
+Confirmed — BUG-71 landed and the contract is now determined. Let me set up and start.
+
+Now the merge back and ticket update.
+
+Now the ticket body, then the gate.
+
+**Yes — and it matched what I proposed.** BUG-71 settled the contract exactly on the bracket-plus-record shape: `account: {from, to, changed}`, with the derivation left to the host because "what the work touched is a fact about the host's domain." REQ-340 is implemented and landed at `free_coded`.
+
+## One wrinkle BUG-71 introduced — solved, not deferred
+
+The hook is **synchronous**. `_mark(ctx)` and `hook.changes(ctx, from, to)` are used as values, never awaited (upstream's own fixture is `mark: () => registry.writes.length`). Our record comes from a `SiteStore`, and that port is async by construction. A promise handed back through that hook lands on the result and serialises to `{}` — worse for the caller than no field.
+
+So the bracket is taken by subclassing `DelegationToolbox` and overriding its public `delegate`, where an await exists. That's the framework's documented extension path (`ToolboxSurface` says to subclass and define one method per operation; `invoke` resolves per call), so it's composition, not a reach past the API — and it reuses BUG-71's field and prose unchanged. The upstream fix is one `await` in two places, which a sync hook passes through; the override is written to be deleted when it lands. I didn't file that — it's lagrange-framework's, and it's your call whether to.
+
+## What's in it
+
+`tools/generate/src/cli/ai/account-core.ts`, plus four lines in `host-core.ts`. No new dependency; every read is an existing port verb.
+
+- **Capture is the whole draft** — `site.json`, every page, every asset by content digest via `assetManifest` (no bytes read). I went with the comprehensive capture as argued last session: behaviour 3's empty diff is only honest if it is.
+- **`diffOutlines` runs first**, so only pages that actually moved get descended into.
+- **Siblings are aligned, not indexed** — one minimal-cost alignment serving both the element tree and every list below an element. An inserted band is one addition, not three rewritten siblings. That's the part that makes behaviour 7 true rather than aspirational.
+- **`before`/`after` absent, never null**, when the thing didn't exist on that side.
+- A **bounded total with an explicit `truncated: N`**, for the whole-page-added case the requirement can't otherwise bound.
+
+One thing I changed from the plan: assets are captured through `assetManifest`, not `draftOutline`. The outline's own asset stamp is the **byte length** on both the file and memory tiers — fine for "did it move", meaningless in front of a model as a value. `assetManifest` gives a real SHA-256 on every adapter and still reads no bytes.
+
+## Evidence
+
+13 UATs, all green:
+- **11 node UATs** driving real `edit*` entry points against the real store port — including the paint-change case, which is exactly what a journal-derived record cannot see.
+- **2 workerd UATs** on the real `POST /api/ai/prompt` route: real session manager, real delegation surface, real tool loop both sides, real D1/R2, and a real `set_l1` through the builder's grant. One covers report-plus-record; the other is the motivating failure — a worker that says nothing on both turns, and the result still names what landed.
+
+Regression scope green: REQ-295, BUG-145, REQ-296 workerd suites; REQ-303, REQ-304 and the storage-port reconciliation on node.
+
+Commits `d16e92d920` + `2f2c0b0b1b` (v0.2.398), merged to `xgd-working`, branch cleaned.
+
+## One thing I'd like your call on
+
+The shared artifact store at `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai` predates BUG-71, so its `delegation_surface.json` doesn't declare `account` in `shapes.result` yet. The field **does** reach the caller — the workerd UATs prove it — but the model isn't yet *told what it means*, which is half the point of the prose upstream wrote.
+
+Fixing it is `cd ../lagrange-framework && bin/install --lang js --component ai`. That updates a store shared with francisconnect and sanctum, so I didn't run it unasked. Want me to?
 
 <!-- xgd-chat-end -->
