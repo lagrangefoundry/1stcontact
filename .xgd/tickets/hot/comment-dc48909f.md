@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:17:01.459526+00:00'
+updated_at: '2026-09-28T04:17:55.100640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -315,5 +315,49 @@ Nothing is committed. Two notes on state: the tests I ran are green for everythi
 <!-- xgd-chat role="user" ts="2026-09-28T04:16:59.492123+00:00" -->
 #### You
 tell me more about the part-addressing what does it do exactly? We can select a rectangular bounding box area with in a picture and move it? Rotate it? Resize it? What is left "under it" does it effectively float a copy of itself over the full image?
+
+<!-- xgd-turn id="ff8dd2e0-d9ae-40b7-934d-8c5823828834-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T04:17:54.754338+00:00" -->
+#### Claude
+Good questions, and your mental model is off in a way that matters. Let me correct it directly.
+
+## It's not a region of the picture
+
+You don't select a rectangle. **A drawing isn't pixels** — it's a list of instructions: "draw a line from here to here", "fill this circle", "stroke this path". Whoever draws it can wrap a set of those instructions in a group and give the group a name.
+
+Part-addressing moves **a named group of drawn shapes**. Not an area, not a crop, not a layer — the actual shapes.
+
+Think of a puppet with named joints rather than cutting a region out of a photo.
+
+## Your four questions
+
+**"Select a rectangular bounding box and move it?"** No. You name a group of shapes the drawing already declares. If the illustration is one undifferentiated mass of paths, there are no parts and there's nothing to name.
+
+**"Rotate it? Resize it?"** Yes — four things, each animatable over a loop: move (horizontally, vertically), rotate, scale, fade.
+
+**"What is left under it?"** Nothing is left behind, because nothing was lifted. When the arm's strokes move, the browser redraws the whole picture from scratch that frame with the arm somewhere else. Whatever else the drawing draws in that spot — the background, another shape — is simply what's now visible there. Exactly as if you'd redrawn the illustration by hand with the arm in a new position.
+
+**"Does it float a copy over the full image?"** No copy. One drawing, redrawn each frame.
+
+One edge: if a part moves far enough it gets cut off at the edge of the drawing's own frame, same as any shape would.
+
+## The real constraint — and it's the important one
+
+**The drawing must have been authored with the parts named.** You cannot pick out "the arm" after the fact. That's precisely why this can't work on a photograph or a PNG: there's nothing in the file that says where the arm is or that it's a distinct thing.
+
+In practice: this works on drawings we generate, because the model writes the shapes and can name the groups as it goes. An operator's uploaded SVG usually won't work — export files from design tools carry constructs our checker rejects, so they'd stay ordinary pictures.
+
+## A gap in what I built, which you should know about
+
+**You cannot choose the pivot point.** A part rotates about its own centre. So "the arm rotates" swings around the middle of the arm — not around a shoulder. For your lever example, the thing you'd actually want is a pivot at the fulcrum, and there's no way to say that today.
+
+That's a genuine shortfall against your own example in the ticket. It's a small addition — one more field on a track — but it isn't there now, and without it the part motion is more "drift and sway" than "mechanism that works".
+
+---
+
+So, honestly: what's built is a decent puppet rig with no control over where the joints are. Combined with your earlier point that you didn't want the movement mechanics at all, I'd now say **cut it**. It's over-built for what you asked for, it needs a further addition to deliver the one example it was supposed to deliver, and the frame-stepping route gets you "mechanism that works" more directly — the animator decides how the lever moves, and the page just plays it.
+
+Shall I strip the part-addressing and put that effort into frame-stepping instead? If so I still need your answer on where the frames come from, since that decides whether it's a strip of frames we generate or a file the operator supplies.
 
 <!-- xgd-chat-end -->
