@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T16:50:25.326490+00:00'
+updated_at: '2026-09-28T16:56:32.082387+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5375,5 +5375,47 @@ Notice that that tool model gets us interjection almost for free.
 We need the ability to add very small packets to tool-use results.
 
 I think we need: 1) a hook to add notifications such as 1 message queued for you 2) to make sure that the tool use is metered (warnings at 75%, 90%, and then a count down from say 95%) 3) external visibility on the tool calls (e.g. create a progress bar) 4) a tool so the AI can fetch queued messages (this can be the same tool that allows the AI to fetch messages from another chat)
+
+<!-- xgd-turn id="a09208d7-444d-4164-ad9d-56e67c73f0a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T16:56:31.056805+00:00" -->
+#### Claude
+Checked the code for all four. Three of them already exist; one is new, and it's the one that fixes a failure you've already hit.
+
+## (1) The hook exists — and the tool result is the wrong place to put it
+
+`turnTail` (REQ-144) appends the per-turn volatile tier *past the entire message history*, and **both** wires call it inside their per-request `_callModel` (`claude_api.js:271`, `chatgpt.js:144`) — so it already fires on every iteration of the loop, not once per turn. It gives you three things you'd otherwise have to invent:
+
+- **Ephemeral by construction.** Nothing from `turnTail` is written back into `state.messages` — its own comment says a reminder that accumulated would put turn 1's stale signals in turn 3's request. A queue count is exactly that kind of signal.
+- **Cache-neutral.** It sits past the last breakpoint, so a counter that changes every request re-prices nothing behind it.
+- **One placement rule for both wires**, including Anthropic's requirement that tool results come at the head of the user turn — so a packet lands *after* the results it accompanies.
+
+Annotating the `tool_result` itself — the literal reading of your ask — is strictly worse: `wire.record(state, raw, outcomes)` writes outcomes into `state.messages`, so the packet becomes permanent history and gets re-sent on every later request of a warm segment.
+
+**What's actually missing is one line's worth of shape.** The reminder is assembled *once per turn* (`manager.js:841`) and passed frozen into `send` (line 1013). For a queue count to be current on iteration 37 it has to be assembled per request — a thunk, or a second `signals` channel the loop evaluates each iteration. The transport underneath is done.
+
+## The flag that misled us
+
+`ClaudeAPIBackend` declares `inject: false`, and its comment is precise: *"no way to deliver text into a turn already in flight — a stateless endpoint has no channel for it."* That's about the **stream**. Read as a property of the *turn*, it's what produced this epic's "nothing can reach her" premise and the abort-then-resend design that followed from it. It needs splitting: no injection into a stream in flight; injection **between tool iterations** for free. Your "almost for free" is right, and it's freer than that — we already cross that boundary up to 50 times a turn.
+
+The blind spot is real though: one long delegation with no intervening call is unreachable, and 50 iterations is a hard ceiling.
+
+## (2) Metering is the new one, and it closes an observed failure
+
+Today, exhausting `maxIter` falls out of the `for` and yields `doneEvent`. The model is mid-plan, the turn just ends, and nobody — model, host or client — is told why. **That's your "it stops without giving a report."** Your "poke it to complete" is a workaround for a budget nobody published.
+
+Three currencies are already measured; the model is told none: iterations (`iter` vs 50), wall-clock (`timeout = 600`, checked at the loop head and *thrown*), and context occupancy (`turnOccupancy`, i.e. Finding 5's unshown fuel gauge).
+
+I'd build this first, because it's the only one that's **host-enforced** — the host owns the cap and doesn't need her cooperation. The queue half does: she can be told and not pull, and Finding 13 put priming constraints at 2-in-102.
+
+## (3) and (4)
+
+**(3)** `toolIssueEvent` (REQ-175, emitted *before* the call runs) and `toolEvent` already flow as control-class events. The progress bar is a consumer of what exists: denominator from (2)'s meter, label from her own milestone posts rather than a spinner.
+
+**(4)** Agreed, and it's one primitive with (1), not two features — it's REQ-160/`session-delta` again: the packet says *2 messages, from cursor 41*; `pull(41)` is what costs tokens. Queued-for-me and another-chat are two cursors over one operation.
+
+---
+
+Recorded on the ticket. One bookkeeping note: the body ended at **14.9** — 14.10–14.18 from our last nine turns were only ever in the transcript, so I've written the settled decisions in as 14.10 and this analysis as 14.11–14.12. The numbering in the body no longer matches what I called them in chat.
 
 <!-- xgd-chat-end -->
