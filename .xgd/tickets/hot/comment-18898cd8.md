@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T19:10:47.283963+00:00'
+updated_at: '2026-09-28T19:29:15.148155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -58,5 +58,11 @@ Side effect: the gate stops blocking the code. Ship with `primary_writes: true` 
 **One thing I want you to confirm before I build it**: `DrawImages` is declared `effect: "write"`, so the derivation takes `write_image` off the consultant too — drawing an image becomes a worker's job. That's consistent with "writes no part of its L1", but your behaviour-1 list doesn't mention it. Keeping it would need an exception list, which is exactly the hand-maintained list the derivation avoids. Happy either way, but it's a real behaviour choice, not a detail.
 
 No code written. Say the word and I'll cut the branch.
+
+<!-- xgd-turn id="5f9eeeec-598d-4303-9a82-cc72b4e962e7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T19:29:13.322275+00:00" -->
+#### You
+Are you dependant on REQ-342? If not please proceed. And make the detault primarty_writes: false please
 
 <!-- xgd-chat-end -->
