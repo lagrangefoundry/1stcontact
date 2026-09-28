@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T19:32:17.529954+00:00'
+updated_at: '2026-09-28T19:46:49.563225+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5493,5 +5493,43 @@ All of this is on the ticket as 14.13–14.16 (including the gauge correction). 
 <!-- xgd-chat role="user" ts="2026-09-28T19:32:16.704253+00:00" -->
 #### You
 OK we have a design document, right? Can you bring it up to date and then create the tickets referring to it?
+
+<!-- xgd-turn id="f134d8ed-9b6e-43fd-8cf9-24288d564011-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:46:48.423288+00:00" -->
+#### Claude
+No doc covers this mechanism — the closest, DOC-60, is the sibling on commissioned construction. So I'm writing this one, in DOC-60's shape, then filing against it.
+
+Done. There wasn't a design doc for this — DOC-60 is the sibling on commissioned construction — so I wrote one and filed against it.
+
+## [[DOC-61]] — *The interjection channel: what can reach a working session, and what it costs*
+
+Same shape as DOC-60: the finding that reframes it → what's already built (a table, checked against code, not recalled) → the four faults → the design → why this order → what this is not → how we'll know it worked → the tickets.
+
+It records the things this conversation settled: that `inject: false` describes the wire and not the turn; that `turnTail` is a better seam than the `tool_result` because `wire.record` makes that one durable; that repetition and ephemerality are the same property, so the choice is *resend or absent*; the measured 739 chars / ≈184 tokens; the gauge that exists and the one role that doesn't name it; and the four-count argument for the room being a cursor rather than a context.
+
+## Seven tickets
+
+| # | ticket | repo | state |
+|---|---|---|---|
+| 1 | **REQ-344** — the consultant is told how full its context is | 1stcontact | **unblocked, ships first** |
+| 2 | **LF REQ-180** — per-request signals channel + the capability split | framework | unblocked |
+| 3 | **LF REQ-181** — the loop meters itself; exhaustion becomes an instruction | framework | blocked on 2 |
+| 4 | **LF REQ-182** — one cursor, two uses | framework | blocked on 2 |
+| 5 | **REQ-345** — words typed during a turn reach her before her report | 1stcontact | blocked on 2 + 4 |
+| 6 | **REQ-346** — both workers visible, only one worth interrupting | 1stcontact | blocked on 3 |
+| 7 | **LF REQ-183** — the room is a cursor over a durable transcript | framework | **gated**; design note first |
+
+Four of seven are upstream, which is the honest split — the channel, the meter, the cursor and the room are all properties of how a turn is driven. Ours is the gauge entry, the transport, and the chrome. All seven are linked to EPIC-19 (cross-project `epic_parent` on the framework ones, verified both sides), and 14.17 on the epic carries the table.
+
+Three judgement calls worth flagging:
+
+- **The standing frame isn't a new ticket.** REQ-283 item 2 already decided it as `fields.frame` on the chat ticket, so LF REQ-183 names it as a gate rather than duplicating it.
+- **LF REQ-181 and REQ-182 stayed separate** despite both being producers for the same channel — 181 works without the model's cooperation and 182 doesn't, and folding them would put the fix that needs no goodwill behind the one that does.
+- **No ticket raises `MAX_TOOL_ITERATIONS`.** The cap isn't the fault; its silence is.
+
+One thing I couldn't close: `volatile` — the session summary — rides the same per-request tail and is bigger than the reminder, and I haven't measured it. It's named in both the doc and the epic as owed, because if it's large then the tail itself, not the signals on it, is where a turn's uncached spend goes.
+
+REQ-344 is genuinely one line and unblocked. Want me to cut a branch and do it?
 
 <!-- xgd-chat-end -->
