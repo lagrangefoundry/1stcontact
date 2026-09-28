@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:27:02.293030+00:00'
+updated_at: '2026-09-28T03:43:48.410420+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5082,5 +5082,31 @@ Next seam worth testing is still the reconcile — Alice coming back with a fini
 <!-- xgd-chat role="user" ts="2026-09-28T03:27:02.202078+00:00" -->
 #### You
 So bound it to the case that carries information: **post when the work diverges from what you said you'd do.** "Ten minutes on the type" becoming "fifteen, because the background's in it too" is worth the client's attention. "Still going" is not — that's the progress indicator's job, and it costs nothing. <-- can we add significant milestones "I've updated the hero segment - first of three tasks down"
+
+<!-- xgd-turn id="e0c6bc0c-5d3c-466f-83ad-c98232578d7a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T03:43:47.690486+00:00" -->
+#### You
+So bound it to the case that carries information: **post when the work diverges from what you said you'd do.** "Ten minutes on the type" becoming "fifteen, because the background's in it too" is worth the client's attention. "Still going" is not — that's the progress indicator's job, and it costs nothing. <-- can we add significant milestones "I've updated the hero segment - first of three tasks down"
+
+So yes when we designed the chat there were, inprinciple three options for a message when the AI is busy
+Queue it
+Interrupt - stop the agent to say it
+Interject - some agents can have additional prompts added in-flight Claude code supports this but I do not think claude -p does. The agent mode may do. Anyway we are in cloud API mode and this is not an option for us. 
+
+Let me propose this:
+- there should be separate activity indicators for Alice and Bob in the chat controls. At any time the user can hit a busy indicator to interrupt that agent.
+- bob can have a tool for interupting Alice but instructions to ONLY use it with explicity user direction
+- All messages in the chat that take place while Alice is busy are queued for it until it has finished.
+
+Now there is an important question here, when does Alice get the update? So Alice finishes, posts a final report on what it did. There are two options:
+(1) as soon as Alice finishes all the queued messages are passed to her for consideration
+(2) the queued messages are sent to Alice on the next message send
+
+A problem with 1 is that there is a race condition while Alice is processing the queued messages, more could be queuing.
+
+A problem with 2 is that there might be content in the chat that Alice should respond to
+
+Thoughts?
 
 <!-- xgd-chat-end -->
