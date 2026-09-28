@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:43:48.410420+00:00'
+updated_at: '2026-09-28T03:45:24.051140+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5108,5 +5108,55 @@ A problem with 1 is that there is a race condition while Alice is processing the
 A problem with 2 is that there might be content in the chat that Alice should respond to
 
 Thoughts?
+
+<!-- xgd-turn id="e0c6bc0c-5d3c-466f-83ad-c98232578d7a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T03:45:22.849028+00:00" -->
+#### Claude
+Yes — and milestones are a better fit for the rule than the example I gave.
+
+## Milestones generalise the bound
+
+"First of three tasks down" is legitimate for a reason "still going" isn't: it's a **state transition**. A task moved from in-progress to done, and there's an artifact behind it the client can go and look at. "Still going" has no referent and writes nothing.
+
+So the rule is better stated: **Alice posts when the shared structure changes.** Divergence changes the plan (fifteen minutes, not ten). A milestone changes task state. Both are writes the client has a stake in; ambient progress is the indicator's job.
+
+And that has a consequence I like a lot: if a milestone *is* a write to task state, **Bob's plan card ticks over during Alice's turn.** The client watches the list advance while she works, from the same structure Bob reports from — no second surface, no narration, nothing to keep in sync. The sentence Alice attaches is the colour; the tick is the fact.
+
+One real cost: **milestones generate queued messages.** "Hero's done" invites "actually put the hero back" while she's two tasks deep. That's fine but not free, so milestones are worth posting where the client could still usefully redirect the remaining work. A milestone on the last task is nearly pointless.
+
+## The queue delivery question — I'd reject both options
+
+Your (1) isn't really a race, it's a mailbox drain: she finishes, takes the queue, more arrives, she's invoked again, terminating when the queue is empty. Against 2–9 minute turns and a human typing, that converges. Coalescing the queue (deliver all of it in one invocation, never re-invoke until the current one finishes) bounds it to one extra wake.
+
+But (1) has a worse problem you didn't name, and it's the one that decides this. **Alice's report and her response to the queue are adjacent turns, in the wrong order.** She posts "here's the homepage, done" — and *then* reads the message saying "stop, let's do contact first." She has announced completed work the client already abandoned. Option (2) has the same defect plus a longer silence.
+
+So: **deliver the queue inside her turn, as her last act before reporting.** Her turn ends read-room → reconcile → report:
+
+- **No extra invocation** in the common case. The read is a tool call inside a turn she's already making — the same economics as her milestone posts.
+- **No stale report.** She sees "drop the homepage" before announcing the homepage, and she still has her tools, so she can act on it in the same turn rather than needing a round trip.
+- **The race dissolves.** Anything arriving after her read is next turn's queue, and there's always a next turn because someone is talking.
+
+This isn't a third mechanism — it's the reconcile-on-return from 14.13, and the queue question is what it's *for*. I'd been treating it as a coherence safeguard; it's actually the delivery point.
+
+## Your three proposals
+
+**Separate activity indicators — yes, with one asymmetry.** Bob's turns are ~1s, so his indicator will flicker and be unclickable, and interrupting him saves nothing. Build both indicators for legibility — the client should be able to see there are two workers — but make interrupt meaningful only for Alice. Her indicator should carry *what* she's doing, sourced from her own milestone posts rather than from a spinner.
+
+**Bob's interrupt tool — let him propose it, and fire it only on an imperative.** "Only use it with explicit user direction" is a priming constraint on the model we trust least, guarding the action that destroys the expensive model's work, and Finding 13 measured priming constraints failing at 2-in-102. So the default move should be structural: Bob *offers* — "shall I stop her?" — and the client's yes fires it. That's the process-question pattern, and as a card with a button it's one click, same as hitting the indicator.
+
+But when the client says *"Bob, stop her"* outright, offering to stop her is absurd. So: **fire on an imperative, offer otherwise.** And this one is safe to give Haiku for the reason 14.13 gave for withholding the suppression decision — **the failure is visible and cheap.** A wrong interrupt is loud, and Alice restarts. A wrong suppression is silent and the consultation never happened. Same principle, opposite verdict.
+
+**Queue everything while Alice is busy — yes, with one clarification.** Queued *for her*, not withheld from the room. Bob answers his part immediately; the queue is Alice's mailbox, not a freeze on the conversation. I assume that's what you meant, but it's the difference between a working group chat and a product that goes dead for nine minutes.
+
+And confirmed on interject: an API turn is request/response with no channel in, so three options really are two for us. Whether Claude Code's agent mode supports injection doesn't help — we're not on that path.
+
+## The one thing the queue still needs
+
+**It must never be silent.** A message that queues invisibly is indistinguishable from one that was dropped — which is exactly BUG-122's current symptom. So Bob acknowledges receipt on arrival: *"I've put that to her — she's mid-render on the type."* ~1s, no judgement, and it converts a nine-minute silence into a deferral the client can see and override.
+
+---
+
+Recorded as 14.15: milestones as structure-writes, in-turn queue delivery with the stale-report argument, and the propose-versus-perform split on Bob's interrupt tool.
 
 <!-- xgd-chat-end -->
