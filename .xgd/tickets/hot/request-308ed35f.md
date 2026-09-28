@@ -5,9 +5,9 @@ type: request
 title: The host derives a structural diff of a delegation's L1 changes
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:20.497785+00:00'
-updated_at: '2026-09-28T19:24:14.246924+00:00'
+updated_at: '2026-09-28T19:24:46.545204+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c53f13d1
+  story_points: 5
 ---
 
 ## Why
