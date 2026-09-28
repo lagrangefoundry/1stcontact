@@ -137,6 +137,27 @@
     "got. Its words are in `templates.delegation-method`, which is where the",
     "interrupted-turn signal already keeps prose a provider decides the fate of.",
     "",
+    "[[REQ-339]] \u2014 THE WORKER'S REMINDER TIER NOW SAYS WHAT THE OTHER TWO ALREADY",
+    "SAY. It held two entries, both providers, and no instruction at all about how",
+    "to spend a turn \u2014 so a worker opened by re-narrating its whole state and did it",
+    "again at the head of every turn afterwards, at a measured 2,900 output tokens",
+    "per element actually written. `act-rather-than-narrate` is the consultant's",
+    "sentence verbatim, and it is spelled again here rather than shared for the",
+    "reason the settings role already spells its own copy: an entry belongs to a",
+    "role's declared order, and a role reaching into another's list is how the two",
+    "come to drift without either being edited. `no-status-narration` is the half",
+    "only a worker needs, because only a worker has a report at the end that makes",
+    "a running commentary redundant.",
+    "",
+    "AND THE WORKER IS TOLD NONE OF THE CONSULTANT'S RECORD ([[REQ-339]]). That is",
+    "not visible in this file, because neither role DECLARES that entry \u2014 the",
+    "framework's product tier declares it once, for every role assembled against",
+    "this registry \u2014 but it is the other half of the same decision, and it is where",
+    "the re-narration came from: the worker was handed the consultant's standing",
+    "note and read it as a resumption. `session.summary` is bound to render only",
+    "for the role that KEEPS the record, which is the role granted the verbs that",
+    "write it. See `roles.ts`.",
+    "",
     "[[REQ-296]] \u2014 WHERE THE OCCUPANCY GAUGE IS, AND WHY IT IS NOT DECLARED HERE",
     "TWICE. The consultant and the builder read it from the framework's product tier,",
     "which names `session-budget` after its own cache boundary \u2014 so it is re-assembled",
@@ -580,6 +601,14 @@
     {
       "name": "page-digest",
       "provider": "site.digest"
+    },
+    {
+      "name": "act-rather-than-narrate",
+      "text": "Prefer making the change over describing how you would make it."
+    },
+    {
+      "name": "no-status-narration",
+      "text": "Do not restate what you have already done at the head of a turn. Nobody reads these turns \u2014 your report at the end is the entire of what the consultant receives, and it is the only place a summary of your work belongs."
     }
   ]
 }

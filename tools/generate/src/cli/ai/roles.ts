@@ -1035,6 +1035,38 @@ export function registerBudgetProvider(
   })
 }
 
+/**
+ * The roles this host's session record BELONGS TO ([[REQ-339]]).
+ *
+ * THE RECORD IS THE CONVERSATION'S, NOT THE SITE'S, and that distinction was not
+ * drawn until there was a second kind of session on the same site. The ledger is
+ * resolved per site (`deps.ledger(slug)`) and the registry below is the one every
+ * role on that site is assembled from, so a worker opened by a delegation was
+ * handed the consultant's standing note and its decisions — and read them as its
+ * own, on its first turn, as a resumption: *"I'm picking up mid-engagement. My
+ * standing note shows…"*, restated at the head of every turn afterwards. The
+ * comment beside the worker's toolbox already said a worker composes *"no
+ * ledger… no session context"*; that was true of its TOOLS and false of its
+ * priming.
+ *
+ * AN ALLOW-LIST RATHER THAN A DENY-LIST FOR THE WORKER. What the entry states —
+ * *"your record of this engagement"* — is only true of a session that can keep
+ * one, and the verbs that keep it (`set_standing_note`, `record_decision`) are on
+ * the ledger surface, which `instances.json` grants to the consultant alone. So
+ * the honest condition is which role owns the record, and a role added later gets
+ * silence until somebody says otherwise — rather than the consultant's memory by
+ * default, which is the failure this exists to close.
+ *
+ * THE LEGACY NAMES ARE IN IT, because they are extra keys onto the SAME role
+ * object (see {@link LEGACY_ROLE_NAMES}): a conversation started before the
+ * rename resumes under its stored name, and dropping its record on resume would
+ * be this bug again with the sides swapped.
+ */
+const RECORD_KEEPING_ROLES: ReadonlySet<string> = new Set<string>([
+  CONSULTANT_ROLE,
+  ...LEGACY_ROLE_NAMES,
+])
+
 export function registerMemoryProviders(
   providers: Untyped,
   source: SessionMemorySource | null,
@@ -1047,8 +1079,15 @@ export function registerMemoryProviders(
   providers.register(TRANSCRIPT_POINTER_PROVIDER, async () =>
     source !== null && transcriptPointer ? transcriptPointer : null,
   )
-  providers.register(SESSION_MEMORY_PROVIDER, async () => {
+  providers.register(SESSION_MEMORY_PROVIDER, async (ctx: Untyped) => {
     if (source === null) return null
+    // A WORKER IS TOLD NONE OF IT ([[REQ-339]]), by the same mechanism a host
+    // with no ledger is: the entry renders `null`, the framework drops it and its
+    // separator, and nothing else about the tier moves. `ctx.role` is the role
+    // this priming is being assembled FOR and is populated on every assembly path
+    // the manager has — the cold start, the resume, and the per-turn rebuild of
+    // the volatile half — which is what lets one registry serve both roles.
+    if (!RECORD_KEEPING_ROLES.has(String(ctx?.role ?? ''))) return null
     try {
       const { note, decisions } = await source.record()
       return sessionMemory(note, decisions)
