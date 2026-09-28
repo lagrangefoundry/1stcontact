@@ -5,9 +5,9 @@ type: request
 title: A worker must not read the consultant's session record, and must not re-narrate
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:18.721348+00:00'
-updated_at: '2026-09-28T03:57:59.265429+00:00'
+updated_at: '2026-09-28T04:05:59.479659+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -73,3 +73,82 @@ reaching it less likely.
 
 The cap itself, the report channel, the grant, and the consultant's prose. Each is its
 own ticket under DOC-60.
+
+
+## What landed
+
+Two changes, one per cause, plus the facts each one implies.
+
+**`roles.ts` — the record is delivered to the role that keeps it.** The
+`session.summary` provider — the framework's product-tier entry, rebound by this
+host to the standing note plus the ledger — now reads `ctx.role` and renders
+`null` for any role that is not the consultant. `null` drops the entry and its
+separator, which is exactly how a host with no ledger at all is already told
+none of it; there is no second tier, no second registry and no branch in the
+host.
+
+*It is an allow-list, not a deny-list for the worker.* What the entry states —
+*"your record of this engagement"* — is only true of a session that can keep
+one, and the verbs that keep it (`set_standing_note`, `record_decision`) are on
+the ledger surface, which `instances.json` grants to the consultant alone. So a
+role added later gets silence until somebody says otherwise, rather than the
+consultant's memory by default.
+
+*The legacy role names are in the allow-list.* They are extra keys onto the same
+consultant role object, and a conversation started before the rename resumes
+under its stored name — so dropping its record there would be this same bug with
+the sides swapped.
+
+*The decision is taken before the store is touched.* The ledger is a ticket read
+and it sits on the path of every worker this deployment opens, so the gate is
+ahead of `source.record()` rather than after it: a worker costs the record not
+even a read.
+
+*It holds on every turn, not only the cold start.* The entry sits after the
+product tier's cache boundary, so it is re-assembled per turn rather than
+delivered once with the prefix — a gate applied only at session creation would
+leave the record arriving on the worker's second turn.
+
+**`priming.json` — two lines added to `builder_reminders`.**
+`act-rather-than-narrate` is the consultant's own sentence, verbatim, spelled
+again in this role's declared order rather than reached across from another's —
+the settings role already carries its own copy on the same terms.
+`no-status-narration` is the half only a worker needs: *do not restate what you
+have already done at the head of a turn; the report at the end is the entire of
+what the consultant receives.* Both are static, so they ride the per-turn tail
+and cannot spoil the prefix every worker shares. The two providers already in
+the tier — `site.line` and `site.digest` — are untouched, which is behaviour 4.
+
+*The worker is still not nudged to keep a record.* `memory-trigger` stays out of
+`builder_reminders`, because both verbs it names are on a surface the worker was
+never granted. Pinned, since this ticket is what edits that tier.
+
+**One existing assertion adjusted.**
+`test_UAT_FC_REQ-295_every_worker_this_deployment_opens_sends_the_same_cacheable_prefix`
+mapped every reminder entry to its `provider` and asserted none appeared in the
+priming list. With static entries in the tier that map yields `undefined`, which
+the priming list also contains — a match about nothing. It now filters to the
+provider entries, which is what the case was always asserting.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-339_a_worker_is_told_to_act.test.ts` (node) — the cheap
+half: the provider called directly for each role, and the reminder tier read
+back out of `priming.json`. Localises a break to the provider or to the document
+without booting workerd.
+
+`tests/test_UAT_FC_REQ-339_the_worker_has_no_memory_of_a_conversation_it_never_had.workers.test.ts`
+(workerd) — the evidence. A real conversation writes a real standing note and a
+real decision through `set_standing_note` / `record_decision` into a real
+D1-backed ticket store, then delegates on the next turn. The worker's requests
+and the caller's are told apart by the model they are addressed to, so behaviour
+1 and behaviour 3 are asserted on the same turn, off the same binding,
+milliseconds apart. One double: the Anthropic client.
+
+Regression scope: the priming, roles, memory and delegation suites — REQ-182,
+REQ-171, REQ-123, REQ-239, REQ-280, REQ-283 (both), REQ-284, REQ-285, REQ-295
+(both), BUG-65, BUG-118, BUG-145 (both), and the assistant-conversation
+reconciliation suites. 124 + 45 pass.
+`tests/reconciliation-assistant-conversation.test.ts` has one failure that
+predates this change (a tool-name/grant comparison, verified against the
+untouched tree).
