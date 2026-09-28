@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-216ce8dc
 ---
 
 # recovery: a content-derived bottom-padding track carries no `segments`, so it interpolates through a reflow window the geometry holds
