@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T18:52:24.887600+00:00'
+updated_at: '2026-09-28T19:16:28.616658+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -444,5 +444,63 @@ Now the UATs for frame-stepping:
 <!-- xgd-chat role="user" ts="2026-09-28T18:52:22.341677+00:00" -->
 #### You
 Yeah I think the frame stepping is important - can you do that?
+
+<!-- xgd-turn id="abfec078-a00e-46af-b916-954678542e82-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:16:27.509899+00:00" -->
+#### Claude
+I'll check the actual state on disk before continuing — the prior turn timed out mid-implementation.
+
+Substantial work is already on disk from the prior turn — schema, validator, renderer and 43 UATs. Let me verify it actually passes.
+
+Good — I'm in the branch worktree. Running the frame-stepping UATs:
+
+While the sweep runs, let me review what the prior turn actually built for frame-stepping.
+
+A real regression surfaced. Let me look at BUG-48 — it's a reference-coverage test that likely needs the new rules documented.
+
+Confirmed pre-existing (identical failure on `xgd-working`), and notably my new rules are all covered by the projection. Back to the branch:
+
+Now the ticket body needs the frame-stepping scope recorded — every UAT must trace to body language.
+
+The sweep's failures are all in socket-binding/app families. Let me build the precise regression scope instead — every test touching the modules I changed:
+
+A real L1 failure surfaced — navigation target. Let me check it:
+
+The concurrent runs contended and made that sweep unreliable. Let me stop the noise and run one clean, properly-scoped regression batch.
+
+Regression is clean — both failures are identical on baseline. Now committing.
+
+Now the merge back — taking the lock first:
+
+Yes — frame-stepping is built and landed.
+
+## What it is
+
+An `image` node can declare `frames: N` — *this file is a strip of N equal-width frames laid left to right, and this box is a window onto one of them*. A **frame track** then steps which one is showing: an inclusive range (`from`/`to`), a duration, optional delay, repeat count or `infinite`, direction, and the trigger you asked for — `hover`, `in-view`, or on load. Cursor arrives, it plays; cursor leaves, it stops. Scroll to it, it plays.
+
+The timing function isn't authored — it's `steps(n, jump-none)` derived from the range, so it lands on whole frames and finishes on the frame you named rather than one past it. There's no `easing` field, because a frame either is showing or isn't, and a value the renderer must ignore is the failure this envelope exists to prevent.
+
+## The two things worth knowing
+
+**The windowing is static, and that's the whole point.** A strip with no track, a visitor who asked for no motion, a browser that ran no CSS, and a frozen capture all show **frame 0**. Only the motion sits behind the reduced-motion gate. That's exactly what a GIF can't give you — no pausable clock, no restart, no trigger, no still state anything can ask for. Frame 0 is your poster, so it should be the pose the illustration rests at.
+
+**The film plays while the plate drifts.** A frame track's subject is the picture inside the window; a property track's subject is the node. Different elements, so they compose rather than fight.
+
+Refused rather than silently inert: a frame track with no strip, a range that doesn't run forward or runs off the end (with the numbers in the message), `parts` and `frames` on one node, and `objectFit`/`objectPosition` alongside `frames`.
+
+**Where the frames come from is a content question.** A strip is an ordinary image asset — nothing reads it. A generated strip and an operator-supplied one are the same file to this mechanism.
+
+## State
+
+`REQ-335` at `free_coded`, commit `5ea0b90de5`, merged into `xgd-working`, version `0.2.397`, branch cleaned. Ticket body now carries section D so every UAT traces to it.
+
+- **41 UATs pass**, covering all four routes (A refused, B, C, D).
+- **Regression**: 62-file L1 scope — 494 passed, 2 failed, and both fail identically on `xgd-working` (font-catalogue drift, an assistant-grant test). `BUG-48`'s reference-coverage failure is also pre-existing — its one gap is `zoomGroupChromeAgrees` from REQ-330; my twelve new rules are all covered.
+- Typechecks clean on all three packages.
+
+Two notes. First, my initial full-suite sweep showed an L1 navigation failure that turned out to be contention — I'd launched a second vitest run alongside it; it passes cleanly in isolation and in the scoped batch. Second, socket-binding suites (filing service, workers) can't run in this sandbox at all, so they're outside the evidence either way.
+
+**One thing still unanswered from before:** I recommended cutting the part-addressing, since your overlay idea reaches everything it reached plus rasters plus a controllable pivot. You didn't say either way, so I kept it — deleting working, tested, documented capability isn't my call. Say the word and it's a clean strip-out.
 
 <!-- xgd-chat-end -->
