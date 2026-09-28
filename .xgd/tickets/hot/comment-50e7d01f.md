@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T22:57:30.256629+00:00'
+updated_at: '2026-09-28T23:18:46.745416+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2565,5 +2565,54 @@ Nothing in this repo is coded yet and no branches are cut. REQ-339 is the one th
 <!-- xgd-chat role="user" ts="2026-09-28T22:57:27.596152+00:00" -->
 #### You
 ok can you review where we are on this - is this ready to try?
+
+<!-- xgd-turn id="9a7d13bc-38ef-4353-b755-8b45879f0885-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T23:18:43.553735+00:00" -->
+#### Claude
+I'll gather the current state across both repos.
+
+Reviewed both repos, the installed framework, config defaults, and ran the relevant tests. Here's the state.
+
+## The chain is complete and landed
+
+All six DOC-60 items plus the upstream dependency are implemented:
+
+| ticket | repo | status | commits |
+|---|---|---|---|
+| BUG-71 account/exhausted/nudge | framework | `ready_to_reconcile` | `561fe47a` (v0.0.285) |
+| REQ-339 worker context | 1stcontact | `ready_to_reconcile` | `d5a1f5b4` |
+| REQ-341 builder grant | 1stcontact | `ready_to_reconcile` | `4374373874` |
+| REQ-340 host diff | 1stcontact | `ready_to_reconcile` | 2 commits |
+| REQ-342 delegate-first | 1stcontact | `ready_to_reconcile` | 2 commits |
+| REQ-343 read-only consultant | 1stcontact | `ready_to_reconcile` | 3 commits |
+
+Verified rather than assumed: BUG-71 is **installed** — `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai` carries `EXHAUSTED`, the `account` hook and `_account`, so REQ-340's `accountingDelegationToolbox` has its upstream seam. Config defaults are `enabled: true`, `primary_writes: false` — delegate-first with a read-only consultant is **on** as shipped. Consultant opus-5/64k, builder haiku-4.5/32k. `tsc` clean on `tools/generate`.
+
+Nothing is reconciled yet — every `reconcile_sha`/`main_sha` is null across all seven, so the matrix hasn't caught up.
+
+## Two things to clear before a live try
+
+**1 · The KB is skewed, and it blocks the build — this is the real blocker.** `requireCoherentKb` throws inside `buildControlAppAssets`: `REF-l1` is an outdated projection (source moved — REQ-335's timed-motion primitive, not this epic). `bin/build`/`bin/deploy` will refuse until `bin/kb-release` runs. It surfaces as `test_UAT_FC_BUG-71_framework_import_graph` failing.
+
+**2 · Three stale assertions — behaviour is right, the tests predate it.**
+
+- `reconciliation-assistant-conversation.test.ts` AC1058 asserts the consultant's exact tool list; it now includes `Delegate`. A matrix UAT, so reconcile would fix it, but it is red today.
+- REQ-295 workers: silent-worker attributed output 250 → **500**. REQ-296 workers: worker requests 1 → **2**. Same single cause — BUG-71's ask-once nudge. A silent delegation now legitimately costs a second cheap request, and both tests were written assuming one. The count stops at 2, so it's the nudge and not a loop.
+
+The full node suite shows 36 failures, but `reconciliation-palette-management` (4 of them) passes in isolation, and the filing-service clusters need `listen()` — so most of that number is whole-suite/sandbox contention, not this epic. The three above are the ones I traced to these changes.
+
+## Two things to know going in
+
+- **The trial run *is* the evidence gate.** DOC-60 gated REQ-343 on ten delegations where the diff and self-report don't contradict — but REQ-343 shipped with the read-only default already set, so the gate wasn't collected first. That's recoverable (one key, one redeploy), but it means what to watch in the first session is exactly the gate: does `account` ever disagree with the worker's summary, and does `exhausted` appear.
+- **The iteration cap is still 50** and is a framework constant `1stcontact` can't set. A whole-page brief can still exhaust — the difference is that it now says so and the host's diff reports what landed.
+
+Not blocking: framework REQ-179 (per-field provenance) is at `free_coding` upstream; the `account` field stays over-marked `untrusted` carrying the watermark bracket, as designed.
+
+## My recommendation
+
+Run `bin/kb-release`, then deploy and try it. Fix the three assertions either before or after — they don't affect runtime behaviour, but leaving them red muddies the next reconcile.
+
+Want me to do the kb rebuild and the test updates? One question if so: the two nudge-caused ones logically belong to REQ-340 (the BUG-71 consumption), but it's at `ready_to_reconcile` — process says check before adding commits there. Say the word and I'll either extend REQ-340 or file a small separate ticket for the three.
 
 <!-- xgd-chat-end -->
