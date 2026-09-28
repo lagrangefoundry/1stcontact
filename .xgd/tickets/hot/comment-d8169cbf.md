@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:45:24.051140+00:00'
+updated_at: '2026-09-28T03:58:08.626532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5158,5 +5158,19 @@ And confirmed on interject: an API turn is request/response with no channel in, 
 ---
 
 Recorded as 14.15: milestones as structure-writes, in-turn queue delivery with the stale-report argument, and the propose-versus-perform split on Bob's interrupt tool.
+
+<!-- xgd-turn id="0bca8711-8dc3-4a0b-a941-5de765398691-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T03:58:06.628307+00:00" -->
+#### You
+ok yes I like the queue read in turn that's a clever move, its another tool use and it could be skipped but I think it will work.
+
+**Separate activity indicators — yes, with one asymmetry.** Bob's turns are ~1s, so his indicator will flicker and be unclickable, and interrupting him saves nothing. Build both indicators for legibility — the client should be able to see there are two workers — but make interrupt meaningful only for Alice. Her indicator should carry *what* she's doing, sourced from her own milestone posts rather than from a spinner. <-- fine - if Bob gets stuck we still have a way to bring it back
+
+Sure bobs stop can be via a card - that's fine. The button on the card can look the same as Alice's activity badge so the user can make the connection that they don't need to ask for Bob's help on this.
+
+**Queue everything while Alice is busy — yes, with one clarification.** Queued *for her*, not withheld from the room. Bob answers his part immediately; the queue is Alice's mailbox, not a freeze on the conversation. I assume that's what you meant, but it's the difference between a working group chat and a product that goes dead for nine minutes. <-- correct
+
+**It must never be silent.** A message that queues invisibly is indistinguishable from one that was dropped — which is exactly BUG-122's current symptom. So Bob acknowledges receipt on arrival: *"I've put that to her — she's mid-render on the type."* ~1s, no judgement, and it converts a nine-minute silence into a deferral the client can see and override. <-- possibly but a little redundant in general - its a group chat, it already has a message queue feature - messages show up (I think on a pale background) when they are queued. It questions are directed at Alice I'm not sure that bob needs to respond - perhaps to the first one, to explain how it works, but not after that. Bob only really needs to respond when it takes an action.
 
 <!-- xgd-chat-end -->
