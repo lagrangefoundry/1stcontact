@@ -8,6 +8,13 @@
  * worker runs on is a `backends.json` entry, and *whether there are workers at
  * all* is this one.
  *
+ * AND WHETHER THE PRIMARY STILL WRITES ([[REQ-343]]), which is the second key here
+ * rather than an edit to `instances.json` for one reason: `enabled` has to dominate
+ * it. Two documents holding one half of that each is how a deployment gets built
+ * in which the consultant has lost its write groups and has no worker to
+ * commission — the one state the rollback above exists to make unreachable. Read
+ * together, they cannot produce it.
+ *
  * WHY IT IS NOT A KEY IN `backends.json`. That file's keys are the FRAMEWORK'S
  * schema: `configureBackends` validates the whole document and rejects anything
  * it does not declare, so an `enabled` flag there would fail the very validation
@@ -37,6 +44,17 @@ export interface WorkerSettings {
 /** The whole switch: whether to delegate at all, and to whom on what. */
 export interface DelegationSettings {
   readonly enabled: boolean
+  /**
+   * Whether the consultant still writes L1 itself ([[REQ-343]]).
+   *
+   * `false` — the shipped value — narrows its grant to the groups the surface
+   * declares `read`, so construction is commissioned rather than performed. It is
+   * read HERE rather than in `instances.json` because {@link enabled} dominates
+   * it: a consultant with no write groups and no worker to commission is the one
+   * state no configuration may be able to produce, and two switches in two
+   * documents are exactly how it gets produced.
+   */
+  readonly primaryWrites: boolean
   readonly workers: Readonly<Record<string, WorkerSettings>>
 }
 
@@ -82,6 +100,21 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
       `delegation 'enabled' must be true or false, got ${JSON.stringify(enabled)}`,
     )
   }
+  // [[REQ-343]] — ABSENT IS `false`, which is the one default in this file that
+  // is not simply "what shipped before". The design is that the primary does not
+  // write, and a replacement document that omits the key should get the design;
+  // the shipped document states it anyway so the value is where an operator
+  // looks. Present and not a boolean is refused by name, exactly as `enabled` is
+  // — a `"false"` that read as truthy would silently restore the consultant's
+  // hands and cost the twelve-fold difference this key exists to capture.
+  const rawPrimaryWrites = mapping.primary_writes
+  if (rawPrimaryWrites !== undefined && typeof rawPrimaryWrites !== 'boolean') {
+    throw new DelegationConfigError(
+      `delegation 'primary_writes' must be true or false, got ` +
+        `${JSON.stringify(rawPrimaryWrites)}`,
+    )
+  }
+  const primaryWrites = rawPrimaryWrites ?? false
   const rawWorkers = mapping.workers ?? {}
   if (rawWorkers === null || typeof rawWorkers !== 'object' || Array.isArray(rawWorkers)) {
     throw new DelegationConfigError(
@@ -123,7 +156,7 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
     }
     workers[role] = Object.freeze({ backend })
   }
-  return Object.freeze({ enabled, workers: Object.freeze(workers) })
+  return Object.freeze({ enabled, primaryWrites, workers: Object.freeze(workers) })
 }
 
 /** The consumer's document, once installed. `null` means "the bundled one". */

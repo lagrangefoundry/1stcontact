@@ -92,7 +92,15 @@ import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
-import { createL1Toolbox, l1SurfaceSet, type AiLibrary, type L1Operations } from './toolbox-core'
+import {
+  L1_DECLARATION,
+  L1_INSTANCES,
+  createL1Toolbox,
+  l1SurfaceSet,
+  readOnlyGrant,
+  type AiLibrary,
+  type L1Operations,
+} from './toolbox-core'
 import { siteDigestSource } from './digest-core'
 import { accountingDelegationToolbox } from './account-core'
 import {
@@ -104,7 +112,7 @@ import {
 } from './backends'
 import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
 import { newId } from '../../store/ids'
-import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
+import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
 import { browserMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
@@ -1344,6 +1352,36 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         })
       : null
 
+  // -- the consultant's own grant, narrowed where it no longer writes -------
+  //
+  // [[REQ-343]] — CONSTRUCTION IS COMMISSIONED. With `primary_writes: false` the
+  // consultant keeps every read, every measurement and every camera and holds
+  // none of the write groups: its route to a change in the site is a brief to a
+  // worker and nothing else. Which groups those are is DERIVED from the surface
+  // declarations rather than listed — see {@link readOnlyGrant}.
+  //
+  // TIED TO `runtime` AND NOT TO `delegation.enabled`, and that is the whole of
+  // how the rollback is kept. `runtime` is non-null exactly where the `delegate`
+  // tool is composed, so reading the same value here makes "cannot write" and
+  // "can commission" one condition rather than two that could disagree. Every way
+  // the surface can be absent — the switch off, the switch on with no worker role
+  // bound, a host that builds no worker — takes the consultant's full grant with
+  // it. There is no reachable configuration in which it can neither write nor
+  // delegate, and that is a property of this line rather than a check somewhere
+  // that could be forgotten.
+  //
+  // NULL LEAVES THE DOCUMENT IN CHARGE. `l1SurfaceSet` reads `instances.json` for
+  // the role when no config is passed, so the unnarrowed path is the same code it
+  // has always been and `instances.json` goes on stating the maximum authority
+  // this key hands back.
+  const consultantGrant =
+    runtime && !delegation.primaryWrites
+      ? readOnlyGrant(L1_INSTANCES[CONSULTANT_ROLE] as Record<string, unknown>, [
+          L1_DECLARATION,
+          FIDELITY_DECLARATION,
+        ])
+      : null
+
   // -- the session's own memory ([[REQ-283]]) --------------------------------
   //
   // THREE THINGS THAT ONLY MEAN ANYTHING TOGETHER, so they are decided here in
@@ -1514,6 +1552,9 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     slug,
     { ...opts, actor: 'ai' },
     {
+      // NARROWED WHERE THIS DEPLOYMENT COMMISSIONS ITS CONSTRUCTION, and `null`
+      // — the document's own entry — everywhere else ([[REQ-343]]).
+      config: consultantGrant,
       audit: deps.audit ?? null,
       session: sessionIdFor(slug),
       lib: deps.lib,
@@ -1536,12 +1577,14 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         ...(deps.extraSurfaces ?? []),
         // HANDING WORK OVER ([[REQ-295]]), where this deployment delegates.
         //
-        // ADDITIVE AND NOTHING ELSE. It composes BESIDE the consultant's `l1` and
-        // `fidelity` entries and removes nothing: the consultant can still author
-        // a page itself, and delegating is a decision it makes per piece of work
-        // rather than a capability it lost. The narrower design — moving
-        // construction out of the consultant so delegation is compulsory — is
-        // held in reserve for what REQ-293 measures.
+        // COMPOSED BESIDE the consultant's `l1` and `fidelity` entries, and it
+        // still removes nothing here: what the consultant may do to the site is
+        // settled by the grant above, not by this surface's presence. The two are
+        // decided from ONE value ([[REQ-343]]) — `runtime` composes `delegate` and
+        // the same `runtime` narrows the grant — so "construction is commissioned"
+        // and "there is something to commission with" cannot come apart. Where
+        // `primary_writes: true` restores the write groups this stays exactly as it
+        // was: additive, and delegating is a decision made per piece of work.
         //
         // ITS GRANT TRAVELS WITH IT, like the ledger's and the catalogue's and
         // unlike fidelity's, for `image-core.ts`'s reason: `instances.json` is
@@ -1704,6 +1747,12 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // the entry renders nothing, so the prompt is byte-for-byte what this host
     // sent before delegation existed.
     delegating: runtime !== null,
+    // [[REQ-343]] — AND WHETHER IT IS TOLD IT HAS A CHOICE, which is the same
+    // question as whether it kept its write groups. The SAME value the grant was
+    // narrowed with, so the framing cannot describe a session the grant does not
+    // match: prose weighing handing work over against doing it itself, read by a
+    // session that holds no write group, is prose about a tool it has not got.
+    writing: consultantGrant === null,
     // [[REQ-285]] — THE PAGE ARRIVES WITH THE TURN. Built once per manager and
     // DERIVED AFRESH on every turn it is delivered ([[BUG-128]]): it used to keep
     // the derivation against the draft's write version, which does not move when

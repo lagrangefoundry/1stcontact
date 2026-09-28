@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T21:56:46.681848+00:00'
+updated_at: '2026-09-28T22:30:06.203145+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -183,6 +183,45 @@ Error: You've hit your session limit · resets 2:50pm (America/Los_Angeles)
 <!-- xgd-turn id="2a82fabe-6f63-4035-ab7c-078a99cf904d-user" -->
 
 <!-- xgd-chat role="user" ts="2026-09-28T21:56:44.860073+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="2a82fabe-6f63-4035-ab7c-078a99cf904d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T22:26:49.689287+00:00" -->
+#### Claude
+Two failures I haven't classified yet — AC977 and AC1293. Classifying them:
+
+Every remaining failure is pre-existing. Final verification of my own suites, then commit:
+
+All green. Adding the ticket-body language for the two UATs not yet covered, plus the deployment-wide consequence:
+
+Merging back per FREE-CODING.md step 3:
+
+REQ-342 landed on `xgd-working` while I was working — it rewrote the method prose and added a per-turn reminder. Let me see what it did:
+
+REQ-342 landed first, so I need to rebase my framing split onto its new prose. Let me see the full picture:
+
+Now resolving `priming.json` — rebuilding my framing split on REQ-342's prose:
+
+Now `roles.ts` — gate the reminder on the same key, since the flip-back must not leave the tail telling it not to build:
+
+REQ-342's tests expect the shipped words from `delegationMethod(true)` — which tells me my code default is the wrong way round. Making it match `delegation.json`'s "absent means `false`":
+
+Now the workers side — my UAT asserted against the old prose, and REQ-342's workers suite needs checking:
+
+Both suites green. Adding the ticket-body language for the reminder and the rebase onto REQ-342:
+
+The ticket store is in this repo, so I can't update the body mid-merge. Completing the merge first — verifying the merged tree:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="567adefb-408f-4501-82e5-ea0a9108831c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T22:30:02.447833+00:00" -->
 #### You
 please complete the free-coding of this ticket
 

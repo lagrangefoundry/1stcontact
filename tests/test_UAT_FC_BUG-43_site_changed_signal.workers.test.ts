@@ -4,6 +4,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
 import { nextSlug } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -102,12 +103,32 @@ beforeAll(async () => {
 
 afterEach(() => {
   setModelClient(null)
+  configureDelegation(null)
   resetAiHost()
   resetChatHost()
 })
 
+/**
+ * THE CONSULTANT DOING ITS OWN WRITING, installed rather than assumed
+ * ([[REQ-343]]).
+ *
+ * This case's subject is WHERE the frames are in the stream — one per write, at
+ * the point the write landed — and it needs a turn in which the assistant writes
+ * twice itself. The shipped document commissions construction instead, so the
+ * writes arrive inside a single `delegate` call and the stream carries one frame
+ * for both: the signal is a counter comparison per tool activity, so it still
+ * fires, and it fires once because one tool call is what happened. That is a
+ * change of GRANULARITY and not a loss, and the interleaving requirement this
+ * case exists for is a requirement of the configuration where the consultant
+ * writes — which is the one it now installs.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 describe('BUG-43 — the assistant’s writes reach the page', () => {
   it('test_UAT_FC_BUG-43_every_write_signals_the_page_as_it_lands', async () => {
+    configureDelegation(WRITING)
+    resetAiHost()
+    resetChatHost()
     const site = await seedSite('unfold')
     const sessionId = await openSession(site)
 

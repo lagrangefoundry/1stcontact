@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import {
   CONSULTANT_ROLE,
   primingText,
@@ -124,14 +125,30 @@ afterAll(async () => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
+/**
+ * THE CONSULTANT WRITING THE SITE ITSELF ([[REQ-343]]).
+ *
+ * The resume case below takes a turn that calls `set_l1` and reads the draft to
+ * prove the session really resumed, and the shipped document commissions
+ * construction instead — so the consultant holds no write tool and the turn would
+ * fail on the tool rather than on the resume. Resuming a session under an old role
+ * name is a claim about the ARCHIVE, not about the grant, so the case installs the
+ * configuration in which the consultant has hands and goes on asserting what it
+ * always did.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 beforeEach(() => {
   seedPage(cwd, SLUG)
   rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+  configureDelegation(WRITING)
   resetAiHost()
 })
 
 afterEach(() => {
   setModelClient(null)
+  configureDelegation(null)
+  resetAiHost()
 })
 
 // ── the role is a consultant ─────────────────────────────────────────────────

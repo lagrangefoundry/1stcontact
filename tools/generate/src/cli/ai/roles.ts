@@ -108,12 +108,17 @@ export const SETTINGS_ROLE = 'settings'
  * is composed with is scoped to no roles, so the one-level floor is a property of
  * the grant rather than a check somewhere that could be forgotten.
  *
- * THE CONSULTANT LOSES NOTHING TO IT — yet. Its own grant is unchanged here and
- * delegating is a decision it makes per piece of work, not a capability it gave
- * up, so for now BOTH roles can write. That is deliberate and it is the cheap
- * order: a grant gap found while the caller can still do the work itself is a
+ * AND IT IS NOW THE ONLY ROLE THAT WRITES A SITE'S L1 ([[REQ-343]]). It began beside a
+ * consultant that could still build a page itself — deliberately, and it was the
+ * cheap order: a grant gap found while the caller can do the work itself is a
  * brief to widen, and the same gap found after the caller's write groups are gone
- * is a stuck engagement. Narrowing the consultant is DOC-60's gated final step.
+ * is a stuck engagement. That order has been run, which is what the grant above
+ * records. With `primary_writes: false` the consultant keeps every read and holds no
+ * write group of the L1 surface, so construction arrives here or not at all — and
+ * `true` puts its hands back in one configuration key, which is why the narrowing
+ * is a setting rather than a deletion. What it keeps is what is not L1: the
+ * client's catalogue and a picture's recipe, which are nearer curation than
+ * construction and are not this role's business either way.
  */
 export const BUILDER_ROLE = 'builder'
 
@@ -616,6 +621,14 @@ export const DELEGATION_METHOD_PROVIDER = 'delegation.method'
  * nothing added to it: a deployment that composes no delegation surface has no
  * `delegate` tool, and a line in the tail telling it to commission would be that
  * instruction repeated on every turn rather than merely stated once.
+ *
+ * AND IT HAS THE METHOD'S TWO FRAMINGS ([[REQ-343]]), because it is the method in
+ * one line and a standing instruction that contradicts the grant is worse here
+ * than anywhere else: the tail is re-sent on every turn, so "construction is
+ * commissioned, not performed" read by a consultant whose write groups have been
+ * handed back is that contradiction repeated for the life of the engagement. The
+ * flip-back has to reach the tail as well as the preamble, or it is not a
+ * flip-back.
  */
 export const DELEGATION_REMINDER_PROVIDER = 'delegation.reminder'
 
@@ -755,18 +768,40 @@ export function registerSiteProviders(
      * the prompt this repository sent before delegation existed.
      */
     delegating?: boolean
+    /**
+     * Whether the consultant still writes L1 itself ([[REQ-343]]).
+     *
+     * BESIDE {@link delegating} AND NOT DERIVED FROM IT, because they are two
+     * facts and only the host knows the second: delegation can be composed with
+     * the consultant still holding its own write groups, which is what every
+     * deployment looked like before this key existed and what `primary_writes:
+     * true` restores. What it selects is the method's framing — see
+     * {@link delegationMethod}.
+     *
+     * A VALUE AND NOT A CALLBACK, for {@link delegating}'s reason exactly: the
+     * grant is settled when the Toolbox is built and cannot change under a
+     * running conversation, and the entry it fills sits in the cached prefix.
+     *
+     * DEFAULTS TO FALSE, as `delegation.json` reads an absent `primary_writes`: a
+     * host that forgot it sends the framing the shipped document sends. The
+     * direction that matters is that it never describes a choice to a session that
+     * has not got one, which is the way a model reaches for a tool it lacks —
+     * and the host passes the value it narrowed the grant with, so the framing and
+     * the grant come from one decision.
+     */
+    writing?: boolean
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(DELEGATION_METHOD_PROVIDER, async () =>
-    delegationMethod(binding.delegating === true),
+    delegationMethod(binding.delegating === true, binding.writing === true),
   )
   // [[REQ-342]] — THE SAME FACT, BOUND TWICE, because the method is stated in the
   // cached prefix and repeated in the per-turn tail. One binding site and one
   // flag, so the two entries cannot come to disagree about whether this
   // deployment commissions anything.
   providers.register(DELEGATION_REMINDER_PROVIDER, async () =>
-    delegationReminder(binding.delegating === true),
+    delegationReminder(binding.delegating === true, binding.writing === true),
   )
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
@@ -1237,7 +1272,7 @@ export function toolTranscriptNote(): string {
 }
 
 /**
- * How the consultant hands work over, or `null` ([[REQ-295]]).
+ * How the consultant hands work over, or `null` ([[REQ-295]], [[REQ-343]]).
  *
  * THE WORDS ARE THE CONFIGURATION'S AND THE CONDITION IS THE CODE'S, which is the
  * split this file keeps everywhere — see {@link interruptedSignal}, whose prose
@@ -1248,23 +1283,47 @@ export function toolTranscriptNote(): string {
  * sends byte-for-byte the prompt this host sent before delegation existed. Prose
  * telling a session how to use a tool it has not got is an instruction to reach
  * for one, and a model will offer it, apologise for it, or probe for it.
+ *
+ * TWO FRAMINGS AND ONE BODY ([[REQ-343]]), and `writing` picks the framing. The
+ * sentence above is the reason for the second one, read the other way round:
+ * [[REQ-342]]'s opening says construction is commissioned here and not performed,
+ * which is true of the deployment that ships and false of the one that flips
+ * `primary_writes` back — and prose telling a session that building is not its
+ * work, read by a session holding every write group, suppresses tools it has just
+ * as surely as the other direction invents ones it has not. So the flip-back
+ * reaches the prose and not only the grant. The method behind the framing — how to
+ * write a brief, what to ask to have checked, what comes back and what the record
+ * cannot settle — is true either way and is not duplicated.
+ *
+ * `writing` DEFAULTS TO FALSE, which is the one rule this ticket keeps in all three
+ * places: `delegation.json` reads an absent `primary_writes` as `false`, the
+ * document ships it `false`, and a caller here that never answered the question
+ * gets the same. The host passes the value it composed the grant from, so the prose
+ * cannot describe a session the grant does not match — and where the answer is
+ * missing altogether, the framing that arrives is the shipped one rather than a
+ * fourth state nobody deployed.
  */
-export function delegationMethod(delegating: boolean): string | null {
-  return delegating ? template('delegation-method') : null
+export function delegationMethod(delegating: boolean, writing = false): string | null {
+  if (!delegating) return null
+  return fill(template('delegation-method'), {
+    framing: template(writing ? 'delegation-method-choosing' : 'delegation-method-commissioning'),
+  })
 }
 
 /**
  * The same instruction in one line, for the per-turn tail ([[REQ-342]]).
  *
- * THE SAME CONDITION AND A DIFFERENT TEMPLATE — see
+ * THE SAME CONDITIONS AND DIFFERENT TEMPLATES — see
  * {@link DELEGATION_REMINDER_PROVIDER} for why the pair is two names rather than
- * one. Both halves render on the same boolean because they are the same fact
- * about the deployment: a host that commissions says both, a host that does not
- * says neither, and there is no state in which one without the other would be
- * true.
+ * one. Both halves render on the same two booleans because they are the same two
+ * facts about the deployment: a host that commissions says both, a host that does
+ * not says neither, and a host whose consultant still writes says both in the
+ * framing that leaves it its hands ([[REQ-343]]). There is no state in which one
+ * without the other, or one framing against the other's grant, would be true.
  */
-export function delegationReminder(delegating: boolean): string | null {
-  return delegating ? template('delegation-reminder') : null
+export function delegationReminder(delegating: boolean, writing = false): string | null {
+  if (!delegating) return null
+  return template(writing ? 'delegation-reminder-choosing' : 'delegation-reminder')
 }
 
 /**

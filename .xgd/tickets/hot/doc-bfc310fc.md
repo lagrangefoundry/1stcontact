@@ -6,7 +6,7 @@ title: 'Mechanism: reaching a working turn between its tool calls, publishing it
   budget, and the cursor primitive'
 created_by: EPIC-19
 created_at: '2026-09-28T19:37:49.964839+00:00'
-updated_at: '2026-09-28T22:01:25.473664+00:00'
+updated_at: '2026-09-28T22:26:22.299712+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -237,50 +237,38 @@ advance the pointer, so *"nothing from me"* costs the other members no context; 
 REQ-160's known weakness (reliably additive, unreliably subtractive) does not bite,
 because a chat room is append-only.
 
-### 4. The room is a cursor over the durable transcript, not the cheap model's context
+### 4. The room — built upstream, and one claim of ours withdrawn
 
-Finding 14 postulated the shared record living inside the cheap model's conversation
-(it holds the transcript; the consultant posts into it). Setting aside implementation,
-that loses on four counts and the first is decisive.
+This section argued that the room should be a durable artifact all members participate in
+rather than any member's context. **`ticket://lagrangefoundry/lagrange-framework/EPIC-2`
+reached the same conclusion three weeks earlier and built it**, and its §1 states the case
+better than this document did: *"The room is a bulletin board, not a session. A member does
+not deliberate in the room… The room holds contributions; it does not hold anyone's
+reasoning."* The three consequences it draws are the compaction, restart and
+ownership-of-the-medium arguments made here. LF REQ-153/154/155/156 are all
+`ready_to_reconcile`.
 
-1. **Compaction is a property of a context, so a room inside one inherits it.** That
-   container would hold two things with different lifetimes — the shared record, and the
-   cheap model's private working state. When it compacts under *its own* context
-   pressure, the shared record is summarised away by an operation that has nothing to do
-   with the record's value.
-2. **A restart truncates it silently.** LF REQ-168 bounds a warm API conversation and
-   re-seeds a cold one from a **window**, so a room-inside-a-context survives a process
-   restart only as far back as the window reaches. A room that *is* the chat ticket
-   transcript is durable by construction and already carries the ledger.
-3. **The chair would own the medium.** REQ-154 §3's rule is that a chair holds no
-   domain; a chair that also *is* the transcript is a lossy relay, and every question
-   about what the client actually said becomes a question about its summarising.
-4. **Read rates are wildly asymmetric and a cursor is what absorbs that.** The
-   consultant's turns are ten minutes, the cheap model's about a second, the client's
-   irregular. A cursor lets each read at its own rate — and lets the consultant read
-   **mid-turn**, which is §1–§3 of this design exactly. Inside someone's context there is
-   no cursor to be at.
+So the position stands and the work does not: **adopt the flock, do not rebuild it.** LF
+REQ-183 is abandoned and carries the full comparison.
 
-**The client is already a reader of this kind:** the browser scrolls a durable
-transcript it does not own. Putting the agents' room inside one agent's context would
-make the two halves of the product disagree about what the room is.
+**One claim withdrawn.** This document offered *asymmetric delivery* — push to the cheap
+fast member, notify-and-pull for the expensive slow one — as the reason to take that epic's
+conclusions rather than its code. EPIC-2 §16 answers it and is right: that epic is
+notify-and-pull for **everyone**; `Brief` already carries `Pointer{new, cursor}`; and push
+for the cheap member is **one optional field on `Brief`**. A variant of a built mechanism,
+not an incompatibility with it.
 
-What it costs, honestly:
+**The asymmetry that is real, and that this document missed, is concurrency.** A ring
+serialises its members. A ring holding a ten-minute member and a one-second member leaves
+the fast one idle for 99% of the wall clock — so *the client and the chair interacting while
+the consultant works* is not a delivery question at all, it is a second turn-taking mode.
+EPIC-2 §16 F2 carries it.
 
-- **Coherence stops being free.** A member who only pulls deltas has no standing summary
-  of the engagement, which a member holding the whole conversation gets for nothing. So
-  this **requires the standing frame** — [[REQ-283]] item 2, already decided as
-  `fields.frame` on the chat ticket. No standing frame, no room.
-- **Latency for the fast member.** If the cheap model must `pull` before answering, its
-  one-second turn pays a round trip first. Ownership and delivery are separable:
-  **push the delta to the cheap fast member, notify-and-pull for the expensive slow
-  one.** Its context is small and the delta is small, so pushing costs nothing; the
-  consultant is the only member for whom a pull is a real decision.
-
-That asymmetry is why this takes the generalised group component's **conclusions**
-rather than its code — it models turn-order, nomination, membership and rounds over an
-arbitrary roster, and this is three fixed participants, one of whom is a human who
-talks whenever he likes.
+Two further mismatches from that section bear on tickets scoped here: **F1** — a mid-turn
+post closes the poster's turn, because `_Wait` cannot tell a post that completes a turn from
+one that does not, which is why [[REQ-346]]'s milestone label has no safe source yet; and
+**F3** — `to=` is the routing fact while `@Name` is prose, and the chair's framing tells it to
+end rounds and name decisions, which collides with a chair forbidden decisions.
 
 ## Why this order
 
@@ -359,8 +347,9 @@ rather than as a new turn afterwards.
 *(ours, blocked on 3 for its denominator)*. Consume `toolIssueEvent` / `toolEvent`;
 activity indicator for both; interrupt meaningful only for the expensive one.
 
-**7 · Upstream — the room is a cursor over a durable transcript** *(gated)*. §4. Design
-note first, and held on [[REQ-283]]'s standing frame.
+**~~7 · Upstream — the room is a cursor over a durable transcript~~** — **withdrawn**, see
+§4. `ticket://lagrangefoundry/lagrange-framework/EPIC-2` built the room; LF REQ-183 is
+abandoned. What remains is that epic's F1 and F2, filed there.
 
 Kept separate on purpose: 3 and 4 both add producers to the channel from 2 and could be
 one ticket, but 3 works without the model's cooperation and 4 does not — folding them
@@ -380,11 +369,12 @@ planned work.
 | 4 | **LF REQ-182** — one cursor, two uses: a member is notified of a count and pulls the content | lagrange-framework | filed, blocked on LF REQ-180 |
 | 5 | **REQ-345** — words typed during a turn reach the consultant before her report | 1stcontact | filed, blocked on LF REQ-180 + LF REQ-182 |
 | 6 | **REQ-346** — both workers are visible while they work, and only one is worth interrupting | 1stcontact | filed, blocked on LF REQ-181 |
-| 7 | **LF REQ-183** — the room is a cursor over a durable transcript, not a member's context | lagrange-framework | filed, **gated** on LF REQ-182 and [[REQ-283]]; design note first |
+| 7 | ~~**LF REQ-183**~~ — the room is a cursor over a durable transcript | lagrange-framework | **abandoned 2026-09-28** — [[EPIC-2]] built it; adopt, do not rebuild |
 
 Order: **LF REQ-180** first (everything else is a producer for it) → **LF REQ-181**
-(the half that needs no cooperation from the model) → **LF REQ-182** → **REQ-345** →
-**REQ-346** → **LF REQ-183**.
+(the half that needs no cooperation from the model) → **LF REQ-182**, now narrowed to
+mid-turn access over LF REQ-153's existing `GroupPull` → **REQ-345** → **REQ-346**, after LF
+REQ-185's wiring.
 
 ### Two things deliberately not filed
 

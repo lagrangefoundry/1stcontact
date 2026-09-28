@@ -547,7 +547,11 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
       errors.mockClear()
 
       const before = await toolsOfferedByATurn()
-      expect(before).toContain('set_l1')
+      // `get_l1` and not `set_l1` since [[REQ-343]]: what the criterion claims is
+      // that the session still works on its SITE OPERATIONS when the corpus is
+      // missing, and the representative one has to be an operation the consultant
+      // holds — under the shipped document it holds every read and no write.
+      expect(before).toContain('get_l1')
       expect(before).toContain('describe_page')
       expect(before.filter((name) => knowledgeTools.includes(name))).toEqual([])
 
@@ -572,7 +576,7 @@ describe('no knowledge base is ordinary; one that cannot be opened is reported',
       // The conversation still opens, and still works on its site operations —
       // this is a degradation, not a failure.
       const after = await toolsOfferedByATurn()
-      expect(after).toContain('set_l1')
+      expect(after).toContain('get_l1')
       expect(after).toContain('describe_page')
       expect(after.filter((name) => knowledgeTools.includes(name))).toEqual([])
 
