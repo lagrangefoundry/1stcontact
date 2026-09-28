@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:17:55.100640+00:00'
+updated_at: '2026-09-28T04:27:15.433235+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -359,5 +359,11 @@ That's a genuine shortfall against your own example in the ticket. It's a small 
 So, honestly: what's built is a decent puppet rig with no control over where the joints are. Combined with your earlier point that you didn't want the movement mechanics at all, I'd now say **cut it**. It's over-built for what you asked for, it needs a further addition to deliver the one example it was supposed to deliver, and the frame-stepping route gets you "mechanism that works" more directly — the animator decides how the lever moves, and the page just plays it.
 
 Shall I strip the part-addressing and put that effort into frame-stepping instead? If so I still need your answer on where the frames come from, since that decides whether it's a strip of frames we generate or a file the operator supplies.
+
+<!-- xgd-turn id="c55062d9-e5dd-47d8-ad33-6023269513ca-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T04:27:15.125799+00:00" -->
+#### You
+**The drawing must have been authored with the parts named.** You cannot pick out "the arm" after the fact. That's precisely why this can't work on a photograph or a PNG: there's nothing in the file that says where the arm is or that it's a distinct thing. <-- ah but I could take the image, cut out a portion of it, put that portion on a transparent background (assuming its not a rectangle but, lets say and arm) and L1 could draw that arm over the top of the one that is already there and move/rotate it?
 
 <!-- xgd-chat-end -->
