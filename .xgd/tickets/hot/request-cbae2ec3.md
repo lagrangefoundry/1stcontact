@@ -6,9 +6,9 @@ title: 'Delegate-first: the consultant commissions construction rather than perf
   it'
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:29.639548+00:00'
-updated_at: '2026-09-27T22:33:37.972789+00:00'
+updated_at: '2026-09-28T19:30:33.835400+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-0923bb64
@@ -53,15 +53,27 @@ wrong description once construction is commissioned rather than performed.
 4. **The method is repeated in the per-turn tail**, not only stated at priming, so it
    survives a long sitting. What goes in the tail is short — the standing instruction,
    not the whole method — because the tail is re-assembled every turn and everything in
-   it is paid for on every turn.
+   it is paid for on every turn. Where a deployment commissions nothing — no worker
+   configured, no surface composed — the tail entry says nothing at all, exactly as the
+   method entry already says nothing, so the switch stays a true rollback and no session
+   is told to reach for a capability it has not got.
 
 5. **Nothing in the prose names a model, a backend or a price.** Which backend a worker
    runs on is configuration and stays there.
 
+6. **What already works in the method is kept.** Writing the brief for a reader who
+   cannot see the conversation, and asking for the checks the consultant would otherwise
+   have made itself, are the two parts the measurements vindicate rather than indict.
+   The rewrite changes what surrounds them. A check that comes back passed is still the
+   worker's word and is still believed — a verdict the consultant re-makes itself is a
+   verdict that saved it nothing.
+
 ## Dependency
 
-Blocked on the diff provider ticket: prose that promises a trusted diff before one exists
-would be prose the consultant cannot act on.
+Was blocked on the diff provider ticket: prose that promises a trusted diff before one
+exists would be prose the consultant cannot act on. **Discharged 2026-09-28** — the
+upstream hook and the host's own record have both landed, so the result the prose
+describes is the result that now comes back.
 
 ## Not in scope
 
