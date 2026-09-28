@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T21:56:17.482974+00:00'
+updated_at: '2026-09-28T22:03:17.498515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5571,5 +5571,39 @@ Error: You've hit your session limit · resets 2:50pm (America/Los_Angeles)
 <!-- xgd-chat role="user" ts="2026-09-28T21:56:15.903266+00:00" -->
 #### You
 Please continue - do you see my last two messages?
+
+<!-- xgd-turn id="a84180f0-2031-457c-9243-d02eec8cd4c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T22:03:14.586302+00:00" -->
+#### Claude
+Yes — I see both. You're right, and the correction is sharper than "off-topic".
+
+Both messages seen — and you're right on both counts.
+
+## DOC-62 — the document DOC-61 was an appendix to
+
+**[[DOC-62]] — *Building a site with two AIs: the client, the consultant and the interrogator — roles, the room, and what each participant experiences***. Twelve sections: the participants and the two asymmetries everything is downstream of (cost $0.54 vs $0.046, latency 10min vs 1s); what the session is like today on both sides; the division of labour marked settled/open — including the interrogator's real job, pressure against the brief, and its two failure modes (ritual, visible correction); the room and the four topologies; what the client sees; what each AI can perceive and do; the shared structure and its unsettled identity; the method and what a second agent fixes that priming cannot; then not-this, measurements, where implementation lives, open questions.
+
+DOC-61 is retitled *"Mechanism: reaching a working turn between its tool calls…"* and opens by saying it's DOC-62's mechanism half. All seven tickets now reference DOC-62 with the specific section each one delivers.
+
+One correction that fell out of reading Finding 14 end to end: 14.10 recorded "topology 2 conceded", but its substance — a durable transcript on the chat ticket — **is topology 3**, which 14.7's own analysis had favoured independently. Only the label was wrong. DOC-62 §4 states 3 and keeps 14.7's build advice (start at 1, treat the room as an artifact from day one).
+
+## The gauge was a misdiagnosis — REQ-344 abandoned
+
+You're right that it isn't what we discussed, and the reason is worse than off-topic: **it answers the wrong cause.**
+
+Finding 5 took *"the turn simply ends… indistinguishable from having finished"* and read it as context exhaustion. The code says the silent-stop path in `runToolLoop` is **iteration-cap exhaustion**, with the wall-clock timeout as the other exit. Neither is a context event. The consultant's report was true and its self-diagnosis was wrong, and that reading survived a week because nobody had read the loop. I then made it the *first* ticket on the grounds that it was one line — cheap and wrong is still wrong.
+
+And on your actual question — what would it do with its context size? Nothing it should. The window rolls (LF REQ-168), two forms of summary are kept deliberately (REQ-283: bounded frame *and* append-only ledger), the ledger is KB-indexed at chunk level so what falls out stays reachable, and `_compactionDue` acts without consulting the model. **No cliff, so no decision** — and showing it anyway invites false economy: skipping a screenshot it should take, to protect something it cannot release.
+
+What changed:
+
+- **REQ-344 → abandoned.** The `session-budget` entry is not added. The argument is recorded on the ticket, not deleted with it.
+- **LF REQ-181 lost its fourth item** — live occupancy is out for the same reason. It now meters **two** currencies, iterations and wall-clock, both of which bind absolutely and neither of which the model can learn any other way.
+- **DOC-61 §F2 rewritten as a withdrawn fault**, numbering kept as filed so the rejection stays legible.
+- **DOC-62 gained a rule from it:** *meter what actually binds.* A signal is worth a packet only if the participant can act on it.
+- **What survives for cost** is the price of the call at the point of the call — REQ-284 already shipped that.
+
+Epic 14.18/14.19 record both. Live ticket set is now six: LF REQ-180 (channel) → LF REQ-181 (meter) → LF REQ-182 (cursor) → REQ-345 (queue) → REQ-346 (visibility) → LF REQ-183 (room, gated).
 
 <!-- xgd-chat-end -->
