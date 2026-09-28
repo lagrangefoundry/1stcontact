@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T19:48:06.229879+00:00'
+updated_at: '2026-09-28T20:07:29.067280+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -110,5 +110,11 @@ Two things I had to touch outside the ticket, both forced:
 - The prose says the record is "worked out here, by comparing the site before and after" rather than naming the store or the `account` field. The projected manual is where the field gets described; the method prose says how to work, not what the schema is.
 
 One thing you should know, unrelated to this change: **the installed shared store is stale.** `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/delegation_surface.json` has no `account` shape and no `exhausted` outcome, while `lagrange-framework`'s source does (BUG-71, commit `561fe47a28`). REQ-340's subclass attaches `account` regardless, so the field arrives — but the consultant's projected manual won't describe it until someone re-runs `bin/install`.
+
+<!-- xgd-turn id="15261228-9b8c-4390-9a5f-6ed16d085016-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T20:07:28.660054+00:00" -->
+#### You
+bin/install run - please proceed
 
 <!-- xgd-chat-end -->
