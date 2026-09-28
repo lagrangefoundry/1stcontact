@@ -5,16 +5,21 @@ type: request
 title: A worker must not read the consultant's session record, and must not re-narrate
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:18.721348+00:00'
-updated_at: '2026-09-28T04:05:59.479659+00:00'
+updated_at: '2026-09-28T04:07:32.651991+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-015c4ce0
+  commits:
+  - working_sha: d5a1f5b48b2609dc501c1dba7a740d54e6ebbcc3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.395
 ---
 
 ## Why
