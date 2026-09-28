@@ -5,9 +5,9 @@ type: doc
 title: 'The interjection channel: what can reach a working session, and what it costs'
 created_by: EPIC-19
 created_at: '2026-09-28T19:37:49.964839+00:00'
-updated_at: '2026-09-28T19:37:49.964839+00:00'
+updated_at: '2026-09-28T19:46:05.946945+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -346,3 +346,39 @@ note first, and held on [[REQ-283]]'s standing frame.
 Kept separate on purpose: 3 and 4 both add producers to the channel from 2 and could be
 one ticket, but 3 works without the model's cooperation and 4 does not — folding them
 together would block the fix that needs no goodwill behind the one that does.
+
+
+## Filed (2026-09-28)
+
+Seven work tickets, as laid out above. This document plus those seven is the whole of the
+planned work.
+
+| # | ticket | repo | state |
+|---|---|---|---|
+| 1 | **REQ-344** — the consultant is told how full its context is | 1stcontact | filed, **unblocked — ships first** |
+| 2 | **LF REQ-180** — a working turn can be reached between its tool calls: the per-request signals channel, and the capability that says so | lagrange-framework | filed, unblocked |
+| 3 | **LF REQ-181** — the tool loop meters itself and says so: exhaustion becomes an instruction, not silence | lagrange-framework | filed, blocked on LF REQ-180 |
+| 4 | **LF REQ-182** — one cursor, two uses: a member is notified of a count and pulls the content | lagrange-framework | filed, blocked on LF REQ-180 |
+| 5 | **REQ-345** — words typed during a turn reach the consultant before her report | 1stcontact | filed, blocked on LF REQ-180 + LF REQ-182 |
+| 6 | **REQ-346** — both workers are visible while they work, and only one is worth interrupting | 1stcontact | filed, blocked on LF REQ-181 |
+| 7 | **LF REQ-183** — the room is a cursor over a durable transcript, not a member's context | lagrange-framework | filed, **gated** on LF REQ-182 and [[REQ-283]]; design note first |
+
+Order: **REQ-344 now** → **LF REQ-180** → **LF REQ-181** (the half that needs no
+cooperation) → **LF REQ-182** → **REQ-345** → **REQ-346** → **LF REQ-183**.
+
+### Two things deliberately not filed
+
+- **A raise of `MAX_TOOL_ITERATIONS`.** §"What this design is not" says why: the cap is
+  not the fault, its silence is. If 50 turns out to be wrong it returns as an evidenced
+  change.
+- **The standing frame.** It is [[REQ-283]] item 2, already decided as `fields.frame` on
+  the chat ticket, and re-filing it would duplicate a live ticket. LF REQ-183 names it as
+  a gate instead.
+
+### One measurement still owed
+
+The `volatile` tier — the session summary — rides the same per-request tail as the
+reminder and is larger than it. The reminder is measured (739 characters, ≈184 tokens for
+the consultant); `volatile` is not. Whoever picks up LF REQ-180 should measure it, because
+if it is large then the per-request tail, not the signals on it, is where the turn's
+uncached spend actually goes.
