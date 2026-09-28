@@ -5,9 +5,9 @@ type: request
 title: Both workers are visible while they work, and only one is worth interrupting
 created_by: EPIC-19
 created_at: '2026-09-28T19:44:33.285161+00:00'
-updated_at: '2026-09-28T19:44:33.285161+00:00'
+updated_at: '2026-09-28T20:36:54.212156+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-95bc3b15
@@ -64,3 +64,11 @@ chrome. And no change to what is recorded: these are control-class events and st
 - A turn that ends at its cap leaves the indicator in a terminal state that reads as
   *stopped*, not as *still working* — the silent-truncation symptom must not survive as a
   stuck progress bar.
+
+
+## Experience design
+
+This delivers **§5 — *what the client sees*: activity for both workers, and the one control that means something** of [[DOC-62]] — *Building a site with two AIs: the client, the
+consultant and the interrogator*. [[DOC-61]] is the mechanism half and scopes this
+ticket; DOC-62 is why it matters and what the session is supposed to feel like on both
+sides. A UAT here should be readable as a claim about that experience.
