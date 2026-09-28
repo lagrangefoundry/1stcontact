@@ -5,7 +5,7 @@ type: request
 title: Words typed during a turn reach the consultant before her report
 created_by: EPIC-19
 created_at: '2026-09-28T19:44:09.354358+00:00'
-updated_at: '2026-09-28T20:36:51.419997+00:00'
+updated_at: '2026-09-28T22:17:41.927568+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -75,3 +75,25 @@ This delivers **§5 — *what the client sees*: queued words are visible as queu
 consultant and the interrogator*. [[DOC-61]] is the mechanism half and scopes this
 ticket; DOC-62 is why it matters and what the session is supposed to feel like on both
 sides. A UAT here should be readable as a claim about that experience.
+
+
+## Alignment with [[EPIC-2]] (2026-09-28)
+
+If the room is the flock's room, **the queue's durable home is the room** and half of this
+ticket's storage question is answered upstream.
+
+- EPIC-2 §12.27: `post_turn` **waits for the lease and retries rather than queueing**, so a
+  client contribution posted while the consultant's turn is in flight lands in the room
+  rather than being rejected. That is the durable copy this ticket's first bullet is about.
+- What remains ours is the **composer**: [[BUG-122]]'s fault is that the persisted draft is
+  cleared at submit, before anything durable holds the text. A room that accepts the post
+  does not fix a browser that threw the text away before posting it.
+- What remains upstream is **mid-turn delivery**, which is LF [[REQ-180]] + the rescoped LF
+  [[REQ-182]] — a pointer reaching a turn in flight, and `GroupPull` callable from inside it.
+
+**One behaviour to design against rather than discover.** EPIC-2 §15 records that a member
+which is busy when its turn comes round is **not waited for**: it is prompted, fails to post
+within `turn_timeout`, and is recorded silent, which counts as a pass. For a consultant whose
+turns run ten minutes that is the normal case, not the edge case. So this ticket must not
+assume the room will hold a round open for her — the queue reaches her *inside* her current
+turn, or it waits for her next one.
