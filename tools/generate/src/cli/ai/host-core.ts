@@ -94,6 +94,7 @@ import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import type { LibraryDeps } from './library-core'
 import { createL1Toolbox, l1SurfaceSet, type AiLibrary, type L1Operations } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
+import { accountingDelegationToolbox } from './account-core'
 import {
   configureProjectBackends,
   PROJECT_BACKEND,
@@ -1551,7 +1552,10 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         ...(runtime
           ? [
               {
-                surface: new lib.DelegationToolbox(runtime),
+                // THE HOST'S OWN RECORD OF WHAT A DELEGATION CHANGED
+                // ([[REQ-340]]) — see {@link accountingDelegationToolbox} for
+                // why it is a subclass and not `DelegationRuntime`'s hook.
+                surface: new (accountingDelegationToolbox(lib, deps.store, slug))(runtime),
                 granted: lib.delegationInstanceConfig(runtime.roleNames()),
               },
             ]
