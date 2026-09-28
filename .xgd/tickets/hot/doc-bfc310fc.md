@@ -2,17 +2,26 @@
 uid: doc-bfc310fc
 id: DOC-61
 type: doc
-title: 'The interjection channel: what can reach a working session, and what it costs'
+title: 'Mechanism: reaching a working turn between its tool calls, publishing its
+  budget, and the cursor primitive'
 created_by: EPIC-19
 created_at: '2026-09-28T19:37:49.964839+00:00'
-updated_at: '2026-09-28T19:46:05.946945+00:00'
+updated_at: '2026-09-28T20:36:37.419691+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: null
 fields:
   doc_kind: architecture
   epic_parent: epic-95bc3b15
 ---
+
+> **This document is the mechanism half of [[DOC-62]].** DOC-62 is the experience design
+> for a site-building session — who the participants are, what each one is for, what the
+> client sees and what each AI can perceive and do. This document answers *how* the parts
+> of that design which touch a running turn are actually built: how a working turn is
+> reached between its tool calls, how its budget is published, and what a cursor over a
+> transcript is. Read DOC-62 first; it says why any of this matters. Read this one when
+> implementing §5, §6 or §4 of it.
 
 ## What this document is for
 
