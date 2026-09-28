@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T19:27:33.826052+00:00'
+updated_at: '2026-09-28T19:48:06.229879+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,42 @@ Say A, B or C and I'll cut the branch and go.
 <!-- xgd-chat role="user" ts="2026-09-28T19:27:31.463966+00:00" -->
 #### You
 340 and 71 have landed - please proceed
+
+<!-- xgd-turn id="ce3296c5-19cd-459a-af67-bdd8aec93917-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:48:04.383952+00:00" -->
+#### Claude
+Ticket scoped. Cutting the branch.
+
+Now the `about` block that documents the delegation entry, and `roles.ts`.
+
+Now `roles.ts`: the provider name, the accessor, and the binding.
+
+Now the UATs.
+
+Now the workers UAT for the per-turn tail.
+
+I'll let the full sweep finish. Meanwhile, here's where things stand.
+
+**Implemented (branch `free-REQ-342`, worktree `~/.xgd/worktrees/…/free-REQ-342`):**
+
+- `priming.json` — `templates/delegation-method` rewritten for a consultant that commissions; new `templates/delegation-reminder` (one line); new `reminders` entry `commission-construction` bound to a provider, sitting immediately after `act-rather-than-narrate`.
+- `roles.ts` — `DELEGATION_REMINDER_PROVIDER` / `delegationReminder()`, registered in `registerSiteProviders` off the same `delegating` flag as the method, so both halves fall silent together.
+- `tests/test_UAT_FC_REQ-342_delegate_first.test.ts` — 19 cases, all passing.
+- `tests/test_UAT_FC_REQ-342_the_method_rides_every_turn.workers.test.ts` — 4 cases through the real `POST /api/ai/prompt` inside workerd, all passing. (Your memory note said workers tests can't run in this sandbox — they can now; I'll correct that memory.)
+
+Two things I had to touch outside the ticket, both forced:
+
+1. `tests/test_UAT_FC_REQ-295_delegation.workers.test.ts` asserted the literal heading `'Handing construction over'` in two places. I repointed both at `delegationMethod(true).split('\n')[0]` rather than re-typing the new heading — the same "read the shipped words, don't restate them" rule the rest of that file follows. Without it, one assertion would have passed vacuously.
+2. I copied `apps/control-app/src/generated/` into the worktree (gitignored); `tsc` and every workers test fail on a fresh cut without it. `tsc -p tools/generate/tsconfig.json --noEmit` is clean.
+
+**Ticket body updated before coding**, preserving the original: extended behaviour 4 with the switch-off consequence, added behaviour 6 (the brief and the checks are kept; a passed check is still believed), and recorded the dependency as discharged.
+
+**Two judgement calls worth flagging:**
+
+- Behaviour 5 says the prose names no model, backend or price. I removed "a second, **cheaper** session" — that is a claim about a rate `delegation.json` alone decides, and it is simply false for a deployment that points a worker at the consultant's own backend. I kept "moves them to the more expensive side", which names nothing and is the argument for not re-inspecting.
+- The prose says the record is "worked out here, by comparing the site before and after" rather than naming the store or the `account` field. The projected manual is where the field gets described; the method prose says how to work, not what the schema is.
+
+One thing you should know, unrelated to this change: **the installed shared store is stale.** `/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai/src/delegation_surface.json` has no `account` shape and no `exhausted` outcome, while `lagrange-framework`'s source does (BUG-71, commit `561fe47a28`). REQ-340's subclass attaches `account` regardless, so the field arrives — but the consultant's projected manual won't describe it until someone re-runs `bin/install`.
 
 <!-- xgd-chat-end -->
