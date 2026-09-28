@@ -6,9 +6,9 @@ title: 'Mechanism: reaching a working turn between its tool calls, publishing it
   budget, and the cursor primitive'
 created_by: EPIC-19
 created_at: '2026-09-28T19:37:49.964839+00:00'
-updated_at: '2026-09-28T20:36:37.419691+00:00'
+updated_at: '2026-09-28T22:01:25.473664+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -73,7 +73,7 @@ design needs already exist and the fourth is smaller than it sounded.
 | what | where | state |
 |---|---|---|
 | A per-request delivery channel past the whole history | `turnTail` (LF REQ-144), called inside **both** wires' `_callModel` — `claude_api.js`, `chatgpt.js` | **built** |
-| An occupancy gauge that renders itself into the priming | `budgetProvider` (LF REQ-169), `defaults.js`; `occupancyTokens` + `contextWindow` put into the turn context at `manager.js:861` | **built, and the consultant does not name it** |
+| An occupancy gauge that renders itself into the priming | `budgetProvider` (LF REQ-169), `defaults.js`; `occupancyTokens` + `contextWindow` put into the turn context at `manager.js:861` | **built, and deliberately not adopted for the consultant — see F2** |
 | Per-request token accounting | LF REQ-143 `usage()`; `turnUsage` / `turnOccupancy`, the two folds of LF REQ-169 | **built** |
 | Tool calls observable from outside, *before* they run | `toolIssueEvent` (LF REQ-175) and `toolEvent`, emitted as control-class events | **built, unconsumed here** |
 | A client-side queue with pending bubbles and coalescing | upstream `webui-chat` — `queued[]`, `is-pending is-queued`, one batch per turn | **built upstream, no transport here** |
@@ -109,38 +109,54 @@ mid-plan, the turn simply ends, and nobody — model, host or client — is told
 is the observed *"it stops without giving a report"*, and the operator's habitual remedy
 (poke it to continue) is a workaround for a budget nobody published.
 
-Three currencies are measured and the model is told none of them:
+Two currencies are measured and the model is told neither:
 
 - **iterations** — `iter` against `MAX_TOOL_ITERATIONS = 50`;
 - **wall-clock** — `timeout = 600`, checked at the loop head and **thrown** as an
   error, which is an exception raised where a report was wanted;
-- **context occupancy** — measured per request (LF REQ-143), folded correctly (LF
-  REQ-169), and used by `_compactionDue` — *by the host, silently*.
-
 This is the only fault that can be fixed **without the model's cooperation**, because
 the host owns the cap. Everything else in this document is a packet the session may
 ignore, and Finding 13 of [[EPIC-19]] measured priming constraints failing at 2-in-102.
 
-### F2 — The gauge exists, and the one role that asked for it does not have it
+### F2 — WITHDRAWN: the context gauge is not one of the faults
 
-`budgetProvider` renders occupancy, the window, the percentage and the room left, and
-returns `null` when nothing is measured so the entry *and* its separator disappear. Its
-doc states the intent in the consultant's own terms: *"It arrives unasked, which is the
-point. It is a priming entry and never an operation: the failure being fixed is that
-cost is invisible at the moment of choosing, and a session that thought to check how
-full it was would not have needed to."*
+An earlier draft of this document made the missing context-occupancy gauge the second
+fault and the first ticket — one line of `priming.json`, since `budgetProvider` (LF
+REQ-169) is built and shipped and `priming.json` names it in `settings_reminders` but not
+in `reminders`. The operator rejected it the day it was filed, and the objection holds:
 
-`tools/generate/src/cli/ai/priming.json` names it in **`settings_reminders`** and not in
-**`reminders`**. The settings assistant has a fuel gauge. The site consultant — the role
-that said *"right now I am driving with no fuel gauge"*, quoted in [[REQ-284]] — does
-not. [[REQ-284]] does not close it: its commit prices *looking* and rewrites the
-`interrupted-turn` advice, and adds no gauge entry.
+> That is NOT the gauge we discussed — we talked about managing the number of tool
+> iterations and feeding that back to whoever was making the calls in the results. We have
+> technology for rolling the chat history window AND keeping two forms of summary, all of
+> which is available in chunk level search to the AI — what would it do with its context
+> size?
 
-**And the gauge is frozen inside a turn.** `session.occupancyTokens` is what the
-*previous* turn's last request carried, deliberately in-memory only. So across a
-fifty-iteration ten-minute turn the reading is the one from before the turn began —
-which is exactly the turn filling the context with screenshots. The loop already
-collects a `usage` per request and already has an `onUsage` hook.
+**Nothing.** The context window is a **host-managed** resource, and every mechanism that
+manages it is shipped or decided: LF REQ-168 bounds a warm conversation and re-seeds a cold
+one from a window, so the history rolls; [[REQ-283]] keeps two forms of memory — a bounded
+standing frame rewritten in place, and an append-only ledger — so what must survive is
+preserved deliberately rather than by luck; the ledger body is KB-indexed at chunk level,
+so what falls out of the window is still reachable by search; and `_compactionDue` acts on
+occupancy without consulting the model at all.
+
+So there is **no cliff to steer away from**, and a percentage in front of the model buys no
+decision. It does invite **false economy** — a session told it is at 60% skips a screenshot
+it should take, to protect a resource it neither manages nor can release.
+
+**And the failure this was sold as fixing has a different cause**, which is the reason the
+mistake was easy to make. Finding 5 took the consultant's *"the turn simply ends […]
+indistinguishable from having finished"* and attributed it to context exhaustion. The code
+says otherwise: the silent-stop path in `runToolLoop` is **iteration-cap exhaustion**, with
+the wall-clock timeout as the other exit. Neither is a context event. F1 is the real fault
+and it was mis-attributed for a week.
+
+**What survives.** For the model, the instrument is the **price of the call it is about to
+make**, at the point of the call — [[REQ-284]] shipped that. For the host, it is the meter
+on iterations and clock, which is F1. [[REQ-344]] is abandoned and occupancy is out of LF
+REQ-181's scope for the same reason.
+
+The numbering below is kept as filed rather than closed up, so that this rejection stays
+legible instead of vanishing.
 
 ### F3 — Words typed during a turn are dropped, and the queue they belong in is upstream
 
@@ -202,11 +218,6 @@ last call, to stop working and post its report. Exhaustion stops being a silent
 
 The wall-clock path additionally stops *throwing*: an exception is the wrong shape for
 "your time is up, write it up".
-
-Live occupancy joins the same channel from the loop's own `usages` / `onUsage`, so the
-gauge moves during the turn that is filling the context instead of reporting the
-pre-turn figure for ten minutes. This extends LF REQ-169's provider rather than
-replacing it: the provider keeps rendering, the number it renders becomes current.
 
 ### 3. One cursor, two uses
 
@@ -323,9 +334,8 @@ anything expensive.
 
 **This document** — the design. No code.
 
-**1 · The consultant is told how full its context is** *(ours, unblocked, ships first)*.
-Add the gauge entry to `reminders` in `priming.json`. One line. Independent of
-everything else here.
+**~~1 · The consultant is told how full its context is~~** — **withdrawn**, see F2.
+[[REQ-344]] is abandoned, and the one-line configuration change is not made.
 
 **2 · Upstream — the per-request signals channel, and the capability that says so**
 *(`lagrange-framework`)*. A second volatile channel beside `reminder`/`volatile`,
@@ -364,7 +374,7 @@ planned work.
 
 | # | ticket | repo | state |
 |---|---|---|---|
-| 1 | **REQ-344** — the consultant is told how full its context is | 1stcontact | filed, **unblocked — ships first** |
+| 1 | ~~**REQ-344**~~ — the consultant is told how full its context is | 1stcontact | **abandoned 2026-09-28** — see F2 |
 | 2 | **LF REQ-180** — a working turn can be reached between its tool calls: the per-request signals channel, and the capability that says so | lagrange-framework | filed, unblocked |
 | 3 | **LF REQ-181** — the tool loop meters itself and says so: exhaustion becomes an instruction, not silence | lagrange-framework | filed, blocked on LF REQ-180 |
 | 4 | **LF REQ-182** — one cursor, two uses: a member is notified of a count and pulls the content | lagrange-framework | filed, blocked on LF REQ-180 |
@@ -372,11 +382,15 @@ planned work.
 | 6 | **REQ-346** — both workers are visible while they work, and only one is worth interrupting | 1stcontact | filed, blocked on LF REQ-181 |
 | 7 | **LF REQ-183** — the room is a cursor over a durable transcript, not a member's context | lagrange-framework | filed, **gated** on LF REQ-182 and [[REQ-283]]; design note first |
 
-Order: **REQ-344 now** → **LF REQ-180** → **LF REQ-181** (the half that needs no
-cooperation) → **LF REQ-182** → **REQ-345** → **REQ-346** → **LF REQ-183**.
+Order: **LF REQ-180** first (everything else is a producer for it) → **LF REQ-181**
+(the half that needs no cooperation from the model) → **LF REQ-182** → **REQ-345** →
+**REQ-346** → **LF REQ-183**.
 
 ### Two things deliberately not filed
 
+- **A context-occupancy gauge for the consultant.** F2 says why, and [[REQ-344]] carries
+  the argument at length. The window is host-managed; the model-facing instrument is the
+  price of the next call, already shipped.
 - **A raise of `MAX_TOOL_ITERATIONS`.** §"What this design is not" says why: the cap is
   not the fault, its silence is. If 50 turns out to be wrong it returns as an evidenced
   change.
