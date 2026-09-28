@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T22:25:23.889963+00:00'
+updated_at: '2026-09-28T22:30:56.008792+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
