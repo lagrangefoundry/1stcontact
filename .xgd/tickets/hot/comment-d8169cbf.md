@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T16:43:27.728894+00:00'
+updated_at: '2026-09-28T16:50:25.326490+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5363,5 +5363,17 @@ I think we need:
 #### Claude
 ⚠️ Chat generation failed: Claude Code CLI error (exit code 1)
 Error: You've hit your monthly spend limit · raise it at claude.ai/settings/usage?from=cc_cli_limit_message
+
+<!-- xgd-turn id="a09208d7-444d-4164-ad9d-56e67c73f0a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T16:50:24.969678+00:00" -->
+#### You
+had no idea that was how tool use worked.
+
+Notice that that tool model gets us interjection almost for free.
+
+We need the ability to add very small packets to tool-use results.
+
+I think we need: 1) a hook to add notifications such as 1 message queued for you 2) to make sure that the tool use is metered (warnings at 75%, 90%, and then a count down from say 95%) 3) external visibility on the tool calls (e.g. create a progress bar) 4) a tool so the AI can fetch queued messages (this can be the same tool that allows the AI to fetch messages from another chat)
 
 <!-- xgd-chat-end -->
