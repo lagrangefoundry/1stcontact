@@ -5,9 +5,9 @@ type: request
 title: The host derives a structural diff of a delegation's L1 changes
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:20.497785+00:00'
-updated_at: '2026-09-28T19:12:13.954701+00:00'
+updated_at: '2026-09-28T19:24:14.246924+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-0923bb64
@@ -68,12 +68,125 @@ ever run returned `outcome: silent` with real element writes committed on the si
    conversation. Measured on a real run: the complete diff for one element write was
    **287 bytes, 15% of the 2,582-byte element**, about 72 tokens.
 
-## Dependency
+## Dependency — resolved
 
-Blocked on the upstream hook — the framework ticket *"a delegation result must account
-for the work whether or not the worker reports"* in lagrange-framework, which supplies
-the hook this derivation is handed to and the result field it is carried on. Nothing in
-this ticket belongs upstream and nothing upstream belongs here.
+The upstream hook landed: lagrange-framework `561fe47a28`, *"a delegation result accounts
+for unreported work"* (BUG-71). It settles the contract this ticket was waiting on —
+`account: {from, to, changed}` on the result, a bracket the caller can check the record
+against, and the rule that the derivation is the host's because what the work touched is
+a fact about the host's domain.
+
+## What was built
+
+A new `tools/generate/src/cli/ai/account-core.ts`. Nothing else was added; every read it
+makes is an existing `SiteStore` verb and every path-level comparison is the one
+`1c status` and the per-turn digest already make.
+
+**A capture is the whole draft definition, not only its L1 element trees.** `site.json`,
+every page, and every asset — the last by content digest through `assetManifest`, which
+reads no bytes and answers with a real SHA-256 on every adapter, rather than through
+`draftOutline`'s own stamp, which is documented as opaque and is the byte length on two
+of the three tiers. Behaviour 3's empty diff is only *honest* if the capture is
+comprehensive: a worker that moved only a page's background would otherwise return an
+empty diff, which is the exact false negative the record exists to prevent. It also means
+the record still works after REQ-341 widens the builder's grant.
+
+**The cheap question runs first.** `diffOutlines` already answers *which paths moved*, so
+the expensive descent happens only into the pages that actually changed. A worker that
+touched one element on one page of forty costs one page's walk.
+
+**Siblings are aligned, not indexed.** One minimal-cost alignment serves both the element
+tree and every list below an element. A band inserted at the top of a page is one
+addition; a position-wise walk would report every band behind it as rewritten — a page's
+worth of difference for a page's worth of nothing, which is exactly the cost behaviour 7
+forbids. The cost function is the whole of the judgement: identical nodes cost nothing,
+same-kind nodes cost one (so an edited heading reports the field that changed), and
+different-kind nodes cost more than the add/remove pair that replaces one with the other.
+
+**Locators, in four vocabularies.** `page` + `address` (+ `module`/`slot` when the element
+sits inside a component instance, because an address without that scope reaches somewhere
+else) for a field of an element; `page` alone for a field of the page's own definition;
+`asset` for a file; none of them for `site.json`. `field` is the dotted path within
+whatever the locators named, and `''` means the thing itself — an element that was added
+or removed has no field that changed, it *is* the change. `before` and `after` are
+**absent**, never null, when the thing did not exist on that side.
+
+**Values stay structured** rather than being rendered into DOC-60 §1's hand-compacted
+form. The Toolbox already serialises results; a bespoke renderer would be a second thing
+to maintain and a lossy one. Measured cost is still a small fraction of the element.
+
+**A bounded total, stated when it bites** — `DIFFERENCE_LIMIT` entries and
+`DIFFERENCE_BUDGET` serialised characters, with an explicit `truncated: N` count rather
+than a silent cut. It exists for the case the requirement cannot otherwise bound: a whole
+page added or removed inside the window carries its whole definition, honestly, because
+that *is* the change.
+
+## How it reaches the result — and the one upstream thing left
+
+BUG-71's field and its prose are reused exactly; what is **not** used is
+`DelegationRuntime`'s `account: {mark, changes}` hook. Both of its functions are called
+**synchronously** — `mark(ctx)` and `changes(ctx, from, to)` are used as values, never
+awaited — and this host's record comes from a `SiteStore` whose every verb is async
+because D1 and R2 are. A hook returning a promise would put a promise on the result,
+which serialises to `{}`: worse for the caller than no field at all.
+
+So the bracket is taken by subclassing `DelegationToolbox` and overriding its public
+`delegate` operation, where an await is available. That is the framework's own documented
+extension mechanism (`ToolboxSurface` says to subclass it and define one method per
+declared operation; `invoke` resolves the method per call), so it is composition rather
+than a reach past the API. The window is marginally wider than the framework's — it opens
+before the worker's session is opened rather than just after — and encloses exactly the
+same work, because opening a session writes nothing to the draft. The record never fails
+the delegation: a capture or a comparison that throws costs the field and nothing else.
+
+**The upstream fix is one word in two places** — `await this._mark(ctx)` and
+`await hook.changes(...)`, which a synchronous hook passes through unchanged. When it
+lands, this class becomes a `runtime.account` pair and the override is deleted. Not filed
+here; it belongs to lagrange-framework.
+
+**One install step is outstanding and is the operator's.** The shared artifact store at
+`/Users/martin/lagrangefoundry/node_modules/@lagrangefoundry/ai` predates BUG-71, so its
+`delegation_surface.json` does not yet declare `account` in `shapes.result`. The field
+still reaches the caller — the end-to-end UATs below prove it does — but the model is not
+yet *told what it means* until `bin/install --lang js --component ai` is run from
+lagrange-framework. That install updates a store shared with sibling projects, so it was
+not run unasked.
+
+## Test plan
+
+**`tests/test_UAT_FC_REQ-340_the_host_records_what_a_delegation_changed.test.ts`** — 11
+UATs, every one driving a real `edit*` entry point against the real store port:
+
+- a worker that reports nothing still leaves a record (behaviour 1);
+- a difference names page, address, field and both values — over a *paint* change, which
+  is precisely the case a journal-derived record cannot see (behaviours 2 and 5);
+- a field that did not exist is newly present, with `before` absent (behaviour 2);
+- an unchanged element and an unchanged field never appear (behaviour 2);
+- a delegation that changed nothing yields an empty diff, with the bracket still moved so
+  it is distinguishable from a record never taken (behaviour 3);
+- an inserted band costs one addition, not a rewritten page (behaviour 7);
+- the record costs a fraction of the page it is about (behaviour 7);
+- a write inside a component carries the `module` and `slot` its address needs;
+- a change that is not on a page — a setting, a picture — is named in its own vocabulary;
+- the record speaks for the window and attributes nothing: two writers, both reported
+  (behaviour 6);
+- a record that hit its budget says how much it left out.
+
+**`tests/test_UAT_FC_REQ-340_the_result_carries_the_hosts_record.workers.test.ts`** — 2
+UATs for behaviour 4, driving the real `POST /api/ai/prompt` route inside workerd: the
+real session manager, the real delegation surface out of the shared store, the real tool
+loop on both sides, a real D1 and R2, and a real `set_l1` through the builder's own grant.
+The only double is the Anthropic client, which is the network.
+
+- the record and the self-report are both present and separate — `summary`/`changed` are
+  the worker's claims, `account.changed` is the host's, and neither is folded into the
+  other;
+- a worker that reports nothing still returns what it changed, which is the failure the
+  requirement was written for.
+
+Regression scope run green: the four delegation workerd suites (REQ-295, BUG-145,
+REQ-296, this one) and the node-side store/digest suites REQ-303, REQ-304 and the storage
+port reconciliation.
 
 ## Not in scope
 
