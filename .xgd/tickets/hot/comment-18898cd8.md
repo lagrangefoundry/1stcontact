@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T22:30:06.203145+00:00'
+updated_at: '2026-09-28T22:39:01.383911+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -227,5 +227,50 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="567adefb-408f-4501-82e5-ea0a9108831c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T22:38:59.080943+00:00" -->
+#### Claude
+All touched suites pass (only the two known pre-existing failures remain). Committing the merge:
+
+Merge committed. Now the ticket body can be updated:
+
+The merge commit carries substantive work (the REQ-342 rebase), and `fields.commits` must list only cherry-pickable non-merge commits — otherwise that work is invisible to reconcile and reads as drift. Splitting it:
+
+The amend landed on a ticket-store commit rather than the merge (xgd had committed ticket files on top). Restoring the full state and straightening the history:
+
+HEAD is now the merge itself, so the split is cleanly available. Doing it properly:
+
+Both parents preserved. Now the extras as an ordinary commit:
+
+Only the known pre-existing failure. Gating the ticket to `free_coded` with both non-merge commits:
+
+The gate recorded a ticket-store commit instead of my second code commit — `git rev-parse HEAD` had moved under me. Correcting `fields.commits`:
+
+I pasted a fabricated full SHA for that commit. Getting the real one:
+
+All three recorded SHAs are single-parent, ancestors of HEAD, and both code commits carry `[FREE-CODED]`. Final verification in the main checkout:
+
+REQ-343 is free-coded and landed on `xgd-working`. Status `free_coded`, version `0.2.400`, branch merged and cleaned, lock released, working tree clean.
+
+**What shipped.** `delegation.json` gained `primary_writes` beside `enabled`, shipping `false` as you asked. The consultant keeps every read, measurement and camera, holds no L1 write group, and commissions construction instead. `true` plus a redeploy puts its hands back — one value, not a revert.
+
+The four properties that make it a flip-back rather than a deletion:
+
+- **`enabled` dominates, structurally.** The narrowing is applied at the same non-null runtime that composes `delegate`, so the switch off *and* the switch on with no worker bound both restore the full grant. There is no reachable setting where it can neither write nor delegate.
+- **The withheld set is derived** from each group's declared `effect`, so `instances.json` still states the maximum authority and nothing records what was taken away. A write group added upstream is withheld with no edit.
+- **Absent reads as `false`,** matching the shipped document and the code default — one rule in three places.
+- **The prose follows the key in both tiers** — the priming framing and REQ-342's per-turn standing line.
+
+**Two things worth your attention.**
+
+REQ-342 landed while I was working, so I rebased onto it rather than around it: its "Commissioning construction" opening became the shipped framing, and I wrote the choosing framing for the flip-back. That also forced work your original scope didn't anticipate — gating REQ-342's per-turn reminder on the same key. A tail saying "construction is commissioned, not performed", re-sent every turn to a consultant whose write groups are back, would have made the rollback incomplete in the one place it's paid for most.
+
+`DrawImages` is a declared write, so `write_image` went with the rest — drawing a picture mid-conversation is now a worker's job. I flagged this before implementing and you didn't rule on it, so I took the derivation as designed. The exception is a small change if you want it, but it costs the derivation its main virtue.
+
+**Failures I did not cause**, each confirmed by re-running with my source stashed: `REQ-295_a_worker_that_never_reported…` and `REQ-296_a_worker_is_guarded_against_its_own_smaller_window` — both "the worker made two requests, not one", one root cause that deserves its own ticket; `AC1058` (expects no `Delegate` in the offered set); and a batch of environment-dependent ones in a fresh worktree (BUG-48, BUG-124, BUG-134, REQ-180, REQ-273, req51, req101, bug32, font-provenance, BUG-49, BUG-64, REQ-185, AC977, AC1293).
+
+One process note: the gate initially recorded a ticket-store commit in `fields.commits` because `xgd ticket update` had committed under me and `git rev-parse HEAD` had moved. I corrected it — all three listed SHAs are now single-parent and ancestors of HEAD, which is what reconcile needs.
 
 <!-- xgd-chat-end -->
