@@ -37,6 +37,12 @@ import type {
   l1KeyframeSchema,
   l1LayoutKeyframeSchema,
   l1LayoutModeSchema,
+  l1AnimateDirectionSchema,
+  l1AnimateStopSchema,
+  l1AnimateTrackSchema,
+  l1AnimateTriggerSchema,
+  l1AnimationSchema,
+  l1FrameTrackSchema,
   l1MaskSchema,
   l1MotionSchema,
   l1NodeSchema,
@@ -148,6 +154,17 @@ export type L1ScrollStop = z.infer<typeof l1ScrollStopSchema>
 export type L1ScrollTrack = z.infer<typeof l1ScrollTrackSchema>
 // REQ-329 — a node's whole scroll motion: one track, or two-or-more composed.
 export type L1ScrollMotion = z.infer<typeof l1ScrollMotionSchema>
+// REQ-335 — the CLOCK: a looping, sequenced track, aimable at a drawing's part.
+export type L1AnimateTrigger = z.infer<typeof l1AnimateTriggerSchema>
+export type L1AnimateDirection = z.infer<typeof l1AnimateDirectionSchema>
+export type L1AnimateStop = z.infer<typeof l1AnimateStopSchema>
+export type L1AnimateTrack = z.infer<typeof l1AnimateTrackSchema>
+// REQ-335 — the frame strip's own track kind: which frame is showing, stepped.
+export type L1FrameTrack = z.infer<typeof l1FrameTrackSchema>
+// REQ-335 — either kind of timed track, which is what a composed list holds.
+export type L1TimedTrack = L1AnimateTrack | L1FrameTrack
+// REQ-335 — a node's whole timed motion: one track, or two-or-more composed.
+export type L1Animation = z.infer<typeof l1AnimationSchema>
 export type L1Motion = z.infer<typeof l1MotionSchema>
 export type L1FocusRing = z.infer<typeof l1FocusRingSchema>
 export type L1HoverState = z.infer<typeof l1HoverStateSchema>

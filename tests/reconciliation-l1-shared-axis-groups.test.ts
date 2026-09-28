@@ -90,6 +90,24 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
       { at: 1, scale: 1.08 },
     ],
   },
+  // REQ-335 — the CLOCK, the third driver. Sampled as the SINGLE-track object
+  // form for `scrollTrack`'s reason: the list form is a union alternative, so a
+  // kind that admits one admits the other, and the object is what the "unknown key
+  // inside the group is refused" half of the sweep needs to be able to spread into.
+  // It ROTATES rather than scales, because this sweep also puts every group on ONE
+  // node at once and `scrollTrack`'s sample already animates `scale` — two motions
+  // claiming one property is the contest REQ-329 refuses, and the refusal would be
+  // correct. `rotate` is the independent property REQ-335 added, claimed by nothing
+  // else here.
+  animate: {
+    durationMs: 4000,
+    iterations: 'infinite',
+    direction: 'alternate',
+    stops: [
+      { at: 0, rotateDeg: -1 },
+      { at: 1, rotateDeg: 1 },
+    ],
+  },
   // BUG-112 — the declared stacking intent. A scalar rather than an object bag,
   // and `true` is its only legal value, so the "unknown key inside the group is
   // refused" half of the sweep below holds for it the same way: anything that is

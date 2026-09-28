@@ -22,6 +22,10 @@
  * is what the one exclusivity rule in the envelope is enforced from.
  */
 import type {
+  L1AnimateTrack,
+  L1Animation,
+  L1FrameTrack,
+  L1TimedTrack,
   L1Entrance,
   L1Interaction,
   L1Reveal,
@@ -43,13 +47,14 @@ export type L1EntranceProperty = 'opacity' | 'translate'
 /**
  * REQ-329 — every CSS property any of a node's motions can move.
  *
- * The entrance's two plus the independent `scale` a scroll track drives. A hover
- * adds nothing to this list even though it moves: its offsets and its scale
- * compile to `transform`, which is a *different* property from `translate` and
- * `scale` and composes with them natively — which is exactly why the renderer
- * chose the independent properties in the first place.
+ * The entrance's two plus the independent `scale` a scroll track drives, plus the
+ * independent `rotate` REQ-335's timed track adds. A hover adds nothing to this
+ * list even though it moves: its offsets and its scale compile to `transform`,
+ * which is a *different* property from `translate` / `scale` / `rotate` and
+ * composes with them natively — which is exactly why the renderer chose the
+ * independent properties in the first place.
  */
-export type L1MotionProperty = L1EntranceProperty | 'scale'
+export type L1MotionProperty = L1EntranceProperty | 'scale' | 'rotate'
 
 /** One behaviour of an entrance, paired with what it will actually move. */
 export interface L1EntranceStep {
@@ -124,10 +129,90 @@ export function l1ScrollTrackProperties(track: L1ScrollTrack): readonly L1Motion
   return properties
 }
 
+/**
+ * REQ-335 — a node's timed motion read as an ordered list of tracks.
+ *
+ * The single-object case is the one-track list, read the same way, for the reason
+ * {@link l1EntranceSteps} gives: one reading means the single form cannot drift
+ * away from the composed form as either gains an axis.
+ */
+export function l1AnimateTracks(motion: L1Animation): readonly L1TimedTrack[] {
+  return Array.isArray(motion) ? motion : [motion]
+}
+
+/**
+ * REQ-335 — is this timed track the FRAME-STEPPING kind?
+ *
+ * The one place the two kinds are told apart, so the validator, the claim model
+ * and the renderer all read the discriminant the same way. Asked of `frames`
+ * rather than of `stops`, because `frames` is what a frame track cannot be written
+ * without — and both object schemas are `.strict()`, so no track can carry both.
+ */
+export function l1IsFrameTrack(track: L1TimedTrack): track is L1FrameTrack {
+  return (track as L1FrameTrack).frames !== undefined
+}
+
+/**
+ * REQ-335 — **the element a frame track moves, spelled as a claim target.**
+ *
+ * A frame track does not move the node: it moves the picture INSIDE the node's
+ * window, which is a different element and therefore contests nothing the node's
+ * own entrance, scroll track or hover states claim. Two frame tracks on one node
+ * do contest — they would both drive that one element's `translate` — and this is
+ * the key that makes the existing exclusivity rule say so without a second rule.
+ *
+ * It cannot be mistaken for a part `id`, because `parts` and `frames` are
+ * exclusive on a node ({@link L1_STRUCTURAL_RULES.partsAndFramesExclusive}): a node
+ * with a frame track has no parts to name at all.
+ */
+export const L1_FRAME_TARGET = '\u0000frames'
+
+/**
+ * The properties one timed track animates, in the order the renderer emits its
+ * keyframe declarations.
+ *
+ * Claimed where ANY stop names it, on {@link l1ScrollTrackProperties}' terms and
+ * for its reason: the browser interpolates a property named anywhere in the block
+ * across the whole of it, and a value equal to the target's resting one is still a
+ * claim because the animation owns the property for the length of the cycle.
+ *
+ * `translateXPct` and `translateYPct` are ONE claim, not two. They are two axes of
+ * the single `translate` property, so a track naming both emits one declaration —
+ * and two tracks that each name only one of them would still clobber each other,
+ * which is exactly what the claim is for.
+ */
+export function l1AnimateTrackProperties(track: L1TimedTrack): readonly L1MotionProperty[] {
+  // A frame track steps the strip by translating it, so `translate` is exactly what
+  // it claims — on its own target, which is why it never contests the node's own.
+  if (l1IsFrameTrack(track)) return ['translate']
+  const properties: L1MotionProperty[] = []
+  if (track.stops.some((s) => s.opacity !== undefined)) properties.push('opacity')
+  if (track.stops.some((s) => s.translateXPct !== undefined || s.translateYPct !== undefined)) {
+    properties.push('translate')
+  }
+  if (track.stops.some((s) => s.scale !== undefined)) properties.push('scale')
+  if (track.stops.some((s) => s.rotateDeg !== undefined)) properties.push('rotate')
+  return properties
+}
+
 /** One motion's claim on one CSS property. */
 export interface L1MotionClaim {
   /** The property this motion moves. */
   readonly property: L1MotionProperty
+  /**
+   * REQ-335 — **WHICH ELEMENT it moves that property on.**
+   *
+   * `undefined` is the node itself, which is every motion that predates REQ-335.
+   * A string is the `id` of a part inside the node's inlined drawing.
+   *
+   * This is what keeps the exclusivity rule from refusing the composition the
+   * whole of REQ-335 exists to allow. Two tracks that both animate `rotate` are a
+   * clobber when they are aimed at the same element and are the ENTIRE POINT when
+   * one turns the left arm and the other the right — the arms move while the
+   * parchment does not. A rule keyed on the property alone cannot tell those two
+   * apart, so it would have to refuse both.
+   */
+  readonly target?: string
   /**
    * Where the claim was authored, as a path fragment relative to the node —
    * `reveal`, `reveal/1`, `scrollTrack`, `scrollTrack/0`, `interaction/hover`.
@@ -159,14 +244,19 @@ export interface L1MotionClaim {
  *
  * Interaction states claim `opacity` and nothing else. Their motion is a
  * `transform`, which is a different property from the independent `translate` /
- * `scale` a scroll track drives and composes with them natively; their paint
- * deltas are properties no other motion here touches.
+ * `scale` / `rotate` a scroll or timed track drives and composes with them
+ * natively; their paint deltas are properties no other motion here touches.
+ *
+ * REQ-335 — the timed tracks come last, and each claims on ITS OWN TARGET. A
+ * part-scoped track therefore never contests the node's own entrance or scroll
+ * track, because they move different elements; two tracks on the same part do.
  */
 export function l1MotionClaims(
   node: Readonly<{
     reveal?: L1Entrance
     scrollTrack?: L1ScrollMotion
     interaction?: L1Interaction
+    animate?: L1Animation
   }>,
 ): readonly L1MotionClaim[] {
   const claims: L1MotionClaim[] = []
@@ -193,6 +283,17 @@ export function l1MotionClaims(
     if (node.interaction?.[state]?.opacity !== undefined) {
       claims.push({ property: 'opacity', at: `interaction/${state}`, animated: false })
     }
+  }
+
+  if (node.animate) {
+    const composed = Array.isArray(node.animate)
+    l1AnimateTracks(node.animate).forEach((track, index) => {
+      const at = composed ? `animate/${index}` : 'animate'
+      const target = l1IsFrameTrack(track) ? L1_FRAME_TARGET : track.part
+      for (const property of l1AnimateTrackProperties(track)) {
+        claims.push({ property, at, animated: true, target })
+      }
+    })
   }
 
   return claims
