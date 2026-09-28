@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T17:25:11.519655+00:00'
+updated_at: '2026-09-28T18:52:24.887600+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -438,5 +438,11 @@ Now the validator rules:
 Now the UATs for frame-stepping:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="abfec078-a00e-46af-b916-954678542e82-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T18:52:22.341677+00:00" -->
+#### You
+Yeah I think the frame stepping is important - can you do that?
 
 <!-- xgd-chat-end -->
