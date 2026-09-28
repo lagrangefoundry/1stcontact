@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:58:08.626532+00:00'
+updated_at: '2026-09-28T03:59:25.777216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5172,5 +5172,39 @@ Sure bobs stop can be via a card - that's fine. The button on the card can look 
 **Queue everything while Alice is busy — yes, with one clarification.** Queued *for her*, not withheld from the room. Bob answers his part immediately; the queue is Alice's mailbox, not a freeze on the conversation. I assume that's what you meant, but it's the difference between a working group chat and a product that goes dead for nine minutes. <-- correct
 
 **It must never be silent.** A message that queues invisibly is indistinguishable from one that was dropped — which is exactly BUG-122's current symptom. So Bob acknowledges receipt on arrival: *"I've put that to her — she's mid-render on the type."* ~1s, no judgement, and it converts a nine-minute silence into a deferral the client can see and override. <-- possibly but a little redundant in general - its a group chat, it already has a message queue feature - messages show up (I think on a pale background) when they are queued. It questions are directed at Alice I'm not sure that bob needs to respond - perhaps to the first one, to explain how it works, but not after that. Bob only really needs to respond when it takes an action.
+
+<!-- xgd-turn id="0bca8711-8dc3-4a0b-a941-5de765398691-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T03:59:25.428396+00:00" -->
+#### Claude
+Your "it could be skipped" is the real weakness there. Let me check one thing first.
+
+Better than I expected — the queue is already built client-side, including the part you were worried about.
+
+`webui-chat` holds `queued[]`, paints pending bubbles with `is-pending is-queued` (your pale background), and at line 703 runs everything queued during a turn **"AS ONE"** — it coalesces. And line 718: *"Text queued while THIS turn runs is not folded into it — it is already too late."* So **your race is already resolved upstream**, with exactly the semantics I was going to argue for: coalesce into one delivery, later arrivals go to the next round.
+
+So the affordance, the coalescing and the race rule are all done. What's missing in 1stcontact is the transport — which is why the words get dropped today.
+
+**One honest correction, though: upstream's delivery point is your option (1).** It runs the batch *after* the turn ends, as a new turn. So adopting BUG-122 gives you (1) for free, and the in-turn read is a refinement on top of it, not something the framework hands you. The stale-report problem is the whole argument for paying for it — she shouldn't announce a finished homepage into a room that abandoned it four minutes ago.
+
+## Making the in-turn read not skippable
+
+You're right that a tool call Alice is merely *told* to make will sometimes not happen — that's a priming constraint, and Finding 13 measured those at 2-in-102. So don't rely on her.
+
+**Put it in the host.** The host drives the tool loop, and Alice's turn ends when she stops calling tools. So on end-of-turn with a non-empty queue, the host doesn't end the turn — it appends the queued messages and continues the loop. She gets them as *arriving messages* rather than a tool result she remembered to ask for, the cursor bookkeeping is the host's so she can't get it wrong, and it's an invariant rather than a discipline.
+
+**One consequence worth knowing about.** For the queue to land *before* her report, the report has to be a discrete act the host can order against — and it is, because in topology 2 Alice is a guest in Bob's room, so every utterance of hers is already a tool call. Ordering control falls out of the topology choice, which topology 1 wouldn't have given us.
+
+The cost is real though: **utterances-as-tool-calls pulls against token-by-token streaming**, which is a lot of why the product feels alive today. Tool arguments do stream, so it's recoverable rather than lost, but it's fiddly and it's the one implementation trade in this design I'd want looked at properly before committing.
+
+## The rest
+
+**Bob speaks only when he takes an action** — that's a better rule than my acknowledge-on-receipt, and it makes his silence informative. Conceded. With your first-time exception for teaching.
+
+**And your badge-styling point is the same move twice now.** Bob's stop-card button looking like Alice's activity badge teaches that the badge is the direct route, so the card decays into redundancy — exactly like Bob's routing line being useful for ten minutes and noise by hour two. Worth naming as a pattern: **a card that teaches its own redundancy has done its job.** It's how the client gets from "ask Bob for everything" to using the interface directly, without a tutorial.
+
+---
+
+Recorded as 14.16: the upstream queue semantics found intact, the delivery-point divergence, host-enforced in-turn delivery, and the streaming trade-off as the open implementation question.
 
 <!-- xgd-chat-end -->
