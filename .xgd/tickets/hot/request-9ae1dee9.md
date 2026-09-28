@@ -5,10 +5,10 @@ type: request
 title: The consultant is told how full its context is
 created_by: EPIC-19
 created_at: '2026-09-28T19:38:18.843706+00:00'
-updated_at: '2026-09-28T22:00:31.701717+00:00'
+updated_at: '2026-09-28T22:00:35.449103+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
