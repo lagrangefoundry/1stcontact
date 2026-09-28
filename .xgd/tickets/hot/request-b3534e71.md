@@ -5,7 +5,7 @@ type: request
 title: The consultant stops writing L1
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:31.949374+00:00'
-updated_at: '2026-09-28T20:20:00.931000+00:00'
+updated_at: '2026-09-28T22:16:38.198485+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -88,6 +88,24 @@ without recording it anywhere else.
 
 **Only the consultant narrows.** The worker's own grant is untouched, and so is every
 other role: a role that does not delegate has nothing to commission with.
+
+**It only ever removes.** The narrowing drops group names and adds none, so no
+arrangement of declarations can widen a grant through it — the same one-directional
+property the surface narrowing beside it already has.
+
+**And it refuses what it cannot read.** A surface with no declaration to hand, or a
+scope named some way other than by groups, is a start-up failure naming the surface
+rather than a scope passed through. Passing one through would keep whatever authority
+it carried because a declaration was missing, which is the one direction this must not
+fail in.
+
+**Both hosts read the key**, as both already read `enabled` — a switch only one could
+see would mean the Worker commissioned construction while the operator's own `1c chat`
+still wrote it, which is the divergence REQ-146 split the host to prevent. The
+consequence is that a suite using the CLI consultant as a HARNESS — for the tool loop,
+the change signal, session binding, a picture in a turn — installs `primary_writes:
+true` to keep its own subject testable. None of those cases is about who holds the
+write tools, and each says so where it installs it.
 
 **The prose follows the key.** `delegationMethod` already returns a template or `null` on
 one condition; it takes the second and swaps the paragraph that frames handing work over
