@@ -597,6 +597,29 @@ export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
 export const DELEGATION_METHOD_PROVIDER = 'delegation.method'
 
 /**
+ * The standing instruction to commission, said again on every turn ([[REQ-342]]).
+ *
+ * A SECOND NAME OVER A SECOND TEMPLATE, and the split is the whole point. The
+ * method above is stated once, in a tier that sits before the cache boundary and
+ * is therefore roughly 186k of prefix behind the model by the end of a sitting.
+ * Commissioning construction is STANDING behaviour, and standing behaviour needs
+ * repeating — which is why `act-rather-than-narrate`, one corrective line, has
+ * ridden the reminder tier all along while the longer method did not.
+ *
+ * SO THE TAIL GETS THE INSTRUCTION AND NOT THE METHOD. The reminder tier is
+ * re-assembled and delivered on every turn for the life of an engagement, so
+ * every word in it is paid for on every turn; binding the tail to
+ * {@link DELEGATION_METHOD_PROVIDER} would have been one line of configuration
+ * and would have put the whole method there instead.
+ *
+ * NULL ON THE SAME CONDITION, for {@link delegationMethod}'s reason and with
+ * nothing added to it: a deployment that composes no delegation surface has no
+ * `delegate` tool, and a line in the tail telling it to commission would be that
+ * instruction repeated on every turn rather than merely stated once.
+ */
+export const DELEGATION_REMINDER_PROVIDER = 'delegation.reminder'
+
+/**
  * The seed entry in the framework's product tier, rebound to this host's record
  * ([[REQ-283]]).
  *
@@ -712,18 +735,21 @@ export function registerSiteProviders(
     /**
      * Whether this deployment composes the delegation surface ([[REQ-295]]).
      *
-     * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entry it fills is
-     * consultant-tier and is exactly the kind of fact this function already
+     * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entries it fills
+     * are consultant-tier and are exactly the kind of fact this function already
      * binds: `site.manual` says what this session can do, and this says what it
      * should do with one of those tools. Both of the consultant's declared
-     * orders name the entry unconditionally, so the name is registered either
-     * way; what it RENDERS is the switch.
+     * orders name the method entry unconditionally and the reminder tier names
+     * the tail entry, so both names are registered either way; what they RENDER
+     * is the switch.
      *
      * A VALUE AND NOT A CALLBACK, unlike the two signals beside it. Which
      * surfaces a deployment composes is settled when the manager is built and
-     * cannot change under a running conversation — and the entry sits in the
-     * CACHED prefix, so a provider that could answer differently per turn would
-     * be a volatile entry in a stable tier.
+     * cannot change under a running conversation — and the method entry sits in
+     * the CACHED prefix, so a provider that could answer differently per turn
+     * would be a volatile entry in a stable tier. The tail entry is volatile by
+     * construction and still reads the same value, because the question it asks
+     * is the same one and has the same answer for the life of the manager.
      *
      * DEFAULTS TO OFF, which is the safe direction: a host that forgot it sends
      * the prompt this repository sent before delegation existed.
@@ -734,6 +760,13 @@ export function registerSiteProviders(
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(DELEGATION_METHOD_PROVIDER, async () =>
     delegationMethod(binding.delegating === true),
+  )
+  // [[REQ-342]] — THE SAME FACT, BOUND TWICE, because the method is stated in the
+  // cached prefix and repeated in the per-turn tail. One binding site and one
+  // flag, so the two entries cannot come to disagree about whether this
+  // deployment commissions anything.
+  providers.register(DELEGATION_REMINDER_PROVIDER, async () =>
+    delegationReminder(binding.delegating === true),
   )
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
@@ -1218,6 +1251,20 @@ export function toolTranscriptNote(): string {
  */
 export function delegationMethod(delegating: boolean): string | null {
   return delegating ? template('delegation-method') : null
+}
+
+/**
+ * The same instruction in one line, for the per-turn tail ([[REQ-342]]).
+ *
+ * THE SAME CONDITION AND A DIFFERENT TEMPLATE — see
+ * {@link DELEGATION_REMINDER_PROVIDER} for why the pair is two names rather than
+ * one. Both halves render on the same boolean because they are the same fact
+ * about the deployment: a host that commissions says both, a host that does not
+ * says neither, and there is no state in which one without the other would be
+ * true.
+ */
+export function delegationReminder(delegating: boolean): string | null {
+  return delegating ? template('delegation-reminder') : null
 }
 
 /**
