@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T04:11:32.494897+00:00'
+updated_at: '2026-09-28T04:14:22.627870+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5217,5 +5217,67 @@ Alice calls the tool to check the queue
 Alice gives the final tool call to post her report and respond to any messages she missed
 
 I like this its clean - it has the disadvantage that any of these tool calls could be missed but that's the cost of the group chat. We cannot insert anything into any of these turns (there is no interjection) so there is no mechanical way to help Alice out - if it stops without giving a report we can poke it "Please complete" but I think that's it.
+
+<!-- xgd-turn id="fbf1c89c-b3ac-42ee-bd3e-3467a5126c6d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T04:14:22.287632+00:00" -->
+#### Claude
+Let me check what our own adapter actually does, because I think there's a distinction being missed about what "a turn" is.
+
+There's a `group_surface.json` in the framework. Let me look at both that and the API loop.
+
+That changes things. The framework has already built the room.
+
+You're right that there's no interjection, and right about the cost of a missed tool call. But "a turn" is doing two jobs in that sentence — and while checking, I found that the framework has already built the room.
+
+## The mechanical bit first
+
+**One API request is uninjectable. A product-level turn is not one request.** Alice's ten minutes is a host-driven loop: model returns tool calls → host runs them → host appends results → next request. The host authors a message at *every* boundary, so anything we want Alice to see can ride on the next tool result. That isn't interjection; it's the ordinary mechanism.
+
+And the framework already does precisely this. From the room's own overview: *"You will be **told** how many contributions have appeared since you last looked and the cursor to read from — a count and a number, not the contributions themselves."*
+
+So your step 2 isn't a tool call Alice has to remember — **she's told there's something new, and `pull` is her choosing to spend context on it.** A pointer, not content, which is the same design as the page digest and `session-delta`. Your three-step model is right; the framework just hardens the middle step.
+
+## The room exists: `group_surface.json`, "The room"
+
+Two operations — `pull` (read from a cursor) and `say` (post one contribution). 1stcontact declares neither. Its overview reads like a transcript of this conversation:
+
+> *"You do not deliberate in the room. You think here, in your own session, with your own context and your own tools — and then you post to the room the one contribution you want to make. The room holds contributions; it does not hold anyone's reasoning, including yours."*
+
+That's the room/workshop split. And it already settles, with reasons:
+
+- **`@` semantics** — *"visibility is broadcast, response is directed."* You may address one participant and the next turn is theirs.
+- **The loop hazard** — agents cannot set turn order or summon a reply. *"Between turns you are not in the room at all."*
+- **The operator is a participant**, not an audience.
+- **Append-only, no retraction** — *"a record you can rewrite is not one."* Corrections are later contributions.
+- **Membership is the operator's**, outside the agents' reach.
+- **Rooms are homed on a ticket.**
+
+## And it has a chair — with our rationale, independently
+
+From `group.js`, REQ-154 §3: the recommended arrangement is a chair that is **"a session with no domain in the room"**, because *"a chair with a stake in the subject routes toward its own domain and summarises toward its own conclusions."*
+
+That is Bob, and that is the argument we spent four turns building for why Bob must hold no design opinion.
+
+Two more that land on decisions we already made:
+
+- **REQ-158 removed the chair's gate.** It calls who speaks next but *"is no longer a gate on who may speak."* Exactly the "Bob must not be able to withhold Alice" property, decided upstream for the same reason.
+- **`pass` versus `skip`** — a pass is the member's own "nothing to add"; a skip is the room reporting it couldn't reach someone. *"Putting a skip in the member's mouth would be a lie."* And a pass **doesn't advance `pointer`**, so it costs the other members nothing to read. That's Bob's silence move, built, with the context cost already solved.
+
+## Three places we'd have to choose, not inherit
+
+**The framework's room is topology 3, not 2.** The room is nobody's context; each participant pulls. So last turn's "Bob as host" isn't what adoption would give us.
+
+**Bob would have a private session by construction.** Your transparency property — every Bob utterance in the transcript, no self-talk — becomes a *discipline* rather than a structural guarantee. Recoverable (Bob's session holds only the room plus plan state), but it's no longer free.
+
+**The room looks round-based, and our client is continuously present.** "The next turn will be theirs," "end the round," "between turns you are not in the room at all" — that reads as a bounded deliberation among consulted experts, not an open-ended conversation with a human typing whenever they like. **That's the one thing I'd want checked before assuming adoption**, because if the turn model is round-structured, our queue/interrupt design may be solving a problem the room solves differently — or may not fit it at all.
+
+## On missed tool calls
+
+Conceded, and the framework agrees with you rather than with my "refuse the report" idea: no retraction, corrections are later contributions. So a stale report degrades into a follow-up rather than needing prevention. Your "poke it to complete" is also already the shape of BUG-121's unaccounted-turn handling.
+
+---
+
+Recorded as 14.17 — and this is the seventh built-and-unconsumed framework capability this epic has found, but the first one that implements most of a design we'd derived from scratch. Worth reading `group_surface.json` and `group.js` yourself before we go further; the round-versus-continuous question is the one that decides whether we adopt or diverge.
 
 <!-- xgd-chat-end -->
