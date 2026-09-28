@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T22:03:17.498515+00:00'
+updated_at: '2026-09-28T22:13:30.915468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5605,5 +5605,13 @@ What changed:
 - **What survives for cost** is the price of the call at the point of the call — REQ-284 already shipped that.
 
 Epic 14.18/14.19 record both. Live ticket set is now six: LF REQ-180 (channel) → LF REQ-181 (meter) → LF REQ-182 (cursor) → REQ-345 (queue) → REQ-346 (visibility) → LF REQ-183 (room, gated).
+
+<!-- xgd-turn id="05c7973e-8431-46d3-9328-b021938a7a95-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T22:13:29.322475+00:00" -->
+#### You
+ok so I am talking with EPIC-2 in LF we are going to "fix the room" to make this work, it seems like the right solution.
+
+Can you check that our REQ's are consistent with that, and remind me what our current set of REQ's looks like?
 
 <!-- xgd-chat-end -->
