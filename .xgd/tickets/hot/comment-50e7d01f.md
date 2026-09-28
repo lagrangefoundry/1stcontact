@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-27T23:24:20.670520+00:00'
+updated_at: '2026-09-28T00:08:17.041752+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2489,5 +2489,11 @@ Right not to put model-facing prose in `api_tools` — but the *right place* for
 Net: proceed as recommended. The one thing I'd reorder inside BUG-71 is to treat **item 3 (the account hook) as the priority** — a skipped nudge or an exhausted run plus a trusted, checkable account is still a recoverable delegation, which is what DOC-60 gates REQ-343 on.
 
 Want me to record these decisions on BUG-71? You said you'd write the agreed decisions into the body, so I've deliberately not touched it to avoid us both writing the same section.
+
+<!-- xgd-turn id="8f04282e-20bb-474f-94fc-e4d73afd1f39-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T00:08:16.703739+00:00" -->
+#### You
+Can you add those decisions to the ticket please?
 
 <!-- xgd-chat-end -->
