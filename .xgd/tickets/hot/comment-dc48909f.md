@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-28T04:27:15.433235+00:00'
+updated_at: '2026-09-28T04:31:10.620325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -365,5 +365,58 @@ Shall I strip the part-addressing and put that effort into frame-stepping instea
 <!-- xgd-chat role="user" ts="2026-09-28T04:27:15.125799+00:00" -->
 #### You
 **The drawing must have been authored with the parts named.** You cannot pick out "the arm" after the fact. That's precisely why this can't work on a photograph or a PNG: there's nothing in the file that says where the arm is or that it's a distinct thing. <-- ah but I could take the image, cut out a portion of it, put that portion on a transparent background (assuming its not a rectangle but, lets say and arm) and L1 could draw that arm over the top of the one that is already there and move/rotate it?
+
+<!-- xgd-turn id="c55062d9-e5dd-47d8-ad33-6023269513ca-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T04:31:09.580331+00:00" -->
+#### Claude
+That's a genuinely good idea, and I think it's better than what I built. Let me check one thing that decides how far it goes.
+
+Let me prove it rather than assert it — a cut-out overlay, animated, with what's already built:
+
+Yes. And it's better than what I built — it works on photographs, which part-addressing never could.
+
+I just proved the mechanism: a second image node, showing a window onto the *same* file, rocking on hover, valid and rendering. **It needs nothing new built** — it's the whole-element looping I already have, pointed at an overlay.
+
+## The catch
+
+**The original arm is still painted in the picture underneath.** Move your cut-out and you see two arms — one moving, one static. Two ways out:
+
+- **Small movements: no problem.** Cut the arm out slightly generously, and the overlay's ink covers the original's ink at every point in the motion. A sway, a small rotation, a nudge — all fine with one extra file and no erasing.
+- **Large movements: you need the base plate patched.** A version of the illustration with the arm erased and the gap filled in. For a line drawing on flat parchment that's easy. For a detailed photograph it's real retouching work.
+
+So the size of the movement decides whether this costs you one asset or two-plus-retouching.
+
+## Three tiers, cheapest first
+
+**1. A rectangular window onto the existing file — no new assets at all.** Point a second node at the same image, size it to the region, position the window over that part. This is what I just proved. Your own example of *"a block diagram that assembles itself element by element"* is exactly this: diagram elements are rectangles.
+
+**2. A simple shape — still no new assets.** Same trick, plus an existing edge-shaping feature that gives circles, ellipses, and soft blobs. Your *"portrait whose eyes move"* is two small ellipse windows.
+
+**3. An arbitrary silhouette — one new file.** The arm. There's no way to clip to a free-form outline, so the transparency has to be in the file, as you described.
+
+Tiers 1 and 2 are free today. Only tier 3 needs someone to cut anything out.
+
+## Your idea fixes the problem I flagged
+
+Last turn I said you can't choose the pivot — a part rotates about its own centre, so an arm swings around its middle rather than a shoulder.
+
+With a cut-out that goes away. **The rotation centre is the centre of the file, and you choose the file's bounds.** Pad the cut-out with transparency on the shoulder side until its centre sits on the joint, and it pivots at the joint. Free, and it means your lever can actually lift from its fulcrum.
+
+## And it degrades perfectly
+
+At rest the overlay sits exactly on top of the original. For a visitor who's asked for no animation, or an older browser, the page is pixel-identical to the static illustration. That's the best fallback behaviour of any option we've discussed — better than the drawing route, where a stopped animation may sit mid-pose.
+
+---
+
+## What I think this settles
+
+**Cut the part-addressing.** Your approach reaches everything it reached, plus rasters, plus a controllable pivot, and needs no new code. Two mechanisms for one job is the maintenance cost you flagged at the start.
+
+**And a line in the ticket is now wrong.** I wrote that raster decomposition is a non-goal with no path to it. That was right about *decomposing* a PNG and wrong about the goal: you don't decompose it, you compose over it. I'll correct that.
+
+So the plan reduces to: keep the looping/trigger primitive that's built and tested, delete the part-addressing, and write up the overlay technique as the supported way to make an illustration perform.
+
+**One open question, and it's the same one as before:** does frame-stepping still matter to you? The overlay technique covers move/rotate/scale/fade of pieces. It does *not* cover an animation someone has drawn frame by frame. If you want that too, I still need to know whether we can produce a strip of frames or whether the operator supplies the file.
 
 <!-- xgd-chat-end -->
