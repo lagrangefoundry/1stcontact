@@ -5,16 +5,21 @@ type: request
 title: The builder role's grant covers what briefs actually ask for
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:22.341849+00:00'
-updated_at: '2026-09-28T04:49:42.983611+00:00'
+updated_at: '2026-09-28T04:51:00.715335+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e06115e7
+  commits:
+  - working_sha: 43743738747cf17d01ff8b2f13cb7ec7f28b89e1
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.396
 ---
 
 ## Why
