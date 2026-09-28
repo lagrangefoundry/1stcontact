@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-27T21:29:03.288050+00:00'
+updated_at: '2026-09-28T16:56:09.923271+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -1633,5 +1633,145 @@ exchanges rather than fewer. This needs a turn-taking rule at the UX level and n
 a spend cap — e.g. a user message opens a round, Bob may challenge once per Alice turn,
 and Alice's answer closes it. Unbounded agent-to-agent chatter in front of a waiting
 client is the failure the client actually sees.
+
+Nothing filed.
+
+
+### 14.10 Decisions carried from conversation (2026-09-26 → 2026-09-28)
+
+Settled across the turns between 14.9 and here, and recorded because the body is the
+durable record and these were argued once:
+
+- **Topology 2 — Alice is a guest in Bob's room.** Bob (the cheap model) holds the
+  transcript; Alice (the expensive model) posts into it. The room is therefore not a new
+  object: it is the `chat_transcript` comment that already exists in production, reload-safe,
+  already carrying the ledger. The framework's `group_surface.json` / `group.js` room is
+  **topology 3** (the room is nobody's context; every member pulls) and is not adopted —
+  it generalises turn-order, nomination, membership and rounds over an arbitrary roster,
+  and we have three fixed participants with a human who talks whenever he likes.
+- **Two conclusions worth stealing from that component rather than its code**: a `pass`
+  must not advance the pointer (so "nothing from me" costs the others no context), and the
+  chair must hold **no domain in the room** — REQ-154 §3's reason being that a chair with a
+  stake routes toward its own domain and summarises toward its own conclusions. That is an
+  independent arrival at why Bob holds no design opinion.
+- **Alice posts when the shared structure changes**, not on ambient progress: a divergence
+  from the plan, or a milestone. A milestone *is* a write to task state, so Bob's plan card
+  ticks over during Alice's turn from the same structure he reports from — no second surface.
+  Milestones are worth posting only where the client could still usefully redirect the
+  remaining work; one on the last task is nearly pointless.
+- **The queue is Alice's mailbox, not a freeze on the room.** Bob answers his own part
+  immediately. Bob speaks only when he *takes an action* (with a one-time exception for
+  teaching the mechanism) — which makes his silence informative.
+- **The queue affordance is already built client-side, upstream.** `webui-chat` holds
+  `queued[]`, paints pending bubbles `is-pending is-queued`, runs everything queued during a
+  turn **as one** (it coalesces), and rules that text queued while *this* turn runs is "already
+  too late" and belongs to the next round. Missing in 1stcontact is only the transport, which
+  is why the words are dropped today (BUG-122).
+- **Delivery point**: upstream delivers the batch *after* the turn as a new turn. That is
+  wrong for us, because Alice would announce a finished homepage into a room that abandoned it
+  four minutes ago. The queue must reach her **before her report** — see 14.11.
+- **Interrupt asymmetry.** Build an activity indicator for both workers so the client can see
+  there are two, but make interrupt meaningful only for Alice — Bob's ~1s turns flicker and
+  interrupting him saves nothing. Her indicator carries *what* she is doing, sourced from her
+  own milestone posts rather than from a spinner.
+- **Bob's stop tool: fire on an imperative, offer otherwise.** "Bob, stop her" fires; anything
+  weaker becomes a card with a button. Safe to give the cheap model for the reason 14.13 gave
+  for withholding suppression from it: a wrong interrupt is loud and cheap (Alice restarts), a
+  wrong suppression is silent and the consultation never happened. Same principle, opposite
+  verdict. Style the card's button as Alice's activity badge, so the client learns the badge is
+  the direct route — **a card that teaches its own redundancy has done its job.**
+
+### 14.11 The tool loop IS the interjection channel — `inject: false` describes the wire, not the turn
+
+The operator's position through 14.10 was that there is no mechanical way to help Alice
+mid-turn: an API request is request/response with no channel in, so a ten-minute turn is
+unreachable. That is true of a *request* and false of a *turn*.
+
+`runToolLoop` (`components/ai/js/src/backends/api_tools.js:845`) is a host-driven loop of up
+to `MAX_TOOL_ITERATIONS = 50` **separate API requests** per product turn — model returns tool
+calls, host runs them, host builds the next request. Only a tools-off turn is one request
+(`const maxIter = toolNames.length ? MAX_TOOL_ITERATIONS : 1`, line 822). So the host authors
+a message at ~50 boundaries inside the ten minutes, and anything we want Alice to see can ride
+the next one.
+
+**This makes `ClaudeAPIBackend`'s declared `inject: false` (DOC-21 §6) misread rather than
+wrong.** Its own comment is precise — *"There is no way to deliver text into a turn already in
+flight — a stateless endpoint has no channel for it"* — and that is about the **stream**. Read
+as a property of the turn, it is what produced this epic's "nothing can reach her" premise and
+the abort-then-resend design that followed. The flag needs splitting: no injection into a
+stream in flight; injection **between tool iterations** for free. Interjection at tool-call
+granularity is not a feature to build — it is a boundary we already cross fifty times.
+
+What it buys, exactly: delivery bounded by **her next tool call**, which during real work is
+frequent (every screenshot, every `set_l1`, every delegate returning). What it does not buy:
+interruption mid-thought. A single long delegation with no intervening call is a blind spot,
+and 50 iterations is a hard ceiling on the turn.
+
+### 14.12 The four packets — three exist, one is new, and the new one fixes a silent failure
+
+Against the operator's four requirements (2026-09-28):
+
+**(1) A hook for small notification packets — already built, and in a better place than the
+tool result.** `turnTail` (REQ-144, `api_tools.js`) delivers the per-turn volatile tiers *past*
+the entire message history, and **both** wires call it inside their per-request `_callModel`
+(`claude_api.js:271`, `chatgpt.js:144`), reading `state.volatile` / `state.reminder` at call
+time — so it already fires on every iteration of the loop, not once per turn. Three properties
+we would otherwise have had to invent:
+
+- **Ephemeral by construction.** Nothing here is written back into `state.messages`, for the
+  stated reason that a reminder which accumulated would put turn 1's stale signals in turn 3's
+  request. A queue count is exactly that kind of signal.
+- **Cache-neutral.** It sits past the last breakpoint, so a counter that changes every request
+  re-prices nothing behind it. This was REQ-144's whole point: *stable first, volatile last*
+  over the request, which is the unit the cache matches on.
+- **One placement rule for both wires**, including the Anthropic requirement that tool results
+  come at the head of the user turn — so a signal lands *after* the tool results it accompanies.
+
+Annotating the `tool_result` itself — the literal reading of "add packets to tool-use results" —
+would be strictly worse: `wire.record(state, raw, outcomes)` is what writes outcomes into
+`state.messages`, so the packet would become permanent history and be re-sent on every later
+request of a warm segment.
+
+What is genuinely missing is small and precise: **the reminder is assembled once per turn and
+then frozen.** `manager.js:841` calls `assembleReminders(role, turnCtx, …)` and line 1013 passes
+the resulting string into `send`. For a queue count to be *current* on iteration 37 it must be
+assembled per request — a thunk, or a second `signals` channel the loop evaluates per iteration.
+That is the hook. The transport under it is done.
+
+**(2) Metering — the one new thing, and it closes a failure we have already observed.** Today
+exhausting `maxIter` falls out of the `for` and yields `doneEvent`: the model is mid-plan, the
+turn simply ends, and nobody — model, host or client — is told why. That is precisely the "it
+stops without giving a report" symptom, and the operator's "poke it to complete" remedy is a
+workaround for a budget nobody published. Three currencies are already measured and none is
+disclosed to the model:
+
+- **iterations** — `iter` against `MAX_TOOL_ITERATIONS = 50`;
+- **wall-clock** — `timeout = 600`, checked at the loop head and *thrown* as an error;
+- **context occupancy** — `turnOccupancy` / per-request `usage` (REQ-143), i.e. Finding 5's
+  fuel gauge, still unshown.
+
+Warnings at 75% and 90% and a countdown from 95% convert a silent truncation into a budget she
+can plan against — at three calls left, stop working and post the report. This is the half worth
+building first, because **it is host-enforced**: the host owns the cap and can act without her
+cooperation. The queue half cannot be — she may be told and not pull — and Finding 13 measured
+priming constraints failing at 2-in-102.
+
+**(3) External visibility — the events already flow.** `toolIssueEvent` (REQ-175: issued
+*before* the call runs, precisely so an interrupted turn is distinguishable from one interrupted
+just before the call) and `toolEvent` are already emitted as control-class events on this path.
+A progress bar is a consumer of events that exist: the denominator from (2)'s meter, the label
+from Alice's own milestone posts (14.10) rather than a spinner.
+
+**(4) `pull` is one tool over a cursor.** "Fetch my queued messages" and "read another chat" are
+two cursors over one operation — which is REQ-160 / `session-delta`'s design already recorded at
+14.8: the notification carries *a count and a number, not the contributions themselves*, and
+spending context on the content is the agent's own choice. So (1) and (4) are the two halves of a
+single primitive, not two features: the packet says *2 messages, from cursor 41*; `pull(41)` is
+what costs tokens.
+
+**Where the numbering lands**: (1) and (4) are one primitive whose transport exists and whose
+assembly point needs widening from per-turn to per-request. (3) is a client consumer of existing
+events. (2) is new, is host-enforced, and is the one that fixes an observed silent failure.
+Build (2) first.
 
 Nothing filed.
