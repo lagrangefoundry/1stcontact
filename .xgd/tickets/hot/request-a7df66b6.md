@@ -14,6 +14,7 @@ fields:
   priority: high
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-015c4ce0
 ---
 
 ## Why
