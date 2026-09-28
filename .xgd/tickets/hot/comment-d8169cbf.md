@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T18:59:47.970399+00:00'
+updated_at: '2026-09-28T19:07:55.423899+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5431,5 +5431,61 @@ Can you help me start pulling this together as a list of requirements please? A 
 I do want to take a sidebar though on the room vs Bob's chat context.
 
 It is desirable to get the room working. Can we talk about the tradeoffs here - lets set aside the issues with the current implementation - what is the best design?
+
+<!-- xgd-turn id="8a655305-a3de-4ee8-8497-08a30d51074e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T19:07:54.664363+00:00" -->
+#### Claude
+Four answers.
+
+## Yes, every sub-turn — and that's the price of it existing at all
+
+REQ-144's own doc says so deliberately: *"Applied on every request of a turn, not only its first."* But the reason it isn't waste is that **nothing from `turnTail` is written back into `state.messages`** — on iteration 2, iteration 1's tail is gone. So the choice isn't *resend or send once*, it's **resend or absent**. Ephemerality and repetition are the same property, and that property is what makes a stale "1 message queued" impossible.
+
+Measured: the consultant's nine reminders are **739 chars, ≈184 tokens**. At 50 iterations that's ≈9k uncached input tokens a turn. The number I *haven't* measured, and the one worth measuring, is `volatile` — the session summary rides the same tail and is bigger.
+
+**One correction to what I said last time:** don't make the reminder a per-request thunk. `assembleReminders` runs providers — async, some reading the corpus — and running that 50× a turn is real waste for text that can't change mid-turn. Two channels with different clocks: standing guidance assembled per turn, **signals** assembled per request from in-memory counters only. A quiet loop then costs zero bytes, because `systemBlock` already drops empty parts without a separator.
+
+## You're right — and I was wrong on the gauge
+
+`budgetProvider` (LF REQ-169, `defaults.js`) is **built and shipped**: renders occupancy, window, percentage, room left; returns `null` when nothing's measured so the entry vanishes. Its doc says it in your words — *"It arrives unasked, which is the point… a session that thought to check how full it was would not have needed to."* And `manager.js:861` puts `occupancyTokens` + `contextWindow` into the turn context *before* the turn runs.
+
+`priming.json` names it in **`settings_reminders` and not in `reminders`.** The settings assistant has a fuel gauge; the site consultant — the role that asked for one — doesn't. REQ-284 doesn't close it either: its commit prices *looking* and rewrites `interrupted-turn`; no gauge entry. **One line of config.**
+
+The real gap is the loop's: `occupancyTokens` is the *previous* turn's reading, so during a 50-iteration turn the gauge is frozen at the value from before the turn that's actually filling the context. The loop already collects a `usage` per request and has `onUsage`.
+
+Also already in the ledger: REQ-286 (drop the browser quota, wrong currency), REQ-283 (ledger read + standing frame). What was never planned is **iterations and wall-clock**.
+
+## Room vs Bob's context — topology 3, and the first reason is decisive
+
+1. **Compaction is a property of a context, so a room inside one inherits it.** Bob's messages array would hold the shared record and his private working state — different lifetimes. When Bob compacts under *his* pressure, the shared record is summarised away by an operation that has nothing to do with its value.
+2. **A restart truncates it silently.** LF REQ-168 re-seeds a cold conversation from a *window*, so topology 2's room survives only as far back as the window reaches. Topology 3's room *is* the durable artifact.
+3. **The chair would own the medium** — against 14.10's no-domain rule. Every question about what the client said becomes a question about Bob's summarising.
+4. **Read rates are wildly asymmetric** (10 min / 1 s / irregular) and a cursor is what absorbs that — including Alice reading *mid-turn*, which is the whole interjection mechanism. In topology 2 there's no cursor to be at.
+
+And the client is **already** a topology-3 reader — the browser scrolls a durable transcript it doesn't own. Topology 2 would make the two halves of the product disagree about what the room is.
+
+Honest costs: **coherence stops being free** (a delta-reader has no standing summary — so this *requires* REQ-283's standing frame; no frame, no room), and **the fast member pays latency** if he must pull before answering. The fix there is that ownership and delivery are separable: **push the delta to the cheap fast member, notify-and-pull for the expensive slow one.** The generalised group component doesn't do that — one more reason to take its conclusions rather than its code.
+
+*The room is the durable transcript; membership is a cursor; ownership is nobody's; delivery is asymmetric and matched to each member's cost.*
+
+## Requirements, in dependency order
+
+| | where | what | size |
+|---|---|---|---|
+| **FC-8** | 1stcontact | Add `session-budget` to `reminders` — the consultant's missing gauge | 1 line |
+| **LF-1** | framework | Per-request `signals` channel on the tool loop (in-memory only, via `turnTail`, never recorded) | small |
+| **LF-2** | framework | Loop publishes + enforces its budget: iterations & wall-clock at 75/90%, countdown from 95%, **exhaustion becomes a delivered instruction not a silent `doneEvent`** | medium |
+| **LF-4** | framework | Split `inject` into stream vs between-tools (DOC-21 §6) | tiny, mostly doc |
+| **LF-3** | framework | Route `usages`/`onUsage` into LF-1 so the gauge moves *inside* the turn | small |
+| **LF-5** | framework | One `pull(since)` over a cursor; notification carries count + cursor only | medium |
+| **FC-9** | 1stcontact | Queue transport (BUG-122) — delivered before her report, not after the turn | medium |
+| **FC-10** | 1stcontact | Progress surface from existing `toolIssueEvent`/`toolEvent` + LF-2's denominator | medium |
+| **LF-7** | framework | Bounded standing frame — likely REQ-283 item 2, **check before filing** | ? |
+| **LF-6** | framework | Room as derived cursor, asymmetric delivery | largest; design note first |
+
+**LF-2 is the one to build first after LF-1**, because it's the only item that's useful without the model's cooperation — the host owns the cap. Everything queue-shaped can be ignored by Alice, and Finding 13 put priming constraints at 2-in-102.
+
+All of this is on the ticket as 14.13–14.16 (including the gauge correction). Want me to file FC-8 and start it — it's genuinely one line — or file the framework set first?
 
 <!-- xgd-chat-end -->
