@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T19:07:55.423899+00:00'
+updated_at: '2026-09-28T19:32:17.529954+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5487,5 +5487,11 @@ Honest costs: **coherence stops being free** (a delta-reader has no standing sum
 **LF-2 is the one to build first after LF-1**, because it's the only item that's useful without the model's cooperation — the host owns the cap. Everything queue-shaped can be ignored by Alice, and Finding 13 put priming constraints at 2-in-102.
 
 All of this is on the ticket as 14.13–14.16 (including the gauge correction). Want me to file FC-8 and start it — it's genuinely one line — or file the framework set first?
+
+<!-- xgd-turn id="f134d8ed-9b6e-43fd-8cf9-24288d564011-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T19:32:16.704253+00:00" -->
+#### You
+OK we have a design document, right? Can you bring it up to date and then create the tickets referring to it?
 
 <!-- xgd-chat-end -->
