@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T03:21:44.126986+00:00'
+updated_at: '2026-09-28T03:27:02.293030+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5076,5 +5076,11 @@ Alice's reconcile-on-return still stands regardless — while she worked, you an
 Recorded as 14.14: topology 2 adopted with the transparency and durable-room arguments, Bob's narration withdrawn in favour of Alice self-reporting, the divergence bound, and queue/interject as a Bob process question.
 
 Next seam worth testing is still the reconcile — Alice coming back with a finished homepage into a room where you and Bob have just moved the contact page to the front.
+
+<!-- xgd-turn id="7e46bf94-2a4a-48d3-83f4-ee8890969d42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T03:27:02.202078+00:00" -->
+#### You
+So bound it to the case that carries information: **post when the work diverges from what you said you'd do.** "Ten minutes on the type" becoming "fifteen, because the background's in it too" is worth the client's attention. "Still going" is not — that's the progress indicator's job, and it costs nothing. <-- can we add significant milestones "I've updated the hero segment - first of three tasks down"
 
 <!-- xgd-chat-end -->
