@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T04:24:29.892074+00:00'
+updated_at: '2026-09-28T04:29:02.522556+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5291,5 +5291,54 @@ Today I ask the consultant - "Please change the size of the subheadings they are
 Now maybe what you are saying is that the result of ANY tool call could include "there are 3 new messages in the group chat" - that would be an interesting way to ADD interjection to the model but there is no loop?
 
 I know that whe buillt a group chat room - it is over complex and broken - we can look at the implementation but I was thinking to start over rather than fix it - I have spent a lot of time trying and failing to get it debugged. Although it might be close. That is architecture 3. We just agreed that 2 was that right answer
+
+<!-- xgd-turn id="1c92fbac-f10f-4210-bfa5-c513cfb57a59-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T04:29:01.558816+00:00" -->
+#### Claude
+Let me answer "where does this machinery live" with the actual code, because this is settleable.
+
+## Where the machinery lives
+
+`components/ai/js/src/backends/api_tools.js`:
+
+- **line 48** — `export const MAX_TOOL_ITERATIONS = 50`
+- **line 822** — `const maxIter = toolNames.length ? MAX_TOOL_ITERATIONS : 1`
+- **line 845** — `for (let iter = 0; iter < maxIter; iter++) {`
+- **line 849**, inside it — `const stream = await callModel(state, specs, timeout)`
+
+So "the consultant goes away, makes a bunch of calls, and comes back minutes later" is mechanically **up to 50 separate API requests**, one per iteration, with the host running each tool and writing the results into the next request. It has to be: the model can't execute a tool itself, so every call is a round trip through our code. The loop isn't something we'd add — it's what a multi-call turn already is.
+
+Note `maxIter` is `1` when there are no tools. That's the case you're picturing, and it's the only case where a turn really is one request.
+
+**And your next sentence is exactly the mechanism**: any tool result can carry *"3 new messages in the group chat."* That's not adding interjection — it's using the boundaries that are already there, ~50 of them per turn.
+
+What it buys, precisely: delivery bounded by **her next tool call**, not by turn end. During real work that's frequent — every screenshot, every `set_l1`, every delegate returning. What it doesn't buy: interruption mid-thought. A single long delegation with no intervening calls is a blind spot, and 50 iterations is a hard ceiling on a turn.
+
+## The room — agree, start over, and topology 2 is why it's cheap
+
+I'll take your experience on the group component. And you're right that I drifted: we chose 2, and the component is 3.
+
+**Under topology 2 you don't need it at all.** The room is Bob's transcript — a `chat_transcript` comment on the chat ticket, in production, reload-safe, already carrying the ledger. There's no room object to build.
+
+Which I think also diagnoses why the component was hard: **it generalises turn-order over an arbitrary roster** — nomination, membership, rounds, skip-versus-pass, a chair that may or may not be a member. We have three participants, fixed, with a human who talks whenever they like. Almost all of that machinery is for a case we don't have.
+
+What the whole thing reduces to:
+
+1. **`say(text)`** for Alice — appends to Bob's transcript. Her milestones and her report use the same tool.
+2. **Every tool result Alice gets carries a pointer** — `new_messages: N` plus a cursor. Host-side, no model cooperation needed.
+3. **`pull(since)`** for Alice — returns the new contributions, so spending context on them is her choice.
+4. **Invocation rule** — Bob on every client message; Alice too, unless suppressed by the closed clerical list.
+
+Four tools and one rule. No roster, no nomination, no round structure.
+
+**Two things worth stealing from the component rather than the code**, because they're conclusions we'd otherwise have to rediscover:
+
+- **`pass` doesn't advance the pointer.** A participant saying "nothing from me" costs the others nothing to catch up on. That's Bob's silence move with its context cost already solved.
+- **The chair should have no domain in the room** — REQ-154 §3's reason being that *"a chair with a stake in the subject routes toward its own domain and summarises toward its own conclusions."* Independent arrival at why Bob holds no design opinion, which is worth having on the record as more than our own argument.
+
+---
+
+Recorded as 14.18: the tool loop cited, the pointer-on-tool-result mechanism, and the scope reduction that topology 2 buys — four tools, no room object.
 
 <!-- xgd-chat-end -->
