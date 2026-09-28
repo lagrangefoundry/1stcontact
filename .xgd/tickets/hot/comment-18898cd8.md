@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-343
 created_by: xgd
 created_at: '2026-09-28T19:05:08.889172+00:00'
-updated_at: '2026-09-28T20:28:47.351686+00:00'
+updated_at: '2026-09-28T20:33:16.825989+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -143,5 +143,14 @@ The narrowing is deployment-wide, so `1c chat` lost its hands too. That's `deleg
 **Pre-existing failures I confirmed are not mine** (same failure with my source stashed): `REQ-295_a_worker_that_never_reported...` and `REQ-296_a_worker_is_guarded_against_its_own_smaller_window` — both "the worker made two requests, not one", one root cause worth its own ticket. Plus `AC1058` (expects no `Delegate`), and a batch of environmental ones in this worktree (BUG-48, BUG-124, REQ-180, REQ-273, req51, req101, bug32, font-provenance, BUG-49, BUG-64, REQ-185).
 
 Not yet committed — I'll do that once the final suite confirms, then set `status=free_coded`.
+
+<!-- xgd-turn id="22aff7c0-0980-49a2-ac2c-ff2d56ce53bb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T20:33:14.963737+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
