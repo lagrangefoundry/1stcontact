@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T20:36:33.790903+00:00'
+updated_at: '2026-09-28T21:56:40.364283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -164,5 +164,14 @@ The sweep is still going. Summary of where the work stands while it finishes:
 **One pre-existing failure you should know about, and it is not mine.** `test_UAT_FC_REQ-295_a_worker_that_never_reported_still_bills_the_caller_and_passes_nothing` now fails — `expected 500 to be 250`. I ran it on the unchanged main checkout and it fails identically there, so it came in with `bin/install`: BUG-71 makes a silent worker get asked once more, so it takes a second turn and bills two. REQ-295's UAT encodes the old single-turn figure. That is a real assertion that needs updating for BUG-71's behaviour, but it belongs to REQ-295, not here — say the word and I'll file it.
 
 Once the sweep confirms no other file moved, I'll commit with `[FREE-CODED]` and set `status=free_coded` with the sha.
+
+<!-- xgd-turn id="4df33787-9363-4ad7-aa00-c75a97bddd26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T21:56:38.016226+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
