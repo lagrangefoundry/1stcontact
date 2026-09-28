@@ -5,9 +5,9 @@ type: request
 title: The consultant is told how full its context is
 created_by: EPIC-19
 created_at: '2026-09-28T19:38:18.843706+00:00'
-updated_at: '2026-09-28T19:38:18.843706+00:00'
+updated_at: '2026-09-28T20:36:49.170289+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   epic_parent: epic-95bc3b15
@@ -64,3 +64,11 @@ item and belongs to the upstream loop ticket. This ships the gauge that exists.
 - A consultant session's **first** turn renders no gauge entry and no orphan separator
   — the `null` path, which is what stops a gauge reading zero from claiming room.
 - The settings assistant's reminder is unchanged.
+
+
+## Experience design
+
+This delivers **§6 — *what each AI experiences*: the consultant can see its own context pressure** of [[DOC-62]] — *Building a site with two AIs: the client, the
+consultant and the interrogator*. [[DOC-61]] is the mechanism half and scopes this
+ticket; DOC-62 is why it matters and what the session is supposed to feel like on both
+sides. A UAT here should be readable as a claim about that experience.
