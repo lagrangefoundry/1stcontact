@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T16:56:32.082387+00:00'
+updated_at: '2026-09-28T18:59:47.970399+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5417,5 +5417,19 @@ I'd build this first, because it's the only one that's **host-enforced** — the
 ---
 
 Recorded on the ticket. One bookkeeping note: the body ended at **14.9** — 14.10–14.18 from our last nine turns were only ever in the transcript, so I've written the settled decisions in as 14.10 and this analysis as 14.11–14.12. The numbering in the body no longer matches what I called them in chat.
+
+<!-- xgd-turn id="8a655305-a3de-4ee8-8497-08a30d51074e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T18:59:46.530109+00:00" -->
+#### You
+**What's actually missing is one line's worth of shape.** The reminder is assembled *once per turn* (`manager.js:841`) and passed frozen into `send` (line 1013). For a queue count to be current on iteration 37 it has to be assembled per request — a thunk, or a second `signals` channel the loop evaluates each iteration. The transport underneath is done. <-- do we pass the reminder every sub-turn i.e. every tool call? That seems excessive
+
+Three currencies are already measured; the model is told none: iterations (`iter` vs 50), wall-clock (`timeout = 600`, checked at the loop head and *thrown*), and context occupancy (`turnOccupancy`, i.e. Finding 5's unshown fuel gauge). <-- can you double check I think we had a bug/request on this
+
+Can you help me start pulling this together as a list of requirements please? A lot of this needs to go into the framework.
+
+I do want to take a sidebar though on the room vs Bob's chat context.
+
+It is desirable to get the room working. Can we talk about the tradeoffs here - lets set aside the issues with the current implementation - what is the best design?
 
 <!-- xgd-chat-end -->
