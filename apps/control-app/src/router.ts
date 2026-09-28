@@ -3023,6 +3023,15 @@ async function routeUncached(
    * treatment `tenant_id` already got, applied to the id hidden inside a derived
    * key.
    *
+   * A CONVERSATION WITH NO STORE ADDRESS IN ITS ID CROSSES UNCHANGED
+   * ([[BUG-159]]). A delegate worker's session — `worker-<role>-<n>-<random>`,
+   * minted per delegation rather than by either deriver — embeds no site key and no
+   * business id, so there is nothing in it to re-derive and nothing in it that
+   * becomes false here. It used to be refused as unreadable, and because the
+   * refusal is whole-payload the nine sub-agent logs of a delegated build stopped
+   * the consultant conversation that produced them from moving at all. See
+   * `addressOf`.
+   *
    * THE SITE IS RESOLVED THE WAY THE SITE PAIR RESOLVES IT, and refused on the
    * same ambiguity in the same words: a business holding more than one site has
    * no unambiguous site for a conversation to be re-addressed onto, and a first

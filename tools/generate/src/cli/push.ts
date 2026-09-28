@@ -376,6 +376,27 @@ export async function postSitePayload(
 }
 
 /**
+ * Whether the far side said `--force` is the way to mean it ([[BUG-159]]).
+ *
+ * READ OFF THE BODY, BY THE KEY THE ROUTE PUTS THERE FOR THIS. A refusal that the
+ * flag answers carries a `force` member naming how to re-send; one it cannot answer
+ * does not. Nothing here parses prose and nothing re-decides from the status.
+ *
+ * A BODY THIS CANNOT READ IS A NO. An unparseable or non-object body has made no
+ * such declaration, and advising a flag on a refusal nobody said it answers is the
+ * failure being fixed rather than a fallback from it.
+ */
+function forceIsTheAnswer(body: string): boolean {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(body)
+  } catch {
+    return false
+  }
+  return typeof parsed === 'object' && parsed !== null && 'force' in parsed
+}
+
+/**
  * The same POST, over any payload an import route takes ([[REQ-294]]).
  *
  * THE SITE PAYLOAD WAS NEVER WHAT THIS FUNCTION WAS ABOUT. Every line of it is
@@ -431,7 +452,21 @@ export async function postPayload<T>(
     // is; all this side owes is the flag that says yes. Lumping it in with the
     // Access advice above would answer a question the operator did not ask and
     // leave the one they did unanswered.
-    const conflicted = res.status === 409
+    //
+    // AND WHICH 409 IT IS, IS THE FAR SIDE'S STATEMENT AND NOT THIS SIDE'S GUESS
+    // ([[BUG-159]]). The status alone does not say whether `--force` is the answer,
+    // and both import routes answer 409 to refusals it cannot touch — a business
+    // holding two sites, a history carrying an address that cannot be re-derived
+    // ([[BUG-137]]). Advised on the status alone, the operator was told to answer
+    // yes to a question nobody asked while the one they did ask went unanswered.
+    // So the advice is attached where the far side declared the flag: `/api/import`
+    // already names `force` in the body of exactly the 409 the flag answers,
+    // *"so a caller that is not a person can tell 'refused, and here is the way to
+    // mean it' from 'refused' without parsing a sentence"*. This is that caller.
+    //
+    // ABSENT MEANS NO, which is the safe direction for advice: a refusal this side
+    // cannot recognise gets the far side's own sentence and nothing added to it.
+    const conflicted = res.status === 409 && forceIsTheAnswer(body)
     throw new Error(
       `${opts.subject} was refused with ` +
         `${bounced ? `${res.status || 'a redirect'} to a login page` : res.status}: ` +

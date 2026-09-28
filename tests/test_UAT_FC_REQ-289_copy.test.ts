@@ -274,6 +274,11 @@ describe('REQ-289 — what the copy refuses', () => {
       body: {
         error: "Site 'site_936dd7c92e5e14df694dd9a80433aa4f' has 190 change(s) made in the builder. Importing would replace them. Nothing was written.",
         changes: 190,
+        // AS `/api/import` REALLY ANSWERS IT ([[BUG-159]]). The route names `force`
+        // in the body of exactly the 409 the flag answers, and this side now reads
+        // the advice off that declaration rather than off the status — so a fake
+        // omitting it would be asserting against a refusal the product does not send.
+        force: 'Re-send with "force": true (bin/copy-to-cloud --force).',
       },
     }
     const { impl, calls } = bothEnds({ cloud: { importAnswer: refusing } })

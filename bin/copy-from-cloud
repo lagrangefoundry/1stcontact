@@ -88,7 +88,13 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,83p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  # THE HEADER IS THE HELP, READ TO WHERE IT ENDS AND NOT TO A LINE NUMBER
+  # ([[BUG-159]]). This used to be `sed -n '2,NNNp'`, and the count was exact — so
+  # the first edit to the header above silently truncated the help, taking the
+  # `--print-token` trap with it while the script still exited 0. The comment block
+  # is every leading `#` line after the shebang, which is a fact about the file
+  # rather than a number to keep in step with it.
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
   exit 0
 fi
 

@@ -76,9 +76,20 @@
 # matches businesses by NAME), and the site id is minted fresh by the import. So
 # the destination re-derives every address from its own two ids before writing.
 # A history it cannot place is REFUSED rather than written somewhere nothing can
-# ask for it: a session id in no form this product mints, conversations about
-# more than one site, a site conversation arriving at a business holding no site,
-# or a destination holding more than one site. Nothing is written in any of them.
+# ask for it: a session id that says it is about a site or a business and then
+# names neither, conversations about more than one site, a site conversation
+# arriving at a business holding no site, or a destination holding more than one
+# site. Nothing is written in any of them.
+#
+# AND A SESSION WITH NO STORE ADDRESS IN IT CROSSES UNCHANGED (BUG-159). A
+# delegate worker's session — `worker-<role>-<n>-<random>`, minted per delegation
+# rather than derived from a site or a business — embeds nothing that was true
+# only in the store it came from, so there is nothing to re-address and nothing
+# that becomes false on arrival. It lands under the id it already had and is
+# matched on a re-copy by that id like any other. It used to be refused as
+# unaddressable, and because a refusal takes the whole payload, the sub-agent
+# logs of a delegated build stopped the consultant conversation that produced
+# them from moving at all.
 #
 # RUN IT TWICE AND NOTHING DOUBLES. Conversations are matched by session id and
 # each is written whole or not at all. One the far side already holds is KEPT
@@ -137,7 +148,13 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
-  sed -n '2,132p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  # THE HEADER IS THE HELP, READ TO WHERE IT ENDS AND NOT TO A LINE NUMBER
+  # ([[BUG-159]]). This used to be `sed -n '2,NNNp'`, and the count was exact — so
+  # the first edit to the header above silently truncated the help, taking the
+  # `--print-token` trap with it while the script still exited 0. The comment block
+  # is every leading `#` line after the shebang, which is a fact about the file
+  # rather than a number to keep in step with it.
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
   exit 0
 fi
 

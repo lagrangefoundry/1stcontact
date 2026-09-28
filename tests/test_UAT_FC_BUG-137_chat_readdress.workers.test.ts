@@ -1,16 +1,27 @@
 import { beforeAll, describe, expect, it } from 'vitest'
-import { env } from 'cloudflare:test'
-import { route, type RouterEnv } from '../apps/control-app/src/router'
-import type { Scope } from '../apps/control-app/src/scope'
-import type { ChatsPayload } from '../apps/control-app/src/chat-copy'
-import { ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
 import {
   businessBackendName,
   businessSessionIdFor,
   sessionIdFor,
   siteBackendName,
 } from '../tools/generate/src/cli/ai/host-core'
-import { applySchema, ensureTenant, seedTenantSite } from './support/d1-site-factory'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import {
+  business,
+  chatsHeldBy,
+  commentOfKind,
+  exportChats,
+  headerOf,
+  importChats,
+  seedChat,
+  seedPlaceholder,
+  sessionFile,
+  storeFor,
+  TOOL_TRANSCRIPT,
+  TRANSCRIPT,
+  TURNS,
+  turnsOf,
+} from './support/chat-history'
 
 /**
  * BUG-137 — a copied conversation is RE-ADDRESSED onto the destination.
@@ -41,166 +52,13 @@ import { applySchema, ensureTenant, seedTenantSite } from './support/d1-site-fac
  * would prove the import agrees with this file rather than with the product.
  */
 
-const ORIGIN = 'https://app.test'
-
-/** The library's own comment kind for a session file. */
-const TRANSCRIPT = 'chat_transcript'
-/** The kind a session that called a tool also carries. */
-const TOOL_TRANSCRIPT = 'tool_transcript'
-
-function routerEnv(): RouterEnv {
-  return {
-    DB: env.DB as D1Database,
-    SITES: env.SITES as R2Bucket,
-    BLOBS: env.BLOBS as R2Bucket,
-    ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
-  } as RouterEnv
-}
-
-const storeFor = (scope: Scope): Promise<TicketStore> => ticketStoreFor(routerEnv(), scope)
-
-/** A registered business, with the one site it holds if it holds one. */
-async function business(id: string, withSite = false): Promise<{ scope: Scope; site: string }> {
-  await ensureTenant(id)
-  const site = withSite ? (await seedTenantSite(id)).site : ''
-  return { scope: { businessId: id }, site }
-}
-
-async function exportChats(scope: Scope): Promise<{ status: number; body: ChatsPayload }> {
-  const res = await route(
-    new Request(`${ORIGIN}/api/chats/export`, { method: 'GET' }),
-    routerEnv(),
-    scope,
-    {},
-  )
-  return { status: res.status, body: (await res.json()) as ChatsPayload }
-}
-
-async function importChats(
-  scope: Scope,
-  body: unknown,
-): Promise<{ status: number; body: Record<string, unknown> }> {
-  const res = await route(
-    new Request(`${ORIGIN}/api/chats/import`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
-    routerEnv(),
-    scope,
-    {},
-  )
-  return { status: res.status, body: (await res.json()) as Record<string, unknown> }
-}
-
-/** The turns half of a session file — what must cross byte for byte. */
-const TURNS = '<!-- xgd-chat role="user" ts="2026-01-01T00:00:00Z" -->\n#### You\nmake the hero warmer\n'
-
 /**
- * A session file as the library really writes one.
- *
- * THE HEADER IS THE POINT. `Session.toFile` emits exactly this — a JSON block
- * between `<!-- xgd-session` and `-->` — and it carries the session id a third
- * time, the backend name the manager resolves against its registry when it
- * attaches, and the uid of the chat ticket the session is homed on. A test
- * seeding a transcript with no header would assert nothing about the failure
- * this ticket is: the composer frozen on *"Unknown backend claude+site:…"* once
- * the conversation is finally reachable.
+ * THE SETUP LIVES IN `support/chat-history.ts` ([[BUG-159]]). Seeding a chat the
+ * way the library seeds one, the empty row the deployed builder auto-creates, and
+ * the two route calls are fixture rather than claim, and there are now two suites
+ * making claims about this pair of routes. What is left in this file is what it
+ * asserts.
  */
-function sessionFile(meta: Record<string, unknown>, turns = TURNS): string {
-  return `<!-- xgd-session\n${JSON.stringify(meta, null, 2)}\n-->\n\n${turns}`
-}
-
-/** The header block of a session file, parsed back. */
-function headerOf(body: string): Record<string, unknown> {
-  const match = /^<!--\s*xgd-session\s*\n(.*?)\n-->\s*/s.exec(body)
-  expect(match).not.toBeNull()
-  return JSON.parse((match as RegExpExecArray)[1]) as Record<string, unknown>
-}
-
-/** The turns beneath the header, which this fix must not touch. */
-function turnsOf(body: string): string {
-  const match = /^<!--\s*xgd-session\s*\n(.*?)\n-->\s*/s.exec(body)
-  return match === null ? body : body.slice(match[0].length)
-}
-
-/** One conversation, seeded as the product writes one. */
-async function seedChat(
-  scope: Scope,
-  sessionId: string,
-  over: {
-    backend?: string
-    ledger?: string
-    transcript?: string | null
-    tool?: string
-    chatTicketUid?: string
-    backendRef?: string
-  } = {},
-): Promise<Ticket> {
-  const store = await storeFor(scope)
-  const backend = over.backend ?? 'claude+unset'
-  const { ticket } = await store.create({
-    type: 'chat',
-    title: sessionId,
-    fields: { session_id: sessionId, backend },
-    body: over.ledger ?? `### Decision 1\n\nThe serif wordmark, for ${sessionId}.\n`,
-  })
-  if (over.transcript !== null) {
-    await store.comment({
-      uid: ticket.uid,
-      kind: TRANSCRIPT,
-      body:
-        over.transcript ??
-        sessionFile({
-          id: sessionId,
-          role: 'consultant',
-          backend,
-          filter_tool_use: false,
-          backend_ref: over.backendRef ?? 'conv-source-9f2',
-          chat_ticket_uid: over.chatTicketUid ?? ticket.uid,
-        }),
-    })
-  }
-  if (over.tool !== undefined) {
-    await store.comment({ uid: ticket.uid, kind: TOOL_TRANSCRIPT, body: over.tool })
-  }
-  return ticket
-}
-
-/**
- * The empty session the deployed builder auto-creates the first time it is
- * opened — a ticket with a session id and nothing in it.
- *
- * SEEDED THE WAY THE LIBRARY SEEDS IT: `_findOrCreateChat` creates the ticket
- * titled by its own session id, with no body and no comment, before any turn has
- * happened. This is the row [[REQ-294]]'s "KEPT and counted" preserved in place
- * of the history being imported.
- */
-async function seedPlaceholder(scope: Scope, sessionId: string, backend: string): Promise<Ticket> {
-  const store = await storeFor(scope)
-  const { ticket } = await store.create({
-    type: 'chat',
-    title: sessionId,
-    fields: { session_id: sessionId, backend },
-  })
-  return ticket
-}
-
-/** Every chat this business can still reach, with its comments, by session id. */
-async function chatsHeldBy(scope: Scope): Promise<{ ticket: Ticket; comments: Ticket[] }[]> {
-  const store = await storeFor(scope)
-  const { tickets } = await store.query({ predicate: 'type=chat', limit: 'all' })
-  const out: { ticket: Ticket; comments: Ticket[] }[] = []
-  for (const ticket of tickets) {
-    out.push({ ticket, comments: (await store.comments({ uid: ticket.uid })).comments })
-  }
-  return out.sort((a, b) =>
-    String(a.ticket.fields.session_id).localeCompare(String(b.ticket.fields.session_id)),
-  )
-}
-
-const commentOfKind = (comments: Ticket[], kind: string): Ticket | undefined =>
-  comments.find((c) => (c.fields ?? {}).kind === kind)
 
 describe('BUG-137 — a copied conversation is re-addressed onto the destination', () => {
   beforeAll(async () => {
@@ -400,11 +258,21 @@ describe('BUG-137 — a copied conversation is re-addressed onto the destination
     expect(await chatsHeldBy(to.scope)).toHaveLength(1)
   })
 
-  it('test_UAT_FC_BUG-137_a_session_id_in_no_recognised_form_is_refused', async () => {
-    // REFUSED, NOT PASSED THROUGH. A conversation that arrives addressed to
-    // nothing reports success and reads as data loss months later — which is
-    // this whole bug. A payload is a FILE on this path (`--backup` writes one and
-    // an operator can post one back), so the rule belongs on the write.
+  it('test_UAT_FC_BUG-137_a_session_id_addressed_to_a_site_it_does_not_name_is_refused', async () => {
+    // REFUSED, NOT PASSED THROUGH. A conversation that arrives carrying a source
+    // store's address reports success and reads as data loss months later — which
+    // is this whole bug. A payload is a FILE on this path (`--backup` writes one
+    // and an operator can post one back), so the rule belongs on the write.
+    //
+    // NARROWED BY [[BUG-159]], AND THIS IS THE FORM THAT IS LEFT. The claim used to
+    // be "any id in no recognised form", proven with a hand-written `sess-…`, and
+    // that swept in a delegate worker's `worker-…` — an id with no store address in
+    // it at all, which BUG-159 carries verbatim because there is nothing in it to
+    // re-address and nothing in it that becomes false here. What still has to be
+    // refused is an id that CLAIMS one of the two addresses and then names neither:
+    // minted by this product's own deriver from nothing, so it points at a site
+    // this destination cannot possibly resolve.
+    const stated = sessionIdFor('')
     const to = await business('bug137-unreadable')
     await seedPlaceholder(
       to.scope,
@@ -415,21 +283,21 @@ describe('BUG-137 — a copied conversation is re-addressed onto the destination
       business: 'somewhere-else',
       chats: [
         {
-          sessionId: 'sess-hand-written',
-          title: 'sess-hand-written',
+          sessionId: stated,
+          title: stated,
           status: 'open',
           body: '### Decision 1\n\nBy hand.\n',
-          fields: { session_id: 'sess-hand-written' },
+          fields: { session_id: stated },
           comments: [{ kind: TRANSCRIPT, body: '- user: by hand\n' }],
         },
       ],
     })
     expect(refused.status).toBe(409)
-    expect(String(refused.body.error)).toMatch(/no form this product mints/)
+    expect(String(refused.body.error)).toMatch(/about a site or a business and then names neither/)
     expect(String(refused.body.error)).toMatch(/Nothing was written/)
     // NAMED IN THE BODY as well as in the prose, so a caller that is not a person
     // can tell which conversation it was about without parsing a sentence.
-    expect(refused.body.sessions).toEqual(['sess-hand-written'])
+    expect(refused.body.sessions).toEqual([stated])
     // NOTHING WAS WRITTEN — the refusal comes before any store write, for the
     // reason `/api/import` refuses ahead of `createDraft` rather than rolling
     // back after it.
