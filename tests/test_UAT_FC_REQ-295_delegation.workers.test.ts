@@ -6,7 +6,12 @@ import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
-import { BUILDER_ROLE, CONSULTANT_ROLE, primingText } from '../tools/generate/src/cli/ai/roles'
+import {
+  BUILDER_ROLE,
+  CONSULTANT_ROLE,
+  delegationMethod,
+  primingText,
+} from '../tools/generate/src/cli/ai/roles'
 import {
   calls,
   metered,
@@ -20,6 +25,18 @@ import {
 } from './support/scripted-model-client'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
 import { nextSlug } from './support/site-seed'
+
+/**
+ * The method entry's own heading, read off the words that ship ([[REQ-342]]).
+ *
+ * WAS A LITERAL, AND THE LITERAL WENT STALE. [[REQ-342]] rewrote the entry for a
+ * consultant that commissions construction rather than weighing whether to, and
+ * the heading moved with it — so the two cases below were asserting the absence
+ * and the presence of a string the file no longer contains, which passes in one
+ * direction and lies in the other. Read from the template, this asks what it
+ * meant to ask: is the method entry in this prompt or is it not.
+ */
+const METHOD_HEADING = (delegationMethod(true) as string).split('\n')[0]
 
 /**
  * [[REQ-295]] — **construction, handed to a cheaper session, behind a switch**.
@@ -299,7 +316,7 @@ describe('REQ-295 — delegating construction', () => {
     expect(toolNames(request)).not.toContain(DELEGATE_TOOL)
     // AND THE PROMPT IS UNCHANGED. The method prose is a provider that renders
     // `null` with the switch off, which drops the entry AND its separator.
-    expect(sentText(request)).not.toContain('Handing construction over')
+    expect(sentText(request)).not.toContain(METHOD_HEADING)
     expect(sentText(request)).not.toContain(DELEGATE_TOOL)
     // The consultant is on its own model, which is the thing that must not move.
     expect(request.model).toBe(CALLER_MODEL)
@@ -337,7 +354,7 @@ describe('REQ-295 — delegating construction', () => {
     expect(after).not.toContain(REPORT_TOOL)
     // AND THE METHOD PROSE ARRIVES WITH THE TOOL, in the same breath — a session
     // given a tool and no account of when to use it will use it badly.
-    expect(systemText(on.seen[0])).toContain('Handing construction over')
+    expect(systemText(on.seen[0])).toContain(METHOD_HEADING)
   })
 
   // ── conditions 3, 4, 5, 6 ──────────────────────────────────────────────────
