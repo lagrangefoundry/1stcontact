@@ -6,10 +6,10 @@ title: No way to author an animated or interactive illustration — drawings are
   and raster art cannot be driven at all
 created_by: xgd
 created_at: '2026-09-27T00:30:19.279491+00:00'
-updated_at: '2026-09-28T19:15:34.024737+00:00'
+updated_at: '2026-09-28T19:24:11.342902+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
