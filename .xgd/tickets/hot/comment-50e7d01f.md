@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T02:58:33.890433+00:00'
+updated_at: '2026-09-28T03:02:16.294638+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2525,5 +2525,39 @@ Two follow-ups I have *not* done:
 <!-- xgd-chat role="user" ts="2026-09-28T02:58:32.414390+00:00" -->
 #### You
 ok yes go ahead and file it
+
+<!-- xgd-turn id="432607e0-cf15-42de-80d8-d51822950962-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T03:02:15.102301+00:00" -->
+#### Claude
+DOC-20 §S5 with Amendments T1/T3/T6 is the right anchor — and `per_hit` exists for the *exactly* analogous problem, which sharpens the ticket.
+
+Filed: **lagrange-framework REQ-179** — *A result mapping cannot declare one field as the host's own record* (`request-34046ff6`, priority medium).
+
+The argument it makes, which got sharper once I read `provenance.js`'s header: **`per_hit` exists for exactly this problem, one granularity up.** DOC-20 Amendment T6 was introduced because a knowledge search spanning corpora of different authorship has no correct whole-payload mark — *"marking all of it demotes the governing documents… and marking none of it is unsound."* That reasoning transfers unchanged from items to fields. T6 fixed the list case and left the mapping case because nothing had one yet; `delegate` will, once BUG-71 lands.
+
+It records:
+
+- Why `per_hit` **inverts** rather than solves it — `hits()` reads `HIT_PROVENANCE_KEY` at each *item's* top level, and a single mapping is one item, so declaring it would mark the worker's summary with the result's own key. Strictly worse than the status quo.
+- Four properties that must hold: per-field declaration for mappings; over-marking stays the default and nothing may let third-party text arrive unmarked; the distinction stated once where `PROVENANCE_NOTE` already lives, not a second vocabulary to infer; and a result that declares nothing renders exactly as today — T6's *"declaring it costs nothing until it is used."*
+- Prior art: T6, and `authority` already being returns-level data that grades a claim rather than fencing it (`report` carries `authority: "record"`). This asks for the containment half at field granularity.
+- That it's deliberately **not** folded into BUG-71, filed separately so the limitation isn't lost when that ticket closes.
+
+Cross-referenced both ways: BUG-71 now ends with a pointer to REQ-179, and EPIC-20 records it as an upstream follow-on that is **not** a blocker for REQ-340 or REQ-343 — the over-marked field plus the verifiable watermark bracket is sufficient for the gate.
+
+## Where the whole thing now stands
+
+| ticket | repo | state |
+|---|---|---|
+| DOC-60 | 1stcontact | the design |
+| BUG-71 | framework | decisions recorded, ready to implement |
+| REQ-179 | framework | recorded gap, not blocking |
+| REQ-339 worker context | 1stcontact | **unblocked, ships first** |
+| REQ-341 builder grant | 1stcontact | unblocked |
+| REQ-340 diff provider | 1stcontact | blocked on BUG-71 |
+| REQ-342 prose | 1stcontact | blocked on REQ-340 |
+| REQ-343 read-only primary | 1stcontact | gated on evidence |
+
+Nothing in this repo is coded yet and no branches are cut. REQ-339 is the one that's both unblocked and cheapest — two changes in `host-core.ts` and `priming.json`, and it's the fix that attacks the re-narration, the iteration-cap pressure and the output-token cost together. Say the word and I'll scope its branch.
 
 <!-- xgd-chat-end -->
