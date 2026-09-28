@@ -5,10 +5,10 @@ type: request
 title: The host derives a structural diff of a delegation's L1 changes
 created_by: EPIC-20
 created_at: '2026-09-27T22:31:20.497785+00:00'
-updated_at: '2026-09-28T19:24:46.545204+00:00'
+updated_at: '2026-09-28T19:25:20.475664+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-0923bb64
   priority: high
@@ -16,6 +16,14 @@ fields:
   needs_review: false
   chat_comment: comment-c53f13d1
   story_points: 5
+  commits:
+  - working_sha: d16e92d920b14b46042d6bd1741cf39b0fa5f896
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2f2c0b0b1b13e56118c3e9a95f31cebfa25fc47e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.398
 ---
 
 ## Why
