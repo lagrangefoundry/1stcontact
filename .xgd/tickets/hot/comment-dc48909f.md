@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-335
 created_by: xgd
 created_at: '2026-09-27T19:59:57.851332+00:00'
-updated_at: '2026-09-27T21:09:54.942100+00:00'
+updated_at: '2026-09-28T04:04:31.336776+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -246,5 +246,13 @@ Body preserved and corrected. Now the UATs:
 All 24 UATs pass. Now regression — the sibling motion suites and the L1 core, since I changed a shared claim model:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="9f552803-9c3c-47d6-a792-9f874d9d5f49-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T04:04:30.884363+00:00" -->
+#### You
+Can you define plainly what your three walls are? I am still struggling to understand exactly what each one is you seem to talk about them but don't define what they really are in simple terms.
+
+Let's talk about this for a moment. I was expecting that we would supply animated gifs - that is images with the animation built-in and a simple control triggered on the page that starts and stops the animation. If the mouse cursor is over an image for example the animation begins. Alternatively if we scroll down to an image, the animation begins. And likewise we would have a stop control when the mouse Cursor is moved off the image the animation stops. Once we scroll beyond the image it stops… Or whatever. I am not expecting that we would capture the movement mechanics or make them anything more complex than a loop but surely we can start and stop an animated gifs no?
 
 <!-- xgd-chat-end -->
