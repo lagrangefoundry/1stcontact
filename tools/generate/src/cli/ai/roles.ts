@@ -84,17 +84,36 @@ export const SETTINGS_ROLE = 'settings'
  * ITS GRANT IS `instances.json`'s `builder` ENTRY and nothing else, which is the
  * whole invariant the delegation surface rests on: the brief is open prose and
  * **no phrasing of it can widen what the worker may do**, because authority comes
- * from the role's `tools` rather than from the goal. The entry is the
- * consultant's construction half — ReadSite, AuthorPages, ManageComponents,
- * MeasureDrawings, DrawImages, and SeeSite — and deliberately not ManagePages,
- * WriteConfig or ManagePalette: creating and deleting pages, the site's
- * configuration and its palette are the consultant's judgement, not the
- * builder's hands.
+ * from the role's `tools` rather than from the goal.
  *
- * THE CONSULTANT LOSES NOTHING TO IT. Its own grant is unchanged and delegating
- * is a decision it makes per piece of work, not a capability it gave up. The
- * narrower design — moving construction OUT of the consultant so delegation is
- * compulsory — is held in reserve for what REQ-293 measures.
+ * IT IS THE CONSULTANT'S WHOLE SITE-EDITING GRANT ([[REQ-341]]). It began as the
+ * construction half alone — ReadSite, AuthorPages, ManageComponents,
+ * MeasureDrawings, DrawImages, SeeSite — withholding ManagePages, WriteConfig and
+ * ManagePalette on the argument that pages, configuration and palette are the
+ * consultant's judgement rather than the builder's hands. That line did not
+ * survive contact with the briefs: one told a worker to *"add four palette
+ * colours and use the named colours everywhere"*, to a role that cannot create a
+ * palette colour, and the delegation surface is explicit that a brief outside the
+ * grant yields *"a worker that is refused, not a worker that obeys"*. So the
+ * three groups are granted, and the line moves to where it can be held and
+ * explained: the primary stops writing L1 altogether (DOC-60 §4), rather than
+ * being read-only except for pages, palette and config.
+ *
+ * WHAT IT STILL DOES NOT HOLD is what a WORKER has no business in rather than
+ * what construction does not need: `Publish`, whose reach is the public internet;
+ * `ManageAssets`, which registers a file from the operator's machine; and the
+ * engagement's own surfaces — the ledger, the catalogue, the corpus, the session
+ * context — which are the consultant's conversation with their client and not a
+ * one-turn worker's. It cannot hand the work on either: the delegation surface it
+ * is composed with is scoped to no roles, so the one-level floor is a property of
+ * the grant rather than a check somewhere that could be forgotten.
+ *
+ * THE CONSULTANT LOSES NOTHING TO IT — yet. Its own grant is unchanged here and
+ * delegating is a decision it makes per piece of work, not a capability it gave
+ * up, so for now BOTH roles can write. That is deliberate and it is the cheap
+ * order: a grant gap found while the caller can still do the work itself is a
+ * brief to widen, and the same gap found after the caller's write groups are gone
+ * is a stuck engagement. Narrowing the consultant is DOC-60's gated final step.
  */
 export const BUILDER_ROLE = 'builder'
 
