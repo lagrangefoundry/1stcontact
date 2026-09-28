@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-342
 created_by: xgd
 created_at: '2026-09-28T16:55:51.496880+00:00'
-updated_at: '2026-09-28T20:33:06.327814+00:00'
+updated_at: '2026-09-28T20:36:33.790903+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -134,5 +134,35 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="668ab3a4-16ae-4697-8d14-669970ff7fda-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-28T20:36:31.632548+00:00" -->
+#### Claude
+The worktree survived the teardown; the code is in place and the targeted suites were green. What was lost is the verification sweep. Restarting it.
+
+While the sweep runs, closing the traceability gaps — three UATs assert behaviour the body doesn't yet carry language for.
+
+Confirmed pre-existing — identical failure on the unchanged main checkout. Waiting on the node sweep; reviewing the new suite meanwhile.
+
+The sweep is still going. Summary of where the work stands while it finishes:
+
+**Code — complete, targeted suites green.**
+
+| file | change |
+|---|---|
+| `tools/generate/src/cli/ai/priming.json` | `templates/delegation-method` rewritten; new `templates/delegation-reminder`; new `reminders` entry `commission-construction` (provider), placed immediately after `act-rather-than-narrate`; `about` block documents both |
+| `tools/generate/src/cli/ai/roles.ts` | `DELEGATION_REMINDER_PROVIDER`, `delegationReminder()`, registered in `registerSiteProviders` off the same `delegating` flag as the method |
+| `tests/test_UAT_FC_REQ-342_delegate_first.test.ts` | 19 cases — **passing** |
+| `tests/test_UAT_FC_REQ-342_the_method_rides_every_turn.workers.test.ts` | 4 cases through the real `POST /api/ai/prompt` in workerd — **passing** |
+| `tests/test_UAT_FC_REQ-295_delegation.workers.test.ts` | two literal `'Handing construction over'` assertions repointed at `delegationMethod(true).split('\n')[0]` |
+
+`tsc -p tools/generate/tsconfig.json --noEmit` clean.
+
+**Ticket body now carries language for every UAT.** I found three assertions running ahead of the body and added the language rather than dropping the cases: behaviour 2 now states the diff speaks for a window and attributes nothing to an actor; behaviour 3 names the three occasions that earn a look, so "do not re-inspect" has an edge; behaviour 4 states the entry is declared either way and what it *renders* is the switch.
+
+**One pre-existing failure you should know about, and it is not mine.** `test_UAT_FC_REQ-295_a_worker_that_never_reported_still_bills_the_caller_and_passes_nothing` now fails — `expected 500 to be 250`. I ran it on the unchanged main checkout and it fails identically there, so it came in with `bin/install`: BUG-71 makes a silent worker get asked once more, so it takes a second turn and bills two. REQ-295's UAT encodes the old single-turn figure. That is a real assertion that needs updating for BUG-71's behaviour, but it belongs to REQ-295, not here — say the word and I'll file it.
+
+Once the sweep confirms no other file moved, I'll commit with `[FREE-CODED]` and set `status=free_coded` with the sha.
 
 <!-- xgd-chat-end -->
