@@ -318,7 +318,11 @@ describe('REQ-295 — the builder reads its own words, never the consultants', (
     // justification is cost is the wrong way round.
     const priming = primingDocument.builder_priming as { provider?: string }[]
     const reminders = primingDocument.builder_reminders as { provider?: string }[]
-    const volatile = reminders.map((entry) => entry.provider)
+    // The PROVIDER entries alone: since [[REQ-339]] the tier also carries two
+    // static lines, and a static reminder has no provider to compare against —
+    // `undefined` would otherwise be looked for in a priming list that has one
+    // for its own static entries, which is a match about nothing.
+    const volatile = reminders.map((entry) => entry.provider).filter(Boolean)
 
     expect(volatile).toContain('site.line')
     expect(volatile).toContain('site.digest')
