@@ -319,9 +319,12 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     // And the tools are offered beside the site tools rather than instead of
     // them: composition, so a knowledge call gets the same gating and audit an
     // edit does.
+    // `get_l1` and not `set_l1` since [[REQ-343]]: the representative site tool
+    // has to be one the consultant holds, and under the shipped document it holds
+    // every read and no write. What is under test is COMPOSITION either way.
     const tools = client.seen[0].tools.map((t) => t.name)
     expect(tools).toContain('KnowledgeSearch')
-    expect(tools).toContain('set_l1')
+    expect(tools).toContain('get_l1')
   })
 
   it('test_UAT_FC_REQ-158_the_grant_is_read_only_and_scoped_to_the_system_kb', async () => {
@@ -389,9 +392,10 @@ describe('REQ-158 — the assistant can read its own design documents', () => {
     expect(events.at(-1)?.kind).toBe('done')
 
     // The site tools survive; the knowledge tools are simply not offered, and
-    // nothing in the priming promises a corpus that is not there.
+    // nothing in the priming promises a corpus that is not there. `get_l1` for
+    // [[REQ-343]]'s reason above — a representative tool the consultant holds.
     const tools = client.seen[0].tools.map((t) => t.name)
-    expect(tools).toContain('set_l1')
+    expect(tools).toContain('get_l1')
     expect(tools.filter((n) => n.startsWith('Knowledge'))).toEqual([])
   })
 

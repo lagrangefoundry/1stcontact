@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -116,14 +117,28 @@ afterAll(async () => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
+/**
+ * THE SESSION WRITING ITS OWN SITE ([[REQ-343]]).
+ *
+ * What binds a turn to a site is asserted by having the turn WRITE and reading the
+ * draft it moved — "each site session writes only its own site" is the criterion,
+ * and it needs a session with hands. The shipped document commissions construction
+ * instead, so the configuration in which the consultant writes is installed and
+ * the binding is asserted exactly as before.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 beforeEach(() => {
   for (const slug of [SLUG, OTHER]) seedPage(cwd, slug)
   rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+  configureDelegation(WRITING)
   resetAiHost()
 })
 
 afterEach(() => {
   setModelClient(null)
+  configureDelegation(null)
+  resetAiHost()
 })
 
 // ── a turn names a conversation, not a site ──────────────────────────────────

@@ -10,6 +10,7 @@ import {
   setModelClient,
   streamPrompt,
 } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
 import type { L1Node } from '@1stcontact/site-schema'
 
@@ -60,16 +61,30 @@ function headline(): string {
 }
 
 describe('BUG-39 — the shared model double', () => {
+  /**
+   * THE SESSION WRITING THE SITE ITSELF ([[REQ-343]]).
+   *
+   * This case is about the DOUBLE — that both halves of what a model can say reach
+   * the real backend — and it proves the tool half by letting a real `edit.ts`
+   * write land. The shipped document commissions construction instead, so the
+   * consultant holds no write tool and the case would be asserting against a
+   * refusal rather than against the double. Which role holds the hands is not the
+   * subject, so the configuration in which this one does is installed.
+   */
+  const WRITING = { ...delegationDocument, primary_writes: true }
+
   beforeEach(() => {
     cwd = mkdtempSync(path.join(tmpdir(), 'bug39-double-'))
     cmdNew(SLUG, { cwd })
     seedPage()
     rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+    configureDelegation(WRITING)
     resetAiHost()
   })
 
   afterEach(() => {
     setModelClient(null)
+    configureDelegation(null)
     resetAiHost()
     rmSync(cwd, { recursive: true, force: true })
   })

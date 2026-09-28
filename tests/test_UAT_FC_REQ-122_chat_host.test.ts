@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
 import { calls, says, scriptedClient, sentText, systemText } from './support/scripted-model-client'
@@ -133,6 +134,27 @@ afterAll(async () => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
+/**
+ * THE ASSISTANT WRITING THE SITE ITSELF, installed rather than assumed
+ * ([[REQ-343]]).
+ *
+ * "A turn changes the site" is what this file is about, and what it reads for
+ * evidence is the draft on disk after a turn that called `set_l1`. The shipped
+ * document commissions construction instead, so the consultant holds no write
+ * tool and the same change arrives through a worker — which is REQ-295's
+ * mechanism and REQ-343's evidence, and neither is what these cases are for. They
+ * are about the HOST: that a tool call reaches the store, that a refusal comes
+ * back correctable, that two sites are two conversations, that the manual is
+ * projected, that an enum reaches the model as a sentence. All five hold wherever
+ * the assistant has hands, so the configuration where it has them is the one they
+ * install.
+ *
+ * DEPLOYMENT-WIDE MEANS THIS HOST TOO. The key is read by the shared host, so the
+ * CLI consultant narrows exactly as the Worker's does — that is the point of the
+ * two hosts agreeing, and `delegation.ts` says why they must.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 beforeEach(() => {
   // The draft is the evidence these cases read, and a turn REALLY writes it —
   // so it is restored per case rather than shared. Sessions go with it: a
@@ -140,11 +162,14 @@ beforeEach(() => {
   // no conversation yet" un-assertable.
   for (const slug of [SLUG, OTHER]) seedPage(cwd, slug)
   rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+  configureDelegation(WRITING)
   resetAiHost()
 })
 
 afterEach(() => {
   setModelClient(null)
+  configureDelegation(null)
+  resetAiHost()
 })
 
 describe('REQ-122 — a turn changes the site', () => {

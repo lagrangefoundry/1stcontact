@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
+import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
@@ -164,17 +165,32 @@ afterAll(async () => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
+/**
+ * THE CONSULTANT WRITING THE SITE ITSELF ([[REQ-343]]).
+ *
+ * The draft on disk after a turn is what most of these cases read for evidence,
+ * and the turns that produce it call `set_l1`. The shipped document commissions
+ * construction instead, so the consultant holds no write tool and those turns
+ * would fail on the tool rather than on the behaviour under test — none of which
+ * is a claim about which role holds the hands. So the configuration in which it
+ * holds them is installed, and every case goes on asserting what it always did.
+ */
+const WRITING = { ...delegationDocument, primary_writes: true }
+
 beforeEach(() => {
   // The draft is the evidence these cases read, and a turn REALLY writes it — so
   // it is restored per case. Conversations go with it: one carried over from the
   // previous case would make "this site has no conversation yet" un-assertable.
   for (const slug of [SLUG, OTHER]) seedPage(cwd, slug)
   rmSync(sessionsDir({ cwd }), { recursive: true, force: true })
+  configureDelegation(WRITING)
   resetAiHost()
 })
 
 afterEach(() => {
   setModelClient(null)
+  configureDelegation(null)
+  resetAiHost()
 })
 
 // ── asking what the assistant is ─────────────────────────────────────────────
