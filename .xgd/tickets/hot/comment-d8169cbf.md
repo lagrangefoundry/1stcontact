@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T19:46:49.563225+00:00'
+updated_at: '2026-09-28T20:32:46.459984+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5531,5 +5531,11 @@ Three judgement calls worth flagging:
 One thing I couldn't close: `volatile` — the session summary — rides the same per-request tail and is bigger than the reminder, and I haven't measured it. It's named in both the doc and the epic as owed, because if it's large then the tail itself, not the signals on it, is where a turn's uncached spend goes.
 
 REQ-344 is genuinely one line and unblocked. Want me to cut a branch and do it?
+
+<!-- xgd-turn id="54e5b095-9718-4ba8-a62f-9a9b0ba3a173-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-28T20:32:45.651518+00:00" -->
+#### You
+I think your view of DOC-61, judging by the title is WAY too narrow. I want a document that captures this entire UX and AX we just defined with Bob and ALice and the nature of their roles. DOC-61 as it stands appears to be an implementation section at the back of a much bigger document. Perhaps the UX/AX for site building deservers another doc - please create that though and have all these tickets also refer to it
 
 <!-- xgd-chat-end -->
