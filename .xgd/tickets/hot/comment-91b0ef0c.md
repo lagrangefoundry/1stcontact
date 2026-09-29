@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T20:48:09.318913+00:00'
+updated_at: '2026-09-29T20:50:09.494977+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3037,5 +3037,74 @@ Want me to scope a ticket under EPIC-12 to drop the observations branch? That'd 
 <!-- xgd-chat role="user" ts="2026-09-29T20:48:08.481825+00:00" -->
 #### You
 Can you take a look at the situation with gigabyte alchemy. I am runnin turn after turn to get the 1 unmeasured to 0 as we discussed - that's it I am happy with the quality of the site this is a metrics/system fix but I its been three of four turns now and no progress?
+
+<!-- xgd-turn id="2591a6d7-66de-44de-a632-36e5dd00c521-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T20:50:08.892270+00:00" -->
+#### Claude
+I'll look at what the recent rounds actually did about that unmeasured axis.
+
+Found the right field. Let me trace it across the rounds.
+
+Let me total the spend and check the one round that failed differently.
+
+**The number you're driving cannot move. Nothing you do in the reproduction can change it.**
+
+## What "1 unmeasured" actually is
+
+It's the `probes` part of the set — `values.notComparableAxes`, holding exactly one entry:
+
+> **§1.contentAnchor** — *§0 sits inside this band, so the reference measured its anchor over a DOM-descendant population that EXCLUDES those runs while the reproduction's geometric band includes them — the two anchors are not the same measurement and are not compared*
+
+Character-for-character identical in iterations **6, 7, 8, 9 and 10**.
+
+## Why re-running can't clear it
+
+REQ-270's guard, `values-diff.ts:3509`:
+
+```ts
+const overlapping = overlappingSmallerSections(expSections, ei)
+if (overlapping.length) { pairing.anchorComparable = false; … }
+```
+
+`expSections` is the **reference's** sections. `overlappingSmallerSections` (`:3341`) filters that one array against itself — purely "does a shorter reference section overlap this reference section by ≥50%". The reproduction is not an input to the decision. It fires on a property of gigabytealchemy's own markup: §0 is absolutely positioned inside §1.
+
+So the reproduction could be byte-perfect and this would still read 1. Turn after turn cannot move it, because the round has nothing to act on.
+
+**You already ran the one thing that could have.** Iteration 10 is `"recaptured": true` with a fresh bundle (2026-09-29T20:39). A re-capture re-rolls the reference sectioning — the main lever the module says drives this number down. It fired identically afterward.
+
+## What the rounds have been doing instead
+
+| iter | status | cost | filed |
+|---|---|---|---|
+| 7 | filed | $7.64 | REQ-324 — `recovery-measures-flow-lead-from-the-border-box` |
+| 8 | failed | $0.00 | *monthly spend limit — 1 turn, no round ran* |
+| 9 | filed | $12.87 | REQ-337 — `recovery-padding-track-drops-its-segments` |
+| 10 | — | — | no round yet |
+
+Neither ticket touches the anchor. Round 7 looked straight at it and moved on — *"contentAnchor, character-for-character identical to iteration 6 — REQ-270/BUG-139"* — correctly treating it as known and static. Round 9 didn't mention it at all. The rounds aren't stuck; they're working other residuals because this one offers them no purchase.
+
+So ~$20 bought two real engine tickets. It bought zero progress on the number you were watching, and it never could have.
+
+Also note iteration 8 was a **spend-limit stub** — 1 turn, $0, no round. If you counted it as one of your "three or four turns", only two rounds actually ran.
+
+## The other thing, which you should see before deciding
+
+The gate isn't failing on the unmeasured count anyway. All five iterations read `verdict: structural-failure`, and the layout findings go **0 → 52 → 20 → 20 → 56**:
+
+> *56 backing surface(s) have left the content they back — at 506px×768px: 'Practical tools for modern software development' is no longer covered by its backing surface card-5 — 12px below its bottom edge … A panel that slides off its own copy is structural: the page is exact at rest and comes apart the moment the viewport moves, so no perceptual average will ever see it.*
+
+That matches your read that the site looks good — it *is* exact at the default viewport. The breakage is at 506px and 637px widths. Driving the unmeasured count to 0 would not make this gate pass.
+
+## What would actually clear the anchor
+
+An engine change, not a reproduction change: make both sides measure `contentAnchorRatio` over the same population — compute the reference's geometrically like ours, or exclude nested-section runs from ours. That's a ticket against `values-diff.ts`, and it's the sort of thing a round would file if it were pointed at it, but the round can't reach it from inside the loop since re-measuring changes nothing.
+
+Two things I'd suggest, neither started:
+
+1. **Stop the gigabytealchemy turns.** They cost ~$10 each and cannot move this number.
+2. **Scope a ticket under EPIC-12** for the anchor-population mismatch — that's the real fix, and it's an engine change with a clear behavior statement.
+
+Want me to scope #2? And separately — the 56 backing-surface findings are a much bigger signal than the unmeasured 1; worth deciding whether that's the thing you actually want driven down.
 
 <!-- xgd-chat-end -->
