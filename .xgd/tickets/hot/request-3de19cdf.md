@@ -6,7 +6,7 @@ title: 'fold: every band is painted two or three times over and the least faithf
   copy is on top'
 created_by: repro-console:repro-joyfulculinarycreations-com#3
 created_at: '2026-09-27T01:18:16.240133+00:00'
-updated_at: '2026-09-29T04:39:46.084455+00:00'
+updated_at: '2026-09-29T04:45:36.110909+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -1036,7 +1036,7 @@ nothing, and `image-2` is restored to the top level.
 
 ## Test plan
 
-Three new UAT files, 29 tests, plus one updated REQ-271 assertion:
+Three new UAT files, 28 tests, plus one updated REQ-271 assertion:
 
 - `tests/test_UAT_FC_REQ-338_the_fold_paints_each_band_once.test.ts` — issues 1–4 over the real
   `foldToL1` entry point with synthetic multi-state captures: the fill is not reconstructed a second
