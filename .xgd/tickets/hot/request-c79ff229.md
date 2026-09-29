@@ -6,7 +6,7 @@ title: 'Corpus document needed: tips for briefing delegated builder sessions (se
   + first four observed runs)'
 created_by: xgd
 created_at: '2026-09-29T04:28:04.918266+00:00'
-updated_at: '2026-09-29T04:42:49.762616+00:00'
+updated_at: '2026-09-29T04:55:13.812188+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -120,3 +120,56 @@ This asymmetry is worth stating plainly: a worker reporting *"I did it"* can be 
 **Corollary for brief-writing.** When a brief asks for something the worker may not have seen before, quote the relevant schema lines into the brief up front. The successful follow-up did this and it cost perhaps forty words. Cheaper than the round trip, and it removes the worker's opportunity to reason its way to a wrong conclusion about what is possible.
 
 **Running tally across six runs:** two clean single-job briefs with values supplied; one false positive verdict; one silent partial; one context-window death that also regressed the page; one false capability denial. The three cleanest runs were all single-job briefs carrying exact values. That correlation is now strong enough to treat as the rule rather than the observation.
+
+## Run 7, and a revision to the central rule
+
+Run 7 was the best-specified brief of the session. Exact computed values, an explicit prohibition on destructive methods, a warning that addresses regenerate, one nominal job. It returned `outcome: "silent"`, an empty summary, and — confirmed against the host's change record — **zero writes**, after 45,872 output tokens.
+
+So the discipline in this document reduces *wrong* outcomes. It does not reduce *null* outcomes. That is worth saying plainly, because the earlier entries could be read as implying that a sufficiently good brief always lands, and seven runs say otherwise.
+
+### Revision: "one job" is too loose. The rule is one PHASE.
+
+Run 7's brief said "ONE job" and meant it, but the job had two phases: add a new element, then modify six existing elements whose addresses only resolve *after* the first phase renumbers the page. The brief even said so — "do part 1 first and then re-read the map before doing part 2" — which should have been the tell. A brief that has to instruct the worker to re-orient mid-way is two briefs wearing one coat.
+
+The sharper test:
+
+> **If the brief contains the word "then", it is probably two delegations.**
+
+Anything where the second half's addresses, values or preconditions depend on the first half's result should be split, with the caller re-reading the map in between. The caller re-reading a page map is cheap. A null run is not.
+
+### New finding: acceptance checks are charged to the same budget as the work
+
+The strongest correlation across seven runs is not about the brief at all. It is about the checks.
+
+- Both runs that completed cleanly had **one single-clause check** — "confirm this field still carries this value".
+- Both runs given **one check with five sub-clauses** returned `unreported` verdicts, including one that had otherwise done its work correctly and reported a good summary.
+
+The likely mechanism: verifying five properties across eight elements means re-reading eight elements, which is read-heavy work drawn from the same allowance as the edit. A caller who adds checks in good faith — as the guidance encourages — may be starving the work to pay for its own verification.
+
+**Practical rule:** one check, one clause, one comparison. If several things need verifying, either pick the single one that would be hardest to get accidentally right, or verify the rest yourself from the change record, which costs the caller almost nothing and cannot be fudged by the party being checked.
+
+That last point generalises: **anything settleable from the host's change record should not be asked of the worker at all.** Asking a worker to confirm it wrote the value it wrote is asking the least reliable party to check the most reliable record. Reserve checks for things the record cannot show — resolved behaviour, rendered state, whether something the worker *didn't* touch still holds.
+
+### The failure taxonomy, as it now stands
+
+Seven runs, one role, one site. Five distinct ways to not get what you asked for:
+
+1. **Wrong and confident** — work done incorrectly, reported as passed. (Run 1. Caught only by checking the change record's numbers by hand.)
+2. **Partial and silent** — half the brief done, nothing said about which half. (Run 3.)
+3. **Destructive method, obedient outcome** — the letter of the brief honoured by a means that destroyed adjacent work. (Run 4.)
+4. **False impossibility** — a capability that exists declared absent, in the decisions field, persuasively. (Run 5.)
+5. **Null** — full budget spent, nothing written, nothing said. (Run 7.)
+
+Only (1) and (3) are fixed by better briefing, and both now are. (2) and (5) are visible only via the host's change record. (4) is the one with no cheap detection at all, because a claim that produced no change produces nothing to check against.
+
+### What this means for the economics, honestly
+
+The saving is real and it is conditional. Runs 2 and 6 did correct work for a small fraction of what the expensive session would have cost, and they are the shape to aim for: one phase, exact values supplied, one single-clause check, schema quoted where the worker might not know it.
+
+But the caller's overhead is not zero and should be budgeted:
+
+- computing the values (unavoidable — this is the part that cannot be delegated)
+- reading the change record afterwards (cheap, and non-negotiable)
+- re-briefing after a null or partial run (empirically, somewhere around one run in three so far)
+
+A fair current estimate is that roughly a third of runs need a second pass. That still favours delegation for anything with a large payload and small decisions. It does not favour delegation for a two-line edit the caller could make directly — at that size the round trip and the re-brief dominate, and the work should stay where it is.
