@@ -6,9 +6,9 @@ title: 'fold: every band is painted two or three times over and the least faithf
   copy is on top'
 created_by: repro-console:repro-joyfulculinarycreations-com#3
 created_at: '2026-09-27T01:18:16.240133+00:00'
-updated_at: '2026-09-29T01:44:34.758539+00:00'
+updated_at: '2026-09-29T04:39:46.084455+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -895,3 +895,172 @@ issue 1's plate is `unpairedActual[0]` (1 of the 2 "populations"), and issues 2 
 three `bandPaintActual` entries the console counts nowhere at all — see the accompanying `bug`.
 Fixing issue 5 will *raise* the delta count, because a band overlay the comparator can finally read on
 both sides is a comparison that starts happening.
+
+
+---
+
+## What changed (free-coded implementation)
+
+All eight residuals are closed. Verified by refolding the reference bundle this ticket was filed
+from: `section-band-0` is gone, `section-bg-0` carries `surfaceFill: #000000` with the treated
+`backdrop-1` nested inside it, `section-band-1` is `#ffffff` rather than `#28542d`, every
+`section-bg-N` carries a `viewportResponse` and an `atHeight` on every keyframe, and `image-2`
+moved from `(-332.03, -1423.86)` inside a foreign clipping container back to `(674.72, 1658.47,
+162.06, 162.06)` at the top level — the position this ticket states it must hold.
+
+### Issue 1 — one box carries the fill, and the duplicate plate is not emitted
+
+The fold now takes the **second** of the two options offered above: `foldSectionBackgrounds` reads
+the section's own measured `surfaceFill` and emits it on the `section-bg-N` box alongside the image
+and the scrim, and `bandBaseFill` then declines to emit the reconstructed `section-band-N` plate at
+all. One box, painting fill → image → scrim in CSS's own order, instead of two boxes with the
+poorer one nested inside the richer one.
+
+**The plate is dropped only where the section box provably replaces it.** This is a condition the
+proposal above does not state, and without it the fix trades one defect for another: a section
+whose scrim is recorded at four widths of seven emits a `section-bg` box that `visibility` gates off
+above 1024, so a band that stopped painting there would paint *nothing* at those widths. The plate
+is therefore suppressed only when the section is recorded at **every** sampled width, carries a box
+at each, carries an image or a scrim at each (the exact condition under which `section-bg-N` is
+emitted ungated), paints the same colour, and geometrically contains the band. Anything weaker
+leaves the plate alone.
+
+**Consequence for [[REQ-271]].** REQ-271's AC "a band fill that is not the scrim is kept" is
+unchanged in intent — the scrim guard must never eat a band's own colour — but its **carrier moves**.
+The fill now rides on the `section-bg` box, under its own scrim, rather than on a separate
+`section-band` plate over it. REQ-271's UAT 11 was updated to assert the fill is still present and
+now names the box that carries it; the test's intent is preserved, not superseded.
+
+### Issue 2 — the informed copy of an image is the only copy
+
+`mergeSectionBackgroundsIntoBackdrops` deduplicates each `section-bg-N` against the captured
+backdrops: where a backdrop paints the same image over the same rectangle at every shared width, the
+section box drops `backgroundImageUrl` and the backdrop keeps it, because the backdrop is the copy
+that knows the `opacity: 0.49` and the `brightness/contrast/saturate` chain. A section box left with
+no axis at all is dropped entirely. The scrim **moves onto** the backdrop, since a scrim paints over
+the image it veils and the backdrop paints after the section box; a backdrop that recorded its own
+scrim keeps that one.
+
+Backdrops are now **owned but never owning**: they are passed to `nestBackingSurfaces` as
+ownable-but-never-parenting nodes, ordered between the surfaces and the content. Only nesting can put
+a section's overlay element between the section's own fill and the copy standing on it, which is
+CSS's order for the element it was read from. Left at the top level a backdrop painted in the
+background layer, beneath every surface that holds content — which is how the hero's photograph ended
+up under the plate carrying the black it is composited on.
+
+### Issue 3 — a scrim is looked for at every sampled width
+
+`bandBaseFill` still identifies the band's section geometrically at the widest width (the grouping
+frame every other band decision uses), then looks that section's `index` up across **every**
+projection and treats the band as scrim-carrying if any sampled width recorded an overlay of the
+matching colour. The band's own fill is read from the widest sample that measured the axis *at all*,
+so a sample that measured `null` (paints nothing) is authoritative rather than skipped over in favour
+of a narrower width's colour.
+
+### Issue 4 — a section background answers a taller viewport
+
+`sectionEdgeResponses`'s per-width, per-`y` factor map is refactored into a shared
+`sectionBoxFactors`, and a new `sectionViewportResponses` re-expresses the same already-measured
+probe pair as the section box's own `viewportResponse`: `yFactor` from its top edge, `heightFactor`
+from the difference of its two edges. Every `section-bg-N` keyframe also now carries the `atHeight`
+it was measured at, so the response is read against a stated baseline rather than an assumed one.
+The measurement was always in hand; only the emission was missing.
+
+### Issues 5, 6, 7 — the capture-side reads, and `CAPTURE_SCHEMA` 7 → 8
+
+- **5.** `overlayInBox` now skips any painted surface that **contains** the band: a box containing the
+  band paints behind it and can never be its overlay. On equal cover the **later** layer wins in both
+  `overlayOf` and `overlayInBox`, since document order is paint order and the veil the eye reads is
+  the one painted last — strict `>` kept the parent's own fill. `scrimOf` folds the element's own
+  `opacity` into the veil's effective alpha and carries `mix-blend-mode`, reading
+  `background-blend-mode` off the first layer as the second spelling of the same fact (a reference
+  veils with a blended overlay *element*; our renderer has no such element, so it blends the gradient
+  *layer* instead — comparing one spelling only would report a delta on every page we render
+  correctly).
+
+  **The L1 `overlay` axis did not in fact already carry `blendMode`.** The `l1BlendModeSchema` enum
+  existed, but `l1OverlaySchema` did not admit the field, the renderer emitted no
+  `background-blend-mode`, and the comparator read only colour and alpha — so a `darken` veil and a
+  `normal` one at the same colour and alpha compared clean. Three changes close that: the axis is
+  added to `l1OverlaySchema` (validated against the existing enum, so an unknown mode is refused);
+  the renderer emits `background-blend-mode` positionally on the scrim's own layer, and emits the
+  declaration **only** when some layer asks for a non-`normal` mode, so a normally-compositing box
+  keeps the CSS default and gains no declaration; and `diffManifests` includes the mode in the
+  overlay comparison with `undefined` reading as `normal`, with the mode shown in the delta label so
+  a reader can see which veil arrived.
+
+- **6.** HTML collapses five characters — space, tab, LF, CR, FF — and JavaScript's `\s` is not that
+  set. Run-text normalisation now uses an explicit HTML-whitespace class for both collapsing and
+  trimming, so U+00A0 and the other non-breaking and zero-width characters survive. Non-breaking
+  whitespace is layout, not formatting: it makes wrap decisions.
+
+- **7.** `lineHeightPx` is now the **measured** pitch of the line boxes the glyphs sit on — a Range
+  over the run yields one rect per line fragment, and the pitch is the modal difference between
+  successive fragment tops, so one stray fragment cannot set it. A single-line run, where there is no
+  pitch to measure, falls back to its own computed `line-height` as before. `lineBoxOf` is fed the
+  same measured pitch, because the half-leading it computes is half of that same line box and
+  reading the two from different places would put the glyphs and their spacing into disagreement.
+
+`CAPTURE_SCHEMA` is bumped **7 → 8**. This bump carries more weight than one that merely adds an
+axis: a pre-8 bundle holds a plausible **wrong** value where a current one holds the right one, and
+no reader can tell without the stamp. Four `CAPTURE_SCHEMA_AXES` entries make the staleness
+legible, each catching the defect by its own contradiction where it can — an overlay whose colour
+*is* the band's own fill, a multi-line run taller than its line count allows, a numeric rather than
+path-shaped clip id — and deferring to the version gate where a clean page is indistinguishable from
+a stale one.
+
+**Issues 5, 6, 7 and issue 8's capture half require a re-capture.** `1c refold` re-derives the fold
+from the retained oracle and can never pick up a capture change.
+
+### Issue 8 — the clip ancestor's identity, and the agreement that was assumed
+
+Neither of the two options above is what landed; both treat the symptom. The cause is that a clip
+ancestor's **identity** was wrong: `clip.id` was a document-wide sequence number assigned on first
+sight, per page evaluation, so it numbered clipping ancestors in the order that viewport happened to
+reach them. A phone shows one carousel slide where a desktop shows three, so the numbering shifted
+between widths of the same document — `id: 5` was a photograph's own rounded crop at 320px and a
+slide 1400px away at 1280px. The fold read one width's id and another width's box.
+
+`clip.id` is now the ancestor's **place in the document** — a `.`-joined chain of child indices —
+which is the same string at every width by construction, since the DOM is the same tree at every
+viewport. `ClipAncestor.id` changes type from `number` to `string` accordingly.
+
+And `nestClipRegions` no longer takes the members' agreement on trust. It had stated that every
+member of a group names the same ancestor and therefore records the same box "by construction" — but
+it was the id that had to hold that, and it did not. A group is now split into runs of members that
+actually agree: a row joins the first subgroup whose boxes match its own at every width both
+recorded. Members of one real ancestor still land together; a row that agrees with nobody gets its
+own subgroup, where the worst it can do is describe its own clip box — which is the truth about it.
+On the reference bundle this collapses two bogus containers 1446px apart at the same `y` into
+nothing, and `image-2` is restored to the top level.
+
+## Test plan
+
+Three new UAT files, 29 tests, plus one updated REQ-271 assertion:
+
+- `tests/test_UAT_FC_REQ-338_the_fold_paints_each_band_once.test.ts` — issues 1–4 over the real
+  `foldToL1` entry point with synthetic multi-state captures: the fill is not reconstructed a second
+  time over its image; a band the section box does not cover everywhere **keeps** its plate; a
+  section the capture could not box at every width leaves the plate alone; the image is painted once
+  and by the node that knows its treatments; the photograph paints over the section's own fill, not
+  under it; a scrim that stops being band-wide is not promoted to an opaque base; the scrim is still
+  carried where the capture recorded it; a full-height section box grows with the viewport; a box
+  below one travels with it; every keyframe states the height it was measured at.
+- `tests/test_UAT_FC_REQ-338_the_capture_reads_the_veil_and_the_line_box.test.ts` — issues 5–8 under
+  jsdom against the **real** `EXTRACT_SCRIPT`: the overlay is the veil child, not the band's own
+  translucent fill; effective alpha is colour-alpha × element opacity; the blend mode travels; a
+  non-breaking space survives normalisation while ordinary whitespace is still collapsed and
+  trimmed; a run reports the measured pitch of its line boxes and a single-line run falls back; a
+  clip id is the ancestor's document path, does not change when an earlier clipper is not reached,
+  and is not shared by runs cut off by different ancestors. Plus the two `CAPTURE_SCHEMA` 8
+  staleness probes: a bundle whose overlay colour is the band's own fill is reported as owed a
+  re-capture, and a current bundle is not.
+- `tests/test_UAT_FC_REQ-338_a_veil_carries_how_it_composites.test.ts` — the new L1 axis end to end:
+  the validator accepts a blend mode on an overlay and rejects one that is not in the enum; the
+  renderer emits `background-blend-mode` on the veil's own layer and emits **no** declaration at all
+  when the veil composites normally; the comparator reports two differently-compositing veils as a
+  delta and a faithfully-reproduced one as clean.
+
+Regression scope: the full `vitest run` suite. 15 files / 26 tests fail, identical to the clean
+baseline for every file that can reach the changed modules (`fold.ts`, the four capture modules,
+`render.ts`, `schema.ts`) — baselined file by file; the remaining failures import none of them.
