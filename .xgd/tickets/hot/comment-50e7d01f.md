@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T02:51:23.503378+00:00'
+updated_at: '2026-09-29T02:57:55.770207+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2695,5 +2695,41 @@ What three failures are we talking about?
 What three failures are we talking about?
 
 These are the three stale assertions? Please create a ticket to address them
+
+<!-- xgd-turn id="fc1bb415-f0a2-44eb-a1eb-a82f62885f3c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T02:57:54.889563+00:00" -->
+#### Claude
+I don't have the earlier context in front of me — that part of the conversation was dropped, so let me recover the actual three failures from the repo state rather than guess.
+
+Recovered the context. Let me verify the three against the actual test files before writing the ticket.
+
+Let me run the three actual tests to confirm the failures rather than trust my earlier line citations.
+
+Framework code confirms the mechanism. Let me verify the third failure's cause concretely and confirm the AC1058 failure.
+
+Verified all three. Now the ticket body.
+
+Created **BUG-163** (`bug-44fac6a7`), under EPIC-20.
+
+## The three failures
+
+They're the three red tests I traced to the DOC-60 chain — and only two of them are stale assertions. Confirmed by running them just now, not from the earlier notes:
+
+**1 · `AC1058`** — `tests/reconciliation-assistant-conversation.test.ts:490`. The consultant's offered tool list is compared against a set the test *derives* (L1 schemas ∪ fidelity declaration). REQ-343's own commit added `WRITING = { ...delegationDocument, primary_writes: true }` to `beforeEach` so cases keep their write tools — but that document has delegation enabled, so the consultant also gains `Delegate`. Stale: the derivation needs a third source. REQ-343's drift.
+
+**2 · REQ-295 silent worker** — `:615`, attributed output `250` → `500`. BUG-71's ask-once nudge means a worker that reports nothing is prompted once more, so the silent case bills two cheap requests. Stale figure; the case's point ("the tokens are still on the bill") is unchanged.
+
+**3 · REQ-296 condition 7** — `:608`, worker requests `1` → `2`. Not stale, and not the guard regression I suggested earlier. The guard is intact — the worker's first turn *was* stopped against its own smaller ceiling. The second request is the nudge: in `delegation_toolbox.js`, the nudge is skipped only on `ran.stopped`, which means *the caller cancelled* (it's set by the stop-watch polling the caller's junction). The only fact read off the worker's terminal event is `meta.exhausted`. A turn this repo aborted itself — `status: 'aborted'`, `stop_reason: 'context_budget'`, from our own `budget-core.ts` — is invisible to that decision. So the nudge fires and opens a second worker turn whose first request carries the same over-ceiling history: billed in full, cut off immediately. We pay a large request to ask a question that can't be answered.
+
+## What the ticket commits to
+
+§1 and §2 are test corrections with the cause named in prose. §3 pins what the product does today *and* records the cost, so the waste is visible in a test rather than only in an argument.
+
+The actual fix for §3 is upstream — the nudge should read the aborted outcome off the terminal event and gate on it, exactly the shape BUG-71 established for `exhausted`. That's a `lagrange-framework` ticket; BUG-163 names the gap but doesn't attempt it, and our assertion flips back to `1` when it lands. **Say the word and I'll file that one** — I didn't want to open a second ticket unasked.
+
+Also in the ticket: why these aren't folded into REQ-340/REQ-343 (both `ready_to_reconcile`), and that the KB skew is already cleared — `bin/kb-release` rebuilt `REF-l1` and `test_UAT_FC_BUG-71_framework_import_graph` passes 6/6.
+
+No branch cut and no code touched yet. Want me to cut `free-BUG-163` and do §1–§3?
 
 <!-- xgd-chat-end -->
