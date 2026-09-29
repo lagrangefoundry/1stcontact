@@ -223,7 +223,12 @@ async function pageDrawings(
   for (const name of names) {
     try {
       const bytes = await readAsset(name)
-      if (bytes) drawings[name] = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      // Both fields spelled out: this module is reachable from the Worker's
+      // program, where the only `TextDecoder` in scope is the Workers one and
+      // its options type declares `fatal` AND `ignoreBOM` required ([[BUG-162]]).
+      // `ignoreBOM: false` is the WHATWG default — a leading BOM is consumed.
+      if (bytes)
+        drawings[name] = new TextDecoder('utf-8', { fatal: true, ignoreBOM: false }).decode(bytes)
     } catch {
       // Left out of the map on purpose — see above.
     }
