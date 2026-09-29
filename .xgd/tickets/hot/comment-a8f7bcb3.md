@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-09-29T22:47:19.280960+00:00'
+updated_at: '2026-09-29T22:49:49.834074+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -115,5 +115,57 @@ Your item (1) — deployment-wide network switches — falls exactly on the Cons
 3. Making the switch runtime is a backend change, not a UI change <-- yes, that's a good point. Perhaps these should be deployed time switches not runtime switches. I imagine making them run time switches would be quite complicated and have a lot of potential bugs associated with it and it is not a product feature that I desire. Do you agree with this or would the runtime change be easy?
 
 `chat.js` shows one conversation and knows nothing about sites — it's already shaped to mount twice. But today there's one session per site (the consultant's), so "Alice's window" in a debug tab would be a *second pane on the same conversation the Site tab shows* — two drafts, one transcript, no new information. <-- to get a better sense of this look at epic two in Lagrange framework and the showcase tab that we have built with it. It shows the group chat and the individual chats for each of the two participants. This remains a UI feature even if the such as become developed time changes. This is also a per business feature so it is appropriate to have it as a tab
+
+<!-- xgd-turn id="069fabe2-ac5d-4acc-b524-e4c58a8cbeb7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T22:49:49.032383+00:00" -->
+#### Claude
+Let me look at framework EPIC-2 and the showcase tab, and at the actual composition point that decides how hard a runtime switch is.
+
+Read the Flock demo (`showcase/src/flock-demo.js`) and EPIC-2. That answers my objection — taking your points in order.
+
+## 1. Business-level tab — accepted, and it removes the exception rather than creating one
+
+You're right, and it's the better answer. If the switches are business-scoped then the tab strip stays **uniformly business-scoped** and the debug tab needs no exception to REQ-179 at all — my Console argument only applied to a deployment-wide control. A per-business debug tab is ordinary.
+
+What it does change is the config: `delegation.json` says *"DEPLOYMENT-WIDE, READ AT START-UP. Per-tenant control is deliberately out of scope"* — but the same paragraph anticipates this, which is why `workers` is a map: *"so that adding a scope later is an extension of this document rather than a rewrite of it."* So this epic supersedes that one sentence, and the file already expects it to.
+
+## 2. One switch — I was wrong
+
+The state I was reaching for was `enabled: true, primary_writes: true` (workers available *and* the consultant keeps its hands). That isn't a product state, it's the rollback lever for REQ-343, and it already has a home as a deploy-time key. And `enabled` already dominates `primary_writes` **structurally** — the narrowing is applied at the point the delegation surface is composed — so one switch is not just simpler, it's safe by construction:
+
+- **off** → no workers, consultant writes (byte-for-byte the pre-delegation prompt)
+- **on** → the deployment's document decides what "on" means (today: commission-only)
+
+One switch. `primary_writes` stays in `delegation.json`.
+
+## 3. Runtime: easy *if* we pick the right seam, and a bug factory if we pick the wrong one
+
+Your instinct is right about the risk but I don't think deploy-time is actually cheaper here, and the reason is item 1. Once the switch is per-business, a deploy-time switch means adding a business dimension to `delegation.json` and flipping it by editing JSON and redeploying — so the tab's "switches" become read-only text. You'd pay the config work and not get the control.
+
+The runtime cost is small **because you've already established the pattern five times over**. `build(slug, opts, deps)` in `host-core.ts:1220` already composes per-site, and `fidelity`, `images`, `pictures` and `assetUrl` are each documented as *"A PARAMETER, ASSEMBLED BY `router.ts`"* — resolved per request, after the scope is known. Delegation becomes the sixth. Then:
+
+- **Validation is free.** The D1 value feeds a document through the existing `delegationFromMapping`/`delegationFor`, so the same named start-up refusals still apply. The seam was designed for exactly this — the file says *"a Worker reading the switch from KV, or a test standing the feature up, installs its own document"*.
+- **The one real hazard is staleness**, and it's bounded: managers are cached on `storeId + site`, so a flip needs that key evicted, or the stated rule "takes effect on your next turn". Small, and testable.
+
+**The trap is `configureDelegation`.** It's a module-level global. Using it for per-business resolution means mutating a global per request while feeding a cache keyed per site — that is precisely the class of bug you're worried about, and it would be a genuine mess. Going through `deps` instead makes the per-business value a parameter that can't bleed.
+
+So: **runtime, via `deps`, D1-backed** (no KV binding on this Worker; `DB` + migration `0022`). Roughly a day, in the idiom the file already uses. I'd only go deploy-time if you want the tab to be a display rather than a control.
+
+## 4. The Flock tab — my "no new information" objection was wrong
+
+I was reasoning from 1stcontact's one-session-per-site world. The Flock demo makes the distinction the whole point: *"A member deliberates in its OWN session. Its chat panel here shows that session and not the room's history; the room shows what it decided to say and not what it said to itself deciding"* — EPIC-2 §1 observable 5. So the individual windows show private deliberation, which is structurally different from the room. That's the feature, and it's a UI feature regardless of how the switches are stored. Agreed.
+
+Three things worth carrying from that tab into our frame now:
+
+- **`webui-room` is a shipped upstream package** with a `PUBLIC-API.md`, and it is **not** vendored here (we have chat, fields, list-detail, markdown, scroll, shell, split). Adoption is the goal-map pattern: vendor + host adapter. That makes this the sixth instance of EPIC-19's standing "built upstream, unadopted here" pattern — worth recording on the epic.
+- **The room cannot tell you who is composing.** The demo polls `GET /ai/activity`, a third observer over the member's own junction, because *"a tab that read the room to decide would always read idle."*
+- **xgd's BUG-1402**: the component ships an activity strip, the host fed it nothing, the operator read a working room as inert and retyped — which truncated the in-flight turn. The strip is a safety control, not decoration.
+
+---
+
+One thing left to settle before I write the body: **does the group-chat switch get rendered in v1?** You said it can't be switched on today. This repo argues hard against present-and-refusing (*"off means never composed, not composed-and-refusing"*, and the Console isn't rendered when unentitled), so my lean is that v1 renders the tab, the delegate switch, and a config section shaped to take a second entry — and the group-chat switch lands with the room behind it. If you'd rather see it disabled with a reason on it so the tab reads complete, say so and I'll build it that way.
+
+Say the word and I'll write the EPIC-22 body and cut the branch.
 
 <!-- xgd-chat-end -->
