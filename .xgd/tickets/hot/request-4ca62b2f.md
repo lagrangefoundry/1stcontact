@@ -6,9 +6,9 @@ title: 'recovery: a content-derived bottom-padding track carries no segments, so
   interpolates through a reflow window the geometry holds'
 created_by: repro-console:repro-gigabytealchemy-ai#9
 created_at: '2026-09-27T01:12:22.021251+00:00'
-updated_at: '2026-09-29T19:46:42.673504+00:00'
+updated_at: '2026-09-29T19:57:34.724523+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -335,3 +335,100 @@ its class rather than re-filed:
 **Companion ticket filed by the same round:** **BUG-160** — `probes/values-diff: the oracle measured-height ladder ignores segments`. Fix it first: it is the reason the 20 `escape` findings quoted above cannot be read at face value, and it is why this ticket's own "right result" for command 3 is stated as *re-measure*, not as a number.
 
 Also appended this round: **REQ-334** (the Cinzel `@font-face` weight — 100% of the ranked pixel score, fix landed, needs a re-capture) and **REQ-302** (its issues 2 and 4, re-measured on this bundle).
+
+
+---
+
+## Implementation (free-coded)
+
+### What was done: proposal 2, the class fix — not proposal 1, the site fix
+
+The ticket offered two repairs and this took the second. Proposal 1 — carrying
+`geo.segments` onto the track inside `withContentInset` — fixes
+`responsivePadding.bottomPx` and nothing else, and leaves the next track anyone
+invents downstream of the hold with the same defect and no warning. Nothing is
+special about `bottomPx`; what is special is **being born after the windows were
+decided**. So `holdAcrossReflowWindows` is exported from `fold.ts` and re-run
+over `promoteToFlow`'s output, which makes the invariant hold over the document
+that is actually served rather than only over the base fold.
+
+The pass is idempotent over tracks the fold already held — a `snap` window
+recomputes to `snap` — so the second run can only add segments, never revise
+one. That is what makes re-running it safe rather than a second opinion.
+
+Proposal 3 (a document-level assertion that every track on a node agrees on
+`segments[i]`) is landed as **executable evidence rather than a runtime check**:
+the invariant is asserted over the served document by a UAT. A second
+enforcement mechanism beside the hold would be two things to keep in agreement
+where one will do, and the hold is the thing that establishes the invariant —
+an assertion could only restate it.
+
+### The recovery must not hold the base it is scored against
+
+A technical consequence of fixing the class rather than the one call site, and
+worth naming because nothing in the original diagnosis implies it.
+
+`holdAcrossReflowWindows` **mutates in place**, and `promoteToFlow`'s `rewrite`
+returns every node it did not have to touch **by reference** out of the document
+it was handed — a leaf returns immediately, and a spread like
+`{ ...node, children }` shares every property object underneath. That document
+is the *base* `chooseRecovery` then scores this result against, so a hold applied
+in passing would have the challenger quietly editing its own control.
+
+The recovery therefore holds a **clone**. A document out of `foldToL1` never
+carries an unheld track (the fold holds as the last thing it does), so the
+hazard is not reachable from a folded page — but `promoteToFlow` is also handed
+authored and edited documents, which do carry them, and that is the case the
+UAT pins.
+
+### The fix also reaches tracks that are not padding
+
+The same pass holds a scalar **type** track that arrived without segments — a
+node sliding its font size through a window whose geometry is holding is the
+same disagreement one axis down, and a fix that reached only `bottomPx` would
+leave it. Covered by its own assertion.
+
+### Files
+
+- `tools/generate/src/l1/fold.ts` — `holdAcrossReflowWindows` exported, with the
+  second caller and the mutates-in-place contract stated at its doc comment.
+- `tools/generate/src/l1/probes.ts` — `promoteToFlow` clones its result and
+  re-runs the hold over it before validating.
+- `tests/test_UAT_FC_REQ-337_a_recovered_padding_track_holds.test.ts` — new.
+
+### Evidence
+
+Four UATs over an authored document driven through the real entry points
+(`promoteToFlow`, `validateL1`, `renderL1Document`). Authored rather than folded
+for the reason BUG-142 and REQ-278 author theirs: the recovery is demand-driven,
+so a document that demands it is the only way to reach that path. The fixture is
+a `card-` surface that re-tiles across 375→768 (a 376px x jump, past
+`segmentKind`'s quarter-viewport threshold, so `snap` there is what a fold would
+really write) holding one run — the lone-child admission in `rewrite`, which is
+the same path the reference's 12 tracks took.
+
+1. `..._a_recovered_padding_track_inherits_the_reflow_window` — the invented
+   track carries `segments`, they equal the geometry's beside it, and the
+   snapped window reads `snap`. Also asserts the inset actually *moves* across
+   that window, since a track with the same value either side would render
+   identically held or fluid and could prove nothing. Plus the type-track case.
+2. `..._every_track_on_a_node_agrees_across_every_window` — proposal 3, over the
+   whole served document.
+3. `..._the_served_css_holds_the_padding_it_holds_the_width` — read out of the
+   CSS a browser is handed, not out of a probe, exactly as the ticket's command 2
+   reads it.
+4. `..._the_recovery_does_not_hold_the_base_it_is_scored_against` — the clone.
+
+**Confirmed RED without the fix**: with the hold removed, 1, 2 and 3 fail; the
+CSS the fixture serves pre-fix is
+`padding-bottom: calc(174px + (-55 * (100vw - 375px) / 393))` — the same shape as
+the `calc(216px + (-60 * (100vw - 375px) / 393))` the ticket quoted off the
+reference. With the hold applied but *without* the clone, 4 fails. Each
+assertion was checked against the ablation it is meant to catch.
+
+### Not addressed here
+
+The companion **BUG-160** (the oracle's measured-height ladder ignores
+`segments`) is a separate defect and a separate ticket. As the ticket says, this
+fix alone should not be expected to zero the 506/637 off-sample escapes —
+re-measure rather than assume.
