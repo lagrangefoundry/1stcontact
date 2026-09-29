@@ -48,6 +48,7 @@ import {
 } from '@1stcontact/site-schema'
 import {
   classifyElement,
+  holdAcrossReflowWindows,
   isBackingSurfaceId,
   isSynthesizedSurfaceId,
   surfaceBorderInset,
@@ -3194,7 +3195,37 @@ export function promoteToFlow(
 
   const zero = new Map<number, number>(widths.map((w) => [w, 0]))
   const root = rewrite(doc.root, '0', zero, zero)
-  const next: L1Document = { ...doc, root }
+
+  /**
+   * REQ-337 — the reflow windows are decided over the document that is SERVED,
+   * not only over the base fold.
+   *
+   * {@link withContentInset} invents a `responsivePadding.bottomPx` track here,
+   * downstream of the hold `foldToL1` already ran, and a track that did not
+   * exist when the windows were decided carries no `segments` — so the
+   * renderer's documented default takes over and it interpolates through a
+   * window the node's own geometry is holding. On `gigabytealchemy.ai` that was
+   * 12 of 12 padding tracks, every one of them owned by a node whose geometry
+   * reads `snap` across 375→768, and the served CSS said so out loud: in the
+   * same media block, `width: 327px` as a literal beside
+   * `padding-bottom: calc(216px + (-60 * (100vw - 375px) / 393))`. Twelve of the
+   * 102 rules in that block mentioned `100vw` and all twelve were a
+   * `padding-bottom`, which made them the only thing on the page that moved
+   * between the two widths — up to 201.67px of false height on the hero.
+   *
+   * Re-running the hold is the CLASS fix and not the site fix: nothing is
+   * special about `bottomPx`, only about being born after the decision. It is
+   * idempotent over the tracks the fold already held, so this pass can only add
+   * segments, never revise one.
+   *
+   * On a CLONE, because the hold mutates in place and `rewrite` returns every
+   * node it did not have to touch BY REFERENCE out of `doc` — which is the base
+   * `chooseRecovery` scores this result against. Held in the base, the
+   * comparison would be against a document quietly edited by its own challenger.
+   */
+  const next: L1Document = structuredClone({ ...doc, root })
+  holdAcrossReflowWindows([next.root], next.widths)
+
   const result = validateL1(next)
   if (!result.ok) {
     const detail = result.errors.map((e) => `${e.path}: ${e.message}`).join('; ')
