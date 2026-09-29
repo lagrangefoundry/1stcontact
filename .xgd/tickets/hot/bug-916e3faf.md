@@ -5,9 +5,9 @@ type: bug
 title: 'Operating console: business cost omits delegation, and turn costs never join'
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T04:15:51.480962+00:00'
-updated_at: '2026-09-29T04:28:26.130620+00:00'
+updated_at: '2026-09-29T04:42:00.668570+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -56,18 +56,31 @@ keeps minting, unchanged.
 the sum of its priced `attributed` entries. The table renders two columns,
 *Principal* and *Delegated*, replacing the single *Cost* column REQ-320 added.
 Absent stays a dash and never `$0.00`: a turn that delegated nothing has no
-delegated figure, exactly as the cost pane's delegated half has none.
+delegated figure, exactly as the cost pane's delegated half has none. The halves
+are absent *independently* — a delegation this reader cannot price no longer
+erases the caller's own measured spend, which one summed cell did.
 
 **The period's total is computed once, on the route.** `/api/admin/spend` gains
 `total: {costMicros, costPerEngagedHourMicros}` — principal plus delegated, and
 that same total over the report's own engaged hours. The console renders it in
 the headline; the two halves below are unchanged and still never added there.
 The client does no arithmetic, which keeps `tenant-cost.js`'s no-second-opinion
-rule intact.
+rule intact. `null` only where neither half was measured — nothing, never zero.
 
 *Cost / hour moves with it as a technical consequence*: a headline that showed a
 total beside a rate derived from the principal half alone would let an operator
 divide the two figures on screen and get a third number. Both come from `total`.
+
+**The console's LIST carries the same total, and ranks by it** — also a technical
+consequence, not a separate request. The list and the detail pane are one
+question asked of many businesses and of one; a list column showing the principal
+half beside a headline showing the total would put two different figures for the
+same business over the same period on one screen. So `/api/admin/spend/businesses`
+returns `total` per business, orders by it, and `platform-sites.js` prints it.
+Ranking by the total is also the more honest answer to *which tenant is costing
+us money*: a business whose spend went to its workers is costing us that money.
+The per-business `report` stays on the wire — it is what the pane's decomposition
+decomposes.
 
 **The label.** `TENANT_COST_PRINCIPAL` becomes `Principal spend`.
 
@@ -79,27 +92,28 @@ divide the two figures on screen and get a third number. Both come from `total`.
   REQ-320's own UATs are updated to the two-figure shape rather than deleted —
   the join they prove is the same join, now reported in halves.
 - REQ-297's decision that no surface adds the two halves, *for the headline cell
-  only*. The labelled pair below it is untouched and is still never summed there.
+  and the list column only*. The labelled pair in the decomposition is untouched
+  and is still never summed there.
 
 ## Test plan
 
 UATs named `test_UAT_FC_BUG-166_*`:
 
-- **workers, real route**: a real turn through `POST /api/ai/prompt` writes a
-  `turn_spend` row whose `turn_id` is the `turn_log` row's id, and
-  `GET /api/admin/turns` reports a principal cost for it rather than a dash.
-- **workers**: `/api/admin/turns` reports principal and delegated separately —
-  a delegating turn shows both, a turn that delegated nothing shows a principal
-  figure and no delegated one, an unpriced turn shows neither.
-- **workers**: `/api/admin/spend` returns `total.costMicros` = principal +
-  delegated; equal to principal where nothing was delegated; `null` where
-  neither half was measured; and `total.costPerEngagedHourMicros` derived from
-  that total.
-- **surface**: the *Business cost* headline renders the route's total, the
-  principal half is labelled *Principal spend*, and the two halves below still
-  render separately.
-- **surface**: the turn table has *Principal* and *Delegated* columns, each a
-  dash where the figure is absent and never `$0.00`.
+- **workers, real route** (`one_turn_one_id`): a real turn through
+  `POST /api/ai/prompt` writes a `turn_spend` row whose `turn_id` is the
+  `turn_log` row's id, and `GET /api/admin/turns` reports a principal cost for it
+  rather than a dash. Verified to fail against the unfixed router.
+- **workers** (`the_business_cost_is_the_whole_bill`): `/api/admin/spend` returns
+  `total.costMicros` = principal + delegated; equal to principal where nothing was
+  delegated; `null` where neither half was measured; `total.costPerEngagedHourMicros`
+  derived from that total over the same engaged hours; and
+  `/api/admin/spend/businesses` prints and ranks by the total where the two
+  orderings disagree.
+- **surface** (`the_console_reads_the_whole_bill`): the *Business cost* headline
+  renders the route's total, the principal half is labelled *Principal spend*,
+  the decomposition still shows two figures, the pane computes nothing of its own,
+  and the turn table has *Principal* and *Delegated* columns — each a dash where
+  the figure is absent and never `$0.00`.
 
-Updated: REQ-320's two UAT files, and REQ-298's console-panes fixture, to the
+Updated: REQ-320's two UAT files, and REQ-298's console-panes fixtures, to the
 new wire shape.
