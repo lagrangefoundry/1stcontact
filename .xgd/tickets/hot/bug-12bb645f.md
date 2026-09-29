@@ -6,10 +6,10 @@ title: Delegate returns check verdicts as "passed" on a run that came back exhau
   and unaccepted, with no marker that they are unreliable
 created_by: xgd
 created_at: '2026-09-29T04:04:02.588828+00:00'
-updated_at: '2026-09-29T04:37:39.770795+00:00'
+updated_at: '2026-09-29T04:37:44.259885+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: abandoned
 fields:
   auto_merge_back: true
   needs_review: false
