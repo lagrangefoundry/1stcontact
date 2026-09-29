@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T02:57:55.770207+00:00'
+updated_at: '2026-09-29T04:13:30.428179+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2731,5 +2731,11 @@ The actual fix for §3 is upstream — the nudge should read the aborted outcome
 Also in the ticket: why these aren't folded into REQ-340/REQ-343 (both `ready_to_reconcile`), and that the KB skew is already cleared — `bin/kb-release` rebuilt `REF-l1` and `test_UAT_FC_BUG-71_framework_import_graph` passes 6/6.
 
 No branch cut and no code touched yet. Want me to cut `free-BUG-163` and do §1–§3?
+
+<!-- xgd-turn id="d8f89433-597b-4486-bc31-c69b91f4b295-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T04:13:28.739854+00:00" -->
+#### You
+Please take a look at BUG-165 and the last turns of the gigabytealchemy transcript for context
 
 <!-- xgd-chat-end -->
