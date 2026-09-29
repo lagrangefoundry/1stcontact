@@ -84,6 +84,9 @@ const ENABLED = { ...delegationDocument, enabled: true }
 const DELEGATE_TOOL = 'Delegate'
 const WORK_LOG_TOOL = 'read_work_log'
 
+/** The one check the delegating case asks for — restated in the brief and the nudge. */
+const WORKER_CHECK = 'every section has a heading'
+
 function workerEnv(): Env {
   return {
     DB: env.DB,
@@ -195,6 +198,8 @@ interface SpendRow {
   outcome: string
   requests: number
   input_tokens: number
+  /** What a delegation billed to this turn, per worker session ([[REQ-292]]). */
+  attributed: string | null
 }
 
 async function meter(sessionId: string): Promise<SpendRow[]> {
@@ -205,6 +210,17 @@ async function meter(sessionId: string): Promise<SpendRow[]> {
     .all<SpendRow>()
   return results ?? []
 }
+
+/**
+ * The second thing a silent worker is asked, in upstream's own words ([[BUG-163]]).
+ *
+ * READ FROM THE LIBRARY, NEVER QUOTED, for REQ-295's reason: the ask-once nudge
+ * is the framework's ([[BUG-71]]), so a transcription here would be a copy of a
+ * prompt that is free to be reworded, and case (h) below would then lose its
+ * ability to tell a nudge from any other second request.
+ */
+const nudgeText = (checks: string[]): string =>
+  (aiLib as unknown as { delegationNudge: (c: string[]) => string }).delegationNudge(checks)
 
 /** The tools a request offered, by name. */
 function toolNames(req: ModelRequest): string[] {
@@ -580,6 +596,7 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     expect(overWorker).toBeLessThan(callerCeiling)
 
     const sessionId = await openSession('worker')
+    const nudgeRequest = overWorker + 5_000
     const client = twoSided(
       [
         metered(
@@ -587,15 +604,25 @@ describe('REQ-296 — a turn does not overflow its context', () => {
           calls(DELEGATE_TOOL, {
             role: BUILDER_ROLE,
             goal: 'Lay out the About page as three sections.',
-            accept: ['every section has a heading'],
+            accept: [WORKER_CHECK],
           }),
         ),
         says('The builder ran out of room; I will finish this myself.'),
       ],
       [
         metered({ input_tokens: overWorker }, calls('describe_page', { page: 'home' })),
-        // Never reached, for the same reason as the in-turn case above.
-        metered({ input_tokens: overWorker + 5_000 }, says('Built it.')),
+        // THE NUDGE'S TURN ([[BUG-163]]), and it ends in a TOOL CALL rather than
+        // in plain text on purpose. The guard fires on tool activity — the one
+        // moment the host knows a request has completed and another is about to be
+        // sent — so a step that only spoke would run to completion and this case
+        // could not tell a nudge that was answered from one that could only be cut
+        // off. Measured over the worker's ceiling because it is: the nudge opens a
+        // fresh turn on the same conversation, so its very first request carries
+        // the same history the first turn was stopped for.
+        metered({ input_tokens: nudgeRequest }, calls('describe_page', { page: 'home' })),
+        // A third request is what this case is about NOT happening: reaching it
+        // would mean the nudge's turn had carried on past the guard.
+        metered({ input_tokens: nudgeRequest + 5_000 }, says('Built it.')),
       ],
     )
     setModelClient(client)
@@ -604,9 +631,38 @@ describe('REQ-296 — a turn does not overflow its context', () => {
       await post('/api/ai/prompt', { sessionId, text: 'Have the About page built.' }),
     )
 
-    // THE WORKER WAS STOPPED AFTER ONE REQUEST, against its own window.
-    expect(workerRequests(client).length).toBe(1)
-    expect(workerRequests(client)[0].model).toBe(WORKER_MODEL)
+    // THE WORKER WAS STOPPED AFTER ONE REQUEST OF ITS OWN WORK, against its own
+    // window. That request is the brief, and there was no second request of that
+    // turn — which is the guard doing exactly what case (h) exists to prove.
+    const asked = workerRequests(client)
+    expect(asked[0].model).toBe(WORKER_MODEL)
+    expect(turnTailText(asked[0])).toContain('Lay out the About page as three sections.')
+
+    // AND THEN IT WAS NUDGED ANYWAY ([[BUG-163]]). A worker that has reported
+    // nothing is asked once more before the delegation is called silent
+    // ([[BUG-71]]), and that decision is made on two facts: whether the CALLER
+    // cancelled, and whether the turn ran out of tool iterations. A turn this
+    // repository's own guard ended — `status: 'aborted'`, `stop_reason:
+    // 'context_budget'` — is neither, so the nudge goes out. So the second
+    // request is NOT the guard having failed: it is a second turn, and it is
+    // named from upstream's own words rather than inferred from being second.
+    expect(asked.length).toBeGreaterThan(1)
+    expect(asked[1].model).toBe(WORKER_MODEL)
+    expect(turnTailText(asked[1])).toContain(nudgeText([WORKER_CHECK]))
+
+    // AND IT COULD ONLY BE CUT OFF. The nudge opens a fresh turn on the same
+    // conversation, so its first request carries the same over-ceiling history
+    // and the same guard stops it on the same tool call. The count therefore
+    // stops at TWO: a third request would mean the nudge's turn had carried on,
+    // and the script has one waiting to prove it did not. The ask cannot be
+    // answered, whatever the worker meant to say.
+    //
+    // THE HALF THAT IS NOT IN THIS REPOSITORY. The fix is that the nudge should
+    // not fire for a turn that was aborted, and that decision lives in the
+    // framework's delegation toolbox — the terminal event already carries the
+    // reason, so the shape is the one [[BUG-71]] established for `exhausted`.
+    // This is the assertion that flips back to one request when it lands.
+    expect(asked).toHaveLength(2)
 
     // AND THE CALLER WAS NOT. It carried on, was handed the delegation's result,
     // and answered its client — a worker running out of room is an outcome the
@@ -618,5 +674,17 @@ describe('REQ-296 — a turn does not overflow its context', () => {
       .join('')
     expect(answered).toContain('finish this myself')
     expect(events.at(-1)?.meta?.status).toBe('complete')
+
+    // AND THE WASTE IS A FIGURE RATHER THAN AN ARGUMENT ([[BUG-163]]). Both of
+    // the worker's requests are billed to the caller — the guard closes a stopped
+    // turn properly precisely so its spend is not lost — so the nudge's full
+    // request is on the bill beside the work's, and what it costs to ask a worker
+    // that had run out of room is readable off the meter rather than only
+    // arguable from the code.
+    const attributed = JSON.parse((await meter(sessionId))[0].attributed!) as {
+      usage: Record<string, number>
+    }[]
+    expect(attributed).toHaveLength(1)
+    expect(attributed[0].usage.input_tokens).toBe(overWorker + nudgeRequest)
   })
 })
