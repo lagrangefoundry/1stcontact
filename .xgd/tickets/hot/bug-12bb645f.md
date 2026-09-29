@@ -6,9 +6,9 @@ title: Delegate returns check verdicts as "passed" on a run that came back exhau
   and unaccepted, with no marker that they are unreliable
 created_by: xgd
 created_at: '2026-09-29T04:04:02.588828+00:00'
-updated_at: '2026-09-29T04:04:02.588828+00:00'
+updated_at: '2026-09-29T04:23:04.458661+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -58,3 +58,106 @@ A check phrased as an impression ("confirm X sits inside Y and does not overlap 
 ## Shortest reproduction
 
 Delegate a task with an `accept` entry phrased as a visual confirmation, and constrain the run so it exhausts its tool-call limit before finishing. Observe that `checks[].verdict` can come back `passed` alongside `outcome: "exhausted"` and `accepted: false`.
+
+
+---
+
+## What is being implemented
+
+Scope taken: suggestion 1 in full, at the host seam. Suggestions 2 and 3 are not
+taken — see "What is not implemented" below for why.
+
+### 1. A verdict from a run that did not complete is not returned as `passed`
+
+The host already holds the delegation result before the caller sees it — the
+same seam `account` is attached at, and for the same reason: it is the one point
+in the result's construction that is the host's and not the worker's. Every
+check the worker reported as `passed` on any `outcome` other than `reported` is
+returned instead as `unverified`, carrying a reason that names the outcome and
+points at `account`.
+
+- `failed` verdicts are left exactly as they are, reason included. A failed
+  check on a truncated run is still information about the work, and it is not a
+  false green.
+- `unreported` verdicts are left as they are. The worker said nothing about the
+  check; that is already the cautious state.
+- A `reported` run is untouched, verdicts and `accepted` alike. Downgrading a
+  completed run would remove the economics the mechanism exists for.
+- `accepted` needs no change: it was already false on every outcome but
+  `reported`. The defect was never `accepted` — it was that `checks` said the
+  opposite of it, in the same result, in the shape a completed run uses.
+
+`unverified` is a FOURTH verdict value rather than a reuse of `unreported`,
+because the two are different facts and a caller acts on them differently.
+`unreported` means there is no answer at all, and the inspection has to be made
+from scratch. `unverified` means there IS an answer, it is the worker's word,
+and the run it was made on did not finish — so the caller holds a claim it can
+settle against `account` for the cost of reading two numbers. Collapsing them
+would throw the claim away, which is the same mistake in the other direction.
+
+### 2. The document the consultant reads says so
+
+The framework's own declaration states the contradicting shape as intended: "an
+exhausted result with every check passed and 'accepted' false is not a
+contradiction". On this host it no longer occurs, so the host composes the
+delegation surface with an AMENDED declaration — through the framework's own
+supported `decl` seam — in which `shapes.result.checks` names the fourth verdict
+and `shapes.result.outcome` states the host's rule. A behaviour the manual
+contradicts is a behaviour the model reads as a fault in its own result.
+
+The amendment goes to the CALLER's instance only. A worker is granted
+`ReportDelegatedWork` alone, whose operation returns `receipt`, and a manual
+renders the shape an operation returns — so the `result` shape never reaches a
+worker's manual, and amending its declaration would be an edit nobody reads.
+
+The amendment replaces two named keys and refuses at composition time, naming
+the key, if either is absent — the rule `delegation.json`'s own validator
+already follows. An upstream restructure that silently dropped the host's prose
+would leave the model reading a document describing a verdict vocabulary the
+host no longer returns.
+
+### 3. Where it lives
+
+A module beside `account-core.ts`, applied by the same subclass. Both are one
+concern — which parts of a delegation result are the host's knowledge and which
+are the worker's word — and both are deleted together if upstream ever takes
+them.
+
+## What is not implemented, and why
+
+- **Suggestion 2 (settle checks host-side against `account`).** A check is
+  prose. Deciding whether "the cards no longer overhang the band" is settled by
+  a list of field differences is a judgement rather than a comparison, and the
+  only thing on this host that could make it is another model turn — which
+  spends the tokens delegation exists to save, on the one path that would run
+  after every delegation. Left open.
+- **Suggestion 3 (a provenance flag per verdict).** Without suggestion 2 every
+  verdict is `asserted`, so the flag would carry one value and no information.
+  The `unverified` verdict and its reason already say the one thing the flag
+  would have been read for.
+- **The related observation (checks phrased as impressions).** Not taken here:
+  it is a rule about the caller's `accept` entries rather than about how a
+  result is reported, any enforcement is a heuristic over prose, and refusing a
+  legitimately-phrased check at the point of the call has its own cost. Worth
+  its own ticket.
+
+## Test plan
+
+Real route, real session manager, real delegation surface out of the shared
+store, real tool loop on both sides of the hand-off — the one double is the
+model client (`.workers` suite):
+
+- a worker that reports a check as passed and is then cut off at its tool-call
+  limit: the caller receives that check as `unverified`, with a reason naming
+  the outcome, and no `passed` verdict anywhere in the result;
+- a worker that reports a failed check on the same truncated run: the verdict
+  and its reason survive unchanged, so the demotion is aimed at the green and
+  not at the result;
+- a worker that completes normally: verdicts stay `passed` and `accepted` stays
+  true, so the economics are intact.
+
+And the document (node suite):
+
+- the declaration the caller's surface is composed with names `unverified` and
+  states the rule, and the framework's own declaration is left unmutated;
+- a base declaration missing either amended key is refused by name.
