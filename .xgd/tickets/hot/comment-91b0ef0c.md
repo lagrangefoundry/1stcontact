@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T20:35:03.098376+00:00'
+updated_at: '2026-09-29T20:48:09.318913+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3031,5 +3031,11 @@ One distinction worth preserving: the **violations** branch (`ticket.ts:201`) is
 So my "worth checking if you didn't promote BUG-159" was wrong on the merits — BUG-159 went where all 254 of them go.
 
 Want me to scope a ticket under EPIC-12 to drop the observations branch? That'd fold in nicely with the outcome-block parser bug from the last turn — both are the console reporting badly on a round that behaved correctly. I'd hold off on the `READY_STATUSES` list itself; three empty statuses cost nothing and the guard should stay broad.
+
+<!-- xgd-turn id="2591a6d7-66de-44de-a632-36e5dd00c521-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T20:48:08.481825+00:00" -->
+#### You
+Can you take a look at the situation with gigabyte alchemy. I am runnin turn after turn to get the 1 unmeasured to 0 as we discussed - that's it I am happy with the quality of the site this is a metrics/system fix but I its been three of four turns now and no progress?
 
 <!-- xgd-chat-end -->
