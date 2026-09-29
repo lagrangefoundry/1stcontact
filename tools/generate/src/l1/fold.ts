@@ -1883,8 +1883,27 @@ function segmentKind(a: { at: number; x: number; width: number }, b: { at: numbe
  * defect one seam over — it is literally how the field came to paint over the
  * prose. The evidence and the hold both span every root the page is assembled
  * from.
+ *
+ * REQ-337 — exported, because the fold is no longer the last pass to write a
+ * responsive track. `promoteToFlow` INVENTS tracks after this has run (see
+ * `withContentInset`), and a track born downstream of the hold carries no
+ * `segments` at all, so the renderer's documented default takes over and it
+ * interpolates through a window every other track on its own node is holding.
+ * Twelve of twelve padding tracks on `gigabytealchemy.ai` were in that state,
+ * and the page they serve was up to 201.67px too tall strictly between two
+ * captured widths — invisible to every on-sample measure by construction, since
+ * `snap` and `interpolate` agree at a rung.
+ *
+ * Re-running it over the recovery's output is the class fix rather than the site
+ * fix: it is not `bottomPx` that is special, it is "a track that did not exist
+ * when the windows were decided". It is idempotent over tracks that were already
+ * held — a `snap` window recomputes to `snap` — so the second pass can only add.
+ *
+ * MUTATES IN PLACE. The second caller must own its tree: `promoteToFlow`'s
+ * rewrite returns untouched nodes BY REFERENCE from the document it was handed,
+ * and that document is the base the recovery is then scored against.
  */
-function holdAcrossReflowWindows(roots: L1Node[], widths: number[]): void {
+export function holdAcrossReflowWindows(roots: L1Node[], widths: number[]): void {
   if (widths.length < 2) return
   /** Windows `[widths[i], widths[i+1])`, true where some node already snaps. */
   const reflow = new Array(widths.length - 1).fill(false)
