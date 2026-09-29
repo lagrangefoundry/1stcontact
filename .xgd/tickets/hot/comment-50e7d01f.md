@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T01:28:00.106170+00:00'
+updated_at: '2026-09-29T02:48:19.498104+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2681,5 +2681,11 @@ So the honest shape is: one fix belongs to REQ-343, one is a one-line amendment 
 Separately, the KB work is done and clean: `bin/kb-release` rebuilt the stale `REF-l1` projection (needed `NODE_USE_ENV_PROXY=1` — Node 24's fetch ignores the sandbox proxy otherwise), `test_UAT_FC_BUG-71_framework_import_graph` now passes 6/6, and `git status` is unchanged because the KB artifacts are gitignored.
 
 Want me to dig into the REQ-296 stop first? That's the one that might be a real defect.
+
+<!-- xgd-turn id="df6483e7-a7b3-43f5-881a-15242bd05aa7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T02:48:17.904424+00:00" -->
+#### You
+What three failures are we talking about?
 
 <!-- xgd-chat-end -->
