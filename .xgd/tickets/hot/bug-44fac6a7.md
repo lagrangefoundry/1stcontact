@@ -6,9 +6,9 @@ title: 'Three red assertions after the delegation chain: one grant drift, one st
   figure, and a nudge to a worker that ran out of room'
 created_by: EPIC-20
 created_at: '2026-09-29T02:57:36.958429+00:00'
-updated_at: '2026-09-29T04:21:49.061614+00:00'
+updated_at: '2026-09-29T04:21:49.339475+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -126,3 +126,55 @@ ticket for the three, with the upstream gap named rather than silently pinned.
 - The KB skew that blocked the build (`REF-l1` outdated projection, from REQ-335) is
   already fixed — `bin/kb-release` rebuilt it and
   `test_UAT_FC_BUG-71_framework_import_graph` passes.
+
+
+## What changes in this repo
+
+All three are **amendments to existing UATs**, and there is no fourth case named
+for this ticket. Each of the three assertions is the one its own case already
+makes; what this ticket changes is the derivation behind it (§1), the figure it
+compares against (§2), and what the case says the product does and what that
+costs (§3). A new case would re-drive the same route with the same script to
+assert the same thing, which is the duplicate coverage the test strategy
+forbids. The evidence for this ticket is therefore the diff on those three
+cases, and the behaviour each pins is stated above.
+
+### §1 — a third source for the derived grant
+
+`test_UAT_AC1058_…` gains the delegation declaration as a third source beside
+L1 and fidelity. The tool names come from the instance configuration the host
+itself installs — `delegationInstanceConfig` resolved against upstream's
+`DELEGATION_DECLARATION`, group to operations to tool names — so neither the
+group `DelegateWork` nor the tool `Delegate` is written out here, and a session
+in a deployment with the switch off derives an empty third source and the
+equality still holds. The declaration is reached the way every other upstream
+declaration is reached in this suite: a dynamic import of the shared store
+through `sharedModuleUrl`.
+
+### §2 — two cheap requests, and the nudge named as the reason
+
+`test_UAT_FC_REQ-295_a_worker_that_never_reported_still_bills_the_caller_and_passes_nothing`
+asserts the doubled figure as *per-request output × requests sent* rather than
+as a new literal, and asserts the two things that make the doubling a designed
+second ask rather than a loop: the worker was asked exactly **twice**, and the
+second ask is upstream's own nudge text (`delegationNudge`, read from the
+library rather than quoted). A third request would fail the count, which is how
+"the nudge asks once" is held.
+
+### §3 — the nudge to a worker that ran out of room, and what it costs
+
+`test_UAT_FC_REQ-296_a_worker_is_guarded_against_its_own_smaller_window_and_not_the_callers`
+goes on asserting that the guard stopped the worker's own turn after one
+request. It now also says what follows: the worker is asked a second time, that
+ask is the nudge, and the nudge's turn carries the same over-ceiling history —
+so its first request is billed in full and is then cut off by the same guard
+before a second one is built.
+
+To make "cut off again" observable rather than asserted, the worker's second
+scripted step **ends in a tool call** instead of plain text: the guard fires on
+tool activity, so a step that only speaks would complete and the case could not
+tell a nudge that was answered from one that could not be. With the tool call
+the count stops at two — a third request would mean the nudge turn had carried
+on — and the cost is read off the caller's meter: the worker's attributed input
+tokens are the sum of both requests, so the wasted one is visible as a figure
+rather than only in prose.
