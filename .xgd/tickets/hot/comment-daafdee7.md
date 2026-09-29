@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-162
 created_by: xgd
 created_at: '2026-09-29T02:50:47.082845+00:00'
-updated_at: '2026-09-29T02:50:47.082845+00:00'
+updated_at: '2026-09-29T02:57:41.391989+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-057e496a
@@ -96,5 +96,33 @@ Exit status 2
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="cf01b8fa-89cf-401c-934f-9cbf0d2a651b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T02:57:41.045506+00:00" -->
+#### Claude
+Now the ticket, then the fix.
+
+Now the guard UAT. Let me see how source trees are enumerated in an existing guard for the house style.
+
+Now write the guard UAT.
+
+The guard would have caught the original line. Now the real regression scope — the build.
+
+Green. Bumping version and committing.
+
+Fixed — `bin/build` runs clean through to `Build complete. 2 app(s).`
+
+**What was wrong**: `pageDrawings()` in `tools/generate/src/render/render.ts:226` (added by `5ea0b90de5`, the timed-motion commit) wrote `new TextDecoder('utf-8', { fatal: true })`. That's legal in `tools/generate`'s own program, whose `lib` includes `DOM` — `lib.dom`'s `TextDecoderOptions` has both fields optional. It is not legal in `apps/control-app`'s program, which sets `types: ["@cloudflare/workers-types"]` and no `DOM` lib, so the only `TextDecoder` in scope is the Workers one, and its `TextDecoderConstructorOptions` declares **both** `fatal` and `ignoreBOM` required.
+
+The Worker's `include` is only its own `src/**`, but its source imports the render engine, so that module gets pulled into the stricter program and checked there. One line, whole recursive build red.
+
+**Fix**: spell both fields out, matching the existing pattern in `apps/control-app/src/mime.ts`. `{ fatal: true, ignoreBOM: false }` is the same decoder — `ignoreBOM: false` is the WHATWG default, so no runtime behaviour change.
+
+**Evidence** (`tests/test_UAT_FC_BUG-162_textdecoder_options_shape.test.ts`): a source scan over tracked first-party `apps`/`packages`/`tools`/`tests`, asserting every `new TextDecoder(label, { … })` that supplies an options object names both fields. Repo-wide rather than scoped to what the Worker reaches today, since reachability changes with the next import and a guard tracking it would go quiet exactly when it mattered. A second UAT pins the scan against itself — it must see the `render.ts` and `mime.ts` constructions, so a regex that stopped matching can't report a clean tree. I verified the regex flags the pre-fix line.
+
+Ran: the two new UATs plus `test_UAT_FC_REQ-335_animated_illustration.test.ts` (the 41 UATs from the commit that introduced the line) — 43 passed; and full `bin/build` green.
+
+BUG-162 is at `free_coded`, `fields.commits=[b3d1ccad49]`, version `0.2.402`, body populated with symptom/root cause/fix/test plan. Session lock released.
 
 <!-- xgd-chat-end -->
