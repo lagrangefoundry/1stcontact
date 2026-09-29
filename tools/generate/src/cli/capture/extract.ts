@@ -379,8 +379,16 @@ export interface RawBand {
   paddingTopPx: number
   paddingBottomPx: number
   // ── REQ-31 section-level value fields ─────────────────────────────────────
-  /** Full-bleed translucent overlay painted over the band (a hero scrim), else null. */
-  overlay: { color: string; opacity: number } | null
+  /**
+   * Full-bleed translucent overlay painted over the band (a hero scrim), else null.
+   *
+   * REQ-338 (issue 5) — `opacity` is the veil's EFFECTIVE alpha: the colour's own
+   * alpha times the element's `opacity` property, because a page-builder overlay
+   * child routinely splits the two (`#141E14BA` at `opacity: .92`) and either half
+   * alone is not what paints. `blendMode` is its `mix-blend-mode`, absent when it
+   * composites normally.
+   */
+  overlay: { color: string; opacity: number; blendMode?: string } | null
   /** Content block's vertical centre as a fraction of band height (0=top…1=bottom), or null if textless. */
   contentAnchorRatio: number | null
   content: RawRun[]
@@ -732,11 +740,34 @@ export const EXTRACT_SCRIPT = `(() => {
   // SELF COUNTS. The clipper may be the element being recorded (a panel that
   // clips its own children), and the fold needs the box either way.
   //
-  // THE ID IS A DOCUMENT-WIDE SEQUENCE, assigned on first sight, so two runs cut
-  // off by the same ancestor say so -- which is how the fold knows they belong
-  // inside one clipping container rather than two.
-  var CLIP_SEQ = 0;
-  var CLIP_IDS = new WeakMap();
+  // THE ID IS THE ANCESTOR'S PLACE IN THE DOCUMENT, so two runs cut off by the
+  // same ancestor say so -- which is how the fold knows they belong inside one
+  // clipping container rather than two.
+  //
+  // REQ-338 (issue 8) -- IT WAS A SEQUENCE NUMBER, AND A SEQUENCE NUMBER IS NOT AN
+  // IDENTITY ACROSS PROJECTIONS. The counter was assigned on first sight, per page
+  // evaluation, so it numbered the clipping ancestors in the order this viewport
+  // happened to reach them. A phone shows one testimonial slide where a desktop
+  // shows three, so the numbering SHIFTED between widths of the same document:
+  // \`id: 5\` was a photograph's own rounded crop at 320px and a slide 1400px away
+  // at 1280px. The fold reads one width's id and another width's box, so the
+  // photograph was grouped into the carousel and rebased to \`(-332, -1424)\`
+  // inside a 713x332 clipping container -- erased completely, and reported present
+  // by every coverage proxy, because the document still references its asset.
+  //
+  // A path is stable by construction: the DOM is the same tree at every viewport.
+  function nodePathOf(el) {
+    var parts = [];
+    var node = el;
+    while (node && node.nodeType === 1 && node.parentElement) {
+      var i = 0;
+      var k = node.parentElement.firstElementChild;
+      while (k && k !== node) { i++; k = k.nextElementSibling; }
+      parts.push(i);
+      node = node.parentElement;
+    }
+    return parts.reverse().join('.');
+  }
   function clipOf(el) {
     var node = el;
     while (node && node.nodeType === 1 && node !== document.documentElement) {
@@ -744,10 +775,8 @@ export const EXTRACT_SCRIPT = `(() => {
       var ox = cs.overflowX || 'visible';
       var oy = cs.overflowY || 'visible';
       if (ox !== 'visible' || oy !== 'visible') {
-        var id = CLIP_IDS.get(node);
-        if (id === undefined) { id = CLIP_SEQ++; CLIP_IDS.set(node, id); }
         var b = absBox(node);
-        return { id: id, x: b.x, y: b.y, width: b.width, height: b.height };
+        return { id: nodePathOf(node), x: b.x, y: b.y, width: b.width, height: b.height };
       }
       node = node.parentElement;
     }
@@ -780,9 +809,14 @@ export const EXTRACT_SCRIPT = `(() => {
   // inline box, and for \`line-height: normal\`, whose used value is a font metric
   // no computed style exposes. Both sides of a diff read the same rule, so an
   // uncorrected run is uncorrected symmetrically.
-  function lineBoxOf(el, s) {
+  function lineBoxOf(el, s, pitch) {
     if (s.display !== 'inline') return null;
-    var lh = parseFloat(s.lineHeight);
+    // REQ-338 (issue 7) -- the MEASURED line-box pitch when the run has one,
+    // because the half-leading this computes is half of the line box and a run's
+    // own computed \`line-height\` is not always that box (see linePitchOf). The
+    // two are the same quantity, so reading them from two different places would
+    // put the glyphs and the pitch they are spaced by into disagreement.
+    var lh = (pitch !== null && pitch !== undefined) ? pitch : parseFloat(s.lineHeight);
     if (isNaN(lh) || !(lh > 0)) return null;
     var rects = el.getClientRects();
     if (!rects.length) return null;
@@ -1039,6 +1073,50 @@ export const EXTRACT_SCRIPT = `(() => {
       return { x: r.left + window.scrollX, y: r.top + window.scrollY, width: r.width, height: r.height };
     } catch (e) { return null; }
   }
+  // REQ-338 (issue 7) -- THE PITCH OF THE LINE BOXES THE GLYPHS ACTUALLY SIT ON.
+  //
+  // \`lineHeightPx\` was the run's OWN computed \`line-height\`, and a line box is the
+  // maximum of that and the strut of the block that holds it. An inline
+  // \`<span>\` styled \`font-size: 18px\` with no \`line-height\` of its own resolves
+  // to 18 and sits on a 24px line box -- so the capture recorded 18, the fold
+  // pinned 18, and a four-line paragraph rendered 18px short per gap. Measured on
+  // joyfulculinarycreations.com as three HIGH \`renderedTextBox\` deltas (94 vs 76,
+  // 70 vs 58, 46 vs 40) with identical font, identical width and identical wrap
+  // points: only the vertical pitch differed, and the reference's ink rows are 24px
+  // apart in its own screenshot.
+  //
+  // The browser already knows the answer. A Range over the run yields ONE RECT PER
+  // LINE FRAGMENT, so the pitch is the difference between successive fragment tops
+  // -- the modal difference, so one stray fragment (an inline image on its own
+  // line) cannot set it. Null for a single-line run, where there is no pitch to
+  // measure and the computed \`line-height\` is indistinguishable from it anyway.
+  function linePitchOf(rects) {
+    var tops = [];
+    for (var i = 0; i < rects.length; i++) {
+      var r = rects[i];
+      if (!(r.width > 0) || !(r.height > 0)) continue;
+      var t = Math.round(r.top * 100) / 100;
+      if (tops.indexOf(t) === -1) tops.push(t);
+    }
+    if (tops.length < 2) return null;
+    tops.sort(function (a, b) { return a - b; });
+    var counts = {}, best = null, bestN = 0;
+    for (var j = 1; j < tops.length; j++) {
+      var d = Math.round((tops[j] - tops[j - 1]) * 100) / 100;
+      if (!(d > 0)) continue;
+      counts[d] = (counts[d] || 0) + 1;
+      if (counts[d] > bestN) { bestN = counts[d]; best = d; }
+    }
+    return best;
+  }
+  /** The measured pitch of one run -- an element's whole contents, or one text node. */
+  function runLinePitch(node) {
+    try {
+      var range = node.ownerDocument.createRange();
+      range.selectNodeContents(node);
+      return linePitchOf(range.getClientRects());
+    } catch (e) { return null; }
+  }
   function roleOf(el) {
     var t = el.tagName.toLowerCase();
     if (t === 'h1' || t === 'h2') return 'heading';
@@ -1050,7 +1128,23 @@ export const EXTRACT_SCRIPT = `(() => {
   }
 
   // ── REQ-47 rendered shape / structure helpers ───────────────────────────────
-  function collapseText(t) { return (t || '').replace(/\\s+/g, ' ').trim(); }
+  // REQ-338 (issue 6) -- HTML COLLAPSES FIVE CHARACTERS, and \`\\s\` is not the set.
+  //
+  // A run's text was normalised with \`/\\s+/g\`, which in JavaScript includes
+  // U+00A0 and every other Unicode space -- so a NON-BREAKING space arrived as an
+  // ordinary one and the reproduction was allowed to break a line where the
+  // reference cannot break at all. Measured on joyfulculinarycreations.com:
+  // \`raw.html\` carries 15 U+00A0 and the bundle carried ZERO; one checklist item
+  // then set 460.38px of first-line text against the reference's 373.08px -- a HIGH
+  // \`renderedTextBox\` delta with both sides reporting the same box, the same font
+  // and the same two-line height. Non-breaking whitespace is LAYOUT, not
+  // formatting: it survives, along with the zero-width joiners and the
+  // non-breaking hyphen, all of which make wrap decisions the same way.
+  var HTML_WS = /[ \\t\\n\\r\\f]+/g;
+  var HTML_WS_EDGE = /^[ \\t\\n\\r\\f]+|[ \\t\\n\\r\\f]+$/g;
+  function collapseWs(t) { return (t || '').replace(HTML_WS, ' '); }
+  function trimWs(t) { return (t || '').replace(HTML_WS_EDGE, ''); }
+  function collapseText(t) { return trimWs(collapseWs(t)); }
   // Largest painted corner radius (px). Rounded-vs-square is visually obvious but
   // tiny in pixels, so it is captured as an explicit rendered value, not left to
   // an image diff to (barely) see.
@@ -1922,13 +2016,45 @@ export const EXTRACT_SCRIPT = `(() => {
   }
   // The scrim this element paints, or null. A translucent background-COLOUR
   // first (the conventional veil), then a translucent gradient LAYER.
+  //
+  // REQ-338 (issue 5) -- THE ELEMENT'S OWN \`opacity\` IS PART OF THE VEIL, and its
+  // \`mix-blend-mode\` is how the veil composites. A page-builder overlay child
+  // splits the two routinely: joyfulculinarycreations.com's vegetable band paints
+  // \`background-color: #141E14BA\` (alpha 0.729) at \`opacity: 0.92\` with
+  // \`mix-blend-mode: darken\`, an effective 0.67 dark-green \`darken\` veil. Reading
+  // the colour's alpha alone reported 0.73 and no blend, and the band reproduced
+  // as the raw photograph under a flat tint -- 13.96% of that page's diff mass at
+  // mean 66.89/255.
   function scrimOf(el) {
     var cs = getComputedStyle(el);
+    var own = parseFloat(cs.opacity);
+    var k = isNaN(own) ? 1 : Math.min(1, Math.max(0, own));
+    var mix = (cs.mixBlendMode && cs.mixBlendMode !== 'normal') ? cs.mixBlendMode : null;
+    // REQ-338 -- BOTH SPELLINGS OF THE SAME FACT, because the two sides of a
+    // reproduction author it differently and a veil compared on one spelling only
+    // would report a delta on every page we render correctly. A reference veils
+    // with a blended overlay ELEMENT (\`mix-blend-mode\` on the child); our renderer
+    // has no such element -- an L1 \`overlay\` is a gradient LAYER on the box it
+    // veils -- so it blends with \`background-blend-mode\` on that layer, which is
+    // the first in the stack.
+    var layerBlend = function () {
+      var list = (cs.backgroundBlendMode || '').split(',');
+      var first = (list[0] || '').trim();
+      return first && first !== 'normal' ? first : null;
+    };
+    var veil = function (color, alpha, blend) {
+      var eff = Math.round(alpha * k * 100) / 100;
+      if (!(eff > 0)) return null; // a veil at zero alpha paints nothing
+      var out = { color: color, opacity: eff };
+      if (blend) out.blendMode = blend;
+      return out;
+    };
     var c = rgbaOf(cs.backgroundColor);
     if (c && c[3] > 0 && c[3] < 1) {
-      return { color: '#' + hx(c[0]) + hx(c[1]) + hx(c[2]), opacity: Math.round(c[3] * 100) / 100 };
+      return veil('#' + hx(c[0]) + hx(c[1]) + hx(c[2]), c[3], mix);
     }
-    return gradientScrim(cs.backgroundImage);
+    var g = gradientScrim(cs.backgroundImage);
+    return g ? veil(g.color, g.opacity, mix || layerBlend()) : null;
   }
 
   // A scrim: a visible descendant that blankets most of the band and paints a
@@ -1955,11 +2081,26 @@ export const EXTRACT_SCRIPT = `(() => {
       var r = absBox(el);
       var cover = (r.width * r.height) / area;
       if (cover < 0.6) continue; // must substantially blanket the band
-      if (!best || cover > best.cover) {
-        best = { color: sc.color, opacity: sc.opacity, cover: cover };
+      // REQ-338 (issue 5) -- ON EQUAL COVER THE LATER LAYER WINS, because document
+      // order is paint order for these and the veil the eye reads is the one
+      // painted last. A band that declares its own translucent fill AND a
+      // dedicated overlay child (the page-builder idiom) has two blanketing
+      // candidates at cover 1.0; strict > kept the FIRST, which is the parent's,
+      // so the band's own \`#FFFFFF17\` was reported as the veil and the
+      // \`#141E14BA\` \`darken\` child that actually paints it was never recorded
+      // anywhere in the bundle.
+      if (!best || cover >= best.cover) {
+        best = { color: sc.color, opacity: sc.opacity, blendMode: sc.blendMode, cover: cover };
       }
     }
-    return best ? { color: best.color, opacity: best.opacity } : null;
+    return best ? veilRecord(best) : null;
+  }
+
+  // The scrim record a caller gets, blend mode included only when there is one.
+  function veilRecord(best) {
+    var out = { color: best.color, opacity: best.opacity };
+    if (best.blendMode) out.blendMode = best.blendMode;
+    return out;
   }
 
   // Vertical content anchor: the centre of the band's text content as a fraction
@@ -1970,7 +2111,7 @@ export const EXTRACT_SCRIPT = `(() => {
     var walker = document.createTreeWalker(band, NodeFilter.SHOW_TEXT, null);
     var n, top = Infinity, bot = -Infinity, any = false;
     while ((n = walker.nextNode())) {
-      if (!n.nodeValue.replace(/\\s+/g, ' ').trim()) continue;
+      if (!collapseText(n.nodeValue)) continue;
       var el = n.parentElement;
       if (!el || !visible(el)) continue;
       var r = absBox(el);
@@ -2099,12 +2240,21 @@ export const EXTRACT_SCRIPT = `(() => {
   // this slice, wherever it sits in the tree. Same 60% coverage rule, measured on
   // the INTERSECTION with the slice rather than on the veil's whole area, because
   // a sibling scrim is not bounded by the band the way a descendant is.
-  function overlayInBox(box) {
+  function overlayInBox(box, band) {
     var area = box.width * box.height;
     if (area <= 0) return null;
     var surf = paintedSurfaces();
     var best = null;
     for (var i = 0; i < surf.length; i++) {
+      // REQ-338 (issue 5) -- A BOX THAT CONTAINS THE BAND PAINTS BEHIND IT, so it
+      // can never be the band's overlay: CSS puts a box's own background-color
+      // UNDER its background-image, and an ancestor's fill under both. The
+      // vegetable band on joyfulculinarycreations.com declares
+      // \`background-color: #FFFFFF17\` on the section itself -- alpha 0.0902 -- and
+      // that is exactly the \`{#ffffff, 0.09}\` the bundle recorded as its veil,
+      // while the \`#141E14BA\` \`darken\` overlay child that really paints it was
+      // recorded nowhere at all.
+      if (band && surf[i].el.contains(band)) continue;
       // REQ-270 — scrimOf, not backgroundColor alone: our own renderer emits every
       // L1 overlay axis as a gradient layer, so this read saw none on exactly
       // the veil it was measuring.
@@ -2116,11 +2266,12 @@ export const EXTRACT_SCRIPT = `(() => {
       if (ix1 <= ix0 || iy1 <= iy0) continue;
       var cover = ((ix1 - ix0) * (iy1 - iy0)) / area;
       if (cover < 0.6) continue;
-      if (!best || cover > best.cover) {
-        best = { color: sc.color, opacity: sc.opacity, cover: cover };
+      // REQ-338 -- the later layer wins a tie; see overlayOf.
+      if (!best || cover >= best.cover) {
+        best = { color: sc.color, opacity: sc.opacity, blendMode: sc.blendMode, cover: cover };
       }
     }
-    return best ? { color: best.color, opacity: best.opacity } : null;
+    return best ? veilRecord(best) : null;
   }
 
   // REQ-270 -- the paint of a geometric slice, which is not the paint of the box
@@ -2212,8 +2363,8 @@ export const EXTRACT_SCRIPT = `(() => {
     // without this, <span>A</span> <span>B</span> rejoins as "AB".
     var pendingSpace = false;
     for (; (n = walker.nextNode()); ) {
-      var flow = n.nodeValue.replace(/\\s+/g, ' ');
-      var t = flow.trim();
+      var flow = collapseWs(n.nodeValue);
+      var t = trimWs(flow);
       var owner = n.parentElement;
       if (!owner || !visible(owner)) { if (!t) pendingSpace = true; continue; }
       if (moduleInvariant(owner)) { if (!t) pendingSpace = true; continue; }
@@ -2295,6 +2446,9 @@ export const EXTRACT_SCRIPT = `(() => {
       var ownRun = runCounts.get(el) === 1;
       var s = getComputedStyle(el);
       var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
+      // REQ-338 (issue 7) -- measured before the box, because the box's
+      // half-leading is half of this same line box (see lineBoxOf).
+      var pitch = runLinePitch(ownRun ? el : n);
       // REQ-265 -- a run's box is the LINE BOX it occupies. For a block element
       // the border box already is that; for an inline one the rect is the content
       // area, so \lineBoxOf\ converts it (and returns null for every other case,
@@ -2303,7 +2457,7 @@ export const EXTRACT_SCRIPT = `(() => {
       // un-inflated, because every consumer reads \`box\` as the space the content
       // occupies and \`transformRotateDeg\` as how that space is then turned.
       var runTf = accTransformOf(el);
-      var runBox = layoutBoxOf(el, runTf, ownRun ? (lineBoxOf(el, s) || absBox(el)) : (glyphs || absBox(el)));
+      var runBox = layoutBoxOf(el, runTf, ownRun ? (lineBoxOf(el, s, pitch) || absBox(el)) : (glyphs || absBox(el)));
       // A text-fill gradient is a background-image gradient clipped to the text
       // (background-clip: text). Capture the raw gradient CSS for TS-side
       // normalization; ignore non-clipped backgrounds (those are band fills).
@@ -2315,7 +2469,11 @@ export const EXTRACT_SCRIPT = `(() => {
       var accent = accentBarOf(el);
       var blW = accent.width;
       var blColor = accent.color;
-      var lh = parseFloat(s.lineHeight); // NaN for 'normal'
+      // REQ-338 (issue 7) -- the measured line-box pitch, falling back to the run's
+      // own computed line-height where there is only one line to measure (and NaN
+      // from there for 'normal', whose used value is a font metric no computed
+      // style exposes).
+      var lh = pitch !== null ? pitch : parseFloat(s.lineHeight);
       // REQ-35: when the painted colour is unresolvable (transparent / not
       // painted), rgbToHex returns null and we fall back to a sentinel — flag it
       // low-confidence so the values-diff won't hold a re-render to a guess.
@@ -2782,7 +2940,7 @@ export const EXTRACT_SCRIPT = `(() => {
         textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
         paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
-        overlay: overlayInBox(br.box),
+        overlay: overlayInBox(br.box, br.el),
         contentAnchorRatio: anchorRatioInBox(br.box, perSlice[bi].content),
         content: perSlice[bi].content,
         items: perSlice[bi].items,

@@ -522,6 +522,15 @@ describe('REQ-271 (3) — the fold never adopts a scrim colour as a band base', 
   })
 
   // ── 11. A band whose fill merely resembles nothing on it is untouched ──────
+  //
+  // REQ-338 (issue 1) SUPERSEDES THIS TEST'S CARRIER, not its intent. The fill is
+  // still kept — the scrim guard must never eat a band's own colour — but the box
+  // that carries it is now the `section-bg` one. A section that paints a fill AND
+  // an image or scrim over it emitted BOTH a `section-bg` box for the treatment
+  // and a reconstructed `section-band` plate for the fill; being siblings by area,
+  // the plate nested inside the treatment box and painted over the very image it
+  // belonged under. The fill now rides on the section box, under its own scrim, in
+  // the order CSS paints them — and the duplicate plate is not emitted.
   it('test_UAT_FC_REQ-271_a_band_fill_that_is_not_the_scrim_is_kept', () => {
     const ms = multiFrom(
       (w) => [
@@ -539,8 +548,19 @@ describe('REQ-271 (3) — the fold never adopts a scrim colour as a band base', 
         }),
       ],
     )
-    const bands = boxesOf(foldToL1(ms)).filter((b) => (b.id ?? '').startsWith('section-band-'))
-    expect(bands.map((b) => b.axes?.surfaceFill)).toContain('#0f172b')
+    const boxes = boxesOf(foldToL1(ms))
+    expect(
+      boxes.map((b) => b.axes?.surfaceFill),
+      'the band fill is not the scrim and is never dropped',
+    ).toContain('#0f172b')
+    // And it is carried by the section box, under the scrim rather than over it.
+    const bg = boxes.find((b) => (b.id ?? '').startsWith('section-bg-'))
+    expect(bg?.axes?.surfaceFill).toBe('#0f172b')
+    expect(bg?.axes?.overlay).toEqual({ color: SCRIM, opacity: 0.2 })
+    expect(
+      boxes.filter((b) => (b.id ?? '').startsWith('section-band-')),
+      'and no second plate of the same colour is emitted over the image and scrim',
+    ).toHaveLength(0)
   })
 
   // ── 12. The retained real bundle, re-folded ────────────────────────────────

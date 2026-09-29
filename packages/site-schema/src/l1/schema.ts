@@ -751,11 +751,23 @@ export const l1BlendModeSchema = z.enum([
   'luminosity',
 ])
 
-/** A full-bleed translucent scrim painted over a box's background (hero overlay). */
+/**
+ * A full-bleed translucent scrim painted over a box's background (hero overlay).
+ *
+ * REQ-338 (issue 5) — `blendMode` is how the scrim composites with the image
+ * under it, which a plain alpha cannot express. A page-builder band routinely
+ * veils its photograph with `mix-blend-mode: darken` (joyfulculinarycreations.com
+ * paints `#141e14` at an effective 0.67 that way), and a scrim recorded without
+ * it reproduces as a flat tint: alpha-only compositing lifted the band's darkest
+ * pixels by ~55/255 over 13.96% of that page's diff mass. The renderer emits it
+ * as `background-blend-mode` on the scrim's own layer, so the blend is confined
+ * to the box's own background stack and never reaches the page behind it.
+ */
 export const l1OverlaySchema = z
   .object({
     color: l1Color,
     opacity: finite.min(0).max(1).optional(),
+    blendMode: l1BlendModeSchema.optional(),
   })
   .strict()
 

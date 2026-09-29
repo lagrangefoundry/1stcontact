@@ -28,9 +28,25 @@ export interface Box {
  * masking produced it. The id is what makes this more than a rectangle — two
  * elements carrying the same id are cut off by the same ancestor, which is how
  * the fold knows they belong inside ONE clipping container.
+ *
+ * REQ-338 (issue 8) — THE ID IS THE ANCESTOR'S PLACE IN THE DOCUMENT (a
+ * `.`-joined chain of child indices), not a sequence number.
+ *
+ * It used to be a counter assigned on first sight, per page evaluation. The
+ * document is the same document at every viewport, but the ORDER its clipping
+ * ancestors are first seen is not — a phone shows one carousel slide where a
+ * desktop shows three — so `id: 5` meant a photograph's own rounded crop at 320px
+ * and a testimonial slide 1400px away at 1280px. The fold grouped by the id from
+ * one width and rebased against the box from another, and a 162px photograph
+ * landed at `(-332, -1424)` inside a 713×332 clipping container: the whole
+ * picture erased, while every coverage proxy reported it present because the L1
+ * document still REFERENCES the asset.
+ *
+ * A path is the same string at every width by construction. A bundle written
+ * before this carries the old sequence number and needs a re-capture.
  */
 export interface ClipAncestor extends Box {
-  id: number
+  id: string
 }
 
 /** Screen dimensions for a screenshot / viewport. */
@@ -285,8 +301,14 @@ export interface Background {
   image?: string
   /** Raw computed gradient when the band paints a gradient. */
   gradient?: string
-  /** Text-over-image overlay — first-class in DOC-13 §4. */
-  overlay?: { color: string; opacity: number }
+  /**
+   * Text-over-image overlay — first-class in DOC-13 §4.
+   *
+   * REQ-338 (issue 5) — `opacity` is the veil's effective alpha (its colour's
+   * alpha times the overlay element's own `opacity`), and `blendMode` its
+   * `mix-blend-mode` when it composites as anything but `normal`.
+   */
+  overlay?: { color: string; opacity: number; blendMode?: string }
 }
 
 export interface Layout {

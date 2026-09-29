@@ -316,8 +316,13 @@ export interface ValueElement {
 export interface SectionValues {
   /** Section ordinal in document order — the join key between the two sides. */
   index: number
-  /** Full-bleed translucent overlay (a hero scrim) painted over the section, or null. */
-  overlay: { color: string; opacity: number } | null
+  /**
+   * Full-bleed translucent overlay (a hero scrim) painted over the section, or null.
+   *
+   * REQ-338 (issue 5) — `blendMode` when the veil composites as anything but
+   * `normal`; absent otherwise, and on every bundle taken before the axis existed.
+   */
+  overlay: { color: string; opacity: number; blendMode?: string } | null
   /** Vertical content anchor (0 = top … 1 = bottom), or null when the section is textless. */
   contentAnchorRatio: number | null
   /** REQ-64 — section band vertical padding (Type-A). Captured on the band all
@@ -1723,8 +1728,12 @@ function borderLabel(b: BorderTreatment | null | undefined): string {
   return b ? `${b.widthPx}px ${b.style ? `${b.style} ` : ''}${b.color}` : 'none'
 }
 
-function overlayLabel(o: { color: string; opacity: number } | null): string {
-  return o ? `${o.color} @ ${o.opacity}` : 'none'
+function overlayLabel(o: { color: string; opacity: number; blendMode?: string } | null): string {
+  if (!o) return 'none'
+  // REQ-338 — the blend mode is part of what the veil paints, so it is part of the
+  // label a delta is read from: `#141e14 @ 0.67 darken` and `#141e14 @ 0.67` are
+  // two different veils and a reader has to be able to see which one arrived.
+  return `${o.color} @ ${o.opacity}${o.blendMode ? ` ${o.blendMode}` : ''}`
 }
 
 /** Ratio → legible anchor label, e.g. `bottom (0.82)`. */
@@ -3438,7 +3447,12 @@ export function diffManifests(
       (!!eo &&
         !!ao &&
         eo.color.toLowerCase() === ao.color.toLowerCase() &&
-        Math.abs(eo.opacity - ao.opacity) <= opacityTol)
+        Math.abs(eo.opacity - ao.opacity) <= opacityTol &&
+        // REQ-338 — and it composites the same way. A `darken` veil and a `normal`
+        // one at the same colour and alpha paint different pixels over the same
+        // photograph, so comparing colour and alpha alone reported clean on a band
+        // that was 13.96% of joyfulculinarycreations.com's pixel disagreement.
+        (eo.blendMode ?? 'normal') === (ao.blendMode ?? 'normal'))
     if (!overlayOk) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
 
     // REQ-271 — the band's own base fill: the single most visually dominant

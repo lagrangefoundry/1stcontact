@@ -46,6 +46,7 @@ import {
   type L1Mask,
   type L1Node,
   type L1ObjectPosition,
+  type L1Overlay,
   type L1Padding,
   type L1PaddingResponsive,
   type L1ScalarKeyframe,
@@ -334,10 +335,7 @@ function probeResponses(probes: HeightProbe[]): Map<ValueElement, L1ViewportResp
  * width: the CSS rule producing them (`min-h-screen`) is not itself width-varying,
  * and re-probing at every width would multiply capture cost by the ladder length.
  */
-function sectionEdgeResponses(
-  probes: HeightProbe[],
-  projections: StateProjection[],
-): Map<number, Map<number, number>> {
+function sectionBoxFactors(probes: HeightProbe[]): Map<number, { top: number; bottom: number }> {
   const byIndex = new Map<number, { top: number; bottom: number }>()
   for (const { ladder, probe, deltaH } of probes) {
     const a = ladder.manifest.sections ?? []
@@ -352,6 +350,46 @@ function sectionEdgeResponses(
       })
     }
   }
+  return byIndex
+}
+
+/**
+ * REQ-338 (issue 4) — the same measured section-edge factors, expressed as the
+ * `viewportResponse` of the section's own BOX: its top travels by `top`, and its
+ * height grows by the difference of its two edges.
+ *
+ * `foldSectionBackgrounds` had no viewport-height branch at all, so every
+ * `section-bg-N` was PINNED while every run standing on it carried `yFactor: 1`.
+ * At the captured heights the two agree by construction and the page is exact; at
+ * every other height the content walks off its own backing surface — 161 of the
+ * 367 `escape` findings on joyfulculinarycreations.com, and 100% of its
+ * `structural-failure` verdict, on four boxes that answered the question with
+ * nothing. The measurement was already in hand ({@link sectionEdgeResponses}
+ * reads the identical probe pair); only the emission was missing.
+ */
+function sectionViewportResponses(probes: HeightProbe[]): Map<number, L1ViewportResponse> {
+  const out = new Map<number, L1ViewportResponse>()
+  for (const [index, f] of sectionBoxFactors(probes)) {
+    const r: L1ViewportResponse = {}
+    if (Math.abs(f.top) >= 0.005) r.yFactor = f.top
+    const height = snapFactor(f.bottom - f.top)
+    if (height !== undefined) r.heightFactor = height
+    if (r.yFactor !== undefined || r.heightFactor !== undefined) out.set(index, r)
+  }
+  return out
+}
+
+/**
+ * REQ-88 — {@link sectionBoxFactors} keyed the way a BAND reads it: per width, by
+ * the document `y` of each section edge, because a band's extent is clamped to
+ * those edges and its own height response is the difference of the two it lands
+ * between.
+ */
+function sectionEdgeResponses(
+  probes: HeightProbe[],
+  projections: StateProjection[],
+): Map<number, Map<number, number>> {
+  const byIndex = sectionBoxFactors(probes)
   const out = new Map<number, Map<number, number>>()
   if (byIndex.size === 0) return out
   for (const p of projections) {
@@ -1940,7 +1978,12 @@ function visibilityFor(presentWidths: number[], ladder: number[]): { fromPx?: nu
  * no node of its own. A section is therefore folded when it paints an image OR a
  * scrim — an overlay over a solid band is carried just as faithfully.
  */
-function foldSectionBackgrounds(projections: StateProjection[], widths: number[]): L1Box[] {
+function foldSectionBackgrounds(
+  projections: StateProjection[],
+  widths: number[],
+  heightAt: ReadonlyMap<number, number>,
+  sectionResponses: ReadonlyMap<number, L1ViewportResponse>,
+): L1Box[] {
   // section ordinal → its (width, values) samples across the ladder
   const byIndex = new Map<number, Array<{ width: number; sv: SectionValues }>>()
   for (const p of projections) {
@@ -1954,33 +1997,140 @@ function foldSectionBackgrounds(projections: StateProjection[], widths: number[]
   }
   const nodes: L1Box[] = []
   let idx = 0
-  for (const [, entriesRaw] of [...byIndex.entries()].sort((a, b) => a[0] - b[0])) {
+  for (const [index, entriesRaw] of [...byIndex.entries()].sort((a, b) => a[0] - b[0])) {
     const entries = entriesRaw.sort((a, b) => a.width - b.width)
-    const keyframes: L1Keyframe[] = entries.map((e) => ({
-      at: e.width,
-      x: round2(e.sv.box!.x),
-      y: round2(e.sv.box!.y),
-      width: round2(e.sv.box!.width),
-      height: round2(e.sv.box!.height),
-    }))
+    const keyframes: L1Keyframe[] = entries.map((e) => {
+      const kf: L1Keyframe = {
+        at: e.width,
+        x: round2(e.sv.box!.x),
+        y: round2(e.sv.box!.y),
+        width: round2(e.sv.box!.width),
+        height: round2(e.sv.box!.height),
+      }
+      // REQ-338 (issue 4) — the viewport height this box was MEASURED at, so the
+      // response below is read against a stated baseline instead of an assumed one.
+      const vh = heightAt.get(e.width)
+      if (vh) kf.atHeight = vh
+      return kf
+    })
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
     }
+    // REQ-338 (issue 4) — and how the box answers a taller viewport, measured from
+    // the same height probe every run standing on it is measured from. A `100vh`
+    // hero gets `heightFactor: 1`; a band below one gets `yFactor: 1`; a band that
+    // does neither gets nothing.
+    const response = sectionResponses.get(index)
+    if (response) geometry.viewportResponse = response
     // The URL / scrim are the band's; the widest width carrying each is
     // authoritative (they agree). Read per-axis rather than off the widest entry:
     // a section may paint an image at some widths and only a scrim at others.
     const axes: L1SurfaceAxes = {}
+    // REQ-338 (issue 1) — the section's OWN measured fill, which is the base every
+    // other layer of its background paints over. CSS puts `background-color` under
+    // `background-image`, and the renderer does too within one box; emitting the
+    // image without it reproduced the hero's photograph over the page backstop
+    // instead of over the black it is composited on — and left the band builder's
+    // reconstructed plate of the same colour as the only carrier of it, nested
+    // INSIDE the image box, painting over the photograph it belongs under.
+    const fill = [...entries].reverse().find((e) => typeof e.sv.surfaceFill === 'string')?.sv.surfaceFill
+    if (typeof fill === 'string') axes.surfaceFill = fill
     const url = entries.filter((e) => e.sv.backgroundImageUrl).pop()?.sv.backgroundImageUrl
     if (url) axes.backgroundImageUrl = url
     const overlay = entries.filter((e) => e.sv.overlay).pop()?.sv.overlay
-    if (overlay) axes.overlay = { color: overlay.color, opacity: overlay.opacity }
+    if (overlay) axes.overlay = foldOverlayAxis(overlay)
     const node: L1Box = { kind: 'box', id: `section-bg-${idx++}`, geometry, axes }
     const vis = visibilityFor(entries.map((e) => e.width), widths)
     if (vis) node.visibility = vis
     nodes.push(node)
   }
   return nodes
+}
+
+/** A captured section scrim → the L1 `overlay` axis, blend mode included (REQ-338 issue 5). */
+function foldOverlayAxis(overlay: NonNullable<SectionValues['overlay']>): L1Overlay {
+  const axis: L1Overlay = { color: overlay.color, opacity: overlay.opacity }
+  const blend = foldBlendMode(overlay.blendMode)
+  if (blend) axis.blendMode = blend
+  return axis
+}
+
+/**
+ * REQ-338 (issues 1 + 2) — a section background that a CAPTURED BACKDROP already
+ * paints better must not paint it a second time.
+ *
+ * Two probes see the same rectangle. The treatments probe reads the dedicated
+ * overlay element as an element, with every axis it carries — on
+ * joyfulculinarycreations.com's hero that is `opacity: 0.49` and
+ * `brightness(67%) contrast(88%) saturate(106%)`, the page's own values to the
+ * digit. The section-background probe reads the section, and gets the bare image
+ * URL. Both were emitted, 24 absolutely-positioned siblings apart, so the
+ * IMPOVERISHED copy painted last: the strip above the reconstructed band plate
+ * measured `(243, 248, 251)` against the reference's `(77, 79, 80)` — the highest
+ * mean residual on the page (142/255) over 156 of 4743 rows.
+ *
+ * The backdrop is strictly better informed, so it keeps the image and the section
+ * box keeps everything the backdrop cannot express: the section's own base fill,
+ * and its scrim — which is MOVED ONTO the backdrop, because a scrim paints over
+ * the image it veils and the backdrop paints after this box.
+ *
+ * A section box left with no axis at all paints nothing and is dropped. Mutates
+ * both node sets in place (they are this fold's own, freshly built).
+ */
+function mergeSectionBackgroundsIntoBackdrops(
+  sectionBgNodes: L1Box[],
+  backdrops: readonly L1Box[],
+  widths: readonly number[],
+): L1Box[] {
+  if (!backdrops.length) return sectionBgNodes
+  const rectsOf = (node: L1Box): Map<number, FoldRect> => {
+    const out = new Map<number, FoldRect>()
+    for (const kf of node.geometry?.keyframes ?? []) {
+      out.set(kf.at, { x: kf.x, y: kf.y, width: kf.width, height: kf.height ?? 0 })
+    }
+    return out
+  }
+  const sameRect = (a: FoldRect, b: FoldRect): boolean =>
+    Math.abs(a.x - b.x) <= FOLD_CONTAINS_EPS &&
+    Math.abs(a.y - b.y) <= FOLD_CONTAINS_EPS &&
+    Math.abs(a.width - b.width) <= FOLD_CONTAINS_EPS &&
+    Math.abs(a.height - b.height) <= FOLD_CONTAINS_EPS
+  const kept: L1Box[] = []
+  for (const node of sectionBgNodes) {
+    const url = node.axes?.backgroundImageUrl
+    const mine = rectsOf(node)
+    const twin =
+      typeof url === 'string'
+        ? backdrops.find((b) => {
+            if (b.axes?.backgroundImageUrl !== url) return false
+            const theirs = rectsOf(b)
+            let shared = 0
+            for (const at of widths) {
+              const a = mine.get(at)
+              const c = theirs.get(at)
+              if (!a || !c) continue
+              shared++
+              if (!sameRect(a, c)) return false
+            }
+            return shared > 0
+          })
+        : undefined
+    if (!twin) {
+      kept.push(node)
+      continue
+    }
+    delete node.axes!.backgroundImageUrl
+    const overlay = node.axes!.overlay
+    if (overlay) {
+      delete node.axes!.overlay
+      // The backdrop's own scrim wins if it has one: it was read off the element
+      // that paints it, not inferred from the section around it.
+      twin.axes = { ...(twin.axes ?? {}), overlay: twin.axes?.overlay ?? overlay }
+    }
+    if (Object.keys(node.axes!).length > 0) kept.push(node)
+  }
+  return kept
 }
 
 /**
@@ -2168,15 +2318,51 @@ function barBandFills(rows: SurfaceRow[], pageContentWidth: number, fullWidthFra
  *  - `undefined` (unmeasured — a bundle older than capture schema 3, whose
  *    transparent bands were recorded as an opaque fabrication) → omit as well.
  *    An unmeasured fill is not a licence to keep the scrim colour.
+ *
+ * REQ-338 (issue 3) — THE SCRIM IS LOOKED FOR AT EVERY SAMPLED WIDTH, not just
+ * at the widest. A scrim belongs to the panel that paints it, and a panel that
+ * is band-wide on a phone routinely narrows to a centred column on a desktop: on
+ * joyfulculinarycreations.com the testimonial band's `#28542d` veil is recorded
+ * at 320/375/768/1024 and is `null` at 1280/1440, where the panel it belongs to
+ * is 770 of 1280px. Reading only the widest projection saw no overlay there,
+ * returned on the first line, and promoted the flattened composite `#28542d` to
+ * the band's OPAQUE base at every width — 32.28% of that page's pixel
+ * disagreement, at mean 197/255, over a band the reference paints white.
+ *
+ * A scrim the capture saw at four of seven widths is a scrim. So the band's
+ * geometric section is still identified at the widest width (that is the
+ * grouping frame every other band decision uses), and the overlay is then looked
+ * up by that section's INDEX across every projection — the section list is the
+ * same list at every width, joined by index exactly as the values-diff joins it.
+ *
+ * REQ-338 (issue 1) — AND NOTHING AT ALL when the section box under the band
+ * already paints exactly this colour. The reference paints each band once; the
+ * fold painted it twice, because a section that carries an image or a scrim
+ * emits a `section-bg` box for it AND the run-surface builder reconstructs a
+ * plate of the same fill from the runs standing on it. The two are siblings by
+ * area, so the plate nested INSIDE the image box and a child painted over its
+ * parent: 644 × 1280 px of joyfulculinarycreations.com's hero photograph read
+ * `(0, 0, 0)` under an opaque black plate carrying the very colour the section
+ * box beneath it was already painting, at 25.96% of that page's diff mass and
+ * zero value deltas.
+ *
+ * The section box is the better carrier — it is the box CSS itself paints, it
+ * spans the whole section rather than the extent of the runs, and it holds the
+ * image and the scrim that belong over the fill — so the plate is dropped. Only
+ * when the section box covers the band EVERYWHERE the band is: a section whose
+ * scrim is recorded at four widths of seven emits a box that disappears above
+ * 1024 (see {@link visibilityFor}), and a band that stopped painting there would
+ * trade one defect for another.
  */
 function bandBaseFill(
   fill: string,
-  band: { y: number; height: number },
-  sections: readonly SectionValues[],
+  band: { y: number; height: number; x: number; width: number },
+  sectionsAtWidest: readonly SectionValues[],
+  sectionsByWidth: ReadonlyArray<readonly SectionValues[]>,
 ): string | null {
   let best: SectionValues | undefined
   let bestOverlap = 0
-  for (const sv of sections) {
+  for (const sv of sectionsAtWidest) {
     if (!sv.box) continue
     const top = Math.max(band.y, sv.box.y)
     const bot = Math.min(band.y + band.height, sv.box.y + sv.box.height)
@@ -2185,9 +2371,49 @@ function bandBaseFill(
       best = sv
     }
   }
-  if (!best?.overlay) return fill
-  if (best.overlay.color.toLowerCase() !== fill.toLowerCase()) return fill
-  return typeof best.surfaceFill === 'string' ? best.surfaceFill : null
+  if (!best) return fill
+  /** The same section at every width the ladder sampled, widest last. */
+  const samples = sectionsByWidth
+    .map((sections) => sections.find((sv) => sv.index === best!.index))
+    .filter((sv): sv is SectionValues => sv !== undefined)
+  const scrimmed = samples.some(
+    (sv) => sv.overlay && sv.overlay.color.toLowerCase() === fill.toLowerCase(),
+  )
+  // The band's own measured fill, from the widest sample that carries one. A
+  // sample that measured `null` (paints nothing) is authoritative and must not be
+  // skipped over in favour of an earlier width's colour, so the search is for the
+  // last sample that measured the axis AT ALL.
+  const measured = [...samples].reverse().find((sv) => sv.surfaceFill !== undefined)
+  const base = scrimmed
+    ? typeof measured?.surfaceFill === 'string'
+      ? measured.surfaceFill
+      : null
+    : fill
+  if (base === null) return null
+  // REQ-338 (issue 1) — the section box already paints this, over the whole band,
+  // at every width the ladder sampled. A second plate of the same colour can only
+  // paint over the image and the scrim that belong above the fill.
+  //
+  // The test is exactly the condition under which {@link foldSectionBackgrounds}
+  // emits a box at EVERY sampled width and {@link visibilityFor} therefore gates
+  // it at none: the section is recorded at every width, carries a box at each, and
+  // carries an image or a scrim at each. Anything weaker would drop the plate at a
+  // width where the box that was supposed to replace it is absent, and the band
+  // would paint nothing at all there.
+  const boxed =
+    samples.length === sectionsByWidth.length &&
+    samples.every((sv) => !!sv.box && (!!sv.backgroundImageUrl || !!sv.overlay))
+  const sectionFill = measured?.surfaceFill
+  if (
+    boxed &&
+    typeof sectionFill === 'string' &&
+    sectionFill.toLowerCase() === base.toLowerCase() &&
+    best.box !== undefined &&
+    foldRectContains(best.box, { x: band.x, y: band.y, width: band.width, height: band.height })
+  ) {
+    return null
+  }
+  return base
 }
 
 /**
@@ -2213,6 +2439,7 @@ function buildSolidBands(
   heightAt: Map<number, number>,
   edgeResponses: Map<number, Map<number, number>>,
   sectionsAtWidest: readonly SectionValues[],
+  sectionsByWidth: ReadonlyArray<readonly SectionValues[]>,
 ): L1Box[] {
   const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
   for (const r of bandRows) {
@@ -2339,7 +2566,12 @@ function buildSolidBands(
     // {@link bandBaseFill}. A band whose only fill was the scrim over it paints
     // nothing, and a box that paints nothing is not emitted.
     const widestKf = keyframes.find((k) => k.at === widestW) ?? keyframes[keyframes.length - 1]
-    const base = bandBaseFill(entry.g.fill, { y: widestKf.y, height: widestKf.height ?? 0 }, sectionsAtWidest)
+    const base = bandBaseFill(
+      entry.g.fill,
+      { x: widestKf.x, y: widestKf.y, width: widestKf.width ?? 0, height: widestKf.height ?? 0 },
+      sectionsAtWidest,
+      sectionsByWidth,
+    )
     if (base === null) return
     const id = `section-band-${oi}`
     const node: L1Box = { kind: 'box', id, geometry, axes: { surfaceFill: base } }
@@ -2658,7 +2890,7 @@ function nestClipRegions(
 ): { built: Map<L1Node, L1ContainerNode>; members: Map<L1Node, L1Node> } {
   const built = new Map<L1Node, L1ContainerNode>()
   const members = new Map<L1Node, L1Node>()
-  const groups = new Map<number, ClipRow[]>()
+  const groups = new Map<string, ClipRow[]>()
   for (const row of rows) {
     // The id is a property of the ancestor, so it is the same at every width the
     // element was captured at; the first frame is as good as any.
@@ -2669,9 +2901,51 @@ function nestClipRegions(
     else groups.set(id, [row])
   }
 
-  for (const [, group] of groups) {
+  /**
+   * REQ-338 (issue 8) — THE AGREEMENT IS CHECKED, NOT ASSUMED.
+   *
+   * Every member of a group names the same ancestor, so they record the same box
+   * at each shared width — that was stated as holding by construction, and it was
+   * the id that had to hold it. It did not (see {@link ClipAncestor}), and the
+   * cost of taking it on trust was total: the box came from "whichever member
+   * recorded it", so one mis-grouped leaf inherited a container 1400px away and
+   * was rebased entirely outside it. A whole photograph vanished and produced no
+   * value delta, because both sides lay it out in the same place and only one of
+   * them paints it.
+   *
+   * So a group is split into runs of members that actually agree, greedily: a row
+   * joins the first subgroup whose boxes match its own at every width both
+   * recorded. Members of one real ancestor still land together (identical boxes,
+   * first subgroup matches); a row that agrees with nobody gets its own, where the
+   * worst it can do is describe its own clip box — which is the truth about it.
+   */
+  const agreeing = (group: readonly ClipRow[]): ClipRow[][] => {
+    const subs: ClipRow[][] = []
+    for (const row of group) {
+      const fits = subs.find((sub) =>
+        sub.every((other) =>
+          [...row.frames].every(([at, box]) => {
+            const theirs = other.frames.get(at)
+            if (!theirs) return true
+            return (
+              Math.abs(theirs.x - box.x) <= FOLD_CONTAINS_EPS &&
+              Math.abs(theirs.y - box.y) <= FOLD_CONTAINS_EPS &&
+              Math.abs(theirs.width - box.width) <= FOLD_CONTAINS_EPS &&
+              Math.abs(theirs.height - box.height) <= FOLD_CONTAINS_EPS
+            )
+          }),
+        ),
+      )
+      if (fits) fits.push(row)
+      else subs.push([row])
+    }
+    return subs
+  }
+
+  for (const group of [...groups.values()].flatMap(agreeing)) {
     // The clip box per width, from whichever member recorded it — every member of
-    // a group names the same ancestor, so they agree by construction.
+    // a group names the same ancestor, and {@link agreeing} has established that
+    // the members of THIS group really do.
     const boxes = new Map<number, ClipAncestor>()
     for (const row of group) {
       for (const [at, box] of row.frames) {
@@ -2860,12 +3134,28 @@ interface OwnershipResult {
  * height once its content sizes it is the recovery's to compute (see
  * `promoteToFlow`), because only the recovery knows how tall the content turned
  * out to be once it was laid out.
+ *
+ * REQ-338 (issue 1) — `ownable` IS OWNED AND NEVER OWNS. The captured backdrops
+ * are passed there, which is the only way their paint can land where the page
+ * puts it: a section paints its own fill, then its overlay element over that,
+ * then the copy over both. Left at the top level a backdrop paints in the
+ * BACKGROUND layer, before every surface that holds content — so the hero's
+ * photograph went under the plate carrying the black it is composited on, and
+ * 644 × 1280 px of it read `(0, 0, 0)` against a reference whose mean there is
+ * `[66.67, 60.55, 51.97]`. Nested, it is a child ordered before the content (it
+ * has no reading-order key of its own) and after any surface sibling, which is
+ * exactly CSS's own order for the element it was read from.
+ *
+ * They still own nothing: an element-level background photograph is a CAPTURED
+ * element with its own oracle counterpart, not a surface the fold reconstructed
+ * from the runs standing on it, so it is never a candidate parent.
  */
 function nestBackingSurfaces(
   surfaces: readonly L1Box[],
   content: readonly L1Node[],
   textHeights: ReadonlyMap<L1Node, Map<number, number>>,
   widths: readonly number[],
+  ownable: readonly L1Box[] = [],
 ): OwnershipResult {
   const built = new Map<L1Node, L1Node>()
   const owned = new Set<L1Node>()
@@ -2873,7 +3163,10 @@ function nestBackingSurfaces(
   content.forEach((node, i) => readingOrder.set(node, i))
   if (surfaces.length === 0 || content.length === 0) return { built, owned, readingOrder }
   const widest = Math.max(...widths)
-  const all: L1Node[] = [...surfaces, ...content]
+  // Ownable-but-never-owning members sit between the surfaces and the content in
+  // `order`, so a backdrop paints after the reconstructed band it shares a parent
+  // with and before anything that holds copy.
+  const all: L1Node[] = [...surfaces, ...ownable, ...content]
   const order = new Map<L1Node, number>(all.map((n, i) => [n, i]))
   const isSurfaceNode = new Set<L1Node>(surfaces)
 
@@ -2937,6 +3230,10 @@ function nestBackingSurfaces(
     else kids.set(parent, [node])
   }
   for (const surface of surfaces) claim(surface, true)
+  // REQ-338 — as a surface for claiming purposes (a backdrop may only sit inside a
+  // strictly larger box, or an equal-sized one painted before it), never as one
+  // for parenting purposes.
+  for (const node of ownable) claim(node, true)
   for (const node of content) claim(node, false)
 
   const build = (surface: L1Box): L1Node => {
@@ -3010,6 +3307,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const probes = heightProbesFor(multiState, projections)
   const responseOf = probeResponses(probes)
   const edgeResponses = sectionEdgeResponses(probes, projections)
+  const sectionResponses = sectionViewportResponses(probes)
   const columnFit = fitColumn(projections)
 
   // REQ-211 — the rejoin plan. Built from EVERY projection, not just the widest:
@@ -3595,10 +3893,22 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // REQ-271 — the widest width's section records, which carry each band's own
   // measured fill alongside the scrim over it. The widest is the authoritative
   // sample for a per-band decision, exactly as the section-background fold reads
-  // its URL and scrim from the widest entry that carries them.
+  // its URL from the widest entry that carries one.
   const sectionsAtWidest =
     projections.find((p) => p.viewport.width === Math.max(...widths))?.manifest.sections ?? []
-  const bandNodes = buildSolidBands(bandRows, widths, sectionEdges, heightAt, edgeResponses, sectionsAtWidest)
+  // REQ-338 (issue 3) — and EVERY width's records, because a scrim is not always
+  // band-wide at the widest one (see {@link bandBaseFill}). Ascending by width,
+  // so "the last sample that measured the axis" is the widest that did.
+  const sectionsByWidth = projections.map((p) => p.manifest.sections ?? [])
+  const bandNodes = buildSolidBands(
+    bandRows,
+    widths,
+    sectionEdges,
+    heightAt,
+    edgeResponses,
+    sectionsAtWidest,
+    sectionsByWidth,
+  )
   const cardNodes = buildCards(cardRows, widths, heightAt, columnFit)
 
   // The page base is the band fill covering the greatest total height (shows only
@@ -3646,7 +3956,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
 
   // BUG-13 — section/band background images (the hero). Paint order beneath
   // everything: solid bands, then section-image bands, then cards, then content.
-  const sectionBgNodes = foldSectionBackgrounds(projections, widths)
+  //
+  // REQ-338 (issues 1 + 2) — and then deduplicated against the captured
+  // backdrops, so a rectangle the treatments probe already read as an element
+  // (with its `opacity` and `filter`) is not painted a second, poorer time by the
+  // section probe's reading of the same thing.
+  const sectionBgNodes = mergeSectionBackgroundsIntoBackdrops(
+    foldSectionBackgrounds(projections, widths, heightAt, sectionResponses),
+    backdropNodes,
+    widths,
+  )
 
   // REQ-93 — the behaviour seams. Each cluster of captured controls is one form;
   // its `slot` node is pinned at the cluster's union rect per width, so the
@@ -3877,15 +4196,18 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // panel and the words on it are one node from here on. A surface that backs
   // nothing is untouched and stays a pinned `box`, exactly as before.
   //
-  // `backdropNodes` take no part: an element-level background photograph is a
+  // `backdropNodes` own nothing — an element-level background photograph is a
   // CAPTURED element with its own oracle counterpart, not a surface the fold
-  // reconstructed from the runs standing on it, so it owns nothing and is owned
-  // by nothing.
+  // reconstructed from the runs standing on it. REQ-338 (issue 1): they ARE owned,
+  // though, because paint order is the whole point of a backdrop and only nesting
+  // can put a section's overlay element between the section's own fill and the
+  // copy standing on it.
   const ownership = nestBackingSurfaces(
     [...bandNodes, ...sectionBgNodes, ...cardNodes],
     [...body, ...slotNodes],
     textHeights,
     widths,
+    backdropNodes,
   )
   /** The members of one paint layer that are still top-level, as rebuilt. */
   const topLevel = (layer: readonly L1Node[]): L1Node[] =>
@@ -3897,7 +4219,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const paintOrder = [
     ...topLevel(bandNodes),
     ...topLevel(sectionBgNodes),
-    ...backdropNodes,
+    ...topLevel(backdropNodes),
     ...topLevel(cardNodes),
     ...topLevel(body),
     ...topLevel(slotNodes),

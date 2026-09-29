@@ -76,8 +76,29 @@ import type { Capture } from './types'
  *   which destroyed the `(file → weight, style)` pairing before the fold ever saw
  *   it: an italic file was indistinguishable from its normal sibling, and three
  *   Lato weights collapsed into three identical `(normal, 400)` declarations.
+ * - **8** — REQ-338: four things the extractor read wrongly rather than not at
+ *   all, which is why this bump matters as much as any that added an axis — a
+ *   pre-8 bundle carries a plausible WRONG value where it now carries the right
+ *   one, and no reader can tell the difference without the stamp.
+ *   (a) A band's `overlay` is the veil that paints OVER it: a box containing the
+ *   band paints behind it and can never be its overlay, the element's own
+ *   `opacity` is part of the veil's effective alpha, and `mix-blend-mode` travels
+ *   with it. A pre-8 bundle recorded joyfulculinarycreations.com's vegetable band
+ *   as a 9% white veil (which is the section's own `background-color`) where the
+ *   page paints `#141e14` at an effective 0.67 with `darken`.
+ *   (b) Non-breaking whitespace SURVIVES run-text normalisation. JavaScript's
+ *   `\s` includes U+00A0, so 15 non-breaking spaces became ordinary ones and the
+ *   reproduction broke lines the reference cannot break.
+ *   (c) `lineHeightPx` is the measured pitch of the line boxes the glyphs sit on,
+ *   not the run's own computed `line-height` — which is only the same number when
+ *   the run's own style, rather than its containing block's strut, sets the line
+ *   box.
+ *   (d) A `clip` ancestor's `id` is its place in the document, not a
+ *   per-projection sequence number. The old numbering shifted between widths of
+ *   the same page, so the fold grouped a photograph into a carousel 1400px away
+ *   and clipped it out of existence.
  */
-export const CAPTURE_SCHEMA = 7
+export const CAPTURE_SCHEMA = 8
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -271,6 +292,62 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // mirrored. A pre-7 bundle has `files` instead and no `faces` at all.
     present: (c) =>
       (c.theme?.fonts ?? []).some((f) => Array.isArray((f as unknown as { faces?: unknown }).faces)),
+  },
+  {
+    since: 8,
+    axis: 'a band overlay that is the veil painted OVER the band (effective alpha, `blendMode`)',
+    where: 'a section background (`sections[].background.overlay`)',
+    // A page whose veils all composite normally records no `blendMode` however new
+    // its extractor is, and a page with no veil at all records no overlay — the
+    // same asymmetry `href` has, and the reason the version gate comes first. What
+    // a pre-8 bundle can be caught red-handed at is the defect itself: an overlay
+    // whose colour IS the band's own fill is the section's `background-color`
+    // misread as the veil over it, which is a contradiction no current extractor
+    // can produce (a box containing the band is skipped).
+    present: (c) =>
+      !c.sections.some(
+        (s) =>
+          !!s.background?.overlay &&
+          typeof s.background.color === 'string' &&
+          s.background.overlay.color.toLowerCase() === s.background.color.toLowerCase(),
+      ),
+  },
+  {
+    since: 8,
+    axis: 'non-breaking whitespace preserved in run text',
+    where: 'a content run (`sections[].content[]`)',
+    // A page that uses no non-breaking space records none however new its
+    // extractor is, so this can only ever confirm the axis, never deny it.
+    present: (c) => runs(c).some((r) => typeof r.text === 'string' && /[\u00a0\u202f\u2007\u2011\u200b\u2060]/.test(r.text)),
+  },
+  {
+    since: 8,
+    axis: 'lineHeightPx measured as the line-box pitch',
+    where: 'a content run (`sections[].content[]`)',
+    // Caught by the contradiction, for the reason `a11yRole` is: a MULTI-LINE run
+    // whose glyph union is taller than its own line count allows was measured
+    // against the run's computed `line-height` instead of the line box. A page
+    // whose every run sets its own line-height shows no such run, which proves
+    // nothing — so this probe only ever REMOVES the axis from a finding.
+    present: (c) =>
+      !runs(c).some((r) => {
+        const lh = r.lineHeightPx
+        const box = r.renderedTextBox as { height?: number } | undefined
+        if (typeof lh !== 'number' || !(lh > 0) || typeof box?.height !== 'number') return false
+        const lines = Math.round(box.height / lh)
+        return lines >= 2 && box.height - lines * lh > 1
+      }),
+  },
+  {
+    since: 8,
+    axis: 'a clip ancestor identified by its place in the document',
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // A pre-8 bundle's ids are numbers; a current one's are `.`-joined paths. A
+    // page that clips nothing carries neither, and the version gate covers that.
+    present: (c) =>
+      [...runs(c), ...fields(c)].some(
+        (e) => typeof (e.clip as { id?: unknown } | null)?.id === 'string',
+      ),
   },
   {
     since: 2,
