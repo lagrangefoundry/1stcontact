@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T04:14:08.721466+00:00'
+updated_at: '2026-09-29T04:26:30.655846+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2745,5 +2745,98 @@ Please take a look at BUG-165 and the last turns of the gigabytealchemy transcri
 Please take a look at BUG-165 and the last turns of the gigabytealchemy transcript for context
 
 I'd like you to take 165 as a child and for us to discuss the implications - are there other issues there
+
+<!-- xgd-turn id="ffe79d5c-49ca-4b2a-a3ff-d7bf0b0d07fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T04:26:30.166191+00:00" -->
+#### Claude
+Found it — the live local store. Let me confirm the site and pull the last turns.
+
+Now I have the transcript. Let me check BUG-166 and pull the actual spend numbers for that session.
+
+The worker spend rows are missing — let me verify that before drawing conclusions.
+
+Two significant findings in the spend records. Let me confirm the error reason and how `requests` is counted.
+
+Now let me take BUG-165 as a child of EPIC-20.
+
+Adopted: **BUG-165** now has `epic_parent: epic-0923bb64` and EPIC-20 lists `bug-12bb645f` in `epic_children`.
+
+I read the ticket, the last turns of the Gigabyte Alchemy consultant transcript (`CHAT-2` in the local dev store, tenant `biz_eaf0e15…`), and the spend rows behind it. There is more there than the ticket says — and one thing bigger than the ticket.
+
+## First, what BUG-165 actually is
+
+It's a **one-line framework defect**, not a 1stcontact one. `reconcile` in `delegation_toolbox.js:675-691` already receives `outcome`:
+
+```js
+if (passed.has(key)) return { check, verdict: 'passed' }          // ← ignores outcome
+…
+accepted: outcome === REPORTED && checks.every(c => c.verdict === 'passed')   // ← uses it
+```
+
+The same function gets it right in aggregate and wrong per item. `accepted: false` and `verdict: "passed"` are computed four lines apart from the same variable.
+
+**This matters for who fixes it.** At 04:14 someone handed BUG-165 to an implementation session in *this* repo with the free-coding prompt (`comment-438553d0`). It can't be fixed here except by post-processing the result inside REQ-340's `accountingDelegationToolbox` seam — which would work, but puts a correctness patch for upstream's contract in our wrapper. Worth deciding before that session gets far.
+
+## The bigger thing: both delegating turns died on a 600-second wall
+
+`turn_log` for the session:
+
+| turn | window | outcome | detail |
+|---|---|---|---|
+| 1 | 03:37:20 → 03:48:45 | **error** | `tool loop timeout after 600s` |
+| 2 | 03:56:18 → 03:57:28 | complete | — |
+| 3 | 04:03:19 → 04:06:41 | complete | — |
+| 4 | 04:10:26 → 04:20:43 | **error** | `tool loop timeout after 600s` |
+
+Turns 1 and 4 are exactly the two that delegated. The timeout is `runToolLoop`'s default (`api_tools.js:874`, `timeout = 600`), and delegation makes hitting it close to structural: the worker's entire run happens inside one of the caller's tool calls, so a worker that runs for minutes spends the caller's wall clock. Turn 1 ran two workers and died; turn 4 ran two and died.
+
+The work landed anyway — site writes are durable, and the consultant confirmed it in turn 2. So the user saw a turn reported as failed whose changes were live. The session is still sitting on turn 4's `pending_turn`, your unanswered message about the forms' ghost text.
+
+## Three telemetry holes on that path
+
+This is EPIC-20's own instrument failing on the most expensive turns in the session.
+
+**a · The caller's own spend is zero on both errored turns.** `requests 0, input 0, output 0, cache_read 0, cost_micros NULL` — for an 11-minute turn. `runToolLoop` yields `doneEvent({...turnUsage(usages)})` on every normal exit, but the timeout is a bare `throw` at the top of the loop, so the accumulated `usages` are discarded; `writeTurnSpend` (`host-core.ts:2311`) folds spend from the terminal event's meta, which never arrives. The row exists *only* because BUG-145 made attribution a second reason for a row — so a turn that burned millions of tokens reads as a measured turn that cost nothing. That's worse than a missing row.
+
+**b · One worker's spend is gone entirely.** Turn 4's `attributed` lists `worker-builder-3` only. `worker-builder-4` ran — its chat ticket updated 04:19:09, and it has an 8.6 KB chat transcript and a **148 KB tool transcript**. `_attribute` runs when `delegate()` returns, and the timeout killed the turn mid-delegation, so it never ran. Workers get no `turn_spend` row of their own, so that spend exists nowhere.
+
+**c · `attributed[].requests` counts turns, not requests.** `_attribute` sets `requests: ledger.turns.length`. So:
+
+| worker | recorded `requests` | cache_read | output |
+|---|---|---|---|
+| builder-1 | **1** | 4,885,058 | 10,056 |
+| builder-2 | 1 | 239,276 | 5,216 |
+| builder-3 | 2 | 883,717 | 42,729 |
+
+4.9M cache-read tokens cannot come from one request — at the builder's 200k window that's ~25 round trips minimum, and it came back `exhausted`, so it was probably near the 50-iteration cap. Builder-3's `2` is the brief plus BUG-71's nudge, which is the giveaway. The column it lands beside in `turn_spend` means API requests. For an epic whose whole method is per-request arithmetic, delegated spend can't be analysed.
+
+Net: the ledger prices this session at **$0.84** (the two turns that completed), while its worker fleet read **just over 6M cache tokens** plus whatever builder-4 spent.
+
+## Two findings the transcript makes that the ticket only gestures at
+
+**The brief was the entire variable, and the numbers are exact.** Builder-2 read 239,276 cache tokens against builder-1's 4,885,058 — **4.9%**, which is the "5% of the token spend" the consultant claimed, confirmed. The difference: brief 1 said *"fix it either by correcting keyframes or by giving it a column anchor, whichever holds together better"* and described the constraint; brief 2 computed the values and said *do not recompute these numbers, just write them*. DOC-60 already argues the worker transcribes and the caller judges — but nothing in `Delegate`'s own description tells the caller **compute the values, don't describe the constraint**. That's a priming change, it's cheap, and after the timeout it's the highest-leverage item here.
+
+**The unfalsifiable check is what let the false pass through, and there's precedent for refusing it.** BUG-165 raises this as a possible separate ticket. It's a stronger idea than it looks, because the framework *already* validates check shape — `checkSentences` / `compoundChecks` / `MIN_CHECK_WORDS` refuse compound checks under BUG-68. So "a check that names no comparison" has both a home and a shape to copy. My view: warn rather than refuse — a caller can't always phrase an arithmetic check, and a refusal that blocks a legitimate delegation is a new failure mode.
+
+## The cost lever the consultant named at the end, which I think is the real one
+
+The page is one box with seventy absolutely-positioned children. No sections exist as objects, so *"attach this form to its section"* is inexpressible and every layout repair is coordinate arithmetic — which is why the first brief needed eight pairs of coordinates, which is why the worker ran long enough to exhaust its cap, which is why the caller's turn hit 600s. Grouping wouldn't just shorten briefs; it would shorten *worker runs*, which is what makes the wall reachable at all. The consultant offered to write it up and I'd take that offer.
+
+## What I'd file, and what I'd ask
+
+Ranked by what I'd actually do first:
+
+1. **The 600s timeout on delegating turns + the spend loss** — one bug, in this repo, high. It has a local half (record the turn's own spend on the error path; attribute workers already finished) and an upstream half (`runToolLoop` should fold `usages` onto the abort, and `_attribute` should run for a delegation killed mid-flight).
+2. **`attributed[].requests` mislabel** — framework, small, and it invalidates delegated-spend analysis until fixed.
+3. **Brief guidance in `Delegate`'s own description** — 1stcontact priming, cheap, biggest behavioural win.
+4. **Check-shape warning** — framework, the BUG-68 machinery is right there.
+5. **Sections/grouping capability** — the big lever, and a design conversation rather than a fix.
+
+Questions before I file anything:
+
+- **BUG-165's fix — upstream or wrapped locally?** There's a session already pointed at it in this repo. I'd say upstream in `reconcile`, and tell that session to stand down or to wrap deliberately as a stopgap. Your call, and it's time-sensitive.
+- **Do items 1–2 go under EPIC-20 or upstream in lagrange-framework?** Item 1 is genuinely split; I'd file the 1stcontact bug here under EPIC-20 and a framework ticket for the abort-path fold, cross-referenced — same shape as BUG-163/REQ-179.
+- **BUG-166** is yours, created 04:15, still `Untitled` / `(new ticket)`. Was that meant for one of these?
 
 <!-- xgd-chat-end -->
