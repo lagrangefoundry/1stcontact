@@ -364,11 +364,18 @@ interface BgLayer {
   size: string
   position: string
   repeat: string
+  /**
+   * REQ-338 — how this layer composites with the layers beneath it
+   * (`background-blend-mode`). Absent — which reads as `normal` — for every layer
+   * but a scrim that declares one, and the whole list is emitted only when one
+   * of them does.
+   */
+  blend?: string
 }
 
 /** A background layer that takes the CSS defaults for the sizing triple. */
-function plainLayer(image: string): BgLayer {
-  return { image, size: 'auto', position: '0% 0%', repeat: 'repeat' }
+function plainLayer(image: string, blend?: string): BgLayer {
+  return { image, size: 'auto', position: '0% 0%', repeat: 'repeat', ...(blend ? { blend } : {}) }
 }
 
 /**
@@ -741,7 +748,9 @@ function surfaceBgLayers(
   const layers: BgLayer[] = []
   if (a.overlay) {
     const c8 = withAlpha(a.overlay.color, a.overlay.opacity)
-    if (c8) layers.push(plainLayer(`linear-gradient(${c8}, ${c8})`))
+    // REQ-338 — the scrim's blend mode rides on its own layer, so `darken` applies
+    // between the veil and the photograph it veils and nothing else.
+    if (c8) layers.push(plainLayer(`linear-gradient(${c8}, ${c8})`, a.overlay.blendMode))
   }
   if (a.pattern) layers.push(...patternLayers(a.pattern))
   if (a.surfaceGradient) {
@@ -818,6 +827,12 @@ function surfaceDecls(
     )
   } else if (bgUrl) {
     out.push('background-size: cover', 'background-position: center', 'background-repeat: no-repeat')
+  }
+  // REQ-338 — positional like the sizing triple, and emitted only when a layer
+  // asks for it: a box whose scrim composites normally keeps the CSS default and
+  // the declaration does not appear at all.
+  if (bgLayers.some((l) => l.blend !== undefined && l.blend !== 'normal')) {
+    out.push(`background-blend-mode: ${bgLayers.map((l) => l.blend ?? 'normal').join(', ')}`)
   }
   if (a.border) {
     const b = borderCss(a.border)
