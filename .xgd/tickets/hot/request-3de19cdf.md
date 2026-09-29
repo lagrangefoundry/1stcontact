@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-91b35ccf
 ---
 
 # fold: every band is painted two or three times over and the least faithful copy is on top
