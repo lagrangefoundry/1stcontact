@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-338
 created_by: xgd
 created_at: '2026-09-29T01:31:21.749948+00:00'
-updated_at: '2026-09-29T03:38:16.431395+00:00'
+updated_at: '2026-09-29T04:08:59.514251+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,61 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="bcf76268-ed42-4b8b-aa7f-ce27306c219f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T04:08:58.753911+00:00" -->
+#### Claude
+I'll pick up where the prior session left off. Let me check the ticket and the branch state.
+
+The worktree is clean with no REQ-338 commits — the prior session's WIP appears to be gone. Let me search for it before concluding anything.
+
+Found it — the WIP is in `stash@{0}: On free-REQ-338: req338 all`. Let me inspect it.
+
+Both production code and the three UAT files are in the stash. Restoring:
+
+Full WIP restored. The prior session ended mid-investigation of two new test failures. Let me read the full ticket body and understand the eight issues.
+
+Now let me typecheck the restored WIP and find the two failures the prior session hit.
+
+Typecheck clean across all three touched packages. Now the REQ-338 UATs:
+
+27 UATs pass. Now the full suite, to find the two failures the prior session was investigating:
+
+27 failures total. One is clearly mine — `REQ-271_a_band_fill_that_is_not_the_scrim_is_kept` touches the exact `bandBaseFill` scrim guard that issue 3 changes. Let me get the full list and establish the clean baseline.
+
+16 failing files. Let me determine which could possibly be affected by my diff, then baseline those precisely.
+
+Given this WIP was nearly lost once, let me back it up before touching the working tree again.
+
+Backed up. Now baselining the two candidate files against clean code:
+
+Confirmed: REQ-271 passes clean (9 passed) and fails with my WIP — a genuine regression I introduced. BUG-48's 4 failures are pre-existing. Restoring the WIP:
+
+Now let me understand the REQ-271 regression. First the failing test's intent:
+
+Now `bandBaseFill` — where my issue-1 and issue-3 changes live:
+
+Let me check whether `foldSectionBackgrounds` now carries the section's own fill — that's what makes suppressing the plate correct rather than lossy:
+
+Confirmed — `foldSectionBackgrounds` now carries the section's own `surfaceFill`. So the fill isn't lost; it moved to the better carrier. Let me verify where `#0f172b` actually lands with the WIP:
+
+Now a scratch probe to see exactly where the fill lands:
+
+Exactly as designed — the navy fill is kept, now carried by `section-bg-0` with the scrim correctly above it. REQ-271's intent is honoured; only the carrier changed.
+
+Let me first close a narrow hole I can see in the issue-1 guard: it checks image/overlay presence but not that the section actually has a *box* at every sampled width.
+
+Now let me update REQ-271's test 11 to reflect the deliberate relocation, preserving its actual intent:
+
+REQ-271 green again. Now a UAT for the tightened guard — the plate must survive when the section box wouldn't cover the band at every width:
+
+Now let me add the UAT for the two newly-guarded cases:
+
+Let me verify that new UAT is genuinely RED against the untightened guard:
+
+New UAT confirmed RED pre-fix, GREEN post-fix. Let me clean up the probe and run a rigorous full-suite comparison:
+
+⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
 
 <!-- xgd-chat-end -->
