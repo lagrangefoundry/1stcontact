@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T19:48:17.272642+00:00'
+updated_at: '2026-09-29T20:32:38.181067+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2988,5 +2988,11 @@ Two follow-ups I'd suggest, neither filed:
 2. **The resume preamble should restate the outcome schema verbatim.** It's the one part of the brief that is machine-read, and it's the part a resumed round is most likely to paraphrase.
 
 Want me to file either under EPIC-12?
+
+<!-- xgd-turn id="0bf10f4b-252a-4f55-a3c3-767efbfba058-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T20:32:35.763346+00:00" -->
+#### You
+*BUG-159 (*`bug-1ee5f18e`*) reached *`ready_to_reconcile`* while this round was running. <-- it is irrelevant the round cares only if it reached free_coded.*
 
 <!-- xgd-chat-end -->
