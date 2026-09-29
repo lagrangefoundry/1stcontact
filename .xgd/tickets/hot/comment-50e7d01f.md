@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-28T23:18:46.745416+00:00'
+updated_at: '2026-09-29T01:08:00.403537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2614,5 +2614,11 @@ Not blocking: framework REQ-179 (per-field provenance) is at `free_coding` upstr
 Run `bin/kb-release`, then deploy and try it. Fix the three assertions either before or after — they don't affect runtime behaviour, but leaving them red muddies the next reconcile.
 
 Want me to do the kb rebuild and the test updates? One question if so: the two nudge-caused ones logically belong to REQ-340 (the BUG-71 consumption), but it's at `ready_to_reconcile` — process says check before adding commits there. Say the word and I'll either extend REQ-340 or file a small separate ticket for the three.
+
+<!-- xgd-turn id="7c4596a7-7a27-40fa-b528-5cbbd9f7c26b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T01:07:57.996997+00:00" -->
+#### You
+please continue
 
 <!-- xgd-chat-end -->
