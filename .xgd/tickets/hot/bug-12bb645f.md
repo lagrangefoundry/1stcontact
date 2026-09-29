@@ -6,9 +6,9 @@ title: Delegate returns check verdicts as "passed" on a run that came back exhau
   and unaccepted, with no marker that they are unreliable
 created_by: xgd
 created_at: '2026-09-29T04:04:02.588828+00:00'
-updated_at: '2026-09-29T04:24:34.247992+00:00'
+updated_at: '2026-09-29T04:37:39.770795+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -162,3 +162,5 @@ And the document (node suite):
 - the declaration the caller's surface is composed with names `unverified` and
   states the rule, and the framework's own declaration is left unmutated;
 - a base declaration missing either amended key is refused by name.
+
+-
