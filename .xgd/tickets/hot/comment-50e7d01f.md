@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T04:34:27.603125+00:00'
+updated_at: '2026-09-29T04:47:45.245792+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2848,5 +2848,68 @@ please create an lf bug for 165 and close 165
 Anything better in LF, put it there - we need to fix its problems
 
 No 166 you can read the trasncript its about cost calc and display in the console
+
+<!-- xgd-turn id="806f11b8-1243-4db1-b49a-8107e85251f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T04:47:42.970323+00:00" -->
+#### Claude
+Filing the framework tickets now. First, the BUG-165 defect itself.
+
+Now closing BUG-165 with a pointer upstream.
+
+BUG-165 was already set to `abandoned` at 21:37 by another actor, which freezes its body — so the pointer goes on as a comment instead.
+
+Now BUG-166. Let me find the Operating Console's cost code so the ticket is concrete.
+
+Let me check whether the turn ids in the two tables actually match — that would explain every cell being a dash.
+
+Done. Here's what landed.
+
+## Filed in lagrange-framework
+
+| ticket | what | pri |
+|---|---|---|
+| **BUG-72** (`bug-36184556`) | A check verdict reads "passed" on a run whose outcome says it never finished | high |
+| **BUG-73** (`bug-23091d3c`) | A turn that ends by throwing loses the spend every other exit path folds, and a delegation cut off mid-flight bills its worker to nobody | high |
+| **BUG-74** (`bug-db9ece82`) | Attributed worker spend counts turns and calls them requests — 1 against 4.9M cache-read tokens | medium |
+| **BUG-75** (`bug-ffa5151e`) | The nudge asks again after a worker turn that was cut off, and pays a full request to be cut off again | medium |
+| **REQ-187** (`request-46fdc34b`) | Warn the caller when an acceptance check asks for an impression rather than a comparison | medium |
+
+All five `created_by: EPIC-20`, following BUG-68's precedent for tickets born out of this epic. Each carries the session evidence and the required behaviour rather than a proposed patch.
+
+Two refinements from reading the code while writing them:
+
+- **BUG-74 is easier than I thought.** `turnUsage` already returns a per-round-trip `requests` **array** on each turn, and `turnSpend` copies it through. `_attribute` just reports `ledger.turns.length` instead of summing those lengths. The count is already in the ledger.
+- **BUG-73's second half was half-known.** `spend-core.ts` records that BUG-145 already found workers vanishing when a caller died — *"half of every worker that has ever run was invisible to the meter for this reason alone"* — and fixed it by making attribution its own reason for a row. What that fix doesn't cover is a turn killed **during** `delegate()`, which is not one of `delegate()`'s exit paths. That's builder-4. I scoped the ticket to that gap rather than re-reporting the solved part.
+
+**BUG-75** is BUG-163 §3's upstream half, so that's now paired.
+
+## BUG-165
+
+Already `abandoned` — something set it at 21:37:39, while I was creating BUG-72. That freezes the body, so the pointer upstream went on as a note instead: **COMMENT-4324**, naming BUG-72 and REQ-187 as its two halves, listing BUG-73/74/75 as the same session's other findings, and recording that the session pointed at it with the free-coding prompt at 04:14 has nothing to implement here. I left the status alone rather than contest whoever set it.
+
+## BUG-166 — and it has a real defect in it
+
+Titled and scoped from the transcript, under EPIC-20. Your three items, plus a cause for the third:
+
+**The turns pane can never price a turn, and it isn't a formatting problem.** `turn_log` and `turn_spend` mint **different ids for the same turn**. Across the whole dev store: 36 log rows, 34 spend rows, **zero shared `turn_id`**. They're plainly the same turns — every pair matches on `started_at` to within 9–21ms and agrees on `outcome`. The route takes `turn_log` ids and looks them up in `turn_spend`, so `costs[turn.turn]` is always `undefined`, `?? null` makes it a dash, and the route's own comment ("a turn in flight, a turn that died… renders as a dash") explains it away. A dash meaning *not priced* and a dash meaning *never found* currently look identical, which is what let it sit.
+
+The other two are recorded as you asked, with one thing flagged: **item 3 reverses a decision the code states twice.** `config.js` and `tenant-cost.js` both say the two figures *"must never be added into one."* The worry behind that is right but it misfired — the headline is own-spend-only today, so a reader taking it alone under-reports exactly as feared. Summing satisfies the concern provided both components stay labelled underneath. I wrote that into the ticket explicitly, including that those comments must be updated to the new rule rather than left contradicting the code. On your session that's the difference between $0.84 and a number that includes 6M+ cache tokens of worker spend.
+
+Also, per-turn: `totalOf` returns `null` if *any* delegated entry is unpriced, so one unpriced worker erases the caller's own known cost. The principal/delegate split you want makes each absence local.
+
+## One new fact since we last spoke
+
+That session has now had **three** `tool loop timeout after 600s` failures — 03:37, 04:10 and 04:26 — and a turn was still in flight at 04:39. Three of five finished turns.
+
+## Not filed, still open from my earlier list
+
+These are the 1stcontact-local halves and I didn't want to file them on my own initiative:
+
+- **Raise the turn timeout.** `promptStream` takes `timeout` per call and we never pass one, so we run at the 600s default. Same shape as the `windowTurns` finding in BUG-71 — a framework default we can set and don't.
+- **`Delegate`'s own guidance: compute the values, don't describe the constraint.** The 4.9% figure is the argument for it.
+- **Sections/grouping**, which the consultant offered to write up and which is the largest lever of the lot.
+
+Want those three filed under EPIC-20, and should I add the five LF tickets to the epic body as upstream follow-ons the way REQ-179 is recorded?
 
 <!-- xgd-chat-end -->
