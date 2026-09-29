@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T04:26:30.655846+00:00'
+updated_at: '2026-09-29T04:34:27.603125+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2838,5 +2838,15 @@ Questions before I file anything:
 - **BUG-165's fix — upstream or wrapped locally?** There's a session already pointed at it in this repo. I'd say upstream in `reconcile`, and tell that session to stand down or to wrap deliberately as a stopgap. Your call, and it's time-sensitive.
 - **Do items 1–2 go under EPIC-20 or upstream in lagrange-framework?** Item 1 is genuinely split; I'd file the 1stcontact bug here under EPIC-20 and a framework ticket for the abort-path fold, cross-referenced — same shape as BUG-163/REQ-179.
 - **BUG-166** is yours, created 04:15, still `Untitled` / `(new ticket)`. Was that meant for one of these?
+
+<!-- xgd-turn id="806f11b8-1243-4db1-b49a-8107e85251f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T04:34:26.521758+00:00" -->
+#### You
+please create an lf bug for 165 and close 165
+
+Anything better in LF, put it there - we need to fix its problems
+
+No 166 you can read the trasncript its about cost calc and display in the console
 
 <!-- xgd-chat-end -->
