@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-338
 created_by: xgd
 created_at: '2026-09-29T01:31:21.749948+00:00'
-updated_at: '2026-09-29T04:41:46.165359+00:00'
+updated_at: '2026-09-29T04:41:56.284370+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -266,5 +266,14 @@ Two unrelated code fixes (BUG-162/BUG-163) landed on xgd-working since the cut �
 Branch at 0.2.404, one above xgd-working. Now let me commit:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="0d69c922-0ee6-42b7-8df4-8c26453cdb59-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T04:41:54.810634+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
