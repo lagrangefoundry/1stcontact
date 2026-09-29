@@ -6,10 +6,10 @@ title: A delegate worker session cannot be copied, and the refusal advises a fla
   that cannot help
 created_by: EPIC-16
 created_at: '2026-09-27T01:10:39.233554+00:00'
-updated_at: '2026-09-28T23:32:00.995801+00:00'
+updated_at: '2026-09-29T03:54:51.141472+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
