@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-09-29T22:33:08.063876+00:00'
+updated_at: '2026-09-29T22:47:19.280960+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,17 @@ The first is two `mountChat`s and is nearly free. The second is a new read surfa
 ---
 
 Nothing written to the ticket yet, and no code. Once you call (1) tab vs Console, (2) three-way vs two switches, (4) dead toggle or not, and (5) conversation vs context, I'll write the epic body and file the children — I'd expect roughly: the tab frame + gate, the D1-backed runtime switch (store + install + invalidation semantics), the delegation control, and the agent-window surface as its own child blocked on the room.
+
+<!-- xgd-turn id="069fabe2-ac5d-4acc-b524-e4c58a8cbeb7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T22:47:19.195550+00:00" -->
+#### You
+Your item (1) — deployment-wide network switches — falls exactly on the Console's side of that line. And the Console is *already* gated the way you want "eventually hidden from normal users," so gating would be free rather than future work. <-- I deliberately asked for this to be a business level tab because I want these controls at the business level. I appreciate that configuration may not exist today but that is what we need to build.
+
+"The delegate switch" is two switches <-- no it's 1 either the delegate feature is on or the feature is off I don't think there is any value in having the delegate feature half on. What is the state that you think I want to express?
+
+3. Making the switch runtime is a backend change, not a UI change <-- yes, that's a good point. Perhaps these should be deployed time switches not runtime switches. I imagine making them run time switches would be quite complicated and have a lot of potential bugs associated with it and it is not a product feature that I desire. Do you agree with this or would the runtime change be easy?
+
+`chat.js` shows one conversation and knows nothing about sites — it's already shaped to mount twice. But today there's one session per site (the consultant's), so "Alice's window" in a debug tab would be a *second pane on the same conversation the Site tab shows* — two drafts, one transcript, no new information. <-- to get a better sense of this look at epic two in Lagrange framework and the showcase tab that we have built with it. It shows the group chat and the individual chats for each of the two participants. This remains a UI feature even if the such as become developed time changes. This is also a per business feature so it is appropriate to have it as a tab
 
 <!-- xgd-chat-end -->
