@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T20:32:38.181067+00:00'
+updated_at: '2026-09-29T20:35:03.098376+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2994,5 +2994,42 @@ Want me to file either under EPIC-12?
 <!-- xgd-chat role="user" ts="2026-09-29T20:32:35.763346+00:00" -->
 #### You
 *BUG-159 (*`bug-1ee5f18e`*) reached *`ready_to_reconcile`* while this round was running. <-- it is irrelevant the round cares only if it reached free_coded.*
+
+<!-- xgd-turn id="0bf10f4b-252a-4f55-a3c3-767efbfba058-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T20:35:02.602430+00:00" -->
+#### Claude
+Understood — so the observation is noise. Let me look at what the console is actually watching for there.
+
+Let me check the statuses of the four tickets the round appended to — that should confirm what a round's actual stake in another ticket's status is.
+
+Confirmed, and it's worse than a single stray observation.
+
+**`ready_to_reconcile` is where essentially every ticket in this repo rests:**
+
+| status | count |
+|---|---|
+| `ready_to_reconcile` | **254** |
+| `ready_to_implement` | 0 |
+| `ready_to_reimplement` | 0 |
+| `ready_frontier` | 0 |
+| `free_coded` | 10 |
+| `draft` | 20 |
+
+So `READY_STATUSES` (`ticket.ts:69`) watches four statuses, three of which are permanently empty. In practice it watches one — the terminal resting state — and reports each arrival as *"If nobody promoted it on purpose, it is worth a look."* Any round running 25 minutes in an active repo will trip it. That's the cry-wolf failure BUG-114 was filed to fix, reappearing through the observations branch it added.
+
+**And the round's real stake is exactly where you say.** The four tickets it appended to this round — REQ-302, REQ-331, REQ-333, REQ-336 — are *all* at `ready_to_reconcile`, which is why it correctly used `add-comment` with round markers rather than `append`. `append-route.ts:29` names the boundary the round actually cares about:
+
+```ts
+APPENDABLE_STATUSES = ['draft', 'free_coding', 'free_coded', 'failed']
+```
+
+`free_coded` is the last writable status — the edge. Past it the body is frozen and evidence has to go in as a comment. That's the only status transition that changes what a round can *do*. A ticket landing at `ready_to_reconcile` mid-round changes nothing, and the round already handles the frozen case at append time anyway.
+
+One distinction worth preserving: the **violations** branch (`ticket.ts:201`) is a different guard — *the round must never itself set a `ready_*` status*, because that spawns an unattended dispatcher within ~30s. That hazard is real even though those statuses are empty today; it's a guard, not a monitor. It's only the **observations** branch (`ticket.ts:211`) that's manufacturing noise.
+
+So my "worth checking if you didn't promote BUG-159" was wrong on the merits — BUG-159 went where all 254 of them go.
+
+Want me to scope a ticket under EPIC-12 to drop the observations branch? That'd fold in nicely with the outcome-block parser bug from the last turn — both are the console reporting badly on a round that behaved correctly. I'd hold off on the `READY_STATUSES` list itself; three empty statuses cost nothing and the guard should stay broad.
 
 <!-- xgd-chat-end -->
