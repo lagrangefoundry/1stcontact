@@ -6,10 +6,10 @@ title: 'capture: a band''s content anchor is measured by DOM descent on one path
   geometry on the other, so a hero with a header over it is permanently unmeasured'
 created_by: EPIC-12
 created_at: '2026-09-29T21:23:37.137276+00:00'
-updated_at: '2026-09-29T21:23:37.137276+00:00'
+updated_at: '2026-09-29T21:47:01.802913+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
