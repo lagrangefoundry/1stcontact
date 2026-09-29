@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T20:50:09.494977+00:00'
+updated_at: '2026-09-29T21:20:55.560183+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3106,5 +3106,11 @@ Two things I'd suggest, neither started:
 2. **Scope a ticket under EPIC-12** for the anchor-population mismatch — that's the real fix, and it's an engine change with a clear behavior statement.
 
 Want me to scope #2? And separately — the 56 backing-surface findings are a much bigger signal than the unmeasured 1; worth deciding whether that's the thing you actually want driven down.
+
+<!-- xgd-turn id="de53fef2-6574-44bb-b47b-eae9938c6efa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T21:20:55.080617+00:00" -->
+#### You
+ok lets do it, but I am confused I thought (1) the console could propose engine changes and (2) you told me the one metric we were most trying to drive down was unmeasured...
 
 <!-- xgd-chat-end -->
