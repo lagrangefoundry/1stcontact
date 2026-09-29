@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-338
 created_by: xgd
 created_at: '2026-09-29T01:31:21.749948+00:00'
-updated_at: '2026-09-29T02:03:11.795863+00:00'
+updated_at: '2026-09-29T03:01:40.597669+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -53,5 +53,14 @@ Now issue 7 — the measured line-box pitch:
 Now the fold side of issue 8 — enforce that a clip group's members actually agree about the ancestor:
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="97ac3705-e206-43ba-9adb-326dd3f756ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T03:01:39.525264+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
