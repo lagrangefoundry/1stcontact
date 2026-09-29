@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T04:47:45.245792+00:00'
+updated_at: '2026-09-29T04:57:46.058142+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2911,5 +2911,13 @@ These are the 1stcontact-local halves and I didn't want to file them on my own i
 - **Sections/grouping**, which the consultant offered to write up and which is the largest lever of the lot.
 
 Want those three filed under EPIC-20, and should I add the five LF tickets to the epic body as upstream follow-ons the way REQ-179 is recorded?
+
+<!-- xgd-turn id="2000c179-53cf-4ede-8368-c7af69efa059-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T04:57:45.975044+00:00" -->
+#### You
+Yes please file (smallest reasonable number of tickets).
+
+Take a look at the ga transcript its still producing interesting feedback
 
 <!-- xgd-chat-end -->
