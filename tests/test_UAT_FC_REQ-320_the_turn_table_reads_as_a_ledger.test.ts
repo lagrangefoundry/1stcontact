@@ -46,7 +46,7 @@ beforeEach(() => {
 
 const SELECTION = { site: { site: 'site_salon', business: 'biz_salon' }, period: {} }
 
-/** One row as `/api/admin/turns` answers it, cost included. */
+/** One row as `/api/admin/turns` answers it, both cost halves included. */
 function turn(over: Record<string, unknown> = {}) {
   return {
     turn: 'turn_0123456789abcdef0123456789abcdef',
@@ -56,14 +56,15 @@ function turn(over: Record<string, unknown> = {}) {
     outcome: 'complete',
     detail: null,
     state: 'complete',
-    costMicros: null,
+    principalMicros: null,
+    delegatedMicros: null,
     ...over,
   }
 }
 
 /** The same row as a route that has not joined the meter would send it. */
 function unmetered(row: Record<string, unknown>) {
-  const { costMicros: _absent, ...rest } = row
+  const { principalMicros: _own, delegatedMicros: _handed, ...rest } = row
   return rest
 }
 
@@ -123,7 +124,7 @@ describe('REQ-320 the recent-turn table reads as a ledger', () => {
   })
 
   it('test_UAT_FC_REQ-320_no_column_carries_an_identifier', async () => {
-    // WHAT WENT. Three columns in the order a reader asks them, addressed by
+    // WHAT WENT. The columns are in the order a reader asks them, addressed by
     // `data-column` rather than by position — and the two identifiers are gone
     // from the table entirely, not merely narrowed. The failure sentence beneath
     // the row is untouched: it is the part of REQ-306 that already worked.
@@ -132,16 +133,21 @@ describe('REQ-320 the recent-turn table reads as a ledger', () => {
         state: 'error',
         outcome: 'error',
         detail: 'the assistant ran out of room',
-        costMicros: 4_000,
+        principalMicros: 4_000,
       }),
     ])
     await settle()
 
     const head = host.querySelector('.builder-turn-health__head')!
     expect([...head.querySelectorAll('[data-column]')].map((c) => c.getAttribute('data-column'))).toEqual(
-      ['started', 'state', 'cost'],
+      ['started', 'state', 'principal', 'delegated'],
     )
-    expect(Object.keys(CONFIG.TURN_HEALTH_COLUMNS)).toEqual(['started', 'state', 'cost'])
+    expect(Object.keys(CONFIG.TURN_HEALTH_COLUMNS)).toEqual([
+      'started',
+      'state',
+      'principal',
+      'delegated',
+    ])
 
     const section = host.querySelector('.builder-turn-health__recent')!
     expect(section.querySelector('[data-column="session"]')).toBeNull()
@@ -158,19 +164,26 @@ describe('REQ-320 the recent-turn table reads as a ledger', () => {
   })
 
   it('test_UAT_FC_REQ-320_what_the_turn_cost_is_the_rightmost_column', async () => {
-    // THE FIGURE EPIC-20 CAME FOR, formatted by the money function the cost pane
-    // already uses rather than by a second one free to round differently.
-    mount([turn({ costMicros: 1_520_000 })])
+    // THE FIGURES EPIC-20 CAME FOR, formatted by the money function the cost pane
+    // already uses rather than by a second one free to round differently — and
+    // there are TWO of them since [[BUG-166]], because which half a delegating
+    // turn spent its money in is the question the column is read for.
+    mount([turn({ principalMicros: 1_520_000, delegatedMicros: 480_000 })])
     await settle()
 
-    expect(columnOf(rows()[0], 'cost')).toBe('$1.52')
+    expect(columnOf(rows()[0], 'principal')).toBe('$1.52')
+    expect(columnOf(rows()[0], 'delegated')).toBe('$0.48')
     const head = host.querySelector('.builder-turn-health__head')!
-    expect(head.querySelector('[data-column="cost"]')?.textContent).toBe(
-      CONFIG.TURN_HEALTH_COLUMNS.cost,
+    expect(head.querySelector('[data-column="principal"]')?.textContent).toBe(
+      CONFIG.TURN_HEALTH_COLUMNS.principal,
     )
-    // Rightmost, because it is the figure the eye lands on last and the one a
-    // column of numbers is read down.
-    expect(head.lastElementChild?.getAttribute('data-column')).toBe('cost')
+    expect(head.querySelector('[data-column="delegated"]')?.textContent).toBe(
+      CONFIG.TURN_HEALTH_COLUMNS.delegated,
+    )
+    // Rightmost, because they are the figures the eye lands on last and the ones
+    // a column of numbers is read down. Nothing sums them on screen.
+    expect(head.lastElementChild?.getAttribute('data-column')).toBe('delegated')
+    expect(rows()[0].textContent).not.toContain('$2.00')
   })
 
   it('test_UAT_FC_REQ-320_a_turn_with_no_spend_row_shows_the_dash_and_never_zero', async () => {
@@ -180,18 +193,23 @@ describe('REQ-320 the recent-turn table reads as a ledger', () => {
     // distinction load-bearing rather than rhetorical: a turn that genuinely cost
     // nothing is a DIFFERENT fact and must not read as an unmeasured one.
     mount([
-      turn({ state: 'lost', outcome: null, endedAt: null, costMicros: null }),
+      turn({ state: 'lost', outcome: null, endedAt: null, principalMicros: null }),
       unmetered(turn({ state: 'open', outcome: null, endedAt: null })),
-      turn({ costMicros: 0 }),
+      turn({ principalMicros: 0 }),
     ])
     await settle()
 
     const [died, inFlight, free] = rows()
-    expect(columnOf(died, 'cost')).toBe(CONFIG.TENANT_COST_NOTHING)
-    expect(columnOf(died, 'cost')).not.toBe('$0.00')
+    expect(columnOf(died, 'principal')).toBe(CONFIG.TENANT_COST_NOTHING)
+    expect(columnOf(died, 'principal')).not.toBe('$0.00')
     // The field absent altogether reads as the dash too, so a route that has not
     // yet joined the meter cannot make every turn look free.
-    expect(columnOf(inFlight, 'cost')).toBe(CONFIG.TENANT_COST_NOTHING)
-    expect(columnOf(free, 'cost')).toBe('$0.00')
+    expect(columnOf(inFlight, 'principal')).toBe(CONFIG.TENANT_COST_NOTHING)
+    expect(columnOf(free, 'principal')).toBe('$0.00')
+    // AND THE HALVES ARE ABSENT INDEPENDENTLY ([[BUG-166]]): a turn that
+    // delegated nothing — every turn while the switch is off — has a principal
+    // figure and a dash beside it, never a zero claiming a free delegation.
+    expect(columnOf(free, 'delegated')).toBe(CONFIG.TENANT_COST_NOTHING)
+    expect(columnOf(free, 'delegated')).not.toBe('$0.00')
   })
 })

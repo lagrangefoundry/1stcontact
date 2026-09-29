@@ -21,13 +21,22 @@
  * renders as a dash, which reads as *there is nothing here* — where `$0.00`
  * would claim a month of free consulting, or a delegation that came free.
  *
- * THE TWO FIGURES ARE NEVER ONE. A caller's true total is its own spend PLUS
- * what it attributed to its workers, so a surface showing a single number
- * under-reports every delegating turn, silently and in the flattering direction:
- * a delegation that moved no work would look exactly like one that worked. So
- * the pane labels both and adds neither, and the delegated half names the model
- * each figure was incurred on — which is how *did construction actually move to
- * the cheap model* is answered by looking rather than by inference.
+ * THE TWO FIGURES ARE NEVER ONE — IN THE DECOMPOSITION. A caller's true total is
+ * its own spend PLUS what it attributed to its workers, so a surface showing a
+ * single number under-reports every delegating turn, silently and in the
+ * flattering direction: a delegation that moved no work would look exactly like
+ * one that worked. So the pane labels both and adds neither, and the delegated
+ * half names the model each figure was incurred on — which is how *did
+ * construction actually move to the cheap model* is answered by looking rather
+ * than by inference.
+ *
+ * AND THE HEADLINE IS THE TOTAL ([[BUG-166]]), which is not a retreat from that
+ * rule but the other half of it. The figure at the top of a section headed
+ * *Business cost* is read as what the business cost, and it was the principal
+ * half alone while the delegated half sat unadded further down the same pane —
+ * the very under-reporting the rule exists to prevent, arriving through the one
+ * cell nobody thought of as a decomposition. The route adds them; this module
+ * still adds nothing.
  *
  * IT IS A SECTION AND NOT THE PANE. `platform-sites.js` knows nothing about any
  * of this; it is handed `{id, label, mount}` and mounts it beside whatever else
@@ -185,18 +194,29 @@ function mountTenantCost(container, { site, period }, { fetchTenant }) {
  * belong at the top of its pane. Dropping them would have made the re-housing a
  * loss of information rather than a change of container.
  *
- * COST PER ENGAGED HOUR IS THE ROUTE'S AND IS NOT DIVIDED HERE, which is this
- * module's rule about second opinions at the one figure that most invites one.
+ * THE COST IS THE WHOLE BILL ([[BUG-166]]) — the business's own spend PLUS what
+ * its turns caused elsewhere. It was the principal half alone, sitting above a
+ * decomposition that showed the delegated half unadded a few inches further down,
+ * under a section headed *Business cost*. A reader takes a headline for the
+ * total, and this one was the flattering half of it.
+ *
+ * AND BOTH ARE THE ROUTE'S ([[REQ-297]], and now doubly so). Neither the sum nor
+ * the rate is computed here: `total` arrives settled, for this module's rule
+ * about second opinions at the two figures that most invite one. The rate
+ * follows the total rather than the report's own, because a rate derived from
+ * the other half is a third number an operator can produce by dividing the two
+ * on screen and finding they disagree.
  */
 function totalsOf(answer) {
   const section = el('div', 'builder-tenant-cost__headline')
   const figuresRow = el('div', 'builder-tenant-cost__totals')
   section.append(figuresRow)
   const report = answer?.report ?? null
+  const total = answer?.total ?? null
   const figures = {
-    cost: dollars(report?.costMicros ?? null),
+    cost: dollars(total?.costMicros ?? null),
     hours: hours(report?.engagedHours ?? null),
-    'per-hour': dollars(report?.costPerEngagedHourMicros ?? null),
+    'per-hour': dollars(total?.costPerEngagedHourMicros ?? null),
   }
   for (const [id, label] of Object.entries(TENANT_COST_TOTALS)) {
     const cell = el('div', 'builder-tenant-cost__total')
@@ -258,7 +278,9 @@ function daysOf(rows) {
 
 /**
  * The principal figure beside the delegated one — TWO figures, always, never
- * added.
+ * added HERE. The headline above this block is their total ([[BUG-166]]); this
+ * is the decomposition that says where it went, and a decomposition that summed
+ * itself would be the headline again.
  *
  * BOTH SIDES NAME THEIR MODELS. The principal half's models come from the
  * report's own `byModel`; the delegated half's come from the backend each

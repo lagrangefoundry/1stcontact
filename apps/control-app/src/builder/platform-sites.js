@@ -423,7 +423,12 @@ export function mountPlatformSites(
     }
     if (!live) return
 
-    const cost = new Map(league.map((row) => [row.business, row.report?.costMicros ?? null]))
+    // THE WHOLE BILL AND NOT THE PRINCIPAL HALF ([[BUG-166]]). `report` is what
+    // the business spent on its own turns; `total` is that plus what those turns
+    // caused on the workers they handed off to, which is the figure the detail
+    // pane's headline shows for the same business over the same period. Reading
+    // the half here would put two answers to one question on one screen.
+    const cost = new Map(league.map((row) => [row.business, row.total?.costMicros ?? null]))
     rows = orderedSites(sites, league).map((site) => ({
       ...site,
       costMicros: cost.has(site.business) ? cost.get(site.business) : null,

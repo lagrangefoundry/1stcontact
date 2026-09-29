@@ -191,6 +191,7 @@ import {
   tenantSpendDays,
   tenantSpendLeague,
   tenantSpendReport,
+  tenantSpendTotal,
   tenantTurnCosts,
   type SpendPeriod,
 } from './spend'
@@ -3720,28 +3721,38 @@ async function routeUncached(
       const { period, unreadable } = spendPeriodOf(url)
       if (unreadable) return json(400, { error: `${unreadable} is not a readable timestamp` })
       /**
-       * THREE ANSWERS IN ONE ROUND TRIP, AND THEY ARE ONE ANSWER ([[REQ-297]]).
-       * The console opens a tenant's detail as a single act, and the day rows and
-       * the delegated half are meaningless apart from the report they are a
-       * decomposition of — two more requests would let a surface paint a
+       * FOUR ANSWERS IN ONE ROUND TRIP, AND THEY ARE ONE ANSWER ([[REQ-297]],
+       * [[BUG-166]]). The console opens a tenant's detail as a single act, and the
+       * day rows and the delegated half are meaningless apart from the report they
+       * are a decomposition of — two more requests would let a surface paint a
        * decomposition of a period it is no longer showing.
        *
        * `report` IS THE PRINCIPAL HALF and is exactly what [[REQ-293]] has always
        * returned: the tenant's OWN turns. It is NOT the total. `delegated` is the
-       * other half and the two are never added here — a caller's true total is
-       * `usage + sum(attributed)`, and a route that folded them would remove the
-       * one distinction that makes a delegation experiment readable.
+       * other half, and the DECOMPOSITION never folds them together — a
+       * surface that replaced the labelled pair with one number would remove the
+       * distinction that makes a delegation experiment readable.
+       *
+       * `total` IS THE ONE PLACE THEY ARE ADDED ([[BUG-166]]), and it is a fourth
+       * figure beside the pair rather than a replacement for it. The headline on
+       * the console's cost pane is read as *what this business cost us*, and that
+       * question's answer is `usage + sum(attributed)`. Adding it HERE is what
+       * keeps the console free of money arithmetic: one authority for a figure an
+       * operator prices from, not a route and a browser that can disagree.
        *
        * `delegated` IS `null` RATHER THAN A ZEROED SHAPE for a tenant that handed
        * nothing off, which is every tenant while the switch is off ([[REQ-295]]).
-       * Nothing, never zero.
+       * Nothing, never zero — and `total` is then the principal half exactly.
        */
+      const report = await tenantSpendReport(env, business, period)
+      const delegated = await tenantDelegatedSpend(env, business, period)
       return json(200, {
         business,
         period: { from: period.from ?? null, to: period.to ?? null },
-        report: await tenantSpendReport(env, business, period),
+        report,
         days: await tenantSpendDays(env, business, period),
-        delegated: await tenantDelegatedSpend(env, business, period),
+        delegated,
+        total: tenantSpendTotal(report, delegated),
       })
     }
 
@@ -3770,9 +3781,19 @@ async function routeUncached(
      * cost under the same `turn_id`. The join is HERE rather than in either
      * module, because `turn-log.ts` owning a read of the meter — or `spend.ts` a
      * read of the ledger — would make two tables' worth of vocabulary one
-     * module's business for the sake of one surface. The cost is the turn's TOTAL,
-     * its own spend plus what it attributed to any worker, which is the figure
-     * that stops a delegating turn reading as the cheapest thing on the pane.
+     * module's business for the sake of one surface.
+     *
+     * THE SAME `turn_id`, WHICH IS NEWER THAN THE JOIN ITSELF ([[BUG-166]]). Until
+     * `/api/ai/prompt` began handing the ledger's id to the meter, the two tables
+     * minted their keys independently and this lookup matched nothing on every
+     * row — a cost column that had been a dash since the day it shipped. The join
+     * was right; there was no one key to join on.
+     *
+     * AND THE COST TRAVELS AS TWO FIGURES ([[BUG-166]]). REQ-320 summed the
+     * turn's own spend and what it attributed to its workers into one column,
+     * because one column was what the table had room for. What an operator
+     * actually asks of a delegating turn is which half the money went to, so the
+     * halves travel separately and are added nowhere on this route.
      *
      * BEHIND `ownsPlatformBusiness`, AND 404 RATHER THAN 403, on
      * {@link ADMIN_ZONES_PATH}'s reasoning exactly.
@@ -3801,10 +3822,16 @@ async function routeUncached(
         business,
         counts: health.counts,
         consecutiveLost: health.consecutiveLost,
-        // ABSENT AND NOT ZERO, all the way to the wire. A turn in flight, a turn
-        // that died, and a turn that failed before its terminal meta arrived have
-        // no meter row at all, and `null` is what the surface renders as a dash.
-        turns: health.turns.map((turn) => ({ ...turn, costMicros: costs[turn.turn] ?? null })),
+        // ABSENT AND NOT ZERO, all the way to the wire, and now on each half
+        // independently. A turn in flight, a turn that died, and a turn that
+        // failed before its terminal meta arrived have no meter row at all; a
+        // turn that delegated nothing has a principal figure and no delegated
+        // one. `null` is what the surface renders as a dash.
+        turns: health.turns.map((turn) => ({
+          ...turn,
+          principalMicros: costs[turn.turn]?.principalMicros ?? null,
+          delegatedMicros: costs[turn.turn]?.delegatedMicros ?? null,
+        })),
       })
     }
 
@@ -6458,7 +6485,19 @@ function streamTurn(
       let outcome: TurnLogOutcome = 'aborted'
       let detail: string | null = null
       try {
-        for await (const event of streamPrompt(sessionId, text, {}, host.deps)) {
+        /**
+         * THE LEDGER'S ID IS THE METER'S ID ([[BUG-166]]), which is the whole of
+         * what makes the console's cost column possible. `turn_log` and
+         * `turn_spend` are two records of ONE turn — one written before the
+         * stream so a death is visible, one after it so the spend is settled —
+         * and the console joins them on `turn_id`. Each minting its own id made
+         * that join match nothing, on every row, from the day it shipped.
+         *
+         * `undefined` WHERE THERE IS NO LEDGER, and the meter mints as it always
+         * did: a deployment with no database, or an open that failed, must leave
+         * the turn behaving exactly as it did before either record existed.
+         */
+        for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id)) {
           if (event.kind === 'done') {
             const status = typeof event.meta?.status === 'string' ? event.meta.status : ''
             outcome = status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : 'complete'

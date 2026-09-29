@@ -273,8 +273,19 @@ export interface TenantSpendRow {
    * the console stopped reporting for the one reason it must not.
    */
   name: string | null
-  /** REQ-293's report for this tenant and this period. Nothing else. */
+  /** REQ-293's report for this tenant and this period — the PRINCIPAL half. */
   report: SpendReport
+  /**
+   * What the period actually cost them: principal plus delegated ([[BUG-166]]).
+   *
+   * THE COLUMN THE CONSOLE'S LIST PRINTS, and the key it ranks by. The list and
+   * the detail pane are the same question asked of many businesses and of one,
+   * so a list showing the principal half beside a pane showing the total would
+   * be two answers to one question, visibly disagreeing on the same screen —
+   * and the ranking, which is what the console exists for, would put a business
+   * that delegated heavily below one that cost us less.
+   */
+  total: TenantSpendTotal
 }
 
 /**
@@ -289,7 +300,8 @@ export interface TenantSpendRow {
  * index was shaped for — rather than a single `GROUP BY` over the whole table,
  * which would be the unscoped read that note declines to make cheap.
  *
- * ORDERED BY SETTLED COST, MOST EXPENSIVE FIRST, and the tie-breaks are the
+ * ORDERED BY SETTLED COST, MOST EXPENSIVE FIRST — the TOTAL cost since
+ * [[BUG-166]], principal plus delegated — and the tie-breaks are the
  * interesting part. `costMicros` is `null` for a tenant whose every turn was
  * unpriced — nothing, never zero — and null is not a position on a scale of
  * money, so those tenants sort AFTER every tenant that has one rather than at
@@ -334,20 +346,33 @@ export async function tenantSpendLeague(
   // while it is small.
   const rows: TenantSpendRow[] = []
   for (const tenant of found.results ?? []) {
+    // TWO READS PER TENANT SINCE [[BUG-166]], on the same one-at-a-time
+    // reasoning: the delegated half is what makes this row's figure the whole
+    // bill, and it is a scoped range scan over the rows that HAVE a delegation —
+    // almost none, while the switch is off.
+    const report = await tenantSpendReport(env, tenant.tenant_id, period)
+    const delegated = await tenantDelegatedSpend(env, tenant.tenant_id, period)
     rows.push({
       business: tenant.tenant_id,
       name: tenant.name ?? null,
-      report: await tenantSpendReport(env, tenant.tenant_id, period),
+      report,
+      total: tenantSpendTotal(report, delegated),
     })
   }
   rows.sort(byCostDescending)
   return rows
 }
 
-/** Most expensive first; unpriced last; then hours, then the id. See above. */
+/**
+ * Most expensive first; unpriced last; then hours, then the id. See above.
+ *
+ * BY THE TOTAL AND NOT BY THE PRINCIPAL HALF ([[BUG-166]]): *which tenant is
+ * costing us money* is the question this ordering answers, and a business whose
+ * spend went to its workers is costing us exactly that money.
+ */
 function byCostDescending(a: TenantSpendRow, b: TenantSpendRow): number {
-  const left = a.report.costMicros
-  const right = b.report.costMicros
+  const left = a.total.costMicros
+  const right = b.total.costMicros
   if (left !== right) {
     if (left === null) return 1
     if (right === null) return -1
@@ -537,8 +562,29 @@ export async function tenantDelegatedSpend(
 }
 
 /**
- * What each of a handful of named turns cost in total, keyed by turn id
- * ([[REQ-320]]).
+ * What one turn cost, as the two figures it is actually made of ([[BUG-166]]).
+ *
+ * TWO AND NOT ONE, for the reason {@link DelegatedSpend} gives about a period
+ * and the cost pane has always rendered: a caller's own spend and what it caused
+ * elsewhere are different facts about different bills, and a single cell holding
+ * their sum cannot say which half moved. A delegating turn whose worker ran the
+ * cheap model and one that did the same work itself are the same number in one
+ * column and two very different numbers in two.
+ */
+export interface TurnCost {
+  /** The turn's own spend, or `null` where `prices.json` named no rate for it. */
+  principalMicros: number | null
+  /**
+   * What it handed off, or `null` — which here means BOTH *it delegated nothing*
+   * and *a delegation this reader cannot price*, because the surface renders
+   * either as a dash and neither as a figure. Nothing, never zero.
+   */
+  delegatedMicros: number | null
+}
+
+/**
+ * What each of a handful of named turns cost, keyed by turn id ([[REQ-320]],
+ * split in two by [[BUG-166]]).
  *
  * THE QUESTION THIS ANSWERS, and why it is not {@link tenantSpendTurns}. That one
  * reports a PERIOD for an invoice, oldest first, and says nothing about any one
@@ -547,20 +593,20 @@ export async function tenantDelegatedSpend(
  * when a turn began and how it ended and nothing whatsoever about money. So this
  * is the join: the ids come from the ledger, the figures come from the meter.
  *
- * THE FIGURE IS THE TURN'S TOTAL — ITS OWN SPEND PLUS WHAT IT HANDED OFF. A turn
- * that delegated a sweep of site writes to a worker cost what the worker cost,
- * and a column showing only the caller's half would make exactly the expensive
- * turns look cheap. {@link attributedSpend} prices each delegated entry at its
- * OWN backend's rates, which is the whole reason the stored `attributed` list is
- * kept whole rather than folded into this row's four counters.
+ * THE HALVES ARE REPORTED SEPARATELY AND NEVER SUMMED HERE. REQ-320 added one
+ * column carrying the total because one column was what the table had room for;
+ * the operator reading it wants to know which half the money went to, which is
+ * the same argument the cost pane settled for a period and this applies to a
+ * turn. {@link attributedSpend} prices each delegated entry at its OWN backend's
+ * rates, which is the whole reason the stored `attributed` list is kept whole
+ * rather than folded into this row's four counters.
  *
- * AND IT IS A TOTAL OR IT IS NOTHING. `null` means *not measured* and is returned
- * for a turn with no row, for a row whose own `cost_micros` is NULL because
- * `prices.json` named no rate for its pair, and for a row with a delegated entry
- * this reader cannot price. A partial sum presented as a total would understate
- * in the flattering direction, which is the one direction a meter must not err
- * in; the pane beside this one can label an unpriced remainder with a sentence,
- * and a single cell cannot.
+ * ABSENT IS `null` ON EITHER SIDE, INDEPENDENTLY. A turn with no meter row is
+ * missing from this map entirely; a row whose own `cost_micros` is NULL has no
+ * principal figure and may still have a delegated one; a row whose delegation
+ * cannot be priced has no delegated figure and still reports what the caller
+ * itself spent. Splitting the figure is what makes that possible — under one
+ * total, a single unpriceable worker erased the caller's own measured spend too.
  *
  * SCOPED BY TENANT AS WELL AS BY ID, though `turn_id` is the primary key and
  * would be enough to find the row. The scope is what makes a mistake upstream
@@ -574,9 +620,9 @@ export async function tenantTurnCosts(
   env: SpendEnv,
   tenantId: string,
   turnIds: readonly string[],
-): Promise<Record<string, number | null>> {
-  const totals: Record<string, number | null> = {}
-  if (turnIds.length === 0) return totals
+): Promise<Record<string, TurnCost>> {
+  const costs: Record<string, TurnCost> = {}
+  if (turnIds.length === 0) return costs
   const result = await env.DB.prepare(
     `SELECT turn_id, cost_micros, attributed FROM turn_spend WHERE ${SCOPE_COLUMN} = ?` +
       ` AND turn_id IN (${turnIds.map(() => '?').join(', ')})`,
@@ -584,32 +630,38 @@ export async function tenantTurnCosts(
     .bind(tenantId, ...turnIds)
     .all<{ turn_id: string; cost_micros: number | null; attributed: string | null }>()
   for (const row of result.results ?? []) {
-    totals[row.turn_id] = totalOf(row.cost_micros, row.attributed)
+    costs[row.turn_id] = {
+      principalMicros:
+        row.cost_micros === null || row.cost_micros === undefined ? null : row.cost_micros,
+      delegatedMicros: delegatedOf(row.attributed),
+    }
   }
-  return totals
+  return costs
 }
 
 /**
- * One row's own cost plus its delegated entries', or `null` where any part of
- * that sum is unknown.
+ * One row's delegated entries, priced and summed — or `null`.
  *
- * A COLUMN THAT DOES NOT PARSE IS AN UNMEASURED TURN and not a failed read, on
- * {@link tenantDelegatedSpend}'s reasoning: the value is the framework's
- * structure written verbatim and this module does not own its schema. Where that
- * one drops the entry and reports how many it dropped, this one has a single cell
- * to answer in and says *not measured* — because the alternative is a figure that
- * silently omits the delegation the operator is trying to see.
+ * `null` MEANS *NO FIGURE* AND COVERS TWO STATES ON PURPOSE: the turn delegated
+ * nothing (the column is NULL, which is every turn while the switch is off), and
+ * the turn delegated something this reader cannot account for. A cell has one
+ * thing to say and both of those are *there is no delegated figure here*; the
+ * alternative — a number for the entries that did price — is a floor presented
+ * as a measurement, which understates in the flattering direction.
  *
- * AN ENTRY {@link attributedSpend} DROPPED COUNTS AGAINST THE TOTAL, which is why
+ * A COLUMN THAT DOES NOT PARSE IS AN UNMEASURED DELEGATION and not a failed read,
+ * on {@link tenantDelegatedSpend}'s reasoning: the value is the framework's
+ * structure written verbatim and this module does not own its schema.
+ *
+ * AN ENTRY {@link attributedSpend} DROPPED COUNTS AGAINST THE SUM, which is why
  * the lengths are compared rather than the returned list simply summed. That
  * function leaves out an entry with no usage at all, because an entry with no
  * usage is not a delegation that cost nothing — it is one this reader cannot
  * account for, and the same judgement applied to the sum makes it absent rather
  * than short.
  */
-function totalOf(own: number | null, attributed: string | null): number | null {
-  if (own === null || own === undefined) return null
-  if (attributed === null || attributed === undefined) return own
+function delegatedOf(attributed: string | null): number | null {
+  if (attributed === null || attributed === undefined) return null
   let parsed: unknown = null
   try {
     parsed = JSON.parse(attributed)
@@ -618,11 +670,74 @@ function totalOf(own: number | null, attributed: string | null): number | null {
   }
   if (!Array.isArray(parsed)) return null
   const entries = attributedSpend(parsed)
+  if (entries.length === 0) return null
   if (entries.length !== parsed.length) return null
-  let micros = own
+  let micros = 0
   for (const entry of entries) {
     if (entry.costMicros === null) return null
     micros += entry.costMicros
   }
   return micros
 }
+
+/**
+ * What the period cost ALTOGETHER — the principal half plus the delegated one
+ * ([[BUG-166]]).
+ *
+ * WHY THIS EXISTS AT ALL, given REQ-297 spent a module on *the two figures are
+ * never one*. That rule is about the DECOMPOSITION: a surface that replaced the
+ * labelled pair with a single number would hide which half the money went to,
+ * and the pane still shows both, still labelled, still unadded. But the figure
+ * at the top of that pane is read as *what this business cost us*, and a
+ * headline carrying only the principal half answers a narrower question than the
+ * one it appears to answer. So the total joins the pair rather than replacing it.
+ *
+ * HERE AND NOT IN THE CONSOLE, which is the rule `tenant-cost.js` states about
+ * itself: a surface that did its own money arithmetic would be a second
+ * authority on a number an operator is about to price from. The route is the one
+ * authority; the client formats what it is handed.
+ *
+ * THE SUM IS OF WHAT WAS MEASURED, and `null` only where NEITHER half was. An
+ * unpriced remainder on either side is already reported as a count —
+ * `unpricedTurns` on the report, `unpricedEntries` on the delegated half — and
+ * the pane says in a sentence that the figure beside it is a floor. That is the
+ * one place a floor can be labelled as such, which is why this sums rather than
+ * refusing the way a single turn's cell must.
+ *
+ * THE RATE IS THE TOTAL'S, over the report's own engaged hours. Cost per engaged
+ * hour beside a total it was not derived from is a third number an operator can
+ * produce by dividing the two figures on screen and finding they disagree. The
+ * hours are unchanged by delegation — a worker's time is spent inside the
+ * caller's turn — so the same denominator is the right one.
+ */
+export interface TenantSpendTotal {
+  /** Principal plus delegated, or `null` where neither was measured. */
+  costMicros: number | null
+  /** That total per engaged hour, or `null` where there is nothing to divide. */
+  costPerEngagedHourMicros: number | null
+}
+
+export function tenantSpendTotal(
+  report: SpendReport,
+  delegated: DelegatedSpend | null,
+): TenantSpendTotal {
+  const own = report.costMicros
+  const handed = delegated?.costMicros ?? null
+  if (own === null && handed === null) return { costMicros: null, costPerEngagedHourMicros: null }
+  const costMicros = (own ?? 0) + (handed ?? 0)
+  const engagedMs = report.engagedMs
+  return {
+    costMicros,
+    costPerEngagedHourMicros:
+      engagedMs === null || engagedMs === 0
+        ? null
+        : // THE SAME ARITHMETIC IN THE SAME ORDER as `spendReport`'s own rate,
+          // multiplying before dividing rather than dividing twice: two
+          // spellings of one formula can disagree in the last micro, and these
+          // two rates sit in the same row of the same pane.
+          Math.round((costMicros * HOUR_MS) / engagedMs),
+  }
+}
+
+/** What an hour is, in the unit the two stamps are subtracted in. */
+const HOUR_MS = 60 * 60 * 1000

@@ -21,23 +21,27 @@ import { applySchema } from './support/d1-site-factory'
  * the real `prices.json`, reached through `route()` with an `Admission` minted
  * from real rows.
  *
- * THE FIGURE IS THE TURN'S TOTAL. A turn that handed a sweep of site writes to a
- * worker cost what the worker cost, and a column carrying only the caller's half
- * would make exactly the expensive turns look cheap — which is the thing EPIC-20
- * is trying to read. `attributedSpend` prices each delegated entry at its OWN
- * backend's published rates, and this route sums the two halves.
+ * THE FIGURE IS THE TURN'S TWO HALVES ([[BUG-166]] splitting what REQ-320 first
+ * summed). A turn that handed a sweep of site writes to a worker cost what the
+ * worker cost, and a column carrying only the caller's half would make exactly
+ * the expensive turns look cheap — which is the thing EPIC-20 is trying to read.
+ * `attributedSpend` prices each delegated entry at its OWN backend's published
+ * rates, and this route reports that beside the caller's own spend rather than
+ * folded into it: which half the money went to is the question a delegation
+ * experiment is actually asking.
  *
  * THE FALSIFIERS:
  *
- *   - *the caller's `cost_micros` alone*, which under-reports every delegation in
- *     the flattering direction;
+ *   - *the caller's `cost_micros` alone*, with no delegated figure anywhere, which
+ *     under-reports every delegation in the flattering direction;
  *   - *`0` for a turn with no meter row*, which claims a turn that died was free
  *     — in-flight, died and failed-early turns have no row at all and are the
  *     common case here;
  *   - *a figure for a turn whose pair `prices.json` does not name*, which would
  *     publish a guess as a measurement;
- *   - *a partial total for a delegation this reader cannot price*, which is the
- *     same understatement wearing a number;
+ *   - *a partial figure for a delegation this reader cannot price*, which is the
+ *     same understatement wearing a number — and, under one summed cell, one
+ *     that took the caller's own measured spend down with it;
  *   - *one business's meter read against another's*, which a `turn_id` lookup
  *     unscoped by tenant would permit.
  */
@@ -143,7 +147,12 @@ const WORKER = {
 const WORKER_MICROS = 20_000
 
 interface Answer {
-  turns: { turn: string; state: string; costMicros: number | null }[]
+  turns: {
+    turn: string
+    state: string
+    principalMicros: number | null
+    delegatedMicros: number | null
+  }[]
 }
 
 const at = (minutesAgo: number): string => new Date(Date.now() - minutesAgo * 60_000).toISOString()
@@ -155,8 +164,11 @@ async function turnsOf(business: string): Promise<Answer['turns']> {
   return answer.turns
 }
 
-const costOf = (turns: Answer['turns'], turn: string): number | null | undefined =>
-  turns.find((row) => row.turn === turn)?.costMicros
+const principalOf = (turns: Answer['turns'], turn: string): number | null | undefined =>
+  turns.find((row) => row.turn === turn)?.principalMicros
+
+const delegatedOf = (turns: Answer['turns'], turn: string): number | null | undefined =>
+  turns.find((row) => row.turn === turn)?.delegatedMicros
 
 beforeAll(async () => {
   await applySchema()
@@ -177,11 +189,16 @@ describe('REQ-320 — the turn table carries what each turn cost', () => {
     await meter(SPENDER, delegating, at(2), 1_500_000, [WORKER])
 
     const turns = await turnsOf(SPENDER)
-    expect(costOf(turns, own)).toBe(900_000)
-    expect(costOf(turns, delegating)).toBe(1_500_000 + WORKER_MICROS)
-    // The delegated half is a real addition and not a rounding artefact: the
-    // total is strictly more than the caller's own row.
-    expect(costOf(turns, delegating)).toBeGreaterThan(1_500_000)
+    expect(principalOf(turns, own)).toBe(900_000)
+    // NOTHING WAS HANDED OFF, so there is no delegated figure — not a zero,
+    // which would claim a delegation that came free ([[BUG-166]]).
+    expect(delegatedOf(turns, own)).toBeNull()
+    // THE TWO HALVES OF THE DELEGATING TURN, REPORTED SEPARATELY. The caller's
+    // own row is the SMALLER of the two facts about this turn, so a route
+    // reporting `cost_micros` alone would rank the cheap turn as the dear one —
+    // and one that summed them would not say which model the money went to.
+    expect(principalOf(turns, delegating)).toBe(1_500_000)
+    expect(delegatedOf(turns, delegating)).toBe(WORKER_MICROS)
   })
 
   it('test_UAT_FC_REQ-320_a_turn_with_no_meter_row_is_absent_and_never_zero', async () => {
@@ -195,7 +212,8 @@ describe('REQ-320 — the turn table carries what each turn cost', () => {
 
     const turns = await turnsOf(quiet)
     expect(turns).toHaveLength(1)
-    expect(costOf(turns, flying)).toBeNull()
+    expect(principalOf(turns, flying)).toBeNull()
+    expect(delegatedOf(turns, flying)).toBeNull()
   })
 
   it('test_UAT_FC_REQ-320_an_unpriced_turn_is_absent_rather_than_understated', async () => {
@@ -225,9 +243,13 @@ describe('REQ-320 — the turn table carries what each turn cost', () => {
     ])
 
     const turns = await turnsOf(business)
-    expect(costOf(turns, unpriced)).toBeNull()
-    expect(costOf(turns, partly)).toBeNull()
-    expect(costOf(turns, partly)).not.toBe(800_000 + WORKER_MICROS)
+    expect(principalOf(turns, unpriced)).toBeNull()
+    // THE HALVES FAIL INDEPENDENTLY ([[BUG-166]]). A delegation this reader
+    // cannot price has no delegated figure — and it no longer erases what the
+    // caller itself was measured to have spent, which one summed cell did.
+    expect(delegatedOf(turns, partly)).toBeNull()
+    expect(delegatedOf(turns, partly)).not.toBe(WORKER_MICROS)
+    expect(principalOf(turns, partly)).toBe(800_000)
   })
 
   it('test_UAT_FC_REQ-320_the_meter_is_read_under_the_asking_businesss_scope', async () => {
@@ -241,6 +263,7 @@ describe('REQ-320 — the turn table carries what each turn cost', () => {
     await ledger(asking, borrowed, at(1))
     await meter(other, borrowed, at(1), 7_000_000)
 
-    expect(costOf(await turnsOf(asking), borrowed)).toBeNull()
+    expect(principalOf(await turnsOf(asking), borrowed)).toBeNull()
+    expect(delegatedOf(await turnsOf(asking), borrowed)).toBeNull()
   })
 })

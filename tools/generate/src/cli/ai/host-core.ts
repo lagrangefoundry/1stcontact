@@ -2699,12 +2699,26 @@ export async function openBusinessSession(
  * Yields the library's stream events (`text` / `tool_activity` / `done`), which
  * is the shape the chat panel consumes, INTERLEAVED WITH THIS HOST'S OWN
  * {@link SITE_CHANGED} — see below.
+ *
+ * `turn` IS THE CALLER'S NAME FOR THIS TURN, AND IT IS OPTIONAL ([[BUG-166]]).
+ * A caller that already opened a record of the turn before the stream existed —
+ * `/api/ai/prompt`, whose ledger row is written before the `Response` so a dead
+ * isolate is visible by that row's absence of an ending — passes the id it used.
+ * The meter then writes its row under the SAME key, and the two records are two
+ * records of one turn rather than two turns that happen to coincide.
+ *
+ * WITHOUT IT THE JOIN CANNOT EXIST, which is the bug. Both ids were minted
+ * independently — one here, one in the route — so they could never be equal, and
+ * the console's cost column, which looks the meter up by the ledger's id, was a
+ * dash on every row from the day it shipped. A caller with no record of its own
+ * (the `1c` CLI) passes nothing and one is minted, exactly as before.
  */
 export async function* streamPrompt(
   sessionId: string,
   text: string,
   opts: GlobalOptions = {},
   deps: HostDeps,
+  turn?: string,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
   /**
    * A SETTINGS TURN IS A SHORTER FUNCTION, NOT A BRANCHED ONE ([[REQ-239]]).
@@ -2749,9 +2763,10 @@ export async function* streamPrompt(
     // [[REQ-292]] — the turn's meter, opened beside the pending record and for
     // the same reason it is: this is the point at which the turn begins costing
     // money, and `startedAt` is what makes a long turn visible as one rather
-    // than as an instant at the moment it closed. The id is minted rather than
-    // read because the framework's own turn id never leaves the junction.
-    const spendTurn = newId('turn')
+    // than as an instant at the moment it closed. The framework's own turn id
+    // never leaves the junction, so the key is the CALLER'S if it named one
+    // ([[BUG-166]]) and minted here if it did not — see the header.
+    const spendTurn = turn ?? newId('turn')
     const spendStartedAt = new Date().toISOString()
     let spendMeta: Record<string, unknown> | undefined
     let seen = businessWrites.get(key) ?? 0
@@ -2885,10 +2900,11 @@ export async function* streamPrompt(
   await openPending(deps, sessionId, text)
   let outcome: TurnOutcome = 'aborted'
   // [[REQ-292]] — the turn's meter. See the settings branch above: opened here
-  // because this is where the turn starts costing money, and the id is minted
-  // because the framework's own turn id is stamped on junction records and never
-  // reaches the stream vocabulary this loop consumes.
-  const spendTurn = newId('turn')
+  // because this is where the turn starts costing money, and keyed by the
+  // CALLER'S id where it named one ([[BUG-166]]) because the framework's own
+  // turn id is stamped on junction records and never reaches the stream
+  // vocabulary this loop consumes.
+  const spendTurn = turn ?? newId('turn')
   const spendStartedAt = new Date().toISOString()
   let spendMeta: Record<string, unknown> | undefined
 
