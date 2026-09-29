@@ -6,10 +6,10 @@ title: 'Operating console: the turns pane can never price a turn, and "Business 
   leaves out everything that was delegated'
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T04:15:51.480962+00:00'
-updated_at: '2026-09-29T04:49:16.695226+00:00'
+updated_at: '2026-09-29T04:53:32.866878+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
