@@ -2101,6 +2101,49 @@ const nodeAxisGroupsShape = {
    */
   stacked: z.literal(true).optional(),
   /**
+   * REQ-347 — **the level this node paints at, among its siblings.**
+   *
+   * THE AXIS L1 DID NOT HAVE. `stacked` above is a DECLARATION and not a paint
+   * axis: it tells the envelope evaluator that an overlap is the design, and the
+   * renderer emits nothing for it. `sticky.lift` is the one thing in the substrate
+   * that ever compiled to a `z-index`, and it is a field of the pin — unreachable
+   * for a node that is not pinned, and a single fixed level besides. So a document
+   * could say "these two boxes deliberately overlap" and could not say WHICH ONE
+   * IS ON TOP, and every reproduction of a montage painted its layers in document
+   * order and hoped.
+   *
+   * Measured on faelan.com, whose hero absolutely-places a 64px `<h1>` at
+   * `z-index: 20` over four collage photographs at 15 / 5 / auto / auto: the
+   * reproduction emitted no `z-index` anywhere, DOM order decided, and the
+   * headline and its whole tagline were painted underneath an opaque photograph —
+   * invisible on the page, and 64.1% of that round's ranked pixel residual with
+   * zero value deltas to name it.
+   *
+   * AN INTEGER, BECAUSE THAT IS WHAT THE THING IS. Every other spelling considered
+   * — an ordinal, a `front`/`back` enum, a sibling permutation — is a rank the
+   * renderer would have to turn back into a `z-index` anyway, and none of them can
+   * express the gaps a page leaves between its levels (20 over 15 over 5) that
+   * make room for a later insertion. The range is bounded like every other numeric
+   * axis; `9999`-style values clamp into it on the way in, which preserves their
+   * order.
+   *
+   * ZERO IS NOT A LEVEL, it is the absence of one — `z-index: 0` and `z-index:
+   * auto` differ only in whether a stacking context is created, which L1 does not
+   * model, and admitting `0` would be the second spelling of absent this schema
+   * refuses everywhere else. Absent keeps meaning "document order decides", which
+   * is the default the renderer already has.
+   *
+   * ORTHOGONAL TO `stacked`, and deliberately not merged with it. `stacked` says
+   * an overlap is intended; `paintOrder` says how it resolves. A node can carry
+   * either alone: a figure that overlaps nothing still stacks, and a declared
+   * overlap between two boxes of the same level still paints in document order.
+   */
+  paintOrder: z
+    .number()
+    .int()
+    .refine((v) => v !== 0, { message: 'paintOrder 0 is the absence of a level — omit the field' })
+    .optional(),
+  /**
    * REQ-332 — **cut my children off at my own edge.**
    *
    * {@link l1TransformSchema}'s doc comment settles that the renderer emits no

@@ -97,8 +97,24 @@ import type { Capture } from './types'
  *   per-projection sequence number. The old numbering shifted between widths of
  *   the same page, so the fold grouped a photograph into a carousel 1400px away
  *   and clipped it out of existence.
+ * - **9** — REQ-347: two more things the extractor read wrongly rather than not
+ *   at all, both of them an ATTRIBUTION — the axis was already in the bundle,
+ *   carrying a plausible value measured on the wrong element.
+ *   (a) An element's `zIndex` is read off the ancestor chain rather than off the
+ *   leaf. `z-index` does not inherit and is almost never declared on the leaf: a
+ *   page positions a wrapper and stacks that. faelan.com declares `20/15/10/5` in
+ *   its own stylesheet and a pre-9 bundle records eleven `zIndex` records all
+ *   equal to `0`, so the fold had nothing to order a montage by and every collage
+ *   photograph painted over the hero headline.
+ *   (b) A FRAMED image's `box` is the frame's border box, not the `<img>`'s
+ *   content box inside it. REQ-333 (schema unchanged) started attributing a
+ *   single-purpose wrapper's ring, radius, shadow and mask to the image it frames
+ *   and kept writing them onto the image's own rect — which under
+ *   `box-sizing: border-box` is the wrapper's box minus its border. A pre-9 bundle
+ *   records faelan.com's 224px ringed photograph as 216px with a radius of 108
+ *   instead of 112; the `clip` beside it is measured on the same wrong element.
  */
-export const CAPTURE_SCHEMA = 8
+export const CAPTURE_SCHEMA = 9
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -348,6 +364,27 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
       [...runs(c), ...fields(c)].some(
         (e) => typeof (e.clip as { id?: unknown } | null)?.id === 'string',
       ),
+  },
+  {
+    since: 9,
+    axis: 'zIndex read off the ancestor chain',
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // NOTHING IN A BUNDLE CAN PROVE THIS ONE PRESENT, and saying so is more
+    // useful than a probe that guesses. A pre-9 extractor records a non-zero
+    // `zIndex` perfectly well for the rare page that declares one on the leaf
+    // itself, so "a non-zero value exists" would REMOVE the axis from the finding
+    // on exactly the bundles that still need re-capturing. The version gate
+    // decides alone here.
+    present: () => false,
+  },
+  {
+    since: 9,
+    axis: "a framed image's box (the frame's border box, not the `<img>`'s content box)",
+    where: 'an image field (`sections[].fields[]`)',
+    // Unprovable for `zIndex`'s reason and then some: both schemas record a
+    // rectangle and a ring, and only the page's own stylesheet says which element
+    // they were measured on.
+    present: () => false,
   },
   {
     since: 2,

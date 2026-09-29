@@ -191,13 +191,24 @@ describe('REQ-333 issue 1 — the rotation that paints, and the box it did not i
     const aabb = rotatedAabb(LAYOUT.circle.x, LAYOUT.circle.y, LAYOUT.circle.w, LAYOUT.circle.h, -5)
     expect(aabb.width).toBeCloseTo(234.0037, 3)
 
+    // REQ-347 SUPERSEDES THE SUBJECT OF THIS ASSERTION, not its arithmetic. The
+    // un-inflation is unchanged and is still what this test measures; what changed
+    // is WHOSE rect is un-inflated. A framed photograph's box is now the FRAME's
+    // border box (224, the wrapper's own `width`), because the ring, the radius and
+    // the crop are all measured on the wrapper — writing them onto the 216px
+    // content box inside it painted the ring 4px in. The rotation recovery is
+    // proved on the same terms either way: the engine reports 224 x (cos5 + sin5)
+    // = 242.67 for the wrapper, and 224 is what comes back.
+    const framedAabb = rotatedAabb(928, 60, 224, 224, -5)
+    expect(framedAabb.width).toBeCloseTo(242.6705, 3)
+
     const circle = field('Faelan').box!
-    expect(circle.width).toBeCloseTo(216, 2)
-    expect(circle.height).toBeCloseTo(216, 2)
+    expect(circle.width).toBeCloseTo(224, 2)
+    expect(circle.height).toBeCloseTo(224, 2)
     // The centre is the one thing a rotation about it leaves alone, so the recovered
     // box sits exactly where the layout box sat.
-    expect(circle.x).toBeCloseTo(LAYOUT.circle.x, 2)
-    expect(circle.y).toBeCloseTo(LAYOUT.circle.y, 2)
+    expect(circle.x).toBeCloseTo(928, 2)
+    expect(circle.y).toBeCloseTo(60, 2)
 
     // The same for a non-square photograph, where the inflation is what stretched it:
     // 490.7 x 629.6 against a 450 x 599.7 layout box was a 9% horizontal stretch
@@ -225,9 +236,12 @@ describe('REQ-333 issue 2 — a single-purpose wrapper frames the image it holds
     // that says `border-radius:50%; overflow:hidden; border:4px solid
     // rgba(255,255,255,.3); box-shadow: <two layers>`.
     //
-    // The radius resolves against the box it is attributed to: 50% of a 216px
-    // photograph is 108px, which IS the disc. Read as `parseFloat('50%')` it was 50.
-    expect(circle.borderRadiusPx).toBe(108)
+    // The radius resolves against the box it is attributed to. REQ-333 attributed
+    // it to the 216px photograph, which read 108; REQ-347 attributes it to the
+    // 224px FRAME the page actually declares the radius on, which reads 112 — and
+    // 112 is the radius that draws a 224px disc. Read as `parseFloat('50%')` it was
+    // 50, which is the defect both numbers replace.
+    expect(circle.borderRadiusPx).toBe(112)
     expect(circle.borderWidthPx).toBe(4)
     // REQ-336 — and at the ring's OWN ALPHA. This read `#ffffff` when the value
     // above it was written, against the `rgba(255,255,255,.3)` this test's own

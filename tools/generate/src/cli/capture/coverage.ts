@@ -247,7 +247,11 @@ const REGISTER: readonly CoverageEntry[] = [
     'clip-path',
   ),
   ...rows('recorded', "an element's `outline` (REQ-63) — the painted ring, distinct from the box border", 'outline-width', 'outline-style', 'outline-color', 'outline-offset'),
-  { property: 'z-index', verdict: 'recorded', note: "an element's `zIndex` (REQ-48 item 2) — the paint order two 2D boxes cannot express" },
+  {
+    property: 'z-index',
+    verdict: 'recorded',
+    note: "an element's `zIndex` (REQ-48 item 2) — the paint order two 2D boxes cannot express. REQ-347: read off the nearest ancestor the property applies to, because a page stacks a wrapper and not the leaf, and folded onto the L1 node's `paintOrder`",
+  },
   {
     property: 'transform',
     verdict: 'recorded',

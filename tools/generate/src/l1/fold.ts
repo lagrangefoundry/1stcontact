@@ -1307,6 +1307,36 @@ function foldTransform(el: ValueElement): L1Transform | undefined {
   return Object.keys(transform).length ? transform : undefined
 }
 
+/**
+ * REQ-347 — a captured `zIndex` → the L1 node's `paintOrder`, else undefined.
+ *
+ * The capture reads the level off the nearest ancestor the property applies to
+ * (see `zIndexOf`), so what arrives here is the level the reference actually
+ * paints this element at among its siblings — the fact a flat reproduction has no
+ * other way to recover. Without it the renderer emits no `z-index` at all and
+ * document order decides, which on faelan.com put a 64px headline underneath an
+ * opaque collage photograph.
+ *
+ * ZERO IS NOT A LEVEL. `z-index: auto` and `z-index: 0` both arrive as 0 and both
+ * mean "document order decides" to a flat document, which is exactly what absent
+ * means — so the field is omitted rather than written, and a page that stacks
+ * nothing folds byte-for-byte to what it folded before.
+ *
+ * CLAMPED, NOT DROPPED, at the envelope bound — the opposite of `foldTransform`'s
+ * rule, and for a reason that is about what the axis IS. A rotation past ten turns
+ * is not a design that can be half-honoured, so half-honouring it would be a
+ * fabrication; a rank has no such property. `z-index: 2147483647` means "above
+ * everything", clamping it to 1000 still means "above everything" relative to
+ * every other level on the page, and dropping it would silently return the node to
+ * document order — which is the defect, not a safe default.
+ */
+function foldPaintOrder(el: ValueElement): number | undefined {
+  const z = el.zIndex
+  if (z === undefined || !Number.isFinite(z)) return undefined
+  const clamped = Math.max(L1_ENVELOPE.paintOrder.min, Math.min(L1_ENVELOPE.paintOrder.max, Math.round(z)))
+  return clamped === 0 ? undefined : clamped
+}
+
 /** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
 function foldBackdropBlur(v: string | null | undefined): number | undefined {
   if (!v) return undefined
@@ -1657,6 +1687,7 @@ type CapturedAxis =
   | 'maskEdge'
   | 'transformRotateDeg'
   | 'transformScale'
+  | 'zIndex'
   | 'accessibleName'
 
 /** The painted pixel-mover axes present on an element — the residual's substance (B2). */
@@ -1679,6 +1710,9 @@ function capturedAxesOf(el: ValueElement): CapturedAxis[] {
   has('maskEdge', el.maskEdge)
   has('transformRotateDeg', el.transformRotateDeg)
   if (el.transformScale !== undefined && el.transformScale !== 1) axes.push('transformScale')
+  // REQ-347 — a declared paint level. `has` already drops 0, which is the level
+  // that means "document order decides" and is therefore nothing to lose.
+  has('zIndex', el.zIndex)
   has('accessibleName', el.accessibleName)
   return axes
 }
@@ -1723,6 +1757,10 @@ function axisCarriedBy(axis: CapturedAxis, node: L1Node): boolean | undefined {
       return node.transform?.scale !== undefined
     case 'maskEdge':
       return node.mask !== undefined
+    // REQ-347 — a node field on every kind, like `transform` and `mask`, so every
+    // leaf can be judged on it.
+    case 'zIndex':
+      return node.paintOrder !== undefined
     case 'objectFit':
       return node.kind === 'image' ? on('objectFit') : undefined
     case 'backgroundImageUrl':
@@ -3593,6 +3631,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // carries one on exactly the terms the image and box leaves do.
       const textTransform = foldTransform(widest)
       if (textTransform) node.transform = textTransform
+      // REQ-347 — the level the reference paints this run at (see `foldPaintOrder`).
+      // NOT AN IMAGE AXIS: the loss that named this was a HEADLINE painted under a
+      // photograph, so it is read at every leaf branch exactly as `transform` is.
+      const textPaintOrder = foldPaintOrder(widest)
+      if (textPaintOrder !== undefined) node.paintOrder = textPaintOrder
       const pad = foldPadding(widest)
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
@@ -3767,6 +3810,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // A node field beside `mask`, for the same reason and read on the same terms.
       const transform = foldTransform(widest)
       if (transform) node.transform = transform
+      // REQ-347 — the level the reference paints this photograph at, beside the
+      // rotation and on the same terms.
+      const paintOrder = foldPaintOrder(widest)
+      if (paintOrder !== undefined) node.paintOrder = paintOrder
       // REQ-269 — a linked image is a link like any other; the renderer WRAPS this
       // one (a void element cannot be an anchor) rather than retagging it.
       const imageLink = foldLink(widest)
@@ -3844,6 +3891,22 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (isBackdrop(node)) backdropNodes.push(node)
       else {
         node.id = `box-${boxIdx++}`
+        // REQ-347 — a painted surface stacks too (a scrim over a hero, a badge
+        // behind a card), read on the same terms as the text and image leaves
+        // above — but ONLY once it is known not to be a backdrop.
+        //
+        // A BACKDROP'S LAYER IS THE FOLD'S DECISION, NOT THE CAPTURE'S. The
+        // background layer above is built by putting the content-free surfaces
+        // FIRST in document order, which is the whole mechanism that makes them
+        // backgrounds; every node in it is a sibling of the content, not a child
+        // of a separate stacking context. So a captured level written onto a
+        // backdrop would let it climb out of that layer and paint over the very
+        // content it is the ground for — a page whose hero wrapper declares
+        // `z-index: 10` and whose copy declares nothing would hide its own words
+        // behind its own photograph. The level a backdrop paints at is already
+        // stated, by where the fold puts it.
+        const boxPaintOrder = foldPaintOrder(widest)
+        if (boxPaintOrder !== undefined) node.paintOrder = boxPaintOrder
         children.push(node)
         recordClip(node, framed)
       }

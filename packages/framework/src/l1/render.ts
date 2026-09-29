@@ -1301,9 +1301,15 @@ const STICKY_LIFT_Z_INDEX = 1
  * ONE DECLARATION, NEVER TWO. A node carrying both spellings emits a single
  * `z-index`, because they are one decision said twice rather than two levels.
  */
-function stickyDecls(sticky: L1Sticky, stacked?: true): string[] {
+function stickyDecls(sticky: L1Sticky, stacked?: true, paintOrder?: number): string[] {
   const decls = ['position: sticky', `top: ${num(sticky.topPx ?? 0)}px`]
-  if (sticky.lift || stacked) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
+  // REQ-347 — a declared level WINS over the generic one-step lift, and replaces
+  // it rather than joining it: they are two spellings of "hold this above the
+  // siblings", and the explicit one names which above. The node emits no second
+  // `z-index` of its own in that case (see the emitter below), so this stays the
+  // one declaration the pin's own width gate confines.
+  if (paintOrder !== undefined) decls.push(`z-index: ${num(paintOrder)}`)
+  else if (sticky.lift || stacked) decls.push(`z-index: ${STICKY_LIFT_Z_INDEX}`)
   return decls
 }
 
@@ -4857,6 +4863,15 @@ function emitNode(
   // promotes `overflow-y` to `auto` and grows a scrollbar the document never
   // asked for.
   if (node.clip) base.push('overflow: hidden')
+  // REQ-347 — the declared paint level. Every node this substrate emits is already
+  // positioned (`position: relative` in flow, `absolute` on a pinned keyframe), so
+  // the property applies wherever the document states it and no extra declaration
+  // has to be invented to make it take effect.
+  //
+  // ON A PINNED NODE THE PIN EMITS IT INSTEAD (see `stickyDecls`), so that a
+  // width-gated pin's level is confined to the band the pin is held in — and so
+  // that a node carrying both spellings emits ONE `z-index` rather than two.
+  if (node.paintOrder !== undefined && !node.sticky) base.push(`z-index: ${num(node.paintOrder)}`)
   // BUG-17 node-level padding — a per-side inset. Emitted as longhands (only the
   // present sides) so a partial padding never resets the others. `box-sizing:
   // border-box` (the document reset) means this insets content inside the pinned
@@ -4940,7 +4955,7 @@ function emitNode(
   // so is the `stacked` that means the same thing here, which is read off the node
   // rather than out of the pin because it is a node-level axis.
   if (node.sticky) {
-    const decls = stickyDecls(node.sticky, node.stacked)
+    const decls = stickyDecls(node.sticky, node.stacked, node.paintOrder)
     if (node.sticky.fromPx === undefined) base.push(...decls)
     else state.rules.push({ media: `(min-width: ${node.sticky.fromPx}px)`, selector, decls })
   }
