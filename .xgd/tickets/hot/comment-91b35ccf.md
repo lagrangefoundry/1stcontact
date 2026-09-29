@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-338
 created_by: xgd
 created_at: '2026-09-29T01:31:21.749948+00:00'
-updated_at: '2026-09-29T04:41:56.284370+00:00'
+updated_at: '2026-09-29T04:48:51.484282+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,59 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="0d69c922-0ee6-42b7-8df4-8c26453cdb59-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T04:48:49.949008+00:00" -->
+#### Claude
+I'll establish the current state — the last session was at the commit step.
+
+WIP intact, version already bumped to 0.2.404. Let me verify the state before committing.
+
+Typecheck clean. Now the REQ-338 UATs plus the REQ-271 file I modified:
+
+Ticket is thorough. Let me verify the test count claim in the body:
+
+28 tests, not 29. Correcting that one number in the ticket:
+
+Now let me confirm the diff is exactly the intended change before committing:
+
+Diff is clean and scoped. Committing:
+
+Committed. Now the merge-back — acquiring the shared merge lock:
+
+Version-line conflict — the `merge_version_max` driver isn't registered in this clone. Let me resolve it:
+
+Version-only conflict; the max is 0.2.404. Resolving:
+
+Merge landed. Let me verify my UATs still pass on the merged result (it now combines with BUG-162/BUG-163 from xgd-working):
+
+All green on the merged tree (one REQ-271 conditional skip now runs). Typechecking the merge result:
+
+Clean. Now the gated transition to `free_coded`:
+
+My SHA is an ancestor, but the version was materialised by the merge-conflict resolution commit, not by my commit — so the gate's "a SHA introduced this version" check fails. Let me bump again on xgd-working as the error suggests:
+
+Now story points and the branch teardown:
+
+REQ-338 is free-coded and landed on `xgd-working`.
+
+**What shipped** — all eight residuals from the joyfulculinarycreations reproduction:
+
+*Fold (issues 1–4)* — the section's own `surfaceFill` now rides on the `section-bg` box under its own scrim, and `bandBaseFill` declines to emit the duplicate `section-band` plate wherever the section box provably replaces it. That proviso is mine, not the ticket's proposal: the plate is suppressed only when the section is recorded at every sampled width, boxed and veiled at each, painting the same colour, and geometrically containing the band — otherwise a section whose scrim was recorded at four widths of seven would emit a `visibility`-gated box and the band would paint *nothing* above 1024. `section-bg` boxes are deduplicated against the captured backdrops so the copy that knows the image's `opacity: 0.49` and filter chain is the only one painting it; backdrops became ownable-but-never-parenting so a section's overlay lands between its fill and the content above it. The scrim guard now reads every projection, and `section-bg` boxes gained a `viewportResponse` re-expressed from a probe pair `sectionEdgeResponses` had already measured.
+
+*Capture (issues 5–8), `CAPTURE_SCHEMA` 7 → 8* — `overlayInBox` skips any surface containing the band; later layers win on equal cover; `scrimOf` folds element opacity into effective alpha and carries `mix-blend-mode`. Run text normalises HTML's own five whitespace characters, so U+00A0 survives to make its wrap decision. `lineHeightPx` is the measured modal pitch of the line boxes the glyphs sit on. `clip.id` became the ancestor's document path rather than a per-evaluation sequence number — that was the actual cause of issue 8, not either option the ticket proposed — and `nestClipRegions` now splits a group into runs of members whose boxes agree rather than assuming it.
+
+*L1* — the `overlay` axis now admits `blendMode`. The enum existed, but the axis, renderer and comparator did not carry it, so a `darken` veil compared clean against a `normal` one.
+
+**Two things worth flagging:**
+
+The commit count is two, not one. My `0.2.404` bump was materialised on `xgd-working` by the merge's version-conflict resolution rather than by the branch commit itself, so `move-to-free-coded`'s bump-attribution check couldn't see it; `255f58d8` carries `0.2.405` on a non-merge commit the ticket owns. That conflict happened because the `merge_version_max` driver isn't registered in this clone — a per-clone bootstrap gap, not something this ticket touches.
+
+I updated REQ-271's UAT 11. Its intent — a band fill that is not the scrim is kept — is preserved; only the fill's *carrier* moved to the `section-bg` box. The ticket body records that as a deliberate relocation rather than a supersession, and I verified the navy `#0f172b` is still painted, now with the scrim correctly above it.
+
+Regression scope was the full `vitest run`: 15 files / 26 tests fail, baselined file-by-file against clean `HEAD` for every file that can reach the changed modules — identical. On the merged tree all 28 REQ-338 UATs plus REQ-271 pass and the three touched packages typecheck clean.
+
+Issues 5, 6, 7 and issue 8's capture half need a **re-capture** to take effect — `1c refold` re-derives from the retained oracle and cannot pick up a capture change. The ticket is parked at `free_coded`; promotion to `ready_to_reconcile` is yours.
 
 <!-- xgd-chat-end -->
