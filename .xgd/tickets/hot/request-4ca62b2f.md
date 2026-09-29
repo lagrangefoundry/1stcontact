@@ -6,10 +6,10 @@ title: 'recovery: a content-derived bottom-padding track carries no segments, so
   interpolates through a reflow window the geometry holds'
 created_by: repro-console:repro-gigabytealchemy-ai#9
 created_at: '2026-09-27T01:12:22.021251+00:00'
-updated_at: '2026-09-27T01:12:54.759541+00:00'
+updated_at: '2026-09-29T19:46:42.673504+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong
