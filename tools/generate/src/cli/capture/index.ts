@@ -102,11 +102,18 @@ export type {
   AxisSide,
   AxisSideName,
   CaptureBand,
+  // BUG-169 — the reference side's manifest input, and the part of it a bundle
+  // records outside `capture.json`.
+  CaptureManifest,
+  RecordedManifest,
   UnmeasuredAxis,
 } from './value-axes'
 export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
 export {
   flattenCapture,
+  // BUG-169 — how the reference side resolves the axes a `capture.json` does not
+  // carry, exported so the resolution is testable without a bundle on disk.
+  recordedManifestOf,
   flattenSignals,
   diffManifests,
   diffMultiState,

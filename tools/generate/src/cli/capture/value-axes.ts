@@ -165,6 +165,44 @@ export type AnyElementAxis<Ref, Rep> = {
   [K in keyof ValueElement]-?: ElementAxisRow<Ref, Rep, K>
 }[keyof ValueElement]
 
+/**
+ * BUG-169 — the values a bundle records DIRECTLY, beside its `capture.json`.
+ *
+ * A bundle is TWO artifacts, not one. `capture.json` is the structural record
+ * (theme, bands, runs); `multistate.json` is the projection ladder, and every
+ * cell of it is a {@link ValueManifest} the extractor wrote from the reference's
+ * OWN live DOM at capture time. An axis whose answer lives only in the second
+ * artifact had no way to reach a reference-side reader from here, and the one
+ * axis in that position — the page canvas — was therefore INFERRED from the
+ * widest band instead. The row's note asserted that the widest band "is the only
+ * place a bundle records it"; that was false, and it is what made the resulting
+ * blindness invisible: the comparator derived the reference's canvas by the same
+ * broken rule the reproduction used and then compared a wrong value against
+ * itself, so a page whose canvas was reproduced grey-instead-of-white reported
+ * zero deltas for it.
+ *
+ * Narrow on purpose. This carries the axes a `capture.json` genuinely cannot
+ * answer, not a second general-purpose reference side — widening it is a one-word
+ * edit when a second such axis appears, and until then the type says exactly what
+ * is resolved for it.
+ */
+export type RecordedManifest = Pick<ValueManifest, 'bodyBackground'>
+
+/**
+ * The reference side's manifest input: the bundle's `capture.json`, plus whatever
+ * the bundle {@link RecordedManifest recorded directly}.
+ *
+ * Composite for the same reason {@link CaptureBand} is: what a bundle knows about
+ * a manifest-level axis is not all in one file, and the place to say so is at the
+ * axis's input rather than somewhere a reader has to go looking.
+ */
+export interface CaptureManifest {
+  readonly capture: Capture
+  /** Absent for a bundle with no projection ladder (pre-REQ-48), which is what
+   *  leaves an axis reading it on its `capture.json` fallback. */
+  readonly recorded?: RecordedManifest
+}
+
 /** `source`, `elements` and `sections` are the manifest's containers, and
  *  `engine`/`state` are stamped by the multi-state loop rather than read off
  *  either input — none of them is an axis, so none of them has a row. */
@@ -172,7 +210,7 @@ export type ManifestAxisName = Exclude<keyof ValueManifest, 'source' | 'elements
 
 export interface ManifestAxisRow<K extends ManifestAxisName> extends AxisRowBase {
   readonly axis: K
-  readonly reference: AxisSide<Capture, ValueManifest[K]>
+  readonly reference: AxisSide<CaptureManifest, ValueManifest[K]>
   readonly reproduction: AxisSide<RawSignals, ValueManifest[K]>
 }
 
@@ -814,9 +852,15 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
 // ── the manifest-level axes ──────────────────────────────────────────────────
 
 /**
- * BUG-27 — a bundle's page base fill: the background colour of the section that
- * covers the most of the document. A bundle's sections are style-scope bands, so
- * the one spanning the page carries the fill everything else is painted onto.
+ * BUG-27 — a bundle's page base fill, INFERRED: the background colour of the
+ * section that covers the most of the document.
+ *
+ * BUG-169 — a fallback, and only that. The inference is wrong whenever the widest
+ * band is not the page, which is the common case on a long page with one tall
+ * dark band: joyfulculinarycreations.com's `sections[3]` is 1280×1332 of `#7a7a7a`
+ * and the canvas behind everything is `#ffffff`. Kept because a bundle captured
+ * before the projection ladder existed has nothing better, and inferring beats
+ * declining; read AFTER {@link RecordedManifest} on every bundle that has one.
  */
 function pageBaseOf(sections: readonly Section[]): string | undefined {
   let best: string | undefined
@@ -836,21 +880,30 @@ export const MANIFEST_AXES: readonly AnyManifestAxis[] = [
     axis: 'viewport',
     role: 'compared',
     note: 'REQ-48 (item 5) — the width this manifest was projected at. Layout recomposes per width, so a width mismatch is a precondition failure, not a delta.',
-    reference: (capture) => capture.viewport as Viewport,
+    reference: ({ capture }) => capture.viewport as Viewport,
     reproduction: (signals) => signals.viewport as Viewport,
   },
   {
     axis: 'subScales',
     role: 'compared',
     note: 'REQ-56 — component-owned sub-element type ramps (badge / checklist). The bundle stores them under `theme`; the reproduction derives them from its runs. Compared ramp-to-ramp so a systemic gap is one finding rather than thirty rows.',
-    reference: (capture) => capture.theme.subScales as ThemeSubScales | undefined,
+    reference: ({ capture }) => capture.theme.subScales as ThemeSubScales | undefined,
     reproduction: (signals) => subScalesFromSignals(signals),
   },
   {
     axis: 'bodyBackground',
-    role: 'carried',
-    note: 'BUG-27 — the page\'s base fill: what shows through wherever no band paints. Read off `<body>` on the reproduction side; inferred from the widest band on the bundle side, because that is the only place a bundle records it. Carried for the fold, which used to infer it from run surfaces and so reproduced a hero-led page entirely in the hero\'s colour.',
-    reference: (capture) => pageBaseOf(capture.sections),
+    // BUG-169 — COMPARED, not merely carried. It is one colour per document,
+    // recorded on both sides, and on the page that filed this ticket it is worth
+    // more disagreeing pixels than any value the table did compare: the three
+    // strips where no band paints carried a mean difference of exactly 133/255 at
+    // full width — 22% of the page's absolute pixel-difference mass and 28% of its
+    // ranked region score — and `values-diff` reported nothing at all. As a
+    // compared axis that is one delta instead of the page's largest defect in
+    // silence. Promoting it RAISES the delta count on an already-wrong
+    // reproduction, which per REQ-277 is the instrument sharpening.
+    role: 'compared',
+    note: 'BUG-27 — the page\'s base fill: what shows through wherever no band paints. Read off `<body>` on the reproduction side. BUG-169: read on the bundle side off the value the bundle RECORDED (`multistate.projections[].manifest.bodyBackground`, written by the extractor from the reference\'s own `<body>`), falling back to the widest band only for a bundle with no projection ladder — the earlier claim that the widest band is "the only place a bundle records it" was false, and inferring it on both sides is how a wrong canvas compared clean against itself. Also the fold\'s input, which used to infer it from run surfaces and so reproduced a hero-led page entirely in the hero\'s colour.',
+    reference: ({ capture, recorded }) => recorded?.bodyBackground ?? pageBaseOf(capture.sections),
     reproduction: (signals) => signals.bodyBackground,
   },
 ]
@@ -942,9 +995,9 @@ export function projectSignalsBand(band: RawBand, index: number): SectionValues 
 }
 
 /** Project the manifest-level axes of a capture bundle (the reference). */
-export function projectCaptureManifestAxes(capture: Capture): Partial<ValueManifest> {
+export function projectCaptureManifestAxes(bundle: CaptureManifest): Partial<ValueManifest> {
   const m: Record<string, unknown> = {}
-  applyAxes(m, MANIFEST_AXES as readonly ProjectableRow[], 'reference', capture)
+  applyAxes(m, MANIFEST_AXES as readonly ProjectableRow[], 'reference', bundle)
   return m as Partial<ValueManifest>
 }
 
