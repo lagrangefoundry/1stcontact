@@ -7,7 +7,7 @@ title: 'capture: a page''s declared z-index is read off the leaf and lost, so th
   lost with it'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:02:15.717339+00:00'
-updated_at: '2026-09-29T20:52:15.450429+00:00'
+updated_at: '2026-09-29T20:59:39.863249+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -571,3 +571,28 @@ step and has not been run here. Until it is, that bundle's `capture.json` keeps
 its eleven zeroes and its 216px ring, and `1c refold` cannot show either fix. The
 note in §5 stands: after the recapture, `values-diff`'s `zIndex` axis starts
 firing on this bundle against a reproduction that is now able to answer it.
+
+
+---
+
+## 7. One further consequence, found while testing: a backdrop keeps the fold's layer
+
+The fold must NOT write a captured level onto a **backdrop** (a full-bleed fill or
+an element-level background photograph, `isBackdrop`). Found by reasoning about
+`foldToL1`'s own output rather than by a round, and it is a regression the rest of
+this change would otherwise have introduced.
+
+The background layer is built by putting the content-free surfaces FIRST in
+document order — that ordering **is** what makes them backgrounds — and every node
+in it is a sibling of the content under one root box, not the child of a separate
+stacking context. A `z-index` written onto a backdrop therefore competes directly
+with the content it is the ground for. A page whose hero wrapper declares
+`z-index: 10` and whose copy declares nothing (the common shape, and faelan.com's
+own) would fold to a backdrop at 10 over content at auto — hiding its own words
+behind its own photograph, which is the exact defect this ticket exists to fix,
+reintroduced from the other side.
+
+So `paintOrder` is written in the box branch only after `isBackdrop` has answered
+no. Where a backdrop paints is already stated, by where the fold puts it.
+
+Covered by `test_UAT_FC_REQ-347_a_backdrops_layer_stays_the_folds_decision`.
