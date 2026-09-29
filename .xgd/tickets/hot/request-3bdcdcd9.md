@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-6e992690
 ---
 
 # The extractor measures a band's content anchor two different ways, so a hero with a header over it has an anchor nothing can compare
