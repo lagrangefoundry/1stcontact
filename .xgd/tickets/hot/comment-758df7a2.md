@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-159
 created_by: xgd
 created_at: '2026-09-28T23:04:46.159715+00:00'
-updated_at: '2026-09-29T20:17:12.534323+00:00'
+updated_at: '2026-09-29T20:18:50.537101+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,28 @@ Error: You've hit your session limit · resets 7:50pm (America/Los_Angeles)
 <!-- xgd-chat role="user" ts="2026-09-29T20:17:10.829780+00:00" -->
 #### You
 Can you confirm this ticket is complete?
+
+<!-- xgd-turn id="c18d9aa1-a920-47d8-abfc-026514ca1d40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T20:18:50.359712+00:00" -->
+#### Claude
+Yes — the free-coding work on BUG-159 is complete. What's left is reconciliation, which isn't mine to do.
+
+**Verified just now:**
+
+| Check | State |
+|---|---|
+| Commit | `40f35f8d7c` — `fix(chat-copy): a delegate worker session crosses instead of refusing the payload [FREE-CODED]` |
+| Merged | ancestor of `xgd-working` (via merge `f61f062ff3`); **not** yet on `main` |
+| Branch/worktree | `free-BUG-159` cleaned up — no leftover branch or worktree |
+| `fields.commits` | `[40f35f8d7c…]`, `version: 0.2.401`, `story_points: 4` |
+| Status | `ready_to_reconcile` — you promoted it after last session |
+| Body | records the narrowed refusal, the `'none'` address, the force-advice change, and the `--help` truncation fix |
+
+13 files, +900/−199: `chat-copy.ts` (the three-way `addressOf`), `router.ts` and `push.ts` (force advice read off the far side's 409), both runbooks (`--help` derivation), plus three new `test_UAT_FC_BUG-159_*` files, the re-pointed BUG-137 suite, and the shared `tests/support/chat-history.ts` helper.
+
+**Not complete, and outside this session's remit:** reconcile hasn't run — `reconcile_sha` and `main_sha` are both null, and no bundle claims BUG-159 yet (latest is BUNDLE-22). The dispatcher will pick it up from `ready_to_reconcile`; until then the change lives only on `xgd-working` and the capability matrix doesn't describe it. The three `test_UAT_FC_BUG-159_*` files are the FC-named evidence reconcile will rename to `test_UAT_AC<N>_*`.
+
+One caveat I flagged last session still stands: `test_UAT_FC_BUG-134_the_command_reads_the_local_pair_from_its_own_variables` and three REQ-115 cases fail in a fresh worktree at the branch point too — pre-existing, untouched by this commit.
 
 <!-- xgd-chat-end -->
