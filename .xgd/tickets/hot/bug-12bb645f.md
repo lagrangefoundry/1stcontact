@@ -6,15 +6,16 @@ title: Delegate returns check verdicts as "passed" on a run that came back exhau
   and unaccepted, with no marker that they are unreliable
 created_by: xgd
 created_at: '2026-09-29T04:04:02.588828+00:00'
-updated_at: '2026-09-29T04:23:10.830641+00:00'
+updated_at: '2026-09-29T04:24:34.247992+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: epic_parent
 status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-438553d0
+  epic_parent: epic-0923bb64
 ---
 
 ## What I was doing
