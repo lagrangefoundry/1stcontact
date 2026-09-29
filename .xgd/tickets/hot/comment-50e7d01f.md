@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T02:48:19.498104+00:00'
+updated_at: '2026-09-29T02:51:23.503378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2687,5 +2687,13 @@ Want me to dig into the REQ-296 stop first? That's the one that might be a real 
 <!-- xgd-chat role="user" ts="2026-09-29T02:48:17.904424+00:00" -->
 #### You
 What three failures are we talking about?
+
+<!-- xgd-turn id="fc1bb415-f0a2-44eb-a1eb-a82f62885f3c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T02:51:21.868256+00:00" -->
+#### You
+What three failures are we talking about?
+
+These are the three stale assertions? Please create a ticket to address them
 
 <!-- xgd-chat-end -->
