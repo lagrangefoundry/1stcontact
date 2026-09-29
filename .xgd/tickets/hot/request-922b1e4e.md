@@ -7,9 +7,9 @@ title: 'capture: a page''s declared z-index is read off the leaf and lost, so th
   lost with it'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:02:15.717339+00:00'
-updated_at: '2026-09-29T22:09:51.615386+00:00'
+updated_at: '2026-09-29T22:10:01.175814+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -27,6 +27,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.411
+  story_points: 8
 ---
 
 # The hero headline is painted underneath a collage photograph, and a ringed photo wears its ring inside its own box
