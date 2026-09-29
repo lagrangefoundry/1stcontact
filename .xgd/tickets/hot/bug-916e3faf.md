@@ -6,9 +6,9 @@ title: 'Operating console: the turns pane can never price a turn, and "Business 
   leaves out everything that was delegated'
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T04:15:51.480962+00:00'
-updated_at: '2026-09-29T04:46:46.377732+00:00'
+updated_at: '2026-09-29T04:46:54.664815+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -52,7 +52,7 @@ selects `WHERE turn_id IN (…)` from `turn_spend`. Measured on the dev store:
 | 1 | `turn_d7a610d3…` | `turn_0c12192e…` | 03:37:20.294 / .303 | error |
 | 2 | `turn_7a6e5124…` | `turn_96253dcf…` | 03:56:18.400 / .415 | complete |
 | 3 | `turn_103e4be1…` | `turn_91cd7949…` | 04:03:19.377 / .392 | complete |
-| 4 | `turn_74fda83e…` | `turn_4475013 0…` | 04:10:26.724 / .734 | error |
+| 4 | `turn_74fda83e…` | `turn_44750130…` | 04:10:26.724 / .734 | error |
 | 5 | `turn_b8875a4e…` | `turn_95471d66…` | 04:26:12.015 / .036 | error |
 
 So `costs[turn.turn]` is `undefined` for every row, `?? null` makes it a dash, and
