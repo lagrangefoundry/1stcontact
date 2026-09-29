@@ -6,7 +6,7 @@ title: 'Operating console: the turns pane can never price a turn, and "Business 
   leaves out everything that was delegated'
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T04:15:51.480962+00:00'
-updated_at: '2026-09-29T04:49:05.035932+00:00'
+updated_at: '2026-09-29T04:49:16.695226+00:00'
 completed_at: null
 last_field_updated: commits
 status: free_coded
@@ -19,10 +19,18 @@ fields:
   epic_parent: epic-0923bb64
   story_points: 5
   commits:
-  - 79b55a0d02f0f3f7c2066053cbe1311f3bfd371b
-  - b08480e323ce2c9d16b6d8e857fd2686de8b09c4
-  - edf6f156fe
-  - b988e35f71906ff1f58e56cd295c44c9f13bfc93
+  - working_sha: 79b55a0d02f0f3f7c2066053cbe1311f3bfd371b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b08480e323ce2c9d16b6d8e857fd2686de8b09c4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: edf6f156feb87fc7351bad7b212aabc3936f1921
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b988e35f71906ff1f58e56cd295c44c9f13bfc93
+    reconcile_sha: null
+    main_sha: null
   version: 0.2.408
 ---
 
