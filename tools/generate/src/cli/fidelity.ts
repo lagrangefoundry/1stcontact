@@ -148,7 +148,14 @@ export async function cmdValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiff
 export async function runValuesDiff(opts: ValuesDiffOptions): Promise<ValuesDiffRun> {
   if (opts.size) return valuesDiffAtSize(opts, opts.size)
 
-  const expected = flattenCapture(await readCapture(fsReferenceBundle(opts.refBundleDir)))
+  // BUG-169 — the reference is the BUNDLE, not `capture.json` alone. The page
+  // canvas is recorded only in the projection ladder, so a diff that read the
+  // structural record by itself had to infer it from the widest band — and the
+  // reproduction side infers it the same way, so a wrong canvas compared clean
+  // against itself. `readMultiState` is tolerant (null for a pre-ladder bundle),
+  // which is what keeps that inference available as the fallback it now is.
+  const bundle = fsReferenceBundle(opts.refBundleDir)
+  const expected = flattenCapture(await readCapture(bundle), await readMultiState(bundle))
 
   let actual: ValueManifest
   if (opts.actualManifestPath) {

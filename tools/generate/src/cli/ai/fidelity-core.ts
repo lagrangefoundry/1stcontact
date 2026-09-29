@@ -25,7 +25,9 @@
 import type { ReferenceStore } from '../../store/reference-store'
 import { ASSETS_PREFIX, CAPTURE_MEMBER } from '../../store/reference-store'
 import { cmdCapturePage } from '../capture/capture'
-import { readCapture } from '../capture/bundle'
+// BUG-169 — `readMultiState` beside `readCapture`: the reference side of a value
+// diff is the whole bundle, because the page canvas is recorded only in the ladder.
+import { readCapture, readMultiState } from '../capture/bundle'
 import { flattenCapture, flattenSignals, diffManifests } from '../capture/values-diff'
 import { EXTRACT_SCRIPT } from '../capture/extract'
 import type { RawSignals } from '../capture/extract'
@@ -576,7 +578,10 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
       const common = await commonRasters(referencePicture, actualPicture)
       const core = computeDiff(common.a, common.b)
 
-      const values = diffManifests(flattenCapture(await captureOf(name)), await manifestOf(actual))
+      const values = diffManifests(
+        flattenCapture(await captureOf(name), await readMultiState(bundle)),
+        await manifestOf(actual),
+      )
 
       const report = reconcileGates({
         l1Gate,

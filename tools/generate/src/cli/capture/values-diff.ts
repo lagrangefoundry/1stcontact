@@ -71,6 +71,7 @@ import {
   projectRawRun,
   projectSignalsBand,
   projectSignalsManifestAxes,
+  type RecordedManifest,
   type UnmeasuredAxis,
 } from './value-axes'
 
@@ -511,6 +512,8 @@ export type DeltaProperty =
   | 'backgroundImage'
   // ── REQ-265 — a control's placeholder ink (a UA pseudo-element inherits nothing) ──
   | 'placeholderColor'
+  // ── BUG-169 — the page canvas: what shows through wherever no band paints ──
+  | 'bodyBackground'
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
   | 'viewport'
   | 'overflow'
@@ -1035,7 +1038,45 @@ export function runsInDocumentOrder<T>(content: T[], items: T[][], itemsAt?: num
   return out
 }
 
-export function flattenCapture(capture: Capture): ValueManifest {
+/**
+ * BUG-169 — what the bundle itself recorded for the manifest-level axes whose
+ * answer is not in `capture.json`.
+ *
+ * Today that is exactly one axis: the page canvas. `multistate.json` carries it
+ * per projection (the extractor reads it straight off the reference's `<body>`);
+ * `capture.json` carries no such key, and inferring it from the widest band —
+ * which is what the reference side used to do — is wrong on any page whose tallest
+ * band is not the page.
+ *
+ * Resolved at the capture's OWN width, because the axis is per-projection and a
+ * `prefers-color-scheme` / media-query canvas can legitimately differ across the
+ * ladder; the ladder-wide scan is the fallback for a projection that predates the
+ * axis, not the primary reading. Returns `undefined` — never a fabricated default
+ * — for a bundle with no ladder, so the axis falls back to inference rather than
+ * asserting a colour the bundle never measured.
+ */
+export function recordedManifestOf(
+  capture: Capture,
+  multistate: MultiStateCapture | null | undefined,
+): RecordedManifest | undefined {
+  if (!multistate || multistate.projections.length === 0) return undefined
+  const atCaptureWidth = selectProjectionAtWidth(multistate, capture.viewport.width)
+  const isColor = (c: string | undefined): c is string => typeof c === 'string' && c.length > 0
+  const bodyBackground = isColor(atCaptureWidth?.manifest.bodyBackground)
+    ? atCaptureWidth.manifest.bodyBackground
+    : multistate.projections.map((p) => p.manifest.bodyBackground).find(isColor)
+  return bodyBackground === undefined ? undefined : { bodyBackground }
+}
+
+/**
+ * Flatten a capture bundle (the reference) into a value manifest.
+ *
+ * BUG-169 — `multistate` is the bundle's projection ladder, and it is part of the
+ * REFERENCE, not an extra: a bundle is two artifacts and the manifest-level axes
+ * need both. Optional so the offline / pre-ladder paths still flatten, and every
+ * axis that reads it states its own `capture.json` fallback.
+ */
+export function flattenCapture(capture: Capture, multistate?: MultiStateCapture | null): ValueManifest {
   const schema = captureSchemaOf(capture)
   const sections: SectionValues[] = capture.sections.map((section, index) =>
     projectCaptureSection({ section, schema }, index),
@@ -1057,7 +1098,7 @@ export function flattenCapture(capture: Capture): ValueManifest {
     source: `${capture.host}${capture.path}`,
     elements,
     sections,
-    ...projectCaptureManifestAxes(capture),
+    ...projectCaptureManifestAxes({ capture, recorded: recordedManifestOf(capture, multistate) }),
   }
 }
 
@@ -1425,6 +1466,9 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   objectFit: 'A',
   // BUG-27 — an image handle is an authored value: copy the reference's asset.
   backgroundImage: 'A',
+  // BUG-169 — the page canvas is one authored colour (`body{background-color}`):
+  // the repair is to copy the reference's value into the document's base fill.
+  bodyBackground: 'A',
   lineHeightPx: 'A',
   letterSpacingPx: 'A',
   paddingLeftPx: 'A',
@@ -1487,6 +1531,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   color: 'color',
   // REQ-58 (item 3b) — a panel fill difference is a colour defect; reuse `color`.
   surfaceFill: 'color',
+  // BUG-169 — so is the canvas behind every band; the `property` still says which.
+  bodyBackground: 'color',
   gradient: 'gradient',
   // REQ-62 — a panel gradient is a gradient defect; reuse the `gradient` kind.
   surfaceGradient: 'gradient',
@@ -3582,6 +3628,27 @@ export function diffManifests(
       `${actual.viewport.width}w`,
       Math.abs(expected.viewport.width - actual.viewport.width),
     )
+  }
+
+  // BUG-169 — the page canvas. `#document`-level, so it is recorded here rather
+  // than on any band: it is the fill that shows through WHEREVER no band paints,
+  // and the bands are exactly where it does not show. On the page that filed this
+  // ticket that is three strips totalling ~31px of document height, each reading a
+  // mean difference of exactly 133/255 across the full width — the highest mean
+  // anywhere on the page, and a fifth of its total difference mass — while the
+  // value gate reported zero deltas because both sides inferred the canvas from
+  // the widest band and so agreed on the same wrong colour.
+  //
+  // `undefined` on either side is UNMEASURED, not clean, and is skipped: a bundle
+  // with no projection ladder and no band carrying a background has not recorded
+  // an answer, and comparing against a stand-in would fire a delta on every such
+  // reference. Reuses the `color` kind (via the `bodyBackground` property) because
+  // a wrong canvas is a colour defect, with the tolerance every other colour gets.
+  if (expected.bodyBackground !== undefined && actual.bodyBackground !== undefined) {
+    const d = colorDistance(expected.bodyBackground, actual.bodyBackground)
+    if (d > colorTol) {
+      record('§canvas', 'document', 'bodyBackground', expected.bodyBackground, actual.bodyBackground, d)
+    }
   }
 
   // REQ-48 (item 5) — no-horizontal-overflow check on our own render. Any element
