@@ -12,8 +12,14 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { startBuilder, type BuilderHandle } from '../tools/generate/src/cli/builder'
 import { resetAiHost, sessionsDir, setModelClient } from '../tools/generate/src/cli/ai/host'
-import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
+import {
+  configureDelegation,
+  delegationDocument,
+  delegationSettings,
+} from '../tools/generate/src/cli/ai/delegation'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
+import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
 import { calls, says, scriptedClient, sentText, systemText } from './support/scripted-model-client'
@@ -70,6 +76,40 @@ function filesUnder(dir: string): string[] {
     const full = path.join(dir, entry)
     return statSync(full).isDirectory() ? filesUnder(full) : [full]
   })
+}
+
+/**
+ * The delegation tools a delegation-enabled session is offered ([[BUG-163]]).
+ *
+ * THE THIRD SOURCE OF THE DERIVED GRANT, beside L1 and fidelity. Nothing here
+ * names a group or a tool: the groups come from `delegationInstanceConfig` — the
+ * very function the host calls when it composes the surface — and the tool names
+ * come from resolving those groups against upstream's own declaration, group to
+ * operations to tools. So a deployment with the switch off derives an empty set
+ * and the equality below still holds, and a delegation tool added upstream is
+ * covered without an edit here.
+ *
+ * The declaration is reached the way every other upstream declaration is reached
+ * in this suite: a dynamic import of the shared component store.
+ */
+async function commissioningTools(): Promise<string[]> {
+  if (!delegationSettings().enabled) return []
+  const lib = (await import(/* @vite-ignore */ sharedModuleUrl('ai'))) as {
+    DELEGATION_SURFACE: string
+    DELEGATION_DECLARATION: {
+      groups: Map<string, { operations: string[] }>
+      operations: Map<string, { tool: string }>
+    }
+    delegationInstanceConfig: (
+      roles: readonly string[],
+    ) => Record<string, { groups: string[] }>
+  }
+  const declaration = lib.DELEGATION_DECLARATION
+  return lib
+    .delegationInstanceConfig([BUILDER_ROLE])[lib.DELEGATION_SURFACE].groups.flatMap(
+      (group) => declaration.groups.get(group)!.operations,
+    )
+    .map((operation) => declaration.operations.get(operation)!.tool)
 }
 
 // ── the model double ─────────────────────────────────────────────────────────
@@ -477,17 +517,25 @@ describe('what the assistant is offered', () => {
     // Exactly the operations its grant allows — the same projection the surfaces
     // make for this role, not a second list that could drift from them.
     //
-    // TWO SURFACES SINCE REQ-157. This session reaches the assistant through the
-    // builder, which knows its own origin and therefore composes the fidelity
-    // surface alongside the L1 one; `createL1Toolbox` here is called without one
-    // and composes only L1. So the expected set is the union of the two
-    // declarations' operations — still derived from the declarations rather than
-    // written out, which is the property this assertion exists to hold.
+    // THREE SURFACES SINCE REQ-343 ([[BUG-163]]). This session reaches the
+    // assistant through the builder, which knows its own origin and therefore
+    // composes the fidelity surface alongside the L1 one; `createL1Toolbox` here
+    // is called without one and composes only L1. And it delegates, so the
+    // delegation surface is composed too and its caller-side tool is offered —
+    // which is the shipped grant, and was the drift this equality caught when
+    // REQ-343 installed a delegation-enabled document in `beforeEach`.
+    //
+    // So the expected set is the union of THREE declarations' operations, and
+    // every one of them is still DERIVED from the declaration the product
+    // composes from rather than written out here — which is the property this
+    // assertion exists to hold. A list naming `Delegate` would have passed while
+    // the grant drifted underneath it, which is exactly what this caught.
     const granted = Object.keys(
       (await createL1Toolbox(SLUG, { cwd })).schemas() as Record<string, unknown>,
     )
     const looking = (FIDELITY_DECLARATION.operations as { tool: string }[]).map((o) => o.tool)
-    expect(names.slice().sort()).toEqual([...granted, ...looking].sort())
+    const commissioning = await commissioningTools()
+    expect(names.slice().sort()).toEqual([...granted, ...looking, ...commissioning].sort())
 
     // The assistant can look at what it built, and that is a grant it did not
     // have before this session type existed.

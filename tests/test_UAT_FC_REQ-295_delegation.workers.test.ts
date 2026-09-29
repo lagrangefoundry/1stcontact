@@ -4,6 +4,7 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { L1_DECLARATION } from '../tools/generate/src/cli/ai/toolbox-core'
@@ -118,6 +119,16 @@ const REPORT_TOOL = 'ReportResult'
 const CHECK_MET = 'every section has a heading'
 const CHECK_UNANSWERED = 'the hero image is the one from the Library'
 
+/**
+ * What the silent worker's double reports for output on EACH of its requests.
+ *
+ * Named because the silent case bills it more than once ([[BUG-163]]): the
+ * expected total is this times the number of requests the worker was actually
+ * sent, which is a figure that stays right when the ask-once rule changes and a
+ * literal is a figure that does not.
+ */
+const SILENT_OUTPUT = 250
+
 function workerEnv(): Env {
   return {
     DB: env.DB,
@@ -197,6 +208,18 @@ function twoSided(caller: ModelStep[], worker: ModelStep[]): ScriptedClient {
   }
   return scriptedClient([step])
 }
+
+/**
+ * The second thing a silent worker is asked, in upstream's own words ([[BUG-163]]).
+ *
+ * READ FROM THE LIBRARY, NEVER QUOTED. The ask-once nudge is the framework's
+ * ([[BUG-71]]), so a transcription here would be a second copy of a prompt that
+ * is free to be reworded — and the case below would then stop being able to tell
+ * a nudge from any other second request. Asking the library what it sends is what
+ * makes "the second request is the nudge" an observation rather than a guess.
+ */
+const nudgeText = (checks: string[]): string =>
+  (aiLib as unknown as { delegationNudge: (c: string[]) => string }).delegationNudge(checks)
 
 /** The tools a request offered, by name. */
 function toolNames(req: ModelRequest): string[] {
@@ -588,7 +611,7 @@ describe('REQ-295 — delegating construction', () => {
         ),
         says('That did not come back with anything; I will look myself.'),
       ],
-      [metered({ input_tokens: 800, output_tokens: 250 }, says('I had a go.'))],
+      [metered({ input_tokens: 800, output_tokens: SILENT_OUTPUT }, says('I had a go.'))],
     )
     setModelClient(client)
 
@@ -604,15 +627,29 @@ describe('REQ-295 — delegating construction', () => {
     expect(result.checks).toEqual([{ check: CHECK_MET, verdict: 'unreported' }])
     expect(result.accepted).toBe(false)
 
+    // ASKED TWICE, AND THE SECOND ASK IS THE NUDGE ([[BUG-163]]). A worker that
+    // has reported nothing is prompted once more before the delegation is called
+    // silent ([[BUG-71]]): a worker one turn from a report it has in the ordinary
+    // case already composed is the expensive thing to throw away. So the cheap
+    // backend legitimately runs twice here, and the two assertions below are what
+    // make the second run a DESIGNED second ask rather than an unexplained
+    // duplicate — its text is upstream's own nudge, and there is no third.
+    const asked = workerRequests(client)
+    expect(asked).toHaveLength(2)
+    expect(sentText(asked[1])).toContain(nudgeText([CHECK_MET]))
+
     resetAiHost()
     resetChatHost()
 
-    // AND THE TOKENS ARE STILL ON THE BILL.
+    // AND THE TOKENS ARE STILL ON THE BILL — every request's, the nudge's
+    // included. Derived from what the double reported per request times the
+    // number of requests, so the figure moves with the script rather than being a
+    // literal that goes stale the next time the ask-once rule changes.
     const attributed = JSON.parse((await meter(sessionId))[0].attributed!) as {
       usage: Record<string, number>
     }[]
     expect(attributed).toHaveLength(1)
-    expect(attributed[0].usage.output_tokens).toBe(250)
+    expect(attributed[0].usage.output_tokens).toBe(SILENT_OUTPUT * asked.length)
   })
 
   it('test_UAT_FC_REQ-295_the_workers_tool_calls_are_audited_under_its_own_session_id', async () => {
