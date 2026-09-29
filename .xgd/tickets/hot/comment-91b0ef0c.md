@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T19:45:43.345487+00:00'
+updated_at: '2026-09-29T19:48:17.272642+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2911,5 +2911,82 @@ Want me to file the second fix from BUG-155's sibling (a 401 reported as an auth
 <!-- xgd-chat role="user" ts="2026-09-29T19:45:43.206971+00:00" -->
 #### You
 Please can you review what happened in the latest round of the faelan.com reproduction console - the ai ran and produced a lot of output but no ticket - the console is suggestion "run again" but I want to understand what happened first - it as a $10 run, was it wasted?
+
+<!-- xgd-turn id="bcc2b8a6-9d02-4fca-86ce-202d838682ba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T19:48:16.657057+00:00" -->
+#### Claude
+I'll look at the actual run artifacts rather than reason about it.
+
+Not wasted — let me verify the tickets actually exist and find why the console couldn't see them.
+
+Both tickets exist. Now let me find whether the brief or the round is at fault.
+
+**Not wasted. The round succeeded completely — the console just couldn't read its report.**
+
+## What actually landed
+
+Everything the round claimed, verified in the ticket store:
+
+| | |
+|---|---|
+| **REQ-347** | *capture: a page's declared z-index is read off the leaf and lost, so the hero headline paints under a collage photo* — `draft`, `defect_class: [capture-loses-it, l1-cannot-express]`, `created_by: repro-console:repro-faelan-com#4` |
+| **BUG-164** | *gate: `stacked: true` switches the overlap probe off, so a reproduction whose `<h1>` is completely buried under a photo passes every gate* — `draft`, `defect_class: [instrument-blind]` |
+| 4 comments | COMMENT-4304/4305/4307/4308 on REQ-331 / REQ-302 / REQ-333 / REQ-336 — all present, all attached to the right subjects |
+
+The round filed them itself (REQ-262 D10 — it runs `xgd ticket create`), which is why the work survived the console's failure.
+
+## Why the console says "no ticket id"
+
+Schema drift in the final JSON block. The brief specifies:
+
+```json
+{ "status": "filed", "ticketId": "REQ-347", "residualClass": "…" }
+```
+
+The round emitted:
+
+```json
+{ "status": "filed", "gapTicket": "REQ-347", "defectClass": [...] }
+```
+
+`ai.ts:1064` reads `outcome.ticketId`, finds nothing, and returns `status: failed`. Both keys drifted — `residualClass` → `defectClass` too, which mirrors the ticket *field* name `defect_class`, so it's a plausible slip rather than a random one.
+
+**The cause is the resume.** `ai-session.json` says `rounds: 2` — this was a resumed session, and the resume preamble doesn't restate the brief: *"The standing brief... is not restated here — re-read it in your own context if you need it."* Over 99 turns and 25 minutes, the exact key names went from remembered to approximated. The brief's own warning — *"the console reads that block and nothing else you wrote"* — is precisely the failure mode that fired.
+
+## Don't press [run again]
+
+Two reasons:
+
+**It would re-file.** REQ-347 and BUG-164 already exist. A fresh round on the same iteration would find the same defects and file duplicates.
+
+**[read it again] won't help either.** `recover()` at `console.ts:1582` calls the same `parseOutcome`, so it fails identically on the same two key names. The button is offered on a false premise here.
+
+## What was actually lost
+
+Only the console's bookkeeping, and it's all reconstructible:
+
+- **The gap registry** (`gap-tickets.json`) has no entry for this round — so the cross-round convergence series REQ-276 exists to produce is missing round 4.
+- **The page links** to the gap ticket, and the hold on [run again].
+- **`"needsRecapture": true`** — the round's own signal that the bundle needs re-taking before the next iteration. Worth honouring; it's in the transcript and nowhere else.
+
+## One thing in the observations worth your eye
+
+> *BUG-159 (`bug-1ee5f18e`) reached `ready_to_reconcile` while this round was running. Nothing ties it to the round — it carries no round marker and the round did not name it… If nobody promoted it on purpose, it is worth a look.*
+
+The round was careful not to charge itself with that. If you didn't promote BUG-159 by hand around 20:40–21:06 on the 28th, it's worth checking.
+
+## The finding itself
+
+Worth reading REQ-347 before deciding what's next — the round proved it by experiment rather than asserting it. The gate passes at mean 2.87 with `l1Pass: true` and zero layout findings while the reproduction's 64px `FAELAN` headline is painted entirely *underneath* an opaque photo. Strip `stacked` from four image nodes in a `/tmp` copy and the gate immediately reports *"FAELAN overlaps image"*. So BUG-112's restored overlap detector is being switched off by the flag REQ-331 taught the fold to emit — that's 64% of the ranked region score at zero deltas.
+
+---
+
+Two follow-ups I'd suggest, neither filed:
+
+1. **A bug for the parser**: accept the round's claim by any of its plausible names, or — better — validate the block against the brief's schema *at the end of the round* while the session is still alive and can correct it. A 25-minute, $9.27 round shouldn't be discardable by one key name.
+2. **The resume preamble should restate the outcome schema verbatim.** It's the one part of the brief that is machine-read, and it's the part a resumed round is most likely to paraphrase.
+
+Want me to file either under EPIC-12?
 
 <!-- xgd-chat-end -->
