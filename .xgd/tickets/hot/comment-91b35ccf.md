@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-338
 created_by: xgd
 created_at: '2026-09-29T01:31:21.749948+00:00'
-updated_at: '2026-09-29T03:32:57.014309+00:00'
+updated_at: '2026-09-29T03:38:16.431395+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,14 @@ Every "wrong now" in the ticket is now "right when fixed" on the real bundle. Le
 Two new failures. Let me investigate.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="bcf76268-ed42-4b8b-aa7f-ce27306c219f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T03:38:15.493800+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
