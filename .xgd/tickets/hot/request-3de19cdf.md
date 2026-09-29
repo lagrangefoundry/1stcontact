@@ -6,10 +6,10 @@ title: 'fold: every band is painted two or three times over and the least faithf
   copy is on top'
 created_by: repro-console:repro-joyfulculinarycreations-com#3
 created_at: '2026-09-27T01:18:16.240133+00:00'
-updated_at: '2026-09-29T04:45:36.110909+00:00'
+updated_at: '2026-09-29T04:48:01.441188+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-91b35ccf
+  commits:
+  - working_sha: dc7958c81c0985775c260f21ab14655e80f85496
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 255f58d866b9b5afb3e88b62426f9f8e27c7c7b2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.405
 ---
 
 # fold: every band is painted two or three times over and the least faithful copy is on top
