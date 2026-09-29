@@ -6,9 +6,9 @@ title: 'Operating console: the turns pane can never price a turn, and "Business 
   leaves out everything that was delegated'
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T04:15:51.480962+00:00'
-updated_at: '2026-09-29T04:46:54.664815+00:00'
+updated_at: '2026-09-29T04:47:43.652644+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: free_coding
 fields:
   auto_merge_back: true
@@ -17,6 +17,7 @@ fields:
   chat_comment: comment-fac69ac1
   severity: medium
   epic_parent: epic-0923bb64
+  story_points: 5
 ---
 
 ## What is wrong
