@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T04:57:46.058142+00:00'
+updated_at: '2026-09-29T05:05:11.765585+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2919,5 +2919,48 @@ Want those three filed under EPIC-20, and should I add the five LF tickets to th
 Yes please file (smallest reasonable number of tickets).
 
 Take a look at the ga transcript its still producing interesting feedback
+
+<!-- xgd-turn id="2000c179-53cf-4ede-8368-c7af69efa059-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T05:05:11.160200+00:00" -->
+#### Claude
+Let me read the new GA turns first — they may change what belongs in the tickets.
+
+Let me see what the consultant already filed, so I don't duplicate it.
+
+Substantial new material. Let me check whether a grouping/sections request already exists before filing.
+
+Verified the flat-page claim exactly: `root` has **69 direct children, depth 1, no element has children at all** (16 boxes, 52 texts, 2 slots). Filing now.
+
+Now the one framework ticket the new turns earn — checks charged to the worker's own budget.
+
+Filed. Three new tickets rather than five — the briefing-discipline item turned out to be already covered.
+
+## Under EPIC-20
+
+**BUG-168** (`bug-56eb7b64`, high) — *A delegating turn dies at ten minutes on a framework default we never set.* `promptStream` takes `timeout` per call; we pass none, so every turn runs at the framework's 600s. Three of the five finished turns in that session died on it — 11m25s, 10m17s, 10m34s — and all three delegated, while the two that completed did not. The second half of the ticket is what the timeout costs beyond the turn: the work is durable so it lands, the turn is reported failed, and twice the consultant opened its next turn re-reading the change record to find out what its own predecessor had done. I recorded that raising the ceiling is the cheap correct fix and that the structural answer — a delegation the caller doesn't sit inside — is a bigger, upstream change.
+
+**REQ-350** (`request-0b26b97a`) — *A reproduced page is 69 siblings at depth 1.* I verified the consultant's claim against the stored page rather than taking it: `root` is one box with **69 direct children, maximum depth 1, and not one node holds a child** — 16 boxes, 52 texts, 2 slots. The vocabulary isn't the gap; `box` and `container` both take `children`, and `container` carries `layout`/`responsiveLayout`. Reproduced pages just contain none of it. That's why "attach this form to its section" had to be eight pairs of coordinates, and why narrowing the form boxes left 528px inputs inside 424px boxes — **the fields aren't inside anything**, they're siblings painted over the box. The consultant took that regression as its own briefing error; the deeper cause is that no brief can name a relationship the document doesn't hold.
+
+**REQ-348 adopted, not duplicated.** The consultant's briefing-discipline document is now an EPIC-20 child. It already covers what I was going to file as a guidance ticket, and considerably better — it's up to seven runs with a five-way failure taxonomy.
+
+## Upstream
+
+**lagrange-framework REQ-188** (`request-387520eb`, high) — *Settle from the host's record what the host's record can settle, instead of charging a delegation's checks to the budget doing its work.*
+
+This is the best new finding in the transcript and it's a product defect, not a briefing one. The correlation across seven runs: both runs with a **one-clause** check completed cleanly; both runs with **one five-clause** check came back `unreported` — including one that had done its work correctly and reported a good summary. The checks didn't fail, they were never reached. Verifying five properties across eight elements is read-heavy work drawn from the same allowance as the edit, so the mechanism encourages verification and then charges it to the thing being verified.
+
+The shape I asked for: the `account` bracket already holds what most checks ask about, so a check the host can settle should be settled host-side and never sent to the worker — via a host hook answering *settled true / settled false / not mine*, since the framework can't know which checks its host can answer. Plus verdict provenance, because once host-settled and worker-asserted verdicts coexist they must not read alike. That also picks up BUG-165's suggestions 2 and 3, which BUG-72 deliberately left out.
+
+**EPIC-20's body** now has a *First live delegation session* section: the 4.9% ratio, the five-way failure taxonomy, the one-in-three re-brief rate, the note that `account` earned its keystone status, and all six local children plus the five upstream follow-ons.
+
+## From the new turns, deliberately not filed
+
+- **False impossibility** — a worker recorded, in its `decisions` field, that containers don't support per-width layout. They do; `responsiveLayout` is in the reference verbatim. REQ-348 carries it as a rule, and the consultant's framing is sharp: *"I did it"* is cheap to check against the change record; *"it can't be done"* produces nothing to check. It also **corrupts the ledger** — the next session reads a constraint that doesn't exist. That last part is the bit I think may still deserve a product ticket, and I held off because I don't have a good answer for what the system should do about it. Worth your view.
+- **Destructive method** — a worker achieved two flags by removing both forms and re-adding them, destroying the styling just applied. The diff caught it, so the system worked; REQ-348 has the rule. No ticket.
+- **Null runs** — Run 7 spent 45,872 output tokens and wrote nothing, on the best-specified brief of the session. REQ-188 covers one plausible cause but doesn't explain a full budget with zero writes. Unexplained rather than filed.
+- **REQ-349** (the unstyled-element audit) is the consultant's and I left it outside EPIC-20 — it's a quality-instrument gap, not a cost one. Its answer is good, though: a flag on the page map rather than a tool you have to remember to call, with the rule *does absence fall back to the page or to the browser* — controls being the case where absence is never inheritance.
+
+No code touched; all ticket work.
 
 <!-- xgd-chat-end -->
