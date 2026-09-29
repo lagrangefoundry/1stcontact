@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T21:20:55.560183+00:00'
+updated_at: '2026-09-29T21:23:58.191737+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3112,5 +3112,92 @@ Want me to scope #2? And separately — the 56 backing-surface findings are a mu
 <!-- xgd-chat role="user" ts="2026-09-29T21:20:55.080617+00:00" -->
 #### You
 ok lets do it, but I am confused I thought (1) the console could propose engine changes and (2) you told me the one metric we were most trying to drive down was unmeasured...
+
+<!-- xgd-turn id="de53fef2-6574-44bb-b47b-eae9938c6efa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T21:23:57.878202+00:00" -->
+#### Claude
+Both fair challenges, and on (1) you're right — let me check something before I answer, because it changes the recommendation.
+
+Let me read the epic before I write anything.
+
+Now let me pull the actual geometry so the ticket is evidence-backed rather than quoting a code comment.
+
+That's the smoking gun. Let me check whether this is gigabytealchemy-specific or systemic.
+
+Now I have what I need. Let me answer your two questions first, then scope.
+
+## (1) You're right — the console does propose engine changes
+
+That's its whole job, and my framing was wrong. REQ-324, REQ-337, REQ-347 are all engine tickets filed by rounds. I shouldn't have said "an engine change, not a reproduction change" as if that put it out of reach.
+
+The accurate problem is narrower: **the round is correctly declining to re-file this, and the thing that needs filing is something no round has been asked for.** Round 7 looked right at it and wrote:
+
+> *`contentAnchor`, character-for-character identical to iteration 6 — REQ-270/BUG-139*
+
+That's correct behaviour — the brief tells rounds not to re-file a landed class, and REQ-270 and BUG-139 are both `ready_to_reconcile`, i.e. landed. But look at what they actually cover:
+
+- **REQ-270** taught the diff to *decline* the comparison
+- **BUG-139** taught the console to *count* the declination
+
+Nobody filed *make it comparable*. The round sees a known, already-ticketed refusal and moves on, every round, forever. That's a blind spot in the loop, not a limit on the console.
+
+## (2) Unmeasured is the right metric — I wasn't walking that back
+
+`ai.ts:445` tells every round verbatim: **"This is the number to drive down."** That's correct and I stand behind it. Iteration 10's breakdown is why it feels stuck:
+
+| part | count |
+|---|---|
+| axes | 0 |
+| bands | 0 |
+| populations | 0 |
+| **probes** | **1** ← `§1.contentAnchor` |
+
+You've already driven three of the four parts to zero. What's left is one component pinned by a guard no round can influence. Right goal, wrong instrument — "run another turn" can't reach it. My "the number cannot move" was too blunt and made it sound like the goal was wrong. It isn't.
+
+## What I found while checking
+
+**It's systemic, not a gigabytealchemy quirk.** It fires on joyfulculinarycreations too (iterations 3 and 4, same `§1.contentAnchor`).
+
+**The reference geometry, straight from the bundle:**
+
+```
+§0  box y=0   height=192   ← absolutely-positioned header
+§1  box y=0   height=800   ← hero
+```
+
+§0 sits wholly inside §1. That's a fixed header over a full-bleed hero — one of the most common layouts on the web, which is why it'll keep recurring.
+
+**And the real defect is inside the extractor.** There are two anchor functions:
+
+- `extract.ts:2944` — `anchorRatioInBox(box, runs)`, **geometric**, used on the sliced-band path
+- `extract.ts:2983` — `anchorRatioOf(band, bbox)`, **DOM walk**, used on the single-band path
+
+The same extractor produces two incompatible populations depending on which path a band takes. The reference's §1 goes down the DOM path and excludes the header's runs; the reproduction's band is geometric and includes them. REQ-270's guard is correctly refusing to compare two numbers that genuinely don't mean the same thing.
+
+**One scoping consequence I checked:** `SectionValues` (`values-diff.ts:316`) carries only the precomputed `contentAnchorRatio`, not the runs. So this **cannot** be fixed at diff time — the fix has to be in the extractor, which means reference bundles need re-capturing. That's a real migration cost and worth knowing before you commit.
+
+Let me scope it.
+
+**REQ-352** (`request-3bdcdcd9`) — `draft`, parented to EPIC-12.
+
+The body covers: the two-population defect with both `extract.ts` line refs; the gigabytealchemy §0/§1 geometry; persistence across iterations 6–10 including the re-capture; the joyfulculinarycreations recurrence; four numbered behaviours; and the approach section recording that `SectionValues` carries no runs, so this is extractor-side and needs re-capture.
+
+Two behaviours worth your eye, since they're the ones that constrain implementation:
+
+- **#3 — the guard is kept, not deleted.** Old bundles still carry DOM-population anchors, and comparing those against geometric ones is the exact phantom delta REQ-270 exists to refuse. The tempting fix ("the guard is firing, remove the guard") would reintroduce it.
+- **#4 — ordinary nested pages must not move.** This is what makes me prefer changing the DOM path over moving both paths onto `anchorRatioInBox`. The uniform change is cleaner but touches every conventional page; the narrow one only touches the overlapping case. I've recorded both and left the call for implementation.
+
+I scoped out the 56 backing-surface findings explicitly — they're a bigger defect on the same reproduction and this ticket won't make that gate pass.
+
+## Before I cut a branch
+
+Two things I'd want your call on, because they change the work:
+
+**The re-capture cost.** Every reference bundle needs re-capturing to pick up corrected anchors. Bundles you don't re-capture keep getting declined — correctly, but they stay at `unmeasured 1`. So landing this doesn't retroactively clear your existing reproductions; you'd re-capture gigabytealchemy and joyfulculinarycreations after.
+
+**Which approach.** I lean narrow (teach `anchorRatioOf` to exclude nested band roots), because behaviour 4 is the risk and the narrow change can't touch pages that don't have overlapping sections. Say if you'd rather I take the uniform route.
+
+Want me to cut the branch and implement, or would you rather look at REQ-352 first? And separately — the 56 backing-surface findings are the much larger signal on gigabytealchemy, and nothing currently tracks them. Worth a second ticket when you're ready.
 
 <!-- xgd-chat-end -->
