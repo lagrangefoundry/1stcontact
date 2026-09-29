@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-165
 created_by: xgd
 created_at: '2026-09-29T04:15:25.872680+00:00'
-updated_at: '2026-09-29T04:35:56.459657+00:00'
+updated_at: '2026-09-29T04:38:00.213434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -49,5 +49,17 @@ Now the host's surface composition — pass the amended declaration to the calle
 <!-- xgd-chat role="user" ts="2026-09-29T04:35:56.165568+00:00" -->
 #### You
 This should be a lagrange framework bug, can you delete your worktree and branch please and move the ticket to abandoned with an explanation
+
+<!-- xgd-turn id="b7926925-a3de-4e86-a287-9a485d545d42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T04:37:59.211518+00:00" -->
+#### Claude
+Done.
+
+- **Worktree + branch deleted** — `xgd branch clean BUG-165` removed the `free-BUG-165` worktree, deleted the branch, and released the merge lock. Verified both are gone.
+- **Uncommitted work discarded** — nothing had been committed on the branch (it was an ancestor of `xgd-working`), so the in-progress edits are gone: new `verdict-core.ts`, modifications to `account-core.ts` and `host-core.ts`, and the `test_UAT_FC_BUG-165_*` test file. `fields.commits` is empty, so there is nothing for reconciliation to pick up.
+- **Ticket** — appended an "Abandoned — wrong repository" section to the body (original report preserved verbatim above it) explaining that the defect is in the framework's `Delegate` result-assembly path, that a fix here would be a shim over framework behaviour, and listing what was discarded. Status set to `abandoned`.
+
+The original symptom write-up is intact and should transfer cleanly to a lagrange-framework ticket when you raise it there.
 
 <!-- xgd-chat-end -->
