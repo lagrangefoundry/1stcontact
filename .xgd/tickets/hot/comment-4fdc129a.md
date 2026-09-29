@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-351
 created_by: xgd
 created_at: '2026-09-29T21:32:43.594900+00:00'
-updated_at: '2026-09-29T22:50:57.129170+00:00'
+updated_at: '2026-09-29T23:55:31.462468+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,14 @@ Let me get the full blast radius across the whole node suite.
 Now let me establish the baseline by stashing my changes and re-running just those files.
 
 ⚠️ Chat generation failed: Claude Code CLI streaming timeout (>1800s)
+
+<!-- xgd-turn id="46a05da7-1b81-4b04-a658-a65adb61f915-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T23:55:30.590666+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
