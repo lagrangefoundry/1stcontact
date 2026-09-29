@@ -6,9 +6,9 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-29T04:28:10.485709+00:00'
+updated_at: '2026-09-29T04:40:43.380833+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -74,3 +74,41 @@ Concretely: alongside each entry's label, a short marker — `unstyled: placehol
 ## Related, possibly the same ticket
 
 A second, cheaper check with the same shape and the same argument for living in the same place: **an element that paints text and has been given a colour, where that colour has insufficient contrast against what it actually sits on.** Also decidable, also invisible to a novice, and the page background is already known to whatever renders the page.
+
+## Addendum — two further classes of gap, observed after filing
+
+Since this was written, the same site produced two more defects of the same family. Both were invisible to every existing tool, both would have shipped, and neither is caught by the placeholder/padding rule as originally stated. They widen the request from "unstyled controls" to "egregious style gaps" generally.
+
+### Class 2 — styling silently reverted to a component's built-in defaults
+
+A component was removed and re-added as the method of changing one of its settings. The settings survived. Every page-side styling decision applied to the contents of its slot did not, and the contents reverted to the component's built-in appearance: hardcoded hex values — `#ffffff` fills, `#0f172b` text, `#e5e7eb` borders — on a page whose background is a warm sand and whose every other colour is a palette reference.
+
+Nothing reported this. The change record showed a component removed and one added; it did not and could not say "and the resulting page now contains hardcoded colours that match nothing else on it". The defect was found only because a human was told about the removal and inferred the consequence.
+
+**The detectable property:** an element carrying a literal colour value on a site whose palette is otherwise used by reference. This was listed as item 4 in the original request; the observation here is that it deserves promotion, because it is the *fingerprint* of styling applied by something that did not know the site's palette — a component default, an imported fragment, a generated block. It is not merely untidy. It is the signature of a whole region having reverted.
+
+A useful refinement: report it **proportionally**. A site where 90% of colours are references and 10% are literals has a problem in that 10%. A site with no palette at all has a different situation and should not be nagged.
+
+### Class 3 — a layout that cannot physically work at a width it is declared for
+
+A container holding a text input and a button was set to lay them out side by side at *every* width, including 320px. The input is fluid and the button is 123px wide with 24px of padding each side; the available column at 320px is 272px. It cannot fit, and at that width the arrangement is broken in a way no one would ship deliberately.
+
+This is not a matter of taste and needs no rendering to detect: the declared widths of the children, the gap between them and the width of the space they sit in are all known numbers. When their sum exceeds the container at a declared width, that is a finding.
+
+Related and equally arithmetic: **a child whose declared width exceeds its parent's**. That also occurred on this page — inputs 528px wide inside a 424px box, after a container was narrowed and its children were not. Again: all the numbers are present, no judgement required, nothing detected it, and it was found by a person doing subtraction by hand.
+
+### What these three have in common
+
+Each is (a) mechanically decidable from values already on the page, (b) invisible to a non-expert client, who will register only that the site feels cheap, and (c) currently detectable by nobody.
+
+They also share a failure mode that argues for the placement proposed in the original request. None of the three was missed because someone looked and misjudged. Each was missed because nobody thought to look at that particular element — and in two of the three, the defect was *introduced by an edit made for an unrelated reason*. An audit that must be remembered and invoked will not be invoked at the moment a regression is introduced. A flag on the ordinary page-mapping operation, which is already called after every change because addresses regenerate, would have surfaced all three at the moment they appeared.
+
+### Suggested severity split
+
+If these are to be reported together, they want ranking, so that a genuine emergency is not buried among tidiness notes:
+
+- **Broken** — a control with no styling at all; children that cannot fit their container at a declared width; a child wider than its parent. These are never intentional.
+- **Inconsistent** — literal colours on a site that uses a palette; one control styled while its siblings are not; a font stack used once where the page otherwise uses another.
+- **Worth a look** — everything else.
+
+Only the first tier needs to be loud.
