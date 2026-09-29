@@ -6,16 +6,21 @@ title: 'Three red assertions after the delegation chain: one grant drift, one st
   figure, and a nudge to a worker that ran out of room'
 created_by: EPIC-20
 created_at: '2026-09-29T02:57:36.958429+00:00'
-updated_at: '2026-09-29T04:21:49.339475+00:00'
+updated_at: '2026-09-29T04:29:23.112886+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-ec75eab0
+  commits:
+  - working_sha: 29fd98f7d669070e984892f7ee7c14252931bd43
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.403
 ---
 
 ## What is red
