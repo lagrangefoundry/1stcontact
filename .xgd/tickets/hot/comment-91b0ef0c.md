@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T21:23:58.191737+00:00'
+updated_at: '2026-09-29T21:30:33.945228+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3199,5 +3199,11 @@ Two things I'd want your call on, because they change the work:
 **Which approach.** I lean narrow (teach `anchorRatioOf` to exclude nested band roots), because behaviour 4 is the risk and the narrow change can't touch pages that don't have overlapping sections. Say if you'd rather I take the uniform route.
 
 Want me to cut the branch and implement, or would you rather look at REQ-352 first? And separately — the 56 backing-surface findings are the much larger signal on gigabytealchemy, and nothing currently tracks them. Worth a second ticket when you're ready.
+
+<!-- xgd-turn id="3b4c806d-fd67-4ba3-a9b5-049b1ef824d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-29T21:30:31.143292+00:00" -->
+#### You
+You don't code you are an EPIC - the ticket agent codes
 
 <!-- xgd-chat-end -->
