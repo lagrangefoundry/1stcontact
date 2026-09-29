@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T01:27:08.718422+00:00'
+updated_at: '2026-09-29T01:28:00.106170+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2652,5 +2652,34 @@ please continue
 <!-- xgd-chat role="user" ts="2026-09-29T01:27:08.484228+00:00" -->
 #### You
 I actually don't understand what do you want to put in REQ-340?
+
+<!-- xgd-turn id="97c6c8a1-b234-4b60-8e95-745db583cfb5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-29T01:27:59.376827+00:00" -->
+#### Claude
+I was reaching — that's a fair challenge. Let me re-verify the cause before answering, since my mapping to REQ-340 rested on it.
+
+Nothing good — that was a weak call and you're right to push on it. REQ-340 is "the host derives its own record of what a delegation changed"; none of the three failures are about that. I picked it because it was the nearest ticket in the delegation area, which isn't a reason.
+
+Having actually traced them, they don't share an owner at all:
+
+**AC1058** (`reconciliation-assistant-conversation.test.ts:490`) belongs to **REQ-343**. Its commit added `WRITING = { ...delegationDocument, primary_writes: true }` to `beforeEach` (line 178) so the existing cases keep their write tools — but delegation is still *enabled*, so the consultant also gains `Delegate`, and the equality assertion against `granted + looking` was never updated. REQ-343 created the drift in its own commit.
+
+**REQ-295** (`:615`, attributed output 250 → 500) is BUG-71's nudge working as designed: a worker that reports nothing is now asked once more, so the silent-worker case bills two requests. Genuinely just a stale number.
+
+**REQ-296** (`:608`, worker requests 1 → 2) I no longer think is stale. In `delegation_toolbox.js:333-341` the nudge only fires when the worker was *not* stopped:
+
+```js
+if (ran.stopped) outcome = STOPPED
+else if (slot.report === null) { ...nudge... }
+```
+
+REQ-296's worker is supposed to be stopped by its own context guard after one over-window request — that's the whole subject of the test. A second request means it wasn't marked `stopped`, i.e. the guard regressed against the new framework rather than the assertion aging. Bumping `toBe(1)` to `toBe(2)` there would paper over it.
+
+So the honest shape is: one fix belongs to REQ-343, one is a one-line amendment with no natural home, and one shouldn't be touched until I know why the stop isn't taking.
+
+Separately, the KB work is done and clean: `bin/kb-release` rebuilt the stale `REF-l1` projection (needed `NODE_USE_ENV_PROXY=1` — Node 24's fetch ignores the sandbox proxy otherwise), `test_UAT_FC_BUG-71_framework_import_graph` now passes 6/6, and `git status` is unchanged because the KB artifacts are gitignored.
+
+Want me to dig into the REQ-296 stop first? That's the one that might be a real defect.
 
 <!-- xgd-chat-end -->
