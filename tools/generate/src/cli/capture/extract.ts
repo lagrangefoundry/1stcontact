@@ -1489,9 +1489,84 @@ export const EXTRACT_SCRIPT = `(() => {
   // common case) resolves to 0; an explicit integer is the rendered stacking
   // value. This is the only field that separates a correctly-placed-but-wrongly-
   // stacked layer from its reference.
-  function zIndexOf(s) {
-    var z = parseInt(s.zIndex, 10);
-    return isNaN(z) ? 0 : z;
+  //
+  // REQ-347 -- READ OFF THE ANCESTOR CHAIN, the way {@link accTransformOf} already
+  // reads the transform. \`z-index\` does not inherit and is almost never declared
+  // on the leaf: a page positions a WRAPPER and stacks that, so
+  // \`getComputedStyle(h1).zIndex\` is \`auto\` on a headline whose \`.header-text\`
+  // parent says \`z-index: 20\`. Read at the leaf alone, faelan.com's four declared
+  // stacking values (20/15/10/5, verbatim in its stylesheet) produced ELEVEN
+  // records all equal to 0 -- and with nothing to order by, every collage
+  // photograph painted over the hero headline. 64.1% of that round's ranked pixel
+  // residual, with ZERO value deltas, because both sides agreed on the same wrong
+  // zero.
+  //
+  // THE FIRST BOX THE PROPERTY APPLIES TO OWNS THE ANSWER, and the walk stops
+  // there. \`z-index\` applies only to a positioned box (and to a flex/grid item),
+  // so a static ancestor's declared value is inert and must not be read; the
+  // nearest box it does apply to IS the one that carries this leaf through the
+  // paint order of the layer above, which is what a flat reproduction needs.
+  //
+  // AND IT STOPS AT AN ANCESTOR THAT IS A STACKING CONTEXT WITHOUT ASKING FOR A
+  // LEVEL. \`.photo-soft-1\` is \`position:absolute; transform:rotate(-8deg)\` with no
+  // z-index: the transform makes it a stacking context, so it and everything
+  // inside it paint as ONE unit at level 0 of the layer above -- below
+  // \`.photo-torn\`'s declared 5, not above it. Walking past it to \`.photo-layer\`'s
+  // 10 would say the opposite and re-order the collage.
+  //
+  // ONE INTEGER CANNOT BE EXACT, and the bound is deliberate rather than an
+  // oversight: paint order is really the lexicographic order of the whole chain of
+  // levels, and two leaves in different stacking contexts are not comparable on a
+  // single scale at all. The number is right for the shape this measures -- a set
+  // of positioned siblings stacked inside one container, which is what every
+  // montage, hero overlay and badge actually is -- and is strictly better than the
+  // constant 0 it replaces everywhere else.
+  function zIndexOf(el) {
+    var node = el;
+    var guard = 0;
+    while (node && node.nodeType === 1 && guard++ < 64) {
+      var cs = getComputedStyle(node);
+      if (zIndexApplies(node, cs)) {
+        var z = parseInt(cs.zIndex, 10);
+        if (!isNaN(z)) return z;
+        // A box with \`z-index: auto\` that is a stacking context anyway carries its
+        // whole subtree at level 0 of the layer above; one that is not is
+        // transparent to paint order, so the walk continues through it.
+        if (establishesStackingContext(node, cs)) return 0;
+      }
+      node = node.parentElement;
+    }
+    return 0;
+  }
+  // REQ-347 -- does \`z-index\` APPLY to this box? Positioned boxes, plus flex and
+  // grid items, for which the property applies even at \`position: static\`.
+  function zIndexApplies(el, cs) {
+    if ((cs.position || 'static') !== 'static') return true;
+    var p = el.parentElement;
+    if (!p || p.nodeType !== 1) return false;
+    var pd = getComputedStyle(p).display || '';
+    return pd === 'flex' || pd === 'inline-flex' || pd === 'grid' || pd === 'inline-grid';
+  }
+  // REQ-347 -- does this box establish a STACKING CONTEXT of its own, by something
+  // other than a declared z-index? The painted subset of the CSS rule: every
+  // property here also costs a compositing layer, which is what makes the subtree
+  // travel as one. \`will-change\` and \`contain\` are in it because a page that
+  // writes either is asking for exactly this.
+  function establishesStackingContext(el, cs) {
+    if (cs.position === 'fixed' || cs.position === 'sticky') return true;
+    var op = parseFloat(cs.opacity);
+    if (!isNaN(op) && op < 1) return true;
+    if (paintedOrNull(cs.transform)) return true;
+    if (paintedOrNull(cs.filter)) return true;
+    if (paintedOrNull(cs.backdropFilter || cs.webkitBackdropFilter)) return true;
+    if (paintedOrNull(cs.perspective)) return true;
+    if (paintedOrNull(cs.mixBlendMode)) return true;
+    if (cs.isolation === 'isolate') return true;
+    if (maskEdgeOf(cs)) return true;
+    var wc = '' + (cs.willChange || '');
+    if (wc.indexOf('transform') >= 0 || wc.indexOf('opacity') >= 0 || wc.indexOf('filter') >= 0) return true;
+    var ct = '' + (cs.contain || '');
+    return ct.indexOf('paint') >= 0 || ct.indexOf('layout') >= 0 || ct.indexOf('strict') >= 0 || ct.indexOf('content') >= 0;
   }
   // REQ-48 (item 3) -- a computed value that is painted, or null when it is the
   // no-op default. Normalises the several spellings of "nothing" to one null.
@@ -1706,15 +1781,44 @@ export const EXTRACT_SCRIPT = `(() => {
   // A frame is a wrapper with exactly ONE element child (this image) and no text of
   // its own -- it exists to frame, so its paint is the image's paint. A wrapper that
   // paints nothing is not a frame and is not reported as one.
-  function frameOf(el, box) {
+  //
+  // REQ-347 -- AND THE FRAME'S OWN BORDER BOX TRAVELS WITH ITS PAINT. REQ-333 fixed
+  // WHICH properties are attributed and not WHICH BOX they are attributed to: the
+  // wrapper's ring, radius and shadows were written onto the \`<img>\`'s content box,
+  // which is the wrapper's box MINUS its own border. faelan.com's ringed photograph
+  // declares \`width:224px;height:224px;border:4px\` under a global
+  // \`box-sizing:border-box\`, so its border box is 224 and its content box 216 --
+  // and the number 224 occurred ZERO times in the whole capture, while the radius
+  // came back 108 (50% of 216) instead of 112. Reproduced, a 216px border box with
+  // a 4px ring leaves 208px of picture at a 4px offset: the ring painted 4px inward
+  // and everything inside it was shifted and 3.8% differently scaled. 35.9% of that
+  // round's ranked pixel residual -- and, uniquely, a residual the comparator could
+  // never report, because \`box\` on the reference side was the rect of an element
+  // with no border and on ours the rect of an element with one, so the same two
+  // numbers described two different rectangles and read as a perfect match.
+  //
+  // THE BORDER BOX IS THE RIGHT BOX BECAUSE IT IS WHERE THE PAINT IS. The frame is
+  // the composite the reader sees -- ring, crop, shadow and picture as one object --
+  // and its extent is the wrapper's border box. An L1 leaf renders under the same
+  // \`box-sizing: border-box\` reset, so a 224px box with a 4px border reconstructs
+  // the 216px of picture exactly, without the box ever having to carry two numbers.
+  function frameOf(el) {
     var p = el.parentElement;
     if (!p || p.nodeType !== 1) return null;
     if (!p.children || p.children.length !== 1 || p.children[0] !== el) return null;
     if (('' + (p.textContent || '')).trim() !== '') return null;
     var ps = getComputedStyle(p);
     var border = boxBorderOf(ps);
+    // The frame's OWN layout box, un-inflated through the frame's OWN accumulated
+    // transform -- which is the image's only while the image adds no rotation of
+    // its own, and is the wrapper's either way.
+    var box = layoutBoxOf(p, accTransformOf(p));
     var frame = {
+      el: p,
       style: ps,
+      box: box,
+      // The percentage radius resolves against the box it is attributed to, which
+      // is now the frame's: 50% of 224 is the 112 that draws the disc.
       borderRadiusPx: borderRadiusOf(ps, box),
       borderWidthPx: border.width,
       borderColor: border.color,
@@ -2561,7 +2665,7 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
         headingLevel: headingLevelOf(el),
         arrangement: null,
-        zIndex: zIndexOf(s),
+        zIndex: zIndexOf(el),
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
@@ -2638,11 +2742,14 @@ export const EXTRACT_SCRIPT = `(() => {
         ? Math.round((el.naturalWidth / el.naturalHeight) * 100) / 100
         : null;
       // REQ-333 -- the painted transform (ancestors included) and the layout box it
-      // inflated, then the FRAME this image is cropped and ringed by. Order matters:
-      // the frame's percentage radius resolves against the box it is attributed to.
+      // inflated, then the FRAME this image is cropped and ringed by.
+      // REQ-347 -- and a framed image's box is the FRAME's border box, not the
+      // \`<img>\`'s content box inside it: the ring, the radius and the crop are all
+      // measured on the wrapper, so the rect they are written onto has to be the
+      // wrapper's too or the ring paints a border-width inside where it belongs.
       var fieldTf = accTransformOf(el);
-      var fieldBox = layoutBoxOf(el, fieldTf);
-      var frame = isImg ? frameOf(el, fieldBox) : null;
+      var frame = isImg ? frameOf(el) : null;
+      var fieldBox = frame ? frame.box : layoutBoxOf(el, fieldTf);
       var fieldBorder = frame ? { width: frame.borderWidthPx, color: frame.borderColor, style: frame.borderStyle } : boxBorderOf(s);
       // REQ-308 -- the control's own type (see controlTypographyOf). Null for
       // every text-free element that is not a form control.
@@ -2663,7 +2770,7 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-269 -- the outline depth a11yRole's single word 'heading' flattens away.
         headingLevel: headingLevelOf(el),
         arrangement: null,
-        zIndex: zIndexOf(s),
+        zIndex: zIndexOf(el),
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s) || (frame ? frame.maskEdge : null),
@@ -2677,7 +2784,11 @@ export const EXTRACT_SCRIPT = `(() => {
         ...transformFields(fieldTf),
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
-        clip: clipOf(el),
+        // REQ-347 -- read at the FRAME when there is one, for the same reason its
+        // box is: the wrapper is the element that crops, and a clip box measured on
+        // the picture inside it is smaller than the box now recorded, which would
+        // read as a leaf escaping a region that in fact contains it.
+        clip: clipOf(frame ? frame.el : el),
         objectFit: isImg ? (s.objectFit || 'fill') : null,
         // REQ-63 — how the image crops within its box (default '50% 50%').
         objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,

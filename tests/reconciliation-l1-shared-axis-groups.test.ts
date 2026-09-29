@@ -118,6 +118,13 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   // content but not cut it off at its own edge would be exactly the per-kind
   // drift this AC exists to close.
   clip: true,
+  // REQ-347 — the declared PAINT LEVEL, a scalar like the two above. The loss
+  // that named it was a headline painted under a photograph, so a kind that can
+  // overlap but cannot say which side of the overlap it is on is the same
+  // per-kind drift again. `0` is refused (it is the absence of a level spelled a
+  // second way), which is what makes the "anything that is not a legal value is
+  // refused" half of the sweep below hold for it as it does for the two literals.
+  paintOrder: 20,
 }
 
 /**

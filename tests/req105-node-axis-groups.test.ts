@@ -245,6 +245,11 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
       // of the box, so a kind that could hold children but not clip them would
       // be exactly the per-kind drift this sweep exists to catch.
       clip: true,
+      // REQ-347 — the declared paint level, carried by every kind for the reason
+      // `stacked` and `clip` are: which side of an overlap a box paints on is a
+      // property of the box. The loss that named it was a headline painted under
+      // a photograph, which is a `text` node losing an axis a montage needs.
+      paintOrder: 20,
     }
     const groups = Object.keys(l1NodeAxisGroupsSchema.shape)
     expect(groups.sort()).toEqual(Object.keys(sample).sort())

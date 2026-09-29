@@ -49,6 +49,17 @@ export const L1_ENVELOPE = {
   /** Transform rotation (REQ-91) — an angle, not a length: ±10 full turns. */
   rotateDeg: { min: -3600, max: 3600 },
   /**
+   * REQ-347 — the level a node paints at among its siblings. A rank, not a
+   * length, so the bound is about how many distinct layers one composition can
+   * name rather than about pixels: a thousand levels in either direction is
+   * already two orders of magnitude past the deepest real stack, and bounding it
+   * is what keeps a captured `z-index: 2147483647` (the `position:fixed` cookie
+   * banner idiom) from arriving as a number nothing downstream can reason about.
+   * A fold CLAMPS into this range rather than dropping, because clamping is
+   * order-preserving and the only thing this axis means is order.
+   */
+  paintOrder: { min: -1000, max: 1000 },
+  /**
    * REQ-288 — a static translate as a share of the node's own box. Ten times the
    * node's own size in either direction is far past any composition ("half my own
    * height" is 50), and the bound is what keeps a typo from throwing a plaque a
@@ -492,6 +503,17 @@ function checkEffects(node: L1Node, path: string, errors: ValidationError[]): vo
     }
     checkEffectLen(node.transform.translateXPx, `${path}/transform/translateXPx`, errors)
     checkEffectLen(node.transform.translateYPx, `${path}/transform/translateYPx`, errors)
+  }
+  // REQ-347 — the paint level, bounded as a rank (see `L1_ENVELOPE.paintOrder`).
+  // The schema has already refused `0` and any non-integer; this is the range.
+  if (
+    node.paintOrder !== undefined &&
+    !inRange(node.paintOrder, L1_ENVELOPE.paintOrder.min, L1_ENVELOPE.paintOrder.max)
+  ) {
+    errors.push({
+      path: `${path}/paintOrder`,
+      message: `paintOrder ${node.paintOrder} out of range [${L1_ENVELOPE.paintOrder.min}, ${L1_ENVELOPE.paintOrder.max}]`,
+    })
   }
   if (node.mask) checkEffectLen(node.mask.featherPx, `${path}/mask/featherPx`, errors)
 
