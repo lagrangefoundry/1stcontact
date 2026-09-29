@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-7ed87692
 ---
 
 # The hero headline is painted underneath a collage photograph, and a ringed photo wears its ring inside its own box
