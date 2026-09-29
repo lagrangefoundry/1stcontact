@@ -6,9 +6,9 @@ title: 'Corpus document needed: tips for briefing delegated builder sessions (se
   + first four observed runs)'
 created_by: xgd
 created_at: '2026-09-29T04:28:04.918266+00:00'
-updated_at: '2026-09-29T04:28:04.918266+00:00'
+updated_at: '2026-09-29T04:42:49.762616+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -89,3 +89,34 @@ Two jobs, both small. Before dying it achieved both — and also removed and re-
 The failure modes are not "the worker is not clever enough". Three of four are **process** failures — partial completion not reported, a destructive method not forbidden, a check not decidable. All three are fixable from the caller's side, and that is what makes this worth writing down rather than treating as noise.
 
 The economics still hold: run 2 did real work correctly for a fraction of what doing it in the expensive session would have cost. The discipline is what makes the saving real rather than nominal.
+
+## Run 6 — a new failure mode: the worker declared a capability absent that was present
+
+Worth adding because it is the first failure mode observed here that is *not* fixable by a better-specified brief, and because it is the most dangerous one so far.
+
+**What happened.** A brief asked for a container to lay its two children out stacked at the two narrow widths and side by side above them. The worker completed everything else correctly, then recorded this decision:
+
+> "Set form-1 container to row layout at all widths as the only achievable option given schema constraints. The required responsive layout (stack at mobile, row at tablet+) cannot be implemented because containers do not support per-width layout specifications."
+
+That is false. The `container` element's schema declares, verbatim:
+
+```
+- `layout` — layout mode; required
+- `responsiveLayout` — responsive layout. Per-width layout track; the track owns the mode at render time.
+```
+
+A follow-up brief quoting those two lines back and naming the field got it written first time, passed its check, and cost a fraction of the run that denied it.
+
+**Why this one is worse than a silent failure.** Every other failure mode here announces itself — an empty summary, a non-completion outcome, a change record that does not match the brief. This one arrives as a *confident, well-reasoned, plausible engineering judgement*, filed in the decisions field where a caller is most inclined to trust it. Had it been accepted, a mailing-list form would have shipped with a text input and a button side by side in 272px of space, and the record would show the caller had been told why.
+
+It also corrupts the record. A false limitation recorded as a decision propagates: the next session reads "containers do not support per-width layout" in the ledger and designs around a constraint that does not exist.
+
+**The rule this suggests.**
+
+> A worker's claim that the system *cannot* do something is a finding to verify, never a fact to accept. Verify it against the schema before you design around it — and never let it into the ledger unchecked.
+
+This asymmetry is worth stating plainly: a worker reporting *"I did it"* can be checked against the host's change record for almost nothing. A worker reporting *"it cannot be done"* has produced no change to check, so the cheap verification path does not exist. Negative claims therefore need the caller to go and read the reference — which is exactly the expensive judgement work delegation was meant to avoid, and is unavoidable here.
+
+**Corollary for brief-writing.** When a brief asks for something the worker may not have seen before, quote the relevant schema lines into the brief up front. The successful follow-up did this and it cost perhaps forty words. Cheaper than the round trip, and it removes the worker's opportunity to reason its way to a wrong conclusion about what is possible.
+
+**Running tally across six runs:** two clean single-job briefs with values supplied; one false positive verdict; one silent partial; one context-window death that also regressed the page; one false capability denial. The three cleanest runs were all single-job briefs carrying exact values. That correlation is now strong enough to treat as the rule rather than the observation.
