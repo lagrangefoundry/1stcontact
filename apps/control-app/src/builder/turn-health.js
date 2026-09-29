@@ -141,8 +141,9 @@ function countsOf(counts) {
 }
 
 /**
- * The rows themselves — when each turn started, how it ended, and what it cost
- * ([[REQ-320]] narrowing [[REQ-306]]'s four columns to three).
+ * The rows themselves — when each turn started, how it ended, and what each half
+ * of it cost ([[REQ-320]] narrowing [[REQ-306]]'s four columns to three,
+ * [[BUG-166]] splitting the cost back into two).
  *
  * THE IDENTIFIERS ARE NO LONGER RENDERED, and the argument that put them here is
  * worth keeping in its corrected form rather than deleted. [[REQ-306]] was right
@@ -154,16 +155,22 @@ function countsOf(counts) {
  * another surface to paste it into. An identifier belongs where a correlation is
  * actually performed; a per-row column of it is width spent on a constant.
  *
- * THE COST IS THE TURN'S TOTAL AND ARRIVES SETTLED. `costMicros` is the route's
- * figure — the turn's own spend plus what it attributed to any worker it
- * delegated to — and this module formats it with {@link dollars} rather than
- * dividing anything, on `tenant-cost.js`'s rule: a surface that did its own money
- * arithmetic would be a second authority on a number an operator prices from.
+ * THE COST IS TWO FIGURES AND BOTH ARRIVE SETTLED ([[BUG-166]]).
+ * `principalMicros` is what the turn itself spent; `delegatedMicros` is what it
+ * caused on the workers it handed off to, each priced at its own backend's
+ * rates. This module formats them with {@link dollars} and adds nothing, on
+ * `tenant-cost.js`'s rule: a surface that did its own money arithmetic would be a
+ * second authority on a number an operator prices from. It is also the cost
+ * pane's rule about the pair — the halves are labelled and never summed on
+ * screen, because a delegation that moved work and one that did not are the same
+ * number added and two different numbers side by side.
  *
  * ABSENT IS THE DASH AND NEVER `$0.00`, which is the whole reason {@link dollars}
- * is shared rather than re-spelled. A turn in flight, a turn that died, and a
- * turn that failed before its terminal meta arrived all have no spend row at all
- * — common here, unlike on the cost pane — and a zero would claim they were free.
+ * is shared rather than re-spelled — and it is per-half. A turn in flight, a turn
+ * that died, and a turn that failed before its terminal meta arrived have no
+ * spend row at all and so neither figure; a turn that delegated nothing — every
+ * turn while the switch is off — has a principal figure and no delegated one. A
+ * zero in either cell would claim a measurement nobody took.
  */
 function recentOf(turns) {
   const section = el('div', 'builder-turn-health__recent')
@@ -185,7 +192,8 @@ function recentOf(turns) {
     const cells = {
       started: TURN_HEALTH_STARTED(turn.startedAt),
       state: TURN_HEALTH_STATES[turn.state] ?? turn.state,
-      cost: dollars(turn.costMicros ?? null),
+      principal: dollars(turn.principalMicros ?? null),
+      delegated: dollars(turn.delegatedMicros ?? null),
     }
     for (const [id, value] of Object.entries(cells)) {
       const cell = el('span', 'builder-turn-health__cell', value)

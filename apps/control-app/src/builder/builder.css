@@ -4155,18 +4155,20 @@ body {
   gap: 2px;
   min-width: 0;
   /* Bounded for the day table's reason, and tighter since [[REQ-320]] took the
-     two identifier columns out: three short values stretched across a
-     dragged-open pane would put a cost half a screen from the stamp it belongs
-     to. */
-  max-width: 34em;
+     two identifier columns out: short values stretched across a dragged-open
+     pane would put a cost half a screen from the stamp it belongs to. Wider by
+     one column's worth since [[BUG-166]] split the cost in two, which is the
+     width that keeps the pair readable as a pair. */
+  max-width: 40em;
 }
 
 /* Rows and heading share ONE definition, which is what stops the heading
    drifting off the columns it names. The stamp is the widest because it carries a
-   date and a time to the second; the two that follow are a word and a figure. */
+   date and a time to the second; the three that follow are a word and the turn's
+   two money figures ([[BUG-166]]). */
 .builder-turn-health__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 0.7fr);
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.7fr) minmax(0, 0.7fr) minmax(0, 0.7fr);
   gap: 8px;
   align-items: baseline;
   text-align: left;

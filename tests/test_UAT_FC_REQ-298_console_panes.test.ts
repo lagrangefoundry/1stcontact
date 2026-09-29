@@ -96,11 +96,29 @@ function site(id: string, business: string, businessName: string | null, over = 
 const LEAGUE = {
   period: { from: null, to: null },
   businesses: [
-    { business: 'biz_salon', name: 'Salon', report: { costMicros: 24_000_000 } },
-    { business: 'biz_quiet', name: 'Quiet Ltd', report: { costMicros: 1_500_000 } },
+    // [[BUG-166]] — `total` is the figure the list prints and ranks by: what the
+    // business spent itself plus what its turns caused on its workers. Nothing
+    // was delegated by any of these, so it equals the report's own cost.
+    {
+      business: 'biz_salon',
+      name: 'Salon',
+      report: { costMicros: 24_000_000 },
+      total: { costMicros: 24_000_000, costPerEngagedHourMicros: 8_000_000 },
+    },
+    {
+      business: 'biz_quiet',
+      name: 'Quiet Ltd',
+      report: { costMicros: 1_500_000 },
+      total: { costMicros: 1_500_000, costPerEngagedHourMicros: null },
+    },
     // MEASURED BUT NOT PRICED. It has turns and no cost, which is not a cost of
     // zero — the server sorts it after every business that has one.
-    { business: 'biz_dark', name: null, report: { costMicros: null } },
+    {
+      business: 'biz_dark',
+      name: null,
+      report: { costMicros: null },
+      total: { costMicros: null, costPerEngagedHourMicros: null },
+    },
   ],
 }
 
@@ -121,6 +139,10 @@ const PERIOD_ANSWER = {
     { day: '2026-09-21', report: { costMicros: 15_000_000, engagedHours: 1.8 } },
   ],
   delegated: null,
+  // [[BUG-166]] — the headline's own figures, settled by the route. Nothing was
+  // delegated here, so the total IS the principal half and the pane's top line
+  // and its principal line agree, which is the case that must keep working.
+  total: { costMicros: 24_000_000, costPerEngagedHourMicros: 8_000_000 },
 }
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-298 pane cases skipped: ${WEBUI_SKIP_REASON}`)
@@ -438,8 +460,18 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-298 — one period, governing both halves
     const cheapestFirst = {
       period: { from: null, to: null },
       businesses: [
-        { business: 'biz_quiet', name: 'Quiet Ltd', report: { costMicros: 9_000_000 } },
-        { business: 'biz_salon', name: 'Salon', report: { costMicros: 1_000_000 } },
+        {
+          business: 'biz_quiet',
+          name: 'Quiet Ltd',
+          report: { costMicros: 9_000_000 },
+          total: { costMicros: 9_000_000, costPerEngagedHourMicros: null },
+        },
+        {
+          business: 'biz_salon',
+          name: 'Salon',
+          report: { costMicros: 1_000_000 },
+          total: { costMicros: 1_000_000, costPerEngagedHourMicros: null },
+        },
       ],
     }
     const windows: Array<{ from: string | null }> = []

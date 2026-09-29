@@ -625,6 +625,13 @@ export const TENANT_COST_READING = 'Reading the meter…'
  * `[data-total="cost"]` and not a slug of whatever the heading currently says.
  * That is the same split this file makes between a tab's `id` and its `label`,
  * applied one level down.
+ *
+ * `cost` AND `per-hour` ARE FIGURES OF BOTH HALVES ([[BUG-166]]). The cell reads
+ * *Cost* under a section headed *Business cost*, which is a promise that it is
+ * what the business cost — and it was the principal half alone, with the
+ * delegated half sitting unadded further down the same pane. The labelled pair
+ * below is unchanged and still never summed there: it is the DECOMPOSITION, and
+ * this is the total it decomposes.
  */
 export const TENANT_COST_TOTALS = {
   cost: 'Cost',
@@ -652,7 +659,17 @@ export const TENANT_COST_MODEL_COLUMNS = {
   model: 'Model',
   cost: 'Cost',
 }
-export const TENANT_COST_PRINCIPAL = 'Own spend'
+/**
+ * *Principal spend*, and not *Own spend* ([[BUG-166]]).
+ *
+ * THE WORD THE REST OF THE SYSTEM ALREADY USES. The route calls this half the
+ * principal, the element carries `data-half="principal"`, and the module's own
+ * prose says principal throughout — the label was the only place it read *own*.
+ * It matters more now that the figure above it is the TOTAL: *own* invites a
+ * reader to take the pair as *ours* against *theirs*, where what is actually
+ * being split is the turn's own spend from the spend its workers incurred.
+ */
+export const TENANT_COST_PRINCIPAL = 'Principal spend'
 export const TENANT_COST_DELEGATED = 'Delegated spend'
 export const TENANT_COST_DELEGATED_NONE = 'Nothing was delegated in this period.'
 export const TENANT_COST_UNPRICED = (turns) =>
@@ -711,10 +728,19 @@ export const TURN_HEALTH_RECENT = 'Most recent turns'
  * answered a question; between them they took most of the width, which is what
  * left no room for the one figure this table is read for.
  *
- * WHAT THE THREE ANSWER, IN THE ORDER A READER ASKS THEM: *was this recently*,
- * *did it work*, *what did it cost*. Nothing else about a turn is worth a column
- * — a reason is a sentence and sits beneath its row, and an identifier belongs
+ * WHAT THEY ANSWER, IN THE ORDER A READER ASKS THEM: *was this recently*, *did
+ * it work*, *what did it cost*. Nothing else about a turn is worth a column — a
+ * reason is a sentence and sits beneath its row, and an identifier belongs
  * wherever a correlation is actually performed.
+ *
+ * AND THE COST IS TWO COLUMNS, NOT ONE ([[BUG-166]]). REQ-320 spent a single
+ * column on the turn's TOTAL — its own spend plus what it attributed to any
+ * worker — because one column was what the width it had just reclaimed would
+ * take. What an operator actually asks of a delegating turn is WHICH HALF the
+ * money went to: a turn that did its own work and one that handed it to a
+ * cheaper model are the same number summed and two very different numbers split.
+ * That is the same argument the cost pane settled for a period, applied to a
+ * turn, and the width for it came from the two identifiers REQ-320 removed.
  *
  * KEYED BY A STABLE ID, exactly as {@link TENANT_COST_DAY_COLUMNS} is: a UAT
  * addresses `[data-column="cost"]` rather than a position in a row, and that
@@ -723,7 +749,8 @@ export const TURN_HEALTH_RECENT = 'Most recent turns'
 export const TURN_HEALTH_COLUMNS = {
   started: 'Started',
   state: 'Ended',
-  cost: 'Cost',
+  principal: 'Principal',
+  delegated: 'Delegated',
 }
 /**
  * When a turn started, in the zone of the person reading it ([[REQ-320]]).
