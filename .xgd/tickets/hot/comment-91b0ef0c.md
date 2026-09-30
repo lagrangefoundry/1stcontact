@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-30T19:49:55.015229+00:00'
+updated_at: '2026-09-30T20:08:55.692194+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3322,5 +3322,55 @@ Say the word and I'll write both up as drafts for you to dispatch.
 Casn you put them into one ticket please?
 
 Then on gigabyte.ai : I implemented your ticket and recaptured gigabyte and I still see unmeasured 1 - what's going on there?
+
+<!-- xgd-turn id="b0fd8173-e616-44b3-818e-d2d891262d00-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:08:54.292543+00:00" -->
+#### Claude
+Brief update: the latest gigabytealchemy run (iteration 11) has `unmeasuredAxes: []` but one `notComparableAxes` entry. I'm checking whether that's what the console shows as "unmeasured 1".
+
+Still digging: the likely culprit is the one declined `contentAnchor` measurement on §1. I'm checking whether your recapture ran after the fix that was meant to remove it.
+
+Found it. Now writing the combined ticket; first checking how sibling tickets under the epic are structured.
+
+Ticket creation is still running; the CLI seems to be waiting on something. I'm waiting for it to finish rather than retrying, so it can't create a duplicate.
+
+That new ticket belongs to another session, not this one. Still waiting on mine.
+
+I've written the combined ticket, but it hasn't been filed yet. The unmeasured-1 question is answered below.
+
+## 1. The combined ticket
+
+The body is saved at `.xgd/tmp/above-top-rung.md`. It's one bug under EPIC-12, tagged `defect_class: [instrument-blind, fold-wrong]`, in two parts:
+
+- **Part 1, the alarm:** the off-sample probe also samples one width above 1440. There, it resolves boxes the way the CSS actually does: frozen keyframes stay frozen, while column anchors, `fit-content` widths and fluid sizing keep following the viewport. It reports any surface that its content runs past. Before Part 2 lands, this has to name gigabytealchemy's six frozen surfaces and faelan's hero band.
+- **Part 2, the fix:** a node whose width equals the viewport at every captured width (6 of 90 nodes on gigabytealchemy, 3 of 13 on faelan) keeps growing above 1440. Where the original caps its width, the reproduction caps too. The frozen 1440 width must not override the growing one, both in the CSS and in the code that picks background-image sizes. Nothing changes at the captured widths, and the gate numbers before and after are reported as proof.
+- **Out of scope:** capturing an extra, wider width.
+
+**It's stuck, though.** `xgd ticket create` has been running for over 20 minutes without finishing, and no ticket file or commit exists. Other sessions are writing tickets at the same time, so it's probably waiting on a lock. I can't see the process from inside the sandbox to confirm that. I haven't retried because a second attempt could create a duplicate if the first one eventually finishes. If it's still missing when you look, run:
+
+```
+xgd ticket create --type bug --title "L1 above the widest rung: full-bleed surfaces freeze while content keeps tracking the viewport, and no probe samples there" --epic-parent epic-bf282b3d --fields '{"defect_class":["instrument-blind","fold-wrong"],"priority":"medium"}' --body-file .xgd/tmp/above-top-rung.md
+```
+
+## 2. gigabytealchemy "unmeasured 1"
+
+**Your latest recapture ran before the fix landed, so it couldn't show the fix.**
+
+- The only gigabytealchemy recapture on disk is iteration 11. The reference was captured at 13:48 on Sep 29 and scored at 13:49.
+- REQ-352 (`29a0fdb469`, "one content-anchor population over both sides") was committed at **18:22** the same day, 4½ hours later.
+- I searched this checkout and every xgd worktree, and nothing newer than iteration 11 exists for this site.
+
+The 1 is exactly the problem REQ-352 addresses. Iteration 11's `gate.json` has `unmeasuredAxes: []` and a single declined measurement:
+
+```
+§1 contentAnchor — §0 sits inside this band, so the reference measured its anchor over a
+DOM-descendant population that EXCLUDES those runs while the reproduction's geometric band
+includes them — the two anchors are not the same measurement and are not compared
+```
+
+That's the header-over-hero layout, where the two sides disagreed at 0.53 against 0.39. REQ-352 makes both sides measure the anchor the same way. The fix also moved that calculation out of the page script into `anchor.ts`, so the old capture can't benefit from it. **You need to recapture and rescore.**
+
+**The headline will probably go up after the rescore.** BUG-161 (`20a5937fe3`, committed at 18:39, also after iteration 11) now counts `bandPaintActual`. Iteration 11 has 6 of those: full-bleed boxes whose opacity, filter and shadow nothing compares. Read with today's console, iteration 11 would show **unmeasured 7**, not 1. So after recapturing, expect about 6 rather than 0: the declined anchor measurement should go, and the band-paint count should stay. That rise is the counting becoming more honest, not the reproduction getting worse. If the declined `contentAnchor` entry is still there after a fresh recapture, then REQ-352 didn't work on this page, and I'd want to look at that run.
 
 <!-- xgd-chat-end -->
