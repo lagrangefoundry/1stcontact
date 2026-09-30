@@ -2491,6 +2491,15 @@ export function diffManifests(
   const deltas: ValueDelta[] = []
   let matched = 0
   let unmatched = 0
+  // BUG-160 (issue 2) — what the `arrangement` block below DECLINED to compare.
+  // The axis is CRITICAL-tier and both its guards are silent: a run neither
+  // compared nor counted reaches `gate.json` as a clean one. Counted per side and
+  // per reason here, and emitted as one row each at the end of the pass, so the
+  // gate's unmeasured tally stops reading zero over comparisons that never ran.
+  let arrangementPairs = 0
+  let arrangementUnreadExpected = 0
+  let arrangementUnreadActual = 0
+  let arrangementDeclinedMoved = 0
 
   // REQ-51 — object cards accumulate as we pair; `ignore` is hoisted above the
   // loops (from its original post-loop position) so a card's per-object delta
@@ -2785,6 +2794,23 @@ export function diffManifests(
     // it does not, the element's `position` delta above already names the real
     // defect and this would be a second, louder report of a third element's
     // movement. Where it does, a genuine arrangement difference is still reported.
+    //
+    // BUG-160 (issue 2) — both of those guards are RIGHT and both were SILENT.
+    // On the gigabytealchemy round the first one dropped 22 of 59 pairs — every
+    // run that opens a band, 37% of the population, because `relate` reads `null`
+    // for a predecessor relation the reference's own sort order does not produce —
+    // and `gate.json` still reported `unmeasuredAxes: []` over them. An exclusion
+    // nobody can see is indistinguishable from a measurement nobody made, so each
+    // declination is counted here and reported below.
+    arrangementPairs++
+    // ASYMMETRY only. A pair neither side read is not a skipped comparison — the
+    // axis simply is not projected on this pair of pages, which the declaration
+    // table (`observedUnmeasuredAxes`) already owns and which every other guard
+    // in this function stays inert for. What the round lost was the pair where
+    // one side HAD a reading and the other did not: a measurement that existed
+    // and went uncompared.
+    if (!exp.arrangement && act.arrangement) arrangementUnreadExpected++
+    else if (exp.arrangement && !act.arrangement) arrangementUnreadActual++
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
       const ownGeometryAgrees =
         exp.box !== undefined &&
@@ -2792,6 +2818,10 @@ export function diffManifests(
         Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y)) <= positionTol
       if (ownGeometryAgrees) {
         push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+      } else {
+        // Declined, not clean: the two sides DID disagree and this run chose not
+        // to blame this element for it. That choice is a measurement not made.
+        arrangementDeclinedMoved++
       }
     }
     // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
@@ -3603,9 +3633,30 @@ export function diffManifests(
   // the gate. `contentAnchor` is named rather than inferred from the flag, because
   // the axis is what an operator acts on — a second declined axis would push its
   // own name here rather than widening the meaning of this one.
-  const notComparableAxes: NotComparableAxis[] = sectionPairing
-    .filter((p) => p.anchorComparable === false)
-    .map((p) => ({ scope: p.label, axis: 'contentAnchor', reason: p.anchorReason ?? '' }))
+  const notComparableAxes: NotComparableAxis[] = [
+    ...sectionPairing
+      .filter((p) => p.anchorComparable === false)
+      .map((p) => ({ scope: p.label, axis: 'contentAnchor', reason: p.anchorReason ?? '' })),
+    // BUG-160 (issue 2) — the `ownGeometryAgrees` half of the `arrangement`
+    // guard. The two sides genuinely disagreed on the axis and the comparator
+    // declined to report it against THIS element because its own box had moved,
+    // which is a declination in exactly REQ-270's sense and belongs in the same
+    // list: asked, and not answered. `scope: 'element'` rather than a `§n` band —
+    // the refusal is per pair, not per band — and one aggregate row rather than
+    // one per element, for the reason `unreadableTransformAxes` gives.
+    ...(arrangementDeclinedMoved > 0
+      ? [
+          {
+            scope: 'element',
+            axis: 'arrangement',
+            reason:
+              `the two sides read different arrangements on ${arrangementDeclinedMoved} of ` +
+              `${arrangementPairs} paired elements, but the element's own box had moved, so the ` +
+              `axis was declined in favour of the position delta that names the real defect`,
+          },
+        ]
+      : []),
+  ]
   const claimedActual = new Set<SectionValues>()
   for (const m of sectionMatches.values()) claimedActual.add(m.section)
   const unpairedActualSections: UnpairedSection[] = flatRepro
@@ -3767,6 +3818,36 @@ export function diffManifests(
       // Both are the same fact to the gate — "compared, and not evaluated here" —
       // so both arrive in the same list rather than in a second one nothing reads.
       ...unreadableTransformAxes(expected, actual),
+      // BUG-160 (issue 2) — and the `arrangement` pairs one side read no value
+      // for. `arrangement` relates an element to the one BEFORE it in that
+      // side's own top-to-bottom sort, and the two sides do not sort the same
+      // list — a reproduction emits band containers a reference has no
+      // counterpart for — so `relate` returns null on one side for a pair the
+      // other side read fine. The both-sides guard then drops the comparison,
+      // correctly and, until now, silently: on the round this was filed from,
+      // 22 of 59 pairs on a CRITICAL-tier axis, under a headline of `0 axes`.
+      // One row per side, never one per element, exactly as the transform rows
+      // above: the count and the reason are the fact, the element list is not.
+      ...(arrangementUnreadExpected > 0
+        ? [
+            {
+              axis: 'arrangement',
+              scope: 'element' as const,
+              side: 'reference' as const,
+              reason: arrangementUnreadReason(arrangementUnreadExpected, arrangementPairs),
+            },
+          ]
+        : []),
+      ...(arrangementUnreadActual > 0
+        ? [
+            {
+              axis: 'arrangement',
+              scope: 'element' as const,
+              side: 'reproduction' as const,
+              reason: arrangementUnreadReason(arrangementUnreadActual, arrangementPairs),
+            },
+          ]
+        : []),
       // BUG-153 (item 2) — and the mask pairs this run could not resolve.
       ...(maskGeometryUnresolved
         ? [
@@ -3806,6 +3887,21 @@ export function diffManifests(
  * gate enumerates these by name and a page with forty rotated layers would
  * otherwise print forty identical lines.
  */
+/**
+ * BUG-160 (issue 2) — the reason line for an `arrangement` side that read no
+ * value, carrying the count it applies to. One sentence, in the comparator's own
+ * words, naming the mechanism rather than the elements: the count is what a
+ * round drives down and the mechanism is what a fix has to change.
+ */
+function arrangementUnreadReason(unread: number, pairs: number): string {
+  return (
+    `this side read no arrangement for ${unread} of ${pairs} paired elements, so the ` +
+    `both-sides guard skipped the comparison — the axis relates an element to the one ` +
+    `before it in that side's OWN top-to-bottom sort, and the two sides do not sort the ` +
+    `same element list`
+  )
+}
+
 function unreadableTransformAxes(expected: ValueManifest, actual: ValueManifest): UnmeasuredAxis[] {
   const REASON =
     'the effective transform chain held a value this projection cannot decompose ' +

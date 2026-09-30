@@ -186,10 +186,11 @@ export interface EvaluateOptions {
    * exactly one line. Every one of those five was the model arguing with itself.
    *
    * Supplied, a run's height at a captured width is the height the browser
-   * actually gave it, and between captured widths it is interpolated exactly as
-   * the renderer interpolates geometry. The estimate survives where no
-   * measurement does — an authored document, a leaf the oracle never saw — which
-   * is the only place a model belongs.
+   * actually gave it, and between captured widths it is resolved exactly as the
+   * renderer resolves geometry — interpolated across a fluid segment and HELD
+   * across a `snap` one (BUG-160). The estimate survives where no measurement
+   * does — an authored document, a leaf the oracle never saw — which is the only
+   * place a model belongs.
    */
   measured?: MeasuredTextHeights
   /**
@@ -404,20 +405,77 @@ export function measuredTextHeights(oracle: OracleSource): MeasuredTextHeights {
 }
 
 /**
+ * BUG-160 (issue 1) — the width a `snap` window HOLDS at, for a run whose height
+ * is being resolved inside it, or `undefined` when `width` is not inside one.
+ *
+ * A `snap` segment is the renderer declining to reflow across the window: it
+ * emits the lower keyframe's box as a literal for the whole of
+ * `[f[i].at, f[i+1].at)` and changes nothing until the next breakpoint. A run
+ * inside such a window therefore lays out exactly as it does at `f[i].at` — same
+ * column width, same wrap points, same line count — so its MEASURED height there
+ * is the measurement taken at `f[i].at`, not a blend of the two endpoints.
+ *
+ * Resolution is by WIDTH against the node's own keyframe ladder, never by index
+ * into the measured track. The two ladders are built from the same captured
+ * widths but are not guaranteed to be the same length: a measured track skips a
+ * width the oracle did not measure that run at, and indexing `segments` by the
+ * measured track's position would then read a DIFFERENT window's segment kind —
+ * worse than reading none. Looking the window up by width cannot mis-align,
+ * whatever the measured track omits.
+ *
+ * The same half-open `[a.at, b.at)` rule as {@link evalGeometry}, for the same
+ * reason (REQ-92): at an exact interior breakpoint the segment STARTING there is
+ * the active one.
+ */
+function snapHoldWidth(geo: L1Geometry | undefined, width: number): number | undefined {
+  const f = geo?.keyframes
+  if (!f || f.length < 2) return undefined
+  for (let i = 0; i < f.length - 1; i++) {
+    if (width >= f[i].at && width < f[i + 1].at) {
+      return (geo!.segments?.[i] ?? 'interpolate') === 'snap' ? f[i].at : undefined
+    }
+  }
+  return undefined
+}
+
+/**
  * Resolve a measured track at `width`, with the renderer's own cascade: hold the
  * first measurement below the ladder, interpolate within a segment, hold the
- * last above it. The same rule {@link evalGeometry} applies to position, applied
- * to the height that travels with it — at a captured width it returns that
+ * last above it — and, given the run's own `geo`, hold the lower measurement
+ * flat across a `snap` window rather than interpolating through it
+ * (see {@link snapHoldWidth}).
+ *
+ * BUG-160 (issue 1) — that last clause is the fix. The doc comment here already
+ * claimed "the same rule {@link evalGeometry} applies to position", and both
+ * {@link evalGeometry} and {@link evalScalarTrack} branch on `segments`; this
+ * function did not, so inside one evaluation the surface's height was resolved
+ * by a segment-aware cascade and its content's by a segment-blind one. On
+ * `gigabytealchemy.ai`, whose 375→768 window is `snap` on every geometry track,
+ * that under-measured seven wrapped runs in one card by 96px at 506 and 192px at
+ * 637 and produced the round's whole `escape` set — overhangs that were partly
+ * the instrument's own arithmetic. Called without a `geo` (a node that declares
+ * no geometry) the behaviour is exactly as before.
+ *
+ * At a captured width inside an `interpolate` window it still returns that
  * width's measurement exactly, so a resting evaluation is the oracle.
  */
-function measuredAt(track: Array<{ at: number; height: number }>, width: number): number | undefined {
+function measuredAt(
+  track: Array<{ at: number; height: number }>,
+  width: number,
+  geo?: L1Geometry,
+): number | undefined {
   if (!track.length) return undefined
-  if (width <= track[0].at) return track[0].height
+  // Inside a `snap` window the page holds the window's lower edge, so resolve the
+  // ladder THERE. Resolving the hold width through the same ladder rather than
+  // returning a keyframe directly is what keeps a measured track that skips the
+  // window's own start honest: it gets whatever the ladder holds at that width.
+  const at = snapHoldWidth(geo, width) ?? width
+  if (at <= track[0].at) return track[0].height
   for (let i = 0; i < track.length - 1; i++) {
     const a = track[i]
     const b = track[i + 1]
-    if (width >= a.at && width < b.at) {
-      const t = b.at === a.at ? 0 : (width - a.at) / (b.at - a.at)
+    if (at >= a.at && at < b.at) {
+      const t = b.at === a.at ? 0 : (at - a.at) / (b.at - a.at)
       return lerp(a.height, b.height, t)
     }
   }
@@ -431,7 +489,9 @@ function takeMeasured(ctx: Ctx, node: L1Text, width: number): number | undefined
   ctx.textCursor.set(key, idx + 1)
   if (!ctx.measured) return undefined
   const track = ctx.measured.tracks.get(`${key}#${idx}`)
-  return track ? measuredAt(track, width) : undefined
+  // BUG-160 (issue 1) — the node's own keyframe ladder travels with the lookup, so
+  // the measured height obeys the same `snap`/`interpolate` cascade its position does.
+  return track ? measuredAt(track, width, geometryOf(node)) : undefined
 }
 
 /**

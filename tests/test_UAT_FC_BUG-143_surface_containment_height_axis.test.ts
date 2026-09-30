@@ -496,8 +496,8 @@ describe('BUG-143 — the reproduction the defect was reported on', () => {
     // The bundles are gitignored, so this case carries no evidence of its own —
     // the synthetic cases above do. Where a retained capture IS present it proves
     // the same claims against the page the operator actually resized: clean at rest
-    // at every captured sample, and coming apart between the rungs, under content
-    // growth, and at a viewport height nothing was captured at.
+    // at every captured sample, and coming apart under content growth and at a
+    // viewport height nothing was captured at.
     const ms = loadReal('gigabytealchemy.ai')
     if (!ms) return
     const doc = foldToL1(ms)
@@ -508,13 +508,23 @@ describe('BUG-143 — the reproduction the defect was reported on', () => {
     // Clean at rest, at every captured width and the height it was captured at.
     const rest = onSampleProbe(doc, { measured, heights: [800] })
     expect(escapes(rest)).toBe(0)
-    // Between the rungs, and under a 15% content growth, panels leave their copy.
-    expect(escapes(offSampleProbe(doc, { measured }))).toBeGreaterThan(0)
+    // Under a 15% content growth, panels leave their copy.
     expect(escapes(contentRobustnessProbe(doc, { measured, scale: 1.15 }))).toBeGreaterThan(0)
-    // The acceptance gate's verdict carries them rather than reporting a clean
-    // envelope: the whole point of the alarm landing before the fix.
+    // BUG-160 — and BETWEEN the rungs, on THIS bundle, they no longer do. All 18
+    // off-sample escapes this case used to read sat at 506px and 637px, both
+    // inside the single `snap` window of a page whose 375→768 segment is held on
+    // every one of its tracks, and each was the oracle's own 48px and 24px
+    // blended through a window the renderer does not reflow across. The alarm is
+    // unchanged — it still rings under growth, above, and at an uncaptured
+    // height, below — what changed is that the ruler stopped manufacturing the
+    // content it was ringing about. A bundle whose panels really do come apart
+    // between the rungs still reports it; the synthetic `snappingPage` above is
+    // exactly that page and is the case that holds the claim.
+    expect(escapes(offSampleProbe(doc, { measured }))).toBe(0)
+    // The acceptance gate's verdict carries the escapes that survive rather than
+    // reporting a clean envelope: the whole point of the alarm landing before the fix.
     const gate = acceptanceGate(doc, ms, { measured })
-    expect(gate.offSample.pass).toBe(false)
+    expect(gate.contentRobustness.pass).toBe(false)
     expect(
       layoutCollisions(gate.onSample, gate.offSample, gate.contentRobustness).filter(
         (c) => c.kind === 'escape',
