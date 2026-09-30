@@ -50,7 +50,7 @@ import type {
   Viewport,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
-import { captureSchemaOf } from './schema'
+import { ANCHOR_POPULATION_SCHEMA, captureSchemaOf } from './schema'
 import { colorDistance } from './color-values'
 // REQ-331 — the shared statement of what a captured treatment actually paints:
 // the shadow parse, its painted-layer normalisation, and the filter identity
@@ -70,6 +70,7 @@ import {
   projectField,
   projectRawRun,
   projectSignalsBand,
+  signalsBands,
   projectSignalsManifestAxes,
   type RecordedManifest,
   type UnmeasuredAxis,
@@ -326,6 +327,18 @@ export interface SectionValues {
   overlay: { color: string; opacity: number; blendMode?: string } | null
   /** Vertical content anchor (0 = top … 1 = bottom), or null when the section is textless. */
   contentAnchorRatio: number | null
+  /**
+   * REQ-352 — which population the `contentAnchorRatio` beside it was measured
+   * over: `geometric` (every run whose centre falls in the band's box) or `dom`
+   * (a DOM-descendant walk of the band element).
+   *
+   * The reproduction is measured by the extractor running now, so it is always
+   * `geometric`; a stored bundle is `geometric` from capture schema
+   * {@link ANCHOR_POPULATION_SCHEMA} and `dom` before it. Absent on a manifest
+   * written before the axis existed, which is read as `dom` — the population that
+   * manifest's reference side actually had.
+   */
+  anchorPopulation?: 'geometric' | 'dom'
   /** REQ-64 — section band vertical padding (Type-A). Captured on the band all
    *  along but never compared; a taller section (a bigger top/bottom pad) only
    *  showed up as downstream `position` drift. Optional so pre-REQ-64 manifests parse. */
@@ -1114,7 +1127,9 @@ export function flattenCapture(capture: Capture, multistate?: MultiStateCapture 
  * asymmetry is real and stays.
  */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
-  const sections: SectionValues[] = signals.bands.map((band, index) => projectSignalsBand(band, index))
+  // REQ-352 — each band paired with the span of the text it carries, over the one
+  // document-wide anchor population. See `anchor.ts`.
+  const sections: SectionValues[] = signalsBands(signals).map((input, index) => projectSignalsBand(input, index))
   const elements: ValueElement[] = []
   for (const band of signals.bands) {
     // REQ-302 — see flattenCapture above: the same ordering, read from the raw
@@ -3568,26 +3583,36 @@ export function diffManifests(
 
     // REQ-270 — THE ANCHOR IS ONLY COMPARABLE OVER THE SAME POPULATION OF RUNS.
     //
-    // The reference's anchor is a DOM-descendant walk of the band element; ours
-    // is every run whose centre falls in the geometric slice. Those agree on a
-    // conventionally nested page and disagree exactly when the reference's own
-    // sections OVERLAP — a `position: absolute` header sitting over the hero is
-    // its own reference section, so its runs are not descendants of the hero and
-    // the reference excludes them, while a geometric slice is a partition and
-    // ours cannot. On gigabytealchemy that is 0.53 vs 0.39 on byte-identical
-    // geometry: a phantom 112px content shift, silent only because 0.14 happened
-    // to fall 0.01 under the tolerance.
+    // A pre-REQ-352 reference's anchor is a DOM-descendant walk of the band
+    // element; ours is every run whose centre falls in the geometric slice. Those
+    // agree on a conventionally nested page and disagree exactly when the
+    // reference's own sections OVERLAP — a `position: absolute` header sitting
+    // over the hero is its own reference section, so its runs are not descendants
+    // of the hero and the reference excludes them, while a geometric slice is a
+    // partition and ours cannot. On gigabytealchemy that is 0.53 vs 0.39 on
+    // byte-identical geometry: a phantom 112px content shift, silent only because
+    // 0.14 happened to fall 0.01 under the tolerance.
     //
     // The fix is to say so rather than to compare two numbers that do not mean
     // the same thing, and rather than to widen the tolerance — a tolerance that
     // absorbs this would also absorb a real 100px shift.
+    //
+    // REQ-352 — AND THE OTHER HALF: the extractor now measures every band's
+    // anchor over the one geometric population, so a bundle taken at capture
+    // schema {@link ANCHOR_POPULATION_SCHEMA} or later IS comparable on this shape
+    // and is compared. The declination is kept, not deleted, because a bundle
+    // taken before that still carries the DOM-population value and comparing it
+    // against a geometric one is exactly the phantom delta this refuses; its
+    // remedy is a re-capture, which the reason below now says.
     const overlapping = overlappingSmallerSections(expSections, ei)
-    if (overlapping.length) {
+    if (overlapping.length && (es.anchorPopulation ?? 'dom') !== 'geometric') {
       pairing.anchorComparable = false
       pairing.anchorReason =
-        `${overlapping.map((o) => `§${o.index}`).join(', ')} sits inside this band, so the reference measured its ` +
-        `anchor over a DOM-descendant population that EXCLUDES those runs while the reproduction's geometric band ` +
-        `includes them — the two anchors are not the same measurement and are not compared`
+        `${overlapping.map((o) => `§${o.index}`).join(', ')} sits inside this band, and this bundle was taken before ` +
+        `capture schema ${ANCHOR_POPULATION_SCHEMA}, so the reference measured its anchor over a DOM-descendant ` +
+        `population that EXCLUDES those runs while the reproduction's geometric band includes them — the two anchors ` +
+        `are not the same measurement and are not compared. RE-CAPTURE the reference to make this axis comparable: ` +
+        `the extractor now measures both sides over the same population (REQ-352)`
     } else if (es.contentAnchorRatio !== null && as.contentAnchorRatio !== null) {
       if (Math.abs(es.contentAnchorRatio - as.contentAnchorRatio) > anchorTol) {
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))

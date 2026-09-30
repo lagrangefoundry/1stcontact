@@ -71,6 +71,10 @@ export type { BundleLocation } from './bundle'
 export {
   CAPTURE_SCHEMA,
   CAPTURE_SCHEMA_AXES,
+  // REQ-352 — the schema from which a bundle's content anchor is comparable
+  // against a live extraction's. Exported so a caller asserting on the
+  // comparator's declination reads the same constant the message is built from.
+  ANCHOR_POPULATION_SCHEMA,
   captureFields,
   captureRuns,
   captureSchemaOf,
@@ -108,7 +112,10 @@ export type {
   RecordedManifest,
   UnmeasuredAxis,
 } from './value-axes'
-export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
+export type { RawSignals, RawBand, RawRun, RawField, RawGeometry } from './extract'
+// REQ-352 — the one population and the one derivation of a band's content anchor.
+export type { ContentSpan } from './anchor'
+export { anchorRatioOfSpan, contentAnchorSpans, mergeContentSpans, spanOfRunsIn } from './anchor'
 export {
   flattenCapture,
   // BUG-169 — how the reference side resolves the axes a `capture.json` does not
