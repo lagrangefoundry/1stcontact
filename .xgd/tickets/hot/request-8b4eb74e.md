@@ -6,10 +6,10 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-30T23:08:50.932227+00:00'
+updated_at: '2026-09-30T23:13:44.333602+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
