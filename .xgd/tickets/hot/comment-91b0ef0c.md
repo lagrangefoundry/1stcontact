@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-29T21:32:01.569771+00:00'
+updated_at: '2026-09-30T02:37:15.030872+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3241,5 +3241,13 @@ Two things the implementing agent will need to decide, both recorded in §4 with
 The **56 backing-surface findings** on gigabytealchemy — surfaces leaving the content they back at 506px and 637px viewports, trend `0 → 52 → 20 → 20 → 56`. That's the larger defect and the actual reason that gate reads `structural-failure`. Nothing tracks it. Say the word and I'll scope it under EPIC-12 the same way.
 
 And on the immediate question that started this: stop the gigabytealchemy turns. REQ-352 is the thing that moves that number, and it moves it through the dashboard, not through another $10 round.
+
+<!-- xgd-turn id="9abf053c-8f7c-46c0-9389-483189214d66-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T02:37:14.163303+00:00" -->
+#### You
+One aspect that I am noticing on the site duplication, and this is the only thing on these two sites that I have difficulty with. Is that for both faelan.com and gigabyte alchemy the original site scales cleanly at arbitrary browser width. The reproductions top out at a certain width this is really about the background image that does not continue to stretch under a certain point. At that point the image stops growing and the background falls into place but this can be weird because other items on the page can still extend beyond where the background has stopped growing.
+
+I assume this is due to our comparison at fixed widths but it feels like an easy generalization? Or check? If the original does not scale beyond a particular width I'm not sure that the reproduction should, but when the reproduction scales are naturally wide it feels like the reproduction should follow suit. Thoughts?
 
 <!-- xgd-chat-end -->
