@@ -5,10 +5,10 @@ type: epic
 title: Debug tab
 created_by: martin-github@westhead.me
 created_at: '2026-09-29T22:18:44.250735+00:00'
-updated_at: '2026-09-30T00:11:32.626648+00:00'
+updated_at: '2026-09-30T01:05:36.383178+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: underway
 fields:
   priority: medium
   chat_comment: comment-a8f7bcb3
