@@ -22,6 +22,7 @@ fields:
     main_sha: null
   version: 0.2.420
   story_points: 3
+  chat_comment: comment-fca55984
 ---
 
 ## What changes
