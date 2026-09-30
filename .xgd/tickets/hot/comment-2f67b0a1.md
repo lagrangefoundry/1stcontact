@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-161
 created_by: xgd
 created_at: '2026-09-30T00:55:09.219208+00:00'
-updated_at: '2026-09-30T02:06:14.976081+00:00'
+updated_at: '2026-09-30T23:19:07.983219+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,35 @@ The full node project run earlier showed 4845 passed / 27 failed across 17 files
 Ticket `BUG-161` is `free_coded`, `story_points: 5`, commits `20a5937`, `a96e92b`, `7ac9390`, version `0.2.416`. Lock released, worktree and branch torn down.
 
 One thing worth flagging: the fold-side cause of the wrong `#28542d` is the companion gap ticket's issue 3, which is still open — this change makes the comparator see it rather than fixing the reproduction.
+
+<!-- xgd-turn id="befc0e54-618b-410b-9b23-af3b38cf12ff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T01:47:59.099698+00:00" -->
+#### Claude
+Now the extract.ts change (issue 1):
+
+Now the values-diff.ts restructure:
+
+Good. Now insert the deferred classification:
+
+Now gate-core: the coverage finding, its side, and the verdict wiring.
+
+Now let's typecheck and run the existing suites that touch these modules.
+
+Good — in the worktree, both packages typecheck clean. Now run the existing suites that cover these modules:
+
+Now the UAT file:
+
+I'll wait for the background watcher rather than polling. While it runs, here's where things stand:
+
+**Implemented on `free-BUG-161`, committed as `20a5937fe32120f6e288f49dfdb47d72cff4b317`** — all three filed issues:
+
+1. **`extract.ts`** — a new `sliceBackgroundColor` reads the band's fill from the topmost *coincident opaque* layer of the geometric slice, falling back to the slice element. Coincidence excludes REQ-270's hero-inside-a-taller-fill; opacity excludes a scrim (already recorded as `overlay`). The band's `colorScheme` now reads against the same chosen fill, so a dark-green band stops reading `light`.
+2. **`values-diff.ts` + `unmeasured.ts`** — the `bandPaintActual` split moved to after the section pass and now *tests* its premise (a box whose band record demonstrably reports different paint is an ordinary unpaired object), and `values.bandPaintActual` is summed into the unmeasured set's `populations`.
+3. **`perceptual-core.ts` / `perceptual.ts` / `gate-core.ts`** — a pure `unpaintedImages` variance check runs in `cmdDiff` (the only stage holding both rasters), reaches `regions.json`, and becomes an `unpainted-image` coverage finding. `CoverageFinding.side` keeps it off the `capture-incomplete` rung and puts it on `reproduction-wrong` even when the value gates are silent.
+
+**Evidence**: 15 new UATs in `test_UAT_FC_BUG-161_*`, all browser-free and green. Issue 1's leg drives `sliceBackgroundColor` offline out of `EXTRACT_SCRIPT`'s own source text with a stubbed `getComputedStyle` — the pattern BUG-153 established, because no browser engine can launch in this sandbox. Full node project: 4845 passed / 27 failed across 17 files; I baselined each against HEAD with my files restored and every one fails identically or needs a browser/socket/component-store this sandbox lacks. The one suite my change genuinely broke was REQ-277 (its stand-in `gate.json` predated `bandPaintActual`); its harness now defaults the field to `0` on the same terms it already defaults `notComparableAxes` to `[]`.
+
+**Blocked on merge-back**: `xgd-working` is mid-merge from another session (`free-REQ-351`, `MERGE_HEAD` present, conflicts in `package.json` and `capture/schema.ts` resolved but uncommitted). I hold the merge lock and am waiting rather than touching their in-flight merge. Their `package.json` resolution may claim `0.2.412`, which is the version I bumped to — if so I'll re-bump above whatever lands and add a bump commit before merging, then move the ticket to `free_coded`.
 
 <!-- xgd-chat-end -->
