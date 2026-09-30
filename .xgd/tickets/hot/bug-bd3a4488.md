@@ -6,9 +6,9 @@ title: 'Delegation: a silent run that wrote nothing is indistinguishable from on
   that wrote a great deal'
 created_by: xgd
 created_at: '2026-09-29T04:55:11.413291+00:00'
-updated_at: '2026-09-30T21:17:09.915316+00:00'
+updated_at: '2026-09-30T21:17:10.139965+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -84,3 +84,26 @@ The second is the more actionable, because it suggests **an acceptance check is 
 ## Reproduction
 
 Delegate a brief containing two dependent phases (create an element, then modify elements whose addresses depend on that creation), with a single acceptance check carrying five sub-clauses. Observe `outcome: "silent"`, empty summary, and `account.changed.differences` empty.
+
+
+## Fix (free-coded)
+
+**Where it lands.** The `outcome` vocabulary (`reported`/`silent`/`exhausted`/`stopped`/`failed`) belongs to the upstream shared AI library and is pinned across its language peers, so this fix does not add outcome values. It adds two host-side fields in this repo's delegation subclass (`accountingDelegationToolbox`, `tools/generate/src/cli/ai/account-core.ts`) — the same seam that already attaches `account` — and declares both in the result shape the calling model reads, so the caller's manual describes them.
+
+1. **`wrote`** — a boolean on every result that carries `account`: `true` when the host's record shows the draft changed during the delegation (any difference, including a truncated list), `false` when nothing was written. A `silent` run that wrote nothing and a `silent` run that wrote a great deal now differ on a top-level field, without the caller having to inspect `account.changed.differences`. (Expectation 1.)
+2. **`activity`** — present whenever `outcome` is not `reported`, i.e. whenever the worker's own answer is not a finished report. Read by the host from the worker's own session log after the run, never from the worker's word:
+   - `operations` — how many tool calls the worker made. `0` means it reasoned and then did nothing at all.
+   - `last_operation` — the last tool call it made: `name`, its `input` and its `result`, each clipped to a short bound. A write that was refused therefore shows the refusal text; "read the page map then stopped" shows a read. Absent when `operations` is 0. (Expectation 3.)
+   - `last_words` — the worker's final prose, clipped, when it said anything. Whatever it concluded before going quiet reaches the caller. (Expectation 2.)
+   Clipped values say they were clipped. Reading the log never fails the delegation: if the log cannot be read, `activity` is omitted and the rest of the result stands.
+
+**Not addressed here:** the observation that acceptance checks draw on the same worker budget as the work. That is guidance about how the upstream delegation surface is priced and described, not something this host-side record can fix.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-167_silent_runs_say_what_happened.workers.test.ts`, driving the real `POST /api/ai/prompt` route in workerd with only the model client doubled (the REQ-340 harness):
+- a silent worker that only reads → `outcome: silent`, `wrote: false`, `activity.operations` ≥ 1, `activity.last_operation.name` is the read, `last_words` carries its last prose;
+- a silent worker that writes → `wrote: true` beside the same `silent` outcome;
+- a worker that makes no tool call at all → `activity.operations: 0`, no `last_operation`;
+- a worker that reports → `wrote` present, no `activity`.
+Regression scope: the REQ-340 and REQ-295 delegation suites.
