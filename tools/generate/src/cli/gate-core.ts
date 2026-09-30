@@ -141,11 +141,28 @@ export const VALUES_TIER_FLOOR: SeverityTier = 'MEDIUM'
  */
 export const SECTION_DENSITY_PX = 1200
 
-/** One reference-coverage proxy that came back suspect. */
+/**
+ * One content-completeness proxy that came back suspect.
+ *
+ * BUG-161 — "reference-coverage" until this ticket, and the rename is the finding:
+ * three of the four kinds are about the CAPTURE, and one is about whether the
+ * reproduction painted what the capture recorded. See {@link CoverageFinding.side}.
+ */
 export interface CoverageFinding {
-  kind: 'unreferenced-image' | 'section-density' | 'stale-capture'
+  kind: 'unreferenced-image' | 'section-density' | 'stale-capture' | 'unpainted-image'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
+  /**
+   * BUG-161 (issue 3) — WHOSE completeness this finding is about. Absent means
+   * `reference`, which every finding before this one was.
+   *
+   * Load-bearing for the verdict, not decoration. `capture-incomplete` means "the
+   * value gates are blind because the REFERENCE is impoverished", and it outranks
+   * the delta count — so a reproduction-side finding folded in undiscriminated
+   * would tell an operator to go and fix a capture that is complete. A
+   * reproduction-side finding is named on whatever rung the run lands on instead.
+   */
+  side?: 'reference' | 'reproduction'
 }
 
 /**
@@ -349,6 +366,17 @@ export interface ReconcileInput {
     pctOverThreshold: number
     /** The ranked regions — only ever counted here, so only countable. */
     regions: readonly unknown[]
+    /**
+     * BUG-161 (issue 3) — the reference images the reproduction paints nothing
+     * inside, as measured by the eye that holds both rasters.
+     *
+     * NAMED, not counted, for the reason `unmeasuredAxes` below is: "one image is
+     * unpainted" is not actionable and "`assets/10.jpg` is referenced and paints a
+     * flat field" is. OPTIONAL on the same terms as `nonSurfaceSections` — a
+     * hand-built input omitting it is saying "not asked about", and `1c diff` on a
+     * pair of loose PNGs genuinely cannot ask.
+     */
+    unpaintedImages?: readonly { handle: string }[]
   }
   /**
    * BUG-106 — what the value gates saw, INCLUDING what they could not see.
@@ -736,7 +764,48 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // band lost WHICH axis, which is the only form of this fact an operator can act
   // on. `sectionsNotComparable` above is its all-bands-at-once sibling.
   const notComparableAxes = [...input.values.notComparableAxes]
-  const coverage = input.coverage
+  // BUG-161 (issue 3) — the coverage block, PLUS the one completeness finding the
+  // reference-side proxies structurally cannot make.
+  //
+  // `referenceCoverage` reads the bundle alone, so "does anything reference this
+  // asset" is the only image question it can ask, and a mirrored, referenced,
+  // entirely invisible image reads as covered. Answering "and did the reproduction
+  // paint it" needs both screenshots, which only the perceptual eye holds — so the
+  // eye measures it (`perceptual.unpaintedImages`) and the finding is made here,
+  // beside the proxies it completes, where every reader that already prints a
+  // coverage finding carries it with no new shape to learn.
+  const unpaintedByRepro = input.perceptual.unpaintedImages ?? []
+  const coverage: ReferenceCoverage = unpaintedByRepro.length
+    ? {
+        ...input.coverage,
+        findings: [
+          ...input.coverage.findings,
+          {
+            kind: 'unpainted-image',
+            side: 'reproduction',
+            detail:
+              `${unpaintedByRepro.length} image(s) the reference manifest REFERENCES paint nothing in the ` +
+              `reproduction — the crop inside the element's own box is a flat field on our side and has texture ` +
+              `on the reference's: ${unpaintedByRepro
+                .map((i) => `\`${assetBasename(i.handle) ?? i.handle}\``)
+                .join(', ')}. \`coverage.referencedImages\` counts references in the reference manifest, so a ` +
+              `mirrored asset the reproduction drops entirely still reads as covered there ` +
+              `(\`perceptual.unpaintedImages\` in \`regions.json\` gives the boxes and the variances).`,
+          },
+        ],
+      }
+    : input.coverage
+  // The REFERENCE-side findings alone, which is what `capture-incomplete` is a
+  // statement about (see {@link CoverageFinding.side}).
+  const referenceFindings = coverage.findings.filter((f) => f.side !== 'reproduction')
+  // …and the reproduction-side ones, which name a defect that IS ours. They reach
+  // the `reproduction-wrong` rung rather than `unexplained-disagreement`: a dropped
+  // image is a difference the instrument explains, and the sentence "the perceptual
+  // eye sees a difference that NOTHING else explains" would be false beside a
+  // finding that just explained it.
+  const reproductionFindings = coverage.findings.filter((f) => f.side === 'reproduction')
+  /** `\`kind\`, \`kind\`` — the one way a finding list is named in a sentence. */
+  const namedCoverage = (fs: readonly CoverageFinding[]): string => fs.map((f) => `\`${f.kind}\``).join(', ')
   // BUG-143 — the on-sample collisions, PLUS every containment escape the other
   // two envelope probes found. A panel that has left its copy between the rungs,
   // or under content growth, or at an unmeasured viewport height, is the same
@@ -887,11 +956,18 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // above, and the one that made `unpairedActual: 0` a false statement rather
     // than merely an incomplete one: three of the reproduction's fourteen
     // elements had entered the comparison and left it unmatched.
+    // BUG-161 (issue 2) — and the sentence no longer ASSERTS the premise it used
+    // to. "the reference represents the same fact on its section record" was
+    // printed unconditionally; the comparator now tests it per box before a box
+    // reaches this count, and what remains outstanding is the part the section
+    // record structurally cannot hold — a full-bleed box's own opacity, filter,
+    // blend mode, corner radius and shadow.
     if (bandPaintActual > 0) {
       outstanding.push(
         `${bandPaintActual} reproduction element(s) are a band's own PAINT (a full-bleed box coinciding with a ` +
-          `band) and are NOT counted as unpaired objects: the reference represents the same fact on its ` +
-          `section record, so there is nothing on that side to pair them with (\`values.bandPaintActual\`)`,
+          `band whose record reports the same fill or imagery) and are NOT counted as unpaired objects — but ` +
+          `a section record cannot hold a box's own opacity, filter, blend mode, corner radius or shadow, so ` +
+          `those axes went uncompared on them (\`values.bandPaintActual\`)`,
       )
     }
     // REQ-274 — the fifth way the pass rung could be silent about what it did not
@@ -930,16 +1006,25 @@ export function reconcileGates(input: ReconcileInput): GateReport {
           `(\`values.notComparableAxes\`)`,
       )
     }
-    if (coverage.findings.length) {
+    // BUG-161 — the two sides named apart, because they are two different things
+    // to go and look at: a reference-side finding says the capture is impoverished
+    // and a reproduction-side one says WE dropped page substance.
+    if (referenceFindings.length) {
       outstanding.push(
-        `reference coverage reports ${coverage.findings.map((f) => `\`${f.kind}\``).join(', ')} ` +
+        `reference coverage reports ${namedCoverage(referenceFindings)} ` +
           `(\`coverage.findings\` gives the detail)`,
+      )
+    }
+    if (reproductionFindings.length) {
+      outstanding.push(
+        `coverage reports ${namedCoverage(reproductionFindings)} about the REPRODUCTION — page substance the ` +
+          `reference records and our render does not paint (\`coverage.findings\` gives the detail)`,
       )
     }
     nextStep = outstanding.length
       ? `Every gate is within its floor, but this run is NOT silent: ${outstanding.join('; ')}.`
       : 'Nothing outstanding from this gate.'
-  } else if (perceptualBreach && coverage.findings.length) {
+  } else if (perceptualBreach && referenceFindings.length) {
     // BUG-110 — `capture-incomplete` is explicitly gated on the PERCEPTUAL
     // breach now that a run can reach this rung on the value gate alone. Its
     // whole diagnosis is that the eye sees a page-scale difference the value
@@ -960,7 +1045,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       (deltas > 0
         ? `; the ${deltas} values-diff delta(s) are measured against an impoverished reference and are not yet evidence.`
         : '.')
-  } else if (deltas > 0) {
+  } else if (deltas > 0 || reproductionFindings.length) {
     verdict = 'reproduction-wrong'
     // BUG-110 — two ways to arrive here now, and they are not the same finding.
     // The original is both eyes agreeing. The new one is the value gate ALONE:
@@ -969,10 +1054,25 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // is structurally unable to see, because a heading that renders as a
     // `generic` div moves no pixel. Saying "the perceptual eye and the value
     // gates agree" there would be false about the one gate that did the work.
-    if (perceptualBreach) {
+    if (deltas === 0) {
+      // BUG-161 (issue 3) — the rung a reproduction-side coverage finding lands on
+      // when it is the ONLY thing that saw the defect. A dropped image moves a
+      // great many pixels and no compared axis at all: both manifests name the same
+      // element, at the same box, with the same handle, so there is nothing for the
+      // value gates to disagree about and their silence is correct. Before this the
+      // run fell through to `unexplained-disagreement` and was told to go and add
+      // an L1 axis — for a page whose defect the instrument had already named.
+      diagnosis =
+        `The value gates report no delta and the reproduction is still wrong: coverage reports ` +
+        `${namedCoverage(reproductionFindings)}. A dropped image moves a great many pixels and no COMPARED ` +
+        `axis — both manifests name the same element at the same box, so the value gates have nothing to ` +
+        `disagree about and their silence is right rather than blind.`
+      nextStep = `Work the coverage finding(s) — ${namedCoverage(reproductionFindings)} (\`coverage.findings\` gives the detail).`
+    } else if (perceptualBreach) {
       diagnosis =
         'The perceptual eye and the value gates agree the reproduction differs, and reference coverage is ' +
-        'clean — so the reference is trustworthy and the defect is ours.'
+        'clean — so the reference is trustworthy and the defect is ours.' +
+        (reproductionFindings.length ? ` Coverage also reports ${namedCoverage(reproductionFindings)}.` : '')
       nextStep = `Work the ${deltas} \`1c values-diff\` delta(s): they name, element by element, what to fix.`
     } else {
       diagnosis =
@@ -980,11 +1080,18 @@ export function reconcileGates(input: ReconcileInput): GateReport {
         `${worstTier}-tier delta, above this run's value floor of ${floor.valuesTier}. Pixel closeness is not ` +
         'fidelity — a heading that renders as a generic box, or a link that is no longer a link, moves no ' +
         'pixel at all, so the eye is structurally unable to see it and only the value gate can.'
+      // BUG-161 — one clause per side, for the reason the pass rung's two rows are
+      // split: "reference coverage" is a claim about the capture, and printing it
+      // over a finding about our own render would send the operator to the wrong
+      // artifact.
+      const alsoReports: string[] = []
+      if (referenceFindings.length) alsoReports.push(`reference coverage also reports ${namedCoverage(referenceFindings)}`)
+      if (reproductionFindings.length) {
+        alsoReports.push(`coverage also reports ${namedCoverage(reproductionFindings)} about the REPRODUCTION`)
+      }
       nextStep =
         `Work the ${deltas} \`1c values-diff\` delta(s) worst-first — ${worstTier} tier is what failed the run` +
-        (coverage.findings.length
-          ? `; reference coverage also reports ${coverage.findings.map((f) => `\`${f.kind}\``).join(', ')} (\`coverage.findings\`).`
-          : '.')
+        (alsoReports.length ? `; ${alsoReports.join('; ')} (\`coverage.findings\`).` : '.')
     }
   } else {
     verdict = 'unexplained-disagreement'

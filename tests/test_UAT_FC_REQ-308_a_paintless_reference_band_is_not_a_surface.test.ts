@@ -415,6 +415,12 @@ describe('REQ-308 — the round’s headline number says why it fell', () => {
       unpairedActualSections: 0,
       unmatched: 0,
       unpairedActual: 0,
+      // BUG-161 — the third component of `populations`. Stated here so the only
+      // variable in this case stays `nonSurfaceSections`, which is what it tests:
+      // a report that omits `bandPaintActual` makes `populations` SILENT rather
+      // than zero, and the headline would then read `≥` for a reason that has
+      // nothing to do with band reclassification.
+      bandPaintActual: 0,
       notComparableAxes: [],
     }
     const quiet = unmeasuredOf({ values: { ...base, nonSurfaceSections: 0 } })

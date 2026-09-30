@@ -2384,10 +2384,8 @@ export const EXTRACT_SCRIPT = `(() => {
   // element itself is only the fallback. Document-ordered smallest-last by
   // bandSlicesIn's own sort, so the last layer that paints an image is the top one.
   //
-  // backgroundColor is deliberately NOT taken from the layer: the fill is what
-  // the outermost box paints, and an image layer's own colour is usually
-  // transparent. This is symmetric with the reference path, where the band
-  // element is the thing that paints because a conventional page nests.
+  // backgroundColor is NOT taken from a layer that merely sits inside the slice --
+  // see sliceBackgroundColor below for the one layer whose fill IS the band's.
   function sliceBackgroundImage(slice) {
     var layers = slice.layers || [];
     for (var i = layers.length - 1; i >= 0; i--) {
@@ -2396,6 +2394,43 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     var own = getComputedStyle(slice.el).backgroundImage;
     return own || 'none';
+  }
+
+  // BUG-161 (issue 1) -- A BAND'S FILL IS THE TOPMOST OPAQUE PAINT OVER ITS BOX,
+  // not the fill of the outermost box the slicer happened to keep.
+  //
+  // bandSlicesIn picks its slice element outermost-first, which is right for
+  // deciding WHERE the bands are and wrong for deciding what one PAINTS when two
+  // band-sized boxes coincide. An L1 reproduction produces exactly that shape: the
+  // fold emits a full-bleed backdrop-N box AND a full-bleed section-band-N box
+  // over it at the same rectangle, so the slicer kept the backdrop (earlier
+  // sibling, equal height) and read the band's fill off the box the page has
+  // covered. On joyfulculinarycreations.com that reported the testimonials band as
+  // '#ffffff' while it painted '#28542d' over its full 525px height -- 52.57% of
+  // the round's ranked region score, and zero value deltas, because both sides
+  // agreed on a colour neither page shows.
+  //
+  // COINCIDENT AND OPAQUE, both load-bearing:
+  //   - coincident, because a layer with its own geometry (a photograph inside a
+  //     taller fill -- REQ-270's hero) paints PART of the band and is not its fill;
+  //   - opaque, because a translucent full-bleed fill is a SCRIM, which
+  //     overlayInBox already records as the band's overlay and which the fold
+  //     layers above the fill it veils. Taking it as the fill would paint it twice
+  //     and paint it solid.
+  function sliceBackgroundColor(slice) {
+    var layers = slice.layers || [];
+    var box = slice.box;
+    var TOL = 2;
+    for (var i = layers.length - 1; i >= 0; i--) {
+      var lb = layers[i].box;
+      if (!lb || !box) continue;
+      if (Math.abs(lb.y - box.y) > TOL || Math.abs(lb.height - box.height) > TOL) continue;
+      var lcs = getComputedStyle(layers[i].el);
+      var rgba = rgbaOf(lcs.backgroundColor);
+      if (!rgba || rgba[3] < 0.999) continue;
+      return rgbToHex(lcs.backgroundColor);
+    }
+    return rgbToHex(getComputedStyle(slice.el).backgroundColor);
   }
 
   // anchorRatioOf's geometric twin: where the slice's own content sits inside it,
@@ -3041,12 +3076,21 @@ export const EXTRACT_SCRIPT = `(() => {
       // REQ-271 -- the band's OWN painted fill, null when it paints none. Not
       // laundered into bodyBg: a band that paints nothing and a band that paints
       // white are different facts and the bundle has to be able to say which.
-      var bg = rgbToHex(s.backgroundColor);
+      // BUG-161 -- and read off the topmost opaque paint over the slice, not off
+      // whichever coincident box the slicer kept. See sliceBackgroundColor.
+      var bg = sliceBackgroundColor(br);
       bands.push({
         box: br.box,
         backgroundColor: bg,
         backgroundImage: sliceBackgroundImage(br),
-        colorScheme: luminance(bandTone(br.el)) < 0.5 ? 'dark' : 'light',
+        // BUG-161 -- the tone is read against the paint that is actually on top.
+        // REQ-271's distinction survives intact: a slice that paints NOTHING still
+        // falls through to bandTone, which is what keeps a transparent band from
+        // being laundered into an opaque bodyBg. All this changes is the case the
+        // fill above changed -- a coincident opaque box over the kept one -- where
+        // bandTone would otherwise report the covered box's colour and call a
+        // dark-green band 'light'.
+        colorScheme: luminance(bg || bandTone(br.el)) < 0.5 ? 'dark' : 'light',
         fontFamily: familyStack(s.fontFamily),
         textAlign: s.textAlign === 'center' ? 'center' : s.textAlign === 'right' ? 'right' : 'left',
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,

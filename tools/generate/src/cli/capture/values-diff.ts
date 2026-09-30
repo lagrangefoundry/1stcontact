@@ -672,6 +672,16 @@ export interface ValuesDiffReport {
    * Exactly the shape REQ-308's {@link nonSurfaceSections} already has on the
    * section side, and for the same reason: an exclusion nobody can see is
    * indistinguishable from a measurement nobody made.
+   *
+   * BUG-161 (issue 2) — and the exclusion's PREMISE is now evaluated per box
+   * rather than assumed. A box drops out of this list when the band record it
+   * coincides with demonstrably reports DIFFERENT paint from the box's own — the
+   * case that made the excuse false — because then nothing compared it and it is
+   * an ordinary {@link unpairedActual} object. Both lists are counted in the
+   * console's unmeasured set — a box's `opacity`, `filter`, `blendMode`,
+   * `borderRadiusPx` and `boxShadow` have nowhere to land on a section record
+   * however faithfully its fill is represented — so this classification says WHICH
+   * silence is being reported, never whether there is one.
    */
   bandPaintActual: UnpairedObject[]
   /**
@@ -3348,27 +3358,22 @@ export function diffManifests(
   // REQ-51 — repro objects left in the pairing queues matched no reference
   // object ("M repro objects matched nothing"). Collected before the year mask /
   // systemic passes below add non-object deltas, so this stays object-only.
-  const unpairedActual: UnpairedObject[] = []
+  //
   // REQ-271 — the manifest position of each leftover, so a reader can go straight
   // to `actual-manifest.json` element `[n]` instead of guessing which box it was;
   // and band paint (see {@link isBandPaint}) left out of the tally entirely,
   // because the section pass compares it against a real counterpart.
+  //
+  // BUG-161 (issue 2) — COLLECTED HERE, CLASSIFIED AFTER THE SECTION PASS. Whether
+  // a band-paint box really is "compared against a real counterpart" is a fact
+  // about the section pairing, which has not happened yet at this point; splitting
+  // the two lists here is what made the exclusion an assumption instead of a test.
   const actualAt = new Map<ValueElement, number>(actual.elements.map((el, i) => [el, i]))
   const reproWidth = actual.viewport?.width ?? 0
   const reproSections = actual.sections ?? []
-  // BUG-153 (item 4) — REQ-308's discipline, applied to the element list: a
-  // reproduction object lifted OUT of the unpaired tally is REPORTED, so the drop
-  // in the count is visible rather than silent.
-  const bandPaintActual: UnpairedObject[] = []
-  const leftover = (el: ValueElement): void => {
-    if (isBandPaint(el, reproSections, reproWidth)) {
-      bandPaintActual.push(toUnpaired(el, actualAt.get(el)))
-      return
-    }
-    unpairedActual.push(toUnpaired(el, actualAt.get(el)))
-  }
-  for (const q of queues.values()) for (const el of q) leftover(el)
-  for (const q of fieldQueues.values()) for (const el of q) leftover(el)
+  const leftovers: ValueElement[] = []
+  for (const q of queues.values()) for (const el of q) leftovers.push(el)
+  for (const q of fieldQueues.values()) for (const el of q) leftovers.push(el)
 
   /**
    * REQ-270 — the reference sections that sit INSIDE `sections[i]`.
@@ -3613,6 +3618,73 @@ export function diffManifests(
     : actSections
         .filter((as) => !claimedActual.has(as))
         .map((as) => ({ label: `§${as.index}`, ...(as.box ? { box: as.box } : {}) }))
+
+  // ── BUG-161 (issue 2) — the band-paint exclusion, TESTED rather than assumed ──
+  //
+  // REQ-271 lifts a full-bleed reproduction box out of `unpairedActual` on one
+  // stated premise: "the reference represents the same fact on its section record,
+  // so there is nothing on that side to pair it with." That is a claim about this
+  // run's section pairing, and nothing checked it. On
+  // joyfulculinarycreations.com it was false in the loudest possible way — the
+  // reproduction's testimonials box painted `#28542d`, the section record it was
+  // excused by said `#ffffff`, and the excuse turned the page's largest
+  // disagreement into a record that no count anywhere carried.
+  //
+  // So the premise is now evaluated, as the narrowest question that would have
+  // caught it: does the band record the box is excused BY actually report the
+  // paint the box carries? The two are the same fact in two places, and the
+  // exclusion is a claim that the second place holds it. A DEMONSTRABLE
+  // disagreement between them — the box paints one colour and its band record
+  // reports another, or names different imagery — falsifies the claim, and the box
+  // is then an ordinary unpaired object, which is the count that says so.
+  //
+  // Only a disagreement demotes. A box carrying no fill and no imagery has nothing
+  // to misrepresent, and an axis the band record does not carry AT ALL is already
+  // counted as an unmeasured axis one level up — re-reporting it here would count
+  // one silence twice, which is the mirror of the error being fixed.
+  //
+  // Either verdict is counted — `bandPaintActual` is part of the unmeasured set's
+  // `populations` (see `tools/repro-console/src/unmeasured.ts`), because a box's
+  // `opacity`, `filter`, `blendMode`, `borderRadiusPx` and `boxShadow` have
+  // nowhere to land on a section record however faithfully its fill is
+  // represented. The classification decides WHICH silence is reported, never
+  // whether there is one.
+  /** The reproduction band whose box this full-bleed element coincides with. */
+  const bandOfPaint = (box: Box): SectionValues | undefined =>
+    actSections.find(
+      (as) => as.box && Math.abs(as.box.y - box.y) <= 2 && Math.abs(as.box.height - box.height) <= 2,
+    )
+  const bandPaintRepresented = (el: ValueElement): boolean => {
+    // Under the flat-L1 verdict the per-section pass did not run at all, so there
+    // is nothing to evaluate the premise against. `sectionsNotComparable` is
+    // already standing in for the whole of that silence (see `flatRepro` above),
+    // and re-reporting every band box as unpaired underneath it is the noise that
+    // verdict exists to replace.
+    if (flatRepro || !el.box) return true
+    const as = bandOfPaint(el.box)
+    if (!as) return true
+    // The fill. `undefined` on the band record is "not measured", which the axis
+    // tally already reports; `null` is "measured, and it paints none", which
+    // beside a box that paints something is a disagreement.
+    if (el.surfaceFill && as.surfaceFill !== undefined) {
+      if (as.surfaceFill === null) return false
+      if (colorDistance(el.surfaceFill, as.surfaceFill) > colorTol) return false
+    }
+    // The imagery: the same question one axis over, by mirrored basename — the key
+    // the section `backgroundImage` comparison itself uses.
+    const own = assetBasename(el.backgroundImageUrl)
+    return own === null || own === assetBasename(as.backgroundImageUrl)
+  }
+  const unpairedActual: UnpairedObject[] = []
+  // BUG-153 (item 4) — REQ-308's discipline, applied to the element list: a
+  // reproduction object lifted OUT of the unpaired tally is REPORTED, so the drop
+  // in the count is visible rather than silent.
+  const bandPaintActual: UnpairedObject[] = []
+  for (const el of leftovers) {
+    const target =
+      isBandPaint(el, reproSections, reproWidth) && bandPaintRepresented(el) ? bandPaintActual : unpairedActual
+    target.push(toUnpaired(el, actualAt.get(el)))
+  }
 
   // REQ-48 (item 5) — viewport-match precondition. Layout recomposes per width,
   // so two sides shot at different viewports produce deltas that are artefacts of

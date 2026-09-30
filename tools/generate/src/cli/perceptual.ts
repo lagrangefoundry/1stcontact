@@ -44,6 +44,9 @@ import {
   type RegionNodeOptions,
   type RegionNodes,
   type RegionReadout,
+  unpaintedImages,
+  type UnpaintedImage,
+  type UnpaintedImageTuning,
 } from './perceptual-core'
 
 /**
@@ -60,6 +63,7 @@ export {
   nodeScaleFor,
   regionReadout,
   resolveRegionNodes,
+  unpaintedImages,
   type CoreDiffResult,
   type DiffRegion,
   type DiffTuning,
@@ -70,6 +74,8 @@ export {
   type RegionNodeOptions,
   type RegionNodes,
   type RegionReadout,
+  type UnpaintedImage,
+  type UnpaintedImageTuning,
 }
 
 // ── image I/O (the shell around the codec) ────────────────────────────────────
@@ -194,6 +200,8 @@ export interface DiffOptions extends GlobalOptions {
   nodeSources?: { ref?: NodeSource; actual?: NodeSource }
   /** BUG-99 — lead-resolution knobs (leads per side, overlap floor, text length). */
   nodeOptions?: RegionNodeOptions
+  /** BUG-161 — variance bounds for the referenced-but-unpainted image check. */
+  unpaintedTuning?: UnpaintedImageTuning
   /** Injectable driver factory (tests supply a fake); defaults to Playwright. */
   driverFactory?: BrowserDriverFactory
   /** Fixed serve port; defaults to an ephemeral port. */
@@ -228,6 +236,16 @@ export interface PerceptualDiffReport {
   rankedBy: 'score'
   /** BUG-99 — manifest→image scale used to resolve `nodes`, per side. Absent when no manifest was supplied. */
   nodeScale?: { ref: number; actual: number }
+  /**
+   * BUG-161 (issue 3) — reference images the reproduction paints nothing inside.
+   *
+   * Measured here rather than in the coverage proxy because this is the only stage
+   * that holds both rasters, and reported here rather than judged here: `1c gate`
+   * turns it into a `coverage.findings` entry, which is where a
+   * content-completeness failure is read. Absent when no manifest was supplied —
+   * `1c diff` on a pair of loose PNGs has no boxes to measure inside.
+   */
+  unpaintedImages?: UnpaintedImage[]
   regions: (DiffRegion & {
     crops: { ref: string; actual: string; diff: string }
     /** BUG-99 — the manifest records under this region. Absent when no manifest was supplied. */
@@ -385,6 +403,13 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
       })
     }
 
+    // BUG-161 (issue 3) — measured off the SAME two cropped rasters, for the same
+    // reason the region readouts are: a check that decoded its own copies could
+    // disagree with the crops a reader is looking at.
+    const unpainted = opts.nodeSources?.ref
+      ? unpaintedImages(refR, actR, opts.nodeSources.ref, nodeScaleFor(opts.nodeSources.ref, w), opts.unpaintedTuning)
+      : []
+
     const report: PerceptualDiffReport = {
       ref: refImage,
       actual: actualImage,
@@ -402,6 +427,7 @@ export async function cmdDiff(opts: DiffOptions): Promise<PerceptualDiffReport> 
             },
           }
         : {}),
+      ...(opts.nodeSources?.ref ? { unpaintedImages: unpainted } : {}),
       regions: regionsWithCrops,
     }
     writeFileSync(path.join(outDir, 'regions.json'), JSON.stringify(report, null, 2))

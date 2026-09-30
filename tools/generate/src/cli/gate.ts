@@ -196,7 +196,8 @@ export function formatGateReport(report: GateReport, ref: string): string {
       ? [
           wrap(
             `⚠ ${report.values.bandPaintActual} reproduction element(s) are a band's own paint — ` +
-              `the reference holds that on its section record, so NOT counted as unpaired`,
+              `the band record reports the same fill or imagery, so NOT counted as unpaired; its own ` +
+              `opacity, filter, blend mode, radius and shadow were compared by nothing`,
             '               ',
           ),
         ]
@@ -230,7 +231,11 @@ export function formatGateReport(report: GateReport, ref: string): string {
     `  perceptual   mean ${report.perceptual.meanDiff.toFixed(2)} / 255 · ${report.perceptual.pctOverThreshold.toFixed(1)}% of pixels over threshold · ${report.perceptual.regions} region(s)`,
     floorMark,
     '',
-    '  reference coverage:',
+    // BUG-161 — 'coverage', not 'reference coverage': the block can now carry a
+    // finding about the REPRODUCTION's content completeness (an image the reference
+    // references and we paint nothing inside), which the bundle-only proxies below
+    // it structurally cannot make.
+    '  coverage:',
     `    images     ${c.referencedImages} of ${c.mirroredImages} mirrored image asset(s) referenced by the reference manifest`,
     ...(c.unreferencedImages.length
       ? [`    unreferenced: ${c.unreferencedImages.slice(0, 6).join(', ')}${c.unreferencedImages.length > 6 ? `, …+${c.unreferencedImages.length - 6}` : ''}`]

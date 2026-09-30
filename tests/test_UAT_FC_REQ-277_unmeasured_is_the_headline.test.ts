@@ -53,6 +53,9 @@ interface ValuesBlock {
   matched?: number
   unmatched?: number
   unpairedActual?: number
+  /** BUG-161 — the repro paint boxes lifted out of `unpairedActual`; see the
+   *  stand-in's default below for why it is defaulted rather than omitted. */
+  bandPaintActual?: number
   unpairedSections?: number
   unpairedActualSections?: number
   unmeasuredAxes?: Array<{ axis: string; scope: string; side: string; reason: string }>
@@ -130,7 +133,13 @@ function fakeSteps(log: OneCLog, gates: ValuesBlock[]): StepRunner {
             // declined", which is what `[]` says; leaving the key out would say
             // "this report cannot speak for declinations", which is a different
             // claim and not the one any case here is making.
-            values: { notComparableAxes: [], ...values },
+            //
+            // BUG-161 — `bandPaintActual` joins it on exactly the same terms: the
+            // real gate writes it on every run, `0` says "no band-paint box was
+            // lifted out of the unpaired tally", and omitting it would say "this
+            // report cannot speak for the `populations` part at all" — which would
+            // make every headline here read `≥` for a reason no case is about.
+            values: { notComparableAxes: [], bandPaintActual: 0, ...values },
             coverage: { mirroredImages: 0, referencedImages: 0, unreferencedImages: [], sections: 1, findings: [] },
           }),
         )

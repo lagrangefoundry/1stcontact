@@ -66,6 +66,7 @@ interface ValuesBlock {
   nonSurfaceSections?: unknown
   unmatched?: unknown
   unpairedActual?: unknown
+  bandPaintActual?: unknown
   sectionsNotComparable?: unknown
   notComparableAxes?: unknown
 }
@@ -127,7 +128,7 @@ function declinedNames(value: unknown): string[] {
  * |---|---|---|
  * | axes | `values.unmeasuredAxes` | a compared axis only one side of the projection can read ([[REQ-274]]) |
  * | bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared ([[BUG-111]]) |
- * | populations | `values.unmatched` + `values.unpairedActual` | an element on either side that paired with nothing ([[BUG-106]]) |
+ * | populations | `values.unmatched` + `values.unpairedActual` + `values.bandPaintActual` | an element on either side that paired with nothing ([[BUG-106]], [[BUG-161]]) |
  * | probes | `values.sectionsNotComparable` + `values.notComparableAxes` | a measurement the run declared it could not make at all ([[BUG-102]], [[BUG-139]]) |
  *
  * `values.nonSurfaceSections` ([[REQ-308]]) is NOT a fifth part and is not summed
@@ -153,7 +154,25 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
   const values = ((report as { values?: ValuesBlock }).values ?? {}) as ValuesBlock
   const axes = countOf(values.unmeasuredAxes)
   const bands = sum(countOf(values.unpairedSections), countOf(values.unpairedActualSections))
-  const populations = sum(countOf(values.unmatched), countOf(values.unpairedActual))
+  // BUG-161 — and the reproduction-side paint boxes the comparator lifts OUT of
+  // `unpairedActual` because a band's fill is represented on the section record
+  // instead. That exclusion is right about the FILL and silent about everything
+  // else the box carries: a full-bleed box's `opacity`, `filter`, `blendMode`,
+  // `borderRadiusPx` and `boxShadow` have nowhere to land on a section record, so
+  // the box enters the comparison and leaves it only partly compared — which is
+  // the definition this part already uses. Counting it made the round this was
+  // filed from read `unmeasured 7` rather than `4`, and 7 is the honest number:
+  // the hero box there paints at `opacity: 0.49` under `filter: brightness(0.67)`
+  // and nothing on either side compared either fact.
+  //
+  // `sum` rather than `?? 0`, so a report written before `bandPaintActual` existed
+  // makes this part SILENT instead of manufacturing a zero — the arrival of the
+  // quantity must not read as the set getting smaller. See the module header.
+  const populations = sum(
+    sum(countOf(values.unmatched), countOf(values.unpairedActual)),
+    countOf(values.bandPaintActual),
+  )
+  const bandPaint = countOf(values.bandPaintActual) ?? 0
   // A reason is one probe that did not run; its absence is the probe running.
   // The field is optional BECAUSE absent means "the sections were comparable",
   // which is a measurement.
@@ -204,7 +223,19 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
       // nowhere; named here.
       ...(nonSurface ? { detail: `${nonSurface} reference band(s) paint nothing and are not counted` } : {}),
     },
-    { id: 'populations', label: 'populations', one: 'population', count: populations },
+    {
+      id: 'populations',
+      label: 'populations',
+      one: 'population',
+      count: populations,
+      // BUG-161 — named, because a number that went UP needs to say why. The band
+      // paint boxes are the part of this count no fold can drive to zero (an L1
+      // render paints every band as a real box), so a reader comparing two rounds
+      // has to be able to see which part of the total is which.
+      ...(bandPaint
+        ? { detail: `${bandPaint} of these are a band's own paint, compared only on the section record's axes` }
+        : {}),
+    },
     {
       id: 'probes',
       label: 'probes',

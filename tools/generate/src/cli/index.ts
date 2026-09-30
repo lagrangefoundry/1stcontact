@@ -297,6 +297,7 @@ export {
   extractRect,
   nodeScaleFor,
   resolveRegionNodes,
+  unpaintedImages,
   writeRasterPng,
   formatDiffReport,
 } from './perceptual'
@@ -321,6 +322,8 @@ export type {
   RegionNodeOptions,
   RegionNodes,
   CropOptions,
+  UnpaintedImage,
+  UnpaintedImageTuning,
 } from './perceptual'
 export {
   cmdGate,

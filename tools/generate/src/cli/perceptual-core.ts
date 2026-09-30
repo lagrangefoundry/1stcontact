@@ -311,8 +311,15 @@ export interface NodeSource {
     box?: NodeSourceBox
     /** The manifest's own "this element carries no text of its own" flag — see {@link isBandPaint}. */
     textless?: boolean
+    /** BUG-161 — the CSS background image a text-free box paints (see {@link unpaintedImages}). */
+    backgroundImageUrl?: string | null
   }>
-  sections?: ReadonlyArray<{ index?: number; box?: NodeSourceBox }>
+  sections?: ReadonlyArray<{
+    index?: number
+    box?: NodeSourceBox
+    /** BUG-161 — the band's own imagery, the other place an image handle lives. */
+    backgroundImageUrl?: string | null
+  }>
 }
 
 /** One lead: a manifest record whose rendered box intersects a region's bbox. */
@@ -700,6 +707,127 @@ export function regionReadout(ref: Raster, actual: Raster, box: RegionBox): Regi
     columnDiff,
     rowDiff: bucketed(rows, PROFILE_BUCKETS),
   }
+}
+
+/**
+ * BUG-161 (issue 3) — one reference image the reproduction paints nothing inside.
+ *
+ * `coverage.referencedImages` answers "does anything in the reference manifest
+ * NAME this asset", which is a question about the capture and says nothing about
+ * whether the reproduction painted it. On joyfulculinarycreations.com all seven
+ * mirrored assets read referenced and one of them — an 845 KB photograph the L1
+ * genuinely references, clipped to nothing by the fold — painted a flat
+ * `(122,122,122)` across its whole 176×176 box. `coverage.findings` was `[]`, and
+ * the only way to find out was to open a crop.
+ */
+export interface UnpaintedImage {
+  /** The image handle as the reference manifest spells it. */
+  handle: string
+  /** Which of the manifest's two lists it came from, and where. */
+  kind: 'element' | 'section'
+  index: number
+  /** The element's own box, in image coordinates. */
+  box: RegionBox
+  /** Per-channel variance over the crop, each side. A flat field reads ~0. */
+  variance: { ref: number; actual: number }
+}
+
+/** Bounds on what counts as "the reference has texture here and we painted a flat field". */
+export interface UnpaintedImageTuning {
+  /** The reference crop must vary at least this much to be evidence of an image (default 25). */
+  refVarianceMin?: number
+  /** Our crop must vary no more than this to count as painting nothing (default 1). */
+  actualVarianceMax?: number
+  /** Boxes smaller than this many pixels are not measured (default 256 — a 16×16 icon). */
+  minAreaPx?: number
+}
+
+const UNPAINTED_DEFAULTS: Required<UnpaintedImageTuning> = {
+  refVarianceMin: 25,
+  actualVarianceMax: 1,
+  minAreaPx: 256,
+}
+
+/**
+ * Mean per-channel variance of a crop over its RGB channels.
+ *
+ * The discriminator the ticket asked for, and the cheapest one that separates the
+ * two cases without knowing anything about the image: a painted photograph varies,
+ * and a box showing the page through varies by nothing at all. It is deliberately
+ * NOT a comparison between the two sides — a reproduction that painted the WRONG
+ * image is a colour finding the ranked regions already carry, and calling it a
+ * content-completeness failure would be a different claim from the one being made.
+ */
+function cropVariance(raster: Raster, box: RegionBox): number {
+  const a = extractRect(raster, box).raster
+  const px = a.width * a.height
+  if (px <= 0) return 0
+  let total = 0
+  for (let c = 0; c < 3; c++) {
+    let sum = 0
+    let sumSq = 0
+    for (let i = 0; i < px; i++) {
+      const v = a.data[i * a.channels + c]
+      sum += v
+      sumSq += v * v
+    }
+    const mean = sum / px
+    total += sumSq / px - mean * mean
+  }
+  return round(total / 3)
+}
+
+/**
+ * The reference images the reproduction paints NOTHING inside, from the two
+ * rasters and the reference manifest alone.
+ *
+ * Every field a reference manifest can hold an image handle in is checked — an
+ * element's media `src`, an element's `backgroundImageUrl`, a band's
+ * `backgroundImageUrl` — because that is exactly the set `referencedAssets`
+ * counts as "referenced" in the coverage proxy this finding exists to correct. A
+ * handle counted as referenced there and unpainted here is precisely the gap.
+ *
+ * Silent, never guessing, in both directions: a reference crop that is itself flat
+ * (a solid-colour logo, a 12×12 spacer) carries no evidence either way and is not
+ * reported. Pure — the caller owns the rasters, so the same computation runs with
+ * PNGs on disk or without them.
+ */
+export function unpaintedImages(
+  ref: Raster,
+  actual: Raster,
+  source: NodeSource | undefined,
+  scale: number,
+  tuning: UnpaintedImageTuning = {},
+): UnpaintedImage[] {
+  if (!source) return []
+  const o = { ...UNPAINTED_DEFAULTS, ...stripUndefined(tuning) }
+  const out: UnpaintedImage[] = []
+  const consider = (
+    kind: 'element' | 'section',
+    index: number,
+    handle: string | null | undefined,
+    raw: NodeSourceBox | undefined,
+  ): void => {
+    if (!handle || !raw) return
+    const box = toRegionBox(raw, scale)
+    if (box.w * box.h < o.minAreaPx) return
+    const refVar = cropVariance(ref, box)
+    if (refVar < o.refVarianceMin) return
+    const actVar = cropVariance(actual, box)
+    if (actVar > o.actualVarianceMax) return
+    out.push({ handle, kind, index, box, variance: { ref: refVar, actual: actVar } })
+  }
+
+  const elements = source.elements ?? []
+  for (let i = 0; i < elements.length; i++) {
+    consider('element', i, elements[i].src, elements[i].box)
+    consider('element', i, elements[i].backgroundImageUrl, elements[i].box)
+  }
+  const sections = source.sections ?? []
+  for (let i = 0; i < sections.length; i++) {
+    consider('section', sections[i].index ?? i, sections[i].backgroundImageUrl, sections[i].box)
+  }
+  return out
 }
 
 // ── helpers ────────────────────────────────────────────────────────────────────
