@@ -611,14 +611,152 @@ function positionwise(n: number, m: number): AlignStep[] {
   return steps
 }
 
-// ── the surface that carries it ──────────────────────────────────────────────
+// ── what the worker did, when it did not say ─────────────────────────────────
 
 /** The AI library, which is JavaScript and has no types to import. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /**
+ * How many characters of one value {@link workerActivity} carries before it is
+ * clipped ([[BUG-167]]).
+ *
+ * The whole of `activity` enters the CALLER'S conversation — the expensive one —
+ * so it is a pointer at what happened rather than a copy of it. An input or a
+ * result long enough to meet this is one the caller can re-read in full from the
+ * worker's own session, which `session` on the same result names.
+ */
+export const ACTIVITY_CLIP = 400
+
+/** The same bound for the worker's last prose, which is the likelier to matter. */
+export const LAST_WORDS_CLIP = 800
+
+/** The worker's last tool call, as the host saw it made ([[BUG-167]]). */
+export interface WorkerOperation {
+  name: string
+  /** The arguments, as compact JSON, clipped. Absent when the call carried none. */
+  input?: string
+  /** What the call returned, clipped — a refusal reads as the refusal. */
+  result?: string
+}
+
+/**
+ * What a worker did, read from its own session log rather than from anything it
+ * said ([[BUG-167]]).
+ *
+ * WHY IT EXISTS. `outcome: silent` means the worker said nothing, and that spans
+ * three opposite runs: it did nothing, it did everything, it did some of it and
+ * stopped. {@link DraftChanges} already separates the first from the other two on
+ * what was WRITTEN. This separates the runs that wrote nothing from each other —
+ * a worker that read the page map and stopped, one whose write was refused, and
+ * one that made no call at all and reasoned itself into inaction are three
+ * different findings, and each is actionable where "silent" is not.
+ *
+ * THE LOG IS THE MANAGER'S, NOT THE WORKER'S WORD. Every call the worker's
+ * backend ran is a `tool` record on its junction, appended by the session
+ * manager as the call returned; the worker cannot add to that or edit it. Its
+ * prose is there too, and is reported as prose — what it said, not what it did.
+ */
+export interface WorkerActivity {
+  /** How many tool calls the worker made. `0` means it made none at all. */
+  operations: number
+  /** Absent when {@link operations} is `0`. */
+  last_operation?: WorkerOperation
+  /** The last thing the worker said, clipped. Absent when it said nothing. */
+  last_words?: string
+}
+
+/** `text`, or its first `limit` characters and a count of the rest. */
+export function clip(text: string, limit: number): string {
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit)}… [${text.length - limit} more characters]`
+}
+
+/**
+ * {@link WorkerActivity} from a worker's junction records ([[BUG-167]]).
+ *
+ * Both readings are the library's own folds — `toolCalls` pairs a call with its
+ * result on either backend path, and `applyRecords` is how the transcript view is
+ * derived — so there is no second reader of the record format here.
+ *
+ * The last words are the last assistant turn that SAID something, not simply the
+ * last one: a silent worker is asked once more before it is reported silent, and
+ * a second turn that said nothing would otherwise hide the first one's prose.
+ */
+export function workerActivity(lib: Untyped, records: readonly Untyped[]): WorkerActivity {
+  const calls = lib.toolCalls(lib.toolRecords(records)) as Untyped[]
+  const activity: WorkerActivity = { operations: calls.length }
+  const last = calls[calls.length - 1]
+  if (last !== undefined) {
+    const operation: WorkerOperation = { name: String(last.name ?? '') }
+    if (last.hasInput) operation.input = clip(JSON.stringify(last.input ?? null), ACTIVITY_CLIP)
+    if (last.hasOutput) {
+      const output = typeof last.output === 'string' ? last.output : JSON.stringify(last.output ?? null)
+      operation.result = clip(output, ACTIVITY_CLIP)
+    }
+    activity.last_operation = operation
+  }
+  const turns = (lib.applyRecords(null, records)?.turns ?? []) as { role?: string; content?: string }[]
+  for (let i = turns.length - 1; i >= 0; i -= 1) {
+    const words = turns[i].role === 'assistant' ? String(turns[i].content ?? '').trim() : ''
+    if (words === '') continue
+    activity.last_words = clip(words, LAST_WORDS_CLIP)
+    break
+  }
+  return activity
+}
+
+/**
+ * Whether a {@link DraftChanges} records anything written ([[BUG-167]]).
+ *
+ * A truncated list counts: `truncated` is present only when there were more
+ * differences than the budget carried, so there were differences.
+ */
+export function wroteAnything(changed: DraftChanges): boolean {
+  return changed.differences.length > 0 || (changed.truncated ?? 0) > 0
+}
+
+// ── the surface that carries it ──────────────────────────────────────────────
+
+/**
+ * The two result fields this host adds, described where the caller reads the
+ * rest of the result ([[BUG-167]]).
+ *
+ * They are declared rather than merely returned because a field the manual does
+ * not mention is one the caller has to guess the meaning of — and `wrote` in
+ * particular is only useful if it is read before `summary`.
+ */
+const HOST_RESULT_FIELDS = {
+  wrote:
+    "Present whenever 'account' is. True when the host's record shows this delegation " +
+    "wrote anything to the site, false when it wrote nothing at all. It is the host's " +
+    "fact, not the worker's claim, and it is the first thing to read on a 'silent' " +
+    'result: a silent worker that wrote nothing and one that wrote a great deal return ' +
+    "the same empty summary, and this is what tells them apart. When it is true, " +
+    "'account' says what.",
+  activity:
+    "Present whenever 'outcome' is not 'reported' — that is, whenever the worker's own " +
+    'answer is not a finished report. Read by the host from the worker\'s session log, ' +
+    "not from anything the worker said. 'operations' is how many tool calls it made; 0 " +
+    "means it reasoned and then did nothing. 'last_operation' is the last call it made — " +
+    "its 'name', its 'input' and its 'result' — so a write that was refused shows the " +
+    "refusal, and a run that read and then stopped shows the read. 'last_words' is the " +
+    'last thing the worker said, when it said anything. Long values are clipped and say ' +
+    "so; the worker's own session, named by 'session', holds them in full.",
+}
+
+/** `declaration` with {@link HOST_RESULT_FIELDS} added to its result shape. */
+function withHostResultFields(declaration: Untyped): Untyped {
+  const shapes = declaration.shapes ?? {}
+  return {
+    ...declaration,
+    shapes: { ...shapes, result: { ...(shapes.result ?? {}), ...HOST_RESULT_FIELDS } },
+  }
+}
+
+/**
  * `DelegationToolbox`, with the host's record attached to every result
- * ([[REQ-340]] behaviour 4).
+ * ([[REQ-340]] behaviour 4), and what the worker did attached to every result
+ * the worker did not finish with a report ([[BUG-167]]).
  *
  * WHY IT SUBCLASSES RATHER THAN USING THE FRAMEWORK'S HOOK. BUG-71 landed
  * `DelegationRuntime({ account: { mark, changes } })` for exactly this, and its
@@ -634,19 +772,20 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
  * await is available. Subclassing IS the framework's extension mechanism —
  * `ToolboxSurface` says to subclass it and define one method per declared
  * operation, and `invoke` resolves the method per call — so this is composition
- * rather than a reach past the API. The field and its prose are still the
- * framework's: `account: {from, to, changed}` is what the declaration describes
- * and what the caller was told to expect.
+ * rather than a reach past the API. `account: {from, to, changed}` and its prose
+ * are the framework's; `wrote` and `activity` are this host's, and are added to
+ * the declaration's result shape so the caller is told about them in the same
+ * place it is told about the rest.
  *
  * THE UPSTREAM FIX IS ONE WORD IN TWO PLACES — `await this._mark(ctx)` and
  * `await hook.changes(...)`, which a synchronous hook passes through unchanged.
- * When it lands, this class becomes a `runtime.account` pair and the override
- * is deleted.
+ * When it lands, the bracket becomes a `runtime.account` pair; `wrote` and
+ * `activity` stay here unless upstream grows them too.
  *
- * THE RECORD NEVER FAILS THE DELEGATION, on upstream's own rule: a capture or a
- * comparison that throws costs the field and nothing else. A result the caller
- * cannot use because the host's bookkeeping went wrong is a worse trade than a
- * result with one field missing.
+ * NOTHING HERE EVER FAILS THE DELEGATION, on upstream's own rule: a capture, a
+ * comparison or a log read that throws costs its field and nothing else. A
+ * result the caller cannot use because the host's bookkeeping went wrong is a
+ * worse trade than a result with one field missing.
  *
  * THE WINDOW IS SLIGHTLY WIDER THAN THE FRAMEWORK'S — it opens before the
  * worker's session is opened rather than just after — and encloses exactly the
@@ -657,7 +796,12 @@ export function accountingDelegationToolbox(
   store: SiteStore,
   site: string,
 ): Untyped {
+  const declaration = withHostResultFields(lib.DelegationToolbox.DECLARATION)
   return class AccountingDelegationToolbox extends lib.DelegationToolbox {
+    constructor(runtime: Untyped, options: Untyped = {}) {
+      super(runtime, { ...options, decl: options.decl ?? declaration })
+    }
+
     async delegate(input: Untyped): Promise<Untyped> {
       let from: DraftCapture | null = null
       try {
@@ -665,11 +809,20 @@ export function accountingDelegationToolbox(
       } catch {
         from = null
       }
-      const result = await super.delegate(input)
-      if (from === null) return result
+      let result = await super.delegate(input)
+      if (from !== null) {
+        try {
+          const to = await captureDraft(store, site)
+          const changed = draftChanges(from, to)
+          result = { ...result, wrote: wroteAnything(changed), account: { from: from.at, to: to.at, changed } }
+        } catch {
+          // See above: the record is worth having and never worth losing a result over.
+        }
+      }
+      if (result.outcome === lib.DELEGATION_REPORTED) return result
       try {
-        const to = await captureDraft(store, site)
-        return { ...result, account: { from: from.at, to: to.at, changed: draftChanges(from, to) } }
+        const [records] = this.runtime.manager.logFor(result.session).readFrom(0)
+        return { ...result, activity: workerActivity(lib, records) }
       } catch {
         return result
       }
