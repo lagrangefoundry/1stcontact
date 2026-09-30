@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T19:43:20.157537+00:00'
+updated_at: '2026-09-30T19:49:08.170949+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2973,5 +2973,71 @@ ok can you summarize where we are with the delegation feature - in my mind there
 2) Does the primary have (a) sufficient documentation and visibility to prompt the delegate (b) is the primary getting sufficient feedback on the results
 
 And do we have sufficient visibility - I assume that you have access to the prompts the primary sends and the context and responses that are produced by the delegates?
+
+<!-- xgd-turn id="8e402fb0-63ae-4699-99cc-5acc87b5bc02-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T19:49:05.688310+00:00" -->
+#### Claude
+I'll check what has landed since we last spoke before summarising.
+
+Almost everything upstream has landed. Checking whether it's actually installed and wired in, and whether any delegations have run since.
+
+Nearly done — checking one last thing: what documentation the builder actually gets.
+
+Short version: the design is fully landed, but none of it has been used yet. The last delegation ran on 09-29 at 04:53 UTC, before most of the fixes arrived. Nothing has delegated since, so every verdict below is from the code, not from a run.
+
+## 1. The delegate
+
+**(a) Controls and visibility: sufficient, with one structural gap.**
+- REQ-341 gave the builder every L1 write group the consultant had, plus screenshots (SeeSite). It can now do anything a brief asks for.
+- It reads the page through the same tools the consultant uses.
+- **The gap isn't a tool, it's the page.** Reproduced pages are 69 loose elements with nothing nested (REQ-350, still draft). So a form can't be "attached to its section", and every layout fix turns into coordinate arithmetic. That's what makes worker runs long.
+
+**(b) Documentation: not sufficient. This is the weakest layer.**
+- The builder gets its role prose, a summary-level list of its tools, and four reminders. The reminders now include "don't narrate" (REQ-339).
+- **It has no access to the knowledge base.** The consultant searches the L1 reference; the builder can't.
+- That explains the "containers don't support per-width layout" claim from the Gigabyte Alchemy session. That feature is in the reference word for word, but the worker had no reference to check, so it guessed. It then wrote the wrong answer into its report, and the next session would have read it as fact.
+
+## 2. The primary
+
+**(a) Documentation to write a good brief: mostly there.**
+- The delegate-first prose (REQ-342) is in place.
+- The framework now warns when a check asks for an impression rather than a comparison (REQ-187).
+- **Missing:** the most valuable lesson so far, "compute the values, don't describe the constraint", exists only in REQ-348, which is still a draft. That's the lesson behind the 4.9% token figure.
+
+**(b) Feedback on results: the strongest layer on paper, with one piece not wired in.** The primary now gets:
+- the worker's self-report
+- a verdict for each check
+- the host's own diff of what changed (REQ-340)
+- an `exhausted` flag and one retry when a worker goes silent (BUG-71)
+- no more "passed" on a run that never finished (BUG-72)
+- spend recorded correctly on every exit (BUG-73/74/75)
+
+**Not wired:** the framework can now settle checks from the host's own records instead of charging them to the worker's budget (REQ-188). 1stcontact doesn't implement that hook, so the five-clause checks that ran out of budget in the GA session would still do so.
+
+## Blocking any real trial: BUG-168 (draft)
+
+A delegating turn still dies at the framework's default 600-second timeout, which we never override. In the GA session that killed three of the five finished turns, and all three of those turns had delegated. With the consultant now read-only by default (REQ-343), every construction turn delegates, so this becomes the common case.
+
+## Can we see what's happening?
+
+Yes, completely, in the dev store:
+- **The brief:** the input to the `Delegate` call, in the consultant's tool transcript.
+- **The worker's full context and responses:** its own chat ticket, which holds both its conversation and its tool transcript.
+- **What it changed:** the site's change log (`site_changes`).
+- **What it cost:** `turn_spend.attributed`.
+
+Two limits:
+- I only have the local dev store. Production has the same records, but I can't read them from here.
+- Nothing joins those four sources. I've been stitching them together by hand each time, and the console (BUG-166) shows cost but not briefs or reports.
+
+## Order I'd take
+
+1. **BUG-168**, raise the turn timeout. Small, and it's the blocker.
+2. **Give the builder the L1 reference**, either knowledge search or the full manual.
+3. **Wire the host-settle hook** (REQ-188) into our account code.
+4. **Run one real session** and read it with the four sources above.
+
+Items 2 and 3 have no ticket yet. Want me to file them, and record this status on EPIC-20?
 
 <!-- xgd-chat-end -->
