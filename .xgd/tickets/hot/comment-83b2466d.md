@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-348
 created_by: xgd
 created_at: '2026-09-30T19:53:44.520712+00:00'
-updated_at: '2026-09-30T20:29:47.665310+00:00'
+updated_at: '2026-09-30T20:30:43.739152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,24 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="ed9b2f57-08bd-4cc0-a179-e64d788fc160-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:30:43.635738+00:00" -->
+#### Claude
+Right now there's nothing to commit, so to complete free-coding I'll add a UAT proving the guide ships in the system KB, then land it through the branch/commit/merge path. First, checking how existing tests cover KB membership.
+
+I stopped before writing any code. The only UAT I could write here would fail everywhere except `xgd-working`, so I'd like your call before committing one.
+
+**Why there's nothing to free-code yet.** All the ticket delivered is DOC-63, a knowledge-base doc ticket, and documentation is exempt from free-coding. To move REQ-348 to `free_coded`, the gate needs at least one commit on `xgd-working` that carries a version bump. That means some code or a test.
+
+**The obvious UAT, and why it breaks.** The natural test runs the corpus export against the real ticket store and asserts the guide is in the system KB. There's precedent: REQ-164 already has a test against the real store. But doc tickets don't reach `main`. DOC-63 isn't there, and neither is DOC-51 or DOC-60. Nothing moves ticket-only commits to `main` any more (known gap 7 in the branch-topology doc). Reconcile, regression and `test_fix` all run on branches cut from `main`, so this UAT would fail on every one of them. The fix loop would then try to "repair" it: it would either loop until reconcile fails outright, or it would delete the test. The REQ-164 test gets away with it because it only asserts the KB has more than zero members, and `main` already has older docs.
+
+**Options:**
+1. **Leave it as a doc-only delivery (my recommendation).** DOC-63 is done. REQ-348 stays out of the free-coded pipeline and you set whatever status you like. Nothing fragile gets committed.
+2. **Commit the UAT anyway,** matching the doc by title rather than ID. I'd write the `main` gap into the ticket body. Expect it to fail in reconcile until doc tickets can reach `main`.
+3. **Make the guide a file in the repo** and have the KB export pick it up, the way the `REF-*` pages are generated. That's robust on `main` and properly testable, but it's a real design change to how the KB is sourced — more than this ticket asked for.
+
+Which would you like? If it's 2 or 3, I'll cut the branch and take it through commit, merge and `free_coded`, with tests in the foreground.
 
 <!-- xgd-chat-end -->
