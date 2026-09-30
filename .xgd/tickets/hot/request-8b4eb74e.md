@@ -6,9 +6,9 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-30T23:08:43.966164+00:00'
+updated_at: '2026-09-30T23:08:50.932227+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -26,6 +26,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.425
+  story_points: 5
 ---
 
 ## What I was trying to achieve
