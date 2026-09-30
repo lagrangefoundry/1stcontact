@@ -6,10 +6,10 @@ title: 'Delegation: the builder can search the platform reference, and looks a l
   up before reporting it'
 created_by: EPIC-20
 created_at: '2026-09-30T20:03:01.774395+00:00'
-updated_at: '2026-09-30T20:56:21.868494+00:00'
+updated_at: '2026-09-30T21:11:49.138260+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-0923bb64
