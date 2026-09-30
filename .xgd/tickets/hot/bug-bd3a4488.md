@@ -2,14 +2,13 @@
 uid: bug-bd3a4488
 id: BUG-167
 type: bug
-title: A worker can spend a full run's tokens and write nothing, returning outcome
-  "silent" with an empty summary — indistinguishable from a worker that wrote a great
-  deal and failed to report
+title: 'Delegation: a silent run that wrote nothing is indistinguishable from one
+  that wrote a great deal'
 created_by: xgd
 created_at: '2026-09-29T04:55:11.413291+00:00'
-updated_at: '2026-09-29T04:55:11.413291+00:00'
+updated_at: '2026-09-30T21:17:09.915316+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: title
 status: draft
 fields:
   auto_merge_back: true
