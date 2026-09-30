@@ -27,13 +27,14 @@
  * construction-scoped bindings are the finding to raise upstream).
  */
 
-import { L1_DOCUMENT_KEYS, L1_EMAIL_TARGET } from '@1stcontact/site-schema'
+import { L1_DOCUMENT_KEYS, L1_EMAIL_TARGET, type L1Palette } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import l1Surface from './l1-surface.json'
 import l1Instances from './instances.json'
 import { CommandError } from '../errors'
 import { pageSegments } from '../segments'
+import { auditKey, auditPage } from '../style-audit'
 import { publishSite } from '../../publish/publish'
 import type { EditOptions } from '../edit'
 import {
@@ -503,6 +504,17 @@ export function l1Operations(
       // discover that it had one, and shipped off-white text onto it.
       const l1 = (page.l1 ?? {}) as Record<string, unknown>
       const mailed = page.kind === 'email'
+      // [[REQ-349]] — the style gaps nobody thought to look for, ON THE MAP rather
+      // than behind a separate audit: this is the read that is already made first
+      // and again after every change, so a gap an unrelated edit just introduced
+      // is reported at the moment it appears. The palette is read for the same
+      // reason the renderer needs it — a reference is only a colour once resolved.
+      // Read from the settings, not `get_palette`: that one counts uses across
+      // every page, which this does not need and should not pay for per map.
+      const config = ((await editConfigGet(slug, undefined, opts)).data as {
+        config: { palette?: L1Palette }
+      }).config
+      const audit = auditPage(page, config.palette)
       return {
         page: {
           id: page.id,
@@ -512,6 +524,7 @@ export function l1Operations(
           seoMeta: page.seoMeta ?? null,
           ...(mailed ? { email: page.email ?? {} } : {}),
         },
+        attention: audit.summary,
         /*
          * [[REQ-247]] §3 — WHAT AN EMAIL PAGE MAY SAY, PROJECTED FROM THE
          * DECLARATION. It is the same constant the site validator computes its
@@ -534,7 +547,10 @@ export function l1Operations(
           slot: m.slot ?? null,
           config: m.config ?? {},
         })),
-        segments: pageSegments(page),
+        segments: pageSegments(page).map((segment) => {
+          const found = audit.at.get(auditKey(segment.path, segment.module, segment.slot))
+          return found ? { ...segment, attention: found } : segment
+        }),
       }
     },
 
