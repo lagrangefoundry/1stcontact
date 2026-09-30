@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-30T20:27:32.589079+00:00'
+updated_at: '2026-09-30T20:37:10.046569+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5698,5 +5698,103 @@ I think we need a document available to both Alice and Bob that shapes the conve
 There's really two layers here (1) the technical part - just getting the conversation to work and (2) the dramatuge how to we prompt the agents to drive useful conversations. Let take these as separate threads.
 
 Lets focus on 1 here
+
+<!-- xgd-turn id="b5e60772-66b4-40b3-bb82-39c031f9d34c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:37:09.929177+00:00" -->
+#### Claude
+I'll read myself in first — this is a lot of ground, so I'll fan out.
+
+Still reading — four parallel reviews are running (EPIC-2, EPIC-7, the showcase room, EPIC-22 + our ticket set). Meanwhile checking our own side.
+
+Still waiting on the four reviews; checking the EPIC-19 body in the meantime.
+
+Still waiting on the four review agents — the framework has moved a lot (chair removed, REQ-180/181 shipped, showcase rooms homed on chat tickets).
+
+Good — the orchestrator exists in the JS peer too, which matters for our Worker. Waiting on the agents' reports now.
+
+Framework room review is in. Waiting on the other three.
+
+Three reviews in; the last one covers EPIC-22 and our own ticket set.
+
+All four reviews are in. Recording the finding on the epic before I report.
+
+I've read all of it: LF EPIC-2 and EPIC-7 with their transcripts, the Flock tab (the showcase 3-way chat), and EPIC-22. It's recorded as Finding 15 on EPIC-19. The room exists and is usable, but three things will bite us in a Worker that the showcase never had to face.
+
+## Where things stand
+
+**Upstream (LF):**
+- **The room is built.** The group, the orchestrator and the room tools exist in both JS and Python, and are exported for Workers.
+- **There's no chair any more.** LF REQ-195 made a chair "a participant's priming". That is exactly Bob: a member primed to administer, with no framework concept to configure.
+- **Turn-taking is strictly sequential.** An `@`-address routes the next turn; otherwise it's round-robin. An exchange ends once everyone has been heard and no one has anything unread.
+- **Rooms are saved like any chat.** Each room is a `chat_transcript` comment on a chat ticket (REQ-194).
+- **Other LF tickets:**
+  - REQ-180 (the signals channel) and REQ-181 (the tool loop meters itself) have landed.
+  - REQ-182 and REQ-183 are abandoned.
+  - EPIC-7 (getting words into a round already in flight) is designed but not built, and has no child tickets.
+
+**1stcontact:**
+- **Nothing adopts the room.** There's no room code, and the room UI component isn't vendored.
+- **EPIC-22's Debug tab has only the delegation switch.** The group-chat switch and the separate Alice/Bob windows were deferred until the room exists, and the tickets still cite the abandoned LF REQ-183.
+
+## Our tickets — mostly start over
+
+| ticket | recommendation |
+|---|---|
+| REQ-344 | already abandoned, correctly |
+| **REQ-345** (queued words reach her) | **abandon.** What it depended on was abandoned. Delivering the words is now EPIC-7 stage 1, and keeping them safe is BUG-122. |
+| **REQ-346** (both workers visible) | **fold into the room adoption.** The room UI already has an activity strip. |
+| LF REQ-180 / 181 | done |
+| LF REQ-182 / 183 | abandoned, correctly |
+| DOC-62 | **needs a pass.** It still describes a chair, and my 09-28 corrections never landed. DOC-61's did. |
+
+## Thread 1: a room with the assistant in it
+
+**Shape.**
+- **Alice (consultant)** keeps her existing session unchanged, plus the room tools. EPIC-2 §14: *"a chat session's capabilities do not change when it takes part in a room."* Her 1:1 session becomes her private workspace, and the room is what the client sees.
+- **Bob (assistant)** is a new `assistant` role on Haiku, with his own session and his own chat ticket.
+  - **Reads:** the knowledge base, `ReadSite`, the library catalogue, the decisions ledger, read-only tickets, and the room.
+  - **Can't:** write to the site, delegate, or render. I'd leave out screenshots too: they're the most expensive call in the system, and seeing the page is Alice's job.
+  - **Grant:** mechanically, this is the consultant's grant narrowed to read-only. The same narrowing already exists for REQ-343.
+
+**Naming.** Role keys are `consultant` and `assistant`. Display names come from one config entry per business, which is what the room shows as `name`. The room already treats the name as a label and the ticket as the identity, so this costs nothing. Priming says "your assistant" and "the consultant", or a template slot. I'd add a UAT that fails if "Alice" or "Bob" appears anywhere in code, priming or surface text.
+
+**The Debug tab** is the natural switch. EPIC-22 already settled that group chat is a per-business switch there, with each member's private window beside the room.
+
+## The three hard parts
+
+1. **Where the exchange loop runs.** Today a consultant turn lives inside one streaming request. An exchange is several rounds, and one of Alice's rounds can be ten minutes, so it can't live in a request. I think it belongs in a Durable Object per room. That gives one writer, and the "already running" guard and the stop flag for free. We already have that pattern in the durable junction work (REQ-307). This is the biggest piece of new engineering on our side.
+
+2. **The JS room has never run live.** Only the Python showcase has. One known gap: the JS room can't be reopened from its chat ticket, which Python can. In a Worker an evicted isolate is routine, so that gap means an unreadable room. The 09-29 fixes are also unfiled: one post per round, a post-then-decline counting as the post, and pull defaulting to what you haven't read. Those are LF tickets, and should land before we build on the room.
+
+3. **Bob is silent while Alice works.** Turns are strictly sequential, so while Alice runs a ten-minute round, Bob can't answer you. That's F2, the two-speed room, which doesn't exist and has no ticket. Words you type mid-round land in the room but reach nobody until the round ends. Worse, EPIC-7 §11.2's bug means the orchestrator can drop them entirely.
+
+   So v1 gets the conversation working, but not yet the "talk to Bob while Alice builds" experience we designed. The EPIC-2 session itself advised against pulling the room into 1stcontact for exactly this reason. I'd go ahead anyway: sequential is fine for proving the plumbing, the Debug-tab switch makes it opt-in, and F2 can land underneath us later.
+
+## What I need from you
+
+1. **Where the room lives.** Does it take over the site's existing conversation ticket? The alternative is that today's conversation becomes Alice's private workspace and the room starts empty. I lean to the second: it keeps LF's history intact and makes the switch reversible.
+2. **Upstream prerequisites.** Shall I file the LF tickets? That's the JS room-reopen port, the three 09-29 fixes and the §11.2 `_seen` bug, under EPIC-2. And F2 as its own ticket, even if it's scheduled later.
+3. **Can Bob read Alice's private session?** The framework allows cross-session reads, gated. "Read everything Alice can see" doesn't necessarily include her workspace, and I'd say it shouldn't: the room is the shared record.
+
+With those answered, I'd file one 1stcontact ticket: the room behind the Debug-tab switch, the `assistant` role, and the loop running in a Durable Object. I'd also abandon REQ-345, fold REQ-346 into that ticket, and update DOC-62.
+
+That was just one of my timers finishing, so there's nothing new. I'm still waiting for your answers on where the room lives, whether to file the LF prerequisites, and whether Bob can read Alice's own session.
+
+Another of my timers finished; nothing needs doing. I'm still waiting for your answers on the three questions above.
+
+Another of my timers ended; there's nothing to act on. I'm still waiting for your answers on the three questions.
+
+Another of my timers finished; nothing to act on. I'm still waiting for your answers on the three questions.
+
+Another of my timers ended; nothing to act on. I'm still waiting for your answers on the three questions.
+
+Another of my timers finished; nothing to act on. I'm still waiting for your answers on the three questions.
+
+Another of my timers ended; nothing to act on. I'm still waiting for your answers on the three questions.
+
+Another of my timers finished; nothing to act on. I'm still waiting for your answers on the three questions.
+
+That was the last of my timers, so there will be no more of these notices. I'm still waiting for your answers on the three questions: where the room lives, whether I should file the LF prerequisites, and whether Bob can read Alice's own session.
 
 <!-- xgd-chat-end -->
