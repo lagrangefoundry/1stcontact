@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-09-30T22:06:52.693653+00:00'
+updated_at: '2026-09-30T23:13:22.925838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -149,5 +149,11 @@ Intake also links your goals 1 and 2. A challenge only works if it's measured ag
 You were Bob during the Lagrange Foundry build: the pushes, the "are you sure", the "show me two". That transcript is probably the best evidence we have. Before designing Bob, it would be worth pulling out every intervention you made that changed the course, and labelling each by kind: gap, challenge, reordering, "show me instead", or keeping things moving.
 
 That gives a catalogue built from what actually worked rather than from theory, which is exactly where DOC-33 went wrong. I can do that extraction if you want it. It's analysis only, nothing filed.
+
+<!-- xgd-turn id="8565a9dd-8a36-4fc3-9651-05f6b8accf80-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T23:13:22.184948+00:00" -->
+#### You
+Go ahead - its a little muddied by bugs but certainly take a look
 
 <!-- xgd-chat-end -->
