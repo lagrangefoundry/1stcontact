@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-351
 created_by: xgd
 created_at: '2026-09-29T21:32:43.594900+00:00'
-updated_at: '2026-09-30T00:30:04.658813+00:00'
+updated_at: '2026-09-30T00:51:40.796741+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -158,5 +158,14 @@ Two pre-existing failures on `xgd-working` that are **not** mine (verified by st
 - `tests/req51-object-grouped-report.test.ts` — an image object now carries a `border` param the test doesn't expect (REQ-333/REQ-347's framed-image attribution).
 
 I'll wait for the suite to finish before committing. The implementation, typechecks, and the 13 new UATs are all green; what remains is confirming the ~19 failing files are all pre-existing on `xgd-working` rather than mine, then committing, merging back, and moving the ticket to `free_coded`.
+
+<!-- xgd-turn id="49f6d8b3-7f72-4c6d-b2b2-5e189daa7aeb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T00:51:38.366436+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
