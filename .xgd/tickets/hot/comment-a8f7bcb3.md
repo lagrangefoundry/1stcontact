@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-09-29T22:49:49.834074+00:00'
+updated_at: '2026-09-30T00:02:47.652804+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -167,5 +167,11 @@ Three things worth carrying from that tab into our frame now:
 One thing left to settle before I write the body: **does the group-chat switch get rendered in v1?** You said it can't be switched on today. This repo argues hard against present-and-refusing (*"off means never composed, not composed-and-refusing"*, and the Console isn't rendered when unentitled), so my lean is that v1 renders the tab, the delegate switch, and a config section shaped to take a second entry — and the group-chat switch lands with the room behind it. If you'd rather see it disabled with a reason on it so the tab reads complete, say so and I'll build it that way.
 
 Say the word and I'll write the EPIC-22 body and cut the branch.
+
+<!-- xgd-turn id="37a3973c-29c2-46bf-8004-a45d5b24b792-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T00:02:45.788511+00:00" -->
+#### You
+Yeah V1 is create the tab and the delegate switch with the necessary backend changes to support that - can you give me a ticket for that please?
 
 <!-- xgd-chat-end -->
