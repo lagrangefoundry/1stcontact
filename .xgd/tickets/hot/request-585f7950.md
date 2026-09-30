@@ -5,16 +5,30 @@ type: request
 title: A Debug tab, and a per-business switch for delegation
 created_by: EPIC-22
 created_at: '2026-09-30T00:06:06.120891+00:00'
-updated_at: '2026-09-30T02:31:07.024624+00:00'
+updated_at: '2026-09-30T02:35:36.607393+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-82afdac9
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-52d87346
+  commits:
+  - working_sha: 683d066a5d5727e0eb9f5c29c1f61b545c0c8123
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8c7a73c8fc6137c90910328dafa550c7c84f9542
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 53798dacdd6554565aa89f5d69e16e54c128eae7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3a161b44389b8581852ef0e1f68b40165f6b4c0b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.418
 ---
 
 ## What this is
