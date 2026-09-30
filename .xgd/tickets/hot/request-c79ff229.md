@@ -6,9 +6,9 @@ title: 'Corpus document needed: tips for briefing delegated builder sessions (se
   + first four observed runs)'
 created_by: xgd
 created_at: '2026-09-29T04:28:04.918266+00:00'
-updated_at: '2026-09-29T05:04:27.713419+00:00'
+updated_at: '2026-09-30T20:04:09.500853+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -175,3 +175,20 @@ But the caller's overhead is not zero and should be budgeted:
 - re-briefing after a null or partial run (empirically, somewhere around one run in three so far)
 
 A fair current estimate is that roughly a third of runs need a second pass. That still favours delegation for anything with a large payload and small decisions. It does not favour delegation for a two-line edit the caller could make directly — at that size the round trip and the re-brief dominate, and the work should stay where it is.
+
+
+---
+
+## Outcome (2026-09-30)
+
+Delivered as **DOC-63** (`doc-57bc4536`), *"Briefing a delegated builder — what works and what breaks"*, `doc_kind: system_kb`, `epic_parent: EPIC-20`. `1c kb export` includes it in the system KB corpus (`kb/system/DOC-63.md`).
+
+Doc/ticket-only change: no code, so no free-coding commit and no UATs.
+
+How the seed was shaped for its reader (the builder AI writing a `delegate` brief):
+- Rules first, followed by a dated **run log** that holds the evidence. New runs get added to the log. When a run contradicts a rule, the rule is revised in place.
+- Uses the delegation surface's own names: `goal_text`, `check_list`, `outcome`, `accepted`, `decisions`, and **`account`** (the host-derived change record).
+- Folds in the "one job → one phase" revision and the check-cost finding. Notes that `check_list` now refuses multi-clause entries, but five single checks still cost the same.
+- The seed's taxonomy called the false-capability-denial run "Run 5" in one place and "Run 6" in another. DOC-63 uses Run 6 throughout. Run 5 is not described in the seed.
+
+**Still needed:** the vector index/awareness map has not been rebuilt. `1c kb build` / `bin/kb-release` needs `CLOUDFLARE_API_TOKEN`, which this session did not have. The same run will also refresh the outdated `REF-l1` projection it flagged.
