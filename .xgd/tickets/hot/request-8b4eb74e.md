@@ -6,15 +6,26 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-30T21:51:39.339689+00:00'
+updated_at: '2026-09-30T23:08:43.966164+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-6aeb43d5
+  commits:
+  - working_sha: 815fdfddc042372cddec46451037f380548b908d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ad527d7c141af992b75c78635bf80524b32c0245
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: dd9920210a14dd09844c04614adb5a44116639ea
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.425
 ---
 
 ## What I was trying to achieve
