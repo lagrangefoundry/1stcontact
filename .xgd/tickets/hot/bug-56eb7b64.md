@@ -6,9 +6,9 @@ title: A delegating turn dies at ten minutes on a framework default we never set
   and takes its own account of itself down with it
 created_by: EPIC-20
 created_at: '2026-09-29T05:01:39.275254+00:00'
-updated_at: '2026-09-29T05:01:39.275254+00:00'
+updated_at: '2026-09-30T20:00:36.757046+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -90,3 +90,51 @@ does its own typing.
 - **BUG-166** — the console surface those zero rows land on.
 - **REQ-348** — the caller-side discipline, which reduces how long a run needs but
   does not bound it.
+
+
+## Scope of this fix (free-coded)
+
+**What changes for the user**
+
+- A builder or settings turn is given **30 minutes** of wall clock instead of the
+  framework's shipped 600 s. The value lives in `tools/generate/src/cli/ai/turn-clock.json`
+  beside `backends.json`, with its reason written there; `host-core.ts` passes it as
+  `timeout` on both `promptStream` calls (consultant and settings). A delegated
+  worker keeps the framework default for its own run — it is bounded inside the
+  caller's turn.
+- **Platform:** the turn is driven inside the route's streaming response (the
+  junction DO only takes short append calls), and Workers put no wall-clock limit
+  on an invocation while its client is connected. The limit that does bind is
+  **CPU time**, which defaults to 30 s on the paid plan. Awaiting the provider
+  costs no CPU, but each write re-validates the definition (~80 ms, BUG-6612c4b7's
+  measurement), so a write-heavy 30-minute turn can reach 30 s of CPU. `wrangler.toml`
+  therefore sets `[limits] cpu_ms = 300000`, the paid-plan maximum, which is billed
+  only when used. What can still kill a turn: the client disconnecting (by design,
+  it aborts the turn) and a runtime restart/deploy eviction (already surfaced by
+  REQ-306's ledger and BUG-121's pending record).
+- **A turn that reaches a budget says what it did.** The installed library no
+  longer throws at the clock (framework REQ-181): the round ends with
+  `exhausted: true, exhausted_by: 'time' | 'calls'` and a `complete` status. The
+  client used to see that reply just stop, and the next turn could not see the
+  tool results (the transcript it reads back is prose only). Now the consultant's
+  and settings assistant's backends are wrapped by `narrateExhaustion`
+  (`turn-clock-core.ts`), which inserts one closing paragraph *inside the backend
+  stream*, before the terminal event, so the manager records it as the assistant's
+  own prose: live in the client's pane, on reload, and in the next turn's transcript.
+  The paragraph says which budget ran out (the clock, in minutes, or the tool-call
+  limit) and that the work is saved. It then lists what the turn did: every
+  hand-off, with the worker's own reported summary (capped), and a count of the
+  other tools that ran. It ends with an invitation to carry on. Workers are not
+  wrapped: their prose never reaches the client, and their exhaustion already comes
+  back to the caller as the delegation's `exhausted` outcome.
+
+**Test plan** — `tests/test_UAT_FC_BUG-168_turn_clock.test.ts`:
+1. The consultant's `promptStream` reaches the backend with the project's declared
+   timeout (1800 s), not 600; `turn-clock.json` states the value and a reason.
+2. A backend turn ending `exhausted_by: 'time'` after a Delegate call and two
+   write calls yields a closing paragraph ahead of `done`. It names the time limit
+   in minutes, quotes the worker's summary, and counts the other tools. The
+   manager records that paragraph in the transcript.
+3. `exhausted_by: 'calls'` names the tool-call limit instead; an ordinary
+   (non-exhausted) turn gets no paragraph.
+4. `wrangler.toml` declares `[limits] cpu_ms` at the paid-plan maximum.
