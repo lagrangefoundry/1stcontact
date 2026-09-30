@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T19:55:23.699942+00:00'
+updated_at: '2026-09-30T20:04:57.236627+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3051,5 +3051,69 @@ Items 2 and 3 have no ticket yet. Want me to file them, and record this status o
 **Not wired:** the framework can now settle checks from the host's own records instead of charging them to the worker's budget (REQ-188). 1stcontact doesn't implement that hook, so the five-clause checks that ran out of budget in the GA session would still do so. <-- ticket please
 
 ok so I am prioritizing 348 and 168 - are there other tickets that belong to you that I should kick off before the next delegate test - and can you answer the notes above please
+
+<!-- xgd-turn id="2abf71b9-0413-4e53-9b6f-ee0d717997a0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:04:56.819302+00:00" -->
+#### Claude
+I'll check how the worker's tools are assembled, since that decides whether KB access is a config edit or code.
+
+The worker is deliberately built without the knowledge base. Reading the stated reason before answering "why wouldn't we".
+
+Important detail: the framework's hooks may still be synchronous, which our async store can't satisfy. Checking.
+
+Confirmed: every hook is called without `await`. Before writing tickets, one quick check for an existing grouping operation.
+
+No grouping operation exists. Now the knowledge surface: I need to know whether it can be limited to the reference documents, since the corpus also holds the client's conversations.
+
+Filed the framework ticket; locating its ID (it went to the framework's main-branch ticket store rather than this checkout).
+
+The framework ticket landed in 1stcontact by mistake (BUG-170) — `xgd` ignored my directory change. Finding how to target the framework repo, then I'll move it.
+
+Created correctly as framework **BUG-78**. Retiring the misfiled duplicate, then filing the two 1stcontact tickets.
+
+I filed three tickets. Answers to your notes, then what to start before the next test.
+
+## Flat pages (REQ-350): what to do
+
+There is no operation today that groups elements. The L1 tool list has nothing like "wrap" or "group". Grouping is possible in principle by rewriting the whole page tree with `set_l1`. But every child's absolute position would have to be converted into a position inside its section, at every screen width. That's exactly the coordinate arithmetic we're trying to remove.
+
+**Recommendation:** add an operation along the lines of *"make these elements children of a new container, and keep the page looking exactly the same."* The host does the position conversion mechanically, and "looks exactly the same" is how it's tested.
+
+- **The consultant decides what forms a section.** That's a judgement about meaning, and a wrong guess that silently moves content would be worse than the flat page.
+- **The worker executes it.** Once a section exists, "move this form into it" becomes a one-line brief.
+- **Grouping at capture time comes later.** Once we've seen how often the consultant's grouping matches what the geometry would have guessed, we can automate it.
+
+It's the biggest cost lever we have, but it's design-sized and not needed before the test.
+
+## Knowledge base for the builder: yes. Filed as REQ-355
+
+The code excluded it on purpose, with this reason: *"the corpus is the consultant's method, the ledger and the catalogue are the engagement's."* That reason holds for writing to the ledger or catalogue. It doesn't hold for reading the platform reference.
+
+There is one real hazard: the client's own knowledge base includes the client's conversations. Those must stay out, because the builder is deliberately kept from seeing the conversation and forming its own view of what the client wants.
+
+The system knowledge base is separate and holds only the L1 reference and platform documents. So REQ-355 grants that one only. It also adds a line to the builder's prose: before reporting that something can't be done, look it up.
+
+## Host-settled checks: REQ-354, but blocked
+
+I found a blocker while scoping it. The framework calls its account hooks without waiting on them. Our site store can only answer asynchronously, so we can't supply those hooks. That's why REQ-340 had to work around the framework by subclassing it, and it's also why REQ-188's check-settling can't be connected at all.
+
+So there are two tickets:
+- **lagrange-framework BUG-78:** make the framework wait on the hooks. It's a small change, and hooks that already answer synchronously keep working.
+- **REQ-354:** answer three fixed containment phrasings from our change diff, and teach the consultant those exact phrasings. The phrasings are "page P has no changes", "no field other than F changed", and "only these addresses changed".
+
+REQ-354 deliberately recognises only exact phrasings. A wrong claim that a check passed is worse than sending the check to the worker.
+
+One slip to own: my first attempt filed BUG-78 in this repo, as BUG-170. I've abandoned BUG-170.
+
+## What to start before the next test, besides REQ-348 and BUG-168
+
+1. **REQ-355, knowledge base for the builder.** Unblocked and small. It directly prevents the "that can't be done" failure.
+2. **Framework BUG-78.** Small. It unblocks REQ-354 and lets REQ-340's workaround be deleted.
+3. **BUG-163** (the three failing tests) is already done and waiting on reconcile. It needs nothing.
+
+Leave REQ-354 until BUG-78 lands, and leave REQ-350 until after the test. The test doesn't depend on either: without REQ-354, checks just go to the worker as they do today.
+
+EPIC-20 now links REQ-354 and REQ-355 and has a dated status section.
 
 <!-- xgd-chat-end -->
