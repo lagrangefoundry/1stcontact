@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T21:14:38.025709+00:00'
+updated_at: '2026-09-30T21:44:34.417268+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3347,5 +3347,11 @@ I've rewritten REQ-350. It now covers geometry and style, and corrects the wrong
 2. **There's a second, unused type setting.** The GA site's stored record already has a site-level `theme.typography` with heading and body fonts, which L1 pages appear to ignore. The ticket says it should either become the named styles or be removed, rather than left as a second answer to "what's the body font".
 
 Nothing is coded. REQ-350 is still a draft under EPIC-20.
+
+<!-- xgd-turn id="346e712d-0f8c-403c-bddc-290e7d1b9f0d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T21:44:33.521754+00:00" -->
+#### You
+ok 350 is implemented. Now what?
 
 <!-- xgd-chat-end -->
