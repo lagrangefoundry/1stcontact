@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-28T22:02:29.015159+00:00'
+updated_at: '2026-09-30T20:32:55.956886+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2058,3 +2058,18 @@ What this changes, concretely:
   care, it produces false economy.
 - **What survives for cost** is the price of the call at the point of the call, which
   [[REQ-284]] already shipped.
+
+
+## Finding 15 — the room exists upstream; what adopting it here takes (2026-09-30)
+
+Reviewed LF EPIC-2, LF EPIC-7 (+ transcripts), the showcase Flock tab, and 1stcontact EPIC-22.
+
+**Upstream state.** The room is built (EPIC-2: `group.js`, `orchestrator.js`, `group_toolbox.js`, JS and Python peers, all re-exported from `@lagrangefoundry/ai/workers`), none of it on `main`. No chair any more (LF REQ-195: *a chair is a participant's priming*) — which is exactly our assistant: a member primed to administer, with no framework concept behind it. Turn-taking is strictly sequential: `to` routes, otherwise round-robin; an exchange ends when settled (REQ-192). Persistence is a `chat_transcript` comment on a chat ticket (REQ-194). LF REQ-180 (signals channel) and REQ-181 (loop meters itself) have landed. LF REQ-182/183 abandoned. EPIC-7 (intercession: content reaching a round in flight at the next call boundary, as a size-bounded brief) is designed, not built, no children.
+
+**Only Python has ever run a room.** The Flock tab's host is `ai_host.py`; no JS host runs one. Known JS gaps: `_liveLog` does not re-seed a room from its chat ticket (Python does, REQ-194 §3), so an evicted room is unreadable in a Worker; the 09-29 fixes (one post per round, `mine[-1]` preferring a contribution, unseen-default pull) are unfiled; EPIC-7 §11.2's `_seen` bug drops content posted during a round; F2 (two-speed room) does not exist, so the assistant cannot speak while the consultant works.
+
+**1stcontact adopts none of it.** No room code, `webui-room` not vendored. EPIC-22's Debug tab (REQ-353) holds one switch (delegation); the group-chat switch and per-member private windows were deferred pending the room, and still cite the abandoned LF REQ-183.
+
+**Our ticket set.** REQ-344 abandoned (correct). REQ-345: dependency (LF REQ-182) abandoned; its delivery half is EPIC-7 stage 1 and its durability half is BUG-122 — recommend abandon. REQ-346: unblocked but overlaps `webui-room`'s activity strip — recommend fold into the room adoption work. DOC-62 is behind (still describes a chair; the 2026-09-28 §4/§9 corrections never landed); DOC-61's did land.
+
+**Decisions this turn (operator).** Two threads: (1) technical — make the three-way conversation work; (2) dramaturgy — how the agents are primed to drive it. This finding is thread 1. The assistant is a first-class member: its own session, KB access, and read access to everything the consultant can see. *Alice* and *Bob* are code names only: the roles are `consultant` and `assistant`, and display names must be configuration, never literals in code or priming.
