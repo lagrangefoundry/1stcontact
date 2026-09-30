@@ -6,9 +6,9 @@ title: 'gate: `stacked: true` switches the overlap probe off, so a reproduction 
   <h1> is completely buried under a photo passes every gate'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:03:03.424338+00:00'
-updated_at: '2026-09-30T22:08:49.035295+00:00'
+updated_at: '2026-09-30T22:09:06.488280+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -24,6 +24,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.424
+  story_points: 3
 ---
 
 # Every gate passes a page whose `<h1>` is completely invisible — `stacked: true` switches the overlap probe off, and nothing else asks whether an element was painted
