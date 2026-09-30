@@ -6,7 +6,7 @@ title: A delegating turn dies at ten minutes on a framework default we never set
   and takes its own account of itself down with it
 created_by: EPIC-20
 created_at: '2026-09-29T05:01:39.275254+00:00'
-updated_at: '2026-09-30T20:10:23.974325+00:00'
+updated_at: '2026-09-30T20:10:42.242215+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -127,14 +127,24 @@ does its own typing.
   other tools that ran. It ends with an invitation to carry on. Workers are not
   wrapped: their prose never reaches the client, and their exhaustion already comes
   back to the caller as the delegation's `exhausted` outcome.
+- **The worker's summary stays fenced as untrusted.** The Toolbox marks a
+  delegation result as third-party data (`<<<untrusted>>> … <<</untrusted>>>`),
+  because the worker is a model that read site and third-party text. Quoting it
+  without the markers in text recorded as the assistant's own would pass that
+  data off as the consultant's own words to the next turn, getting around the
+  provenance marking. So a fenced result is quoted with its markers kept.
+  (The client sees the markers too; that is a cosmetic cost accepted for now.)
 
 **Test plan** — `tests/test_UAT_FC_BUG-168_turn_clock.test.ts`:
-1. The consultant's `promptStream` reaches the backend with the project's declared
-   timeout (1800 s), not 600; `turn-clock.json` states the value and a reason.
-2. A backend turn ending `exhausted_by: 'time'` after a Delegate call and two
-   write calls yields a closing paragraph ahead of `done`. It names the time limit
-   in minutes, quotes the worker's summary, and counts the other tools. The
-   manager records that paragraph in the transcript.
-3. `exhausted_by: 'calls'` names the tool-call limit instead; an ordinary
-   (non-exhausted) turn gets no paragraph.
+1. `turn-clock.json` states 1800 and its reason. Through the real host, a turn
+   of three model calls 700 s apart completes and gets no notice; at the
+   framework's 600 s it would be cut off.
+2. Through the real host, with a real delegated worker and a faked clock, a
+   turn ending `exhausted_by: 'time'` after a Delegate call and a read call
+   ends on a closing paragraph. The paragraph names the 30-minute limit,
+   quotes the worker's summary inside the untrusted markers, and counts the
+   other tool. After a reload the paragraph is the last assistant message in
+   the transcript, and a freshly built manager sends it to the model on the
+   next turn.
+3. A turn that runs out of tool calls names that limit instead of the clock.
 4. `wrangler.toml` declares `[limits] cpu_ms` at the paid-plan maximum.
