@@ -1,0 +1,35 @@
+{
+  "about": [
+    "How long one conversation turn may run, in seconds ([[BUG-168]]). The",
+    "project half of a setting the framework ships a default for: `promptStream`",
+    "takes `timeout` per call and falls back to 600 when none is passed. This",
+    "project passed none, so every turn ran at a number nobody here chose, just",
+    "as `backends.json` records the model and ceiling once did.",
+    "",
+    "WHY 600 STOPPED BEING HARMLESS. It was sized for a turn where the caller does",
+    "its own reading and writing. Since delegation ([[REQ-295]]) a worker's whole",
+    "run happens inside ONE of the caller's tool calls, so the worker spends the",
+    "caller's clock. On 2026-09-29, three of five consultant turns died at 600 s,",
+    "and every one of those three had delegated. Observed worker runs take",
+    "minutes, and a turn may delegate more than once.",
+    "",
+    "WHY 1800, AND WHY THE PLATFORM CAN HOLD IT. The turn is driven inside the",
+    "route's streaming response; the junction Durable Object only takes short",
+    "append calls. Workers put no wall-clock limit on an invocation while its",
+    "client stays connected, so the clock is not what binds. CPU time is. Waiting",
+    "on the provider costs none, but every write re-validates the definition",
+    "(~80 ms, measured in BUG-6612c4b7), so a write-heavy half hour can pass the",
+    "paid plan's 30 s default. `wrangler.toml` raises `cpu_ms` to the plan maximum",
+    "for that reason, and it is billed only when used. Two things still end a turn",
+    "early, and both are already accounted for: the client disconnecting aborts",
+    "the turn by design, and an eviction on deploy leaves an open ledger row",
+    "([[REQ-306]]) and a pending prompt ([[BUG-121]]).",
+    "",
+    "A CEILING CAN STILL BE REACHED, so reaching it is narrated rather than",
+    "silent: see `turn-clock-core.ts`. Raising this number treats the symptom.",
+    "The structural fix is a delegation the caller does not wait inside, and",
+    "that change belongs upstream."
+  ],
+
+  "turn_timeout_seconds": 1800
+}

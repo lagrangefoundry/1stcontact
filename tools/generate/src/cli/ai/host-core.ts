@@ -127,6 +127,7 @@ import {
   lastOccupancy,
   overBudget,
 } from './budget-core'
+import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -1731,15 +1732,19 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     () =>
       guardTurn(
         lib,
-        new lib.ClaudeAPIBackend({
-          ...(modelClient ? { client: modelClient } : {}),
-          // A Worker has no `process.env`; the key arrives from a `wrangler
-          // secret` and is passed in. Spread conditionally so Node keeps reading
-          // the environment and an absent key still fails at FIRST USE with the
-          // library's own message rather than at construction.
-          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-          tools: toolSet(lib, box),
-        }),
+        // [[BUG-168]] — a turn that runs out of budget says what it did. Inside
+        // the guard, so the guard's own stop is not mistaken for one.
+        narrateExhaustion(
+          new lib.ClaudeAPIBackend({
+            ...(modelClient ? { client: modelClient } : {}),
+            // A Worker has no `process.env`; the key arrives from a `wrangler
+            // secret` and is passed in. Spread conditionally so Node keeps reading
+            // the environment and an absent key still fails at FIRST USE with the
+            // library's own message rather than at construction.
+            ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+            tools: toolSet(lib, box),
+          }),
+        ),
       ),
   )
 
@@ -2057,11 +2062,14 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
     () =>
       guardTurn(
         lib,
-        new lib.ClaudeAPIBackend({
-          ...(modelClient ? { client: modelClient } : {}),
-          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-          tools: toolSet(lib, box),
-        }),
+        // [[BUG-168]] — narrated like the consultant's, for the same reason.
+        narrateExhaustion(
+          new lib.ClaudeAPIBackend({
+            ...(modelClient ? { client: modelClient } : {}),
+            ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+            tools: toolSet(lib, box),
+          }),
+        ),
       ),
   )
 
@@ -2818,7 +2826,11 @@ export async function* streamPrompt(
         for (const event of budgetRefusal(deps, full)) yield event
         return
       }
-      for await (const event of settingsManager.promptStream(sessionId, text)) {
+      // [[BUG-168]] — this project's clock, not the framework's 600 s default.
+      // One clock for every turn this host drives, so there is one number to reason about.
+      for await (const event of settingsManager.promptStream(sessionId, text, {
+        timeout: TURN_TIMEOUT_SECONDS,
+      })) {
         if (event.kind === DONE) {
           outcome = turnOutcome(event.meta)
           // WHAT IT COST RIDES THE SAME EVENT ([[REQ-292]]). Held rather than
@@ -2961,7 +2973,13 @@ export async function* streamPrompt(
       for (const event of budgetRefusal(deps, full)) yield event
       return
     }
-    for await (const event of manager.promptStream(sessionId, text)) {
+    // [[BUG-168]] — THIS PROJECT'S CLOCK, NOT THE FRAMEWORK'S DEFAULT. Passing
+    // nothing ran every turn at 600 s, and a delegating turn spends its worker's
+    // whole run inside one tool call. `turn-clock.json` gives the value and why
+    // the platform can hold it.
+    for await (const event of manager.promptStream(sessionId, text, {
+      timeout: TURN_TIMEOUT_SECONDS,
+    })) {
       // WHAT BECAME OF THE TURN, taken off the library's terminal event
       // ([[BUG-121]]). Seeing no terminal event at all is itself the answer —
       // `outcome` starts at `aborted` — because the consumer walking away is

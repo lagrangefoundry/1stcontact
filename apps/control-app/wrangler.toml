@@ -42,6 +42,22 @@ workers_dev = false
 enabled = true
 head_sampling_rate = 1
 
+# CPU time per invocation, raised to the paid plan's maximum ([[BUG-168]]).
+#
+# A conversation turn may now run for 30 minutes (`turn-clock.json`). Workers
+# put no wall-clock limit on an invocation whose client is still connected, so
+# wall-clock time is not what binds. CPU time is, and the default is 30 s.
+# Waiting on the model costs no CPU, but every site write re-validates the
+# definition (~80 ms, BUG-6612c4b7), so a long, write-heavy delegating turn can
+# pass 30 s. A turn killed there dies with no `finally`: no close frame, no
+# meter, only an open ledger row. CPU is billed as used, so a higher cap costs
+# nothing until a turn needs it.
+#
+# Inheritable like `observability`, and restated under each environment below
+# for the same reason: nothing here depends on remembering which keys inherit.
+[limits]
+cpu_ms = 300000
+
 # The builder's browser assets (REQ-145), built by `1c assets`.
 #
 # THE HANG IS GONE. This binding was refused before because an [assets] binding
@@ -458,6 +474,10 @@ routes = [
 enabled = true
 head_sampling_rate = 1
 
+# See the top-level block ([[BUG-168]]).
+[env.production.limits]
+cpu_ms = 300000
+
 # No ACCESS_DEV_OPEN here, and that absence is the security control (REQ-145).
 # A named environment inherits no vars, so the top-level declaration cannot reach
 # production; restating it here would open the deployed builder to anyone the
@@ -593,6 +613,10 @@ workers_dev = false
 [env.dev.observability]
 enabled = true
 head_sampling_rate = 1
+
+# See the top-level block ([[BUG-168]]).
+[env.dev.limits]
+cpu_ms = 300000
 
 # THE SAME VARS THE TOP-LEVEL BLOCK DECLARES, because that is what the old
 # `wrangler dev` path reads and this environment replaces it rather than
