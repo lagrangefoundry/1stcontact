@@ -15,6 +15,7 @@ fields:
   needs_review: false
   priority: medium
   epic_parent: epic-0923bb64
+  chat_comment: comment-83b2466d
 ---
 
 ## What this is
