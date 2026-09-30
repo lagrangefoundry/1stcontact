@@ -45,12 +45,15 @@ import {
   type L1Node,
   type L1ScalarTrack,
   type L1Text,
+  type L1ViewportResponse,
 } from '@1stcontact/site-schema'
 import {
   classifyElement,
+  hasTextSubstance,
   holdAcrossReflowWindows,
   isBackingSurfaceId,
   isSynthesizedSurfaceId,
+  responseAt,
   surfaceBorderInset,
   type FoldableElement,
 } from './fold'
@@ -222,7 +225,7 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 /**
- * BUG-143 — apply a node's viewport-height response to a box resolved from the
+ * BUG-143 — apply a keyframe's viewport-height response to a box resolved from the
  * width ladder, mirroring the CSS the renderer emits exactly:
  *
  *   top:    y      + yFactor      * (100vh - atHeight)
@@ -241,12 +244,11 @@ function lerp(a: number, b: number, t: number): number {
  */
 function respondToHeight(
   box: EvalBox,
-  geo: L1Geometry,
+  r: L1ViewportResponse | undefined,
   atHeight: number | undefined,
   vh: number | undefined,
 ): EvalBox {
   if (vh === undefined || atHeight === undefined) return box
-  const r = geo.viewportResponse
   if (!r) return box
   const delta = vh - atHeight
   return {
@@ -270,7 +272,7 @@ function evalGeometry(geo: L1Geometry, width: number, vh?: number): EvalBox {
   if (width <= f[0].at) {
     return respondToHeight(
       { x: f[0].x, y: f[0].y, width: f[0].width, height: f[0].height ?? 0 },
-      geo,
+      f[0].viewportResponse,
       f[0].atHeight,
       vh,
     )
@@ -290,7 +292,7 @@ function evalGeometry(geo: L1Geometry, width: number, vh?: number): EvalBox {
       if (seg === 'snap') {
         return respondToHeight(
           { x: a.x, y: a.y, width: a.width, height: a.height ?? 0 },
-          geo,
+          a.viewportResponse,
           a.atHeight,
           vh,
         )
@@ -313,7 +315,9 @@ function evalGeometry(geo: L1Geometry, width: number, vh?: number): EvalBox {
           width: lerp(a.width, b.width, t),
           height: height ?? 0,
         },
-        geo,
+        // REQ-351 (issue 4) — the LOWER keyframe's response governs its segment,
+        // mirroring the renderer's `min-width` rule for the same span.
+        a.viewportResponse,
         atHeight,
         vh,
       )
@@ -323,7 +327,7 @@ function evalGeometry(geo: L1Geometry, width: number, vh?: number): EvalBox {
   const last = f[f.length - 1]
   return respondToHeight(
     { x: last.x, y: last.y, width: last.width, height: last.height ?? 0 },
-    geo,
+    last.viewportResponse,
     last.atHeight,
     vh,
   )
@@ -1580,7 +1584,7 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
       if (!el.box) continue
       const kind = classifyElement(el)
       if (kind === 'text') {
-        if (!el.text || el.text.trim() === '') continue
+        if (!hasTextSubstance(el.text)) continue
         const flow = rejoined.get(el)
         if (flow) {
           if (flowLead(flow) !== el || !flow.box) continue
@@ -2446,6 +2450,14 @@ function toFlowPlacement(
   const hasHeight = keepHeight && geo.keyframes[0].height !== undefined
   const keyframes = leads.map((lead) => {
     const atHeight = atHeightAt(geo, lead.at)
+    // A height response still applies to a height the node keeps; a `y` response
+    // does not, because `y` is no longer a position (the validator refuses the
+    // pair). REQ-351 (issue 4) — read at this width, since the re-sampled track
+    // may land on widths the original keyframes did not.
+    const heightFactor =
+      hasHeight && atHeight !== undefined
+        ? responseAt(geo, lead.at)?.heightFactor
+        : undefined
     return {
       at: lead.at,
       x: round(lead.x),
@@ -2453,11 +2465,9 @@ function toFlowPlacement(
       width: round(lead.width),
       ...(hasHeight ? { height: round(evalGeometry(geo, lead.at).height) } : {}),
       ...(atHeight !== undefined ? { atHeight } : {}),
+      ...(heightFactor !== undefined ? { viewportResponse: { heightFactor } } : {}),
     }
   })
-  // A height response still applies to a height the node keeps; a `y` response
-  // does not, because `y` is no longer a position (the validator refuses the pair).
-  const heightFactor = hasHeight ? geo.viewportResponse?.heightFactor : undefined
   // The track is re-sampled onto the document's whole ladder (a leading offset is
   // a fact about a specific width and cannot be interpolated from a coarser
   // track), so its per-segment interpolate/snap flags are re-derived from
@@ -2472,7 +2482,6 @@ function toFlowPlacement(
     geometry: {
       keyframes,
       ...(segments.length > 0 ? { segments } : {}),
-      ...(heightFactor !== undefined ? { viewportResponse: { heightFactor } } : {}),
       place: 'flow' as const,
     },
   }
@@ -2567,7 +2576,11 @@ function round(n: number): number {
  */
 function heightBelongsToContent(node: L1Node): boolean {
   if (node.kind === 'text') return true
-  if (geometryOf(node)?.viewportResponse?.heightFactor !== undefined) return false
+  // REQ-351 (issue 4) — at ANY width. A node whose height is a viewport function
+  // at even one width has a height that was never its content's there, and giving
+  // the whole node's height back to its content would collapse it at that width.
+  const kfs = geometryOf(node)?.keyframes ?? []
+  if (kfs.some((kf) => kf.viewportResponse?.heightFactor !== undefined)) return false
   // BUG-142 — and only where there IS content to take it from. A node whose
   // children are every one of them out of flow has an interior the browser
   // measures as empty, so handing it its height collapses it to nothing — which

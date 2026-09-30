@@ -108,6 +108,20 @@ const frames = (fs: Frame[]): Array<Frame & { atHeight: number }> =>
   fs.map((f) => ({ ...f, atHeight: CAPTURED_HEIGHT }))
 
 /**
+ * Put a height response on EVERY keyframe of a track.
+ *
+ * REQ-351 (issue 4) moved `viewportResponse` off the geometry and onto the
+ * keyframe, beside the `atHeight` it is measured from — a node-level pair made a
+ * measurement taken at ONE width an assertion about every width. These fixtures
+ * state a rule that holds across the whole ladder, so stating it on each keyframe
+ * says exactly what the node-level field used to mean, and nothing new.
+ */
+const withResponse = <K extends { at: number }>(
+  kfs: K[],
+  response?: { yFactor?: number; heightFactor?: number },
+): K[] => (response ? kfs.map((kf) => ({ ...kf, viewportResponse: response })) : kfs)
+
+/**
  * A page of one full-bleed band with two runs painted on it.
  *
  * `bandSegments` / `runYs` are what each case bends: the defect is a surface whose
@@ -133,9 +147,8 @@ function bandPage(opts: {
     id: bandId,
     axes: { surfaceFill: BAND },
     geometry: {
-      keyframes: frames(opts.band),
+      keyframes: withResponse(frames(opts.band), opts.bandResponse),
       ...(opts.bandSegments ? { segments: opts.bandSegments } : {}),
-      ...(opts.bandResponse ? { viewportResponse: opts.bandResponse } : {}),
     },
   }
   const runs: L1Node[] = opts.runs.map((r) => ({
@@ -144,11 +157,13 @@ function bandPage(opts: {
     axes: { color: '#111111', fontSizePx: 18 },
     ...(opts.declare === false ? {} : { backedBy: bandId }),
     geometry: {
-      keyframes: r.naturalHeight
-        ? frames(r.boxes).map(({ height: _h, ...kf }) => kf)
-        : frames(r.boxes),
+      keyframes: withResponse(
+        r.naturalHeight
+          ? frames(r.boxes).map(({ height: _h, ...kf }) => kf)
+          : frames(r.boxes),
+        r.response,
+      ),
       ...(r.segments ? { segments: r.segments } : {}),
-      ...(r.response ? { viewportResponse: r.response } : {}),
     },
   }))
   return { widths: WIDTHS, background: BAND, root: { kind: 'box', children: [band, ...runs] } }

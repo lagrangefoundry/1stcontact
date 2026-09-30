@@ -14,6 +14,7 @@ export {
 export {
   foldToL1,
   classifyElement,
+  hasTextSubstance,
   isBackingSurfaceId,
   isSynthesizedSurfaceId,
   CAPTURED_BACKDROP_ID_PREFIX,

@@ -1180,8 +1180,35 @@ export const RESPONSIVE_VIEWPORTS: readonly Viewport[] = [
  * the keyframes, the screenshots and the diff cells, and a duplicate width would
  * perturb all three. A probe adds one projection and nothing else — the fold
  * reads it as evidence, {@link restingByWidth} skips it as a keyframe.
+ *
+ * REQ-351 (issue 3) — one probe per ladder width, DERIVED from the ladder so the
+ * two cannot drift.
+ *
+ * There used to be exactly one, at 1280, and the response measured there was
+ * asserted at every width — on the reasoning that the CSS rule producing it
+ * (`min-h-screen`) is not itself width-varying. That reasoning is false on any
+ * page with a height rule inside a media query, which is the common case:
+ * joyfulculinarycreations.com's hero is `100vh` at 1024 and above and a content
+ * height below, so `heightFactor: 1` measured at 1280 and replayed at 768 gave
+ * `calc(305.5px + (100vh - 1024px))` = **49.5px** at 768x768 — a band shorter than
+ * one line of its own copy, and 36 of that round's 259 `escape` findings.
+ *
+ * With the response now carried PER KEYFRAME (`l1KeyframeSchema.viewportResponse`),
+ * a width nothing probed asserts nothing and the node stays pinned there — honest,
+ * but silent. So the number of probed widths is exactly the number of widths at
+ * which the height axis is measured at all, and leaving four of six unprobed makes
+ * the whole ladder a one-point extrapolation. The cost is one extra projection per
+ * width on a capture the operator takes once.
+ *
+ * `+200px` at each width: far enough that a pixel of layout noise is 0.005 of the
+ * ratio (inside `snapFactor`'s tolerance), and different from the ladder height at
+ * that width by construction, which is what {@link heightProbesFor} requires to
+ * read the pair as a probe at all.
  */
-export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = [{ width: 1280, height: 1000 }]
+export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = RESPONSIVE_VIEWPORTS.map((v) => ({
+  width: v.width,
+  height: v.height + 200,
+}))
 
 /**
  * REQ-88 — split a capture's projections into the **width ladder** and the

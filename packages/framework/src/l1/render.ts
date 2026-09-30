@@ -2931,8 +2931,18 @@ function geometryRules(
   const anchor = column ? geo.anchor : undefined
   const anchoredX = Boolean(anchor?.x)
   const anchoredWidth = Boolean(anchor?.width)
-  const yF = geo.viewportResponse?.yFactor ?? 0
-  const hF = geo.viewportResponse?.heightFactor ?? 0
+  // REQ-351 (issue 4) — the response is read PER KEYFRAME, because that is where
+  // the capture measured it. A node whose height tracks the viewport at 1024 and
+  // above and is fixed below now says exactly that; one pair of node-level scalars
+  // could only say one of the two, and saying the wrong one at 768 turned a 305.5px
+  // band into 49.5px.
+  //
+  // Across an interpolated segment the LOWER keyframe's response governs, for the
+  // same reason its `atHeight` does: the segment's rules are the ones that took
+  // effect at `a.at`, and the response only becomes measurable at a width a probe
+  // visited. A segment whose lower keyframe was never probed asserts nothing.
+  const yFat = (kf: L1Geometry['keyframes'][number]): number => kf.viewportResponse?.yFactor ?? 0
+  const hFat = (kf: L1Geometry['keyframes'][number]): number => kf.viewportResponse?.heightFactor ?? 0
 
   /**
    * REQ-117 — the captured width of a run that cannot wrap is a FLOOR, not a cap.
@@ -2986,11 +2996,11 @@ function geometryRules(
   /** Held (non-interpolated) declarations for one keyframe. */
   const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
     const h = kf.atHeight
-    const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yF, h) : `${kf.y}px`}`]
+    const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yFat(kf), h) : `${kf.y}px`}`]
     if (!anchoredX) d.push(`left: ${kf.x}px`)
     if (!anchoredWidth) d.push(...widthDecls(kf.at, `${kf.width}px`))
     if (kf.height !== undefined) {
-      d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
+      d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hFat(kf), h) : `${kf.height}px`}`)
     }
     return d
   }
@@ -3023,7 +3033,7 @@ function geometryRules(
       d.push(...widthDecls(kf.at, `${kf.width}px`))
       if (kf.height !== undefined) {
         const h = kf.atHeight
-        d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hF, h) : `${kf.height}px`}`)
+        d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hFat(kf), h) : `${kf.height}px`}`)
       }
       return d
     }
@@ -3047,6 +3057,7 @@ function geometryRules(
             ? lerpCalc(a.atHeight, a.at, b.atHeight, b.at)
             : undefined
         const base = lerpCalc(a.height, a.at, b.height, b.at)
+        const hF = hFat(a)
         d.push(
           `height: ${
             hF === 0 || atH === undefined
@@ -3095,11 +3106,11 @@ function geometryRules(
         const shift = factor === 1 ? `(100vh - ${atH})` : `${num(factor)} * (100vh - ${atH})`
         return `calc(${base} + ${shift})`
       }
-      const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yF)}`]
+      const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yFat(a))}`]
       if (!anchoredX) d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`)
       if (!anchoredWidth) d.push(...widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at)))
       if (a.height !== undefined && b.height !== undefined) {
-        d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hF)}`)
+        d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hFat(a))}`)
       }
       rules.push({ media: `(min-width: ${a.at}px)`, selector, decls: d })
     }

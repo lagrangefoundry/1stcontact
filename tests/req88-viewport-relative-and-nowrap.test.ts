@@ -338,19 +338,45 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     const doc = foldToL1(heroPage(true))
     const hero = allNodes(doc).find((n) => n.id === 'section-band-0')!
     const geo = hero.geometry as {
-      keyframes: Array<{ at: number; height?: number; atHeight?: number }>
-      viewportResponse?: { yFactor?: number; heightFactor?: number }
+      keyframes: Array<{
+        at: number
+        height?: number
+        atHeight?: number
+        viewportResponse?: { yFactor?: number; heightFactor?: number }
+      }>
     }
-    // The hero grows with the viewport, one-for-one, and does not move.
-    expect(geo.viewportResponse?.heightFactor).toBe(1)
-    expect(geo.viewportResponse?.yFactor).toBeUndefined()
+    // The hero grows with the viewport, one-for-one, and does not move — stated
+    // AT 1280, the only width this fixture probes. REQ-351 (issue 3/4) moved the
+    // response onto the keyframe precisely so a measurement taken at one width
+    // stops being an assertion about the other five.
+    const at1280 = geo.keyframes.find((kf) => kf.at === 1280)!
+    expect(at1280.viewportResponse?.heightFactor).toBe(1)
+    expect(at1280.viewportResponse?.yFactor).toBeUndefined()
+    for (const kf of geo.keyframes) {
+      if (kf.at !== 1280) expect(kf.viewportResponse).toBeUndefined()
+    }
     // Every keyframe records the height it was measured at, so the response has
     // an origin and still evaluates to the captured pixels at capture size.
     for (const kf of geo.keyframes) expect(kf.atHeight).toBe(LADDER_H[kf.at])
 
     const { css } = renderL1Document(doc)
-    // `base + 1 * (100vh - base)` where base IS the capture height → plain 100vh.
-    expect(css).toMatch(/height: calc\(800px \+ \(100vh - 800px\)\)/)
+    // `base + 1 * (100vh - base)` where base IS the capture height → plain 100vh,
+    // and REQ-351 (issue 3) — ONLY over the span the probe measured. The rule is
+    // emitted for the segment the 1280 keyframe governs and nowhere else: the four
+    // narrower widths and the 1440 keyframe stay pinned at what the capture saw,
+    // because nothing measured a height rule there.
+    const heroClass = renderL1Document(doc).html.match(
+      new RegExp(`class="([^"]+)" id="${hero.id}"`),
+    )![1].split(' ')[0]
+    const heroRules = css
+      .split('\n')
+      .filter((l) => l.includes(`.${heroClass} {`) && l.includes('height:'))
+    const responsive = heroRules.filter((l) => l.includes('100vh'))
+    expect(responsive, 'exactly one height rule answers the viewport').toHaveLength(1)
+    // `base + (100vh - base)`: the same interpolated base on both sides, so the
+    // height is exactly the captured one at the captured viewport height.
+    const base = '(800px + (100 * (100vw - 1280px) / 160))'
+    expect(responsive[0]).toContain(`height: calc(calc${base} + (100vh - calc${base}))`)
   })
 
   it('test_UAT_FC_REQ-88_content_below_a_viewport_hero_is_pushed_down_with_it', () => {
@@ -359,11 +385,14 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     // a taller one would overlap the section below.
     const doc = foldToL1(heroPage(true))
     const below = textNode(doc, 'Below the fold')
-    const geo = below.geometry as { viewportResponse?: { yFactor?: number } }
-    expect(geo.viewportResponse?.yFactor).toBe(1)
-    // The hero title sits above the fold and must NOT move.
+    const geo = below.geometry as {
+      keyframes: Array<{ at: number; viewportResponse?: { yFactor?: number } }>
+    }
+    expect(geo.keyframes.find((kf) => kf.at === 1280)?.viewportResponse?.yFactor).toBe(1)
+    // The hero title sits above the fold and must NOT move — at any width.
     const title = textNode(doc, 'Hero title')
-    expect((title.geometry as { viewportResponse?: unknown }).viewportResponse).toBeUndefined()
+    const titleGeo = title.geometry as { keyframes: Array<{ viewportResponse?: unknown }> }
+    for (const kf of titleGeo.keyframes) expect(kf.viewportResponse).toBeUndefined()
   })
 
   it('test_UAT_FC_REQ-88_without_a_height_probe_no_height_response_is_invented', () => {
@@ -372,7 +401,8 @@ describe('REQ-88 round 6 — accent bearers, unbreakable runs, and the viewport 
     // from a correlation — this is what the probe viewport exists to change.
     const doc = foldToL1(heroPage(false))
     for (const n of allNodes(doc)) {
-      expect((n.geometry as { viewportResponse?: unknown } | undefined)?.viewportResponse).toBeUndefined()
+      const kfs = (n.geometry as { keyframes?: Array<{ viewportResponse?: unknown }> } | undefined)?.keyframes
+      for (const kf of kfs ?? []) expect(kf.viewportResponse).toBeUndefined()
     }
   })
 

@@ -126,8 +126,24 @@ import type { Capture } from './types'
  *   gigabytealchemy.ai, `top (0.22)` where it reads `center (0.55)` on
  *   joyfulculinarycreations.com — and the comparator declines to compare it
  *   rather than reporting a phantom content shift.
+ * - **11** — REQ-351: one axis the bundle's primary record dropped, and one it
+ *   under-sampled.
+ *   (a) `bodyBackground` — `<body>`'s own painted background, which is what shows
+ *   through wherever no band paints. The extractor has computed it since BUG-27
+ *   and wrote it into `multistate.json` alone; `capture.json` carried no such key
+ *   at all, so every reader holding the primary record had to INFER the canvas —
+ *   the fold from the tallest band, the comparator from the largest-area section.
+ *   On joyfulculinarycreations.com both inferences returned `#7a7a7a` where all
+ *   seven projections measured `#ffffff`, and an inference both sides make the
+ *   same wrong way agrees with itself: 22.34% of that page's pixel disagreement at
+ *   zero value deltas.
+ *   (b) A height probe at EVERY ladder width, not only at 1280. One probe made the
+ *   viewport-height response a single-point measurement asserted across the whole
+ *   ladder; a page whose height rule sits inside a media query (the common case)
+ *   was reproduced with that one width's rule everywhere. A pre-11 bundle can only
+ *   ever identify the height axis at 1280.
  */
-export const CAPTURE_SCHEMA = 10
+export const CAPTURE_SCHEMA = 11
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -422,6 +438,27 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // overlapping band, no coalesced section) shows no disagreement, which proves
     // nothing — so this probe only ever REMOVES the axis from a finding.
     present: (c) => !c.sections.some((s) => anchorDisagrees(c, s)),
+  },
+  {
+    since: 11,
+    axis: 'bodyBackground',
+    where: "the bundle's primary record (`capture.json` top level)",
+    // Presence is "the key exists". A page that paints nothing on <body> records
+    // no canvas however new its extractor is — the same asymmetry `href` has, and
+    // the reason the version gate comes first.
+    present: (c) => typeof (c as unknown as { bodyBackground?: unknown }).bodyBackground === 'string',
+  },
+  {
+    since: 11,
+    axis: 'a viewport-height probe at every ladder width',
+    where: 'the projection set (`multistate.json`)',
+    // Constant `false`, and deliberately: the probes live in `multistate.json` and
+    // nothing in `capture.json` can see them, so this axis has no evidence here to
+    // refute the stamp with. That is within the contract stated above — a probe
+    // may only ever REMOVE an axis from the finding, and one that can never remove
+    // simply always names itself on a bundle the version gate has already found
+    // behind. A pre-11 bundle definitionally carries one probe, at 1280.
+    present: () => false,
   },
   {
     since: 2,

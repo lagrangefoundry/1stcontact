@@ -311,12 +311,24 @@ describe('REQ-338 issue 3 — a scrim is looked for at every sampled width', () 
 })
 
 describe('REQ-338 issue 4 — a section background answers a taller viewport', () => {
+  // REQ-351 (issue 4) — the response is read PER KEYFRAME, because that is where
+  // the capture measured it and where L1 now carries it. This fixture probes the
+  // height at EVERY ladder width, so every keyframe states the rule — which is
+  // the same claim REQ-338 made, now said once per width that measured it rather
+  // than once for a node whose widths were never asked individually.
+  const responses = (f: (typeof folded)[number]): Array<Record<string, number>> =>
+    (f.node.geometry?.keyframes ?? []).map((kf) => (kf.viewportResponse ?? {}) as Record<string, number>)
+
   it('test_UAT_FC_REQ-338_a_full_height_section_box_grows_with_the_viewport', () => {
     const hero = byId('section-bg-0')!
-    expect(
-      hero.node.geometry?.viewportResponse,
-      'the 100vh hero box grows a pixel of height per pixel of viewport height',
-    ).toMatchObject({ heightFactor: 1 })
+    const rs = responses(hero)
+    expect(rs.length, 'the hero has a keyframe per ladder width').toBe(WIDTHS.length)
+    for (const r of rs) {
+      expect(
+        r,
+        'the 100vh hero box grows a pixel of height per pixel of viewport height',
+      ).toMatchObject({ heightFactor: 1 })
+    }
   })
 
   it('test_UAT_FC_REQ-338_a_section_box_below_a_full_height_one_travels_with_it', () => {
@@ -324,10 +336,14 @@ describe('REQ-338 issue 4 — a section background answers a taller viewport', (
       (f) => (f.node.id ?? '').startsWith('section-bg-') && f.node.id !== 'section-bg-0',
     )
     expect(below, 'the testimonial section folds to a box of its own').toBeTruthy()
-    expect(
-      below!.node.geometry?.viewportResponse,
-      'a band under a 100vh hero moves down with it',
-    ).toMatchObject({ yFactor: 1 })
+    // No width count here: this section is not present at every rung, and REQ-351's
+    // point is that a keyframe speaks only for its own width. Every keyframe the
+    // box HAS states the rule, which is the whole claim.
+    const rs = responses(below!)
+    expect(rs.length, 'the box has keyframes to state a rule on').toBeGreaterThan(0)
+    for (const r of rs) {
+      expect(r, 'a band under a 100vh hero moves down with it').toMatchObject({ yFactor: 1 })
+    }
   })
 
   it('test_UAT_FC_REQ-338_every_section_box_keyframe_states_the_height_it_was_measured_at', () => {

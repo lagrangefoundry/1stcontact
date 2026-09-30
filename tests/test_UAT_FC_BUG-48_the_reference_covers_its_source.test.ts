@@ -203,6 +203,8 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
           },
         } as Partial<L1Document>),
       ),
+      // REQ-351 — the response is a KEYFRAME field now, so the refusal that
+      // demonstrates this rule states it where the document can state it.
       flowPlacementHasNoYResponse: refusals(
         page({
           root: {
@@ -210,8 +212,22 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
             text: 'x',
             geometry: {
               place: 'flow',
-              keyframes: [{ at: 360, x: 0, y: 0, width: 10 }],
-              viewportResponse: { yFactor: 1 },
+              keyframes: [
+                { at: 360, x: 0, y: 0, width: 10, atHeight: 800, viewportResponse: { yFactor: 1 } },
+              ],
+            },
+          },
+        } as Partial<L1Document>),
+      ),
+      // REQ-351 — a keyframe that states a response and no `atHeight` to measure
+      // it from would be applied against an assumed 0.
+      responseNeedsAtHeight: refusals(
+        page({
+          root: {
+            kind: 'text',
+            text: 'x',
+            geometry: {
+              keyframes: [{ at: 360, x: 0, y: 0, width: 10, viewportResponse: { heightFactor: 1 } }],
             },
           },
         } as Partial<L1Document>),
