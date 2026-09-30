@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T20:34:01.993632+00:00'
+updated_at: '2026-09-30T20:35:49.619258+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3121,5 +3121,79 @@ EPIC-20 now links REQ-354 and REQ-355 and has a dated status section.
 <!-- xgd-chat role="user" ts="2026-09-30T20:34:01.907053+00:00" -->
 #### You
 ok lets talk about flat vs grouped. I am embarassed to say that I have not looked at any L1 - can you point me to a page please?
+
+<!-- xgd-turn id="284b6e5a-4146-4792-bd9f-78f476f46bf1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:35:49.484239+00:00" -->
+#### Claude
+That's the reproduction of gigabytealchemy.ai before anyone edited it. Checking it has the same flat shape, and pulling a short example.
+
+Interesting — this capture is *not* flat (11 children, 3 levels). Let me look at its shape, and find the live stored page I measured before.
+
+Big finding: the **capture is grouped** — sections and cards, exactly the structure REQ-350 says is missing. So the flatness came in later. Finding the live stored page to compare.
+
+The live page is in D1 `site_pages`. Measuring it and checking whether earlier revisions were still grouped.
+
+Live page confirmed flat: 69 children at 1 level, 72 KB. Now: where did the grouping go? Checking the site's change history and the other capture.
+
+The very first edit already addresses element `0.68`, so the page was flat from the moment the site was created. The flattening is in the import step. Finding it.
+
+The live page still has the sections, but as **empty background boxes** (`section-band-0`…) with all the text painted on top as siblings. One quick look for which step emits that shape.
+
+I have what you need. One small excerpt so you can see what an element looks like.
+
+Here are two versions of the same page, and comparing them changes what REQ-350 should say.
+
+## Where to look
+
+**The page the consultant actually edits (flat).** I exported the live Gigabyte Alchemy home page from the dev database to:
+`.xgd/tmp/epic20/ga-home-live.json`
+The page design is under the `l1` key. It's 72 KB, and the root has 69 children with nothing nested inside any of them.
+
+**The same site as it was captured (grouped):**
+`storage/references/gigabytealchemy.ai/index/l1.json`
+This has 11 sections at the top, each containing its own headings, text and cards, three levels deep:
+
+```
+box (root)
+  container section-bg-0      ← hero
+    text "Gigabyte Alchemy"
+    text "Intentional Software"
+    ...
+  container section-band-2    ← "Our Mission"
+    text "Our Mission"
+    container card-0
+      text "Presence"
+      text "Technology that creates inner space…"
+```
+
+Screenshots of the original site are next to the capture's sister copy, e.g. `.xgd/tmp/ga/index/screenshot-1280.png`.
+
+## What one element looks like
+
+This is a line of text from the live page, trimmed:
+
+```json
+{"kind":"text","text":"Tools for clarity, presence, and positive connection",
+ "geometry":{"keyframes":[
+   {"at":320,  "x":24,  "y":380, "width":272},
+   {"at":768,  "x":24,  "y":384, "width":720},
+   {"at":1280, "x":88,  "y":384, "width":896},
+   {"at":1440, "x":168, "y":384, "width":896}]}}
+```
+
+Styling (colour, font, size, weight, spacing) sits in a separate `axes` block. The key point is `geometry`. The element has a position and width pinned to the page itself at each screen width, and the page fills in between those widths. Nothing about its position relates to any other element.
+
+## What I got wrong in REQ-350
+
+REQ-350 says reproduced pages contain no structure. **The capture does group the page.** It puts the headings, text and cards inside their sections.
+
+On the live page, the sections still exist, but only as **empty background boxes** (`section-band-0` … `section-band-5`). All the text is painted on top of them as siblings. The first edit ever made to this site already referred to element `0.68`, so the page was flat from the moment the site was created. Nothing in the editing flattened it.
+
+So the grouping is lost somewhere between the capture and the site. I haven't yet found which step does it: the capture code rebuilds sections and cards, and the stored page doesn't have them.
+
+**That changes the fix.** It may not need a new grouping operation or a design decision about what counts as a section. The page may just need to keep the structure the capture already found. The "group these elements" operation would still matter for pages that are already flat, like this one, but it becomes the secondary fix.
+
+Want me to trace which step drops the grouping and rewrite REQ-350 around that? It's still a draft, so its body can be corrected.
 
 <!-- xgd-chat-end -->
