@@ -6,10 +6,10 @@ title: 'Corpus document needed: tips for briefing delegated builder sessions (se
   + first four observed runs)'
 created_by: xgd
 created_at: '2026-09-29T04:28:04.918266+00:00'
-updated_at: '2026-09-30T20:04:09.500853+00:00'
+updated_at: '2026-09-30T20:32:04.705997+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: legacy_done
 fields:
   auto_merge_back: true
   needs_review: false
