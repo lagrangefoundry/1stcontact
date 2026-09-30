@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-30T02:37:15.030872+00:00'
+updated_at: '2026-09-30T02:43:23.326629+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3249,5 +3249,70 @@ And on the immediate question that started this: stop the gigabytealchemy turns.
 One aspect that I am noticing on the site duplication, and this is the only thing on these two sites that I have difficulty with. Is that for both faelan.com and gigabyte alchemy the original site scales cleanly at arbitrary browser width. The reproductions top out at a certain width this is really about the background image that does not continue to stretch under a certain point. At that point the image stops growing and the background falls into place but this can be weird because other items on the page can still extend beyond where the background has stopped growing.
 
 I assume this is due to our comparison at fixed widths but it feels like an easy generalization? Or check? If the original does not scale beyond a particular width I'm not sure that the reproduction should, but when the reproduction scales are naturally wide it feels like the reproduction should follow suit. Thoughts?
+
+<!-- xgd-turn id="9abf053c-8f7c-46c0-9389-483189214d66-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T02:43:22.905465+00:00" -->
+#### Claude
+I'll check what the engine actually does above the widest captured rung rather than assume.
+
+Checked this against the served CSS and both documents rather than reasoning about it. **Your diagnosis is right, the generalization is easier than you think, and the reason no round has ever mentioned it is that the probe is switched off there by construction.**
+
+## The cause isn't the fixed-width comparison — it's an explicit renderer rule
+
+`render.ts:3118`:
+
+```
+// Final keyframe held statically above the last breakpoint.
+```
+
+Above the top rung (1440) every keyframed box freezes at its 1440 value. Counted in the served CSS for gigabytealchemy:
+
+| block | `100vw` terms | literal px decls |
+|---|---|---|
+| `@media (min-width: 1280px)` | 240 | 0 |
+| `@media (min-width: 1440px)` | 3 | **215** |
+
+So the page is fully fluid right up to 1440 and then flips to frozen literals.
+
+## Why other items still extend past it
+
+Three mechanisms keep tracking the viewport above the last rung while keyframed geometry freezes: column anchoring (`left: calc(max(0px, (100vw - 896px)/2) + 24px + …)`), relaxed flow widths (`width: fit-content` — 205 of them on gigabytealchemy), and the height response (`calc(900px + (100vh - 900px))`, which is why this is a width-only symptom now).
+
+Faelan is the cleanest illustration. The hero band `.l1-1` is `width: 1440px`, frozen. All six hero children keep centering on `100vw`. At a 1920 viewport, `.l1-4` (the 224px square at offset +776) sits at left 1312, right edge **1536 — 96px past the band's edge**. At 2400 it's 336px past. The content marches off the background, exactly as you described.
+
+## Your generalization is already in the data
+
+The predicate is: *a node whose keyframe width equals the viewport at every rung.* Run against both documents:
+
+- **gigabytealchemy**: 6 of 90 nodes — `section-bg-0`, `section-band-1..5`
+- **faelan**: 3 of 13 — `section-bg-0`, `section-band-0`, `section-band-1`
+
+Those are **exactly** the full-bleed surfaces, with no false positives. A full-bleed band is currently six pins tracing the identity line, and then "hold the final keyframe" freezes the identity line.
+
+And your second half — *if the original doesn't scale beyond a width, the reproduction shouldn't either* — is already captured. `extract.ts:3122` records `containerMaxWidthPx`, the smallest positive computed `max-width` on the page: faelan 896, gigabytealchemy 448, joyful 700. `l1SizingSchema` already carries precisely that two-case vocabulary — `mode: 'fluid'` with an optional `maxPx` — and the renderer compiles `fluid` to `width: 100%`. The fold emits **zero** `sizing` on either document.
+
+So this is a fold gap, not an L1 ceiling. One obstacle worth knowing before it's scoped: `nodeWidthAt` reads keyframes first and `sizing` only as a fallback, so adding fluid sizing alone wouldn't work — the keyframe literal still wins. There's precedent for the suppression, though, documented at `render.ts:2600`: REQ-88's column anchor already suppresses keyframe widths for exactly this reason.
+
+## The check you're asking for doesn't exist, and the reason is instructive
+
+`offSampleWidths` (`probes.ts:1854`) samples two interior points per segment and deliberately excludes both ends:
+
+> *"Nothing is sampled BELOW the first rung or above the last: the renderer holds the end keyframe there, so the geometry is identical to the rung's…"*
+
+That premise is true below the first rung — everything holds. It is **false above the last**, because the column terms, `fit-content` widths and height responses don't hold. Above 1440 the page is a mixture, not a copy of the 1440 sample. That's why eleven gigabytealchemy rounds and five faelan rounds never raised it: the only probe that could see it is off there by design. Same shape as BUG-143.
+
+## On a wide capture rung
+
+Not needed for the fix — the ladder plus `containerMaxWidthPx` answer both cases. It would be worth one extra projection (say 2000px) to turn inference into measurement for the rare site genuinely capped at 1440, and it's the same shape as REQ-88's extra height projection. I'd treat it as optional hardening rather than a prerequisite.
+
+---
+
+I'd scope this as two children in the order this epic has used twice now (BUG-112→113, BUG-143→142):
+
+1. **The alarm** — the envelope probes sample above the top rung, and a surface that stops growing while its content keeps centering is a finding. Testable: gigabytealchemy iteration 11 goes from clean-above-1440 to naming the six frozen surfaces.
+2. **The defect** — the fold emits a viewport-tracking width for a node whose ladder traces the identity line, capped at `containerMaxWidthPx` where the page caps. Testable: 6 of 90 / 3 of 13 nodes acquire fluid width, the at-rest fidelity cost is reported as a number, and the 1440 block stops emitting a frozen literal for them.
+
+Say the word and I'll write both up as drafts for you to dispatch.
 
 <!-- xgd-chat-end -->
