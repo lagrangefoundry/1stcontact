@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-30T20:37:10.046569+00:00'
+updated_at: '2026-09-30T20:58:30.947251+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5796,5 +5796,15 @@ Another of my timers ended; nothing to act on. I'm still waiting for your answer
 Another of my timers finished; nothing to act on. I'm still waiting for your answers on the three questions.
 
 That was the last of my timers, so there will be no more of these notices. I'm still waiting for your answers on the three questions: where the room lives, whether I should file the LF prerequisites, and whether Bob can read Alice's own session.
+
+<!-- xgd-turn id="c1a194e1-31ea-421d-9b28-9312f576be69-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:58:30.055598+00:00" -->
+#### You
+**Where the exchange loop runs.** Today a consultant turn lives inside one streaming request. An exchange is several rounds, and one of Alice's rounds can be ten minutes, so it can't live in a request. I think it belongs in a Durable Object per room. That gives one writer, and the "already running" guard and the stop flag for free. We already have that pattern in the durable junction work (REQ-307). This is the biggest piece of new engineering on our side. <-- I'm confused, surely this is the Room we already built in lf - do we need a new thing? Are you sure. I am having this discussion with EPIC-2 - I will get to the bottom of this
+
+**The JS room has never run live.** Only the Python showcase has. One known gap: the JS room can't be reopened from its chat ticket, which Python can. In a Worker an evicted isolate is routine, so that gap means an unreadable room. The 09-29 fixes are also unfiled: one post per round, a post-then-decline counting as the post, and pull defaulting to what you haven't read. Those are LF tickets, and should land before we build on the room. <-- we should test this in LF now I will do that.
+
+**Bob is silent while Alice works.** Turns are strictly sequential, so while Alice runs a ten-minute round, Bob can't answer you. That's F2, the two-speed room, which doesn't exist and has no ticket. Words you type mid-round land in the room but reach nobody until the round ends. Worse, EPIC-7 §11.2's bug means the orchestrator can drop them entirely. <-- don't worry about this now - we wait for EPIC 7 which I will work on when we have these other pieces working first
 
 <!-- xgd-chat-end -->
