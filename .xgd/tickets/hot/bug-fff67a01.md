@@ -6,10 +6,10 @@ title: 'gate: `stacked: true` switches the overlap probe off, so a reproduction 
   <h1> is completely buried under a photo passes every gate'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:03:03.424338+00:00'
-updated_at: '2026-09-29T04:03:03.424338+00:00'
+updated_at: '2026-09-30T21:14:49.357861+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - instrument-blind
@@ -179,3 +179,73 @@ with zero painted pixels.
 - BUG-154 — the diagnosis that establishes `stacked` is not a paint axis.
 - REQ-347 — the engine defect that made it visible this round; its second half
   (a real L1 paint-order field) is what item 1's option 1 needs.
+
+---
+
+## Scope of the free-coded fix (this session)
+
+**Item 1 is fixed with option 1; items 2 and 3 are not in this change** (see
+"Deferred" below). REQ-347 has landed since this ticket was filed: L1 now carries
+`paintOrder`, the fold writes it from the captured `zIndex`, and the renderer
+emits it as `z-index` on nodes that are all positioned. So the declared order
+that option 1 needs now exists.
+
+### What changes (user-visible behaviour)
+
+1. **The envelope evaluator models paint order.** Each evaluated leaf gets a
+   paint key that follows the renderer's CSS. A node with a `paintOrder` (or a
+   pinned node whose `stacked`/`sticky.lift` makes the pin emit `z-index: 1`)
+   opens a stacking context at that level. Everything else paints in tree order
+   inside its nearest context. Negative levels paint below tree order and
+   positive levels above it.
+2. **`stacked` still exempts an overlap from being reported as an `overlap`, with
+   one exception:** when the pair is a **text run and an image or painted box**,
+   and the paint model puts the **text underneath**, the probe reports a new
+   finding kind, **`buried`**, e.g. `"FAELAN" is painted beneath image (a declared
+   stack whose words are underneath the picture)`. A `stacked` declaration says
+   the overlap is intended. It does not say the words may be hidden, and a
+   run painted under an opaque picture is never the intended design.
+   - Pairs whose paint order puts the text on top (a headline over a hero photo,
+     the BUG-112 case) stay exempt. The fold's REQ-347 `paintOrder` is what
+     keeps a faithful faelan.com reproduction passing.
+   - Image vs. image, box vs. image and text vs. text pairs under `stacked` stay
+     exempt as before.
+   - Unmarked overlaps are unchanged and are still reported as `overlap`.
+3. **`buried` fails the envelope probe like any other finding.** It reaches the
+   gate's `layout.findings` and gives a `structural-failure` verdict. The gate's
+   diagnosis names it apart from overlaps ("run(s) painted beneath a picture
+   stacked over them"). Its next step says to give the run a `paintOrder` above
+   the picture (or fix the capture's `zIndex`), **not** "declare `stacked`",
+   because the pair is already declared.
+4. `buried` is **not** an input to `promoteToFlow`'s recovery (it reads
+   `overlap` only). Paint order is not a flow problem, and moving the run would
+   not unbury it.
+
+### Test plan
+
+`tests/test_UAT_FC_BUG-164_stacked_overlap_paint_order.test.ts` checks:
+- a `stacked` image painted after a text run it covers (tree order, no
+  `paintOrder`) → probe fails with a `buried` finding naming the run;
+- the same document with the run given a `paintOrder` above the image → passes
+  (the declared order agrees with the design);
+- a `stacked` image given a `paintOrder` above a later text run → `buried`
+  (explicit level beats tree order);
+- image-vs-image under `stacked` stays exempt;
+- `reconcileGates` turns a `buried` finding into `structural-failure` with the
+  `paintOrder` next step and without the "declare `stacked`" advice.
+
+The existing BUG-112 UATs (declared stack exempt, text after image) must stay
+green.
+
+### Deferred (not in this change)
+
+- **Item 2** (a `painted`/`occludedPct` axis in values-diff) needs the reproduction's
+  capture to hit-test whether each element contributes ink (e.g. `elementFromPoint`
+  sampling). That is a capture-side change in the browser, outside the envelope
+  probe.
+- **Item 3** (a ranked-region-over-a-clean-pair breach rule in the perceptual
+  floor) needs `regions.json` plumbed into `reconcileGates`, which today sees only
+  the region count.
+
+Item 1 alone turns this round's verdict from `pass` into `structural-failure`
+that names "FAELAN". Items 2 and 3 are the independent second and third rulers.
