@@ -107,9 +107,19 @@ export interface EvalLeaf {
  * defect where a panel slides off its copy was not merely undetected but
  * inexpressible: overlap was tested, containment was not a question the engine
  * could ask.
+ *
+ * BUG-164 — `buried` is the fourth, and it is what a `stacked` declaration can no
+ * longer hide. `stacked` exempts a pair from `overlap` because the overlap is the
+ * design; it says nothing about WHICH side paints on top. A text run painted
+ * beneath a picture or a painted panel it overlaps is never the design, so where
+ * the paint model (see {@link paintKeys}) puts the words underneath, the pair is
+ * reported as `buried` instead of being waved through. Kept apart from `overlap`
+ * because the fix is different — a paint level, not structure or a declaration —
+ * and because flow recovery reads `overlap` pairs as its to-do list and moving a
+ * run cannot unbury it.
  */
 export interface LayoutFinding {
-  kind: 'overlap' | 'clip' | 'escape'
+  kind: 'overlap' | 'clip' | 'escape' | 'buried'
   detail: string
   /** Paths of the leaves involved. */
   paths: string[]
@@ -1183,6 +1193,99 @@ function stackedOf(node: L1Node, ctx: Ctx): { stacked?: true } {
   return node.stacked || ctx.stacked ? { stacked: true } : {}
 }
 
+/**
+ * BUG-164 — one level of a leaf's paint key: a stacking context it sits inside
+ * (or, last, the leaf itself), as the level that context paints at in ITS parent
+ * context and the path that orders it among equals.
+ */
+interface PaintSeg {
+  z: number
+  path: string
+}
+
+/**
+ * BUG-164 — the level a node paints at among its siblings, as the renderer emits
+ * it, or undefined for "tree order decides". `paintOrder` is REQ-347's declared
+ * level; a pin with no level of its own lifts by one when `sticky.lift` or
+ * `stacked` asks it to (BUG-154) — the same one-step `z-index` the renderer's
+ * `stickyDecls` writes.
+ */
+function paintLevel(node: L1Node): number | undefined {
+  if (node.paintOrder !== undefined) return node.paintOrder
+  if (node.sticky && (node.sticky.lift || node.stacked)) return 1
+  return undefined
+}
+
+/**
+ * BUG-164 — every node's paint key, by path: the stacking contexts it sits in,
+ * outermost first, then itself.
+ *
+ * The model is the CSS the renderer emits, which is simple because EVERY node it
+ * emits is positioned (`relative` in flow, `absolute` pinned — see REQ-347's note
+ * in the renderer). A positioned node with no `z-index` paints in tree order in
+ * its parent's context; one WITH a level opens a context of its own and paints,
+ * with its whole subtree, at that level — below tree order when negative, above
+ * it when positive, in tree order among equal levels. Width-independent, because
+ * no paint level is responsive.
+ */
+function paintKeys(doc: L1Document): Map<string, PaintSeg[]> {
+  const keys = new Map<string, PaintSeg[]>()
+  const walk = (node: L1Node, path: string, contexts: PaintSeg[]): void => {
+    const z = paintLevel(node)
+    const inner = z === undefined ? contexts : [...contexts, { z, path }]
+    keys.set(path, [...inner, { z: 0, path }])
+    childrenOf(node).forEach((child, i) => walk(child, `${path}.${i}`, inner))
+  }
+  walk(doc.root, '0', [])
+  return keys
+}
+
+/** Tree (document) order of two index paths: negative when `a` comes first. */
+function treeOrder(a: string, b: string): number {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let k = 0; k < Math.min(pa.length, pb.length); k++) if (pa[k] !== pb[k]) return pa[k] - pb[k]
+  return pa.length - pb.length
+}
+
+/**
+ * BUG-164 — which of two paint keys paints later (on top): positive when `a`
+ * does. The first context the two do not share decides — by level, then by tree
+ * order — which is how a browser resolves two boxes in different contexts.
+ */
+function paintCompare(a: PaintSeg[], b: PaintSeg[]): number {
+  for (let k = 0; k < Math.min(a.length, b.length); k++) {
+    if (a[k].path === b[k].path) continue
+    return a[k].z !== b[k].z ? a[k].z - b[k].z : treeOrder(a[k].path, b[k].path)
+  }
+  return 0
+}
+
+/**
+ * BUG-164 — the pair as `{run, cover}` when one side is a text run and the other
+ * a picture or a painted panel that paints OVER it, else undefined. Only that
+ * combination: two pictures, a picture and a panel, or two runs under a declared
+ * stack are the composition the declaration is about, whichever is on top.
+ */
+function buriedPair(
+  a: EvalLeaf,
+  b: EvalLeaf,
+  paint: Map<string, PaintSeg[]>,
+): { run: EvalLeaf; cover: EvalLeaf } | undefined {
+  const covers = (l: EvalLeaf): boolean => l.kind === 'image' || l.kind === 'box'
+  const pair =
+    a.kind === 'text' && covers(b)
+      ? { run: a, cover: b }
+      : b.kind === 'text' && covers(a)
+        ? { run: b, cover: a }
+        : undefined
+  if (!pair) return undefined
+  const runKey = paint.get(pair.run.path)
+  const coverKey = paint.get(pair.cover.path)
+  if (!runKey || !coverKey) return undefined
+  return paintCompare(coverKey, runKey) > 0 ? pair : undefined
+}
+
 /** Do two boxes overlap by more than `eps` on both axes? */
 function overlaps(a: EvalBox, b: EvalBox, eps: number): boolean {
   const ix = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
@@ -1440,6 +1543,7 @@ export function evaluateLayout(
       l.box.height > 0 &&
       l.box.width > 0,
   )
+  const paint = paintKeys(doc)
   for (let i = 0; i < solid.length; i++) {
     for (let j = i + 1; j < solid.length; j++) {
       // BUG-112 — the DECLARED exemption, beside the synthesized-surface one
@@ -1449,7 +1553,25 @@ export function evaluateLayout(
       // because a document says so in as many words. One side of the pair is
       // enough — an overlap has a figure and a ground, and the declaration is
       // made by whichever node is the composition.
-      if (solid[i].stacked || solid[j].stacked) continue
+      //
+      // BUG-164 — except for the one pair the declaration cannot be about: words
+      // painted UNDER the picture or panel they overlap. `stacked` says the
+      // overlap is intended and carries no paint order, so it is the paint model
+      // that decides — and on faelan.com, before REQ-347 gave L1 a level, it put
+      // a 64px headline under an opaque photograph while every gate passed.
+      if (solid[i].stacked || solid[j].stacked) {
+        const buried = buriedPair(solid[i], solid[j], paint)
+        if (buried && overlaps(buried.run.box, buried.cover.box, opts.epsilonPx)) {
+          findings.push({
+            kind: 'buried',
+            detail: `${buried.run.text ?? buried.run.kind} is painted beneath ${buried.cover.text ?? buried.cover.kind}`,
+            paths: [buried.run.path, buried.cover.path],
+            boxes: [buried.run.box, buried.cover.box],
+            width,
+          })
+        }
+        continue
+      }
       if (overlaps(solid[i].box, solid[j].box, opts.epsilonPx)) {
         findings.push({
           kind: 'overlap',
