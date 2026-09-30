@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T20:04:57.236627+00:00'
+updated_at: '2026-09-30T20:34:01.993632+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3115,5 +3115,11 @@ One slip to own: my first attempt filed BUG-78 in this repo, as BUG-170. I've ab
 Leave REQ-354 until BUG-78 lands, and leave REQ-350 until after the test. The test doesn't depend on either: without REQ-354, checks just go to the worker as they do today.
 
 EPIC-20 now links REQ-354 and REQ-355 and has a dated status section.
+
+<!-- xgd-turn id="284b6e5a-4146-4792-bd9f-78f476f46bf1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:34:01.907053+00:00" -->
+#### You
+ok lets talk about flat vs grouped. I am embarassed to say that I have not looked at any L1 - can you point me to a page please?
 
 <!-- xgd-chat-end -->
