@@ -104,7 +104,10 @@ export type {
   CaptureBand,
   UnmeasuredAxis,
 } from './value-axes'
-export type { RawSignals, RawRun, RawField, RawGeometry } from './extract'
+export type { RawSignals, RawBand, RawRun, RawField, RawGeometry } from './extract'
+// REQ-352 — the one population and the one derivation of a band's content anchor.
+export type { ContentSpan } from './anchor'
+export { anchorRatioOfSpan, contentAnchorSpans, mergeContentSpans, spanOfRunsIn } from './anchor'
 export {
   flattenCapture,
   flattenSignals,

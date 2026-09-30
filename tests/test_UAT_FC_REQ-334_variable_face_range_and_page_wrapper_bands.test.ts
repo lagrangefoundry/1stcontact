@@ -87,7 +87,6 @@ function signals(runs: ReturnType<typeof run>[]): RawSignals {
         paddingTopPx: 0,
         paddingBottomPx: 0,
         overlay: null,
-        contentAnchorRatio: 0.5,
         content: runs,
         items: [],
         fields: [],

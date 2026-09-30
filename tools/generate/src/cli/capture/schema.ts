@@ -97,8 +97,31 @@ import type { Capture } from './types'
  *   per-projection sequence number. The old numbering shifted between widths of
  *   the same page, so the fold grouped a photograph into a carousel 1400px away
  *   and clipped it out of existence.
+ * - **9** — REQ-352: a band's `layout.contentAnchorRatio` is measured over ONE
+ *   population, whichever code path built the band, and against the box the
+ *   section actually publishes. A pre-9 bundle measured a single band by walking
+ *   its DOM DESCENDANTS and a geometric slice by what sat inside it, which agree
+ *   on a conventionally nested page and disagree exactly where one band OVERLAPS
+ *   another — an absolutely-positioned `<header>` over a hero is its own band, so
+ *   its runs are not descendants of the hero and the walk excluded them while a
+ *   geometric partition could not. It also took a coalesced section's anchor from
+ *   its FIRST band, whose box is not the section's union box. So a pre-9 bundle
+ *   carries a plausible wrong anchor — 0.53 where the page reads 0.39 on
+ *   gigabytealchemy.ai, `top (0.22)` where it reads `center (0.55)` on
+ *   joyfulculinarycreations.com — and the comparator declines to compare it
+ *   rather than reporting a phantom content shift.
  */
-export const CAPTURE_SCHEMA = 8
+export const CAPTURE_SCHEMA = 9
+
+/**
+ * REQ-352 — the schema from which a bundle's content anchor is measured over the
+ * same population as a live extraction's, and is therefore comparable against it.
+ *
+ * Named rather than written as a bare `9` at the two places that consult it (the
+ * `anchorPopulation` axis and the comparator's declination), because those two
+ * have to agree and a literal in each is how they stop agreeing.
+ */
+export const ANCHOR_POPULATION_SCHEMA = 9
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -350,6 +373,20 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
       ),
   },
   {
+    since: 9,
+    axis: 'contentAnchorRatio measured over one population, against the section\'s own box',
+    where: 'a section (`sections[].layout.contentAnchorRatio`)',
+    // Caught by the contradiction, for the reason `a11yRole` and `lineHeightPx`
+    // are. The population is GEOMETRIC — every run whose centre falls inside the
+    // section's box — and every run and every box a section needs for that is in
+    // the bundle, so the value a current extractor would have written is
+    // recomputable here. A bundle whose stored anchor disagrees with it was
+    // measured by an older instrument; a page whose two populations coincide (no
+    // overlapping band, no coalesced section) shows no disagreement, which proves
+    // nothing — so this probe only ever REMOVES the axis from a finding.
+    present: (c) => !c.sections.some((s) => anchorDisagrees(c, s)),
+  },
+  {
     since: 2,
     axis: 'lineHeightPx to two decimals',
     where: 'a content run (`sections[].content[]`)',
@@ -358,6 +395,41 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     present: (c) => runs(c).some((r) => typeof r.lineHeightPx === 'number' && !Number.isInteger(r.lineHeightPx)),
   },
 ]
+
+/**
+ * REQ-352 — whether this section's stored anchor disagrees with the one a current
+ * extractor would measure for it.
+ *
+ * The population is every run in the bundle whose CENTRE falls inside the
+ * section's box, whichever section collected it — the same rule the extractor
+ * applies, computed here from the runs and boxes the bundle already carries. Only
+ * used to date a bundle; the diff reads the STORED value, because a bundle is the
+ * oracle the instrument that took it wrote and re-deriving it at read time would
+ * move the oracle silently.
+ */
+function anchorDisagrees(capture: Capture, section: Capture['sections'][number]): boolean {
+  const box = section.box
+  if (!box || !(box.height > 0)) return false
+  const stored = section.layout?.contentAnchorRatio
+  let top = Infinity
+  let bottom = -Infinity
+  for (const other of capture.sections) {
+    const runs = [...(other.content ?? []), ...(other.items ?? []).flatMap((i) => i.content ?? [])]
+    for (const run of runs) {
+      const r = run.box
+      if (!r) continue
+      const centre = r.y + r.height / 2
+      if (centre < box.y || centre >= box.y + box.height) continue
+      if (r.y < top) top = r.y
+      if (r.y + r.height > bottom) bottom = r.y + r.height
+    }
+  }
+  if (bottom === -Infinity) return stored !== null && stored !== undefined
+  if (typeof stored !== 'number') return true
+  const ratio = ((top + bottom) / 2 - box.y) / box.height
+  const measured = Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100
+  return Math.abs(measured - stored) > 0.01
+}
 
 /**
  * The schema a bundle was taken at. An unstamped bundle is schema 1 — see

@@ -65,9 +65,11 @@ import type {
   Viewport,
 } from './types'
 import type { RawBand, RawField, RawGeometry, RawRun, RawSignals } from './extract'
+import { anchorRatioOfSpan, contentAnchorSpans, type ContentSpan } from './anchor'
 import type { SectionValues, ValueElement, ValueManifest } from './values-diff'
 import { normalizeGradient } from './color-values'
 import { subScalesFromSignals } from './theme'
+import { ANCHOR_POPULATION_SCHEMA } from './schema'
 import { isSafeUrl } from '@1stcontact/site-schema'
 
 // ── the declaration vocabulary ───────────────────────────────────────────────
@@ -141,10 +143,23 @@ export interface CaptureBand {
  *  from neither side — so it is not an axis and has no row. */
 export type SectionAxisName = Exclude<keyof SectionValues, 'index'>
 
+/**
+ * The reproduction side's section input, the twin of {@link CaptureBand}.
+ *
+ * REQ-352 — a raw band is not just its own record: its content anchor is measured
+ * over a DOCUMENT-WIDE population (every run whose centre falls in its box,
+ * whichever band collected it), so the span travels with the band rather than
+ * being re-derived from the band alone, which cannot answer it.
+ */
+export interface SignalsBand {
+  readonly band: RawBand
+  readonly anchorSpan: ContentSpan | null
+}
+
 export interface SectionAxisRow<K extends SectionAxisName> extends AxisRowBase {
   readonly axis: K
   readonly reference: AxisSide<CaptureBand, SectionValues[K]>
-  readonly reproduction: AxisSide<RawBand, SectionValues[K]>
+  readonly reproduction: AxisSide<SignalsBand, SectionValues[K]>
 }
 
 export type AnySectionAxis = { [K in SectionAxisName]-?: SectionAxisRow<K> }[SectionAxisName]
@@ -751,28 +766,35 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
     role: 'compared',
     note: 'REQ-31 / REQ-270 #3 — the full-bleed translucent scrim over the band. A scrim is a scrim however it is painted: `scrimOf` reads a translucent background-colour first, then a translucent colour STOP of the background-image, on both sides.',
     reference: ({ section }) => section.background.overlay ?? null,
-    reproduction: (band) => band.overlay ?? null,
+    reproduction: ({ band }) => band.overlay ?? null,
   },
   {
     axis: 'contentAnchorRatio',
     role: 'compared',
-    note: 'REQ-31 — the content block\'s vertical centre as a fraction of band height. REQ-270 #4: comparable only over the SAME population of runs, which is a pairing question the comparator settles per band, not a projection one.',
+    note: 'REQ-31 — the content block\'s vertical centre as a fraction of band height. REQ-270 #4: comparable only over the SAME population of runs. REQ-352 made that population one and the same on both sides (every run whose centre falls in the band\'s box), so the comparator now declines only for a bundle taken before that landed — see `anchorPopulation`.',
     reference: ({ section }) => section.layout.contentAnchorRatio ?? null,
-    reproduction: (band) => band.contentAnchorRatio ?? null,
+    reproduction: ({ band, anchorSpan }) => anchorRatioOfSpan(band.box, anchorSpan),
+  },
+  {
+    axis: 'anchorPopulation',
+    role: 'carried',
+    note: 'REQ-352 — WHICH population the `contentAnchorRatio` beside it was measured over. The reproduction is measured by the extractor running now, so it is always `geometric`; a stored bundle is `geometric` from capture schema 9 and `dom` (a DOM-descendant walk of the band element) before it. Carried, not compared: the two sides legitimately differ on an older bundle, and what the comparator does about that is decline to compare the anchor rather than record a delta on this.',
+    reference: ({ schema }) => (schema >= ANCHOR_POPULATION_SCHEMA ? 'geometric' : 'dom'),
+    reproduction: () => 'geometric',
   },
   {
     axis: 'textAlign',
     role: 'compared',
     note: 'REQ-64 — the band\'s own text alignment. The bundle records it as `layout.contentAlign`; the extractor as `textAlign`. Same axis, two spellings, one row.',
     reference: ({ section }) => section.layout.contentAlign,
-    reproduction: (band) => band.textAlign,
+    reproduction: ({ band }) => band.textAlign,
   },
   {
     axis: 'surfaceFill',
     role: 'compared',
     note: 'REQ-271 — the band\'s own base fill, the most visually dominant property of a page. Below capture schema 3 a transparent band was recorded as an opaque fabrication of the body\'s colour, so an older bundle reads UNMEASURED rather than asserting a white it never took.',
     reference: ({ section, schema }) => (schema >= 3 ? (section.background.color ?? null) : undefined),
-    reproduction: (band) => band.backgroundColor ?? null,
+    reproduction: ({ band }) => band.backgroundColor ?? null,
   },
   {
     axis: 'backgroundImageUrl',
@@ -782,14 +804,14 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
       section.background.kind === 'image' && section.background.image && isSafeUrl(section.background.image)
         ? section.background.image
         : undefined,
-    reproduction: (band) => bandBackgroundImageUrl(band.backgroundImage),
+    reproduction: ({ band }) => bandBackgroundImageUrl(band.backgroundImage),
   },
   {
     axis: 'box',
     role: 'compared',
     note: 'REQ-88 — the band\'s geometry, on EVERY band (not only an image one). It is also BUG-102\'s pairing key: the two sides\' section INDICES do not correspond, because the capture coalesces bands by style signature and the reproduction\'s are raw, so the join is by vertical overlap of these boxes.',
     reference: ({ section }) => section.box,
-    reproduction: (band) => band.box,
+    reproduction: ({ band }) => band.box,
   },
   {
     axis: 'paddingTopPx',
@@ -798,7 +820,7 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
     reference: unsupplied(
       'a capture bundle records the band\'s `layout.contentAlign` but no per-side band padding — Section.layout has no padding field',
     ),
-    reproduction: (band) => band.paddingTopPx,
+    reproduction: ({ band }) => band.paddingTopPx,
   },
   {
     axis: 'paddingBottomPx',
@@ -807,7 +829,7 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
     reference: unsupplied(
       'a capture bundle records the band\'s `layout.contentAlign` but no per-side band padding — Section.layout has no padding field',
     ),
-    reproduction: (band) => band.paddingBottomPx,
+    reproduction: ({ band }) => band.paddingBottomPx,
   },
 ]
 
@@ -935,10 +957,20 @@ export function projectCaptureSection(band: CaptureBand, index: number): Section
  * indices do not correspond — BUG-102's geometry join is what pairs them, and
  * this ticket does not touch it.
  */
-export function projectSignalsBand(band: RawBand, index: number): SectionValues {
+export function projectSignalsBand(input: SignalsBand, index: number): SectionValues {
   const sv: Record<string, unknown> = { index }
-  applyAxes(sv, SECTION_AXES as readonly ProjectableRow[], 'reproduction', band)
+  applyAxes(sv, SECTION_AXES as readonly ProjectableRow[], 'reproduction', input)
   return sv as unknown as SectionValues
+}
+
+/**
+ * REQ-352 — every band of a live extraction, paired with the span of the text it
+ * carries. The one place the reproduction's section inputs are assembled, so the
+ * document-wide anchor population is computed once per extraction.
+ */
+export function signalsBands(signals: RawSignals): readonly SignalsBand[] {
+  const spans = contentAnchorSpans(signals)
+  return signals.bands.map((band, i) => ({ band, anchorSpan: spans[i] ?? null }))
 }
 
 /** Project the manifest-level axes of a capture bundle (the reference). */

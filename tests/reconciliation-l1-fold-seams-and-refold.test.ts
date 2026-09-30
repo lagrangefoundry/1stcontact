@@ -402,7 +402,6 @@ function signalsFor(width: number): RawSignals {
         paddingTopPx: 40,
         paddingBottomPx: 40,
         overlay: null,
-        contentAnchorRatio: 0.5,
         content: [
           {
             role: 'heading',

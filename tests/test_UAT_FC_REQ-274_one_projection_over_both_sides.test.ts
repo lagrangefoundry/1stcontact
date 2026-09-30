@@ -215,7 +215,12 @@ function refSection(over: Partial<Section> = {}): Section {
       arrangement: 'stack',
       columns: 1,
       contentMaxWidthPx: 1120,
-      contentAnchorRatio: 0.53,
+      // REQ-352 — 0.16, not the 0.53 this fixture used to declare: the anchor is
+      // now measured from the runs the section carries, and this one's single run
+      // sits high (y=100…156 of an 800px band). The two sides of this fixture
+      // differ in exactly one declared axis (`paddingTopPx`), so a self-consistent
+      // anchor is what keeps that the only difference.
+      contentAnchorRatio: 0.16,
     },
     content: [refRun()],
     items: [],
@@ -258,7 +263,10 @@ function rawBand(over: Partial<RawBand> = {}): RawBand {
     paddingTopPx: 96,
     paddingBottomPx: 96,
     overlay: { color: '#030717', opacity: 0.3 },
-    contentAnchorRatio: 0.53,
+    // REQ-352 — a band no longer carries an anchor field: it is DERIVED from the
+    // runs the band holds (every run whose centre falls in its box) and its own
+    // box. This band's single run is a 56px line at y=100, so its centre is 128 —
+    // 0.16 of an 800px band, which is what the reference below now stores too.
     content: [rawRun()],
     items: [],
     fields: [],
