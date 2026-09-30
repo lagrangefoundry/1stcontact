@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-352
 created_by: xgd
 created_at: '2026-09-29T21:30:42.368108+00:00'
-updated_at: '2026-09-30T00:24:29.983671+00:00'
+updated_at: '2026-09-30T00:51:05.362092+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -187,5 +187,14 @@ I'll wait for the suite rather than poll. Here's where things stand:
 **Updated the ticket body** (preserving title, status, and all existing content): §4 now records that the ticket's *preferred* approach was rejected with the reason (an L1 reproduction's bands are a partition, so "exclude the nested section's runs" is a question that side cannot answer), plus behaviours 5–8 covering the second defect, the `anchorPopulation` carried axis, schema 9, and the staleness probe — so every UAT is motivated by ticket language.
 
 Two things still outstanding before this can be committed: the full node suite is mid-run with ~25 failures visible, most in areas untouched by this work (textdecoder, filing service, font registry, business vocabulary), and I have **not yet established which are pre-existing**. I'll baseline the failing files against the stashed tree before claiming anything. Then version bump, commit, merge back, and `move-to-free-coded`.
+
+<!-- xgd-turn id="a848c550-a7fa-46d2-ba82-306f11751efd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T00:51:02.255560+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
