@@ -476,15 +476,21 @@ describe('BUG-142 — a backing surface owns the content it backs', () => {
     // `min-h-screen` hero is a fifth of a page tall in copy and a whole viewport
     // tall on screen; the capture measured the rule it follows, and handing that
     // height to the copy would collapse the hero and lift the whole page under it.
+    // REQ-351 (issue 3/4) — the rule is stated on the keyframe at the width the
+    // probe measured (1280 here), not on the node. The fixture probes one width,
+    // so one keyframe carries it; the four the probe never visited stay pinned.
+    const responseAt1280 = (n: L1Node): { yFactor?: number; heightFactor?: number } | undefined =>
+      n.geometry?.keyframes.find((k) => k.at === 1280)?.viewportResponse
+
     const ms = page()
     const heroBase = bandWithFill(foldToL1(ms), HERO_FILL)
     expect(
-      heroBase.geometry?.viewportResponse?.heightFactor,
+      responseAt1280(heroBase)?.heightFactor,
       'the fixture measures a hero height rule',
     ).toBe(1)
 
     const hero = bandWithFill(serve(ms), HERO_FILL)
-    expect(hero.geometry?.viewportResponse?.heightFactor, 'the hero keeps its measured response').toBe(1)
+    expect(responseAt1280(hero)?.heightFactor, 'the hero keeps its measured response').toBe(1)
     expect(
       hero.geometry!.keyframes.find((k) => k.at === 1280)!.height,
       'and its captured height, not its content extent',
@@ -503,7 +509,11 @@ describe('BUG-142 — a backing surface owns the content it backs', () => {
     // thing, which is the whole of the fix on this axis.
     const doc = serve(page())
     const band = bandWithFill(doc, BAND_FILL)
-    expect(band.geometry?.viewportResponse?.yFactor, 'the band answers the viewport height').toBe(1)
+    // REQ-351 (issue 4) — at 1280, the width this fixture's height probe measured.
+    expect(
+      band.geometry?.keyframes.find((k) => k.at === 1280)?.viewportResponse?.yFactor,
+      'the band answers the viewport height',
+    ).toBe(1)
 
     const { html, css } = renderL1Document(doc)
     /** The generated class the renderer put on the element carrying `id`. */

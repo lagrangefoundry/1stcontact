@@ -53,7 +53,6 @@ function signalsWith(content: RawRun[]): RawSignals {
         paddingTopPx: 0,
         paddingBottomPx: 0,
         overlay: null,
-        contentAnchorRatio: null,
         content,
         items: [],
         fields: [],

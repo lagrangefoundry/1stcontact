@@ -6,16 +6,27 @@ title: 'capture: a band''s content anchor is measured by DOM descent on one path
   geometry on the other, so a hero with a header over it is permanently unmeasured'
 created_by: EPIC-12
 created_at: '2026-09-29T21:23:37.137276+00:00'
-updated_at: '2026-09-30T00:18:30.465811+00:00'
+updated_at: '2026-09-30T01:58:12.173462+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-6e992690
+  commits:
+  - working_sha: 29a0fdb469f901e2afdc5f01b065ce6f7a0519c7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e5721207d3076f519e444624dee7d68b2df529fa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c4b05c746fed90ca66c9a7a8fb2c314c661ce4f7
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.414
 ---
 
 # The extractor measures a band's content anchor two different ways, so a hero with a header over it has an anchor nothing can compare
@@ -129,14 +140,14 @@ inside.
 7. **Each side records WHICH population it was measured over.** A new axis
    `anchorPopulation`, `geometric` or `dom`, carried and not compared. The
    reproduction is measured by the extractor running now, so it is always
-   `geometric`; a bundle is `geometric` from capture schema 9 and `dom` before it.
+   `geometric`; a bundle is `geometric` from capture schema 10 and `dom` before it.
    This is what lets behaviour 3's guard tell an older bundle from a current one
    rather than guessing, and it is carried rather than compared because the two
    sides legitimately differ on an older bundle — what the comparator does about
    that is decline the anchor, not record a delta on the population.
 
 8. **A bundle whose anchor was measured by an older instrument is named as
-   such.** `CAPTURE_SCHEMA` goes to 9, with a schema axis whose probe recomputes
+   such.** `CAPTURE_SCHEMA` goes to 10, with a schema axis whose probe recomputes
    the geometric anchor from the runs and boxes the bundle already carries and
    compares it against the stored value. A disagreement dates the bundle, so the
    operator-facing staleness sentence names re-capture as the lever rather than
@@ -215,3 +226,10 @@ legible — are unchanged and still asserted.
 
 Every other fixture that declared `contentAnchorRatio` on a `RawBand` drops it,
 because the field no longer exists.
+
+**Schema number.** This landed as capture schema **10**, not 9: REQ-347 took 9 on
+`xgd-working` while this branch was open, and its two attribution axes are kept
+alongside this one. `ANCHOR_POPULATION_SCHEMA` names the number at the two places
+that consult it (the `anchorPopulation` axis and the comparator's declination) so
+those two cannot drift apart, and the UAT asserts against that constant rather
+than a literal.

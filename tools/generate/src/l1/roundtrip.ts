@@ -14,6 +14,9 @@ import http from 'node:http'
 import { renderL1Page } from '@1stcontact/framework'
 import { l1TextRuns, type L1Document, type L1Node } from '@1stcontact/site-schema'
 import { evalScalarTrack } from './probes'
+// REQ-351 (issue 5) — the one statement of which runs have substance, so a
+// whitespace-only spacer the fold now keeps is projected here too.
+import { hasTextSubstance } from './fold'
 import {
   createEngineDriver,
   diffManifests,
@@ -148,7 +151,7 @@ export function expectedTextManifest(doc: L1Document, viewport: Viewport): Value
       const a = node.axes ?? {}
       const nodeSize = resolve(node, 'fontSizePx') ?? 16
       return l1TextRuns(node.text)
-        .filter((run) => run.text.trim() !== '')
+        .filter((run) => hasTextSubstance(run.text))
         .map((run) => {
           const ra = run.axes ?? {}
           const color = ra.color ?? a.color

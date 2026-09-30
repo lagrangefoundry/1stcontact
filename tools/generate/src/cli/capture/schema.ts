@@ -113,8 +113,47 @@ import type { Capture } from './types'
  *   `box-sizing: border-box` is the wrapper's box minus its border. A pre-9 bundle
  *   records faelan.com's 224px ringed photograph as 216px with a radius of 108
  *   instead of 112; the `clip` beside it is measured on the same wrong element.
+ * - **10** — REQ-352: a band's `layout.contentAnchorRatio` is measured over ONE
+ *   population, whichever code path built the band, and against the box the
+ *   section actually publishes. A pre-10 bundle measured a single band by walking
+ *   its DOM DESCENDANTS and a geometric slice by what sat inside it, which agree
+ *   on a conventionally nested page and disagree exactly where one band OVERLAPS
+ *   another — an absolutely-positioned `<header>` over a hero is its own band, so
+ *   its runs are not descendants of the hero and the walk excluded them while a
+ *   geometric partition could not. It also took a coalesced section's anchor from
+ *   its FIRST band, whose box is not the section's union box. So a pre-10 bundle
+ *   carries a plausible wrong anchor — 0.53 where the page reads 0.39 on
+ *   gigabytealchemy.ai, `top (0.22)` where it reads `center (0.55)` on
+ *   joyfulculinarycreations.com — and the comparator declines to compare it
+ *   rather than reporting a phantom content shift.
+ * - **11** — REQ-351: one axis the bundle's primary record dropped, and one it
+ *   under-sampled.
+ *   (a) `bodyBackground` — `<body>`'s own painted background, which is what shows
+ *   through wherever no band paints. The extractor has computed it since BUG-27
+ *   and wrote it into `multistate.json` alone; `capture.json` carried no such key
+ *   at all, so every reader holding the primary record had to INFER the canvas —
+ *   the fold from the tallest band, the comparator from the largest-area section.
+ *   On joyfulculinarycreations.com both inferences returned `#7a7a7a` where all
+ *   seven projections measured `#ffffff`, and an inference both sides make the
+ *   same wrong way agrees with itself: 22.34% of that page's pixel disagreement at
+ *   zero value deltas.
+ *   (b) A height probe at EVERY ladder width, not only at 1280. One probe made the
+ *   viewport-height response a single-point measurement asserted across the whole
+ *   ladder; a page whose height rule sits inside a media query (the common case)
+ *   was reproduced with that one width's rule everywhere. A pre-11 bundle can only
+ *   ever identify the height axis at 1280.
  */
-export const CAPTURE_SCHEMA = 9
+export const CAPTURE_SCHEMA = 11
+
+/**
+ * REQ-352 — the schema from which a bundle's content anchor is measured over the
+ * same population as a live extraction's, and is therefore comparable against it.
+ *
+ * Named rather than written as a bare `10` at the two places that consult it (the
+ * `anchorPopulation` axis and the comparator's declination), because those two
+ * have to agree and a literal in each is how they stop agreeing.
+ */
+export const ANCHOR_POPULATION_SCHEMA = 10
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -387,6 +426,41 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     present: () => false,
   },
   {
+    since: 10,
+    axis: 'contentAnchorRatio measured over one population, against the section\'s own box',
+    where: 'a section (`sections[].layout.contentAnchorRatio`)',
+    // Caught by the contradiction, for the reason `a11yRole` and `lineHeightPx`
+    // are. The population is GEOMETRIC — every run whose centre falls inside the
+    // section's box — and every run and every box a section needs for that is in
+    // the bundle, so the value a current extractor would have written is
+    // recomputable here. A bundle whose stored anchor disagrees with it was
+    // measured by an older instrument; a page whose two populations coincide (no
+    // overlapping band, no coalesced section) shows no disagreement, which proves
+    // nothing — so this probe only ever REMOVES the axis from a finding.
+    present: (c) => !c.sections.some((s) => anchorDisagrees(c, s)),
+  },
+  {
+    since: 11,
+    axis: 'bodyBackground',
+    where: "the bundle's primary record (`capture.json` top level)",
+    // Presence is "the key exists". A page that paints nothing on <body> records
+    // no canvas however new its extractor is — the same asymmetry `href` has, and
+    // the reason the version gate comes first.
+    present: (c) => typeof (c as unknown as { bodyBackground?: unknown }).bodyBackground === 'string',
+  },
+  {
+    since: 11,
+    axis: 'a viewport-height probe at every ladder width',
+    where: 'the projection set (`multistate.json`)',
+    // Constant `false`, and deliberately: the probes live in `multistate.json` and
+    // nothing in `capture.json` can see them, so this axis has no evidence here to
+    // refute the stamp with. That is within the contract stated above — a probe
+    // may only ever REMOVE an axis from the finding, and one that can never remove
+    // simply always names itself on a bundle the version gate has already found
+    // behind. A pre-11 bundle definitionally carries one probe, at 1280.
+    present: () => false,
+  },
+  {
     since: 2,
     axis: 'lineHeightPx to two decimals',
     where: 'a content run (`sections[].content[]`)',
@@ -395,6 +469,41 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     present: (c) => runs(c).some((r) => typeof r.lineHeightPx === 'number' && !Number.isInteger(r.lineHeightPx)),
   },
 ]
+
+/**
+ * REQ-352 — whether this section's stored anchor disagrees with the one a current
+ * extractor would measure for it.
+ *
+ * The population is every run in the bundle whose CENTRE falls inside the
+ * section's box, whichever section collected it — the same rule the extractor
+ * applies, computed here from the runs and boxes the bundle already carries. Only
+ * used to date a bundle; the diff reads the STORED value, because a bundle is the
+ * oracle the instrument that took it wrote and re-deriving it at read time would
+ * move the oracle silently.
+ */
+function anchorDisagrees(capture: Capture, section: Capture['sections'][number]): boolean {
+  const box = section.box
+  if (!box || !(box.height > 0)) return false
+  const stored = section.layout?.contentAnchorRatio
+  let top = Infinity
+  let bottom = -Infinity
+  for (const other of capture.sections) {
+    const runs = [...(other.content ?? []), ...(other.items ?? []).flatMap((i) => i.content ?? [])]
+    for (const run of runs) {
+      const r = run.box
+      if (!r) continue
+      const centre = r.y + r.height / 2
+      if (centre < box.y || centre >= box.y + box.height) continue
+      if (r.y < top) top = r.y
+      if (r.y + r.height > bottom) bottom = r.y + r.height
+    }
+  }
+  if (bottom === -Infinity) return stored !== null && stored !== undefined
+  if (typeof stored !== 'number') return true
+  const ratio = ((top + bottom) / 2 - box.y) / box.height
+  const measured = Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100
+  return Math.abs(measured - stored) > 0.01
+}
 
 /**
  * The schema a bundle was taken at. An unstamped bundle is schema 1 — see

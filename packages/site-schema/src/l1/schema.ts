@@ -29,29 +29,6 @@ const finite = z.number().refine((n) => Number.isFinite(n), 'must be a finite nu
 
 // ── Geometry: per-viewport keyframes + per-segment interpolate|snap ───────────
 
-/**
- * One geometry keyframe: absolute band-coordinate placement at a captured
- * viewport width. `height` is optional — a text leaf's height is natural (from
- * flow), so its keyframes pin only `x`/`y`/`width` and leave height to the glyph
- * box. A box/image leaf gives all four.
- */
-export const l1KeyframeSchema = z
-  .object({
-    at: finite.nonnegative(),
-    x: finite,
-    y: finite,
-    width: finite.nonnegative(),
-    height: finite.nonnegative().optional(),
-    /**
-     * REQ-88 — the viewport HEIGHT this keyframe was captured at. Inert on its
-     * own; it is the origin {@link l1ViewportResponseSchema} measures from, so a
-     * height-responsive node still evaluates to exactly its captured geometry at
-     * the size the capture used. Absent on documents folded before height probing.
-     */
-    atHeight: finite.positive().optional(),
-  })
-  .strict()
-
 /** Between two adjacent keyframes, either linearly interpolate or hold-then-snap. */
 export const l1SegmentSchema = z.enum(['interpolate', 'snap'])
 
@@ -146,6 +123,58 @@ export const l1ViewportResponseSchema = z
   .object({
     yFactor: finite.min(-10).max(10).optional(),
     heightFactor: finite.min(-10).max(10).optional(),
+  })
+  .strict()
+
+/**
+ * One geometry keyframe: absolute band-coordinate placement at a captured
+ * viewport width. `height` is optional — a text leaf's height is natural (from
+ * flow), so its keyframes pin only `x`/`y`/`width` and leave height to the glyph
+ * box. A box/image leaf gives all four.
+ *
+ * REQ-351 (issue 4) — the height response lives HERE, on the keyframe, beside the
+ * `atHeight` it is measured from. It used to hang off the geometry as one scalar
+ * pair for the whole node, which made a measurement taken at ONE width an
+ * assertion about EVERY width.
+ *
+ * That is not a conservative approximation; it is a claim the capture never made,
+ * and on a page whose height rule sits inside a media query it is simply false.
+ * joyfulculinarycreations.com's hero is `height: 100vh` at 1024 and above and a
+ * content height below (305.5px at 768, measured at three widths). One
+ * `{heightFactor: 1}` for the node emitted
+ * `height: calc(305.5px + (100vh - 1024px))` at 768 — **49.5px** at a 768-tall
+ * viewport, a band shorter than one line of the copy standing on it, and 36 of
+ * that round's 259 `escape` findings. No perceptual average can see it: the page
+ * is exact at the captured viewport heights and comes apart at every other one.
+ *
+ * Per keyframe, the two halves of the statement sit together and neither can be
+ * applied without the other:
+ *
+ *   y      = keyframe.y      + keyframe.viewportResponse.yFactor      * (100vh - keyframe.atHeight)
+ *   height = keyframe.height + keyframe.viewportResponse.heightFactor * (100vh - keyframe.atHeight)
+ *
+ * and a keyframe at a width no height probe measured carries no response at all —
+ * it stays pinned at what the capture saw, which is wrong only off the captured
+ * heights and is never absurd. There is deliberately no node-level default to
+ * inherit from: two ways to say the same thing is two things to keep in agreement,
+ * and the one that held a single rule for a whole ladder is the defect.
+ */
+export const l1KeyframeSchema = z
+  .object({
+    at: finite.nonnegative(),
+    x: finite,
+    y: finite,
+    width: finite.nonnegative(),
+    height: finite.nonnegative().optional(),
+    /**
+     * REQ-88 — the viewport HEIGHT this keyframe was captured at. Inert on its
+     * own; it is the origin {@link l1ViewportResponseSchema} measures from, so a
+     * height-responsive node still evaluates to exactly its captured geometry at
+     * the size the capture used. Absent on documents folded before height probing.
+     */
+    atHeight: finite.positive().optional(),
+    /** REQ-88 / REQ-351 — how `y` / `height` track the viewport height AT THIS WIDTH. */
+    viewportResponse: l1ViewportResponseSchema.optional(),
   })
   .strict()
 
@@ -270,8 +299,6 @@ export const l1GeometrySchema = z
      * `absolute`, so every document folded before this axis existed is unchanged.
      */
     place: l1PlacementSchema.optional(),
-    /** REQ-88 — how `y` / `height` track the viewport height (the `100vh` axis). */
-    viewportResponse: l1ViewportResponseSchema.optional(),
     /**
      * REQ-88 — when present (and the document declares a `column`), `x` and
      * `width` come from the column function rather than the keyframe track. `y`

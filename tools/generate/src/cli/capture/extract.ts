@@ -389,8 +389,13 @@ export interface RawBand {
    * composites normally.
    */
   overlay: { color: string; opacity: number; blendMode?: string } | null
-  /** Content block's vertical centre as a fraction of band height (0=top…1=bottom), or null if textless. */
-  contentAnchorRatio: number | null
+  /**
+   * REQ-352 — a band records the runs it carries and its own box, and NOTHING
+   * about where its content sits: the content anchor is derived from both in
+   * `anchor.ts`, once, for both sides of the fidelity diff. It used to be
+   * measured here, two different ways depending on which code path built the
+   * band — see that module for what that cost.
+   */
   content: RawRun[]
   items: RawRun[][]
   /**
@@ -2207,33 +2212,12 @@ export const EXTRACT_SCRIPT = `(() => {
     return out;
   }
 
-  // Vertical content anchor: the centre of the band's text content as a fraction
-  // of band height. Measured from where the text landed, not from padding or
-  // flex classes, so a low-anchored hero (pt-80 or justify-end) reads the same.
-  function anchorRatioOf(band, bbox) {
-    if (bbox.height <= 0) return null;
-    var walker = document.createTreeWalker(band, NodeFilter.SHOW_TEXT, null);
-    var n, top = Infinity, bot = -Infinity, any = false;
-    while ((n = walker.nextNode())) {
-      if (!collapseText(n.nodeValue)) continue;
-      var el = n.parentElement;
-      if (!el || !visible(el)) continue;
-      var r = absBox(el);
-      if (r.y < top) top = r.y;
-      if (r.y + r.height > bot) bot = r.y + r.height;
-      any = true;
-    }
-    if (!any) return null;
-    var ratio = ((top + bot) / 2 - bbox.y) / bbox.height;
-    return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
-  }
-
-  // REQ-269 -- the geometric twins of overlayOf / anchorRatioOf, and the slice
+  // REQ-269 -- the geometric twin of overlayOf, and the slice
   // derivation they serve.
   //
-  // Both functions above answer their question by walking DOM DESCENDANTS of a
-  // band root. That proxy only holds when the band really is an ancestor of what
-  // it paints behind, which is true of a conventional page and false of an L1
+  // overlayOf above answers its question by walking DOM DESCENDANTS of a band
+  // root. That proxy only holds when the band really is an ancestor of what it
+  // paints behind, which is true of a conventional page and false of an L1
   // reproduction: render.ts emits ONE element into <body>, and every band, scrim
   // and run inside it is an absolutely-positioned SIBLING. So the extractor's
   // <body>-children scan found a single body-spanning band covering the whole
@@ -2431,23 +2415,6 @@ export const EXTRACT_SCRIPT = `(() => {
       return rgbToHex(lcs.backgroundColor);
     }
     return rgbToHex(getComputedStyle(slice.el).backgroundColor);
-  }
-
-  // anchorRatioOf's geometric twin: where the slice's own content sits inside it,
-  // measured from the runs already collected rather than from a descendant walk.
-  function anchorRatioInBox(box, runs) {
-    if (box.height <= 0) return null;
-    var top = Infinity, bot = -Infinity, any = false;
-    for (var i = 0; i < runs.length; i++) {
-      var r = runs[i].box;
-      if (!centreInSlice(r, box)) continue;
-      if (r.y < top) top = r.y;
-      if (r.y + r.height > bot) bot = r.y + r.height;
-      any = true;
-    }
-    if (!any) return null;
-    var ratio = ((top + bot) / 2 - box.y) / box.height;
-    return Math.round(Math.max(0, Math.min(1, ratio)) * 100) / 100;
   }
 
   // Which slice owns this box. Containment first; failing that the nearest slice
@@ -3096,7 +3063,6 @@ export const EXTRACT_SCRIPT = `(() => {
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
         paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
         overlay: overlayInBox(br.box, br.el),
-        contentAnchorRatio: anchorRatioInBox(br.box, perSlice[bi].content),
         content: perSlice[bi].content,
         items: perSlice[bi].items,
         fields: perSlice[bi].fields,
@@ -3135,7 +3101,6 @@ export const EXTRACT_SCRIPT = `(() => {
       paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
       paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
       overlay: overlayOf(band, bbox),
-      contentAnchorRatio: anchorRatioOf(band, bbox),
       content: content,
       items: grp.items,
       itemsAt: itemsAt,

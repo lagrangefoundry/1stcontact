@@ -90,30 +90,61 @@ function writeRefBundle(dir: string): string {
 
 // ── the actual side: a fake driver standing in for the headless browser ───────
 
+/** One band of the reproduction: the paint it reports, and the runs it carries. */
+function reproBand(box: RawSignals['bands'][number]['box'], content: RawSignals['bands'][number]['content']): RawSignals['bands'][number] {
+  return {
+    box,
+    backgroundColor: '#101820',
+    backgroundImage: 'none',
+    colorScheme: 'dark',
+    fontFamily: 'Inter',
+    textAlign: 'center',
+    paddingTopPx: 40,
+    paddingBottomPx: 40,
+    overlay: null,
+    content,
+    items: [],
+    fields: [],
+  } as RawSignals['bands'][number]
+}
+
 /**
- * What the reproduction's DOM reports. ONE band where the reference has two, and
- * that band anchored at 0.50 where the reference's hero is at 0.66 — the shape
- * of the delta that could not be closed: an anchor two decimals apart and a
- * section list of a different length, indistinguishable from the report alone.
+ * What the reproduction's DOM reports. THREE bands where the reference has two,
+ * and the band the reference's hero pairs with anchored at 0.50 where that hero
+ * is at 0.66 — the shape of the delta that could not be closed: an anchor two
+ * decimals apart and a section list of a different length, indistinguishable
+ * from the report alone.
+ *
+ * REQ-352 — a band's `contentAnchorRatio` is no longer a number a fixture
+ * declares: it is DERIVED from the runs the band carries (every run whose centre
+ * falls in its box), so each run here carries the line box that places it, and
+ * the 0.50 asserted below is a fact about that geometry. Giving the runs real
+ * boxes is also why the reproduction is three bands rather than one: a
+ * single-band reproduction whose runs have geometry IS the flat-L1 degenerate
+ * case (`spansWholePage`), and `values-diff` correctly reports its section values
+ * UNMEASURED rather than comparing the reference's two sections against one
+ * body-spanning band. The old one-band fixture escaped that guard only because
+ * its run carried no box at all.
  */
 const REPRO_SIGNALS: RawSignals = {
   viewport: { width: 800, height: 600 },
   bands: [
-    {
-      box: { x: 0, y: 0, width: 800, height: 600 },
-      backgroundColor: '#101820',
-      backgroundImage: 'none',
-      colorScheme: 'dark',
-      fontFamily: 'Inter',
-      textAlign: 'center',
-      paddingTopPx: 40,
-      paddingBottomPx: 40,
-      overlay: null,
-      contentAnchorRatio: 0.5,
-      content: [{ role: 'heading', text: 'Fake Hero', color: '#ffffff', fontFamily: 'Inter', fontSizePx: 40, fontWeight: 700 }],
-      items: [],
-      fields: [],
-    },
+    // Pairs with the reference's hero (§0, 0…300): IoU 0.67. Its heading's line
+    // box is centred in the band, so the derived anchor is 0.50 against the
+    // reference's 0.66 — the delta this fixture exists to make legible.
+    reproBand({ x: 0, y: 0, width: 800, height: 200 }, [
+      { role: 'heading', text: 'Fake Hero', color: '#ffffff', fontFamily: 'Inter', fontSizePx: 40, fontWeight: 700, box: { x: 0, y: 70, width: 800, height: 60 } },
+    ]),
+    // Unpaired: it overlaps neither reference section by half their union.
+    reproBand({ x: 0, y: 200, width: 800, height: 200 }, [
+      { role: 'body', text: 'Middle band', color: '#ffffff', fontFamily: 'Inter', fontSizePx: 18, fontWeight: 400, box: { x: 0, y: 270, width: 800, height: 60 } },
+    ]),
+    // Pairs with the reference's second section (§1, 300…600) and AGREES with it:
+    // its run sits high in the band, so the derived anchor is 0.20 — the same
+    // number the reference stored, so the only anchor delta in the report is §0's.
+    reproBand({ x: 0, y: 400, width: 800, height: 200 }, [
+      { role: 'body', text: 'Lower band', color: '#ffffff', fontFamily: 'Inter', fontSizePx: 18, fontWeight: 400, box: { x: 0, y: 410, width: 800, height: 60 } },
+    ]),
   ],
   colorUsage: [],
   fontFaces: [],
@@ -181,16 +212,17 @@ describe('BUG-103 — values-diff writes the manifests it computed from', () => 
     expect(existsSync(expectedOut), 'the reference manifest is written').toBe(true)
 
     // The reproduction side, read back: the section list the report only ever
-    // summarised. One band, at 0.50 — the `actual` of a `contentAnchor` delta.
+    // summarised. Its first band, at 0.50 — the `actual` of a `contentAnchor`
+    // delta.
     const actual = readManifest(actualOut)
     expect(actual.source).toBe('draft:repro-site')
-    expect(actual.sections).toHaveLength(1)
+    expect(actual.sections).toHaveLength(3)
     expect(actual.sections[0].contentAnchorRatio).toBe(0.5)
-    expect(actual.sections[0].box).toMatchObject({ width: 800, height: 600 })
+    expect(actual.sections[0].box).toMatchObject({ width: 800, height: 200 })
 
-    // The reference side beside it: TWO sections, the hero at 0.66. Only with
-    // both lists in hand is the delta legible as a section-count mismatch rather
-    // than a hero that slid up the page.
+    // The reference side beside it: TWO sections, the hero at 0.66, against the
+    // reproduction's three. Only with both lists in hand is the delta legible as
+    // a section-count mismatch rather than a hero that slid up the page.
     const expected = readManifest(expectedOut)
     expect(expected.sections).toHaveLength(2)
     expect(expected.sections[0].contentAnchorRatio).toBe(0.66)

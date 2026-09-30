@@ -83,7 +83,6 @@ export function signalsFor(width: number): RawSignals {
         paddingTopPx: 40,
         paddingBottomPx: 40,
         overlay: null,
-        contentAnchorRatio: 0.5,
         content: [
           // A fluid heading: left edge fixed, width tracks the viewport.
           run({ text: 'Fluid Headline', box: { x: 20, y: 120, width: width - 40, height: 60 } }),

@@ -9,6 +9,7 @@
  * exact styling regardless of where a boundary falls (DOC-13 §5).
  */
 import type { RawBand, RawField, RawRun, RawSignals } from './extract'
+import { anchorRatioOfSpan, contentAnchorSpans, mergeContentSpans, type ContentSpan } from './anchor'
 import { normalizeGradient } from './values-diff'
 import type {
   Background,
@@ -264,7 +265,12 @@ function unionBox(a: Box, b: Box): Box {
   }
 }
 
-function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (url: string) => string | undefined): Section {
+function sectionFromBands(
+  bands: RawBand[],
+  spans: readonly (ContentSpan | null)[],
+  signals: RawSignals,
+  urlToLocal: (url: string) => string | undefined,
+): Section {
   const head = bands[0]
   const box = bands.reduce<Box>((acc, b) => unionBox(acc, b.box), head.box)
   const background = backgroundOf(head, urlToLocal)
@@ -291,7 +297,15 @@ function sectionFromBands(bands: RawBand[], signals: RawSignals, urlToLocal: (ur
     arrangement: items.length > 1 ? 'row' : 'stack',
     columns: items.length > 0 ? items.length : 1,
     contentMaxWidthPx: signals.containerMaxWidthPx,
-    contentAnchorRatio: head.contentAnchorRatio ?? null,
+    // REQ-352 — the anchor of THIS section: every coalesced band's text, measured
+    // against the section's own (union) box. It used to be `head.contentAnchorRatio`,
+    // which is the first band's text over the first band's box — a different box
+    // from the one the section publishes the moment two bands coalesce, and
+    // therefore a ratio nothing on the reproduction side could match. On
+    // joyfulculinarycreations.com that mismatch was reported as a live
+    // `contentAnchor` delta of `top (0.22)` against `center (0.55)` on content the
+    // reproduction had placed correctly.
+    contentAnchorRatio: anchorRatioOfSpan(box, mergeContentSpans(spans)),
   }
   return { box, screenshot: box, background, layout, content, items, itemsAt, fields }
 }
@@ -301,20 +315,28 @@ export function buildSections(
   urlToLocal: (url: string) => string | undefined,
 ): Section[] {
   const sections: Section[] = []
+  // REQ-352 — the span of the text each band carries, over the one document-wide
+  // geometric population. Computed once for the whole document (see `anchor.ts`):
+  // a band's own runs cannot answer it, because a `<header>` absolutely positioned
+  // over a hero is its own band and its runs are inside the hero's box.
+  const spans = contentAnchorSpans(signals)
   let run: RawBand[] = []
+  let runSpans: (ContentSpan | null)[] = []
   let sig: string | null = null
 
-  for (const band of signals.bands) {
+  signals.bands.forEach((band, i) => {
     const s = signatureOf(band)
     if (sig === null || s === sig) {
       run.push(band)
+      runSpans.push(spans[i])
       sig = s
     } else {
-      sections.push(sectionFromBands(run, signals, urlToLocal))
+      sections.push(sectionFromBands(run, runSpans, signals, urlToLocal))
       run = [band]
+      runSpans = [spans[i]]
       sig = s
     }
-  }
-  if (run.length > 0) sections.push(sectionFromBands(run, signals, urlToLocal))
+  })
+  if (run.length > 0) sections.push(sectionFromBands(run, runSpans, signals, urlToLocal))
   return sections
 }

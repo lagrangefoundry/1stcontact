@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-352
 created_by: xgd
 created_at: '2026-09-29T21:30:42.368108+00:00'
-updated_at: '2026-09-30T00:51:05.362092+00:00'
+updated_at: '2026-09-30T01:33:25.964124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -196,5 +196,85 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="a848c550-a7fa-46d2-ba82-306f11751efd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T01:33:24.927854+00:00" -->
+#### Claude
+The background monitor died (as warned). Let me re-orient and run tests in the foreground from here on.
+
+The background suite did complete. Let me read the results.
+
+26 failing files. Let me capture the exact failing test names, then baseline them against the stashed tree.
+
+These look environmental (port binding, services, KB) plus the already-fixed REQ-274. Let me confirm with a baseline run.
+
+Single-file works, and `bug32` fails on baseline too. The 26-arg invocation had a quoting issue — let me run in batches.
+
+Individual runs differ from full-suite runs (these tests contend for ports/files), so file-by-file isn't comparable. Let me do a like-for-like full-suite comparison using shards, in the foreground. The tree is currently the baseline.
+
+Baseline: 25 failures. Now restoring my changes and running the identical shards.
+
+Identical counts. Let me confirm the failure sets are the same tests.
+
+Zero regressions — the 25 failures are identical pre-existing ones. Let me confirm my UAT file actually ran and passed.
+
+Shard 2 gained exactly +1 file and +9 tests (my 9 UATs), and none of my touched suites appear in the failures. Final targeted confirmation:
+
+All 8 anchor-adjacent suites pass. Now typecheck, clean up scratch files, and bump the version.
+
+Clean tree. Now the commit.
+
+The gate requires the merge-back first. Let me lock and merge by hand.
+
+xgd-working has moved on — it already has a schema 9 from another ticket. Let me inspect.
+
+REQ-347 took schema 9 on xgd-working, so mine becomes 10. Let me see the second conflict.
+
+Both conflicts are clean additive overlaps. Let me resolve: REQ-347 keeps 9, mine becomes 10.
+
+Clean. Now `package.json` — take xgd-working's newer version and re-bump.
+
+Now update the UAT assertion and ticket prose that named schema 9.
+
+`ANCHOR_POPULATION_SCHEMA` isn't on the package surface yet. Let me export it.
+
+Typecheck clean. Now run the anchor-adjacent suites against the merged tree.
+
+All 24 schema-sensitive suites pass. Let me commit the merge.
+
+`git add -A` swept in `.pnpm-store/` build artifacts. Let me unstage those.
+
+The branch never touched those — they're concurrent xgd ticket writes plus my lock file. Unstaging them so the merge commit is code-only.
+
+Merged. Now updating the ticket body for the schema renumber, then the gate.
+
+Now the free-coded gate.
+
+The version bump landed in the merge commit. Let me pass both SHAs.
+
+Another process took 0.2.413. Let me re-bump on the current tip.
+
+Status is `free_coded`. Now the cleanup step — release the lock and remove the branch worktree.
+
+Free-coding of REQ-352 is complete. Ticket is `free_coded` at version `0.2.414`, branch merged and cleaned.
+
+## What landed
+
+The anchor derivation moved out of the page script into a new `anchor.ts`: **one population** (every run whose centre falls in the band's box, document-wide), **one implementation**, read by both the capture side (`buildSections`) and the reproduction side (`flattenSignals`). A `RawBand` no longer carries an anchor field at all.
+
+**The ticket's preferred approach was rejected, and I recorded why in the body.** Teaching the DOM walk to exclude runs claimed by a nested band root cannot work: an L1 reproduction's bands are the painted slices of one page-wide root and therefore a partition, so "exclude the nested section's runs" is a question that side cannot answer. Geometry is the only population *both* sides can compute.
+
+**A second defect surfaced and is closed with it** — a coalesced section published its union box but took its anchor from the first band. Recomputing across the three stored references (21 sections) the new population moves **four**, and three are these two defects at exactly the magnitudes the diff reported. That measurement also corrected a false claim in the prior session's docstring, which asserted only two sections moved.
+
+REQ-270's guard is kept: `anchorPopulation` is a new *carried* axis, so the guard declines only for pre-schema bundles, whose remedy — a re-capture — the message now names.
+
+## Things worth flagging
+
+- **Schema landed as 10, not 9.** REQ-347 took 9 on `xgd-working` while this branch was open. Both of its axes are preserved alongside the new one; the number lives in `ANCHOR_POPULATION_SCHEMA` and the UAT asserts against that constant rather than a literal.
+- **Two other tickets' fixtures needed fixing**, both for the same reason the production change exists — they lacked run geometry. `BUG-103`'s reproduction band had *no run box at all*, which is the only reason it escaped the flat-L1 guard; `REQ-274`'s `rawBand()` still declared the removed field and implied 0.16 where the reference stored 0.53. Both tickets' own claims are unchanged and still asserted.
+- **Verification:** 9 UATs, mutation-tested (per-band population fails 2, reverting the coalesced-box fix fails 1, deleting the population gate fails 5). Full node suite compared like-for-like by shard: **25 failures before, the same 25 after, identical test names** — all pre-existing and environmental (port binding, local services). I did not fix those and they are not from this work.
+
+One process note: partway through I used `git checkout` to revert mutation-test edits, which wiped the prior session's *uncommitted* changes to `sections.ts` and `values-diff.ts`. I reconstructed both from diffs captured earlier in the session and verified them against the original diff stats, typecheck, and tests before proceeding.
 
 <!-- xgd-chat-end -->

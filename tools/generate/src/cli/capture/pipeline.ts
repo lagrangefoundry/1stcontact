@@ -299,6 +299,10 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
       // a current oracle from one that predates the axes it is being asked about.
       captureSchema: CAPTURE_SCHEMA,
       viewport: signals.viewport,
+      // REQ-351 (issue 1) — the measured canvas, recorded rather than inferred.
+      // Omitted when the page painted nothing on `<body>`, so an absent key stays
+      // "not measured" instead of asserting a colour nobody saw.
+      ...(signals.bodyBackground ? { bodyBackground: signals.bodyBackground } : {}),
       theme: buildTheme(signals, fontFacesByFamily),
       sections: buildSections(signals, (src) => urlToLocal.get(src)),
       assets,

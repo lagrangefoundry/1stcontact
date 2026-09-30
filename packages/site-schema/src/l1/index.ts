@@ -51,6 +51,9 @@ export {
 export type { L1Color, L1Palette, L1PaletteEntry, L1PaletteRef } from './palette'
 export {
   validateL1,
+  // [[REQ-351]] — lift a pre-REQ-351 document's node-level `viewportResponse` onto
+  // its keyframes, so a bundle's retained `l1.json` stays readable without a refold.
+  upgradeL1LegacyViewportResponse,
   checkPaletteRefs,
   danglingAssetReferences,
   // [[REQ-285]] — the same walk, asked the other question: what a page

@@ -31,7 +31,7 @@
  * be, and a bundle written by the laptop and read by the cloud is exactly the
  * case that would break when they drifted.
  */
-import type { L1Document } from '@1stcontact/site-schema'
+import { upgradeL1LegacyViewportResponse, type L1Document } from '@1stcontact/site-schema'
 import {
   ASSETS_PREFIX,
   CAPTURE_MEMBER,
@@ -143,9 +143,21 @@ export async function writeL1(bundle: ReferenceBundle, doc: L1Document): Promise
   await bundle.write(L1_MEMBER, encodeJson(doc))
 }
 
-/** Read a bundle's `l1.json`, or null when the bundle predates the fold. */
-export function readL1(bundle: ReferenceBundle): Promise<L1Document | null> {
-  return readJson<L1Document>(bundle, L1_MEMBER)
+/**
+ * Read a bundle's `l1.json`, or null when the bundle predates the fold.
+ *
+ * REQ-351 (issue 4) — upgraded on the way out. A retained `l1.json` is a DERIVED
+ * artifact of whichever fold wrote it, so a bundle taken before the height response
+ * moved onto the keyframe still carries the node-level pair the envelope now
+ * refuses. Its meaning is exact — *this pair, at every width* — so it is lifted
+ * rather than rejected: the alternative is that every stored bundle needs a refold
+ * before it can be read at all, and a refold re-rolls nothing here but still costs
+ * the operator a step for information already unambiguous. A no-op on anything
+ * folded since.
+ */
+export async function readL1(bundle: ReferenceBundle): Promise<L1Document | null> {
+  const doc = await readJson<L1Document>(bundle, L1_MEMBER)
+  return doc === null ? null : upgradeL1LegacyViewportResponse(doc)
 }
 
 /**

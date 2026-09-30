@@ -71,7 +71,7 @@ function sliceBackgroundColorOffline(): (slice: StubSlice) => string | null {
   const colorFrom = EXTRACT_SCRIPT.indexOf('function h2(n)')
   const colorTo = EXTRACT_SCRIPT.indexOf("// REQ-72 — resolve a gradient's colour tokens", colorFrom)
   const sliceFrom = EXTRACT_SCRIPT.indexOf('function sliceBackgroundColor(slice)')
-  const sliceTo = EXTRACT_SCRIPT.indexOf("// anchorRatioOf's geometric twin", sliceFrom)
+  const sliceTo = EXTRACT_SCRIPT.indexOf('// Which slice owns this box.', sliceFrom)
   expect(colorFrom).toBeGreaterThan(0)
   expect(colorTo).toBeGreaterThan(colorFrom)
   expect(sliceFrom).toBeGreaterThan(0)

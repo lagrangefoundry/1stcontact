@@ -58,7 +58,7 @@ import { writeForms, writeL1, writeMultiState } from '../tools/generate/src/cli/
 import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 import { loadSite } from '../tools/generate/src/store'
 import { renderL1Document } from '../packages/framework/src/l1/render'
-import { validateL1 } from '../packages/site-schema/src/index'
+import { upgradeL1LegacyViewportResponse, validateL1 } from '../packages/site-schema/src/index'
 import type { L1Document, L1Node } from '../packages/site-schema/src/index'
 import type { MultiStateCapture, StateProjection, ValueElement } from '../tools/generate/src/cli/capture'
 
@@ -295,12 +295,13 @@ describe('REQ-278 — a flow recovery that preserves horizontal geometry', () =>
             text: 'anchored and flowed',
             geometry: {
               place: 'flow' as const,
+              // REQ-351 (issue 4) — the response is a KEYFRAME field now, so the
+              // document states the refused pair where it can be stated.
               keyframes: [
-                { at: 320, x: 0, y: 0, width: 320 },
-                { at: 1440, x: 0, y: 0, width: 1440 },
+                { at: 320, x: 0, y: 0, width: 320, atHeight: 800, viewportResponse: { yFactor: 1 } },
+                { at: 1440, x: 0, y: 0, width: 1440, atHeight: 900 },
               ],
               anchor: { x: { px: 0 } },
-              viewportResponse: { yFactor: 1 },
             },
           },
         ],
@@ -402,7 +403,13 @@ describe('REQ-278 — a flow recovery that preserves horizontal geometry', () =>
       const capture = JSON.parse(
         readFileSync(path.join(dir, 'multistate.json'), 'utf8'),
       ) as MultiStateCapture
-      const l1 = JSON.parse(readFileSync(path.join(dir, 'l1.json'), 'utf8')) as L1Document
+      // REQ-351 (issue 4) — read the way the bundle port reads it. These bundles
+      // were folded before the height response moved onto the keyframe, so their
+      // retained `l1.json` carries the node-level pair the envelope now refuses;
+      // `readL1` lifts it, and this leg reads the bytes directly.
+      const l1 = upgradeL1LegacyViewportResponse(
+        JSON.parse(readFileSync(path.join(dir, 'l1.json'), 'utf8')),
+      ) as L1Document
       const formsPath = path.join(dir, 'forms.json')
       const forms = existsSync(formsPath)
         ? (JSON.parse(readFileSync(formsPath, 'utf8')) as FoldedForm[])

@@ -50,7 +50,7 @@ import type {
   Viewport,
 } from './types'
 import type { RawRun, RawSignals } from './extract'
-import { captureSchemaOf } from './schema'
+import { ANCHOR_POPULATION_SCHEMA, captureSchemaOf } from './schema'
 import { colorDistance } from './color-values'
 // REQ-331 — the shared statement of what a captured treatment actually paints:
 // the shadow parse, its painted-layer normalisation, and the filter identity
@@ -70,6 +70,7 @@ import {
   projectField,
   projectRawRun,
   projectSignalsBand,
+  signalsBands,
   projectSignalsManifestAxes,
   type RecordedManifest,
   type UnmeasuredAxis,
@@ -326,6 +327,18 @@ export interface SectionValues {
   overlay: { color: string; opacity: number; blendMode?: string } | null
   /** Vertical content anchor (0 = top … 1 = bottom), or null when the section is textless. */
   contentAnchorRatio: number | null
+  /**
+   * REQ-352 — which population the `contentAnchorRatio` beside it was measured
+   * over: `geometric` (every run whose centre falls in the band's box) or `dom`
+   * (a DOM-descendant walk of the band element).
+   *
+   * The reproduction is measured by the extractor running now, so it is always
+   * `geometric`; a stored bundle is `geometric` from capture schema
+   * {@link ANCHOR_POPULATION_SCHEMA} and `dom` before it. Absent on a manifest
+   * written before the axis existed, which is read as `dom` — the population that
+   * manifest's reference side actually had.
+   */
+  anchorPopulation?: 'geometric' | 'dom'
   /** REQ-64 — section band vertical padding (Type-A). Captured on the band all
    *  along but never compared; a taller section (a bigger top/bottom pad) only
    *  showed up as downstream `position` drift. Optional so pre-REQ-64 manifests parse. */
@@ -1124,7 +1137,9 @@ export function flattenCapture(capture: Capture, multistate?: MultiStateCapture 
  * asymmetry is real and stays.
  */
 export function flattenSignals(signals: RawSignals, source: string): ValueManifest {
-  const sections: SectionValues[] = signals.bands.map((band, index) => projectSignalsBand(band, index))
+  // REQ-352 — each band paired with the span of the text it carries, over the one
+  // document-wide anchor population. See `anchor.ts`.
+  const sections: SectionValues[] = signalsBands(signals).map((input, index) => projectSignalsBand(input, index))
   const elements: ValueElement[] = []
   for (const band of signals.bands) {
     // REQ-302 — see flattenCapture above: the same ordering, read from the raw
@@ -1175,8 +1190,35 @@ export const RESPONSIVE_VIEWPORTS: readonly Viewport[] = [
  * the keyframes, the screenshots and the diff cells, and a duplicate width would
  * perturb all three. A probe adds one projection and nothing else — the fold
  * reads it as evidence, {@link restingByWidth} skips it as a keyframe.
+ *
+ * REQ-351 (issue 3) — one probe per ladder width, DERIVED from the ladder so the
+ * two cannot drift.
+ *
+ * There used to be exactly one, at 1280, and the response measured there was
+ * asserted at every width — on the reasoning that the CSS rule producing it
+ * (`min-h-screen`) is not itself width-varying. That reasoning is false on any
+ * page with a height rule inside a media query, which is the common case:
+ * joyfulculinarycreations.com's hero is `100vh` at 1024 and above and a content
+ * height below, so `heightFactor: 1` measured at 1280 and replayed at 768 gave
+ * `calc(305.5px + (100vh - 1024px))` = **49.5px** at 768x768 — a band shorter than
+ * one line of its own copy, and 36 of that round's 259 `escape` findings.
+ *
+ * With the response now carried PER KEYFRAME (`l1KeyframeSchema.viewportResponse`),
+ * a width nothing probed asserts nothing and the node stays pinned there — honest,
+ * but silent. So the number of probed widths is exactly the number of widths at
+ * which the height axis is measured at all, and leaving four of six unprobed makes
+ * the whole ladder a one-point extrapolation. The cost is one extra projection per
+ * width on a capture the operator takes once.
+ *
+ * `+200px` at each width: far enough that a pixel of layout noise is 0.005 of the
+ * ratio (inside `snapFactor`'s tolerance), and different from the ladder height at
+ * that width by construction, which is what {@link heightProbesFor} requires to
+ * read the pair as a probe at all.
  */
-export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = [{ width: 1280, height: 1000 }]
+export const HEIGHT_PROBE_VIEWPORTS: readonly Viewport[] = RESPONSIVE_VIEWPORTS.map((v) => ({
+  width: v.width,
+  height: v.height + 200,
+}))
 
 /**
  * REQ-88 — split a capture's projections into the **width ladder** and the
@@ -2501,6 +2543,15 @@ export function diffManifests(
   const deltas: ValueDelta[] = []
   let matched = 0
   let unmatched = 0
+  // BUG-160 (issue 2) — what the `arrangement` block below DECLINED to compare.
+  // The axis is CRITICAL-tier and both its guards are silent: a run neither
+  // compared nor counted reaches `gate.json` as a clean one. Counted per side and
+  // per reason here, and emitted as one row each at the end of the pass, so the
+  // gate's unmeasured tally stops reading zero over comparisons that never ran.
+  let arrangementPairs = 0
+  let arrangementUnreadExpected = 0
+  let arrangementUnreadActual = 0
+  let arrangementDeclinedMoved = 0
 
   // REQ-51 — object cards accumulate as we pair; `ignore` is hoisted above the
   // loops (from its original post-loop position) so a card's per-object delta
@@ -2795,6 +2846,23 @@ export function diffManifests(
     // it does not, the element's `position` delta above already names the real
     // defect and this would be a second, louder report of a third element's
     // movement. Where it does, a genuine arrangement difference is still reported.
+    //
+    // BUG-160 (issue 2) — both of those guards are RIGHT and both were SILENT.
+    // On the gigabytealchemy round the first one dropped 22 of 59 pairs — every
+    // run that opens a band, 37% of the population, because `relate` reads `null`
+    // for a predecessor relation the reference's own sort order does not produce —
+    // and `gate.json` still reported `unmeasuredAxes: []` over them. An exclusion
+    // nobody can see is indistinguishable from a measurement nobody made, so each
+    // declination is counted here and reported below.
+    arrangementPairs++
+    // ASYMMETRY only. A pair neither side read is not a skipped comparison — the
+    // axis simply is not projected on this pair of pages, which the declaration
+    // table (`observedUnmeasuredAxes`) already owns and which every other guard
+    // in this function stays inert for. What the round lost was the pair where
+    // one side HAD a reading and the other did not: a measurement that existed
+    // and went uncompared.
+    if (!exp.arrangement && act.arrangement) arrangementUnreadExpected++
+    else if (exp.arrangement && !act.arrangement) arrangementUnreadActual++
     if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
       const ownGeometryAgrees =
         exp.box !== undefined &&
@@ -2802,6 +2870,10 @@ export function diffManifests(
         Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y)) <= positionTol
       if (ownGeometryAgrees) {
         push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
+      } else {
+        // Declined, not clean: the two sides DID disagree and this run chose not
+        // to blame this element for it. That choice is a measurement not made.
+        arrangementDeclinedMoved++
       }
     }
     // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
@@ -3543,26 +3615,36 @@ export function diffManifests(
 
     // REQ-270 — THE ANCHOR IS ONLY COMPARABLE OVER THE SAME POPULATION OF RUNS.
     //
-    // The reference's anchor is a DOM-descendant walk of the band element; ours
-    // is every run whose centre falls in the geometric slice. Those agree on a
-    // conventionally nested page and disagree exactly when the reference's own
-    // sections OVERLAP — a `position: absolute` header sitting over the hero is
-    // its own reference section, so its runs are not descendants of the hero and
-    // the reference excludes them, while a geometric slice is a partition and
-    // ours cannot. On gigabytealchemy that is 0.53 vs 0.39 on byte-identical
-    // geometry: a phantom 112px content shift, silent only because 0.14 happened
-    // to fall 0.01 under the tolerance.
+    // A pre-REQ-352 reference's anchor is a DOM-descendant walk of the band
+    // element; ours is every run whose centre falls in the geometric slice. Those
+    // agree on a conventionally nested page and disagree exactly when the
+    // reference's own sections OVERLAP — a `position: absolute` header sitting
+    // over the hero is its own reference section, so its runs are not descendants
+    // of the hero and the reference excludes them, while a geometric slice is a
+    // partition and ours cannot. On gigabytealchemy that is 0.53 vs 0.39 on
+    // byte-identical geometry: a phantom 112px content shift, silent only because
+    // 0.14 happened to fall 0.01 under the tolerance.
     //
     // The fix is to say so rather than to compare two numbers that do not mean
     // the same thing, and rather than to widen the tolerance — a tolerance that
     // absorbs this would also absorb a real 100px shift.
+    //
+    // REQ-352 — AND THE OTHER HALF: the extractor now measures every band's
+    // anchor over the one geometric population, so a bundle taken at capture
+    // schema {@link ANCHOR_POPULATION_SCHEMA} or later IS comparable on this shape
+    // and is compared. The declination is kept, not deleted, because a bundle
+    // taken before that still carries the DOM-population value and comparing it
+    // against a geometric one is exactly the phantom delta this refuses; its
+    // remedy is a re-capture, which the reason below now says.
     const overlapping = overlappingSmallerSections(expSections, ei)
-    if (overlapping.length) {
+    if (overlapping.length && (es.anchorPopulation ?? 'dom') !== 'geometric') {
       pairing.anchorComparable = false
       pairing.anchorReason =
-        `${overlapping.map((o) => `§${o.index}`).join(', ')} sits inside this band, so the reference measured its ` +
-        `anchor over a DOM-descendant population that EXCLUDES those runs while the reproduction's geometric band ` +
-        `includes them — the two anchors are not the same measurement and are not compared`
+        `${overlapping.map((o) => `§${o.index}`).join(', ')} sits inside this band, and this bundle was taken before ` +
+        `capture schema ${ANCHOR_POPULATION_SCHEMA}, so the reference measured its anchor over a DOM-descendant ` +
+        `population that EXCLUDES those runs while the reproduction's geometric band includes them — the two anchors ` +
+        `are not the same measurement and are not compared. RE-CAPTURE the reference to make this axis comparable: ` +
+        `the extractor now measures both sides over the same population (REQ-352)`
     } else if (es.contentAnchorRatio !== null && as.contentAnchorRatio !== null) {
       if (Math.abs(es.contentAnchorRatio - as.contentAnchorRatio) > anchorTol) {
         record(label, 'section', 'contentAnchor', anchorLabel(es.contentAnchorRatio), anchorLabel(as.contentAnchorRatio))
@@ -3608,9 +3690,30 @@ export function diffManifests(
   // the gate. `contentAnchor` is named rather than inferred from the flag, because
   // the axis is what an operator acts on — a second declined axis would push its
   // own name here rather than widening the meaning of this one.
-  const notComparableAxes: NotComparableAxis[] = sectionPairing
-    .filter((p) => p.anchorComparable === false)
-    .map((p) => ({ scope: p.label, axis: 'contentAnchor', reason: p.anchorReason ?? '' }))
+  const notComparableAxes: NotComparableAxis[] = [
+    ...sectionPairing
+      .filter((p) => p.anchorComparable === false)
+      .map((p) => ({ scope: p.label, axis: 'contentAnchor', reason: p.anchorReason ?? '' })),
+    // BUG-160 (issue 2) — the `ownGeometryAgrees` half of the `arrangement`
+    // guard. The two sides genuinely disagreed on the axis and the comparator
+    // declined to report it against THIS element because its own box had moved,
+    // which is a declination in exactly REQ-270's sense and belongs in the same
+    // list: asked, and not answered. `scope: 'element'` rather than a `§n` band —
+    // the refusal is per pair, not per band — and one aggregate row rather than
+    // one per element, for the reason `unreadableTransformAxes` gives.
+    ...(arrangementDeclinedMoved > 0
+      ? [
+          {
+            scope: 'element',
+            axis: 'arrangement',
+            reason:
+              `the two sides read different arrangements on ${arrangementDeclinedMoved} of ` +
+              `${arrangementPairs} paired elements, but the element's own box had moved, so the ` +
+              `axis was declined in favour of the position delta that names the real defect`,
+          },
+        ]
+      : []),
+  ]
   const claimedActual = new Set<SectionValues>()
   for (const m of sectionMatches.values()) claimedActual.add(m.section)
   const unpairedActualSections: UnpairedSection[] = flatRepro
@@ -3839,6 +3942,36 @@ export function diffManifests(
       // Both are the same fact to the gate — "compared, and not evaluated here" —
       // so both arrive in the same list rather than in a second one nothing reads.
       ...unreadableTransformAxes(expected, actual),
+      // BUG-160 (issue 2) — and the `arrangement` pairs one side read no value
+      // for. `arrangement` relates an element to the one BEFORE it in that
+      // side's own top-to-bottom sort, and the two sides do not sort the same
+      // list — a reproduction emits band containers a reference has no
+      // counterpart for — so `relate` returns null on one side for a pair the
+      // other side read fine. The both-sides guard then drops the comparison,
+      // correctly and, until now, silently: on the round this was filed from,
+      // 22 of 59 pairs on a CRITICAL-tier axis, under a headline of `0 axes`.
+      // One row per side, never one per element, exactly as the transform rows
+      // above: the count and the reason are the fact, the element list is not.
+      ...(arrangementUnreadExpected > 0
+        ? [
+            {
+              axis: 'arrangement',
+              scope: 'element' as const,
+              side: 'reference' as const,
+              reason: arrangementUnreadReason(arrangementUnreadExpected, arrangementPairs),
+            },
+          ]
+        : []),
+      ...(arrangementUnreadActual > 0
+        ? [
+            {
+              axis: 'arrangement',
+              scope: 'element' as const,
+              side: 'reproduction' as const,
+              reason: arrangementUnreadReason(arrangementUnreadActual, arrangementPairs),
+            },
+          ]
+        : []),
       // BUG-153 (item 2) — and the mask pairs this run could not resolve.
       ...(maskGeometryUnresolved
         ? [
@@ -3878,6 +4011,21 @@ export function diffManifests(
  * gate enumerates these by name and a page with forty rotated layers would
  * otherwise print forty identical lines.
  */
+/**
+ * BUG-160 (issue 2) — the reason line for an `arrangement` side that read no
+ * value, carrying the count it applies to. One sentence, in the comparator's own
+ * words, naming the mechanism rather than the elements: the count is what a
+ * round drives down and the mechanism is what a fix has to change.
+ */
+function arrangementUnreadReason(unread: number, pairs: number): string {
+  return (
+    `this side read no arrangement for ${unread} of ${pairs} paired elements, so the ` +
+    `both-sides guard skipped the comparison — the axis relates an element to the one ` +
+    `before it in that side's OWN top-to-bottom sort, and the two sides do not sort the ` +
+    `same element list`
+  )
+}
+
 function unreadableTransformAxes(expected: ValueManifest, actual: ValueManifest): UnmeasuredAxis[] {
   const REASON =
     'the effective transform chain held a value this projection cannot decompose ' +
