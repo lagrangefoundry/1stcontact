@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-09-30T00:02:47.652804+00:00'
+updated_at: '2026-09-30T00:07:34.745721+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -173,5 +173,31 @@ Say the word and I'll write the EPIC-22 body and cut the branch.
 <!-- xgd-chat role="user" ts="2026-09-30T00:02:45.788511+00:00" -->
 #### You
 Yeah V1 is create the tab and the delegate switch with the necessary backend changes to support that - can you give me a ticket for that please?
+
+<!-- xgd-turn id="37a3973c-29c2-46bf-8004-a45d5b24b792-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T00:07:34.218172+00:00" -->
+#### Claude
+Now I'll write the epic body and the v1 child ticket.
+
+Filed. Two tickets written:
+
+**EPIC-22** — *Debug tab: per-business network configuration, and a window on each agent*. Now has a body; it was `Untitled` / `(new ticket)` before. It records the four things we settled today, each with the argument rather than just the verdict:
+
+- why it's a business-scoped **tab** and not the console (REQ-179's rule doesn't bite once the controls are per-business), and that this supersedes `delegation.json`'s *"per-tenant control is deliberately out of scope"* — which that same paragraph anticipated
+- why the delegate control is **one switch**, and that `enabled` already dominates `primary_writes` structurally so one switch is safe rather than just simpler
+- **runtime via `deps`, not deploy-time**, with `configureDelegation` named as the trap (module-level global feeding a per-site manager cache)
+- **framework EPIC-2's Flock tab as the UI reference** for the agent windows, including the three findings worth stealing: `webui-room` is shipped upstream and unvendored here (sixth instance of EPIC-19's unadopted-upstream pattern), the room reads idle while a member composes, and xgd's BUG-1402 — the activity strip is a safety control, because an operator who reads a working room as inert retypes and truncates the turn
+
+**REQ-353** — *A Debug tab, and a per-business switch for delegation*, filed as the epic's first child (both `epic_parent` and `epic_children` are set; `xgd ticket children` still reports none, which is the index lag we saw earlier, not a broken link).
+
+It's the v1 you asked for: the tab frame plus the one working switch and the backend under it. Behaviour is written as eight observables so the UATs have language to trace to, and it's explicit about the parts that are absences rather than omissions — no group-chat switch (nothing behind it; a switch that can't be moved is present-and-refusing, which this repo rejects in three separate files), no agent windows, no gate, no per-business `workers` map.
+
+Two things in there you should look at, because they're my calls and not yours:
+
+- **The Debug tab goes rightmost**, which contradicts `SETTINGS_TAB`'s comment claiming that position with a reason. The ticket amends that comment rather than leaving two tabs each documented as last — worth a glance in case you'd rather Debug sat elsewhere.
+- **The exposure while it's ungated** is recorded plainly: anyone reaching the builder for a business can turn that business's delegation off, and EPIC-20 measured that at $0.54 against $0.046 per element write. I've written it as acceptable-for-v1 because the builder is behind Access and you're its only user — but it's stated, not buried, so gating it stays a decision.
+
+Haven't cut a branch or written code yet. Say go and I'll branch `REQ-353` and build it.
 
 <!-- xgd-chat-end -->
