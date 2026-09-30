@@ -6,7 +6,7 @@ title: 'capture: a band''s content anchor is measured by DOM descent on one path
   geometry on the other, so a hero with a header over it is permanently unmeasured'
 created_by: EPIC-12
 created_at: '2026-09-29T21:23:37.137276+00:00'
-updated_at: '2026-09-30T00:18:30.465811+00:00'
+updated_at: '2026-09-30T01:27:21.224343+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -129,14 +129,14 @@ inside.
 7. **Each side records WHICH population it was measured over.** A new axis
    `anchorPopulation`, `geometric` or `dom`, carried and not compared. The
    reproduction is measured by the extractor running now, so it is always
-   `geometric`; a bundle is `geometric` from capture schema 9 and `dom` before it.
+   `geometric`; a bundle is `geometric` from capture schema 10 and `dom` before it.
    This is what lets behaviour 3's guard tell an older bundle from a current one
    rather than guessing, and it is carried rather than compared because the two
    sides legitimately differ on an older bundle — what the comparator does about
    that is decline the anchor, not record a delta on the population.
 
 8. **A bundle whose anchor was measured by an older instrument is named as
-   such.** `CAPTURE_SCHEMA` goes to 9, with a schema axis whose probe recomputes
+   such.** `CAPTURE_SCHEMA` goes to 10, with a schema axis whose probe recomputes
    the geometric anchor from the runs and boxes the bundle already carries and
    compares it against the stored value. A disagreement dates the bundle, so the
    operator-facing staleness sentence names re-capture as the lever rather than
@@ -215,3 +215,10 @@ legible — are unchanged and still asserted.
 
 Every other fixture that declared `contentAnchorRatio` on a `RawBand` drops it,
 because the field no longer exists.
+
+**Schema number.** This landed as capture schema **10**, not 9: REQ-347 took 9 on
+`xgd-working` while this branch was open, and its two attribution axes are kept
+alongside this one. `ANCHOR_POPULATION_SCHEMA` names the number at the two places
+that consult it (the `anchorPopulation` axis and the comparator's declination) so
+those two cannot drift apart, and the UAT asserts against that constant rather
+than a literal.
