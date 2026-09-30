@@ -76,7 +76,7 @@ import {
   toolTranscriptNote,
   type TurnSignal,
 } from './roles'
-import { delegationFor } from './delegation'
+import { delegationForScope, type DelegationResolver } from './delegation'
 import {
   settingsInstanceConfig,
   settingsSurfaceFor,
@@ -762,6 +762,36 @@ export interface HostDeps {
    * be worse than no meter at all.
    */
   recordTurnSpend?: RecordTurnSpend | null
+
+  /**
+   * Whether the business in scope delegates construction ([[REQ-353]]), or absent
+   * where this host has no per-business answer to read.
+   *
+   * NOT A FACTORY OVER THE SLUG, unlike `fidelity`, `pictures`, `ledger`,
+   * `library`, `assetUrl` and `addresses`, and the asymmetry is the same one
+   * `recordTurnSpend` has: whether the consultant commissions construction is a
+   * fact about the BUSINESS, not about a site. A business's two sites do not get
+   * two different networks, and a factory over the slug would be an argument
+   * inviting exactly that.
+   *
+   * A RESOLVER RATHER THAN A VALUE, because `build` is where it matters. The
+   * host is cached for as long as its store is, so a value read by whoever
+   * assembled the deps would be the answer from the first request of the
+   * isolate's life; asked HERE, it is the answer the database holds when the
+   * manager is composed. See {@link DelegationResolver}.
+   *
+   * ABSENT IS ORDINARY AND IS THE DEFAULT, for `fidelity`'s reason: a host with
+   * no per-business answer reads the bundled `delegation.json`, which is the `1c`
+   * CLI's permanent state and every suite's. That is a host with no override to
+   * read rather than two hosts disagreeing about one value.
+   *
+   * IT TAKES EFFECT ON THE BUSINESS'S NEXT SESSION AND NOT ON A TURN IN FLIGHT.
+   * The delegation surface is composed when the Toolbox is built and a manager
+   * holds its backend for its whole life, so a flip reaches the next manager
+   * rather than the conversation somebody is in the middle of. That is the
+   * semantics, and the surface that offers the switch says so in words.
+   */
+  delegation?: DelegationResolver | null
 }
 
 
@@ -1228,14 +1258,22 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // document rather than the constructor options that also exist.
   configureProjectBackends(lib)
 
-  // AND WHETHER THIS DEPLOYMENT DELEGATES ([[REQ-295]]), beside it and for the
-  // same reason: both are start-up questions, both are documents, and both are
-  // answered before anything is constructed that reads them. The call validates
-  // as well as reads — a worker role bound to a backend `backends.json` does not
-  // declare, or one this host cannot build, fails HERE naming the offending key
-  // rather than at the first delegation, which would be a configuration mistake
-  // discovered in the middle of a customer's conversation.
-  const delegation = delegationFor([BUILDER_ROLE])
+  // AND WHETHER THIS DELEGATES ([[REQ-295]]), beside it and for the same reason:
+  // both are start-up questions, both are documents, and both are answered before
+  // anything is constructed that reads them. The call validates as well as reads —
+  // a worker role bound to a backend `backends.json` does not declare, or one this
+  // host cannot build, fails HERE naming the offending key rather than at the
+  // first delegation, which would be a configuration mistake discovered in the
+  // middle of a customer's conversation.
+  //
+  // AND IT IS THE BUSINESS'S ANSWER WHERE THERE IS ONE ([[REQ-353]]). The
+  // resolver is asked here rather than by whoever assembled the deps, because
+  // this is the one line per manager where the question is worth asking: the
+  // surface below is composed exactly once per manager and held for its life, so
+  // a flip is visible to the next session and to no turn in flight. A host with
+  // no resolver reads the bundled document, unchanged — and a malformed stored
+  // value is refused here too, naming the business as well as the key.
+  const delegation = await delegationForScope([BUILDER_ROLE], deps.delegation ?? null)
 
   // Constructing the Toolbox is where a CONFIGURATION failure surfaces — a group
   // the surface does not declare, an operation the class does not implement — so

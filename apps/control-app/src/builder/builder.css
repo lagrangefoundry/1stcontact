@@ -4423,3 +4423,83 @@ body {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/*
+ * THE DEBUG PANE ([[REQ-353]], [[EPIC-22]]).
+ *
+ * THE SETTINGS PANE'S SHAPE AND ITS OWN CLASS NAMES. A reading width, sections
+ * with a hint under each, the pane owning the scroll — the same three decisions,
+ * for the same reasons, because this is the same kind of surface: a short list of
+ * consequential facts with a sentence under each. What it is NOT is settings, so
+ * it does not borrow `.builder-settings__*`: a surface painting from another
+ * component's classes is a surface that breaks when that component is restyled
+ * for a reason that has nothing to do with it.
+ *
+ * The pane owns the scroll because `fill` on the tab gives the panel a viewport
+ * height; without `min-height: 0` here the sections would resolve against
+ * content and push past the bottom of the panel.
+ *
+ * Everything paints from `--shell-*`, like every other builder surface, so it
+ * follows a theme switch.
+ */
+.builder-debug {
+  display: flex;
+  flex-direction: column;
+  gap: var(--shell-gap, 0.5rem);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+  padding: 12px 14px;
+}
+
+.builder-debug__title {
+  font-size: 1.05em;
+  margin: 0;
+}
+
+/* One per group of switches, so [[EPIC-22]]'s group-chat entry is an append
+   rather than a rewrite — and so each group's sentences stay with it. */
+.builder-debug__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 42rem;
+}
+
+.builder-debug__subtitle {
+  margin: 0;
+  font-size: 0.95em;
+  font-weight: 600;
+}
+
+.builder-debug__hint {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+/*
+ * Where the value in force came from.
+ *
+ * ACCENTED AND NOT MUTED, unlike the two hints around it, because it is the one
+ * line on the pane that is about THIS business rather than about what the switch
+ * does — and it is the line that changes when the switch moves. The rule is the
+ * settings pane's note rule, which earns the same emphasis for the same reason.
+ */
+.builder-debug__source {
+  margin: 0;
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+  border-inline-start: 2px solid var(--shell-accent);
+  padding-inline-start: 8px;
+}
+
+.builder-debug__source:empty {
+  display: none;
+}
+
+.builder-debug__empty {
+  margin: 0;
+  font-size: 0.9em;
+  color: var(--shell-fg-muted);
+}

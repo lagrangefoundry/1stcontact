@@ -203,6 +203,11 @@ import {
   type OpenTurn,
   type TurnLogOutcome,
 } from './turn-log'
+import {
+  delegationResolverFor,
+  networkSettingsView,
+  writeDelegationChoice,
+} from './network-settings'
 import { platformSites } from './directory'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
@@ -871,6 +876,25 @@ function chatHost(
         // and this Worker exactly as it behaved before — every suite, and the
         // `1c` CLI, permanently.
         env.SESSION_JUNCTION ? durableJunctions(env.SESSION_JUNCTION) : null,
+        // WHETHER THIS BUSINESS DELEGATES CONSTRUCTION ([[REQ-353]]). Assembled
+        // here for the reason every wire above it is: the answer is a D1 read
+        // and the BUSINESS it is about is this function's own — resolved per
+        // request, ahead of the host, by the same `scope.ts` that decides
+        // everything else the conversation may reach.
+        //
+        // BOUND ONCE, BESIDE THE CACHE KEY, and those are the same act: this
+        // host lives for the isolate keyed by `scope.businessId`, so a resolver
+        // bound to it here cannot outlive or cross the scope it was built
+        // under. Two businesses sharing an isolate hold two hosts and therefore
+        // two resolvers, which is why the value cannot bleed between them.
+        //
+        // NULL WHERE THERE IS NO DATABASE, exactly as the meter above is: every
+        // deployment has `DB` and the type says so, and the guard is for the
+        // degenerate environment a test or a partly-configured preview can
+        // construct. It degrades to the `1c` CLI's permanent state — the bundled
+        // document, no per-business override — rather than to a builder that
+        // will not talk.
+        env.DB ? delegationResolverFor(env, scope.businessId) : null,
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -2011,6 +2035,23 @@ export const DOMAIN_EMAIL_PATH = '/api/domain/email'
  */
 export const DNS_CHANGES_PATH = '/api/domain/changes'
 export const DNS_UNDO_PATH = '/api/domain/changes/undo'
+
+/**
+ * What this business says about its own AI network ([[REQ-353]]).
+ *
+ * NAMED FOR THE SUBJECT AND NOT FOR THE TAB. The Debug tab is where the control
+ * is drawn today and is chrome — [[REQ-115]]'s rule is that a label is
+ * provisional and an address is stable, and a path carrying `debug` would have to
+ * be renamed the day the switch moves or the tab is gated. What the route is
+ * about is the network, per business, which is the thing the epic is named for.
+ *
+ * ONE PATH, TWO METHODS. `GET` answers what is in force and where it came from;
+ * `POST` records this business's answer. They are one surface's two questions
+ * about the same fact, and splitting them would let a caller stub the read and
+ * forget the write — the state where the switch is visible and silently does
+ * nothing.
+ */
+export const NETWORK_DELEGATION_PATH = '/api/network/delegation'
 
 /**
  * What `/api/ai/session` is asked for when the conversation is the business's own
@@ -4542,6 +4583,67 @@ async function routeUncached(
         }
         throw error
       }
+    }
+
+    /**
+     * GET /api/network/delegation — whether this business's consultant delegates
+     * construction, and where that answer came from ([[REQ-353]]).
+     *
+     * IT ANSWERS THREE VALUES AND NOT ONE. What is in FORCE is what the next
+     * session will compose; what is STORED is this business's own decision, or
+     * `null` where it has made none; what the DEPLOYMENT carries is
+     * `delegation.json`. A surface handed only the first could not tell an
+     * operator whether `off` was their own choice or the deployment's, which is
+     * the difference between a control and a control that invites you to
+     * "change" something already set the way you want it.
+     *
+     * A MALFORMED STORED VALUE IS REFUSED HERE TOO, by the same call the host
+     * makes and with the same message — so the tab cannot draw a working switch
+     * over a row the host would reject the moment a session opened.
+     *
+     * NOT OWNERS-ONLY, AND DELIBERATELY NOT GATED AT ALL IN THIS VERSION
+     * ([[EPIC-22]]). No entitlement check, no `ownsPlatformBusiness`. What that
+     * leaves open is that anybody who reaches the builder for a business can turn
+     * that business's delegation off; the builder is behind Cloudflare Access and
+     * the operator is its only user, which is what makes the exposure acceptable
+     * for now rather than absent. The eventual narrowing is the flag the console
+     * already uses.
+     */
+    if (p === NETWORK_DELEGATION_PATH && method === 'GET') {
+      const scope = requireScope()
+      return json(200, await networkSettingsView(env, scope.businessId))
+    }
+
+    /**
+     * POST /api/network/delegation — this business decides whether it delegates
+     * ([[REQ-353]]).
+     *
+     * A BOOLEAN AND NOTHING ELSE. The column is nullable and `NULL` means
+     * inherit, but nothing sends `null`: a business that has never been asked is
+     * how inheritance is reached, and a second way to say it would be a second
+     * code path for a state that is already the default. Anything that is not a
+     * boolean is a 400 naming the key, rather than a row somebody has to
+     * diagnose later.
+     *
+     * IT DOES NOT EXPOSE `primary_writes`, AND A BUSINESS MAY NOT SET IT. Whether
+     * the consultant keeps its own hands is [[REQ-343]]'s deploy-time key, and
+     * `enabled` dominates it structurally at the point the surface is composed —
+     * so there is no reachable setting of the two where the consultant has lost
+     * its write groups and has no worker to commission. One switch stays safe
+     * without this route having to check for that.
+     *
+     * IT TAKES EFFECT ON THE BUSINESS'S NEXT SESSION. The answer is reported so
+     * the surface can say so in words: a manager holds its backend for its whole
+     * life, so a turn already running keeps the arrangement it was composed with.
+     */
+    if (p === NETWORK_DELEGATION_PATH && method === 'POST') {
+      const scope = requireScope()
+      const body = await readJsonBody(request)
+      if (typeof body.enabled !== 'boolean') {
+        return json(400, { error: "'enabled' must be true or false." })
+      }
+      await writeDelegationChoice(env, scope.businessId, body.enabled)
+      return json(200, await networkSettingsView(env, scope.businessId))
     }
 
     /**

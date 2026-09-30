@@ -1,0 +1,63 @@
+-- [[REQ-353]] — WHAT EACH BUSINESS SAYS ABOUT ITS OWN AI NETWORK.
+--
+-- WHY A FILE AT ALL rather than an edit to an earlier one: every migration up to
+-- `0021` has been applied, and `wrangler d1 migrations apply` records what it has
+-- run, so an edit reaches no database. Same reasoning as `0005`, `0007`–`0009`,
+-- `0013`, `0014`, `0016`, `0018`, `0019` and `0021`.
+--
+-- WHY A TABLE AND NOT A KEY IN `delegation.json`. That document is a DEPLOYMENT
+-- fact, read at start-up out of the bundle, and it has no business dimension —
+-- [[EPIC-22]] weighed adding one and refused: a per-business switch expressed in
+-- the bundle is flipped by editing JSON and redeploying, which pays the
+-- configuration work and buys a tab of read-only text instead of a control. The
+-- document stays what it is and becomes the value a business INHERITS.
+--
+-- WHY A TABLE AND NOT `businesses.config`. A business's network settings are
+-- read on the path that builds an AI host and written from one debug surface;
+-- folding them into the record every listing, switcher and rename already reads
+-- would put a debug concern inside the row the product is about. A table of its
+-- own is also what makes `NULL` mean *inherit* — see below — which a blob cannot
+-- express without a caller agreeing on what a missing key means.
+--
+-- ONE ROW PER BUSINESS, AND THE ID IS THE PRIMARY KEY, which is what makes
+-- *exactly one opinion per business* a property of the DATABASE rather than of
+-- the writer. No foreign key to `businesses`, for the reason every other
+-- business-scoped table here has none: D1 enforces them only when the pragma is
+-- on, and the scope is resolved and authorised before any statement below is
+-- reached — so a row for a business that does not exist is unreachable rather
+-- than merely refused.
+--
+-- A COLUMN PER SWITCH, NOT ONE BLOB. [[EPIC-22]] has a second switch waiting on
+-- the group-chat room ([[EPIC-19]] §14.17), and the shape this is in decides what
+-- that costs: a column is an `ALTER TABLE ADD COLUMN` and a read, a blob is a
+-- parse, a schema and a version. It is also what lets a business hold an opinion
+-- about delegation while inheriting everything else, which is the whole of what
+-- `NULL` is for.
+--
+-- `delegate_tool_calls` IS NULLABLE, AND NULL IS NOT `false`. NULL means *this
+-- business has never been asked*, and resolves to whatever `delegation.json`
+-- carries — so shipping this changes no business's behaviour until somebody moves
+-- a switch, and a business that is never touched stays indistinguishable from the
+-- deployment-wide arrangement it had before the table existed. A `false` default
+-- would silently turn delegation off for every business on the day of the
+-- migration, which is the one thing this column must not be able to say by
+-- accident.
+--
+-- INTEGER AND NOT TEXT, because SQLite has no boolean and `0`/`1` is what D1's
+-- own binding of a JavaScript boolean produces. The read coerces; nothing
+-- downstream sees the integer.
+--
+-- `updated_at` IS KEPT because the question this table will be asked in an
+-- incident is *when was this turned off, and was it before or after the thing we
+-- are looking at* — and a row with no timestamp cannot answer it. ISO-8601 text,
+-- like every other timestamp a ticket, a revision or a DNS change carries here,
+-- and sortable as text.
+--
+-- LAST STATEMENT IN THE FILE, which is what the test harness's `atHead` marker
+-- asks about. A migration appended below without moving that marker re-opens the
+-- hole `0013`'s own note describes.
+CREATE TABLE IF NOT EXISTS business_network_settings (
+  business_id         TEXT PRIMARY KEY,
+  delegate_tool_calls INTEGER,
+  updated_at          TEXT NOT NULL
+);
