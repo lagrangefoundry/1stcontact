@@ -5,10 +5,10 @@ type: request
 title: A Debug tab, and a per-business switch for delegation
 created_by: EPIC-22
 created_at: '2026-09-30T00:06:06.120891+00:00'
-updated_at: '2026-09-30T00:06:06.120891+00:00'
+updated_at: '2026-09-30T01:05:35.276259+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-82afdac9
   auto_merge_back: true
