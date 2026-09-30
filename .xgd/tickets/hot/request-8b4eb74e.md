@@ -6,10 +6,10 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-29T04:40:43.380833+00:00'
+updated_at: '2026-09-30T21:19:05.010340+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
@@ -113,3 +113,61 @@ If these are to be reported together, they want ranking, so that a genuine emerg
 - **Worth a look** — everything else.
 
 Only the first tier needs to be loud.
+---
+
+## Implementation scope (free-coded)
+
+Why free-coded: one read-only derivation over data `describe_page` already loads, projected into its output — no new write path, no schema change, no gate.
+
+### What the assistant sees
+
+`describe_page` gains:
+
+- **`attention`** at the top of the result — a count of flagged elements per tier, `{ broken, inconsistent, worth_a_look }`. Always present (all zeros on a clean page), so "3 elements need attention" is visible without scanning a long list.
+- **`attention` on each flagged segment** — `{ tier, says: [...] }`. `tier` is the entry's worst finding; each `says` item is a short phrase naming what is wrong and the numbers involved, e.g. `unstyled: font, padding, placeholder` or `children cannot fit side by side at 320px (need 431px, have 272px)`. Unflagged segments carry no `attention` key, so a clean page's map is exactly what it was.
+
+It is a **report, never a gate** — nothing is refused at write time; a page under construction passes through unstyled states legitimately.
+
+### The rules (all mechanical — read only from values already on the page, the site palette, and the component's declared control elements)
+
+**Broken** (never intentional):
+1. **Unstyled text-entry control** (`input` other than checkbox/radio, `textarea`) or **button** inside a component. The renderer resets UA chrome (`font: inherit; padding: 0`), so absence falls back to the browser's face and the border edge, not the page:
+   - no `fontFamily` → broken (paints the browser's default face)
+   - no padding (absent or every side 0, no responsive padding) → broken (text against the border)
+   - text-entry control with no `placeholderColor` **and** no `color` → broken (placeholder paints in the inherited page/browser ink)
+2. **Children that cannot fit a row** at a declared width (`l1.widths`): for a non-wrapping `row` (resolved per width through `responsiveLayout`), the sum of in-flow children's minimum widths plus gaps exceeds the row's content width (its width minus its padding). A child's minimum is its fixed width / flow-placed geometry keyframe width, else its `minPx`; a fluid text-entry input with no `minPx` counts the browser's intrinsic input width (150px), because a flex item's automatic minimum stops an `<input>` shrinking below it.
+3. **A child wider than its parent's content width** at a declared width (or wider than its grid column).
+
+   Widths come only from declared numbers: viewport width at the root, fixed/fluid `sizing`, flow or absolute geometry keyframes, and block fill in a stack. A width that cannot be known (hug, content-sized) is unknown and never produces a finding. Absolutely placed children are out of flow and excluded from fit checks; hidden nodes (`visibility`) are skipped at the widths they are hidden. A component's slot contents are measured against the page slot they mount into.
+4. **Contrast below 2:1** — see contrast below.
+
+**Inconsistent**:
+5. **Literal colours on a palette page** — an element carrying hex literals when the site has a palette and most colour uses on this page are palette references. Proportional: a page that is mostly literals, or a site with no palette, is not nagged.
+6. **Sibling control inconsistency** — a control with no `fontSizePx` while another control in the same component has one.
+7. **Font inconsistency** — a text element with no `fontFamily` while other elements on the page name one (it paints the browser's face); or a family used by exactly one element while another family is used by three or more.
+
+**Worth a look**:
+8. A text-entry control with `color` set but no `placeholderColor` (placeholder paints in the same ink as typed text).
+9. A control with no `fontSizePx` (no sibling has one either).
+10. **Contrast below WCAG AA** (4.5:1; 3:1 for large text ≥24px, or ≥18.66px at weight ≥700).
+
+**Contrast** (rules 4 and 10): the element's effective ink (its own `color`, else the page `textColor`, else black; run colours too) against the backdrop it sits on (its own `surfaceFill`, else the nearest ancestor's, else the page `background`, else white), compositing translucent colours. Skipped wherever a gradient, pattern, background image or overlay makes the backdrop unknowable, and for gradient-filled text.
+
+A text element with **no colour** is not a finding in itself — it inherits the page's declared text colour, which is legitimate (the contrast rule still checks what it inherits).
+
+### Where it lives
+
+- Pure derivation `tools/generate/src/cli/style-audit.ts` (`auditPage`), beside `segments.ts`; reuses `resolveL1Color` (palette), `formatL1Path` (addresses identical to the map's), and `catalog` + `resolveControlNames` (which element a control is).
+- `describe_page` (`toolbox-core.ts`) merges findings into `segments` by (module, slot, path) and adds the summary.
+- `l1-surface.json`: `describe_page` prose and the `page_map` shape describe the new fields; `surface_version` bumped.
+
+### Test plan
+
+`tests/test_UAT_FC_REQ-349_style_audit.test.ts`, driven through `l1Operations` (the grant's own `describe_page`) over a memory site seeded with a real contact-form instance:
+- the ticket's defect: inputs carrying only a border and radius are flagged broken (`font`, `padding`, `placeholder`) while the fully styled sibling button is not; the summary counts them
+- a text element with no colour on a page with `textColor` is not flagged
+- a row holding a fluid input and a fixed 123px button cannot fit at 320px → broken; a child 528px wide inside a 424px box → broken
+- literal colours on a palette page → inconsistent; the same literals on a site with no palette → no finding
+- low contrast (pale ink on the page background) → flagged
+- a clean, fully styled page → all-zero summary, no `attention` on any segment
+- the declaration names the `attention` field
