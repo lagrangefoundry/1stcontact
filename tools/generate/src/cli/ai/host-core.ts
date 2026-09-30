@@ -75,6 +75,7 @@ import {
   settingsRole,
   toolTranscriptNote,
   type TurnSignal,
+  type WorkerKnowledge,
 } from './roles'
 import { delegationForScope, type DelegationResolver } from './delegation'
 import {
@@ -605,6 +606,19 @@ export interface HostDeps {
    * host had before there was a KB at all.
    */
   priming?: ((box: Untyped, providers: Untyped) => Promise<void>) | null
+  /**
+   * The platform reference, for a delegated worker ([[REQ-355]]), or `null`.
+   *
+   * THE SYSTEM KB AND NOTHING WIDER, and a seam of its own rather than a share of
+   * {@link HostDeps.priming}: the consultant's corpus includes the client's own
+   * knowledge base on the Worker, and a worker must not see it. Both hosts build
+   * this through `roles.ts`'s `builderKnowledge`, so the surface and its priming
+   * arrive together or not at all.
+   *
+   * ABSENT IS ORDINARY — a deployment with no built KB — and composes the worker
+   * exactly as it was composed before this existed.
+   */
+  workerKnowledge?: WorkerKnowledge | null
   /**
    * What entered the knowledge corpus since this session was last told (REQ-160).
    *
@@ -1322,12 +1336,22 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // surface to the worker's narrower grant and silently take capabilities off the
   // conversation. See {@link l1SurfaceSet}.
   //
-  // WHAT IT COMPOSES IS THE L1 SURFACE, THE CAMERA AND THE MANUAL, and
-  // deliberately nothing else: no knowledge corpus, no ledger, no catalogue, no
-  // session context. A worker is handed a bounded piece of work and reports; the
-  // corpus is the consultant's method, the ledger and the catalogue are the
-  // ENGAGEMENT's, and a worker writing to either would be a second author on a
-  // record that exists to say what the consultant and their client settled.
+  // WHAT IT COMPOSES IS THE L1 SURFACE, THE CAMERA, THE MANUAL AND — WHERE THIS
+  // DEPLOYMENT HAS ONE — THE PLATFORM REFERENCE, and deliberately nothing else:
+  // no client corpus, no ledger, no catalogue, no session context. A worker is
+  // handed a bounded piece of work and reports. The ledger and the catalogue are
+  // the ENGAGEMENT's, and a worker writing to either would be a second author on
+  // a record that exists to say what the consultant and their client settled.
+  // The client's corpus is out for the reason the builder's prose gives: the
+  // worker never sees the conversation and must not form its own view of what
+  // the client wants.
+  //
+  // THE SYSTEM KB IS IN ([[REQ-355]]), read-only, because neither reason touches
+  // it — it is our reference, not the engagement's record or the client's words.
+  // A worker without it guesses at what the language can express, and its guess
+  // comes back as a limit in `decisions` that nobody can check against the change
+  // record, because a limit changes nothing.
+  const workerKnowledge = workerSettings ? (deps.workerKnowledge ?? null) : null
   const worker = workerSettings
     ? await l1SurfaceSet(
         slug,
@@ -1340,7 +1364,10 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
           measurer: fidelity ? browserMeasurer(fidelity) : null,
           assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
           addresses: deps.addresses ? () => deps.addresses!(slug) : null,
-          extraSurfaces: fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : [],
+          extraSurfaces: [
+            ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
+            ...(workerKnowledge ? [workerKnowledge.surface()] : []),
+          ],
         },
       )
     : null
@@ -1898,20 +1925,23 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
   // it here rather than per delegation is what keeps that prefix identical across
   // every worker this deployment opens, and therefore cacheable.
   if (worker && runtime) {
-    registerBuilderProviders(providers, {
-      box: new lib.Toolbox(
-        [...worker.surfaces, new lib.DelegationToolbox(runtime, { workerSession: '' })],
-        {
-          ...worker.granted,
-          [lib.DELEGATION_SURFACE]: {
-            groups: [lib.REPORT_GROUP],
-            scope: { [lib.DELEGATION_ROLE_AXIS]: [] },
-          },
+    const builderBox = new lib.Toolbox(
+      [...worker.surfaces, new lib.DelegationToolbox(runtime, { workerSession: '' })],
+      {
+        ...worker.granted,
+        [lib.DELEGATION_SURFACE]: {
+          groups: [lib.REPORT_GROUP],
+          scope: { [lib.DELEGATION_ROLE_AXIS]: [] },
         },
-        { role: BUILDER_ROLE },
-      ),
-    })
-    named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted)
+      },
+      { role: BUILDER_ROLE },
+    )
+    registerBuilderProviders(providers, { box: builderBox })
+    // THE MAP AND THE MECHANISM WITH THE SURFACE, OR NEITHER ([[REQ-355]]). Bound
+    // to the worker's OWN box, so the mechanism projects the tools a worker has
+    // rather than the consultant's.
+    if (workerKnowledge) await workerKnowledge.priming(builderBox, providers)
+    named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted, Boolean(workerKnowledge))
   }
 
   manager = new lib.SessionManager(named, deps.archive, {

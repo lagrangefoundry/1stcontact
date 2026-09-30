@@ -6,7 +6,11 @@ import {
   knowledgeInstanceConfig,
   registerKmProviders,
 } from './generated/ai-knowledge'
-import { registerCorpusProviders } from '../../../tools/generate/src/cli/ai/roles'
+import {
+  builderKnowledge,
+  registerCorpusProviders,
+  type WorkerKnowledge,
+} from '../../../tools/generate/src/cli/ai/roles'
 import {
   DEFAULT_CHUNKS_PER_HIT,
   DEFAULT_SOURCE,
@@ -409,6 +413,34 @@ export function sessionPriming(
   return registerCorpusProviders(
     { LANDSCAPE_PROVIDER, MECHANISM_PROVIDER, registerKmProviders },
     () => knowledge.composite,
+  )
+}
+
+/**
+ * The platform reference for a delegated worker ([[REQ-355]]), or `null`.
+ *
+ * THE SYSTEM HALF ONLY. The consultant's surface and map above are the
+ * composite, and the composite includes the tenant's own corpus — which a
+ * worker must not see, because it never sees the client conversation and must
+ * not form its own view of what the client wants. So this reaches past the
+ * composite to the one runtime that holds our reference and nothing else.
+ *
+ * `null` where the system KB did not open — never built, or no embedder — and
+ * the worker is then composed exactly as it was before it could search.
+ */
+export function sessionWorkerKnowledge(knowledge: SessionKnowledge | null): WorkerKnowledge | null {
+  const system = knowledge?.perKb.get(SYSTEM_KB)
+  if (system === undefined) return null
+  return builderKnowledge(
+    {
+      LANDSCAPE_PROVIDER,
+      MECHANISM_PROVIDER,
+      registerKmProviders,
+      KnowledgeToolbox,
+      knowledgeInstanceConfig,
+    },
+    () => system,
+    SYSTEM_KB,
   )
 }
 

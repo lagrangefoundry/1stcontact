@@ -79,6 +79,7 @@ import {
 import {
   sessionKnowledgeSurface,
   sessionPriming,
+  sessionWorkerKnowledge,
   type SessionKnowledge,
 } from './session-knowledge'
 import { turnDelta } from './session-delta'
@@ -850,6 +851,10 @@ export function workerHost(
       // always has and the `1c` CLI never does.
       ledger: (site: string) => chatLedger(tickets, sessionIdFor(site)),
       priming: knowing ? sessionPriming(knowledge) : null,
+      // THE PLATFORM REFERENCE FOR A DELEGATED WORKER ([[REQ-355]]) — the system
+      // half of the pair above and never the tenant's, so a worker can look up
+      // what the language can express without being shown the client's corpus.
+      workerKnowledge: sessionWorkerKnowledge(knowledge),
       // THE THIRD THING THAT COMES WITH THE PAIR (REQ-160). A session primed with
       // a landscape and granted the corpus still cannot be TOLD that the corpus
       // grew — a map is a description, not a notification — so the delta is
