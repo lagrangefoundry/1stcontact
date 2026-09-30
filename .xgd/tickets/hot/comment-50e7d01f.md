@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-29T05:05:11.765585+00:00'
+updated_at: '2026-09-30T19:43:20.157537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -2962,5 +2962,16 @@ The shape I asked for: the `account` bracket already holds what most checks ask 
 - **REQ-349** (the unstyled-element audit) is the consultant's and I left it outside EPIC-20 — it's a quality-instrument gap, not a cost one. Its answer is good, though: a flag on the page map rather than a tool you have to remember to call, with the rule *does absence fall back to the page or to the browser* — controls being the case where absence is never inheritance.
 
 No code touched; all ticket work.
+
+<!-- xgd-turn id="8e402fb0-63ae-4699-99cc-5acc87b5bc02-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T19:43:18.421445+00:00" -->
+#### You
+ok can you summarize where we are with the delegation feature - in my mind there are layers:
+
+1) Does the delegate have (a) sufficient controls and visibility over the L1 surface and its results (b) sufficient documentation on its controls and visibility
+2) Does the primary have (a) sufficient documentation and visibility to prompt the delegate (b) is the primary getting sufficient feedback on the results
+
+And do we have sufficient visibility - I assume that you have access to the prompts the primary sends and the context and responses that are produced by the delegates?
 
 <!-- xgd-chat-end -->
