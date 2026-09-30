@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T21:06:25.098725+00:00'
+updated_at: '2026-09-30T21:07:18.980510+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3254,5 +3254,56 @@ I see so there is a concept of column. But if I, say, doubled the height of the 
 Is it just geometry that we would like to scope, what about style variables?
 
 So the geometry fix would be to allow objects to be vertically nested and have their vertical coordinates defined relative to the parent. Does that exist in the language and isn't used by the AI? You said the captured screens were not flat?
+
+<!-- xgd-turn id="c51cb852-f32e-443c-882b-501c1fd0488b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T21:07:16.866795+00:00" -->
+#### Claude
+Checking the schema for three things: how a container positions its children, what styles can be named or inherited, and what the capture's sections actually contain.
+
+Short answers: yes, you would have to push everything down by hand. Colours are already variables, but fonts and sizes aren't. And the language already has both pieces of the geometry fix; the AI and the importer just don't use them.
+
+## Doubling the header today
+
+Yes, you'd push everything down by hand: 60-odd elements, at six widths each. Worse, it doesn't fully go away even if you only nest things, which is the useful thing to learn from comparing the two versions of the page:
+
+| | what's in the page | double the header |
+|---|---|---|
+| **Live site** | everything pinned to the page | move all 69 elements |
+| **The capture** | nested sections, but each section still pinned to the page | move the ~10 sections below; their contents come with them |
+| **Nested + `flow`** | nothing on this page uses it | nothing: everything below moves down on its own |
+
+## Does it exist in the language? Yes, both pieces
+
+**1. Nesting with parent-relative coordinates.** In the capture, the "Our Mission" section sits at `y: 1612` on the page, and its heading sits at `y: 96`, measured from the section's top. That's standard: an element's coordinates are measured against the nearest enclosing box. So "relative to the parent" already works, and the capture uses it.
+
+**2. Being pushed down.** Each element's geometry has a `place` setting, which defaults to `absolute`. The other value is `flow`. The schema describes the difference exactly: *"an `absolute` sibling stays put and is overrun, a `flow` sibling is pushed down."* With `flow`, the y value becomes a gap from whatever sits above, rather than a fixed position.
+
+**Nobody uses `flow`.** I counted: all 70 elements are `absolute` in the capture, and all 70 are `absolute` on the live page. From the schema, the only thing that writes `flow` today is a repair step that runs when elements are found overlapping.
+
+So to answer your question directly: it exists and isn't used. The capture does half of it (nesting) and the live site loses even that. Nothing produces the half that would make your header example automatic.
+
+## Style variables
+
+It's mixed:
+
+- **Colours: yes, they're variables.** All 52 colour settings on the live page refer to named palette colours like `{"ref": "slate"}`, not hex values. The page also has a default text colour that elements fall back to. Change "slate" once and the whole page follows.
+- **Fonts and sizes: no.** The font family is a literal string on each element: one uses Cinzel, 51 use the system sans. The font size is set separately on 52 elements. There's no "heading style" or "body style" to change once. Switching the body font means 51 edits, which is the same problem as the geometry, just on the style side.
+
+So scoping matters for both, and in the same way:
+
+- **Geometry:** nested + `flow` sections, so things move relative to their neighbours.
+- **Type:** named text styles (heading, body, caption…) that elements refer to, the way they already refer to palette colours. This one doesn't exist in the language yet. Colours already give a working model to copy.
+
+## What this means for REQ-350
+
+The geometry half isn't new language. It's two things:
+
+- Keep the capture's nesting when the site is created. Something between the capture and the stored site throws it away, and I haven't found which step yet.
+- Turn on `flow` for sections and the content inside them.
+
+The type half is a genuine language addition, and would be a separate ticket.
+
+Want me to rewrite REQ-350 on that basis, and file named text styles alongside it?
 
 <!-- xgd-chat-end -->
