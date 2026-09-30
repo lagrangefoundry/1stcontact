@@ -7,9 +7,9 @@ title: A worker can spend a full run's tokens and write nothing, returning outco
   deal and failed to report
 created_by: xgd
 created_at: '2026-09-29T04:55:11.413291+00:00'
-updated_at: '2026-09-30T21:17:16.643176+00:00'
+updated_at: '2026-09-30T21:23:19.940172+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -106,5 +106,7 @@ Delegate a brief containing two dependent phases (create an element, then modify
 - a silent worker that only reads → `outcome: silent`, `wrote: false`, `activity.operations` ≥ 1, `activity.last_operation.name` is the read, `last_words` carries its last prose;
 - a silent worker that writes → `wrote: true` beside the same `silent` outcome;
 - a worker that makes no tool call at all → `activity.operations: 0`, no `last_operation`;
-- a worker that reports → `wrote` present, no `activity`.
-Regression scope: the REQ-340 and REQ-295 delegation suites.
+- a worker that reports → `wrote` present, no `activity`;
+- the caller looking `Delegate` up through `DescribeTools` reads the prose for `wrote` and `activity` (they are declared in the result shape, which is where that tool renders result fields from — it is not in the first request's tool list, for upstream's own `account` either).
+
+Regression scope: the REQ-340, REQ-295 and REQ-292 delegation suites. REQ-340 and REQ-292 pass. REQ-295 has two failures (`the_caller_gets_a_result…`, `a_worker_that_never_reported…`) that fail identically on unmodified `xgd-working`: the upstream library now adds `by` and `reason` to check verdicts and those tests' exact-equality expectations predate it. Not caused or touched by this fix.
