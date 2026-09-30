@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-348
 created_by: xgd
 created_at: '2026-09-30T19:53:44.520712+00:00'
-updated_at: '2026-09-30T20:30:43.739152+00:00'
+updated_at: '2026-09-30T20:31:52.916243+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,11 @@ I stopped before writing any code. The only UAT I could write here would fail ev
 3. **Make the guide a file in the repo** and have the KB export pick it up, the way the `REF-*` pages are generated. That's robust on `main` and properly testable, but it's a real design change to how the KB is sourced — more than this ticket asked for.
 
 Which would you like? If it's 2 or 3, I'll cut the branch and take it through commit, merge and `free_coded`, with tests in the foreground.
+
+<!-- xgd-turn id="1e1cac32-159b-4de6-aad9-05bd1832eea8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:31:52.840182+00:00" -->
+#### You
+Sorry that's a canned prompt - have you finished the work? If so move the ticket to legacy done
 
 <!-- xgd-chat-end -->
