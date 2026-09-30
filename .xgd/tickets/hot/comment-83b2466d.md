@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-348
 created_by: xgd
 created_at: '2026-09-30T19:53:44.520712+00:00'
-updated_at: '2026-09-30T20:31:52.916243+00:00'
+updated_at: '2026-09-30T20:32:08.653874+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -94,5 +94,15 @@ Which would you like? If it's 2 or 3, I'll cut the branch and take it through co
 <!-- xgd-chat role="user" ts="2026-09-30T20:31:52.840182+00:00" -->
 #### You
 Sorry that's a canned prompt - have you finished the work? If so move the ticket to legacy done
+
+<!-- xgd-turn id="1e1cac32-159b-4de6-aad9-05bd1832eea8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:32:08.584933+00:00" -->
+#### Claude
+Yes, the work is finished, and REQ-348 is now at `legacy_done`.
+
+The briefing guide is DOC-63, filed in the system knowledge base's doc tickets. `1c kb export` writes it into the knowledge base's files.
+
+One thing is still needed before the builder AI can find it through search: run `1c kb build` with `CLOUDFLARE_API_TOKEN` set, which this session didn't have. That same run will also regenerate the out-of-date `REF-l1` page.
 
 <!-- xgd-chat-end -->
