@@ -7,10 +7,10 @@ title: 'capture: a page''s declared z-index is read off the leaf and lost, so th
   lost with it'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:02:15.717339+00:00'
-updated_at: '2026-09-29T22:10:01.175814+00:00'
+updated_at: '2026-09-30T00:03:17.695951+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - capture-loses-it
