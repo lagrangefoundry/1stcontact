@@ -6,7 +6,7 @@ title: 'fold: the page canvas, a band backdrop and the height response are each 
   from the wrong evidence'
 created_by: repro-console:repro-joyfulculinarycreations-com#4
 created_at: '2026-09-29T20:57:54.723815+00:00'
-updated_at: '2026-09-30T00:22:23.700124+00:00'
+updated_at: '2026-09-30T01:38:57.347821+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -884,3 +884,53 @@ measured at:
   The document's meaning is unchanged.
 
 Regression scope: the whole `node` vitest project.
+
+
+## Two more fixtures migrated, found by the full regression pass
+
+Both hand-authored the response at the geometry level, which `.strict()` now refuses and
+`evaluateLayout` no longer reads. Neither is a behaviour change — the node-level field meant *at every
+width*, so restating it on each keyframe says the same thing:
+
+- `tests/test_UAT_FC_BUG-143_surface_containment_height_axis.test.ts` — a new `withResponse` helper puts
+  the rule on every keyframe of a track (`frames()` already stamps `atHeight` on each, so
+  `responseNeedsAtHeight` is satisfied). Restores `height_response_resolves_against_the_sampled_height`
+  and `probes_sample_more_than_one_height_per_width`.
+- `tests/test_UAT_FC_REQ-338_the_fold_paints_each_band_once.test.ts` — issue 4's two height UATs read the
+  response per keyframe. The fixture probes the height at **every** ladder width, so the assertion is now
+  *every keyframe states the rule*, which is strictly stronger than the single node-level object it
+  replaced. The below-hero section deliberately asserts no keyframe count: it is not present at every
+  rung, and REQ-351's point is that a keyframe speaks only for its own width.
+
+# Regression result
+
+`vitest --project node`, all 744 node test files, run in seven + four chunks.
+
+**26 failures, all 26 present on the clean `xgd-working` baseline.** Verified by stashing this branch's
+work and re-running the same file sets: the counts reconcile file-for-file. Zero regressions.
+
+Two of the pre-existing failures are in code this ticket touches and are worth naming, since a future
+round will otherwise re-derive them:
+
+- `tests/test_UAT_FC_BUG-48_the_reference_covers_its_source.test.ts` — 4 failures, all from
+  `zoomGroupChromeAgrees`. Commit `8d97f66acf` ("a zoom may name a set, so several plates share one
+  overlay") added that rule to `L1_STRUCTURAL_RULES` without the refusal case BUG-48's coverage check
+  requires, so the rule has no definition to project. **Not this ticket's** — REQ-351 adds its own rule
+  (`responseNeedsAtHeight`) *with* its refusal case, which is why the count did not grow.
+- `tests/req51-object-grouped-report.test.ts` — an image object now carries a `border` param the test
+  does not list, from REQ-333/REQ-347's framed-image attribution.
+
+The remaining 24 are environment-dependent suites this change cannot reach (webui install, fonts over
+real repo trees, the builder origin worker, the KB corpus, the filing service, session texts). Note also
+that `tests/test_UAT_FC_REQ-343_the_consultant_stops_writing_l1.workers.test.ts` is a `workers` project
+suite and was **not** run: workerd binds a listener, which this role cannot do.
+
+Typechecks clean across all six packages (`site-schema`, `framework`, `generate`, `public-site`,
+`control-app`, `repro-console`).
+
+## One cleanup taken along the way
+
+`responseAt` (fold) and `responseGoverning` (probes) were the same half-open keyframe walk written twice.
+Consolidated to one exported definition in `fold.ts`, imported by `probes.ts` — the resolution rule has
+to agree with the renderer's stacked `min-width` cascade, and a second copy is a second thing to keep in
+agreement with it.
