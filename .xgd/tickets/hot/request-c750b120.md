@@ -6,9 +6,9 @@ title: 'fold: the page canvas, a band backdrop and the height response are each 
   from the wrong evidence'
 created_by: repro-console:repro-joyfulculinarycreations-com#4
 created_at: '2026-09-29T20:57:54.723815+00:00'
-updated_at: '2026-09-29T21:41:01.191506+00:00'
+updated_at: '2026-09-30T00:22:23.700124+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -736,3 +736,151 @@ the defect, because the plate is painted in exactly the colour the measurement s
 What should move is the **unmeasured set** and the ranked score. Issue 5's fix raises `matched` by one
 and clears the round's only `unmatched`. Issue 4's fix makes a height rule comparable that is currently
 not compared at all. None of the five is a case where closing a gap should lower a count.
+
+
+---
+
+# What landed
+
+All five residuals are addressed. The shape of the fix, issue by issue, and where each is proven.
+
+## Issue 1 — the page canvas is the recorded `<body>` background
+
+**`tools/generate/src/l1/fold.ts`** — the precedence is inverted. `projections[].manifest.bodyBackground`
+is now the *first* answer; the tallest-band search is the fallback, reached only when no projection
+recorded a canvas at all (a pre-schema-10 bundle, or a page that paints nothing on `<body>`); the
+most-common-run-fill guess is the last resort as before. A band that is merely the tallest is evidence
+about bands, not about `<body>`.
+
+**`tools/generate/src/cli/capture/{pipeline,types,schema}.ts`** — the capture half. `capture.json`'s top
+level now carries `bodyBackground` (optional: omitted when the page paints nothing on `<body>`, so an
+absent key stays *not measured* rather than asserting a colour nobody saw). `CAPTURE_SCHEMA` **9 → 10**
+with both new axes listed, so an older bundle is *told* it cannot answer the question instead of
+silently returning the wrong colour. (REQ-347 landed schema 9 while this was in flight; hence 10.)
+
+**`tools/generate/src/cli/capture/value-axes.ts`** — the comparator's reference side now reads
+`recorded?.bodyBackground ?? capture.bodyBackground ?? pageBaseOf(capture.sections)`. BUG-169 (landed
+separately) closed the first inference; the primary record closes the second, so the widest-band guess
+is reached only for a bundle whose primary record *and* projection ladder are both silent.
+
+## Issue 2 — a composited band backdrop never becomes a card plate
+
+**`tools/generate/src/l1/fold.ts`** — a new `SurfaceRow.bandSurface` keeps the surface rect that
+`shapeBoxAt` declines for spanning the viewport. Declined as a card *rect*, retained as evidence about
+the *fill* — because dropping the rect silently while keeping the fill from the same element is exactly
+what produced an opaque copy of a backdrop. `compositedBandRows` then asks the question the capture can
+answer: does this row's fill come from a band whose own section record says it paints a photograph or a
+veil? If so the colour is a composite the browser resolved, not a value the page declares, and the row
+contributes **no fill**. It may still become a card for `hasOwnCardTreatment` — border, accent rule,
+shadow, radius, all measured on the run's own element and nobody else's.
+
+Deliberately **not** the blunter rules, and the test file records why:
+
+- *"a run whose painting ancestor is not itself contributes no fill"* — on a conventional page a card's
+  runs are all `surface.self: false`; that is what a card *is*. It would delete every card fill on every
+  site.
+- *"any band-wide surface contributes no fill"* — a full-width run on a plain solid band is band-wide
+  too, and its fill is the only evidence `buildSolidBands` has for that band.
+
+What makes this case different is that the section record names something the run's colour is a
+composite **of**, so the section record is strictly better evidence and the composite is not evidence at
+all. This is the card-side twin of REQ-338's `bandBaseFill` scrim guard.
+
+## Issues 3 + 4 — the height response is per keyframe, and probed at every width
+
+These are one problem in two layers and landed as one change.
+
+**`packages/site-schema/src/l1/schema.ts` (issue 4, a schema change)** — `viewportResponse` moves off
+`l1GeometrySchema` and onto `l1KeyframeSchema`, beside the `atHeight` it is measured from. Per keyframe:
+
+```
+y      = keyframe.y      + keyframe.viewportResponse.yFactor      * (100vh - keyframe.atHeight)
+height = keyframe.height + keyframe.viewportResponse.heightFactor * (100vh - keyframe.atHeight)
+```
+
+A keyframe at a width no height probe measured carries no response at all — pinned at what the capture
+saw, wrong only off the captured heights and **never absurd**. There is deliberately **no** node-level
+default left to inherit from: two ways to say the same thing is two things to keep in agreement, and the
+one that held a single rule for a whole ladder is the defect. The envelope's `.strict()` therefore
+refuses the old form outright rather than quietly honouring it.
+
+The ticket offered *per-keyframe response* or *a floor* (`heightFloor: 'content' | number`) or both.
+**Per-keyframe landed; the floor did not.** Per keyframe is the smaller change, is what the measurement
+naturally produces (every probe is at a width), and on its own removes the absurdity issue 3 names —
+49.5px becomes 305.5px because the 768 keyframe simply states no response. A floor would additionally
+let `min-height: 100vh` and "never shorter than my content" be said; nothing in this round needs it, and
+it is a separate axis with its own renderer work (`max()` beside `calc()`). Left unfiled — raise it when
+a page needs it.
+
+**`packages/site-schema/src/l1/validate.ts`** — `responseNeedsAtHeight` (a new named structural rule):
+a keyframe stating a response must also state `atHeight`, or the factor would be applied against an
+assumed 0 and `100vh` would become `y + 100vh`. `flowPlacementHasNoYResponse` is now asked per keyframe
+for the same reason.
+
+**`packages/framework/src/l1/render.ts`** — the response is read per keyframe. Across an interpolated
+segment the **lower** keyframe's response governs, for the same reason its `atHeight` does: the segment's
+rules are the ones that took effect at `a.at`. A segment whose lower keyframe was never probed asserts
+nothing.
+
+**`tools/generate/src/l1/fold.ts`** — `sectionBoxFactors` / `sectionViewportResponses` are keyed by the
+width the probe measured rather than collapsed to one pair per section. The old collapse was not a
+considered average: because `HEIGHT_PROBE_VIEWPORTS` held one entry, the last probe read simply
+overwrote the others. `buildSolidBands` loses its "every width must agree, or the band is not
+describable as one height rule" gate — that gate existed only because one field had to serve the whole
+ladder, so a band that grew at the two widest widths and not below was described as growing nowhere.
+`buildCards` and `rebaseInto` compose per keyframe, at the same width on both sides.
+
+**`tools/generate/src/l1/probes.ts`** — `evalGeometry` (the L1 oracle) resolves the governing response
+the same way it resolves geometry, so the oracle and the renderer agree at every width by construction.
+`heightBelongsToContent` now refuses a node whose height is a viewport function at **any** width.
+
+**`tools/generate/src/cli/capture/values-diff.ts` (issue 3's capture half)** —
+`HEIGHT_PROBE_VIEWPORTS` is **derived from `RESPONSIVE_VIEWPORTS`** (`height + 200` at each ladder
+width) so the two cannot drift. With the response per keyframe, an unprobed width asserts nothing —
+honest, but silent; so the number of probed widths is exactly the number of widths at which the axis is
+measurable at all. Cost: one extra projection per width, on a capture the operator takes once.
+
+## Issue 5 — a run that occupies a line box occupies a line box
+
+**`tools/generate/src/l1/fold.ts`** — `hasTextSubstance(text)` strips only the ASCII whitespace class
+(`[ \t\r\n\f\v]`), so U+00A0, U+2007, U+202F, U+2060 and U+200B all count as content. Exported and read
+by every stage that has to agree about which runs exist — the fold's leaf decision
+(`classifyElement`, the text-leaf gate), the L1 oracle's reference-side run list (`oracleBoxes`) and the
+round-trip projection (`expectedTextManifest`) — so a run one stage keeps cannot be a run another
+silently drops.
+
+# Test plan
+
+New: **`tests/test_UAT_FC_REQ-351_the_fold_reads_the_evidence_it_has.test.ts`** — 13 UATs.
+
+| UAT | proves |
+|---|---|
+| `the_page_canvas_is_the_recorded_body_background_not_the_tallest_band` | grey bands totalling 2280px lose to the recorded `#ffffff`; the canvas reaches the served CSS; the grey bands still paint themselves |
+| `a_bundle_that_recorded_no_canvas_still_falls_back_to_the_tallest_band` | inverting the precedence does not make an older bundle worse |
+| `the_bundles_primary_record_carries_the_canvas_and_says_so_when_it_does_not` | `CAPTURE_SCHEMA ≥ 10`; a schema-9 bundle is told `bodyBackground` is missing; one that carries it is not |
+| `a_run_standing_on_a_photographic_band_contributes_no_card_plate` | the band keeps its photograph and scrim; `#636a63` appears in no node and in no stylesheet |
+| `a_run_on_a_photographic_band_keeps_a_treatment_it_measured_on_itself` | the accent rule survives as a card; that card carries no fill |
+| `a_run_on_a_plain_solid_band_still_reports_that_bands_fill` | the negative control — the rule is narrow, not blunt |
+| `the_height_axis_is_probed_at_every_ladder_width` | probe widths ≡ ladder widths, each differing from its ladder height |
+| `a_height_rule_measured_at_one_width_is_not_applied_at_another` | the filed defect end to end: 768 pinned at 305.5px with no `100vh` term, 1280 tracking the viewport, in L1 *and* in the served CSS |
+| `l1_states_a_height_response_at_one_width_and_not_at_another` | the document issue 4 says was unauthorable now validates and renders |
+| `a_keyframe_response_without_the_height_it_was_measured_from_is_refused` | `responseNeedsAtHeight` |
+| `a_node_level_response_is_no_longer_a_place_to_put_one` | the old form is refused, not quietly honoured |
+| `a_run_whose_whole_content_is_a_non_breaking_space_keeps_its_line` | the U+00A0 spacer is a text leaf with the geometry it reserved |
+| `substance_is_ascii_whitespace_only_and_is_decided_in_one_place` | the predicate itself, over blanks and over five space characters that occupy space |
+
+Updated for the schema change — the behaviour each pins is preserved, restated at the width it was
+measured at:
+
+- `tests/req88-viewport-relative-and-nowrap.test.ts` — the hero's response is asserted on the 1280
+  keyframe (the fixture's only probe) and its absence on the other five; the CSS assertion now checks
+  that **exactly one** height rule answers the viewport.
+- `tests/test_UAT_FC_BUG-142_a_backing_surface_owns_its_content.test.ts` — same, at 1280.
+- `tests/test_UAT_FC_REQ-278_flow_recovery_preserves_geometry.test.ts` and
+  `tests/test_UAT_FC_BUG-48_the_reference_covers_its_source.test.ts` — the refusals are stated where the
+  document can now state them; BUG-48 gains a refusal case for `responseNeedsAtHeight`.
+- `tests/fixtures/l1-corpus/.../gigabytealchemy/draft/pages/home.json` — the stored corpus document is
+  migrated: the old node-level response meant *at every width*, so it is replicated onto every keyframe.
+  The document's meaning is unchanged.
+
+Regression scope: the whole `node` vitest project.
