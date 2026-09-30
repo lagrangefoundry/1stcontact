@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-345c5fb6
 ---
 
 ## What is wrong
