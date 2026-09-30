@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-30T02:43:23.326629+00:00'
+updated_at: '2026-09-30T19:49:55.015229+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3314,5 +3314,13 @@ I'd scope this as two children in the order this epic has used twice now (BUG-11
 2. **The defect** — the fold emits a viewport-tracking width for a node whose ladder traces the identity line, capped at `containerMaxWidthPx` where the page caps. Testable: 6 of 90 / 3 of 13 nodes acquire fluid width, the at-rest fidelity cost is reported as a number, and the 1440 block stops emitting a frozen literal for them.
 
 Say the word and I'll write both up as drafts for you to dispatch.
+
+<!-- xgd-turn id="b0fd8173-e616-44b3-818e-d2d891262d00-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T19:49:53.440306+00:00" -->
+#### You
+Casn you put them into one ticket please?
+
+Then on gigabyte.ai : I implemented your ticket and recaptured gigabyte and I still see unmeasured 1 - what's going on there?
 
 <!-- xgd-chat-end -->
