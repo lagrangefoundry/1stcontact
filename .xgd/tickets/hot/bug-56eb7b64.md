@@ -6,10 +6,10 @@ title: A delegating turn dies at ten minutes on a framework default we never set
   and takes its own account of itself down with it
 created_by: EPIC-20
 created_at: '2026-09-29T05:01:39.275254+00:00'
-updated_at: '2026-09-30T20:56:23.737685+00:00'
+updated_at: '2026-09-30T20:58:54.240846+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-0923bb64
