@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T20:44:12.454151+00:00'
+updated_at: '2026-09-30T20:44:52.528640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3201,5 +3201,48 @@ Want me to trace which step drops the grouping and rewrite REQ-350 around that? 
 <!-- xgd-chat role="user" ts="2026-09-30T20:44:10.916528+00:00" -->
 #### You
 The keyframes are defining a bounding box around the text? what is "at"? Why are there four points with 4 widths to define a box?
+
+<!-- xgd-turn id="4731c815-b1f2-4b1d-951b-d0fe5767b88b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:44:51.461809+00:00" -->
+#### Claude
+Checking the schema's own definitions so I describe `anchor`, `atHeight` and `segments` correctly rather than guess.
+
+You've read it mostly right, with two corrections: it isn't quite a box, and there are six points rather than four. The four was my trimming — the stored element has six keyframes, and I dropped the 375 and 1024 ones to keep the excerpt short. Sorry, that was misleading.
+
+## What a keyframe is
+
+Each keyframe records **where the element sat when the page was viewed at one screen width**:
+
+- **`at`** is that screen width in pixels. The page declares the widths it was measured at once, at the top: `widths: [320, 375, 768, 1024, 1280, 1440]`. That's two phones, a tablet, a small laptop, a laptop and a desktop. Every element carries one keyframe per width.
+- **`x`, `y`** are the element's top-left corner, measured from the page's top-left.
+- **`width`** is how wide it is at that screen width.
+- **There is no height.** For text, the schema deliberately leaves height out, because the height is whatever the words need once they wrap to that width. So it's a position plus a width, not a full bounding box. Boxes can carry a height; text doesn't.
+- **`atHeight`** is the screen *height* the measurement was taken at. It only matters for things like a hero that fills the screen, where position also depends on how tall the window is.
+
+## Between and around the measured widths
+
+`segments` has one entry per gap between neighbouring keyframes (six keyframes, five gaps). `interpolate` means blend linearly across that gap. So at a 1360px screen this line would sit at x = 128, halfway between 88 and 168. The other option, `snap`, holds the value and then jumps, which is how a layout that switches at a breakpoint is written.
+
+## What `anchor` adds
+
+The page also declares one centred content column at the top level: 1152px wide, with a 24px inset, capped at 896px of content. The anchor says **"sit at the column's left edge and fill the column's width."** The x values are that rule measured out:
+
+| screen width | column's left edge | x | width |
+|---|---|---|---|
+| 320 | 0 + 24 inset | 24 | 272 |
+| 1280 | (1280 − 1152)/2 + 24 | 88 | 896 (capped) |
+| 1440 | (1440 − 1152)/2 + 24 | 168 | 896 (capped) |
+
+## Why this is the flat-vs-grouped question
+
+The two directions are handled very differently:
+
+- **Horizontally, the element is relative to something shared**: the page's column. Change the column once and everything anchored to it moves together.
+- **Vertically, it has nothing to be relative to.** `y: 384` is 384px from the top of the *page*. If the heading above this line grew a line longer, this line wouldn't move; it would be overlapped.
+
+Every one of the 69 elements on this page has its own page-absolute `y`. That's why moving a section means rewriting every element in it, at all six widths.
+
+Grouping gives the vertical axis what the horizontal axis already has. Put this line inside its section, give the section a layout, and its position becomes "below the heading, 16px gap". Move or grow the section and its contents follow. That's the structure the capture had and the stored site lost.
 
 <!-- xgd-chat-end -->
