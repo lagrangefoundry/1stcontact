@@ -6,10 +6,10 @@ title: A delegating turn dies at ten minutes on a framework default we never set
   and takes its own account of itself down with it
 created_by: EPIC-20
 created_at: '2026-09-29T05:01:39.275254+00:00'
-updated_at: '2026-09-30T20:42:38.562484+00:00'
+updated_at: '2026-09-30T20:56:23.737685+00:00'
 completed_at: null
-last_field_updated: commits
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-0923bb64
@@ -18,7 +18,14 @@ fields:
   chat_comment: comment-345c5fb6
   story_points: 3
   commits:
-  - 9a05b6f5026c61b4823b51de8e01237cd29043c6
+  - working_sha: 9a05b6f5026c61b4823b51de8e01237cd29043c6
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 8f7676046e0bf5452b7999e732d99986c13c5366
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.421
 ---
 
 ## What is wrong
