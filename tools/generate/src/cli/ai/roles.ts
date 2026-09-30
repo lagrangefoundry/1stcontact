@@ -333,9 +333,19 @@ export function settingsPrimingConfig(): Record<string, unknown> {
  * lost by delivering them there, and putting them in the prefix would give every
  * delegation a prefix of its own.
  */
-export function builderPrimingConfig(tools: Record<string, unknown>): Record<string, unknown> {
+export function builderPrimingConfig(
+  tools: Record<string, unknown>,
+  withCorpus = false,
+): Record<string, unknown> {
+  // TWO DECLARED ORDERS, FOR {@link primingConfig}'s REASON ([[REQ-355]]). With
+  // the platform reference the manual rides inside the mechanism, as it does for
+  // the consultant; without it the order is exactly the one this role shipped
+  // with, so a deployment that has never built a KB composes today's worker.
+  const priming = withCorpus
+    ? primingDocument.builder_priming_with_corpus
+    : primingDocument.builder_priming
   return {
-    priming: (primingDocument.builder_priming as RawEntry[]).map(normalise),
+    priming: (priming as RawEntry[]).map(normalise),
     reminders: (primingDocument.builder_reminders as RawEntry[]).map(normalise),
     tools,
   }
@@ -366,6 +376,7 @@ export function primingText(name: string): string {
     primingDocument.settings_reminders,
     // AND THE THIRD ROLE'S ([[REQ-295]]), on the same terms.
     primingDocument.builder_priming,
+    primingDocument.builder_priming_with_corpus,
     primingDocument.builder_reminders,
   ] as RawEntry[][]
   for (const entry of lists.flat()) {
@@ -583,6 +594,20 @@ export const BUSINESS_LINE_PROVIDER = 'business.line'
  * which for this pair is the precise failure the split grant exists to prevent.
  */
 export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
+
+/**
+ * The worker's map and mechanism over the platform reference ([[REQ-355]]).
+ *
+ * THE SAME TWO KM PROVIDERS UNDER THE BUILDER'S OWN NAMES, for
+ * {@link BUILDER_MANUAL_PROVIDER}'s reason. The consultant's `km.landscape` is
+ * bound to the whole of its corpus — the client's own knowledge base as well as
+ * ours — so a worker reading it would be handed a map of the client's material,
+ * which is precisely the view of what the client wants that a worker must not
+ * form. These are bound to the system KB alone, and the mechanism projects the
+ * WORKER'S manual rather than the consultant's.
+ */
+export const BUILDER_LANDSCAPE_PROVIDER = 'builder.km.landscape'
+export const BUILDER_MECHANISM_PROVIDER = 'builder.km.mechanism'
 
 /**
  * How the consultant hands work over, or nothing at all ([[REQ-295]]).
@@ -1378,14 +1403,17 @@ export function settingsRole(lib: Untyped, providers: Untyped): Untyped {
  *
  * @param tools the grant, already narrowed to the surfaces this deployment
  *   composed — see {@link builderPrimingConfig}.
+ * @param withCorpus whether the worker was composed with the platform reference
+ *   ([[REQ-355]]) — see {@link builderKnowledge}.
  */
 export function builderRole(
   lib: Untyped,
   providers: Untyped,
   tools: Record<string, unknown>,
+  withCorpus = false,
 ): Untyped {
   const roles = lib.rolesFromMapping(
-    { roles: { [BUILDER_ROLE]: builderPrimingConfig(tools) } },
+    { roles: { [BUILDER_ROLE]: builderPrimingConfig(tools, withCorpus) } },
     { providers },
   )
   return roles[BUILDER_ROLE]
@@ -1422,13 +1450,17 @@ export interface KnowledgeBridge {
  *   resolves the library its own way.
  * @param runtime a callable, not a runtime: seeding a knowledge base is expensive
  *   and hosts defer it to first use, so registration must not force that work.
+ * @param names the provider names to register under — the KM defaults unless a
+ *   second, narrowed pair is being bound beside them ([[REQ-355]]).
  */
 export function registerCorpusProviders(
   bridge: KnowledgeBridge,
   runtime: () => Untyped,
+  names: { landscapeName: string; mechanismName: string } | null = null,
 ): (box: Untyped, providers: Untyped) => Promise<void> {
   return async (box: Untyped, providers: Untyped) => {
     bridge.registerKmProviders(providers, runtime, {
+      ...(names ?? {}),
       // THE SUMMARY, NOT THE REFERENCE (REQ-171). The full manual is 43k
       // characters of one site's surface and was 98% of the priming document;
       // the summary is 11k. What it drops — every parameter, return shape and
@@ -1440,5 +1472,60 @@ export function registerCorpusProviders(
       // reaches KM differently per substrate would say so.
       mechanismFor: () => box.manual({ level: 'summary' }),
     })
+  }
+}
+
+/** What {@link builderKnowledge} needs out of the `ai-knowledge` bridge. */
+export interface WorkerKnowledgeBridge extends KnowledgeBridge {
+  KnowledgeToolbox: new (runtime: Untyped) => Untyped
+  knowledgeInstanceConfig: (kbs: string[]) => Untyped
+}
+
+/**
+ * The platform reference, as a worker receives it ([[REQ-355]]).
+ *
+ * A SURFACE FACTORY AND A PRIMING BINDING, and they travel together for
+ * `system-knowledge.ts`'s rule: search without priming is the same failure as no
+ * search. A worker handed the tools and no map has no reason to believe there is
+ * anything to find, so it guesses instead — which is how a worker came to report
+ * that containers have no per-width layout when the L1 reference says they do.
+ */
+export interface WorkerKnowledge {
+  /**
+   * A FRESH surface per call, never the consultant's instance: a Toolbox binds
+   * each surface to the grant it is constructed with (see `l1SurfaceSet`).
+   */
+  surface: () => { surface: Untyped; granted: Record<string, unknown> }
+  /** Binds {@link BUILDER_LANDSCAPE_PROVIDER} and {@link BUILDER_MECHANISM_PROVIDER}. */
+  priming: (box: Untyped, providers: Untyped) => Promise<void>
+}
+
+/**
+ * The worker's knowledge, over ONE knowledge base ([[REQ-355]]).
+ *
+ * THE ONE KB IS THE CALLER'S TO NAME AND THE HOSTS NAME THE SYSTEM KB. The grant
+ * is `knowledgeInstanceConfig([kb])` over a runtime that holds that KB alone, so
+ * both the scope axis and what a search can physically rank agree that nothing
+ * wider is reachable: not the client's own corpus, and not anything in the
+ * engagement's ledger or catalogue, which are different surfaces the worker is
+ * never composed with. Both hosts build it here so the two cannot come to
+ * disagree about which knowledge bases a worker may reach.
+ *
+ * @param runtime a callable, as {@link registerCorpusProviders} takes one.
+ */
+export function builderKnowledge(
+  bridge: WorkerKnowledgeBridge,
+  runtime: () => Untyped,
+  kb: string,
+): WorkerKnowledge {
+  return {
+    surface: () => ({
+      surface: new bridge.KnowledgeToolbox(runtime()),
+      granted: bridge.knowledgeInstanceConfig([kb]) as Record<string, unknown>,
+    }),
+    priming: registerCorpusProviders(bridge, runtime, {
+      landscapeName: BUILDER_LANDSCAPE_PROVIDER,
+      mechanismName: BUILDER_MECHANISM_PROVIDER,
+    }),
   }
 }

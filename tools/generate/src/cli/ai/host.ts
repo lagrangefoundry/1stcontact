@@ -38,7 +38,7 @@ import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
-import { registerCorpusProviders } from './roles'
+import { builderKnowledge, registerCorpusProviders } from './roles'
 import {
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
@@ -164,6 +164,7 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
 
   const extraSurfaces: NonNullable<HostDeps['extraSurfaces']> = []
   let priming: HostDeps['priming'] = null
+  let workerKnowledge: HostDeps['workerKnowledge'] = null
   if (knowledge !== null) {
     const bridge = await import(/* @vite-ignore */ sharedModuleUrl('ai-knowledge'))
     extraSurfaces.push({
@@ -183,6 +184,10 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     // and `km.mechanism` and says nothing about where they sit. Its presence is
     // what tells `host-core` this host has a corpus at all.
     priming = registerCorpusProviders(bridge, () => knowledge)
+    // AND THE SAME KB FOR A DELEGATED WORKER ([[REQ-355]]). On this host the
+    // corpus is the system KB alone, so the worker's is the consultant's KB
+    // under the worker's own surface instance and provider names.
+    workerKnowledge = builderKnowledge(bridge, () => knowledge, SYSTEM_KB)
   }
 
   return {
@@ -192,6 +197,7 @@ async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     logDir: path.join(dir, 'live'),
     audit: fileAuditSink(opts),
     extraSurfaces,
+    workerKnowledge,
     // REQ-157 — the fidelity surface, when this process knows what it is called
     // from outside itself. `1c` invocations with no server behind them have no
     // origin and get no surface, which is the honest answer: without one there
