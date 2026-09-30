@@ -6,9 +6,9 @@ title: 'Delegation: the builder can search the platform reference, and looks a l
   up before reporting it'
 created_by: EPIC-20
 created_at: '2026-09-30T20:03:01.774395+00:00'
-updated_at: '2026-09-30T20:43:02.189588+00:00'
+updated_at: '2026-09-30T20:55:16.852796+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -37,6 +37,30 @@ The worker was built without a corpus deliberately (`host-core.ts`, the worker's
 5. The `host-core.ts` comment giving the reason for the old exclusion is revised to the rule above, not left contradicting the code.
 6. Nothing changes for the consultant.
 
+## How it is built
+
+- **A second declared builder order.** `priming.json` keeps `builder_priming` exactly as it was — the order a deployment with no system KB composes — and adds `builder_priming_with_corpus`: the same role text, then the system KB's map, then a `builder-reference` entry stating the look-it-up rule, then the mechanism (which carries the worker's own manual, so there is no separate `manual` entry). This mirrors the consultant's `priming` / `priming_without_corpus` pair.
+- **The builder's own provider names** — `builder.km.landscape` / `builder.km.mechanism` — registered through upstream `registerKmProviders`' `landscapeName`/`mechanismName` parameters. The consultant's `km.landscape` is bound to its composite corpus, which on the Worker includes the client's project KB, so reusing it would have shown the worker a map of the client's material.
+- **One helper, both hosts.** `roles.ts` `builderKnowledge(bridge, runtime, kb)` returns the surface factory (a fresh `KnowledgeToolbox` per call, granted `knowledgeInstanceConfig([kb])`) and the priming binding. `HostDeps.workerKnowledge` carries it; `host-core.ts` composes it into the worker's surface set only when delegation composes a worker, binds the priming to the worker's own box, and loads the with-corpus order only when it is present.
+- **Worker:** `session-knowledge.ts` `sessionWorkerKnowledge(knowledge)` takes the SYSTEM runtime out of `perKb` (never the composite). **Node (`1c`):** `host.ts` builds it from the system KB it already opens.
+- The `host-core.ts` comment on the worker's surface set is rewritten to state the new rule (platform reference in; client corpus, ledger, catalogue, session context out, with reasons).
+
+## Design decisions
+
+- **Separate provider names rather than sharing the consultant's.** The consultant and builder share one priming registry in one manager; a shared name would give one role the other's map/manual.
+- **Two declared orders rather than null-rendering providers in one list**, matching the consultant, and so the no-KB builder prompt is byte-for-byte what it was. The role text is spelled in both lists; a UAT holds the two copies equal.
+- **Out-of-scope search is refused by the grant**, not merely absent from the map: a worker that names `kb: ["project"]` gets the knowledge surface's scope refusal ("limited to: system").
+
 ## Test plan
 
-UATs (`test_UAT_FC_<ID>_*`): the builder's offered tools include knowledge search scoped to the system KB and nothing wider; its priming carries the landscape; a deployment with no system KB composes the builder as before; the builder still offers no ledger, catalogue or client-corpus operation.
+UATs (`test_UAT_FC_REQ-355_*`):
+
+- `tests/test_UAT_FC_REQ-355_builder_reads_the_platform_reference.workers.test.ts` (real route in workerd, delegation on, planted system KB, scripted model):
+  - the builder is offered knowledge search beside its construction tools, and every tool it gains over the no-KB builder is a knowledge read;
+  - a worker's search reaches the planted reference fact (`responsiveLayout`, DOC-L1), and a search scoped to the client's `project` KB is refused by the `kb` scope;
+  - the worker's system prompt carries the role text, the map, the mechanism and the look-it-up rule, and not the corpus body;
+  - with no system KB the builder has no knowledge tools, no map and no rule, and keeps its construction tools;
+  - the builder still offers no ledger, catalogue or `Delegate` operation.
+- `tests/test_UAT_FC_REQ-355_builder_priming_config.test.ts`: the role text is identical in both builder orders; the with-corpus order names the builder's own providers and the rule sits between map and mechanism; that order loads only with its providers bound; neither consultant order changes.
+
+Regression scope run: REQ-295 / REQ-343 / REQ-353 / REQ-158 / BUG-145 / BUG-159 workers suites, all workers suites touching knowledge or delegation, and every Node suite reading `priming.json` / `roles.ts`. Two REQ-295 cases (check verdicts now carry `by`) and one REQ-296 case (worker vs caller ceiling equal) fail identically on the unchanged base — pre-existing, not caused by this change.
