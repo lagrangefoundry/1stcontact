@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T19:49:08.170949+00:00'
+updated_at: '2026-09-30T19:55:23.699942+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3039,5 +3039,17 @@ Two limits:
 4. **Run one real session** and read it with the four sources above.
 
 Items 2 and 3 have no ticket yet. Want me to file them, and record this status on EPIC-20?
+
+<!-- xgd-turn id="2abf71b9-0413-4e53-9b6f-ee0d717997a0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T19:55:22.825032+00:00" -->
+#### You
+**The gap isn't a tool, it's the page.** Reproduced pages are 69 loose elements with nothing nested (REQ-350, still draft). So a form can't be "attached to its section", and every layout fix turns into coordinate arithmetic. That's what makes worker runs long. <-- what should we do about this?
+
+**It has no access to the knowledge base.** The consultant searches the L1 reference; the builder can't. <-- lets just give it access to the kb, why wouldn't we?
+
+**Not wired:** the framework can now settle checks from the host's own records instead of charging them to the worker's budget (REQ-188). 1stcontact doesn't implement that hook, so the five-clause checks that ran out of budget in the GA session would still do so. <-- ticket please
+
+ok so I am prioritizing 348 and 168 - are there other tickets that belong to you that I should kick off before the next delegate test - and can you answer the notes above please
 
 <!-- xgd-chat-end -->
