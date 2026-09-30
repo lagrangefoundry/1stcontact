@@ -6,9 +6,9 @@ title: 'gate: `stacked: true` switches the overlap probe off, so a reproduction 
   <h1> is completely buried under a photo passes every gate'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:03:03.424338+00:00'
-updated_at: '2026-09-30T21:14:49.357861+00:00'
+updated_at: '2026-09-30T21:40:57.093203+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -192,50 +192,63 @@ that option 1 needs now exists.
 
 ### What changes (user-visible behaviour)
 
-1. **The envelope evaluator models paint order.** Each evaluated leaf gets a
-   paint key that follows the renderer's CSS. A node with a `paintOrder` (or a
-   pinned node whose `stacked`/`sticky.lift` makes the pin emit `z-index: 1`)
-   opens a stacking context at that level. Everything else paints in tree order
-   inside its nearest context. Negative levels paint below tree order and
-   positive levels above it.
-2. **`stacked` still exempts an overlap from being reported as an `overlap`, with
-   one exception:** when the pair is a **text run and an image or painted box**,
+1. **The envelope evaluator models paint order** (`tools/generate/src/l1/probes.ts`,
+   `paintKeys`). Each evaluated leaf gets a paint key that follows the renderer's
+   CSS, where every emitted node is positioned. A node with a `paintOrder` (or a
+   pin whose `stacked`/`sticky.lift` makes the renderer emit its one-step
+   `z-index: 1`) opens a stacking context at that level. Everything else paints
+   in tree order inside its nearest context. Negative levels paint below tree
+   order and positive levels above it; equal levels follow tree order. The model
+   is the same at every width because no paint level is responsive.
+2. **`stacked` still exempts an overlap from `overlap`, with one exception:**
+   when the pair is a **text run and an image or a painted (non-backing) box**,
    and the paint model puts the **text underneath**, the probe reports a new
-   finding kind, **`buried`**, e.g. `"FAELAN" is painted beneath image (a declared
-   stack whose words are underneath the picture)`. A `stacked` declaration says
-   the overlap is intended. It does not say the words may be hidden, and a
-   run painted under an opaque picture is never the intended design.
+   finding kind, **`buried`**. Its detail is `<run text> is painted beneath
+   <kind>` (e.g. `FAELAN is painted beneath image`), and `paths`/`boxes` list the
+   run first and what covers it second. A `stacked` declaration says the overlap
+   is intended, not that the words may be hidden.
    - Pairs whose paint order puts the text on top (a headline over a hero photo,
-     the BUG-112 case) stay exempt. The fold's REQ-347 `paintOrder` is what
-     keeps a faithful faelan.com reproduction passing.
-   - Image vs. image, box vs. image and text vs. text pairs under `stacked` stay
+     the BUG-112 case) stay exempt. With REQ-347's `paintOrder` from the fold, a
+     faithful faelan.com reproduction keeps passing.
+   - Under `stacked`, image-vs-image, box-vs-image and text-vs-text pairs stay
      exempt as before.
    - Unmarked overlaps are unchanged and are still reported as `overlap`.
 3. **`buried` fails the envelope probe like any other finding.** It reaches the
-   gate's `layout.findings` and gives a `structural-failure` verdict. The gate's
-   diagnosis names it apart from overlaps ("run(s) painted beneath a picture
-   stacked over them"). Its next step says to give the run a `paintOrder` above
-   the picture (or fix the capture's `zIndex`), **not** "declare `stacked`",
-   because the pair is already declared.
+   gate's `layout.findings` and gives a `structural-failure` verdict. In
+   `gate-core.ts` the diagnosis names it apart from overlaps ("N run(s) are
+   painted beneath a picture stacked over them — …"). Its next step asks for a
+   `paintOrder` above the picture that matches the reference's `z-index`, or, if
+   the fold wrote no level, points at the capture. It does **not** give the
+   "declare `stacked: true`" advice, because the pair is already declared.
 4. `buried` is **not** an input to `promoteToFlow`'s recovery (it reads
    `overlap` only). Paint order is not a flow problem, and moving the run would
    not unbury it.
+
+### Evidence on the real bundle
+
+With `storage/references/faelan.com/index/l1.json` as the fold writes it today
+(REQ-347 `paintOrder` present, `<h1>` at 20 over photos at 15/5), `1c l1-gate`
+passes, as it should. With the four `paintOrder` fields stripped (the
+iteration-4 shape: `stacked` present, no levels), all three probes fail with only
+`buried` findings: `FAELAN is painted beneath image` and `Artist • Musician •
+Creator is painted beneath image`. The image-vs-image pairs stay exempt.
 
 ### Test plan
 
 `tests/test_UAT_FC_BUG-164_stacked_overlap_paint_order.test.ts` checks:
 - a `stacked` image painted after a text run it covers (tree order, no
-  `paintOrder`) → probe fails with a `buried` finding naming the run;
-- the same document with the run given a `paintOrder` above the image → passes
-  (the declared order agrees with the design);
-- a `stacked` image given a `paintOrder` above a later text run → `buried`
-  (explicit level beats tree order);
-- image-vs-image under `stacked` stays exempt;
-- `reconcileGates` turns a `buried` finding into `structural-failure` with the
-  `paintOrder` next step and without the "declare `stacked`" advice.
+  `paintOrder`) → probe fails with one `buried` finding, `FAELAN is painted
+  beneath image`, paths run-then-cover;
+- the same document with run `paintOrder: 20` over image `15` → passes;
+- a `stacked` image with `paintOrder: 5` BEFORE the run in tree order → `buried`
+  (the declared level beats tree order); a `paintOrder: -1` image → exempt;
+- photo-over-photo plus a headline after them → passes (words on top, picture
+  pairs exempt);
+- `reconcileGates` turns `buried` into `structural-failure`, names the buried
+  run in the diagnosis, and gives a next step that mentions `paintOrder` and not
+  `stacked: true`.
 
-The existing BUG-112 UATs (declared stack exempt, text after image) must stay
-green.
+Regression: the existing BUG-112 UATs and all 82 layout/fold/gate suites pass.
 
 ### Deferred (not in this change)
 
