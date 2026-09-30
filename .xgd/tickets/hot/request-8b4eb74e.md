@@ -6,9 +6,9 @@ title: Nothing detects an element that paints text and has been given no type, c
   or padding — unstyled form controls ship looking broken and no tool says so
 created_by: xgd
 created_at: '2026-09-29T04:28:10.485709+00:00'
-updated_at: '2026-09-30T21:19:05.010340+00:00'
+updated_at: '2026-09-30T21:51:39.339689+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -132,7 +132,7 @@ It is a **report, never a gate** — nothing is refused at write time; a page un
 
 **Broken** (never intentional):
 1. **Unstyled text-entry control** (`input` other than checkbox/radio, `textarea`) or **button** inside a component. The renderer resets UA chrome (`font: inherit; padding: 0`), so absence falls back to the browser's face and the border edge, not the page:
-   - no `fontFamily` → broken (paints the browser's default face)
+   - no `fontFamily` while the page's own text names a face → broken (it paints the browser's default face, unlike the page). On a page whose words name no face anywhere, the control matches the page and this is not a finding
    - no padding (absent or every side 0, no responsive padding) → broken (text against the border)
    - text-entry control with no `placeholderColor` **and** no `color` → broken (placeholder paints in the inherited page/browser ink)
 2. **Children that cannot fit a row** at a declared width (`l1.widths`): for a non-wrapping `row` (resolved per width through `responsiveLayout`), the sum of in-flow children's minimum widths plus gaps exceeds the row's content width (its width minus its padding). A child's minimum is its fixed width / flow-placed geometry keyframe width, else its `minPx`; a fluid text-entry input with no `minPx` counts the browser's intrinsic input width (150px), because a flex item's automatic minimum stops an `<input>` shrinking below it.
@@ -151,7 +151,7 @@ It is a **report, never a gate** — nothing is refused at write time; a page un
 9. A control with no `fontSizePx` (no sibling has one either).
 10. **Contrast below WCAG AA** (4.5:1; 3:1 for large text ≥24px, or ≥18.66px at weight ≥700).
 
-**Contrast** (rules 4 and 10): the element's effective ink (its own `color`, else the page `textColor`, else black; run colours too) against the backdrop it sits on (its own `surfaceFill`, else the nearest ancestor's, else the page `background`, else white), compositing translucent colours. Skipped wherever a gradient, pattern, background image or overlay makes the backdrop unknowable, and for gradient-filled text.
+**Contrast** (rules 4 and 10): the element's effective ink (its own `color`, else the page `textColor`, else black; run colours too) against the backdrop it sits on (its own `surfaceFill`, else the nearest ancestor's, else the page `background`, else white), compositing translucent colours; an opaque fill makes the backdrop known whatever is below it. Skipped wherever the backdrop is unknowable: a gradient, pattern, background image or overlay; and **layered children** — a captured page paints section bands and cards as absolutely placed boxes *beside* the words on them, so below a node with a painted, absolutely placed child the tree does not say which layer a run sits on. There a run that names its panel (`backedBy`) is checked against that panel; one that does not is not guessed at. Also skipped for gradient-filled text.
 
 A text element with **no colour** is not a finding in itself — it inherits the page's declared text colour, which is legitimate (the contrast rule still checks what it inherits).
 
@@ -170,4 +170,14 @@ A text element with **no colour** is not a finding in itself — it inherits the
 - literal colours on a palette page → inconsistent; the same literals on a site with no palette → no finding
 - low contrast (pale ink on the page background) → flagged
 - a clean, fully styled page → all-zero summary, no `attention` on any segment
+- a captured run on a dark sibling band named by `backedBy` is not flagged; an unnamed run on a layered page is not guessed at; a pale run named onto a pale card is broken
+- a control with no face on a page whose words name none is not flagged for font
 - the declaration names the `attention` field
+
+### Design decisions made during implementation
+
+- **Checked against the real corpus** (`tests/fixtures/l1-corpus`). gigabytealchemy's contact forms, four fields carrying only a border and radius, are flagged `broken: unstyled: font, size, padding, placeholder`. That is this ticket's defect, found unprompted.
+- **Two false positives were found and removed:**
+  - A first cut took the backdrop from the ancestor chain alone. It called the gigabytealchemy hero "1.1:1, broken", because the hero's words sit on an absolutely placed *sibling* band. That is where the layered-children rule and `backedBy` resolution come from.
+  - A first cut flagged every control with no face. On the 1stcontact home page nothing names a face, so the controls match the page. The font rule is therefore relative to the page's own text.
+- The palette is read from the site settings, not `get_palette`. The palette tool counts uses across every page, which `describe_page` should not pay for on every map.
