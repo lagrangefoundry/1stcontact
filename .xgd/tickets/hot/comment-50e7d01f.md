@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T21:44:34.417268+00:00'
+updated_at: '2026-09-30T21:45:19.323338+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3353,5 +3353,50 @@ Nothing is coded. REQ-350 is still a draft under EPIC-20.
 <!-- xgd-chat role="user" ts="2026-09-30T21:44:33.521754+00:00" -->
 #### You
 ok 350 is implemented. Now what?
+
+<!-- xgd-turn id="346e712d-0f8c-403c-bddc-290e7d1b9f0d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T21:45:18.220238+00:00" -->
+#### Claude
+I'll check what REQ-350 actually delivered and where the other pre-test tickets stand.
+
+This checkout still shows REQ-350 as a draft with no commits. Looking for the implementation on other branches.
+
+No commit mentions REQ-350 on any branch. Checking whether it was split into other tickets that carry the work.
+
+I can't find an implementation of REQ-350 anywhere, so I need to check with you before going further.
+
+## What I checked
+
+- **The ticket** is still at `draft`, with no commits recorded. The last change to it is my rewrite at 14:14 today.
+- **The code:** no commit on any branch mentions REQ-350, and no worktree exists for it. The only change today to the reproduction code (`fold.ts`) or the schema is `6b3d89a46b`, a band-background fix. There's no `flow` placement work and no named styles anywhere.
+- **Main** has no copy of the ticket either.
+
+So either it was built somewhere I can't see (another machine, or a branch that hasn't been pushed), or you meant a different ticket. Which is it?
+
+## The delegation test doesn't depend on it
+
+This is where the tickets you prioritised stand:
+
+| | status |
+|---|---|
+| **BUG-168**, turn timeout | done, 2 commits (`ready_to_reconcile`) |
+| **REQ-355**, builder can search the reference | done, 1 commit (`ready_to_reconcile`) |
+| **BUG-167**, a silent worker now says whether it wrote anything and what it last did | landed today |
+| **REQ-348**, briefing guidance | `legacy_done` with no commits. I didn't expect that status. Was it closed on purpose, or did the guidance land somewhere else? |
+| framework **BUG-78** → **REQ-354**, host-settled checks | still drafts; the test doesn't need them |
+
+## What I'd do next
+
+**Run the delegation test now, on a freshly reproduced site** rather than Gigabyte Alchemy. New reproductions are already nested (since 2026-09-25), so it tests delegation on the page shape we're aiming for, and a flat old site would muddy the result.
+
+Watch for four things, all readable from the records we've been using:
+
+- Does the consultant delegate construction, now that it can't write L1 itself?
+- Do the host's diff and the worker's report agree?
+- Does any turn still hit the time limit?
+- When a worker says something can't be done, did it look it up first (REQ-355)?
+
+Once you tell me where REQ-350 is, I'll check what landed against its ten requirements.
 
 <!-- xgd-chat-end -->
