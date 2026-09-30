@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T20:44:52.528640+00:00'
+updated_at: '2026-09-30T21:06:25.098725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3244,5 +3244,15 @@ The two directions are handled very differently:
 Every one of the 69 elements on this page has its own page-absolute `y`. That's why moving a section means rewriting every element in it, at all six widths.
 
 Grouping gives the vertical axis what the horizontal axis already has. Put this line inside its section, give the section a layout, and its position becomes "below the heading, 16px gap". Move or grow the section and its contents follow. That's the structure the capture had and the stored site lost.
+
+<!-- xgd-turn id="c51cb852-f32e-443c-882b-501c1fd0488b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T21:06:23.858948+00:00" -->
+#### You
+I see so there is a concept of column. But if I, say, doubled the height of the header at the top of the page, I would have to manually push everything down.
+
+Is it just geometry that we would like to scope, what about style variables?
+
+So the geometry fix would be to allow objects to be vertically nested and have their vertical coordinates defined relative to the parent. Does that exist in the language and isn't used by the AI? You said the captured screens were not flat?
 
 <!-- xgd-chat-end -->
