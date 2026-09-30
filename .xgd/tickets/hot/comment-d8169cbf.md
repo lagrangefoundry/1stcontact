@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-28T22:27:42.445988+00:00'
+updated_at: '2026-09-30T20:27:32.589079+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5676,5 +5676,27 @@ Plus, not ours to file: **F1** (turn-completing vs non-completing post) and **F2
 ## One thing blocked
 
 The ticket store has a **stale merge**: `MERGE_HEAD` present, `.xgd/working-merge.lock` held by REQ-343 under **pid 17376, which is dead**. My DOC-61 edit is written and staged but uncommitted (readers see it; a `merge --abort` would lose it — body saved at `$TMPDIR/doc-bfc310fc.body`). Two edits are still pending on it: DOC-62 §4/§9 + its Open list, and the epic's 14.20. I haven't touched the merge — finishing or aborting someone else's is your call. Tell me which and I'll apply the rest.
+
+<!-- xgd-turn id="b5e60772-66b4-40b3-bb82-39c031f9d34c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:27:31.385706+00:00" -->
+#### You
+ok, a lot has changed since we spoke. I have been working on EPIC-2 and EPIC-7 in LF please review them and their transcripts. And the showcase implementation of the 3-way chat.
+
+Several of the tickets we started may not apply any more - can you review - I am fine to start over if we need to.
+
+Please also review EPIC-22 which is how I intend to debug all this.
+
+So lets talk about the next steps.
+
+The next step will be to create a Room and add Bob. Bob is s first class citizen. It needs KB access and read access to all the things that Alice can see
+
+Aside Alice and Bob are code names - lets use them for now but be aware that we will need to change them so please don't let the agents pepper them as constants all over the code and prompts. Lets give them roles - consultant (Alice) and assistant (Bob)
+
+I think we need a document available to both Alice and Bob that shapes the conversation. We also need to figure out what a plan looks like and how Bob manages it.
+
+There's really two layers here (1) the technical part - just getting the conversation to work and (2) the dramatuge how to we prompt the agents to drive useful conversations. Let take these as separate threads.
+
+Lets focus on 1 here
 
 <!-- xgd-chat-end -->
