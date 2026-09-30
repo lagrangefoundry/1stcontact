@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-30T20:58:30.947251+00:00'
+updated_at: '2026-09-30T20:58:55.313035+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5806,5 +5806,34 @@ That was the last of my timers, so there will be no more of these notices. I'm s
 **The JS room has never run live.** Only the Python showcase has. One known gap: the JS room can't be reopened from its chat ticket, which Python can. In a Worker an evicted isolate is routine, so that gap means an unreadable room. The 09-29 fixes are also unfiled: one post per round, a post-then-decline counting as the post, and pull defaulting to what you haven't read. Those are LF tickets, and should land before we build on the room. <-- we should test this in LF now I will do that.
 
 **Bob is silent while Alice works.** Turns are strictly sequential, so while Alice runs a ten-minute round, Bob can't answer you. That's F2, the two-speed room, which doesn't exist and has no ticket. Words you type mid-round land in the room but reach nobody until the round ends. Worse, EPIC-7 §11.2's bug means the orchestrator can drop them entirely. <-- don't worry about this now - we wait for EPIC 7 which I will work on when we have these other pieces working first
+
+<!-- xgd-turn id="c1a194e1-31ea-421d-9b28-9312f576be69-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T20:58:54.458996+00:00" -->
+#### Claude
+You're right to push on point 1. I overstated it. No new room is needed, and a Durable Object isn't a requirement.
+
+**What the framework already gives us.** LF's `Orchestrator.run()` is a plain `async` function. It has no threads and no timers: it just awaits `manager.prompt(member, brief)` for each round. The Python showcase put it on a worker thread only because that's how its server is built, not because the orchestrator needs one.
+
+**What the host still supplies.** The only host-side pieces are a small "is an exchange already running for this room" guard and a stop flag. Those are a few lines of state, not a new component.
+
+**It runs in a request, like today's turns.** The whole exchange can run inside the request, streaming the way a consultant turn does now. I claimed a ten-minute exchange can't do that. It can: today's turns already run minutes inside one request, because waiting on the model uses no Worker CPU time.
+
+**The real risk is the one we already carry.** If the client disconnects, the exchange dies with the request. `ctx.waitUntil` only extends it about 30 seconds past that. A Durable Object would fix that someday, but it's the same durability question as today's single turn (Findings 10 and 12), not a precondition for the room. Please disregard "biggest piece of new engineering". It still needs confirming with EPIC-2, and I'd welcome what they say.
+
+**Points 2 and 3.** Understood: you'll test the JS room in LF, and the silent-Bob problem waits for EPIC-7. I won't file any LF tickets.
+
+That shrinks our side to one ticket:
+
+- a per-business group-chat switch on the Debug tab;
+- an `assistant` role, with read-only grants and knowledge access;
+- the room tools added to both members;
+- a room UI;
+- the exchange running inside the prompt request.
+
+When your LF test says the JS room works, I'll scope it. The two questions from before still decide its shape:
+
+1. Is today's site conversation Alice's private session, with the room starting fresh?
+2. Is Alice's private session off-limits to Bob?
 
 <!-- xgd-chat-end -->
