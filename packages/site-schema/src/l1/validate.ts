@@ -222,6 +222,8 @@ export const L1_STRUCTURAL_RULES = {
   flowPlacementHasNoAnchor: "geometry.place 'flow' cannot carry a column anchor",
   /** REQ-278 — an in-flow track takes its vertical position from the flow, so a `yFactor` response against the viewport height has nothing to apply to. */
   flowPlacementHasNoYResponse: "geometry.place 'flow' cannot carry a viewportResponse.yFactor",
+  /** REQ-351 — a height response is a derivative measured from the height its own keyframe was captured at, so a keyframe stating one must also state `atHeight`. */
+  responseNeedsAtHeight: 'a keyframe viewportResponse requires the keyframe to carry `atHeight`',
   /** A node `id` becomes a real DOM id, so it must be unique across the page: a duplicate breaks `#anchor` navigation and the `for`/`id` association a control's accessible name is built from. */
   uniqueNodeIds: 'a node id must be unique',
   /** Every URL a page paints from must be a served asset or an http(s) address, because the value is emitted into markup and into a stylesheet where a smuggled scheme would be live. */
@@ -358,16 +360,19 @@ function checkGeometry(
   // A height response is meaningless without the origin it is measured from, and
   // applying it against a missing `atHeight` would silently treat 0 as the capture
   // height — turning `100vh` into `y + 100vh`. Require the pair.
-  if (geo.viewportResponse) {
-    keyframes.forEach((kf, i) => {
-      if (kf.atHeight === undefined) {
-        errors.push({
-          path: `${path}/keyframes/${i}/atHeight`,
-          message: 'geometry.viewportResponse requires every keyframe to carry `atHeight`',
-        })
-      }
-    })
-  }
+  //
+  // REQ-351 (issue 4) — asked per keyframe, because that is where the response now
+  // lives. The pair it requires is the keyframe's OWN `atHeight`, which is the
+  // whole reason the two belong on the same object: a node-level factor could be
+  // written against keyframes that had never been measured at any height.
+  keyframes.forEach((kf, i) => {
+    if (kf.viewportResponse && kf.atHeight === undefined) {
+      errors.push({
+        path: `${path}/keyframes/${i}/atHeight`,
+        message: L1_STRUCTURAL_RULES.responseNeedsAtHeight,
+      })
+    }
+  })
   // REQ-278 — the two placement frames are exclusive per axis. An in-flow track
   // measures `x`/`y` from the flow cursor, which an absolute column origin and a
   // viewport-height `y` response both contradict; letting either through would
@@ -376,12 +381,14 @@ function checkGeometry(
     if (geo.anchor) {
       errors.push({ path: `${path}/anchor`, message: L1_STRUCTURAL_RULES.flowPlacementHasNoAnchor })
     }
-    if (geo.viewportResponse?.yFactor !== undefined) {
-      errors.push({
-        path: `${path}/viewportResponse/yFactor`,
-        message: L1_STRUCTURAL_RULES.flowPlacementHasNoYResponse,
-      })
-    }
+    keyframes.forEach((kf, i) => {
+      if (kf.viewportResponse?.yFactor !== undefined) {
+        errors.push({
+          path: `${path}/keyframes/${i}/viewportResponse/yFactor`,
+          message: L1_STRUCTURAL_RULES.flowPlacementHasNoYResponse,
+        })
+      }
+    })
   }
   if (geo.anchor) {
     if (!geo.anchor.x && !geo.anchor.width) {

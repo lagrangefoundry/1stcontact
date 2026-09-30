@@ -902,8 +902,9 @@ export const MANIFEST_AXES: readonly AnyManifestAxis[] = [
     // silence. Promoting it RAISES the delta count on an already-wrong
     // reproduction, which per REQ-277 is the instrument sharpening.
     role: 'compared',
-    note: 'BUG-27 — the page\'s base fill: what shows through wherever no band paints. Read off `<body>` on the reproduction side. BUG-169: read on the bundle side off the value the bundle RECORDED (`multistate.projections[].manifest.bodyBackground`, written by the extractor from the reference\'s own `<body>`), falling back to the widest band only for a bundle with no projection ladder — the earlier claim that the widest band is "the only place a bundle records it" was false, and inferring it on both sides is how a wrong canvas compared clean against itself. Also the fold\'s input, which used to infer it from run surfaces and so reproduced a hero-led page entirely in the hero\'s colour.',
-    reference: ({ capture, recorded }) => recorded?.bodyBackground ?? pageBaseOf(capture.sections),
+    note: 'BUG-27 — the page\'s base fill: what shows through wherever no band paints. Read off `<body>` on the reproduction side. BUG-169: read on the bundle side off the value the bundle RECORDED (`multistate.projections[].manifest.bodyBackground`, written by the extractor from the reference\'s own `<body>`), falling back to the widest band only for a bundle with no projection ladder — the earlier claim that the widest band is "the only place a bundle records it" was false, and inferring it on both sides is how a wrong canvas compared clean against itself. REQ-351 (issue 1) closes the last inference: `capture.json` now carries the measurement itself (schema 10), so the widest-band guess is reached only for a bundle whose primary record AND whose projection ladder are both silent. Also the fold\'s input, which used to infer it from run surfaces and so reproduced a hero-led page entirely in the hero\'s colour.',
+    reference: ({ capture, recorded }) =>
+      recorded?.bodyBackground ?? capture.bodyBackground ?? pageBaseOf(capture.sections),
     reproduction: (signals) => signals.bodyBackground,
   },
 ]

@@ -295,12 +295,13 @@ describe('REQ-278 — a flow recovery that preserves horizontal geometry', () =>
             text: 'anchored and flowed',
             geometry: {
               place: 'flow' as const,
+              // REQ-351 (issue 4) — the response is a KEYFRAME field now, so the
+              // document states the refused pair where it can be stated.
               keyframes: [
-                { at: 320, x: 0, y: 0, width: 320 },
-                { at: 1440, x: 0, y: 0, width: 1440 },
+                { at: 320, x: 0, y: 0, width: 320, atHeight: 800, viewportResponse: { yFactor: 1 } },
+                { at: 1440, x: 0, y: 0, width: 1440, atHeight: 900 },
               ],
               anchor: { x: { px: 0 } },
-              viewportResponse: { yFactor: 1 },
             },
           },
         ],

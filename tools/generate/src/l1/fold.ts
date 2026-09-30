@@ -283,6 +283,28 @@ function snapFactor(raw: number): number | undefined {
   return Math.abs(value) < 0.005 ? undefined : value
 }
 
+/**
+ * REQ-351 (issue 4) — the response governing a geometry track at `at`.
+ *
+ * The keyframe at that width when there is one, else the keyframe whose segment
+ * covers it — the same half-open `[a.at, b.at)` resolution the renderer's stacked
+ * `min-width` rules produce and `evalGeometry` mirrors. Used wherever one node's
+ * response has to be read against another's (a child rebased into its parent, a
+ * flow track re-sampled onto a coarser ladder), so the two are always compared at
+ * the same width.
+ *
+ * ONE definition, exported, because the fold and the L1 oracle both resolve it and
+ * a second copy is a second thing to keep in agreement with the renderer.
+ */
+export function responseAt(geo: L1Geometry, at: number): L1ViewportResponse | undefined {
+  const f = geo.keyframes
+  if (at <= f[0].at) return f[0].viewportResponse
+  for (let i = 0; i < f.length - 1; i++) {
+    if (at >= f[i].at && at < f[i + 1].at) return f[i].viewportResponse
+  }
+  return f[f.length - 1].viewportResponse
+}
+
 /** Build `{yFactor, heightFactor}` from a measured box delta, or `undefined` if inert. */
 function responseFrom(dy: number, dh: number, deltaH: number): L1ViewportResponse | undefined {
   const yFactor = snapFactor(dy / deltaH)
@@ -331,23 +353,37 @@ function probeResponses(probes: HeightProbe[]): Map<ValueElement, L1ViewportResp
  * while the band below it starts a full viewport height down. Sections join by
  * index (same page, same section list) and give the edge responses directly.
  *
- * The per-section factors are measured at the probe width and applied at every
- * width: the CSS rule producing them (`min-h-screen`) is not itself width-varying,
- * and re-probing at every width would multiply capture cost by the ladder length.
+ * REQ-351 (issue 3) — keyed by the WIDTH the probe measured at, not collapsed to
+ * one pair per section.
+ *
+ * It used to be collapsed, with the reasoning stated in place: "the CSS rule
+ * producing them (`min-h-screen`) is not itself width-varying, and re-probing at
+ * every width would multiply capture cost by the ladder length." Both halves were
+ * wrong. A height rule inside a media query IS width-varying — the reference
+ * hero's `100vh` is overridden below 1024 and measured at 305.5px there — and
+ * because `HEIGHT_PROBE_VIEWPORTS` held one entry, the last probe to be read
+ * simply overwrote the others, so the collapse was not a considered average but
+ * whichever width happened to come last. Keyed per width, a section that responds
+ * at one width and not at another says exactly that, and a width nothing probed
+ * says nothing at all.
  */
-function sectionBoxFactors(probes: HeightProbe[]): Map<number, { top: number; bottom: number }> {
-  const byIndex = new Map<number, { top: number; bottom: number }>()
-  for (const { ladder, probe, deltaH } of probes) {
+function sectionBoxFactors(
+  probes: HeightProbe[],
+): Map<number, Map<number, { top: number; bottom: number }>> {
+  const byIndex = new Map<number, Map<number, { top: number; bottom: number }>>()
+  for (const { ladder, probe, deltaH, width } of probes) {
     const a = ladder.manifest.sections ?? []
     const b = probe.manifest.sections ?? []
     for (let i = 0; i < Math.min(a.length, b.length); i++) {
       const ab = a[i]?.box
       const bb = b[i]?.box
       if (!ab || !bb) continue
-      byIndex.set(i, {
+      const byWidth = byIndex.get(i) ?? new Map<number, { top: number; bottom: number }>()
+      byWidth.set(width, {
         top: snapFactor((bb.y - ab.y) / deltaH) ?? 0,
         bottom: snapFactor((bb.y + bb.height - (ab.y + ab.height)) / deltaH) ?? 0,
       })
+      byIndex.set(i, byWidth)
     }
   }
   return byIndex
@@ -367,14 +403,20 @@ function sectionBoxFactors(probes: HeightProbe[]): Map<number, { top: number; bo
  * nothing. The measurement was already in hand ({@link sectionEdgeResponses}
  * reads the identical probe pair); only the emission was missing.
  */
-function sectionViewportResponses(probes: HeightProbe[]): Map<number, L1ViewportResponse> {
-  const out = new Map<number, L1ViewportResponse>()
-  for (const [index, f] of sectionBoxFactors(probes)) {
-    const r: L1ViewportResponse = {}
-    if (Math.abs(f.top) >= 0.005) r.yFactor = f.top
-    const height = snapFactor(f.bottom - f.top)
-    if (height !== undefined) r.heightFactor = height
-    if (r.yFactor !== undefined || r.heightFactor !== undefined) out.set(index, r)
+function sectionViewportResponses(
+  probes: HeightProbe[],
+): Map<number, Map<number, L1ViewportResponse>> {
+  const out = new Map<number, Map<number, L1ViewportResponse>>()
+  for (const [index, byWidth] of sectionBoxFactors(probes)) {
+    const responses = new Map<number, L1ViewportResponse>()
+    for (const [width, f] of byWidth) {
+      const r: L1ViewportResponse = {}
+      if (Math.abs(f.top) >= 0.005) r.yFactor = f.top
+      const height = snapFactor(f.bottom - f.top)
+      if (height !== undefined) r.heightFactor = height
+      if (r.yFactor !== undefined || r.heightFactor !== undefined) responses.set(width, r)
+    }
+    if (responses.size > 0) out.set(index, responses)
   }
   return out
 }
@@ -396,7 +438,10 @@ function sectionEdgeResponses(
     const m = new Map<number, number>()
     const secs = p.manifest.sections ?? []
     secs.forEach((sv, i) => {
-      const f = byIndex.get(i)
+      // REQ-351 (issue 3) — the factor measured AT THIS WIDTH. A width no probe
+      // visited contributes no edge, so the band built across it carries no
+      // response there rather than one borrowed from elsewhere on the ladder.
+      const f = byIndex.get(i)?.get(p.viewport.width)
       if (!sv.box || !f) return
       m.set(Math.round(sv.box.y), f.top)
       m.set(Math.round(sv.box.y + sv.box.height), f.bottom)
@@ -1483,6 +1528,31 @@ function paintsSurface(el: FoldableElement): boolean {
 }
 
 /**
+ * REQ-351 (issue 5) — does this run's text OCCUPY A LINE BOX?
+ *
+ * `String.prototype.trim()` strips the full Unicode whitespace set, U+00A0
+ * included, so `'\u00a0'.trim() === ''` and a deliberate `&nbsp;` spacer — a run
+ * whose ENTIRE content is the non-breaking space the page author put there to
+ * hold a line open — read as "never had substance" and was dropped. On
+ * joyfulculinarycreations.com that was the round's highest-severity value delta
+ * (CRITICAL, severity 4060) and its only `unmatched`: a 162 × 21.59px line the
+ * reference reserves and the reproduction does not.
+ *
+ * So substance is decided by stripping only the ASCII whitespace class. U+00A0,
+ * U+2007 (figure space), U+202F (narrow no-break space), U+2060 (word joiner)
+ * and U+200B (zero-width space) all count as content, because the author wrote
+ * them to occupy space and the browser lays out a line box for them.
+ *
+ * Read by every stage that has to agree about which runs exist — the fold's own
+ * leaf decision, the L1 oracle's reference-side run list ({@link
+ * module:probes.oracleSamples}) and the round-trip projection — so a run one of
+ * them keeps cannot be a run another silently drops.
+ */
+export function hasTextSubstance(text: string | undefined | null): text is string {
+  return (text ?? '').replace(/[ \t\r\n\f\v]+/g, '') !== ''
+}
+
+/**
  * Decide the L1 leaf kind an element folds to. `text` (styled run), `image`
  * (media), `box` (standalone painted surface), `control` (a form control — a
  * behavior-module seam, never a raw leaf), `unknown` (a text-free element with
@@ -1490,7 +1560,7 @@ function paintsSurface(el: FoldableElement): boolean {
  * geometry/src availability, which the fold gates separately.
  */
 export function classifyElement(el: FoldableElement): FoldLeafKind {
-  if (!el.textless) return (el.text ?? '').trim() !== '' ? 'text' : 'empty'
+  if (!el.textless) return hasTextSubstance(el.text) ? 'text' : 'empty'
   if (isMediaElement(el)) return 'image'
   if (el.a11yRole && FORM_CONTROL_ROLES.has(el.a11yRole)) return 'control'
   if (paintsSurface(el)) return 'box'
@@ -2039,7 +2109,7 @@ function foldSectionBackgrounds(
   projections: StateProjection[],
   widths: number[],
   heightAt: ReadonlyMap<number, number>,
-  sectionResponses: ReadonlyMap<number, L1ViewportResponse>,
+  sectionResponses: ReadonlyMap<number, ReadonlyMap<number, L1ViewportResponse>>,
 ): L1Box[] {
   // section ordinal → its (width, values) samples across the ladder
   const byIndex = new Map<number, Array<{ width: number; sv: SectionValues }>>()
@@ -2068,18 +2138,23 @@ function foldSectionBackgrounds(
       // response below is read against a stated baseline instead of an assumed one.
       const vh = heightAt.get(e.width)
       if (vh) kf.atHeight = vh
+      // REQ-338 (issue 4) — and how the box answers a taller viewport, measured
+      // from the same height probe every run standing on it is measured from. A
+      // `100vh` hero gets `heightFactor: 1`; a band below one gets `yFactor: 1`; a
+      // band that does neither gets nothing.
+      //
+      // REQ-351 (issue 4) — per keyframe, at the width the probe measured. The
+      // hero of the page this was filed on is `100vh` at 1024 and above and a
+      // content height below; one factor for the node asserted the wrong one of
+      // those at three widths of six.
+      const response = vh ? sectionResponses.get(index)?.get(e.width) : undefined
+      if (response) kf.viewportResponse = response
       return kf
     })
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
     }
-    // REQ-338 (issue 4) — and how the box answers a taller viewport, measured from
-    // the same height probe every run standing on it is measured from. A `100vh`
-    // hero gets `heightFactor: 1`; a band below one gets `yFactor: 1`; a band that
-    // does neither gets nothing.
-    const response = sectionResponses.get(index)
-    if (response) geometry.viewportResponse = response
     // The URL / scrim are the band's; the widest width carrying each is
     // authoritative (they agree). Read per-axis rather than off the widest entry:
     // a section may paint an image at some widths and only a scrim at others.
@@ -2220,8 +2295,27 @@ interface SurfaceRow {
   surfaceFrames: Array<{ at: number; box: NonNullable<ValueElement['box']> }>
   /** Captured corner radius of the surface-bearing box (0/undefined when square). */
   surfaceRadiusPx?: number
-  /** REQ-88 — the row's measured viewport-height response, inherited by its card. */
-  viewportResponse?: L1ViewportResponse
+  /**
+   * REQ-351 (issue 2) — the resolved surface's rect at the widest present width
+   * WHEN that surface spans the viewport, i.e. when it is the band the run stands
+   * on rather than a card around it. Absent otherwise.
+   *
+   * `surfaceFrames` deliberately drops a band-wide shape (adopting the band's rect
+   * would stretch a quote's accent rule across the whole section), and dropping it
+   * silently left {@link fill} — read off the SAME element — looking like the run's
+   * own card fill. Keeping the rect here is what lets the split below ask whether
+   * the fill came from a band, which is the question that decides whether there is
+   * a card at all.
+   */
+  bandSurface?: NonNullable<ValueElement['box']>
+  /**
+   * REQ-88 — the row's measured viewport-height response, inherited by its card.
+   *
+   * REQ-351 (issue 4) — keyed by WIDTH, because that is how it was measured: one
+   * height probe per ladder width, each a fact about that width alone. Collapsed
+   * to a single pair, a rule identified at one width was asserted at all of them.
+   */
+  viewportResponse?: ReadonlyMap<number, L1ViewportResponse>
   /**
    * BUG-143 — the text node this row was collected from, so the surface the
    * band/card reconstruction builds out of it can write its own id back onto the
@@ -2253,6 +2347,80 @@ function hasCardTreatment(r: SurfaceRow): boolean {
   return Boolean(
     r.borderLeft || r.border || r.boxShadow || (r.borderRadiusPx && r.borderRadiusPx > 0) || r.gradient,
   )
+}
+
+/**
+ * REQ-351 (issue 2) — the treatments a row bears on ITS OWN element, which is a
+ * different list from {@link hasCardTreatment}'s.
+ *
+ * `gradient` is excluded because it is read the same composited way `fill` is
+ * (`surfaceGradientOf` walks the same ancestor chain); the border, the accent
+ * rule, the shadow and the radius are measured on the run's own element and are
+ * nobody else's. So a row whose colour belongs to the band can still be a card
+ * for its border — with the colour removed.
+ */
+function hasOwnCardTreatment(r: SurfaceRow): boolean {
+  return Boolean(r.borderLeft || r.border || r.boxShadow || (r.borderRadiusPx && r.borderRadiusPx > 0))
+}
+
+/**
+ * REQ-351 (issue 2) — a predicate over surface rows: does this row's fill come
+ * from a band that paints a PHOTOGRAPH or a VEIL, making the colour a composite
+ * the browser resolved rather than anything the page declares?
+ *
+ * This is the card-side twin of {@link bandBaseFill}'s scrim guard, which REQ-338
+ * landed for the band side. The defect it closes: on
+ * joyfulculinarycreations.com, the testimonial quote stands directly on the
+ * vegetable band — the capture records `surface.self: false` and a **1280-wide**
+ * surface box — so the fill it reports is `darken(#141e14 @ 0.67)` over `#ffffff`
+ * = `#636a63`, a colour the page declares nowhere. `shapeBoxAt` correctly declined
+ * that 1280-wide rect as a card shape, but the fill from the same element survived
+ * and the row was classified on the RUN's width (689 < 0.7 x 1280), so it became a
+ * card: a 689 x 153.69px opaque plate of `#636a63` painted back over the very
+ * photograph it was sampled from. 18.34% of that page's pixel disagreement — and
+ * zero value deltas, because the comparator samples the same composite on both
+ * sides and the mistake reproduces the measurement.
+ *
+ * Deliberately not the blunter "a run whose painting ancestor is not itself
+ * contributes no fill": on a conventional page a card's runs are ALL
+ * `surface.self: false` — that is what a card is — and the blunt form would delete
+ * every card fill on every site. Nor the intermediate "any band-wide surface
+ * contributes no fill": a full-width run standing on a plain solid band is
+ * band-wide too, and its fill is the only evidence {@link buildSolidBands} has for
+ * that band. What makes THIS case different is that the section record says the
+ * band paints something the run's colour is a composite OF, so the section record
+ * is strictly better evidence and the composite is not evidence at all.
+ */
+function compositedBandRows(
+  sectionsAtWidest: readonly SectionValues[],
+  sectionsByWidth: ReadonlyArray<readonly SectionValues[]>,
+): (r: SurfaceRow) => boolean {
+  return (r: SurfaceRow): boolean => {
+    const surface = r.bandSurface
+    if (!surface || !r.fill) return false
+    // The band the surface lands on, by greatest vertical overlap — the same
+    // resolution {@link bandBaseFill} uses, for the same reason: a section's own
+    // record is the only thing that knows what it paints.
+    let best: SectionValues | undefined
+    let bestOverlap = 0
+    for (const sv of sectionsAtWidest) {
+      if (!sv.box) continue
+      const top = Math.max(surface.y, sv.box.y)
+      const bot = Math.min(surface.y + surface.height, sv.box.y + sv.box.height)
+      if (bot - top > bestOverlap) {
+        bestOverlap = bot - top
+        best = sv
+      }
+    }
+    if (!best) return false
+    // At ANY sampled width, for the reason {@link bandBaseFill} reads every width:
+    // a scrim is not always band-wide at the widest one, and a veil recorded at
+    // four widths of seven is still the veil this colour composites through.
+    return sectionsByWidth.some((sections) => {
+      const sv = sections.find((x) => x.index === best!.index)
+      return Boolean(sv && (sv.backgroundImageUrl || sv.overlay))
+    })
+  }
 }
 
 /** Count of distinct treatments present — the representative-row tiebreak for a card. */
@@ -2553,7 +2721,6 @@ function buildSolidBands(
   order.forEach((entry, oi) => {
     const keyframes: L1Keyframe[] = []
     const present: number[] = []
-    const responseSamples: Array<{ y: number; height: number }> = []
     for (const w of widths) {
       const top = snappedTop(oi, w)
       if (top === undefined) continue
@@ -2589,35 +2756,37 @@ function buildSolidBands(
       }
       const vh = heightAt.get(w)
       if (vh) kf.atHeight = vh
-      keyframes.push(kf)
-      present.push(w)
       // REQ-88 — a band is bounded by SECTION EDGES, so its height response is the
       // difference of its two edges' responses, not anything its runs can report:
       // a `min-h-screen` hero's copy sits in the top half and never moves, while
       // the band's own bottom travels a full viewport height. Both edges are
       // measured, so a band that opens at a fixed edge and closes at a travelling
       // one comes out with exactly the growth the reference has.
-      const edges = edgeResponses.get(w)
+      //
+      // REQ-351 (issue 4) — written onto THIS keyframe. There used to be a gate
+      // above the node-level field — "every width must agree, or the band is not
+      // describable as one height rule" — which existed only because one field had
+      // to serve the whole ladder: a band that grew with the viewport at the two
+      // widest widths and not below was described as not growing anywhere. Per
+      // keyframe there is nothing to reconcile, so the gate goes with the field.
+      const edges = vh ? edgeResponses.get(w) : undefined
       if (edges) {
         const fTop = edges.get(Math.round(top))
         const fBottom = edges.get(Math.round(bottom))
         if (fTop !== undefined && fBottom !== undefined) {
-          responseSamples.push({ y: fTop, height: fBottom - fTop })
+          const r: L1ViewportResponse = {}
+          if (Math.abs(fTop) >= 0.005) r.yFactor = fTop
+          if (Math.abs(fBottom - fTop) >= 0.005) r.heightFactor = fBottom - fTop
+          if (r.yFactor !== undefined || r.heightFactor !== undefined) kf.viewportResponse = r
         }
       }
+      keyframes.push(kf)
+      present.push(w)
     }
     if (keyframes.length === 0) return
     const geometry: L1Geometry = { keyframes }
     if (keyframes.length > 1) {
       geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
-    }
-    // Every width must agree, or the band is not describable as one height rule.
-    const first = responseSamples[0]
-    if (first && responseSamples.every((s) => s.y === first.y && s.height === first.height)) {
-      const r: L1ViewportResponse = {}
-      if (Math.abs(first.y) >= 0.005) r.yFactor = first.y
-      if (Math.abs(first.height) >= 0.005) r.heightFactor = first.height
-      if (r.yFactor !== undefined || r.heightFactor !== undefined) geometry.viewportResponse = r
     }
     // REQ-271 — the fill the runs reported is not always the band's own; see
     // {@link bandBaseFill}. A band whose only fill was the scrim over it paints
@@ -2743,8 +2912,15 @@ function buildCards(
     }
     // REQ-88 — a card inherits the height response of the runs it encloses, and
     // takes the column anchor when its own edges are that column's function.
-    const cardResponse = rows.map((r) => r.viewportResponse).find(Boolean)
-    if (cardResponse) geometry.viewportResponse = cardResponse
+    //
+    // REQ-351 (issue 4) — per keyframe, from whichever enclosed run was measured
+    // at that width. A card whose runs respond at 1280 and were never probed at
+    // 768 grows at 1280 and stays pinned at 768, which is what the capture saw.
+    for (const kf of keyframes) {
+      if (kf.atHeight === undefined) continue
+      const r = rows.map((row) => row.viewportResponse?.get(kf.at)).find(Boolean)
+      if (r) kf.viewportResponse = r
+    }
     if (columnFit) {
       const anchor = fitAnchor(
         keyframes.map((k) => ({ at: k.at, box: { x: k.x, width: k.width } })),
@@ -3133,23 +3309,31 @@ function rebaseInto(node: L1Node, parentGeo: L1Geometry, axes: L1SurfaceAxes | u
   const inset = surfaceBorderInset(axes)
   const keyframes = geo.keyframes.map((kf) => {
     const origin = frameAt(parentGeo, kf.at)
-    return { ...kf, x: round2(kf.x - origin.x - inset.left), y: round2(kf.y - origin.y - inset.top) }
+    const next: L1Keyframe = {
+      ...kf,
+      x: round2(kf.x - origin.x - inset.left),
+      y: round2(kf.y - origin.y - inset.top),
+    }
+    // REQ-351 (issue 4) — composed AT THIS WIDTH, against the parent's response at
+    // the same width. Node-level, the pair could be composed against a factor the
+    // parent only has somewhere else on the ladder.
+    const parentY = responseAt(parentGeo, kf.at)?.yFactor
+    if (parentY !== undefined && next.viewportResponse) {
+      const y = (next.viewportResponse.yFactor ?? 0) - parentY
+      const response: L1ViewportResponse = {}
+      if (Math.abs(y) >= 0.005) response.yFactor = y
+      if (next.viewportResponse.heightFactor !== undefined) {
+        response.heightFactor = next.viewportResponse.heightFactor
+      }
+      if (response.yFactor !== undefined || response.heightFactor !== undefined) {
+        next.viewportResponse = response
+      } else delete next.viewportResponse
+    }
+    return next
   })
   const next: L1Geometry = { ...geo, keyframes }
   const fullBleed = inset.left === 0 && parentGeo.keyframes.every((k) => Math.abs(k.x) < 0.5)
   if (next.anchor && !fullBleed) delete next.anchor
-  const parentY = parentGeo.viewportResponse?.yFactor
-  if (parentY !== undefined && next.viewportResponse) {
-    const y = (next.viewportResponse.yFactor ?? 0) - parentY
-    const response: L1ViewportResponse = {}
-    if (Math.abs(y) >= 0.005) response.yFactor = y
-    if (next.viewportResponse.heightFactor !== undefined) {
-      response.heightFactor = next.viewportResponse.heightFactor
-    }
-    if (response.yFactor !== undefined || response.heightFactor !== undefined) {
-      next.viewportResponse = response
-    } else delete next.viewportResponse
-  }
   return { ...node, geometry: next } as L1Node
 }
 
@@ -3550,17 +3734,20 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         // response has an origin to be measured from.
         const h = heightAt.get(c.width)
         if (h) kf.atHeight = h
+        // REQ-88 — the viewport-height response, measured element-for-element
+        // against the height probe at THIS width (REQ-351 issue 4). A run the
+        // probe never visited at this width carries none, and stays where the
+        // capture put it.
+        const response = h ? responseOf.get(c.element!) : undefined
+        if (response) kf.viewportResponse = response
         return kf
       })
       const geometry: L1Geometry = { keyframes }
       if (keyframes.length > 1) {
         geometry.segments = keyframes.slice(1).map((kf, i) => segmentKind(keyframes[i], kf))
       }
-      // REQ-88 — the viewport-height response, measured element-for-element
-      // against the height probe, and the centred-column anchor where `x`/`width`
-      // are that column's function rather than a line through the samples.
-      const response = framed.map((c) => responseOf.get(c.element!)).find(Boolean)
-      if (response) geometry.viewportResponse = response
+      // REQ-88 — the centred-column anchor where `x`/`width` are that column's
+      // function rather than a line through the samples.
       if (columnFit) {
         const anchor = fitAnchor(
           framed.map((c) => ({ at: c.width, box: boxOf(c) })),
@@ -3575,7 +3762,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     const vis = framed.length ? visibilityFor(framed.map((c) => c.width), widths) : undefined
 
     // ── Text leaf (the round-trip oracle compares text axes) ───────────────────
-    if (!sample.textless && sample.text.trim() !== '') {
+    if (!sample.textless && hasTextSubstance(sample.text)) {
       if (framed.length === 0) {
         signal(sample, 'text run has no geometry (no box at any sampled width)', presentWidths)
         continue
@@ -3732,6 +3919,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // to `accentBox` must not inherit the band's radius along the way.
       const widestAt = framed[framed.length - 1]?.width ?? 0
       const surfShapeRadius = shapeBoxAt(widest, widestAt) ? widest.surface?.borderRadiusPx : undefined
+      // REQ-351 (issue 2) — the surface `shapeBoxAt` just declined for spanning the
+      // viewport. Declined as a card RECT, kept here as evidence about the fill.
+      const widestShape = widest.surface?.box
+      const bandSurface =
+        widestShape && widestAt > 0 && widestShape.width >= widestAt ? widestShape : undefined
       if (
         widest.box &&
         (surfFill ||
@@ -3753,7 +3945,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           widest: widest.box,
           surfaceFrames: surfFrames,
           surfaceRadiusPx: surfShapeRadius,
-          viewportResponse: framed.map((c) => responseOf.get(c.element!)).find(Boolean),
+          bandSurface,
+          viewportResponse: new Map(
+            framed.flatMap((c) => {
+              const r = responseOf.get(c.element!)
+              return r ? [[c.width, r] as const] : []
+            }),
+          ),
           // BUG-143 — the run this row is about. Whichever surface the row ends
           // up part of writes its id back here (`backedBy`), which is the whole
           // ownership record the geometry envelope asserts against.
@@ -3917,6 +4115,17 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     signal(sample, 'text-free element is neither media, a painted surface, nor a known control — no L1 leaf yet', presentWidths)
   }
 
+  // REQ-271 — the widest width's section records, which carry each band's own
+  // measured fill alongside the scrim over it. The widest is the authoritative
+  // sample for a per-band decision, exactly as the section-background fold reads
+  // its URL from the widest entry that carries one.
+  const sectionsAtWidest =
+    projections.find((p) => p.viewport.width === Math.max(...widths))?.manifest.sections ?? []
+  // REQ-338 (issue 3) — and EVERY width's records, because a scrim is not always
+  // band-wide at the widest one (see {@link bandBaseFill}). Ascending by width,
+  // so "the last sample that measured the axis" is the widest that did.
+  const sectionsByWidth = projections.map((p) => p.manifest.sections ?? [])
+
   // BUG-14 — rebuild the section-band → card → text hierarchy from the collected
   // surface rows. A row is a *band* row when it is a full-width content run with no
   // card treatment; its fill is a band fill. A row *sits on* its band (emits no
@@ -3935,6 +4144,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // single-run rule above misses it — each run would wrongly become a tiny card,
   // exposing the page background across the bar. Its members become band rows.
   const barFills = barBandFills(surfaceRows, pageContentWidth, FULL_WIDTH_FRAC)
+  // REQ-351 (issue 2) — is this row's fill a colour the BROWSER composited out of
+  // what the band paints, rather than a fill of the row's own?
+  const onCompositedBand = compositedBandRows(sectionsAtWidest, sectionsByWidth)
   const bandRows: SurfaceRow[] = []
   const cardRows: SurfaceRow[] = []
   for (const r of surfaceRows) {
@@ -3943,7 +4155,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     if (isBar) bandRows.push(r) // BUG-19 — a bar member defines the full-bleed bar band
     else if (onBand && isFullWidth(r)) bandRows.push(r)
     else if (onBand) continue // a narrow run on the band paints nothing of its own
-    else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
+    else if (onCompositedBand(r)) {
+      // REQ-351 (issue 2) — the fill is the band's composite. Keep the row only
+      // for the treatments the run's own element bears; never for its colour.
+      if (!hasOwnCardTreatment(r)) continue
+      cardRows.push({ ...r, fill: undefined, gradient: undefined })
+    } else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
   }
   // REQ-88 — the captured section boundaries per width: every section box's top
   // and bottom edge, ascending. These are where the page's surfaces actually
@@ -3972,16 +4189,6 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
     sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
   }
-  // REQ-271 — the widest width's section records, which carry each band's own
-  // measured fill alongside the scrim over it. The widest is the authoritative
-  // sample for a per-band decision, exactly as the section-background fold reads
-  // its URL from the widest entry that carries one.
-  const sectionsAtWidest =
-    projections.find((p) => p.viewport.width === Math.max(...widths))?.manifest.sections ?? []
-  // REQ-338 (issue 3) — and EVERY width's records, because a scrim is not always
-  // band-wide at the widest one (see {@link bandBaseFill}). Ascending by width,
-  // so "the last sample that measured the axis" is the widest that did.
-  const sectionsByWidth = projections.map((p) => p.manifest.sections ?? [])
   const bandNodes = buildSolidBands(
     bandRows,
     widths,
@@ -3993,47 +4200,62 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   )
   const cardNodes = buildCards(cardRows, widths, heightAt, columnFit)
 
-  // The page base is the band fill covering the greatest total height (shows only
-  // through gaps between the full-bleed bands).
+  // REQ-351 (issue 1) — the page canvas is what the capture MEASURED on `<body>`,
+  // and only failing that what the page is mostly painted in.
   //
-  // BUG-27 — the captured backdrops count towards that height alongside the
-  // reconstructed bands. They ARE full-bleed bands, read straight off the page
-  // rather than inferred from the surfaces runs sit on, so on a page whose panels
-  // are all nested (and which therefore reconstructs almost no bands of its own)
-  // they are the only honest evidence of what the page is mostly painted in.
-  const bandHeightByFill = new Map<string, number>()
-  for (const b of [...bandNodes, ...backdropNodes]) {
-    // REQ-114 — a colour axis is `hex | PaletteRef`; the fold only ever emits
-    // literals (palette assignment is a separate, re-runnable pass over a folded
-    // site), so a non-literal here is not this code's to interpret.
-    const fill = b.axes?.surfaceFill
-    if (typeof fill !== 'string' || !b.geometry) continue
-    const kf = b.geometry.keyframes[b.geometry.keyframes.length - 1]
-    bandHeightByFill.set(fill, (bandHeightByFill.get(fill) ?? 0) + (kf.height ?? 0))
-  }
-  let band: string | undefined
-  let bandExtent = 0
-  for (const [fill, h] of bandHeightByFill) {
-    if (h > bandExtent) {
-      bandExtent = h
-      band = fill
+  // The precedence used to run the other way: the fill covering the greatest total
+  // band height won, and `manifest.bodyBackground` — the literal answer to "what
+  // shows where nothing is painted", recorded at every projection — was consulted
+  // only if that search came back empty, which on any real page it never does. On
+  // joyfulculinarycreations.com the tallest fill is `#7a7a7a` (two bands totalling
+  // 2281px against white's 1060px) while all seven projections record `#ffffff`,
+  // so the three places the page lets its canvas show — two 15px testimonial
+  // margins and a 1px gap — painted grey. |255 - 122| = 133/255 over 31 of 4743
+  // rows: the highest mean anywhere on that page, 22.34% of its total pixel
+  // disagreement, and ZERO value deltas, because the comparator infers the
+  // reference's canvas from the same wrong evidence (filed separately).
+  //
+  // A band that is merely the tallest is evidence about BANDS, not about `<body>`.
+  // The old comment defended the inversion — "where bands do not quite meet, the
+  // dominant band reads truer than the canvas hiding behind them" — and that is
+  // exactly the claim this page falsifies: where the bands do not meet, what shows
+  // is the canvas, which is the one thing the browser was asked directly.
+  let band: string | undefined = projections
+    .map((p) => p.manifest.bodyBackground)
+    .find((c): c is string => typeof c === 'string' && c.length > 0)
+  if (!band) {
+    // BUG-27 — no projection recorded a canvas: fall back to the band fill
+    // covering the greatest total height. The captured backdrops count towards
+    // that height alongside the reconstructed bands. They ARE full-bleed bands,
+    // read straight off the page rather than inferred from the surfaces runs sit
+    // on, so on a page whose panels are all nested (and which therefore
+    // reconstructs almost no bands of its own) they are the only honest evidence
+    // of what the page is mostly painted in.
+    const bandHeightByFill = new Map<string, number>()
+    for (const b of [...bandNodes, ...backdropNodes]) {
+      // REQ-114 — a colour axis is `hex | PaletteRef`; the fold only ever emits
+      // literals (palette assignment is a separate, re-runnable pass over a folded
+      // site), so a non-literal here is not this code's to interpret.
+      const fill = b.axes?.surfaceFill
+      if (typeof fill !== 'string' || !b.geometry) continue
+      const kf = b.geometry.keyframes[b.geometry.keyframes.length - 1]
+      bandHeightByFill.set(fill, (bandHeightByFill.get(fill) ?? 0) + (kf.height ?? 0))
+    }
+    let bandExtent = 0
+    for (const [fill, h] of bandHeightByFill) {
+      if (h > bandExtent) {
+        bandExtent = h
+        band = fill
+      }
     }
   }
-  // Fallback when no full-bleed bands were found: the most common run fill, and
-  // failing that the captured canvas fill (BUG-27 — `<body>`'s own background, the
-  // literal answer to "what shows where nothing is painted"). The canvas is the
-  // LAST resort, not the first: where bands do not quite meet, the dominant band
-  // reads truer than the canvas hiding behind them.
+  // Last resort when neither a canvas nor a full-bleed band was found: the most
+  // common run fill.
   if (!band) {
     const counts = new Map<string, number>()
     for (const r of surfaceRows) if (r.fill) counts.set(r.fill, (counts.get(r.fill) ?? 0) + 1)
     let best = 0
     for (const [fill, n] of counts) if (n > best) ((best = n), (band = fill))
-  }
-  if (!band) {
-    band = projections
-      .map((p) => p.manifest.bodyBackground)
-      .find((c): c is string => typeof c === 'string' && c.length > 0)
   }
 
   // BUG-13 — section/band background images (the hero). Paint order beneath

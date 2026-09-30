@@ -113,8 +113,24 @@ import type { Capture } from './types'
  *   `box-sizing: border-box` is the wrapper's box minus its border. A pre-9 bundle
  *   records faelan.com's 224px ringed photograph as 216px with a radius of 108
  *   instead of 112; the `clip` beside it is measured on the same wrong element.
+ * - **10** — REQ-351: one axis the bundle's primary record dropped, and one it
+ *   under-sampled.
+ *   (a) `bodyBackground` — `<body>`'s own painted background, which is what shows
+ *   through wherever no band paints. The extractor has computed it since BUG-27
+ *   and wrote it into `multistate.json` alone; `capture.json` carried no such key
+ *   at all, so every reader holding the primary record had to INFER the canvas —
+ *   the fold from the tallest band, the comparator from the largest-area section.
+ *   On joyfulculinarycreations.com both inferences returned `#7a7a7a` where all
+ *   seven projections measured `#ffffff`, and an inference both sides make the
+ *   same wrong way agrees with itself: 22.34% of that page's pixel disagreement at
+ *   zero value deltas.
+ *   (b) A height probe at EVERY ladder width, not only at 1280. One probe made the
+ *   viewport-height response a single-point measurement asserted across the whole
+ *   ladder; a page whose height rule sits inside a media query (the common case)
+ *   was reproduced with that one width's rule everywhere. A pre-9 bundle can only
+ *   ever identify the height axis at 1280.
  */
-export const CAPTURE_SCHEMA = 9
+export const CAPTURE_SCHEMA = 10
 
 /** One axis the current extractor records, and when it started recording it. */
 export interface CaptureAxis {
@@ -384,6 +400,27 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Unprovable for `zIndex`'s reason and then some: both schemas record a
     // rectangle and a ring, and only the page's own stylesheet says which element
     // they were measured on.
+    present: () => false,
+  },
+  {
+    since: 10,
+    axis: 'bodyBackground',
+    where: "the bundle's primary record (`capture.json` top level)",
+    // Presence is "the key exists". A page that paints nothing on <body> records
+    // no canvas however new its extractor is — the same asymmetry `href` has, and
+    // the reason the version gate comes first.
+    present: (c) => typeof (c as unknown as { bodyBackground?: unknown }).bodyBackground === 'string',
+  },
+  {
+    since: 10,
+    axis: 'a viewport-height probe at every ladder width',
+    where: 'the projection set (`multistate.json`)',
+    // Constant `false`, and deliberately: the probes live in `multistate.json` and
+    // nothing in `capture.json` can see them, so this axis has no evidence here to
+    // refute the stamp with. That is within the contract stated above — a probe
+    // may only ever REMOVE an axis from the finding, and one that can never remove
+    // simply always names itself on a bundle the version gate has already found
+    // behind. A pre-10 bundle definitionally carries one probe, at 1280.
     present: () => false,
   },
   {

@@ -802,6 +802,23 @@ export interface Capture {
    */
   captureSchema?: number
   viewport: Viewport
+  /**
+   * REQ-351 (issue 1) — the page's own canvas: `<body>`'s painted background
+   * colour, which is what shows through wherever no band paints.
+   *
+   * The extractor has computed this all along (`RawSignals.bodyBackground`) and
+   * wrote it into `multistate.json` only; the bundle's PRIMARY record dropped it,
+   * so every reader holding a `capture.json` had to INFER the canvas — the fold
+   * from the tallest band, the comparator from the largest-area section — and on
+   * joyfulculinarycreations.com both inferences returned `#7a7a7a` where all seven
+   * projections measured `#ffffff`. An inference both sides make the same wrong
+   * way agrees with itself and produces no delta at all, which is why this had to
+   * become a recorded measurement rather than a better guess.
+   *
+   * OPTIONAL, like every other post-hoc field here: a bundle written before
+   * schema 10 carries no canvas and its readers keep their fallbacks.
+   */
+  bodyBackground?: string
   theme: Theme
   sections: Section[]
   assets: CaptureAsset[]
