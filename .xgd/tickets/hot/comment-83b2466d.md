@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-348
 created_by: xgd
 created_at: '2026-09-30T19:53:44.520712+00:00'
-updated_at: '2026-09-30T20:04:22.281780+00:00'
+updated_at: '2026-09-30T20:29:47.665310+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -60,5 +60,14 @@ The document is written and included in the system knowledge base's exported fil
 **Checked:** `1c kb export` writes `kb/system/DOC-63.md` with the right tag and content. I added an Outcome section at the end of REQ-348 and left the existing body as it was. The ticket stays at `draft`; changing its status is your call.
 
 **To finish:** with `CLOUDFLARE_API_TOKEN` set, run `1c kb build` (or `bin/kb-release`). That makes DOC-63 searchable. The build also reported that `REF-l1`, a knowledge-base page generated from the code, is out of date; the same run regenerates it.
+
+<!-- xgd-turn id="ed9b2f57-08bd-4cc0-a179-e64d788fc160-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:29:47.497578+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
