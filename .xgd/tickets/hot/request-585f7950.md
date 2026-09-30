@@ -5,9 +5,9 @@ type: request
 title: A Debug tab, and a per-business switch for delegation
 created_by: EPIC-22
 created_at: '2026-09-30T00:06:06.120891+00:00'
-updated_at: '2026-09-30T01:05:35.276259+00:00'
+updated_at: '2026-09-30T02:31:07.024624+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   epic_parent: epic-82afdac9
@@ -130,3 +130,64 @@ Per business, in D1, in a new table of its own with a new migration.
 7. A malformed stored value is refused by name when the host is built, naming the
    business and the offending key.
 8. The `1c` CLI's behaviour is unchanged by anything in this ticket.
+
+
+## The surface the switch talks to
+
+The tab does not reach the database directly; it reaches one origin route, and the
+route is the thing the behaviour above is actually specified against.
+
+- **One address, named for the subject rather than the tab.** `/api/network/delegation`
+  — what the route is about is the business's network, and a path carrying `debug`
+  would have to be renamed the day the switch moves or the tab is gated
+  ([[REQ-115]]: a label is provisional, an address is stable).
+- **Two methods on it.** `GET` answers what is in force, what this business has
+  stored, and what the deployment carries — three values, because a surface handed
+  only the first could not tell an operator whether `off` was their own decision or
+  the deployment's. `POST` records this business's answer. They are one surface's two
+  questions about one fact and are not split.
+- **The body is a boolean or it is a 400 naming the key.** Nothing sends `null`: a
+  business that has never been asked is how inheritance is reached, and a second way
+  to say it would be a second code path for the state that is already the default.
+- **The route is business-scoped by the same resolution every other route uses**, so
+  an account with no business it may open reaches nothing here either — the tab is
+  inside the block the rest of the strip is inside, not beside it. That is the same
+  uniformity that lets Debug be a tab at all, reached again at the origin.
+- **A malformed stored value is refused on the read path too**, by the same call the
+  host makes and with the same message, so the tab cannot draw a working switch over
+  a row the host would reject the moment a session opened.
+
+## What the pane does when something goes wrong
+
+The switch writes, so its failure behaviour is part of the behaviour and not polish.
+
+- **A read that fails is said out loud and draws no switch.** This is the only thing
+  on the tab; a tab that drew nothing and said nothing would read as unfinished, and
+  a switch drawn anyway would be a control claiming to report what is in force.
+- **A refused write puts the switch back.** The control is mounted through the shared
+  fields component precisely for its rollback: a switch that moved and stayed moved
+  after a refusal would be the pane disagreeing with the database about a value the
+  operator is about to act on.
+- **Switching business redraws from the new business's answer, and the answer for the
+  business left behind is discarded.** Without that, a slow round trip for the first
+  business lands last and draws its switch under the second business's heading — on a
+  control that writes.
+- **The pane is `fill` like the other four panes**, so its sections scroll inside the
+  panel rather than moving the whole shell — which is also what the epic's later
+  per-agent sessions need, being splits.
+- **The tab's label is a literal in `config.js` and nowhere else** ([[REQ-115]]); the
+  pane's own heading says what the pane is about rather than repeating the tab's name.
+
+## Where the value is read, once more precisely
+
+- **A read that throws is a refusal, never an inherit.** Treating an unreachable
+  database as *no opinion* would silently serve the deployment's arrangement to a
+  business that had turned delegation off — the one failure mode a switch used as a
+  rollback may not have.
+- **A resolver that answers nothing inherits.** `null` from the resolver is the
+  ordinary answer and means the deployment's document, which is what makes an
+  untouched business indistinguishable from today.
+- **The resolver installs nothing.** Resolving one business's answer leaves no
+  deployment-wide state behind, so the next host built — for another business, or by
+  the `1c` CLI — is unaffected. A deployment that installed its own document still
+  decides what `on` means when no resolver answers.
