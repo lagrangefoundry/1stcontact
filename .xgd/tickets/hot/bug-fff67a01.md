@@ -25,6 +25,7 @@ fields:
     main_sha: null
   version: 0.2.424
   story_points: 3
+  chat_comment: comment-4b164113
 ---
 
 # Every gate passes a page whose `<h1>` is completely invisible — `stacked: true` switches the overlap probe off, and nothing else asks whether an element was painted
