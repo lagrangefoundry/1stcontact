@@ -182,7 +182,7 @@ export interface LayoutCollision {
    * the content it backs. It travels on the same two keys for the same reason the
    * other two do — every surface that can print one can print all three.
    */
-  kind: 'overlap' | 'clip' | 'escape'
+  kind: 'overlap' | 'clip' | 'escape' | 'buried'
   /** Operator-facing sentence: what collided with what, at which width. */
   detail: string
   /** The captured width the collision was found at. */
@@ -835,7 +835,11 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // perfectly and comes apart when the window moves, so the sentence has to say
     // which sample it came apart at or the operator cannot reproduce it.
     const escapes = collisions.filter((c) => c.kind === 'escape')
-    const overlaps = collisions.filter((c) => c.kind !== 'escape')
+    // BUG-164 — and a buried run is named apart from both: it is a pair the
+    // document already DECLARED as a stack, so "declare it `stacked`" is exactly
+    // the wrong advice, and the fix is a paint level rather than structure.
+    const buried = collisions.filter((c) => c.kind === 'buried')
+    const overlaps = collisions.filter((c) => c.kind !== 'escape' && c.kind !== 'buried')
     const sentences: string[] = []
     if (overlaps.length) {
       sentences.push(
@@ -843,6 +847,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
           new Set(overlaps.map((c) => c.width)).size
         } captured width(s) — ${namedCollisions(overlaps)}. ` +
           'A run painted over its neighbour is a reproduction defect no perceptual average can excuse.',
+      )
+    }
+    if (buried.length) {
+      sentences.push(
+        `${buried.length} run(s) are painted beneath a picture stacked over them — ${namedCollisions(buried)}. ` +
+          'The stack is declared, but the words are underneath it: invisible on the page, however faithful ' +
+          'their box and style measure.',
       )
     }
     if (escapes.length) {
@@ -861,6 +872,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
         'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
           'colliding region structure so it cannot overlap, or, where the stack IS the design, declare ' +
           'it on the node with `stacked: true` so the intent is recorded rather than inferred.',
+      )
+    }
+    if (buried.length) {
+      steps.push(
+        'Unbury each run (`layout.findings` names the run and what covers it): give it a `paintOrder` ' +
+          'above the picture, matching the `z-index` the reference paints it at — and if the fold wrote ' +
+          'no level, the capture lost it and that is the defect to fix.',
       )
     }
     if (escapes.length) {
