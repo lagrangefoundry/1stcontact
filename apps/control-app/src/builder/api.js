@@ -1775,3 +1775,46 @@ export async function fetchPlatformSites(fetchImpl = fetch) {
   }
   return res.json()
 }
+
+/**
+ * The Debug tab's two calls — what this business's AI network is set to, and the
+ * one change it can make ([[REQ-353]]).
+ *
+ * `scoped()`, UNLIKE THE THREE `/api/admin/` CALLS ABOVE. This is a question
+ * about the business the operator has selected rather than about the platform,
+ * which is the whole reason Debug is allowed to be a tab at all ([[REQ-179]]).
+ *
+ * NEITHER DECIDES ANYTHING. What a stored value means, whether `on` includes the
+ * consultant keeping its own hands, and which backend a worker runs on are all
+ * the Worker's and are answered there — a client that re-derived any of them
+ * would be a second rule free to disagree with the first, and the operator would
+ * have no way to tell which is right.
+ */
+
+/** What is in force for this business, what it has stored, what it inherits. */
+export async function fetchDelegation(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/network/delegation'), { method: 'GET' })
+  if (!res.ok) throw new Error(`GET /api/network/delegation → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Turn it on or off for this business.
+ *
+ * IT ANSWERS WITH THE SAME THREE VALUES THE READ DOES, deliberately: the pane
+ * re-derives its sentence from what the database now holds rather than from what
+ * it just asked for, so a write the origin narrowed or refused cannot leave the
+ * two disagreeing.
+ */
+export async function saveDelegation(enabled, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/network/delegation'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/network/delegation → ${res.status}`)
+  }
+  return res.json()
+}

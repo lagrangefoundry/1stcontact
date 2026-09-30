@@ -90,8 +90,17 @@ export const PEOPLE_TAB = { id: 'people', label: 'Contacts', fill: true }
  * The Settings tab — the business's own record, and the assistant that keeps it
  * ([[REQ-239]], [[EPIC-4]]).
  *
- * RIGHTMOST, AND THAT IS WHERE SETTINGS BELONG. The three tabs before it are the
- * work; this is the record of who the work is for, opened rarely and mostly once.
+ * LAST OF THE PRODUCT TABS, AND THAT IS WHERE SETTINGS BELONG. The three tabs
+ * before it are the work; this is the record of who the work is for, opened
+ * rarely and mostly once.
+ *
+ * IT WAS "RIGHTMOST" AND [[REQ-353]] AMENDED THAT RATHER THAN CONTRADICTING IT.
+ * {@link DEBUG_TAB} sits after this one, and the reason is not that it belongs
+ * further from the work than a business's own record does — it is that Debug is
+ * not part of the product at all, and is the one tab expected to be taken away
+ * from most people. So the claim here is narrowed to the tabs a customer is
+ * meant to see, and the next reader does not find two tabs each documented as
+ * last.
  *
  * BUSINESS-SCOPED LIKE THE OTHER THREE, WHICH IS WHY IT MAY BE A TAB AT ALL. The
  * strip is uniformly business-scoped ([[REQ-179]]) and the account surface is kept
@@ -105,8 +114,43 @@ export const PEOPLE_TAB = { id: 'people', label: 'Contacts', fill: true }
  */
 export const SETTINGS_TAB = { id: 'settings', label: 'Settings', fill: true }
 
+/**
+ * The Debug tab — the AI network this business runs on ([[REQ-353]], [[EPIC-22]]).
+ *
+ * IT IS NOT PART OF THE PRODUCT, and everything else about it follows from that.
+ * The four tabs before it are what a customer bought; this is where the set of AI
+ * participants working their site, and the rules they work under, can be
+ * configured and watched.
+ *
+ * RIGHTMOST, AFTER SETTINGS. See {@link SETTINGS_TAB}, whose own claim on that
+ * position this amends: a business's record is the last thing a CUSTOMER opens,
+ * and this is past the end of what a customer opens at all.
+ *
+ * BUSINESS-SCOPED LIKE THE OTHER FOUR, WHICH IS WHY IT MAY BE A TAB AT ALL. The
+ * strip is uniformly business-scoped ([[REQ-179]]) and that is what lets the
+ * switcher sit above it with no exception to explain — the operator console is
+ * kept OUT of the strip for precisely the opposite reason, because it is about
+ * every business at once and *"a control that is present and ignored reads as a
+ * bug"*. Everything on this tab is about whichever business the switcher has
+ * open, so it needs no exception and makes none.
+ *
+ * VISIBLE TO EVERYBODY IN THIS VERSION, deliberately and temporarily. No
+ * entitlement check and no `ownsPlatformBusiness` gate — [[EPIC-22]] defers that
+ * and records what it leaves open: anybody who reaches the builder for a business
+ * can turn that business's delegation off, and [[EPIC-20]] measured the
+ * difference at $0.54 against $0.046 per element write. The builder is behind
+ * Cloudflare Access and the operator is its only user, which is what makes the
+ * exposure acceptable for now rather than absent.
+ *
+ * `fill` FOR THE REASON THE OTHER FOUR HAVE IT: the pane owns its own scroll, so
+ * the sections scroll inside the panel rather than moving the whole shell — and
+ * the epic's second item puts each agent's own session on this tab, which is a
+ * split, and a split resolves its height against the panel.
+ */
+export const DEBUG_TAB = { id: 'debug', label: 'Debug', fill: true }
+
 /** Every tab the shell mounts, in order. */
-export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB, SETTINGS_TAB]
+export const TABS = [SITE_TAB, LIBRARY_TAB, PEOPLE_TAB, SETTINGS_TAB, DEBUG_TAB]
 
 /**
  * The operator console ([[REQ-297]], re-housed by [[REQ-298]]) — a fourth header

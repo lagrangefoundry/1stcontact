@@ -31,6 +31,13 @@
  * bundled import; a Worker reading the switch from KV, or a test standing the
  * feature up, installs its own document through {@link configureDelegation} and
  * gets exactly the rejections the bundled one gets.
+ *
+ * AND PER SCOPE, WITHOUT INSTALLING ANYTHING ([[REQ-353]]). {@link
+ * DelegationResolver} is that same replaceability reached per request: a business
+ * says whether it delegates, the answer becomes a document, and the document goes
+ * through the validation below exactly as the bundled one does. It is a PARAMETER
+ * and never a global — see the resolver's own note for why that distinction is the
+ * load-bearing one.
  */
 
 import delegationDocument from './delegation.json'
@@ -196,8 +203,26 @@ export function delegationSettings(): DelegationSettings {
  * became visible on the day the switch was flipped would make flipping it an
  * experiment rather than a decision.
  */
-export function delegationFor(known: readonly string[]): DelegationSettings {
-  const settings = delegationSettings()
+export function delegationFor(
+  known: readonly string[],
+  /**
+   * One request's own document, or `null` for this deployment's ([[REQ-353]]).
+   *
+   * THE PARSE THE HEADER ALREADY PROMISED, reached. "The document is replaceable
+   * in full … today the only parse is the bundled import; a Worker reading the
+   * switch from KV, or a test standing the feature up, installs its own
+   * document" — this is the parameter that lets it do so WITHOUT installing
+   * anything, which is the distinction {@link configureDelegation} cannot make.
+   *
+   * IT IS NOT A SECOND WAY TO CONFIGURE THIS DEPLOYMENT. A caller that passes
+   * nothing gets exactly what it got before: the installed document, or the
+   * bundled one. Everything below applies to a document from either source
+   * identically, which is what makes a per-business value cost no second set of
+   * refusals.
+   */
+  document: unknown | null = null,
+): DelegationSettings {
+  const settings = document === null ? delegationSettings() : delegationFromMapping(document)
   for (const role of Object.keys(settings.workers)) {
     if (known.includes(role)) continue
     throw new DelegationConfigError(
@@ -206,6 +231,87 @@ export function delegationFor(known: readonly string[]): DelegationSettings {
     )
   }
   return settings
+}
+
+/**
+ * Where one scope's delegation document comes from ([[REQ-353]]).
+ *
+ * A RESOLVER AND NOT A VALUE, and the difference is the whole of what makes the
+ * flip mean anything. A value would be read once, by whoever assembled the host,
+ * and a host is cached for as long as its store is — so the switch would be
+ * visible only to a deployment that had been restarted. This is asked on the path
+ * that BUILDS a manager, so the answer is the one the database holds when the
+ * session is composed.
+ *
+ * IT IS NOT REACHED THROUGH {@link configureDelegation}, deliberately, and that
+ * is [[EPIC-22]]'s named trap: that function writes a module-level global, and
+ * mutating a global per request while feeding a manager cache keyed per
+ * store-and-site is precisely how one business comes to be served another's
+ * setting. A resolver travels on `deps`, where it cannot bleed.
+ *
+ * `business` IS CARRIED SO THAT A REFUSAL CAN NAME IT. A stored value is
+ * validated exactly as the bundled document is, which means the refusals are the
+ * document's — *`enabled` must be true or false* — and a deployment reading those
+ * with no idea WHOSE row produced them would have to go looking. See
+ * {@link delegationForScope}.
+ */
+export interface DelegationResolver {
+  /** Whose setting this resolves, for the refusal message and for nothing else. */
+  readonly business: string
+  /**
+   * That business's document, or `null` where it holds no opinion.
+   *
+   * `null` IS THE ORDINARY ANSWER AND MEANS INHERIT. A business that has never
+   * been asked resolves to this deployment's own document, so a host that grows
+   * this seam changes no conversation until somebody moves a switch.
+   */
+  read(): Promise<unknown | null>
+}
+
+/**
+ * The settings in force for one scope — the resolver's document, or this
+ * deployment's ([[REQ-353]]).
+ *
+ * A HOST WITH NO RESOLVER READS THE BUNDLED DOCUMENT, which is this
+ * repository's ordinary shape for a capability a host has not got: a missing
+ * browser, a missing renderer, a missing ticket store. The `1c` CLI passes none
+ * and behaves exactly as it did — it is not a host that disagrees about a value,
+ * it is a host with no per-business override to read.
+ *
+ * EVERY REFUSAL NAMES THE BUSINESS AND THE OFFENDING KEY. The validation is
+ * {@link delegationFor}'s, unchanged and unduplicated; what this adds is whose
+ * row was being read when it failed. It fails HERE — on the path that builds the
+ * host — rather than at the first delegation, which would be a configuration
+ * mistake discovered in the middle of a customer's conversation.
+ *
+ * A READ THAT THROWS IS A REFUSAL AND NOT AN INHERIT. Treating an unreachable
+ * database as *no opinion* would silently serve this deployment's arrangement to
+ * a business that had turned it off, which is the one failure mode a switch used
+ * as a rollback may not have.
+ */
+export async function delegationForScope(
+  known: readonly string[],
+  resolver: DelegationResolver | null = null,
+): Promise<DelegationSettings> {
+  if (resolver === null) return delegationFor(known)
+  let document: unknown | null
+  try {
+    document = await resolver.read()
+  } catch (error) {
+    throw new DelegationConfigError(
+      `delegation settings for business '${resolver.business}' could not be read: ` +
+        `${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+  if (document === null || document === undefined) return delegationFor(known)
+  try {
+    return delegationFor(known, document)
+  } catch (error) {
+    if (error instanceof DelegationConfigError) {
+      throw new DelegationConfigError(`business '${resolver.business}': ${error.message}`)
+    }
+    throw error
+  }
 }
 
 /** The settings this project declares, for anything that needs to assert them. */

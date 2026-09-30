@@ -9,6 +9,7 @@ import {
   APP_FONT,
   APP_ID,
   BUSINESS_NONE_SELECTABLE_MESSAGE,
+  DEBUG_TAB,
   LIBRARY_TAB,
   PEOPLE_TAB,
   SETTINGS_TAB,
@@ -32,6 +33,7 @@ import { isEditablePicture } from './picture-kind.js'
 import { createLibraryPanel } from './library.js'
 import { createPeoplePanel } from './people.js'
 import { createSettingsPanel } from './settings.js'
+import { createDebugPanel } from './debug.js'
 import { NO_PUBLIC_ADDRESS, openNoAddressModal } from './publish-address.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
@@ -224,6 +226,16 @@ export function mountBuilder(root, options = {}) {
      * a test injects `{saveName}` to drive the field without a Worker.
      */
     settingsTransport = null,
+    /**
+     * The Debug pane's two calls ([[REQ-353]]). `null` keeps the origin's; a test
+     * injects `{load, save}` to drive the switch without a Worker.
+     *
+     * ONE TRANSPORT FOR BOTH, for the reason `pagesTransport` states: they are
+     * one surface's two questions about the same fact, and a second seam would
+     * let a host stub the read and forget the write — which is the state where
+     * the switch is visible and silently does nothing.
+     */
+    debugTransport = null,
     /**
      * When the markdown engines have settled (BUG-42). Awaited before a
      * conversation is handed to the pane, because the pane paints each turn once.
@@ -1225,6 +1237,27 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(SETTINGS_TAB.id).append(settingsSplitHost)
 
   /**
+   * THE DEBUG TAB ([[REQ-353]], [[EPIC-22]]) — the AI network this business runs
+   * on.
+   *
+   * ONE PANE AND NOT A SPLIT, unlike the two tabs above it. There is no
+   * conversation about this: a switch is easier moved than discussed, and an
+   * assistant on a debug surface would be an assistant that could turn its own
+   * delegation off mid-turn. The epic's second item puts each agent's own session
+   * on this tab, which is when a second half arrives — and it arrives as a
+   * sibling of this pane rather than as a conversation ABOUT it.
+   *
+   * IT IS HANDED NO `onBusinessChanged` AND NO CHAT SEAM. Nothing else on this
+   * host writes this value, so there is no second writer for the pane to fall
+   * behind — which is the one thing [[REQ-251]] had to solve for Settings and
+   * this deliberately does not have.
+   */
+  const debug = createDebugPanel({
+    ...(debugTransport ? { transport: debugTransport } : {}),
+  })
+  shell.getPanel(DEBUG_TAB.id).append(debug.element)
+
+  /**
    * The upload overlay, watching BOTH entry points (REQ-161, DOC-8 open item #4).
    *
    * ONE INSTANCE, TWO WATCHERS, and that is the ticket's answer to "drag into
@@ -1638,6 +1671,22 @@ export function mountBuilder(root, options = {}) {
      */
     settings.setBusiness(businessRecord(currentBusiness))
     void showSettings(currentBusiness)
+
+    /**
+     * AND THE DEBUG TAB MOVES WITH THEM ([[REQ-353]]).
+     *
+     * For the reason the Library's list is cleared and re-read rather than
+     * re-filtered: this is a DIFFERENT business's network configuration, not the
+     * same one under a new heading. A switch still holding the previous
+     * business's value is the worst version of the crossing [[REQ-181]] refuses,
+     * because the next thing the operator does is click it.
+     *
+     * NOT AWAITED, like the settings conversation above it and unlike the two
+     * lists: the pane holds its own generation token, so an answer that arrives
+     * after another switch is discarded by the pane rather than by this call
+     * site.
+     */
+    void debug.setBusiness(currentBusiness)
   }
 
   /**
@@ -1693,6 +1742,13 @@ export function mountBuilder(root, options = {}) {
      */
     settings,
     settingsChat,
+    /**
+     * The Debug tab's pane ([[REQ-353]]) — exposed for the reason the Settings
+     * pane and the Library are: a suite drives the switch the way an operator
+     * does, rather than reaching into the DOM for a checkbox and guessing which
+     * business it is about.
+     */
+    debug,
     upload,
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
     banner,
@@ -1742,6 +1798,7 @@ export function mountBuilder(root, options = {}) {
       settings.destroy()
       settingsChat.destroy()
       settingsSplit.destroy()
+      debug.destroy()
       points.destroy()
       editor?.destroy()
       toolbar.destroy()

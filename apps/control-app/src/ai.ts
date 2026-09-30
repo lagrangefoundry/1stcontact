@@ -681,6 +681,28 @@ export function workerHost(
    * turn's prose and tool records is that isolate's RAM.
    */
   junctions: Untyped | null = null,
+  /**
+   * Whether the business in scope delegates construction ([[REQ-353]]), or
+   * `null` where this deployment has no per-business answer to read.
+   *
+   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above it
+   * is — and here the reason is the one [[EPIC-22]] names: the question is
+   * *whose* setting, the scope is the router's, and what turns a stored row into
+   * a delegation document is `network-settings.ts`. Assembling it there keeps a
+   * D1 handle off {@link WorkerAiEnv}, which declares the AI host's environment
+   * rather than the Worker's.
+   *
+   * IT IS A RESOLVER AND NOT A VALUE, AND IT IS NOT `configureDelegation`. That
+   * function writes a module-level global; mutating a global per request while
+   * feeding a manager cache keyed per store-and-site is exactly how one business
+   * comes to be served another's setting. Travelling on `deps` is what makes two
+   * businesses in one isolate structurally unable to see each other's answer.
+   *
+   * NULL IS ORDINARY, like every wire above it, and it is the `1c` CLI's
+   * permanent state: a host with no resolver reads the bundled
+   * `delegation.json` and composes exactly what it composes today.
+   */
+  delegation: HostDeps['delegation'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -858,6 +880,12 @@ export function workerHost(
       // copy of the figure is a field on an in-memory session, and this Worker
       // rebuilds the manager per request.
       occupancy: sessionOccupancy(tickets),
+      // WHETHER THIS BUSINESS DELEGATES ([[REQ-353]]), passed straight through:
+      // `host-core.ts` asks it on the path that composes a manager and
+      // `delegation.ts` decides what a stored value means. This file only
+      // carries it — and an absent one is the bundled document, which is the
+      // decision that belongs one level down rather than here.
+      delegation,
     },
     // TWO TIERS DRAINED BY ONE CALL ([[REQ-307]]). The route already awaits this
     // where it matters — inside the `ctx.waitUntil` that holds the isolate open

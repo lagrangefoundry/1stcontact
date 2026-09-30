@@ -195,17 +195,28 @@ async function typeName(app: Handle, value: string) {
 
 // ── 1: the tab ───────────────────────────────────────────────────────────────
 
-describe('REQ-239 AC1 — a fourth tab, rightmost', () => {
+describe('REQ-239 AC1 — a fourth tab, last of the product tabs', () => {
   it('test_UAT_FC_REQ-239_the_tab_is_last_in_the_strip_and_fills_the_panel', async () => {
     const { app } = mount()
     await settle()
 
-    expect(CONFIG.TABS.at(-1)).toBe(CONFIG.SETTINGS_TAB)
+    // LAST OF THE PRODUCT TABS, AMENDED BY [[REQ-353]] RATHER THAN DROPPED. This
+    // asserted `TABS.at(-1)` while Settings was the rightmost tab in the strip;
+    // the Debug tab now sits after it, and the reason is not that a business's
+    // own record belongs closer to the work — it is that Debug is not part of the
+    // product at all and is the one tab expected to be taken away from most
+    // people. So the claim narrows to what a customer is meant to see: Settings
+    // is after the three tabs that are the work, and nothing a customer opens
+    // comes after it.
+    expect(CONFIG.TABS.indexOf(CONFIG.SETTINGS_TAB)).toBe(3)
+    expect(CONFIG.TABS.at(-1)).toBe(CONFIG.DEBUG_TAB)
     expect(CONFIG.SETTINGS_TAB.id).toBe('settings')
     // `fill` FOR THE REASON THE OTHER THREE HAVE IT: it hosts a split, and a
     // split resolves its height against the panel.
     expect(CONFIG.SETTINGS_TAB.fill).toBe(true)
-    expect(app.shell.getTabs().map((t: { id: string }) => t.id).at(-1)).toBe(CONFIG.SETTINGS_TAB.id)
+    const ids = app.shell.getTabs().map((t: { id: string }) => t.id)
+    expect(ids.indexOf(CONFIG.SETTINGS_TAB.id)).toBe(3)
+    expect(ids.at(-1)).toBe(CONFIG.DEBUG_TAB.id)
   })
 
   it('test_UAT_FC_REQ-239_the_label_is_declared_in_config_and_is_a_literal_nowhere_else', () => {

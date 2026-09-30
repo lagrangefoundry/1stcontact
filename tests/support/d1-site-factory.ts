@@ -183,8 +183,17 @@ const MIGRATIONS = [
   // NUMBERED 0021 BECAUSE [[REQ-304]] TOOK 0020 while this branch was open, and
   // `wrangler d1 migrations apply` orders by filename: two files sharing a
   // number is an ordering the tool cannot resolve.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0021_turn_log.sql?raw'),
+  // [[REQ-353]] — `business_network_settings`, what each business says about its
+  // own AI network. Applied here for every reason above, and one of its own: the
+  // chat host now reads this table on the path that BUILDS a host, so a suite
+  // that skipped this file would fail on a missing table when a session opens
+  // rather than in the one assertion that is about the switch — and the read
+  // treats an absent row as *inherit*, so a missing table could just as easily
+  // degrade into a suite in which no business ever holds an opinion, which is
+  // indistinguishable from the feature not being wired at all.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0022_business_network_settings.sql?raw'),
 ]
 
 /**
@@ -277,24 +286,28 @@ export async function applySchema(): Promise<void> {
  * Whether the database already holds what the LAST migration leaves behind.
  *
  * IT ASKS ABOUT THE LAST FILE IN THE LIST, WHICHEVER THAT IS — today
- * [[REQ-306]]'s `idx_turn_log_tenant`, the turn ledger's per-tenant read. It used to
+ * [[REQ-353]]'s `business_network_settings`, what a business says about its own AI
+ * network. It used to
  * ask for `sites.kind`, which `0005` adds; once anything came after `0005`, a database
  * at `0005` would have answered "at head" and skipped the rest silently. So
  * this marker MOVES WITH THE LIST: a migration appended below without moving it
  * re-opens exactly that hole.
  *
- * `pragma_table_info` RATHER THAN `sqlite_master`, BECAUSE THE LAST FILE ADDS A
- * COLUMN. An `ALTER TABLE ADD COLUMN` leaves no row in `sqlite_master` to ask
- * about — the table's entry is unchanged — so the marker has to be read from the
- * table's shape. Both forms answer with an empty result rather than an error on
- * a database that has nothing at all, which is what lets one query serve both
- * "already migrated" and "nothing here yet".
+ * `sqlite_master` RATHER THAN `pragma_table_info`, BECAUSE THE LAST FILE CREATES
+ * A TABLE ([[REQ-353]]). The form follows the file: an `ALTER TABLE ADD COLUMN`
+ * leaves no row in `sqlite_master` to ask about and has to be read from the
+ * table's shape, whereas a `CREATE TABLE` is exactly a `sqlite_master` row. Both
+ * forms answer with an empty result rather than an error on a database that has
+ * nothing at all, which is what lets one query serve both "already migrated" and
+ * "nothing here yet".
  *
  * THE LAST STATEMENT OF THE LAST FILE, and not the first one. `0017` creates a
  * table and then two indexes; asking for the table would answer "at head" for a
  * database that got half way through the file, exactly as asking for the table
  * `0012`'s index guards would have. The marker has to move with the list — a
- * migration appended above without moving it re-opens that hole silently.
+ * migration appended above without moving it re-opens that hole silently. `0022`
+ * is one statement, so its table IS its last statement; the rule stands and
+ * happens to cost nothing here.
  *
  * AND `0014` MAKES THAT SHARPER THAN IT WAS ([[REQ-267]]). Every file up to it
  * was re-runnable or merely wasteful to re-run; that one is `ALTER TABLE ADD
@@ -303,8 +316,8 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-    .bind('idx_turn_log_tenant')
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .bind('business_network_settings')
     .first<{ name: string }>()
   return row !== null
 }
