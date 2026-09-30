@@ -7,9 +7,9 @@ title: A worker can spend a full run's tokens and write nothing, returning outco
   deal and failed to report
 created_by: xgd
 created_at: '2026-09-29T04:55:11.413291+00:00'
-updated_at: '2026-09-30T21:33:21.469304+00:00'
+updated_at: '2026-09-30T21:33:32.755812+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.422
+  story_points: 3
 ---
 
 ## What happened
