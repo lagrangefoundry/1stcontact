@@ -15,6 +15,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-56a0d44f
 ---
 
 ## What happened
