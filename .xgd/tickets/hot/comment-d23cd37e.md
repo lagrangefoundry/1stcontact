@@ -5,9 +5,9 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-09-30T22:04:36.498520+00:00'
+updated_at: '2026-09-30T22:06:52.693653+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: chat-aa503de9
@@ -56,5 +56,98 @@ OK so Bob knows what the customer wants I think typically he would then ask Alic
 Part of Bob's role is to explicitly get Alice to check in with what she has built. Does it look like a premium website? Are you sure you're happy with what we have built? I think this needs to be done in a way that isn't too challenging bob should not make Alice look incompetent but nevertheless that was where I got most value out of the expensive model that was Alice in building my websites.
 
 I think I'm starting to circle here I hope you understand the problem that we're trying to solve please don't try to jump to a solution too quickly I think there is some real discussion required to understand this problem. And some of it may have to happen in a real situation. I am going to have to build some websites no doubt with Bob and Alice helping me. However, if we don't think things through before we start if that could be a large space to cover before we get to something effective
+
+<!-- xgd-turn id="fc912d8a-da2b-4d13-84cc-36141e347ad1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T22:06:52.626109+00:00" -->
+#### Claude
+Reading Finding 13 of EPIC-19 now. It's the analysis of the playbook against the real engagement. After that I'll look at the relevant parts of the transcript.
+
+I've read EPIC-19 Findings 13–15, DOC-62 §3 and DOC-35 §7–§10. The process doc you're thinking of is **DOC-33**, the assist-customer playbook. Finding 13 compared it against the Lagrange Foundry build and found little overlap. Here's how I understand the problem, plus a few points worth arguing over before anything gets designed.
+
+## The earlier docs already found the key split
+
+DOC-35 §10.1 says DOC-33 was "a checklist wearing a script's clothes". It fused **what must be decided** with **the order we decide it in**. It separates them this way:
+- **The set of decisions is fixed.** Every good site has settled them.
+- **The order is not.** Your Lagrange Foundry order (palette third, content structure seventeenth) was a legitimate order, not bad discipline.
+
+DOC-35 §8.4 also describes what you want from Bob when the client knows what she's doing. The playbook "becomes gap-filling": it keeps the checklist honest and raises an open item "at the moment it becomes load-bearing". It doesn't set the sequence.
+
+So I'd say Bob owns the **set** and not the **order**. His real skill is **timing**: knowing when an open decision is about to start costing something. That skill is what separates him from a project-management fascist.
+
+## Bob covers what DOC-33's failures left out
+
+Two DOC-33 stages never happened in the Lagrange Foundry build:
+- **Positioning:** what story, for whom.
+- **Critique.**
+
+Finding 13's explanation was that they're the only two stages that produce nothing visible, and "what does not move the page does not happen." Alice works on what renders.
+
+Those are the same two things you're giving Bob:
+- **Intake and goal-setting** is the positioning input.
+- **"Does this read premium?"** is critique.
+
+Bob isn't a general supervisor. He's the mechanism for the decisions that leave no visible trace, which is exactly why they fall through.
+
+## Most gaps won't be "undecided" — they'll be "decided by accident"
+
+With a rough, fast first pass, Alice makes almost every decision on the first turn. There will be a palette, a font, a voice and a hero image. So the dangerous gap isn't a blank. It's a default the user never really judged.
+
+Your first principle makes this sharp: users know what they don't like, not what they do. Not objecting isn't the same as liking. So a decision has more states than open or closed:
+
+| state | meaning |
+|---|---|
+| defaulted | Alice picked it; the user hasn't really looked |
+| not objected | the user saw it and said nothing |
+| chosen | the user picked it from real alternatives |
+| deliberately delegated | "you decide, I don't care" (also a valid end state) |
+
+Bob's check is then less "has X been decided?" and more "was X ever actually chosen, or did it just survive?" That's a more useful question. It also points straight at variant pages as the fix: "the palette has never been compared against anything — want to see two?"
+
+## Your four areas are settled in different ways
+
+This may answer whether images are separate.
+
+- **Functionality** is inside the client's expertise, so you **ask**. It suits cards and belongs up front.
+- **Style** is inside our expertise, so you **show** it (DOC-35 §7.1: ask about their expertise, show for ours).
+- **Messaging** sits in between. The overall conversation (audience, story, what they should take away) can be talked through. The actual voice only gets settled when the user sees words on a page.
+- **Images** split in two:
+  - **Supply** is a fact question: do you have photos, of what, and are they any good?
+  - **Treatment** is style.
+
+  So I'd split images across the other areas rather than make it a fifth.
+
+A cheap version of Bob's "route it right" job: notice when a decision is being settled the wrong way. For example, Alice asking "what's your brand personality?" instead of rendering two options.
+
+## Ordering is about the cost of undoing, not phases
+
+"Settle style and voice on one page before building five" is really "settle what gets copied before you copy it." That links to your second principle. The cheaper something is to change later, the less it matters when it's decided:
+- Colours and fonts are theme tokens, so changing them later costs almost nothing, and ordering barely matters.
+- Voice and layout patterns are copied by hand into each page, so they're expensive, and ordering matters.
+
+So Bob's ordering rule could be a single warning that fires at the moment of fan-out, not a phase gate: "happy to build the other four — just noting voice isn't settled yet, so changing it later means five pages." Then he gets out of the way. If the user proceeds anyway, that's her call and he records it.
+
+## Intake also sets the measure for every later challenge
+
+Your worry about "website" meaning "marketing": the rule from DOC-35 §7.2 is to ask for facts, not diagnoses. Bob can collect the facts (current site, how they feel about it, leads per week, what would make this worth it in six months). Diagnosis is judgement, so "your problem isn't really your website" has to come from Alice.
+
+Intake also links your goals 1 and 2. A challenge only works if it's measured against a stated brief ("you said premium — does this read premium?"). DOC-62 already says Bob must challenge against the brief, never against his own opinion. If intake doesn't produce a clear brief, Bob has nothing to push with, and his challenges either don't fire or become his own taste on a cheap model.
+
+## Questions I think need your call
+
+1. **Plan vs checklist: one object or two?** I think they're different things:
+   - The **checklist** is generic and belongs to Bob: the decision set, identical for every site.
+   - The **plan** is project-specific and belongs to Alice: build tasks, order, dependencies.
+
+   The checklist is how Bob notices gaps in Alice's plan. Do you see it that way, or is the plan just the checklist with an order added?
+2. **What counts as settled?** Is "not objected" enough to tick a box, or does a load-bearing decision (overall look, core story) need to be actively chosen?
+3. **Does the checklist stop at the site?** First Contact aims to pull every lever. Should Bob's set include things like the business's Google listing, reviews and follow-up on leads, even if v1 just records them as "not us yet"?
+4. **Who runs intake?** Bob alone before Alice arrives, or all three together? Alice is expensive, but the first conversation is where a lot of her diagnosis comes from.
+
+## A suggestion for the real builds
+
+You were Bob during the Lagrange Foundry build: the pushes, the "are you sure", the "show me two". That transcript is probably the best evidence we have. Before designing Bob, it would be worth pulling out every intervention you made that changed the course, and labelling each by kind: gap, challenge, reordering, "show me instead", or keeping things moving.
+
+That gives a catalogue built from what actually worked rather than from theory, which is exactly where DOC-33 went wrong. I can do that extraction if you want it. It's analysis only, nothing filed.
 
 <!-- xgd-chat-end -->
