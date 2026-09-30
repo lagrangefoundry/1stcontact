@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T20:35:49.619258+00:00'
+updated_at: '2026-09-30T20:44:12.454151+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3195,5 +3195,11 @@ So the grouping is lost somewhere between the capture and the site. I haven't ye
 **That changes the fix.** It may not need a new grouping operation or a design decision about what counts as a section. The page may just need to keep the structure the capture already found. The "group these elements" operation would still matter for pages that are already flat, like this one, but it becomes the secondary fix.
 
 Want me to trace which step drops the grouping and rewrite REQ-350 around that? It's still a draft, so its body can be corrected.
+
+<!-- xgd-turn id="4731c815-b1f2-4b1d-951b-d0fe5767b88b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-30T20:44:10.916528+00:00" -->
+#### You
+The keyframes are defining a bounding box around the text? what is "at"? Why are there four points with 4 widths to define a box?
 
 <!-- xgd-chat-end -->
