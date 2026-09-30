@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T21:12:36.595495+00:00'
+updated_at: '2026-09-30T21:14:38.025709+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3313,5 +3313,39 @@ Want me to rewrite REQ-350 on that basis, and file named text styles alongside i
 Yes we need scoping for all style parameters and your geometry changes please rewrite REQ-350.
 
 Does this imply changes to the reproduction code too?
+
+<!-- xgd-turn id="9664750f-f5ef-4799-ab9b-efad5e3514df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-30T21:14:37.112558+00:00" -->
+#### Claude
+I'll find where the flattening happens first, since that decides how much reproduction code changes.
+
+The fold does nest content into its sections, in a step near the end. Checking when that step landed relative to when the GA site was created (2026-09-28, about 20:41 local).
+
+Nesting landed on 2026-09-25, three days before the GA site was created. So either the site didn't come through this fold, or something undid the nesting afterwards. Checking how the site was made.
+
+I've rewritten REQ-350. It now covers geometry and style, and corrects the wrong premise it started from. I retitled it too, since the old title named the wrong cause.
+
+## Does it mean changes to the reproduction code? Yes, in two of three places
+
+**Nesting: already done for new sites.** Since 2026-09-25 (commit `8ecd455d16`) the reproduction step puts content inside its sections, which is why the capture file is nested. The GA page is flat for a simpler reason than I thought: the site was created on **2026-09-06**, before that change, and has never been reproduced again. Sites made now come out nested. Older sites need either a fresh reproduction or the "group these elements" operation.
+
+**Push-down: yes, new work.** The reproduction marks every element `absolute`, so even nested pages overlap when something above grows. It needs to mark sections and their contents `flow` wherever the page still renders identically at the captured widths. The existing round-trip test is the judge. The language already supports this; only the collision-repair step uses it today.
+
+**Style: yes, new work, and new language.** Every text element gets its own font and size values. The reproduction needs to find the shared values and emit named styles, plus values set on a container that its contents inherit. It already does exactly this for colours, turning captured colours into palette references, so there's a working pattern to follow.
+
+## What "all style parameters" means in the ticket
+
+- **Named values for everything repeated.** For type: font family, size, weight, line height, and letter spacing, as named styles like heading, body and caption. Beyond type: spacing, corner radius and shadow. The model is the colour palette: change once, and everything that refers to it follows.
+- **Inheritance.** A section can set style for what's inside it, and an individual element can still override. This only works once pages are nested, so the geometry half comes first.
+- **Tools** so the AI can read and change a named style and see what uses it, the way it manages palette colours today.
+- **Structured only**, as the security policy requires. No raw CSS gets in this way.
+
+## Two things for you
+
+1. **It's big.** I've noted in the ticket that it's probably too large to free-code as one piece. The natural split is geometry (mostly reproduction changes plus one operation, on language that already exists) and style (needs new language). Do you want it split now or later?
+2. **There's a second, unused type setting.** The GA site's stored record already has a site-level `theme.typography` with heading and body fonts, which L1 pages appear to ignore. The ticket says it should either become the named styles or be removed, rather than left as a second answer to "what's the body font".
+
+Nothing is coded. REQ-350 is still a draft under EPIC-20.
 
 <!-- xgd-chat-end -->
