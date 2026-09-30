@@ -6,16 +6,27 @@ title: 'capture: a band''s content anchor is measured by DOM descent on one path
   geometry on the other, so a hero with a header over it is permanently unmeasured'
 created_by: EPIC-12
 created_at: '2026-09-29T21:23:37.137276+00:00'
-updated_at: '2026-09-30T01:27:21.224343+00:00'
+updated_at: '2026-09-30T01:32:04.194369+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-6e992690
+  commits:
+  - working_sha: 29a0fdb469f901e2afdc5f01b065ce6f7a0519c7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e5721207d3076f519e444624dee7d68b2df529fa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c4b05c746fed90ca66c9a7a8fb2c314c661ce4f7
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.414
 ---
 
 # The extractor measures a band's content anchor two different ways, so a hero with a header over it has an anchor nothing can compare
