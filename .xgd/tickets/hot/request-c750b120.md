@@ -6,10 +6,10 @@ title: 'fold: the page canvas, a band backdrop and the height response are each 
   from the wrong evidence'
 created_by: repro-console:repro-joyfulculinarycreations-com#4
 created_at: '2026-09-29T20:57:54.723815+00:00'
-updated_at: '2026-09-30T01:38:57.347821+00:00'
+updated_at: '2026-09-30T02:30:06.363582+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -20,6 +20,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-4fdc129a
+  commits:
+  - working_sha: 799bde400f29eb1dc22a7e53a179da3c9b211f71
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b9bc30bd5514a6df90ef33a4d8624812a71f0649
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.415
 ---
 
 # fold: the page canvas, a band's composited backdrop and the height response are each taken from the wrong evidence
