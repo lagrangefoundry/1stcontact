@@ -6,10 +6,10 @@ title: 'L1 pages: scoped geometry and scoped style — sections that carry and p
   their contents, styles set once'
 created_by: EPIC-20
 created_at: '2026-09-29T05:02:46.487789+00:00'
-updated_at: '2026-10-01T20:06:32.973429+00:00'
+updated_at: '2026-10-01T20:08:07.585481+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-0923bb64
