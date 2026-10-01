@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-01T20:58:26.708464+00:00'
+updated_at: '2026-10-01T21:04:29.081599+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2110,3 +2110,6 @@ The showcase is ~1000 lines, but the room logic in it is ~200: `memberBackend` (
 ### Open decision still needed
 
 Whether the assistant may read the consultant's private session. Recommendation: no — the room is the shared record; `agent`'s cross-session read stays ungranted.
+
+
+**Filed: [[REQ-357]]** (2026-10-01) — group chat: a room with the consultant and the assistant, behind a per-business switch. Operator decision on the open question: **no controls between the agents.** The room is where both work, but the assistant has the same read access to the ticket store as the consultant, including the consultant's private transcript. Nothing is built to prevent it, because there is no motivation for such controls.
