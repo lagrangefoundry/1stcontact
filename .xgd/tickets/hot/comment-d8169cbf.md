@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-01T21:03:29.794594+00:00'
+updated_at: '2026-10-01T21:04:41.856779+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5907,5 +5907,35 @@ Confirm that and I'll file the child ticket under EPIC-19. Its implementation be
 <!-- xgd-chat role="user" ts="2026-10-01T21:03:29.193096+00:00" -->
 #### You
 So yes and no. The room IS the shared record that is where the posts occur that is where Bob works. However Bob and Alice have full access to the ticket store and Alice's transcript is in that store. I do not want to invent complex controls to prevent Bob from accessing it - I see no real motivation.
+
+<!-- xgd-turn id="746e6419-6c80-4e9b-b210-36d9c05ecff4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T21:04:40.025217+00:00" -->
+#### Claude
+Agreed: no controls. Bob gets the same read-only ticket access as Alice, which includes her transcript, and the ticket says that explicitly. Filing it now.
+
+I've filed **REQ-357**, *"Builder chat: group chat — a room with the consultant and the assistant, behind a per-business switch"*, under EPIC-19. It's at `draft`, high priority, estimated at 14 points.
+
+I wrote your access decision into the ticket in plain words: the room is where both agents post and work. Bob gets the same read-only access to the ticket store as Alice, including her private transcript, and nothing is built to stop him reading it. I recorded the reasoning so a later pass doesn't add controls by mistake.
+
+The ticket covers:
+1. **A switch.** A per-business group-chat switch on the Debug tab, off by default, plus the windows onto each agent's private session.
+2. **The room.** One room per site, created on first enable. Today's conversation becomes the consultant's private session, untouched, and the room starts empty, so switching off goes back to it.
+3. **The assistant role.**
+   - Bob runs on Haiku with his own backend entry, priming and chat ticket.
+   - He can read the knowledge base, the site, the library, the decisions ledger, the tickets and the room.
+   - He has no site writes, no delegation, no image generation and no screenshots.
+4. **Room tools on both members.** Alice's existing tools are unchanged.
+5. **Running an exchange.** It runs inside your prompt request, streamed like a turn today. These are the Worker problems from my last message, written as requirements:
+   - it must survive the Worker being restarted, without skipping either member
+   - only one exchange runs per room at a time
+   - stopping it works whichever server instance receives the stop
+   - every member round goes through our normal turn path, so the pending-turn record, spend tracking and the site-pane refresh all still work
+6. **The UI.** Each message shows who said it, live and after a reload; the composer posts into the room; and there's a stop control.
+7. **Names.** The role keys are `consultant` and `assistant`, and the display names come from one config entry. A test fails if "Alice" or "Bob" appears in code, priming or tool descriptions.
+
+Out of scope: how the conversation is shaped (thread 2), getting your words into a round already in progress (EPIC-7), and REQ-197.
+
+Per this epic's rule, the code belongs in REQ-357's own session, not this one.
 
 <!-- xgd-chat-end -->
