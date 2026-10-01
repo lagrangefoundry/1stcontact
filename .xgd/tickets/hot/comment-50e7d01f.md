@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-01T19:53:33.372213+00:00'
+updated_at: '2026-10-01T19:57:57.780167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3404,5 +3404,43 @@ Once you tell me where REQ-350 is, I'll check what landed against its ten requir
 <!-- xgd-chat role="user" ts="2026-10-01T19:53:33.085909+00:00" -->
 #### You
 Why don't we do this - lets blow away the old gigabyte alchemy in the dev deploy and create it afresh, can we do that?
+
+<!-- xgd-turn id="b52eddfa-ca99-4699-8b4a-2c702bb9486d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T19:57:57.647562+00:00" -->
+#### Claude
+Checking how a site gets reproduced from a URL so I can tell you whether a fresh start is possible.
+
+Looking at how the GA site was originally created in the local store, so a fresh one can be made the same way.
+
+Checking whether the existing copy command can take a freshly reproduced site as its source.
+
+Yes, it can be done, but there's no single command for it. I'd also change one part of the plan: don't delete the old business, start a new one beside it.
+
+## What exists and what doesn't
+
+- **Making a fresh reproduction: exists.** `1c repro` turns the Gigabyte Alchemy capture into a site using today's reproduction code, which keeps the nesting. The capture is already on disk at `storage/references/gigabytealchemy.ai/index`. We can reprocess that offline (`1c refold`) or recapture the live site first.
+- **Getting it into the dev builder: missing.** `1c repro` writes to the file store. The builder reads from the local D1 database. The command that used to push one into the other was retired (REQ-290). The route that receives a site, `/api/import`, still exists, so a throwaway script of about 30 lines can bridge the two. Because it's a `bin/` script that isn't shipped, it needs no ticket.
+- **Deleting a business: no command.** The only way is SQL straight against the local database, with the dev server stopped. Deleting the business removes its site automatically, but its chats, spend rows, turn log and stored files are separate and would be left behind as orphans.
+- **The AI can't reproduce a site itself.** The consultant can `capture_site`, but none of its tools turns a capture into pages. So right now a real customer can't get a reproduction from inside the product. That's a gap, but not one for today.
+
+## Why a new business rather than wiping the old one
+
+Create a fresh business, something like "Gigabyte Alchemy (fresh)", through the existing admin route, and import the new reproduction into it.
+
+- **Clean measurement.** Every metric is grouped by business. A new business means this test's cost, turns and delegations are exactly what that business shows, with nothing from the old sessions mixed in.
+- **No old memory.** The old business carries a standing note and decisions written about the flat page, plus three timed-out conversations. A consultant reopening it would start by reading those.
+- **Nothing destroyed.** The old site and its transcripts are the evidence behind REQ-348, BUG-168 and the BUG-165 tickets. Once the test is done, we can delete the old business properly.
+
+## Steps
+
+1. Recapture gigabytealchemy.ai, or reprocess the existing capture offline. Then run `1c repro`.
+2. Confirm the result really is nested (count the root's children and the depth) before importing. If it comes out flat, the plan is wrong and I stop.
+3. Create the new business, then import the reproduction with the throwaway script.
+4. You open it in the builder and run the test.
+
+The dev servers are partly up (the public site and repro console are running). Steps 2 and 3 need the control app running.
+
+Shall I go ahead, using a new business? Also tell me whether to recapture the live site or reuse the existing capture. Recapturing picks up any changes to the live site; reusing keeps the source identical to what we measured before.
 
 <!-- xgd-chat-end -->
