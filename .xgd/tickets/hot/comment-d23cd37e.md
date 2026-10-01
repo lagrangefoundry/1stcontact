@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T21:00:18.729124+00:00'
+updated_at: '2026-10-01T21:04:06.203198+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -747,5 +747,64 @@ Once you've answered those, tell me if you want it filed as a REQ. I'd draft it 
 Perfect, yes please create and REQ for this. 
 
 Then I want you to write a document that captures this conversations conclusions: The roles, how they are expected to interact, how they are expected to use a plan ticket, the generic descisions that need to be checked off, the way we expect to get there. It should be written as core content for Alice and Bob
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T21:04:04.136554+00:00" -->
+#### Claude
+I'll file the REQ first, then write the document. First a look at how system-KB docs are marked, so the new doc lands in the right place.
+
+REQ-356 is filed (`request-d27ae815`). Next I'll append our design turns to its transcript, then write the document.
+
+Transcript captured. Now the document.
+
+Now I'll point REQ-356's seeding section at DOC-64 by name.
+
+I've filed both. They're tickets only: no code, nothing promoted.
+
+## REQ-356: "Plan ticket: one living per-site plan for Alice and Bob (upgrade of brief type)"
+
+It's at `draft` (`request-d27ae815`), and I've added our design turns to its chat transcript.
+
+- **It reuses the existing `brief` type rather than adding a new one.** `brief` is declared but has never been written, so renaming it to `plan` costs nothing.
+- **It moves the decision log** (the `record_decision` entries) from each chat ticket's body into the plan's body, so a site built over several sessions has one log. The chat ticket keeps the transcript and the standing note.
+- **The shape is the one we agreed:**
+  - Frontmatter: `phase`, a structured `brief` (with the site's job kept separate from the audience), `functionality`, `decisions` with states, `checks`, and Alice's `tasks`.
+  - Body: the client's own words, the decision log, and notes.
+- **Bob can never be recorded as answering a check.** Only a client answer can move a decision to chosen, delegated or parked, and parked requires a reason.
+- **It settles two of DOC-62's open questions:**
+  - The plan is keyed on the site. DOC-62's analysis leaned towards keying it on the business, but its real concern was surviving a lost conversation, which a site-keyed plan does.
+  - The panel and the decision log are one object.
+- **It tightens DOC-62's write rule:** Bob may record the client settling a decision, but never settle one himself.
+- **Bob's runtime is out of scope:** the room, turn-taking and triggers firing.
+- **New plans are seeded from DOC-64 §6 and §7.** The seed list is data, so it can change without a code change.
+
+I took my own recommendations on the four open questions, since your "perfect" read as agreement: rename and move the log, `depends_on` optional, Bob recording the client's answer counts as confirmation, one plan per site. If any of those weren't what you meant, the REQ body is the place to change them.
+
+## DOC-64: "Alice and Bob: roles, the plan, the decisions, and how a build runs"
+
+It's filed as a system-KB doc (`doc-ac09a3b6`) and addressed directly to the two agents:
+
+1. **Why there are two of you:** a novice doesn't push the way a trained client does.
+2. **Roles:** what Alice does and must not do; what Bob does, with a "may say / must never say" table; the "Bob asks, Alice answers, the client decides" loop.
+3. **Principles:**
+   - show visual decisions, talk through messaging, ask for facts
+   - order by the cost of undoing
+   - the client's order wins, with parking as the mechanism
+   - not objecting is not choosing (the decision states)
+   - rough first, then revise
+   - liveness is something we offer
+4. **Checks:**
+   - verification is Alice's job every turn, and invisible to the client
+   - critique is drawn out by Bob's questions, reviewed as the visitor experiences the page and on a phone
+   - when a check must not fire
+   - how to handle stalls
+5. **The plan ticket:** who writes what, and daily habits for each role.
+6. **The generic decisions,** by area and tier, with how each gets settled.
+7. **Standing checks and their triggers.**
+8. **How we get there:** intake, plan, first pass, first review, revision rounds, pre-launch, live.
+9. **Patterns to avoid,** each taken from the real builds.
+
+**One thing to know before your own test runs:** DOC-62 measured that coaching prose in priming reached only 2 of 102 turns. So DOC-64 alone probably won't change behaviour much. It becomes effective once the plan ticket (REQ-356) carries the state, and the checks fire from triggers rather than relying on either agent to remember.
 
 <!-- xgd-chat-end -->
