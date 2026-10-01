@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-01T20:58:45.471989+00:00'
+updated_at: '2026-10-01T21:03:29.794594+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5901,5 +5901,11 @@ That's one ticket, about 13–15 points. Shaping how the conversation runs (thre
 Should Bob be able to read Alice's private session? I'd say no: the room is the shared record. "Read everything Alice can see" then means the site, the library, the knowledge base and the decisions ledger, but not her workspace.
 
 Confirm that and I'll file the child ticket under EPIC-19. Its implementation belongs in that ticket's own session, not this one.
+
+<!-- xgd-turn id="746e6419-6c80-4e9b-b210-36d9c05ecff4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T21:03:29.193096+00:00" -->
+#### You
+So yes and no. The room IS the shared record that is where the posts occur that is where Bob works. However Bob and Alice have full access to the ticket store and Alice's transcript is in that store. I do not want to invent complex controls to prevent Bob from accessing it - I see no real motivation.
 
 <!-- xgd-chat-end -->
