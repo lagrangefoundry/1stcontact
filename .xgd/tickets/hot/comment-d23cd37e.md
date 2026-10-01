@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T20:16:26.400161+00:00'
+updated_at: '2026-10-01T20:17:26.872793+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -542,5 +542,66 @@ The problems I was trying to solve with Bob:
  - Alice was insufficiently critical of the web page (this is like the one above but slightly different). It knew there was a layout problem but in needed to be asked.
 
 A trained user could get a LOT out of using Alice, but I want to accommodate novice users, so who is going top push Alice to look critically at the site? Ensure that decisions are properly made etc?
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:17:26.080686+00:00" -->
+#### Claude
+Thanks for the correction. If the history wasn't being delivered, those four 1st Contact corrections were a pipeline bug, not something Alice did. I'll stop using them as evidence for a decision ledger.
+
+Taking it purely as UX, your four problems aren't one problem. They break into three different jobs, and I think each has a different right owner.
+
+## 1. Verification: "did it land?"
+
+Unstyled text, broken layout at some widths, near-miss alignments, missing assets. These are facts about the render, not opinions. A novice can't spot them, and shouldn't have to.
+
+I don't think Bob should own this. Checking whether text is unstyled needs eyes on the render, not process judgement. The right UX is that **the user never sees unchecked work.** After every change, render it at a set of widths, run the mechanical checks, and have Alice look before she reports. That's the "definition of done" for a turn, like tests running automatically on code. Today it's up to you because nobody owns it. It should belong to the system, invisibly and every time. Giving it to a coordinator would make it a conversation, when it should be a guarantee.
+
+## 2. Critique: "is it good?"
+
+You said Alice *knew* there was a layout problem and needed to be asked. That's the most important observation in this whole discussion, because it means she had the ability and lacked the stance.
+
+There are two reasons the stance goes missing:
+- **The role pulls the other way.** A consultant serving a client defers ("your call", "say the word"), and finishing what was asked feels like success.
+- **Models judge their own work leniently.** The same model is noticeably sharper reviewing work framed as someone else's than reviewing what it just made. That's why generator/critic separation is a standard pattern.
+
+So I don't think "prompt Alice to be more critical" fully works. One agent holding both "satisfy this request" and "doubt the result" tends to resolve towards the request, as people do. **The doubt needs a separate owner whose measure of success is different.** Alice succeeds when the request is done. The critic succeeds when the brief is met.
+
+## 3. Proactivity and process: "what's next, and are decisions properly made?"
+
+This is the brief, the decisions and their states, milestones, and "you've never compared the palette against anything." It's the job you originally described for Bob.
+
+## Who pushes Alice? The agency answer
+
+Real agencies serve novice clients with exactly this split, and I think it settles your question:
+- **The account manager** sits on the client's side of the table. They own the brief, the timeline and "has everything been decided?" They ask the creatives the questions the client doesn't know to ask, and they push back on the creative team on the client's behalf.
+- **The creative director** critiques the designer's work *internally*. The client never sees that review; they see work that has already been through it.
+
+That maps onto your three jobs:
+
+| Job | Owner | Visible to user? |
+|---|---|---|
+| Verification | the system, every turn | No. It's a guarantee, not a conversation |
+| Critique | a reviewer separate from the author | The *result* is visible, the review isn't |
+| Process, brief, decisions, "ask Alice the hard question" | Bob | Yes |
+
+## Does Bob need to be visible? This is what changes my earlier view
+
+Last turn I argued for invisible Bob, with prompts injected into Alice's context. On UX alone, I think the visible version wins, for three reasons:
+
+1. **The novice learns the questions by watching them asked.** When Bob asks "does this read as premium against what you told us?" and Alice answers honestly, the user has just seen what critical looking sounds like. Next time they ask it themselves. With injected prompts, Alice just seems smarter and the user learns nothing.
+2. **The user can steer the process.** A visible Bob can be told "not now, visuals first" and record it as parked. Invisible triggers can't be argued with. Your real build depended on you overriding the process, and the novice needs a handle for that too.
+3. **The user isn't alone with the expert.** A novice talking to Alice is talking to someone who knows far more than they do, and will defer. Bob on their side changes that. And because the critique comes from Bob, the user doesn't have to supply it themselves.
+
+## The case against, which still stands
+
+- Three voices is more to follow than two.
+- If Bob asks "are you happy with this?" and Alice says "yes" too often, Bob becomes noise, and the user learns to skim him.
+
+That's the main way this fails, and it's why Bob's prompts need triggers: vague dissatisfaction, milestones, decisions still defaulted, the same element rejected twice. He shouldn't fire on a timer.
+
+**My position now:** verification invisible and automatic; critique from a separate reviewer; Bob visible as the user's advocate and keeper of the process, asking Alice the questions and getting her opinions out. That's your original idea, with two jobs (verification and internal review) taken off Bob's plate so he isn't trying to be an expert.
+
+The real test is watching a novice. Even one session with someone who isn't you, comparing visible Bob against an Alice primed to be more proactive on her own, would tell us more than further theory.
 
 <!-- xgd-chat-end -->
