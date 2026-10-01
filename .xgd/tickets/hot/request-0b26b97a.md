@@ -6,7 +6,7 @@ title: 'L1 pages: scoped geometry and scoped style — sections that carry and p
   their contents, styles set once'
 created_by: EPIC-20
 created_at: '2026-09-29T05:02:46.487789+00:00'
-updated_at: '2026-10-01T20:08:15.619296+00:00'
+updated_at: '2026-10-01T21:49:30.073003+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -153,3 +153,112 @@ Build order on one branch (`free-REQ-350`). Each step is its own commit, so a st
    - **If that isn't cheap,** stop and report the size here, per D2.
 
 Test evidence in the sandbox is the analytic evaluator against the saved Gigabyte Alchemy capture (Chromium is blocked there). Browser-gated UATs (round trip, `flow_l1` against a real browser) run on the operator's machine.
+
+
+## What landed (implementation session, 2026-10-01)
+
+Steps 1–4 of the plan, and D3. **Step 5 (D2: named spacing, radius and shadow) is not done.** It needs one decision, set out at the end of this section.
+
+### Geometry
+
+**`group_l1`** — model tool in `AuthorPages`, plus `1c structure group <slug> <page> <path…> [--id]`.
+- Wraps sibling elements, in page order, in a new `container` at the position of the first.
+- The container sits at x = 0, spans its parent's full width, and its top follows the members. Where every member shares one keyframe ladder and segment flags, the top is exact at every width; otherwise it is a constant.
+- Members are rebased with the fold's own `rebaseInto`, now shared through `tools/generate/src/l1/rebase.ts`.
+- The page renders identically at every width and viewport height, not only at the captured ones. No measurement is needed, so it runs in the Worker.
+- Moving or resizing the container carries its contents.
+- Refused, with the page unchanged (`SCHEMA_INVALID`, or `NOT_FOUND` for a missing address), when:
+  - the addresses are not siblings;
+  - a member is already placed `flow`;
+  - grouping would change what paints over what (a non-member between two members that overlaps a later one). The refusal names the element.
+
+**The served reproduction flows by section** (`promoteToFlow`, judged by `chooseRecovery`).
+- On the page root and every fold-made surface (section band, section background, card) where no collision defined regions, every pinned child now joins the flow. Collision regions still form where collisions exist.
+- A painted `box` that holds nothing (a divider rule, a decorative plate) stays where it is, behind its neighbours.
+- **On a tie, the flowed page is served:** "no worse" is enough, where a strict improvement was required before.
+- Measured, by the layout evaluator against the capture's own text heights:
+  - **gigabytealchemy.ai:** 69 of 69 elements flow, and nothing is left absolute. Under 2.5× content growth, overlaps drop from 301 to 59 and escapes from 84 to 2, with fidelity unchanged. The remaining overlaps are in one card whose capture order is not its visual order; REQ-278 keeps those as negative offsets.
+  - **faelan.com:** served flowed, where before it was served flat by default.
+  - **joyfulculinarycreations.com:** still not served, because the repair would lose fidelity.
+- The contact block's three runs ("Get in touch", the mailing-list line, the Turnstile notice) are held by no section, because the capture paints them straight on the page with no band.
+
+**`flow_l1`** — model tool in `AuthorPages`, plus `1c structure flow <slug> <page> <path>`. This implements D1:
+1. A `PageMeasurer` renders the draft over the preview channel `screenshot` uses, at each of the page's widths, and reads every run with the capture extractor.
+2. `promoteToFlow`, given the new `only: <address>` option, converts that one container.
+3. The page is written, rendered and measured again.
+4. If any run is more than 0.5px from where it was at any width, the original page is written back and the refusal names the run, the width and the distance.
+
+With no browser it refuses with `ENVIRONMENT`; there is no estimate. In the Worker the measurer comes from the same `fidelity` deps as the drawing measurer. On Node, `1c structure flow` starts a temporary builder origin.
+
+### Style
+
+**Named text styles.**
+- `site.textStyles` holds named, typed, `.strict()` bags: `fontFamily`, `fontSizePx` (1–400), `fontWeight` (1–1000), `lineHeightPx`, `letterSpacingPx`, plus `responsive` per-width tracks for the last three.
+- `site.textDefault` names the style every page inherits from the top.
+- A run or control names a style with `axes.textStyle`.
+- A `box` or `container` carries `type: { style?, …axes }` for what it contains.
+- **Precedence, nearest first:** the run's own value; the run's own style; the nearest container's own value; that container's style; outward; then the site default. A per-width track and a single value are one axis, and the nearer wins it.
+- **One resolution pass, `resolveL1TextStyles`,** runs where the palette is resolved: site assembly, and the renderer's document, fragment and email entries. The renderer, evaluator and round-trip gate see only literals, so the output is pixel-identical by construction.
+- **Validation.** `validateL1` refuses a style name the site doesn't declare (new rule `declaredTextStyle`). It then runs every existing check on the resolved page, so a named or inherited value meets the same range, ladder and served-font rules as a literal. The font-reference check and the `describe_page` style audit also read type as it paints.
+
+**Tools** — `get_text_styles` (in `ReadSite`) reports each style, whether it is the default, and every use by page and address. `set_text_style`, `add_text_style`, `remove_text_style` (refused while in use or while it is the default) and `rename_text_style` (rewrites every use in one write) form a new `ManageTextStyles` grant, given to the consultant and builder roles. CLI: `1c type get|set|add|rm|rename`.
+
+**`1c type assign <slug>`** is the retrofit, following `1c colors --assign`.
+- It groups runs whose five type axes match exactly. Nothing a pixel apart is merged.
+- **Naming:** a group mostly used by headings of one level is `heading-<level>`; the most used other group is `body` unless that name is taken; the rest are `text-<size>`.
+- **Container type:** a container whose runs all share one style sets it as its `type`.
+- **Default:** an existing default is kept. Otherwise `body` becomes the default only if every run on the site sets every axis `body` sets, so a run that relied on the browser's own line height doesn't start inheriting one.
+- Existing styles are kept, never deleted.
+- It refuses the write unless every run, including component slot runs, resolves to exactly the type it had. On Gigabyte Alchemy the served page is byte-identical before and after.
+
+### D3 — `theme.typography` retired; one answer for type
+
+- `typography` is removed from the theme schema. `defaultTokens` and `generateThemeCss` no longer emit the type scale, weights, line heights, tracking or sub-scales; nothing live read them.
+- `generateThemeCss(tokens, textStyles)` emits one `--font-family-<name>` per named style that sets a family. It applies the L1 renderer's own family sanitiser (`cssFontFamily`, now exported).
+- `CALLOUT_CSS`'s `var(--font-weight-medium)` became the literal `500`.
+- The generator's page-shell rules `body { font-family: var(--font-family-body) }` and `h1, h2, h3, h4 { font-family: var(--font-family-heading) }` are gone; the default style is resolved into every run and control instead.
+- New and reproduced sites start with `textStyles: { body, heading }` (the system stack) and `textDefault: 'body'`.
+- **Stored sites are lifted on load** (`tools/generate/src/store/legacy-typography.ts`, in `assembleSite` and in the edit commands' reads), and the first write persists the new shape:
+  - the theme's body, heading, display and label families become styles of those names;
+  - `body` becomes the default;
+  - where the heading family differed from the body family, a heading run (levels 1–4) that set no family takes `textStyle: 'heading'`, which is exactly what the shell's `h1`–`h4` rule gave it.
+- **Scope finding:** the legacy modules read the whole typography group, not just the families. But every reader other than the shell and `CALLOUT_CSS` is unreachable: `renderMarkdown` and the `text-style.ts`/`dials.ts` resolvers have no callers, and no legacy layout module remains. So retiring the whole group leaves no second source. Those dead resolvers still exist and were not deleted here.
+
+### Earlier acceptance language this supersedes
+
+These tests were updated in place, each saying why:
+
+| Earlier test | Clause | Now |
+|---|---|---|
+| AC709 | "demanded, not applied by default": a roomy region is left absolute | a roomy page flows whole, as one region |
+| BUG-9 | `roomy_page_left_absolute` | `roomy_page_flows_as_one_region` |
+| AC737, REQ-88 | a clean bundle promotes nothing | it promotes the page itself (`['0']`) |
+| REQ-278 | the recovery must *strictly* improve the envelope | no worse is enough |
+| BUG-142 | the band carries the viewport-height term | the band is pushed by the hero, which carries it |
+| BUG-142 | at-rest fidelity measured with estimated heights | measured with the capture's own heights |
+
+The theme-typography assertions in REQ-4, REQ-24, REQ-33, REQ-36, REQ-45, REQ-49, REQ-56, REQ-114 (AC933, AC936) and REQ-130 / AC1095 are rewritten to the named-style source or removed where nothing remains to emit. `tests/req45-fidelity-primitives.test.ts` was deleted: its only test asserted the retired tracking properties.
+
+### Test plan (as landed)
+
+| Area | File | Tests |
+|---|---|---|
+| Group (geometry 1, 4, 5) | `test_UAT_FC_REQ-350_group_structures_a_flat_page.test.ts` | grouping a section nests its contents and renders identically across captured widths, beyond them and at three viewport heights; moving the group carries its contents; refusals (not siblings, paint order, missing) leave the draft byte-identical; a flat absolute page stays valid; a Chromium-gated browser round trip |
+| Served page flows (geometry 1–3, reproduction) | `test_UAT_FC_REQ-350_the_served_page_flows_by_section.test.ts` | synthetic three-section capture: sections carry their runs and both flow; growing early content pushes later content down by exactly the growth with no overlap, where the flat base overlaps; reproduces the capture within 0.5px at every captured width; the real GA capture is served nested and flowed with overlaps cut by more than ¾ |
+| `flow_l1` (geometry 2–4, D1) | `test_UAT_FC_REQ-350_flow_stacks_a_section.test.ts` | stacking a grouped section keeps the render and pushes later content down; refused without a browser; a measured drift puts the page back and names the run; a Chromium-gated real-browser leg. The browser is the only stand-in: an evaluator-backed `PageMeasurer`. |
+| Named and inherited type (style 6–10) | `test_UAT_FC_REQ-350_type_is_set_once.test.ts` | `1c type assign` leaves the served page byte-identical; changing one style changes exactly the runs that use it; a container value is inherited, a run's own style beats it, and a local value beats both; untyped, unknown-axis, raw-CSS, out-of-range and unserved-family styles are refused, as is a run naming an undeclared style; `get_text_styles` reports addresses that resolve to the naming element; rename moves every use; remove is refused while in use |
+| D3 | `test_UAT_FC_REQ-350_theme_typography_becomes_named_styles.test.ts` | a stored `theme.typography` loads as named styles with no shell font rule and the same face on the form inputs; a heading that relied on the heading family keeps it; the first write persists the new shape; a new site starts with named styles |
+
+Browser-gated legs skip in the sandbox (Chromium is blocked there); the operator runs them.
+
+### D2 — not done; one decision needed
+
+Done as named bags like the text styles (`site.boxStyles`: `borderRadiusPx`, `boxShadow`, `padding`, `gapPx`, referenced by name and resolved at the boundary), this needs **no numeric-type widening**. The renderer and evaluator would still see only literals, and the cost is about the size of the text-style work.
+
+The open question is what **inheritance** means for these properties. Type inherits naturally (CSS does it), but radius, shadow, padding and gap do not. "A container sets it for what it contains" could mean either of:
+- **(a)** every painted descendant that names no box style of its own; or
+- **(b)** only the container's direct children (the cards of a grid, the panels of a section).
+
+**Recommendation: (b).** It is the case that occurs in practice ("the cards in this section share a radius"), and (a) would push a section's padding into every card nested inside it.
+
+The theme's `spacing`, `radius` and `shadow` groups stay until D2 lands, then retire the way `typography` did. Their only live reader is `CALLOUT_CSS`'s `--space-1`/`--space-6`.

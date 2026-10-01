@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-30T20:58:55.313035+00:00'
+updated_at: '2026-10-01T21:04:41.856779+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5835,5 +5835,107 @@ When your LF test says the JS room works, I'll scope it. The two questions from 
 
 1. Is today's site conversation Alice's private session, with the room starting fresh?
 2. Is Alice's private session off-limits to Bob?
+
+<!-- xgd-turn id="92dc7823-bccc-43ad-8c73-82da3d6cc0aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:53:37.081532+00:00" -->
+#### You
+Please take a look at the JS implementation. I just tested it, it works. There is an outstanding tweak to put in place REQ-197 but its not a blocker. Can you take a look at the work needed to adopt it for Alice and Bob please?
+
+<!-- xgd-turn id="92dc7823-bccc-43ad-8c73-82da3d6cc0aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:58:44.564579+00:00" -->
+#### Claude
+I'll read the current JS room code and REQ-197, then map it onto our host.
+
+Reading the JS showcase host's room wiring, then I'll map it onto our Worker.
+
+zsh globbing; quoting the patterns.
+
+I have the picture; recording it on the epic, then reporting.
+
+I've read the JS room and the showcase host that drives it. Nothing upstream blocks adopting it. The installed framework matches the tree exactly, and the two fixes it depends on, BUG-149 (the durable junction now writes) and LF BUG-69 (a stale junction no longer hides the archive), have both landed. REQ-197 can come later. I've recorded the full analysis as Finding 16 on EPIC-19.
+
+## What we can take as-is
+
+The showcase host is about 1,000 lines, but only about 200 of them are room logic:
+- **Members get two room tools.** Each member's backend carries `GroupToolbox`, and its grant is widened with `groupInstanceConfig()`.
+- **The orchestrator runs the exchange.** It takes a prompt function as an option and calls it once per member round. It already handles turn-taking, the stopping rules (settled, yield, budget) and attribution.
+
+We reimplement none of the room's behaviour.
+
+## What's different in a Worker
+
+This is where the real work is. The showcase never hit any of these because it runs in one long-lived Node process.
+
+1. **The host's room state lives in memory.** The showcase keeps rooms, member bindings, the "already running" guard and the stop flag in in-memory maps.
+   - **Room details:** we rebuild these per request from the room's chat ticket (`openGroup` already reads the members, goal and budgets from it).
+   - **Guard and stop flag:** these can't be in memory, because a stop request can land in a different isolate. Stop should use the existing control-record stop on the member's session. The guard should be a field on the room ticket, written with compare-and-set, the same pattern as `pending_turn`.
+2. **Members after an isolate eviction would be skipped.** A member counts as live only if its junction exists in the current isolate. After an eviction, neither member's does, so both would be skipped. Before each run we have to prepare and attach both member sessions and reopen the room.
+3. **The default prompt function skips our per-turn bookkeeping.** By default each member round goes through `manager.prompt`. That bypasses everything our `streamPrompt` does today:
+   - recording the pending turn so an interrupted message survives (BUG-121)
+   - spend and turn-clock accounting
+   - the signal that re-renders the site pane after a change
+   - the guard that ends a turn before it overflows the context, and the message that explains a turn that ran out of budget
+
+   So we pass the orchestrator our own prompt function, built on the consultant's existing turn path, which also streams each member's events to the client.
+4. **Where your messages go.** In room mode the composer posts your message into the room as the client, then runs one exchange. The 16,000-character limit applies unchanged.
+5. **What the panel shows.** It follows the room's session live and replays it on reload. It has to show who said what; today's panel assumes only two roles.
+
+## The pieces
+
+| piece | size |
+|---|---|
+| A room ticket per site, created when group chat is first switched on. Today's conversation becomes the consultant's private session, untouched, and the room starts empty. | small |
+| The `assistant` role (Bob): Haiku on its own backend entry and its own priming. Read-only access to the knowledge base, the site, the library, the decisions ledger, tickets and the room. No site writes, no delegation, no screenshots. | medium |
+| The room tools on both members | small |
+| The run route and our prompt function (items 1–3 above) | medium to large; the main risk |
+| Builder UI: show who said what, a composer that posts to the room, a stop control. `webui/room` exists upstream but we don't include it yet; we'd decide whether to adopt it or extend our own chat panel. | medium |
+| A per-business group-chat switch on the Debug tab, plus EPIC-22's windows onto each agent's private session | small |
+| Names: the role keys are `consultant` and `assistant`. Display names come from one config entry, which is what the room shows. A UAT fails if "Alice" or "Bob" appears in code, priming or tool descriptions. | small |
+
+That's one ticket, about 13–15 points. Shaping how the conversation runs (thread 2), getting your words into a round already in progress (EPIC-7) and REQ-197 stay out of it.
+
+## One decision before I scope the ticket
+
+Should Bob be able to read Alice's private session? I'd say no: the room is the shared record. "Read everything Alice can see" then means the site, the library, the knowledge base and the decisions ledger, but not her workspace.
+
+Confirm that and I'll file the child ticket under EPIC-19. Its implementation belongs in that ticket's own session, not this one.
+
+<!-- xgd-turn id="746e6419-6c80-4e9b-b210-36d9c05ecff4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T21:03:29.193096+00:00" -->
+#### You
+So yes and no. The room IS the shared record that is where the posts occur that is where Bob works. However Bob and Alice have full access to the ticket store and Alice's transcript is in that store. I do not want to invent complex controls to prevent Bob from accessing it - I see no real motivation.
+
+<!-- xgd-turn id="746e6419-6c80-4e9b-b210-36d9c05ecff4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T21:04:40.025217+00:00" -->
+#### Claude
+Agreed: no controls. Bob gets the same read-only ticket access as Alice, which includes her transcript, and the ticket says that explicitly. Filing it now.
+
+I've filed **REQ-357**, *"Builder chat: group chat — a room with the consultant and the assistant, behind a per-business switch"*, under EPIC-19. It's at `draft`, high priority, estimated at 14 points.
+
+I wrote your access decision into the ticket in plain words: the room is where both agents post and work. Bob gets the same read-only access to the ticket store as Alice, including her private transcript, and nothing is built to stop him reading it. I recorded the reasoning so a later pass doesn't add controls by mistake.
+
+The ticket covers:
+1. **A switch.** A per-business group-chat switch on the Debug tab, off by default, plus the windows onto each agent's private session.
+2. **The room.** One room per site, created on first enable. Today's conversation becomes the consultant's private session, untouched, and the room starts empty, so switching off goes back to it.
+3. **The assistant role.**
+   - Bob runs on Haiku with his own backend entry, priming and chat ticket.
+   - He can read the knowledge base, the site, the library, the decisions ledger, the tickets and the room.
+   - He has no site writes, no delegation, no image generation and no screenshots.
+4. **Room tools on both members.** Alice's existing tools are unchanged.
+5. **Running an exchange.** It runs inside your prompt request, streamed like a turn today. These are the Worker problems from my last message, written as requirements:
+   - it must survive the Worker being restarted, without skipping either member
+   - only one exchange runs per room at a time
+   - stopping it works whichever server instance receives the stop
+   - every member round goes through our normal turn path, so the pending-turn record, spend tracking and the site-pane refresh all still work
+6. **The UI.** Each message shows who said it, live and after a reload; the composer posts into the room; and there's a stop control.
+7. **Names.** The role keys are `consultant` and `assistant`, and the display names come from one config entry. A test fails if "Alice" or "Bob" appears in code, priming or tool descriptions.
+
+Out of scope: how the conversation is shaped (thread 2), getting your words into a round already in progress (EPIC-7), and REQ-197.
+
+Per this epic's rule, the code belongs in REQ-357's own session, not this one.
 
 <!-- xgd-chat-end -->

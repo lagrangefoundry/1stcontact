@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T19:50:45.962024+00:00'
+updated_at: '2026-10-01T21:04:06.203198+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -526,5 +526,285 @@ A novice needs simpler, not more complex.
 **My recommendation:** all three need the same foundation, the brief, the ledger and the triggers. Build that first and treat the persona as a presentation decision for later. Then run your next real build on (a) and see what's still missing. Whatever gaps remain are the honest case for (b) or (c). If nothing important remains, we've saved ourselves a three-way chat.
 
 **Question for you:** does that sequencing undercut anything you saw in EPIC-19 that made the second voice feel necessary? For example, something about how *you* experienced Alice that a ledger and injected prompts wouldn't fix.
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:16:25.869906+00:00" -->
+#### You
+You had to correct Alice four times in ten turns <-- I remember - there was a bug in the chat, Alice was not getting delivered any history.
+
+At this point we have the basic infrastructure built so lets not worry about the cost in this conversation. This is PURELY about what is the best UX.
+
+The problems I was trying to solve with Bob:
+ - I felt Alice was too passive on its own let me expand
+ - There were no checks that things were landing - no checks for even basics like unstyled text - it felt like it was up to me to decide where things were landing
+ - Alice has great opinions but needed prompting to deliver them
+ - Alice was insufficiently critical of the web page (this is like the one above but slightly different). It knew there was a layout problem but in needed to be asked.
+
+A trained user could get a LOT out of using Alice, but I want to accommodate novice users, so who is going top push Alice to look critically at the site? Ensure that decisions are properly made etc?
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:17:26.080686+00:00" -->
+#### Claude
+Thanks for the correction. If the history wasn't being delivered, those four 1st Contact corrections were a pipeline bug, not something Alice did. I'll stop using them as evidence for a decision ledger.
+
+Taking it purely as UX, your four problems aren't one problem. They break into three different jobs, and I think each has a different right owner.
+
+## 1. Verification: "did it land?"
+
+Unstyled text, broken layout at some widths, near-miss alignments, missing assets. These are facts about the render, not opinions. A novice can't spot them, and shouldn't have to.
+
+I don't think Bob should own this. Checking whether text is unstyled needs eyes on the render, not process judgement. The right UX is that **the user never sees unchecked work.** After every change, render it at a set of widths, run the mechanical checks, and have Alice look before she reports. That's the "definition of done" for a turn, like tests running automatically on code. Today it's up to you because nobody owns it. It should belong to the system, invisibly and every time. Giving it to a coordinator would make it a conversation, when it should be a guarantee.
+
+## 2. Critique: "is it good?"
+
+You said Alice *knew* there was a layout problem and needed to be asked. That's the most important observation in this whole discussion, because it means she had the ability and lacked the stance.
+
+There are two reasons the stance goes missing:
+- **The role pulls the other way.** A consultant serving a client defers ("your call", "say the word"), and finishing what was asked feels like success.
+- **Models judge their own work leniently.** The same model is noticeably sharper reviewing work framed as someone else's than reviewing what it just made. That's why generator/critic separation is a standard pattern.
+
+So I don't think "prompt Alice to be more critical" fully works. One agent holding both "satisfy this request" and "doubt the result" tends to resolve towards the request, as people do. **The doubt needs a separate owner whose measure of success is different.** Alice succeeds when the request is done. The critic succeeds when the brief is met.
+
+## 3. Proactivity and process: "what's next, and are decisions properly made?"
+
+This is the brief, the decisions and their states, milestones, and "you've never compared the palette against anything." It's the job you originally described for Bob.
+
+## Who pushes Alice? The agency answer
+
+Real agencies serve novice clients with exactly this split, and I think it settles your question:
+- **The account manager** sits on the client's side of the table. They own the brief, the timeline and "has everything been decided?" They ask the creatives the questions the client doesn't know to ask, and they push back on the creative team on the client's behalf.
+- **The creative director** critiques the designer's work *internally*. The client never sees that review; they see work that has already been through it.
+
+That maps onto your three jobs:
+
+| Job | Owner | Visible to user? |
+|---|---|---|
+| Verification | the system, every turn | No. It's a guarantee, not a conversation |
+| Critique | a reviewer separate from the author | The *result* is visible, the review isn't |
+| Process, brief, decisions, "ask Alice the hard question" | Bob | Yes |
+
+## Does Bob need to be visible? This is what changes my earlier view
+
+Last turn I argued for invisible Bob, with prompts injected into Alice's context. On UX alone, I think the visible version wins, for three reasons:
+
+1. **The novice learns the questions by watching them asked.** When Bob asks "does this read as premium against what you told us?" and Alice answers honestly, the user has just seen what critical looking sounds like. Next time they ask it themselves. With injected prompts, Alice just seems smarter and the user learns nothing.
+2. **The user can steer the process.** A visible Bob can be told "not now, visuals first" and record it as parked. Invisible triggers can't be argued with. Your real build depended on you overriding the process, and the novice needs a handle for that too.
+3. **The user isn't alone with the expert.** A novice talking to Alice is talking to someone who knows far more than they do, and will defer. Bob on their side changes that. And because the critique comes from Bob, the user doesn't have to supply it themselves.
+
+## The case against, which still stands
+
+- Three voices is more to follow than two.
+- If Bob asks "are you happy with this?" and Alice says "yes" too often, Bob becomes noise, and the user learns to skim him.
+
+That's the main way this fails, and it's why Bob's prompts need triggers: vague dissatisfaction, milestones, decisions still defaulted, the same element rejected twice. He shouldn't fire on a timer.
+
+**My position now:** verification invisible and automatic; critique from a separate reviewer; Bob visible as the user's advocate and keeper of the process, asking Alice the questions and getting her opinions out. That's your original idea, with two jobs (verification and internal review) taken off Bob's plate so he isn't trying to be an expert.
+
+The real test is watching a novice. Even one session with someone who isn't you, comparing visible Bob against an Alice primed to be more proactive on her own, would tell us more than further theory.
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:38:32.327562+00:00" -->
+#### You
+Right and I have actually a bunch of novices lined up if we can get the tool ready in time.
+
+But I need to run a test or two myself first.
+
+Question: does Bob have anywhere to record/manage the state of the project? What I had in mind was a new ticket type "plan". It could start with a generic list of things that need to be decided. If there is any thinking to do Alice should create and update the plan, Bob should be responsible for tracking.
+
+It is never appropriate for Bob to say things like "I think the layout needs work" but completely appropriate for Bob to ask "Are we all happy with the layout" and to collect and record answers from Alice and the user.
+
+The plan ticket should have a structured plan in its front matter, that can be displayed on a panel or a card by Bob and unstructured content in the body - such as a log of decisions made etc. The ticket should capture all the input from the user about the goals, purpose and anything else that helps build the site. 
+
+Lets design the plan ticket type if we do not already have it?
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:40:11.724761+00:00" -->
+#### Claude
+First I'm checking whether the product's ticket schema already has a plan type, or anything close to one.
+
+The product already has a `brief` ticket type (one per site, described as the canonical decisions document), so I'm checking how it's used before proposing anything new.
+
+## What already exists
+
+Nothing called `plan`, but two things overlap with it:
+
+1. **A declared `brief` type that nobody uses.** `apps/control-app/src/tickets.ts` declares a `brief` type: "the per-site canonical decisions document", one per site, with `site_slug` and a required body.
+   - DOC-9 §4 describes it as the Design Brief: decisions that "each start as `TBD` and are filled in as the conversation crystallizes", with a propose-and-confirm rule before anything is written.
+   - DOC-38 §9 says it is "small and always relevant", so it should be included in priming, not fetched by search.
+   - Nothing writes it. The local D1 has zero `brief` tickets, and no tool creates one or puts one in priming.
+2. **A per-session decision log on the chat ticket (REQ-171/REQ-283).** Alice's `record_decision` tool appends to the chat ticket's body. `set_standing_note` writes a `frame` field in its frontmatter. That's already your structure-in-frontmatter, log-in-body split, but it is scoped to **one chat session**, not to the site.
+
+So I'd recommend **one type, not a third.** `brief` has never been written, so renaming it to `plan` (or keeping the name and widening it) costs nothing now. And the decision log should move from the chat ticket into the plan body. Otherwise decisions live in two places, and a site built over five sessions has five partial logs.
+
+## Proposed shape
+
+**One per site, living.** A later redesign moves the plan back to an earlier phase rather than creating a new ticket.
+
+### Frontmatter: what Bob can show as a panel or card
+
+```yaml
+site_slug: lagrangefoundry
+phase: intake | first_pass | revision | prelaunch | live
+
+brief:                        # the user's input, structured
+  business: "AI venture foundry, solo founder"
+  site_job: "placeholder / teaser; matters in 1–2 yrs for CEO + investor recruiting"
+  audiences: [{ who: "institutional", priority: 1 }]
+  goal: { kind: credibility, measure: null, proxy: "contacts after talks" }
+  quality_bar: "premium — reads as a $100k site"
+  existing_site: { url: "gigabytealchemy.ai", feeling: "retiring, liked the lightness" }
+  constraints: ["only XGD + 1c named", "undersell XGD for now"]
+
+functionality:                # picked from the fixed catalogue, up front
+  - { feature: contact_form, status: wanted }
+  - { feature: blog, status: not_wanted }
+  - { feature: payments, status: later }
+
+decisions:                    # seeded from the generic list, see below
+  - id: typography
+    area: style               # purpose|messaging|style|imagery|functionality|liveness|structure
+    tier: detail              # concept | detail
+    state: defaulted          # open|defaulted|proposed|not_objected|chosen|delegated|parked
+    value: "Georgia / Helvetica"
+    compared: false           # was it ever chosen from visible alternatives?
+    parked_reason: null
+    log: 7                    # → "Decision 7" in the body
+
+checks:                       # the questions Bob asks: "are we all happy with…"
+  - id: layout_happy
+    question: "Are we all happy with the layout?"
+    trigger: first_pass_complete
+    asked_at: 2026-09-22
+    answers:
+      - { by: alice, verdict: no, note: "type is amateur; grid breaks at hero" }
+      - { by: user,  verdict: not_sure }
+
+tasks:                        # Alice's plan
+  - { id: t3, title: "Variant home pages: Facsimile vs Gallery", status: done,
+      depends_on: [t1], decisions: [layout, typography] }
+```
+
+### Body: free text, retrievable by search
+
+- `## Brief`: the user's goals and purpose **in their own words**, including verbatim quotes such as "I am not really expecting any contacts". The structured `brief` fields are an index into this text, not a replacement for it.
+- `## Decision log`: append-only numbered entries giving what was decided, why, and what was rejected. This is the existing `record_decision` format, moved here.
+- `## Notes`: anything else that helps build the site.
+
+## Who writes what (your role split, built into the schema)
+
+| Section | Alice | Bob | User (via Bob's cards or chat) |
+|---|---|---|---|
+| `brief`, `functionality` | refines | **records** answers from intake | supplies |
+| `decisions` | may set `defaulted` / `proposed`, with a value | records state changes | the only route to `chosen`, `delegated`, `parked` |
+| `checks` | answers | **asks and records** | answers |
+| `tasks` | **owns**: creates, orders, adds dependencies | updates progress | — |
+| decision log | writes the "why" | appends what the user said | — |
+
+Two rules hold this together:
+- **`answers[].by` can only be `alice` or `user`.** Bob can't appear as an answerer, so "Bob never offers an opinion" is enforced by the data, not just by prompting.
+- **Only a user answer moves a decision to `chosen`.** That makes the fonts-defaulted-for-80-turns failure visible as a state, rather than something to notice.
+
+## Generic decision seed, as a draft list to argue with
+
+| Area | Concept tier | Detail tier |
+|---|---|---|
+| Purpose | site's job, audience, goal & measure, quality bar | — |
+| Functionality | — | feature set (cards) |
+| Messaging | core story | voice, key messages, page/section structure, CTA wording, copy per section |
+| Style | visual concept, layout system | palette, typography, spacing/rhythm |
+| Imagery | brand imagery / treatment | image supply, logo/wordmark, favicon, share card |
+| Liveness | animation approach ("none" is a valid answer) | per-element effects |
+
+**Standing checks** (seeded, fired by triggers):
+- Are we all happy with the layout?
+- Does it meet the quality bar?
+- Mobile reviewed?
+- Scroll experience reviewed?
+- Ready to publish? (links, contact routing works, metadata)
+
+**Triggers:**
+- phase changes: first pass complete, before fan-out to more pages, before publish
+- the user expresses vague dissatisfaction
+- a concept-tier decision is still `defaulted` when we reach the revision phase
+
+## Questions before this becomes a ticket
+
+1. **Rename `brief` to `plan`, and move the per-chat decision log into the plan body?** I'd do both: one home, one name. The `frame` standing note can stay on the chat ticket as per-session working memory.
+2. **Dependencies on tasks:** do you want an explicit `depends_on`, or just an ordered list? I'd keep `depends_on` optional, since your own order was rough anyway.
+3. **Propose-and-confirm:** DOC-9 §4.2 says the AI proposes brief edits and the user confirms. With Bob in the picture, is it enough that Bob records the user's answer, or do you want an explicit confirm step on brief fields?
+4. **One plan per site:** right, or per engagement?
+
+Once you've answered those, tell me if you want it filed as a REQ. I'd draft it as an upgrade of the existing `brief` type rather than a new feature.
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T21:00:17.461854+00:00" -->
+#### You
+Perfect, yes please create and REQ for this. 
+
+Then I want you to write a document that captures this conversations conclusions: The roles, how they are expected to interact, how they are expected to use a plan ticket, the generic descisions that need to be checked off, the way we expect to get there. It should be written as core content for Alice and Bob
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T21:04:04.136554+00:00" -->
+#### Claude
+I'll file the REQ first, then write the document. First a look at how system-KB docs are marked, so the new doc lands in the right place.
+
+REQ-356 is filed (`request-d27ae815`). Next I'll append our design turns to its transcript, then write the document.
+
+Transcript captured. Now the document.
+
+Now I'll point REQ-356's seeding section at DOC-64 by name.
+
+I've filed both. They're tickets only: no code, nothing promoted.
+
+## REQ-356: "Plan ticket: one living per-site plan for Alice and Bob (upgrade of brief type)"
+
+It's at `draft` (`request-d27ae815`), and I've added our design turns to its chat transcript.
+
+- **It reuses the existing `brief` type rather than adding a new one.** `brief` is declared but has never been written, so renaming it to `plan` costs nothing.
+- **It moves the decision log** (the `record_decision` entries) from each chat ticket's body into the plan's body, so a site built over several sessions has one log. The chat ticket keeps the transcript and the standing note.
+- **The shape is the one we agreed:**
+  - Frontmatter: `phase`, a structured `brief` (with the site's job kept separate from the audience), `functionality`, `decisions` with states, `checks`, and Alice's `tasks`.
+  - Body: the client's own words, the decision log, and notes.
+- **Bob can never be recorded as answering a check.** Only a client answer can move a decision to chosen, delegated or parked, and parked requires a reason.
+- **It settles two of DOC-62's open questions:**
+  - The plan is keyed on the site. DOC-62's analysis leaned towards keying it on the business, but its real concern was surviving a lost conversation, which a site-keyed plan does.
+  - The panel and the decision log are one object.
+- **It tightens DOC-62's write rule:** Bob may record the client settling a decision, but never settle one himself.
+- **Bob's runtime is out of scope:** the room, turn-taking and triggers firing.
+- **New plans are seeded from DOC-64 §6 and §7.** The seed list is data, so it can change without a code change.
+
+I took my own recommendations on the four open questions, since your "perfect" read as agreement: rename and move the log, `depends_on` optional, Bob recording the client's answer counts as confirmation, one plan per site. If any of those weren't what you meant, the REQ body is the place to change them.
+
+## DOC-64: "Alice and Bob: roles, the plan, the decisions, and how a build runs"
+
+It's filed as a system-KB doc (`doc-ac09a3b6`) and addressed directly to the two agents:
+
+1. **Why there are two of you:** a novice doesn't push the way a trained client does.
+2. **Roles:** what Alice does and must not do; what Bob does, with a "may say / must never say" table; the "Bob asks, Alice answers, the client decides" loop.
+3. **Principles:**
+   - show visual decisions, talk through messaging, ask for facts
+   - order by the cost of undoing
+   - the client's order wins, with parking as the mechanism
+   - not objecting is not choosing (the decision states)
+   - rough first, then revise
+   - liveness is something we offer
+4. **Checks:**
+   - verification is Alice's job every turn, and invisible to the client
+   - critique is drawn out by Bob's questions, reviewed as the visitor experiences the page and on a phone
+   - when a check must not fire
+   - how to handle stalls
+5. **The plan ticket:** who writes what, and daily habits for each role.
+6. **The generic decisions,** by area and tier, with how each gets settled.
+7. **Standing checks and their triggers.**
+8. **How we get there:** intake, plan, first pass, first review, revision rounds, pre-launch, live.
+9. **Patterns to avoid,** each taken from the real builds.
+
+**One thing to know before your own test runs:** DOC-62 measured that coaching prose in priming reached only 2 of 102 turns. So DOC-64 alone probably won't change behaviour much. It becomes effective once the plan ticket (REQ-356) carries the state, and the checks fire from triggers rather than relying on either agent to remember.
 
 <!-- xgd-chat-end -->
