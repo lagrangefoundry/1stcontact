@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-09-30T20:58:55.313035+00:00'
+updated_at: '2026-10-01T20:53:37.426448+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5835,5 +5835,11 @@ When your LF test says the JS room works, I'll scope it. The two questions from 
 
 1. Is today's site conversation Alice's private session, with the room starting fresh?
 2. Is Alice's private session off-limits to Bob?
+
+<!-- xgd-turn id="92dc7823-bccc-43ad-8c73-82da3d6cc0aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:53:37.081532+00:00" -->
+#### You
+Please take a look at the JS implementation. I just tested it, it works. There is an outstanding tweak to put in place REQ-197 but its not a blocker. Can you take a look at the work needed to adopt it for Alice and Bob please?
 
 <!-- xgd-chat-end -->
