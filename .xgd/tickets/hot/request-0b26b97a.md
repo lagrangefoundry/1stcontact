@@ -6,9 +6,9 @@ title: 'L1 pages: scoped geometry and scoped style — sections that carry and p
   their contents, styles set once'
 created_by: EPIC-20
 created_at: '2026-09-29T05:02:46.487789+00:00'
-updated_at: '2026-09-30T21:14:26.062602+00:00'
+updated_at: '2026-10-01T20:06:32.973429+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -85,3 +85,36 @@ UATs (`test_UAT_FC_REQ-350_*`), against real captures:
 - a named text style changed once changes every element referring to it; a container value is inherited and a local override wins;
 - the validator refuses a style value that isn't typed;
 - a flat `absolute` page still validates and renders unchanged.
+
+
+
+## Decisions (2026-10-01, answering the implementation session's questions)
+
+These answer the three questions in this ticket's chat transcript, and settle the open questions above. Where they conflict with anything earlier in this body, this section wins.
+
+### D1 — How the host learns text heights for `flow`: measure with the browser the Worker already has. Don't store heights on the page.
+
+- **`flow` needs heights only at conversion time.** A `flow` element renders as ordinary CSS flow (`render.ts`, `geo.place === 'flow'`), so the browser works out heights whenever the page is shown. The host needs a height once: to turn an absolute `y` into a gap below the element above it. After that, nothing reads it.
+- **So heights are not stored on the page.** A stored height goes stale the first time someone edits the text, and the AI edits copy constantly. Converting from a stale height produces exactly the overlap `flow` exists to prevent, with nothing to flag it.
+- **The Worker already has a headless browser.** `env.BROWSER` is bound in every environment (REQ-154) and already drives `screenshot` and `capture_site` (`sessionFidelity` in `router.ts`). Using it adds no dependency. The Node builder uses Playwright, the same as `1c shot`.
+- **What `flow_l1` does:** render the current draft, measure the container's children at each of the page's declared widths, compute the gaps, convert, then render again and check the result matches the first render. If it doesn't match, change nothing and say which element and which width differed.
+- **With no browser available,** `flow_l1` refuses and says so, the way `screenshot` is absent without one. No estimating heights: an estimate isn't render-identical.
+- **The fold emits `flow` directly.** It already holds the capture's measurements, so it needs no browser.
+- **Not done:** recording heights on the page, and filling heights from the saved capture by matching text. That would be a second way of answering the same question, and it goes stale as soon as the page drifts from its capture.
+- **Older pages** (Gigabyte Alchemy and anything before 2026-09-25) get structure through `group_l1` and then `flow_l1`, or by being re-folded. No separate backfill command.
+
+### D2 — Spacing, corner radius and shadow: yes, in this ticket, after type.
+
+The operator asked for scope over **all** style parameters, so stopping at type would not meet the ticket. The order the session proposed is fine: text styles fully first, then named spacing, radius and shadow through the same mechanism (named value, reference, inheritance, local override), last. If the numeric-field widening turns out much larger than expected, stop after type and report the size; don't drop it silently.
+
+### D3 — `theme.typography`: agreed, with one condition. There must be one answer.
+
+Replace the page-shell rule with a site-level default text style that every page inherits from the top. The condition is that the legacy modules don't keep reading `theme.typography` as a separate source. Generate the `--font-family-*` variables they use from the named styles, so a style changed once changes both. `theme.typography` is then retired from `site_json`, with existing values migrated into the named styles. If the legacy modules can't be pointed at the new source cheaply, say so in this ticket rather than leaving two sources.
+
+### Also settled
+
+- **How far to group (open question 1):** exact matches only, as the session proposed. Nothing merges values that differ by a pixel. The `1c` retrofit follows `1c colors --assign`.
+- **Which parameters get named styles and which only inherit (open question 2):** every parameter in D2 gets both. One mechanism is simpler than two.
+- **`group_l1`'s container** spans its parent's full width and fits the members' vertical extent, reusing the fold's own coordinate rebasing. Agreed.
+- **Browser-gated tests** may skip in the sandbox; the operator runs them. The layout evaluator against the saved Gigabyte Alchemy capture is acceptable as the in-sandbox evidence.
+- **Live sites aren't touched by this ticket.** The dev Gigabyte Alchemy is being recreated from a fresh reproduction (EPIC-20), which will exercise the new fold.
