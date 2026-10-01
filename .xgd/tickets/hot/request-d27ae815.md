@@ -6,9 +6,9 @@ title: 'Plan ticket: one living per-site plan for Alice and Bob (upgrade of brie
   type)'
 created_by: CHAT-58
 created_at: '2026-10-01T21:01:43.211151+00:00'
-updated_at: '2026-10-01T21:01:43.211151+00:00'
+updated_at: '2026-10-01T21:03:48.222046+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -106,7 +106,7 @@ Invariants enforced by the store:
 
 ### Seeding
 
-A new plan is created with the generic decision list and standing checks defined in the companion system-KB document (the Alice/Bob coordination doc filed from CHAT-58). The seed is data, not code, so it can change without a code change.
+A new plan is created with the generic decision list and standing checks defined in [[DOC-64]] §6 (decisions) and §7 (checks). The seed is data, not code, so it can change without a code change.
 
 ### Migration
 
