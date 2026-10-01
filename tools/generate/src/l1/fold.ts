@@ -77,6 +77,8 @@ import {
 // sentence, shared with the fidelity oracle in `probes.ts`. See that module's
 // header for why it cannot be a branch in either caller.
 import { flowLead, rejoinableFlows, type InlineFlow } from './inline-runs'
+// REQ-350 — the rebase arithmetic, shared with `group_l1`.
+import { frameAt, rebaseInto, responseAt, surfaceBorderInset } from './rebase'
 // REQ-331 — the shared statement of what a captured CSS treatment actually
 // paints: the shadow parse and the filter identity table, read by the fold here
 // and by the comparator in `values-diff.ts`.
@@ -281,28 +283,6 @@ function snapFactor(raw: number): number | undefined {
   const eighth = Math.round(raw * 8) / 8
   const value = Math.abs(raw - eighth) <= 0.01 ? eighth : Math.round(raw * 1e3) / 1e3
   return Math.abs(value) < 0.005 ? undefined : value
-}
-
-/**
- * REQ-351 (issue 4) — the response governing a geometry track at `at`.
- *
- * The keyframe at that width when there is one, else the keyframe whose segment
- * covers it — the same half-open `[a.at, b.at)` resolution the renderer's stacked
- * `min-width` rules produce and `evalGeometry` mirrors. Used wherever one node's
- * response has to be read against another's (a child rebased into its parent, a
- * flow track re-sampled onto a coarser ladder), so the two are always compared at
- * the same width.
- *
- * ONE definition, exported, because the fold and the L1 oracle both resolve it and
- * a second copy is a second thing to keep in agreement with the renderer.
- */
-export function responseAt(geo: L1Geometry, at: number): L1ViewportResponse | undefined {
-  const f = geo.keyframes
-  if (at <= f[0].at) return f[0].viewportResponse
-  for (let i = 0; i < f.length - 1; i++) {
-    if (at >= f[i].at && at < f[i + 1].at) return f[i].viewportResponse
-  }
-  return f[f.length - 1].viewportResponse
 }
 
 /** Build `{yFactor, heightFactor}` from a measured box delta, or `undefined` if inert. */
@@ -3234,107 +3214,6 @@ function nestClipRegions(
     for (const row of group) members.set(row.node, container)
   }
   return { built, members }
-}
-
-/**
- * A geometry track resolved at `at`, mirroring the renderer's cascade exactly:
- * hold the base below the first keyframe, interpolate (or hold, on a `snap`)
- * inside a segment, hold the final keyframe above the last. At a sampled width
- * the result IS that width's keyframe, so a rebase against it is exact wherever
- * the capture measured.
- */
-function frameAt(geo: L1Geometry, at: number): FoldRect {
-  const f = geo.keyframes
-  const rect = (k: L1Keyframe): FoldRect => ({ x: k.x, y: k.y, width: k.width, height: k.height ?? 0 })
-  if (at <= f[0].at) return rect(f[0])
-  for (let i = 0; i < f.length - 1; i++) {
-    const a = f[i]
-    const b = f[i + 1]
-    if (at >= a.at && at < b.at) {
-      if ((geo.segments?.[i] ?? 'interpolate') === 'snap') return rect(a)
-      const t = b.at === a.at ? 0 : (at - a.at) / (b.at - a.at)
-      const mix = (u: number, v: number): number => u + (v - u) * t
-      return {
-        x: mix(a.x, b.x),
-        y: mix(a.y, b.y),
-        width: mix(a.width, b.width),
-        height: mix(a.height ?? 0, b.height ?? 0),
-      }
-    }
-  }
-  return rect(f[f.length - 1])
-}
-
-/**
- * BUG-142 — the inset a painted surface puts between its border box and the
- * corner its absolutely-placed descendants are positioned from.
- *
- * The renderer emits real CSS borders (`border`, then `border-left` for a card's
- * accent rule, which wins on that side) and sets `box-sizing: border-box`, so the
- * padding box a descendant is placed from is the captured rect inset by the
- * border. A 4px accent left un-subtracted would shift every word on the card.
- */
-export function surfaceBorderInset(axes: L1SurfaceAxes | undefined): {
-  top: number
-  right: number
-  bottom: number
-  left: number
-} {
-  const b = typeof axes?.border?.widthPx === 'number' ? axes.border.widthPx : 0
-  const l = typeof axes?.borderLeft?.widthPx === 'number' ? axes.borderLeft.widthPx : b
-  return { top: b, right: b, bottom: b, left: l }
-}
-
-/**
- * BUG-142 — re-express `node`'s track inside `parent`'s content box.
- *
- * Three things travel with the origin:
- *
- *  - the KEYFRAMES, which become parent-relative (that is the whole change);
- *  - the COLUMN ANCHOR (REQ-88), whose `x = origin + px + fraction * extent` is
- *    read against the page. It survives intact inside a full-bleed panel, where
- *    parent-relative and page-relative are the same thing, and is dropped inside
- *    one that is not — the keyframes it was fitted to remain, and they are now a
- *    small offset INSIDE a panel that is itself anchored, which is the better
- *    reading of the same geometry;
- *  - the VIEWPORT-HEIGHT RESPONSE (REQ-88), which composes: a child inside a
- *    panel that travels keeps the difference, so the pair still resolves to the
- *    response the capture measured. A child the capture measured as not
- *    responding stays that way — a counter-response to its panel would be a
- *    number nothing measured.
- */
-function rebaseInto(node: L1Node, parentGeo: L1Geometry, axes: L1SurfaceAxes | undefined): L1Node {
-  const geo = foldGeometryOf(node)
-  if (!geo) return node
-  const inset = surfaceBorderInset(axes)
-  const keyframes = geo.keyframes.map((kf) => {
-    const origin = frameAt(parentGeo, kf.at)
-    const next: L1Keyframe = {
-      ...kf,
-      x: round2(kf.x - origin.x - inset.left),
-      y: round2(kf.y - origin.y - inset.top),
-    }
-    // REQ-351 (issue 4) — composed AT THIS WIDTH, against the parent's response at
-    // the same width. Node-level, the pair could be composed against a factor the
-    // parent only has somewhere else on the ladder.
-    const parentY = responseAt(parentGeo, kf.at)?.yFactor
-    if (parentY !== undefined && next.viewportResponse) {
-      const y = (next.viewportResponse.yFactor ?? 0) - parentY
-      const response: L1ViewportResponse = {}
-      if (Math.abs(y) >= 0.005) response.yFactor = y
-      if (next.viewportResponse.heightFactor !== undefined) {
-        response.heightFactor = next.viewportResponse.heightFactor
-      }
-      if (response.yFactor !== undefined || response.heightFactor !== undefined) {
-        next.viewportResponse = response
-      } else delete next.viewportResponse
-    }
-    return next
-  })
-  const next: L1Geometry = { ...geo, keyframes }
-  const fullBleed = inset.left === 0 && parentGeo.keyframes.every((k) => Math.abs(k.x) < 0.5)
-  if (next.anchor && !fullBleed) delete next.anchor
-  return { ...node, geometry: next } as L1Node
 }
 
 /** What {@link nestBackingSurfaces} decided: the rebuilt nodes, and who was taken. */

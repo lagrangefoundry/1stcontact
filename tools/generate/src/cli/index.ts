@@ -65,6 +65,7 @@ import {
   editPageList,
   editPageRm,
   editPageUpdate,
+  editL1Group,
   editPaletteAdd,
   editPaletteGet,
   editPaletteRename,
@@ -849,6 +850,9 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c config set <slug> <key> <value>
     <value> is JSON when it parses as JSON, else the literal string. An object MERGES into
     what is at <key>, so naming one setting leaves its siblings alone (REQ-130).
+  1c structure group <slug> <pageId> <path...> [--id <name>]
+    Wrap sibling elements in a new container, each rebased onto it, so moving the container
+    carries them and the page renders exactly as it did (REQ-350).
   1c palette get <slug>
     Every palette color with its usage count across the site — the document and every page,
     at any shade. The count is what the delete and rename rules below are stated in.
@@ -2719,6 +2723,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'page':
     case 'config':
     case 'palette':
+    case 'structure':
     case 'asset':
     case 'module':
     case 'behavior':
@@ -2878,6 +2883,20 @@ async function dispatchEdit(
         return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...opts, force })
       default:
         throw unknownSub('page', sub)
+    }
+  }
+
+  // REQ-350 — structuring a page: the author names the members, the host does
+  // the arithmetic. The same edit the assistant's `group_l1` makes.
+  if (command === 'structure') {
+    switch (sub) {
+      case 'group': {
+        const paths = rest.slice(3)
+        if (paths.length === 0) requireArg(undefined, 'path')
+        return editL1Group(slug, requireArg(rest[2], 'pageId'), paths, { ...opts, id: str('id') })
+      }
+      default:
+        throw unknownSub('structure', sub)
     }
   }
 

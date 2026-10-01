@@ -53,10 +53,9 @@ import {
   holdAcrossReflowWindows,
   isBackingSurfaceId,
   isSynthesizedSurfaceId,
-  responseAt,
-  surfaceBorderInset,
   type FoldableElement,
 } from './fold'
+import { responseAt, surfaceBorderInset } from './rebase'
 // REQ-211 — the same rejoin decision the fold makes, asked here so the oracle
 // and the reproduction count the same things. See `inline-runs.ts`.
 import { flowLead, flowText, rejoinableFlows, type InlineFlow } from './inline-runs'

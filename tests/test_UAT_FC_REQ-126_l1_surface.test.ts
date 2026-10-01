@@ -506,6 +506,11 @@ describe('REQ-126 — the surface documents itself', () => {
     // a URL, a path or a byte could arrive. `ManageAssets`, whose `add_asset`
     // reads a file off the operator's disk, remains ungranted to both production
     // instances, so this does not widen that hole; it makes one unnecessary.
+    //
+    // [[REQ-350]] added `group_l1`, in `AuthorPages` beside `set_l1`. It reaches
+    // nothing `set_l1` could not — a parent rewritten with some of its children
+    // wrapped — and its whole claim is that the host does the per-width rebase
+    // the caller would otherwise compute by hand.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
@@ -513,6 +518,7 @@ describe('REQ-126 — the surface documents itself', () => {
       'add_palette_color',
       'configure_component',
       'copy_page',
+      'group_l1',
       'publish',
       'remove_asset',
       'remove_component',

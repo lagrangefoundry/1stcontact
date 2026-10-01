@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 15,
+  "surface_version": 16,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -433,6 +433,36 @@
       "errors": [
         "NOT_FOUND",
         "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "group_l1",
+      "tool": "group_l1",
+      "effect": "write",
+      "summary": "Put several elements into one new group, so they move together — a section that carries its contents.",
+      "description": "Name elements that belong together — a section's background, its heading, its words, its form — and they become the children of one new group, in the order they had on the page. Nothing moves and nothing is repainted: every element is placed exactly where it was, now measured from the group rather than from the page. What changes is what you can say next. Moving or resizing the group carries everything in it, and the group can be made to stack its contents so that one growing pushes the rest down.\n\nYou decide what belongs together; the coordinates are worked out for you. The elements must all sit directly inside the same parent — their addresses differ only in the last number. The new group takes the place of the first of them, and its address comes back to you.\n\nRefused, with the page unchanged, when the elements do not share a parent, when one is already stacked in a flow (its position depends on its neighbours), or when grouping would change what paints over what — an element lying between two of yours that overlaps one of them would end up on the other side of it. The refusal names it; include it in the group, or group the parts on either side separately.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "paths": {
+          "type": "array",
+          "required": true,
+          "description": "The addresses of the elements to group, e.g. `[\"0.1\", \"0.19\", \"0.20\"]` — all directly inside the same parent."
+        },
+        "id": {
+          "type": "string",
+          "description": "A name for the group — what the section is, e.g. `approach`. Optional, but it is how the group reads on the page map."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID",
+        "CONFLICT"
       ]
     },
     {
@@ -1086,6 +1116,7 @@
       "description": "Change any element on a page: its words, its pictures, how it is laid out, how it looks — and what is there at all. Read an element before you replace it; a replacement is the whole element, not a patch. The page the elements sit on is painted here too — its background and the type it serves are the page's, not any one element's. The typefaces themselves come from the platform's own library: `use_font` serves one, and only a served face paints.",
       "operations": [
         "set_l1",
+        "group_l1",
         "set_page_style",
         "use_font"
       ]

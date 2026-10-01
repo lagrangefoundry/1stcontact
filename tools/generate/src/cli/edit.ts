@@ -17,8 +17,10 @@ import {
   validateSvg,
   SVG_MAX_BYTES,
   type L1Color,
+  type L1Document,
   type L1FontFace,
   type L1Node,
+  type L1Palette,
   type L1SegmentFieldOptions,
   L1_EMAIL_TARGET,
 } from '@1stcontact/site-schema'
@@ -60,6 +62,7 @@ import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
 import { starterDocument } from './scaffold'
+import { groupL1 } from '../l1/structure'
 
 /**
  * The structured-edit command surface (REQ-11): validated, AI-legible read and
@@ -1213,6 +1216,92 @@ export async function editL1Set(
       label: previous ? labelOf(previous) : undefined,
       before: previous ? clip(textOf(previous)) : undefined,
       after: clip(textOf(node as L1Node)),
+    },
+  )
+}
+
+// ── structure (REQ-350) ──────────────────────────────────────────────────────
+
+/** The page's own L1 document, or the refusal {@link segmentRoots} would give. */
+function pageDocument(page: Record<string, unknown>, pageId: string): L1Document {
+  const l1 = page.l1 as L1Document | undefined
+  if (!l1?.root) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no L1 document.`,
+      path: pageId,
+      hint: 'Only an L1 page carries elements to structure.',
+    })
+  }
+  return l1
+}
+
+/**
+ * Wrap sibling elements in a new container (REQ-350 geometry item 4).
+ *
+ * WHAT IS THE AUTHOR'S AND WHAT IS OURS. Which elements form a section is a
+ * judgement about meaning, so the caller names them. Rebasing every member onto
+ * the new container at every width is arithmetic, so it happens here — in
+ * {@link groupL1}, with the same rebase the fold nests captured content with.
+ * The page renders exactly as it did; what changes is that moving or resizing
+ * the container now carries its contents.
+ *
+ * Page documents only: a component slot's subtree is placed by its component,
+ * not by page coordinates.
+ */
+export async function editL1Group(
+  slug: string,
+  pageId: string,
+  rawPaths: readonly string[],
+  opts: EditOptions & { id?: string },
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  const paths = rawPaths.map((raw) => {
+    const parsed = parseL1Path(raw)
+    if (!parsed) {
+      throw new CommandError({
+        code: 'SCHEMA_INVALID',
+        message: `'${raw}' is not an element address.`,
+        path: raw,
+        hint: 'An address is dotted child indices, e.g. 0.2.1 — read it off a page map.',
+      })
+    }
+    return parsed
+  })
+  const page = structuredClone(file.page)
+  const result = groupL1(pageDocument(page, pageId), paths, {
+    id: opts.id,
+    palette: base.palette as L1Palette | undefined,
+  })
+  if (!result.ok) {
+    throw new CommandError({ code: result.code, message: result.message, path: rawPaths.join(','), hint: result.hint })
+  }
+  page.l1 = result.doc
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+  const address = formatL1Path(result.path)
+  return note(
+    slug,
+    opts,
+    {
+      data: { target: { pageId, path: address }, changed: [address], grouped: rawPaths.length },
+      human: `Grouped ${rawPaths.length} element${rawPaths.length === 1 ? '' : 's'} into a container at ${address} in page '${pageId}'.`,
+    },
+    {
+      op: 'l1.group',
+      page: pageId,
+      path: address,
+      label: opts.id ? `group '${opts.id}'` : 'group',
     },
   )
 }

@@ -51,6 +51,7 @@ import {
   editDrawingRead,
   editDocumentSet,
   editL1Get,
+  editL1Group,
   editL1Set,
   editModuleAdd,
   editModuleConfigure,
@@ -587,6 +588,20 @@ export function l1Operations(
 
     set_l1: async (p) => {
       const out = await editL1Set(slug, req(p, 'page'), req(p, 'path'), p.node, scopeOf(p, opts))
+      return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
+    },
+
+    // REQ-350 — the structure an author names and the host computes. Members are
+    // rebased onto the new container; the page renders exactly as it did.
+    group_l1: async (p) => {
+      const paths = p.paths
+      if (!Array.isArray(paths) || paths.some((x) => typeof x !== 'string')) {
+        throw new CommandError({ code: 'SCHEMA_INVALID', message: '`paths` must be a list of element addresses.' })
+      }
+      const out = await editL1Group(slug, req(p, 'page'), paths as string[], {
+        ...opts,
+        id: typeof p.id === 'string' ? p.id : undefined,
+      })
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
