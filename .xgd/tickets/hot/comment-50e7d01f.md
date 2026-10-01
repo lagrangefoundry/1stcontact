@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-01T19:57:57.780167+00:00'
+updated_at: '2026-10-01T20:05:15.262819+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3442,5 +3442,11 @@ Create a fresh business, something like "Gigabyte Alchemy (fresh)", through the 
 The dev servers are partly up (the public site and repro console are running). Steps 2 and 3 need the control app running.
 
 Shall I go ahead, using a new business? Also tell me whether to recapture the live site or reuse the existing capture. Recapturing picks up any changes to the live site; reusing keeps the source identical to what we measured before.
+
+<!-- xgd-turn id="ea27a532-10d6-477a-abad-f918eb5dc8d6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:05:15.160221+00:00" -->
+#### You
+Can you answer the questions in REQ-350 please, put the answers in its ticket
 
 <!-- xgd-chat-end -->
