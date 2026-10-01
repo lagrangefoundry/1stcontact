@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-354
 created_by: xgd
 created_at: '2026-10-01T18:50:24.624078+00:00'
-updated_at: '2026-10-01T18:54:50.343262+00:00'
+updated_at: '2026-10-01T19:11:05.284515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -68,5 +68,11 @@ I've read the ticket and the code on both sides. Before writing anything I need 
 - **Mark values:** `mark` returns the draft's change counter, so `account.from`/`account.to` stay the same integers as today. The full draft captures stay on the host, matched up by the framework's per-delegation context object.
 - **Phrasings:** I'll use exact, case-insensitive patterns, such as `page <id> has no changes`, `no element changed any field other than <f1>, <f2>`, and `only the elements at <a1>, <a2> changed`. Anything else goes to the worker. A page is named by its id, which is what the diff reports.
 - **Consultant prose:** the `delegation-method` template is prompt text, so it's edited without the free-coding steps. REQ-348 is already `legacy_done`, so there's nothing in flight to clash with.
+
+<!-- xgd-turn id="5959aec1-d9f4-479b-9e08-63da648a39fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:11:04.332980+00:00" -->
+#### You
+Reinstalled - please proceed
 
 <!-- xgd-chat-end -->
