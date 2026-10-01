@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-01T20:05:15.262819+00:00'
+updated_at: '2026-10-01T20:06:45.653504+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3448,5 +3448,39 @@ Shall I go ahead, using a new business? Also tell me whether to recapture the li
 <!-- xgd-chat role="user" ts="2026-10-01T20:05:15.160221+00:00" -->
 #### You
 Can you answer the questions in REQ-350 please, put the answers in its ticket
+
+<!-- xgd-turn id="ea27a532-10d6-477a-abad-f918eb5dc8d6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:06:44.992432+00:00" -->
+#### Claude
+Checking how `flow` renders and whether the Worker's browser binding can measure heights, so the answers rest on the code.
+
+The answers are now a **Decisions** section at the end of REQ-350's body. The ticket is still a draft, and nothing above that section was changed.
+
+**1. How the host learns text heights for `flow`: measure them with the browser the Worker already has, and don't store them on the page.**
+
+The implementing session's options rested on a wrong assumption. It thought the only way to get a browser in the Worker was to add a new dependency. In fact one is already bound in every environment (`env.BROWSER`), and it already powers `screenshot` and `capture_site`.
+
+Heights also don't need to be kept. A `flow` element renders as ordinary CSS flow, so the browser works out heights whenever the page is shown. The host needs a height only once, at the moment it converts a fixed position into "this far below the element above".
+
+A height saved on the page would go stale the first time someone edits the text, and the AI edits text all the time. Converting from a stale height produces exactly the overlap `flow` is meant to prevent, with nothing to warn you. So the new "switch to flow" operation will work like this:
+- render the page, measure it, convert it, then render it again;
+- if anything moved, undo the change and say which element and which screen width differed;
+- if no browser is available, refuse rather than guess.
+
+The fold already has the measurements from the capture, so it emits `flow` directly without a browser. I turned down the session's plan to fill in heights from the saved capture: it would be a second way of answering the same question, and it goes stale as soon as the page changes.
+
+**2. Spacing, corner radius and shadow: yes, in this ticket, after type.** You asked for scope over every style parameter, so stopping at type wouldn't meet the ticket. If making those values accept a name turns out much bigger than expected, the session should stop after type and report, not quietly drop the rest.
+
+**3. `theme.typography`: agreed, on one condition.** A site-level default text style replaces the page-wide font rule. But the older module code mustn't keep reading `theme.typography` as a second source. Its font settings get generated from the named styles, and `theme.typography` is removed from the site record, with its current values moved into the named styles.
+
+**Also settled in the ticket:**
+- Only exact matches get grouped into a named style; nothing merges values a pixel apart.
+- Every style parameter can be both named and inherited, so there's one mechanism, not two.
+- The session's design for the "group these elements" operation stands.
+- Browser-based tests can skip in its sandbox; you run them on your machine.
+- No live site is touched by this ticket.
+
+The session can now cut its branch. That ties in with your idea of recreating Gigabyte Alchemy: a fresh reproduction made after this lands would be the first real test of the new reproduction code.
 
 <!-- xgd-chat-end -->
