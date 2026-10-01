@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T21:04:06.203198+00:00'
+updated_at: '2026-10-01T23:29:09.391096+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -806,5 +806,11 @@ It's filed as a system-KB doc (`doc-ac09a3b6`) and addressed directly to the two
 9. **Patterns to avoid,** each taken from the real builds.
 
 **One thing to know before your own test runs:** DOC-62 measured that coaching prose in priming reached only 2 of 102 turns. So DOC-64 alone probably won't change behaviour much. It becomes effective once the plan ticket (REQ-356) carries the state, and the checks fire from triggers rather than relying on either agent to remember.
+
+<!-- xgd-turn id="ca7cba03-d679-45cc-b003-70e4096d6e71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T23:29:07.531473+00:00" -->
+#### You
+One question: When should the plan ticket be created? I think it is tied to the business 1-1 so it should probably be created at the same time the business is provisioned - would you agree? We may later have other plan tickets associated with the business - such as a marketing ticket - so this should clearly be the site plan.
 
 <!-- xgd-chat-end -->
