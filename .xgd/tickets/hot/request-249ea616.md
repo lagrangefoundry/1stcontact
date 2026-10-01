@@ -6,10 +6,10 @@ title: 'Delegation: settle containment checks from the host''s own record instea
   of the worker''s budget'
 created_by: EPIC-20
 created_at: '2026-09-30T20:01:58.591686+00:00'
-updated_at: '2026-10-01T19:20:01.184190+00:00'
+updated_at: '2026-10-01T19:20:13.409734+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-0923bb64
@@ -17,9 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1c8616f5
+  commits:
+  - working_sha: 04b58a2ea570070666c020e3e16d45a3db026917
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f50e083d892b8f97c557bbd1deeaf4321a5814c4
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.426
 ---
-
-
 
 ## What changes
 
