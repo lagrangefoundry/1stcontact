@@ -6,15 +6,23 @@ title: 'Plan ticket: one living per-site plan for Alice and Bob (upgrade of brie
   type)'
 created_by: CHAT-58
 created_at: '2026-10-01T21:01:43.211151+00:00'
-updated_at: '2026-10-01T23:30:38.532331+00:00'
+updated_at: '2026-10-01T23:51:48.818466+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-02942a11
+  commits:
+  - working_sha: f6b8225cd43d488f5d138127788b2b8039292a8f
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cf5b0b8d5f974c6a1acd4abb39f54ed14dbee38d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.429
 ---
 
 ## Summary
