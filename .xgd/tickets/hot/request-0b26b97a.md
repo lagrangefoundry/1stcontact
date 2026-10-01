@@ -6,9 +6,9 @@ title: 'L1 pages: scoped geometry and scoped style — sections that carry and p
   their contents, styles set once'
 created_by: EPIC-20
 created_at: '2026-09-29T05:02:46.487789+00:00'
-updated_at: '2026-10-01T20:08:07.585481+00:00'
+updated_at: '2026-10-01T20:08:15.619296+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -118,3 +118,38 @@ Replace the page-shell rule with a site-level default text style that every page
 - **`group_l1`'s container** spans its parent's full width and fits the members' vertical extent, reusing the fold's own coordinate rebasing. Agreed.
 - **Browser-gated tests** may skip in the sandbox; the operator runs them. The layout evaluator against the saved Gigabyte Alchemy capture is acceptable as the in-sandbox evidence.
 - **Live sites aren't touched by this ticket.** The dev Gigabyte Alchemy is being recreated from a fresh reproduction (EPIC-20), which will exercise the new fold.
+
+
+## Implementation plan (implementation session, 2026-10-01)
+
+Build order on one branch (`free-REQ-350`). Each step is its own commit, so a stop part-way still leaves a coherent ticket.
+
+1. **`group_l1`** (geometry 1, 4). Model tool + `1c` command. Takes sibling addresses under one parent and wraps them, in document order, in a new `container`:
+   - **Shape:** absolute; spans the parent's full width; vertical extent fitted to the members.
+   - **Rebasing:** members are rebased with the fold's own `rebaseInto`, moved to a shared module rather than copied.
+   - **Refusals:** addresses that aren't siblings, a member already placed `flow`, and a selection whose regrouping would change paint order. Paint order changes when a sibling between the members overlaps one of them.
+   - **Render-identical by construction:** every member keeps its own absolute placement, so no measurement is needed and it runs in the Worker.
+2. **The fold emits `flow`** (geometry 1–3, "Changes to reproduction").
+   - **Rule:** `promoteToFlow` flows every section within the page and every content element within a section, not only regions that collide.
+   - **Judge:** `chooseRecovery`'s existing fidelity rule still decides whether the flowed document is served.
+   - **Guard:** nesting on the GA capture becomes a guarded property.
+3. **`flow_l1`** (geometry 4, D1).
+   - Renders the draft through the session's browser and measures the container's children at every declared width.
+   - Converts them to `flow` using the same leading-offset arithmetic as `promoteToFlow`, which is shared, not duplicated.
+   - Re-renders and compares. On any mismatch it writes nothing and names the element and width.
+   - With no browser available, the tool is refused.
+4. **Named and inherited text styles** (style 6–10, D3).
+   - **Storage:** `site.textStyles` holds named, typed bags (family, size, weight, line height, letter spacing, and per-width tracks for the three axes that vary by width).
+   - **Reference:** a text or control element refers to one with `axes.textStyle`.
+   - **Inheritance:** a container can carry the same typed text axes and a `textStyle`, and its descendants inherit them.
+   - **Precedence:** an element's own value wins, then its own named style, then the nearest ancestor's value, then the nearest ancestor's style, then the site default style.
+   - **Resolution:** one pure pass, `resolveL1Styles`, runs where `resolveL1Palette` runs (assemble and renderer entry). Downstream code sees literals, so the result is pixel-identical by construction.
+   - **Tools:** get, set, add, remove and rename, each reporting where the style is used (paths), not just a count.
+   - **Retrofit:** `1c type --assign` groups exact matches only.
+   - **Page-shell rule:** the `body`/`h1–h4` font-family rule is replaced by the site default style.
+5. **Named spacing, radius and shadow** (D2), through the same mechanism: named value, reference, inheritance and local override.
+   - **D3 scope finding:** the legacy modules read the whole `theme.typography` group (step sizes, weights, line heights, tracking, sub-scales), not just families. `theme.spacing`, `theme.radius` and `theme.shadow` are also a second answer to D2.
+   - **Plan:** the named values absorb all of them. The `--font-*`, `--space-*`, `--radius-*` and `--shadow-*` variables the legacy modules use are generated from the named values, and `theme`'s token groups are migrated and retired.
+   - **If that isn't cheap,** stop and report the size here, per D2.
+
+Test evidence in the sandbox is the analytic evaluator against the saved Gigabyte Alchemy capture (Chromium is blocked there). Browser-gated UATs (round trip, `flow_l1` against a real browser) run on the operator's machine.
