@@ -6,9 +6,9 @@ title: 'L1 pages: scoped geometry and scoped style — sections that carry and p
   their contents, styles set once'
 created_by: EPIC-20
 created_at: '2026-09-29T05:02:46.487789+00:00'
-updated_at: '2026-10-01T22:00:30.283892+00:00'
+updated_at: '2026-10-01T22:00:46.565554+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -30,6 +30,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.427
+  story_points: 20
 ---
 
 ## What this is
