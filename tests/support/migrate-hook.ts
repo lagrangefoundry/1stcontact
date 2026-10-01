@@ -53,6 +53,7 @@ if [[ "\${3:-}" == "execute" ]]; then
     exit 1
   fi
   cat "\$STUB_EXECUTE_JSON"
+  [[ -n "\${STUB_EXECUTE_TRAILER:-}" ]] && echo "\$STUB_EXECUTE_TRAILER" >&2
   exit 0
 fi
 if [[ "\${3:-}" == "migrations" ]]; then
@@ -78,6 +79,11 @@ export interface MigrateHookRun {
   executeError?: string
   /** Something wrangler said on its way to answering, on stderr. */
   chatter?: string
+  /**
+   * Something said on stderr AFTER the answer — npm's update notice
+   * ([[BUG-171]]), which the hook's `2>&1` lands behind wrangler's JSON.
+   */
+  trailer?: string
   dryRun?: boolean
   app?: string
   env?: string
@@ -192,6 +198,7 @@ export function migrateHookHarness(): MigrateHookHarness {
       }
       if (options.executeError !== undefined) env.STUB_EXECUTE_ERROR = options.executeError
       if (options.chatter !== undefined) env.STUB_EXECUTE_CHATTER = options.chatter
+      if (options.trailer !== undefined) env.STUB_EXECUTE_TRAILER = options.trailer
 
       const r = spawnSync('bash', [HOOK], { env, encoding: 'utf8' })
       return {

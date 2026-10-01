@@ -6,9 +6,9 @@ title: 'Plan ticket: one living per-site plan for Alice and Bob (upgrade of brie
   type)'
 created_by: CHAT-58
 created_at: '2026-10-01T21:01:43.211151+00:00'
-updated_at: '2026-10-01T23:22:19.559405+00:00'
+updated_at: '2026-10-01T23:30:38.532331+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -38,15 +38,24 @@ Evidence from the Lagrange Foundry and 1st Contact builds (CHAT-58):
 
 ### Identity and lifetime
 
-- Exactly **one plan per site**, keyed by `site_slug`. It is living: a later redesign moves `phase` back rather than creating a new plan.
-- This **resolves [[DOC-62]] open question 1** (what the shared structure belongs to) in favour of the site. DOC-62's analysis leaned towards the business, but its load-bearing concern was surviving a lost conversation, and a site-keyed plan does. One business can run several sites with different jobs.
+- **The type is `plan`, with `kind` as a field.** This REQ delivers `kind: site`, the site plan. Later kinds (e.g. `kind: marketing`) share the shape (brief, decisions, checks, tasks, decision log) and differ only in their seed list, so by [[DOC-38]] §9's rule ("a type exists where the shape differs; everything else is a field") they are kinds, not types.
+- Exactly **one site plan per site**, keyed by `site_key`: the store-minted site key ([[DOC-45]] §6; sites carry no slug). Uniqueness is on (`kind`, `site_key`). The plan lives in the business's own ticket store, so it belongs to the business through the store and to the site through the field.
+- It is living: a later redesign moves `phase` back rather than creating a new plan.
+- This **resolves [[DOC-62]] open question 1** (what the shared structure belongs to). Today a business has exactly one site (`provisionBusiness` creates "the one site a business has"), so the site plan is 1:1 with the business. Keying on the site key keeps that true if a business ever runs several sites, and the plan survives a lost conversation, which was DOC-62's load-bearing concern.
+
+### When it is created
+
+- **At business provisioning.** `provisionBusiness` (`apps/control-app/src/identity.ts`) creates the site plan immediately after `createStarterSite`, seeded from [[DOC-64]] §6–§7, with `phase: intake`. Every business therefore starts with a plan in place before its first conversation.
+- **On first open, if missing.** Businesses provisioned before this change (and any provisioning run that failed after the site was created) have no plan. The first read of the site plan for a site creates it with the same seed. Creation is idempotent: two concurrent first opens produce one plan.
+- **Watch item, not in scope:** `brief.business` (what the business is) is a business fact rather than a site fact. When a second plan kind arrives it would be duplicated, and may need to move to a business-level home.
 - It also **resolves [[DOC-62]] open question 3**: the plan panel and the decision log are one object. The panel projects the frontmatter; the log is the body.
 - Included in priming for both agents (small, always relevant: [[DOC-38]] §9), not fetched by search. It stays in `PROJECT_CORPUS_TYPES` (renamed from `brief`).
 
 ### Frontmatter (structured, displayable)
 
 ```yaml
-site_slug: string            # required, unique per site
+kind: site                   # plan kind; later kinds e.g. marketing
+site_key: string             # required; store-minted site key; unique with kind
 phase: intake | first_pass | revision | prelaunch | live
 
 brief:                       # the client's input, structured
@@ -131,7 +140,9 @@ A new plan is created with the generic decision list and standing checks defined
 
 UATs (`test_UAT_FC_<REQ>_*`) through the ticket store and the tool surface:
 
-- Creating a plan for a site seeds the generic decisions and checks; a second plan for the same `site_slug` is refused.
+- Provisioning a business creates its site plan (`kind: site`, `phase: intake`, keyed by the starter site's key), seeded with the generic decisions and checks.
+- Opening the site plan for a pre-existing site with no plan creates one with the same seed; concurrent first opens produce exactly one plan.
+- A second plan with the same (`kind`, `site_key`) is refused.
 - A check answer with `by: bob` (or any value other than `alice` or `user`) is refused.
 - Moving a decision to `chosen` without an attached client answer is refused; `parked` without `parked_reason` is refused.
 - `record_decision` appends `### Decision N` to the plan body, not the chat ticket body, numbering correctly across sessions.

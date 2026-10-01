@@ -222,12 +222,20 @@ function cmdWrite({ check }) {
  * variables detected` does, on any machine behind a proxy. The hook merges stderr
  * in so that a failure carries its own explanation, so every `[` is tried in turn
  * and the first one that yields the shape of a D1 result set is the answer.
+ *
+ * AND ONLY THE DOCUMENT IS PARSED, NOT EVERYTHING AFTER IT ([[BUG-171]]). npm
+ * writes `npm notice New … version of npm available` to stderr AFTER wrangler's
+ * answer, and a parse that ran to the end of the output failed on that trailing
+ * text and refused a deploy whose read had succeeded. Each candidate is cut at
+ * its own matching `]`.
  */
 function appliedFrom(stdout) {
   for (let i = stdout.indexOf('['); i !== -1; i = stdout.indexOf('[', i + 1)) {
+    const end = closingBracket(stdout, i)
+    if (end === -1) continue
     let parsed
     try {
-      parsed = JSON.parse(stdout.slice(i))
+      parsed = JSON.parse(stdout.slice(i, end + 1))
     } catch {
       continue
     }
@@ -235,6 +243,29 @@ function appliedFrom(stdout) {
     return parsed[0].results.map((r) => String(r.name))
   }
   throw new Error('no D1 result set in wrangler output')
+}
+
+/**
+ * The index of the `]` that closes the `[` at `start`, or -1. Brackets inside
+ * JSON strings do not count, so a migration name holding a `]` cannot end the
+ * document early.
+ */
+function closingBracket(text, start) {
+  let depth = 0
+  let inString = false
+  for (let j = start; j < text.length; j++) {
+    const c = text[j]
+    if (inString) {
+      if (c === '\\') j++
+      else if (c === '"') inString = false
+    } else if (c === '"') inString = true
+    else if (c === '[' || c === '{') depth++
+    else if (c === ']' || c === '}') {
+      depth--
+      if (depth === 0) return c === ']' ? j : -1
+    }
+  }
+  return -1
 }
 
 /**
