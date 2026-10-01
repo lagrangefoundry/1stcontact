@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T19:46:48.411286+00:00'
+updated_at: '2026-10-01T19:49:20.852730+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -406,5 +406,15 @@ I couldn't find an XGD site build transcript in any of the places I can reach.
 **What does exist, if it's useful:** "1st Contact — product landing page" (`chat-15df6ccb`, 57 of your turns, 7–10 Sep) in the same D1. It's an earlier Alice-era build, before the Lagrange Foundry one. It would be a second site, though not the different-agent contrast you're after.
 
 Where should I look for the XGD one? If it was a Claude Code session in another checkout, or on another machine, the directory or session id would let me find it. Or I can run the 1st Contact landing page through the same extraction now.
+
+<!-- xgd-turn id="9c98a600-3a4b-4a32-9fb0-0367605b86bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:49:20.554166+00:00" -->
+#### You
+Ok perhaps its gone - nevermind. There is a transcript for 1st contact - deliberately much smaller than LF but worth checking.
+
+Can you start pulling all this together - what have we learned so far about how to prime Bob?
+
+And I want to keep asking the question - is the Alice and Bob show the correct solution? Its much more complicated than just getting Alice to do the right thing so we need to keep pressure testing it as we go through this exercise.
 
 <!-- xgd-chat-end -->
