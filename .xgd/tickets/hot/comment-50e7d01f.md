@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-09-30T21:45:19.323338+00:00'
+updated_at: '2026-10-01T19:53:33.372213+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3398,5 +3398,11 @@ Watch for four things, all readable from the records we've been using:
 - When a worker says something can't be done, did it look it up first (REQ-355)?
 
 Once you tell me where REQ-350 is, I'll check what landed against its ten requirements.
+
+<!-- xgd-turn id="b52eddfa-ca99-4699-8b4a-2c702bb9486d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T19:53:33.085909+00:00" -->
+#### You
+Why don't we do this - lets blow away the old gigabyte alchemy in the dev deploy and create it afresh, can we do that?
 
 <!-- xgd-chat-end -->
