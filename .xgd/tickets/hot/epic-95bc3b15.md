@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-09-30T20:32:55.956886+00:00'
+updated_at: '2026-10-01T20:58:26.708464+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2073,3 +2073,40 @@ Reviewed LF EPIC-2, LF EPIC-7 (+ transcripts), the showcase Flock tab, and 1stco
 **Our ticket set.** REQ-344 abandoned (correct). REQ-345: dependency (LF REQ-182) abandoned; its delivery half is EPIC-7 stage 1 and its durability half is BUG-122 — recommend abandon. REQ-346: unblocked but overlaps `webui-room`'s activity strip — recommend fold into the room adoption work. DOC-62 is behind (still describes a chair; the 2026-09-28 §4/§9 corrections never landed); DOC-61's did land.
 
 **Decisions this turn (operator).** Two threads: (1) technical — make the three-way conversation work; (2) dramaturgy — how the agents are primed to drive it. This finding is thread 1. The assistant is a first-class member: its own session, KB access, and read access to everything the consultant can see. *Alice* and *Bob* are code names only: the roles are `consultant` and `assistant`, and display names must be configuration, never literals in code or priming.
+
+
+## Finding 16 — adopting the JS room for consultant + assistant: the work, sized (2026-10-01)
+
+Operator tested the JS room live (LF REQ-196, `components/ai_ticketing/js/showcase/ai_host.mjs`) and it works. LF REQ-197 (end a member's round when its `GroupSay` posts) is draft and not a blocker. The installed shared store is byte-identical to the framework tree for `group.js`, `orchestrator.js`, `group_toolbox.js`; `core.js` exports `createGroup`, `openGroup`, `Orchestrator`, `briefText`, `GroupToolbox`, `GroupRuntime`. Prerequisites BUG-149 (durable junction writes) and LF BUG-69 (stale junction hides archive) are both `ready_to_reconcile`. **Nothing upstream blocks adoption.**
+
+**Finding 15 §"three hard parts" is superseded:** the loop runs in the request (corrected 09-30); the JS room now reopens from its ticket (`Group.revive`, REQ-196); F2 waits for LF EPIC-7 by operator decision.
+
+### What the showcase host does that we must reproduce
+
+The showcase is ~1000 lines, but the room logic in it is ~200: `memberBackend` (member backend + `GroupToolbox(GroupRuntime({manager, rooms, names, speaker}))` + `groupInstanceConfig()`), `registerRoom`, `memberPromptSeam`, `runExchange`/`startCycle`/`stopCycle`. Everything else is routes and SSE. The room semantics (turn-taking, settled/yield/budget stops, attribution) are entirely upstream and are not reimplemented.
+
+### What differs in a Worker — the actual work
+
+1. **Host state is isolate-local in the showcase.** `rooms`, `roomRefs`, `roomNames`, member bindings and the run state (`running`, `stop`) are Maps in one Node process. Here they must be **derived per request**: `openGroup(manager, store, roomUid)` reads members/goal/budgets off the room's chat ticket; `roomRefs`/`roomNames` are rebuilt from the business's room ticket + the display-name config. The **"already running" guard and the stop flag cannot be in-memory** — a stop request can land in another isolate. Use the existing durable mechanisms: the control-record stop on the member's session for stop, and a CAS'd field on the room ticket (same shape as BUG-121's `pending_turn`) as the run lease.
+2. **A member is only "live" if its junction exists in this isolate.** `Group.resolve` = `archive.sessionFor(ticket)` + `manager.logFor(sid).exists()`. After eviction neither member's junction is in memory, so both would be recorded **SKIPPED**. Before `run()`, the host must `prepareJunction` + `attach` (getSession/createSession) both members and `revive` the room. The showcase never hit this because it creates sessions in-process.
+3. **The prompt seam must be our turn, not `manager.prompt`.** The default seam is `collect(promptStream)` — it bypasses everything `streamPrompt` does: pending-turn record (BUG-121), spend/turn-clock accounting, SITE_CHANGED after tool activity, guardTurn/narrateExhaustion. Pass `Orchestrator(group, { prompt })` a seam built on the same per-turn path the consultant uses today, forwarding each member's events to the client stream.
+4. **Where the client's words go.** In room mode the composer posts `group.contributeAsOperator(text)` then runs one exchange; the 16,000-char refusal (REQ-309) applies unchanged.
+5. **The client watches the room's junction.** Room turns are posted turns on the room session; `tailSession` over the room session id is the live feed; transcript replay must render **speaker attribution** (today's panel assumes two roles).
+
+### Our side, by piece
+
+| piece | size | notes |
+|---|---|---|
+| **room ticket per site** | S | `createGroup` once, on first enable; members = consultant's chat ticket + assistant's chat ticket. Today's site conversation becomes the consultant's **private session** unchanged; the room starts empty (reversible, keeps LF history). |
+| **`assistant` role** | M | Haiku on its own backend key in `backends.json` (not `claude_builder` — different role, own ceiling). Read-only grant: knowledge, L1 read groups, library catalogue, ledger read, tickets read, room. No site writes, no delegation, no screenshot. Own priming entries in `priming.json`. |
+| **room tools on both members** | S | `GroupToolbox`+`groupInstanceConfig()` composed into the consultant's Toolbox in `build()` and into the assistant's. Speaker = the member's chat ticket. |
+| **run route + seam** | M–L | items 1–3 above. The bulk of the work and the part with Worker-specific risk. |
+| **builder UI** | M | room transcript with speakers; composer posts to the room; stop. `webui/room` exists upstream and is not vendored (`tools/generate/src/cli/webui.ts` list). Decide vendor vs. extend our chat panel. |
+| **Debug-tab switch** | S | per-business group-chat switch beside delegation (REQ-353 resolver pattern), plus EPIC-22's private-session windows. |
+| **names** | S | role keys `consultant` / `assistant`; display names one config entry, fed to the room's `names`. UAT: no "Alice"/"Bob" literal in code, priming or surface text. |
+
+**Explicitly not in this ticket:** the dramaturgy (thread 2 — the conversation-shaping document, the plan and how the assistant administers it), mid-round delivery (LF EPIC-7), REQ-197.
+
+### Open decision still needed
+
+Whether the assistant may read the consultant's private session. Recommendation: no — the room is the shared record; `agent`'s cross-session read stays ungranted.
