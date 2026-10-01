@@ -103,7 +103,7 @@ import {
   type L1Operations,
 } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
-import { accountingDelegationToolbox } from './account-core'
+import { draftAccount, reportingDelegationToolbox } from './account-core'
 import {
   configureProjectBackends,
   PROJECT_BACKEND,
@@ -1381,6 +1381,10 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
           // audit attribution takes one. This host has exactly one session per
           // site, so the answer is derived rather than tracked.
           caller: () => sessionIdFor(slug),
+          // THE HOST'S OWN RECORD OF WHAT A DELEGATION CHANGED ([[REQ-340]]),
+          // bracketed by the framework, and the containment checks that record
+          // answers so the worker is never asked them ([[REQ-354]]).
+          account: draftAccount(deps.store, slug),
           workers: {
             [BUILDER_ROLE]: new lib.WorkerConfig({
               backend: workerSettings.backend,
@@ -1661,10 +1665,10 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
         ...(runtime
           ? [
               {
-                // THE HOST'S OWN RECORD OF WHAT A DELEGATION CHANGED
-                // ([[REQ-340]]) — see {@link accountingDelegationToolbox} for
-                // why it is a subclass and not `DelegationRuntime`'s hook.
-                surface: new (accountingDelegationToolbox(lib, deps.store, slug))(runtime),
+                // `wrote` and `activity` beside the framework's result
+                // ([[BUG-167]]); the account itself is the runtime's hook
+                // ([[REQ-354]]) — see {@link reportingDelegationToolbox}.
+                surface: new (reportingDelegationToolbox(lib))(runtime),
                 granted: lib.delegationInstanceConfig(runtime.roleNames()),
               },
             ]

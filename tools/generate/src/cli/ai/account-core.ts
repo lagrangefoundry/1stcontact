@@ -715,6 +715,216 @@ export function wroteAnything(changed: DraftChanges): boolean {
   return changed.differences.length > 0 || (changed.truncated ?? 0) > 0
 }
 
+// ── the hook that takes it ───────────────────────────────────────────────────
+
+/**
+ * This host's `DelegationRuntime({ account })` ([[REQ-354]]): the framework
+ * takes the bracket and this answers from it.
+ *
+ * THE MARK IS THE CHANGE COUNTER, and the capture stays here. What `mark`
+ * returns is what the framework puts on the result as `account.from` and
+ * `account.to`, so it is the two integers a doubting caller reads
+ * `list_changes` between — never the outline, which is the site. The capture a
+ * mark stands for is kept against the framework's per-delegation `ctx`, which
+ * is one object from the opening mark to the last `settle`, so `changes` and
+ * `settle` read the same pair of captures without anything being passed
+ * through the result. Held weakly: a delegation that is over takes its
+ * captures with it.
+ *
+ * Every hook here is async, which BUG-78 (lagrange-framework) made legal: the
+ * framework awaits each one, and reads a rejection exactly as a throw — the
+ * field is lost, never the delegation.
+ */
+export function draftAccount(store: SiteStore, site: string): Untyped {
+  const marks = new WeakMap<object, DraftCapture[]>()
+  const comparisons = new WeakMap<object, DraftChanges>()
+
+  /** The difference between the first and the last capture under `ctx`, once. */
+  const comparison = (ctx: object, from: unknown, to: unknown): DraftChanges | null => {
+    const taken = marks.get(ctx) ?? []
+    const first = taken[0]
+    const last = taken[taken.length - 1]
+    if (taken.length < 2 || first.at !== from || last.at !== to) return null
+    let changed = comparisons.get(ctx)
+    if (changed === undefined) {
+      changed = draftChanges(first, last)
+      comparisons.set(ctx, changed)
+    }
+    return changed
+  }
+
+  return {
+    async mark(ctx: object): Promise<number> {
+      const capture = await captureDraft(store, site)
+      marks.set(ctx, [...(marks.get(ctx) ?? []), capture])
+      return capture.at
+    },
+    changes(ctx: object, from: unknown, to: unknown): DraftChanges | null {
+      return comparison(ctx, from, to)
+    },
+    claims(_ctx: object, check: string): boolean {
+      return containmentCheck(check) !== null
+    },
+    settle(ctx: object, check: string, from: unknown, to: unknown): Settlement | null {
+      const claim = containmentCheck(check)
+      const changed = comparison(ctx, from, to)
+      // Not having the captures is not having looked, and that is unsettled —
+      // never passed (behaviour 3).
+      if (claim === null || changed === null) return null
+      return settleContainment(claim, changed)
+    },
+  }
+}
+
+// ── the checks the host settles ──────────────────────────────────────────────
+
+/**
+ * A check this host answers from its own record, read off the check's words
+ * ([[REQ-354]] behaviour 2).
+ *
+ * THREE PHRASINGS AND NOTHING NEAR THEM. A check is free text written for a
+ * worker, and a claimed check is one the worker never sees — so a host that
+ * claimed a check it misread would answer a question nobody asked and hide the
+ * one that was. A wrong claim is worse than no claim, so anything that is not
+ * one of these, whole, is left with the worker unchanged:
+ *
+ *   - `page <P> has no changes`
+ *   - `no element changed any field other than <F1>, <F2>…`
+ *   - `only the elements at <A1>, <A2>… [on page <P>] changed`
+ *
+ * Case does not matter, nor does a trailing full stop, quoting a name in
+ * backticks, or joining the last item with "and". Every name has to be one
+ * token of the shape its vocabulary takes — a page id, a dotted field path, a
+ * dotted address — so a list that does not split cleanly is not claimed.
+ */
+export type ContainmentCheck =
+  | { kind: 'page'; page: string }
+  | { kind: 'fields'; fields: string[] }
+  | { kind: 'addresses'; addresses: string[]; page?: string }
+
+const PAGE_ID = /^[A-Za-z0-9_-]+$/
+const FIELD_PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/
+const ADDRESS = /^\d+(\.\d+)*$/
+
+const PAGE_CHECK = /^page (\S+) has no changes$/i
+const FIELDS_CHECK = /^no element changed any field other than (.+)$/i
+const ADDRESSES_CHECK = /^only the elements at (.+?)(?: on page (\S+))? changed$/i
+
+/** The check as one of the three, or `null` when it is anything else. */
+export function containmentCheck(check: string): ContainmentCheck | null {
+  const text = String(check ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\.$/, '')
+  let m = PAGE_CHECK.exec(text)
+  if (m) {
+    const page = unquote(m[1])
+    return PAGE_ID.test(page) ? { kind: 'page', page } : null
+  }
+  m = FIELDS_CHECK.exec(text)
+  if (m) {
+    const fields = names(m[1], FIELD_PATH)
+    return fields ? { kind: 'fields', fields } : null
+  }
+  m = ADDRESSES_CHECK.exec(text)
+  if (m) {
+    const addresses = names(m[1], ADDRESS)
+    const page = m[2] === undefined ? undefined : unquote(m[2])
+    if (!addresses || (page !== undefined && !PAGE_ID.test(page))) return null
+    return page === undefined ? { kind: 'addresses', addresses } : { kind: 'addresses', addresses, page }
+  }
+  return null
+}
+
+/** A comma/"and" list of names each of `shape`, or `null` if any item is not one. */
+function names(list: string, shape: RegExp): string[] | null {
+  const items = list.split(/\s*,\s*(?:and\s+)?|\s+and\s+/i).map(unquote)
+  return items.length > 0 && items.every((item) => shape.test(item)) ? items : null
+}
+
+function unquote(name: string): string {
+  return name.trim().replace(/^[`'"](.*)[`'"]$/, '$1')
+}
+
+/** What `settle` answers: the framework's `{settled, reason}`. */
+export interface Settlement {
+  settled: boolean
+  reason: string
+}
+
+/**
+ * A claimed check answered from the difference between the two marks
+ * ([[REQ-354]] behaviour 3).
+ *
+ * FAILED NAMES WHAT BROKE IT — the first difference outside what the check
+ * allowed, by page, element and field — because "failed" alone sends the
+ * caller to re-derive the thing the host already found.
+ *
+ * A TRUNCATED LIST PROVES NOTHING CLEAN. A difference the list did not carry
+ * might be the one that breaks containment, so a check whose listed
+ * differences are all inside it is unsettled (`null`) rather than passed. One
+ * that already broke it is failed either way.
+ *
+ * WHAT EACH ONE COUNTS:
+ *
+ *   - a page: every difference on that page, its own fields and its elements;
+ *   - fields: every difference inside an element tree. One with an address is
+ *     inside containment when its field is a named field or nested under one;
+ *     an element added or removed whole (field `''`) or one with no address to
+ *     read is outside it. A page's own fields, `site.json` and assets are not
+ *     elements and are not counted.
+ *   - addresses: every difference at all, since "only these changed" says
+ *     nothing else did. Inside containment is an element on the page's own tree
+ *     at a named address or beneath one, on the named page when one is given.
+ *     An element inside a component instance is outside it, because an address
+ *     there is scoped to the instance and the named ones are not.
+ */
+export function settleContainment(check: ContainmentCheck, changed: DraftChanges): Settlement | null {
+  const outside = (d: DraftDifference): boolean => {
+    switch (check.kind) {
+      case 'page':
+        return d.page === check.page
+      case 'fields':
+        if (!inElementTree(d)) return false
+        return (
+          d.address === undefined ||
+          d.field === '' ||
+          !check.fields.some((f) => d.field === f || d.field.startsWith(`${f}.`))
+        )
+      case 'addresses':
+        return !(
+          d.address !== undefined &&
+          d.module === undefined &&
+          (check.page === undefined || d.page === check.page) &&
+          check.addresses.some((a) => d.address === a || d.address!.startsWith(`${a}.`))
+        )
+    }
+  }
+  const breach = changed.differences.find(outside)
+  if (breach !== undefined) return { settled: false, reason: `the host's record shows ${describe(breach)}` }
+  if ((changed.truncated ?? 0) > 0) return null
+  return { settled: true, reason: `the host's record shows no change outside it` }
+}
+
+/** Whether a difference is inside an element tree rather than a page's own definition. */
+function inElementTree(d: DraftDifference): boolean {
+  if (d.address !== undefined || d.slot !== undefined) return true
+  if (d.module !== undefined) return d.field === ''
+  return d.page !== undefined && (d.field === 'l1' || d.field.startsWith('l1.'))
+}
+
+/** One difference as a phrase naming where it is and what moved. */
+function describe(d: DraftDifference): string {
+  const what = d.field === '' ? (d.before === undefined ? 'added' : d.after === undefined ? 'removed' : 'replaced') : null
+  const where: string[] = []
+  if (d.asset !== undefined) where.push(`asset ${d.asset}`)
+  if (d.page !== undefined) where.push(`page ${d.page}`)
+  if (d.module !== undefined) where.push(`component ${d.module}${d.slot !== undefined ? ` slot ${d.slot}` : ''}`)
+  if (d.address !== undefined) where.push(`element ${d.address}`)
+  if (where.length === 0) where.push('site.json')
+  return what === null ? `field ${d.field} changed on ${where.join(', ')}` : `${where.join(', ')} ${what}`
+}
+
 // ── the surface that carries it ──────────────────────────────────────────────
 
 /**
@@ -727,7 +937,7 @@ export function wroteAnything(changed: DraftChanges): boolean {
  */
 const HOST_RESULT_FIELDS = {
   wrote:
-    "Present whenever 'account' is. True when the host's record shows this delegation " +
+    "Present whenever 'account' carries 'changed'. True when the host's record shows this delegation " +
     "wrote anything to the site, false when it wrote nothing at all. It is the host's " +
     "fact, not the worker's claim, and it is the first thing to read on a 'silent' " +
     'result: a silent worker that wrote nothing and one that wrote a great deal return ' +
@@ -754,71 +964,36 @@ function withHostResultFields(declaration: Untyped): Untyped {
 }
 
 /**
- * `DelegationToolbox`, with the host's record attached to every result
- * ([[REQ-340]] behaviour 4), and what the worker did attached to every result
- * the worker did not finish with a report ([[BUG-167]]).
+ * `DelegationToolbox`, with `wrote` and `activity` added to its result
+ * ([[BUG-167]]).
  *
- * WHY IT SUBCLASSES RATHER THAN USING THE FRAMEWORK'S HOOK. BUG-71 landed
- * `DelegationRuntime({ account: { mark, changes } })` for exactly this, and its
- * bracket is the better shape: taken by the framework, so a host cannot supply
- * a record without also supplying the two points a doubting caller checks it
- * against. But both functions are called SYNCHRONOUSLY — `mark(ctx)` and
- * `changes(ctx, from, to)` are used as values, never awaited — and this host's
- * record comes from a `SiteStore`, whose every verb is async because D1 and R2
- * are. A hook that returned a promise would put a promise on the result, which
- * serialises to `{}`: worse for the caller than no field at all.
+ * THE ACCOUNT IS NO LONGER TAKEN HERE ([[REQ-354]]). The bracket, the record
+ * and the host-settled checks are {@link draftAccount}, on the framework's own
+ * `account` hook — which BUG-78 made awaitable — so the framework takes both
+ * marks and settles against the same pair. This subclass remains only for the
+ * two fields no hook can add: `wrote`, read off the framework's own
+ * `account.changed` so it can never disagree with it, and `activity`, read
+ * from the worker's session log.
  *
- * So the bracket is taken here instead, around the public operation, where an
- * await is available. Subclassing IS the framework's extension mechanism —
- * `ToolboxSurface` says to subclass it and define one method per declared
- * operation, and `invoke` resolves the method per call — so this is composition
- * rather than a reach past the API. `account: {from, to, changed}` and its prose
- * are the framework's; `wrote` and `activity` are this host's, and are added to
- * the declaration's result shape so the caller is told about them in the same
- * place it is told about the rest.
+ * Subclassing IS the framework's extension mechanism — `ToolboxSurface` says to
+ * subclass it and define one method per declared operation — and both fields
+ * are added to the declaration's result shape so the caller reads about them
+ * where it reads about the rest.
  *
- * THE UPSTREAM FIX IS ONE WORD IN TWO PLACES — `await this._mark(ctx)` and
- * `await hook.changes(...)`, which a synchronous hook passes through unchanged.
- * When it lands, the bracket becomes a `runtime.account` pair; `wrote` and
- * `activity` stay here unless upstream grows them too.
- *
- * NOTHING HERE EVER FAILS THE DELEGATION, on upstream's own rule: a capture, a
- * comparison or a log read that throws costs its field and nothing else. A
- * result the caller cannot use because the host's bookkeeping went wrong is a
- * worse trade than a result with one field missing.
- *
- * THE WINDOW IS SLIGHTLY WIDER THAN THE FRAMEWORK'S — it opens before the
- * worker's session is opened rather than just after — and encloses exactly the
- * same work, because opening a session writes nothing to the draft.
+ * NOTHING HERE EVER FAILS THE DELEGATION: a log read that throws costs its
+ * field and nothing else.
  */
-export function accountingDelegationToolbox(
-  lib: Untyped,
-  store: SiteStore,
-  site: string,
-): Untyped {
+export function reportingDelegationToolbox(lib: Untyped): Untyped {
   const declaration = withHostResultFields(lib.DelegationToolbox.DECLARATION)
-  return class AccountingDelegationToolbox extends lib.DelegationToolbox {
+  return class ReportingDelegationToolbox extends lib.DelegationToolbox {
     constructor(runtime: Untyped, options: Untyped = {}) {
       super(runtime, { ...options, decl: options.decl ?? declaration })
     }
 
     async delegate(input: Untyped): Promise<Untyped> {
-      let from: DraftCapture | null = null
-      try {
-        from = await captureDraft(store, site)
-      } catch {
-        from = null
-      }
       let result = await super.delegate(input)
-      if (from !== null) {
-        try {
-          const to = await captureDraft(store, site)
-          const changed = draftChanges(from, to)
-          result = { ...result, wrote: wroteAnything(changed), account: { from: from.at, to: to.at, changed } }
-        } catch {
-          // See above: the record is worth having and never worth losing a result over.
-        }
-      }
+      const changed = result.account?.changed as DraftChanges | undefined
+      if (changed !== undefined) result = { ...result, wrote: wroteAnything(changed) }
       if (result.outcome === lib.DELEGATION_REPORTED) return result
       try {
         const [records] = this.runtime.manager.logFor(result.session).readFrom(0)
