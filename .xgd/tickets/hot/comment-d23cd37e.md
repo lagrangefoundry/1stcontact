@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T19:50:45.962024+00:00'
+updated_at: '2026-10-01T20:16:26.400161+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -526,5 +526,21 @@ A novice needs simpler, not more complex.
 **My recommendation:** all three need the same foundation, the brief, the ledger and the triggers. Build that first and treat the persona as a presentation decision for later. Then run your next real build on (a) and see what's still missing. Whatever gaps remain are the honest case for (b) or (c). If nothing important remains, we've saved ourselves a three-way chat.
 
 **Question for you:** does that sequencing undercut anything you saw in EPIC-19 that made the second voice feel necessary? For example, something about how *you* experienced Alice that a ledger and injected prompts wouldn't fix.
+
+<!-- xgd-turn id="7838f37e-2876-4a91-8199-a3ea69569aac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:16:25.869906+00:00" -->
+#### You
+You had to correct Alice four times in ten turns <-- I remember - there was a bug in the chat, Alice was not getting delivered any history.
+
+At this point we have the basic infrastructure built so lets not worry about the cost in this conversation. This is PURELY about what is the best UX.
+
+The problems I was trying to solve with Bob:
+ - I felt Alice was too passive on its own let me expand
+ - There were no checks that things were landing - no checks for even basics like unstyled text - it felt like it was up to me to decide where things were landing
+ - Alice has great opinions but needed prompting to deliver them
+ - Alice was insufficiently critical of the web page (this is like the one above but slightly different). It knew there was a layout problem but in needed to be asked.
+
+A trained user could get a LOT out of using Alice, but I want to accommodate novice users, so who is going top push Alice to look critically at the site? Ensure that decisions are properly made etc?
 
 <!-- xgd-chat-end -->
