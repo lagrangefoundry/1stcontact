@@ -5,9 +5,9 @@ type: comment
 title: Comment on bug BUG-171
 created_by: xgd
 created_at: '2026-10-01T23:18:21.752482+00:00'
-updated_at: '2026-10-01T23:18:21.752482+00:00'
+updated_at: '2026-10-01T23:22:48.272288+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   subject_uid: bug-c6fa629c
@@ -117,5 +117,31 @@ fields:
 ```
 
 Please investigate
+
+<!-- xgd-turn id="537a1d2f-6d40-4487-95b9-48eea3362456-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T23:22:46.595420+00:00" -->
+#### Claude
+Root cause is in `bin/migration-manifest`'s JSON parser. Checking it against the exact output you got:
+
+I reproduced it. Recording the diagnosis on the ticket:
+
+I found the cause and reproduced it offline. Your dev database is fine: the migration check is choking on npm's "new version available" notice.
+
+**What's happening:** the migrate hook (`bin/deploy.d/migrate/10-d1-site-store`) runs `npx wrangler d1 execute … --json 2>&1`, which mixes wrangler's error output into the result. npm prints its update notice on that error output *after* wrangler's JSON. `appliedFrom()` in `bin/migration-manifest` reads from each `[` to the very end of the output. So the trailing `npm notice` lines make every parse fail and it reports "no D1 result set". It already skips noise *before* the JSON (the proxy `▲ [WARNING]` line) but not noise after it.
+
+Reproduced: feeding that same JSON plus the two `npm notice` lines into `node bin/migration-manifest verify --env dev --status 0` exits 1. Without them it exits 0 and reports a match against `manifest.json`.
+
+**To unblock now (no code change):** turn off the notice and rerun `bin/dev up`:
+```
+npm config set update-notifier false
+```
+Upgrading npm (`npm install -g npm@11.21.0`) also works, until the next version comes out.
+
+**Proposed fix (now in BUG-171's ticket body):** make `appliedFrom()` take only the bracket-balanced span starting at each `[`, so noise before or after the JSON is ignored. An unreadable result still fails the deploy. For tests, I'd extend the existing hook test harness so it can add output *after* the JSON, and add `test_UAT_FC_BUG-171_*` cases running the real hook:
+- a trailing npm notice still passes and the migrations get applied;
+- a trailing notice plus an edited, already-applied migration is still refused.
+
+Do you want me to go ahead and implement it on a `free-BUG-171` branch?
 
 <!-- xgd-chat-end -->
