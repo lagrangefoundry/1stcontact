@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-356
 created_by: xgd
 created_at: '2026-10-01T21:02:19.782839+00:00'
-updated_at: '2026-10-01T21:02:20.179657+00:00'
+updated_at: '2026-10-01T23:11:26.238558+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -13,6 +13,16 @@ fields:
   subject_uid: request-d27ae815
   kind: chat_transcript
 ---
+
+<!-- xgd-session
+{
+  "id": "7eab8b53-d308-4c11-80da-cb3d0e1e03a4",
+  "role": "chat",
+  "backend": "claude_code",
+  "filter_tool_use": false,
+  "backend_ref": ""
+}
+-->
 
 <!-- xgd-cli-session ts="2026-10-01T21:02:10Z" model="claude-opus-5-5" continued_from="dashboard" -->
 *Captured by CLI Claude — paraphrased reconstruction from session memory, not raw capture.*
@@ -32,5 +42,15 @@ Perfect, yes please create and REQ for this. Then I want you to write a document
 <!-- xgd-chat role="assistant" ts="2026-10-01T21:02:10Z" -->
 #### Claude
 Filed REQ-356 as an upgrade of `brief` → `plan` with the recommended answers taken: rename and move the decision log into the plan body; depends_on optional; Bob recording the client's stated answer is the confirmation; one plan per site. Notes that it resolves DOC-62 open questions 1 (structure keyed on the site — survives a lost conversation) and 3 (panel and log are one object), and refines DOC-62's write-authority rule: Bob may record the client settling a decision, never settle one himself. Bob's runtime (room, turn-taking, triggers) is out of scope.
+
+<!-- xgd-turn id="da47ec6f-d91f-4490-a2d7-015c4eb60ee5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T23:11:24.641466+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
