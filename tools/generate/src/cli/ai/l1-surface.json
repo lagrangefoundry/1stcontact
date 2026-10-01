@@ -461,8 +461,33 @@
       },
       "errors": [
         "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "flow_l1",
+      "tool": "flow_l1",
+      "effect": "write",
+      "summary": "Stack a group's contents so each sits below the one before it — make one taller and the rest move down.",
+      "description": "Everything in the group keeps exactly the place it has now, but that place is re-expressed as a gap below the element before it rather than a fixed position on the page. Nothing moves today. What changes is what happens next: rewrite a heading so it takes another line and everything after it moves down to make room, instead of being painted over.\n\nUse it on a section's contents first, then on the page to stack the sections themselves. Backgrounds and painted shapes that hold nothing stay where they are, behind the content.\n\nThe page is rendered and measured in a browser to work out the gaps, then rendered again to check nothing moved. If anything would have moved, nothing is changed and you are told which element and at which width — stack a smaller group, or group what belongs together first. Where this builder has no browser it is refused, and you should say so rather than working out positions by hand.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "path": {
+          "type": "l1_address",
+          "required": true,
+          "description": "The group whose contents to stack — a section, a group you made with `group_l1`, or `0` for the page itself."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
         "SCHEMA_INVALID",
-        "CONFLICT"
+        "ENVIRONMENT"
       ]
     },
     {
@@ -1117,6 +1142,7 @@
       "operations": [
         "set_l1",
         "group_l1",
+        "flow_l1",
         "set_page_style",
         "use_font"
       ]

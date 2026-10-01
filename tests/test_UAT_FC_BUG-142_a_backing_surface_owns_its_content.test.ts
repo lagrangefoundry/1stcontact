@@ -464,7 +464,11 @@ describe('BUG-142 — a backing surface owns the content it backs', () => {
       ['base', foldToL1(ms)],
       ['served', serve(ms)],
     ] as const) {
-      const report = sampleFidelityProbe(doc, ms, { tolerancePx: 2 })
+      // REQ-350 — measured against the capture's own text heights, the ruler the
+      // gate uses (BUG-113). A served page is FLOWED, so where each run lands
+      // depends on the real height of the run above it; an estimated height is
+      // the evaluator arguing with itself, a pixel per run.
+      const report = sampleFidelityProbe(doc, ms, { tolerancePx: 2, measured: measuredTextHeights(ms) })
       expect(report.pass, `${label} sampleFidelity`).toBe(true)
       expect(report.unmatched, `${label} unmatched`).toEqual([])
       expect(report.maxDelta, `${label} max residual`).toBeLessThanOrEqual(1)
@@ -509,26 +513,26 @@ describe('BUG-142 — a backing surface owns the content it backs', () => {
     // thing, which is the whole of the fix on this axis.
     const doc = serve(page())
     const band = bandWithFill(doc, BAND_FILL)
-    // REQ-351 (issue 4) — at 1280, the width this fixture's height probe measured.
-    expect(
-      band.geometry?.keyframes.find((k) => k.at === 1280)?.viewportResponse?.yFactor,
-      'the band answers the viewport height',
-    ).toBe(1)
+    const hero = bandWithFill(doc, HERO_FILL)
+    // REQ-350 — the served page is flowed, so the band answers the viewport height
+    // by being PUSHED by the hero above it, whose height is the viewport term. The
+    // band follows the hero and its content follows the band: one rule, one panel.
+    expect(band.geometry?.place, 'the band is pushed by what precedes it').toBe('flow')
 
     const { html, css } = renderL1Document(doc)
     /** The generated class the renderer put on the element carrying `id`. */
     const classOf = (id: string): string =>
       html.match(new RegExp(`class="([^"]+)" id="${id}"`))![1].split(' ')[0]
 
-    // The band's own rule is where the viewport-height term lives…
-    const bandClass = classOf(band.id!)
+    // The hero's own rule is where the viewport-height term lives…
+    const heroClass = classOf(hero.id!)
     expect(
-      css.split('}').filter((r) => r.includes(`.${bandClass} `)).join(' '),
-      'the band carries the viewport-height rule',
+      css.split('}').filter((r) => r.includes(`.${heroClass} `)).join(' '),
+      'the hero carries the viewport-height rule',
     ).toMatch(/100vh/)
 
-    // …and the runs it backs are emitted INSIDE its element, so the term reaches
-    // them. Before the fix they were siblings, and it could not.
+    // …and the runs the band backs are emitted INSIDE its element, so wherever the
+    // band is pushed they go with it. Before BUG-142 they were siblings, and could not.
     const open = html.indexOf(`id="${band.id}"`)
     const held = html.slice(open, html.indexOf('id="section-band-2"'))
     for (const text of ['What we do', 'A paragraph on the band', 'Panel title']) {

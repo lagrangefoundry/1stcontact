@@ -51,6 +51,7 @@ import {
   editDrawingRead,
   editDocumentSet,
   editL1Get,
+  editL1Flow,
   editL1Group,
   editL1Set,
   editModuleAdd,
@@ -87,6 +88,7 @@ import {
   relateAnchors,
   solveTranslation,
   type DrawingMeasurer,
+  type PageMeasurer,
 } from './measure-core'
 import { AnchorError } from '@1stcontact/site-schema'
 
@@ -420,6 +422,13 @@ export function l1Operations(
    * choice `1c fonts check` makes about an unpopulated mirror.
    */
   fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
+  /**
+   * How a page of the draft is rendered and its runs measured ([[REQ-350]]), or
+   * `null` where this deployment has no browser. The same browser the drawing
+   * `measurer` above takes, and absent on the same terms: `flow_l1` is still
+   * declared and granted, and refuses with a sentence.
+   */
+  pageMeasurer: PageMeasurer | null = null,
 ): L1Operations {
   /** Measure one of the site's own drawings, or say why nothing could be. */
   const measure = async (name: string) => {
@@ -602,6 +611,13 @@ export function l1Operations(
         ...opts,
         id: typeof p.id === 'string' ? p.id : undefined,
       })
+      return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
+    },
+
+    // REQ-350 (D1) — measured by a browser, converted, then measured again; a
+    // conversion that would move anything is put back and refused.
+    flow_l1: async (p) => {
+      const out = await editL1Flow(slug, req(p, 'page'), req(p, 'path'), pageMeasurer, opts)
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
@@ -987,10 +1003,11 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           assetUrl: ((handle: string) => string) | null = null,
           addresses: (() => Promise<readonly unknown[]>) | null = null,
           fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
+          pageMeasurer: PageMeasurer | null = null,
         ) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(
-            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts),
+            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts, pageMeasurer),
           )) {
             ;(this as unknown as Params)[op] = run
           }
@@ -1126,6 +1143,7 @@ export async function l1SurfaceSet(
     measurer = null,
     assetUrl = null,
     addresses = null,
+    pageMeasurer = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -1171,6 +1189,8 @@ export async function l1SurfaceSet(
      * publish gate is wired here rather than left to whichever route publishes.
      */
     addresses?: (() => Promise<readonly unknown[]>) | null
+    /** [[REQ-350]] — the page measurer `flow_l1` takes; see {@link l1Operations}. */
+    pageMeasurer?: PageMeasurer | null
     /**
      * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
      * with it — a LIST since REQ-157, because there are now two of them.
@@ -1207,7 +1227,7 @@ export async function l1SurfaceSet(
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
   const surfaces: Untyped[] = [
-    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses),
+    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses, PLATFORM_FONT_INDEX, pageMeasurer),
   ]
   let granted = instance
   for (const extra of extraSurfaces) {

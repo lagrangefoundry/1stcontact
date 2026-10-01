@@ -510,7 +510,9 @@ describe('REQ-126 — the surface documents itself', () => {
     // [[REQ-350]] added `group_l1`, in `AuthorPages` beside `set_l1`. It reaches
     // nothing `set_l1` could not — a parent rewritten with some of its children
     // wrapped — and its whole claim is that the host does the per-width rebase
-    // the caller would otherwise compute by hand.
+    // the caller would otherwise compute by hand. `flow_l1` beside it is the
+    // same trade for the other half of structure — the leading offsets — and it
+    // measures before it writes and puts the page back if anything moved.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
@@ -518,6 +520,7 @@ describe('REQ-126 — the surface documents itself', () => {
       'add_palette_color',
       'configure_component',
       'copy_page',
+      'flow_l1',
       'group_l1',
       'publish',
       'remove_asset',

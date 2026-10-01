@@ -65,6 +65,7 @@ import {
   editPageList,
   editPageRm,
   editPageUpdate,
+  editL1Flow,
   editL1Group,
   editPaletteAdd,
   editPaletteGet,
@@ -77,7 +78,8 @@ import {
   type EditOptions,
   type EditOutput,
 } from './edit'
-import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver } from './capture'
+import { cmdCapturePage, cmdCaptureList, combineAudits, runCaptureAudit, createPlaywrightDriver, engineAvailable } from './capture'
+import { browserPageMeasurer } from './ai/measure-core'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdFontsCatalogue, formatCatalogueReport } from './font-catalogue'
 import {
@@ -853,6 +855,10 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c structure group <slug> <pageId> <path...> [--id <name>]
     Wrap sibling elements in a new container, each rebased onto it, so moving the container
     carries them and the page renders exactly as it did (REQ-350).
+  1c structure flow <slug> <pageId> <path>
+    Stack a container's contents in flow: each keeps its place as a gap below the one before
+    it, so making one taller pushes the rest down. Measured in a real browser and checked
+    against a second render; refused without Chromium, and undone if anything moved.
   1c palette get <slug>
     Every palette color with its usage count across the site — the document and every page,
     at any shade. The count is what the delete and rename rules below are stated in.
@@ -2894,6 +2900,20 @@ async function dispatchEdit(
         const paths = rest.slice(3)
         if (paths.length === 0) requireArg(undefined, 'path')
         return editL1Group(slug, requireArg(rest[2], 'pageId'), paths, { ...opts, id: str('id') })
+      }
+      // D1 — measured in a real browser over this workspace's own builder, the
+      // origin `screenshot` uses on Node. No Chromium, no measurement: refused.
+      case 'flow': {
+        const pageId = requireArg(rest[2], 'pageId')
+        const addr = requireArg(rest[3], 'path')
+        if (!(await engineAvailable('chromium'))) return editL1Flow(slug, pageId, addr, null, opts)
+        const builder = await startBuilder({ ...global, port: 0 })
+        try {
+          const measure = browserPageMeasurer({ slug, origin: builder.url, driverFactory: createPlaywrightDriver })
+          return await editL1Flow(slug, pageId, addr, measure, opts)
+        } finally {
+          await builder.close()
+        }
       }
       default:
         throw unknownSub('structure', sub)

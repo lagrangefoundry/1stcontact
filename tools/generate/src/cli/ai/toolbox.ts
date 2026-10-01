@@ -33,6 +33,7 @@
  * own adapters.
  */
 
+import type { PageMeasurer } from './measure-core'
 import { appendFileSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import type { GlobalOptions } from '../commands'
@@ -168,6 +169,7 @@ export async function createL1Toolbox(
     knowledge = null,
     lib = null,
     store = null,
+    pageMeasurer = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -177,6 +179,8 @@ export async function createL1Toolbox(
     knowledge?: Untyped | null
     lib?: AiLibrary | null
     store?: Untyped | null
+    /** [[REQ-350]] — how a page of the draft is measured, for `flow_l1`; `null` refuses it. */
+    pageMeasurer?: PageMeasurer | null
   } = {},
 ): Promise<Untyped> {
   const resolved = lib ?? (await aiCore())
@@ -207,5 +211,6 @@ export async function createL1Toolbox(
     store: siteStore,
     extraOps: nodeOperations(slug, editOpts),
     extraSurfaces,
+    pageMeasurer,
   })
 }

@@ -279,6 +279,7 @@ describe('the assistant control surface — declared once, granted narrowly, che
       'add_palette_color',
       'configure_component',
       'copy_page',
+      'flow_l1',
       'group_l1',
       'publish',
       'remove_asset',

@@ -137,7 +137,9 @@ describe('REQ-88 — L1 reproduction pipeline', () => {
     const report = await cmdL1Gate(fsReferenceBundle(ref))
 
     expect(report.pass).toBe(true)
-    expect(report.promoted).toEqual([]) // nothing to overrun → no recovery
+    // REQ-350 — nothing to overrun, and the page still flows whole: content that
+    // follows other content is pushed by it wherever that reproduces the capture.
+    expect(report.promoted).toEqual(['0'])
     expect(report.sampleFidelity.pass).toBe(true)
     expect(report.sampleFidelity.residuals).toEqual([])
     expect(report.sampleFidelity.unmatched).toEqual([])

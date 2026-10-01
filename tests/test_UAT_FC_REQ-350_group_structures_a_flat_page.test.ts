@@ -185,7 +185,8 @@ describe('REQ-350 — group_l1 structures a flat page without re-capturing it', 
     // above `section-band-1` — which it overlaps, and which paints over it today
     // only because it comes later. The refusal names the element in the way.
     const paintOrder = await ask(box, 'group_l1', { page: 'home', paths: ['0.0', '0.19'] })
-    expect(paintOrder).toContain('CONFLICT')
+    expect(paintOrder).toContain('SCHEMA_INVALID')
+    expect(paintOrder).toMatch(/would paint 0\.1 over 0\.19/)
 
     // An address that is not there.
     const missing = await ask(box, 'group_l1', { page: 'home', paths: ['0.1', '0.99'] })

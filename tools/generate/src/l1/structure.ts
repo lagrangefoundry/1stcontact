@@ -24,13 +24,21 @@ import {
   type L1Node,
   type L1Palette,
 } from '@1stcontact/site-schema'
-import { evaluateLayout, offSampleWidths, type EvalBox } from './probes'
+import {
+  evaluateLayout,
+  measuredTextHeights,
+  offSampleWidths,
+  oracleBoxes,
+  promoteToFlow,
+  type EvalBox,
+  type OracleSource,
+} from './probes'
 import { frameAt, rebaseInto, surfaceBorderInset } from './rebase'
 
 /** Why a structure change was refused, in the terms the edit surface reports. */
 export interface StructureRefusal {
   ok: false
-  code: 'NOT_FOUND' | 'SCHEMA_INVALID' | 'CONFLICT'
+  code: 'NOT_FOUND' | 'SCHEMA_INVALID'
   message: string
   hint?: string
 }
@@ -194,7 +202,7 @@ export function groupL1(
     }
     if (geo.place === 'flow') {
       return refuse(
-        'CONFLICT',
+        'SCHEMA_INVALID',
         `The element at ${address} is placed in flow, so where it sits depends on its neighbours.`,
         'Group elements that are placed by their own coordinates; flow is applied to a group afterwards.',
       )
@@ -218,7 +226,7 @@ export function groupL1(
           const mBoxes = paintedBoxes(boxes, formatL1Path([...parentPath, m]))
           if (sBoxes.some((a) => mBoxes.some((b) => overlaps(a, b)))) {
             return refuse(
-              'CONFLICT',
+              'SCHEMA_INVALID',
               `Grouping would paint ${formatL1Path([...parentPath, s])} over ${formatL1Path([...parentPath, m])} at ${w}px, where today it is underneath.`,
               `Include ${formatL1Path([...parentPath, s])} in the group, or group the elements on either side of it separately.`,
             )
@@ -258,4 +266,100 @@ export function groupL1(
     return refuse('SCHEMA_INVALID', `The grouped page would not validate: ${checked.errors[0]?.message ?? 'unknown error'}.`)
   }
   return { ok: true, doc: checked.value, path: [...parentPath, first] }
+}
+
+export interface FlowResult {
+  ok: true
+  doc: L1Document
+}
+
+/**
+ * Switch one container's contents to `flow` (REQ-350 geometry item 4, decision
+ * D1): each child keeps its captured place, now expressed as a gap below the
+ * child before it, so making any of them taller pushes the rest down.
+ *
+ * THE ARITHMETIC IS THE RECOVERY'S. {@link promoteToFlow} already turns pinned
+ * siblings into leading offsets — bands, rows that stack at narrow widths,
+ * backing fills left behind as backgrounds — and here it is pointed at one node
+ * by address rather than at the regions a collision probe found. The one input
+ * it cannot compute is each run's height, so it is given the heights a browser
+ * measured on the page as it stands (`measured`).
+ *
+ * Refused when the address is not a container or nothing in it can join a flow.
+ */
+export function flowL1(
+  doc: L1Document,
+  path: readonly number[],
+  measured: OracleSource,
+  options: { palette?: L1Palette } = {},
+): FlowResult | StructureRefusal {
+  const node = nodeAt(doc, path)
+  const address = formatL1Path(path)
+  if (!node) return refuse('NOT_FOUND', `Address '${address}' resolves to no element.`)
+  const children = childrenOf(node)
+  if (!children || children.length === 0) {
+    return refuse('SCHEMA_INVALID', `The element at ${address} holds nothing to stack.`, 'Name a group, a section or the page (0).')
+  }
+  const pinned = children.filter((c) => {
+    const geo = geometryOf(c)
+    return geo !== undefined && geo.place !== 'flow'
+  })
+  if (pinned.length === 0) {
+    return refuse('SCHEMA_INVALID', `Everything in ${address} is already stacked in flow.`)
+  }
+  const { doc: next } = promoteToFlow(doc, {
+    only: address,
+    measured: measuredTextHeights(measured),
+    palette: options.palette,
+  })
+  return { ok: true, doc: next }
+}
+
+/** Where one run moved between two measurements of the same page. */
+export interface LayoutDrift {
+  text: string
+  width: number
+  dx: number
+  dy: number
+  dw: number
+  dh: number
+}
+
+/**
+ * The first run that is not where it was, between two browser readings of the
+ * same page — or `null` when every run is within half a pixel at every width.
+ *
+ * Paired the way the fidelity probe pairs: by kind, text and occurrence, so a
+ * repeated label is compared with its own counterpart. A run present in one
+ * reading and not the other is a drift too, reported at a distance of Infinity.
+ */
+export function layoutDrift(before: OracleSource, after: OracleSource, tolerancePx = 0.5): LayoutDrift | null {
+  const keyed = (oracle: OracleSource) => {
+    const out = new Map<string, { text: string; width: number; box: EvalBox }>()
+    const seen = new Map<string, number>()
+    for (const row of oracleBoxes(oracle)) {
+      const base = `${row.width}|${row.kind}|${row.text}`
+      const n = seen.get(base) ?? 0
+      seen.set(base, n + 1)
+      out.set(`${base}#${n}`, row)
+    }
+    return out
+  }
+  const a = keyed(before)
+  const b = keyed(after)
+  for (const [key, row] of a) {
+    const moved = b.get(key)
+    if (!moved) return { text: row.text, width: row.width, dx: Infinity, dy: Infinity, dw: Infinity, dh: Infinity }
+    const d = {
+      dx: moved.box.x - row.box.x,
+      dy: moved.box.y - row.box.y,
+      dw: moved.box.width - row.box.width,
+      dh: moved.box.height - row.box.height,
+    }
+    if (Object.values(d).some((v) => Math.abs(v) > tolerancePx)) return { text: row.text, width: row.width, ...d }
+  }
+  for (const [key, row] of b) {
+    if (!a.has(key)) return { text: row.text, width: row.width, dx: Infinity, dy: Infinity, dw: Infinity, dh: Infinity }
+  }
+  return null
 }

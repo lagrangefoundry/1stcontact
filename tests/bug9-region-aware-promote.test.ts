@@ -131,11 +131,15 @@ describe('BUG-9 — region-aware structure recovery', () => {
     expect(contentRobustnessProbe(recovered, { scale: 2.5 }).pass).toBe(true)
   })
 
-  it('test_UAT_FC_BUG-9_roomy_page_left_absolute', () => {
-    // Three runs 300px apart survive a 2.5× perturbation → no colliding group →
-    // demand-driven recovery promotes nothing and the base stays absolute.
+  it('test_UAT_FC_BUG-9_roomy_page_flows_as_one_region', () => {
+    // Three runs 300px apart survive a 2.5× perturbation → no colliding group.
+    // REQ-350 supersedes "and the base stays absolute": with no collision to
+    // define regions, the page itself is the one region, so it flows whole —
+    // a single region, never a pile of several — and still holds the envelope.
     const roomy = foldToL1(multiRegionPage([[100, 400, 700]]))
     expect(contentRobustnessProbe(roomy, { scale: 2.5 }).pass).toBe(true)
-    expect(promoteToFlow(roomy, { scale: 2.5 }).promoted).toEqual([])
+    const recovered = promoteToFlow(roomy, { scale: 2.5 })
+    expect(recovered.promoted).toEqual(['0'])
+    expect(contentRobustnessProbe(recovered.doc, { scale: 2.5 }).pass).toBe(true)
   })
 })

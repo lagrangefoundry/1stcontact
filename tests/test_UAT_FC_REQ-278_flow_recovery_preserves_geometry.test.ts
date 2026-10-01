@@ -423,13 +423,15 @@ describe('REQ-278 — a flow recovery that preserves horizontal geometry', () =>
 
       // The ticket's bar, on every reference: the recovery reproduces the capture
       // — no residual, no unmatched sample, no pixel of extra worst-case miss —
-      // and clears findings rather than merely moving them.
+      // and adds no finding (REQ-350: no worse is enough; it used to have to clear one).
       expect(choice.recovery.residuals, `${host} residuals`).toBe(0)
       expect(choice.recovery.unmatched, `${host} unmatched`).toBe(0)
       expect(choice.recovery.maxDelta, `${host} maxΔ`).toBeLessThanOrEqual(
         choice.base.maxDelta + 0.1,
       )
-      expect(choice.recovery.envelope, `${host} envelope`).toBeLessThan(choice.base.envelope)
+      // REQ-350 — a tie goes to the flow: no worse is enough, because the flowed
+      // page is the one that still holds when somebody edits it.
+      expect(choice.recovery.envelope, `${host} envelope`).toBeLessThanOrEqual(choice.base.envelope)
       expect(choice.served, `${host} served`).toBe(true)
     }
   })

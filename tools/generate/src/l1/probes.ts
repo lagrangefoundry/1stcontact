@@ -43,6 +43,7 @@ import {
   type L1Document,
   type L1Geometry,
   type L1Node,
+  type L1Palette,
   type L1ScalarTrack,
   type L1Text,
   type L1ViewportResponse,
@@ -2261,6 +2262,18 @@ function keepsAbsolute(node: L1Node): boolean {
 }
 
 /**
+ * REQ-350 — a child the flow leaves where it is: {@link keepsAbsolute}, plus a
+ * painted `box` that holds nothing — a divider rule, a decorative plate. Such a
+ * box is drawn under or between its neighbours and has no content to push
+ * anything with (BUG-142 §6.2: "a painted rule with nothing on it is genuinely
+ * meant to sit under its neighbours"). Once a whole page flows, every pinned
+ * sibling of a flowed region would otherwise flow with it as a survivor.
+ */
+function staysPut(node: L1Node): boolean {
+  return keepsAbsolute(node) || (node.kind === 'box' && childrenOf(node).length === 0)
+}
+
+/**
  * BUG-142 — every fold-synthesized backing surface in `doc`, as `path → id`.
  *
  * BUG-143's containment probe used to find its surfaces in the leaf scan, which
@@ -2888,7 +2901,7 @@ function scoreCandidate(
  *   2. NEITHER ARE THE CAPTURED WIDTHS. On-sample findings must not go up. Those
  *      are the widths the page was measured at, so a collision there is a defect
  *      in the recovery and not a judgement call.
- *   3. THEN, AND ONLY THEN, THE ENVELOPE MUST STRICTLY IMPROVE — the off-sample
+ *   3. THEN, AND ONLY THEN, THE ENVELOPE MUST NOT GET WORSE — the off-sample
  *      and content-robustness findings taken together, because both ask the same
  *      question (does the page hold when the conditions are not the captured
  *      ones?) and differ only in which condition they move. Taken together, not
@@ -2901,6 +2914,14 @@ function scoreCandidate(
  * Anything short of all three leaves the absolute base in place. It is the same
  * judgement BUG-113 made, expressed as a computation over the current
  * measurement rather than as a conclusion about the recovery that existed then.
+ *
+ * REQ-350 — A TIE GOES TO THE FLOW. This used to demand a STRICT improvement in
+ * the envelope, which made sense while flow was a repair applied where a probe
+ * found damage: no damage, no repair. It is now the page's structure — a section
+ * that carries its contents and a heading that pushes what follows it — and a
+ * page that reproduces the capture equally well in both forms should be served in
+ * the one that still holds when somebody edits it. faelan.com is that case: zero
+ * findings either way, so the old rule served the flat page by default.
  */
 export function chooseRecovery(
   base: L1Document,
@@ -2920,7 +2941,7 @@ export function chooseRecovery(
     recoveryScore.unmatched <= baseScore.unmatched &&
     recoveryScore.maxDelta <= baseScore.maxDelta + 0.1 &&
     recoveryScore.onSample <= baseScore.onSample &&
-    recoveryScore.envelope < baseScore.envelope
+    recoveryScore.envelope <= baseScore.envelope
   return {
     doc: wins ? recovered : base,
     served: wins,
@@ -2966,10 +2987,21 @@ export function chooseRecovery(
  * Fidelity is still measured on the absolute base, so recovery never regrades
  * `sampleFidelity`. Returns a validated document.
  */
-export function promoteToFlow(
-  doc: L1Document,
-  options: { scale?: number; measured?: MeasuredTextHeights } = {},
-): PromoteResult {
+export interface PromoteOptions {
+  scale?: number
+  measured?: MeasuredTextHeights
+  /**
+   * REQ-350 — convert exactly ONE node's children, by address (`0.3`), and
+   * leave the rest of the document as it is. Every promotable child of that
+   * node joins the flow, collision or not: this is `flow_l1`, an author's
+   * decision about one container rather than a repair the probes demanded.
+   */
+  only?: string
+  /** The site palette, for a stored page whose colours are references. */
+  palette?: L1Palette
+}
+
+export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): PromoteResult {
   const scale = options.scale ?? 2.5
   const eps = 2
   const promoted: string[] = []
@@ -3013,6 +3045,8 @@ export function promoteToFlow(
     borderTops: Map<number, number>,
   ): L1Node {
     if (node.kind !== 'box' && node.kind !== 'container') return node
+    // REQ-350 — scoped to one node: nothing off the way to it is touched.
+    if (options.only !== undefined && path !== options.only && !options.only.startsWith(`${path}.`)) return node
     const originalChildren: L1Node[] = node.kind === 'container' ? node.children : (node.children ?? [])
     const inset = surfaceBorderInset('axes' in node ? node.axes : undefined)
     const childFrame = (child: L1Node, i: number, axis: 'x' | 'y'): Map<number, number> => {
@@ -3032,6 +3066,9 @@ export function promoteToFlow(
     const children: L1Node[] = originalChildren.map((c, i) =>
       rewrite(c, `${path}.${i}`, childFrame(c, i, 'x'), childFrame(c, i, 'y')),
     )
+    if (options.only !== undefined && path !== options.only) {
+      return { ...node, children } as L1Node
+    }
 
     // Links between THIS node's direct children whose subtrees collide under
     // perturbation (any leaf under child a overlaps any leaf under child b).
@@ -3080,9 +3117,31 @@ export function promoteToFlow(
      * needs no recovery, and reporting one for it would be a region promoted for
      * no measured cause.
      */
-    const lone = [...pinned].filter((i) => !keepsAbsolute(children[i]))
-    if (components.length === 0 && lone.length === 1 && isSynthesizedSurfaceId(node.id)) {
-      components.push(lone)
+    /**
+     * REQ-350 — THE PAGE AND EVERY SECTION FLOW WHOLE, collision or not.
+     *
+     * The page's sections, and the content within a section, are placed `flow`
+     * wherever that reproduces the capture — not only where growing content
+     * would collide today. A collision search finds the regions that already
+     * fail; it cannot find the heading that is one line from failing, and that
+     * heading is the one an edit makes taller. Flowed, making any element taller
+     * moves everything after it down, which is the property a section exists to
+     * give. Whether the result is served is still {@link chooseRecovery}'s call.
+     *
+     * The page root and the fold's own surfaces are where that structure lives
+     * (BUG-142 nests every run inside the surface that backs it). A one-member
+     * surface — REQ-324's callout, whose single run fell out of the collision
+     * search — is just the smallest case of the same rule.
+     */
+    if (options.only === path) {
+      const promotable = [...pinned].filter((i) => !staysPut(children[i]))
+      components.splice(0, components.length, ...(promotable.length > 0 ? [promotable] : []))
+    } else if (path === '0' || isSynthesizedSurfaceId(node.id)) {
+      // Where collisions were found they already define the regions, and every
+      // other pinned child flows beside them (see `plan`); what was missing is
+      // the node with no collision at all, which was left entirely pinned.
+      const promotable = [...pinned].filter((i) => !staysPut(children[i]))
+      if (components.length === 0 && promotable.length > 0) components.push(promotable)
     }
 
     if (components.length === 0) {
@@ -3139,7 +3198,7 @@ export function promoteToFlow(
       const absolute: number[] = []
       children.forEach((c, i) => {
         if (!isPinned(c)) return
-        if (keepsAbsolute(c)) absolute.push(i)
+        if (staysPut(c)) absolute.push(i)
         else flowing.push(i)
       })
       // The two-dimensional read of the node's flow children: columns first
@@ -3364,7 +3423,10 @@ export function promoteToFlow(
         if (item.region < 0) return
         promoted.push(wholeNode ? path : `${path}.${flowBase + emitted.length}`)
       }
-      if (item.region < 0 || nodes.length === 1) {
+      // REQ-350 — a container is already a column of its children, so a region
+      // that is the node's whole flow needs no second column inside it: a
+      // section holds its heading, not a wrapper around its heading.
+      if (item.region < 0 || nodes.length === 1 || (node.kind === 'container' && items.length === 1)) {
         // A survivor band, or a region that turned out to be one band: no wrapper
         // is needed, and inventing one would be a node with no content of its own.
         name()
@@ -3420,7 +3482,7 @@ export function promoteToFlow(
   const next: L1Document = structuredClone({ ...doc, root })
   holdAcrossReflowWindows([next.root], next.widths)
 
-  const result = validateL1(next)
+  const result = validateL1(next, { palette: options.palette })
   if (!result.ok) {
     const detail = result.errors.map((e) => `${e.path}: ${e.message}`).join('; ')
     throw new Error(`promoteToFlow: produced an invalid L1 document — ${detail}`)

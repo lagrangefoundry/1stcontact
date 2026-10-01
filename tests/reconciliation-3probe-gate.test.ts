@@ -680,13 +680,19 @@ describe('story-24098299 — 3-probe reproduction acceptance gate', () => {
     const fidelityAfter = sampleFidelityProbe(regionBase, regionCap, { tolerancePx: 2 })
     expect(JSON.stringify(fidelityAfter)).toEqual(JSON.stringify(fidelityBefore))
 
-    // ── Demanded, not applied by default ──────────────────────────────────────
-    // A region that already survives perturbation is left absolute — not
-    // promoted (empty promotion list).
+    // ── REQ-350: the page flows whole even where nothing collides yet ─────────
+    // This clause used to read "demanded, not applied by default": a region that
+    // survived perturbation was left absolute. REQ-350 supersedes it — content
+    // that follows other content is pushed down by it wherever that reproduces
+    // the capture, because the collision search finds what already fails, not the
+    // heading one edit away from failing. A roomy page is promoted as ONE region
+    // (the page itself), stays pinned nowhere, and still holds the envelope.
     const roomyBase = foldToL1(roomyOracle())
     expect(contentRobustnessProbe(roomyBase, { scale: 2.5 }).pass).toBe(true)
-    expect(promoteToFlow(roomyBase, { scale: 2.5 }).promoted).toEqual([])
-    expect(pinnedDescendants(roomyBase.root).length).toBeGreaterThan(0) // stayed pinned
+    const roomy = promoteToFlow(roomyBase, { scale: 2.5 })
+    expect(roomy.promoted).toEqual(['0'])
+    expect(pinnedDescendants(roomy.doc.root)).toEqual([])
+    expect(contentRobustnessProbe(roomy.doc, { scale: 2.5 }).pass).toBe(true)
   })
 
   it('test_UAT_AC710_probe_findings_are_diagnostic', () => {

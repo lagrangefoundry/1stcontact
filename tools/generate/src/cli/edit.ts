@@ -62,7 +62,8 @@ import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
 import { starterDocument } from './scaffold'
-import { groupL1 } from '../l1/structure'
+import { flowL1, groupL1, layoutDrift } from '../l1/structure'
+import type { PageMeasurer } from './ai/measure-core'
 
 /**
  * The structured-edit command surface (REQ-11): validated, AI-legible read and
@@ -1303,6 +1304,91 @@ export async function editL1Group(
       path: address,
       label: opts.id ? `group '${opts.id}'` : 'group',
     },
+  )
+}
+
+/**
+ * Switch a container's contents to `flow` (REQ-350 geometry item 4, D1).
+ *
+ * MEASURED, CONVERTED, CHECKED. The browser renders the draft as it stands and
+ * reads every run's box at each of the page's widths; those heights are what
+ * turns each child's absolute `y` into a gap below the child before it. The
+ * converted page is then written, rendered and read again, and if any run is
+ * more than half a pixel from where it was at any width the page is put back
+ * exactly as it was and the refusal names the run and the width. A conversion
+ * that changes what the page looks like is not one this operation makes.
+ *
+ * WITHOUT A BROWSER IT REFUSES. There is no estimate to fall back on that is
+ * render-identical, and a gap computed from a guessed height is the overlap
+ * `flow` exists to prevent, with nothing to flag it.
+ */
+export async function editL1Flow(
+  slug: string,
+  pageId: string,
+  rawPath: string,
+  measurePage: PageMeasurer | null,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  if (!measurePage) {
+    throw new CommandError({
+      code: 'ENVIRONMENT',
+      message: 'this builder has no browser, so the page cannot be measured and its contents cannot be stacked without guessing.',
+      hint: 'Say so to the user rather than computing positions by hand.',
+    })
+  }
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const file = findPageFile(files, pageId)
+  if (!file) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' not found in site '${slug}'.`,
+      path: pageId,
+      hint: `List pages with '1c page list ${slug}'.`,
+    })
+  }
+  const path = parseL1Path(rawPath)
+  if (!path) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${rawPath}' is not an element address.`,
+      path: rawPath,
+      hint: 'An address is dotted child indices, e.g. 0.2.1 — read it off a page map.',
+    })
+  }
+  const original = file.page
+  const doc = pageDocument(original, pageId)
+  const pageSlug = String(original.slug ?? pageId)
+  const before = await measurePage(pageSlug, doc.widths)
+  const result = flowL1(doc, path, before, { palette: base.palette as L1Palette | undefined })
+  if (!result.ok) {
+    throw new CommandError({ code: result.code, message: result.message, path: rawPath, hint: result.hint })
+  }
+  const page = { ...structuredClone(original), l1: result.doc }
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+
+  const drift = layoutDrift(before, await measurePage(pageSlug, doc.widths))
+  if (drift) {
+    await opts.store.write(slug, { pages: [{ name: file.name, page: original }] })
+    const by = Number.isFinite(drift.dy)
+      ? ` by ${Math.round(Math.hypot(drift.dx, drift.dy) * 10) / 10}px`
+      : ' (it did not render at all)'
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Stacking ${rawPath} would move "${clip(drift.text)}" at ${drift.width}px${by}, so nothing was changed.`,
+      path: rawPath,
+      hint: 'Stack a smaller group — the elements of one section — or group what belongs together first.',
+    })
+  }
+  return note(
+    slug,
+    opts,
+    {
+      data: { target: { pageId, path: rawPath }, changed: [rawPath] },
+      human: `Stacked the contents of ${rawPath} in page '${pageId}': each now sits below the one before it, exactly where it was.`,
+    },
+    { op: 'l1.flow', page: pageId, path: rawPath, label: 'flow' },
   )
 }
 

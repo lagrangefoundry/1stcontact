@@ -39,6 +39,9 @@ import {
 } from '@1stcontact/site-schema'
 import type { BrowserDriverFactory } from '../capture/types'
 import { measureScript, type RawMeasurement, type RawNodeMeasurement } from '../capture/measure-svg'
+import { EXTRACT_SCRIPT, type RawSignals } from '../capture/extract'
+import { flattenSignals } from '../capture/values-diff'
+import type { OracleSource } from '../../l1/probes'
 
 /** What a measurer needs to put a drawing in front of a browser. */
 export interface MeasureDeps {
@@ -77,6 +80,49 @@ export function browserMeasurer(deps: MeasureDeps): DrawingMeasurer {
     } finally {
       await driver.close()
     }
+  }
+}
+
+/**
+ * Renders one page of the draft at each width and reads what the browser laid
+ * out — every run's box, in the capture's own shape (REQ-350).
+ */
+export type PageMeasurer = (pageSlug: string, widths: readonly number[]) => Promise<OracleSource>
+
+/**
+ * A page measurer backed by a real browser, over the same preview channel the
+ * drawing measurer and `screenshot` use (REQ-350, decision D1).
+ *
+ * WHY A BROWSER AND NOT A NUMBER ON THE PAGE. A run's height is the one figure
+ * a stored page does not hold: the renderer lets the glyph box size itself.
+ * Turning an absolute `y` into a gap below the run above it needs that height
+ * once, at conversion; after that the browser works it out on every render. A
+ * height recorded on the page would go stale at the first copy edit, and an
+ * estimated one is not render-identical — so it is read, here, from the page as
+ * it stands.
+ *
+ * THE CAPTURE'S OWN EXTRACTOR, so what comes back is an {@link OracleSource}
+ * like a reference bundle's, and every consumer of measured heights reads it the
+ * way it reads a capture.
+ */
+export function browserPageMeasurer(deps: MeasureDeps): PageMeasurer {
+  return async (pageSlug, widths) => {
+    const url = new URL(
+      `/preview/${encodeURIComponent(deps.slug)}/draft/${encodeURIComponent(pageSlug)}.html`,
+      new URL(deps.origin),
+    ).toString()
+    const projections: OracleSource['projections'] = []
+    for (const width of widths) {
+      const driver = await deps.driverFactory()
+      try {
+        await driver.navigate(url, { width, height: 900 })
+        const manifest = flattenSignals(await driver.query<RawSignals>(EXTRACT_SCRIPT), `${url}@${width}`)
+        projections.push({ viewport: { width }, state: 'rest', manifest })
+      } finally {
+        await driver.close()
+      }
+    }
+    return { projections }
   }
 }
 

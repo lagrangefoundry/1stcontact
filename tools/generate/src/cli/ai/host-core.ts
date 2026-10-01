@@ -115,7 +115,7 @@ import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
 import { newId } from '../../store/ids'
 import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
-import { browserMeasurer } from './measure-core'
+import { browserMeasurer, browserPageMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
 import {
   BUDGET_STOP_REASON,
@@ -1362,6 +1362,7 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
           store: deps.store,
           extraOps: deps.extraOps ?? {},
           measurer: fidelity ? browserMeasurer(fidelity) : null,
+          pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
           assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
           addresses: deps.addresses ? () => deps.addresses!(slug) : null,
           extraSurfaces: [
@@ -1634,6 +1635,8 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       // measuring operations stay declared and granted and refuse with a
       // sentence naming the reason, rather than vanishing per deployment.
       measurer: fidelity ? browserMeasurer(fidelity) : null,
+      // [[REQ-350]] — the same browser, reading a page's runs for `flow_l1`.
+      pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
       // WHERE A DRAWING CAN BE SEEN ([[REQ-217]]), or absent where it cannot be.
       // Bound to this session's site here, so no operation takes a slug and no
       // line can address a site the conversation is not about.

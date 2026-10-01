@@ -688,6 +688,8 @@ describe('story-24098299 — gate fold-residual channel', () => {
     expect(parsed.foldResiduals).toHaveLength(2)
     expect(parsed.sampleFidelity.residuals).toEqual([])
     expect(parsed.sampleFidelity.unmatched).toEqual([])
-    expect(parsed.promoted).toEqual([])
+    // REQ-350 — a clean page still flows whole: nothing collides, so the page
+    // itself is the one region promoted.
+    expect(parsed.promoted).toEqual(['0'])
   })
 })
