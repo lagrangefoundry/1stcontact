@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T20:40:11.906727+00:00'
+updated_at: '2026-10-01T21:00:18.729124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -739,5 +739,13 @@ Two rules hold this together:
 4. **One plan per site:** right, or per engagement?
 
 Once you've answered those, tell me if you want it filed as a REQ. I'd draft it as an upgrade of the existing `brief` type rather than a new feature.
+
+<!-- xgd-turn id="a2d329e4-7bbf-4d61-9bba-ff2945037efe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T21:00:17.461854+00:00" -->
+#### You
+Perfect, yes please create and REQ for this. 
+
+Then I want you to write a document that captures this conversations conclusions: The roles, how they are expected to interact, how they are expected to use a plan ticket, the generic descisions that need to be checked off, the way we expect to get there. It should be written as core content for Alice and Bob
 
 <!-- xgd-chat-end -->
