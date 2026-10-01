@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T20:38:32.419029+00:00'
+updated_at: '2026-10-01T20:40:11.906727+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -619,5 +619,125 @@ It is never appropriate for Bob to say things like "I think the layout needs wor
 The plan ticket should have a structured plan in its front matter, that can be displayed on a panel or a card by Bob and unstructured content in the body - such as a log of decisions made etc. The ticket should capture all the input from the user about the goals, purpose and anything else that helps build the site. 
 
 Lets design the plan ticket type if we do not already have it?
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T20:40:11.724761+00:00" -->
+#### Claude
+First I'm checking whether the product's ticket schema already has a plan type, or anything close to one.
+
+The product already has a `brief` ticket type (one per site, described as the canonical decisions document), so I'm checking how it's used before proposing anything new.
+
+## What already exists
+
+Nothing called `plan`, but two things overlap with it:
+
+1. **A declared `brief` type that nobody uses.** `apps/control-app/src/tickets.ts` declares a `brief` type: "the per-site canonical decisions document", one per site, with `site_slug` and a required body.
+   - DOC-9 §4 describes it as the Design Brief: decisions that "each start as `TBD` and are filled in as the conversation crystallizes", with a propose-and-confirm rule before anything is written.
+   - DOC-38 §9 says it is "small and always relevant", so it should be included in priming, not fetched by search.
+   - Nothing writes it. The local D1 has zero `brief` tickets, and no tool creates one or puts one in priming.
+2. **A per-session decision log on the chat ticket (REQ-171/REQ-283).** Alice's `record_decision` tool appends to the chat ticket's body. `set_standing_note` writes a `frame` field in its frontmatter. That's already your structure-in-frontmatter, log-in-body split, but it is scoped to **one chat session**, not to the site.
+
+So I'd recommend **one type, not a third.** `brief` has never been written, so renaming it to `plan` (or keeping the name and widening it) costs nothing now. And the decision log should move from the chat ticket into the plan body. Otherwise decisions live in two places, and a site built over five sessions has five partial logs.
+
+## Proposed shape
+
+**One per site, living.** A later redesign moves the plan back to an earlier phase rather than creating a new ticket.
+
+### Frontmatter: what Bob can show as a panel or card
+
+```yaml
+site_slug: lagrangefoundry
+phase: intake | first_pass | revision | prelaunch | live
+
+brief:                        # the user's input, structured
+  business: "AI venture foundry, solo founder"
+  site_job: "placeholder / teaser; matters in 1–2 yrs for CEO + investor recruiting"
+  audiences: [{ who: "institutional", priority: 1 }]
+  goal: { kind: credibility, measure: null, proxy: "contacts after talks" }
+  quality_bar: "premium — reads as a $100k site"
+  existing_site: { url: "gigabytealchemy.ai", feeling: "retiring, liked the lightness" }
+  constraints: ["only XGD + 1c named", "undersell XGD for now"]
+
+functionality:                # picked from the fixed catalogue, up front
+  - { feature: contact_form, status: wanted }
+  - { feature: blog, status: not_wanted }
+  - { feature: payments, status: later }
+
+decisions:                    # seeded from the generic list, see below
+  - id: typography
+    area: style               # purpose|messaging|style|imagery|functionality|liveness|structure
+    tier: detail              # concept | detail
+    state: defaulted          # open|defaulted|proposed|not_objected|chosen|delegated|parked
+    value: "Georgia / Helvetica"
+    compared: false           # was it ever chosen from visible alternatives?
+    parked_reason: null
+    log: 7                    # → "Decision 7" in the body
+
+checks:                       # the questions Bob asks: "are we all happy with…"
+  - id: layout_happy
+    question: "Are we all happy with the layout?"
+    trigger: first_pass_complete
+    asked_at: 2026-09-22
+    answers:
+      - { by: alice, verdict: no, note: "type is amateur; grid breaks at hero" }
+      - { by: user,  verdict: not_sure }
+
+tasks:                        # Alice's plan
+  - { id: t3, title: "Variant home pages: Facsimile vs Gallery", status: done,
+      depends_on: [t1], decisions: [layout, typography] }
+```
+
+### Body: free text, retrievable by search
+
+- `## Brief`: the user's goals and purpose **in their own words**, including verbatim quotes such as "I am not really expecting any contacts". The structured `brief` fields are an index into this text, not a replacement for it.
+- `## Decision log`: append-only numbered entries giving what was decided, why, and what was rejected. This is the existing `record_decision` format, moved here.
+- `## Notes`: anything else that helps build the site.
+
+## Who writes what (your role split, built into the schema)
+
+| Section | Alice | Bob | User (via Bob's cards or chat) |
+|---|---|---|---|
+| `brief`, `functionality` | refines | **records** answers from intake | supplies |
+| `decisions` | may set `defaulted` / `proposed`, with a value | records state changes | the only route to `chosen`, `delegated`, `parked` |
+| `checks` | answers | **asks and records** | answers |
+| `tasks` | **owns**: creates, orders, adds dependencies | updates progress | — |
+| decision log | writes the "why" | appends what the user said | — |
+
+Two rules hold this together:
+- **`answers[].by` can only be `alice` or `user`.** Bob can't appear as an answerer, so "Bob never offers an opinion" is enforced by the data, not just by prompting.
+- **Only a user answer moves a decision to `chosen`.** That makes the fonts-defaulted-for-80-turns failure visible as a state, rather than something to notice.
+
+## Generic decision seed, as a draft list to argue with
+
+| Area | Concept tier | Detail tier |
+|---|---|---|
+| Purpose | site's job, audience, goal & measure, quality bar | — |
+| Functionality | — | feature set (cards) |
+| Messaging | core story | voice, key messages, page/section structure, CTA wording, copy per section |
+| Style | visual concept, layout system | palette, typography, spacing/rhythm |
+| Imagery | brand imagery / treatment | image supply, logo/wordmark, favicon, share card |
+| Liveness | animation approach ("none" is a valid answer) | per-element effects |
+
+**Standing checks** (seeded, fired by triggers):
+- Are we all happy with the layout?
+- Does it meet the quality bar?
+- Mobile reviewed?
+- Scroll experience reviewed?
+- Ready to publish? (links, contact routing works, metadata)
+
+**Triggers:**
+- phase changes: first pass complete, before fan-out to more pages, before publish
+- the user expresses vague dissatisfaction
+- a concept-tier decision is still `defaulted` when we reach the revision phase
+
+## Questions before this becomes a ticket
+
+1. **Rename `brief` to `plan`, and move the per-chat decision log into the plan body?** I'd do both: one home, one name. The `frame` standing note can stay on the chat ticket as per-session working memory.
+2. **Dependencies on tasks:** do you want an explicit `depends_on`, or just an ordered list? I'd keep `depends_on` optional, since your own order was rough anyway.
+3. **Propose-and-confirm:** DOC-9 §4.2 says the AI proposes brief edits and the user confirms. With Bob in the picture, is it enough that Bob records the user's answer, or do you want an explicit confirm step on brief fields?
+4. **One plan per site:** right, or per engagement?
+
+Once you've answered those, tell me if you want it filed as a REQ. I'd draft it as an upgrade of the existing `brief` type rather than a new feature.
 
 <!-- xgd-chat-end -->
