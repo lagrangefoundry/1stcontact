@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T20:17:26.872793+00:00'
+updated_at: '2026-10-01T20:38:32.419029+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -603,5 +603,21 @@ That's the main way this fails, and it's why Bob's prompts need triggers: vague 
 **My position now:** verification invisible and automatic; critique from a separate reviewer; Bob visible as the user's advocate and keeper of the process, asking Alice the questions and getting her opinions out. That's your original idea, with two jobs (verification and internal review) taken off Bob's plate so he isn't trying to be an expert.
 
 The real test is watching a novice. Even one session with someone who isn't you, comparing visible Bob against an Alice primed to be more proactive on her own, would tell us more than further theory.
+
+<!-- xgd-turn id="f2df28ee-3465-4f77-9033-8827b6f30f7a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T20:38:32.327562+00:00" -->
+#### You
+Right and I have actually a bunch of novices lined up if we can get the tool ready in time.
+
+But I need to run a test or two myself first.
+
+Question: does Bob have anywhere to record/manage the state of the project? What I had in mind was a new ticket type "plan". It could start with a generic list of things that need to be decided. If there is any thinking to do Alice should create and update the plan, Bob should be responsible for tracking.
+
+It is never appropriate for Bob to say things like "I think the layout needs work" but completely appropriate for Bob to ask "Are we all happy with the layout" and to collect and record answers from Alice and the user.
+
+The plan ticket should have a structured plan in its front matter, that can be displayed on a panel or a card by Bob and unstructured content in the body - such as a log of decisions made etc. The ticket should capture all the input from the user about the goals, purpose and anything else that helps build the site. 
+
+Lets design the plan ticket type if we do not already have it?
 
 <!-- xgd-chat-end -->
