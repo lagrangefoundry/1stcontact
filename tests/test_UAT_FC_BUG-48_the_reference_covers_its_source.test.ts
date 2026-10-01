@@ -173,6 +173,10 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
         } as Partial<L1Document>),
       ),
       declaredPaletteEntry: refusals(page({ background: { ref: 'nowhere' } } as Partial<L1Document>)),
+      // REQ-350 — a run naming a text style the site does not declare.
+      declaredTextStyle: refusals(
+        page({ root: { kind: 'text', text: 'x', axes: { textStyle: 'nowhere' } } } as Partial<L1Document>),
+      ),
       anchorNeedsColumn: refusals(
         page({
           root: {

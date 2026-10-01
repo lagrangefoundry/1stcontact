@@ -15,7 +15,7 @@
  * file is the shape, `validate.ts` is the envelope.
  */
 import { z } from 'zod'
-import { l1ColorSchema } from './palette'
+import { l1ColorSchema, l1PaletteNameSchema } from './palette'
 
 /**
  * A painted colour — a hex literal or a palette reference (REQ-114 / DOC-23 §5).
@@ -1924,12 +1924,70 @@ export const l1AnimationSchema = z.union([
   z.array(z.union([l1AnimateTrackSchema, l1FrameTrackSchema])).min(2),
 ])
 
+// ── Named and inherited type (REQ-350) ────────────────────────────────────────
+
+/**
+ * REQ-350 — a style's name: kebab-case, free-form (`body`, `heading-2`,
+ * `caption`), the same grammar a palette entry's name has, because it is the
+ * same kind of thing — a value set once and referred to by name.
+ */
+export const l1StyleNameSchema = l1PaletteNameSchema
+
+/**
+ * The five type axes a style can set, with the per-width tracks for the three
+ * that vary across the ladder. The same axes, units and ranges as a text run's
+ * own (see {@link l1TextAxesSchema}), so a style is a value a run could have
+ * carried literally and resolving one is a substitution, never an
+ * interpretation. Bounded here as well as at the run, because a style that no
+ * run uses yet is still part of the site and must still be a legal value.
+ */
+const l1TypeAxesShape = {
+  fontFamily: z.string().min(1).optional(),
+  fontSizePx: z.number().min(1).max(400).optional(),
+  fontWeight: z.number().min(1).max(1000).optional(),
+  lineHeightPx: z.number().min(-10_000).max(100_000).optional(),
+  letterSpacingPx: z.number().min(-10_000).max(100_000).optional(),
+  responsive: l1TextResponsiveSchema.optional(),
+}
+
+/**
+ * REQ-350 — a NAMED TEXT STYLE: type set once, on the site, and referred to by
+ * every run that uses it (`axes.textStyle`). Changing the style changes every
+ * run that refers to it — the palette's model (REQ-114), one axis group over.
+ * Structured only: a closed set of typed axes, `.strict()`, no raw CSS.
+ */
+export const l1TextStyleSchema = z.object(l1TypeAxesShape).strict()
+
+/** The site's text styles: an arbitrary-size map of names to styles. */
+export const l1TextStylesSchema = z.record(l1StyleNameSchema, l1TextStyleSchema)
+
+/**
+ * REQ-350 — the type a box or container sets FOR WHAT IT CONTAINS: a named
+ * style, literal values over it, or both. Every text run beneath inherits it
+ * unless it, or a nearer container, says otherwise — the way the page's text
+ * colour already falls back. Precedence, nearest first: the run's own value,
+ * the run's own style, the nearest container's value, that container's style,
+ * and so on outward to the site's default style.
+ */
+export const l1TypeSchema = z
+  .object({
+    style: l1StyleNameSchema.optional(),
+    ...l1TypeAxesShape,
+  })
+  .strict()
+
 // ── Leaf axis bags (typed subset of the ~48 captured ValueElement axes) ───────
 
 /** Text-run axes — literal values transcribed straight from a capture. */
 export const l1TextAxesSchema = z
   .object({
     color: l1Color.optional(),
+    /**
+     * REQ-350 — the named text style this run uses ({@link l1TextStyleSchema}).
+     * The run's own `fontFamily`/`fontSizePx`/… still win over it; anything the
+     * run leaves unset comes from the style, then from its containers.
+     */
+    textStyle: l1StyleNameSchema.optional(),
     fontFamily: z.string().min(1).optional(),
     fontSizePx: finite.optional(),
     fontWeight: finite.optional(),
@@ -2549,6 +2607,8 @@ export interface L1BoxNode extends L1NodeAxisGroups {
   kind: 'box'
   id?: string
   axes?: z.infer<typeof l1SurfaceAxesSchema>
+  /** REQ-350 — the type this box sets for every run it contains. */
+  type?: z.infer<typeof l1TypeSchema>
   /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
   link?: L1Link
   /** REQ-212 — the overlay role; the renderer is the sole modal sink. */
@@ -2578,6 +2638,8 @@ export interface L1ContainerNode extends L1NodeAxisGroups {
   wrap?: boolean
   /** REQ-98 — the shared surface group: a container paints AND lays out. */
   axes?: z.infer<typeof l1SurfaceAxesSchema>
+  /** REQ-350 — the type this container sets for every run it contains. */
+  type?: z.infer<typeof l1TypeSchema>
   gapPx?: number
   columns?: number
   distribution?: z.infer<typeof l1DistributionSchema>
@@ -2616,6 +2678,8 @@ export const l1BoxSchema: z.ZodType<L1BoxNode> = z.lazy(() =>
       kind: z.literal('box'),
       id: z.string().optional(),
       axes: l1SurfaceAxesSchema.optional(),
+      /** REQ-350 — the type this box sets for every run it contains. */
+      type: l1TypeSchema.optional(),
       ...nodeAxisGroupsShape,
       /** REQ-106 — the navigation role; the renderer is the sole `<a>` sink. */
       link: l1LinkSchema.optional(),
@@ -2640,6 +2704,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       wrap: z.boolean().optional(),
       /** REQ-98 — the shared surface group: a container paints AND lays out. */
       axes: l1SurfaceAxesSchema.optional(),
+      /** REQ-350 — the type this container sets for every run it contains. */
+      type: l1TypeSchema.optional(),
       gapPx: finite.nonnegative().optional(),
       columns: z.number().int().positive().optional(),
       distribution: l1DistributionSchema.optional(),

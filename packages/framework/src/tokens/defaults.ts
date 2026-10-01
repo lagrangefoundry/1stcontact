@@ -1,8 +1,21 @@
+import type { L1TextStyles } from '@1stcontact/site-schema'
 import type { ThemeTokens } from './contract'
 
 /**
+ * REQ-350 — the text styles a new site starts with: the system face for copy
+ * and headings, `body` the default every page inherits. What the theme's
+ * typography families used to supply, as named styles a run can refer to.
+ */
+export const SYSTEM_FONT_STACK = 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif'
+export const defaultTextStyles: L1TextStyles = {
+  body: { fontFamily: SYSTEM_FONT_STACK },
+  heading: { fontFamily: SYSTEM_FONT_STACK },
+}
+export const defaultTextStyle = 'body'
+
+/**
  * Sane default values for every theme-token slot (DOC-7 §4 / REQ-4 superset).
- * System fonts and a standard scale. Used by the CSS generator to fill any slot
+ * Used by the CSS generator to fill any slot
  * a site omits, so generated CSS always declares the full custom-property
  * surface regardless of how sparse the site's theme is.
  *
@@ -10,62 +23,6 @@ import type { ThemeTokens } from './contract'
  * model (DOC-23 §5), where a literal hex is always valid and needs no default.
  */
 export const defaultTokens: ThemeTokens = {
-  typography: {
-    family: {
-      heading: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-      body: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-    },
-    scale: {
-      xs: '0.75rem',
-      sm: '0.875rem',
-      base: '1rem',
-      lg: '1.125rem',
-      xl: '1.25rem',
-      '2xl': '1.5rem',
-      '3xl': '1.875rem',
-      '4xl': '2.25rem',
-      '5xl': '3rem',
-    },
-    weights: {
-      // `extralight` (200, REQ-36) backs the `headingWeight` dial's lightest step
-      // — the joyfulculinary section headings are Oswald 200 (extralight).
-      extralight: '200',
-      // `light` (300, REQ-49) backs the hero `subheadWeight` dial's lighter step
-      // — a delicate lead weight (e.g. gigabytealchemy's `font-light` subhead).
-      light: '300',
-      regular: '400',
-      medium: '500',
-      semibold: '600',
-      bold: '700',
-      black: '900',
-    },
-    lineHeights: {
-      tight: '1.1',
-      // `snug` (~1.33, REQ-49) sits between `tight` and `normal` for the hero
-      // `subheadLeading` dial's intermediate step.
-      snug: '1.33',
-      normal: '1.5',
-      relaxed: '1.75',
-    },
-    // Letter-spacing (tracking) steps for the `tracking` treatment (REQ-45),
-    // em-based so they scale with the type. `normal` is the neutral default;
-    // `tight`/`tighter` pull display glyphs in at large sizes.
-    tracking: {
-      normal: '0em',
-      tight: '-0.025em',
-      tighter: '-0.05em',
-    },
-    // Component-owned sub-element type ramps (REQ-56), in the render's px
-    // vocabulary. Defaults encode the services-grid module's previously
-    // hard-coded values so behaviour is unchanged: badge = xs/semibold/tight
-    // (12px / 600 / 13px leading), checklist item = base/regular/relaxed
-    // (16px / 400 / 28px leading). Fixing a subscale here corrects every badge
-    // / checklist instance; a per-instance `labelStyle`/`itemStyle` overrides one.
-    subScales: {
-      badge: { fontSizePx: 12, fontWeight: 600, lineHeightPx: 13, letterSpacingPx: 0 },
-      checklist: { fontSizePx: 16, fontWeight: 400, lineHeightPx: 28, letterSpacingPx: 0 },
-    },
-  },
   spacing: {
     '0': '0',
     '1': '0.25rem',

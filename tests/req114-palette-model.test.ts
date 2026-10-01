@@ -6,7 +6,7 @@ import { resolveL1Color, resolveL1Palette } from '../packages/site-schema/src/l1
 import { validateL1 } from '../packages/site-schema/src/l1/validate'
 import type { L1Document, L1Palette } from '../packages/site-schema/src/index'
 import { renderL1Document } from '../packages/framework/src/l1/render'
-import { defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
+import { defaultTextStyles, defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
 import {
   SHADE_FIT_TOLERANCE,
   collectColorLiterals,
@@ -297,8 +297,10 @@ describe('REQ-114 AC8/AC9/AC10 — the legacy token palette is gone, not depreca
   it('test_UAT_FC_REQ-114_the_dark_mode_palette_override_is_gone', () => {
     // AC10 — it existed only to re-declare palette roles and had no callers, so
     // it went with them rather than being ported to a model it predates.
-    expect(generateThemeCss.length).toBe(1)
-    expect(generateThemeCss(defaultTokens)).not.toContain('prefers-color-scheme')
+    // (Two parameters since REQ-350: the tokens, and the named text styles the
+    // family properties are generated from. Neither carries a colour scheme.)
+    expect(generateThemeCss.length).toBe(2)
+    expect(generateThemeCss(defaultTokens, defaultTextStyles)).not.toContain('prefers-color-scheme')
   })
 
   it('test_UAT_FC_REQ-114_a_rendered_page_takes_its_page_colours_from_the_l1_document', () => {
@@ -316,12 +318,11 @@ describe('REQ-114 AC8/AC9/AC10 — the legacy token palette is gone, not depreca
 
 describe('REQ-114 AC11 — the non-colour token groups are untouched', () => {
   it('test_UAT_FC_REQ-114_typography_spacing_radius_shadow_breakpoints_still_emit', () => {
-    const css = generateThemeCss(defaultTokens)
+    // REQ-350 — the family properties survive, generated from the named text
+    // styles; the rest of the type scale was retired with the typography group.
+    const css = generateThemeCss(defaultTokens, defaultTextStyles)
     for (const name of [
       '--font-family-heading',
-      '--font-size-5xl',
-      '--font-weight-bold',
-      '--line-height-normal',
       '--space-4',
       '--radius-md',
       '--shadow-lg',

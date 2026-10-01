@@ -17,7 +17,7 @@
  * The site config it writes is disposable (DOC-21): the durable output is the
  * framework growth each probe residual forces.
  */
-import { defaultTokens, latestModuleVersion } from '@1stcontact/framework'
+import { defaultTextStyle, defaultTextStyles, defaultTokens, latestModuleVersion } from '@1stcontact/framework'
 import { l1DocumentSlotNames, validateSite } from '@1stcontact/site-schema'
 import type { L1Document } from '@1stcontact/site-schema'
 import {
@@ -293,6 +293,10 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
     id: slug,
     config: { businessName: slug, tagline: '' },
     theme: defaultTokens,
+    // REQ-350 — a reproduction's runs carry their own captured type; the default
+    // style is what a mounted control with none inherits, as on any new site.
+    textStyles: defaultTextStyles,
+    textDefault: defaultTextStyle,
     nav: { pattern: 'top-tabs' as const, entries: [] },
   }
   // REQ-93 — one behavior-module instance per recovered form, each bound by name

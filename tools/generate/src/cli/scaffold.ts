@@ -1,6 +1,6 @@
 // The Astro-free entry (REQ-143): the scaffolder is reachable from a Worker, and
 // the barrel would drag two `.astro` components in for the sake of a token table.
-import { defaultTokens } from '@1stcontact/framework/worker'
+import { defaultTextStyle, defaultTextStyles, defaultTokens } from '@1stcontact/framework/worker'
 import { RESPONSIVE_VIEWPORTS } from './capture/values-diff'
 
 /**
@@ -47,6 +47,9 @@ export function starterSiteJson(slug: string, name: string = slug): Record<strin
       tagline: `${name} — built with 1st Contact`,
     },
     theme: defaultTokens,
+    // REQ-350 — type a new site starts from: named styles, `body` the default.
+    textStyles: defaultTextStyles,
+    textDefault: defaultTextStyle,
     nav: { pattern: 'top-tabs', entries: [] },
   }
 }

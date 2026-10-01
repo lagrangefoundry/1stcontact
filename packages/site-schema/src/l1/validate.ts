@@ -24,6 +24,8 @@ import {
   l1ScrollTracks,
 } from './motion'
 import type { L1Palette } from './palette'
+import { collectL1TextStyleRefs, resolveL1TextStyles } from './text-style'
+import type { L1TextStyles } from './types'
 import { projectIssues } from '../issues'
 import type { L1Document, L1Geometry, L1Node, L1ScalarTrack } from './types'
 import type { Result, ValidationError } from '../validate'
@@ -216,6 +218,8 @@ export const L1_STRUCTURAL_RULES = {
   declaredKeyframeWidth: 'a keyframe width must be one of the document widths',
   /** A colour that names a palette entry must name one the palette declares, because a reference that resolves to nothing has no render-time fallback to fall back to. */
   declaredPaletteEntry: 'a palette reference must name an entry the palette declares',
+  /** REQ-350 — a run or container that names a text style must name one the site declares, because a name that resolves to nothing has no fallback to fall back to. */
+  declaredTextStyle: 'a text style must be one the site declares',
   /** A column anchor is meaningless without the column it is measured against, so a document that uses one must declare a `column`. */
   anchorNeedsColumn: 'geometry.anchor requires the document to declare a `column`',
   /** REQ-278 — an in-flow track's `x` is a leading offset from the flow cursor and a column anchor is an absolute origin, so the two cannot both govern the same axis. */
@@ -1358,6 +1362,34 @@ export interface ValidateL1Options {
    * render-time fallback and DOC-23 §6 has none.
    */
   palette?: L1Palette
+  /**
+   * REQ-350 — the site's named text styles, and the one every page inherits
+   * from the top. A run or container naming a style the site does not declare
+   * is rejected, on the palette's terms: there is no fallback to resolve to.
+   */
+  textStyles?: L1TextStyles
+  textDefault?: string
+}
+
+/**
+ * REQ-350 — every named text style in `input` must be one the site declares.
+ */
+export function checkTextStyleRefs(
+  input: unknown,
+  styles: L1TextStyles | undefined,
+  basePath: string,
+  errors: ValidationError[],
+): void {
+  for (const { path, name } of collectL1TextStyleRefs(input)) {
+    if (!styles?.[name]) {
+      errors.push({
+        path: `${basePath}${path}`,
+        message: styles
+          ? `${L1_STRUCTURAL_RULES.declaredTextStyle}: '${name}' is not among [${Object.keys(styles).join(', ')}]`
+          : `${L1_STRUCTURAL_RULES.declaredTextStyle}: '${name}' cannot resolve, the site declares no text styles`,
+      })
+    }
+  }
 }
 
 /**
@@ -1774,11 +1806,19 @@ export function validateL1(
     return { ok: false, errors: projectIssues(parsed.error.issues) }
   }
 
-  const doc = parsed.data
   const errors: ValidationError[] = []
 
   // REQ-114 — colour references resolve, or the document does not validate.
-  checkPaletteRefs(doc, options.palette, '', errors)
+  checkPaletteRefs(parsed.data, options.palette, '', errors)
+  // REQ-350 — and so do named text styles…
+  checkTextStyleRefs(parsed.data, options.textStyles, '', errors)
+  // …after which every check below reads the document AS IT PAINTS: a style or
+  // an inherited value is checked as the literal it becomes on each run, so a
+  // named size is held to the same range, a named per-width track to the same
+  // ladder and a named family to the same served-face rule as a literal one.
+  // Resolution only removes `textStyle`/`type` keys and fills run axes, so every
+  // path below still points at the node the author wrote.
+  const doc = resolveL1TextStyles(parsed.data, options.textStyles, options.textDefault)
 
   // Widths must be strictly ascending and unique (the ladder is an ordered set).
   for (let i = 1; i < doc.widths.length; i++) {
@@ -1992,5 +2032,5 @@ export function validateL1(
     errors.push({ path: '/root', message: `node count ${counter.n} exceeds cap ${L1_ENVELOPE.maxNodes}` })
   }
 
-  return errors.length === 0 ? { ok: true, value: doc } : { ok: false, errors }
+  return errors.length === 0 ? { ok: true, value: parsed.data } : { ok: false, errors }
 }

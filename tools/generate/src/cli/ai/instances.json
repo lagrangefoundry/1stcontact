@@ -8,6 +8,7 @@
         "ManageComponents",
         "WriteConfig",
         "ManagePalette",
+        "ManageTextStyles",
         "MeasureDrawings",
         "DrawImages"
       ]
@@ -26,6 +27,7 @@
         "ManageComponents",
         "WriteConfig",
         "ManagePalette",
+        "ManageTextStyles",
         "MeasureDrawings",
         "DrawImages"
       ]

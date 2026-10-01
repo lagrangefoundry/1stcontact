@@ -11,6 +11,11 @@ import {
   l1PaletteNameSchema,
   parseL1Path,
   renameL1PaletteRef,
+  renameL1TextStyleRef,
+  resolveL1TextStyles,
+  collectL1TextStyleRefs,
+  l1StyleNameSchema,
+  l1TextStyleSchema,
   replaceL1Node,
   resolveL1Node,
   validateSite,
@@ -21,6 +26,9 @@ import {
   type L1FontFace,
   type L1Node,
   type L1Palette,
+  type L1TextStyle,
+  type L1TextStyles,
+  type ValidateL1Options,
   type L1SegmentFieldOptions,
   L1_EMAIL_TARGET,
 } from '@1stcontact/site-schema'
@@ -63,6 +71,8 @@ import { CommandError } from './errors'
 import { labelOf } from './segments'
 import { starterDocument } from './scaffold'
 import { flowL1, groupL1, layoutDrift } from '../l1/structure'
+import { assignTextStyles } from './type-assign'
+import { liftLegacyHeadings, liftLegacyTypography } from '../store/legacy-typography'
 import type { PageMeasurer } from './ai/measure-core'
 
 /**
@@ -211,7 +221,9 @@ async function readBase(slug: string, opts: EditOptions): Promise<Record<string,
       path: slug,
     })
   }
-  return base
+  // REQ-350 (D3) — the retired `theme.typography`, lifted to named text styles,
+  // so the next write persists the site in the current shape.
+  return liftLegacyTypography(base)
 }
 
 /**
@@ -223,9 +235,11 @@ async function readBase(slug: string, opts: EditOptions): Promise<Record<string,
  */
 type PageFile = StoredPage
 
-/** Read every page, in load order. */
-function readPageFiles(slug: string, opts: EditOptions): Promise<PageFile[]> {
-  return opts.store.readPages(slug)
+/** Read every page, in load order — a legacy site's headings lifted with its theme (REQ-350, D3). */
+async function readPageFiles(slug: string, opts: EditOptions): Promise<PageFile[]> {
+  const pages = await opts.store.readPages(slug)
+  const stored = await opts.store.readSiteJson(slug)
+  return pages.map((file) => ({ ...file, page: liftLegacyHeadings(file.page, stored) }))
 }
 
 /** Locate the page file whose definition `id` matches `pageId`, or null. */
@@ -238,6 +252,19 @@ function findPageFile(files: PageFile[], pageId: string): PageFile | null {
  * Throws SCHEMA_INVALID (carrying the first error's JSON-pointer path) on
  * failure — the caller has not yet written anything, so the draft is untouched.
  */
+/**
+ * REQ-350 — a page with its named and inherited type resolved against the
+ * site's styles, for the checks that read a run's type as the value it paints.
+ */
+function resolvePageType(page: unknown, base: Record<string, unknown>): unknown {
+  const p = page as { l1?: unknown } | undefined
+  if (!p?.l1) return page
+  return {
+    ...p,
+    l1: resolveL1TextStyles(p.l1, base.textStyles as L1TextStyles | undefined, base.textDefault as string | undefined),
+  }
+}
+
 /** The font faces a page serves, by family name. */
 function servedFamilies(page: unknown): string[] {
   const l1 = (page as { l1?: { resources?: { fonts?: L1FontFace[] } } } | undefined)?.l1
@@ -255,8 +282,11 @@ function servedFamilies(page: unknown): string[] {
  * picture the page has always had as newly broken the moment anything above it
  * changed. What an author introduces is a *reference*, not a position.
  */
-function danglingRefs(page: unknown, assets: readonly string[]): Map<string, string> {
+function danglingRefs(page: unknown, assets: readonly string[], base: Record<string, unknown>): Map<string, string> {
   const found = new Map<string, string>()
+  // REQ-350 — read AS IT PAINTS: a family named by a text style, or inherited
+  // from a container, is a reference exactly as a literal one is.
+  page = resolvePageType(page, base)
   const note = (ref: { value: string; path: string; message: string }): void => {
     if (!found.has(ref.value)) found.set(ref.value, `${ref.path}: ${ref.message}`)
   }
@@ -292,9 +322,10 @@ async function validateOrThrow(
   pages: unknown[],
 ): Promise<void> {
   const assets = (await listSiteAssets(slug, opts)).map((a) => a.src)
+  const stored = await readBase(slug, opts)
   const before = new Map<string, Map<string, string>>()
   for (const file of await readPageFiles(slug, opts)) {
-    before.set(String(file.page.id), danglingRefs(file.page, assets))
+    before.set(String(file.page.id), danglingRefs(file.page, assets, stored))
   }
   for (const page of pages) {
     const id = String((page as { id?: unknown }).id)
@@ -302,7 +333,7 @@ async function validateOrThrow(
     // references is something it introduced. That is the right reading: nothing
     // in a page being created was inherited.
     const inherited = before.get(id) ?? new Map<string, string>()
-    for (const [value, detail] of danglingRefs(page, assets)) {
+    for (const [value, detail] of danglingRefs(page, assets, base)) {
       if (inherited.has(value)) continue
       throw new CommandError({
         code: 'SCHEMA_INVALID',
@@ -1223,6 +1254,15 @@ export async function editL1Set(
 
 // ── structure (REQ-350) ──────────────────────────────────────────────────────
 
+/** What a page is validated against: the site's palette and its text styles. */
+function siteContext(base: Record<string, unknown>): ValidateL1Options {
+  return {
+    palette: base.palette as L1Palette | undefined,
+    textStyles: base.textStyles as L1TextStyles | undefined,
+    textDefault: base.textDefault as string | undefined,
+  }
+}
+
 /** The page's own L1 document, or the refusal {@link segmentRoots} would give. */
 function pageDocument(page: Record<string, unknown>, pageId: string): L1Document {
   const l1 = page.l1 as L1Document | undefined
@@ -1280,10 +1320,7 @@ export async function editL1Group(
     return parsed
   })
   const page = structuredClone(file.page)
-  const result = groupL1(pageDocument(page, pageId), paths, {
-    id: opts.id,
-    palette: base.palette as L1Palette | undefined,
-  })
+  const result = groupL1(pageDocument(page, pageId), paths, { id: opts.id, site: siteContext(base) })
   if (!result.ok) {
     throw new CommandError({ code: result.code, message: result.message, path: rawPaths.join(','), hint: result.hint })
   }
@@ -1360,7 +1397,7 @@ export async function editL1Flow(
   const doc = pageDocument(original, pageId)
   const pageSlug = String(original.slug ?? pageId)
   const before = await measurePage(pageSlug, doc.widths)
-  const result = flowL1(doc, path, before, { palette: base.palette as L1Palette | undefined })
+  const result = flowL1(doc, path, before, { site: siteContext(base) })
   if (!result.ok) {
     throw new CommandError({ code: result.code, message: result.message, path: rawPath, hint: result.hint })
   }
@@ -2881,6 +2918,272 @@ export async function editPaletteRename(
       human: `Renamed ${from} → ${to} (${count} reference${count === 1 ? '' : 's'} rewritten).`,
     },
     { op: 'palette.rename', label: `color '${from}'`, before: from, after: to },
+  )
+}
+
+// ── text styles (REQ-350) ────────────────────────────────────────────────────
+//
+// The palette's commands, one axis group over: a style is type set once on the
+// site, and every run or container that names it follows it. The same four
+// writes under the same guards — change, add, remove only when unused, rename
+// rewriting every use in one write — plus which style every page inherits from
+// the top.
+
+/** One style as the surface reports it: what it sets, and every place that names it. */
+export interface TextStyleUse {
+  name: string
+  style: L1TextStyle
+  /** True for the style every page inherits from the top. */
+  default: boolean
+  /** Every run or container naming this style, by page and address. */
+  uses: Array<{ page: string; path: string; kind: 'run' | 'container' }>
+}
+
+function textStylesOf(base: Record<string, unknown>): Record<string, L1TextStyle> {
+  const styles = base.textStyles
+  if (styles === null || typeof styles !== 'object' || Array.isArray(styles)) return {}
+  return styles as Record<string, L1TextStyle>
+}
+
+/** A JSON pointer into a page's L1 tree (`/l1/root/children/3`) as an element address (`0.3`). */
+function addressOf(pointer: string): string | null {
+  const m = /^\/l1\/root((?:\/children\/\d+)*)$/.exec(pointer)
+  if (!m) return null
+  return ['0', ...m[1].split('/children/').filter(Boolean)].join('.')
+}
+
+/**
+ * Every style with every place that names it, across every page — the same
+ * walk {@link renameL1TextStyleRef} rewrites, so what is reported before a
+ * change is exactly what the change moves. An unused style is reported with
+ * no uses rather than omitted: that is the delete rule's whole subject.
+ */
+function textStyleCensus(base: Record<string, unknown>, pages: unknown[]): TextStyleUse[] {
+  const styles = textStylesOf(base)
+  const uses = new Map<string, TextStyleUse['uses']>(Object.keys(styles).map((n) => [n, []]))
+  for (const page of pages) {
+    const id = String((page as { id?: unknown }).id)
+    for (const ref of collectL1TextStyleRefs(page)) {
+      const path = addressOf(ref.path) ?? ref.path
+      const node = ref.path.split('/').reduce<unknown>((v, k) => (k ? (v as Record<string, unknown>)?.[k] : v), page)
+      const kind = (node as { kind?: string })?.kind === 'text' || (node as { kind?: string })?.kind === 'control' ? 'run' : 'container'
+      uses.get(ref.name)?.push({ page: id, path, kind })
+    }
+  }
+  return Object.entries(styles)
+    .map(([name, style]) => ({ name, style, default: base.textDefault === name, uses: uses.get(name) ?? [] }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+function requireStyleName(name: string): void {
+  if (!l1StyleNameSchema.safeParse(name).success) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `'${name}' is not a valid text style name.`,
+      path: `textStyles.${name}`,
+      hint: 'Use kebab-case: lowercase letters and digits separated by single hyphens, e.g. heading-2.',
+    })
+  }
+}
+
+/** Refuse anything that is not a typed style — no raw CSS, no unknown axis, nothing out of range. */
+function requireStyle(value: unknown, name: string): L1TextStyle {
+  const parsed = l1TextStyleSchema.safeParse(value)
+  if (!parsed.success) {
+    const issue = parsed.error.issues[0]
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Not a text style: ${issue ? `${issue.path.join('.') || '(style)'}: ${issue.message}` : 'invalid'}.`,
+      path: `textStyles.${name}`,
+      hint: 'A style sets only fontFamily, fontSizePx, fontWeight, lineHeightPx, letterSpacingPx, and per-width tracks for the last three under `responsive`.',
+    })
+  }
+  return parsed.data
+}
+
+export async function editTextStyleGet(slug: string, opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const entries = textStyleCensus(base, (await readPageFiles(slug, opts)).map((f) => f.page))
+  return {
+    data: { slug, entries },
+    human: entries.length
+      ? entries
+          .map((e) => `${e.name}${e.default ? ' (default)' : ''}  ${JSON.stringify(e.style)}  used ${e.uses.length}×`)
+          .join('\n')
+      : `Site '${slug}' has no text styles yet.`,
+  }
+}
+
+/**
+ * Set a style — replacing what it sets — or add it when `add` is passed
+ * (refused if it exists). ONE WRITE, AND EVERY USE FOLLOWS: nothing here
+ * touches a page. `default` makes it the style every page inherits from the top.
+ */
+export async function editTextStyleSet(
+  slug: string,
+  name: string,
+  value: unknown,
+  opts: EditOptions & { add?: boolean; default?: boolean },
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const styles = textStylesOf(base)
+  requireStyleName(name)
+  if (opts.add && name in styles) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Site '${slug}' already has a text style '${name}'.`,
+      path: `textStyles.${name}`,
+      hint: 'Change it instead, or choose another name.',
+    })
+  }
+  if (!opts.add && !(name in styles)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Site '${slug}' has no text style '${name}'.`,
+      path: `textStyles.${name}`,
+      hint: 'Add it first, or list what exists.',
+    })
+  }
+  const style = requireStyle(value, name)
+  const files = await readPageFiles(slug, opts)
+  const newBase = {
+    ...base,
+    textStyles: { ...styles, [name]: style },
+    ...(opts.default ? { textDefault: name } : {}),
+  }
+  await validateOrThrow(slug, opts, newBase, files.map((f) => f.page))
+  await opts.store.write(slug, { siteJson: newBase })
+  const entry = textStyleCensus(newBase, files.map((f) => f.page)).find((e) => e.name === name)!
+  const count = entry.uses.length
+  return note(
+    slug,
+    opts,
+    {
+      data: { slug, name, style, default: entry.default, count },
+      human: `${opts.add ? 'Added' : 'Set'} text style ${name}${entry.default ? ' (the default)' : ''} — ${count} use${count === 1 ? '' : 's'}${entry.default ? ' plus every run that inherits it' : ''}.`,
+    },
+    {
+      op: opts.add ? 'textStyle.add' : 'textStyle.set',
+      label: `text style '${name}'`,
+      before: opts.add ? undefined : JSON.stringify(styles[name]),
+      after: JSON.stringify(style),
+    },
+  )
+}
+
+/** Delete a style — only when nothing names it and it is not the default. */
+export async function editTextStyleRm(slug: string, name: string, opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const styles = textStylesOf(base)
+  if (!(name in styles)) {
+    throw new CommandError({ code: 'NOT_FOUND', message: `Site '${slug}' has no text style '${name}'.`, path: `textStyles.${name}` })
+  }
+  const files = await readPageFiles(slug, opts)
+  const pages = files.map((f) => f.page)
+  const entry = textStyleCensus(base, pages).find((e) => e.name === name)!
+  if (entry.uses.length > 0 || entry.default) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: entry.default
+        ? `'${name}' is the style every page inherits and cannot be deleted.`
+        : `'${name}' is used ${entry.uses.length} time${entry.uses.length === 1 ? '' : 's'} and cannot be deleted.`,
+      path: `textStyles.${name}`,
+      hint: 'Deleting a style in use means deciding what each use becomes — point them at another style first.',
+    })
+  }
+  const { [name]: _gone, ...rest } = styles
+  const newBase = { ...base, textStyles: rest }
+  await validateOrThrow(slug, opts, newBase, pages)
+  await opts.store.write(slug, { siteJson: newBase })
+  return note(
+    slug,
+    opts,
+    { data: { slug, name, removed: true }, human: `Removed text style ${name}.` },
+    { op: 'textStyle.remove', label: `text style '${name}'`, before: JSON.stringify(styles[name]) },
+  )
+}
+
+/** Rename a style, rewriting every run and container that names it in one write. */
+export async function editTextStyleRename(
+  slug: string,
+  from: string,
+  to: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const styles = textStylesOf(base)
+  if (!(from in styles)) {
+    throw new CommandError({ code: 'NOT_FOUND', message: `Site '${slug}' has no text style '${from}'.`, path: `textStyles.${from}` })
+  }
+  requireStyleName(to)
+  if (to !== from && to in styles) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Site '${slug}' already has a text style '${to}'.`,
+      path: `textStyles.${to}`,
+      hint: 'Renaming onto an existing name would merge two styles — choose an unused name.',
+    })
+  }
+  const files = await readPageFiles(slug, opts)
+  const pages = files.map((f) => f.page)
+  const count = textStyleCensus(base, pages).find((e) => e.name === from)!.uses.length
+  const renamed = Object.fromEntries(Object.entries(styles).map(([k, v]) => [k === from ? to : k, v]))
+  const newBase = { ...base, textStyles: renamed, ...(base.textDefault === from ? { textDefault: to } : {}) }
+  const moved = files.filter((f) => collectL1TextStyleRefs(f.page).some((r) => r.name === from))
+  const newPages = files.map((f) => (moved.includes(f) ? renameL1TextStyleRef(f.page, from, to) : f.page))
+  await validateOrThrow(slug, opts, newBase, newPages)
+  await opts.store.write(slug, {
+    siteJson: newBase,
+    pages: moved.map((f) => ({ name: f.name, page: newPages[files.indexOf(f)] as Record<string, unknown> })),
+  })
+  return note(
+    slug,
+    opts,
+    {
+      data: { slug, from, to, count },
+      human: `Renamed text style ${from} → ${to} (${count} use${count === 1 ? '' : 's'} rewritten).`,
+    },
+    { op: 'textStyle.rename', label: `text style '${from}'`, before: from, after: to },
+  )
+}
+
+/**
+ * `1c type assign` — turn the site's type literals into named styles and
+ * container-level type, reproducing every run's type exactly (REQ-350). See
+ * {@link assignTextStyles} for the rule; this is its validated, atomic write.
+ */
+export async function editTextStyleAssign(slug: string, opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  let result: ReturnType<typeof assignTextStyles>
+  try {
+    result = assignTextStyles(base, files.map((f) => f.page))
+  } catch (err) {
+    throw new CommandError({ code: 'INTERNAL', message: (err as Error).message })
+  }
+  const { textDefault: _old, ...rest } = base
+  const newBase = {
+    ...rest,
+    textStyles: result.textStyles,
+    ...(result.textDefault ? { textDefault: result.textDefault } : {}),
+  }
+  await validateOrThrow(slug, opts, newBase, result.pages)
+  await opts.store.write(slug, {
+    siteJson: newBase,
+    pages: files.map((f, i) => ({ name: f.name, page: result.pages[i] })),
+  })
+  const { runs, containers, styles } = result.report
+  return note(
+    slug,
+    opts,
+    {
+      data: { slug, ...result.report, textDefault: result.textDefault ?? null, textStyles: result.textStyles },
+      human:
+        `${styles} text style${styles === 1 ? '' : 's'}; ${runs} run${runs === 1 ? '' : 's'} now take their type from one` +
+        `${containers ? `, ${containers} container${containers === 1 ? '' : 's'} set it for what they hold` : ''}` +
+        `${result.textDefault ? `; '${result.textDefault}' is the default every page starts from` : ''}.`,
+    },
+    { op: 'textStyle.assign', label: 'text styles', after: `${styles} styles` },
   )
 }
 

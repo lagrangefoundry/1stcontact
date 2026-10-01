@@ -246,9 +246,11 @@ describe('story-86c7c21b — the starting colours live in the page document', ()
     expect(site.palette).toBeUndefined()
     const theme = site.theme as Record<string, unknown>
     expect(theme.palette).toBeUndefined()
-    expect(Object.keys(theme).sort()).toEqual(
-      ['breakpoints', 'container', 'radius', 'shadow', 'spacing', 'typography'].sort(),
-    )
+    expect(Object.keys(theme).sort()).toEqual(['breakpoints', 'container', 'radius', 'shadow', 'spacing'].sort())
+    // REQ-350 — type is not a theme group: a created site starts with named text
+    // styles, `body` the default every page inherits.
+    expect(Object.keys(site.textStyles as Record<string, unknown>).sort()).toEqual(['body', 'heading'])
+    expect(site.textDefault).toBe('body')
 
     // The scaffold invents no third colour: every colour value anywhere in the
     // seeded document is one of the two the document itself declares.

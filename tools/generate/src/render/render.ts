@@ -282,8 +282,10 @@ function renderPage(
     '<link rel="stylesheet" href="./theme.css" />',
     '<style>',
     '  *, *::before, *::after { box-sizing: border-box; }',
-    '  body { margin: 0; font-family: var(--font-family-body); }',
-    '  h1, h2, h3, h4 { font-family: var(--font-family-heading); }',
+    // REQ-350 — no page-level font rule: the site's default text style is
+    // resolved into every run (and every control) before render, and a heading
+    // takes the `heading` style by name, so type has one answer, not two.
+    '  body { margin: 0; }',
     '</style>',
     // REQ-88: the folded L1 document's self-contained css (absolute geometry
     // keyframes + typed axes). Only present for a raw-L1 page.
@@ -450,7 +452,7 @@ export async function renderSiteFiles(
   const extraCss = opts.extraCss ? `\n\n${opts.extraCss}` : ''
   files.set(
     'theme.css',
-    `${generateThemeCss(site.theme)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
+    `${generateThemeCss(site.theme, site.textStyles)}\n\n${getModuleCss()}\n\n${CALLOUT_CSS}${extraCss}\n`,
   )
 
   // capabilities.js = every catalog behavior's vetted client behaviour (REQ-85),

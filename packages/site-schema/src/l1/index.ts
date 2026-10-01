@@ -49,12 +49,20 @@ export {
   renameL1PaletteRef,
 } from './palette'
 export type { L1Color, L1Palette, L1PaletteEntry, L1PaletteRef } from './palette'
+// REQ-350 — named and inherited type: literal base, named overlay.
+export {
+  L1_TYPE_AXES,
+  collectL1TextStyleRefs,
+  renameL1TextStyleRef,
+  resolveL1TextStyles,
+} from './text-style'
 export {
   validateL1,
   // [[REQ-351]] — lift a pre-REQ-351 document's node-level `viewportResponse` onto
   // its keyframes, so a bundle's retained `l1.json` stays readable without a refold.
   upgradeL1LegacyViewportResponse,
   checkPaletteRefs,
+  checkTextStyleRefs,
   danglingAssetReferences,
   // [[REQ-285]] — the same walk, asked the other question: what a page
   // references at all, so the per-turn digest can name each one.

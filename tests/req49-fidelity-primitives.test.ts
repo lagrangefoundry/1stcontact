@@ -7,19 +7,15 @@ import { generateThemeCss } from '../packages/framework/src/tokens'
  * contentInset, subhead weight/leading) went away with the semantic hero module
  * in the framework pivot (REQ-84); what survives — and is asserted here — is the
  * extended theme-token scale those dials resolved against, still emitted by
- * `generateThemeCss` and reused by L1 / capability modules: the `snug` leading,
- * `light` weight, the `--container-3xl` reading measure, and the large
+ * `generateThemeCss` and reused by L1 / capability modules: the `--container-3xl`
+ * reading measure, and the large
  * `--space-*` steps (which must survive a site-supplied base spacing block via
- * the deep-merge over defaults).
+ * the deep-merge over defaults). (The `snug` leading and `light` weight went
+ * with the theme's typography group under REQ-350; a style or a run sets those
+ * values directly.)
  */
 
 describe('REQ-49 token surface — extended scale backs the dials', () => {
-  it('test_UAT_FC_REQ-49_theme_emits_snug_line_height_and_light_weight', () => {
-    const css = generateThemeCss()
-    expect(css).toContain('--line-height-snug: 1.33;')
-    expect(css).toContain('--font-weight-light: 300;')
-  })
-
   it('test_UAT_FC_REQ-49_theme_emits_768px_container_measure', () => {
     // Residual 1 — the 768px reading measure, now `--container-3xl` (REQ-55).
     expect(generateThemeCss()).toContain('--container-3xl: 48rem;')

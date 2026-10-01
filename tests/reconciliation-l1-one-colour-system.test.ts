@@ -28,7 +28,7 @@ import * as siteSchema from '../packages/site-schema/src/index'
 import { validateSite } from '../packages/site-schema/src/index'
 import { validateL1 } from '../packages/site-schema/src/l1/validate'
 import { renderL1Document } from '../packages/framework/src/l1/render'
-import { defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
+import { defaultTextStyles, defaultTokens, generateThemeCss } from '../packages/framework/src/tokens/index'
 import { CALLOUT_CSS } from '../packages/framework/src/modules/markdown'
 import { resolveTextStyle, resolveSurfaceGradient } from '../packages/framework/src/modules/text-style'
 import { validateModuleContent } from '../packages/framework/src/modules/validate'
@@ -105,15 +105,14 @@ describe('AC-933 a rendered page emits no colour custom property, and exactly on
     // (1) The theme stylesheet. The colour group left the token surface, so the
     //     generated `:root` declares the non-colour vocabulary and no colour
     //     property — and there is no scheme-conditioned block re-declaring one.
-    const theme = generateThemeCss(defaultTokens)
+    // REQ-350 — the families come from the site's named text styles now, and
+    // the rest of the type scale was retired with the theme's typography group.
+    const theme = generateThemeCss(defaultTokens, defaultTextStyles)
     expect(theme).not.toMatch(/--color-/)
     expect(theme).not.toContain('prefers-color-scheme')
     expect(theme).not.toContain('@media')
     for (const group of [
       '--font-family-',
-      '--font-size-',
-      '--font-weight-',
-      '--line-height-',
       '--space-',
       '--radius-',
       '--shadow-',
@@ -123,8 +122,9 @@ describe('AC-933 a rendered page emits no colour custom property, and exactly on
       expect(theme, `theme stylesheet lost the ${group} group`).toContain(group)
     }
     // No hook exists to supply a dark override: the generator takes the tokens
+    // and, since REQ-350, the named text styles its family properties come from —
     // and nothing else.
-    expect(generateThemeCss.length).toBe(1)
+    expect(generateThemeCss.length).toBe(2)
 
     // (2) A page rendered end to end. `renderSite` writes the site's theme
     //     stylesheet (theme tokens + every behavior module's CSS + the callout
@@ -365,17 +365,14 @@ describe('AC-935 no closed colour-role vocabulary survives in the schema, in a d
 
 describe('AC-936 the non-colour token groups validate and emit exactly as before the colour cut', () => {
   it('test_UAT_AC936_every_surviving_token_group_still_emits_and_sparse_themes_are_default_filled', () => {
-    const css = generateThemeCss(defaultTokens)
+    const css = generateThemeCss(defaultTokens, defaultTextStyles)
     const block = rootBlock(css)
     expect(block).not.toBe('')
 
-    // One property from each surviving group.
+    // One property from each surviving group (REQ-350: the families from the
+    // named text styles; the type scale is retired).
     for (const name of [
       '--font-family-heading',
-      '--font-size-5xl',
-      '--font-weight-bold',
-      '--line-height-normal',
-      '--tracking-tight',
       '--space-24',
       '--radius-md',
       '--shadow-lg',
@@ -390,16 +387,8 @@ describe('AC-936 the non-colour token groups validate and emit exactly as before
     // slipped back in), nothing missing.
     const t = defaultTokens
     const expected =
-      // heading / body / display / label — the last two fall back when omitted.
-      4 +
-      Object.keys(t.typography.scale).length +
-      Object.keys(t.typography.weights).length +
-      Object.keys(t.typography.lineHeights).length +
-      Object.keys(t.typography.tracking ?? {}).length +
-      Object.values(t.typography.subScales ?? {}).reduce(
-        (n, scale) => n + Object.keys(scale ?? {}).length,
-        0,
-      ) +
+      // one family per named text style that sets one (REQ-350)…
+      Object.values(defaultTextStyles).filter((style) => style.fontFamily).length +
       Object.keys(t.spacing).length +
       Object.keys(t.radius).length +
       Object.keys(t.shadow).length +
@@ -415,11 +404,14 @@ describe('AC-936 the non-colour token groups validate and emit exactly as before
     expect(sparse).toContain('--space-4: 9rem;')
     expect(sparse).toContain('--space-8: 2rem;')
     expect(sparse).toContain('--radius-md: 0.375rem;')
-    expect((rootBlock(sparse).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(expected)
+    expect((rootBlock(sparse).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(
+      expected - Object.keys(defaultTextStyles).length,
+    )
     expect(sparse).not.toMatch(/--color-/)
 
     // A theme declaring every surviving group validates with the shape it had
-    // before the colour cut.
+    // before the colour cut — less typography, which REQ-350 moved to the
+    // site's named text styles.
     const full = siteSchema.themeTokensSchema.safeParse(defaultTokens)
     expect(full.success, full.success ? '' : JSON.stringify(full.error.issues)).toBe(true)
     if (full.success) {
@@ -429,7 +421,6 @@ describe('AC-936 the non-colour token groups validate and emit exactly as before
         'radius',
         'shadow',
         'spacing',
-        'typography',
       ])
     }
   })

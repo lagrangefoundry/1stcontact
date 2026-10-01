@@ -7,10 +7,9 @@
  * the same code; this package exposes the catalog registry, the theme-token
  * defaults, and the theme-CSS generator.
  */
-export { defaultTokens, generateThemeCss } from './tokens'
+export { defaultTokens, defaultTextStyles, defaultTextStyle, generateThemeCss } from './tokens'
 export type {
   ThemeTokens,
-  TypographyTokens,
   SpacingTokens,
   RadiusTokens,
   ShadowTokens,

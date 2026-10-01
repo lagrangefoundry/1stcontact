@@ -26,12 +26,9 @@ describe('REQ-36 extended spacing scale — airy sections', () => {
   })
 })
 
-describe('REQ-36 extralight weight token', () => {
-  it('test_UAT_FC_REQ-36_extralight_weight_token_emitted_as_200', () => {
-    const css = generateThemeCss({ palette: { primary: '#ff0000' } })
-    expect(css).toMatch(/--font-weight-extralight:\s*200/)
-  })
-})
+// REQ-350 — the extralight weight token went with the theme's typography
+// group. A weight is a value a text style or a run sets directly (`fontWeight:
+// 200`); there was no live reader of the named step.
 
 // REQ-114 — `accent-mid` was a slot of the retired colour token group (and, like
 // accent-light/deep, a ramp position wearing a role name). The container scale and
@@ -46,10 +43,12 @@ describe('REQ-36 theme token surface — container scale, label font', () => {
   })
 
   it('test_UAT_FC_REQ-36_theme_emits_font_family_label_from_the_label_role', () => {
-    const withLabel = generateThemeCss({ typography: { family: { heading: 'Oswald', body: 'Karla', label: 'Raleway' } } })
+    // REQ-350 — the label face is a named text style, and its property is
+    // generated from the style.
+    const withLabel = generateThemeCss({}, { heading: { fontFamily: 'Oswald' }, body: { fontFamily: 'Karla' }, label: { fontFamily: 'Raleway' } })
     expect(withLabel).toMatch(/--font-family-label:\s*Raleway/)
-    // Omitting the role falls back to the body family, so an existing theme is unchanged.
-    const without = generateThemeCss({ typography: { family: { heading: 'Oswald', body: 'Karla' } } })
-    expect(without).toMatch(/--font-family-label:\s*Karla/)
+    // No `label` style, no property: the family has one source.
+    const without = generateThemeCss({}, { heading: { fontFamily: 'Oswald' }, body: { fontFamily: 'Karla' } })
+    expect(without).not.toMatch(/--font-family-label/)
   })
 })

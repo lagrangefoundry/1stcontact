@@ -27,7 +27,7 @@
  * construction-scoped bindings are the finding to raise upstream).
  */
 
-import { L1_DOCUMENT_KEYS, L1_EMAIL_TARGET, type L1Palette } from '@1stcontact/site-schema'
+import { L1_DOCUMENT_KEYS, L1_EMAIL_TARGET, resolveL1TextStyles, type L1Palette, type L1TextStyles } from '@1stcontact/site-schema'
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import l1Surface from './l1-surface.json'
@@ -66,6 +66,10 @@ import {
   editPaletteAdd,
   editPaletteGet,
   editPaletteRename,
+  editTextStyleGet,
+  editTextStyleRename,
+  editTextStyleRm,
+  editTextStyleSet,
   editPaletteRm,
   editPaletteSet,
   editStatus,
@@ -522,9 +526,14 @@ export function l1Operations(
       // Read from the settings, not `get_palette`: that one counts uses across
       // every page, which this does not need and should not pay for per map.
       const config = ((await editConfigGet(slug, undefined, opts)).data as {
-        config: { palette?: L1Palette }
+        config: { palette?: L1Palette; textStyles?: L1TextStyles; textDefault?: string }
       }).config
-      const audit = auditPage(page, config.palette)
+      // REQ-350 — and type is read as it paints: a control whose face comes from
+      // a named style or a container's type has a face.
+      const audit = auditPage(
+        page.l1 ? { ...page, l1: resolveL1TextStyles(page.l1, config.textStyles, config.textDefault) } : page,
+        config.palette,
+      )
       return {
         page: {
           id: page.id,
@@ -586,6 +595,9 @@ export function l1Operations(
     // color move" before this; without it, `set_config` on `palette` was an
     // edit made blind.
     get_palette: async () => (await editPaletteGet(slug, opts)).data,
+
+    // REQ-350 — the named text styles, each with every place that names it.
+    get_text_styles: async () => (await editTextStyleGet(slug, opts)).data,
 
     status: async () => (await editStatus(slug, opts)).data,
 
@@ -852,6 +864,27 @@ export function l1Operations(
 
     rename_palette_color: async (p) => {
       const out = await editPaletteRename(slug, req(p, 'name'), req(p, 'to'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // REQ-350 — the palette's model for type: one write, and every use follows.
+    set_text_style: async (p) => {
+      const out = await editTextStyleSet(slug, req(p, 'name'), p.style, { ...opts, default: p.default === true })
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    add_text_style: async (p) => {
+      const out = await editTextStyleSet(slug, req(p, 'name'), p.style, { ...opts, add: true, default: p.default === true })
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    remove_text_style: async (p) => {
+      const out = await editTextStyleRm(slug, req(p, 'name'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    rename_text_style: async (p) => {
+      const out = await editTextStyleRename(slug, req(p, 'name'), req(p, 'to'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 

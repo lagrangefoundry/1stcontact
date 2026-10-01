@@ -72,8 +72,9 @@ describe('REQ-33 contact-form submit inherits site type (AC2)', () => {
 describe('REQ-33 callout is medium-weight emphasis (AC9)', () => {
   it('test_UAT_FC_REQ-33_callout_text_is_medium_weight', () => {
     // A callout is a weight-emphasised statement (500) — its weight lives here,
-    // in the treatment, not as a raw font-weight in any site-def.
-    expect(CALLOUT_CSS).toMatch(/blockquote\.fc-callout\s*\{[^}]*font-weight:\s*var\(--font-weight-medium\)/)
+    // in the treatment, not as a raw font-weight in any site-def. (A literal since
+    // REQ-350 retired the theme's weight scale it used to read.)
+    expect(CALLOUT_CSS).toMatch(/blockquote\.fc-callout\s*\{[^}]*font-weight:\s*500;/)
   })
 
   it('test_UAT_FC_REQ-33_callout_marker_renders_left_bar', async () => {

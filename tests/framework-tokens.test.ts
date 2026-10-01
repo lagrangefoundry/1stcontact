@@ -1,5 +1,5 @@
 import { describe, it, expect, expectTypeOf } from 'vitest'
-import { generateThemeCss, defaultTokens } from '../packages/framework/src/tokens/index'
+import { generateThemeCss, defaultTokens, defaultTextStyles } from '../packages/framework/src/tokens/index'
 import { registry, getModule } from '../packages/framework/src/modules/registry'
 import { CATALOG } from '../packages/framework/src/modules/catalog'
 import { carouselMeta } from '../packages/framework/src/modules/carousel/meta'
@@ -22,15 +22,14 @@ function rootBlock(css: string): string {
 
 describe('@1stcontact/framework theme tokens', () => {
   it('test_UAT_FC_REQ-4_generate_css_produces_root_custom_properties', () => {
-    const css = generateThemeCss(defaultTokens)
+    const css = generateThemeCss(defaultTokens, defaultTextStyles)
     expect(css).toContain(':root {')
     // One representative variable per token group, with the deterministic names.
+    // REQ-350 — the family properties come from the site's NAMED TEXT STYLES,
+    // one per style that sets a family (a new site's are `body` and `heading`).
     for (const name of [
       '--font-family-heading',
-      '--font-family-display',
-      '--font-size-5xl',
-      '--font-weight-bold',
-      '--line-height-normal',
+      '--font-family-body',
       '--space-4',
       '--space-24',
       '--radius-md',
@@ -51,9 +50,16 @@ describe('@1stcontact/framework theme tokens', () => {
     // (font-size/font-weight/line-height/letter-spacing each), a net +8.
     // REQ-114 retired the colour group outright — the closed 15-slot palette is
     // replaced by the arbitrary-size L1 palette (DOC-23 §5), which is site data
-    // resolved to literals at load, not a token: a net -15.
+    // resolved to literals at load, not a token: a net -15. REQ-350 retired the
+    // typography group the same way — its four families, nine sizes, seven
+    // weights, four line heights, three tracking steps and eight sub-scale
+    // properties (-35) — and generates one family property per named text style
+    // instead (+2 for a new site's `body` and `heading`).
     const declCount = (rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length
-    expect(declCount).toBe(74)
+    expect(declCount).toBe(41)
+    for (const retired of ['--font-size-', '--font-weight-', '--line-height-', '--tracking-', '--subscale-']) {
+      expect(css, `${retired} is retired`).not.toContain(retired)
+    }
   })
 
   it('test_UAT_FC_REQ-4_generate_css_substitutes_defaults_for_missing_slots', () => {
@@ -62,7 +68,8 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).toContain('--space-4: 9rem;') // the override
     expect(css).toContain('--space-8: 2rem;') // default-filled slot in the same group
     expect(css).toContain('--radius-md: 0.375rem;') // default-filled slot in another group
-    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(74)
+    // REQ-350 — 41 less the two named-style families, since none were passed.
+    expect((rootBlock(css).match(/--[a-z0-9-]+:/g) ?? []).length).toBe(39)
   })
 
   it('test_UAT_FC_REQ-114_theme_css_emits_no_colour_custom_property', () => {
@@ -71,7 +78,7 @@ describe('@1stcontact/framework theme tokens', () => {
     // reference one. Colour reaches the page from the L1 document (its own
     // `background` / `textColor` and its nodes' typed colour axes), resolved
     // through the site palette — never through a token.
-    const css = generateThemeCss(defaultTokens)
+    const css = generateThemeCss(defaultTokens, defaultTextStyles)
     expect(css).not.toMatch(/--color-/)
 
     // AC-10 — the dark-mode palette override went with the palette rather than
@@ -80,7 +87,8 @@ describe('@1stcontact/framework theme tokens', () => {
     expect(css).not.toContain('@media')
 
     // AC-11 — the non-colour groups are untouched and still emit as before.
-    for (const group of ['--font-family-', '--font-size-', '--space-', '--radius-', '--shadow-']) {
+    // (REQ-350 retired the type scale; the families now come from named styles.)
+    for (const group of ['--font-family-', '--space-', '--radius-', '--shadow-']) {
       expect(css, `missing ${group} group`).toContain(group)
     }
   })

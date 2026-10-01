@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
 import { l1PaletteSchema } from './l1/palette'
+import { l1StyleNameSchema, l1TextStylesSchema } from './l1/schema'
 import { l1DocumentSlotNames } from './l1/slots'
 import {
   COUNTRY_DEFAULTS,
@@ -819,116 +820,6 @@ export const fontFaceSchema = z.object({
 })
 
 /**
- * Typography: families, a 9-step size scale, 5 weights, 3 line-heights.
- *
- * `family.display` (REQ-24) is an optional third family slot for a bespoke
- * display/wordmark face (e.g. a gold Cinzel wordmark), distinct from the
- * `heading`/`body` families. Omitted → the CSS generator falls back to
- * `heading` for `--font-family-display`.
- *
- * `family.label` (REQ-36) is an optional fourth slot for a button/label face
- * (e.g. the reference's Raleway "Learn More"). Omitted → the CSS generator
- * falls back to `body` for `--font-family-label`.
- */
-
-/**
- * One component-owned sub-element type ramp (REQ-56) — badge label, checklist
- * item, etc. The fields are the *style* axes of {@link textRunSchema} (no
- * content/position), i.e. the exact six render axes the capture reads
- * (`fontSizePx`/`fontWeight`/`lineHeightPx`/`letterSpacingPx`/`fontFamily`/
- * `color`). Same px vocabulary end-to-end: a captured render value drops
- * straight in and the per-instance `…Style` escape hatch reuses these fields.
- * Every field is optional so a subscale carries only the axes it fixes.
- *
- * The length axes are **flat scalars** (`styleAxis`), not responsive: the
- * theme-CSS emitter (`subScaleVars`) resolves a subscale to a single
- * `--subscale-<name>-<axis>` custom property with no per-breakpoint form, so a
- * responsive subscale value was never actually wired through render. Keeping the
- * schema flat matches the emitter (removes the REQ-61-era type-drift closed in
- * REQ-84) — a subscale that needs to vary by breakpoint is a future extension of
- * both sides together, not a schema-only capability.
- */
-export const subScaleSchema = z
-  .object({
-    fontFamily: z.string().optional(),
-    fontSizePx: styleAxis.optional(),
-    fontWeight: styleAxis.optional(),
-    color: z.string().optional(),
-    letterSpacingPx: styleAxis.optional(),
-    lineHeightPx: styleAxis.optional(),
-  })
-  .strict()
-
-export const typographyTokensSchema = z.object({
-  family: z.object({
-    heading: z.string(),
-    body: z.string(),
-    display: z.string().optional(),
-    label: z.string().optional(),
-  }),
-  scale: z.object({
-    xs: cssValue,
-    sm: cssValue,
-    base: cssValue,
-    lg: cssValue,
-    xl: cssValue,
-    '2xl': cssValue,
-    '3xl': cssValue,
-    '4xl': cssValue,
-    '5xl': cssValue,
-  }),
-  weights: z.object({
-    // `extralight` (200, REQ-36) is optional so existing themes validate
-    // unchanged; `defaultTokens` fills it, so `--font-weight-extralight` is
-    // always emitted and safe for the text-block/hero `headingWeight` dial to
-    // reference (the joyfulculinary section headings are Oswald 200–300).
-    extralight: cssValue.optional(),
-    // `light` (300, REQ-49) is optional so existing themes validate unchanged;
-    // `defaultTokens` fills it, so `--font-weight-light` is always emitted and
-    // safe for the hero `subheadWeight` dial to reference (cf. `shadow.xl`).
-    light: cssValue.optional(),
-    regular: cssValue,
-    medium: cssValue,
-    semibold: cssValue,
-    bold: cssValue,
-    black: cssValue,
-  }),
-  lineHeights: z.object({
-    tight: cssValue,
-    // `snug` (~1.33, REQ-49) optional + default-filled, so `--line-height-snug`
-    // is always emitted for the hero `subheadLeading` dial (cf. `shadow.xl`).
-    snug: cssValue.optional(),
-    normal: cssValue,
-    relaxed: cssValue,
-  }),
-  // Letter-spacing (tracking) steps backing the `tracking` treatment (REQ-45).
-  // Emitted as `--tracking-<step>`; em-based so they scale with the type. A
-  // `.default()` (not `.optional()`) so existing themes that predate this group
-  // keep validating while the resolved type stays required — the token emitter
-  // never sees an undefined group.
-  tracking: z
-    .object({
-      normal: cssValue,
-      tight: cssValue,
-      tighter: cssValue,
-    })
-    .default({ normal: '0em', tight: '-0.025em', tighter: '-0.05em' }),
-  // Component-owned sub-element type ramps (REQ-56) — badge label / checklist
-  // item / … typography as theme-level subscales, so a systemic gap is fixed
-  // once here rather than per instance. `.optional()` (existing themes omit it)
-  // with `.partial()` inner (a site may override only `badge`); `defaultTokens`
-  // fills both, so the `--subscale-*` custom properties are always emitted (cf.
-  // `shadow.xl`). Extend by adding a named slot — never a per-instance default.
-  subScales: z
-    .object({
-      badge: subScaleSchema,
-      checklist: subScaleSchema,
-    })
-    .partial()
-    .optional(),
-})
-
-/**
  * Geometric spacing scale. Keys are quoted numeric strings. The base 10 steps
  * (0–24) are required; the large steps `32`/`48`/`64`/`80` (REQ-49) are optional
  * so existing themes validate unchanged — `defaultTokens` fills them, so the
@@ -1010,9 +901,15 @@ export const breakpointTokensSchema = z.object({
  * forbids, so the old one is deleted rather than deprecated. Typography,
  * spacing, radius, shadow, container and breakpoint tokens are a different axis
  * family with no replacement here and are untouched.
+ *
+ * REQ-350 — and the **typography** group is gone, for the same reason. Type is
+ * the named text styles' (`site.textStyles`, `site.textDefault`), which L1 runs
+ * name and containers set for what they contain; the families a stored site's
+ * theme declared are lifted into styles on load (`store/legacy-typography.ts`),
+ * and the `--font-family-*` properties a legacy module reads are generated from
+ * the styles. One answer, not two.
  */
 export const themeTokensSchema = z.object({
-  typography: typographyTokensSchema,
   spacing: spacingTokensSchema,
   radius: radiusTokensSchema,
   shadow: shadowTokensSchema,
@@ -1171,6 +1068,17 @@ export const siteSchema = z
      * palette is exactly as valid — and renders exactly as it does today.
      */
     palette: l1PaletteSchema.optional(),
+    /**
+     * REQ-350 — the site's named text styles: type set once and referred to by
+     * every run that uses it, site-level for the palette's reason — a style is
+     * the unit of change, and a per-page copy would make one change N edits.
+     */
+    textStyles: l1TextStylesSchema.optional(),
+    /**
+     * REQ-350 — the style every page inherits from the top, before any
+     * container or run says otherwise. Must name one of {@link textStyles}.
+     */
+    textDefault: l1StyleNameSchema.optional(),
     nav: navConfigSchema,
     pages: z.array(pageSchema),
     /*

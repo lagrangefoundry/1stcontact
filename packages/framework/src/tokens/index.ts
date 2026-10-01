@@ -1,8 +1,7 @@
-export { defaultTokens } from './defaults'
+export { defaultTokens, defaultTextStyles, defaultTextStyle } from './defaults'
 export { generateThemeCss } from './css'
 export type {
   ThemeTokens,
-  TypographyTokens,
   SpacingTokens,
   RadiusTokens,
   ShadowTokens,

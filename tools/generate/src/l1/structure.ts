@@ -22,7 +22,7 @@ import {
   type L1Geometry,
   type L1Keyframe,
   type L1Node,
-  type L1Palette,
+  type ValidateL1Options,
 } from '@1stcontact/site-schema'
 import {
   evaluateLayout,
@@ -53,8 +53,8 @@ export interface GroupResult {
 export interface GroupOptions {
   /** An `id` for the new container — what an author calls the section. */
   id?: string
-  /** The site palette, so a page whose colours are references still validates. */
-  palette?: L1Palette
+  /** The site's palette and text styles, so a page that refers to them still validates. */
+  site?: ValidateL1Options
 }
 
 const refuse = (code: StructureRefusal['code'], message: string, hint?: string): StructureRefusal => ({
@@ -261,7 +261,7 @@ export function groupL1(
     else if (!indices.includes(i)) nextChildren.push(child)
   })
   const next = replaceAt(doc, parentPath, withChildren(parent, nextChildren))
-  const checked = validateL1(next, { palette: options.palette })
+  const checked = validateL1(next, options.site)
   if (!checked.ok) {
     return refuse('SCHEMA_INVALID', `The grouped page would not validate: ${checked.errors[0]?.message ?? 'unknown error'}.`)
   }
@@ -291,7 +291,7 @@ export function flowL1(
   doc: L1Document,
   path: readonly number[],
   measured: OracleSource,
-  options: { palette?: L1Palette } = {},
+  options: { site?: ValidateL1Options } = {},
 ): FlowResult | StructureRefusal {
   const node = nodeAt(doc, path)
   const address = formatL1Path(path)
@@ -310,7 +310,7 @@ export function flowL1(
   const { doc: next } = promoteToFlow(doc, {
     only: address,
     measured: measuredTextHeights(measured),
-    palette: options.palette,
+    site: options.site,
   })
   return { ok: true, doc: next }
 }

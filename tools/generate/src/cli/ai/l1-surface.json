@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 16,
+  "surface_version": 17,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -49,6 +49,10 @@
     "relation": {
       "base": "string",
       "description": "One claim about where two anchors sit, written `<node>.<anchor> = <node>.<anchor>`, optionally followed by `+` or `-` a number — e.g. `#ord.cap-top = #one.cap-top` or `#ord.ink-left = #one.ink-right + 2`.\n\nNothing richer is accepted: no other operators and no expressions. A relation is a claim about two anchors, and anything more would be a constraint system, which this is not.\n\n**It is the same sentence a drawing records in a comment.** `<!-- #ord.cap-top = #one.cap-top -->` in the drawing's own source says what it was trying to do, and `measure_drawing` reports every such note with what it is worth now."
+    },
+    "text_style_name": {
+      "base": "string",
+      "description": "The name of one of the site's text styles, e.g. `body`, `heading-2` or `caption` — lowercase, words joined by hyphens. It is the name the style is referred to by everywhere it is used."
     }
   },
   "shapes": {
@@ -161,6 +165,10 @@
       "ships": "what this family actually has: every weight it names, whether a true italic exists, and the variable axes it carries with the range each covers. Read it — it is how you learn what else you may ask for",
       "unavailable": "anything you asked for that this family does not have, and what was served instead. Absent when everything you asked for exists",
       "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else. Unchanged when the family was already served"
+    },
+    "text_styles": {
+      "slug": "the site",
+      "entries": "every text style: its `name`, the `style` it sets (font family, size, weight, line height, letter spacing — and `responsive`, how size, line height and spacing change across screen widths), whether it is the `default` every page starts from, and `uses` — every element that names it, by page and address, and whether that element is a piece of text or a group that sets the style for what it contains"
     }
   },
   "errors": {
@@ -358,6 +366,21 @@
       "params": {},
       "returns": {
         "shape": "palette",
+        "provenance": "untrusted"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
+      "op": "get_text_styles",
+      "tool": "get_text_styles",
+      "effect": "read",
+      "summary": "Read the site's named text styles, with every place that uses each.",
+      "description": "A text style is type set once — a family, a size, a weight, a line height, a letter spacing — and named, like `body` or `heading-2`. A piece of text that names one takes everything the style sets, unless it sets a value itself; a group that names one sets it for every piece of text inside it. One style is the site's default, which every page starts from.\n\nThis tells you what each style sets and exactly where it is used, so you know what changing one will move before you change it.",
+      "params": {},
+      "returns": {
+        "shape": "text_styles",
         "provenance": "untrusted"
       },
       "errors": [
@@ -804,7 +827,7 @@
       "params": {
         "key": {
           "type": "config_key",
-          "description": "The group to write in, e.g. `palette` or `theme.typography`. Omit it to write top-level settings."
+          "description": "The group to write in, e.g. `palette` or `theme.spacing`. Omit it to write top-level settings."
         },
         "settings": {
           "type": "object",
@@ -902,6 +925,111 @@
         },
         "to": {
           "type": "palette_name",
+          "required": true,
+          "description": "What to call it instead."
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "set_text_style",
+      "tool": "set_text_style",
+      "effect": "write",
+      "summary": "Change what a text style sets — every element using it follows.",
+      "description": "The style is replaced by what you send, so send all of it. Every piece of text that names the style, and every piece inside a group that names it, changes at once; a piece that sets a value of its own keeps it. This is how \"make the body text a little larger\" is one change rather than one per paragraph.\n\nPass `default: true` to make this the style every page starts from.",
+      "params": {
+        "name": {
+          "type": "text_style_name",
+          "required": true
+        },
+        "style": {
+          "type": "object",
+          "required": true,
+          "description": "What the style sets: any of `fontFamily`, `fontSizePx`, `fontWeight`, `lineHeightPx`, `letterSpacingPx`, and `responsive` — per-width tracks for size, line height and spacing in the same form a text element's own `responsive` takes. Nothing else is accepted. A family must be one the site serves, as on any element."
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Make this the style every page starts from."
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "add_text_style",
+      "tool": "add_text_style",
+      "effect": "write",
+      "summary": "Add a new named text style.",
+      "description": "Nothing uses it until something names it: set `textStyle` on a piece of text, or `type: {\"style\": …}` on a group to set it for everything inside. Refused if the name is taken.",
+      "params": {
+        "name": {
+          "type": "text_style_name",
+          "required": true
+        },
+        "style": {
+          "type": "object",
+          "required": true,
+          "description": "What the style sets: any of `fontFamily`, `fontSizePx`, `fontWeight`, `lineHeightPx`, `letterSpacingPx`, and `responsive` — per-width tracks for size, line height and spacing in the same form a text element's own `responsive` takes. Nothing else is accepted. A family must be one the site serves, as on any element."
+        },
+        "default": {
+          "type": "boolean",
+          "description": "Make this the style every page starts from."
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "CONFLICT",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "remove_text_style",
+      "tool": "remove_text_style",
+      "effect": "write",
+      "summary": "Remove a text style nothing uses.",
+      "description": "Refused while anything names it, or while it is the default: what each use should become instead is a decision to make deliberately, by pointing them at another style first.",
+      "params": {
+        "name": {
+          "type": "text_style_name",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "palette_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT"
+      ]
+    },
+    {
+      "op": "rename_text_style",
+      "tool": "rename_text_style",
+      "effect": "write",
+      "summary": "Rename a text style, moving every use with it.",
+      "description": "Every element that named the old name is rewritten to the new one in the same go. Refused if the new name is already a style — that would merge two styles into one.",
+      "params": {
+        "name": {
+          "type": "text_style_name",
+          "required": true,
+          "description": "The style's current name."
+        },
+        "to": {
+          "type": "text_style_name",
           "required": true,
           "description": "What to call it instead."
         }
@@ -1129,6 +1257,7 @@
         "get_asset",
         "get_config",
         "get_palette",
+        "get_text_styles",
         "list_behaviors",
         "status",
         "list_changes"
@@ -1189,6 +1318,18 @@
         "add_palette_color",
         "remove_palette_color",
         "rename_palette_color"
+      ]
+    },
+    {
+      "group": "ManageTextStyles",
+      "effect": "write",
+      "title": "Changing the site's type",
+      "description": "Change, add, rename or remove one of the site's named text styles. A change here moves every piece of text that uses the style at once — reach for these rather than retyping elements one at a time.",
+      "operations": [
+        "set_text_style",
+        "add_text_style",
+        "remove_text_style",
+        "rename_text_style"
       ]
     },
     {

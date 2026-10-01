@@ -24,12 +24,10 @@ function siteWithFont(): unknown {
     config: { businessName: 'Gigabyte Alchemy' },
     theme: {
       ...defaultTokens,
-      typography: {
-        ...defaultTokens.typography,
-        family: { ...defaultTokens.typography.family, display: '"Cinzel", serif' },
-      },
       fonts: [{ family: 'Cinzel', src: 'assets/cinzel.woff2', display: 'swap' }],
     },
+    // REQ-350 — the display family is a named text style, not a theme slot.
+    textStyles: { display: { fontFamily: 'Cinzel, serif' } },
     nav: { pattern: 'top-tabs', entries: [] },
     pages: [
       {
@@ -63,7 +61,7 @@ function siteWithFont(): unknown {
 
 describe('REQ-24 display fonts — schema', () => {
   it('test_UAT_FC_REQ-24_schema_accepts_structured_font_declaration', () => {
-    // A site declaring theme.fonts + typography.family.display validates — the
+    // A site declaring theme.fonts + a `display` text style validates — the
     // font declaration is structured data, not raw CSS smuggled into the def.
     const result = validateSite(siteWithFont())
     expect(result.ok).toBe(true)
@@ -103,18 +101,14 @@ describe('REQ-24 display fonts — theme CSS generation', () => {
   })
 
   it('test_UAT_FC_REQ-24_generate_css_emits_display_family_custom_property', () => {
-    // Declared display family surfaces as --font-family-display verbatim.
-    const withDisplay = generateThemeCss({
-      typography: {
-        ...defaultTokens.typography,
-        family: { ...defaultTokens.typography.family, display: '"Cinzel", serif' },
-      },
-    })
-    expect(withDisplay).toContain('--font-family-display: "Cinzel", serif;')
+    // REQ-350 — a `display` text style surfaces as --font-family-display, through
+    // the same family discipline the L1 renderer applies to a run.
+    const withDisplay = generateThemeCss(defaultTokens, { display: { fontFamily: '"Cinzel", serif' } })
+    expect(withDisplay).toContain('--font-family-display: Cinzel, serif;')
 
-    // Omitted → falls back to the heading family so the property is always safe.
+    // No such style → no such property: the family has one source, the style.
     const noDisplay = generateThemeCss(defaultTokens)
-    expect(noDisplay).toContain(`--font-family-display: ${defaultTokens.typography.family.heading};`)
+    expect(noDisplay).not.toContain('--font-family-display')
   })
 
   it('test_UAT_FC_REQ-24_generate_css_omits_font_face_when_no_fonts_declared', () => {

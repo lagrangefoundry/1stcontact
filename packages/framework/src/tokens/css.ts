@@ -1,6 +1,7 @@
-import type { FontFace } from '@1stcontact/site-schema'
+import type { FontFace, L1TextStyles } from '@1stcontact/site-schema'
 import type { DeepPartial, ThemeTokens } from './contract'
 import { defaultTokens } from './defaults'
+import { cssFontFamily } from '../l1/render'
 
 /**
  * Generate the site's theme CSS: a `:root` block declaring one CSS custom
@@ -8,7 +9,7 @@ import { defaultTokens } from './defaults'
  *
  * Any slot the caller omits is filled from {@link defaultTokens}, so the output
  * always covers the full token surface. Variable naming is deterministic (see
- * REQ-4): `--font-size-<step>`, `--space-<step>`, etc.
+ * REQ-4): `--space-<step>`, `--radius-<step>`, etc.
  *
  * REQ-114 — no `--color-*` property is emitted any more, and there is no
  * dark-mode override hook. Colour left the token surface for the L1 palette
@@ -16,28 +17,20 @@ import { defaultTokens } from './defaults'
  * and had no callers, so it went with them rather than being ported to a model
  * it was not designed against.
  */
-export function generateThemeCss(tokens?: DeepPartial<ThemeTokens>): string {
+export function generateThemeCss(tokens?: DeepPartial<ThemeTokens>, textStyles?: L1TextStyles): string {
   const t = mergeTokens(defaultTokens, tokens)
 
-  // The display family (REQ-24) falls back to the heading family when a site
-  // declares no bespoke display face, so `--font-family-display` is always safe
-  // to reference from a module.
-  const displayFamily = t.typography.family.display ?? t.typography.family.heading
-  // The label family (REQ-36) is the button/label face (the reference's Raleway
-  // "Learn More"); it falls back to the body family when a site declares none, so
-  // `--font-family-label` is always safe to reference from a module.
-  const labelFamily = t.typography.family.label ?? t.typography.family.body
-
   const vars: string[] = [
-    `--font-family-heading: ${t.typography.family.heading};`,
-    `--font-family-body: ${t.typography.family.body};`,
-    `--font-family-display: ${displayFamily};`,
-    `--font-family-label: ${labelFamily};`,
-    ...mapVars('--font-size-', t.typography.scale),
-    ...mapVars('--font-weight-', t.typography.weights),
-    ...mapVars('--line-height-', t.typography.lineHeights),
-    ...mapVars('--tracking-', t.typography.tracking),
-    ...subScaleVars(t.typography.subScales),
+    // REQ-350 — one property per named text style that sets a family, generated
+    // FROM the style, so a style changed once changes every L1 run that names it
+    // and every legacy consumer of `--font-family-<name>` alike. The type scale,
+    // weights, line heights, tracking and sub-scales the theme used to emit had
+    // no live reader and went with the theme's typography group.
+    ...Object.entries(textStyles ?? {}).flatMap(([name, style]) =>
+      // The renderer's own family sanitiser: a style carries nothing into a
+      // stylesheet that a run could not.
+      cssFontFamily(style.fontFamily) ? [`--font-family-${name}: ${cssFontFamily(style.fontFamily)};`] : [],
+    ),
     ...mapVars('--space-', t.spacing),
     ...mapVars('--radius-', t.radius),
     ...mapVars('--shadow-', t.shadow),
@@ -54,6 +47,7 @@ export function generateThemeCss(tokens?: DeepPartial<ThemeTokens>): string {
 
   return css
 }
+
 
 /**
  * Site-declared fonts → concatenated `@font-face` rules (REQ-24). Each field is
@@ -95,48 +89,6 @@ function mapVars(prefix: string, group: Record<string, string>): string[] {
   return Object.entries(group).map(([key, value]) => `${prefix}${key}: ${value};`)
 }
 
-/** A px length axis: a number → `<n>px`; a string is passed through verbatim
- * (already a length, a `var(--…)` alias, or a keyword). Mirrors the TextRun
- * length handling so subscale values and per-instance overrides read alike. */
-function pxAxis(v: number | string): string {
-  return typeof v === 'number' ? `${v}px` : v
-}
-
-/**
- * Component-owned subscales (REQ-56) → `--subscale-<name>-<axis>` declarations,
- * in the render's px vocabulary. Only the axes a subscale sets are emitted;
- * length axes (`fontSizePx`/`lineHeightPx`/`letterSpacingPx`) become px via
- * {@link pxAxis}, while `fontWeight`/`fontFamily`/`color` are verbatim.
- */
-function subScaleVars(
-  subScales?: Partial<
-    Record<
-      string,
-      Partial<{
-        fontFamily: string
-        fontSizePx: number | string
-        fontWeight: number | string
-        color: string
-        letterSpacingPx: number | string
-        lineHeightPx: number | string
-      }>
-    >
-  >,
-): string[] {
-  if (!subScales) return []
-  const out: string[] = []
-  for (const [name, scale] of Object.entries(subScales)) {
-    if (!scale) continue
-    if (scale.fontFamily !== undefined) out.push(`--subscale-${name}-font-family: ${scale.fontFamily};`)
-    if (scale.fontSizePx !== undefined) out.push(`--subscale-${name}-font-size: ${pxAxis(scale.fontSizePx)};`)
-    if (scale.fontWeight !== undefined) out.push(`--subscale-${name}-font-weight: ${scale.fontWeight};`)
-    if (scale.color !== undefined) out.push(`--subscale-${name}-color: ${scale.color};`)
-    if (scale.letterSpacingPx !== undefined)
-      out.push(`--subscale-${name}-letter-spacing: ${pxAxis(scale.letterSpacingPx)};`)
-    if (scale.lineHeightPx !== undefined) out.push(`--subscale-${name}-line-height: ${pxAxis(scale.lineHeightPx)};`)
-  }
-  return out
-}
 
 /** Recursively overlay `override` onto `base`, returning a complete tokens object. */
 function mergeTokens(base: ThemeTokens, override?: DeepPartial<ThemeTokens>): ThemeTokens {

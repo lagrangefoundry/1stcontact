@@ -27,6 +27,8 @@
 import {
   isSafeUrl,
   resolveL1Palette,
+  resolveL1TextStyles,
+  type L1TextStyles,
   type L1AxisSizing,
   type L1Border,
   type L1Color,
@@ -328,6 +330,9 @@ function emit(node: L1Node, width: number | null): string {
 export interface L1EmailRenderOptions {
   /** The site palette any colour reference resolves against, as the web target takes it. */
   palette?: L1Palette
+  /** REQ-350 — the site's text styles and default, resolved as the web target resolves them. */
+  textStyles?: L1TextStyles
+  textDefault?: string
   /** The message's subject, emitted as the document `<title>`. */
   subject?: string
 }
@@ -345,7 +350,7 @@ export interface L1EmailRenderOptions {
  * cell as well as on `<body>`, which several clients discard.
  */
 export function renderL1Email(input: L1Document, opts: L1EmailRenderOptions = {}): string {
-  const doc = resolveL1Palette(input, opts.palette)
+  const doc = resolveL1TextStyles(resolveL1Palette(input, opts.palette), opts.textStyles, opts.textDefault)
   const canvas = Math.round(doc.widths[0])
   const bg = color(doc.background)
   const fg = color(doc.textColor)

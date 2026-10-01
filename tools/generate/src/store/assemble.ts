@@ -1,5 +1,6 @@
 import type { Site, ValidationError } from '@1stcontact/site-schema'
-import { resolveL1Palette, validateSite } from '@1stcontact/site-schema'
+import { resolveL1Palette, resolveL1TextStyles, validateSite } from '@1stcontact/site-schema'
+import { liftLegacyHeadings, liftLegacyTypography } from './legacy-typography'
 import { upgradePageModules } from '@1stcontact/framework/worker'
 import type { StoredInstance } from '@1stcontact/framework/worker'
 
@@ -119,8 +120,10 @@ export function assembleSite(parts: SiteParts): LoadResult {
   // the page or an operator runs `1c module upgrade --write`, which goes on
   // reporting these instances as stale because they are. What this removes is
   // only the site going dark while they wait.
-  const pages = parts.pages.map(upgradePageOnLoad)
-  const result = validateSite({ ...parts.base, pages })
+  // REQ-350 (D3) — a site stored with the retired `theme.typography` is lifted to
+  // named text styles first, its headings read against the theme as stored.
+  const pages = parts.pages.map(upgradePageOnLoad).map((page) => liftLegacyHeadings(page, parts.base))
+  const result = validateSite({ ...liftLegacyTypography(parts.base), pages })
   if (!result.ok) return { ok: false, errors: result.errors }
 
   // REQ-114 — a *loaded* site has literal colours. The palette (DOC-23 §5) is an
@@ -135,7 +138,23 @@ export function assembleSite(parts: SiteParts): LoadResult {
   // does not. Structured-edit commands read and write the raw JSON, never this
   // object, so the stored references survive a round-trip through the CLI
   // untouched.
-  const site = resolveL1Palette(result.value, result.value.palette)
+  const paletted = resolveL1Palette(result.value, result.value.palette)
+  // REQ-350 — and a loaded site has literal TYPE, for the same reason: a named
+  // text style and an inherited value are authoring overlays, and every consumer
+  // downstream reads a run's type as the value it paints. Pages resolve from the
+  // site default down through their containers; a component's slot subtrees are
+  // placed by their component, so they inherit the default and their own nodes.
+  const { textStyles, textDefault } = paletted
+  const site = {
+    ...paletted,
+    pages: paletted.pages.map((page) => ({
+      ...page,
+      ...(page.l1 ? { l1: resolveL1TextStyles(page.l1, textStyles, textDefault) } : {}),
+      modules: page.modules.map((m) =>
+        m.slots ? { ...m, slots: resolveL1TextStyles(m.slots, textStyles, textDefault) } : m,
+      ),
+    })),
+  }
   return {
     ok: true,
     value: { slug: parts.slug, sourceDir: parts.sourceDir, site, assetFiles: parts.assetFiles },

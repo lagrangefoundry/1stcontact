@@ -152,12 +152,13 @@ describe('REQ-130 — settings are structured values, not strings', () => {
 
     // Merged at every depth, not just the first. A palette entry is one colour
     // deep since REQ-137, so the deeper case is shown where the depth actually
-    // lives: naming one typography field leaves the rest of the group standing.
-    const before = readSite().theme.typography
-    await box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
-    const after = readSite().theme.typography
-    expect(after.baseSizePx).toBe(19)
-    expect({ ...after, baseSizePx: before.baseSizePx }).toEqual(before)
+    // lives: naming one spacing step leaves the rest of the group standing.
+    // (REQ-350 — shown on spacing since typography left the theme.)
+    const before = readSite().theme.spacing
+    await box.run('set_config', { key: 'theme', settings: { spacing: { '4': '1.1rem' } } })
+    const after = readSite().theme.spacing
+    expect(after['4']).toBe('1.1rem')
+    expect({ ...after, '4': before['4'] }).toEqual(before)
   })
 
   it('test_UAT_FC_REQ_130_writes_nav_entries_the_conversation_could_not_reach', async () => {

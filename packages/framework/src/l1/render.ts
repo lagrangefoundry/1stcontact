@@ -21,6 +21,8 @@ import {
   validateSvg,
   mapL1PaletteRefs,
   resolveL1Palette,
+  resolveL1TextStyles,
+  type L1TextStyles,
   resolveSiteLocale,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_MARKER_ATTR,
@@ -135,7 +137,7 @@ function px(v: number | undefined): string | null {
  * is always inert data and can never carry CSS syntax out of the declaration. A
  * token containing whitespace is quoted.
  */
-function cssFontFamily(v: string | undefined): string | null {
+export function cssFontFamily(v: string | undefined): string | null {
   if (!v) return null
   const tokens = v
     .split(',')
@@ -5202,6 +5204,13 @@ export interface L1RenderOptions {
    */
   palette?: L1Palette
   /**
+   * REQ-350 — the site's named text styles and its default, resolved here at
+   * the entry exactly as the palette is: the emitter sees every run's type as
+   * the literals it paints, so naming a style is pixel-identical by construction.
+   */
+  textStyles?: L1TextStyles
+  textDefault?: string
+  /**
    * REQ-116 — render the **edit** channel (DOC-28 §5): the same document, with
    * every editable region stamped with its segment kind and render-scoped
    * address, and the page deliberately non-functional — links carry no target,
@@ -5249,7 +5258,7 @@ export interface L1RenderOptions {
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
 export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}): L1RenderResult {
-  const doc = resolveL1Palette(input, opts.palette)
+  const doc = resolveL1TextStyles(resolveL1Palette(input, opts.palette), opts.textStyles, opts.textDefault)
   const state: RenderState = {
     n: 0,
     rules: [],
@@ -5333,7 +5342,7 @@ export function renderL1Fragment(
   nodes: L1Node[],
   prefix = 'fc',
   controls?: Readonly<Record<string, L1ControlElement>>,
-  opts: { palette?: L1Palette; edit?: boolean } = {},
+  opts: { palette?: L1Palette; textStyles?: L1TextStyles; textDefault?: string; edit?: boolean } = {},
 ): L1FragmentResult {
   const state: RenderState = { n: 0, rules: [], prefix, controls, edit: opts.edit }
   // REQ-116 — a fragment's addresses are rooted at the SUBTREE ARRAY, so they are
@@ -5341,7 +5350,9 @@ export function renderL1Fragment(
   // reads which instance and which seam off the enclosing `data-fc-module` /
   // `data-l1-slot`, so copy inside a behavior module's slot is addressable
   // without the module having to know anything about the page it sits on.
-  const htmls = resolveL1Palette(nodes, opts.palette).map((node, i) => emitNode(node, state, [i]))
+  const htmls = resolveL1TextStyles(resolveL1Palette(nodes, opts.palette), opts.textStyles, opts.textDefault).map(
+    (node, i) => emitNode(node, state, [i]),
+  )
   // REQ-330 — a set declared inside a mounted behavior's slots still needs its one
   // shell, and a fragment has no document to put it after. It rides on the LAST
   // subtree, which is the nearest thing a fragment has to "after everything" — and

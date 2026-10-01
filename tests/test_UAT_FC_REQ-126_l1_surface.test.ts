@@ -512,12 +512,15 @@ describe('REQ-126 — the surface documents itself', () => {
     // wrapped — and its whole claim is that the host does the per-width rebase
     // the caller would otherwise compute by hand. `flow_l1` beside it is the
     // same trade for the other half of structure — the leading offsets — and it
-    // measures before it writes and puts the page back if anything moved.
+    // measures before it writes and puts the page back if anything moved. The
+    // four text-style writes are the palette's four, for type, in their own
+    // `ManageTextStyles` grant so they can be withheld together.
     expect(writes).toEqual([
       'add_asset',
       'add_component',
       'add_page',
       'add_palette_color',
+      'add_text_style',
       'configure_component',
       'copy_page',
       'flow_l1',
@@ -527,11 +530,14 @@ describe('REQ-126 — the surface documents itself', () => {
       'remove_component',
       'remove_page',
       'remove_palette_color',
+      'remove_text_style',
       'rename_palette_color',
+      'rename_text_style',
       'set_config',
       'set_l1',
       'set_page_style',
       'set_palette_color',
+      'set_text_style',
       'update_page',
       'use_font',
       'write_image',

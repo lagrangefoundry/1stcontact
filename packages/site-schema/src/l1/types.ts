@@ -72,6 +72,9 @@ import type {
   l1TextAxesSchema,
   l1TextContentSchema,
   l1TextResponsiveSchema,
+  l1TextStyleSchema,
+  l1TextStylesSchema,
+  l1TypeSchema,
   l1TextRunAxesSchema,
   l1TextRunSchema,
   l1TextSchema,
@@ -110,6 +113,10 @@ export type L1TextContent = z.infer<typeof l1TextContentSchema>
 export type L1ScalarKeyframe = z.infer<typeof l1ScalarKeyframeSchema>
 export type L1ScalarTrack = z.infer<typeof l1ScalarTrackSchema>
 export type L1TextResponsive = z.infer<typeof l1TextResponsiveSchema>
+// REQ-350 — named text styles, and the type a container sets for what it contains.
+export type L1TextStyle = z.infer<typeof l1TextStyleSchema>
+export type L1TextStyles = z.infer<typeof l1TextStylesSchema>
+export type L1Type = z.infer<typeof l1TypeSchema>
 // REQ-98 — the one paint capability every box-rendering kind carries.
 export type L1SurfaceAxes = z.infer<typeof l1SurfaceAxesSchema>
 export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>

@@ -66,6 +66,11 @@ import {
   editPageRm,
   editPageUpdate,
   editL1Flow,
+  editTextStyleAssign,
+  editTextStyleGet,
+  editTextStyleRename,
+  editTextStyleRm,
+  editTextStyleSet,
   editL1Group,
   editPaletteAdd,
   editPaletteGet,
@@ -859,6 +864,16 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
     Stack a container's contents in flow: each keeps its place as a gap below the one before
     it, so making one taller pushes the rest down. Measured in a real browser and checked
     against a second render; refused without Chromium, and undone if anything moved.
+  1c type get <slug>
+    Every named text style, what it sets, and every element that names it (REQ-350).
+  1c type set|add <slug> <name> --style <json> [--default]
+    A style sets fontFamily / fontSizePx / fontWeight / lineHeightPx / letterSpacingPx, plus
+    per-width tracks under "responsive". Changing one restyles every element that uses it.
+  1c type rm <slug> <name>
+  1c type rename <slug> <from> <to>
+  1c type assign <slug>
+    Turn the site's type literals into named styles and container-level type, grouping exact
+    matches only; refused unless every run keeps exactly the type it had.
   1c palette get <slug>
     Every palette color with its usage count across the site — the document and every page,
     at any shade. The count is what the delete and rename rules below are stated in.
@@ -2730,6 +2745,7 @@ export async function run(argv: string[]): Promise<void> {
     case 'config':
     case 'palette':
     case 'structure':
+    case 'type':
     case 'asset':
     case 'module':
     case 'behavior':
@@ -2917,6 +2933,37 @@ async function dispatchEdit(
       }
       default:
         throw unknownSub('structure', sub)
+    }
+  }
+
+  // REQ-350 — the site's named text styles: the palette's commands, for type.
+  if (command === 'type') {
+    const style = () => {
+      const raw = str('style')
+      if (raw === undefined) {
+        throw new CommandError({ code: 'SCHEMA_INVALID', message: 'type set/add requires --style <json>.' })
+      }
+      try {
+        return JSON.parse(raw) as unknown
+      } catch {
+        throw new CommandError({ code: 'SCHEMA_INVALID', message: '--style is not valid JSON.', path: 'style' })
+      }
+    }
+    switch (sub) {
+      case 'get':
+        return editTextStyleGet(slug, opts)
+      case 'set':
+        return editTextStyleSet(slug, requireArg(rest[2], 'name'), style(), { ...opts, default: flags.default === true })
+      case 'add':
+        return editTextStyleSet(slug, requireArg(rest[2], 'name'), style(), { ...opts, add: true, default: flags.default === true })
+      case 'rm':
+        return editTextStyleRm(slug, requireArg(rest[2], 'name'), opts)
+      case 'rename':
+        return editTextStyleRename(slug, requireArg(rest[2], 'from'), requireArg(rest[3], 'to'), opts)
+      case 'assign':
+        return editTextStyleAssign(slug, opts)
+      default:
+        throw unknownSub('type', sub)
     }
   }
 

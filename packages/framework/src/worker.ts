@@ -26,7 +26,7 @@
 
 // The theme tokens. Plain data with no imports at all, and the scaffolder's
 // starting point — which is why it has to be reachable without the barrel.
-export { defaultTokens } from './tokens'
+export { defaultTokens, defaultTextStyles, defaultTextStyle } from './tokens'
 export type { ThemeTokens, DeepPartial } from './tokens'
 
 // The behavior catalog as contracts — no components. See `modules/catalog.ts`.

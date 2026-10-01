@@ -178,12 +178,13 @@ describe('story-b3de4571 — a site’s settings are written as structured value
     expect(palette['surface-sunken']).toEqual(PALETTE['surface-sunken'])
 
     // …and the merge reaches deeper than one level, shown where the settings
-    // actually have depth: naming one typography field leaves the group intact.
-    const typographyBefore = readSite().theme.typography
-    await box.run('set_config', { key: 'theme', settings: { typography: { baseSizePx: 19 } } })
-    const typographyAfter = readSite().theme.typography
-    expect(typographyAfter.baseSizePx).toBe(19)
-    expect({ ...typographyAfter, baseSizePx: typographyBefore.baseSizePx }).toEqual(typographyBefore)
+    // actually have depth: naming one spacing step leaves the group intact.
+    // (REQ-350 — shown on spacing since typography left the theme.)
+    const spacingBefore = readSite().theme.spacing
+    await box.run('set_config', { key: 'theme', settings: { spacing: { '4': '1.1rem' } } })
+    const spacingAfter = readSite().theme.spacing
+    expect(spacingAfter['4']).toBe('1.1rem')
+    expect({ ...spacingAfter, '4': spacingBefore['4'] }).toEqual(spacingBefore)
 
     // A list REPLACES: there is no sane merge of two ordered lists, so the whole
     // set is sent and the whole set is what is stored.

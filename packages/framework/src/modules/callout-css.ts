@@ -30,7 +30,8 @@ blockquote.fc-callout {
   color: inherit;
   /* A callout is a weight-emphasised statement — medium (500), a subtle step
      above body copy without the slab of full bold. This is the one place a
-     callout's weight is defined; a site-def never sets a raw font-weight. */
-  font-weight: var(--font-weight-medium);
+     callout's weight is defined; a site-def never sets a raw font-weight.
+     REQ-350 — a literal: the theme's weight scale it used to read is retired. */
+  font-weight: 500;
 }
 blockquote.fc-callout--italic { font-style: italic; }`

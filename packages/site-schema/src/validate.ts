@@ -1,7 +1,7 @@
 import { siteSchema } from './schema'
 import { projectIssues } from './issues'
 import type { Site } from './types'
-import { checkPaletteRefs, validateL1 } from './l1/validate'
+import { checkPaletteRefs, checkTextStyleRefs, validateL1 } from './l1/validate'
 import { emailCopyErrors, emailTargetErrors } from './l1/email'
 
 /** A single structural validation failure. */
@@ -45,9 +45,20 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
 
   const site = parsed.data
   const errors: ValidationError[] = []
+  // REQ-350 — the default style is a reference like any other.
+  if (site.textDefault !== undefined && !site.textStyles?.[site.textDefault]) {
+    errors.push({
+      path: '/textDefault',
+      message: `the default text style '${site.textDefault}' is not among the site's text styles`,
+    })
+  }
   site.pages.forEach((page, i) => {
     if (page.l1) {
-      const envelope = validateL1(page.l1, { palette: site.palette })
+      const envelope = validateL1(page.l1, {
+        palette: site.palette,
+        textStyles: site.textStyles,
+        textDefault: site.textDefault,
+      })
       if (!envelope.ok) {
         for (const error of envelope.errors) {
           errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
@@ -79,6 +90,7 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
     page.modules.forEach((instance, m) => {
       if (!instance.slots) return
       checkPaletteRefs(instance.slots, site.palette, `/pages/${i}/modules/${m}/slots`, errors)
+      checkTextStyleRefs(instance.slots, site.textStyles, `/pages/${i}/modules/${m}/slots`, errors)
     })
   })
 

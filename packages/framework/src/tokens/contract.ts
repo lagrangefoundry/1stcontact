@@ -5,7 +5,6 @@
  */
 export type {
   ThemeTokens,
-  TypographyTokens,
   SpacingTokens,
   RadiusTokens,
   ShadowTokens,

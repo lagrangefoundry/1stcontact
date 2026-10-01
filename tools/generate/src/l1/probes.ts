@@ -43,8 +43,8 @@ import {
   type L1Document,
   type L1Geometry,
   type L1Node,
-  type L1Palette,
   type L1ScalarTrack,
+  type ValidateL1Options,
   type L1Text,
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
@@ -2997,8 +2997,8 @@ export interface PromoteOptions {
    * decision about one container rather than a repair the probes demanded.
    */
   only?: string
-  /** The site palette, for a stored page whose colours are references. */
-  palette?: L1Palette
+  /** The site's palette and text styles, for a stored page that refers to them. */
+  site?: ValidateL1Options
 }
 
 export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): PromoteResult {
@@ -3482,7 +3482,7 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
   const next: L1Document = structuredClone({ ...doc, root })
   holdAcrossReflowWindows([next.root], next.widths)
 
-  const result = validateL1(next, { palette: options.palette })
+  const result = validateL1(next, options.site)
   if (!result.ok) {
     const detail = result.errors.map((e) => `${e.path}: ${e.message}`).join('; ')
     throw new Error(`promoteToFlow: produced an invalid L1 document — ${detail}`)
