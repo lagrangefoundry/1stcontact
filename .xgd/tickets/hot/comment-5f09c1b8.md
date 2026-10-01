@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-171
 created_by: xgd
 created_at: '2026-10-01T23:18:21.752482+00:00'
-updated_at: '2026-10-01T23:27:04.128785+00:00'
+updated_at: '2026-10-01T23:32:17.359514+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,36 @@ Please implement this ticket following the FREE CODING protocol. If you have any
 Project note (additive — does not override the above):
 Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
 Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
+
+<!-- xgd-turn id="78ac158a-d602-474e-a5c7-834159b04e9a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T23:32:15.403260+00:00" -->
+#### Claude
+Now the parser fix in the worktree.
+
+Fixing the parser:
+
+I'll use the Edit tool instead.
+
+Fix works. Adding trailing output to the test harness and the UATs:
+
+All 13 pass. Next I'm confirming the new UAT fails against the old parser:
+
+Both UATs fail without the fix and pass with it. Now the version bump and commit:
+
+I'll commit, merge back, and let `move-to-free-coded` bump the version itself, as noted in memory:
+
+BUG-171 is fixed. The ticket is at `free_coded` with both commits recorded (the fix `694fa94` and the automatic version bump `32e656e`, version 0.2.428), and `free-BUG-171` has been merged into `xgd-working` and cleaned up. I didn't rerun `bin/dev up` itself, so that's the one check left for you; it should now get past the migrate hook even with the npm notice still printing.
+
+**The fix** (`bin/migration-manifest`): before parsing, `appliedFrom()` now cuts each candidate at the `]` that closes it, ignoring brackets inside JSON strings. Output before the JSON (the proxy warning) or after it (npm's notice) no longer breaks the read. Anything without a valid D1 result set still fails the deploy.
+
+**Tests:**
+- `tests/support/migrate-hook.ts` gained a `trailer` option, which adds output after the stubbed wrangler JSON, the way npm does.
+- `tests/test_UAT_FC_BUG-171_trailing_npm_notice.test.ts` runs the real hook and script:
+  - a trailing npm notice against the local dev database still passes the check, and the migrations get applied;
+  - an edited, already-applied migration with a proxy warning before the JSON and the notice after it is still refused, with both hashes reported, and nothing is applied.
+- Both new tests fail against the old parser and pass with the fix. The existing migration-check tests (REQ-291) still pass: 13/13 together.
+
+The ticket body already describes what was built, so I didn't change it.
 
 <!-- xgd-chat-end -->
