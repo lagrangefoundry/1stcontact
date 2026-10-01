@@ -6,10 +6,10 @@ title: 'Deploy migrate hook: npm notice after wrangler''s JSON fails D1 migratio
   verification'
 created_by: martin-github@westhead.me
 created_at: '2026-10-01T23:14:14.989510+00:00'
-updated_at: '2026-10-01T23:22:34.529061+00:00'
+updated_at: '2026-10-01T23:27:42.427724+00:00'
 completed_at: null
-last_field_updated: severity
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
