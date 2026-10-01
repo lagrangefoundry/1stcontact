@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-354
 created_by: xgd
 created_at: '2026-10-01T18:50:24.624078+00:00'
-updated_at: '2026-10-01T19:11:05.284515+00:00'
+updated_at: '2026-10-01T19:20:38.940306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,67 @@ I've read the ticket and the code on both sides. Before writing anything I need 
 <!-- xgd-chat role="user" ts="2026-10-01T19:11:04.332980+00:00" -->
 #### You
 Reinstalled - please proceed
+
+<!-- xgd-turn id="5959aec1-d9f4-479b-9e08-63da648a39fe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T19:20:38.507467+00:00" -->
+#### Claude
+Confirmed. Updating the ticket (preserving the body, adding the agreed design) and cutting the branch.
+
+Body updated. Cutting the branch.
+
+Writing the implementation now: the host account hook and the phrasing parser in `account-core.ts`, then the wiring in `host-core.ts`.
+
+Now wiring it into the runtime in `host-core.ts`.
+
+Writing the UATs next. Checking the seeded site's home page so the checks have deterministic answers.
+
+Running the new UATs plus the BUG-167 and REQ-340 suites.
+
+All 9 pass. Now typecheck, lint and the REQ-340 suite.
+
+Code clean. Now behaviour 5 — the consultant's `delegation-method` prose.
+
+Prose added (one-line JSON diff). Adding a UAT that the consultant's priming names the phrasings, and that each example is claimed.
+
+Running the remaining delegation-related workers suites as regression scope.
+
+Checking whether these three fail without my change (the `by: 'worker'` shape comes from the reinstalled framework). Baseline in the main checkout:
+
+Same 3 failures on clean `xgd-working`, so they predate my change (likely from the framework reinstall). Now committing. Checking the version-bump procedure first.
+
+Committing on the branch (only my four files), then lock and merge.
+
+Merged. Re-running my UATs on merged `xgd-working` before promoting.
+
+Now syncing the ticket body's test plan, then promoting to `free_coded` (letting the gate do the version bump).
+
+REQ-354 is done and parked at `free_coded`. It's merged into `xgd-working` (commits `04b58a2e`, plus the version bump `f50e083d` to 0.2.426), and the branch is cleaned up. The new tests pass on the merged code. Three older delegation tests fail, both with and without this change.
+
+**What changed**
+- **The host settles three kinds of check itself.** If a check is worded in one of these forms, the host answers it by comparing the draft before and after the delegation. The check never appears in the worker's brief, so it costs the worker nothing:
+  - `page home has no changes`
+  - `no element changed any field other than text, axes.color`
+  - `only the elements at 0.1, 0.3 [on page home] changed`
+
+  Case, a trailing full stop, backticks around names and joining the list with "and" are all tolerated. Anything else, including near misses like `page home has no visible changes`, goes to the worker as before.
+- **Failed checks say what broke them.** A failure reason names the page, element and field, e.g. "field text changed on page home, element 0.0".
+- **No false passes.** If the host doesn't have both before-and-after records, the check comes back unreported. If the list of changes was cut short, a check that nothing in the visible list breaks is also left unreported.
+- **Host verdicts are distinguishable.** They carry `by: 'account'`; the worker's carry `by: 'worker'`.
+- **The record now runs on the framework's hook.** `account.from`/`account.to` are the same integers as before, and `account.changed` is the same change list.
+- **A slim subclass remains, as agreed.** `reportingDelegationToolbox` now only adds `wrote` and `activity`; `wrote` is read from the framework's own `account.changed`.
+- **The consultant is told the phrasings.** `templates.delegation-method` in `priming.json` gained one paragraph with an example of each. A test checks that every example in that paragraph is one the host actually takes on.
+
+**Tests**
+- Five new tests across two files, `test_UAT_FC_REQ-354_*`. Four run through the real prompt route against a real D1/R2 store, with only the model scripted; one checks the consultant's prose.
+- They pass, along with the existing tests for BUG-167, REQ-340, REQ-342, REQ-343 and the REQ-295 config.
+
+**Older failures to look at:** across the 25 delegation suites, three tests fail. Two are in `test_UAT_FC_REQ-295_delegation.workers` and one in `test_UAT_FC_REQ-296_context_budget.workers`, and they fail identically on clean `xgd-working`.
+- The REQ-295 pair look like they need updating for the `by: 'worker'` field that came in with the reinstalled framework.
+- The REQ-296 one fails with "expected 1 to be greater than 1", and I haven't worked out why.
+
+I didn't touch these or file anything. Say if you want a ticket for them.
+
+The ticket body has an "As built" section and the test list; promoting it to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
