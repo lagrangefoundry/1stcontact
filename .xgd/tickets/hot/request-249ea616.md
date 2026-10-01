@@ -16,6 +16,7 @@ fields:
   created_by: EPIC-20
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-1c8616f5
 ---
 
 ## What changes
