@@ -6,9 +6,9 @@ title: 'Delegation: settle containment checks from the host''s own record instea
   of the worker''s budget'
 created_by: EPIC-20
 created_at: '2026-09-30T20:01:58.591686+00:00'
-updated_at: '2026-10-01T19:11:38.567938+00:00'
+updated_at: '2026-10-01T19:11:46.296802+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-1c8616f5
 ---
+
 
 ## What changes
 
@@ -48,3 +49,15 @@ lagrange-framework **BUG-78** (`bug-061f71b9`), "Delegation account hooks are ca
 ## Test plan
 
 UATs (`test_UAT_FC_<ID>_*`): each phrasing is claimed and settled pass/fail against a real draft diff; a near-miss phrasing is not claimed and reaches the worker; a claimed check with a failed mark is unsettled; the result carries the host provenance on settled verdicts; the account field is identical to today's with the subclass removed.
+
+## Design decisions (agreed 2026-10-01, before coding)
+
+- **BUG-78 is installed** in the shared `ai` store (hooks awaited), so the async store can supply `mark` / `changes` / `claims` / `settle`.
+- **A slim subclass stays, for `wrote` and `activity` only.** No framework hook can add those two BUG-167 fields, and the result shape must not change. The bracket, `changes`, `claims` and `settle` move to `DelegationRuntime({ account })`; the subclass no longer captures anything. `wrote` is derived from the framework's own `account.changed`, so it is present exactly when `account.changed` is. The subclass is renamed to say what it now does; `accountingDelegationToolbox` is gone.
+- **`mark` returns the draft's change counter**, so `account.from` / `account.to` stay the integers they are today. The full captures are held host-side, keyed by the framework's per-delegation `ctx` object (the same object reaches both marks, `changes` and `settle`).
+- **Phrasings are matched exactly, case-insensitively, whole-string** (surrounding whitespace and one trailing full stop tolerated; list items separated by commas and/or "and"; backticks/quotes around names tolerated):
+  - `page <P> has no changes` — passes iff no difference names page `P` (by page id).
+  - `no element changed any field other than <F1>, <F2>…` — passes iff every element-level difference (one carrying an `address`) has a field equal to, or nested under, one of the named fields. An added/removed element (field `''`) breaks containment.
+  - `only the elements at <A1>, <A2>… changed` — passes iff every element-level difference's address is one of the named addresses, or inside one of them.
+  A failed settlement's reason names the first difference that broke containment (page / address / field). A truncated difference list cannot prove containment: it settles `failed` if a listed difference already breaks containment, and is otherwise left unsettled rather than passed.
+- **Unsettled on a broken mark** is the framework's behaviour (`settle` is not called without both marks); a capture that is missing host-side when `settle` runs also returns `null` (unsettled), never passed.
