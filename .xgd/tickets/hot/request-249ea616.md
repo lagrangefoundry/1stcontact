@@ -6,7 +6,7 @@ title: 'Delegation: settle containment checks from the host''s own record instea
   of the worker''s budget'
 created_by: EPIC-20
 created_at: '2026-09-30T20:01:58.591686+00:00'
-updated_at: '2026-10-01T19:11:46.296802+00:00'
+updated_at: '2026-10-01T19:20:01.184190+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-1c8616f5
 ---
+
 
 
 ## What changes
@@ -61,3 +62,20 @@ UATs (`test_UAT_FC_<ID>_*`): each phrasing is claimed and settled pass/fail agai
   - `only the elements at <A1>, <A2>… changed` — passes iff every element-level difference's address is one of the named addresses, or inside one of them.
   A failed settlement's reason names the first difference that broke containment (page / address / field). A truncated difference list cannot prove containment: it settles `failed` if a listed difference already breaks containment, and is otherwise left unsettled rather than passed.
 - **Unsettled on a broken mark** is the framework's behaviour (`settle` is not called without both marks); a capture that is missing host-side when `settle` runs also returns `null` (unsettled), never passed.
+
+## As built
+
+- `tools/generate/src/cli/ai/account-core.ts`: `draftAccount(store, site)` is the `DelegationRuntime({ account })` hook (`mark` / `changes` / `claims` / `settle`); `containmentCheck` parses the three phrasings; `settleContainment` answers them from `draftChanges`. `accountingDelegationToolbox` is replaced by `reportingDelegationToolbox(lib)`, which adds only `wrote` (from the framework's `account.changed`) and `activity`.
+- `tools/generate/src/cli/ai/host-core.ts`: the runtime is built with `account: draftAccount(deps.store, slug)`; the delegation surface is the slim subclass.
+- `tools/generate/src/cli/ai/priming.json` (`templates.delegation-method`): a paragraph naming the three phrasings with one example each, saying they are settled by the record at no cost to the builder and that any other wording goes to the builder.
+- The bracket now opens after the worker's session is opened (the framework's window) instead of just before it. The two enclose the same work.
+
+## UATs
+
+- `tests/test_UAT_FC_REQ-354_the_host_settles_containment_checks.workers.test.ts` (real route in workerd, real D1/R2, only the model client scripted):
+  - `each_phrasing_is_settled_by_the_host_and_never_reaches_the_worker`: all three phrasings, held and broken, `by: 'account'`; failure reasons name the page / element / field; none appear in the worker's requests (behaviours 2–4).
+  - `a_near_miss_phrasing_is_not_claimed_and_reaches_the_worker`: behaviour 2.
+  - `the_account_is_the_same_record_as_before_the_subclass_was_removed`: integer `from`/`to`, field-level `changed`, `wrote` (behaviour 1).
+  - `a_claimed_check_without_both_marks_is_unsettled_never_passed`: the host's `settle`/`changes` answer `null` without both captures (behaviour 3).
+- `tests/test_UAT_FC_REQ-354_the_consultant_is_told_the_phrasings.test.ts`: the delegation method (both framings) carries the paragraph, and every example in it is claimed by the host's matcher (behaviour 5).
+- Regression: BUG-167 (workers) and REQ-340, REQ-342, REQ-343, REQ-295 config (node) pass. The 25 delegation workers suites: three failures in REQ-295/REQ-296 workers suites fail identically on clean `xgd-working` with the reinstalled framework (`by: 'worker'` provenance from REQ-188 not in their expected shapes). They predate this ticket and were not touched here.
