@@ -1,0 +1,244 @@
+{
+  "surface": "plan",
+  "version": 1,
+  "surface_version": 1,
+  "title": "The site plan",
+  "call_type": "inproc",
+  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.",
+  "param_types": {},
+  "shapes": {
+    "plan": {
+      "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks",
+      "body": "the written part: the client's own words, the decision log, and notes",
+      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, and task progress"
+    }
+  },
+  "errors": {
+    "PLAN_INVALID": {
+      "message": "that change would break one of the plan's rules, so nothing was written and the plan is exactly as it was."
+    },
+    "UNKNOWN_DECISION": {
+      "message": "the plan has no decision by that id. Read the plan to see the decisions it holds."
+    },
+    "UNKNOWN_CHECK": {
+      "message": "the plan has no check by that id. Read the plan to see the checks it holds."
+    },
+    "UNKNOWN_TASK": {
+      "message": "the plan has no task by that id. Read the plan to see the tasks it holds."
+    },
+    "CONFLICT": {
+      "message": "the plan moved while you were writing. Read it and make your change again; nothing was lost."
+    },
+    "SCHEMA_INVALID": {
+      "message": "the change was not well-formed. Nothing was written, and the plan is exactly as it was."
+    }
+  },
+  "operations": [
+    {
+      "op": "read_plan",
+      "tool": "read_plan",
+      "effect": "read",
+      "summary": "Read the site's plan: where the build is, what is decided, what is not.",
+      "description": "Answers the plan as it stands and a projection of it: decisions grouped by state, checks still waiting for an answer, and task progress. A site nobody has planned yet answers the starting plan, with every decision open.",
+      "params": {},
+      "returns": { "shape": "plan" },
+      "errors": []
+    },
+    {
+      "op": "update_brief",
+      "tool": "update_brief",
+      "effect": "write",
+      "summary": "Record what the client has told you about their business and goals.",
+      "description": "Give only the parts you are recording; the rest of the brief is left as it is. Record what the client says — the diagnosis of what will actually help is the consultant's, and belongs in the decisions and tasks, not here.\n\nPass the client's own words as `quote` whenever you have them. They are kept verbatim in the plan, and they are what a later reader trusts over any summary.",
+      "params": {
+        "business": { "type": "string", "description": "What the business is and does." },
+        "site_job": { "type": "string", "description": "What the site is for right now — separate from who it is for." },
+        "audiences": { "type": "array", "description": "Who the site is for, as a list of `{\"who\": ..., \"priority\": 1}` with 1 the most important." },
+        "goal": { "type": "object", "description": "`{\"kind\": \"leads\" | \"conversions\" | \"awareness\" | \"traffic\" | \"credibility\" | \"other\", \"measure\": ..., \"proxy\": ...}` — what the site should achieve, and how we would know." },
+        "quality_bar": { "type": "string", "description": "The standard the client expects, in their words — \"premium\", \"directionally right for a beta\"." },
+        "existing_site": { "type": "object", "description": "`{\"url\": ..., \"feeling\": ...}` — any existing site, and how the client feels about it." },
+        "constraints": { "type": "array", "description": "Anything the site must or must not do, one string each." },
+        "quote": { "type": "string", "description": "What the client said, word for word. Kept in the plan's own-words section." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_feature",
+      "tool": "set_feature",
+      "effect": "write",
+      "summary": "Record whether the client wants a feature.",
+      "description": "One feature per call — a contact form, a booking link, a newsletter signup.",
+      "params": {
+        "feature": { "type": "string", "required": true, "description": "Which feature." },
+        "status": { "type": "string", "required": true, "enum": ["wanted", "not_wanted", "later"], "description": "Whether they want it now, not at all, or later." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "add_note",
+      "tool": "add_note",
+      "effect": "write",
+      "summary": "Add a note to the plan.",
+      "description": "Anything that helps build the site and is not a decision, a task or part of the brief.",
+      "params": {
+        "text": { "type": "string", "required": true, "description": "The note." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_decision",
+      "tool": "set_decision",
+      "effect": "write",
+      "summary": "Propose a value for a decision, or mark one you made to get the page built.",
+      "description": "When you make a choice so the page can be built, record it as `defaulted` — it is not settled until the client has looked. When you put a specific option to the client, set `proposed`. Only the client settles a decision; you cannot set it chosen, delegated or parked.\n\nTo add a decision the plan does not have, give a new id with a title, an area and a tier.",
+      "params": {
+        "decision": { "type": "string", "required": true, "description": "The decision's id, as the plan holds it." },
+        "value": { "type": "string", "description": "What you picked or are proposing, in plain words." },
+        "state": { "type": "string", "enum": ["open", "defaulted", "proposed"], "description": "`defaulted` for a choice made to get the page built; `proposed` when it has been put to the client." },
+        "compared": { "type": "boolean", "description": "True once the client has seen alternatives side by side." },
+        "log": { "type": "integer", "description": "The number of the decision-log entry that explains it, if you recorded one." },
+        "title": { "type": "string", "description": "For a new decision only: what it is." },
+        "area": { "type": "string", "enum": ["purpose", "messaging", "style", "imagery", "functionality", "liveness", "structure"], "description": "For a new decision only." },
+        "tier": { "type": "string", "enum": ["concept", "detail"], "description": "For a new decision only: `concept` shapes what the site is; `detail` can be settled quickly." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_task",
+      "tool": "set_task",
+      "effect": "write",
+      "summary": "Add a task to the plan, or change one.",
+      "description": "The tasks are your plan for the build. Name no task (or a new id) with a title to add one; name an existing one to change it. Use `depends_on` where one task genuinely has to wait for another — settle what will be copied into every page before building the pages it is copied into.",
+      "params": {
+        "task": { "type": "string", "description": "The task's id. Omit to add a new task." },
+        "title": { "type": "string", "description": "What the task is." },
+        "status": { "type": "string", "enum": ["todo", "doing", "done", "dropped"], "description": "Where it is." },
+        "depends_on": { "type": "array", "description": "Ids of tasks that must be done first." },
+        "decisions": { "type": "array", "description": "Ids of the decisions this task settles or depends on." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_TASK", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "answer_check",
+      "tool": "answer_check",
+      "effect": "write",
+      "summary": "Give your answer to a check — \"are we happy with …?\".",
+      "description": "Take a position. If the answer is no, say what you would do about it. \"It's your call\" is not an answer from the expert: give your view, and leave the decision with the client.",
+      "params": {
+        "check": { "type": "string", "required": true, "description": "The check's id." },
+        "verdict": { "type": "string", "required": true, "enum": ["yes", "not_sure", "no"], "description": "Your answer." },
+        "note": { "type": "string", "description": "Why, and what you would do if the answer is not yes." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "record_client_answer",
+      "tool": "record_client_answer",
+      "effect": "write",
+      "summary": "Record what the client said about a decision.",
+      "description": "You record the client settling a decision; you never settle one yourself. `chosen`, `delegated` and `parked` need the client's own words in `quote`, and `parked` needs the reason it was parked. A settled decision is written into the decision log in the client's words.",
+      "params": {
+        "decision": { "type": "string", "required": true, "description": "The decision's id." },
+        "state": { "type": "string", "required": true, "enum": ["not_objected", "chosen", "delegated", "parked"], "description": "What the client's answer amounts to." },
+        "quote": { "type": "string", "description": "What the client said, word for word." },
+        "value": { "type": "string", "description": "What was chosen, when it was a choice." },
+        "compared": { "type": "boolean", "description": "True when they chose from alternatives they could see." },
+        "parked_reason": { "type": "string", "description": "Why it waits — and so when it should come back." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "ask_check",
+      "tool": "ask_check",
+      "effect": "write",
+      "summary": "Record that a check is being asked, which starts a fresh round of answers.",
+      "description": "Name a standing check, or give a new question. The previous answers are cleared, because they were about a site that has since changed.",
+      "params": {
+        "check": { "type": "string", "description": "The check's id. Omit to add a new one." },
+        "question": { "type": "string", "description": "For a new check: the question, against the brief — never your own opinion." },
+        "triggers": { "type": "array", "description": "For a new check: the moments it should be asked again." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "record_check_answer",
+      "tool": "record_check_answer",
+      "effect": "write",
+      "summary": "Record an answer to a check, from the consultant or the client.",
+      "description": "Only the consultant (`alice`) and the client (`user`) answer a check. You record; you never answer.",
+      "params": {
+        "check": { "type": "string", "required": true, "description": "The check's id." },
+        "by": { "type": "string", "required": true, "enum": ["alice", "user"], "description": "Who answered." },
+        "verdict": { "type": "string", "required": true, "enum": ["yes", "not_sure", "no"], "description": "Their answer." },
+        "note": { "type": "string", "description": "What they said, in their words." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_task_status",
+      "tool": "set_task_status",
+      "effect": "write",
+      "summary": "Record a task's progress.",
+      "description": "Progress only. Adding, ordering and linking tasks is the consultant's.",
+      "params": {
+        "task": { "type": "string", "required": true, "description": "The task's id." },
+        "status": { "type": "string", "required": true, "enum": ["todo", "doing", "done", "dropped"], "description": "Where it is." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_TASK", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_phase",
+      "tool": "set_phase",
+      "effect": "write",
+      "summary": "Record where the build is.",
+      "description": "Keep it current. A later redesign moves the phase back; it never starts a new plan.",
+      "params": {
+        "phase": { "type": "string", "required": true, "enum": ["intake", "first_pass", "revision", "prelaunch", "live"], "description": "The phase the build is now in." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    }
+  ],
+  "groups": [
+    {
+      "group": "ReadPlan",
+      "effect": "read",
+      "title": "Reading the plan",
+      "description": "The site's plan as it stands. Nothing here changes anything.",
+      "operations": ["read_plan"]
+    },
+    {
+      "group": "KeepBrief",
+      "effect": "write",
+      "title": "Keeping the brief",
+      "description": "What the client has said about their business, goals and features, and notes beside them.",
+      "operations": ["update_brief", "set_feature", "add_note"]
+    },
+    {
+      "group": "PlanWork",
+      "effect": "write",
+      "title": "Planning the work",
+      "description": "The consultant's part: proposing decisions, owning the tasks, and answering checks.",
+      "operations": ["set_decision", "set_task", "answer_check"]
+    },
+    {
+      "group": "CoordinatePlan",
+      "effect": "write",
+      "title": "Coordinating the plan",
+      "description": "The coordinator's part: recording the client's answers, asking checks and recording answers, tracking progress and the phase. Nothing here is an opinion of the site.",
+      "operations": ["record_client_answer", "ask_check", "record_check_answer", "set_task_status", "set_phase"]
+    }
+  ],
+  "sequences": [],
+  "absences": []
+}

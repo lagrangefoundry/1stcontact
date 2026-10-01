@@ -482,6 +482,10 @@
       "provider": "site.digest"
     },
     {
+      "name": "site-plan",
+      "provider": "site.plan"
+    },
+    {
       "name": "no-framework-vocabulary",
       "text": "Do not name framework concepts to your client \u2014 describe changes in their words."
     },

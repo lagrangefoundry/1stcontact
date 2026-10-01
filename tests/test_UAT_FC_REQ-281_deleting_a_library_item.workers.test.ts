@@ -243,7 +243,7 @@ describe('REQ-281 — the row leaves the Library', () => {
     await makeD1Site({ tenantId: tenant, slug: 'req281d' })
     const tickets = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     const { ticket } = await tickets.create({
-      type: 'brief',
+      type: 'plan',
       title: 'The brief',
       fields: { site_slug: 'req281d' },
       body: 'What was decided.',

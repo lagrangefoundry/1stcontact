@@ -97,7 +97,7 @@ describe('REQ-162 — the schema and the wiring', () => {
     // A tenant nothing has ever registered must still yield a working handle.
     const store = await ticketStoreFor(storeEnv(), scopeOf('req162-never-seen'))
     const { ticket } = await store.create({
-      type: 'brief',
+      type: 'plan',
       title: 'Decisions',
       fields: { site_slug: 'home' },
       body: 'Ship the one-pager first.',
@@ -259,7 +259,7 @@ describe('REQ-162 — the material types', () => {
     // this ticket defines and the chat schemas DOC-10 §8 has been blocked on.
     const types = productTypePack().types()
     expect(types).toEqual(
-      expect.arrayContaining(['material', 'reference', 'brief', 'chat', 'comment', 'attachment']),
+      expect.arrayContaining(['material', 'reference', 'plan', 'chat', 'comment', 'attachment']),
     )
   })
 
@@ -339,19 +339,19 @@ describe('REQ-162 — the material types', () => {
     expect(ticket.fields.source_url).toBeUndefined()
   })
 
-  it('UAT_FC_REQ-162 a brief names its site and carries its decisions', async () => {
+  it('UAT_FC_REQ-162 a plan names its site and carries its decisions', async () => {
     const store = await ticketStoreFor(storeEnv(), scopeOf(TENANT_A))
     await expect(
-      store.create({ type: 'brief', title: 'Homeless', body: 'Decisions.' }),
+      store.create({ type: 'plan', title: 'Homeless', body: 'Decisions.' }),
     ).rejects.toMatchObject({ code: 'validation' })
-    // An empty brief is not a brief — and unlike a material, no later extraction
+    // An empty plan is not a plan ([[REQ-356]] renamed it from `brief`) — and unlike a material, no later extraction
     // fills the body in.
     await expect(
-      store.create({ type: 'brief', title: 'Empty', fields: { site_slug: 'home' }, body: '   ' }),
+      store.create({ type: 'plan', title: 'Empty', fields: { site_slug: 'home' }, body: '   ' }),
     ).rejects.toMatchObject({ code: 'validation' })
 
     const { ticket } = await store.create({
-      type: 'brief',
+      type: 'plan',
       title: 'Decisions for home',
       fields: { site_slug: 'home' },
       body: 'Oxblood, not crimson.',

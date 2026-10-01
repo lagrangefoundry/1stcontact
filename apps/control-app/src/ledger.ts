@@ -1,17 +1,18 @@
 /**
- * REQ-171 — the engagement record, kept in the session's own `chat` ticket.
+ * REQ-171 — the engagement record: decisions, the engagement's name, and the
+ * standing note.
  *
- * [[DOC-10]] §8 homes a session in a `chat` ticket and reserves the BODY for the
- * AI and the transcript for a `chat_transcript` comment. [[DOC-33]] §3.1 says
- * what the body is for: not a summary of the conversation but a **ledger** — what
- * was decided, why, and what was rejected. [[REQ-160]] wired the archive that
- * creates the ticket. Nothing wrote the body. This does.
+ * [[DOC-10]] §8 homes a session in a `chat` ticket. [[DOC-33]] §3.1 says what a
+ * record of it is for: not a summary of the conversation but a **ledger** — what
+ * was decided, why, and what was rejected. Until [[REQ-356]] the ledger was the
+ * chat ticket's body; it is now the `## Decision log` section of the SITE's plan
+ * (`plan.ts`), because a decision is about the site and has to outlive the
+ * conversation it was made in. The chat ticket keeps the engagement's name and
+ * the standing note, which belong to the conversation.
  *
- * WHY THE BODY AND NOT ANOTHER COMMENT. The knowledge component indexes `title`
- * and `body` (`ticketText`); comments are not indexed. A chat ticket whose body
- * is empty contributes a content-free vector to the project KB, so every
- * conversation this client has ever had is unfindable — which is the opposite of
- * what homing a session in a ticket was for.
+ * WHY A TICKET BODY AND NOT A COMMENT. The knowledge component indexes `title`
+ * and `body` (`ticketText`); comments are not indexed. A log kept in a comment
+ * would be unfindable, which is the opposite of what keeping it was for.
  *
  * ONLY THE WORKER HAS ONE. The `1c` CLI archives to a file and has no ticket
  * store, so it passes no ledger and composes no ledger surface (`host-core.ts`).
@@ -24,23 +25,16 @@ import {
   type LedgerRecord,
   type LedgerState,
 } from '../../../tools/generate/src/cli/ai/ledger-core'
+import {
+  appendToSection,
+  LOG_SECTION,
+  logEntries,
+  planSection,
+  type PlanDeps,
+} from '../../../tools/generate/src/cli/ai/plan-core'
+import { conflictOrRethrow, sitePlan } from './plan'
 import { findChat } from './session-delta'
 import type { Ticket, TicketStore } from './tickets'
-
-/**
- * The heading `ledger-core.ts` renders each entry under.
- *
- * MATCHED AT THE START OF A LINE, so a decision whose prose happens to contain
- * the phrase cannot inflate the count. The count is what numbers the next entry,
- * and a ledger that renumbers itself under a client's own words would be worse
- * than one that does not number at all.
- */
-const ENTRY_HEADING = /^### Decision \d+$/gm
-
-/** How many decisions a ledger body holds. */
-export function countEntries(body: string): number {
-  return (body.match(ENTRY_HEADING) ?? []).length
-}
 
 /**
  * The chat ticket field holding the standing note ([[REQ-283]]).
@@ -92,7 +86,14 @@ async function ledgerTicket(tickets: TicketStore, sessionId: string): Promise<Ti
 }
 
 /**
- * The `chat` ticket as a {@link LedgerDeps}.
+ * The engagement record as a {@link LedgerDeps}: decisions in the SITE's plan,
+ * the title and standing note on the CONVERSATION's chat ticket ([[REQ-356]]).
+ *
+ * THE LOG MOVED AND THE NOTE DID NOT, because their lifetimes differ. A decision
+ * is about the site and has to survive every conversation about it — kept on the
+ * chat ticket, a site built over several sessions had several partial logs, and a
+ * bricked conversation took its log with it ([[DOC-62]] §7). The standing note is
+ * one session's working memory ([[REQ-283]]) and stays with that session.
  *
  * COMPARE-AND-SET ON EVERY WRITE, unlike the cursor beside it in
  * `session-delta.ts`, which deliberately has none. A cursor is a bookmark and
@@ -101,23 +102,23 @@ async function ledgerTicket(tickets: TicketStore, sessionId: string): Promise<Ti
  * declared `CONFLICT` tells the consultant to read and write again, which is
  * recoverable; silently dropping a decision is not.
  */
-export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps {
+export function chatLedger(tickets: TicketStore, sessionId: string, site: string): LedgerDeps {
+  const plan = sitePlan(tickets, site)
   return {
     async append(render: (index: number) => string): Promise<LedgerState> {
-      const chat = await ledgerTicket(tickets, sessionId)
-      const body = chat.body ?? ''
-      const entries = countEntries(body)
-      // Numbered from the count the host just read, which is the whole reason
-      // the port takes a renderer rather than rendered text: nothing else in
-      // the system knows what number this entry gets.
-      const entry = render(entries + 1)
-      const next = body.trim() === '' ? entry : `${body.replace(/\s+$/, '')}\n\n${entry}`
-      try {
-        await tickets.update({ uid: chat.uid, patch: { body: next }, expected_version: chat.version })
-      } catch (error) {
-        throw conflictOrRethrow(error)
-      }
-      return { entries: entries + 1, title: chat.title, note: noteOf(chat) }
+      let entries = 0
+      // THE PLAN IS CREATED BY ITS FIRST ENTRY if the site has none yet, so a
+      // decision can always be written — which is why `NO_LEDGER` no longer
+      // arises here: the record belongs to the site, and the site exists.
+      await plan.write((current) => {
+        entries = logEntries(current.body) + 1
+        // Numbered from the count the host just read, which is the whole reason
+        // the port takes a renderer rather than rendered text: nothing else in
+        // the system knows what number this entry gets.
+        return { ...current, body: appendToSection(current.body, LOG_SECTION, render(entries)) }
+      })
+      const chat = await findChat(tickets, sessionId)
+      return { entries, title: chat?.title ?? '', note: noteOf(chat) }
     },
 
     async rename(name: string): Promise<LedgerState> {
@@ -127,7 +128,7 @@ export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps 
       // answer a later rename is asking for anyway. Refusing a rename to protect
       // a title would spend the client's turn on bookkeeping.
       await tickets.update({ uid: chat.uid, patch: { title: name } })
-      return { entries: countEntries(chat.body ?? ''), title: name, note: noteOf(chat) }
+      return { entries: await planEntries(plan), title: name, note: noteOf(chat) }
     },
 
     async setNote(note: string): Promise<LedgerState> {
@@ -135,14 +136,10 @@ export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps 
       // COMPARE-AND-SET, like the append above and unlike the rename. Two turns
       // racing to rewrite one note is a genuine conflict — the loser's whole note
       // is gone, not a sentence of it — which is the one place the framework
-      // insisted on it too. `update` already takes `expected_version` on the
-      // ticket, so this is the invariant the placement was chosen for rather than
-      // anything this file had to build.
+      // insisted on it too.
       //
-      // A FIELD PATCH AND NOT A BODY WRITE. `patch.fields` merges, so the ledger
-      // in the body is untouched and every other field on the ticket survives —
-      // which is what makes the two zones structurally unable to clobber each
-      // other rather than merely unlikely to.
+      // A FIELD PATCH AND NOT A BODY WRITE. `patch.fields` merges, so every other
+      // field on the ticket survives.
       try {
         await tickets.update({
           uid: chat.uid,
@@ -150,40 +147,31 @@ export function chatLedger(tickets: TicketStore, sessionId: string): LedgerDeps 
           expected_version: chat.version,
         })
       } catch (error) {
-        throw conflictOrRethrow(error)
+        throw conflictOrRethrow(error, ledgerConflict)
       }
-      return { entries: countEntries(chat.body ?? ''), title: chat.title, note }
+      return { entries: await planEntries(plan), title: chat.title, note }
     },
 
     async read(): Promise<LedgerRecord> {
-      // AN UNWRITTEN RECORD IS EMPTY, NOT MISSING, which is the one place this
-      // differs from the two writes above. They raise `NO_LEDGER` because a
-      // decision that cannot be written is something the client must be told
-      // about; this one feeds the per-turn seed, and a conversation whose ticket
-      // does not exist yet — the first turn of every engagement — has simply not
-      // decided anything. Refusing here would fail the turn over its own
-      // newness.
-      const chat = await findChat(tickets, sessionId)
-      return chat === null
-        ? { body: '', title: '', note: '' }
-        : { body: chat.body ?? '', title: chat.title ?? '', note: noteOf(chat) }
+      // AN UNWRITTEN RECORD IS EMPTY, NOT MISSING. This feeds the per-turn seed,
+      // and a site with no plan or a conversation with no ticket yet — the first
+      // turn of every engagement — has simply not decided anything.
+      const [current, chat] = await Promise.all([plan.read(), findChat(tickets, sessionId)])
+      return {
+        body: current ? planSection(current.body, LOG_SECTION) : '',
+        title: chat?.title ?? '',
+        note: noteOf(chat),
+      }
     },
   }
 }
 
-/**
- * A version clash, translated; anything else left alone.
- *
- * The component reports the clash in its own vocabulary and this is the one
- * place that vocabulary is read, so the surface's declared `CONFLICT` is what
- * the model sees. An unrecognised failure is re-thrown unchanged rather than
- * flattened into `CONFLICT`, because telling a model to retry a write that
- * failed for some other reason is telling it to fail again.
- */
-function conflictOrRethrow(error: unknown): unknown {
-  const text = `${(error as { code?: string })?.code ?? ''} ${(error as Error)?.message ?? ''}`
-  if (/conflict|version|stale|expected_version/i.test(text)) {
-    return ledgerError('CONFLICT', 'the ledger moved while this entry was being written')
-  }
-  return error
+/** How many decisions the site's log holds. */
+async function planEntries(plan: PlanDeps): Promise<number> {
+  const current = await plan.read()
+  return current ? logEntries(current.body) : 0
 }
+
+const ledgerConflict = (): Error =>
+  ledgerError('CONFLICT', 'the ledger moved while this entry was being written')
+

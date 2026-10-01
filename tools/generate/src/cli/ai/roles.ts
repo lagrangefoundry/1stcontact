@@ -45,6 +45,7 @@
 
 import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
+import { planReminder, type Plan } from './plan-core'
 
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -560,6 +561,9 @@ export const CORPUS_DELTA_PROVIDER = 'corpus.delta'
  */
 export const PAGE_DIGEST_PROVIDER = 'site.digest'
 
+/** The site's plan, projected for the turn ([[REQ-356]]). */
+export const SITE_PLAN_PROVIDER = 'site.plan'
+
 /**
  * The name the [[BUG-121]] interrupted-turn signal is reached under.
  *
@@ -771,6 +775,11 @@ export function registerSiteProviders(
      */
     digest?: (() => Promise<SiteDigest | null>) | null
     /**
+     * The site's plan, read late ([[REQ-356]]). Absent is silence, like the
+     * digest's.
+     */
+    plan?: (() => Promise<Plan | null>) | null
+    /**
      * Whether this deployment composes the delegation surface ([[REQ-295]]).
      *
      * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entries it fills
@@ -840,6 +849,17 @@ export function registerSiteProviders(
   providers.register(PAGE_DIGEST_PROVIDER, async () =>
     binding.digest ? pageDigest(await binding.digest()) : null,
   )
+  // [[REQ-356]] — REGISTERED EITHER WAY for the digest's reason. A plan that
+  // cannot be read is silence rather than a failed turn: the plan makes a turn
+  // better, it is not what makes one possible.
+  providers.register(SITE_PLAN_PROVIDER, async () => {
+    if (!binding.plan) return null
+    try {
+      return planReminder(await binding.plan())
+    } catch {
+      return null
+    }
+  })
 }
 
 /**

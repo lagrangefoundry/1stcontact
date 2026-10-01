@@ -90,7 +90,7 @@ export { SYSTEM_KB, SHIPPED_SOURCE, CORPUS_TYPE } from './kb-model'
 export const PROJECT_KB = 'project'
 
 /** Its corpus: everything a site is made from ([[DOC-38]] §9). */
-export const PROJECT_CORPUS_TYPES = ['chat', 'material', 'reference', 'brief'] as const
+export const PROJECT_CORPUS_TYPES = ['chat', 'material', 'reference', 'plan'] as const
 
 /**
  * The layout inside the KB tree — the Python peer's, so a corpus built by either
@@ -603,8 +603,8 @@ export function ensureConfig(root: string = kbRoot()): string {
       [PROJECT_KB]: {
         description:
           "This client's own knowledge: the conversations held with them, the material " +
-          'they uploaded, the reference sites captured on their behalf, and the brief ' +
-          'recording what was decided. Everything a site is made FROM, as against how ' +
+          'they uploaded, the reference sites captured on their behalf, and the site plan ' +
+          'recording what was decided and why. Everything a site is made FROM, as against how ' +
           'the system that builds it works.',
         corpus: { type: [...PROJECT_CORPUS_TYPES] },
         landscape: 'derived',

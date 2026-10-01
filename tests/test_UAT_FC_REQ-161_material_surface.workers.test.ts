@@ -342,7 +342,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
     const tenant = 'req161-scope'
     const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { ticket } = await store.create({
-      type: 'brief',
+      type: 'plan',
       title: 'The brief',
       body: 'Decisions taken so far.',
       fields: { site_slug: 'somewhere' },

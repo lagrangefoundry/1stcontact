@@ -444,7 +444,7 @@ describe('REQ-213 — the request is validated, never coerced', () => {
     // all.
     const store = await ticketStoreFor(routerEnv(tenant), scopeOf(tenant))
     const { ticket: brief } = await store.create({
-      type: 'brief',
+      type: 'plan',
       title: 'The brief',
       body: 'Decisions taken so far.',
       fields: { site_slug: 'somewhere' },

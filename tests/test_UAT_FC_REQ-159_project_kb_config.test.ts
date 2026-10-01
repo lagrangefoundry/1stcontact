@@ -81,11 +81,12 @@ describe('REQ-159 — the declaration', () => {
   it('UAT_FC_REQ-159 the project KB is declared, and its corpus is the four material types', () => {
     expect(project, 'kb/knowledge_bases.json declares a `project` knowledge base').toBeDefined()
     // [[DOC-38]] §8: the client's conversations, their uploads, the captures made
-    // on their behalf, and the brief recording what was decided.
+    // on their behalf, and the site plan recording what was decided ([[REQ-356]]
+    // renamed it from `brief`).
     expect((project.corpus as { type: string[] }).type.slice().sort()).toEqual([
-      'brief',
       'chat',
       'material',
+      'plan',
       'reference',
     ])
   })

@@ -330,7 +330,7 @@ describe('REQ-263 — seeing the lock without attempting a write', () => {
     expect(tickets[0].locked?.frozen).toContain('fields.*')
 
     const { ticket: brief } = await store.create({
-      type: 'brief',
+      type: 'plan',
       title: 'Decisions',
       fields: { site_slug: 'home' },
       body: 'Ship the one-pager first.',

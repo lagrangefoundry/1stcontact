@@ -1,0 +1,52 @@
+{
+  "about": [
+    "REQ-356 — what every new site plan starts with.",
+    "",
+    "DATA AND NOT CODE, so the list can change without a code change. The decisions",
+    "are [[DOC-64]] §6 and the standing checks are §7; this file is that document's",
+    "two tables, in the shape the plan stores them. A plan is seeded once, when it is",
+    "first written, so editing this file changes plans created afterwards and leaves",
+    "existing ones as they are.",
+    "",
+    "`settle` is how the decision is expected to be settled — asked, talked through,",
+    "shown, or offered ([[DOC-64]] §3.1). It tells the coordinator how to raise it.",
+    "",
+    "`triggers` name the moments a check fires ([[DOC-64]] §7). Firing them is the",
+    "coordinator's runtime and out of scope here; the names are recorded so that",
+    "runtime has something to match on."
+  ],
+  "phase": "intake",
+  "decisions": [
+    { "id": "site_job", "area": "purpose", "tier": "concept", "settle": "ask", "title": "The site's job right now" },
+    { "id": "audiences", "area": "purpose", "tier": "concept", "settle": "ask", "title": "Audience(s) and priority" },
+    { "id": "goal", "area": "purpose", "tier": "concept", "settle": "ask", "title": "Goal, and how we'd know (measure or proxy)" },
+    { "id": "quality_bar", "area": "purpose", "tier": "concept", "settle": "ask", "title": "Quality bar, in the client's words" },
+    { "id": "features", "area": "functionality", "tier": "detail", "settle": "ask", "title": "Feature set from the catalogue" },
+    { "id": "call_to_action", "area": "functionality", "tier": "concept", "settle": "talk", "title": "Call to action: what we want the visitor to do" },
+    { "id": "core_story", "area": "messaging", "tier": "concept", "settle": "talk", "title": "Core story: what the visitor should take away" },
+    { "id": "voice", "area": "messaging", "tier": "detail", "settle": "show", "title": "Voice" },
+    { "id": "key_messages", "area": "messaging", "tier": "detail", "settle": "talk", "title": "Key messages and section structure" },
+    { "id": "copy", "area": "messaging", "tier": "detail", "settle": "talk", "title": "Copy for each section" },
+    { "id": "visual_concept", "area": "style", "tier": "concept", "settle": "show", "title": "Visual concept" },
+    { "id": "layout_system", "area": "style", "tier": "concept", "settle": "show", "title": "Layout system (grid, rhythm, how sections hold together)" },
+    { "id": "typography", "area": "style", "tier": "detail", "settle": "show", "title": "Typography" },
+    { "id": "palette", "area": "style", "tier": "detail", "settle": "show", "title": "Palette" },
+    { "id": "spacing", "area": "style", "tier": "detail", "settle": "show", "title": "Spacing and rhythm" },
+    { "id": "brand_imagery", "area": "imagery", "tier": "concept", "settle": "show", "title": "Brand imagery and treatment" },
+    { "id": "image_supply", "area": "imagery", "tier": "detail", "settle": "ask", "title": "Image supply: what the client has, and whether it's usable" },
+    { "id": "logo", "area": "imagery", "tier": "detail", "settle": "show", "title": "Logo / wordmark" },
+    { "id": "favicon_share_card", "area": "imagery", "tier": "detail", "settle": "show", "title": "Favicon and share card" },
+    { "id": "animation", "area": "liveness", "tier": "detail", "settle": "offer", "title": "Animation approach (\"none\" is a valid answer)" },
+    { "id": "pages_navigation", "area": "structure", "tier": "detail", "settle": "talk", "title": "Pages and navigation" }
+  ],
+  "checks": [
+    { "id": "layout_happy", "question": "Are we all happy with the layout?", "triggers": ["first_pass_complete", "revision_round_finished", "vague_dissatisfaction"] },
+    { "id": "quality_bar_met", "question": "You said [quality bar]. Does this meet it?", "triggers": ["first_pass_complete", "before_fan_out", "before_publish"] },
+    { "id": "concept_still_default", "question": "[Concept decision] is still a default. Want to see alternatives?", "triggers": ["entering_revision_with_defaulted_concept"] },
+    { "id": "settled_before_fan_out", "question": "Before we build the other pages: are voice and layout settled?", "triggers": ["before_fan_out"] },
+    { "id": "seen_on_phone", "question": "Have we looked at it on a phone?", "triggers": ["before_publish", "mobile_audience"] },
+    { "id": "scroll_feel", "question": "How does it feel to scroll through?", "triggers": ["before_publish"] },
+    { "id": "motion_offer", "question": "Would some motion help here?", "triggers": ["revision_once"] },
+    { "id": "ready_to_publish", "question": "Ready to publish? Links, contact routing, share card, favicon", "triggers": ["before_publish"] }
+  ]
+}
