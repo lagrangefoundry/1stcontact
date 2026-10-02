@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T18:07:49.427182+00:00'
+updated_at: '2026-10-02T18:09:54.675159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1172,5 +1172,37 @@ Let discuss the open questions and see if we can resolve them.
  - large open questions - style, color pallet, even font - Charlie cannot answer those unaided - the panel is to ask questions that we expect him to know the answer to
  3. All of them right now - we can try to simplify/organize etc later
  4. No picking a variant is at best a large open question per above its a conversation. We do need a better interface on that experience BTW but not a problem for now. ALSO the pannel is better suited to questions that endure - Charlies phone number is always Charlies phone number - Which variant is ephemeral it depends on the varients right now we might go through 4 rounds with different variants.
+
+<!-- xgd-turn id="2ba549ca-5821-47de-902d-d7229e18d8be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:09:53.460497+00:00" -->
+#### Claude
+Before agreeing on point 1, I'll check how Alice actually hears about Charlie's page edits today, so the plan can use the same mechanism.
+
+Applying the revisions with a short script.
+
+All four questions are resolved, and I've updated DOC-65 to match.
+
+**1. How Alice hears about panel answers.** The mechanism exists. There's a per-turn change notice (`session-delta.ts`, REQ-160) that reports changes across the project's tickets, and the plan is one of them. It's the same notice that tells Alice about Charlie's page edits.
+
+One gap: today the notice only lists ticket titles, within a 400-character budget. For the plan, that would just say "the plan changed". DOC-65 §4 now says the notice must name which questions Charlie answered and what he said, and must leave out Alice's own changes. A panel answer doesn't start a new turn for Alice; she picks it up on her next turn, like a page edit.
+
+**2. Stage management.** This is now its own section (DOC-65 §7.2), with your two example lines. Three rules:
+- Every question Alice has goes on the panel the moment she thinks of it.
+- She says what stage we're at and when she's going away to work, and points Charlie to the panel while she does.
+- Questions go to the right place.
+
+That last one is set by a new rule in §5: **a question goes on the panel only if Charlie can answer it unaided and the answer stays true.** Phone number, hours, towns covered and callout fee go on the panel. Style, palette, typeface, layout and the core story stay in the conversation, usually settled by showing him options. §8 records stage management as the most likely job for Bob if he comes back: a short, frequent voice that doesn't compete with the design conversation.
+
+**3. How many questions at once.** All of them. Grouping and organising them is deferred.
+
+**4. Picking a variant.** It's a conversation, not a panel choice, because the choice only lasts as long as the current set of variants. "Needs your choice" is gone from the panel. A better way to compare variants is in the deferred list.
+
+**One consequence, which I've flagged in DOC-65 §10 as the one question still open.** Your answer to point 4 also takes the milestone checks off the panel, since "does this meet the quality bar?" is a judgement about the current page, not a fact that stays true. But checks on the panel were how we'd planned to push Alice into critique without a second voice. So for this test, Alice runs short milestone reviews in the chat herself (new §7.3):
+- after the first pass
+- before building more pages
+- before publish
+
+Each review is measured against the brief and ends with one question. If she doesn't run them, or they're soft, that's the clearest evidence for bringing Bob back, in the narrow job of prompting them. The test measures now include both of these behaviours.
 
 <!-- xgd-chat-end -->
