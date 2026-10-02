@@ -585,13 +585,22 @@ export function cropRaster(src: Raster, w: number, h: number): Raster {
  * over-reaches the image by a few pixels. Throwing there would fail the run over
  * an edge the operator did not choose; clamping returns the pixels that exist,
  * which is what the previous implementation also did.
+ *
+ * BUG-175 — a FRACTIONAL box is the same class of input and gets the same
+ * treatment. Manifest boxes are real capture geometry (a 205.7px-tall image) and
+ * reach here rounded to two decimals, not to pixels; allocating `w·h·c` bytes at a
+ * fractional size truncates the buffer and the last row is written past its end.
+ * The box is snapped outward first — floor the start, ceil the end — so the crop
+ * covers every pixel the box touches, and a whole-pixel box is unchanged.
  */
 export function extractRect(src: Raster, box: RegionBox): { raster: Raster; box: RegionBox } {
   const c = src.channels
-  const x = clamp(box.x, 0, Math.max(0, src.width - 1))
-  const y = clamp(box.y, 0, Math.max(0, src.height - 1))
-  const w = clamp(box.w, 1, src.width - x)
-  const h = clamp(box.h, 1, src.height - y)
+  const x0 = Math.floor(box.x)
+  const y0 = Math.floor(box.y)
+  const x = clamp(x0, 0, Math.max(0, src.width - 1))
+  const y = clamp(y0, 0, Math.max(0, src.height - 1))
+  const w = clamp(Math.ceil(box.x + box.w) - x0, 1, src.width - x)
+  const h = clamp(Math.ceil(box.y + box.h) - y0, 1, src.height - y)
   const out = new Uint8Array(w * h * c)
   for (let row = 0; row < h; row++) {
     const from = ((y + row) * src.width + x) * c
@@ -810,6 +819,8 @@ export function unpaintedImages(
   ): void => {
     if (!handle || !raw) return
     const box = toRegionBox(raw, scale)
+    // BUG-175 — a degenerate box costs only that box, never the gate.
+    if (![box.x, box.y, box.w, box.h].every(Number.isFinite) || box.w <= 0 || box.h <= 0) return
     if (box.w * box.h < o.minAreaPx) return
     const refVar = cropVariance(ref, box)
     if (refVar < o.refVarianceMin) return
