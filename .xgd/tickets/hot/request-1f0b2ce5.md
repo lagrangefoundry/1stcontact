@@ -6,9 +6,9 @@ title: 'Group chat: the second agent is the coordinator, and both agents are poi
   at DOC-64'
 created_by: EPIC-19
 created_at: '2026-10-02T01:04:30.865457+00:00'
-updated_at: '2026-10-02T02:15:27.269372+00:00'
+updated_at: '2026-10-02T02:20:42.665131+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -89,3 +89,7 @@ Small and well bounded. It reconciles vocabulary that has to be settled before R
 - `tests/test_UAT_FC_REQ-358_coordinator_and_doc_64.test.ts`: the role configured as `coordinator` in every config document with no `assistant` key left; both group-chat texts name DOC-64; every DOC id priming names is a `system_kb` member; a document indexed but left off the map is refused as UNMAPPED and a rebuild clears it; the shipped map (where `kb/system` is built) covers every indexed document including DOC-63 and DOC-64.
 - `tests/test_UAT_FC_REQ-357_names_are_configuration.test.ts`: `test_UAT_FC_REQ-358_no_system_kb_document_spells_a_display_name`.
 - Adjusted for the new contract: BUG-48 / REQ-158 fixtures draw the map over what they indexed; BUG-48 / BUG-156 skew literals carry `unmapped`; BUG-65's scan excludes the `group-room` template.
+
+
+## Landscape regenerated (2026-10-01)
+`bin/kb-release` ran with this code: 14 documents, 7 territories, written by claude_code; the map's `covers` lists every indexed document, DOC-63 and DOC-64 included. DOC-64 sits in "Builder AI roles, client consultation, and briefing delegated workers", whose description names the two roles, the plan and how a build runs, with **consultant and the coordinator** as a validated access point. `test_UAT_FC_REQ-358_the_shipped_map_covers_every_indexed_document` passes in the main checkout. The dev server (:8789) only picks this up, and only runs migration 0024, on `bin/deploy --env dev`.
