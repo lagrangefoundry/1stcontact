@@ -5,7 +5,7 @@ type: doc
 title: 'Next hypothesis: Alice and a plan panel (Bob optional)'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:44.828729+00:00'
-updated_at: '2026-10-02T18:09:42.903696+00:00'
+updated_at: '2026-10-02T18:25:56.797027+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -50,6 +50,7 @@ The next test runs with **Bob off** (he's behind a feature flag). The design is 
 - **They know what they don't like when they see it, and rarely what they like before they see it.** Visual choices have to be shown, not described.
 - **A novice won't push.** A trained client asks "does this look premium?", "show me two", "what would you change?" and gets excellent answers. A novice doesn't know these are questions you can ask.
 - **A novice won't do data entry.** In the Charlie session, a first post with 7+ questions got one answered. A list of questions is a form, and people treat it as one.
+- **People hold one thread at a time; AIs don't.** An AI can ask seven questions and track all seven answers without effort. A person can't, and an exchange that juggles several topics at once is cognitively exhausting even when each topic is simple. Conversations with AIs feel hard largely for this reason.
 - **Clients have legitimate orders of their own.** One expert client put visuals first and words last, deliberately and correctly. The process must not fight that.
 - **Long silences read as failure.** Gaps of 10, 25 and 20 minutes with no notice, followed by two pages of text, were bewildering.
 
@@ -188,8 +189,11 @@ Any ask can also accept an upload instead of a typed answer.
 
 **Rules for Alice when writing asks:**
 - **Short prompt, one-line reason.** The reason is what makes a novice bother.
+- **If you're blocked on it, ask it in the chat instead.** A question Alice can't proceed without is asked in the conversation, as the one question of that post. Everything else goes on the panel.
 - **Put it on the panel the moment you think of it.** Don't hold a question back for the right moment, and don't ask it in the chat. A question on the panel costs the client nothing until he chooses to answer it, which is why a pre-publish detail like the licence number is fine there and wasn't fine as a chat question at intake.
 - **Show all open asks.** No cap for now; grouping and ordering come later. `needed_by` orders them, it doesn't hide them.
+- **Encourage, don't nag.** When she goes away to work, Alice can invite the client to answer a few panel questions or upload documents that answer them. One light mention, not every post.
+- **Don't push final details before they matter.** The licence number, exact address and other pre-publish facts can sit on the panel unanswered until the design reaches the point where they're needed; the final details pass (§7.7) is when they get chased.
 - **Only enduring facts the client knows** (the §5 rule). Never put a judgement question on the panel.
 - **Ask for documents, not data entry** (§7.5). "Upload your business card or letterhead" beats four separate fields for address, phone, email and licence number.
 - **Close the loop.** When an upload answers an ask, Alice extracts the facts and fills in the related asks herself, so the client sees questions disappear.
@@ -200,10 +204,19 @@ Any ask can also accept an upload instead of a typed answer.
 
 The chat is the design conversation. **High information, low noise.**
 
-### 7.1 Volume
+### 7.1 One topic at a time
+
+The single most important conversational rule, because of the asymmetry in §2.1: the client can only hold one thread.
+
+- **One conversation at a time.** Pick one topic, get it right, then move to the next. Never run three conversations in one post: no "here's the new hero, also what about your towns, and have you thought about the logo?"
+- **The client's topic wins.** We have opinions about the preferred order for building a page (§7.4, [[DOC-64]] §3.2). But if Charlie is particularly concerned about the logo's size and placement, that becomes the topic. Alice focuses on it until he's happy, then returns to the next thing in her order. The preferred order is what she proposes when the client has no topic of his own, not a sequence she steers him back to.
+- **Short, rapid responses.** A short post on one topic, answered quickly, keeps the client engaged and makes progress visible. That's far more powerful than a long post that tries to cover everything.
+- **Other things that come up go elsewhere.** A fact goes on the panel. A design issue she notices in passing gets noted in the plan as an open decision and raised when its turn comes, not in the middle of the current topic.
+
+### 7.1a Volume
 
 - **Think first, then post the conclusion.** Working-out stays in her head.
-- **One question per post, at most.** Everything else that's a fact goes to the panel as an ask.
+- **One question per post, at most,** and it's about the current topic. Everything else that's a fact goes to the panel as an ask.
 - **No restating.** Don't repeat what the panel already shows: open items, things still needed, progress.
 
 ### 7.2 Stage-managing the conversation
@@ -304,6 +317,7 @@ Compare the next session against the Charlie session:
 |---|---|
 | Agent words : client words in the chat | ~15 : 1 |
 | Questions per agent post | up to 7 |
+| Topics per agent post | often 3+ (design, facts, process) |
 | Silences without notice | 3 (10, 25, 20 min) |
 | Quality bar captured | no |
 | Concept decisions `chosen` by the client | 0 of 9 |
@@ -315,4 +329,5 @@ New measures:
 - uploads offered and received
 - milestone reviews Alice ran unprompted, and whether they were honest about shortfalls
 - stage announcements before each long piece of work
+- topic switches initiated by Alice vs by the client, and whether Alice followed the client's topic
 - the operator's verdict on whether the chat felt like a conversation with a designer
