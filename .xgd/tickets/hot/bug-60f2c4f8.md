@@ -6,10 +6,10 @@ title: 'capture_site: entry page refused for exceeding the 32 MiB budget before 
   page has been captured'
 created_by: xgd
 created_at: '2026-10-02T00:11:17.651238+00:00'
-updated_at: '2026-10-02T00:53:02.062007+00:00'
+updated_at: '2026-10-02T01:19:01.870315+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
