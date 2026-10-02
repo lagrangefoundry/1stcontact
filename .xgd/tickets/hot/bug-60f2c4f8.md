@@ -6,9 +6,9 @@ title: 'capture_site: entry page refused for exceeding the 32 MiB budget before 
   page has been captured'
 created_by: xgd
 created_at: '2026-10-02T00:11:17.651238+00:00'
-updated_at: '2026-10-02T00:44:01.681761+00:00'
+updated_at: '2026-10-02T00:51:56.724384+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -101,3 +101,23 @@ Also worth a separate look: the control reports `pages: 12` for `example.com`, w
 - No *spend* limit exists anywhere. Token spend is already **metered per business** (`apps/control-app/src/spend.ts`, REQ-292/293/297, `tenant_id`), but nothing enforces a limit against it.
 - The token "budgets" that do exist are technical ceilings, not cost controls. They are per request, turn or session: the context-window fraction (`budget-core.ts`, REQ-296), the turn clock (`turn-clock-core.ts`, BUG-168), the per-session image cap (`imagegen.ts` `IMAGE_BUDGET`, documented as a runaway-loop stop), room auto-turn caps (`group-core.ts`), and character caps on rendered text (`account-core.ts` `DIFFERENCE_BUDGET`, `knowledge.ts`, `session-delta.ts`).
 - So a per-business token budget would be **new work**: an allowance per business enforced against the existing meter. It is not a rescoping of existing code, and it is out of scope for this bug.
+
+
+## Resolution (2026-10-01) — the capture download limit is removed
+
+**Operator decision:** capture is cheap and mechanical, so the byte budget controlled no cost and is removed outright rather than raised. Budgets in general, including per-business token budgets, are deferred to later work.
+
+**What changed (user-visible):** `capture_site` is never refused because of how many bytes it downloaded. That holds for any total, across every pass of the viewport ladder. An image-heavy site that used to fail with "the capture had already delivered more than 33554432 bytes…" now captures and is adopted like any other. No `response-cap` refusal reason exists any more.
+
+**What did not change:** the egress guard still enforces the address rules (SSRF: private/loopback/link-local/`.local`/`.internal` addresses, non-http(s) schemes, embedded credentials) and the per-chain redirect-loop cap. A page refused by either rule still fails the capture rather than being adopted (BUG-127).
+
+**Code:**
+- `tools/generate/src/cli/capture/egress-guard.ts`: removed `MAX_RESPONSE_BYTES`, `EgressGuard.record`, `EgressGuard.tripped`, the `maxBytes` option and the `response-cap` reason.
+- `tools/generate/src/cli/capture/cf-driver.ts`: no longer reports response sizes to the guard.
+
+**Test plan:**
+- `tests/test_UAT_FC_BUG-172_capture_has_no_download_limit.test.ts`: the real Browser Rendering driver and the real guard, with one guard shared across every ladder width. A page with three 12 MiB photographs (36 MiB a pass, ~216 MiB total) is allowed and fully mirrored on every pass, with no refusals and no 403s. Verified to fail against the previous guard.
+- `tests/support/fake-puppeteer.ts` gains a `network` option so the boundary double can serve network responses and emit puppeteer `response` events. A technical consequence: the navigation request is labelled `document`, as a browser labels it.
+- `test_UAT_FC_BUG_127_a_refused_document_fails_rather_than_adopting` now refuses the page with the redirect cap instead of the byte cap.
+- `test_UAT_FC_REQ_157_the_guard_caps_redirects_and_size_and_records_both` was renamed `…_caps_redirects_and_records_them`, and its size half was removed.
+- Regression scope: BUG-127, REQ-157, BUG-172, and both REQ-154 suites, all passing.
