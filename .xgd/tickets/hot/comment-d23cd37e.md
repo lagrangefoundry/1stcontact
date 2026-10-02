@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:20:42.415969+00:00'
+updated_at: '2026-10-02T17:21:27.294044+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1025,5 +1025,59 @@ That's an inference from what each agent did, not a measurement; I don't have a 
 I love the idea of a panel that collects content while Alice works though. I find myself wondering if we need Bob again though. Alice can construct the panel - in face the panel should really be a rendering of the plan ticket (some of the plan ticket).
 
 Another thing that Alice should do is invite uploads of content - rather than Ask Charlie for address and phone etc have him upload a headed letter as a PDF? Do they have a brochure? Price list etc.?
+
+<!-- xgd-turn id="f6ae925b-e470-483d-bb28-2559b1ea17a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:21:26.462248+00:00" -->
+#### Claude
+## Do we still need Bob?
+
+Count what's actually left for him:
+
+| Bob's job | Where it goes now |
+|---|---|
+| Bookkeeping | **Already Alice's.** She made every plan write in the Charlie session; Bob made none. |
+| Persistence on dropped questions | **The panel.** An unanswered item just stays there. |
+| Progress and "where we are" | **The panel,** as a rendering of the plan ticket. |
+| Narrating the wait | Your interposition work. It could just as well be a status line ("Alice is building two versions, about 15 min") as a voice. |
+| **Pushing Alice to be critical** | The only job still open. |
+
+And the case for that last one is weaker than it was. In the Lagrange Foundry build, Alice needed asking. In the Charlie session, primed with DOC-64 and the plan, she critiqued herself without prompting: "What I'd change myself, unprompted", "your current home page is the weakest of the three", and she withdrew one of her own arguments once the logo was fixed. The behaviour Bob was meant to force mostly happened anyway.
+
+You're also right that a spoken push risks bringing the overload back. So there are two ways to cover critique without a second voice:
+
+1. **Checks as panel prompts the client can tap.** At a milestone the panel shows "You said you want to look like the most trusted plumber in town. Does this page do that?" with *Yes / Not yet / Not sure*. "Not sure" or "Not yet" sends the question to Alice, who answers in the conversation. This still teaches the novice that the question is allowed, which was the point of Bob asking out loud, but through the interface rather than a third participant.
+2. **A hidden reviewer** if self-critique turns out not to be enough. A separate agent reviews each milestone render against the brief and passes its findings to Alice, who presents them in her own voice. That's the generator/critic split, with nothing extra in the chat.
+
+My recommendation: **run the next session without Bob**, using Alice, the plan panel, and milestone checks as panel prompts. Keep the room and Bob's runtime; shelve him, don't delete him. If the gaps come back (quality bar never asked, decisions stuck on defaults, no critique at milestones), we'll know what a second agent has to fix and can bring back the narrowest version. It's also the cheapest configuration to try, which matters at $33 a session.
+
+## Ask for documents, not data entry
+
+Agreed, and the product already supports most of it. The `material` type (DOC-38) handles uploads with an AI-written text shadow, and `capture_site` can read web pages. So the move is that Alice asks for **artefacts** and extracts the facts herself:
+
+- **Letterhead, business card, invoice template (blank):** address, phone, licence number, branding
+- **Brochure, flyer, van livery photo:** services, claims, existing voice, colours
+- **Price list or rate card:** the callout fee, the single most valuable fact on Charlie's page
+- **Google Business / Yelp / Nextdoor link:** reviews, review count, hours, service area. This is exactly the "real business" density the Charlie pages lacked.
+- **Phone photos of real jobs and the van:** for a tradesperson, "snap a few photos on your phone" is easier than any form
+
+Three rules would make this work:
+
+1. **Extract, then confirm.** Show what was found ("From your brochure: callout $95, Santa Cruz, Capitola, Scotts Valley. Still right?"), because documents go out of date. Confirmed facts fill the plan's `asks`.
+2. **Every panel ask accepts either a typed answer or an upload.** "What do you charge to come out?" can be answered with "95" or with a photo of the price list.
+3. **Don't invite documents full of customer data.** A blank invoice template is fine; real invoices carry other people's names and addresses. The privacy principles in the architecture policy are "collect only necessary data".
+
+## What this does to the docs
+
+DOC-64 is now mostly wrong about Bob, so I'd hold the rewrite until after the Bob-less session, rather than revise it twice. The parts that don't depend on Bob I could add now:
+- the plan panel
+- `asks` with upload-or-answer
+- the facts-and-proof list and the reference-site inventory
+- ask-for-documents
+- intake limited to what shapes the first pass
+- client-asset preparation as part of verification
+- the sensitivity check on how people are described
+
+Want me to do that partial update now? And for the panel and `asks` code, file a new ticket?
 
 <!-- xgd-chat-end -->
