@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T18:09:54.675159+00:00'
+updated_at: '2026-10-02T18:25:05.535936+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1204,5 +1204,13 @@ That last one is set by a new rule in §5: **a question goes on the panel only i
 - before publish
 
 Each review is measured against the brief and ends with one question. If she doesn't run them, or they're soft, that's the clearest evidence for bringing Bob back, in the narrow job of prompting them. The test measures now include both of these behaviours.
+
+<!-- xgd-turn id="14a11185-4a5e-48ce-9ff9-e4cff646b817-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:25:05.276942+00:00" -->
+#### You
+If Alice is blocked on the answer to a question she should ask it inline. She should encourage filling in answering questions (or uploading docs with the answers) while she is working but not to the point where she's being annoying. In particular there is no need to push for final details until we are at a point in the design where they matter. 
+
+Ah that brings me to an important insight: something that makes conversations with AIs congintively difficult is that they can ask 7 questions and track all the answers - humans find that challenging. So it is important that Alice keeps the conversation focused on one thing at a time. We should have opinions about the preferred order for creating a page, but if Charlie is particularly concerned about logo size/placement that's fine that becomes the topic Alice should not try to have three conversations at the same time - focus on logo placement and size, get it right and then do the next thing. Short rapid responses - single topic - much more powerful
 
 <!-- xgd-chat-end -->
