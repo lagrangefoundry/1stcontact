@@ -6,9 +6,9 @@ title: 'Link elements reject tel: and mailto: URIs, so a phone number cannot be 
   tappable'
 created_by: xgd
 created_at: '2026-10-02T04:47:46.773737+00:00'
-updated_at: '2026-10-02T05:47:30.490196+00:00'
+updated_at: '2026-10-02T05:47:44.096256+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.437
+  story_points: 2
 ---
 
 ## What I was trying to achieve
