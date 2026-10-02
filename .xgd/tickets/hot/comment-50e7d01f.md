@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-01T20:06:45.653504+00:00'
+updated_at: '2026-10-02T17:53:17.883766+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3482,5 +3482,13 @@ The fold already has the measurements from the capture, so it emits `flow` direc
 - No live site is touched by this ticket.
 
 The session can now cut its branch. That ties in with your idea of recreating Gigabyte Alchemy: a fresh reproduction made after this lands would be the first real test of the new reproduction code.
+
+<!-- xgd-turn id="f7e0bdf0-7214-4f34-af3d-3ac40cf73862-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:53:17.346262+00:00" -->
+#### You
+Please take a look at the latest site development transcript and site development. It took around 1.5 hours and cost $33. That is still and uncomfortable cost - my guess is that even with a simple site like this we are only half way done perhaps less. $33 is expensive.
+
+Is the primary making sufficient use of the delegates?
 
 <!-- xgd-chat-end -->
