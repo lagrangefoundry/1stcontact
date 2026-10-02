@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T04:06:47.807714+00:00'
+updated_at: '2026-10-02T04:07:38.701816+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3562,5 +3562,33 @@ Joyful's reproduction screenshot is **1700px wide at a 1280 window**, so the cop
 So the repro of Gigabyte is excellent - 0 unmeasured and the site scals correctly horizontally.
 
 On the other two do we need a code fix for them? Can you create a ticket?
+
+<!-- xgd-turn id="4150298e-1484-4587-a5ba-7d251c72c192-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T04:07:37.913639+00:00" -->
+#### Claude
+Yes, the other two need a code fix. Recapturing again won't help: every faelan and joyful iteration will crash at the same step until it's fixed. I've filed it as **BUG-175** (`bug-b8477697`), at `draft`, high priority, under EPIC-12.
+
+**What breaks:** BUG-161 added a check that looks for images the original draws and the copy doesn't. For each image, it cuts that image's rectangle out of both screenshots. The cutting code assumes every size is a whole number of pixels, but images often aren't:
+
+- faelan has one image that is 205.7px tall
+- joyful has seven fractional-sized images or sections
+
+For those, the code writes one row past the end of its buffer and throws, which kills the scoring step. Gigabyte Alchemy has no fractional-sized images, which is why it was the only one to pass.
+
+**What the ticket asks for:**
+1. The cutting code rounds the rectangle out to whole pixels instead of crashing. Four other places use the same code, so fixing it there protects all of them.
+2. If one image's box is unusable, that image is skipped rather than failing the whole run.
+
+The tests cover:
+- the fractional case
+- whole-pixel crops coming out unchanged
+- a real faelan scoring run that finishes with a verdict
+
+**After it lands:** restart the consoles and press [recapture] on faelan and joyful. Both should finish.
+
+Good news on Gigabyte Alchemy: 0 unmeasured and correct horizontal scaling means BUG-173 and BUG-174 did what they were meant to.
+
+I left joyful's 1700px-wide overflow out of this ticket deliberately: it predates this crash and has a different cause. Once joyful can complete an iteration, it'll show up in the comparison, and a diagnosis round should pick it up then.
 
 <!-- xgd-chat-end -->
