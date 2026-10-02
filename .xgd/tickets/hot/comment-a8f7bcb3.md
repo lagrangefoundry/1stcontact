@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-09-30T00:07:34.745721+00:00'
+updated_at: '2026-10-02T00:20:33.400705+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -199,5 +199,11 @@ Two things in there you should look at, because they're my calls and not yours:
 - **The exposure while it's ungated** is recorded plainly: anyone reaching the builder for a business can turn that business's delegation off, and EPIC-20 measured that at $0.54 against $0.046 per element write. I've written it as acceptable-for-v1 because the builder is behind Access and you're its only user — but it's stated, not buried, so gating it stays a decision.
 
 Haven't cut a branch or written code yet. Say go and I'll branch `REQ-353` and build it.
+
+<!-- xgd-turn id="ccb38fde-4693-457f-a8b9-34bf364e3c52-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:20:29.720647+00:00" -->
+#### You
+353 has been implemented but I see no debug tab?
 
 <!-- xgd-chat-end -->
