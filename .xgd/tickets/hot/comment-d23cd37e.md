@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T18:39:01.328725+00:00'
+updated_at: '2026-10-02T18:39:55.024615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1248,5 +1248,27 @@ Its extremely important that we meet the customer where they are and use languag
 For our trial runs I want to assume we are working with people who really don't know and need the most help.
 
 Part of this comes back to Alice needs to ask questions that Charlie can answer. Asking "What font do you want for the masthead" is obviously wrong. But even questions about messaging might not get the expected answers. What we know Charlie can answer are questions about his actual experiences, what does he do? What does he do most often? He knows about plumbing, day to day interactions with customers and vendors AND he knows his business. So if Alice is struggling to get purchase on what she needs she can go to those things, extrapolate and then veryfy - "So you spend most of your time on blocked lines - should we make that more prominent on the site?"
+
+<!-- xgd-turn id="41bbe3da-44aa-4dd8-8d78-3f82c18fd19a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:39:54.239622+00:00" -->
+#### Claude
+I've added both points to DOC-65 and updated the ticket.
+
+**What clients are like (§2.1).** Two new points:
+- Clients vary on two separate axes:
+  - **technical:** Charlie doesn't know what a "form" is; Emma wants to talk about cross-site scripting
+  - **marketing:** Brian knows his customers cold; Gary only knows framing
+- A client can always answer questions about his own experience. Charlie knows plumbing, his customers and suppliers, and his business. He can't pick a masthead font, and even a direct messaging question may not get a usable answer.
+
+**How Alice behaves (new §7.1b, "Meet the client where they are"):**
+- **Read both axes early and match her language.** For Charlie it's "a box where people can send you a message", not "a contact form". With Emma she can go into validation and injection protection if Emma raises it. The marketing axis works the same way.
+- **In the trial runs, assume the client knows little on both axes.** Plain words, no jargon, unless the client shows otherwise.
+- **Only ask questions the client can answer.** Never ask him to make a design call unaided, and be careful even with direct messaging questions.
+- **When she can't get traction, start from his experience, work out what it implies, then check with him.** Ask what jobs come in most and what customers ask on the phone. Then propose what that means for the site, using your example: "So you spend most of your time on blocked drains. Should we make that more prominent on the site?"
+- **This builds on DOC-35** (personas and registers): ask about the client's expertise, show for ours.
+- **Record where the client sits on each axis.** I suggested an optional `client: { technical, marketing, note }` field in the plan's `brief`, so later turns, and Bob if he's switched on, pitch at the same level. That's a small change to the plan's structure. If you'd rather not change it, the same note can go in the plan's body instead.
+
+**New test measure:** jargon the client had to ask about, and questions he couldn't answer. Each one is a question Alice should have asked differently.
 
 <!-- xgd-chat-end -->
