@@ -6,15 +6,23 @@ title: 'capture_site: entry page refused for exceeding the 32 MiB budget before 
   page has been captured'
 created_by: xgd
 created_at: '2026-10-02T00:11:17.651238+00:00'
-updated_at: '2026-10-02T00:51:56.724384+00:00'
+updated_at: '2026-10-02T00:52:49.476480+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-d6e18197
+  commits:
+  - working_sha: 8ec81c1b8aa16894e593f2338ee084b638633702
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3483e1a32c4bb90523ae602e49de602af837ead0
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.432
 ---
 
 ## What I was doing
