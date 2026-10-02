@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-10-02T00:27:23.208635+00:00'
+updated_at: '2026-10-02T00:31:50.622991+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -232,5 +232,11 @@ npx wrangler deploy --env production
 ```
 
 Nothing changed on EPIC-22 or REQ-353, since no code was wrong. REQ-353 is already at `ready_to_reconcile`.
+
+<!-- xgd-turn id="30923d91-ad9a-4b69-a7fa-cb14f9d6ff27-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:31:47.837284+00:00" -->
+#### You
+I'm looking at dev - I brought the servers down, ran bin/dev and brought them back up - should that not be enough?
 
 <!-- xgd-chat-end -->
