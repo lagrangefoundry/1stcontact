@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-09-30T20:08:55.692194+00:00'
+updated_at: '2026-10-02T00:05:57.094101+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3372,5 +3372,11 @@ includes them — the two anchors are not the same measurement and are not compa
 That's the header-over-hero layout, where the two sides disagreed at 0.53 against 0.39. REQ-352 makes both sides measure the anchor the same way. The fix also moved that calculation out of the page script into `anchor.ts`, so the old capture can't benefit from it. **You need to recapture and rescore.**
 
 **The headline will probably go up after the rescore.** BUG-161 (`20a5937fe3`, committed at 18:39, also after iteration 11) now counts `bandPaintActual`. Iteration 11 has 6 of those: full-bleed boxes whose opacity, filter and shadow nothing compares. Read with today's console, iteration 11 would show **unmeasured 7**, not 1. So after recapturing, expect about 6 rather than 0: the declined anchor measurement should go, and the band-paint count should stay. That rise is the counting becoming more honest, not the reproduction getting worse. If the declined `contentAnchor` entry is still there after a fresh recapture, then REQ-352 didn't work on this page, and I'd want to look at that run.
+
+<!-- xgd-turn id="c63e4934-11a1-4907-a3fb-b91465bdc8f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:05:55.704371+00:00" -->
+#### You
+I'm a little confused our recent changes to L1 and the replication engine seem to have signinficantly INCREASED the number of "unmeasured" on every site. Gigabyte Alchemy went from 1 to 7. What's going on there?
 
 <!-- xgd-chat-end -->
