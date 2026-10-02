@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-172
 created_by: xgd
 created_at: '2026-10-02T00:31:29.782240+00:00'
-updated_at: '2026-10-02T00:38:04.028450+00:00'
+updated_at: '2026-10-02T00:43:29.765530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,11 @@ So a per-business token budget would be a new feature: an allowance set per busi
 **Decisions for you:**
 1. Should I go ahead and remove the capture byte limit under BUG-172? It's small, about 2 story points.
 2. Do you want a ticket filed for per-business token allowances? I won't create one unless you say so.
+
+<!-- xgd-turn id="6577265e-f4ba-445f-afe1-e44d8e780176-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:43:28.729341+00:00" -->
+#### You
+Goa ahead and remove the current download limit we can do budgets later
 
 <!-- xgd-chat-end -->
