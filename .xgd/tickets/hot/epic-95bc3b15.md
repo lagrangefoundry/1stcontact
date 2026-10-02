@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-02T04:43:11.393796+00:00'
+updated_at: '2026-10-02T21:02:19.323772+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2120,3 +2120,6 @@ Whether the assistant may read the consultant's private session. Recommendation:
 
 - **BUG-176** (2026-10-02): REQ-358's migration 0024 archived the rooms listing an `assistant` member, but their junctions survived in the SessionJunction DO, so `createGroup` refuses `room-<site>` for ever. Fix: re-point a room's member instead of retiring the room; treat a room-session junction with an archived ticket as an orphan; never touch the consultant's `site-<site>`.
 - **BUG-177** (2026-10-02): the Debug tab's per-agent sessions are a one-shot read; they redraw on `member_done`/`done` and when the tab is shown.
+
+
+- **REQ-364** (2026-10-02): the plan panel, v1 (DOC-65). The consultant's asks for the client sit in the plan ticket and are answered in a collapsible panel above the chat. The client can answer, skip, change an answer or upload against an ask; the consultant can withdraw one. Answers reach the consultant through the per-turn change notice, and nothing wakes it. A one-line phase is shown. DOC-64 and the consultant's priming are updated with the rules. The next test runs with the group chat off, the coordinator stays available, and switching back on depends on BUG-176.
