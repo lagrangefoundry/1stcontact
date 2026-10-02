@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T17:53:17.883766+00:00'
+updated_at: '2026-10-02T18:00:07.655344+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3490,5 +3490,62 @@ The session can now cut its branch. That ties in with your idea of recreating Gi
 Please take a look at the latest site development transcript and site development. It took around 1.5 hours and cost $33. That is still and uncomfortable cost - my guess is that even with a simple site like this we are only half way done perhaps less. $33 is expensive.
 
 Is the primary making sufficient use of the delegates?
+
+<!-- xgd-turn id="f7e0bdf0-7214-4f34-af3d-3ac40cf73862-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:00:05.908869+00:00" -->
+#### Claude
+I'm pricing the session's turns and its eight delegations, then I'll read the transcript to see what the consultant did itself.
+
+Total reconciles with your $33: consultant (Opus) $28.88, workers (Haiku) $3.63, plus $0.90 for a "coordinator" that's running on Opus. Now reading what the consultant spent its 117 requests on.
+
+The consultant made zero page writes all session — every build went through 11 `Delegate` calls. So the question is why its 117 requests average ~286k tokens each. Checking what fills that context.
+
+The picture is clear. Recording it on EPIC-20, then the summary.
+
+Yes, the primary is delegating fully. It made no page writes all session; every change went through a delegate. Delegation isn't where the money is going any more. The primary's own context is.
+
+## Where the $33 went
+
+I priced it from the spend records, and it comes to $33.41, matching your figure.
+
+| | cost | share |
+|---|---|---|
+| **Consultant (Opus), 117 steps** | **$28.88** | **86%** |
+| Builders (Haiku), 8 delegations | $3.63 | 11% |
+| Coordinator | $0.90 | 3% |
+
+The builders did all the construction for 11% of the bill. Delegating more can't save much, because there's almost nothing left to hand over.
+
+## Why the consultant is expensive
+
+Every step the consultant takes re-reads its whole conversation so far. That conversation started at about 50k tokens and reached about 514k by the last turn, because nothing trims it during a session. Re-reading cost $16.73, which is more than half the session.
+
+Three things filled it up:
+
+1. **Delegation results are too big.** Each delegation returns a record of what changed. When a builder creates a page or restructures a section, that record carries the whole page, before and after. Four results were 53–70 KB each, about 76k tokens in total, all re-read on every later step.
+2. **One site capture returned 241 KB**, almost all a list of embedded images it couldn't fetch. That's about 69k tokens of noise kept for the rest of the session.
+3. **The plan and notes tools send the whole document back** on every save, 11–24 KB per call. The standing note alone was rewritten 16 times.
+
+Altogether, carrying old tool results through the conversation cost about $12 of the consultant's $29.
+
+It also takes a lot of small steps. Of its 121 tool calls, 39 were note-keeping, 27 were posting and reading the group chat, 17 re-checked the change list after delegations that had already reported their changes, and 11 were delegations. By late in the session each step cost about 25¢.
+
+## What would bring it down
+
+- **Drop old tool results after the turn that used them.** This is the biggest lever: it keeps each step re-reading about 100k tokens instead of 500k.
+- **Shrink the three oversized results.** Delegation records should list what changed, not include whole pages. The capture should report a count of skipped images. Saves to the plan should just confirm.
+- **Fewer bookkeeping steps**, such as one note update per turn rather than five.
+
+My estimate, which is modelled rather than measured, is that this session would have cost about $15–18 with the first two changes, roughly half. Fewer steps would cut more. That's about $22 per hour now and $10–12 after. The next lever after those is which model runs the consultant.
+
+## Smaller things I noticed
+
+- **The coordinator is running on Opus.** Its spend rows say `claude-opus-5`, but the config intends Haiku. It cost $0.90 here and would be about $0.18 on Haiku.
+- **The framework wrongly rejected two delegations as having several checks in one entry.** The full stop in "CSLB Lic. #000000" and the question marks in "Burst pipe? Blocked drain? Call Charlie." were read as sentence breaks.
+- **Three of the eight builders ran out of steps** (the 50-step limit).
+- **Full-page screenshots are shrunk to about 150 px wide**, too small for the consultant to judge anything from.
+
+I've recorded all of this on EPIC-20. I haven't filed any tickets. My suggestion is one ticket here for dropping old results and shrinking the oversized ones, and one in lagrange-framework for the coordinator model and the check-splitting bug. Want me to file them?
 
 <!-- xgd-chat-end -->
