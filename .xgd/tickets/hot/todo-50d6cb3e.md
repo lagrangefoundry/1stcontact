@@ -5,9 +5,9 @@ type: todo
 title: 'Uploads: handle sensitive customer data (card numbers, PII) in client documents'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:24.094817+00:00'
-updated_at: '2026-10-02T17:48:24.094817+00:00'
+updated_at: '2026-10-02T17:48:58.076068+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: open
 fields:
   kind: user_task
@@ -28,3 +28,5 @@ The architecture policy says the platform must not store card data, should colle
 - make sure nothing sensitive reaches the AI provider, the knowledge index or the published site
 
 Come back to this once the core panel interaction has been tested.
+
+See [[DOC-65]].
