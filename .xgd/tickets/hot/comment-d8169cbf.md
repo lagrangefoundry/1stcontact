@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T20:24:17.810676+00:00'
+updated_at: '2026-10-02T20:59:24.089311+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6181,5 +6181,16 @@ The plan bears this out: PLAN-1 is still at `intake` with three pages built, and
    - the change notice naming answered asks.
 
    Plus the prompt and document work from question 5, done directly. Everything in that REQ lands on one branch and none of it is useful on its own. Is one ticket right?
+
+<!-- xgd-turn id="80de943e-75ba-47a3-8ce3-e25ee76cfab5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T20:59:22.179095+00:00" -->
+#### You
+Your summary is good. A couple of details: Alice must be able to remove questions - if Charlie tells her that they don't want an email address on their site he should not be held accountable for supplying one.
+
+1. **What does "Bob off" mean mechanically?** One option is the group-chat switch off, so we're back on today's 1:1 path with the consultant. <-- that is exactly my intent right now. And i want to keep Bob available. If I switch the Bob switch back on, I want the Room with both of them functioning please.
+
+I am interested in the "Room with just Alice" scenario because it would allow us to trim the self-talk in the response but that is an optimization if we decide the experience works - lets do the simple thing now
+2.
 
 <!-- xgd-chat-end -->
