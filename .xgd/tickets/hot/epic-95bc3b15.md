@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-02T01:04:46.378538+00:00'
+updated_at: '2026-10-02T04:43:11.393796+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2116,3 +2116,7 @@ Whether the assistant may read the consultant's private session. Recommendation:
 
 
 - **REQ-358** (2026-10-01): the second agent's role is `coordinator` (operator decision; supersedes REQ-357's `assistant`). The code names are removed from DOC-64, both roles' priming names DOC-64, and the system landscape is regenerated so DOC-63/64 appear on the map. Finding 13's lesson: an indexed document that isn't on the map doesn't get read.
+
+
+- **BUG-176** (2026-10-02): REQ-358's migration 0024 archived the rooms listing an `assistant` member, but their junctions survived in the SessionJunction DO, so `createGroup` refuses `room-<site>` for ever. Fix: re-point a room's member instead of retiring the room; treat a room-session junction with an archived ticket as an orphan; never touch the consultant's `site-<site>`.
+- **BUG-177** (2026-10-02): the Debug tab's per-agent sessions are a one-shot read; they redraw on `member_done`/`done` and when the tab is shown.
