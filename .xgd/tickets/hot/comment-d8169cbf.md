@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T20:59:24.089311+00:00'
+updated_at: '2026-10-02T20:59:48.922949+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6192,5 +6192,37 @@ Your summary is good. A couple of details: Alice must be able to remove question
 
 I am interested in the "Room with just Alice" scenario because it would allow us to trim the self-talk in the response but that is an optimization if we decide the experience works - lets do the simple thing now
 2.
+
+<!-- xgd-turn id="80de943e-75ba-47a3-8ce3-e25ee76cfab5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T20:59:47.278009+00:00" -->
+#### Claude
+Got both. Your message stops at "2.", so I may have only part of your answers.
+
+**Alice removes asks.** If Charlie says he doesn't want an email address on the site, Alice takes the ask off the panel, and he's never chased for it. Three states, then, each set by a different person:
+- the client **answers**;
+- the client **skips**: "I don't know" or "doesn't apply";
+- Alice **withdraws**: "we no longer need this".
+
+A withdrawn ask disappears from the panel. It stays in the plan with the reason, so a later turn doesn't ask for it again.
+
+**1. "Bob off" means the group-chat switch is off.** The test runs on today's one-to-one path with the consultant, with no room. Two things follow:
+- **The panel must work identically on both paths.** It reads and writes the plan ticket, and the per-turn change notice reaches whichever consultant session is active. It doesn't depend on the room.
+- **Switching Bob back on must give a working room.** For your Charlie's Plumbing test site that depends on **BUG-176**, since the room there can't be created again today. So BUG-176 becomes a prerequisite of "Bob available". It doesn't block the panel, but it should land before you next flip the switch. I'll say so on both tickets.
+
+A room with only Alice in it is noted as a later improvement, for trimming the self-talk, if the experience works.
+
+For 2–9, either send the rest or tell me to go with my leanings:
+
+| # | my leaning |
+|---|---|
+| 2 | the phase line is out of v1 |
+| 3 | uploading as an answer is in, and Alice fills in the related asks from the upload |
+| 4 | the client can skip an ask and can change an answer, and Alice is told each time |
+| 5 | update DOC-64 with §6–§7 and the core rules in the priming. These are prompt and document changes with no ticket, landing with the panel |
+| 6 | the client axes field is dropped for now |
+| 7 | the divider remembers its position like the others, and the panel starts collapsed when there are no asks |
+| 8 | the speaker styling is out of this experiment |
+| 9 | one REQ under EPIC-19 |
 
 <!-- xgd-chat-end -->
