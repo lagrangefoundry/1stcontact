@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:43:19.666325+00:00'
+updated_at: '2026-10-02T03:37:40.128167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3503,5 +3503,11 @@ The ticket also says:
 The same answer as question 1 applies after BUG-174 lands: restart the console, then press [recapture]. Recapturing matters here because the fix may need to record new information when the original site is captured.
 
 Both tickets are at `draft`. Promote them from the dashboard when you're ready.
+
+<!-- xgd-turn id="8a6d07c4-4bf5-4d65-bcbd-3427ea516113-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T03:37:39.503526+00:00" -->
+#### You
+I have three tabs doing recaptures on faelan, gigabyte and joyful all seem to be taking ages are they ok?
 
 <!-- xgd-chat-end -->
