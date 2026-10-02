@@ -6,7 +6,7 @@ title: 'capture_site: entry page refused for exceeding the 32 MiB budget before 
   page has been captured'
 created_by: xgd
 created_at: '2026-10-02T00:11:17.651238+00:00'
-updated_at: '2026-10-02T00:13:02.359331+00:00'
+updated_at: '2026-10-02T00:37:49.051874+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -87,3 +87,17 @@ Also worth a separate look: the control reports `pages: 12` for `example.com`, w
 1. Name the resource and the running byte total in the refusal. Without that neither I nor the user can tell which of the four cases they are in.
 2. Adopt the partial capture so `describe_reference` can report what was reached before the cap.
 3. Offer a document-only capture mode that skips subresource mirroring, which would make a legitimately image-heavy origin capturable for structure, colour and type.
+
+
+## Investigation (2026-10-01) — root cause and proposed direction
+
+**Root cause.** `MAX_RESPONSE_BYTES = 32 MiB` (`tools/generate/src/cli/capture/egress-guard.ts`) is a *whole-capture* budget that latches. `cf-driver.ts` calls `guard.record(body.byteLength)` for every response, and one guard is shared by every pass of one `capture_site` call (`fidelity-core.ts`): each width on the viewport ladder, the height probes, and up to 3 retry attempts per host spelling. The per-URL dedupe (`this.cached`) is per driver instance, so the same hero images are counted again on every pass. A modest image-heavy page crosses 32 MiB after a few widths; from then on `tripped` latches, the next pass's *document* request is refused, and BUG-127's verdict turns a document refusal into `REFUSED` for the whole capture. The "(1 subresource refusals besides)" is the guard's own `(total)` record. That matches every observation above, including the example.com control, which is tiny enough to stay under the cap at every width.
+
+**Operator direction.** Capture is cheap and mechanical. The cost is tokens, not bytes. So the byte budget doesn't control anything and should be removed. It was never a security boundary either. The security controls are the URL classifier (SSRF, scheme allowlist) and the per-chain redirect cap, and both stay. Runaway protection is already provided by the wall-clock ceiling `MAX_CAPTURE_MS`.
+
+**Proposed fix (not yet coded).** Delete `MAX_RESPONSE_BYTES`, `EgressGuard.record`, `tripped`, the `response-cap` refusal reason and the `guard.record` call in `cf-driver.ts`. Rewrite `test_UAT_FC_BUG_127_a_refused_document_fails_rather_than_adopting` so it no longer depends on the cap (it can trip a document refusal via the URL classifier instead). Add `test_UAT_FC_BUG-172_*`: a capture whose passes together deliver well over 32 MiB is adopted. Asks 1–3 in the original report (naming the resource, adopting partial captures, document-only mode) don't apply once the cap is gone.
+
+**Budgets must be per business (operator, point 2).** Survey of the current "budgets":
+- No *spend* limit exists anywhere. Token spend is already **metered per business** (`apps/control-app/src/spend.ts`, REQ-292/293/297, `tenant_id`), but nothing enforces a limit against it.
+- The token "budgets" that do exist are technical ceilings, not cost controls. They are per request, turn or session: the context-window fraction (`budget-core.ts`, REQ-296), the turn clock (`turn-clock-core.ts`, BUG-168), the per-session image cap (`imagegen.ts` `IMAGE_BUDGET`, documented as a runaway-loop stop), room auto-turn caps (`group-core.ts`), and character caps on rendered text (`account-core.ts` `DIFFERENCE_BUDGET`, `knowledge.ts`, `session-delta.ts`).
+- So a per-business token budget would be **new work**: an allowance per business enforced against the existing meter. It is not a rescoping of existing code, and it is out of scope for this bug.
