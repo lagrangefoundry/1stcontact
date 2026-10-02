@@ -6,6 +6,7 @@ import { resetChatHost } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import type { Ticket } from '../apps/control-app/src/tickets'
 import { FRAME_FIELD } from '../apps/control-app/src/ledger'
+import { findPlan } from '../apps/control-app/src/plan'
 import { resetAiHost, sessionIdFor, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { LEDGER_DECLARATION } from '../tools/generate/src/cli/ai/ledger-core'
 import { applySchema } from './support/d1-site-factory'
@@ -139,12 +140,16 @@ async function turn(
   return { seen: client.seen, events }
 }
 
-/** The `chat` ticket homing this conversation — both zones of the record. */
-async function chatTicket(tenant: string, slug: string): Promise<Ticket> {
-  const tickets = await ticketStoreFor(
+/** The business's ticket store, as the Worker opens it. */
+const store = (tenant: string) =>
+  ticketStoreFor(
     { DB: env.DB as D1Database, SITES: env.SITES as R2Bucket, BLOBS: env.BLOBS as R2Bucket },
     { businessId: tenant },
   )
+
+/** The `chat` ticket homing this conversation — its title and standing note. */
+async function chatTicket(tenant: string, slug: string): Promise<Ticket> {
+  const tickets = await store(tenant)
   const { tickets: found } = await tickets.query({ predicate: 'type=chat', limit: 'all' })
   const chat = found.find(
     (t) => (t.fields as Record<string, unknown>)?.session_id === sessionIdFor(slug),
@@ -265,15 +270,17 @@ describe('REQ-283 AC2 — the note is a field on the ticket the ledger is the bo
     expect((chat.fields as Record<string, unknown>)[FRAME_FIELD]).toBe(
       'A one-page site for a furniture restorer.',
     )
-    // …and the ledger is in the body, which is what the knowledge component
-    // indexes. [[REQ-171]]'s reason for that placement survives this ticket
-    // intact: a conversation whose body is empty is unfindable.
-    expect(chat.body).toContain('### Decision 1')
-    expect(chat.body).toContain('The site is one page.')
-    // The note is NOT in the body. Indexing a paragraph that is rewritten many
+    // …and the ledger is in a ticket BODY, which is what the knowledge component
+    // indexes — since [[REQ-356]], the site plan's body, because a decision is
+    // about the site and must outlive this conversation.
+    const plan = (await findPlan(await store(ctx.tenant), ctx.slug)) as Ticket
+    expect(plan.body).toContain('### Decision 1')
+    expect(plan.body).toContain('The site is one page.')
+    // The note is in NEITHER body. Indexing a paragraph that is rewritten many
     // times in one session would feed the corpus a stream of vectors that
     // supersede themselves.
     expect(chat.body).not.toContain('A one-page site for a furniture restorer.')
+    expect(plan.body).not.toContain('A one-page site for a furniture restorer.')
   })
 
   it('test_UAT_FC_REQ-283_rewriting_the_note_leaves_every_decision_byte_identical', async () => {
@@ -287,7 +294,11 @@ describe('REQ-283 AC2 — the note is a field on the ticket the ledger is the bo
       calls('set_standing_note', { note: 'First version of the note.' }),
       says('Done.'),
     ])
-    const before = (await chatTicket(ctx.tenant, ctx.slug)).body
+    // The decisions live in the site's plan ([[REQ-356]]); the note on the chat
+    // ticket. Rewriting one must leave the other byte-identical.
+    const decisions = async (): Promise<string> =>
+      ((await findPlan(await store(ctx.tenant), ctx.slug)) as Ticket).body
+    const before = await decisions()
 
     await turn(ctx, 'Rewrite the note.', [
       calls('set_standing_note', { note: 'Second version, entirely different.' }),
@@ -295,7 +306,7 @@ describe('REQ-283 AC2 — the note is a field on the ticket the ledger is the bo
     ])
 
     const after = await chatTicket(ctx.tenant, ctx.slug)
-    expect(after.body).toBe(before)
+    expect(await decisions()).toBe(before)
     expect((after.fields as Record<string, unknown>)[FRAME_FIELD]).toBe(
       'Second version, entirely different.',
     )

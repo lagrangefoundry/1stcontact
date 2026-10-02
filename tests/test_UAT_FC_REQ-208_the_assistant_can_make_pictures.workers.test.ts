@@ -543,16 +543,16 @@ describe('REQ-208 — the assistant can make pictures', () => {
     const scoped = generatedMaterialStore(tickets, () => 'a-model', null)
 
     await expect(
-      scoped.create({ type: 'brief', title: 'not a picture', body: 'x' }),
+      scoped.create({ type: 'plan', title: 'not a picture', body: 'x' }),
     ).rejects.toThrow(/may only create 'material' tickets/)
 
     // And it cannot hang an attachment off a ticket somebody else made — so it
     // cannot reach an existing record by guessing at a uid either.
     const { ticket } = await tickets.create({
-      type: 'brief',
+      type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     await expect(
       scoped.attach({ uid: ticket.uid, bytes: new Uint8Array([1, 2, 3]), filename: 'x.png' }),

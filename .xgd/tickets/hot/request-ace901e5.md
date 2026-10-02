@@ -6,9 +6,9 @@ title: 'Builder chat: group chat — a room with the consultant and the assistan
   a per-business switch'
 created_by: EPIC-19
 created_at: '2026-10-01T21:04:15.900939+00:00'
-updated_at: '2026-10-01T23:26:15.105052+00:00'
+updated_at: '2026-10-02T00:21:16.220319+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -80,3 +80,30 @@ UATs named `test_UAT_FC_<ticket>_*`, in the workers suite where the real grant a
 - A member round that writes L1 raises the site-changed signal, and its spend is recorded.
 - The room transcript replays with speaker attribution.
 - No "Alice" or "Bob" literal appears in source, priming or surface JSON.
+
+## What landed (implementation record)
+
+### Behaviour as built
+- **Switch.** `business_network_settings.group_chat` (migration `0023`, NULL and 0 both off), read per request through `deps.groupChat`; `GET/POST /api/network/group-chat` (boolean only, 400 otherwise). The Debug tab draws it beside delegation, only from its own read. With it on, the tab shows each agent's private session (read-only, via `POST /api/ai/private {site}`; 404 when the business has no group chat). Flipping it reopens the builder conversation at once.
+- **Opening.** With the switch on, `/api/ai/session {site}` answers the room: `sessionId: room-<site>`, the room's contributions as turns each carrying `speaker` (display name) and `role` (client = `user`, members and room notes = `assistant`), `group.names`, `live: false`. With it off the same call answers `site-<site>`, the consultant's conversation, unchanged.
+- **The room.** Created on first open of a site's builder conversation while the switch is on: `createGroup` homed on its own chat ticket (session `room-<site>`), roster = the consultant's chat ticket (the session `site-<site>`, the existing conversation) and the assistant's chat ticket (session `assistant-<site>`). Reopened with `openGroup` afterwards. Created with `endRoundOnPost: false` (LF REQ-197 out of scope) and the budgets in `group-chat.json` (`max_auto_turns` 6, `max_contributions` 2).
+- **The assistant.** Role `assistant`, backend `claude_assistant` in `backends.json` (claude-haiku-4-5, 16000), priming `assistant_priming` / `assistant_reminders` in `priming.json`, L1 grant `instances.json` → `assistant: ReadSite, MeasureDrawings`. Its own surfaces: L1 reads, the corpus and the ticket reader (`deps.assistantSurfaces`), the Library's read group only, and `GroupToolbox`. No write group, no `Delegate`, no image surface or generator, no camera. It reads the consultant's recorded decisions through the product tier's ledger seed (same manager), and anything in the ticket store through the ticket reader, including the consultant's transcript (no access controls, per the operator decision).
+- **Room tools.** Both members carry `GroupToolbox` with `groupInstanceConfig()`; each member's `GroupRuntime.speaker` is set to its own chat ticket when the room opens. The consultant's existing tools are untouched; it also gets a `group-room` priming entry (the framework's group-member framing + one product paragraph) that renders nothing with the switch off.
+- **An exchange.** `/api/ai/prompt` with `room-<site>` (16,000-char limit unchanged): `contributeAsOperator`, then one `Orchestrator.run()` inside the request. The orchestrator's prompt function is `siteTurn` — the body of the consultant's turn path, lifted out of `streamPrompt` — so every member round gets pending-turn, spend (role `consultant`/`assistant`), turn clock, `site_changed`, context guard and exhaustion narration. Member events are forwarded tagged `meta.member`; a member's own `done` becomes `member_done`; each post the room records is a `room_post` event (`meta` = speaker, role, ts, turn_id, passed). One final `done` (`complete` / `aborted` / `error`, plus the orchestrator's stop and reason).
+- **Cold isolate.** Before running, the host prepares the room's and both members' junctions from their Durable Objects and attaches both member sessions, so neither is skipped for want of a loaded junction.
+- **One at a time.** Guard = `exchange` field on the room's chat ticket (JSON `{at, calling, stop}`), claimed by compare-and-set on `expected_version`, heartbeat each round, cleared at the end; a guard older than one turn clock + 60 s is treated as dead. A second run while live gets `EXCHANGE_BUSY` and `done{status: refused}`, with no model call.
+- **Stop.** `POST /api/ai/stop {sessionId}` sets `stop: true` on the guard (compare-and-set) and answers `{stopping}`. The running isolate checks it before each round and polls it every 2 s during a round; when set, it ends the in-flight round with the framework's control-record stop (`manager.requestStop` on that member's session) and ends the exchange `aborted`.
+- **UI (decision: extend our chat panel, not vendor `webui-room`).** `webui-chat` already draws attributed turns in follow mode, so in room mode the existing panel mounts with `onSubmit` (echo-free: the client's message comes back as the room's first post), `follow()` over the exchange's events mapped to frames, `onStop` → `/api/ai/stop`, and an attribution hook (client on the right; a tone per member; room-recorded declines/skips marked as notes). A member's own deliberation is not drawn in the room; it is on the Debug tab. A submit while an exchange runs is put back in the composer with a note.
+- **Names.** `tools/generate/src/cli/ai/group-chat.json` is the one place display names live (`consultant`, `assistant`, `client`, `room`). They are the room's `names` map and what the panel shows.
+
+### Design decisions made during implementation
+- **Durable stop.** Ticket item 5 asks for the "existing control-record stop". On its own, a control record cannot cross isolates in this host: the producer reads its in-memory mirror of the Durable Object junction and only re-reads at entry points. So the cross-isolate half is a write on the room ticket's guard field, and the running isolate turns it into the framework's control-record stop locally.
+- **One manager per site, rebuilt when the switch moves**, rather than a second cached manager. The backend registry is global and keyed by name, and a resumed session reaches its backend by the name its `session_start` recorded, so two managers for one site would hand each other their tools.
+- **A client that walks away does not end an exchange.** It runs to completion under `waitUntil`; Stop is how to end one.
+- **Reload mid-exchange** draws the room as recorded so far (`live: false`, no reattach). Live drawing is through the prompt stream.
+- **REQ-353 supersession.** REQ-353's Debug-tab claim 9 ("no group-chat switch") no longer holds: the switch now exists beside delegation, drawn only from its own read. That UAT's comment was updated; its single-row assertion still holds because that mount serves no group-chat read. REQ-182's corpus-free provider list gained `group.room`.
+
+### Test plan (as built)
+- `tests/test_UAT_FC_REQ-357_group_chat.workers.test.ts` (workers; real route, D1, ticket store, junction DO; Anthropic client is the only double, room-aware): switch off unchanged; switch on creates a room with both members and keeps the consultant conversation (and off returns to it); the assistant's tool list has every L1 read and the room tools, and no L1 write, Delegate, image or camera tool; a client message runs one exchange with both members called on a cold isolate; a second run is refused and a stop ends the exchange (guard on the room ticket); a writing round raises `site_changed` and both members' spend is recorded; the transcript replays identically with speakers.
+- `tests/test_UAT_FC_REQ-357_group_chat_panel.test.ts` (jsdom): the room is drawn with speakers; the composer posts to the room and the exchange streams in without the member's private text; Stop reaches `/api/ai/stop`; the Debug switch sits beside delegation, and turning it on saves, reopens the conversation and shows each agent's session.
+- `tests/test_UAT_FC_REQ-357_names_are_configuration.test.ts`: no display name from `group-chat.json` appears in the AI host's source or JSON (`platform-fonts.json` excluded: font catalogue) or in the builder's chat panes.

@@ -136,7 +136,7 @@ describe('REQ-159 — the declaration', () => {
     // asserted the same literals twice, so this reads the shipped file.
     const kb = projectKb()
     expect(kb.name).toBe(PROJECT_KB)
-    expect([...kb.corpus.types].sort()).toEqual(['brief', 'chat', 'material', 'reference'])
+    expect([...kb.corpus.types].sort()).toEqual(['chat', 'material', 'plan', 'reference'])
     // No `source`: it reads the project store — the tenant's own — which is what
     // makes it the other half of the system KB rather than a second shipped one.
     expect(kb.source).toBe('project')

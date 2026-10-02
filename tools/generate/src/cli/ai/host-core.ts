@@ -93,6 +93,7 @@ import {
   type DnsDeps,
 } from './dns-core'
 import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
+import { planInstanceConfig, planSurfaceFor, type PlanDeps } from './plan-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
@@ -594,6 +595,15 @@ export interface HostDeps {
    * composes no ledger surface at all, rather than one that fails on first use.
    */
   ledger?: ((slug: string) => LedgerDeps) | null
+
+  /**
+   * The site's plan ([[REQ-356]]), or `null` where there is none.
+   *
+   * A FACTORY OVER THE SLUG like `ledger` above, and on the same condition: a
+   * deployment with a ticket store keeps one plan per site, and the `1c` CLI,
+   * which has none, composes no plan surface and renders no plan entry.
+   */
+  plan?: ((slug: string) => PlanDeps) | null
 
   /**
    * The client's catalogue ([[REQ-228]]), or `null` where this deployment holds
@@ -1819,6 +1829,13 @@ async function build(
               },
             ]
           : []),
+        // THE SITE'S PLAN ([[REQ-356]]), where this deployment keeps one. Its
+        // grant travels with it, like the ledger's, and is the CONSULTANT's: the
+        // coordinator's groups are declared beside it and granted wherever that
+        // role is composed.
+        ...(deps.plan
+          ? [{ surface: await planSurfaceFor(lib, deps.plan(slug)), granted: planInstanceConfig('consultant') }]
+          : []),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]), where this deployment holds one.
         // Its grant TRAVELS WITH IT, like the ledger's and the image surface's
         // and unlike fidelity's, for the reason `image-core.ts` states:
@@ -1959,6 +1976,10 @@ async function build(
           : null,
       },
     ),
+    // [[REQ-356]] — THE PLAN ARRIVES WITH THE TURN, read late like the digest,
+    // because the plan changes under a conversation: the client answers, a task
+    // finishes, another session records a decision.
+    plan: deps.plan ? () => deps.plan!(slug).read() : null,
   })
 
   // KM's two providers, when this host has a corpus. The seam registers and

@@ -17,6 +17,7 @@ import { UnscopedError, type Scope } from './scope'
 import { ACCEPTANCE_SCHEMA, ACCEPTANCE_TYPE } from './acceptances'
 import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
 import { INBOUND_EMAIL_SCHEMA, INBOUND_EMAIL_TYPE } from './inbound'
+import { PHASES, PLAN_KINDS, SITE_PLAN } from '../../../tools/generate/src/cli/ai/plan-core'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -375,22 +376,38 @@ export function productTypePack(): ProductTypePack {
     },
 
     /**
-     * The per-site canonical decisions document — [[DOC-9]], [[DOC-38]] §9.
+     * The site plan — [[REQ-356]], [[DOC-64]] §5; formerly `brief` ([[DOC-9]],
+     * [[DOC-38]] §9), renamed while no instance existed.
      *
      * A TYPE, not a well-known ticket of another type. "Exactly one per site" is
-     * not "exactly one per tenant", and a tenant may own many sites — so either
-     * way it needs `site_slug`, and the well-known-ticket spelling would add a
-     * lookup convention on top without removing the field.
+     * not "exactly one per tenant" — a tenant may one day own several sites — so
+     * either way it needs the site's key, and the well-known-ticket spelling would
+     * add a lookup convention on top without removing the field.
      *
      * MOSTLY NOT A RETRIEVAL TARGET ([[DOC-38]] §9): it is small and always
-     * relevant, so it belongs inlined in the priming context rather than fetched
-     * by search. Its body is the document, and it is required and non-empty —
-     * an empty brief is not a brief, and unlike a material there is no
-     * asynchronous extraction that fills it in later.
+     * relevant, so it is put in front of the session every turn rather than
+     * fetched by search. Its body — the client's own words and the decision log —
+     * is required and non-empty; a new plan is seeded with its section headings.
+     *
+     * THE STRUCTURED FIELDS ARE SHAPE-CHECKED HERE AND RULE-CHECKED IN
+     * `plan-core.ts`. The pack sees a `list` or an `object` and nothing inside it,
+     * so the plan's invariants — who may answer a check, what settles a decision —
+     * are enforced on the write path every plan write goes through.
      */
-    brief: {
+    plan: {
       fields: {
-        site_slug: { type: 'string', required: true },
+        // `kind` IS A FIELD, NOT A TYPE: a later marketing plan shares this shape
+        // and differs only in its seed list ([[DOC-38]] §9).
+        kind: { type: 'enum', enum: [...PLAN_KINDS], default: SITE_PLAN },
+        // THE STORE-MINTED SITE KEY ([[DOC-45]] §6): sites carry no slug. One
+        // plan per (`kind`, `site_key`), enforced by `plan.ts`.
+        site_key: { type: 'string', required: true },
+        phase: { type: 'enum', enum: [...PHASES] },
+        brief: { type: 'object' },
+        functionality: { type: 'list' },
+        decisions: { type: 'list' },
+        checks: { type: 'list' },
+        tasks: { type: 'list' },
       },
       body: { required: true, non_empty: true },
     },

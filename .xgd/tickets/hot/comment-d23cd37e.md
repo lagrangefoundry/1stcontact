@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-01T21:04:06.203198+00:00'
+updated_at: '2026-10-01T23:31:33.624843+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -806,5 +806,31 @@ It's filed as a system-KB doc (`doc-ac09a3b6`) and addressed directly to the two
 9. **Patterns to avoid,** each taken from the real builds.
 
 **One thing to know before your own test runs:** DOC-62 measured that coaching prose in priming reached only 2 of 102 turns. So DOC-64 alone probably won't change behaviour much. It becomes effective once the plan ticket (REQ-356) carries the state, and the checks fire from triggers rather than relying on either agent to remember.
+
+<!-- xgd-turn id="ca7cba03-d679-45cc-b003-70e4096d6e71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-01T23:29:07.531473+00:00" -->
+#### You
+One question: When should the plan ticket be created? I think it is tied to the business 1-1 so it should probably be created at the same time the business is provisioned - would you agree? We may later have other plan tickets associated with the business - such as a marketing ticket - so this should clearly be the site plan.
+
+<!-- xgd-turn id="ca7cba03-d679-45cc-b003-70e4096d6e71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-01T23:31:29.150284+00:00" -->
+#### Claude
+Before answering I'm checking how businesses and sites relate in the current model, and where provisioning happens.
+
+REQ-356 is updated. Last step: adding this exchange to its transcript.
+
+I've updated REQ-356 (still a draft) with your provisioning answer and the three refinements, and added this exchange to its transcript:
+
+- **Type and kind:** `plan` with `kind: site`, unique per kind and site. A marketing plan can be added later as another kind without a new type.
+- **Key:** `site_key` (the store-minted key) replaces `site_slug`.
+- **When it's created:**
+  - in `provisionBusiness`, straight after `createStarterSite`, starting at `phase: intake` with the DOC-64 seed list
+  - on first open if missing, so the existing businesses (including Lagrange Foundry) get one too. Creating it is idempotent, so two simultaneous first opens can't make two plans.
+- **Test plan:** added the provisioning case, the missing-on-first-open case, and refusal of a duplicate kind-and-site plan.
+- **Watch item, out of scope:** `brief.business` describes the business, not the site, so it may need to move up a level once a second kind of plan exists.
+
+DOC-64 didn't need changing: it already says every site has one plan, which is still true.
 
 <!-- xgd-chat-end -->

@@ -71,6 +71,7 @@ import type { TicketStore } from './tickets'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionIdFor } from '../../../tools/generate/src/cli/ai/host-core'
 import { chatLedger } from './ledger'
+import { sitePlan } from './plan'
 import {
   bufferedAuditSink,
   type AuditLine,
@@ -850,7 +851,11 @@ export function workerHost(
       // corpus, and a session with no knowledge base still decides things worth
       // keeping. What it does depend on is a ticket store, which this host
       // always has and the `1c` CLI never does.
-      ledger: (site: string) => chatLedger(tickets, sessionIdFor(site)),
+      ledger: (site: string) => chatLedger(tickets, sessionIdFor(site), site),
+      // THE SITE'S PLAN ([[REQ-356]]), on the ledger's condition: a ticket store,
+      // which this host always has. The ledger above writes its decisions into
+      // this same plan, so the two are one record seen through two surfaces.
+      plan: (site: string) => sitePlan(tickets, site),
       priming: knowing ? sessionPriming(knowledge) : null,
       // THE PLATFORM REFERENCE FOR A DELEGATED WORKER ([[REQ-355]]) — the system
       // half of the pair above and never the tenant's, so a worker can look up

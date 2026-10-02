@@ -386,10 +386,10 @@ describe('BUG-126 — changing a picture that already exists', () => {
     const scoped = generatedMaterialStore(tickets, () => 'a-model', null)
 
     const { ticket } = await tickets.create({
-      type: 'brief',
+      type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     const { attachment } = await tickets.attach({
       uid: ticket.uid,
@@ -424,14 +424,14 @@ describe('BUG-126 — changing a picture that already exists', () => {
     const tickets = await ticketsFor(id)
     const scoped = generatedMaterialStore(tickets, () => 'a-model', null)
 
-    await expect(scoped.create({ type: 'brief', title: 'not a picture' })).rejects.toThrow(
+    await expect(scoped.create({ type: 'plan', title: 'not a picture' })).rejects.toThrow(
       /may only create 'material' tickets/,
     )
     const { ticket } = await tickets.create({
-      type: 'brief',
+      type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     await expect(
       scoped.attach({ uid: ticket.uid, bytes: pngBytes(), filename: 'x.png' }),

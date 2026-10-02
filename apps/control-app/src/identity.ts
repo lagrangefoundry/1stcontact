@@ -13,6 +13,8 @@ import { INVITED as PIPELINE_INVITED } from './builder/people-axes.js'
 // imports only `IdentityEnv`'s TYPE back from here, so this is one-way at
 // runtime and the comparison has exactly one spelling.
 import { requireFreeBusinessName } from './business'
+import { ensurePlan } from './plan'
+import { ticketStoreFor } from './tickets'
 
 /**
  * Identity, accounts and entitlement (REQ-167) — [[DOC-40]].
@@ -68,6 +70,13 @@ import { requireFreeBusinessName } from './business'
 
 /** Everything this module needs from the Worker's environment. */
 export interface IdentityEnv extends SiteStoreEnv {
+  /**
+   * The ticket store's blob bucket, which provisioning needs to open the new
+   * business's ticket store and create its site plan ([[REQ-356]]). Optional
+   * because an environment without it still provisions: the plan is then created
+   * the first time it is opened.
+   */
+  BLOBS?: R2Bucket
   /**
    * The PLATFORM's own tenant — where `users` rows for builder users live.
    *
@@ -857,6 +866,20 @@ export async function provisionBusiness(
   ])
 
   const siteKey = await createStarterSite(env, businessId, name)
+  // THE SITE PLAN BESIDE THE SITE ([[REQ-356]]), so a business starts with its
+  // generic decisions and standing checks in place before its first
+  // conversation. `ensurePlan` and not a bare create: provisioning is re-run
+  // against businesses that already have a site (BUG-51), and must leave an
+  // existing plan exactly as it found it.
+  //
+  // A FAILURE HERE DOES NOT FAIL PROVISIONING. The business and its site already
+  // exist and are what the person signed up for; a missing plan is created on
+  // first open, which is the same path a business from before plans takes.
+  try {
+    await ensurePlan(await ticketStoreFor({ DB: env.DB, BLOBS: env.BLOBS }, { businessId }), siteKey)
+  } catch {
+    // Created on first open instead.
+  }
   return { businessId, name, siteKey }
 }
 
