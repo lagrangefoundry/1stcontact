@@ -66,6 +66,18 @@ import './markdown.js'
 const SITE_CHANGED = 'site_changed'
 
 /**
+ * `host-core.ts`'s `PLAN_CHANGED` ([[REQ-364]]): an agent wrote the site's plan, so
+ * the plan panel re-reads it.
+ */
+const PLAN_CHANGED = 'plan_changed'
+
+/**
+ * Not a wire kind: the key {@link watchForWrites} tells when a turn's `done` frame
+ * passes ([[REQ-364]]). The frame itself still goes on to the component.
+ */
+const TURN_ENDED = Symbol('turn_ended')
+
+/**
  * The host's event kind for "the business's record moved" ([[REQ-251]]). Its
  * meaning is `host-core.ts`'s `BUSINESS_CHANGED`; this is the same string on the
  * client's side of the wire, held equal by the same arrangement `SITE_CHANGED`
@@ -118,6 +130,13 @@ async function* watchForWrites(events, told) {
     // an object index would resolve `constructor` or `toString` to something on
     // `Object.prototype` and then call it — a frame this pane does not recognise
     // must fall through to the component, never into a builtin.
+    if (event?.kind === 'done') {
+      try {
+        told.get(TURN_ENDED)?.()
+      } catch {
+        // Deliberately swallowed; see above.
+      }
+    }
     const tell = told.get(event?.kind)
     if (!tell) {
       yield event
@@ -301,6 +320,10 @@ const RECOVERY_CHASES = 3
  *   [[BUG-177]] — in a group chat, a member's round ended or the exchange did.
  *   The pane draws only the room; what each member said privately is the host's
  *   to show (the Debug tab), and this is when it has changed.
+ * @param {() => void} [options.onPlanChanged]
+ *   [[REQ-364]] — an agent wrote the site's plan during the turn.
+ * @param {() => void} [options.onTurnEnd]
+ *   [[REQ-364]] — a turn (or a room's exchange) ended.
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -343,6 +366,8 @@ export function createChatPanel(options = {}) {
     onBusinessChanged = () => {},
     onDnsChanged = () => {},
     onRoomActivity = () => {},
+    onPlanChanged = () => {},
+    onTurnEnd = () => {},
     expandPrompt = (markdown) => markdown,
     onImageClick = null,
     reopen = null,
@@ -364,6 +389,10 @@ export function createChatPanel(options = {}) {
     // given the change; where it puts it is the host's business, and the host
     // puts it in the message the panel has already opened for this turn.
     [DNS_CHANGED, onDnsChanged],
+    // [[REQ-364]] — the plan panel's two moments: an agent wrote the plan, and a
+    // turn ended.
+    [PLAN_CHANGED, onPlanChanged],
+    [TURN_ENDED, onTurnEnd],
   ])
 
   const element = document.createElement('div')

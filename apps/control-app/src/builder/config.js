@@ -300,6 +300,12 @@ export const CONSOLE_METER_UNREADABLE = (message) =>
 export const STORAGE_KEYS = {
   business: 'business',
   split: `${SITE_TAB.id}:split`,
+  /**
+   * The divider between the plan panel and the chat beneath it ([[REQ-364]]) —
+   * where the client wants the chat half divided, and whether the panel is
+   * collapsed. The site tab's own, beside its `:split`.
+   */
+  planSplit: `${SITE_TAB.id}:plan-split`,
   panel: `${SITE_TAB.id}:panel`,
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
@@ -858,3 +864,28 @@ export const CHAT_MAX_SUBMISSION_CHARS = 16_000
 export const CHAT_OVER_LONG_MESSAGE =
   "That's too long to send as a message. Save it as a text file and drop it in as " +
   "Background information — I'll read it from there, and it stays in your Library."
+
+/**
+ * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
+ *
+ * THE PHASE IN PLAIN WORDS, and progress is always framed by phase — never by how
+ * few questions are left, which is what made a rough draft read as "nearly done".
+ */
+export const PLAN_PHASE_LABELS = {
+  intake: 'Getting to know your business',
+  first_pass: 'Rough first version',
+  revision: 'Refining',
+  prelaunch: 'Getting ready to publish',
+  live: 'Live',
+}
+export const PLAN_PANEL_LABEL = 'The plan'
+export const PLAN_NEEDS_ANSWER = 'Needs your answer'
+export const PLAN_TOLD_US = "What you've told us"
+export const PLAN_SKIP = 'Skip'
+export const PLAN_SKIP_TITLE = "I don't know, or it doesn't apply"
+export const PLAN_SKIPPED = 'Skipped'
+export const PLAN_CHANGE = 'Change'
+export const PLAN_UPLOAD = 'Upload a document'
+export const PLAN_DOCUMENT = 'A document you sent'
+export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
+export const PLAN_SAVE_FAILED = (message) => `That answer was not saved: ${message}`

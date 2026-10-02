@@ -1046,6 +1046,132 @@ body {
 }
 
 /*
+ * [[REQ-364]] — the chat half: the plan panel stacked above the chat, behind a
+ * vertical split. The half fills the outer split's pane; the split inside it does
+ * the rest.
+ */
+.builder-chat-half {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.plan-panel {
+  height: 100%;
+  overflow-y: auto;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  background: var(--shell-surface-alt, #f4f4f5);
+  font-size: 0.9rem;
+}
+
+.plan-panel__phase {
+  font-weight: 600;
+  color: var(--shell-fg, #18181b);
+}
+
+.plan-panel__error {
+  margin-top: 6px;
+  color: var(--shell-danger, #b91c1c);
+}
+
+.plan-panel__heading {
+  margin: 12px 0 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-panel__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.plan-ask {
+  padding: 8px 10px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-bg, #fff);
+}
+
+.plan-ask__prompt {
+  font-weight: 600;
+}
+
+.plan-ask__why {
+  margin: 2px 0 6px;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask__editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.plan-ask__input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: var(--shell-radius, 6px);
+  font: inherit;
+}
+
+.plan-ask__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.plan-ask__upload,
+.plan-ask__skip,
+.plan-ask__change {
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  color: var(--shell-accent, #7c3aed);
+  text-decoration: underline;
+}
+
+.plan-ask__skip {
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask--done {
+  padding: 4px 10px;
+  background: transparent;
+}
+
+.plan-ask__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.plan-ask--done .plan-ask__prompt {
+  font-weight: 400;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask__source {
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask__change {
+  margin-inline-start: auto;
+}
+
+/*
  * A picture in a turn ([[REQ-217]]).
  *
  * NOT A RE-STYLE, WHICH THE RULE ABOVE DECLINES TO DO. `webui-chat` ships no

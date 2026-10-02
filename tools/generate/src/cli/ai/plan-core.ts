@@ -490,6 +490,28 @@ export function orderedAsks(asks: PlanAsk[]): PlanAsk[] {
     .map(({ a }) => a)
 }
 
+/** What the client's plan panel draws ([[REQ-364]]). */
+export interface PanelView {
+  phase: string
+  asks: Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'>[]
+}
+
+/**
+ * The plan as the client's panel draws it: the phase, and every ask that has not
+ * been withdrawn, in the order the client sees them.
+ *
+ * A PROJECTION, so the panel holds no state of its own: it is redrawn from this
+ * every time the plan may have moved.
+ */
+export function panelView(fields: PlanFields): PanelView {
+  return {
+    phase: fields.phase,
+    asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
+      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) => shown,
+    ),
+  }
+}
+
 /** An answer as one line of text. */
 export function answerText(answer: string | string[] | undefined): string {
   return Array.isArray(answer) ? answer.join(', ') : (answer ?? '')

@@ -2,6 +2,12 @@ import { findAwarenessReport, resolveCorpus } from './generated/knowledge'
 import { PROJECT_KB } from './knowledge'
 import type { SessionKnowledge } from './session-knowledge'
 import type { Ticket, TicketStore } from './tickets'
+import { findPlan } from './plan'
+import {
+  clientChangesLine,
+  clientChangesSince,
+  type PlanFields,
+} from '../../../tools/generate/src/cli/ai/plan-core'
 
 /**
  * The session cursor and the per-turn delta ([[REQ-160]]; [[DOC-39]] §5.1, §6.4).
@@ -280,12 +286,22 @@ async function writeCursor(
   cursor: Cursor,
   chat: Ticket | null,
 ): Promise<void> {
-  const value = JSON.stringify(cursor)
+  await writeField(store, sessionId, CURSOR_FIELD, JSON.stringify(cursor), chat)
+}
+
+/** One bookmark field on the session's chat ticket, creating the ticket if it has none yet. */
+async function writeField(
+  store: TicketStore,
+  sessionId: string,
+  field: string,
+  value: string,
+  chat: Ticket | null,
+): Promise<void> {
   if (chat === null) {
     await store.create({
       type: 'chat',
       title: sessionId,
-      fields: { session_id: sessionId, [CURSOR_FIELD]: value },
+      fields: { session_id: sessionId, [field]: value },
     })
     return
   }
@@ -293,7 +309,45 @@ async function writeCursor(
   // compare-and-set because losing an increment loses what the client said; a
   // cursor is a bookmark, and two turns racing to move it forward both move it
   // forward. Refusing the turn to protect a bookmark would be the wrong trade.
-  await store.update({ uid: chat.uid, patch: { fields: { [CURSOR_FIELD]: value } } })
+  await store.update({ uid: chat.uid, patch: { fields: { [field]: value } } })
+}
+
+/** The chat ticket field the plan-answers cursor lives in ([[REQ-364]]). */
+export const PLAN_CURSOR_FIELD = 'plan_cursor'
+
+/**
+ * What the client answered on the plan panel since this session was last told
+ * ([[REQ-364]]): sweep, report, advance.
+ *
+ * THE SAME CHANNEL AS THE CORPUS DELTA, ON ITS OWN CURSOR. The plan is in the
+ * project corpus, but the corpus line can only say "the plan changed" — useless,
+ * and said again for every write the agent made itself. This names which asks the
+ * client answered, skipped or changed and what they said, read off the plan's own
+ * attribution (`answered_by: client`), so an agent's writes are never reported back
+ * to it.
+ *
+ * THE CURSOR IS AN `answered_at`, not the clock: it advances to the newest answer
+ * reported, so one landing while this turn runs is reported on the next one. A
+ * session that has never held one is told every answer the client has given —
+ * once.
+ *
+ * NO PLAN IS NO NOTICE and costs no write. Reading the plan never creates it here:
+ * a notice is not the place a site acquires a plan.
+ */
+export async function planAnswersDelta(
+  store: TicketStore,
+  sessionId: string,
+  siteKey: string,
+): Promise<string | null> {
+  const plan = await findPlan(store, siteKey)
+  if (!plan) return null
+  const chat = await findChat(store, sessionId)
+  const raw = (chat?.fields ?? {})[PLAN_CURSOR_FIELD]
+  const since = typeof raw === 'string' ? raw : ''
+  const changes = clientChangesSince((plan.fields ?? {}) as unknown as PlanFields, since)
+  if (changes.length === 0) return null
+  await writeField(store, sessionId, PLAN_CURSOR_FIELD, changes[changes.length - 1].at, chat)
+  return clientChangesLine(changes)
 }
 
 function asMap(value: Untyped): Map<string, Untyped> {

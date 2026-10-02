@@ -110,7 +110,8 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
     expect(pack.has('plan')).toBe(true)
     expect(pack.has('brief')).toBe(false)
     expect(Object.keys(pack.schema('plan').fields ?? {}).sort()).toEqual(
-      ['brief', 'checks', 'decisions', 'functionality', 'kind', 'phase', 'site_key', 'tasks'].sort(),
+      // `asks` is [[REQ-364]]'s extension of the schema: the plan panel's questions.
+      ['asks', 'brief', 'checks', 'decisions', 'functionality', 'kind', 'phase', 'site_key', 'tasks'].sort(),
     )
   })
 })

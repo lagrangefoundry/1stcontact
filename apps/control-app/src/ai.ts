@@ -83,7 +83,7 @@ import {
   sessionWorkerKnowledge,
   type SessionKnowledge,
 } from './session-knowledge'
-import { turnDelta } from './session-delta'
+import { planAnswersDelta, turnDelta } from './session-delta'
 import { pendingTurns } from './session-pending'
 import { sessionOccupancy } from './session-occupancy'
 import type { DevelopmentSurface } from './development'
@@ -873,6 +873,11 @@ export function workerHost(
         ? (sessionId: string) =>
             turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
         : null,
+      // [[REQ-364]] — WHAT THE CLIENT ANSWERED ON THE PLAN PANEL, on the plan's
+      // condition rather than the corpus delta's: a ticket store, which this host
+      // always has. The plan is the site's, so a session with no knowledge base
+      // still has a client answering its questions.
+      planAnswers: (sessionId: string, site: string) => planAnswersDelta(tickets, sessionId, site),
       // WHAT THE TURN COST ([[REQ-292]]), passed straight through:
       // `host-core.ts` folds the terminal event's spend and calls this from the
       // `finally` that already closes the pending record, and `spend.ts` decides

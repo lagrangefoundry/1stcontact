@@ -537,6 +537,8 @@ export interface TurnSignal {
   since?: { at: number; changes: number }
   /** What entered the corpus since this session was last told, rendered and capped. */
   delta?: string | null
+  /** What the client answered on the plan panel since this session was last told ([[REQ-364]]). */
+  answers?: string | null
   /** Whether the PREVIOUS turn of this conversation failed to finish ([[BUG-121]]). */
   interrupted?: boolean
 }
@@ -578,6 +580,13 @@ export const PAGE_DIGEST_PROVIDER = 'site.digest'
 
 /** The site's plan, projected for the turn ([[REQ-356]]). */
 export const SITE_PLAN_PROVIDER = 'site.plan'
+
+/**
+ * The names the plan panel's answers are reached under ([[REQ-364]]): one per role,
+ * because each member hears them on its own cursor and the registry is shared.
+ */
+export const PLAN_ANSWERS_PROVIDER = 'plan.answers'
+export const COORDINATOR_PLAN_ANSWERS_PROVIDER = 'coordinator.plan_answers'
 
 /**
  * The name the [[BUG-121]] interrupted-turn signal is reached under.
@@ -864,6 +873,7 @@ export function registerSiteProviders(
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
   providers.register(CORPUS_DELTA_PROVIDER, async () => binding.signal()?.delta ?? null)
+  providers.register(PLAN_ANSWERS_PROVIDER, async () => binding.signal()?.answers ?? null)
   providers.register(TURN_INTERRUPTED_PROVIDER, async () => interruptedSignal(binding.signal()))
   // [[REQ-285]] — REGISTERED EITHER WAY, and rendering `null` without a source,
   // for the reason the memory providers below are: the configuration names this
@@ -1329,8 +1339,13 @@ export function groupRoomFraming(memberFraming: string | null): string | null {
 }
 
 /** The coordinator's manual provider, bound to its own box ([[REQ-357]]). */
-export function registerCoordinatorProviders(providers: Untyped, binding: { box: Untyped }): void {
+export function registerCoordinatorProviders(
+  providers: Untyped,
+  binding: { box: Untyped; signal?: () => TurnSignal | undefined },
+): void {
   providers.register(COORDINATOR_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+  // [[REQ-364]] — the client's panel answers, on the coordinator's own cursor.
+  providers.register(COORDINATOR_PLAN_ANSWERS_PROVIDER, async () => binding.signal?.()?.answers ?? null)
 }
 
 /** The coordinator's role, loaded through the framework's mapping ([[REQ-357]]). */

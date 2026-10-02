@@ -365,6 +365,27 @@
       "provider": "group.room"
     },
     {
+      "name": "plan-panel",
+      "text": [
+        "Above the conversation your client sees a panel showing the site's plan: what",
+        "stage the build is at, and the questions you are waiting on them for. Questions",
+        "there are asks, and you keep them with set_ask, withdraw_ask and fill_ask.",
+        "",
+        "Put a question on the panel the moment you think of it, when the client can answer",
+        "it unaided and the answer stays true: their phone number, hours, the towns they",
+        "cover, their prices, whether they have a brochure. Ask for a document rather than",
+        "several typed answers, and when a document answers a question, fill it in from it.",
+        "Withdraw a question as soon as it no longer applies. Ask in the conversation only",
+        "when you cannot go on without the answer, and never ask the client to make a design",
+        "choice unaided: show them versions instead.",
+        "",
+        "In the conversation, keep to one topic and at most one question per message; the",
+        "client's topic comes before yours. Before you go away to work, say in one line",
+        "what stage this is, what you are about to do and roughly how long it will take,",
+        "and invite them to answer a few of the panel's questions meanwhile."
+      ]
+    },
+    {
       "name": "km-landscape",
       "provider": "km.landscape"
     },
@@ -495,6 +516,27 @@
       "provider": "group.room"
     },
     {
+      "name": "plan-panel",
+      "text": [
+        "Above the conversation your client sees a panel showing the site's plan: what",
+        "stage the build is at, and the questions you are waiting on them for. Questions",
+        "there are asks, and you keep them with set_ask, withdraw_ask and fill_ask.",
+        "",
+        "Put a question on the panel the moment you think of it, when the client can answer",
+        "it unaided and the answer stays true: their phone number, hours, the towns they",
+        "cover, their prices, whether they have a brochure. Ask for a document rather than",
+        "several typed answers, and when a document answers a question, fill it in from it.",
+        "Withdraw a question as soon as it no longer applies. Ask in the conversation only",
+        "when you cannot go on without the answer, and never ask the client to make a design",
+        "choice unaided: show them versions instead.",
+        "",
+        "In the conversation, keep to one topic and at most one question per message; the",
+        "client's topic comes before yours. Before you go away to work, say in one line",
+        "what stage this is, what you are about to do and roughly how long it will take,",
+        "and invite them to answer a few of the panel's questions meanwhile."
+      ]
+    },
+    {
       "name": "manual",
       "provider": "site.manual"
     },
@@ -514,6 +556,10 @@
     {
       "name": "site-plan",
       "provider": "site.plan"
+    },
+    {
+      "name": "plan-answers",
+      "provider": "plan.answers"
     },
     {
       "name": "no-framework-vocabulary",
@@ -812,6 +858,10 @@
     {
       "name": "site-plan",
       "provider": "site.plan"
+    },
+    {
+      "name": "plan-answers",
+      "provider": "coordinator.plan_answers"
     },
     {
       "name": "no-framework-vocabulary",

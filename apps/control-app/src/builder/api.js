@@ -476,6 +476,38 @@ export async function saveSubject(site, page, subject, fetchImpl = fetch) {
 }
 
 /**
+ * The plan panel's view of a site's plan ([[REQ-364]]): the phase and the asks it
+ * shows, in the order it shows them.
+ */
+export async function fetchPlan(site, fetchImpl = fetch) {
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/plan?site=${encodeURIComponent(site)}`)))
+}
+
+/**
+ * Answer or skip one ask on the plan panel ([[REQ-364]]).
+ *
+ * `action` is `answer` or `skip`. An answer is `answer` (a string, or the options
+ * picked for a multi-choice ask), `answerMaterial` (the uid {@link uploadMaterial}
+ * answered for a document sent against the ask), or both. It answers with the
+ * panel's view as the write left it, so the caller redraws from what was stored.
+ */
+export async function answerAsk({ site, ask, action, answer, answerMaterial }, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/plan/ask'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        site,
+        ask,
+        action,
+        ...(answer !== undefined ? { answer } : {}),
+        ...(answerMaterial ? { answer_material: answerMaterial } : {}),
+      }),
+    }),
+  )
+}
+
+/**
  * The error a `/api/copy` call failed with.
  *
  * The origin answers a rejected edit with a 400 carrying the validator's own

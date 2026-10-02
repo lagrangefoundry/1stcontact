@@ -237,6 +237,20 @@ export const SITE_CHANGED = 'site_changed'
 export const BUSINESS_CHANGED = 'business_changed'
 
 /**
+ * The site host's event kind for "the site's plan was written" ([[REQ-364]]).
+ *
+ * {@link SITE_CHANGED}'s SHAPE AND MOMENT, FOR THE PLAN. The plan panel above the
+ * chat renders the plan ticket, and an ask the consultant adds mid-turn should
+ * appear while it works rather than when it stops talking. The plan is not the
+ * draft store, so the draft counter never moves for it; the equivalent is a count
+ * of plan writes that completed, kept per site ({@link planWrites}).
+ *
+ * `meta.at` is the count of plan writes since the host was built; `meta.changes`
+ * is how many landed since the previous signal.
+ */
+export const PLAN_CHANGED = 'plan_changed'
+
+/**
  * The settings host's event kind for "we have just changed the client's domain"
  * ([[REQ-260]]).
  *
@@ -673,6 +687,19 @@ export interface HostDeps {
   delta?: ((sessionId: string) => Promise<string | null>) | null
 
   /**
+   * What the client answered on the plan panel since this session was last told
+   * ([[REQ-364]]), rendered, or `null`.
+   *
+   * {@link HostDeps.delta}'s SHAPE AND REASON: the cursor lives on the session's
+   * own `chat` ticket, a type this file knows nothing about, and what the host
+   * owns is the delivery at the turn boundary. It takes the site as well because
+   * a room member's session id does not name one. Unlike the corpus delta it
+   * needs no knowledge base — the plan is the site's — so a host wires it
+   * wherever it keeps plans.
+   */
+  planAnswers?: ((sessionId: string, site: string) => Promise<string | null>) | null
+
+  /**
    * Where a turn's prompt is kept while the turn is unaccounted for
    * ([[BUG-121]]).
    *
@@ -1019,6 +1046,33 @@ const baselines = new Map<string, number>()
  * host; the differences are the whole of what is reported.
  */
 const businessWrites = new Map<string, number>()
+
+/**
+ * How many plan writes each site's agents have made ([[REQ-364]]) — the count
+ * {@link PLAN_CHANGED} is arithmetic over. Keyed by `managerKey`, so both members
+ * of a room count into one total: the panel shows the plan, not an agent.
+ */
+const planWrites = new Map<string, number>()
+
+/**
+ * A site's plan port that counts the writes that completed ([[REQ-364]]).
+ *
+ * AT THE PORT, NOT THE TOOL, so every path that writes the plan through this
+ * session — every plan operation, and the ledger's decision log through its own
+ * port — is one the panel hears about, and a refused write counts nothing.
+ */
+function countedPlan(deps: HostDeps, slug: string): PlanDeps {
+  const plan = deps.plan!(slug)
+  const key = managerKey(slug, deps)
+  return {
+    ...plan,
+    write: async (change) => {
+      const written = await plan.write(change)
+      planWrites.set(key, (planWrites.get(key) ?? 0) + 1)
+      return written
+    },
+  }
+}
 
 /**
  * The DNS changes each business's conversation has made and not yet reported
@@ -1834,7 +1888,7 @@ async function build(
         // coordinator's groups are declared beside it and granted wherever that
         // role is composed.
         ...(deps.plan
-          ? [{ surface: await planSurfaceFor(lib, deps.plan(slug)), granted: planInstanceConfig('consultant') }]
+          ? [{ surface: await planSurfaceFor(lib, countedPlan(deps, slug)), granted: planInstanceConfig('consultant') }]
           : []),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]), where this deployment holds one.
         // Its grant TRAVELS WITH IT, like the ledger's and the image surface's
@@ -2165,6 +2219,18 @@ async function composeCoordinator(
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.coordinatorSurfaces ?? []),
+        // THE SITE'S PLAN, WITH THE COORDINATOR'S GROUPS ([[REQ-364]]). REQ-356
+        // declared them and left the grant to the coordinator's runtime; the
+        // room is that runtime. The asks are kept by whichever member is
+        // maintaining the panel, so the room changes who keeps it, not how.
+        ...(deps.plan
+          ? [
+              {
+                surface: await planSurfaceFor(lib, countedPlan(deps, slug), 'coordinator'),
+                granted: planInstanceConfig('coordinator'),
+              },
+            ]
+          : []),
         ...(deps.library
           ? [
               {
@@ -2198,7 +2264,12 @@ async function composeCoordinator(
       ),
     ),
   )
-  registerCoordinatorProviders(providers, { box })
+  registerCoordinatorProviders(providers, {
+    box,
+    // [[REQ-364]] — the coordinator's own signal, kept under its own key by
+    // `siteTurn`, so it is told the client's answers on its own cursor.
+    signal: () => signals.get(`${managerKey(slug, deps)}\0${COORDINATOR_ROLE}`),
+  })
   return coordinatorRole(lib, providers)
 }
 
@@ -3237,6 +3308,11 @@ async function* siteTurn(
   // assembles the turn's system channel, which is the same moment the old
   // `role.reminder` read happened.
   const delta = deps.delta ? await deps.delta(sessionId) : null
+  // [[REQ-364]] — the plan panel's answers, on the same channel and for the same
+  // reason: the client answered while the agent was away, and nothing would
+  // otherwise tell it. Per member session, so in a room each member hears each
+  // answer once.
+  const answers = deps.planAnswers ? await deps.planAnswers(sessionId, slug) : null
   // [[BUG-121]] — the third signal, and the only one about the CONVERSATION
   // rather than about the world. Read BEFORE this turn's own record replaces it,
   // so what it reports is the previous turn's fate: a surviving record means that
@@ -3245,6 +3321,7 @@ async function* siteTurn(
   signals.set(key, {
     since: before === undefined ? undefined : { at: before, changes: at - before },
     delta,
+    answers,
     interrupted,
   })
 
@@ -3270,6 +3347,9 @@ async function* siteTurn(
   // each write is compared against the one before it rather than against the
   // start of the turn. `at` itself must survive for the baseline arithmetic.
   let seen = at
+  // [[REQ-364]] — the plan's own count, compared the same way.
+  const planKey = managerKey(slug, deps)
+  let planSeen = planWrites.get(planKey) ?? 0
   try {
     // [[REQ-296]] — REFUSED BEFORE THE PROVIDER DOES. Read after the prompt is
     // durable and before the model is called: the client's words survive a turn
@@ -3308,6 +3388,13 @@ async function* siteTurn(
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
       if (event.kind !== TOOL_ACTIVITY) continue
+      // [[REQ-364]] — THE PLAN FIRST, and a Map read: it costs nothing on a turn
+      // that never touched the plan.
+      const planned = planWrites.get(planKey) ?? 0
+      if (planned > planSeen) {
+        yield { kind: PLAN_CHANGED, content: '', meta: { at: planned, changes: planned - planSeen } }
+        planSeen = planned
+      }
       const now = await store.counter(slug)
       if (now <= seen) continue
       const changes = now - seen
@@ -4002,6 +4089,7 @@ export function resetAiHost(): void {
   // turn and report a write that has already been seen — or, negative, none at
   // all.
   businessWrites.clear()
+  planWrites.clear()
   // AND THE CARDS THAT HAVE NOT BEEN DELIVERED ([[REQ-260]]). A queued change
   // that outlived its conversation would be reported into the next one, putting
   // a card about somebody's domain in a turn that did not touch it.

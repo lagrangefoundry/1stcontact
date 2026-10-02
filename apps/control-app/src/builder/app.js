@@ -1,6 +1,7 @@
 import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
+import { createPlanPanel } from './plan-panel.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
@@ -192,6 +193,11 @@ export function mountBuilder(root, options = {}) {
      */
     pageState = null,
     chatTransport = null,
+    /**
+     * The plan panel's calls ([[REQ-364]]) — `{fetchPlan, answerAsk,
+     * uploadMaterial}`, any of them. `null` keeps the origin's.
+     */
+    planTransport = null,
     paletteTransport = null,
     /**
      * The page control's calls — the listing ([[REQ-248]]) and the subject write
@@ -902,6 +908,12 @@ export function mountBuilder(root, options = {}) {
     }
   }
 
+  /**
+   * The plan panel, above the chat ([[REQ-364]]). It renders the site's plan and
+   * nothing else, so it is told only which site, and when the plan may have moved.
+   */
+  const planPanel = createPlanPanel(planTransport ? { transport: planTransport } : {})
+
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
@@ -935,6 +947,10 @@ export function mountBuilder(root, options = {}) {
     // [[BUG-177]] — a member's round or the room's exchange ended, so the Debug
     // tab's view of each agent's own session has something new to show.
     onRoomActivity: () => void debug.refreshPrivate(),
+    // [[REQ-364]] — an agent wrote the plan mid-turn, or a turn ended: the panel
+    // re-reads, with no reload and no message.
+    onPlanChanged: () => void planPanel.refresh(),
+    onTurnEnd: () => void planPanel.refresh(),
   })
 
   /**
@@ -1348,10 +1364,29 @@ export function mountBuilder(root, options = {}) {
     await library.refresh().catch(() => {})
   }
 
+  /**
+   * The chat half: the plan panel above the conversation ([[REQ-364]]).
+   *
+   * THE SAME SPLIT, STACKED. A second instance of the builder's own divider,
+   * vertical, collapsible on the panel's side and persisted under its own key —
+   * so it drags, collapses and remembers exactly as the divider beside it does.
+   */
+  const chatHalf = document.createElement('div')
+  chatHalf.className = 'builder-chat-half'
+  const planSplit = mountSplit(chatHalf, {
+    id: STORAGE_KEYS.planSplit,
+    orientation: 'vertical',
+    primary: planPanel.element,
+    secondary: chat.element,
+    initialSplit: 30,
+    collapse: { side: 'primary', style: 'rail' },
+    storage: shell.storage(STORAGE_KEYS.planSplit),
+  })
+
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,
     primary: panel.element,
-    secondary: chat.element,
+    secondary: chatHalf,
     initialSplit: 65,
     collapse: { side: 'secondary', style: 'rail' },
     storage: shell.storage(STORAGE_KEYS.split),
@@ -1431,6 +1466,9 @@ export function mountBuilder(root, options = {}) {
     // stops that answer reaching the pane, and this keeps the key describing the
     // scope the read was actually made under either way.
     const scope = currentBusiness
+    // [[REQ-364]] — the plan panel follows the site too, and needs no model: a
+    // deployment that cannot reach one still shows the client its questions.
+    void planPanel.setSite(site ?? null)
     if (!site) {
       chat.setSession(null)
       return
@@ -1761,6 +1799,9 @@ export function mountBuilder(root, options = {}) {
      * business it is about.
      */
     debug,
+    /** The plan panel above the chat ([[REQ-364]]), and the divider it sits behind. */
+    planPanel,
+    planSplit,
     upload,
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
     banner,
@@ -1814,6 +1855,8 @@ export function mountBuilder(root, options = {}) {
       points.destroy()
       editor?.destroy()
       toolbar.destroy()
+      planSplit.destroy()
+      planPanel.destroy()
       split.destroy()
       panel.destroy()
       shell.destroy()

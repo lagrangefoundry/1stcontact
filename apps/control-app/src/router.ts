@@ -332,6 +332,13 @@ import {
   type MaterialChange,
   type MaterialRole,
 } from './material'
+import { sitePlan } from './plan'
+import {
+  CLIENT_ACTIONS,
+  clientAnswer,
+  panelView,
+  type Plan,
+} from '../../../tools/generate/src/cli/ai/plan-core'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -2133,6 +2140,10 @@ export const MAX_PROMPT_CHARS = 16_000
 export const OVER_LONG_PROMPT_MESSAGE =
   "That's too long to send as a message. Save it as a text file and drop it in as " +
   "Background information — I'll read it from there, and it stays in your Library."
+/** The plan panel's read and its answer write ([[REQ-364]]). */
+export const PLAN_PATH = '/api/plan'
+export const PLAN_ASK_PATH = '/api/plan/ask'
+
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
 
@@ -5284,6 +5295,72 @@ async function routeUncached(
         return json(400, { error: 'site, page and subject are required' })
       }
       return json(200, (await editPageUpdate(site, page, { ...(await edit()), subject })).data)
+    }
+
+    /**
+     * The plan panel ([[REQ-364]]): what it draws, and the client's answers.
+     *
+     * THE PANEL HOLDS NO STATE; THESE ARE ITS READ AND ITS WRITE. `GET` answers the
+     * phase and the asks the panel shows. `POST /api/plan/ask` answers or skips one
+     * ask — changing an answer is answering again — and saves as the client goes,
+     * with no submit step for the panel as a whole. An upload against an ask has
+     * already gone through `POST /api/material`, so it is a Library item and a
+     * material ticket; this route is handed its uid.
+     *
+     * SCOPED TO THE BUSINESS AND THE SITE: the ticket store is the business's, and
+     * a site this tenant does not hold is a 404 rather than a plan created for it.
+     * The material an answer cites must be this business's too.
+     *
+     * COMPARE-AND-SET, THROUGH REQ-356's PORT, so a client answer and an agent's
+     * concurrent write to the plan cannot lose each other. A clash is re-read and
+     * re-applied once — the client's answer is to one ask and the agent's write was
+     * to something else, so the second attempt is almost always clean — and only
+     * then reported.
+     *
+     * IT NEVER STARTS A TURN. The agent hears the answer on its next one.
+     */
+    if (p === PLAN_PATH && method === 'GET') {
+      const site = url.searchParams.get('site') ?? ''
+      if (site === '') return json(400, { error: 'site is required' })
+      if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
+      // THIS PORT CREATES THE PLAN ON FIRST READ, so it never answers null.
+      return json(200, panelView((await sitePlan(await openTickets(), site).read())!.fields))
+    }
+
+    if (p === PLAN_ASK_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      const ask = typeof body.ask === 'string' ? body.ask : ''
+      const action = typeof body.action === 'string' ? body.action : ''
+      if (site === '' || ask === '' || !(CLIENT_ACTIONS as readonly string[]).includes(action)) {
+        return json(400, { error: `site, ask and an action (${CLIENT_ACTIONS.join(' or ')}) are required` })
+      }
+      if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
+      const tickets = await openTickets()
+      if (typeof body.answer_material === 'string' && body.answer_material !== '') {
+        try {
+          await readMaterial(tickets, body.answer_material)
+        } catch {
+          return json(400, { error: 'that document is not in this business\'s Library' })
+        }
+      }
+      const plan = sitePlan(tickets, site)
+      const answerIt = (current: Plan): Plan => clientAnswer(current, { ...body, ask, action }, new Date().toISOString())
+      try {
+        let written: Plan
+        try {
+          written = await plan.write(answerIt)
+        } catch (err) {
+          if ((err as { code?: string }).code !== 'CONFLICT') throw err
+          written = await plan.write(answerIt)
+        }
+        return json(200, panelView(written.fields))
+      } catch (err) {
+        const code = (err as { code?: string }).code ?? ''
+        const status = { UNKNOWN_ASK: 404, ASK_WITHDRAWN: 409, CONFLICT: 409, PLAN_INVALID: 400 }[code]
+        if (status === undefined) throw err
+        return json(status, { error: scrub((err as Error).message), code })
+      }
     }
 
     /**
