@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:42:03.528174+00:00'
+updated_at: '2026-10-02T00:43:19.666325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3465,5 +3465,43 @@ Which would you like?
 #### You
 1. Once we have 173 then what? is a recapture sufficient or is a diagnosis required?
    2. Please create the ticket for the unmeasured
+
+<!-- xgd-turn id="4d8362b4-a8d8-49e8-9adb-f98aa9686121-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:43:17.722941+00:00" -->
+#### Claude
+## 1. After BUG-173 lands: a recapture is enough, no diagnosis needed
+
+BUG-173 changes three things: how the engine turns the capture into the page layout, how that layout becomes CSS, and the gate's checks. Every console iteration rebuilds the layout from the capture before it renders and scores, and [recapture] is now the console's only button. So:
+
+1. BUG-173 lands.
+2. Restart the console. A running console doesn't pick up the change.
+3. Press **[recapture]**.
+
+That iteration renders with the fix applied, and the gate runs the new check above the widest captured width. Then:
+
+- Drag the reproduction wider than 1440px. The backgrounds should keep stretching with the content.
+- The gate should report nothing above the widest width. If it reports something there, that's when a diagnosis earns its cost.
+
+A diagnosis round finds problems and files tickets; it never applies fixes. A recapture is what puts a landed fix in front of you.
+
+## 2. The ticket for the unmeasured
+
+I've filed **BUG-174** (`bug-2648b017`) at `draft`, high priority, under EPIC-12. It covers both causes of the 7, so I kept it to one ticket:
+
+- **Background band styling (6 of the 7).** Each band's own transparency, filter, blend mode, corner radius and shadow get compared on both sides. A band whose styling was fully compared stops counting as unmeasured.
+- **Element ordering (1 of the 7).** Both sides work out each element's predecessor from the same list of elements. Right now the copy's extra band containers break that, which skips the check for 22 of the 59 elements.
+
+The ordering item counts as only 1, but it's arguably the more important of the two. It's a top-severity check, and today it's skipped for over a third of the page.
+
+The ticket also says:
+
+- **No new hiding.** Nothing may turn "couldn't check" into "passed" by filling in a default value. An older capture taken before the fix still reports its gaps as unmeasured.
+- **Target:** unmeasured 7 → 0 on Gigabyte Alchemy after a recapture, and the same two causes gone on every site with full-width bands.
+- **Expect some new differences.** Checking things that were never checked can turn up mismatches. That's the measurement getting sharper, not the copy getting worse.
+
+The same answer as question 1 applies after BUG-174 lands: restart the console, then press [recapture]. Recapturing matters here because the fix may need to record new information when the original site is captured.
+
+Both tickets are at `draft`. Promote them from the dashboard when you're ready.
 
 <!-- xgd-chat-end -->
