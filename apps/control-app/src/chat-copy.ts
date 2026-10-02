@@ -729,6 +729,12 @@ export async function writeChats(
     // did not land, so its stray is the only copy of those turns the destination
     // has — archiving it there would destroy the very history the operator is
     // trying to reach. `kept` is what says `--force` is the way to mean it.
+    //
+    // ITS JUNCTION IS KEPT, DELIBERATELY ([[BUG-176]]). Junctions are keyed by
+    // session id alone, and `carried` is the SOURCE's id — the junction under it
+    // is the source business's live conversation, not this stray's. Nothing here
+    // will ever open `carried` in this business again, so leaving it collides
+    // with nothing; deleting it would cut a conversation still in use elsewhere.
     const stray = carried === sessionId ? undefined : held.get(carried)
     if (stray !== undefined) {
       await store.archive({ uid: stray.uid })

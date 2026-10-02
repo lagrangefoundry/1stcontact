@@ -3416,6 +3416,51 @@ async function homeTicket(manager: Untyped, deps: HostDeps, sessionId: string): 
 }
 
 /**
+ * Drop a room junction that no live room ticket homes ([[BUG-176]]).
+ *
+ * A ROOM'S SESSION ID IS FIXED PER SITE, which no other session's is: a site has
+ * exactly one `room-<site>`, minted from the slug rather than at random. So a room
+ * whose ticket was archived leaves a junction under the very id its successor
+ * must take, and `createGroup` refuses an id that already has one — forever,
+ * since nothing else would ever clear it. With no live ticket there is nothing
+ * left for that junction to serve: the archive answers nothing for it, so the
+ * room it held is unreachable either way.
+ *
+ * THE ROOM SESSION ONLY. Called with `roomSessionIdFor(slug)` and nothing else —
+ * never the consultant's `site-<site>`, which is the site's whole conversation,
+ * nor `coordinator-<site>`. A member session with no ticket yet is the ordinary
+ * not-yet-drained state, which {@link homeTicket} finishes.
+ *
+ * DELETED DIRECTLY, NOT CLOSED. `closeSession` drains to the archive before it
+ * deletes, and a drain with no live ticket would mint a fresh chat ticket for the
+ * room — one with no roster, which `openGroup` would then find and refuse. So the
+ * log is deleted first and `closeSession` is called after, when it finds nothing
+ * to drain and only drops what the manager was holding for that id.
+ */
+async function discardOrphanRoomJunction(manager: Untyped, roomSid: string): Promise<void> {
+  const log = manager.logFor(roomSid)
+  if (!log.exists()) return
+  log.delete()
+  await manager.closeSession(roomSid)
+}
+
+/**
+ * Bring a reopened room's roster to exactly `members`, in order ([[BUG-176]]).
+ *
+ * A MEMBER IS REPLACED, THE ROOM IS NOT. When a member session gives way to
+ * another (REQ-358's `assistant` → `coordinator`), the room keeps its ticket, its
+ * junction and every contribution, and only the roster moves — through the
+ * framework's own `add`/`remove`, which is what they exist for. The departing
+ * member's past contributions stay: a roster edit is not a retraction.
+ */
+async function keepRoster(group: Untyped, members: string[]): Promise<void> {
+  const current: string[] = await group.members()
+  if (current.length === members.length && current.every((uid, i) => uid === members[i])) return
+  for (const uid of current) if (!members.includes(uid)) await group.remove(uid)
+  for (const uid of members) if (!current.includes(uid)) await group.add(uid)
+}
+
+/**
  * Open a site's room, creating it the first time ([[REQ-357]]).
  *
  * THE ROOM IS THE FRAMEWORK'S. `createGroup` homes it on a chat ticket of its own
@@ -3444,6 +3489,7 @@ async function openRoom(manager: Untyped, slug: string, deps: HostDeps): Promise
   const coordinator = { ticket: await homeTicket(manager, deps, coordinatorSid), sessionId: coordinatorSid }
   const labels = memberNames(consultant.ticket, coordinator.ticket, names)
   const existing = String((await deps.archive.homeRef(roomSid)) ?? '')
+  if (!existing) await discardOrphanRoomJunction(manager, roomSid)
   const settings = groupRoomSettings()
   const group = existing
     ? await lib.openGroup(manager, deps.tickets, existing, labels)
@@ -3456,6 +3502,7 @@ async function openRoom(manager: Untyped, slug: string, deps: HostDeps): Promise
         maxContributions: settings.maxContributions,
         endRoundOnPost: false,
       })
+  if (existing) await keepRoster(group, [consultant.ticket, coordinator.ticket])
   await group.revive()
   // THE MEMBERS' TOOLS REACH THE ROOM THROUGH THESE, filled now that it exists.
   wiring.rooms[group.chatUid] = roomSid

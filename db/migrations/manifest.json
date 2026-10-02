@@ -22,5 +22,6 @@
   "0021_turn_log.sql": "6bb8acbca2a28ba2b42cc51043fd6da8a27bddaf7c485c8136065dc80de52c6b",
   "0022_business_network_settings.sql": "ae27a04962b7208b2bebf6be543ce3a0828664781ca63369cde2e2189edd0141",
   "0023_group_chat_switch.sql": "2256b5003775e168df3348dd54b565a63e4e5535df2ee4b5cf148dcf7b9f1079",
-  "0024_retire_assistant_sessions.sql": "1015843d14f2ef5c189451e3e0aef600e9d0a10ff760b6d996c366761d6535a4"
+  "0024_retire_assistant_sessions.sql": "1015843d14f2ef5c189451e3e0aef600e9d0a10ff760b6d996c366761d6535a4",
+  "0025_restore_retired_rooms.sql": "f8ffc05a7c867764f9a597f9ce9c0ebef73d187743e6e12980e649b15ef61b48"
 }
