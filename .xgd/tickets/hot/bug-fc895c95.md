@@ -5,9 +5,9 @@ type: bug
 title: 'Debug tab: each agent''s own session never refreshes while the room runs'
 created_by: EPIC-19
 created_at: '2026-10-02T04:42:57.214526+00:00'
-updated_at: '2026-10-02T15:26:42.318633+00:00'
+updated_at: '2026-10-02T15:26:46.545782+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   severity: medium
@@ -21,6 +21,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.439
+  story_points: 2
 ---
 
 ## Symptom
