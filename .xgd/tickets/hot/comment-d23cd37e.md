@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:46:07.265743+00:00'
+updated_at: '2026-10-02T17:49:27.324189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1097,5 +1097,66 @@ It should be built so that the chat panel can be Alice or Bob - Bob can see the 
 3. **Don't invite documents full of customer data.** This is important - we need to properly handle the situation where a user uploads customer credit card information because it will happen - but this is another detail for the future like data confirmation. I am very focused on the core interaction right now and - we should list these important details and come back to them. Can you make sure they are in the doc and crreate ToDo tickets for them and we will loop back.
 
 So I think the design document should capture the next stage UX the panel (as a rendering of the plan ticket) lets remain agnostic on Bob and can you capture all the learnings about Alice and Bob behavior please. FYI it will be EPIC-19's job to create the tickets to iomplement this.
+
+<!-- xgd-turn id="33e3216f-1b08-440f-b15d-59e630215b28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:49:22.821815+00:00" -->
+#### Claude
+I'll write the new doc and file the ToDo tickets. First two quick checks: what the existing draggable divider component is called, and how ToDo tickets are filed in this project.
+
+The divider looks like it comes from the shared framework rather than a single local file. I'll refer to it generically and leave EPIC-19 to wire it up. Writing the doc now.
+
+Now the three ToDo tickets, so the doc can reference their real IDs.
+
+DOC-65 is filed. Last step: pointing the three ToDos back at it by ID.
+
+I've filed the new design doc as DOC-65 and the three deferred items as ToDos (TODO-9 to 11), all linked to EPIC-19. Nothing else was filed; EPIC-19 will create the build tickets from the doc.
+
+## DOC-65: "Next hypothesis: Alice and a plan panel (Bob optional)"
+
+1. **The hypothesis.** One designer voice in the chat, plus an always-visible panel drawn from the plan ticket, works better for a novice than two voices. The next test runs with Bob off. The doc also says what would prove the hypothesis wrong: the old gaps coming back, or the client ignoring the panel.
+2. **What we've learned so far,** in four parts:
+   - the client: shows-not-tells, won't push, won't fill in forms, has their own order, silences feel like failure
+   - Alice: what works, and what fails (volume, seven questions at once, details asked too early, building before collecting the substance, using the client's own words as page structure, the unprepared logo, never asking the quality bar)
+   - Bob: persistence works; he made zero plan writes, restated Alice, gave opinions and once made one up, and created a "nearly done" impression
+   - cost
+3. **Screen layout.** The chat half splits into the panel on top and the chat below, with the existing draggable divider (resize or collapse). It also covers telling speakers apart: bigger name, initial avatar, tint.
+4. **The panel draws everything from the plan ticket.**
+   - Alice writes to the plan, and the panel refreshes itself.
+   - The client's answers save to the plan as they type.
+   - Alice is told what changed, as a short fact.
+   - The client owns their answers; Alice never overwrites one.
+   - It works the same with Alice alone or with Bob switched on.
+5. **What the panel shows:** where we are, framed by phase rather than items left; needs your answer; needs your choice; checks as tap-to-answer prompts (Yes / Not yet / Not sure); decided and open; what Alice is working on.
+6. **The new `asks` section of the plan ticket.** Each question carries an input type (text, number, money, phone, email, URL, date, single choice, multiple choice, upload), can optionally accept an upload instead, has a "needed by" phase and a blocking flag. The doc includes writing rules for Alice.
+7. **How Alice behaves in the chat:**
+   - think first, at most one question per post, no restating
+   - announce before going quiet ("back in about 15 minutes, meanwhile there are questions in the panel")
+   - intake limited to what shapes the first version
+   - ask for documents and extract the facts herself
+   - treat reference sites as a list of the kinds of facts to collect
+   - never invent facts
+   - the design behaviours carried over from DOC-64
+   - a final "check every detail" pass, done in the panel
+8. **Bob, if he's switched back on:** the panel is his main output, he stays silent in Alice's round, and he gives no opinions.
+9. **Important but deferred,** linked to the ToDos below.
+10. **Open questions:**
+    - When does a client's answer reach Alice?
+    - Will clients actually answer checks in the panel?
+    - How many questions should show at once?
+    - Should picking a variant happen in the panel, the chat, or both?
+11. **How we'll judge the test.** A table of Charlie-session baselines: words ratio about 15:1, up to 7 questions per post, 3 silences with no notice, quality bar never captured, 0 of 9 concept decisions chosen by the client, about $33. Plus new measures for the panel.
+
+## ToDos
+
+| ID | Topic | Priority |
+|---|---|---|
+| TODO-9 | Confirming facts without filling the chat | medium |
+| TODO-10 | Sensitive customer data in uploads (card numbers, personal data) | high |
+| TODO-11 | Measure and reduce cost per session | low |
+
+The doc records two choices I made that you may want to change:
+- **When an answer reaches Alice:** I recommended her next turn, waking her early only for a question she's blocked on. That's open question 1.
+- **DOC-64:** I left it as is. DOC-65 says it is the current position wherever the two conflict, and reconciling DOC-64 is deferred until after the test.
 
 <!-- xgd-chat-end -->
