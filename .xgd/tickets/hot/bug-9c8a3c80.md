@@ -6,10 +6,10 @@ title: 'Group chat: a retired room''s surviving junction blocks the room from ev
   being created again'
 created_by: EPIC-19
 created_at: '2026-10-02T04:42:49.806091+00:00'
-updated_at: '2026-10-02T05:49:33.981486+00:00'
+updated_at: '2026-10-02T05:50:37.269159+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -18,6 +18,14 @@ fields:
   needs_review: false
   chat_comment: comment-dcd2b39c
   story_points: 3
+  commits:
+  - working_sha: 677c8d7dbcd7bf0983c9d297340cdceafb98a9f0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8ac8c9395fa1c9a47b70a21743684ccdad067aed
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.438
 ---
 
 ## Symptom
