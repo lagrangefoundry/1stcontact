@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:13:37.561714+00:00'
+updated_at: '2026-10-02T17:20:42.415969+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1015,5 +1015,15 @@ That's an inference from what each agent did, not a measurement; I don't have a 
 
    It's a doc change, so no ticket needed.
 2. **The plan `asks` section and the panel** are new code. Since a plan ticket already exists, REQ-356 has evidently been built, so this would be a new ticket rather than an edit to it. Tell me if you want me to file one.
+
+<!-- xgd-turn id="f6ae925b-e470-483d-bb28-2559b1ea17a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:20:41.264030+00:00" -->
+#### You
+**Bob never posts in the same round as Alice unless he's addressed.** The client reads and responds to Alice first. <-- yes, except remember that I introduced Bob in order to try to push Alice - seeing this in action, I am not sure how well that would work - it could again become overwhelming.
+
+I love the idea of a panel that collects content while Alice works though. I find myself wondering if we need Bob again though. Alice can construct the panel - in face the panel should really be a rendering of the plan ticket (some of the plan ticket).
+
+Another thing that Alice should do is invite uploads of content - rather than Ask Charlie for address and phone etc have him upload a headed letter as a PDF? Do they have a brochure? Price list etc.?
 
 <!-- xgd-chat-end -->
