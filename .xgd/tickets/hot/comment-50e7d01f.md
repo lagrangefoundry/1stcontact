@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T18:00:07.655344+00:00'
+updated_at: '2026-10-02T18:46:47.358987+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3547,5 +3547,16 @@ My estimate, which is modelled rather than measured, is that this session would 
 - **Full-page screenshots are shrunk to about 150 px wide**, too small for the consultant to judge anything from.
 
 I've recorded all of this on EPIC-20. I haven't filed any tickets. My suggestion is one ticket here for dropping old results and shrinking the oversized ones, and one in lagrange-framework for the coordinator model and the check-splitting bug. Want me to file them?
+
+<!-- xgd-turn id="c7889a15-751b-4867-8561-f49699db37d3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:46:46.788227+00:00" -->
+#### You
+1. YEs on the first ticket
+   2. model choice should not be up to LF - it needs to be configurable - that's the lf ticket please
+   3. a local ticket corresponding to 2 to configure Haiku for the coordinator and Opus 5.5 for the consultant (cheaper and better - there's 20% savings right there)
+   4. Can we double the step limit? Are we giving builders a gas meter?
+   5. Can you create a bug for the framework checks in LF please
+   6. what is the right width for a screenshot?
 
 <!-- xgd-chat-end -->
