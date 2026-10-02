@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T20:59:48.922949+00:00'
+updated_at: '2026-10-02T21:00:53.009036+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6224,5 +6224,23 @@ For 2–9, either send the rest or tell me to go with my leanings:
 | 7 | the divider remembers its position like the others, and the panel starts collapsed when there are no asks |
 | 8 | the speaker styling is out of this experiment |
 | 9 | one REQ under EPIC-19 |
+
+<!-- xgd-turn id="fef12633-cc6b-4e38-ab43-880c9b83bb08-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T21:00:51.049381+00:00" -->
+#### You
+Sorry that was a partial response please answer this one instead
+
+Your summary is good. A couple of details: Alice must be able to remove questions - if Charlie tells her that they don't want an email address on their site he should not be held accountable for supplying one.
+
+1. **What does "Bob off" mean mechanically?** One option is the group-chat switch off, so we're back on today's 1:1 path with the consultant. <-- that is exactly my intent right now. And i want to keep Bob available. If I switch the Bob switch back on, I want the Room with both of them functioning please.
+
+I am interested in the "Room with just Alice" scenario because it would allow us to trim the self-talk in the response but that is an optimization if we decide the experience works - lets do the simple thing now 
+
+2. If its cheap do it.
+
+3. No - that's only relevant if we go back to 2 in the room leave it for now
+
+4. As always the smallest reasonable number
 
 <!-- xgd-chat-end -->
