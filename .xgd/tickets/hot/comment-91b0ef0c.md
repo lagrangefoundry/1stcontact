@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:33:52.413962+00:00'
+updated_at: '2026-10-02T00:35:42.364306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3428,5 +3428,35 @@ ok so two things:
 
 (1) gigabytge alchemy still has a max width here background - is that expected? Do I need to run the diagnosis to do that?
 (2) is it desirable to get the unmeasured down - should I run the diagnosis on this?
+
+<!-- xgd-turn id="0b4b8bb2-cc8e-4141-801e-681898633d7c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:35:38.801101+00:00" -->
+#### Claude
+Nothing has landed for the max-width background, and the ticket I wrote for it was never filed. Filing it now, as you asked last time.
+
+## 1. The max-width background
+
+Yes, that's expected for now. Nothing has been built for it yet: the ticket I wrote on the 30th never got filed because the CLI hung. It's filed now as **BUG-173** (`bug-95fcf0da`), at `draft`, high priority, under EPIC-12. It covers both halves in one ticket, as you asked:
+
+- **The check:** sample the page above the widest captured width (1440px) and flag any background that stops while its content keeps going.
+- **The fix:** a background that is full-width at every captured width keeps tracking the browser width. Where the original stops growing at a maximum width, the copy stops there too.
+
+**Running a diagnosis won't help with this one.** The check that compares the page between captured widths deliberately skips everything above the widest one. So a round can't see the problem, which is why eleven rounds never raised it. It needs BUG-173 implemented. Promote it from the dashboard when you're ready; nothing will happen to it until you do.
+
+## 2. Getting "unmeasured" down
+
+It's worth doing, but I wouldn't spend a $10 round on it, because we already know what the 7 are:
+
+- **6 of them are one cause.** Each full-width background band has styling of its own: transparency, a brightness filter, rounded corners, shadow. Our record of each section of the original has nowhere to store those, so neither side ever compares them. "Unmeasured" means unchecked, not wrong; these may well already match.
+- **1 is a comparison it had to skip.** It checks whether each element sits in the right place relative to the one before it. On the original it couldn't work that out for 22 of the 59 elements, so it skipped that check.
+
+A round would most likely spend its budget re-deriving exactly that and file roughly the ticket I'd write. Rounds are worth their cost when we don't yet know the cause; here we do.
+
+**What I'd suggest:** let me scope one ticket for the band styling. That takes the count from 7 to 1 on every site, not just this one, since nearly every site has full-width bands.
+
+There's one good reason to run a round anyway: if you want to test whether the loop finds this on its own. That's a fair test of the system, and it's what you said you're after. If you go that way, do it before I file the ticket, so the round has nothing to copy from.
+
+Which would you like?
 
 <!-- xgd-chat-end -->
