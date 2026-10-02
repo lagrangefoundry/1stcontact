@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T01:31:08.674920+00:00'
+updated_at: '2026-10-02T16:23:34.550011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -832,5 +832,11 @@ I've updated REQ-356 (still a draft) with your provisioning answer and the three
 - **Watch item, out of scope:** `brief.business` describes the business, not the site, so it may need to move up a level once a second kind of plan exists.
 
 DOC-64 didn't need changing: it already says every site has one plan, which is still true.
+
+<!-- xgd-turn id="cd02a880-95b6-4d0d-b598-54fdad2d8e29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T16:23:32.712489+00:00" -->
+#### You
+ok we have an initial session - still very early days but take a look at Charlie's Plumbing  the transcript and the site build out. Lots of learnings. Give me your thoughts and we will discuss.
 
 <!-- xgd-chat-end -->
