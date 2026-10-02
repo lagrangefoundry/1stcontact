@@ -6,9 +6,9 @@ title: 'L1 above the widest rung: full-bleed surfaces freeze while content keeps
   the viewport, and no probe samples there'
 created_by: EPIC-12
 created_at: '2026-10-02T00:34:56.539149+00:00'
-updated_at: '2026-10-02T00:51:01.850283+00:00'
+updated_at: '2026-10-02T01:00:43.792752+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -115,3 +115,23 @@ Required behaviour:
 - A capture projection wider than 1440px. It would turn the inference in Part 2 into a measurement for a site
   that happens to cap at exactly its widest rung, and it has the same shape as REQ-88's extra height
   projection. It is optional hardening, not a prerequisite, and it is not part of this ticket.
+
+
+## Part 1 evidence — the alarm against the current documents (recorded before Part 2)
+
+`offSampleProbe` on the served `page.json` of each iteration named in the evidence, with the Part 1 evaluator
+(above-top-rung sample = `round(1440 × 4/3)` = **1920px**; column anchors resolved from the column function):
+
+gigabytealchemy iteration 11, at 1920px (both sampled heights):
+
+- `section-bg-0`, `section-band-1` … `section-band-5`: each "was full-bleed at every captured width and stops
+  **480px** short of the viewport's right edge"
+- 'LinkedIn' / 'GitHub' "no longer covered by … `section-band-5`": 3px / 72px right of its right edge
+
+faelan iteration 5, at 1920px: `section-bg-0`, `section-band-0`, `section-band-1` each stop **480px** short.
+
+The same evaluator also exposes the same mixture *inside* the 375→768 `snap` window, which the old model read
+from keyframes and so could not see. The bands hold their 375px width there while column-anchored runs keep
+following the column: at 506/637px faelan's 'Faelan', 'Worlds End Studio…' and '© 2025…' sit 107/238px past
+`section-band-0`/`-1`, and gigabytealchemy's LinkedIn/GitHub sit past `section-band-5`. These are real
+served-CSS findings of the same class (a frozen surface beside live content), not a model artifact.
