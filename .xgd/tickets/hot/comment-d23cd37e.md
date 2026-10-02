@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T16:23:34.550011+00:00'
+updated_at: '2026-10-02T16:26:16.124557+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -838,5 +838,99 @@ DOC-64 didn't need changing: it already says every site has one plan, which is s
 <!-- xgd-chat role="user" ts="2026-10-02T16:23:32.712489+00:00" -->
 #### You
 ok we have an initial session - still very early days but take a look at Charlie's Plumbing  the transcript and the site build out. Lots of learnings. Give me your thoughts and we will discuss.
+
+<!-- xgd-turn id="cd02a880-95b6-4d0d-b598-54fdad2d8e29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T16:26:15.155628+00:00" -->
+#### Claude
+Looking for the Charlie's Plumbing build in the local D1 first.
+
+The build is in the DB, and the plan ticket from REQ-356 already exists (`plan-51d38253`). Next I'll pull every chat for this business.
+
+I've read the room transcript, Bob's own transcript and the plan. Next a quick measure of post lengths and gaps, since volume and silences were your main complaints.
+
+I've read the room transcript, Bob's transcript, the plan ticket, and the tool calls each agent made. I haven't looked at the rendered pages: Chromium is blocked in this sandbox. So my comments on the site come from the conversation and the decision log, not from seeing it.
+
+## What worked, and it's a lot
+
+- **Alice's judgement about plumbing was excellent, and she offered it unasked.**
+  - She spotted the Roto-Rooter trademark issue up front.
+  - She made the 8am–10pm cutoff the main trust claim ("the one customer guaranteed to leave you a bad review is the one who rang at 2am believing it").
+  - She said a published callout fee is "the single most disarming fact a plumber can state."
+  - She saw that father and son on the same vans is the one thing no chain can say.
+
+  This is the "Alice has great opinions" quality, delivered without prompting.
+- **She switched to showing on her own initiative.** "I'm going to stop asking you this question in words… build it both ways." She built `/heavy` and `/family`, recommended one with reasons, and called the existing page "the weakest of the three." That's DOC-64 §3.1 and §4.2 working, and the passivity problem largely went away.
+- **The plan ticket was used honestly.** The visual concept was recorded as "defaulted, not settled — Charlie has not yet been shown alternatives." The decision log has a reason and rejected alternatives for each entry. The decision states are truthful: 5 proposed, 16 open, none falsely marked chosen.
+- **Bob's persistence got answers.** You said you wouldn't have answered without it. That's the one clear piece of evidence for Bob in this session.
+
+## What went wrong
+
+**1. Volume.** Before your break-character note, Charlie wrote **206 words in three turns**. Alice and Bob wrote about **3,150 words**, roughly 15 to 1, and asked about 22 questions. Your opening got two Alice posts and one Bob post before you could reply.
+
+**2. Bob did no part of his job, and did the one thing he's barred from doing.** His tool calls for the whole session were 7 room reads, 7 room posts and 2 change-list reads. **He made zero plan writes.** Alice made all of them: brief updates, decision states, tasks, the decision log.
+
+The result:
+- **All eight checks were never asked**: `asked_at` is empty on every one.
+- **The quality bar was never captured.** Alice noticed this herself: "the one I keep not asking."
+- **Functionality is empty, and the goal is still open.**
+- **Alice ran intake, not Bob.**
+
+What Bob did instead:
+- **summarised Alice:** "Here's where we stand", "Alice has built…"
+- **gave opinions:** "which I agree with", "her reasoning is sound"
+- **made one up:** "Bailey and Knockout feel professional and solid", about a site neither of them had seen. Alice had to correct him in front of the client.
+
+My read: with no state to write and a room prompt that says "post one contribution", restating is all that's left. **Either the plan tools weren't on Bob's tool list, or nothing told him to use them. That's worth checking first, because it decides whether this is a bug or a design problem.**
+
+**3. "Nearly done."** Bob framed progress as closing open items, and the plan as built counts decisions, not quality. Five items left feels like five items from done. Nothing signalled "this is a rough first pass", and with no quality bar recorded, no check could say "not there yet." The phase was still `intake` throughout, even after three pages had been built.
+
+**4. The silences.** Gaps of 25, 20 and about 10 minutes went by with no notice, then two pages of text when they came back. Alice delegated 11 times to builder workers, which is where the time went. DOC-62 called narrating the wait the *one unambiguous* job for a second voice, and Bob never did it: he only speaks when a room round triggers him, and the room is silent while Alice works.
+
+**5. The pages looked like a mockup because the facts were never collected.** Your diagnosis is right, and it points to a gap in DOC-64. The §6 decision list is entirely design and messaging decisions. **It has no facts and proof inventory**: callout fee, response time, jobs done, neighbourhoods, reviews and their count, guarantees, licences, photos of real work. Real business sites are thick with these. We built a container and never collected what goes in it.
+
+Two refinements follow:
+- **Ask for facts when they become load-bearing.** Not all at intake (the licence number belonged pre-publish), and one at a time, mixed in with building. Intake should ask only what shapes the first pass.
+- **Reference sites give us the checklist.** When a client sends references, take an inventory of *what kinds of fact* they show (prices, review counts, badges, guarantees). That becomes the list of things to ask about. Alice reached this at the very end: "they have numbers where we have structure."
+
+**6. "Who you get" and Emma.** Alice turned the client's own wording into the centrepiece of the page. Two lessons:
+- The client's quoted words are raw material, not page structure. Check what the trade normally leads with first; Alice did eventually, and the answer was proof first, people as support.
+- Treat how people are described as a sensitivity check, especially roles that can read as stereotypes.
+
+**7. The logo should have been caught by verification.** A white-box logo on a cream page is exactly what DOC-64 §4.1's look-before-you-report step is for. Preparing a client asset, e.g. removing its background, should be part of placing it, not something the client has to spot.
+
+## What I'd change, for discussion
+
+1. **Who speaks depends on the move, and never two voices on one point.**
+   - Presenting work and opinions: Alice.
+   - Asking the client for information (one question at a time, from the plan), chasing dropped items, narrating waits, firing checks: Bob.
+   - By default, one voice per client turn. The other passes unless it has a check or a dropped item.
+
+   Alice reached this herself at the end: "You ask, I'll stay quiet. One voice asking is the whole fix." The last exchange (Alice gives Bob an ordered list, Bob asks one question) is the best moment of the session and probably the right model.
+2. **Bob's output is mostly state.** Give him the plan tools and make his posts a narrow set:
+   - one question
+   - a check
+   - a wait notice ("Alice is building two versions, about 15 minutes")
+   - a short orientation when the phase changes
+
+   No summaries of Alice, and no agreement or endorsement, since that's an opinion too.
+3. **Bob triggers on Alice going quiet, not only on room rounds.** That covers the wait-narration job. A product progress indicator would help as well.
+4. **Frame progress by phase.** When Bob orients, he starts from the phase ("this is a rough first version; next we…"), and the plan's phase actually advances.
+5. **Add to DOC-64:**
+   - a "Substance and proof" area of facts to collect over time
+   - the reference-site inventory method
+   - intake limited to what shapes the first pass
+   - client-asset preparation as part of verification
+   - a sensitivity check on how people are described
+
+## On whether Alice and Bob is the right setup
+
+This session cuts both ways.
+
+**Against Bob as built:** primed with DOC-64 and the plan, Alice did most of Bob's job herself (variants, unprompted critique, honest decision states), and Bob mostly added words.
+
+**For Bob:** the things Alice *didn't* do are exactly the bookkeeping and persistence jobs. She never asked the quality bar, never asked about functionality, never fired a check, never narrated a wait. And it was Bob's persistence that got you to answer.
+
+So I don't think this session argues for removing Bob. It argues that the Bob we ran wasn't the Bob we designed: he talked instead of tracking. I'd re-run with Bob doing state, waits and one-question-at-a-time asking before drawing a conclusion. Shall I check his tool list and session priming first, to see whether this was a wiring gap?
 
 <!-- xgd-chat-end -->
