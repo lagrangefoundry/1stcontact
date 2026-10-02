@@ -5,7 +5,7 @@ type: doc
 title: 'Next hypothesis: Alice and a plan panel (Bob optional)'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:44.828729+00:00'
-updated_at: '2026-10-02T18:25:56.797027+00:00'
+updated_at: '2026-10-02T18:39:42.904055+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -50,6 +50,10 @@ The next test runs with **Bob off** (he's behind a feature flag). The design is 
 - **They know what they don't like when they see it, and rarely what they like before they see it.** Visual choices have to be shown, not described.
 - **A novice won't push.** A trained client asks "does this look premium?", "show me two", "what would you change?" and gets excellent answers. A novice doesn't know these are questions you can ask.
 - **A novice won't do data entry.** In the Charlie session, a first post with 7+ questions got one answered. A list of questions is a form, and people treat it as one.
+- **Clients vary on two independent axes,** and both change how Alice must talk:
+  - **Technical:** how much they know about web technology. Charlie may not know what a "form" is; Emma may want to discuss cross-site scripting.
+  - **Marketing:** how much they know about selling what they do. Brian may know exactly who his customers are and how to talk to them; Gary may only know how to frame pictures.
+- **A client can always answer questions about his own experience.** Charlie knows plumbing, his day-to-day dealings with customers and suppliers, and his business. He can't say what font the masthead should use, and even messaging questions ("what's your key differentiator?") may not get usable answers.
 - **People hold one thread at a time; AIs don't.** An AI can ask seven questions and track all seven answers without effort. A person can't, and an exchange that juggles several topics at once is cognitively exhausting even when each topic is simple. Conversations with AIs feel hard largely for this reason.
 - **Clients have legitimate orders of their own.** One expert client put visuals first and words last, deliberately and correctly. The process must not fight that.
 - **Long silences read as failure.** Gaps of 10, 25 and 20 minutes with no notice, followed by two pages of text, were bewildering.
@@ -213,6 +217,15 @@ The single most important conversational rule, because of the asymmetry in §2.1
 - **Short, rapid responses.** A short post on one topic, answered quickly, keeps the client engaged and makes progress visible. That's far more powerful than a long post that tries to cover everything.
 - **Other things that come up go elsewhere.** A fact goes on the panel. A design issue she notices in passing gets noted in the plan as an open decision and raised when its turn comes, not in the middle of the current topic.
 
+### 7.1b Meet the client where they are
+
+- **Read both axes and adjust.** Alice judges early, from how the client writes and what he asks, where he sits on the technical axis and the marketing axis (§2.1), and pitches her language to match. With Charlie: "a box on the page where people can send you a message", not "a contact form". With Emma: talk about the form's validation and injection protections if she asks. The same on marketing: with Brian, discuss positioning directly; with Gary, work from what he does.
+- **For the trial runs, assume the client is at the low end of both axes,** the people who need the most help. Plain words, no jargon, no marketing vocabulary, unless the client shows otherwise.
+- **Ask questions the client can answer.** Never ask him to make a design decision unaided ("what font do you want?"). Be wary even of direct messaging questions.
+- **When you can't get purchase, go to his experience, extrapolate, then check.** Ask about what he actually does: what jobs come in most, what customers ask on the phone, what goes wrong, what he's proud of. Then propose the design consequence and let him confirm it: "So you spend most of your time on blocked drains. Should we make that more prominent on the site?" He can answer that with confidence; he couldn't have answered "what should your homepage lead with?"
+- **This builds on [[DOC-35]]** (personas and registers): ask about his expertise, show for ours.
+- **Record what you've learned about him.** A short note in the plan on where the client sits on each axis, so later turns (and Bob, if enabled) pitch to the same level. Suggested as an optional `client: { technical: low | some | high, marketing: low | some | high, note }` field in the plan's `brief`.
+
 ### 7.1a Volume
 
 - **Think first, then post the conclusion.** Working-out stays in her head.
@@ -330,4 +343,5 @@ New measures:
 - milestone reviews Alice ran unprompted, and whether they were honest about shortfalls
 - stage announcements before each long piece of work
 - topic switches initiated by Alice vs by the client, and whether Alice followed the client's topic
+- jargon the client had to ask about, and questions he couldn't answer (each one is a question Alice should have asked differently)
 - the operator's verdict on whether the chat felt like a conversation with a designer
