@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-10-02T00:32:51.751128+00:00'
+updated_at: '2026-10-02T00:36:35.936432+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -266,5 +266,11 @@ bin/dev restart dev
 The deploy also runs the migrate hook against your local database. That applies `0023_group_chat_switch.sql`, which is the one migration still pending locally (REQ-357's).
 
 I haven't run the deploy myself, since it changes your dev environment and data; say if you'd like me to. I've also corrected my saved memory note, which still described the older setup where re-running `1c assets` was enough.
+
+<!-- xgd-turn id="1b2f711b-c591-4bbd-b616-39e811b630a2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:36:33.690075+00:00" -->
+#### You
+Sorry I said bin/dev - I meant bin/build that runs 1c asset, right
 
 <!-- xgd-chat-end -->
