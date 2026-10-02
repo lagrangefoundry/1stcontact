@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-10-02T00:36:35.936432+00:00'
+updated_at: '2026-10-02T00:37:19.069922+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -272,5 +272,29 @@ I haven't run the deploy myself, since it changes your dev environment and data;
 <!-- xgd-chat role="user" ts="2026-10-02T00:36:33.690075+00:00" -->
 #### You
 Sorry I said bin/dev - I meant bin/build that runs 1c asset, right
+
+<!-- xgd-turn id="1b2f711b-c591-4bbd-b616-39e811b630a2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:37:17.545860+00:00" -->
+#### Claude
+Yes, `bin/build` runs `1c assets`, but dev doesn't serve what it builds.
+
+`bin/build` writes the builder client into `apps/control-app/dist-assets/` and a test bundle into `apps/<app>/dist/`. Dev on :8789 serves neither. It serves `apps/control-app/.dev-snapshot/`, which only `bin/deploy --env dev` writes. So build plus restart rebuilt the files and then served the same old bundle again.
+
+Your dev log shows it. Even after your rebuild and restart, it names a bundle from before REQ-353 landed on Sep 29:
+
+```
+deployed 2026-09-26T20:57:38Z, 9a2aeb7b45
+FROZEN: editing a source file changes nothing here until `bin/deploy --env dev`
+```
+
+To get the Debug tab in dev:
+
+```
+bin/deploy --env dev
+bin/dev restart dev
+```
+
+The deploy also applies the pending local migration `0023_group_chat_switch.sql`.
 
 <!-- xgd-chat-end -->
