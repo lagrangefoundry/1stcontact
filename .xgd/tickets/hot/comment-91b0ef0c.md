@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:11:47.154009+00:00'
+updated_at: '2026-10-02T00:33:52.413962+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3419,5 +3419,14 @@ All six band-styling gaps come from the same thing: the section record can't hol
 ## One loose end from last time
 
 The combined "full-width backgrounds stop growing past the widest captured width" ticket never got filed. The CLI call hung and nothing was created. The draft is still at `.xgd/tmp/above-top-rung.md`, and the command to file it is in my previous message. I haven't retried, in case the first attempt shows up late and we end up with a duplicate.
+
+<!-- xgd-turn id="0b4b8bb2-cc8e-4141-801e-681898633d7c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:33:48.711353+00:00" -->
+#### You
+ok so two things:
+
+(1) gigabytge alchemy still has a max width here background - is that expected? Do I need to run the diagnosis to do that?
+(2) is it desirable to get the unmeasured down - should I run the diagnosis on this?
 
 <!-- xgd-chat-end -->
