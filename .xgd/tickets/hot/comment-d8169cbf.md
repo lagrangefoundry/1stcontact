@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T01:05:00.357565+00:00'
+updated_at: '2026-10-02T03:26:46.537209+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5993,5 +5993,11 @@ It covers the three changes, plus one I added:
    - **Added:** a test that every indexed system document appears on the map, so this gap can't recur unnoticed.
 
 One flag: the free-coding rules say Claude doesn't create tickets on its own initiative, but you asked for this one explicitly, so I filed it. As with REQ-357, the implementation belongs in REQ-358's own session, not this one.
+
+<!-- xgd-turn id="0a2f50b0-848e-43b4-b8ad-77f35761945d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T03:26:46.117887+00:00" -->
+#### You
+I just rebuilt deployed and restarted everything. I am seeing this: *session "room-site_2a2833c06700bc0896dbd380398c7f1e" already has a junction; it is not a new room*
 
 <!-- xgd-chat-end -->
