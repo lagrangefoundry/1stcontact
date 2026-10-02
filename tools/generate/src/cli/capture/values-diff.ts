@@ -63,6 +63,7 @@ import { maskCoverage, maskCoverageLabel } from './mask-geometry'
 // that reads either side's input. See `value-axes.ts` for why this module no
 // longer projects anything itself.
 import {
+  BAND_PAINT_AXES,
   observedUnmeasuredAxes,
   projectCaptureManifestAxes,
   projectCaptureSection,
@@ -370,6 +371,23 @@ export interface SectionValues {
    * is skipped at projection time rather than throwing in the fold.
    */
   backgroundImageUrl?: string
+  // ── BUG-174 the band's OWN paint ─────────────────────────────────────────
+  //
+  // The five axes of the element that paints the band, named exactly as the
+  // element axes they are compared against: a reproduction paints the band on a
+  // full-bleed box (see `isBandPaint`) that carries them as an element, and the
+  // reference band carried them nowhere. Absent on a bundle taken before capture
+  // schema 12 — UNMEASURED, never a default.
+  /** Element `opacity` of the band's paint, 0..1. */
+  opacity?: number
+  /** Computed `filter` of the band's paint, null when none. */
+  filter?: string | null
+  /** `mix-blend-mode` of the band's paint, null when `normal`. */
+  blendMode?: string | null
+  /** Largest corner radius of the band's paint in px. */
+  borderRadiusPx?: number
+  /** Computed `box-shadow` of the band's paint, null when none. */
+  boxShadow?: string | null
   /** BUG-13 — the section band's geometry (full-page document coords), so the
    *  fold can place the background box. REQ-88 carries it on EVERY section (both
    *  projection paths set it unconditionally) — it is section geometry, not image
@@ -691,12 +709,26 @@ export interface ValuesDiffReport {
    * coincides with demonstrably reports DIFFERENT paint from the box's own — the
    * case that made the excuse false — because then nothing compared it and it is
    * an ordinary {@link unpairedActual} object. Both lists are counted in the
-   * console's unmeasured set — a box's `opacity`, `filter`, `blendMode`,
-   * `borderRadiusPx` and `boxShadow` have nowhere to land on a section record
-   * however faithfully its fill is represented — so this classification says WHICH
-   * silence is being reported, never whether there is one.
+   * console's unmeasured set, so this classification says WHICH silence is being
+   * reported, never whether there is one.
+   *
+   * BUG-174 — and this list now means "partly compared" rather than "always": a
+   * section record carries its band's own `opacity`, `filter`, `blendMode`,
+   * `borderRadiusPx` and `boxShadow` from capture schema 12, and a box whose five
+   * were all compared moves to {@link bandPaintComparedActual}. What stays here is
+   * a box with an axis still unread on some side — a pre-12 bundle, an unpaired
+   * band.
    */
   bandPaintActual: UnpairedObject[]
+  /**
+   * BUG-174 — the band-paint boxes whose every axis WAS compared: fill and
+   * imagery against their band record, and the five paint axes between the two
+   * paired band records, which the box's own values agree with. Measured, so NOT
+   * in the console's unmeasured set; listed so that `matched + unpairedActual +
+   * bandPaintActual + bandPaintComparedActual` still accounts for every
+   * reproduction element. Optional so a report written before it parses.
+   */
+  bandPaintComparedActual?: UnpairedObject[]
   /**
    * BUG-102 — how each *reference* section paired with a repro band, in document
    * order. The flat list reported `§0` as a delta while carrying nothing that said
@@ -1888,11 +1920,45 @@ function alphaOf(hex: string): number {
   return hex.length === 9 ? parseInt(hex.slice(7, 9), 16) / 255 : 1
 }
 
+/**
+ * BUG-174 — an element's arrangement as the diff relates it: `row`/`stack`, or
+ * `overlap` for a predecessor it neither sits beside nor below (the capture's
+ * `null` from `relate`, which with a predecessor present is a reading, not an
+ * absence).
+ */
+type RelatedArrangement = Arrangement | 'overlap'
+
 /** Arrangement → prose, e.g. `beside (right-of)` / `below`. */
-function arrangementLabel(a: Arrangement | null | undefined): string {
+function arrangementLabel(a: RelatedArrangement): string {
   if (a === 'row') return 'beside (right-of prev)'
   if (a === 'stack') return 'below prev'
-  return 'unknown'
+  return 'overlapping prev'
+}
+
+/**
+ * BUG-174 — each element's arrangement relative to the one before it in this
+ * list's top-to-bottom, then left-to-right, order. The same sort and the same
+ * `relate` rule as `extract.ts`'s `assignArrangement` (which runs in the browser
+ * and cannot be imported), applied to whatever list the caller hands in — the
+ * diff hands in the PAIRED elements of one side. The first element has no
+ * predecessor and is absent from the result.
+ */
+function arrangementsOver(elements: readonly ValueElement[]): Map<ValueElement, RelatedArrangement> {
+  const sorted = elements
+    .filter((el) => el.box)
+    .sort((a, b) => (Math.abs(a.box!.y - b.box!.y) > 4 ? a.box!.y - b.box!.y : a.box!.x - b.box!.x))
+  const out = new Map<ValueElement, RelatedArrangement>()
+  for (let i = 1; i < sorted.length; i++) {
+    const prev = sorted[i - 1].box!
+    const curr = sorted[i].box!
+    const overlap = Math.min(prev.y + prev.height, curr.y + curr.height) - Math.max(prev.y, curr.y)
+    const minH = Math.min(prev.height, curr.height) || 1
+    out.set(
+      sorted[i],
+      overlap > 0.5 * minH ? 'row' : curr.y >= prev.y + prev.height * 0.5 ? 'stack' : 'overlap',
+    )
+  }
+  return out
 }
 
 /** Name-source → prose that names *where* the label renders. */
@@ -2543,14 +2609,9 @@ export function diffManifests(
   const deltas: ValueDelta[] = []
   let matched = 0
   let unmatched = 0
-  // BUG-160 (issue 2) — what the `arrangement` block below DECLINED to compare.
-  // The axis is CRITICAL-tier and both its guards are silent: a run neither
-  // compared nor counted reaches `gate.json` as a clean one. Counted per side and
-  // per reason here, and emitted as one row each at the end of the pass, so the
-  // gate's unmeasured tally stops reading zero over comparisons that never ran.
+  // BUG-160 (issue 2) — what the `arrangement` pass below DECLINED to compare,
+  // counted so the gate's not-comparable list does not read empty over it.
   let arrangementPairs = 0
-  let arrangementUnreadExpected = 0
-  let arrangementUnreadActual = 0
   let arrangementDeclinedMoved = 0
 
   // REQ-51 — object cards accumulate as we pair; `ignore` is hoisted above the
@@ -2625,6 +2686,34 @@ export function diffManifests(
     side('paddingRightPx', exp.paddingRightPx, act.paddingRightPx)
     side('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
     side('paddingLeftPx', exp.paddingLeftPx, act.paddingLeftPx)
+  }
+
+  /**
+   * REQ-331 — two `box-shadow` values compared structurally: the layer count,
+   * then each layer's offsets, blur, spread, inset and colour INCLUDING alpha.
+   * A side that paints no shadow yields no layers, so presence is the degenerate
+   * case. Shared by the element axis and BUG-174's band paint.
+   */
+  const shadowsDiffer = (eShadow: string | null | undefined, aShadow: string | null | undefined): boolean => {
+    const e = paintedShadowLayers(eShadow)
+    const a = paintedShadowLayers(aShadow)
+    const near = (x: number, y: number): boolean => Math.abs(x - y) <= shadowLengthTol
+    const sameColor = (x: string, y: string): boolean =>
+      colorDistance(x, y) <= colorTol && Math.abs(alphaOf(x) - alphaOf(y)) <= COLOR_ALPHA_TOL
+    return (
+      e.length !== a.length ||
+      e.some((l, i) => {
+        const o = a[i]
+        return (
+          !near(l.offsetXPx, o.offsetXPx) ||
+          !near(l.offsetYPx, o.offsetYPx) ||
+          !near(l.blurPx, o.blurPx) ||
+          !near(l.spreadPx, o.spreadPx) ||
+          l.inset !== o.inset ||
+          !sameColor(l.color, o.color)
+        )
+      })
+    )
   }
 
   const compareGeometry = (exp: ValueElement, act: ValueElement): void => {
@@ -2781,25 +2870,9 @@ export function diffManifests(
     // Presence survives as the degenerate case: a side that paints no layer at
     // all yields an empty list and the count comparison reports it.
     if (exp.boxShadow !== undefined || actShadow !== undefined) {
-      const e = paintedShadowLayers(exp.boxShadow)
-      const a = paintedShadowLayers(actShadow)
-      const near = (x: number, y: number): boolean => Math.abs(x - y) <= shadowLengthTol
-      const sameColor = (x: string, y: string): boolean =>
-        colorDistance(x, y) <= colorTol && Math.abs(alphaOf(x) - alphaOf(y)) <= COLOR_ALPHA_TOL
-      const differs =
-        e.length !== a.length ||
-        e.some((l, i) => {
-          const o = a[i]
-          return (
-            !near(l.offsetXPx, o.offsetXPx) ||
-            !near(l.offsetYPx, o.offsetYPx) ||
-            !near(l.blurPx, o.blurPx) ||
-            !near(l.spreadPx, o.spreadPx) ||
-            l.inset !== o.inset ||
-            !sameColor(l.color, o.color)
-          )
-        })
-      if (differs) push(exp, 'boxShadow', shadowLabel(exp.boxShadow), shadowLabel(actShadow))
+      if (shadowsDiffer(exp.boxShadow, actShadow)) {
+        push(exp, 'boxShadow', shadowLabel(exp.boxShadow), shadowLabel(actShadow))
+      }
     }
     // Uniform box border (blind spot) — a form field's outline / a card hairline.
     // Compare presence + width + colour, like borderLeft. Only when both sides
@@ -2828,53 +2901,6 @@ export function diffManifests(
           Math.abs(alphaOf(e.color) - alphaOf(a.color)) <= COLOR_ALPHA_TOL &&
           styleOk)
       if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
-    }
-    // REQ-331 — `arrangement` is a CRITICAL-tier axis derived from a NEIGHBOUR,
-    // which makes it a poor unit of blame.
-    //
-    // It is assigned at capture (`extract.ts`'s `assignArrangement`) by sorting a
-    // side's own elements top-to-bottom and relating each to the one before it.
-    // The two sides' element lists are not the same list — a reproduction emits
-    // band containers a reference has no counterpart for — and a displacement of
-    // ONE element re-sorts the list and relabels a DIFFERENT one. Measured on
-    // faelan.com: a 16px drift moved the `Faelan` photograph past the `FAELAN`
-    // headline in the sort order, which changed `Alley scene`'s predecessor and
-    // produced the page's highest-severity delta — against an element whose own
-    // box agrees with the reference to 0.01px in x and in width.
-    //
-    // So the axis is compared only where this element's OWN geometry agrees. Where
-    // it does not, the element's `position` delta above already names the real
-    // defect and this would be a second, louder report of a third element's
-    // movement. Where it does, a genuine arrangement difference is still reported.
-    //
-    // BUG-160 (issue 2) — both of those guards are RIGHT and both were SILENT.
-    // On the gigabytealchemy round the first one dropped 22 of 59 pairs — every
-    // run that opens a band, 37% of the population, because `relate` reads `null`
-    // for a predecessor relation the reference's own sort order does not produce —
-    // and `gate.json` still reported `unmeasuredAxes: []` over them. An exclusion
-    // nobody can see is indistinguishable from a measurement nobody made, so each
-    // declination is counted here and reported below.
-    arrangementPairs++
-    // ASYMMETRY only. A pair neither side read is not a skipped comparison — the
-    // axis simply is not projected on this pair of pages, which the declaration
-    // table (`observedUnmeasuredAxes`) already owns and which every other guard
-    // in this function stays inert for. What the round lost was the pair where
-    // one side HAD a reading and the other did not: a measurement that existed
-    // and went uncompared.
-    if (!exp.arrangement && act.arrangement) arrangementUnreadExpected++
-    else if (exp.arrangement && !act.arrangement) arrangementUnreadActual++
-    if (exp.arrangement && act.arrangement && exp.arrangement !== act.arrangement) {
-      const ownGeometryAgrees =
-        exp.box !== undefined &&
-        act.box !== undefined &&
-        Math.max(Math.abs(exp.box.x - act.box.x), Math.abs(exp.box.y - act.box.y)) <= positionTol
-      if (ownGeometryAgrees) {
-        push(exp, 'arrangement', arrangementLabel(exp.arrangement), arrangementLabel(act.arrangement))
-      } else {
-        // Declined, not clean: the two sides DID disagree and this run chose not
-        // to blame this element for it. That choice is a measurement not made.
-        arrangementDeclinedMoved++
-      }
     }
     // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
     // element stacks on the wrong side of its neighbours (portrait over caption,
@@ -3049,8 +3075,55 @@ export function diffManifests(
     if (eStr !== aStr) push(exp, property, e ?? 'none', a ?? 'none')
   }
 
+  /**
+   * BUG-174 — the five paint axes of a band, compared exactly as they are on any
+   * other box: `filter` by what it paints, `blendMode` by value, `opacity` within
+   * the authored-value tolerance, the corners as `shape` (a pill against a pill
+   * agrees), the shadow layer by layer. Every axis is skipped when either side did
+   * not record it, so a bundle taken before the read stays inert rather than
+   * being compared against a default.
+   */
+  const compareBandPaint = (exp: ValueElement, act: ValueElement): void => {
+    compareTreatment(exp, act, 'filter', exp.filter, act.filter)
+    compareValueField(exp, act, 'blendMode', exp.blendMode, act.blendMode)
+    if (exp.opacity !== undefined && act.opacity !== undefined) {
+      const dOp = Math.abs(exp.opacity - act.opacity)
+      if (dOp > opacityValueTol) push(exp, 'opacity', `${exp.opacity}`, `${act.opacity}`, dOp)
+    }
+    if (exp.borderRadiusPx !== undefined && act.borderRadiusPx !== undefined) {
+      const dr = Math.abs(exp.borderRadiusPx - act.borderRadiusPx)
+      const bothPills = isPillShape(exp.box, exp.borderRadiusPx) && isPillShape(act.box, act.borderRadiusPx)
+      if (!bothPills && dr > radiusTol) {
+        push(exp, 'shape', shapeLabel(exp.borderRadiusPx), shapeLabel(act.borderRadiusPx), dr)
+      }
+    }
+    if (exp.boxShadow !== undefined && act.boxShadow !== undefined && shadowsDiffer(exp.boxShadow, act.boxShadow)) {
+      push(exp, 'boxShadow', shadowLabel(exp.boxShadow), shadowLabel(act.boxShadow))
+    }
+  }
+  /** A section record's paint, in the element shape {@link compareBandPaint} reads. */
+  const sectionPaint = (sv: SectionValues, label: string): ValueElement => ({
+    text: label,
+    role: 'section',
+    opacity: sv.opacity,
+    filter: sv.filter,
+    blendMode: sv.blendMode,
+    borderRadiusPx: sv.borderRadiusPx,
+    boxShadow: sv.boxShadow,
+    box: sv.box,
+  }) as ValueElement
+
   // REQ-73 — every paired element with a box, for the adjacent-gap axis below.
+  // BUG-174 — and the population the `arrangement` pass relates over.
   const gapPairs: Array<{ exp: ValueElement; act: ValueElement }> = []
+  // BUG-174 — a paired object's card and the deltas it was built from, so the
+  // `arrangement` pass — which can only run once EVERY pair is known — can add
+  // its finding to the card of the element it is about.
+  const pairedCards = new Map<ValueElement, { act: ValueElement; at: number; own: ValueDelta[] }>()
+  const pushPairedCard = (exp: ValueElement, act: ValueElement, own: ValueDelta[]): void => {
+    cards.push(buildObjectCard(exp, act, own))
+    pairedCards.set(exp, { act, at: cards.length - 1, own })
+  }
 
   // ── text-free fields (REQ-47): pair by a11yRole + document order ─────────────
   for (const exp of expected.elements) {
@@ -3205,7 +3278,7 @@ export function diffManifests(
     comparePadding(exp, act)
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })
-    cards.push(buildObjectCard(exp, act, objectDeltas(start)))
+    pushPairedCard(exp, act, objectDeltas(start))
   }
 
   // When a text bucket holds several candidates — repeated text like "✓", "Read
@@ -3374,7 +3447,52 @@ export function diffManifests(
     // position, a mis-sized box, a squared-off corner, a stacked-vs-inline button.
     compareGeometry(exp, act)
     if (exp.box && act.box) gapPairs.push({ exp, act })
-    cards.push(buildObjectCard(exp, act, objectDeltas(start)))
+    pushPairedCard(exp, act, objectDeltas(start))
+  }
+
+  // REQ-331 / BUG-174 — `arrangement`: how an element sits relative to the one
+  // before it (`row` beside it, `stack` below it).
+  //
+  // It used to be read off the capture, where `extract.ts`'s `assignArrangement`
+  // relates each element to its predecessor in THAT SIDE'S OWN element list — and
+  // the two sides do not hold the same list. A reference band's list starts at
+  // its own first run, so every run that opens a band read `null`, while an L1
+  // reproduction relates its whole page in one list and emits band containers
+  // the reference has no counterpart for. On gigabytealchemy that left 22 of 59
+  // pairs of a CRITICAL-tier axis uncompared (BUG-160 made it visible).
+  //
+  // So both sides are related over ONE population — the paired elements, each
+  // side sorted by its own boxes — which is the only list on which "the element
+  // before it" names the same element on both sides. An element with no
+  // predecessor in that order has no arrangement to compare, and that is the only
+  // pair skipped. Nothing a side emitted without a counterpart can become, or
+  // hide, a paired element's predecessor.
+  //
+  // Compared only where this element's OWN geometry agrees: a displacement of one
+  // element re-sorts the list and relabels a DIFFERENT one (faelan.com: a 16px
+  // drift changed `Alley scene`'s predecessor and produced the page's
+  // highest-severity delta against an element whose own box agreed to 0.01px).
+  // There the `position` delta already names the real defect; the declined
+  // disagreement is counted, not dropped.
+  {
+    const expRel = arrangementsOver(gapPairs.map((p) => p.exp))
+    const actRel = arrangementsOver(gapPairs.map((p) => p.act))
+    for (const { exp, act } of gapPairs) {
+      const e = expRel.get(exp)
+      const a = actRel.get(act)
+      if (e === undefined || a === undefined) continue
+      arrangementPairs++
+      if (e === a) continue
+      const dpos = Math.max(Math.abs(exp.box!.x - act.box!.x), Math.abs(exp.box!.y - act.box!.y))
+      if (dpos > positionTol) {
+        arrangementDeclinedMoved++
+        continue
+      }
+      const start = deltas.length
+      push(exp, 'arrangement', arrangementLabel(e), arrangementLabel(a))
+      const card = pairedCards.get(exp)
+      if (card) cards[card.at] = buildObjectCard(exp, card.act, [...card.own, ...objectDeltas(start)])
+    }
   }
 
   // REQ-73 — the adjacent-GAP axis: vertical spacing in the coordinate that matters
@@ -3659,6 +3777,11 @@ export function diffManifests(
     if (es.textAlign !== undefined && as.textAlign !== undefined && es.textAlign !== as.textAlign) {
       record(label, 'section', 'textAlign', es.textAlign, as.textAlign)
     }
+    // BUG-174 — the band's own paint. The reproduction's full-bleed band box is
+    // lifted out of the element tally on the premise that this record compares it
+    // (see the band-paint classification below); these five are what made that
+    // premise true for everything but the fill and the imagery.
+    compareBandPaint(sectionPaint(es, label), sectionPaint(as, label))
   })
 
   // BUG-111 — lift the unpaired bands out of `sectionPairing` and count them on
@@ -3747,11 +3870,10 @@ export function diffManifests(
   // one silence twice, which is the mirror of the error being fixed.
   //
   // Either verdict is counted — `bandPaintActual` is part of the unmeasured set's
-  // `populations` (see `tools/repro-console/src/unmeasured.ts`), because a box's
-  // `opacity`, `filter`, `blendMode`, `borderRadiusPx` and `boxShadow` have
-  // nowhere to land on a section record however faithfully its fill is
-  // represented. The classification decides WHICH silence is reported, never
-  // whether there is one.
+  // `populations` (see `tools/repro-console/src/unmeasured.ts`). BUG-174 gave the
+  // section record the box's `opacity`, `filter`, `blendMode`, `borderRadiusPx`
+  // and `boxShadow`, so a box all of whose axes were compared now leaves that
+  // count for `bandPaintComparedActual`; one with an axis still unread stays.
   /** The reproduction band whose box this full-bleed element coincides with. */
   const bandOfPaint = (box: Box): SectionValues | undefined =>
     actSections.find(
@@ -3776,16 +3898,51 @@ export function diffManifests(
     // The imagery: the same question one axis over, by mirrored basename — the key
     // the section `backgroundImage` comparison itself uses.
     const own = assetBasename(el.backgroundImageUrl)
-    return own === null || own === assetBasename(as.backgroundImageUrl)
+    if (own !== null && own !== assetBasename(as.backgroundImageUrl)) return false
+    // BUG-174 — and the band's own paint, the same question five axes over: the
+    // band record reads it off the element that paints the band, and a box whose
+    // opacity, filter, blend, corners or shadow disagree with it is not the paint
+    // that record describes. Run as a dry comparison so the rule is the section
+    // pass's own, and nothing it would have recorded is kept.
+    const before = deltas.length
+    compareBandPaint(sectionPaint(as, `§${as.index}`), el)
+    const disagrees = deltas.length > before
+    deltas.length = before
+    return !disagrees
+  }
+  // BUG-174 — the reference band each reproduction band was paired with, so a
+  // band-paint box can ask whether BOTH records carried its paint.
+  const expectedOf = new Map<SectionValues, SectionValues>()
+  for (const [ei, m] of sectionMatches) expectedOf.set(m.section, expSections[ei])
+  /**
+   * BUG-174 — every paint axis of this box was compared: the box carries all
+   * five, its band record carries all five (so the represented check above read
+   * each one), and the reference band it is paired with carries all five (so the
+   * section pass compared each one). One `undefined` anywhere — a bundle before
+   * capture schema 12, an unpaired band — and the box stays partly compared.
+   */
+  const bandPaintCompared = (el: ValueElement): boolean => {
+    const as = el.box ? bandOfPaint(el.box) : undefined
+    const es = as ? expectedOf.get(as) : undefined
+    if (!as || !es) return false
+    return BAND_PAINT_AXES.every((k) => el[k] !== undefined && as[k] !== undefined && es[k] !== undefined)
   }
   const unpairedActual: UnpairedObject[] = []
   // BUG-153 (item 4) — REQ-308's discipline, applied to the element list: a
   // reproduction object lifted OUT of the unpaired tally is REPORTED, so the drop
   // in the count is visible rather than silent.
   const bandPaintActual: UnpairedObject[] = []
+  // BUG-174 — and a band-paint box whose every paint axis WAS compared is
+  // reported too, in a list of its own: measured, so not unmeasured, and still
+  // accounted for so `matched + unpairedActual + bandPaintActual +
+  // bandPaintComparedActual` is every reproduction element.
+  const bandPaintComparedActual: UnpairedObject[] = []
   for (const el of leftovers) {
-    const target =
-      isBandPaint(el, reproSections, reproWidth) && bandPaintRepresented(el) ? bandPaintActual : unpairedActual
+    const target = !(isBandPaint(el, reproSections, reproWidth) && bandPaintRepresented(el))
+      ? unpairedActual
+      : bandPaintCompared(el)
+        ? bandPaintComparedActual
+        : bandPaintActual
     target.push(toUnpaired(el, actualAt.get(el)))
   }
 
@@ -3925,6 +4082,7 @@ export function diffManifests(
     objects: cards,
     unpairedActual,
     bandPaintActual,
+    bandPaintComparedActual,
     sectionPairing,
     unpairedSections,
     nonSurfaceSections,
@@ -3942,36 +4100,6 @@ export function diffManifests(
       // Both are the same fact to the gate — "compared, and not evaluated here" —
       // so both arrive in the same list rather than in a second one nothing reads.
       ...unreadableTransformAxes(expected, actual),
-      // BUG-160 (issue 2) — and the `arrangement` pairs one side read no value
-      // for. `arrangement` relates an element to the one BEFORE it in that
-      // side's own top-to-bottom sort, and the two sides do not sort the same
-      // list — a reproduction emits band containers a reference has no
-      // counterpart for — so `relate` returns null on one side for a pair the
-      // other side read fine. The both-sides guard then drops the comparison,
-      // correctly and, until now, silently: on the round this was filed from,
-      // 22 of 59 pairs on a CRITICAL-tier axis, under a headline of `0 axes`.
-      // One row per side, never one per element, exactly as the transform rows
-      // above: the count and the reason are the fact, the element list is not.
-      ...(arrangementUnreadExpected > 0
-        ? [
-            {
-              axis: 'arrangement',
-              scope: 'element' as const,
-              side: 'reference' as const,
-              reason: arrangementUnreadReason(arrangementUnreadExpected, arrangementPairs),
-            },
-          ]
-        : []),
-      ...(arrangementUnreadActual > 0
-        ? [
-            {
-              axis: 'arrangement',
-              scope: 'element' as const,
-              side: 'reproduction' as const,
-              reason: arrangementUnreadReason(arrangementUnreadActual, arrangementPairs),
-            },
-          ]
-        : []),
       // BUG-153 (item 2) — and the mask pairs this run could not resolve.
       ...(maskGeometryUnresolved
         ? [
@@ -4011,21 +4139,6 @@ export function diffManifests(
  * gate enumerates these by name and a page with forty rotated layers would
  * otherwise print forty identical lines.
  */
-/**
- * BUG-160 (issue 2) — the reason line for an `arrangement` side that read no
- * value, carrying the count it applies to. One sentence, in the comparator's own
- * words, naming the mechanism rather than the elements: the count is what a
- * round drives down and the mechanism is what a fix has to change.
- */
-function arrangementUnreadReason(unread: number, pairs: number): string {
-  return (
-    `this side read no arrangement for ${unread} of ${pairs} paired elements, so the ` +
-    `both-sides guard skipped the comparison — the axis relates an element to the one ` +
-    `before it in that side's OWN top-to-bottom sort, and the two sides do not sort the ` +
-    `same element list`
-  )
-}
-
 function unreadableTransformAxes(expected: ValueManifest, actual: ValueManifest): UnmeasuredAxis[] {
   const REASON =
     'the effective transform chain held a value this projection cannot decompose ' +

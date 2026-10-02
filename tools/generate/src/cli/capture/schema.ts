@@ -142,8 +142,13 @@ import type { Capture } from './types'
  *   ladder; a page whose height rule sits inside a media query (the common case)
  *   was reproduced with that one width's rule everywhere. A pre-11 bundle can only
  *   ever identify the height axis at 1280.
+ * - **12** — BUG-174: a band's OWN paint (`sections[].paint`) — the opacity,
+ *   filter, blend mode, corner radius and shadow of the element that paints the
+ *   band. A reproduction paints each band on a full-bleed box whose five axes the
+ *   diff reads; a pre-12 bundle has nothing to compare them against, so they stay
+ *   unmeasured on it until the reference is re-captured.
  */
-export const CAPTURE_SCHEMA = 11
+export const CAPTURE_SCHEMA = 12
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -467,6 +472,14 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // A whole-pixel line-height is legal at any schema, so a bundle only proves
     // it has the precision by carrying a fractional one.
     present: (c) => runs(c).some((r) => typeof r.lineHeightPx === 'number' && !Number.isInteger(r.lineHeightPx)),
+  },
+  {
+    since: 12,
+    axis: "a band's own paint (opacity, filter, blendMode, borderRadiusPx, boxShadow)",
+    where: 'a section (`sections[].paint`)',
+    // Every band carries it from schema 12, so the key's presence on any section
+    // is the axis — there is no page shape on which a current extractor omits it.
+    present: (c) => c.sections.some((s) => typeof s.paint === 'object' && s.paint !== null),
   },
 ]
 

@@ -87,16 +87,20 @@ describe('REQ-47 severity-ranked structural diff — the three REQ-20 misses', (
   const expected = mani([
     textEl('Intentional Software', { role: 'heading', box: box(120, 400, 600, 60) }),
     fieldEl({ accessibleName: 'Your email address', nameSource: 'placeholder', box: box(120, 900, 320, 44) }),
-    textEl('Subscribe', { role: 'action', box: box(452, 900, 120, 44), arrangement: 'row' }),
+    textEl('Subscribe', { role: 'action', box: box(452, 900, 120, 44) }),
     textEl('A long paragraph of body copy', { color: '#334155', box: box(120, 1200, 900, 320) }),
   ])
   // Reproduction: hero block 195px lower; the field grows a label-above (name
-  // outside the box); the button stacks below the input; the paragraph is a
-  // near-neighbour grey — a big element, mildly wrong.
+  // outside the box) and sits above the button's row, so the button — which did
+  // not move — now stacks below the input; the paragraph is a near-neighbour
+  // grey — a big element, mildly wrong.
+  //
+  // BUG-174 — arrangement is read off the boxes (over the paired elements), not
+  // off a captured label, so the fixture renders the defect rather than naming it.
   const actual = mani([
     textEl('Intentional Software', { role: 'heading', box: box(120, 595, 600, 60) }),
-    fieldEl({ accessibleName: 'Your email address', nameSource: 'label', box: box(120, 900, 320, 44) }),
-    textEl('Subscribe', { role: 'action', box: box(452, 900, 120, 44), arrangement: 'stack' }),
+    fieldEl({ accessibleName: 'Your email address', nameSource: 'label', box: box(120, 840, 320, 44) }),
+    textEl('Subscribe', { role: 'action', box: box(452, 900, 120, 44) }),
     textEl('A long paragraph of body copy', { color: '#94a3b8', box: box(120, 1200, 900, 320) }),
   ])
 

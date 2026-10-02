@@ -737,11 +737,38 @@ export interface SectionItem {
   content: ContentRun[]
 }
 
+/**
+ * BUG-174 — a band's OWN paint: the five axes of the element that paints the
+ * band (its imagery or its fill), which no other band field holds.
+ *
+ * A reproduction paints a band on a full-bleed box, and that box's `opacity`,
+ * `filter`, `blendMode`, corner radius and shadow are element axes the diff
+ * compares on every other box. On the reference the same band is a section
+ * record, which carried its fill and imagery and nothing else — so these five
+ * were compared on neither side. `null` is "measured, and paints none"; the
+ * object is ABSENT on a bundle taken before capture schema 12, which is read as
+ * unmeasured and never as a default.
+ */
+export interface BandPaint {
+  /** Element `opacity` in 0..1 (1 opaque). */
+  opacity: number
+  /** Computed `filter` when painted, else null. */
+  filter: string | null
+  /** Computed `mix-blend-mode` when not `normal`, else null. */
+  blendMode: string | null
+  /** Largest computed corner radius in px (0 when square). */
+  borderRadiusPx: number
+  /** Computed `box-shadow` when painted, else null. */
+  boxShadow: string | null
+}
+
 export interface Section {
   box: Box
   /** Crop rectangle into `screenshot.full.png` (same coords as `box`). */
   screenshot: Box
   background: Background
+  /** BUG-174 — the band's own paint (see {@link BandPaint}); absent before schema 12. */
+  paint?: BandPaint
   layout: Layout
   content: ContentRun[]
   items: SectionItem[]

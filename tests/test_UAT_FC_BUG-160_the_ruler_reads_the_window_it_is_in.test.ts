@@ -38,7 +38,6 @@ import {
 } from '../tools/generate/src'
 import type { L1Document, L1Node } from '../packages/site-schema/src/index'
 import { diffManifests, type ValueManifest } from '../tools/generate/src/cli/capture'
-import { reconcileGates } from '../tools/generate/src/cli/gate-core'
 
 // ── issue 1 · fixtures ───────────────────────────────────────────────────────
 
@@ -315,63 +314,23 @@ const arrangementUnmeasured = (report: ReturnType<typeof diffManifests>) =>
 const arrangementDeclined = (report: ReturnType<typeof diffManifests>) =>
   report.notComparableAxes.filter((a) => a.axis === 'arrangement')
 
+// BUG-174 — the one-sided half of this issue is RETIRED, not merely quiet: both
+// sides now relate an element over the same population (the paired elements),
+// so a pair one side read and the other did not cannot arise, and the
+// `unmeasuredAxes` rows these tests pinned (`..._a_one_sided_arrangement_is_
+// counted_and_named`, `..._the_reproduction_side_is_counted_the_same_way`,
+// `..._the_gate_stops_reporting_zero_axes_over_them`) were deleted with the
+// mechanism. Their inverted forms are BUG-174's arrangement UATs. What stays is
+// the declination, which is still a measurement not made.
 describe('BUG-160 issue 2 — an arrangement nobody compared is not an arrangement that agreed', () => {
-  it('test_UAT_FC_BUG-160_a_one_sided_arrangement_is_counted_and_named', () => {
-    // The filed shape: `arrangement` relates an element to the one BEFORE it in
-    // that side's own top-to-bottom sort, and the two sides do not sort the same
-    // list — a reproduction emits band containers a reference has no counterpart
-    // for — so `relate` reads null on the reference for a pair the reproduction
-    // read fine. The both-sides guard then drops the comparison, correctly, and
-    // until now silently: on the filed round 22 of 59 pairs, on a CRITICAL-tier
-    // axis, under a headline of `0 axes`.
-    const report = diffManifests(
-      manifest('ref', [el('Gigabyte Alchemy'), el('Intentional Software'), el('Our Mission', { arrangement: 'stack' })]),
-      manifest('repro', [
-        el('Gigabyte Alchemy', { arrangement: 'row' }),
-        el('Intentional Software', { arrangement: 'stack' }),
-        el('Our Mission', { arrangement: 'stack' }),
-      ]),
-    )
-
-    // Still not a delta — an axis nobody measured is not a defect found.
-    expect(report.deltas.filter((d) => d.property === 'arrangement')).toEqual([])
-    // But no longer silence. One row for the side that read nothing, never one
-    // per element, carrying the count and the mechanism.
-    const rows = arrangementUnmeasured(report)
-    expect(rows).toHaveLength(1)
-    expect(rows[0].side).toBe('reference')
-    expect(rows[0].scope).toBe('element')
-    expect(rows[0].reason).toMatch(/no arrangement for 2 of 3 paired elements/)
-    expect(rows[0].reason).toMatch(/do not sort the same element list/)
-  })
-
-  it('test_UAT_FC_BUG-160_the_reproduction_side_is_counted_the_same_way', () => {
-    // Symmetric by construction, because the guard is: the round that filed this
-    // happened to read nulls on the reference, and the one that reads them on the
-    // reproduction is the same silence facing the other way.
-    const rows = arrangementUnmeasured(
-      diffManifests(
-        manifest('ref', [el('Get in touch', { arrangement: 'row' })]),
-        manifest('repro', [el('Get in touch')]),
-      ),
-    )
-
-    expect(rows).toHaveLength(1)
-    expect(rows[0].side).toBe('reproduction')
-    expect(rows[0].reason).toMatch(/no arrangement for 1 of 1 paired elements/)
-  })
-
   it('test_UAT_FC_BUG-160_a_declined_arrangement_reaches_the_declination_list', () => {
-    // The second guard in the same block. REQ-331 declines the axis where the
-    // element's OWN box has moved, because the position delta above already names
-    // the real defect and this would be a second, louder report of a third
-    // element's movement. That call stands — and it is a measurement not made, so
-    // it is counted where REQ-270's anchor refusal is counted.
+    // REQ-331 declines the axis where the element's OWN box has moved, because the
+    // position delta already names the real defect and this would be a second,
+    // louder report of a third element's movement. That call stands — and it is a
+    // measurement not made, so it is counted where REQ-270's anchor refusal is.
     const report = diffManifests(
-      manifest('ref', [el('Alley scene', { arrangement: 'row' })]),
-      manifest('repro', [
-        el('Alley scene', { arrangement: 'stack', box: { x: 20, y: 160, width: 280, height: 24 } }),
-      ]),
+      manifest('ref', [el('Hero'), el('Alley scene', { box: { x: 320, y: 100, width: 280, height: 24 } })]),
+      manifest('repro', [el('Hero'), el('Alley scene', { box: { x: 20, y: 160, width: 280, height: 24 } })]),
     )
 
     expect(report.deltas.filter((d) => d.property === 'arrangement')).toEqual([])
@@ -383,47 +342,19 @@ describe('BUG-160 issue 2 — an arrangement nobody compared is not an arrangeme
   })
 
   it('test_UAT_FC_BUG-160_a_compared_axis_reports_no_hole_and_still_reports_its_delta', () => {
-    // Earned in both directions. A page whose two sides both read the axis on
-    // every pair puts NO row anywhere — the tally counts measurements missed, not
-    // measurements made, and a permanent row on every report would be worth
-    // nothing — and a genuine disagreement on a still element is still the
-    // CRITICAL delta it always was.
+    // A page whose pairs are all compared puts NO row anywhere, and a genuine
+    // disagreement on a still element is still the CRITICAL delta it always was:
+    // `The Alchemy` did not move, `Our Mission` moved from beside it to above it.
     const report = diffManifests(
-      manifest('ref', [el('Our Mission', { arrangement: 'row' }), el('The Alchemy', { arrangement: 'stack' })]),
-      manifest('repro', [el('Our Mission', { arrangement: 'stack' }), el('The Alchemy', { arrangement: 'stack' })]),
+      manifest('ref', [el('Our Mission'), el('The Alchemy', { box: { x: 320, y: 100, width: 280, height: 24 } })]),
+      manifest('repro', [
+        el('Our Mission', { box: { x: 20, y: 60, width: 280, height: 24 } }),
+        el('The Alchemy', { box: { x: 320, y: 100, width: 280, height: 24 } }),
+      ]),
     )
 
     expect(arrangementUnmeasured(report)).toEqual([])
     expect(arrangementDeclined(report)).toEqual([])
     expect(report.deltas.filter((d) => d.property === 'arrangement')).toHaveLength(1)
-  })
-
-  it('test_UAT_FC_BUG-160_the_gate_stops_reporting_zero_axes_over_them', () => {
-    // The hop that decides whether any of this exists: `gate.json` is what the
-    // round reads. The filed round reported `unmeasuredAxes: []` and a headline
-    // unmeasured count of 1 over 22 comparisons that did not happen; the count now
-    // reaches the gate and the rung names the axis.
-    const diff = diffManifests(
-      manifest('ref', [el('Gigabyte Alchemy'), el('Our Mission', { arrangement: 'stack' })]),
-      manifest('repro', [
-        el('Gigabyte Alchemy', { arrangement: 'row' }),
-        el('Our Mission', { arrangement: 'stack' }),
-      ]),
-    )
-    const gate = reconcileGates({
-      perceptual: { meanDiff: 0, pctOverThreshold: 0, regions: [] },
-      l1Gate: {
-        pass: true,
-        onSample: { pass: true, byWidth: [] },
-        offSample: { pass: true, byWidth: [] },
-        contentRobustness: { pass: true, byWidth: [] },
-        sampleFidelity: { pass: true, maxDeltaPx: 0, byWidth: [] },
-      },
-      coverage: { sections: 0, elements: 2, findings: [] },
-      values: diff,
-    })
-
-    expect(gate.values.unmeasuredAxes.filter((u) => u.axis === 'arrangement')).toHaveLength(1)
-    expect(gate.nextStep).toMatch(/arrangement/)
   })
 })
