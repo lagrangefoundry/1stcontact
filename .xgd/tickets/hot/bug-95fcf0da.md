@@ -6,7 +6,7 @@ title: 'L1 above the widest rung: full-bleed surfaces freeze while content keeps
   the viewport, and no probe samples there'
 created_by: EPIC-12
 created_at: '2026-10-02T00:34:56.539149+00:00'
-updated_at: '2026-10-02T01:00:43.792752+00:00'
+updated_at: '2026-10-02T01:23:32.827413+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -135,3 +135,85 @@ from keyframes and so could not see. The bands hold their 375px width there whil
 following the column: at 506/637px faelan's 'Faelan', 'Worlds End Studio…' and '© 2025…' sit 107/238px past
 `section-band-0`/`-1`, and gigabytealchemy's LinkedIn/GitHub sit past `section-band-5`. These are real
 served-CSS findings of the same class (a frozen surface beside live content), not a model artifact.
+
+
+## What landed (implementation record)
+
+**Part 1 — the alarm** (`tools/generate/src/l1/probes.ts`)
+- `offSampleWidths` keeps two interior samples per segment, still nothing below the first rung, and adds **one
+  width a third past the top rung** (`round(last × 4/3)` → 1920 on a 1440 ladder). This supersedes the BUG-143
+  exclusion above the last rung; `test_UAT_FC_BUG-143_off_sample_samples_two_points_per_segment` is updated
+  to match.
+- The evaluator now resolves **REQ-88 column-anchored `x`/`width`** from the column function (`anchorBox`,
+  `columnTermAt`, which mirror `anchorDecls`/`anchorTrackRules`) for absolutely placed nodes at every width,
+  instead of reading the keyframes. A **fluid width owns the axis** over keyframes (`tracksContainerWidth`):
+  the box takes its containing block's width. The height response was already modelled. Nowrap
+  `fit-content` widths need no extra modelling, because with unchanged copy the shrink-to-fit width is the
+  captured floor.
+- `deriveFullBleedSurfaces(doc)` (exported) collects the backing surfaces that span the viewport (x≈0,
+  width≈viewport within `FULL_BLEED_TOLERANCE_PX` = 1.5) at every captured width. The envelope probes pass it
+  as `EvaluateOptions.fullBleed`, and `evaluateLayout` reports an **`escape`** finding for each one whose right
+  edge stops short: "backing surface X was full-bleed at every captured width and stops Npx short of the
+  viewport's right edge". Content past a surface's right edge comes from the existing run→surface
+  containment, which now sees anchored runs move.
+
+**Part 2 — the fix**
+- Fold (`tools/generate/src/l1/fold.ts`, `markViewportTracking`, the last pass in `foldToL1`): a node whose
+  keyframes cover every rung with width = viewport (±1.5px) is written as `sizing.width: { mode: 'fluid' }`.
+  Guards: its containing block must itself span the viewport (the root, a geometry-less wrapper, or another
+  marked node, none of them padded), so the fill resolves to the viewport and on-sample boxes don't move. It
+  must also not already carry a sizing width or a column-anchored width. **A plateaued node (a capped page)
+  is never full-bleed at every rung, so it keeps its literal widths and holds its captured width above the
+  ladder.**
+- Renderer (`packages/framework/src/l1/render.ts`): `fillsWidth(geometry, sizing)` makes a fluid width suppress
+  the keyframe widths in `geometryRules` (absolute and flow frames) exactly as an anchored width does, and
+  takes precedence in `nodeWidthAt` (returns the viewport width, capped by `maxPx`, which drives the
+  background-rendition choice) and in `imageSizes` (`sizes="100vw"`).
+
+### Design decisions
+- **`containerMaxWidthPx` is not used as a cap.** It is the *narrowest* `max-width` on the page (448 on
+  gigabytealchemy, 896 on faelan, 700 on joyfulculinary), which is the content column, not a page cap, and it
+  isn't present in `multistate.json`. Capping the bands with it would shrink them below their measured width.
+  "The reproduction caps where the original caps" is carried by the plateau rule. The exact-cap-at-the-widest-
+  rung case stays with the out-of-scope wider capture projection.
+- `width: 100%` (the existing `fluid` compilation), not `100vw`, so a classic scrollbar doesn't overflow
+  horizontally. That is why the fold only marks a node whose containing block spans the viewport.
+- Anchored axes are modelled at **every** width, not only above the ladder, because that is what the CSS does.
+  It also exposed the same frozen-versus-live mixture inside the 375→768 `snap` window, and Part 2 clears it
+  there too.
+- Hand-authored fixtures in BUG-142/BUG-143 that drew full-bleed surfaces as identity-line keyframes now
+  declare `sizing.width: fluid`, as the fold writes them. Left as frozen literals, they are exactly this defect.
+
+### Gate numbers, before → after (`1c l1-gate`; "after" on refolded copies of the bundles)
+
+| site | sampleFidelity maxΔ / residuals | onSample | offSample (incl. 1920 + snap window) | contentRobustness |
+|---|---|---|---|---|
+| faelan.com | 0.009px / 0 → 0.009px / 0 | 0 → 0 | 0 (1920 not sampled) → **0 at every width incl. 1920** | pass → pass |
+| gigabytealchemy.ai | 0.008px / 0 → 0.008px / 0 | 0 → 0 | 0 (1920 not sampled) → **0 at every width incl. 1920** | 38/33/18/14/14/14 → identical (pre-existing, unrelated) |
+
+With the new probe but the *old* fold (current `page.json`s), off-sample reports the 1920 shortfalls and the
+snap-window escapes listed in Part 1 evidence. On the refolded documents the fold marks exactly
+gigabytealchemy `section-bg-0`, `section-band-1…5` and faelan `section-bg-0`, `section-band-0`, `-1`, with no
+other node marked. The stored reference bundles are untouched; `1c refold --ref <bundle>` picks the change up.
+
+## Test plan
+`tests/test_UAT_FC_BUG-173_above_the_widest_rung.test.ts` (real `foldToL1` / `evaluateLayout` / probes /
+`renderL1Document`, no mocks):
+- `…off_sample_samples_one_width_above_the_widest_rung`: 1920 is sampled, interior sampling unchanged,
+  nothing below the first rung
+- `…evaluator_tracks_column_anchors_above_the_widest_rung`: an anchored run at 1920 sits at the column
+  origin, not at its 1440 keyframe
+- `…probe_names_a_frozen_full_bleed_surface_and_its_shortfall`: an unmarked full-bleed surface is named at
+  1920 with "480px short"; on-sample stays clean
+- `…fold_marks_only_nodes_that_were_the_viewport_width_at_every_rung`
+- `…a_plateaued_surface_keeps_holding_its_captured_width`: a capped page → no mark, `width: 1280px` held
+  above 1440
+- `…rendered_full_bleed_surface_has_no_frozen_width`: `width: 100%`, no px/calc width at any breakpoint, probe
+  clean at 1920
+- `…at_every_captured_rung_the_box_is_unchanged`: marked vs unmarked boxes are identical at every rung
+- `…fill_wins_over_keyframes_for_sizes_and_background_renditions`: `sizes="100vw"` and a viewport-sized
+  background rendition despite frozen 300px keyframes
+
+Regression: the 118 non-workerd test files touching fold, probes or renderer pass, except
+`test_UAT_AC931_a_referenced_document_loads_and_renders_identically_to_its_literal_twin`, which fails on the
+unchanged code too (pre-existing, palette-related).
