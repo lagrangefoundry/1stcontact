@@ -6,10 +6,10 @@ title: 'Builder: a plan panel above the chat, where the consultant''s questions 
   for the client'
 created_by: EPIC-19
 created_at: '2026-10-02T21:02:05.849959+00:00'
-updated_at: '2026-10-02T21:02:05.849959+00:00'
+updated_at: '2026-10-02T22:58:59.225885+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-95bc3b15
@@ -91,3 +91,11 @@ One coherent change: the schema, the operations, the route, the panel, the notic
 - (workers) After the client answers an ask, the consultant's next turn's change notice names the ask and the value, and an agent's own ask writes are not reported back to it. This holds with the group-chat switch off and on.
 - (panel) The panel renders the phase line and the open asks with the right input per type, hides withdrawn asks, shows answered and skipped asks as changeable, re-reads when a turn's plan write arrives, and keeps its divider position and collapsed state across a reload.
 - (priming) The consultant's assembled priming carries the panel rules, and the plan surface's tool manual lists the add/edit, withdraw and fill-from-material operations.
+
+## Implementation decisions (made at the start of the build)
+
+- **The coordinator gets the plan surface.** The ticket assumed it already held it; it did not (REQ-356 left the coordinator's plan grant out of scope, which is also why the coordinator made zero plan writes in the Charlie session). Its box now composes the plan surface with REQ-356's coordinator groups (`ReadPlan`, `KeepBrief`, `CoordinatePlan`) plus the new ask group, so switching the group chat back on gives a room in which both members can keep asks.
+- **The ask operations are one new group, `KeepAsks`**, granted to both roles: `set_ask` (add or edit wording, reason, input type, options, `needed_by`, `blocking`; never touches an answer), `withdraw_ask` (with a reason), and `fill_ask` (fill from client material, citing the material uid). The agent recorded in `answered_by` is the grant's role (`consultant` / `coordinator`), never a parameter. `fill_ask` refuses an ask the client answered; it may fill an open or skipped one. Re-adding a withdrawn ask is refused unless the call says `reopen`, so a later turn does not ask again by accident.
+- **The route is two endpoints.** `GET /api/plan?site=` answers the panel's view (phase, asks); `POST /api/plan/ask` takes `{site, ask, action: answer | skip, answer?, answer_material?}`. Both check that the site is this business's. An upload goes through the existing `POST /api/material` first (so it is a Library item and a material ticket), and its uid is then sent as `answer_material`. The write goes through REQ-356's `sitePlan` port, so it is checked and compare-and-set; on `CONFLICT` the route re-reads and re-applies once more before answering 409.
+- **The notice has its own cursor.** A `plan_cursor` field on the reading session's `chat` ticket (beside REQ-160's `kb_cursor`). The notice lists asks whose `answered_by` is `client` and whose `answered_at` is after the cursor, so an agent's own ask writes are never reported back to it. A client answer that replaces an earlier one records `previous_answer`, and the notice says "changed from … to …". The coordinator's member session has its own cursor, so in the room each member hears each answer once.
+- **The panel re-reads on a `plan_changed` stream event.** The host counts plan writes per site (as it counts settings writes) and emits `plan_changed` after the tool call that wrote the plan, alongside `site_changed`. The panel also re-reads when a turn ends and when the builder opens a site.
