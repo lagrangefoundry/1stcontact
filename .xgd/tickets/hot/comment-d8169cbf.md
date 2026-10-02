@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T04:43:24.503315+00:00'
+updated_at: '2026-10-02T20:21:07.554975+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6113,5 +6113,15 @@ I've filed both bugs under EPIC-19, at `draft`, and added both to the epic.
 - **Also checked in the fix:** that the read uses the members' post-rename session ids. A lookup still keyed on `assistant-<site>` would show "Nothing yet." for ever.
 
 The dev workaround for BUG-176, deleting the empty room's junction file with the server down, is written into that ticket.
+
+<!-- xgd-turn id="6f44fc7c-e4d8-418b-8c51-167ad8a080f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T20:21:07.271753+00:00" -->
+#### You
+ok lots to catch you up on - please take a look at Charlie's Plumbing business and the transcript then take a look at the Chat: "Alice and Bob go to work" and the DOC-65 that we just created from its output.
+
+I need your help to create REQ tickets for our next experiment. The key is to add the new plan-panel - in v1 this should just front-face questions from Alice - later it will provide status - what Alice is doing, where we are in the process etc.
+
+Can you read the material - summarize your understanding of it and ask your questions please?
 
 <!-- xgd-chat-end -->
