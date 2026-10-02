@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T18:51:37.651700+00:00'
+updated_at: '2026-10-02T19:00:05.304193+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3624,5 +3624,13 @@ A whole 9,000 px page at that width is about 10k tokens. That's fine as an occas
 I haven't filed a ticket for the screenshots. Since it's about what enters the consultant's context, it would fit in REQ-361. Want me to add it there?
 
 All four tickets are recorded on EPIC-20, and REQ-361 and REQ-362 are linked as children.
+
+<!-- xgd-turn id="3dfb3f32-93a6-448a-803e-b74f243b7c0c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T19:00:04.230536+00:00" -->
+#### You
+The limit itself is hard-coded, though. <-- thats a bug - we should never hard code constants like that is that a bug for lf?
+
+Please file a ticket for the screenshot - I really like the tiles because that is how the user sees it - they do not see the full page. I think we should have a default that is reasonable but conservative and allow the AI to configure more detail or less
 
 <!-- xgd-chat-end -->
