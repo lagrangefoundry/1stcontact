@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T03:37:40.128167+00:00'
+updated_at: '2026-10-02T03:42:43.403022+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3509,5 +3509,50 @@ Both tickets are at `draft`. Promote them from the dashboard when you're ready.
 <!-- xgd-chat role="user" ts="2026-10-02T03:37:39.503526+00:00" -->
 #### You
 I have three tabs doing recaptures on faelan, gigabyte and joyful all seem to be taking ages are they ok?
+
+<!-- xgd-turn id="8a6d07c4-4bf5-4d65-bcbd-3427ea516113-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T03:42:42.453132+00:00" -->
+#### Claude
+Two of the three have failed, both at the final scoring step (the gate), and the third has finished. Getting the error detail now.
+
+Chromium can't launch inside my sandbox, so I can't rerun the gate myself. Looking for the error in the code instead.
+
+Still digging. The page captures and comparison images were written fine; the crash comes after the image comparison. Narrowing it down.
+
+I've narrowed it to one step (spotting images on the original that the copy didn't draw). Reproducing it offline with the run's own files.
+
+Reproduced in both runs. Finding which box triggers it.
+
+Two of the three runs are broken. They didn't hang; they crashed near the end, and the console reports it as **"failed at gate: offset is out of bounds"**:
+
+| tab | site | state |
+|---|---|---|
+| 8710 | joyfulculinarycreations | **failed** at the gate (scoring) step |
+| 8712 | faelan | **failed** at the gate (scoring) step |
+| 8711 | probably gigabytealchemy | finished OK |
+
+Nothing is running now, so there's nothing left to wait for. I couldn't load the 8711 page from here to confirm its site. "Probably gigabytealchemy" comes from Gigabyte Alchemy not having the image shape that triggers the crash.
+
+## What's crashing
+
+I reproduced it offline from the two failed runs' own files, and both throw at the same line. It comes from **BUG-161**, landed 29 Sep, not from today's BUG-173 or BUG-174.
+
+BUG-161 added a check for images the original draws that the copy doesn't. That check cuts each image's rectangle out of both screenshots. When an image's size isn't a whole number of pixels, the cut overruns its buffer by one row and throws:
+
+- **faelan:** one image is 205.7px tall.
+- **joyful:** four images have fractional sizes.
+
+Gigabyte Alchemy has none, which is why it was the only site to pass. Faelan's last successful run was 40 minutes before BUG-161 landed, so this is the first time faelan or joyful has gone through that code.
+
+## What it costs
+
+The runs aren't wasted: the capture and the comparison images are all saved. Only the final verdict file is missing, which is why the console marks the iteration failed. But **no faelan or joyful iteration can complete** until this is fixed, so recapturing again won't help.
+
+The fix is small: round the rectangle to whole pixels before cutting it. Then add one test with a fractional-sized image, which is the shape faelan already has. Want me to file it as a bug under EPIC-12? BUG-161 has already moved past the point where its ticket can be edited, so it can't absorb this.
+
+## Separate, and not new
+
+Joyful's reproduction screenshot is **1700px wide at a 1280 window**, so the copy overflows sideways by 420px. It was already that wide in the 29 Sep iteration, so today's changes didn't cause it. It's a real defect, though, and BUG-173's new above-the-widest-width check probably won't catch it, because the overflow happens at a captured width. Worth looking at once joyful can complete an iteration again.
 
 <!-- xgd-chat-end -->
