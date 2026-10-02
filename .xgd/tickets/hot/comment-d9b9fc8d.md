@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-02T03:06:21.062288+00:00'
+updated_at: '2026-10-02T03:08:55.665746+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5262,5 +5262,23 @@ Your runbook is blocked at the chats step until BUG-159 lands. The site copy is 
 <!-- xgd-chat role="user" ts="2026-10-02T03:06:19.109846+00:00" -->
 #### You
 Please remind me does bin/build rebuild the kb?
+
+<!-- xgd-turn id="4208fdaf-16e0-4e91-964d-cb4a9797106a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T03:08:53.509032+00:00" -->
+#### Claude
+Yes, though only when the KB is out of date. I checked the current script.
+
+`bin/build` stage 2 runs `1c kb ensure`, which happens before `1c assets` packs the index into what ships:
+
+- **If the index is current**, it prints one line and does nothing. It doesn't read a credential or make a network request.
+- **If the index is behind** (a `system_kb` document changed, or REQ-329-style schema edits left `REF-l1` stale), it rebuilds the corpus, both indexes and the map, then carries on.
+- **If it's behind and you have no usable token**, it stops at that stage and names the token, so the build never reaches the assets step with a stale KB.
+
+**The gap we found last time is closed.** BUG-156 landed on Sep 26 (`00140a1396`): a projection that's behind its source schema now counts as stale. Before that fix, `ensure` only compared file times, so your L1 edits slipped past it. You no longer need to remember to run `bin/kb-release` after L1 schema changes; `bin/build` catches it.
+
+**When it does rebuild, it needs credentials in your shell:** `CLOUDFLARE_API_TOKEN` set to `1c_Admin_Token`, plus `NODE_USE_ENV_PROXY=1`. The other two Cloudflare tokens get a 401 from Workers AI.
+
+`bin/kb-release` still exists if you want to force a rebuild when nothing looks stale.
 
 <!-- xgd-chat-end -->
