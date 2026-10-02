@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T04:41:43.782539+00:00'
+updated_at: '2026-10-02T04:43:24.503315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6093,5 +6093,25 @@ Want me to file that as a bug under EPIC-19?
 <!-- xgd-chat role="user" ts="2026-10-02T04:41:42.961344+00:00" -->
 #### You
 Yes please create a bug for this. Can you also create a bug on the debug tab - I am not seeing the chats from A and B there. It needs to update.
+
+<!-- xgd-turn id="686521c8-7fe3-454f-8c2f-de5888257210-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T04:43:21.717677+00:00" -->
+#### Claude
+I've filed both bugs under EPIC-19, at `draft`, and added both to the epic.
+
+**BUG-176**: *"Group chat: a retired room's surviving junction blocks the room from ever being created again"* (high severity)
+- **Protection first:** the consultant's `site-<site>` conversation must never be discarded, re-keyed or archived. Legacy businesses without a room must keep getting a room built around their existing conversation, unchanged.
+- **Fix 1:** when a member is replaced, the room keeps its ticket, junction and history, and only its member list changes. Migration 0024 is revised or followed up accordingly, and your two already-archived rooms come back with the coordinator as their member.
+- **Fix 2:** a leftover `room-<site>` junction whose ticket is archived counts as an orphan, so a fresh room is created. This applies only to the room session, never to the consultant's or the coordinator's.
+- **Fix 3:** anything that retires a session decides explicitly what happens to its junction. If that hook lives in the framework, it becomes a ticket there.
+- **Tests:** they include a check that the consultant's transcript is byte-identical before and after.
+
+**BUG-177**: *"Debug tab: each agent's own session never refreshes while the room runs"* (medium severity)
+- **Cause:** the Debug tab reads each agent's session once, when the business or site changes or the switch flips, and never again. Nothing in the exchange triggers another read, so it shows a snapshot from before anyone spoke.
+- **Fix:** redraw when an agent finishes its part of an exchange, when the exchange ends, and when the tab is shown. There's no polling, because the exchange stream already reports when something changed. A section you've expanded stays expanded across a redraw.
+- **Also checked in the fix:** that the read uses the members' post-rename session ids. A lookup still keyed on `assistant-<site>` would show "Nothing yet." for ever.
+
+The dev workaround for BUG-176, deleting the empty room's junction file with the server down, is written into that ticket.
 
 <!-- xgd-chat-end -->
