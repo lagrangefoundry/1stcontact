@@ -35,6 +35,14 @@
  * what CHANGED rather than of what is there. One element write measured 287
  * bytes against a 2,582-byte element. {@link DIFFERENCE_BUDGET} bounds the
  * pathological case out loud rather than quietly.
+ *
+ * A WHOLE THING IS NAMED, NOT COPIED ([[REQ-361]]). An element, a component or a
+ * page that arrived, left or was swapped for another kind is reported as WHERE it
+ * is, WHAT happened to it and HOW BIG it is — never as the tree itself. That was
+ * where the record's weight was: a worker that built a page or restructured a box
+ * came back with the whole subtree as `after`, four results of 53–70 KB in one
+ * session, every byte of it re-read on every later request. The caller can read
+ * the page when it needs the tree; a field that changed still carries both values.
  */
 
 import { formatL1Path } from '@1stcontact/site-schema'
@@ -136,6 +144,22 @@ export interface DraftDifference {
   before?: unknown
   /** Absent when what is described no longer exists. */
   after?: unknown
+  /**
+   * What happened to a WHOLE element, component, slot or page ([[REQ-361]]).
+   *
+   * Present instead of `before`/`after` whenever either would have been a tree,
+   * so a difference carries one or the other and never both. `replaced` is an
+   * element whose position now holds an element of a different kind.
+   */
+  op?: 'created' | 'replaced' | 'removed'
+  /** The element's kind, or the component's type, with `op`. */
+  kind?: string
+  /** With `replaced`: the kind of the element that was there before. */
+  was?: string
+  /** With `op` on an element: how many children it has (had, when removed). */
+  children?: number
+  /** With `op` on a page, component, slot or tree: how many elements it holds (held). */
+  elements?: number
 }
 
 /**
@@ -163,12 +187,11 @@ export interface DraftChanges {
  * How much of the conversation a difference list may take, in serialised
  * characters and in entries.
  *
- * A DELEGATION'S DIFFERENCE IS SMALL AND THESE ARE NOT ITS SIZE. They bound the
- * case this cannot otherwise bound: a whole page added or removed inside the
- * window carries its whole definition, honestly, because that IS the change —
- * and thirty of them would carry the site. The budget is generous enough that
- * an ordinary run never meets it and low enough that meeting it costs a
- * paragraph rather than a turn.
+ * A DELEGATION'S DIFFERENCE IS SMALL AND THESE ARE NOT ITS SIZE. Since
+ * [[REQ-361]] a whole page or element costs one short entry, so what is left to
+ * bound is the count: a worker that touched two hundred fields. The budget is
+ * generous enough that an ordinary run never meets it and low enough that
+ * meeting it costs a paragraph rather than a turn.
  */
 export const DIFFERENCE_BUDGET = 24_000
 export const DIFFERENCE_LIMIT = 200
@@ -274,12 +297,8 @@ function diffPage(
 ): void {
   const page = pageIdOf(name, after ?? before)
   if (before === undefined || after === undefined) {
-    emit({
-      page,
-      field: '',
-      ...(before === undefined ? {} : { before }),
-      ...(after === undefined ? {} : { after }),
-    })
+    const whole = (after ?? before) as Record<string, unknown>
+    emit({ page, field: '', op: after === undefined ? 'removed' : 'created', elements: pageElements(whole) })
     return
   }
 
@@ -293,7 +312,12 @@ function diffPage(
   if (beforeRoot !== null && afterRoot !== null) {
     diffNodes([beforeRoot], [afterRoot], { page }, [], [], emit)
   } else if (beforeRoot !== null || afterRoot !== null) {
-    diffValue(before.l1, after.l1, 'l1', { page }, emit)
+    emit({
+      page,
+      field: 'l1',
+      op: afterRoot === null ? 'removed' : 'created',
+      elements: countElements(afterRoot ?? beforeRoot),
+    })
   }
 
   diffModules(before, after, page, emit)
@@ -303,6 +327,30 @@ function diffPage(
 function rootOf(page: Record<string, unknown>): L1Node | null {
   const root = (page.l1 as { root?: L1Node } | undefined)?.root
   return root ?? null
+}
+
+/**
+ * How many elements a value holds — a node, a list of them, or anything else
+ * (which holds none). The size a whole-thing difference reports in place of the
+ * thing ([[REQ-361]]).
+ */
+function countElements(value: unknown): number {
+  if (Array.isArray(value)) return value.reduce((sum: number, item) => sum + countElements(item), 0)
+  if (!isPlainObject(value) || typeof value.kind !== 'string') return 0
+  return 1 + countElements(value.children)
+}
+
+/** Every element a component instance holds, across its slots. */
+function instanceElements(instance: Record<string, unknown>): number {
+  return Object.values((instance.slots ?? {}) as Record<string, unknown>).reduce(
+    (sum: number, slot) => sum + countElements(slot),
+    0,
+  )
+}
+
+/** Every element a page holds: its own tree and every instance's slots. */
+function pageElements(page: Record<string, unknown>): number {
+  return countElements(rootOf(page)) + [...modulesById(page).values()].reduce((sum, m) => sum + instanceElements(m), 0)
 }
 
 /**
@@ -325,12 +373,14 @@ function diffModules(
     const b = beforeModules.get(id)
     const a = afterModules.get(id)
     if (b === undefined || a === undefined) {
+      const whole = (a ?? b) as Record<string, unknown>
       emit({
         page,
         module: id,
         field: '',
-        ...(b === undefined ? {} : { before: b }),
-        ...(a === undefined ? {} : { after: a }),
+        op: a === undefined ? 'removed' : 'created',
+        ...(typeof whole.type === 'string' ? { kind: whole.type } : {}),
+        elements: instanceElements(whole),
       })
       continue
     }
@@ -344,7 +394,14 @@ function diffModules(
       const bs = beforeSlots[slot]
       const as = afterSlots[slot]
       if (bs === undefined || as === undefined) {
-        diffValue(bs, as, '', { page, module: id, slot }, emit)
+        emit({
+          page,
+          module: id,
+          slot,
+          field: '',
+          op: as === undefined ? 'removed' : 'created',
+          elements: countElements(as ?? bs),
+        })
         continue
       }
       diffNodes(slotRoots(bs), slotRoots(as), { page, module: id, slot }, [], [], emit)
@@ -403,23 +460,41 @@ function diffNodes(
   afterPrefix: readonly number[],
   emit: (difference: DraftDifference) => void,
 ): void {
-  for (const step of align(before, after, nodeCost)) {
-    if (step.before === undefined) {
-      emit({
-        ...where,
-        address: formatL1Path([...afterPrefix, step.after as number]),
-        field: '',
-        after: after[step.after as number],
-      })
-      continue
-    }
-    if (step.after === undefined) {
-      emit({
-        ...where,
-        address: formatL1Path([...beforePrefix, step.before]),
-        field: '',
-        before: before[step.before],
-      })
+  const steps = align(before, after, nodeCost)
+  for (let s = 0; s < steps.length; s += 1) {
+    const step = steps[s]
+    if (step.before === undefined || step.after === undefined) {
+      // A REMOVAL BESIDE AN ADDITION IS ONE REPLACEMENT ([[REQ-361]]): the
+      // alignment prices a change of kind above a removal plus an addition, so
+      // that is how a swapped element arrives, and it is one fact about one place.
+      const next = steps[s + 1]
+      const opposite = step.before === undefined ? next?.after === undefined : next?.before === undefined
+      const pair = next !== undefined && opposite && (next.before === undefined) !== (next.after === undefined) ? next : undefined
+      const removed = step.before ?? pair?.before
+      const added = step.after ?? pair?.after
+      if (pair !== undefined) s += 1
+      if (added !== undefined) {
+        const node = after[added]
+        emit({
+          ...where,
+          address: formatL1Path([...afterPrefix, added]),
+          field: '',
+          op: removed === undefined ? 'created' : 'replaced',
+          kind: kindOf(node),
+          ...(removed === undefined ? {} : { was: kindOf(before[removed]) }),
+          children: childrenOf(node as unknown as Record<string, unknown>).length,
+        })
+      } else {
+        const node = before[removed as number]
+        emit({
+          ...where,
+          address: formatL1Path([...beforePrefix, removed as number]),
+          field: '',
+          op: 'removed',
+          kind: kindOf(node),
+          children: childrenOf(node as unknown as Record<string, unknown>).length,
+        })
+      }
       continue
     }
     const b = before[step.before] as unknown as Record<string, unknown>
@@ -441,6 +516,10 @@ function diffNodes(
 
 function childrenOf(node: Record<string, unknown>): L1Node[] {
   return Array.isArray(node.children) ? (node.children as L1Node[]) : []
+}
+
+function kindOf(node: L1Node): string {
+  return String((node as { kind?: unknown }).kind ?? '')
 }
 
 /** See {@link diffNodes} — the judgement the alignment is made of. */

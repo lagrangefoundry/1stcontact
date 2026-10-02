@@ -213,7 +213,9 @@ describe('REQ-340 the host derives a structural diff of a delegation', () => {
     expect(changed.differences[0].address).toBe('0.0')
     expect(changed.differences[0].field).toBe('')
     expect('before' in changed.differences[0]).toBe(false)
-    expect((changed.differences[0].after as { text: string }).text).toBe('zero')
+    // Named, not copied ([[REQ-361]]): the new band is its kind and its size.
+    expect(changed.differences[0]).toMatchObject({ op: 'created', kind: 'text', children: 0 })
+    expect('after' in changed.differences[0]).toBe(false)
     await site.dispose()
   })
 

@@ -71,6 +71,64 @@ export interface EgressRefusal extends UrlRefusal {
   kind: RequestKind
 }
 
+/**
+ * The refusals as a capture reports them to a model ([[REQ-361]]).
+ *
+ * A COUNT PER REASON AND A FEW EXAMPLES, NEVER THE LIST. One capture refused 241 KB
+ * of requests, almost all of them `data:` URLs whose whole payload IS the URL —
+ * and every byte rode the conversation for the rest of the session. What a later
+ * fidelity verdict needs from this is how much was refused and why; the URLs
+ * themselves are evidence, and five of them, shortened, is enough to recognise
+ * what kind.
+ *
+ * A `scheme` refusal is grouped by the scheme it named (`scheme: data:`), because
+ * "41 data URLs" and "1 ftp link" are different findings under one reason.
+ */
+export interface RefusalSummary {
+  /** How many requests were refused in all. `0` is the ordinary case. */
+  total: number
+  /** How many under each reason, e.g. `{ "scheme: data:": 41 }`. */
+  reasons: Record<string, number>
+  /** At most {@link REFUSAL_EXAMPLES} of them, URLs shortened, one per reason first. */
+  examples: { url: string; reason: string; detail: string }[]
+}
+
+export const REFUSAL_EXAMPLES = 5
+/** How much of an example URL is kept: enough to recognise it, not its payload. */
+export const REFUSAL_URL_CLIP = 120
+
+function refusalLabel(refusal: UrlRefusal): string {
+  if (refusal.reason !== 'scheme') return refusal.reason
+  const match = /^([a-z][a-z0-9+.-]*:)/i.exec(refusal.url)
+  return match ? `scheme: ${match[1].toLowerCase()}` : 'scheme: not a URL'
+}
+
+function clipUrl(url: string): string {
+  return url.length <= REFUSAL_URL_CLIP ? url : `${url.slice(0, REFUSAL_URL_CLIP)}… [${url.length} characters]`
+}
+
+export function summariseRefusals(refusals: readonly UrlRefusal[]): RefusalSummary {
+  const reasons: Record<string, number> = {}
+  const firsts: UrlRefusal[] = []
+  for (const refusal of refusals) {
+    const label = refusalLabel(refusal)
+    if (reasons[label] === undefined) firsts.push(refusal)
+    reasons[label] = (reasons[label] ?? 0) + 1
+  }
+  const chosen = [...firsts, ...refusals.filter((r) => !firsts.includes(r))].slice(0, REFUSAL_EXAMPLES)
+  return {
+    total: refusals.length,
+    reasons,
+    examples: chosen.map((r) => ({
+      url: clipUrl(r.url),
+      reason: r.reason,
+      // A detail quotes the URL it is about when it could not be parsed, so it is
+      // shortened under the same rule as the URL.
+      detail: r.detail.length <= 2 * REFUSAL_URL_CLIP ? r.detail : `${r.detail.slice(0, 2 * REFUSAL_URL_CLIP)}…`,
+    })),
+  }
+}
+
 /** Raised for the typed URL, before a browser is leased. */
 export class UrlRefusedError extends Error {
   constructor(
