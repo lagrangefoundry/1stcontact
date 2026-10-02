@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-10-02T00:20:33.400705+00:00'
+updated_at: '2026-10-02T00:27:23.208635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -205,5 +205,32 @@ Haven't cut a branch or written code yet. Say go and I'll branch `REQ-353` and b
 <!-- xgd-chat role="user" ts="2026-10-02T00:20:29.720647+00:00" -->
 #### You
 353 has been implemented but I see no debug tab?
+
+<!-- xgd-turn id="ccb38fde-4693-457f-a8b9-34bf364e3c52-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:27:20.697051+00:00" -->
+#### Claude
+Source has the Debug tab on xgd-working; checking whether the built assets / deployment actually carry it.
+
+The code is fine. What you're looking at is a stale build of it.
+
+REQ-353's code (`683d066a5d`) is on xgd-working, and `builder/config.js` there has `DEBUG_TAB` in `TABS`, mounted in `app.js`. But the browser doesn't load `src/builder/`. It loads `apps/control-app/dist-assets/`, which only `./bin/1c assets` writes, and `1c builder` never runs that. The copy being served was built on Sep 28, the day before REQ-353 landed: there was no `debug.js` and its `config.js` had no `DEBUG_TAB`. The Worker `.ts` changes load straight away, so the backend half was running while the browser still had the old client.
+
+**Local:** I've re-run `./bin/1c assets`. `dist-assets/builder/debug.js` now exists and `config.js` has the Debug tab. Reload the builder and it should be there; no server restart needed. There's one more thing to do locally. Migration `0022` (REQ-353's table) is applied, but `0023_group_chat_switch.sql` from REQ-357 isn't. REQ-357 has since wired into the Debug panel, so apply it before trusting what the panel shows:
+
+```
+cd apps/control-app && npx wrangler d1 migrations apply DB --local
+```
+
+**Production:** the last code deploy was 2026-09-27, so neither REQ-353 nor REQ-357 is live there. Deploying means applying 0022 and 0023 to the remote database and then running the deploy. I haven't done either, because they change production:
+
+```
+cd apps/control-app
+npx wrangler d1 migrations apply DB --remote --env production
+./bin/1c assets   # from repo root, if not already fresh
+npx wrangler deploy --env production
+```
+
+Nothing changed on EPIC-22 or REQ-353, since no code was wrong. REQ-353 is already at `ready_to_reconcile`.
 
 <!-- xgd-chat-end -->
