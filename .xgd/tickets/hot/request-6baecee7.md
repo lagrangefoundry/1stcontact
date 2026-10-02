@@ -6,7 +6,7 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-02T22:46:55.137316+00:00'
+updated_at: '2026-10-02T23:25:25.674250+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -76,3 +76,26 @@ The silence comes from the tool call, not from the turn. `runToolLoop` does `awa
 - (1) Optional `Notify(text)` op on the agent surface, for a model-authored one-liner on the same channel. This is useful mainly where prose isn't live (rooms, where it could also post a non-round-ending room contribution).
 - webui-chat `applyEvent` renders a notice as one inline status line, with each heartbeat replacing the previous one.
 - 1stcontact: grant the surface and add the priming line. `router.ts` needs no change, because it forwards any event kind.
+
+
+## Revised assessment (2026-10-02, after reading lagrange-framework EPIC-7)
+
+The investigation above dismissed generalising `GroupSay` to 1:1. That was wrong. Its objections were lease contention, a separate turn interleaved into the open round, and the post not reaching the live stream. EPIC-7 (interposition) has to solve the inbound version of exactly those problems, and its decisions resolve them:
+
+- **Storage.** A mid-round contribution is a content record stored *inside* the open round at its position (EPIC-7 §16, REQ-200). It is not a new turn.
+- **The lease.** The caller already holds the lease, so there is no wait.
+- **Live delivery.** The record is yielded live after the call returns, before the next long tool call. REQ-201's split-round display renders it.
+
+So the interim notice is the outbound mirror of interposition, and one `GroupSay` works the same in a room or a DM. That satisfies EPIC-7 §13.3(a), behaviour that names no role.
+
+**Filed upstream:** lagrange-framework REQ-205 (`request-4fee9d24`).
+- Part A: `GroupSay` targets the caller's own 1:1 session mid-round, with a keep-the-round-open flag for rooms.
+- Part B: a host-generated heartbeat during delegated builds. This is option 2 here.
+- It depends on lagrange-framework REQ-200 and REQ-201, which are still `draft`.
+
+**No code lands against REQ-360 until lagrange-framework REQ-205 lands.** What remains here afterwards:
+- grant the tool to the consultant role;
+- add a priming line, "say it, then carry on";
+- style the heartbeat line.
+
+Separately, and available today: in a 1:1 session, prose written before `Delegate` already reaches the client live. A priming line saying so would help immediately.

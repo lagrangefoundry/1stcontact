@@ -6,9 +6,9 @@ title: 'Builder: a plan panel above the chat, where the consultant''s questions 
   for the client'
 created_by: EPIC-19
 created_at: '2026-10-02T21:02:05.849959+00:00'
-updated_at: '2026-10-02T22:58:59.225885+00:00'
+updated_at: '2026-10-02T23:29:26.223509+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -92,10 +92,62 @@ One coherent change: the schema, the operations, the route, the panel, the notic
 - (panel) The panel renders the phase line and the open asks with the right input per type, hides withdrawn asks, shows answered and skipped asks as changeable, re-reads when a turn's plan write arrives, and keeps its divider position and collapsed state across a reload.
 - (priming) The consultant's assembled priming carries the panel rules, and the plan surface's tool manual lists the add/edit, withdraw and fill-from-material operations.
 
-## Implementation decisions (made at the start of the build)
+## Implementation decisions (made while building)
 
-- **The coordinator gets the plan surface.** The ticket assumed it already held it; it did not (REQ-356 left the coordinator's plan grant out of scope, which is also why the coordinator made zero plan writes in the Charlie session). Its box now composes the plan surface with REQ-356's coordinator groups (`ReadPlan`, `KeepBrief`, `CoordinatePlan`) plus the new ask group, so switching the group chat back on gives a room in which both members can keep asks.
-- **The ask operations are one new group, `KeepAsks`**, granted to both roles: `set_ask` (add or edit wording, reason, input type, options, `needed_by`, `blocking`; never touches an answer), `withdraw_ask` (with a reason), and `fill_ask` (fill from client material, citing the material uid). The agent recorded in `answered_by` is the grant's role (`consultant` / `coordinator`), never a parameter. `fill_ask` refuses an ask the client answered; it may fill an open or skipped one. Re-adding a withdrawn ask is refused unless the call says `reopen`, so a later turn does not ask again by accident.
-- **The route is two endpoints.** `GET /api/plan?site=` answers the panel's view (phase, asks); `POST /api/plan/ask` takes `{site, ask, action: answer | skip, answer?, answer_material?}`. Both check that the site is this business's. An upload goes through the existing `POST /api/material` first (so it is a Library item and a material ticket), and its uid is then sent as `answer_material`. The write goes through REQ-356's `sitePlan` port, so it is checked and compare-and-set; on `CONFLICT` the route re-reads and re-applies once more before answering 409.
-- **The notice has its own cursor.** A `plan_cursor` field on the reading session's `chat` ticket (beside REQ-160's `kb_cursor`). The notice lists asks whose `answered_by` is `client` and whose `answered_at` is after the cursor, so an agent's own ask writes are never reported back to it. A client answer that replaces an earlier one records `previous_answer`, and the notice says "changed from … to …". The coordinator's member session has its own cursor, so in the room each member hears each answer once.
-- **The panel re-reads on a `plan_changed` stream event.** The host counts plan writes per site (as it counts settings writes) and emits `plan_changed` after the tool call that wrote the plan, alongside `site_changed`. The panel also re-reads when a turn ends and when the builder opens a site.
+- **The coordinator gets the plan surface.** The ticket assumed it already had one; it did not (REQ-356 left the coordinator's plan grant out of scope, which is also why the coordinator made zero plan writes in the Charlie session). Its box now composes the plan surface with REQ-356's coordinator groups (`ReadPlan`, `KeepBrief`, `CoordinatePlan`) plus the new ask group, so switching the group chat back on gives a room in which both members can keep asks.
+- **The ask operations are one new group, `KeepAsks`**, granted to both roles:
+  - `set_ask` adds or edits the wording, reason, input type, options, `accepts_upload`, `needed_by` and `blocking`. It never touches an answer.
+  - `withdraw_ask` takes a reason. It refuses an ask the client has answered (`ASK_ANSWERED`), because their answer stays theirs.
+  - `fill_ask` fills an ask from client material and requires the material uid. It refuses an ask the client answered (`ASK_ANSWERED`), and may fill an open or skipped one.
+  - The agent recorded in `answered_by` is the grant's role (`consultant` / `coordinator`), never a parameter.
+  - Re-adding a withdrawn ask is refused (`ASK_WITHDRAWN`, naming the reason) unless the call passes `reopen`, so a later turn does not ask again by accident.
+  - A multi-choice fill arrives as one `;`-separated string, because the declared parameter type is a string.
+- **Each plan write answers the ask as it now stands** (REQ-361's "a write confirms what it wrote", merged in mid-build), not the whole plan.
+- **The route is two endpoints.**
+  - `GET /api/plan?site=` answers the panel's view: the phase, and the non-withdrawn asks in panel order (by `needed_by`, blocking first).
+  - `POST /api/plan/ask` takes `{site, ask, action: answer | skip, answer?, answer_material?}`.
+  - Both refuse a site this business doesn't hold (404). An `answer_material` must be a material in this business's store (400). An unknown ask is 404, a withdrawn one 409, and an answer the input can't take is 400.
+  - An upload goes through the existing `POST /api/material` first (role `reference`), so it is a Library item and a material ticket, and its uid is then sent as `answer_material`.
+  - The write goes through REQ-356's `sitePlan` port, so it is checked and compare-and-set. On `CONFLICT` the route re-reads and re-applies once before answering 409.
+  - Changing an answer is answering again: the replaced value is kept as `previous_answer`.
+- **The notice has its own cursor**, `plan_cursor`, on the reading session's `chat` ticket (beside REQ-160's `kb_cursor`).
+  - It lists asks whose `answered_by` is `client` and whose `answered_at` is after the cursor, so an agent's own writes are never reported back to it. The cursor then advances to the newest answer reported.
+  - A cold session is told every client answer once.
+  - It is wired on every Worker turn, not only when a knowledge base is configured.
+  - It is rendered by `plan.answers` in the consultant's reminders and `coordinator.plan_answers` in the coordinator's; the coordinator's member session has its own cursor.
+  - The line reads "Your client updated N questions on the plan panel since your last turn: answered X: "v"; skipped Y; changed Z from "a" to "b"". It is bounded at 600 characters: values are cut first, the count is always given, and overflow is sent to `read_plan`.
+- **The per-turn plan entry** (REQ-356's `planReminder`) also names the open asks (blocking marked), the answered values, and what was skipped.
+- **The panel re-reads on a `plan_changed` stream event.**
+  - The host counts completed plan writes per site at the plan port, for both members, and emits `plan_changed` after the tool call that wrote the plan, alongside `site_changed`.
+  - The panel also re-reads when a turn (or a room exchange) ends and when the builder opens a site.
+  - A redraw keeps an ask block whose content hasn't changed, and keeps the one the client is typing in.
+- **Panel UI.**
+  - Typed asks save when the field is left. Choices save when picked. A document saves once it has uploaded.
+  - Every open ask has a Skip button ("I don't know, or it doesn't apply").
+  - Answered and skipped asks show compactly, with a Change button that reopens the editor. A value an agent filled is marked "Taken from what you sent".
+  - Phase labels: intake "Getting to know your business", first_pass "Rough first version", revision "Refining", prelaunch "Getting ready to publish", live "Live".
+  - The divider is a second `webui-split` instance, vertical, collapsible on the panel's side, persisted under `site:plan-split`. Its initial split is 30%.
+- **Consultant priming** gains a `plan-panel` entry, in both the with- and without-corpus orders.
+- **DOC-64** gains §10, "The plan panel and the conversation", carrying DOC-65 §6–§7 and marked as overriding the earlier sections where they conflict. `asks` is added to §5's frontmatter list and to its who-writes-what table, and DOC-65 and REQ-364 are added to Related.
+- **Supersession:** REQ-356's UAT `test_UAT_FC_REQ-356_the_brief_type_no_longer_exists` pinned the plan type's exact field list. It now includes `asks`, which is this ticket's deliberate extension of that schema.
+
+## Test plan (as built)
+
+- `tests/test_UAT_FC_REQ-364_asks_in_the_plan.test.ts` (node, Toolbox `box.run`). Covers:
+  - every input type and status is accepted, and malformed asks and unfit answers are refused with the plan byte-identical;
+  - an agent wording edit keeps the client's answer, and fill/withdraw refuse a client answer;
+  - a document fill is recorded as the filling role, and the client can still change it;
+  - a withdrawn ask keeps its reason, is off the panel, and is refused on re-add without `reopen`;
+  - the notice names client answers, skips and changes but never agent writes, and stays within budget (cut values, exact count);
+  - the plan entry names open and answered asks;
+  - both roles hold the ask operations, and the summary manual lists them with no code names.
+- `tests/test_UAT_FC_REQ-364_the_panel_answers.workers.test.ts` (workerd: real route, D1 and ticket store). Covers:
+  - answer, change, multi-pick, skip and upload-then-answer all land, the upload is a material ticket, and the read draws them in order, with no model request made;
+  - an answer racing an agent edit loses neither, and a foreign site, an unknown ask or a foreign document is refused;
+  - group chat off: `set_ask` mid-turn raises `plan_changed`, the consultant's priming carries the panel rules, the next turn's notice names the client's answer and skip, and the agent's own fill is never reported;
+  - group chat on: the coordinator holds the ask tools, both members' asks land, and each member's next round hears the client's answer.
+- `tests/test_UAT_FC_REQ-364_the_plan_panel.test.ts` (jsdom, the real builder). Covers:
+  - the phase line, the right control per input type, withdrawn asks hidden, and answered/skipped asks compact;
+  - answers and skips reach the route as the client goes, and an answered ask reopens to change;
+  - the panel re-reads mid-turn on `plan_changed` and at turn end;
+  - the divider's position and collapsed state survive a remount on the same storage.
