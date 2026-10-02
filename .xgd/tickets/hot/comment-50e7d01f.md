@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T19:00:05.304193+00:00'
+updated_at: '2026-10-02T19:02:16.860163+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3632,5 +3632,43 @@ All four tickets are recorded on EPIC-20, and REQ-361 and REQ-362 are linked as 
 The limit itself is hard-coded, though. <-- thats a bug - we should never hard code constants like that is that a bug for lf?
 
 Please file a ticket for the screenshot - I really like the tiles because that is how the user sees it - they do not see the full page. I think we should have a default that is reasonable but conservative and allow the AI to configure more detail or less
+
+<!-- xgd-turn id="3dfb3f32-93a6-448a-803e-b74f243b7c0c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T19:02:14.585665+00:00" -->
+#### Claude
+Yes, I'd treat it as a defect. Before deciding where it goes, I'm checking what other limits the framework fixes the same way.
+
+Writing the screenshot ticket and adding the hard-coded-limits rule to REQ-203.
+
+**Yes, it's a defect, and I've filed it in the framework.** The loop already accepts a step limit, but nothing passes one in and no configuration can reach it, so every backend is stuck at 50.
+
+I checked the rest of the framework and the step limit isn't the only fixed number. There are about fifteen limits that affect cost or how a session ends, such as the conversation window size, how long images stay in context, retry counts, room turn caps and the turn timeout. Most are named as defaults but haven't been checked to be overridable.
+
+Rather than file a second ticket, I made lagrange-framework REQ-203 the general fix and retitled it to say so:
+- **The rule:** any limit that shapes cost or outcome must be a default the app can override in configuration. The framework may ship a value but must not fix it.
+- **The audit:** REQ-203 lists each of those limits and requires a table showing its default and how to override it, or why it stays fixed.
+- Fixed API facts, such as the maximum number of cache breakpoints, are out of scope.
+
+## Screenshots: REQ-363
+
+Filed under EPIC-20 as you described, as a draft.
+
+- **One screen at a time.** A page picture is a screen-height tile, the way a visitor sees it, never the whole page squeezed into one image.
+- **Shrunk by width, not by height.**
+  - Desktop arrives about 1,024 wide.
+  - Mobile arrives at its real 375 width.
+  - Tablet arrives at its real 768 width.
+- **Each tile says where it is**, for example "tile 2 of 9". It also gives the pixel range on the page, the sections it shows, and roughly what it costs in tokens. So the AI can ask for the next tile or a particular section, and can see the cost before deciding to look.
+- **Default:** the first tile only, at normal detail. That's what a visitor sees on arrival.
+- **The AI can ask for more or less:**
+  - which part: a tile, a range of tiles, the tiles showing a named section, or the whole page;
+  - how much detail: low (about 768 wide), normal (about 1,024), or high (as wide as the API will take without shrinking it again, about 1,568).
+- **The whole page comes in batches.** One call returns at most 4 tiles by default. If there are more, it says how many remain and how to fetch them.
+- **All of these defaults are configuration, not code**, in line with the rule above.
+
+Pictures of an uploaded or generated image keep today's handling, shrunk on the longest edge.
+
+That brings the open tickets from this review to REQ-361, REQ-362 and REQ-363 here, and REQ-203 and BUG-80 in lagrange-framework.
 
 <!-- xgd-chat-end -->
