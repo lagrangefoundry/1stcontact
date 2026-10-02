@@ -326,6 +326,41 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     expect(sentText(coordinatorReq!)).toContain('You are the coordinator in a group chat')
   })
 
+  it('test_UAT_FC_BUG-177_after_an_exchange_both_members_private_sessions_are_readable_by_their_current_ids', async () => {
+    await setGroupChat(true)
+    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('private') })
+    const opened = await open(site)
+    setModelClient(
+      roomClient({ consultant: [{ say: 'Try amber.' }], coordinator: [{ say: 'Amber fits the brand.' }] }),
+    )
+    const stream = await frames(
+      await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Warmer, please.' }),
+    )
+    // THE SIGNAL THE DEBUG TAB REDRAWS ON is on the wire, once per member round.
+    const rounds = stream.filter((f) => f.kind === 'member_done').map((f) => f.meta?.member)
+    expect(rounds).toContain(NAMES.consultant)
+    expect(rounds).toContain(NAMES.coordinator)
+
+    // BOTH MEMBERS' SESSIONS, homed under their current ids (REQ-358's rename)…
+    const made = await rooms(site)
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    const homed = await Promise.all(
+      (made[0].fields.members as string[]).map(
+        async (uid) => (await tickets.get({ uid })).ticket.fields?.session_id,
+      ),
+    )
+    expect(homed).toEqual([`site-${site}`, `coordinator-${site}`])
+
+    // …and each one, read back for the Debug tab, holds the round it just took.
+    const read = await post('/api/ai/private', { site })
+    expect(read.status).toBe(200)
+    const { members } = (await read.json()) as {
+      members: Array<{ role: string; name: string; turns: Opened['turns'] }>
+    }
+    expect(members.map((m) => m.role)).toEqual(['consultant', 'coordinator'])
+    for (const member of members) expect(member.turns.length).toBeGreaterThan(0)
+  })
+
   it('test_UAT_FC_REQ-357_a_client_message_posts_to_the_room_and_both_members_are_called_on_a_cold_isolate', async () => {
     await setGroupChat(true)
     const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('cold') })

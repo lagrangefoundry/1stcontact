@@ -149,6 +149,8 @@ const ROOM_BUSY_TEXT =
 
 /** The kinds an exchange's stream carries that this pane reads ([[REQ-357]]). */
 const ROOM_POST = 'room_post'
+/** A member's round ended — its private session has a new turn stored ([[BUG-177]]). */
+const MEMBER_DONE = 'member_done'
 
 /**
  * An exchange's events, as the frames `webui-chat`'s follow mode draws
@@ -159,8 +161,20 @@ const ROOM_POST = 'room_post'
  * end — are dropped: they are its private session, not the room. Text that
  * belongs to no member (a refusal, an error) is passed through, so it is said in
  * the conversation rather than lost.
+ *
+ * `onActivity` is told when a member's round ends and when the exchange ends
+ * ([[BUG-177]]) — the two moments a member's private session has something new
+ * stored. Told BEFORE the `done` frame is yielded, because a reader may stop
+ * pulling at `done`.
  */
-export async function* roomFrames(events) {
+export async function* roomFrames(events, onActivity = () => {}) {
+  const tell = () => {
+    try {
+      onActivity()
+    } catch {
+      // The host's reaction cannot break the conversation.
+    }
+  }
   for await (const event of events) {
     if (event?.kind === ROOM_POST) {
       const meta = event.meta ?? {}
@@ -175,8 +189,12 @@ export async function* roomFrames(events) {
       }
       continue
     }
-    if (event?.meta?.member) continue
+    if (event?.meta?.member) {
+      if (event.kind === MEMBER_DONE) tell()
+      continue
+    }
     if (event?.kind === 'done') {
+      tell()
       yield { kind: 'done', status: event.meta?.status ?? 'complete' }
       continue
     }
@@ -279,6 +297,10 @@ const RECOVERY_CHASES = 3
  *   IT IS A NOTICE AND NOT A QUESTION. There is no shape here that could carry an
  *   approval back, deliberately — a confirmation the client cannot meaningfully
  *   perform would only launder our error into their consent.
+ * @param {() => void} [options.onRoomActivity]
+ *   [[BUG-177]] — in a group chat, a member's round ended or the exchange did.
+ *   The pane draws only the room; what each member said privately is the host's
+ *   to show (the Debug tab), and this is when it has changed.
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -320,6 +342,7 @@ export function createChatPanel(options = {}) {
     onSiteChanged = () => {},
     onBusinessChanged = () => {},
     onDnsChanged = () => {},
+    onRoomActivity = () => {},
     expandPrompt = (markdown) => markdown,
     onImageClick = null,
     reopen = null,
@@ -814,7 +837,7 @@ export function createChatPanel(options = {}) {
           note(ROOM_BUSY_TEXT)
           return
         }
-        void chat.follow(roomFrames(watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told)))
+        void chat.follow(roomFrames(watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told), onRoomActivity))
       },
       onStop: () => {
         void Promise.resolve(transport.stopExchange?.(id)).catch(() => {})

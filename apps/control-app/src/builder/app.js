@@ -300,6 +300,9 @@ export function mountBuilder(root, options = {}) {
      */
     onTabChange: (tabId) => {
       void postSurface(tabId)
+      // [[BUG-177]] — returning to the Debug tab shows each agent's session as it
+      // is now, not as it was when the tab was last drawn.
+      if (tabId === DEBUG_TAB.id) void debug.refreshPrivate()
     },
     // The app typeface, through the shell's own token path. See APP_FONT.
     tokens: { font: APP_FONT },
@@ -929,6 +932,9 @@ export function mountBuilder(root, options = {}) {
     // this dialog reaches the row by the route every other write to a material
     // already takes.
     onImageClick: (src, alt) => void openPictureFromChat(src, alt),
+    // [[BUG-177]] — a member's round or the room's exchange ended, so the Debug
+    // tab's view of each agent's own session has something new to show.
+    onRoomActivity: () => void debug.refreshPrivate(),
   })
 
   /**

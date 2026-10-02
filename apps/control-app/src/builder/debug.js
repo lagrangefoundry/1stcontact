@@ -166,11 +166,21 @@ function paragraph(text) {
   return p
 }
 
-/** One agent's session, read-only: whose, then each turn in and out ([[REQ-357]]). */
-function memberSession(member) {
+/**
+ * One agent's session, read-only: whose, then each turn in and out ([[REQ-357]]).
+ *
+ * `folded` holds the roles the reader collapsed ([[BUG-177]]): the view is
+ * redrawn as the room runs, and a redraw that re-opened what the reader had
+ * just closed would take their place away every time a member spoke.
+ */
+function memberSession(member, folded) {
   const block = document.createElement('details')
   block.className = 'builder-debug__member'
-  block.open = true
+  block.open = !folded.has(member.role)
+  block.addEventListener('toggle', () => {
+    if (block.open) folded.delete(member.role)
+    else folded.add(member.role)
+  })
   const summary = document.createElement('summary')
   summary.textContent = `${member.name} (${member.role})`
   block.append(summary)
@@ -264,6 +274,8 @@ export function createDebugPanel(options = {}) {
    * crossing [[REQ-181]] refuses for the Library, on a control that writes.
    */
   let generation = 0
+  /** Member roles the reader collapsed — kept across redraws ([[BUG-177]]). */
+  const folded = new Set()
 
   function showNotice(text) {
     section.remove()
@@ -353,7 +365,7 @@ export function createDebugPanel(options = {}) {
       privateBody.replaceChildren(paragraph(PRIVATE_UNREADABLE))
       return
     }
-    privateBody.replaceChildren(...answer.members.map(memberSession))
+    privateBody.replaceChildren(...answer.members.map((member) => memberSession(member, folded)))
   }
 
   function setBusiness(next) {
@@ -414,6 +426,12 @@ export function createDebugPanel(options = {}) {
     /** The group-chat switch's answer ([[REQ-357]]). */
     getGroupView: () => groupView,
     setSite,
+    /**
+     * Read each agent's own session again ([[BUG-177]]) — when a member's round
+     * or the room's exchange ends, and when the tab is shown. Read-only, and a
+     * no-op while group chat is off.
+     */
+    refreshPrivate: () => drawPrivate(),
     /** Which business it is drawing — for the host and for a suite. */
     getBusiness: () => businessId,
     /** Read again and follow the answer — the same path `setBusiness` takes. */
