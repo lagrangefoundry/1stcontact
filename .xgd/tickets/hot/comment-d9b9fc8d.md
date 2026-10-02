@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-09-27T01:10:55.545808+00:00'
+updated_at: '2026-10-02T03:06:21.062288+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5256,5 +5256,11 @@ Running total for this session, all under EPIC-16:
 | BUG-159 | This one |
 
 Your runbook is blocked at the chats step until BUG-159 lands. The site copy is done and nothing is live until you publish.
+
+<!-- xgd-turn id="4208fdaf-16e0-4e91-964d-cb4a9797106a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T03:06:19.109846+00:00" -->
+#### You
+Please remind me does bin/build rebuild the kb?
 
 <!-- xgd-chat-end -->
