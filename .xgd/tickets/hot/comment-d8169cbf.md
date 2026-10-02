@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T01:01:32.565068+00:00'
+updated_at: '2026-10-02T01:03:31.919716+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5968,5 +5968,11 @@ That is exactly how DOC-33 went unread for 102 turns: it was indexed but not on 
 3. **Settle the role vocabulary**, `assistant` or `coordinator`, then neutralise the names in DOC-64 and record the choice in REQ-357.
 
 Shall I go ahead with 1 and 2, and which word do you want for Bob's role?
+
+<!-- xgd-turn id="225577af-43b5-4180-ad0a-15db12314a41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T01:03:29.972582+00:00" -->
+#### You
+Agree with all three - thank you for keeping me consistent - I want to go with coordinator please can you give me a ticket for those changes please?
 
 <!-- xgd-chat-end -->
