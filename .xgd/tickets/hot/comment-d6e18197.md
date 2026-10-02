@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-172
 created_by: xgd
 created_at: '2026-10-02T00:31:29.782240+00:00'
-updated_at: '2026-10-02T00:43:29.765530+00:00'
+updated_at: '2026-10-02T00:53:20.169421+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,34 @@ So a per-business token budget would be a new feature: an allowance set per busi
 <!-- xgd-chat role="user" ts="2026-10-02T00:43:28.729341+00:00" -->
 #### You
 Goa ahead and remove the current download limit we can do budgets later
+
+<!-- xgd-turn id="6577265e-f4ba-445f-afe1-e44d8e780176-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:53:18.841320+00:00" -->
+#### Claude
+Byte cap removed from the guard; now the driver call site and the tests.
+
+Now extending the fake browser so it can serve network responses, and writing the BUG-172 UAT.
+
+Passing. Now confirming the new UAT fails against the old guard (swap source back temporarily).
+
+Now typecheck/lint the touched files.
+
+Now updating the ticket body to reflect the implementation (preserving the original report).
+
+I've removed the capture download limit. BUG-172 is now at `free_coded`, merged into xgd-working as version 0.2.432, with the version bump and story points set. I haven't promoted it to `ready_to_reconcile`; that's yours to do.
+
+**What changed:** `capture_site` can no longer be refused for how much it downloads. That's true however large the page and across every screen width. The limit and everything that only existed to support it are gone from `egress-guard.ts`, and the capture driver (`cf-driver.ts`) no longer counts bytes.
+
+**What stays:** the protections that matter. Captures still can't reach internal or private addresses, unsafe schemes or addresses with embedded passwords, and redirect loops are still stopped. If the page itself is refused by one of those rules, the capture still fails instead of saving a broken copy.
+
+**Tests:**
+- **New BUG-172 test:** a page with three 12 MiB photos is loaded at all six screen widths through one shared guard, about 216 MiB in total. Every pass gets the page and all the photos, with nothing refused. With the old code swapped back in, the same test fails.
+- **BUG-127 test:** it used the byte limit to force a page refusal, so it now uses a redirect loop instead.
+- **REQ-157 test:** I dropped the half that checked the size limit and renamed the test to match.
+- **Test browser:** to drive the real capture code with large responses, I extended the stand-in browser the tests use so it can serve network responses.
+- **Results:** the BUG-127, REQ-157 and BUG-172 suites and both REQ-154 suites pass. One REQ-154 suite needs files that are only built in the main checkout, so I copied them in temporarily to run it.
+
+Budgets, including per-business token budgets, are left for later as you said. The ticket records that and the survey of existing budgets.
 
 <!-- xgd-chat-end -->
