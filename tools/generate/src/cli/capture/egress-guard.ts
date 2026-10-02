@@ -25,7 +25,7 @@
  * hostnames and URLs, not the address the browser resolved them to, and nothing
  * inside workerd can resolve a name to check. What it does cover is the literal
  * address space — which is what a metadata endpoint is named by — plus the
- * loopback and `.local`/`.internal` names, plus the caps below. Cloudflare's own
+ * loopback and `.local`/`.internal` names, plus the redirect cap below. Cloudflare's own
  * network is not routable to an operator's LAN, so the residual exposure this
  * leaves is a name that resolves to a public address the operator would rather
  * we had not fetched, which is a different problem from the one this is for.
@@ -41,7 +41,6 @@ export type RefusalReason =
   | 'credentials'
   | 'private-address'
   | 'redirect-cap'
-  | 'response-cap'
 
 /**
  * What a request IS, as only the driver can know.
@@ -97,8 +96,17 @@ export class UrlRefusedError extends Error {
  */
 export const MAX_REDIRECTS = 5
 
-/** Bytes one capture may pull in total before it is refused as over-large. */
-export const MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+/*
+ * NO BYTE CAP ([[BUG-172]]). There was one — 32 MiB per capture, latching — and
+ * it was a budget with nothing to protect. A capture is mechanical and cheap;
+ * what this product spends is tokens, and nothing about how many bytes a browser
+ * pulled reaches a model. What it did do was refuse ordinary sites: one capture
+ * loads the page once per width on the ladder, so a marketing page with a few
+ * large photographs crossed the cap a few widths in, and every later pass had
+ * its page refused — which BUG-127's verdict then correctly reported as a
+ * capture that failed. This guard is the SSRF control and the loop stop; how
+ * long a capture may run is the session lease's business.
+ */
 
 /** Wall-clock ceiling on one capture, ms. Passed to the session lease. */
 export const MAX_CAPTURE_MS = 60_000
@@ -238,15 +246,13 @@ export function assertPublicUrl(raw: string): URL {
 }
 
 /**
- * The per-request rule the driver installs, plus the running totals the caps are
- * counted against.
+ * The per-request rule the driver installs, plus the record of what it refused.
  *
- * STATEFUL BY CONSTRUCTION, and one instance belongs to one capture. The byte
- * budget is a property of the whole capture rather than of any single request,
- * so it cannot live in a pure function — and a guard shared across two captures
- * would let the first one's traffic refuse the second's. The redirect cap is
- * per-chain and needs no state at all (BUG-127); it lives here because this is
- * where the driver already asks, not because it accumulates.
+ * STATEFUL ONLY IN WHAT IT REMEMBERS, and one instance belongs to one capture:
+ * the refusals and whether a page was among them are that capture's verdict. No
+ * rule here depends on an earlier request — the redirect cap is per-chain
+ * (BUG-127) and there is no whole-capture allowance to spend ([[BUG-172]]) — so
+ * a request is allowed or refused on its own merits whatever came before it.
  */
 export interface EgressGuard {
   /**
@@ -260,12 +266,8 @@ export interface EgressGuard {
    * on its own merits but it can never, on its own, condemn the capture.
    */
   allow(url: string, about?: EgressRequest): boolean
-  /** Count bytes a response delivered, refusing once the total is over cap. */
-  record(bytes: number): void
   /** Every refusal, in order — what the operation journals. */
   readonly refusals: readonly EgressRefusal[]
-  /** Whether the whole-capture byte budget has been spent. */
-  readonly tripped: boolean
   /**
    * BUG-127 — whether a *navigation document* was refused, i.e. whether some
    * page in this capture is the words "refused by egress policy" rather than a
@@ -283,14 +285,9 @@ export interface EgressRequest {
   redirectDepth?: number
 }
 
-export function egressGuard(
-  limits: { maxRedirects?: number; maxBytes?: number } = {},
-): EgressGuard {
+export function egressGuard(limits: { maxRedirects?: number } = {}): EgressGuard {
   const maxRedirects = limits.maxRedirects ?? MAX_REDIRECTS
-  const maxBytes = limits.maxBytes ?? MAX_RESPONSE_BYTES
   const refusals: EgressRefusal[] = []
-  let bytes = 0
-  let tripped = false
   let documentRefused = false
 
   /** Record one refusal and answer `false`, so every refusal path is one line. */
@@ -302,36 +299,11 @@ export function egressGuard(
 
   return {
     refusals,
-    get tripped() {
-      return tripped
-    },
     get documentRefused() {
       return documentRefused
     },
     allow(url: string, about: EgressRequest = {}): boolean {
       const kind = about.kind ?? 'subresource'
-      // THE BYTE CAP IS THE ONE BUDGET THAT BELONGS TO THE WHOLE CAPTURE, so it
-      // alone latches: a capture that has pulled 32MB has spent its allowance
-      // and every later request is over it. Only the document is re-journalled
-      // — repeating the same sentence once per refused font would bury the
-      // finding under its own consequences — but recording it at all is the
-      // point: a later pass whose page is refused makes the capture unviewable,
-      // and BUG-127 is the account of what happens when that is not said.
-      if (tripped) {
-        if (kind === 'document') {
-          refuse(
-            {
-              url,
-              reason: 'response-cap',
-              detail:
-                `the capture had already delivered more than ${maxBytes} bytes when this ` +
-                `page was requested, so it was refused; the capture is incomplete.`,
-            },
-            kind,
-          )
-        }
-        return false
-      }
       const refusal = classifyUrl(url)
       if (refusal) return refuse(refusal, kind)
       // REDIRECTS COUNTED AS REDIRECTS (BUG-127). The depth is this request's
@@ -353,18 +325,6 @@ export function egressGuard(
         )
       }
       return true
-    },
-    record(n: number): void {
-      bytes += n
-      if (bytes > maxBytes && !tripped) {
-        tripped = true
-        refusals.push({
-          url: '(total)',
-          reason: 'response-cap',
-          detail: `the page delivered more than ${maxBytes} bytes; capture refused.`,
-          kind: 'subresource',
-        })
-      }
     },
   }
 }

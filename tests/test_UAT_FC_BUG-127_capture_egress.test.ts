@@ -52,8 +52,6 @@ interface PageScript {
   redirectDepth?: number
   /** Subresource URLs the page requests, on every navigation pass. */
   subresources?: string[]
-  /** Bytes the page's responses delivered, per navigation pass. */
-  bytes?: number
 }
 
 /**
@@ -87,7 +85,6 @@ class GuardedFakeDriver implements BrowserDriver {
     for (const sub of this.script.subresources ?? []) {
       this.guard.allow(sub, { kind: 'subresource' })
     }
-    if (this.script.bytes) this.guard.record(this.script.bytes)
   }
 
   async screenshot(_viewport?: Viewport): Promise<Uint8Array> {
@@ -191,8 +188,6 @@ describe('BUG-127 — the egress guard stops refusing the ordinary web', () => {
     expect(guard.refusals.map((r) => r.reason)).toEqual(['redirect-cap'])
     // The next pass starts its own chain at zero and is allowed.
     expect(guard.allow('https://a.test/', { kind: 'document', redirectDepth: 0 })).toBe(true)
-    // And nothing about a per-request refusal spends the capture's budget.
-    expect(guard.tripped).toBe(false)
 
     // Forty subresources across forty origins are forty chains of depth zero.
     for (let i = 0; i < 40; i++) {
@@ -202,16 +197,15 @@ describe('BUG-127 — the egress guard stops refusing the ordinary web', () => {
   })
 
   it('test_UAT_FC_BUG_127_a_refused_document_fails_rather_than_adopting', async () => {
-    // The byte cap IS a whole-capture budget, so it latches — and a later pass
-    // whose page is refused therefore still happens. What must not happen is
-    // what used to: reporting that as a success and adopting the refusal text as
-    // a reference. `MAX_RESPONSE_BYTES` is 32MB; one pass delivering 40MB spends
-    // the capture's whole allowance.
+    // A page can still be refused mid-capture — here, every pass's page arrives
+    // after more redirect hops than one chain may follow. What must not happen
+    // is what used to: reporting that as a success and adopting the refusal
+    // text as a reference.
     GuardedFakeDriver.refusedPages = []
-    const d = deps({ bytes: 40 * 1024 * 1024 })
+    const d = deps({ redirectDepth: 9 })
     const ops = fidelityOperations(d)
 
-    await expect(ops.capture_site({ url: 'https://heavy.test/' })).rejects.toThrow(
+    await expect(ops.capture_site({ url: 'https://far.test/' })).rejects.toThrow(
       /REFUSED.*page itself was refused/s,
     )
     // The capture really did lose a page — this is not a pre-flight refusal.
