@@ -313,10 +313,6 @@ class CfBrowserDriver implements BrowserDriver {
     if (this.cached.has(url)) return
     try {
       const body = await resp.buffer()
-      // REQ-157 — the response cap is counted here because this is the only
-      // place a body's real size is known; a `content-length` header is a claim,
-      // and a chunked response does not carry one at all.
-      this.opts.guard?.record(body.byteLength)
       this.cached.set(url, {
         url,
         status: resp.status(),

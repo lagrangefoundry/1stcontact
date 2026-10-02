@@ -61,6 +61,16 @@ export interface FakeBrowserOptions {
    * definition of.
    */
   png?: Uint8Array
+  /**
+   * What the far side of the wire serves, by URL ([[BUG-172]]).
+   *
+   * A request the driver lets go to the network is, by default, answered with
+   * nothing — which is all a test of in-process fulfilment needs. A URL named
+   * here is answered with this body and reported back through the page's
+   * `response` event, as a browser does, so the driver's response cache sees
+   * real sizes. The navigated URL's body becomes the document.
+   */
+  network?: Record<string, { body: string | Uint8Array; contentType?: string }>
 }
 
 /** Eight bytes of a real PNG signature + IHDR, so a caller can sniff the type. */
@@ -122,7 +132,7 @@ class FakePage implements PuppeteerPage {
     if (this.opts.hang) return new Promise(() => {})
     if (!this.intercepting) throw new Error('fake browser: interception was never armed')
     this.pageUrl = url
-    this.document = (await this.issue(url)) ?? ''
+    this.document = (await this.issue(url, 'document')) ?? ''
     for (const sub of [...subresourcesOf(this.document, url), ...(this.opts.extraRequests ?? [])]) {
       await this.issue(sub)
     }
@@ -131,10 +141,10 @@ class FakePage implements PuppeteerPage {
 
   /**
    * One request, through the driver's own handler. Resolves to the body the
-   * driver fulfilled with, or `null` when it sent the request to the network —
-   * which is the distinction every assertion in this suite turns on.
+   * driver fulfilled with, or — when it sent the request to the network — the
+   * text {@link FakeBrowserOptions.network} serves there, else `null`.
    */
-  private async issue(url: string): Promise<string | null> {
+  private async issue(url: string, resourceType = 'other'): Promise<string | null> {
     const handlers = this.handlers.get('request') ?? []
     if (handlers.length === 0) throw new Error('fake browser: no request handler registered')
     if (handlers.length > 1) {
@@ -150,6 +160,9 @@ class FakePage implements PuppeteerPage {
     })
     const request = {
       url: () => url,
+      // What a browser labels every request with. Only the navigation is a
+      // document; with no frame exposed, the driver reads it as the main one.
+      resourceType: () => resourceType,
       respond: async (r: { status: number; contentType: string; body: string | Uint8Array }) => {
         if (resolved) throw new Error(`fake browser: ${url} resolved twice`)
         resolved = true
@@ -161,7 +174,18 @@ class FakePage implements PuppeteerPage {
         if (resolved) throw new Error(`fake browser: ${url} resolved twice`)
         resolved = true
         this.log.continued.push(url)
-        settle(null)
+        const served = this.opts.network?.[url]
+        if (!served) return settle(null)
+        const bytes =
+          typeof served.body === 'string' ? new TextEncoder().encode(served.body) : served.body
+        const response = {
+          url: () => url,
+          status: () => 200,
+          headers: () => ({ 'content-type': served.contentType ?? 'application/octet-stream' }),
+          buffer: async () => bytes,
+        }
+        for (const h of this.handlers.get('response') ?? []) h(response as never)
+        settle(typeof served.body === 'string' ? served.body : null)
       },
     }
     this.log.requested.push(url)
