@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T03:26:46.537209+00:00'
+updated_at: '2026-10-02T03:28:38.609449+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5999,5 +5999,55 @@ One flag: the free-coding rules say Claude doesn't create tickets on its own ini
 <!-- xgd-chat role="user" ts="2026-10-02T03:26:46.117887+00:00" -->
 #### You
 I just rebuilt deployed and restarted everything. I am seeing this: *session "room-site_2a2833c06700bc0896dbd380398c7f1e" already has a junction; it is not a new room*
+
+<!-- xgd-turn id="0a2f50b0-848e-43b4-b8ad-77f35761945d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T03:28:37.855639+00:00" -->
+#### Claude
+I'm tracing why the room's ticket isn't being found. The room ticket exists (CHAT-4), so the lookup is missing it rather than it being gone.
+
+Found the cause. Checking what archived the old room so I can say where the bug lives.
+
+REQ-358's own data migration did this. It's a real bug, not stale state left over from your restart.
+
+## What happened
+
+REQ-358 includes a migration, `0024_retire_assistant_sessions.sql`, that runs when the database is migrated. It archives every `assistant-<site>` session, along with any room that lists one as a member. In your store it ran at 03:16:53 UTC:
+
+| ticket | session | now |
+|---|---|---|
+| CHAT-3 | `assistant-site_2a28…` | archived |
+| **CHAT-4** | **`room-site_2a28…`** (members: consultant + CHAT-3) | **archived** |
+| CHAT-5 | `coordinator-site_2a28…` | new, 03:25:55 |
+
+The migration archived the room's **ticket**, but not the room's **junction**. The junction is the live record of the session, held in a Durable Object keyed by the session id, and that copy is still there. A room's session id is fixed per site (`room-<site>`), so on your next open:
+1. The ticket lookup skips archived tickets, so it finds no room.
+2. So the code calls `createGroup` to make a new room with the same id.
+3. `createGroup` finds a junction already under that id and refuses, by design: a junction that already exists means "this isn't a new room".
+
+So the site's group chat can't be created again, and nothing will clear the leftover junction by itself. The migration was written for the database only, and the durable junction (REQ-307) lives outside the database.
+
+The general problem is wider than this migration. **Archiving a chat ticket leaves its junction behind**, and any session whose id is derived from the site, rather than minted fresh, will collide with what's left. Rooms are the first sessions with fixed ids that we've ever archived.
+
+## Unblock it now
+
+The leftover junction is one file. I've checked that it's the one holding `room-site_2a2833c0…`. Its room ticket is already archived, so deleting it loses nothing you can see. It needs the server down, so it's yours to run:
+
+```
+bin/dev down
+rm apps/control-app/.wrangler/state/v3/do/1stcontact-control-app-dev-SessionJunction/a0faa9884645cd2d05c8ac54b40f5a356b3e68aeb9c75eb6eb4a10ef5ae4d8b3.sqlite
+bin/dev up
+```
+
+The next open then creates a fresh room with the consultant and the coordinator in it. The consultant's own conversation (CHAT-1) is untouched.
+
+## The fix needs a home
+
+REQ-358 is at `ready_to_reconcile`, so its body is frozen and the rules say I check with you before extending it. I'd suggest a bug ticket under EPIC-19 that does two things:
+
+1. **`openRoom` treats a junction with no live ticket as an orphan.** It discards the leftover junction and creates the room again, rather than failing. This is safe because the ticket is the room's identity, and a junction whose ticket is archived describes a room that no longer exists.
+2. **Archiving a session's chat ticket also clears its junction.** Then retiring sessions, whether by migration or otherwise, can't leave this behind. It may belong upstream, depending on where the archive hook lives.
+
+Shall I file that bug, or would you rather fold the fix into REQ-358?
 
 <!-- xgd-chat-end -->
