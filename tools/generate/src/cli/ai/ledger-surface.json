@@ -10,7 +10,7 @@
     "ledger": {
       "entries": "how many decisions the ledger now holds",
       "title": "what this engagement is currently called",
-      "note": "the standing note as it now stands"
+      "note_bytes": "how long the standing note now is, in bytes. The note itself is put in front of you at the start of every turn, so a write does not repeat it"
     },
     "work_log": {
       "calls": "how many recorded calls this answer covers",

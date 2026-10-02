@@ -69,7 +69,7 @@
       "url": "the address that was captured",
       "pages": "how many viewport widths were recorded",
       "assets": "how many images and fonts were mirrored",
-      "refusals": "any request the capture would not make, and why — an empty list is the ordinary case",
+      "refusals": "the requests the capture would not make: how many in all, how many for each reason (e.g. `scheme: data:`), and at most five shortened examples — a total of 0 is the ordinary case",
       "reference": "whether the capture also became a searchable reference you can recall later, and which one. `adopted` false is not a failed capture — the bundle is stored and every picture operation can still use it; `why` says what stopped it being written up."
     },
     "reference_list": {

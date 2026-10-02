@@ -48,10 +48,9 @@ export interface LedgerState {
   /**
    * The standing note as it now stands ([[REQ-283]]).
    *
-   * REPORTED BY EVERY WRITE, not only by the one that sets it, because all three
-   * write to ONE object and a caller that just recorded a decision is entitled to
-   * see the record it landed in. It is also what makes `set_standing_note`
-   * verifiable without a read operation beside it.
+   * The host reports it on every write; the surface answers its byte count, not
+   * the text, because the note already reaches the session on every turn
+   * ({@link confirmation}, [[REQ-361]]).
    */
   note: string
 }
@@ -368,6 +367,29 @@ export function checkStandingNote(text: string, lib: Untyped): string {
 }
 
 /**
+ * What a ledger write answers: the record's size and name, and the note's LENGTH
+ * rather than the note ([[REQ-361]]).
+ *
+ * The note is delivered in the seed on every turn, so echoing it back on every
+ * write carried it twice — and `set_standing_note` carried the whole note back
+ * on the call that had just sent it. Its byte count still confirms the write
+ * landed, and against the same byte bound {@link checkStandingNote} enforces.
+ */
+export interface LedgerConfirmation {
+  entries: number
+  title: string
+  note_bytes: number
+}
+
+export function confirmation(state: LedgerState): LedgerConfirmation {
+  return {
+    entries: state.entries,
+    title: state.title,
+    note_bytes: new TextEncoder().encode(state.note ?? '').length,
+  }
+}
+
+/**
  * The operations, bound to one host's ledger.
  *
  * `lib` IS HERE FOR THE CAP AND FOR NOTHING ELSE. The surface is bound with the
@@ -380,21 +402,21 @@ export function ledgerOperations(
   lib: Untyped,
 ): Record<string, (p: Params) => Promise<Untyped>> {
   return {
-    record_decision: (p: Params) =>
-      deps.append((index) =>
+    record_decision: async (p: Params) =>
+      confirmation(await deps.append((index) =>
         renderEntry(index, {
           decision: p.decision as string,
           because: p.because as string,
           rejected: p.rejected as string | undefined,
           open: p.open as boolean | undefined,
         }),
-      ),
-    name_engagement: async (p: Params) => deps.rename(p.name as string),
+      )),
+    name_engagement: async (p: Params) => confirmation(await deps.rename(p.name as string)),
     // CHECKED BEFORE THE STORE IS TOUCHED, so an oversized note leaves the record
     // byte-identical — which is what "nothing was stored" in the declared refusal
     // has to mean to be worth saying.
     set_standing_note: async (p: Params) =>
-      deps.setNote(checkStandingNote(p.note as string, lib)),
+      confirmation(await deps.setNote(checkStandingNote(p.note as string, lib))),
     // [[REQ-296]] — THE ONE READ ON THIS SURFACE, and the only operation here
     // that does not write. It answers from the archive's own artifact (see
     // {@link LedgerDeps.workLog}), so there is nothing to keep in step: a call

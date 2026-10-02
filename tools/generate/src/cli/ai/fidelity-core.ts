@@ -53,7 +53,7 @@ import {
 import { resolveViewport } from '../capture/screenshot'
 import { drivePage } from '../capture/interact'
 import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
-import { assertPublicUrl, egressGuard, UrlRefusedError } from '../capture/egress-guard'
+import { assertPublicUrl, egressGuard, summariseRefusals, UrlRefusedError } from '../capture/egress-guard'
 import type { EgressRefusal } from '../capture/egress-guard'
 import fidelitySurface from './fidelity-surface.json'
 
@@ -464,7 +464,8 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           // Reported ALWAYS, not only on failure. A capture that quietly skipped
           // a third of a page's images is the exact input that makes a later
           // fidelity verdict wrong, and it is invisible unless it is said here.
-          refusals: refusals.map((r) => ({ url: r.url, reason: r.reason, detail: r.detail })),
+          // Summarised, never listed ([[REQ-361]]) — see `summariseRefusals`.
+          refusals: summariseRefusals(refusals),
         }
       } catch (error) {
         // A refusal of the typed URL never reaches the browser, so it arrives

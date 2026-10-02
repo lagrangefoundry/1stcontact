@@ -395,6 +395,10 @@ export function planReminder(plan: Plan | null): string | null {
 
 // ── operations ──────────────────────────────────────────────────────────────
 
+/** The brief's keys, by how a write sets them: trimmed text, or a value as given. */
+const BRIEF_TEXT_KEYS = ['business', 'site_job', 'quality_bar']
+const BRIEF_VALUE_KEYS = ['audiences', 'goal', 'existing_site', 'constraints']
+
 const str = (v: unknown): string | undefined => (typeof v === 'string' && v.trim() !== '' ? v.trim() : undefined)
 
 function decisionIn(fields: PlanFields, id: string): PlanDecision {
@@ -435,7 +439,7 @@ function clientEntry(index: number, d: PlanDecision, quote: string): string {
   return [`### Decision ${index}`, '', what, '', `**The client said:** "${quote}"`].join('\n')
 }
 
-/** What every operation answers: the plan as stored, and its projection. */
+/** What `read_plan` answers: the plan as stored, and its projection. */
 const answer = (plan: Plan): Record<string, unknown> => ({
   plan: plan.fields,
   body: plan.body,
@@ -443,23 +447,49 @@ const answer = (plan: Plan): Record<string, unknown> => ({
 })
 
 /**
+ * How long one string in a write's confirmation may be ([[REQ-361]]). A
+ * confirmation names what was written; it is not a second copy of it.
+ */
+export const CONFIRMATION_CLIP = 200
+
+/** `value` with every string in it clipped to {@link CONFIRMATION_CLIP}. */
+function clipped(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.length <= CONFIRMATION_CLIP ? value : `${value.slice(0, CONFIRMATION_CLIP)}… [${value.length} characters]`
+  }
+  if (Array.isArray(value)) return value.map(clipped)
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, clipped(v)]))
+  }
+  return value
+}
+
+/**
  * The operations, bound to one site's plan.
  *
  * EVERY WRITE IS ONE CHANGE, CHECKED. The change runs on a copy, {@link checkPlan}
  * runs on the result, and only then does the host store it — so a refused write
  * leaves the plan byte-identical.
+ *
+ * A WRITE CONFIRMS; IT DOES NOT ECHO ([[REQ-361]]). Each change returns what it
+ * wrote — the decision, task or check as it now stands, the brief keys it set —
+ * and nothing else. Every write used to answer the whole plan, 11–24 KB per call,
+ * and a session that kept its plan current paid for that on every later request.
+ * `read_plan` answers the document; the per-turn plan entry keeps the session
+ * oriented in between.
  */
 export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Promise<Untyped>> {
   const now = (): string => (deps.now ? deps.now() : new Date().toISOString())
-  const change = async (edit: (plan: Plan) => void): Promise<Record<string, unknown>> =>
-    answer(
-      await deps.write((current) => {
-        const next = copy(current)
-        edit(next)
-        checkPlan(next.fields)
-        return next
-      }),
-    )
+  const change = async (edit: (plan: Plan) => Record<string, unknown>): Promise<Record<string, unknown>> => {
+    let written: Record<string, unknown> = {}
+    await deps.write((current) => {
+      const next = copy(current)
+      written = edit(next)
+      checkPlan(next.fields)
+      return next
+    })
+    return clipped(written) as Record<string, unknown>
+  }
 
   return {
     read_plan: async () => {
@@ -473,13 +503,15 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
     update_brief: (p) =>
       change((plan) => {
         const brief = plan.fields.brief
-        for (const key of ['business', 'site_job', 'quality_bar']) {
+        for (const key of BRIEF_TEXT_KEYS) {
           if (str(p[key])) brief[key] = str(p[key])
         }
-        for (const key of ['audiences', 'goal', 'existing_site', 'constraints']) {
+        for (const key of BRIEF_VALUE_KEYS) {
           if (p[key] !== undefined && p[key] !== null) brief[key] = p[key]
         }
         if (str(p.quote)) plan.body = appendToSection(plan.body, BRIEF_SECTION, `> ${str(p.quote)}`)
+        const set = [...BRIEF_TEXT_KEYS.filter((k) => str(p[k])), ...BRIEF_VALUE_KEYS.filter((k) => p[k] !== undefined && p[k] !== null)]
+        return { brief: set, ...(str(p.quote) ? { quoted: true } : {}) }
       }),
     set_feature: (p) =>
       change((plan) => {
@@ -488,10 +520,13 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         const existing = plan.fields.functionality.find((f) => f.feature === feature)
         if (existing) existing.status = status
         else plan.fields.functionality.push({ feature, status })
+        return { feature: { feature, status } }
       }),
     add_note: (p) =>
       change((plan) => {
-        plan.body = appendToSection(plan.body, NOTES_SECTION, String(p.text ?? ''))
+        const text = String(p.text ?? '')
+        plan.body = appendToSection(plan.body, NOTES_SECTION, text)
+        return { note: { section: NOTES_SECTION, characters: text.trim().length } }
       }),
 
     // ── the consultant ───────────────────────────────────────────────────────
@@ -518,6 +553,7 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         if (state) d.state = state
         if (typeof p.compared === 'boolean') d.compared = p.compared
         if (typeof p.log === 'number') d.log = p.log
+        return { decision: d }
       }),
     set_task: (p) =>
       change((plan) => {
@@ -533,6 +569,7 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         if (str(p.status)) t.status = str(p.status)!
         if (Array.isArray(p.depends_on)) t.depends_on = p.depends_on.map(String)
         if (Array.isArray(p.decisions)) t.decisions = p.decisions.map(String)
+        return { task: t }
       }),
     answer_check: (p) =>
       change((plan) => {
@@ -541,6 +578,7 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         // consultant's, so what it records is the consultant's answer.
         c.answers = c.answers.filter((a) => a.by !== 'alice')
         c.answers.push({ by: 'alice', verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        return { check: c }
       }),
 
     // ── the coordinator ──────────────────────────────────────────────────────
@@ -570,6 +608,7 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
             d.log = index
           }
         }
+        return { decision: d }
       }),
     ask_check: (p) =>
       change((plan) => {
@@ -589,6 +628,7 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         // since changed.
         c.asked_at = now()
         c.answers = []
+        return { check: c }
       }),
     record_check_answer: (p) =>
       change((plan) => {
@@ -596,14 +636,18 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
         const by = String(p.by)
         c.answers = c.answers.filter((a) => a.by !== by)
         c.answers.push({ by, verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        return { check: c }
       }),
     set_task_status: (p) =>
       change((plan) => {
-        taskIn(plan.fields, String(p.task)).status = String(p.status)
+        const t = taskIn(plan.fields, String(p.task))
+        t.status = String(p.status)
+        return { task: t }
       }),
     set_phase: (p) =>
       change((plan) => {
         plan.fields.phase = String(p.phase)
+        return { phase: plan.fields.phase }
       }),
   }
 }

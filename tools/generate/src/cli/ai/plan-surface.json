@@ -4,13 +4,22 @@
   "surface_version": 1,
   "title": "The site plan",
   "call_type": "inproc",
-  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.",
+  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**A change answers what it changed, not the plan.** Every write confirms the one thing it wrote — the decision, task or check as it now stands — with long text shortened. Read the plan when you need the rest of it.",
   "param_types": {},
   "shapes": {
     "plan": {
       "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks",
       "body": "the written part: the client's own words, the decision log, and notes",
       "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, and task progress"
+    },
+    "written": {
+      "decision": "the decision as it now stands, when the change was to a decision",
+      "task": "the task as it now stands, when the change was to a task",
+      "check": "the check as it now stands, when the change was to a check",
+      "brief": "which parts of the brief were set, when the change was to the brief; `quoted` is true when the client's words were added",
+      "feature": "the feature and its status, when the change was to a feature",
+      "note": "the section and length of the note added, when the change was a note",
+      "phase": "the phase, when the change was to the phase"
     }
   },
   "errors": {
@@ -60,7 +69,7 @@
         "constraints": { "type": "array", "description": "Anything the site must or must not do, one string each." },
         "quote": { "type": "string", "description": "What the client said, word for word. Kept in the plan's own-words section." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -73,7 +82,7 @@
         "feature": { "type": "string", "required": true, "description": "Which feature." },
         "status": { "type": "string", "required": true, "enum": ["wanted", "not_wanted", "later"], "description": "Whether they want it now, not at all, or later." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -85,7 +94,7 @@
       "params": {
         "text": { "type": "string", "required": true, "description": "The note." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -104,7 +113,7 @@
         "area": { "type": "string", "enum": ["purpose", "messaging", "style", "imagery", "functionality", "liveness", "structure"], "description": "For a new decision only." },
         "tier": { "type": "string", "enum": ["concept", "detail"], "description": "For a new decision only: `concept` shapes what the site is; `detail` can be settled quickly." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -120,7 +129,7 @@
         "depends_on": { "type": "array", "description": "Ids of tasks that must be done first." },
         "decisions": { "type": "array", "description": "Ids of the decisions this task settles or depends on." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_TASK", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -134,7 +143,7 @@
         "verdict": { "type": "string", "required": true, "enum": ["yes", "not_sure", "no"], "description": "Your answer." },
         "note": { "type": "string", "description": "Why, and what you would do if the answer is not yes." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -151,7 +160,7 @@
         "compared": { "type": "boolean", "description": "True when they chose from alternatives they could see." },
         "parked_reason": { "type": "string", "description": "Why it waits — and so when it should come back." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -165,7 +174,7 @@
         "question": { "type": "string", "description": "For a new check: the question, against the brief — never your own opinion." },
         "triggers": { "type": "array", "description": "For a new check: the moments it should be asked again." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -180,7 +189,7 @@
         "verdict": { "type": "string", "required": true, "enum": ["yes", "not_sure", "no"], "description": "Their answer." },
         "note": { "type": "string", "description": "What they said, in their words." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_CHECK", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -193,7 +202,7 @@
         "task": { "type": "string", "required": true, "description": "The task's id." },
         "status": { "type": "string", "required": true, "enum": ["todo", "doing", "done", "dropped"], "description": "Where it is." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_TASK", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
@@ -205,7 +214,7 @@
       "params": {
         "phase": { "type": "string", "required": true, "enum": ["intake", "first_pass", "revision", "prelaunch", "live"], "description": "The phase the build is now in." }
       },
-      "returns": { "shape": "plan" },
+      "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     }
   ],
