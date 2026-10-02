@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T01:03:31.919716+00:00'
+updated_at: '2026-10-02T01:05:00.357565+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5974,5 +5974,24 @@ Shall I go ahead with 1 and 2, and which word do you want for Bob's role?
 <!-- xgd-chat role="user" ts="2026-10-02T01:03:29.972582+00:00" -->
 #### You
 Agree with all three - thank you for keeping me consistent - I want to go with coordinator please can you give me a ticket for those changes please?
+
+<!-- xgd-turn id="225577af-43b5-4180-ad0a-15db12314a41-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T01:04:58.037551+00:00" -->
+#### Claude
+I've filed **REQ-358**, *"Group chat: the second agent is the coordinator, and both agents are pointed at DOC-64"*. It's under EPIC-19, at `draft`, high priority, estimated at 5 points, and the epic now links to it.
+
+It covers the three changes, plus one I added:
+
+1. **`coordinator` becomes the role name.** REQ-357 has already been implemented (`free_coded`) with `assistant`, so this ticket renames it in code: the backend entry, the priming keys, the access grant, the display-name config, the spend role, and the session id.
+   - **Not renamed:** the `user`/`assistant` roles that every chat transcript uses. That's a separate thing, and about 30 test files depend on it. Using `assistant` for the agent as well gave one word two meanings, which is a second reason your choice is the right one.
+   - **Existing dev data:** any `assistant-<site>` sessions already in your dev store must be re-keyed or recreated. Otherwise the coordinator starts a fresh conversation beside an orphaned one, the same failure as BUG-116.
+2. **The code names come out of DOC-64.** It's rewritten to say "the consultant" and "the coordinator", with the substance unchanged. REQ-357's no-code-names test is extended to cover the knowledge-base documents shipped to the agents.
+3. **Both roles' priming names DOC-64** as the document to read before a group-chat build.
+4. **The system map is regenerated** so DOC-63 and DOC-64 appear on it, with DOC-64's description written so a search like "how does a build run" finds it.
+   - **Added:** find out why today's knowledge-base rebuild refreshed the index but silently left the map stale.
+   - **Added:** a test that every indexed system document appears on the map, so this gap can't recur unnoticed.
+
+One flag: the free-coding rules say Claude doesn't create tickets on its own initiative, but you asked for this one explicitly, so I filed it. As with REQ-357, the implementation belongs in REQ-358's own session, not this one.
 
 <!-- xgd-chat-end -->
