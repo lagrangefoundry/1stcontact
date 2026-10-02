@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T03:39:40.496399+00:00'
+updated_at: '2026-10-02T03:40:37.127972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6055,5 +6055,37 @@ Shall I file that bug, or would you rather fold the fix into REQ-358?
 <!-- xgd-chat role="user" ts="2026-10-02T03:39:39.966134+00:00" -->
 #### You
 Wait I have lots of legacy businesses that today have no room if you discard the chat session thats a lot of context lost - that chat session is Alice's
+
+<!-- xgd-turn id="fcab228d-cc77-49a9-94b6-af32f8e987d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T03:40:36.393566+00:00" -->
+#### Claude
+You're right that her session must never be discarded, and nothing I proposed touches it. I wasn't clear enough about which session I meant.
+
+## Two different sessions
+
+| session | whose | what my proposal does |
+|---|---|---|
+| `site-<site>` | **the consultant's** — her whole conversation with the client | **nothing.** Never discarded, never re-keyed. When the room is created she joins it as a member, and her conversation carries on as her private workspace. |
+| `room-<site>` | **the room's own** — what was said inside the group chat | the only junction I suggested removing, and only when its room ticket has been archived |
+
+The error message names `room-site_2a28…`, not `site-site_2a28…`. The file I gave you to delete holds only that room session.
+
+## Your legacy businesses aren't affected
+
+A business that has never had a room has no `room-<site>` junction at all. So when its switch is turned on, `createGroup` finds nothing in the way and creates the room, with the consultant's existing conversation as her member session. That's exactly the path REQ-357 designed.
+
+The collision only happens where REQ-358's migration **archived a room that already existed**. In your local store that's **2 rooms**, both created today while testing REQ-357. The one in the error held 218 bytes, which is a session header and no conversation. Meanwhile all 8 live consultant sessions are untouched.
+
+## But your instinct points at a real flaw in the migration
+
+The migration retired rooms to get rid of the old `assistant` member. It could have kept the room and swapped that member for the coordinator. Today that loses nothing, because the rooms were empty. But as a pattern, "retire the room whenever a member changes" will one day throw away a real group conversation. So I'd make the fix:
+
+1. **Re-point instead of retiring.** A room whose member is replaced keeps its ticket, junction and history, and only its member list changes.
+2. **Only where a room ticket really has been archived** does a leftover `room-<site>` junction get treated as an orphan. That stays true only for the room session, never for `site-<site>` or `coordinator-<site>`.
+
+For tonight, the delete I gave you is still safe: it removes an empty room session that was already archived, and the consultant's conversation (CHAT-1) is untouched.
+
+Want me to file that as a bug under EPIC-19?
 
 <!-- xgd-chat-end -->
