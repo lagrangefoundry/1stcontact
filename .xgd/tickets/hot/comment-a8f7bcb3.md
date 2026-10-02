@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-22
 created_by: xgd
 created_at: '2026-09-29T22:27:11.672057+00:00'
-updated_at: '2026-10-02T00:31:50.622991+00:00'
+updated_at: '2026-10-02T00:32:51.751128+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -238,5 +238,33 @@ Nothing changed on EPIC-22 or REQ-353, since no code was wrong. REQ-353 is alrea
 <!-- xgd-chat role="user" ts="2026-10-02T00:31:47.837284+00:00" -->
 #### You
 I'm looking at dev - I brought the servers down, ran bin/dev and brought them back up - should that not be enough?
+
+<!-- xgd-turn id="30923d91-ad9a-4b69-a7fa-cb14f9d6ff27-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:32:48.917288+00:00" -->
+#### Claude
+No, restarting isn't enough, and my last answer was wrong for your setup. Re-running `1c assets` changed nothing you'd see.
+
+Since REQ-318, the dev environment doesn't serve your source files at all. `bin/dev up` runs wrangler against a frozen bundle in `apps/control-app/.dev-snapshot/`, and the only thing that rebuilds that bundle is `bin/deploy --env dev`. Taking the servers down and bringing them back up just serves the same bundle again.
+
+Your dev log says so in its first lines:
+
+```
+worker: 1stcontact-control-app-dev --env dev (deployed 2026-09-26T20:57:38Z, 9a2aeb7b45)
+FROZEN: editing a source file changes nothing here until `bin/deploy --env dev`
+```
+
+That bundle is from Sep 26, and REQ-353 landed on Sep 29, so dev is serving a build without the Debug tab. That also means anything else merged since Sep 26 is missing from dev, including REQ-357's group chat.
+
+To fix it:
+
+```
+bin/deploy --env dev
+bin/dev restart dev
+```
+
+The deploy also runs the migrate hook against your local database. That applies `0023_group_chat_switch.sql`, which is the one migration still pending locally (REQ-357's).
+
+I haven't run the deploy myself, since it changes your dev environment and data; say if you'd like me to. I've also corrected my saved memory note, which still described the older setup where re-running `1c assets` was enough.
 
 <!-- xgd-chat-end -->
