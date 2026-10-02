@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:05:57.094101+00:00'
+updated_at: '2026-10-02T00:11:47.154009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3378,5 +3378,46 @@ That's the header-over-hero layout, where the two sides disagreed at 0.53 agains
 <!-- xgd-chat role="user" ts="2026-10-02T00:05:55.704371+00:00" -->
 #### You
 I'm a little confused our recent changes to L1 and the replication engine seem to have signinficantly INCREASED the number of "unmeasured" on every site. Gigabyte Alchemy went from 1 to 7. What's going on there?
+
+<!-- xgd-turn id="c63e4934-11a1-4907-a3fb-b91465bdc8f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T00:11:45.006337+00:00" -->
+#### Claude
+Found where the extra 6 come from. Checking what they are before I answer.
+
+The reproduction didn't get worse. The fix you landed worked, and the counter now includes two kinds of check it used to skip without saying so. I compared iteration 11 (before the fixes) with iteration 12 (your recapture this afternoon). Both reproductions are the same; what changed is what the counter includes.
+
+## Where the 7 comes from
+
+| | iteration 11 | iteration 12 |
+|---|---|---|
+| The header-over-hero comparison it refused to make (`contentAnchor`) | 1 | **0** |
+| Background bands whose own styling nothing compares | 6, **not counted** | 6, **counted** |
+| Element ordering it couldn't read on the original (`arrangement`) | not checked | **1** |
+| **What the console shows** | **1** | **7** |
+
+**1. The fix you landed worked.** REQ-352 removed the refused header-over-hero comparison, so the 1 you were chasing is gone.
+
+**2. Six blind spots that were always there are now counted (BUG-161).** These are the six full-width background bands. Each one has styling of its own: transparency, a brightness filter, rounded corners, shadow. The record we keep for each section of the original has no place for those, so neither side ever compared them. The hero band, for example, is drawn at 49% opacity under a darkening filter, and no check has ever looked at that. Before BUG-161 those six were silently left out. Now they're counted, and the code says outright that 7 is the honest number. This is what I meant last time when I said to expect about 6 rather than 0.
+
+**3. One blind spot came from a check that is new (BUG-160).** There is now a check on element ordering: does each element sit in the right place relative to the one before it? On the original site it couldn't work that out for 22 of the 59 elements, so it skipped the comparison and said so. Before, that check didn't run at all.
+
+## Why every site went up
+
+None of the new items are specific to Gigabyte Alchemy. Almost every site has full-width background bands, so all of them now report their band styling as unmeasured. That's why the jump showed up on every site at once.
+
+## The number is behaving the way we designed it
+
+The unmeasured count is meant to list everything the tool can't check. It shrinks when we fix a check, and grows when we find something it was quietly skipping. This round did both: one fixed, seven found. As I said when we started, this number is only honest if it's allowed to rise when a hidden gap comes to light.
+
+What's still awkward is that the console shows one total, so a fix and a newly found gap look the same, and from the screen you couldn't tell this was progress. Iteration 12 contains everything needed to show the change split into "fixed" and "newly counted". That's a small console change, and I can scope it as a child ticket if you want.
+
+## The 6 remaining have one cause
+
+All six band-styling gaps come from the same thing: the section record can't hold a band's own styling. One engine ticket covers all six, either adding that styling to the section record or comparing those bands as ordinary elements. The ordering gap is a separate, smaller item.
+
+## One loose end from last time
+
+The combined "full-width backgrounds stop growing past the widest captured width" ticket never got filed. The CLI call hung and nothing was created. The draft is still at `.xgd/tmp/above-top-rung.md`, and the command to file it is in my previous message. I haven't retried, in case the first attempt shows up late and we end up with a duplicate.
 
 <!-- xgd-chat-end -->
