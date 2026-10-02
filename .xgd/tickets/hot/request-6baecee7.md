@@ -6,9 +6,9 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-02T16:01:11.787508+00:00'
+updated_at: '2026-10-02T22:46:55.137316+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -51,3 +51,28 @@ Option 2 is the one I would build. It is invisible when things are fast, it cann
 ## Related
 
 Separately worth noting for whoever picks this up: the per-turn site snapshot and the standing note delivered with it have been persistently stale in this session — the snapshot reported an empty site at change 0 while the change log showed a fully built page, and currently reports change 74 while the log shows 78. I have worked around it by treating the change log as authoritative. If that is not already known, it is worth a ticket of its own; I have not filed one because I cannot tell from here whether it is a display lag or a genuine read-after-write problem.
+
+
+
+## Investigation (2026-10-02)
+
+**The premise is partly wrong.** In a 1-1 session, text is not held until the turn ends. The provider adapter yields each `text_delta` as it arrives (`lagrange-framework/components/ai/js/src/backends/api_tools.js:1093`). The control app forwards every event as an SSE frame (`apps/control-app/src/router.ts` `streamTurn`, ~6607). The panel draws each one immediately (webui-chat `applyEvent`). Prose written *before* a `Delegate` call therefore reaches the client at once.
+
+The silence comes from the tool call, not from the turn. `runToolLoop` does `await executor.run(...)` (`api_tools.js:1145`), and nothing is yielded until the delegated build returns, which can take up to the 1800 s turn ceiling. The client panel has no visible working indicator: `is-busy` drives only the composer controls, and `tool_activity` fires only after a tool *finishes*.
+
+**Option 1 (interim notice) mostly exists in 1-1 already.** "Announce, then delegate in the same turn" works today. The consultant believed it didn't. Two things remain:
+- Priming should tell the consultant that prose before a tool call is delivered live. This is a 1stcontact prompt change.
+- In a **room**, a member's own panel is not the output (REQ-197) and a successful `GroupSay` ends the round. A room member therefore cannot announce and then continue. That is a genuine gap, but only for rooms.
+
+**Generalising `GroupSay` to 1-1 is not the right seam.**
+- `GroupSay` goes through `manager.postTurn` (`manager.js:1622`), which claims the session's turn lease. The consultant's own in-flight turn holds that lease, so the call would wait 60 s and throw.
+- Even with the lease, it records a *whole separate turn* interleaved inside the open one, which is the corruption the lease exists to prevent.
+- It writes to the junction, not to the live per-turn SSE stream (`manager.promptStream` yields backend events directly, `manager.js:1050-1120`). The client would only see it after a reload or reattach.
+- `group_surface.json` explicitly calls posting into a private session a category error (`not_a_room`).
+
+**Recommended shape (upstream, lagrange-framework):** a per-turn **notice side channel** owned by `SessionManager.promptStream`.
+- `manager.notify(sessionId, event)` pushes a `{kind: 'notice'}` event. The event is merged into the live turn stream and also appended to the junction as a new `NOTICE` record kind, so reattach and tail replay it. It is excluded from the reply text and archive fold.
+- (2) The automatic indicator: `DelegationToolbox._runWorker` (`delegation_toolbox.js:919`) already runs a 100 ms stop-watch interval for the whole worker run. It records `startedAt` and emits a heartbeat notice (`elapsed_s`) at a configured cadence. No model cooperation is needed.
+- (1) Optional `Notify(text)` op on the agent surface, for a model-authored one-liner on the same channel. This is useful mainly where prose isn't live (rooms, where it could also post a non-round-ending room contribution).
+- webui-chat `applyEvent` renders a notice as one inline status line, with each heartbeat replacing the previous one.
+- 1stcontact: grant the surface and add the priming line. `router.ts` needs no change, because it forwards any event kind.
