@@ -19,6 +19,7 @@ fields:
   epic_parent: epic-bf282b3d
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-dd7a80cc
 ---
 
 # Above the widest captured rung, full-bleed surfaces freeze while their content keeps tracking the viewport — and no probe samples there
