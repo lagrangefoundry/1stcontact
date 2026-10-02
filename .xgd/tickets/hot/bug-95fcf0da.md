@@ -6,9 +6,9 @@ title: 'L1 above the widest rung: full-bleed surfaces freeze while content keeps
   the viewport, and no probe samples there'
 created_by: EPIC-12
 created_at: '2026-10-02T00:34:56.539149+00:00'
-updated_at: '2026-10-02T01:24:03.336106+00:00'
+updated_at: '2026-10-02T01:24:13.677876+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   severity: medium
@@ -28,6 +28,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.434
+  story_points: 5
 ---
 
 # Above the widest captured rung, full-bleed surfaces freeze while their content keeps tracking the viewport — and no probe samples there
