@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T21:00:53.009036+00:00'
+updated_at: '2026-10-02T21:02:43.049892+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6242,5 +6242,36 @@ I am interested in the "Room with just Alice" scenario because it would allow us
 3. No - that's only relevant if we go back to 2 in the room leave it for now
 
 4. As always the smallest reasonable number
+
+<!-- xgd-turn id="fef12633-cc6b-4e38-ab43-880c9b83bb08-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T21:02:38.962134+00:00" -->
+#### Claude
+I've filed **REQ-364**, *"Builder: a plan panel above the chat, where the consultant's questions wait for the client"*. It's under EPIC-19, at `draft`, high priority, estimated at 13 points.
+
+**Your answers, as they landed in the ticket:**
+- **Removing questions:** an ask has four statuses, `open | answered | skipped | withdrawn`. Answering and skipping are the client's; withdrawing is the consultant's, with a reason. A withdrawn ask leaves the panel but stays in the plan with its reason, so Charlie is never chased for the email address again.
+- **"Bob off":** the test runs with the group-chat switch off, on today's one-to-one path. The coordinator stays available, and the panel works the same on both paths because it reads and writes the plan ticket, not a particular agent. A room with only Alice is listed as a later optimisation.
+- **Phase:** it's in. One read-only line at the top of the panel, taken from the plan's existing `phase`.
+- **Your "3":** I read it as the speaker styling (my question 8), since that's the one that only matters with two agents in the room. It's out. If you meant uploading as an answer, tell me and I'll take that out instead.
+- **Tickets:** just this one.
+
+**What it covers:**
+1. The `asks` schema in the plan, as in DOC-65 §6.
+2. Operations for the agents to add or edit, withdraw, and fill in an ask from an uploaded document.
+3. A route for the client to answer, skip, change an answer or upload against an ask. It saves as they go and never starts a turn.
+4. The panel itself, with the builder's usual divider.
+5. A change notice that names each answered ask and its value, and leaves out the agent's own changes.
+6. DOC-64 and the consultant's priming updated with DOC-65's rules: one topic and at most one question per post, enduring facts on the panel, stage announcements, milestone reviews.
+
+**Leanings I applied where you didn't answer:**
+- **Uploads are in.** A document can answer an ask, and the consultant fills in the related asks from it.
+- **The client can skip an ask and change an answer.**
+- **The client's position on the technical and marketing axes isn't recorded.**
+- **The divider** remembers its position like the builder's others.
+
+Each of these is one line in the ticket if you want it changed.
+
+**On switching Bob back on:** BUG-176 is already at `ready_to_reconcile`, so the fix that lets a retired room be created again has landed. I tried to add a note to it saying you need the coordinator kept available, but its body is frozen. That requirement is recorded in REQ-364 and on the epic instead.
 
 <!-- xgd-chat-end -->
