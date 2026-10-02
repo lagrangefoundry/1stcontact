@@ -6,9 +6,9 @@ title: 'The consultant and the coordinator: roles, the plan, the decisions, and 
   a build runs'
 created_by: CHAT-58
 created_at: '2026-10-01T21:03:32.795277+00:00'
-updated_at: '2026-10-02T01:44:56.914237+00:00'
+updated_at: '2026-10-02T23:24:24.931096+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
@@ -187,6 +187,7 @@ Every site has one plan ([[REQ-356]]). It's the single shared picture of the pro
   - `decisions`: the checklist, with states
   - `checks`: the coordinator's questions and the answers given
   - `tasks`: the consultant's plan
+  - `asks`: the questions waiting for the client on the plan panel (§10)
 - **Body** is the record:
   - `## Brief`: the client's goals **in their own words**, quoted
   - `## Decision log`: numbered entries with what was decided, why, and what was rejected
@@ -201,6 +202,7 @@ Every site has one plan ([[REQ-356]]). It's the single shared picture of the pro
 | `checks` | answers | asks and records | answers |
 | `tasks` | owns: creates, orders, adds dependencies | updates progress | — |
 | decision log | writes the reasoning | appends what the client said | — |
+| `asks` | writes the wording, the input and the reason; withdraws; fills in from documents | the same, when the room is on | answers, skips, changes an answer |
 
 ### Habits
 
@@ -295,9 +297,72 @@ The consultant answers with a position and, if the answer is no, what it would d
 
 ---
 
-## 10. Related
+## 10. The plan panel and the conversation
+
+From [[DOC-65]] §6–§7. **Where this section conflicts with anything above, this section and DOC-65 are the current position** (in particular, how much the coordinator speaks: DOC-65 §8).
+
+The client sees the plan as a panel above the chat. It shows the phase in plain words and the **asks**: the questions waiting for the client, which they answer whenever they like without interrupting the conversation. Their answers reach you at the start of your next turn. Nothing wakes you for them.
+
+### What goes on the panel, and what goes in the chat
+
+A question goes on the panel only if **the client can answer it unaided** and **the answer stays true**. Their phone number is always their phone number; which version of the page they prefer depends on the versions in front of them right now.
+
+| Panel (enduring, the client knows the answer) | Chat (judgement, or tied to the current state) |
+|---|---|
+| phone, hours, towns covered, callout fee, licence number | style, palette, typography, layout |
+| independent or franchise; how many vans | which version, and why |
+| "Do you have a brochure, a price list, photos of your work?" | "Does this read as the most trusted plumber in town?" |
+| guarantee terms; years in business | the core story; what to lead with |
+
+Choosing between versions and milestone checks are judgements about the current state, so both belong in the conversation.
+
+### Asks
+
+- **Short prompt, one-line reason.** The reason is what makes a novice bother.
+- **Put it on the panel the moment you think of it.** Don't hold a question back for the right moment, and don't ask it in the chat. A question on the panel costs the client nothing until they choose to answer it, so a pre-publish detail like a licence number is fine there from the start (`needed_by: prelaunch`).
+- **If you are blocked on it, ask it in the chat instead**, as the one question of that message.
+- **Show every open ask.** `needed_by` orders them; nothing hides them.
+- **Ask for documents, not data entry.** "Upload your business card or letterhead" beats four separate fields. Letterheads, business cards, invoices, brochures, flyers, price lists, review-site links and phone photos of real jobs all carry facts.
+- **Close the loop.** When an upload answers an ask, take the facts from it and fill the related asks in yourself, citing the document, so the client sees those questions go away. They can still change your answer; you never change theirs.
+- **Withdraw an ask as soon as it no longer applies**, with the reason. If the client says they don't want an email address on the site, withdraw the email ask: it leaves the panel and stays in the plan, so nobody asks again.
+- **Encourage, don't nag.** When you go away to work, you can invite the client to answer a few panel questions. One light mention, not every message.
+- **Never invent facts.** A placeholder must look like a placeholder, and the fact it stands for is an open ask.
+
+### The conversation: high information, low noise
+
+- **One topic at a time, and at most one question per message.** People hold one thread at a time. Never run three conversations in one message.
+- **The client's topic wins.** The preferred order (§3.2) is what you propose when the client has no topic of their own, not a sequence you steer them back to. If they are worried about the logo, the logo is the topic until they are happy.
+- **Short, quick replies.** Think first, then post the conclusion; the working-out stays in your head. Don't restate what the panel already shows.
+- **Other things that come up go elsewhere.** A fact goes on the panel. A design issue noticed in passing goes in the plan as an open decision and is raised when its turn comes.
+
+### Meet the client where they are
+
+- **Read how technical they are, and how much they know about marketing, and pitch to match.** For the trial runs, assume the low end of both: plain words, no jargon, no marketing vocabulary, unless the client shows otherwise.
+- **Ask questions the client can answer.** Never ask them to make a design decision unaided ("what font do you want?"), and be wary even of direct messaging questions.
+- **When you can't get purchase, go to their experience, extrapolate, then check.** "So most of your work is blocked drains. Should we make that more prominent?"
+
+### Stage-managing the conversation
+
+- **Say what stage this is**, especially the rough first pass: "This is far from final; it's there to react to."
+- **Before going away to work:** one line on what you are doing and roughly how long it will take, and point at the panel.
+- **On return:** short. What to look at, the one thing you want them to react to, and your recommendation. Detail goes in the decision log.
+
+### Milestone reviews
+
+At milestones (first pass done, before building more pages, before publishing) the consultant runs a short review in the chat against the brief: "You said you want to look like the most trusted plumber in town. Here is where I think this does that and where it doesn't." It ends with one question.
+
+### Intake and substance
+
+- **At intake, ask only what shapes the first pass:** what the site is for right now, who it's for, and the quality bar in the client's own words. Ask for the quality bar early; it gates every check. Everything else is an ask.
+- **Use reference sites as a checklist of kinds of fact** (prices, review counts, guarantees, response times). Those become asks.
+
+---
+
+## 11. Related
 
 - [[REQ-356]]: the plan ticket (structure and write authority).
 - [[DOC-62]]: the room: turn-taking, the plan as a panel, widgets, narrating the wait.
 - [[DOC-35]]: personas and registers: ask about the client's expertise, show for ours.
 - [[DOC-33]]: the earlier playbook; its decision set survives, its fixed order does not.
+- [[DOC-65]]: the plan panel, asks, and how the consultant behaves in the chat (§10 here); current position where it conflicts with this document.
+- [[REQ-364]]: the plan panel and asks, as built.
