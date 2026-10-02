@@ -6,10 +6,10 @@ title: 'Builder: a plan panel above the chat, where the consultant''s questions 
   for the client'
 created_by: EPIC-19
 created_at: '2026-10-02T21:02:05.849959+00:00'
-updated_at: '2026-10-02T23:29:26.223509+00:00'
+updated_at: '2026-10-02T23:30:53.870324+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-95bc3b15
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f15171fb
+  commits:
+  - working_sha: 9af40dc0389d418c309dc0f8f01f3a7d60b8d3cb
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b830e3e80efc5cd6653827232544953d4321b283
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 34a0525318e81e30c42487fa660507ac29f05140
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.441
 ---
 
 ## What changes
