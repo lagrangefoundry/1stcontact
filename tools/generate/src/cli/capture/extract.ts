@@ -8,7 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
-import type { Box, ClipAncestor, SurfaceShape } from './types'
+import type { BandPaint, Box, ClipAncestor, SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -389,6 +389,12 @@ export interface RawBand {
    * composites normally.
    */
   overlay: { color: string; opacity: number; blendMode?: string } | null
+  /**
+   * BUG-174 — the band's own paint, read off the element that paints its imagery
+   * or its fill (see `bandPaintOf`). Optional only so a stored pre-BUG-174
+   * extraction still parses; the extractor writes it on every band.
+   */
+  paint?: BandPaint
   /**
    * REQ-352 — a band records the runs it carries and its own box, and NOTHING
    * about where its content sits: the content anchor is derived from both in
@@ -2362,6 +2368,46 @@ export const EXTRACT_SCRIPT = `(() => {
     return best ? veilRecord(best) : null;
   }
 
+  // BUG-174 -- a band's OWN paint: the opacity, filter, blend mode, corner radius
+  // and shadow of the element that paints it. A reproduction paints every band on
+  // a full-bleed box and the diff reads those five axes off that box; a band
+  // record carried its fill and imagery and nothing else, so the five went
+  // uncompared on BOTH sides -- on gigabytealchemy the hero photograph paints at
+  // opacity .49 and no check read it. Read with the same helpers a field's paint
+  // is read with, so the two records cannot disagree about what a value means.
+  function bandPaintOf(el, box) {
+    var cs = getComputedStyle(el);
+    return {
+      opacity: opacityOf(cs),
+      filter: paintedOrNull(cs.filter),
+      blendMode: paintedOrNull(cs.mixBlendMode),
+      borderRadiusPx: borderRadiusOf(cs, box),
+      boxShadow: boxShadowOf(cs),
+    };
+  }
+
+  // BUG-174 -- WHICH element paints a geometric slice: the one its recorded paint
+  // was read off. The topmost layer painting an image (sliceBackgroundImage's
+  // pick), else the topmost coincident opaque layer (sliceBackgroundColor's),
+  // else the slice element itself -- so the five axes describe the same box the
+  // band's imagery and fill already describe, never the box the page covered.
+  function slicePaintLayer(slice) {
+    var layers = slice.layers || [];
+    var i;
+    for (i = layers.length - 1; i >= 0; i--) {
+      var img = getComputedStyle(layers[i].el).backgroundImage;
+      if (img && img !== 'none') return layers[i];
+    }
+    for (i = layers.length - 1; i >= 0; i--) {
+      var lb = layers[i].box;
+      if (!lb || !slice.box) continue;
+      if (Math.abs(lb.y - slice.box.y) > 2 || Math.abs(lb.height - slice.box.height) > 2) continue;
+      var rgba = rgbaOf(getComputedStyle(layers[i].el).backgroundColor);
+      if (rgba && rgba[3] >= 0.999) return layers[i];
+    }
+    return { el: slice.el, box: slice.box };
+  }
+
   // REQ-270 -- the paint of a geometric slice, which is not the paint of the box
   // that FILLS it. bandSlicesIn keeps every backdrop it swallowed (see there); the
   // image a band shows is the one on its TOPMOST painted layer, and the slice
@@ -3046,6 +3092,7 @@ export const EXTRACT_SCRIPT = `(() => {
       // BUG-161 -- and read off the topmost opaque paint over the slice, not off
       // whichever coincident box the slicer kept. See sliceBackgroundColor.
       var bg = sliceBackgroundColor(br);
+      var paintLayer = slicePaintLayer(br);
       bands.push({
         box: br.box,
         backgroundColor: bg,
@@ -3063,6 +3110,7 @@ export const EXTRACT_SCRIPT = `(() => {
         paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
         paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
         overlay: overlayInBox(br.box, br.el),
+        paint: bandPaintOf(paintLayer.el, paintLayer.box),
         content: perSlice[bi].content,
         items: perSlice[bi].items,
         fields: perSlice[bi].fields,
@@ -3101,6 +3149,7 @@ export const EXTRACT_SCRIPT = `(() => {
       paddingTopPx: Math.round(parseFloat(s.paddingTop)) || 0,
       paddingBottomPx: Math.round(parseFloat(s.paddingBottom)) || 0,
       overlay: overlayOf(band, bbox),
+      paint: bandPaintOf(band, bbox),
       content: content,
       items: grp.items,
       itemsAt: itemsAt,

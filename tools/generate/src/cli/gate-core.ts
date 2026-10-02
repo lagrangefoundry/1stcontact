@@ -980,12 +980,16 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // reaches this count, and what remains outstanding is the part the section
     // record structurally cannot hold — a full-bleed box's own opacity, filter,
     // blend mode, corner radius and shadow.
+    // BUG-174 — and the record now CAN hold them (capture schema 12), so what is
+    // left here is a box with one of those axes still unread on some side: a
+    // bundle taken before the read, or a band with no reference partner.
     if (bandPaintActual > 0) {
       outstanding.push(
         `${bandPaintActual} reproduction element(s) are a band's own PAINT (a full-bleed box coinciding with a ` +
-          `band whose record reports the same fill or imagery) and are NOT counted as unpaired objects — but ` +
-          `a section record cannot hold a box's own opacity, filter, blend mode, corner radius or shadow, so ` +
-          `those axes went uncompared on them (\`values.bandPaintActual\`)`,
+          `band whose record reports the same paint) and are NOT counted as unpaired objects — but at least ` +
+          `one of the box's own opacity, filter, blend mode, corner radius or shadow went uncompared, because ` +
+          `a band record on one side did not carry it (a reference captured before schema 12 — re-capture — or ` +
+          `a band with no reference partner) (\`values.bandPaintActual\`)`,
       )
     }
     // REQ-274 — the fifth way the pass rung could be silent about what it did not

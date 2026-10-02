@@ -798,6 +798,22 @@ function bandBackgroundImageUrl(css: string | null | undefined): string | undefi
   return isSafeUrl(url) ? url : undefined
 }
 
+/** BUG-174 — the band-paint axes, in the order the diff and the gate name them. */
+export const BAND_PAINT_AXES = ['opacity', 'filter', 'blendMode', 'borderRadiusPx', 'boxShadow'] as const
+
+type BandPaintAxis = (typeof BAND_PAINT_AXES)[number]
+
+/** One band-paint row: the same field of `paint` on both sides. */
+function bandPaintRow<K extends BandPaintAxis>(axis: K): SectionAxisRow<K> {
+  return {
+    axis,
+    role: 'compared',
+    note: `BUG-174 — the band's own \`${axis}\`, read off the element that paints its imagery or fill. Absent on a bundle taken before capture schema 12, which reads as unmeasured.`,
+    reference: ({ section }) => section.paint?.[axis] as SectionValues[K],
+    reproduction: ({ band }) => band.paint?.[axis] as SectionValues[K],
+  }
+}
+
 export const SECTION_AXES: readonly AnySectionAxis[] = [
   {
     axis: 'overlay',
@@ -851,6 +867,16 @@ export const SECTION_AXES: readonly AnySectionAxis[] = [
     reference: ({ section }) => section.box,
     reproduction: ({ band }) => band.box,
   },
+  // BUG-174 — the band's OWN paint: the five axes a reproduction's full-bleed
+  // band box carries as an element and the reference band carried nowhere. Read
+  // off the element that paints the band's imagery or fill, on both sides by the
+  // one extractor; a bundle before capture schema 12 records no `paint` and every
+  // row reads `undefined` there — unmeasured, never a default.
+  bandPaintRow('opacity'),
+  bandPaintRow('filter'),
+  bandPaintRow('blendMode'),
+  bandPaintRow('borderRadiusPx'),
+  bandPaintRow('boxShadow'),
   {
     axis: 'paddingTopPx',
     role: 'carried',

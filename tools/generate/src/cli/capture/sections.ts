@@ -307,7 +307,20 @@ function sectionFromBands(
     // reproduction had placed correctly.
     contentAnchorRatio: anchorRatioOfSpan(box, mergeContentSpans(spans)),
   }
-  return { box, screenshot: box, background, layout, content, items, itemsAt, fields }
+  // BUG-174 — the band's own paint, from the head band for the reason its
+  // background is: coalescing keys on that band's paint, so the two describe one
+  // element. Absent when the extraction predates the read, never defaulted.
+  return {
+    box,
+    screenshot: box,
+    background,
+    ...(head.paint ? { paint: head.paint } : {}),
+    layout,
+    content,
+    items,
+    itemsAt,
+    fields,
+  }
 }
 
 export function buildSections(

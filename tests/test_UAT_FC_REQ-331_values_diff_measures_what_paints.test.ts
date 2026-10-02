@@ -158,9 +158,11 @@ describe('REQ-331 — the values-diff measures what paints', () => {
     // drift moved a photograph past the headline in the sort order, which changed
     // `Alley scene`'s predecessor and produced the highest-severity delta on the
     // page — against an element whose own box agrees to 0.01px in x and width.
-    const ref = img({ alt: 'Alley scene', box: box(427.63, 129.04, 490.73, 327), arrangement: 'stack' })
-    const act = img({ alt: 'Alley scene', box: box(427.63, 145.03, 490.73, 327), arrangement: 'row' })
-    const ds = deltas([ref], [act])
+    // BUG-174 — arrangement is read off the paired elements' boxes, so the
+    // neighbour is in the fixture: above it on the reference, beside it here.
+    const ref = img({ alt: 'Alley scene', box: box(427.63, 129.04, 490.73, 327) })
+    const act = img({ alt: 'Alley scene', box: box(427.63, 145.03, 490.73, 327) })
+    const ds = deltas([el('FAELAN', { box: box(427.63, 20, 490.73, 60) }), ref], [el('FAELAN', { box: box(0, 145.03, 400, 60) }), act])
     expect(on(ds, 'arrangement'), 'not blamed for its neighbour').toBeUndefined()
     // The real defect — this element IS 16px low — is still reported, by the
     // axis that is about this element.
@@ -170,8 +172,12 @@ describe('REQ-331 — the values-diff measures what paints', () => {
   it('test_UAT_FC_REQ-331_a_genuine_arrangement_difference_is_still_reported', () => {
     // The rail: where the element's own geometry agrees, a row-vs-stack
     // difference is a real composition defect and still surfaces at CRITICAL.
+    // BUG-174 — the neighbour moved from above it to beside it; it did not move.
     const at = box(427.63, 129.04, 490.73, 327)
-    const ds = deltas([img({ alt: 'Alley scene', box: at, arrangement: 'stack' })], [img({ alt: 'Alley scene', box: at, arrangement: 'row' })])
+    const ds = deltas(
+      [el('FAELAN', { box: box(427.63, 20, 490.73, 60) }), img({ alt: 'Alley scene', box: at })],
+      [el('FAELAN', { box: box(0, 129.04, 400, 60) }), img({ alt: 'Alley scene', box: at })],
+    )
     expect(on(ds, 'arrangement')).toBeDefined()
     expect(on(ds, 'arrangement')!.tier).toBe('CRITICAL')
   })
