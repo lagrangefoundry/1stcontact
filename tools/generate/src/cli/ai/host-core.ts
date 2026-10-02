@@ -61,14 +61,14 @@
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import {
-  ASSISTANT_ROLE,
-  assistantRole,
+  COORDINATOR_ROLE,
+  coordinatorRole,
   BUILDER_ROLE,
   builderRole,
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
-  registerAssistantProviders,
+  registerCoordinatorProviders,
   registerBudgetProvider,
   registerBuilderProviders,
   registerMemoryProviders,
@@ -98,11 +98,11 @@ import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
 import {
-  ASSISTANT_BACKEND,
+  COORDINATOR_BACKEND,
   EXCHANGE_FIELD,
   EventChannel,
-  assistantBackendName,
-  assistantSessionIdFor,
+  coordinatorBackendName,
+  coordinatorSessionIdFor,
   groupNames,
   groupRoomSettings,
   guardIsStale,
@@ -856,10 +856,10 @@ export interface HostDeps {
   tickets?: Untyped | null
 
   /**
-   * What the assistant reads beside the site ([[REQ-357]]): the corpus and the
+   * What the coordinator reads beside the site ([[REQ-357]]): the corpus and the
    * ticket reader, each with the grant it travels with. Never a write surface.
    */
-  assistantSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
+  coordinatorSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
 }
 
 
@@ -1711,7 +1711,7 @@ async function build(
   //
   // `undefined` WITH THE SWITCH OFF, and everything group-shaped hangs off it:
   // no room tools on the consultant, no room framing in its priming, no
-  // assistant role, no assistant backend. Off is the builder exactly as it was.
+  // coordinator role, no coordinator backend. Off is the builder exactly as it was.
   //
   // ONE `GroupRuntime` PER MEMBER, each naming its own speaker, over maps the
   // room fills when it is opened — held by reference, so a room created after
@@ -2070,9 +2070,9 @@ async function build(
     named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted, Boolean(workerKnowledge))
   }
 
-  // AND THE ASSISTANT, where this business runs a group chat ([[REQ-357]]).
+  // AND THE COORDINATOR, where this business runs a group chat ([[REQ-357]]).
   if (wiring) {
-    named[ASSISTANT_ROLE] = await composeAssistant(lib, slug, opts, deps, wiring, providers, fidelity)
+    named[COORDINATOR_ROLE] = await composeCoordinator(lib, slug, opts, deps, wiring, providers, fidelity)
   }
 
   manager = new lib.SessionManager(named, deps.archive, {
@@ -2094,7 +2094,7 @@ async function build(
   })
   if (wiring) {
     wiring.consultant.manager = manager
-    wiring.assistant.manager = manager
+    wiring.coordinator.manager = manager
     groupWirings.set(manager, wiring)
   }
   // ASSIGNED AND THEN RETURNED, rather than returned directly ([[REQ-295]]). The
@@ -2112,7 +2112,7 @@ interface GroupWiring {
   names: Record<string, Record<string, string>>
   /** Each member's `GroupRuntime`; its `speaker` is set to the member's ticket on open. */
   consultant: Untyped
-  assistant: Untyped
+  coordinator: Untyped
 }
 
 function newGroupWiring(lib: Untyped): GroupWiring {
@@ -2122,15 +2122,15 @@ function newGroupWiring(lib: Untyped): GroupWiring {
   // (lagrange-framework REQ-197 is out of this ticket's scope): the round ends
   // when the member's turn does, through the turn path every round takes.
   const runtime = () => new lib.GroupRuntime({ manager: null, rooms, names })
-  return { rooms, names, consultant: runtime(), assistant: runtime() }
+  return { rooms, names, consultant: runtime(), coordinator: runtime() }
 }
 
 /**
- * The assistant: its read-only box, its backend and its role ([[REQ-357]]).
+ * The coordinator: its read-only box, its backend and its role ([[REQ-357]]).
  *
  * READ ACCESS TO WHAT THE CONSULTANT CAN SEE, AND NOTHING THAT WRITES. The L1
- * read groups (`instances.json`'s `assistant` entry), the corpus and the ticket
- * reader (`deps.assistantSurfaces`), the Library's read group, and the room. No
+ * read groups (`instances.json`'s `coordinator` entry), the corpus and the ticket
+ * reader (`deps.coordinatorSurfaces`), the Library's read group, and the room. No
  * camera, no image surface, no delegation, no ledger writes. The decisions the
  * consultant recorded reach it through the product tier's seed, which reads the
  * engagement's ledger for every role on this manager.
@@ -2142,7 +2142,7 @@ function newGroupWiring(lib: Untyped): GroupWiring {
  * ITS OWN SURFACE INSTANCES, never the consultant's: a Toolbox binds each surface
  * to the grant it was built with ({@link l1SurfaceSet}).
  */
-async function composeAssistant(
+async function composeCoordinator(
   lib: Untyped,
   slug: string,
   opts: GlobalOptions,
@@ -2155,7 +2155,7 @@ async function composeAssistant(
     slug,
     { ...opts, actor: 'ai' },
     {
-      role: ASSISTANT_ROLE,
+      role: COORDINATOR_ROLE,
       lib: deps.lib,
       store: deps.store,
       extraOps: deps.extraOps ?? {},
@@ -2164,7 +2164,7 @@ async function composeAssistant(
       assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
-        ...(deps.assistantSurfaces ?? []),
+        ...(deps.coordinatorSurfaces ?? []),
         ...(deps.library
           ? [
               {
@@ -2173,33 +2173,33 @@ async function composeAssistant(
               },
             ]
           : []),
-        { surface: new lib.GroupToolbox(wiring.assistant), granted: lib.groupInstanceConfig() },
+        { surface: new lib.GroupToolbox(wiring.coordinator), granted: lib.groupInstanceConfig() },
       ],
     },
   )
   const box = new lib.Toolbox(surfaces, granted, {
     audit: deps.audit ?? null,
-    session: assistantSessionIdFor(slug),
-    role: ASSISTANT_ROLE,
+    session: coordinatorSessionIdFor(slug),
+    role: COORDINATOR_ROLE,
   })
   // GUARDED AND NARRATED like the consultant's, so every member round is held to
   // its own window and says why it stopped. Constructed under its OWN
   // `backends.json` name, which is what decides the model and the ceiling.
-  lib.registerBackend(assistantBackendName(slug), () =>
+  lib.registerBackend(coordinatorBackendName(slug), () =>
     guardTurn(
       lib,
       narrateExhaustion(
         new lib.ClaudeAPIBackend({
           ...(modelClient ? { client: modelClient } : {}),
           ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-          name: ASSISTANT_BACKEND,
+          name: COORDINATOR_BACKEND,
           tools: toolSet(lib, box),
         }),
       ),
     ),
   )
-  registerAssistantProviders(providers, { box })
-  return assistantRole(lib, providers)
+  registerCoordinatorProviders(providers, { box })
+  return coordinatorRole(lib, providers)
 }
 
 /**
@@ -3386,7 +3386,7 @@ interface OpenRoom {
   group: Untyped
   names: GroupNames
   consultant: { ticket: string; sessionId: string }
-  assistant: { ticket: string; sessionId: string }
+  coordinator: { ticket: string; sessionId: string }
 }
 
 /** What a second exchange against a live room is told. */
@@ -3421,7 +3421,7 @@ async function homeTicket(manager: Untyped, deps: HostDeps, sessionId: string): 
  * THE ROOM IS THE FRAMEWORK'S. `createGroup` homes it on a chat ticket of its own
  * with the two members' chat tickets as its roster; `openGroup` reopens it.
  * The consultant's member session IS the site's existing conversation, unchanged
- * — it simply becomes private — and the assistant's is `assistant-<site>`.
+ * — it simply becomes private — and the coordinator's is `coordinator-<site>`.
  *
  * SURVIVES ISOLATE EVICTION BY CONSTRUCTION. Nothing here is held only in this
  * isolate: every junction the run depends on is filled from its durable object
@@ -3435,20 +3435,20 @@ async function openRoom(manager: Untyped, slug: string, deps: HostDeps): Promise
   if (!wiring) throw new Error(`the conversation for '${slug}' was not composed as a group chat.`)
   const names = groupNames()
   const consultantSid = sessionIdFor(slug)
-  const assistantSid = assistantSessionIdFor(slug)
+  const coordinatorSid = coordinatorSessionIdFor(slug)
   const roomSid = roomSessionIdFor(slug)
-  for (const sid of [consultantSid, assistantSid, roomSid]) await prepareJunction(deps, sid)
+  for (const sid of [consultantSid, coordinatorSid, roomSid]) await prepareJunction(deps, sid)
   await attach(manager, consultantSid, CONSULTANT_ROLE, siteBackendName(slug))
-  await attach(manager, assistantSid, ASSISTANT_ROLE, assistantBackendName(slug))
+  await attach(manager, coordinatorSid, COORDINATOR_ROLE, coordinatorBackendName(slug))
   const consultant = { ticket: await homeTicket(manager, deps, consultantSid), sessionId: consultantSid }
-  const assistant = { ticket: await homeTicket(manager, deps, assistantSid), sessionId: assistantSid }
-  const labels = memberNames(consultant.ticket, assistant.ticket, names)
+  const coordinator = { ticket: await homeTicket(manager, deps, coordinatorSid), sessionId: coordinatorSid }
+  const labels = memberNames(consultant.ticket, coordinator.ticket, names)
   const existing = String((await deps.archive.homeRef(roomSid)) ?? '')
   const settings = groupRoomSettings()
   const group = existing
     ? await lib.openGroup(manager, deps.tickets, existing, labels)
     : await lib.createGroup(manager, deps.tickets, {
-        members: [consultant.ticket, assistant.ticket],
+        members: [consultant.ticket, coordinator.ticket],
         sessionId: roomSid,
         title: `Group chat: ${slug}`,
         names: labels,
@@ -3461,8 +3461,8 @@ async function openRoom(manager: Untyped, slug: string, deps: HostDeps): Promise
   wiring.rooms[group.chatUid] = roomSid
   wiring.names[group.chatUid] = labels
   wiring.consultant.speaker = consultant.ticket
-  wiring.assistant.speaker = assistant.ticket
-  return { group, names, consultant, assistant }
+  wiring.coordinator.speaker = coordinator.ticket
+  return { group, names, consultant, coordinator }
 }
 
 /**
@@ -3628,8 +3628,8 @@ async function* streamExchange(
       held ? { ...held, at: new Date().toISOString(), calling: member.sessionId } : undefined,
     )
     const role = roleOfMember(member.sessionId, slug)
-    const backend = role === ASSISTANT_ROLE ? assistantBackendName(slug) : siteBackendName(slug)
-    const name = role === ASSISTANT_ROLE ? names.assistant : names.consultant
+    const backend = role === COORDINATOR_ROLE ? coordinatorBackendName(slug) : siteBackendName(slug)
+    const name = role === COORDINATOR_ROLE ? names.coordinator : names.consultant
     // A STOP THAT LANDS MID-ROUND, in whichever isolate, ends the round here with
     // the framework's own control-record stop on the member's junction.
     let polling = false
@@ -3698,7 +3698,7 @@ async function* streamExchange(
       try {
         await updateGuard(deps, roomUid, () => '')
       } finally {
-        for (const sid of [room.consultant.sessionId, room.assistant.sessionId]) {
+        for (const sid of [room.consultant.sessionId, room.coordinator.sessionId]) {
           await deps.junctions?.flush?.(sid)
         }
         channel.close()
@@ -3756,9 +3756,9 @@ export async function privateSessions(
     members: [
       { role: CONSULTANT_ROLE, name: names.consultant, turns: await read(sessionIdFor(slug)) },
       {
-        role: ASSISTANT_ROLE,
-        name: names.assistant,
-        turns: await read(assistantSessionIdFor(slug)),
+        role: COORDINATOR_ROLE,
+        name: names.coordinator,
+        turns: await read(coordinatorSessionIdFor(slug)),
       },
     ],
   }

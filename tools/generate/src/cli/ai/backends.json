@@ -58,9 +58,9 @@
     "a single turn. Billing is per token actually generated, so this costs nothing",
     "until it is used.",
     "",
-    "`claude_assistant` IS THE GROUP CHAT'S SECOND MEMBER ([[REQ-357]]), a third",
+    "`claude_coordinator` IS THE GROUP CHAT'S SECOND MEMBER ([[REQ-357]]), a third",
     "variant of the same adapter and deliberately not `claude_builder`: the",
-    "assistant converses in the room and reads, it never builds, so what it runs on",
+    "coordinator converses in the room and reads, it never builds, so what it runs on",
     "is a separate decision from what a worker runs on and each is one edit here.",
     "Haiku, for DOC-62's latency reason — a one-second participant beside a",
     "ten-minute one. 16000 because it writes contributions, not pages."
@@ -76,7 +76,7 @@
     "max_tokens": 32000
   },
 
-  "claude_assistant": {
+  "claude_coordinator": {
     "model": "claude-haiku-4-5",
     "max_tokens": 16000
   }

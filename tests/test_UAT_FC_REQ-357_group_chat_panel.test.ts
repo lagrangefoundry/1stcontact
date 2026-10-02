@@ -46,7 +46,7 @@ const ROOM = {
   turns: [
     { role: 'user', markdown: 'Make it warmer.', speaker: NAMES.client },
     { role: 'assistant', markdown: 'Amber, then.', speaker: NAMES.consultant },
-    { role: 'assistant', markdown: 'You asked for warm last week too.', speaker: NAMES.assistant },
+    { role: 'assistant', markdown: 'You asked for warm last week too.', speaker: NAMES.coordinator },
   ],
 }
 
@@ -68,7 +68,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the chat panel draws the room', (
     const panel = createChatPanel({ transport: { streamPrompt: async function* () {} } })
     document.body.append(panel.element)
     panel.setSession(ROOM)
-    expect(speakers(panel)).toEqual([NAMES.client, NAMES.consultant, NAMES.assistant])
+    expect(speakers(panel)).toEqual([NAMES.client, NAMES.consultant, NAMES.coordinator])
     const messages = panel.getChat().getMessages()
     expect(messages.map((m: Handle) => [m.role, m.markdown])).toEqual(
       ROOM.turns.map((t) => [t.role, t.markdown]),
@@ -85,7 +85,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the chat panel draws the room', (
           // A member's own deliberation is on the stream and must not be drawn.
           yield { kind: 'text', content: 'thinking privately', meta: { member: NAMES.consultant } }
           yield post(NAMES.consultant, 'assistant', 'Here is a warmer palette.')
-          yield post(NAMES.assistant, 'assistant', 'That fits the brief.')
+          yield post(NAMES.coordinator, 'assistant', 'That fits the brief.')
           yield { kind: 'done', content: '', meta: { status: 'complete' } }
         },
       },
@@ -99,7 +99,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the chat panel draws the room', (
 
     // INTO THE ROOM'S SESSION, and drawn from what came back rather than echoed.
     expect(sent).toEqual([['room-bakery', 'Warmer, please.']])
-    expect(speakers(panel)).toEqual([NAMES.client, NAMES.consultant, NAMES.assistant])
+    expect(speakers(panel)).toEqual([NAMES.client, NAMES.consultant, NAMES.coordinator])
     const text = panel.element.textContent ?? ''
     expect(text).toContain('Here is a warmer palette.')
     expect(text).not.toContain('thinking privately')
@@ -159,7 +159,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the Debug tab', () => {
           return {
             members: [
               { role: 'consultant', name: NAMES.consultant, turns: [{ role: 'user', markdown: 'brief' }] },
-              { role: 'assistant', name: NAMES.assistant, turns: [] },
+              { role: 'coordinator', name: NAMES.coordinator, turns: [] },
             ],
           }
         },
@@ -206,7 +206,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the Debug tab', () => {
     const text = debug.element.textContent ?? ''
     expect(text).toContain(DEBUG.PRIVATE_SECTION_TITLE)
     expect(text).toContain(NAMES.consultant)
-    expect(text).toContain(NAMES.assistant)
+    expect(text).toContain(NAMES.coordinator)
     expect(text).toContain('brief')
   })
 })

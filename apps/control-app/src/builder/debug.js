@@ -115,7 +115,7 @@ export function delegationSource(view) {
 /**
  * The group-chat switch ([[REQ-357]]) — the second entry the section was written
  * as a list for. Whether this business's builder conversation is a room shared by
- * the client, the consultant and the assistant.
+ * the client, the consultant and the coordinator.
  */
 export const GROUP_CHAT_FIELD = Object.freeze({
   name: 'groupChat',
@@ -125,7 +125,7 @@ export const GROUP_CHAT_FIELD = Object.freeze({
 
 export const GROUP_CHAT_HINT =
   'With this on, the builder conversation is a room: the client, the consultant ' +
-  'and the assistant all post in it, each labelled. The consultant’s own ' +
+  'and the coordinator all post in it, each labelled. The consultant’s own ' +
   'conversation carries on unchanged as its private session, shown below. With it ' +
   'off the builder is exactly as it was, back in that conversation.'
 

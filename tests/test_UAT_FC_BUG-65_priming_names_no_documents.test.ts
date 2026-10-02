@@ -55,7 +55,17 @@ function shippedTexts(): string[] {
     .map((entry) => entry.text)
     .filter((text): text is string | string[] => text !== undefined)
     .map((text) => (Array.isArray(text) ? text.join('\n') : text))
-  return [...fromEntries, ...Object.values(primingDocument.templates as Record<string, string>)]
+  // `group-room` IS LEFT OUT, deliberately ([[REQ-358]]). It renders only where a
+  // business runs a group chat, and it names DOC-64 by id because naming the
+  // subject alone was shown not to work (DOC-33, 102 turns, never read). What
+  // this ticket guarded against — an id that leaves the corpus and is still named
+  // — is held for that text by REQ-358's own UAT: every id priming names is a
+  // `system_kb` member. Everything a session is sent WITHOUT a group chat still
+  // names no document.
+  const templates = Object.entries(primingDocument.templates as Record<string, string>)
+    .filter(([name]) => name !== 'group-room')
+    .map(([, text]) => text)
+  return [...fromEntries, ...templates]
 }
 
 describe('BUG-65 — no authored text names a document', () => {

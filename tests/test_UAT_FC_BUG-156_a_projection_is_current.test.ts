@@ -335,7 +335,13 @@ describe('1c kb ensure — a projection is the current one', () => {
     // is fine. The two index states and this one have different subjects — one is
     // the index failing the corpus, the other the corpus failing its source — and
     // an operator told the wrong one looks in the wrong place.
-    const message = kbSkewError({ missing: [], stale: [], outdated: [BEHIND], exempt: ['awareness'] })
+    const message = kbSkewError({
+      missing: [],
+      stale: [],
+      outdated: [BEHIND],
+      unmapped: [],
+      exempt: ['awareness'],
+    })
     expect(message).not.toBeNull()
     expect(message).toContain(BEHIND)
     expect(message).toMatch(/OUTDATED/)
@@ -347,6 +353,6 @@ describe('1c kb ensure — a projection is the current one', () => {
     expect(message).not.toContain('awareness')
 
     // And a coherent, current bundle still earns no message at all.
-    expect(kbSkewError({ missing: [], stale: [], outdated: [], exempt: [] })).toBeNull()
+    expect(kbSkewError({ missing: [], stale: [], outdated: [], unmapped: [], exempt: [] })).toBeNull()
   })
 })

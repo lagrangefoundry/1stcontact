@@ -108,14 +108,15 @@ async function buildFixtureKb(root: string): Promise<void> {
     writeFileSync(path.join(dir, name), text, 'utf8')
   }
   await indexFixtureKb(root)
-  writeFileSync(
-    path.join(dir, 'awareness.md'),
-    awarenessDocument('## Behaviour modules\n\nCarousels and forms. Start at DOC-A.\n', SYSTEM_KB),
-    'utf8',
-  )
 }
 
-/** Both index passes over whatever the corpus currently holds. */
+/**
+ * Both index passes over whatever the corpus currently holds, and the map.
+ *
+ * THE MAP IS REDRAWN WITH THE INDEX ([[REQ-358]]), as every real build does: it
+ * records what it was drawn over, so a map left from before a re-index is behind
+ * its corpus and refused like a stale index.
+ */
 async function indexFixtureKb(root: string): Promise<void> {
   const dir = corpusDir(root)
   const lib = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
@@ -133,6 +134,15 @@ async function indexFixtureKb(root: string): Promise<void> {
     binding.kbs,
     nodeIndexSource(path.join(dir, 'chunks')),
     { embedder, sources: binding.sources },
+  )
+  writeFileSync(
+    path.join(dir, 'awareness.md'),
+    awarenessDocument(
+      '## Behaviour modules\n\nCarousels and forms. Start at DOC-A.\n',
+      SYSTEM_KB,
+      JSON.parse(readFileSync(path.join(dir, 'index', 'manifest.json'), 'utf8')),
+    ),
+    'utf8',
   )
 }
 
@@ -252,6 +262,7 @@ describe('BUG-48 — the corpus and the index are one artefact', () => {
       // states and their message, and a currency finding mixed in would make the
       // assertions below unable to say which sentence named which document.
       outdated: [],
+      unmapped: [],
       exempt: ['awareness'],
     })
     expect(message).not.toBeNull()

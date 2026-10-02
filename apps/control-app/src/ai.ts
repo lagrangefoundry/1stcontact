@@ -898,13 +898,13 @@ export function workerHost(
       // decision that belongs one level down rather than here.
       delegation,
       // [[REQ-357]] — the group-chat switch, the ticket store a room is homed in,
-      // and what the assistant may read. The assistant gets its own instances of the
+      // and what the coordinator may read. The coordinator gets its own instances of the
       // read-only surfaces the consultant holds (the corpus and the ticket
       // reader), granted identically; the
       // image generator and the development surface are deliberately absent.
       groupChat,
       tickets,
-      assistantSurfaces: [
+      coordinatorSurfaces: [
         ...(knowing ? [sessionKnowledgeSurface(knowledge)] : []),
         sessionTicketSurface(tickets),
       ],

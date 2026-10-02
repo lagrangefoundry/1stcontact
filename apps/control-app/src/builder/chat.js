@@ -138,7 +138,7 @@ export const CHAT_ID_PREFIX = 'builder-chat:'
 const EMPTY_TEXT = 'Ask for a change to your site.'
 
 /** A group chat with nothing said in it yet ([[REQ-357]]). */
-const ROOM_EMPTY_TEXT = 'Say what you would like — your consultant and your assistant are both here.'
+const ROOM_EMPTY_TEXT = 'Say what you would like — the consultant and the coordinator are both here.'
 
 /** What a contribution the room recorded about a participant carries ([[REQ-357]]). */
 const ROOM_NOTE = 'Recorded by the room — not something this participant said.'
