@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:21:27.294044+00:00'
+updated_at: '2026-10-02T17:46:07.265743+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1079,5 +1079,23 @@ DOC-64 is now mostly wrong about Bob, so I'd hold the rewrite until after the Bo
 - the sensitivity check on how people are described
 
 Want me to do that partial update now? And for the panel and `asks` code, file a new ticket?
+
+<!-- xgd-turn id="33e3216f-1b08-440f-b15d-59e630215b28-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:46:06.486484+00:00" -->
+#### You
+I hate to say it, but I think we need a new desgin doc - lets call it our next hypothesis.
+
+Bob is behind a feature flag so he is easy to turn off. I suggest we try the next test with Bob off.
+
+Lets add a panel that divides the chat half of the screen into a top and bottom - it should have the same dragable dividors we use everywhere to give it more or less space or collapse it. We need to design a panel that goes in the top, keep the chat in the bottom. The panel itself should be a render of data placed into the plan ticket (we can modify the plan ticket to make this work if necessary). So the model is Alice puts questions into the ticket, the panel notices the change and auto refreshes. Charlie answers questions and the answers are auto-saved to the ticket. Alice is informed of change to the ticket.
+
+It should be built so that the chat panel can be Alice or Bob - Bob can see the plan ticket so adding or removing him remains straightforward
+
+1. On cojnfirmation - lets swing back to it - its probably important but it could generate a lot of noise in the chat and we want the chat to be high information content low noise. Validation could move to the panel for example, and Alice should definitely encourage a final pass asking for Charlie to check all the details.
+2. **Every panel ask accepts either a typed answer or an upload. **<-- or checkboxes, radio buttons, or a typed data field (date, phone, number)
+3. **Don't invite documents full of customer data.** This is important - we need to properly handle the situation where a user uploads customer credit card information because it will happen - but this is another detail for the future like data confirmation. I am very focused on the core interaction right now and - we should list these important details and come back to them. Can you make sure they are in the doc and crreate ToDo tickets for them and we will loop back.
+
+So I think the design document should capture the next stage UX the panel (as a rendering of the plan ticket) lets remain agnostic on Bob and can you capture all the learnings about Alice and Bob behavior please. FYI it will be EPIC-19's job to create the tickets to iomplement this.
 
 <!-- xgd-chat-end -->
