@@ -316,6 +316,28 @@ export function isSafeUrl(url: string): boolean {
   return /^https?$/i.test(scheme[1])
 }
 
+/**
+ * Characters a LINK href may never carry raw. An href is only ever emitted into
+ * an escaped HTML attribute — never into a CSS `url("…")` — so this is
+ * {@link URL_FORBIDDEN_CHARS} without the parentheses a formatted phone number
+ * legitimately uses (`tel:+1-(555)-555-0123`).
+ */
+const HREF_FORBIDDEN_CHARS = /[\u0000-\u0020\u007f-\u009f"'\\<>]/
+
+/**
+ * REQ-359 — the allowlist for a link's `href`, which is wider than
+ * {@link isSafeUrl} by exactly the two non-web schemes a link can mean: `tel:`
+ * (tap to call) and `mailto:` (tap to write). Neither executes anything, and
+ * neither means anything as an image or font source, which is why the widening
+ * lives here and not in `isSafeUrl`. Everything `isSafeUrl` refuses that is not
+ * one of those two — `javascript:`, `data:`, `vbscript:`, `file:` — stays refused.
+ */
+export function isSafeHref(url: string): boolean {
+  if (isSafeUrl(url)) return true
+  const trimmed = url.trim()
+  return /^(tel|mailto):./i.test(trimmed) && !HREF_FORBIDDEN_CHARS.test(trimmed)
+}
+
 function inRange(n: number, lo: number, hi: number): boolean {
   return Number.isFinite(n) && n >= lo && n <= hi
 }
@@ -1261,14 +1283,14 @@ function walk(
     }
   }
 
-  // REQ-106 — a link's href clears the same allowlist as every other URL sink.
-  // The renderer degrades an unsafe href to the plain element, but failing here
+  // REQ-106 — a link's href clears the URL allowlist, widened for links alone
+  // to `tel:` and `mailto:` (REQ-359). The renderer degrades an unsafe href to the plain element, but failing here
   // as well means the author is told rather than quietly shipping a dead button.
   const link = (node as { link?: { href: string } }).link
-  if (link !== undefined && !isSafeUrl(link.href)) {
+  if (link !== undefined && !isSafeHref(link.href)) {
     errors.push({
       path: `${path}/link/href`,
-      message: `link href '${link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+      message: `link href '${link.href}' is not an allowed URL (http/https, mailto, tel, relative, or #anchor only)`,
     })
   }
   // REQ-331 — and so does a RUN's href. A run list is the only place in the
@@ -1279,10 +1301,10 @@ function walk(
   // prevent.
   if (node.kind === 'text' && Array.isArray(node.text)) {
     node.text.forEach((run, i) => {
-      if (run.link !== undefined && !isSafeUrl(run.link.href)) {
+      if (run.link !== undefined && !isSafeHref(run.link.href)) {
         errors.push({
           path: `${path}/text/${i}/link/href`,
-          message: `link href '${run.link.href}' is not an allowed URL (http/https, relative, or #anchor only)`,
+          message: `link href '${run.link.href}' is not an allowed URL (http/https, mailto, tel, relative, or #anchor only)`,
         })
       }
     })

@@ -19,6 +19,7 @@
  */
 import {
   L1_ENVELOPE,
+  isSafeHref,
   isSafeUrl,
   l1PlainText,
   validateL1,
@@ -690,7 +691,7 @@ function foldPadding(el: ValueElement): L1Padding | undefined {
  */
 function foldLink(el: ValueElement): L1Link | undefined {
   const href = el.href?.trim()
-  if (!href || !isSafeUrl(href)) return undefined
+  if (!href || !isSafeHref(href)) return undefined
   return { href }
 }
 
