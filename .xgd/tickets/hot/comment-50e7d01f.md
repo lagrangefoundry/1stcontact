@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T18:46:47.358987+00:00'
+updated_at: '2026-10-02T18:51:37.651700+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3558,5 +3558,71 @@ I've recorded all of this on EPIC-20. I haven't filed any tickets. My suggestion
    4. Can we double the step limit? Are we giving builders a gas meter?
    5. Can you create a bug for the framework checks in LF please
    6. what is the right width for a screenshot?
+
+<!-- xgd-turn id="c7889a15-751b-4867-8561-f49699db37d3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:51:35.451428+00:00" -->
+#### Claude
+Builders already have a gas meter: the framework tells the model how much of its step budget is left on every call. The limit itself is hard-coded, though. Last check is how screenshots are sized.
+
+Writing the four ticket bodies now.
+
+Filed: REQ-361 and REQ-362 here, REQ-203 and BUG-80 in the framework. Now cross-referencing them and linking them to EPIC-20.
+
+I filed four tickets: two here and two in lagrange-framework. All four are drafts, and I haven't written any code.
+
+## 1. Consultant context: REQ-361
+
+The main lever. It does two things:
+- **Drops old tool results.** Once a turn is over, its tool results are replaced in later requests by a short stub saying how to fetch them again. The stored transcript still keeps everything.
+- **Shrinks the three oversized results at source.** Delegation records list what changed instead of whole pages. The site capture reports a count of skipped images rather than the full list. Plan and note saves just confirm what was saved.
+
+Its target is that, replaying this session, the consultant's last request carries under 150k tokens instead of about 514k.
+
+## 2. Model choice is already configurable, so the framework ticket covers what isn't: lagrange-framework REQ-203
+
+`backends.json` in this repo already picks the model per role, and the coordinator is configured for Haiku. I was wrong last time: it isn't running on Opus. The spend meter labels every turn with the consultant's backend, so the coordinator's rows said Opus and were priced at Opus rates.
+
+What the framework doesn't let you configure:
+- **The step limit**, fixed at 50 for every backend.
+- **Effort.** Nothing is sent, so each model uses its own default, and that changes between models: Opus 5 defaults to `high`, Opus 5.5 to `medium`.
+
+REQ-203 makes both of those per-backend settings and adds Opus 5.5 to the framework's model table.
+
+## 3. Opus 5.5 for the consultant: REQ-362
+
+It's better than 20%. Opus 5.5 is $4 in and $20 out per million tokens, but cache reads drop from $0.50 to $0.20, and cache reads were the consultant's biggest cost. Re-pricing this session's actual token counts, the consultant's $28.88 becomes about **$16.40, 43% less**, with nothing else changed.
+
+The ticket also:
+- keeps the consultant's effort at `high` once REQ-203 lands, so the cheaper model doesn't also quietly think less;
+- fixes the meter so each role records its own backend and model;
+- leaves the coordinator on Haiku.
+
+**One risk is in the ticket.** Opus 5.5 can refuse a conversation whose earlier messages have been edited, depending on when the account was created. Our host edits earlier messages when it trims the conversation window and ages out old images. That needs a quick live check before we rely on it, and it applies to REQ-361's stubbing too.
+
+## 4. Step limit and gas meter
+
+- **Gas meter: yes, already there.** On every call the framework tells the worker how many steps it has left.
+- **Doubling the limit: not possible from this repo today**, because it's fixed in the framework. REQ-203 makes it configurable, and REQ-362 then sets builders to 100.
+
+Combined with REQ-361 and Opus 5.5, I'd expect this session to come in at roughly $10–12 rather than $33. That's an estimate, and the meter fix in REQ-362 is what will let us check it.
+
+## 5. Check-splitting bug: lagrange-framework BUG-80
+
+The splitter treats any `.`, `?` or `!` as the end of a sentence. So "CSLB Lic. #000000" and the quoted "Burst pipe? Blocked drain? Call Charlie." were each counted as two checks and refused. The bug keeps genuine double checks like "The heading is 48px. The body is 16px." refused.
+
+## 6. The right width for a screenshot
+
+Limit the **width** and cut tall pages into tiles. Today the code shrinks the image until its **longest** side is 1,024 px, so a 1280×9059 page arrives 169 px wide, and nothing on it is readable.
+
+- **Desktop:** about 1,024 px wide, scaled down from 1,280. Text stays legible.
+- **Mobile:** 375 px, its real width, with no scaling.
+- **Tall pages:** split into screen-height tiles, about 1,024×800 each. One tile costs roughly 1,100 tokens.
+
+A whole 9,000 px page at that width is about 10k tokens. That's fine as an occasional "show me everything", but too much to carry in the consultant's context routinely. So the default should be the visible screen or one section, with the full page as tiles on request.
+
+I haven't filed a ticket for the screenshots. Since it's about what enters the consultant's context, it would fit in REQ-361. Want me to add it there?
+
+All four tickets are recorded on EPIC-20, and REQ-361 and REQ-362 are linked as children.
 
 <!-- xgd-chat-end -->
