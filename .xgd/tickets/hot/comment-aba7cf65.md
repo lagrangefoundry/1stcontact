@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-02T22:47:13.368590+00:00'
+updated_at: '2026-10-02T23:23:14.749316+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -56,5 +56,11 @@ Investigating how the consultant's 1-1 chat delivers turns versus the existing g
 - **1stcontact side:** grant the new tool and add the priming line. The route that forwards events to the client needs no change.
 
 Decision for you: should I file a ticket in lagrange-framework for the notice channel and heartbeat? The 1stcontact priming line can go in directly, since it's a prompt change and needs no ticket.
+
+<!-- xgd-turn id="3d7c1eb3-c38a-442d-a59b-b8a1a1614396-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T23:23:13.700504+00:00" -->
+#### You
+**Why **`GroupSay`** doesn't fit 1-1:** - **It would fail.** It posts by claiming the session's turn lock, which the consultant's own running turn already holds. A call from inside that turn would wait 60 seconds and then error (`manager.js:1622`). - **It would corrupt the record.** Even with the lock, it records a complete separate turn inside the open one, which is what the lock exists to prevent. - **The client wouldn't see it live.** It writes to the stored session log, not to the stream the client is watching, so the message would only appear after a page reload. - **The surface rules it out.** The group tool's own description treats posting into a private session as an error (`not_a_room`). <-- interesting, but take a look at EPIC-7 in LF - all of those issues with contention in a room we need to solve.
 
 <!-- xgd-chat-end -->
