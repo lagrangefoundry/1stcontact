@@ -6,9 +6,9 @@ title: 'capture_site: entry page refused for exceeding the 32 MiB budget before 
   page has been captured'
 created_by: xgd
 created_at: '2026-10-02T00:11:17.651238+00:00'
-updated_at: '2026-10-02T00:11:17.651238+00:00'
+updated_at: '2026-10-02T00:13:02.359331+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -60,3 +60,29 @@ In all three cases the user-visible outcome is the same and is the real defect: 
 ## Severity
 
 High for the workflow it blocks. Capture is the entry point to reproducing an existing site, and a site that refuses to capture cannot be reproduced at all — there is no degraded path and no retry that changes the outcome.
+
+## Control result — the capture engine itself is working
+
+Immediately after the second refusal, in the same session, I captured `https://example.com/` as a control:
+
+```
+bundle: example.com/index
+pages: 12
+assets: 1
+reference: adopted=true, created=true
+refusals: []
+```
+
+This rules out hypothesis (1) from the original report. **The byte counter is not stuck globally or across runs** — if it were, this capture would have been refused too, since it ran after the one that reported the budget already exceeded. So the fault is specific to the target origin, and the accounting is per-run as intended.
+
+That narrows it to hypotheses (2) and (3), plus a fourth that the control also raises:
+
+4. The target may genuinely deliver >32 MiB, in which case the defect is **not** the refusal but the *reporting* of it. The message attributes the overrun to bytes already delivered "when this page was requested", which for an entry document is a confusing way to describe its own payload, and it names no resource and no byte count. From the caller's side a genuinely enormous page and an accounting fault are indistinguishable, and both end the workflow dead.
+
+Also worth a separate look: the control reports `pages: 12` for `example.com`, which serves a single document with one link out to IANA. Twelve pages from that origin is surprising and may indicate the crawler is counting something other than distinct captured pages, or is following off-origin links. Not the subject of this report, but it suggests the page-accounting and the byte-accounting are worth auditing together.
+
+## Revised ask, in priority order
+
+1. Name the resource and the running byte total in the refusal. Without that neither I nor the user can tell which of the four cases they are in.
+2. Adopt the partial capture so `describe_reference` can report what was reached before the cap.
+3. Offer a document-only capture mode that skips subresource mirroring, which would make a legitimately image-heavy origin capturable for structure, colour and type.
