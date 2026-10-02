@@ -2,12 +2,12 @@
 uid: chat-aa503de9
 id: CHAT-58
 type: chat
-title: 2026-09-30 14:12
+title: Alice and Bob go to work
 created_by: xgd
 created_at: '2026-09-30T21:12:32.986604+00:00'
-updated_at: '2026-10-02T01:31:11.736658+00:00'
+updated_at: '2026-10-02T16:21:23.579088+00:00'
 completed_at: null
-last_field_updated: session_id
+last_field_updated: title
 status: open
 fields:
   chat_comment: comment-d23cd37e
