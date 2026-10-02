@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T03:28:38.609449+00:00'
+updated_at: '2026-10-02T03:39:40.496399+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6049,5 +6049,11 @@ REQ-358 is at `ready_to_reconcile`, so its body is frozen and the rules say I ch
 2. **Archiving a session's chat ticket also clears its junction.** Then retiring sessions, whether by migration or otherwise, can't leave this behind. It may belong upstream, depending on where the archive hook lives.
 
 Shall I file that bug, or would you rather fold the fix into REQ-358?
+
+<!-- xgd-turn id="fcab228d-cc77-49a9-94b6-af32f8e987d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T03:39:39.966134+00:00" -->
+#### You
+Wait I have lots of legacy businesses that today have no room if you discard the chat session thats a lot of context lost - that chat session is Alice's
 
 <!-- xgd-chat-end -->
