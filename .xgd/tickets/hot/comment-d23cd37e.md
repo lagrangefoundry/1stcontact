@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T16:26:16.124557+00:00'
+updated_at: '2026-10-02T17:12:36.846252+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -932,5 +932,20 @@ This session cuts both ways.
 **For Bob:** the things Alice *didn't* do are exactly the bookkeeping and persistence jobs. She never asked the quality bar, never asked about functionality, never fired a check, never narrated a wait. And it was Bob's persistence that got you to answer.
 
 So I don't think this session argues for removing Bob. It argues that the Bob we ran wasn't the Bob we designed: he talked instead of tracking. I'd re-run with Bob doing state, waits and one-question-at-a-time asking before drawing a conclusion. Shall I check his tool list and session priming first, to see whether this was a wiring gap?
+
+<!-- xgd-turn id="d17f3049-42ad-40e5-97ec-eaad37709010-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T17:12:36.698188+00:00" -->
+#### You
+DOC-62 called narrating the wait the *one unambiguous* job for a second voice, and Bob never did it: he only speaks when a room round triggers him, and the room is silent while Alice works. <-- thats fair we have the interposition feature in development right now, when Alice is busy, Bob is muted - but my problem right now is too much text not to little
+
+One easy fix - Bob and Alice's contributions are insufficiently distinguished. In the showcase we used chat bubbles to tell them apart - I actually like what we are doing here better but we could try:
+ - make the name larger - it is in a smaller font that the text
+ - an avatar icon - just an initial on a colored background
+ - subtle but different background shading behind the text
+
+One thing I am wondering about is turning the plan into a panel which is always visible - Bobs job is primarily to keep that up to date. Its a dashboard and progress indicator - with User facing CTAs: e.g. What is the CSLB number just goes on the panel. Charlie gets around to it whenever - and BTW Charlie has big gaps here when Alice is busy. Part of what troubles me is that I want Charlie to read and respond to Alice first and in these exchanges Bob is coming in with process and disrupting the core design conversation. It feels like Bob should say less.
+
+Also BTW that session cost $33 which is probably 3x what we can afford with our current pricing model for this point. I'm not too worried about it yet but just calling it out.
 
 <!-- xgd-chat-end -->
