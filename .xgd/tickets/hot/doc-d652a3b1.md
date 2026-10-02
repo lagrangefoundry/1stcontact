@@ -5,9 +5,9 @@ type: doc
 title: 'Next hypothesis: Alice and a plan panel (Bob optional)'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:44.828729+00:00'
-updated_at: '2026-10-02T17:48:44.828729+00:00'
+updated_at: '2026-10-02T18:09:42.903696+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -33,7 +33,7 @@ This doc updates all three with what the first live session taught us. Where it 
 
 > **A single designer voice in the chat, plus an always-visible panel rendered from the plan ticket, gives a novice client a better experience than two voices in the chat.**
 >
-> The panel carries everything that is bookkeeping: progress, questions waiting for the client, choices to make, checks. The chat carries the design conversation, kept high in information and low in noise.
+> The panel carries where we are and the **enduring questions the client can answer unaided**: facts about the business that stay true. The chat carries the design conversation, including every large open question (style, palette, type, layout, story, choosing between variants), kept high in information and low in noise.
 
 The next test runs with **Bob off** (he's behind a feature flag). The design is **agnostic about Bob**: the panel reads and writes the plan ticket, not a particular agent, so Bob can be switched back on without redesign.
 
@@ -126,8 +126,9 @@ Client answers in the panel ─────────┘ (saved as they go)
 
 - **Alice → panel.** Alice adds or edits items in the plan (an ask, a choice, a check). The panel notices the change and refreshes, with no reload and no chat message.
 - **Client → plan.** Answers are saved to the plan as they're entered. There's no submit step for the panel as a whole.
-- **Plan → Alice.** Alice is told what the client changed, as a compact fact (which ask was answered, the answer), not as a transcript.
-  - **Delivery timing is an open question (§10).** Recommendation: answers accumulate and arrive with Alice's next turn. A client answer doesn't wake Alice on its own unless the ask was marked blocking and she's waiting on it.
+- **Plan → Alice: the same channel as the client's page edits.** The client can already edit the page, and Alice learns about it through the per-turn change notice ([[REQ-160]], `session-delta.ts`). The plan is in the same project corpus, so plan changes travel on that channel too. Answers that arrive while she's mid-turn are picked up the same way mid-turn uploads already are.
+  - **What the notice must carry.** Today the change notice lists ticket titles within a 400-character budget. For the plan that only says "the plan changed", which is useless. It must name **which asks the client answered and the answers**, and must **leave out changes Alice made herself**.
+  - **No wake-up.** A client answer doesn't start a turn on its own. Answers accumulate and are reported on Alice's next turn, exactly like a page edit.
 - **Agent-agnostic.** Any chat participant with plan access (Alice, or Bob if enabled) reads the same ticket and sees the same changes. Turning Bob on or off changes who maintains the panel, not how the panel works.
 - **Who owns what.** Alice owns an item's wording, its input type and why it's asked. The client owns the answer. A client answer is never overwritten by an agent edit to the same item.
 
@@ -137,14 +138,23 @@ Client answers in the panel ─────────┘ (saved as they go)
 
 In order, top to bottom; each section collapses when empty:
 
+**The rule for what belongs on the panel:** a question goes on the panel only if **the client can answer it unaided** and the **answer endures**. Charlie's phone number is always his phone number. Which variant he prefers depends on the variants in front of him right now, and there may be four rounds of them.
+
+| Panel (enduring, client knows the answer) | Chat (judgement, or tied to the current state) |
+|---|---|
+| phone, hours, towns covered, callout fee, licence number | style, palette, typography, layout |
+| independent or franchise; how many vans | which variant, and why |
+| "Do you have a brochure / price list / job photos?" | "Does this read as the most trusted plumber in town?" |
+| guarantee terms; years in business | the core story; what to lead with |
+
+So the panel shows, top to bottom (each section collapses when empty):
+
 1. **Where we are.** The phase, in plain words: "Rough first version", "Refining", "Getting ready to publish". Progress is always framed by phase, never by how few items are left. This fixes the "nearly done" impression.
-2. **Needs your answer.** The asks (§6): facts only the client has, each with a one-line reason why it matters. This is where facts get collected while Alice works.
-3. **Needs your choice.** Decisions waiting on the client, e.g. "Which version feels like your business?" with links to `/heavy` and `/family`. The choice is made here, and it records the decision as `chosen`.
-4. **Checks.** Milestone questions shown as client prompts, e.g. "You said you want to look like the most trusted plumber in town. Does this page do that?" with *Yes / Not yet / Not sure*.
-   - A *Not yet* or *Not sure* answer goes to Alice, who responds in the chat.
-   - This is how the push towards critique works without a second voice. It also teaches the novice that the question is allowed.
-5. **Decided / still open.** A compact view of the decision list with states.
-6. **Alice is working on…** Once the interposition work lands: what she's doing and roughly how long.
+2. **Needs your answer.** All open asks (§6), each with a one-line reason why it matters. This is where facts get collected while Alice works.
+3. **Decided / still open.** A compact, read-only view of the decision list with states.
+4. **Alice is working on…** Once the interposition work lands: what she's doing and roughly how long.
+
+**Not on the panel:** choosing between variants, and milestone checks ("are we happy with the layout?", "does this meet the quality bar?"). Both are judgements about the current state, so both belong in the conversation (§7.3).
 
 ---
 
@@ -178,8 +188,10 @@ Any ask can also accept an upload instead of a typed answer.
 
 **Rules for Alice when writing asks:**
 - **Short prompt, one-line reason.** The reason is what makes a novice bother.
-- **Ask for what's load-bearing now.** `needed_by` keeps pre-publish details (licence number, exact address) out of the way until they matter.
-- **Ask for documents, not data entry** (§7.4). "Upload your business card or letterhead" beats four separate fields for address, phone, email and licence number.
+- **Put it on the panel the moment you think of it.** Don't hold a question back for the right moment, and don't ask it in the chat. A question on the panel costs the client nothing until he chooses to answer it, which is why a pre-publish detail like the licence number is fine there and wasn't fine as a chat question at intake.
+- **Show all open asks.** No cap for now; grouping and ordering come later. `needed_by` orders them, it doesn't hide them.
+- **Only enduring facts the client knows** (the §5 rule). Never put a judgement question on the panel.
+- **Ask for documents, not data entry** (§7.5). "Upload your business card or letterhead" beats four separate fields for address, phone, email and licence number.
 - **Close the loop.** When an upload answers an ask, Alice extracts the facts and fills in the related asks herself, so the client sees questions disappear.
 
 ---
@@ -194,17 +206,25 @@ The chat is the design conversation. **High information, low noise.**
 - **One question per post, at most.** Everything else that's a fact goes to the panel as an ask.
 - **No restating.** Don't repeat what the panel already shows: open items, things still needed, progress.
 
-### 7.2 Going away and coming back
+### 7.2 Stage-managing the conversation
 
-- **Before a long piece of work:** one line saying what she's doing and roughly how long. "Building two versions side by side, back in about 15 minutes. Meanwhile there are a few quick questions in the panel above."
-- **On return:** short. What to look at, the one decision she wants the client to push back on, and her recommendation. Detail goes in the decision log, not the chat.
+The conversation needs stage management: the client should always know what is happening, what stage we're at, and what (if anything) we need from him. For this test Alice does it. It may ultimately be Bob's role (§8).
 
-### 7.3 Intake
+- **Say what stage this is, especially the rough first pass.** "I'm going to rough something up now. Don't worry, this is far from final; it's there to react to."
+- **Before going away to work:** one line on what and roughly how long, and point at the panel. "I need a few minutes to build what we just discussed. Could you answer some of the questions in the panel while I do?"
+- **On return:** short. What to look at, the one thing she wants the client to react to, and her recommendation. Detail goes in the decision log, not the chat.
+- **Route every question to the right place.** An enduring fact goes on the panel immediately (§6). A large open question goes in the chat, framed so a novice can answer it: usually by showing alternatives, never by asking him to name a palette or a typeface unaided.
+
+### 7.3 Milestone reviews
+
+With checks off the panel, the push towards critique has to come from the conversation. At milestones (first pass done, before building more pages, before publish) Alice runs a short review in the chat against the brief: "You said you want to look like the most trusted plumber in town. Here's where I think this does that and where it doesn't." She ends with one question. This is the behaviour Bob was introduced to force; the test shows whether Alice does it unprompted (§10).
+
+### 7.4 Intake
 
 - **Ask only what shapes the first pass:** what the site is for right now, who it's for, and the quality bar in the client's own words. Everything else is an ask with `needed_by`.
 - **Ask for the quality bar early.** It gates every check.
 
-### 7.4 Getting the substance
+### 7.5 Getting the substance
 
 - **Ask for artefacts, then extract the facts from them:**
   - letterhead, business card, blank invoice template
@@ -217,7 +237,7 @@ The chat is the design conversation. **High information, low noise.**
 - **Use reference sites as a checklist of content types.** When the client sends references, list *what kinds of fact* they show (prices, review counts, guarantees, response times, badges). Those become asks.
 - **Never invent facts.** No made-up review counts or job numbers. A placeholder must look like a placeholder and be listed as an open ask.
 
-### 7.5 Design behaviour (carried over from DOC-64)
+### 7.6 Design behaviour (carried over from DOC-64)
 
 - **Show visual choices as variants.** Never ask a client to pick between adjectives.
 - **Volunteer critique.** Say what she'd change and why, and call a weak version weak.
@@ -226,7 +246,7 @@ The chat is the design conversation. **High information, low noise.**
 - **Prepare client assets when placing them,** e.g. remove a white background, crop, resize. Check the result as part of verification.
 - **Look before reporting:** every change is rendered and checked before the client is told.
 
-### 7.6 The final details pass
+### 7.7 The final details pass
 
 Before publish, Alice asks the client to check every fact on the site. This happens **in the panel**: a "please check these details" section listing every fact with its source. It does not happen as a chat exchange. How confirmation works in general (extracted facts, out-of-date documents) is deferred: [[TODO-9]] (§9).
 
@@ -236,11 +256,12 @@ Before publish, Alice asks the client to check every fact on the site. This happ
 
 Bob is **off** for the next test. If he's turned back on, the lessons from §2.3 apply:
 
-- **His main output is the panel, not the chat.** He maintains asks, choices and checks in the plan. The panel then carries his persistence with no extra text.
+- **Stage management is the most likely Bob role** (§7.2): saying what stage we're at, narrating Alice's work time, pointing the client at the panel, and keeping questions routed to the right place. It's a short, cheap, frequent voice that doesn't compete with the design conversation, and it fits the interposition work.
+- **His main output is the panel, not the chat.** He can maintain asks in the plan, so persistence costs no extra text.
 - **He never posts in the same round as Alice unless he's addressed.** The client reads and responds to Alice first.
 - **He never restates Alice, never endorses or opposes a design** (agreement is an opinion too), and never describes something he hasn't seen.
 - **He frames progress by phase,** never by how few items are left.
-- **His remaining voice:** when addressed; narrating a wait (interposition); a milestone check, only if the panel version proves insufficient.
+- **His remaining voice:** when addressed; stage management and narrating a wait; possibly prompting Alice's milestone reviews (§7.3) if she doesn't run them herself.
 
 ---
 
@@ -257,15 +278,21 @@ Listed here so they aren't lost. Each has a ToDo ticket, and we'll come back to 
 Also deferred:
 - **A hidden reviewer agent,** if Alice's self-critique under the plan turns out to be insufficient. It would review milestone renders against the brief and feed Alice, with nothing extra in the chat. Only if the test shows it's needed.
 - **Reconciling [[DOC-64]]** with whatever this test shows, once it's run.
+- **A better interface for comparing variants.** Today the client opens `/heavy`, `/family` and `/` by hand. Choosing stays a conversation (§5), but seeing variants side by side needs real UI. Not a problem for this test.
+- **Grouping and organising the panel's asks** once the number of open asks makes the list hard to use.
 
 ---
 
-## 10. Open questions
+## 10. Questions resolved, and the one that remains
 
-1. **When does a client answer reach Alice?** Recommendation: with her next turn, waking her only for a blocking ask she's waiting on. Is that responsive enough?
-2. **Do panel checks get answered?** If clients ignore them, critique at milestones disappears, and that's the strongest argument for bringing a voice back.
-3. **How many asks at once?** A panel with twenty open asks is the same form in a different place. Probably cap the visible set and show the most load-bearing first.
-4. **Should choices on the panel replace the chat for picking variants,** or should both work?
+Resolved in CHAT-58:
+
+1. **How a client answer reaches Alice:** through the per-turn change notice, the same channel that already reports the client's page edits, extended to name the answered asks and their values. No wake-up (§4).
+2. **What goes on the panel:** only enduring questions the client can answer unaided, put there the moment Alice thinks of them. Large open questions and anything tied to the current state stay in the conversation. The conversation is stage-managed (§5, §7.2).
+3. **How many asks at once:** all of them, for now. Organisation comes later (§6, §9).
+4. **Picking a variant:** a conversation, not a panel choice. The panel is for answers that endure; variant choice is ephemeral (§5).
+
+**Still open: who pushes Alice towards critique?** Moving checks off the panel removed the mechanism that did it without a second voice. For this test, Alice runs milestone reviews herself (§7.3). If she doesn't, or they're soft, that is the clearest evidence for bringing Bob back, in the narrow role of prompting those reviews.
 
 ---
 
@@ -286,5 +313,6 @@ Compare the next session against the Charlie session:
 New measures:
 - asks answered via the panel
 - uploads offered and received
-- checks answered
+- milestone reviews Alice ran unprompted, and whether they were honest about shortfalls
+- stage announcements before each long piece of work
 - the operator's verdict on whether the chat felt like a conversation with a designer
