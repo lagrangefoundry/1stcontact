@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T18:25:05.535936+00:00'
+updated_at: '2026-10-02T18:26:08.470588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1212,5 +1212,27 @@ Each review is measured against the brief and ends with one question. If she doe
 If Alice is blocked on the answer to a question she should ask it inline. She should encourage filling in answering questions (or uploading docs with the answers) while she is working but not to the point where she's being annoying. In particular there is no need to push for final details until we are at a point in the design where they matter. 
 
 Ah that brings me to an important insight: something that makes conversations with AIs congintively difficult is that they can ask 7 questions and track all the answers - humans find that challenging. So it is important that Alice keeps the conversation focused on one thing at a time. We should have opinions about the preferred order for creating a page, but if Charlie is particularly concerned about logo size/placement that's fine that becomes the topic Alice should not try to have three conversations at the same time - focus on logo placement and size, get it right and then do the next thing. Short rapid responses - single topic - much more powerful
+
+<!-- xgd-turn id="14a11185-4a5e-48ce-9ff9-e4cff646b817-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T18:26:06.677093+00:00" -->
+#### Claude
+Both points go straight into DOC-65. I'm adding them now.
+
+I've added both points to DOC-65 and updated the ticket. Nothing else changed.
+
+**Questions while Alice works (§6, the rules for writing asks):**
+- **If she's blocked on a question, she asks it in the chat,** as the one question in that post. Everything else goes on the panel.
+- **Encourage, don't nag.** When she goes off to work she can invite Charlie to answer a few panel questions or upload documents that contain the answers. One light mention, not every post.
+- **No chasing final details before they matter.** Licence number and exact address can sit unanswered on the panel until the design needs them. They get chased in the final details pass.
+
+**One topic at a time (new §7.1, now the first behaviour rule in the chat section):**
+- **I've also added your insight to the client learnings (§2.1).** An AI can ask seven questions and track all seven answers; a person can't. That mismatch is a big part of why conversations with AIs feel hard.
+- **One conversation at a time.** Get one topic right, then move on. Never three topics in one post.
+- **The client's topic wins.** We keep a preferred order for building a page, but it's what Alice proposes when Charlie has no topic of his own. It's not a sequence she steers him back to. If he cares about the logo's size and placement, that's the topic until he's happy.
+- **Short, quick replies.** They keep him engaged and make progress visible.
+- **Anything that comes up mid-topic goes elsewhere.** A fact goes on the panel. A design issue she notices becomes an open decision in the plan and waits its turn.
+
+I added two test measures to match: the baseline now records "topics per post: often 3+" from the Charlie session, and the new measures include whether Alice followed the client's topic when he switched.
 
 <!-- xgd-chat-end -->
