@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T00:55:36.400127+00:00'
+updated_at: '2026-10-02T01:01:32.565068+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5943,5 +5943,30 @@ Per this epic's rule, the code belongs in REQ-357's own session, not this one.
 <!-- xgd-chat role="user" ts="2026-10-02T00:55:35.282128+00:00" -->
 #### You
 Do they have access to the document that was written by the chat session describing their roles and the nature of the dynamic we are trying to create?
+
+<!-- xgd-turn id="1888a898-df23-45b0-b5fb-d03c7a1b05f9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T01:01:30.920867+00:00" -->
+#### Claude
+Partly. The agent-facing version of that document is reachable by search, but nothing points them at it. So on the evidence of Finding 13, they'll probably never read it.
+
+**The document they'd need exists and is in their knowledge base.** CHAT-58 turned our design into **DOC-64**, *"Alice and Bob: roles, the plan, the decisions, and how a build runs"*. It was written today and addressed to the two agents themselves: *"read it as instructions about your own role and your colleague's"*. It's in `kb/system/` and indexed as 54 chunks. It's also bundled into the Worker's `generated/kb.js`, which was rebuilt at 17:27. So `KnowledgeSearch` or `KnowledgeChunkSearch` would find it today.
+
+DOC-62 itself isn't in the knowledge base, and that's correct. It's our design record, and DOC-64 is the version written for the agents.
+
+**But the map they're primed with doesn't mention it.** `awareness.md` is the landscape delivered to the agents every turn. It still says *"12 documents in 6 territories"* and dates from Sep 28. Neither DOC-63 (briefing a delegated builder) nor DOC-64 appears in it. The copy bundled into the Worker is just as old. The file claims to be *"recycled on every rebuild"*, yet today's rebuild refreshed the index and chunks and left the landscape untouched.
+
+That is exactly how DOC-33 went unread for 102 turns: it was indexed but not on the map. And the role priming doesn't name DOC-64 either.
+
+**Two things in DOC-64 disagree with what we've decided:**
+- **It hard-codes the names.** "Alice" or "Bob" appears 50 times, and the title uses both. You asked for roles with the names as display labels only, and REQ-357 has a test that fails if those names appear in priming or tool text. Knowledge-base documents arguably aren't priming, but the agents will repeat whatever names they read.
+- **It calls Bob the "coordinator".** `plan-surface.json` and `plan-seed.json` use "coordinator" too. REQ-357 uses `assistant`. One of the two has to win before REQ-357 starts.
+
+**What I'd do:**
+1. **Regenerate the landscape** so DOC-63 and DOC-64 are on the map. This is a knowledge-base build, not code, so it needs no ticket. Per my notes it needs `NODE_USE_ENV_PROXY=1` and the admin token, so you may need to run it yourself. I'd also look at why the rebuild skipped the landscape.
+2. **Name DOC-64 in both roles' priming** as the document to read before the first turn. That's a prompt change, so it also needs no ticket.
+3. **Settle the role vocabulary**, `assistant` or `coordinator`, then neutralise the names in DOC-64 and record the choice in REQ-357.
+
+Shall I go ahead with 1 and 2, and which word do you want for Bob's role?
 
 <!-- xgd-chat-end -->
