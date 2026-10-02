@@ -16,6 +16,7 @@ fields:
   created_by: EPIC-20
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-503b8c6e
 ---
 
 **Parent:** EPIC-20. **Evidence:** EPIC-20 § "Charlie's Plumbing session, 2026-10-01/02".
