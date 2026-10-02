@@ -33,6 +33,14 @@ export const PLAN_DECLARATION = planSurface as unknown as Record<string, unknown
 /** The surface name, so nothing addresses it as a literal. */
 export const PLAN_SURFACE = 'plan'
 
+/**
+ * What a plan is a plan OF. One shape, several seed lists: [[DOC-38]] §9's rule is
+ * that a type exists where the shape differs and everything else is a field, so a
+ * later marketing plan is a kind and not a type. This REQ delivers the site plan.
+ */
+export const PLAN_KINDS = ['site'] as const
+export const SITE_PLAN = 'site'
+
 export const PHASES = ['intake', 'first_pass', 'revision', 'prelaunch', 'live'] as const
 export const AREAS = [
   'purpose',
@@ -114,7 +122,9 @@ export interface PlanTask {
 }
 
 export interface PlanFields {
-  site_slug: string
+  kind: string
+  /** The store-minted site key ([[DOC-45]] §6) — sites carry no slug. */
+  site_key: string
   phase: string
   brief: Record<string, unknown>
   functionality: { feature: string; status: string }[]
@@ -135,13 +145,16 @@ export interface Plan {
  * TWO VERBS AND NO TICKET VOCABULARY, for `LedgerDeps`' reason. `write` takes a
  * CHANGE rather than a value because the host is the only thing that knows the
  * stored version: it reads, applies the change, and stores with compare-and-set.
- * Where the site has no plan yet it seeds one with {@link seedPlan} and applies the
- * change to that, so the first write and every later one are the same call.
+ * Where the site has no plan yet the host creates the seeded one ({@link seedPlan})
+ * first, so the first write and every later one are the same call.
  *
  * An implementation raises `CONFLICT` when the plan moved underneath a write.
  */
 export interface PlanDeps {
-  /** The site's plan, or `null` when nothing has written one yet. */
+  /**
+   * The site's plan. A host that stores plans creates the seeded one on first
+   * read; `null` only from a host that cannot.
+   */
   read(): Promise<Plan | null>
   /** Apply a change to the plan (seeding it when absent); answer what was stored. */
   write(change: (plan: Plan) => Plan): Promise<Plan>
@@ -156,10 +169,11 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 const refuse = (code: string, message: string): Error => ledgerError(code, message)
 
 /** What a new site's plan holds before anybody has said anything. */
-export function seedPlan(site: string): Plan {
+export function seedPlan(siteKey: string): Plan {
   return {
     fields: {
-      site_slug: site,
+      kind: SITE_PLAN,
+      site_key: siteKey,
       phase: planSeed.phase,
       brief: {},
       functionality: [],
@@ -238,6 +252,7 @@ export function checkPlan(fields: PlanFields): void {
   const bad = (message: string): never => {
     throw refuse(PLAN_INVALID, message)
   }
+  if (!(PLAN_KINDS as readonly string[]).includes(fields.kind)) bad(`unknown plan kind ${JSON.stringify(fields.kind)}`)
   if (!(PHASES as readonly string[]).includes(fields.phase)) bad(`unknown phase ${JSON.stringify(fields.phase)}`)
   for (const f of fields.functionality) {
     if (!(FEATURE_STATUSES as readonly string[]).includes(f.status)) {

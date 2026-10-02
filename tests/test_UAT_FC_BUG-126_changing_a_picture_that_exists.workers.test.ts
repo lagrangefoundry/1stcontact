@@ -389,7 +389,7 @@ describe('BUG-126 — changing a picture that already exists', () => {
       type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     const { attachment } = await tickets.attach({
       uid: ticket.uid,
@@ -431,7 +431,7 @@ describe('BUG-126 — changing a picture that already exists', () => {
       type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     await expect(
       scoped.attach({ uid: ticket.uid, bytes: pngBytes(), filename: 'x.png' }),

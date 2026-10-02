@@ -99,7 +99,7 @@ describe('REQ-162 — the schema and the wiring', () => {
     const { ticket } = await store.create({
       type: 'plan',
       title: 'Decisions',
-      fields: { site_slug: 'home' },
+      fields: { site_key: 'home' },
       body: 'Ship the one-pager first.',
     })
     expect(ticket.uid).toBeTruthy()
@@ -347,16 +347,16 @@ describe('REQ-162 — the material types', () => {
     // An empty plan is not a plan ([[REQ-356]] renamed it from `brief`) — and unlike a material, no later extraction
     // fills the body in.
     await expect(
-      store.create({ type: 'plan', title: 'Empty', fields: { site_slug: 'home' }, body: '   ' }),
+      store.create({ type: 'plan', title: 'Empty', fields: { site_key: 'home' }, body: '   ' }),
     ).rejects.toMatchObject({ code: 'validation' })
 
     const { ticket } = await store.create({
       type: 'plan',
       title: 'Decisions for home',
-      fields: { site_slug: 'home' },
+      fields: { site_key: 'home' },
       body: 'Oxblood, not crimson.',
     })
-    expect(ticket.fields.site_slug).toBe('home')
+    expect(ticket.fields.site_key).toBe('home')
   })
 
   it('UAT_FC_REQ-162 a chat session persists as a ticket with its transcript comment', async () => {

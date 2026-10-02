@@ -245,7 +245,7 @@ describe('REQ-281 — the row leaves the Library', () => {
     const { ticket } = await tickets.create({
       type: 'plan',
       title: 'The brief',
-      fields: { site_slug: 'req281d' },
+      fields: { site_key: 'req281d' },
       body: 'What was decided.',
     })
 

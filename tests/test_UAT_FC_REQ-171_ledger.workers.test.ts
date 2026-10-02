@@ -65,10 +65,15 @@ function store(
     query: async (a: { predicate?: string }) => ({
       tickets: tickets.filter((t) => !a.predicate || a.predicate === `type=${t.type}`),
     }),
+    // A CREATE IS REMEMBERED AND THEN FOUND, as the real store's would be — the
+    // plan port re-reads after creating to settle on one plan.
     create: async (a: Record<string, unknown>) => {
       created.push(a)
-      return { ticket: ticket({ ...(a as Partial<Ticket>), uid: 'plan-new' }) }
+      const made = ticket({ ...(a as Partial<Ticket>), uid: `plan-new-${created.length}`, version: 1 })
+      tickets.push(made)
+      return { ticket: made }
     },
+    archive: async () => ({ ticket: ticket() }),
     update: async (a) => {
       onUpdate?.(a)
       patches.push({ uid: a.uid, ...(a.patch ?? {}), expected_version: a.expected_version })
@@ -82,17 +87,16 @@ function store(
 
 describe('REQ-171 — a decision survives the conversation', () => {
   it('test_UAT_FC_REQ-171_the_first_decision_opens_the_ledger', async () => {
-    // A SITE WITH NO PLAN GETS ONE, seeded, with the entry already in its log
-    // ([[REQ-356]]). One create and no update: the first write and every later
-    // one are the same change applied to whatever the site has.
+    // A SITE WITH NO PLAN GETS ONE, seeded, and the entry lands in its log
+    // ([[REQ-356]]): the plan is created on first open, then written like any
+    // other — compare-and-set against the version just created.
     const s = store([ticket()])
     const state = await chatLedger(s, SESSION, SITE).append((i) => `### Decision ${i}\n\nThe palette is oxblood.`)
 
     expect(state.entries).toBe(1)
-    expect(s.patches).toEqual([])
     expect(s.created).toHaveLength(1)
-    expect(s.created[0]).toMatchObject({ type: 'plan', fields: { site_slug: SITE } })
-    expect(String(s.created[0].body)).toMatch(/## Decision log\n\n### Decision 1\n\nThe palette is oxblood\.\n\n## Notes/)
+    expect(s.created[0]).toMatchObject({ type: 'plan', fields: { kind: 'site', site_key: SITE } })
+    expect(String(s.patches[0].body)).toMatch(/## Decision log\n\n### Decision 1\n\nThe palette is oxblood\.\n\n## Notes/)
   })
 
   it('test_UAT_FC_REQ-171_each_decision_is_numbered_from_what_is_already_there', async () => {
@@ -146,6 +150,7 @@ describe('REQ-171 — a decision survives the conversation', () => {
     const state = await chatLedger(s, SESSION, SITE).append((i) => `### Decision ${i}\n\nx`)
     expect(state.entries).toBe(1)
     expect(s.created).toHaveLength(1)
+    expect(String(s.patches[0].body)).toContain('### Decision 1')
   })
 
   it('test_UAT_FC_REQ-171_naming_the_engagement_replaces_the_session_id', async () => {

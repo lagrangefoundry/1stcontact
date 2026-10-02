@@ -5,7 +5,9 @@ import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { productTypePack, ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
 import { chatLedger } from '../apps/control-app/src/ledger'
-import { createPlan, findPlan, sitePlan } from '../apps/control-app/src/plan'
+import { createPlan, ensurePlan, findPlan, sitePlan } from '../apps/control-app/src/plan'
+import { provisionBusiness, type IdentityEnv } from '../apps/control-app/src/identity'
+import { inviteAccount } from './support/invite-account'
 import { resetAiHost, sessionIdFor, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { renderEntry } from '../tools/generate/src/cli/ai/ledger-core'
 import type { PlanFields } from '../tools/generate/src/cli/ai/plan-core'
@@ -108,36 +110,64 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
     expect(pack.has('plan')).toBe(true)
     expect(pack.has('brief')).toBe(false)
     expect(Object.keys(pack.schema('plan').fields ?? {}).sort()).toEqual(
-      ['brief', 'checks', 'decisions', 'functionality', 'phase', 'site_slug', 'tasks'].sort(),
+      ['brief', 'checks', 'decisions', 'functionality', 'kind', 'phase', 'site_key', 'tasks'].sort(),
     )
   })
 })
 
-describe('REQ-356 — exactly one plan per site', () => {
-  it('test_UAT_FC_REQ-356_a_new_plan_is_seeded_and_a_second_for_the_site_is_refused', async () => {
-    const tickets = await store(nextBusiness())
-    const plan = await createPlan(tickets, 'bakery')
+describe('REQ-356 — exactly one site plan per site', () => {
+  it('test_UAT_FC_REQ-356_provisioning_a_business_creates_its_site_plan', async () => {
+    // EVERY BUSINESS STARTS WITH A PLAN, before its first conversation: the
+    // starter site's key, `kind: site`, `phase: intake`, and the generic list.
+    const identity: IdentityEnv = {
+      DB: env.DB as D1Database,
+      SITES: env.SITES as R2Bucket,
+      BLOBS: env.BLOBS as R2Bucket,
+      TENANT_ID: 'req356-platform',
+    }
+    const account = await inviteAccount(identity, { email: `req356-${nextBusiness()}@example.test`, endsAt: null })
+    const business = await provisionBusiness(identity, { accountId: account.user.account_id, name: 'Cole Bakery' })
 
-    expect(plan.type).toBe('plan')
-    expect(fieldsOf(plan).phase).toBe('intake')
+    const plan = (await findPlan(await store(business.businessId), business.siteKey)) as Ticket
+    expect(plan).not.toBeNull()
+    expect(fieldsOf(plan)).toMatchObject({ kind: 'site', site_key: business.siteKey, phase: 'intake' })
     expect(fieldsOf(plan).decisions.map((d) => d.id)).toEqual(planSeed.decisions.map((d) => d.id))
     expect(fieldsOf(plan).checks.map((c) => c.id)).toEqual(planSeed.checks.map((c) => c.id))
     expect(plan.body).toBe('## Brief\n\n## Decision log\n\n## Notes')
 
-    await expect(createPlan(tickets, 'bakery')).rejects.toMatchObject({ code: 'PLAN_EXISTS' })
-    // A business may run several sites, each with its own plan.
-    const other = await createPlan(tickets, 'bakery-shop')
+  })
+
+  it('test_UAT_FC_REQ-356_first_open_creates_a_missing_plan_once_even_when_raced', async () => {
+    // A SITE FROM BEFORE THIS CHANGE has no plan. The first read creates it with
+    // the same seed — and five opens racing produce exactly one live plan.
+    const tickets = await store(nextBusiness())
+    const opened = await Promise.all(Array.from({ length: 5 }, () => sitePlan(tickets, 'site_legacy').read()))
+    expect(new Set(opened.map((p) => JSON.stringify(p?.fields))).size).toBe(1)
+    const { tickets: plans } = await tickets.query({ predicate: 'type=plan', limit: 'all' })
+    expect(plans.filter((t) => !t.archived)).toHaveLength(1)
+    expect(fieldsOf((await findPlan(tickets, 'site_legacy')) as Ticket).site_key).toBe('site_legacy')
+
+    // And opening it again finds that one rather than making another.
+    expect((await ensurePlan(tickets, 'site_legacy')).uid).toBe((await findPlan(tickets, 'site_legacy'))?.uid)
+  })
+
+  it('test_UAT_FC_REQ-356_a_second_site_plan_for_the_same_site_is_refused', async () => {
+    const tickets = await store(nextBusiness())
+    const plan = await createPlan(tickets, 'site_a')
+    await expect(createPlan(tickets, 'site_a')).rejects.toMatchObject({ code: 'PLAN_EXISTS' })
+    // A business may one day run several sites, each with its own plan.
+    const other = await createPlan(tickets, 'site_b')
     expect(other.uid).not.toBe(plan.uid)
-    expect((await findPlan(tickets, 'bakery'))?.uid).toBe(plan.uid)
+    expect((await findPlan(tickets, 'site_a'))?.uid).toBe(plan.uid)
   })
 
   it('test_UAT_FC_REQ-356_the_rules_hold_on_every_write_to_the_store', async () => {
     // THE DATA RULE, ON ITS OWN. The tool declarations refuse a `bob` answer at
     // the enum first; this proves the stored plan refuses it whoever writes.
     const tickets = await store(nextBusiness())
-    await createPlan(tickets, 'bakery')
-    const port = sitePlan(tickets, 'bakery')
-    const before = await findPlan(tickets, 'bakery')
+    await createPlan(tickets, 'site_rules')
+    const port = sitePlan(tickets, 'site_rules')
+    const before = await findPlan(tickets, 'site_rules')
 
     await expect(
       port.write((plan) => {
@@ -158,7 +188,7 @@ describe('REQ-356 — exactly one plan per site', () => {
       }),
     ).rejects.toMatchObject({ code: 'PLAN_INVALID' })
 
-    const after = await findPlan(tickets, 'bakery')
+    const after = await findPlan(tickets, 'site_rules')
     expect(after?.version).toBe(before?.version)
   })
 })

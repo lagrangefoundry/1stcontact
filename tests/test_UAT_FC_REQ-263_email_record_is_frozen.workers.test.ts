@@ -332,7 +332,7 @@ describe('REQ-263 — seeing the lock without attempting a write', () => {
     const { ticket: brief } = await store.create({
       type: 'plan',
       title: 'Decisions',
-      fields: { site_slug: 'home' },
+      fields: { site_key: 'home' },
       body: 'Ship the one-pager first.',
     })
     expect('locked' in (brief as object)).toBe(false)

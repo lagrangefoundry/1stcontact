@@ -345,7 +345,7 @@ describe('REQ-161 — the Library reads what ingestion wrote', () => {
       type: 'plan',
       title: 'The brief',
       body: 'Decisions taken so far.',
-      fields: { site_slug: 'somewhere' },
+      fields: { site_key: 'somewhere' },
     })
 
     for (const path of [

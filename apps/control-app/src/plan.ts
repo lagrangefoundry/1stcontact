@@ -1,24 +1,27 @@
 /**
- * REQ-356 — the site plan, kept in the tenant's ticket store as a `plan` ticket.
+ * REQ-356 — the site plan, kept in the business's ticket store as a `plan` ticket.
  *
- * ONE PER SITE, keyed by `site_slug`. It replaces the `brief` type that
- * `productTypePack()` declared and nothing ever wrote: same placement, same key,
- * widened from a body-only decisions document into the structured plan both the
- * consultant and the coordinator work from ([[DOC-64]] §5).
+ * ONE PER SITE, keyed by (`kind`, `site_key`): `kind: site` is the site plan, and
+ * the site key is the one the store mints ([[DOC-45]] §6) — sites carry no slug.
+ * The plan lives in the business's own store, so it belongs to the business
+ * through the store and to the site through the field. It replaces the `brief`
+ * type that `productTypePack()` declared and nothing ever wrote.
  *
  * WHAT THIS FILE OWNS IS STORAGE. The plan's shape, rules, seed and operations are
  * `plan-core.ts`'s; this is the {@link PlanDeps} port over the ticket store, the
- * lookup that makes "one per site" mean something, and the explicit create that
- * refuses a second one.
+ * lookup that makes "one per site" mean something, and the creation that keeps it
+ * true.
  *
- * CREATED ON FIRST WRITE. A site gets its plan the first time anything is recorded
- * about it — an intake answer, a decision, a ledger entry — so nothing has to
- * remember to create one, and a site nobody has talked about has no empty ticket
- * in its corpus.
+ * CREATED AT PROVISIONING, AND ON FIRST OPEN IF MISSING. `provisionBusiness`
+ * creates it beside the starter site, so a new business has a plan before its
+ * first conversation. A business provisioned before this existed — or one whose
+ * provisioning failed after the site was made — gets it the first time anything
+ * reads it.
  */
 import {
   checkPlan,
   seedPlan,
+  SITE_PLAN,
   type Plan,
   type PlanDeps,
   type PlanFields,
@@ -29,9 +32,10 @@ import type { Ticket, TicketStore } from './tickets'
 /** The ticket type a plan is stored as. */
 export const PLAN_TYPE = 'plan'
 
-/** The frontmatter keys a plan holds, in the order the type pack declares them. */
+/** The frontmatter keys a plan holds. */
 const PLAN_KEYS: (keyof PlanFields)[] = [
-  'site_slug',
+  'kind',
+  'site_key',
   'phase',
   'brief',
   'functionality',
@@ -41,26 +45,35 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
 ]
 
 /**
- * The site's plan ticket, or `null`.
+ * Every live site plan for a site, the one every reader agrees on first.
  *
  * `limit: 'all'` AND THE MATCH IN JS, for `findChat`'s reasons: a bounded page
- * decides findability by where a uid happened to sort, and a numeric-looking slug
- * could be coerced by the predicate parser. Oldest first, so that if two ever
- * existed every reader would agree on which is the plan.
+ * decides findability by where a uid happened to sort, and a key could be coerced
+ * by the predicate parser. OLDEST FIRST, uid as the tiebreak, so that if two ever
+ * exist every reader — and {@link settle} — picks the same one.
  */
-export async function findPlan(tickets: TicketStore, site: string): Promise<Ticket | null> {
+async function sitePlans(tickets: TicketStore, siteKey: string): Promise<Ticket[]> {
   const { tickets: plans } = await tickets.query({ predicate: `type=${PLAN_TYPE}`, limit: 'all' })
-  const mine = plans
-    .filter((t) => (t.fields ?? {}).site_slug === site)
-    .sort((a, b) => String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')))
-  return mine[0] ?? null
+  return plans
+    .filter((t) => {
+      const f = (t.fields ?? {}) as Record<string, unknown>
+      return !t.archived && (f.kind ?? SITE_PLAN) === SITE_PLAN && f.site_key === siteKey
+    })
+    .sort(
+      (a, b) =>
+        String(a.created_at ?? '').localeCompare(String(b.created_at ?? '')) || a.uid.localeCompare(b.uid),
+    )
+}
+
+/** The site's plan ticket, or `null`. */
+export async function findPlan(tickets: TicketStore, siteKey: string): Promise<Ticket | null> {
+  return (await sitePlans(tickets, siteKey))[0] ?? null
 }
 
 /** A stored plan ticket as the core's {@link Plan}. */
 function toPlan(ticket: Ticket): Plan {
   const fields = (ticket.fields ?? {}) as Record<string, unknown>
-  const seed = seedPlan(String(fields.site_slug ?? ''))
-  const plan = { ...seed.fields } as unknown as Record<string, unknown>
+  const plan = { ...seedPlan(String(fields.site_key ?? '')).fields } as unknown as Record<string, unknown>
   for (const key of PLAN_KEYS) if (fields[key] !== undefined && fields[key] !== null) plan[key] = fields[key]
   return { fields: plan as unknown as PlanFields, body: ticket.body ?? '' }
 }
@@ -72,61 +85,81 @@ function toFields(plan: Plan): Record<string, unknown> {
   return out
 }
 
+/** Store a seeded plan for a site. No lookup: callers decide whether one exists. */
+async function insertSeed(tickets: TicketStore, siteKey: string): Promise<void> {
+  const seed = seedPlan(siteKey)
+  checkPlan(seed.fields)
+  await tickets.create({ type: PLAN_TYPE, title: `Site plan: ${siteKey}`, fields: toFields(seed), body: seed.body })
+}
+
+/**
+ * Collapse to one plan, and answer it.
+ *
+ * WHY THIS EXISTS. The store has no unique constraint a product can declare, so two
+ * first opens racing can each find nothing and each create. Both then call this:
+ * both see the same plans in the same order, both keep the oldest, and the newer
+ * ones are archived — the store's own lifecycle, so nothing is deleted. A plan
+ * archived here was created a moment ago from the seed and never written to,
+ * because every write goes through {@link ensurePlan} first and lands on the winner.
+ */
+async function settle(tickets: TicketStore, siteKey: string): Promise<Ticket> {
+  const [winner, ...extra] = await sitePlans(tickets, siteKey)
+  for (const duplicate of extra) {
+    try {
+      await tickets.archive({ uid: duplicate.uid })
+    } catch {
+      // The other opener archived it first. Either way it is gone from the reads.
+    }
+  }
+  return winner
+}
+
+/**
+ * The site's plan, created from the seed if the site has none ([[REQ-356]]).
+ *
+ * IDEMPOTENT, and safe to race: see {@link settle}.
+ */
+export async function ensurePlan(tickets: TicketStore, siteKey: string): Promise<Ticket> {
+  const found = await findPlan(tickets, siteKey)
+  if (found) return found
+  await insertSeed(tickets, siteKey)
+  return settle(tickets, siteKey)
+}
+
 /**
  * Create a site's plan; refuse when it already has one ([[REQ-356]]: exactly one
- * plan per site).
+ * site plan per site).
  *
  * THE REFUSAL IS THE POINT. A second plan for a site would split its decisions
  * across two records, which is the per-session fragmentation this type exists to
  * end. A later redesign moves the existing plan's phase back instead.
  */
-export async function createPlan(tickets: TicketStore, site: string, plan: Plan = seedPlan(site)): Promise<Ticket> {
-  if (await findPlan(tickets, site)) {
-    throw ledgerError('PLAN_EXISTS', `site ${site} already has a plan; a redesign moves its phase back`)
+export async function createPlan(tickets: TicketStore, siteKey: string): Promise<Ticket> {
+  if (await findPlan(tickets, siteKey)) {
+    throw ledgerError('PLAN_EXISTS', `site ${siteKey} already has a site plan; a redesign moves its phase back`)
   }
-  checkPlan(plan.fields)
-  const { ticket } = await tickets.create({
-    type: PLAN_TYPE,
-    title: `Plan: ${site}`,
-    fields: toFields({ ...plan, fields: { ...plan.fields, site_slug: site } }),
-    body: plan.body,
-  })
-  return ticket
+  await insertSeed(tickets, siteKey)
+  return settle(tickets, siteKey)
 }
 
 /**
  * One site's plan as a {@link PlanDeps}.
  *
  * CHECKED AND COMPARE-AND-SET ON EVERY WRITE. {@link checkPlan} runs on what is
- * about to be stored whoever produced it, and the write demands the version the
- * read saw, for the ledger's reason: a plan holds what a
- * client said, and two turns racing must not lose one of them silently. The
- * declared `CONFLICT` says to read and write again.
+ * about to be stored whoever produced it — the ledger's append writes through this
+ * port too — and the write demands the version the read saw, for the ledger's
+ * reason: a plan holds what a client said, and two turns racing must not lose one
+ * of them silently. The declared `CONFLICT` says to read and write again.
  */
-export function sitePlan(tickets: TicketStore, site: string): PlanDeps {
+export function sitePlan(tickets: TicketStore, siteKey: string): PlanDeps {
   return {
-    async read(): Promise<Plan | null> {
-      const ticket = await findPlan(tickets, site)
-      return ticket ? toPlan(ticket) : null
+    async read(): Promise<Plan> {
+      return toPlan(await ensurePlan(tickets, siteKey))
     },
 
     async write(change: (plan: Plan) => Plan): Promise<Plan> {
-      const ticket = await findPlan(tickets, site)
-      if (ticket === null) {
-        const next = change(seedPlan(site))
-        try {
-          await createPlan(tickets, site, next)
-        } catch (error) {
-          // Another turn created it between the read and this create — the same
-          // race a version clash is, reported the same way.
-          if ((error as { code?: string })?.code === 'PLAN_EXISTS') throw planConflict()
-          throw error
-        }
-        return next
-      }
+      const ticket = await ensurePlan(tickets, siteKey)
       const next = change(toPlan(ticket))
-      // THE RULES HOLD FOR EVERY WRITER, not only for the plan surface: the
-      // ledger's append writes through this port too.
       checkPlan(next.fields)
       try {
         await tickets.update({

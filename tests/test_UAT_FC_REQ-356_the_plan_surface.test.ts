@@ -43,17 +43,21 @@ afterEach(() => {
   rmSync(cwd, { recursive: true, force: true })
 })
 
-/** The port's contract, in memory: no plan until the first write seeds one. */
+/** The port's contract, in memory: a missing plan is created, seeded, when opened. */
 function memoryPlan(): PlanDeps & { stored: () => Plan | null } {
   let plan: Plan | null = null
+  const open = (): Plan => {
+    plan ??= seedPlan(SLUG)
+    return JSON.parse(JSON.stringify(plan)) as Plan
+  }
   return {
     stored: () => plan,
     now: () => '2026-10-01T12:00:00.000Z',
     async read() {
-      return plan ? (JSON.parse(JSON.stringify(plan)) as Plan) : null
+      return open()
     },
     async write(change) {
-      plan = change(plan ? (JSON.parse(JSON.stringify(plan)) as Plan) : seedPlan(SLUG))
+      plan = change(open())
       return plan
     },
   }
@@ -115,10 +119,9 @@ describe('REQ-356 — the plan is in the project corpus, under its new name', ()
 })
 
 describe('REQ-356 — a new plan starts from the generic list', () => {
-  it('test_UAT_FC_REQ-356_a_first_write_seeds_the_generic_decisions_and_checks', async () => {
+  it('test_UAT_FC_REQ-356_a_new_plan_holds_the_generic_decisions_and_checks', async () => {
     const deps = memoryPlan()
     const box = await toolbox('coordinator', deps)
-    expect(deps.stored()).toBeNull()
 
     await box.run('update_brief', {
       business: 'A Bristol furniture restorer',
@@ -128,7 +131,7 @@ describe('REQ-356 — a new plan starts from the generic list', () => {
     })
 
     const plan = deps.stored() as Plan
-    expect(plan.fields.site_slug).toBe(SLUG)
+    expect(plan.fields).toMatchObject({ kind: 'site', site_key: SLUG })
     expect(plan.fields.phase).toBe('intake')
     // EVERY GENERIC DECISION, OPEN, and every standing check, unasked — from the
     // seed data, so the list can change without a code change.

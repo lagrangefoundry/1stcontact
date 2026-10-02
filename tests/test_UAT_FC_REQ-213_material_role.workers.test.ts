@@ -447,7 +447,7 @@ describe('REQ-213 — the request is validated, never coerced', () => {
       type: 'plan',
       title: 'The brief',
       body: 'Decisions taken so far.',
-      fields: { site_slug: 'somewhere' },
+      fields: { site_key: 'somewhere' },
     })
     const otherKind = await setRole(tenant, { uid: brief.uid, role: 'site' })
     expect(otherKind.status).toBe(404)

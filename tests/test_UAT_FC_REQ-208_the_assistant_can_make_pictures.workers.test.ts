@@ -552,7 +552,7 @@ describe('REQ-208 — the assistant can make pictures', () => {
       type: 'plan',
       title: 'someone else’s',
       body: 'the brief',
-      fields: { site_slug: `site-${id}` },
+      fields: { site_key: `site-${id}` },
     })
     await expect(
       scoped.attach({ uid: ticket.uid, bytes: new Uint8Array([1, 2, 3]), filename: 'x.png' }),
