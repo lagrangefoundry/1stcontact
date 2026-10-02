@@ -145,15 +145,26 @@
     "cacheable prefix; which site it is on and what is on that site are volatile and",
     "ride the reminder tier, where they cannot spoil it.",
     "",
-    "`group-room` \u2014 [[REQ-357]]. Where this business runs a group chat, the",
-    "consultant is told the client now talks to it in a room it shares with its",
-    "assistant, and how to read and post there. The provider renders nothing with the",
-    "switch off, so the prompt is byte-for-byte what it was before group chat existed.",
+    "`group-room` \u2014 [[REQ-357]], [[REQ-358]]. Where this business runs a group chat,",
+    "the consultant is told the client now talks to it in a room it shares with the",
+    "coordinator, how to read and post there, and that the document describing both",
+    "roles and how a build runs is DOC-64, to be read before its first turn in the room.",
+    "The provider renders nothing with the switch off, so the prompt is byte-for-byte",
+    "what it was before group chat existed.",
     "",
-    "`assistant_priming` / `assistant_reminders` \u2014 [[REQ-357]]. The group chat's",
-    "second member. It reads everything the consultant can see and writes nothing to",
-    "the site, so its prose says so and its manual is projected from its own read-only",
-    "box. It names roles, never display names: those live in `group-chat.json`.",
+    "`coordinator_priming` / `coordinator_reminders` \u2014 [[REQ-357]], [[REQ-358]]. The",
+    "group chat's second member, the coordinator (REQ-357 called it `assistant`, which",
+    "is also the transcript's wire role; REQ-358 renamed it). It reads everything the",
+    "consultant can see and writes nothing to the site, so its prose says so and its",
+    "manual is projected from its own read-only box. It names roles, never display",
+    "names: those live in `group-chat.json`.",
+    "",
+    "NAMING DOC-64 IS DELIBERATE ([[REQ-358]], narrowing [[BUG-65]]). A subject alone",
+    "was not enough: DOC-33 sat in the index for 102 turns and was never read, because",
+    "nothing named it. So the two group-chat entries name the one document the room",
+    "depends on, by id. BUG-65's concern \u2014 an id that drifts out of the corpus and is",
+    "still named \u2014 is held by a UAT instead: every DOC id priming names must be a",
+    "`system_kb` member.",
     "",
     "`builder_priming_with_corpus` \u2014 [[REQ-355]]. The worker's order where this",
     "deployment has the platform reference. It is the same role text followed by the",
@@ -217,7 +228,7 @@
     "role has."
   ],
   "templates": {
-    "group-room": "In this conversation your client talks to you in a room you share with your assistant, not here. When a turn reaches you from the room, read what is new with GroupPull and answer the client with GroupSay \u2014 that post is the whole of what the client sees from you. Your assistant can see what you see and changes nothing; the decisions and the site are yours.",
+    "group-room": "In this conversation your client talks to you in a room you share with the coordinator, not here. Before your first turn in the room, read DOC-64 in your knowledge base: it says what you and the coordinator each do, how the site's plan is kept and how a build runs, and it is your method here. When a turn reaches you from the room, read what is new with GroupPull and answer the client with GroupSay \u2014 that post is the whole of what the client sees from you. The coordinator can see what you see and changes nothing on the site; the decisions and the site are yours.",
     "site-line": "You are working on the site \"{slug}\". Every tool you have acts on that site and no other.",
     "change-signal": "Your client has changed this site since your last turn \u2014 {changes} change{plural}. Call list_changes with since: {at} to see what moved BEFORE you touch anything, and never write over a change you have not read.",
     "business-line": "You are helping with the business \"{name}\". Everything you can read or change here belongs to that business and to no other.",
@@ -753,13 +764,17 @@
       "text": "Do not restate what you have already done at the head of a turn. Nobody reads these turns \u2014 your report at the end is the entire of what the consultant receives, and it is the only place a summary of your work belongs."
     }
   ],
-  "assistant_priming": [
+  "coordinator_priming": [
     {
-      "name": "assistant-role",
+      "name": "coordinator-role",
       "text": [
-        "You are the assistant in a group chat about a client's website. Three of you are in",
-        "the room: the client, who owns the site; a design consultant, who advises the client",
-        "and builds the site with them; and you.",
+        "You are the coordinator in a group chat about a client's website. Three of you are",
+        "in the room: the client, who owns the site; a design consultant, who advises the",
+        "client and builds the site with them; and you.",
+        "",
+        "Your role is written down in DOC-64 in your knowledge base: what you do, what the",
+        "consultant does, how the site's plan is kept and how a build runs. Read it before",
+        "your first turn in the room, and go back to it rather than improvise.",
         "",
         "The room is where you work. Everything the client and the consultant say to each",
         "other is there, and what you post there is the whole of what anybody sees from you.",
@@ -779,13 +794,13 @@
     },
     {
       "name": "manual",
-      "provider": "assistant.manual"
+      "provider": "coordinator.manual"
     },
     {
       "cache_boundary": true
     }
   ],
-  "assistant_reminders": [
+  "coordinator_reminders": [
     {
       "name": "site",
       "provider": "site.line"

@@ -25,6 +25,7 @@ import {
   awarenessDocument,
   bindKb,
   corpusDir,
+  coverageOf,
   resolveEmbedder,
   SHIPPED_SOURCE,
   SYSTEM_KB,
@@ -75,10 +76,8 @@ export async function buildIndexesAndMap(
     const vectors = new Map(
       metadata.map((row: { uid: string }, i: number) => [row.uid, embeddings[i]]),
     )
-    const docs = lib.documentsFromTickets(
-      await lib.resolveCorpus(binding.store, binding.kb),
-      vectors,
-    )
+    const corpus = await lib.resolveCorpus(binding.store, binding.kb)
+    const docs = lib.documentsFromTickets(corpus, vectors)
     const { createDescriber } = await import(/* @vite-ignore */ `file://${STUB_MODEL}`)
     const describer = createDescriber()
     const report = await lib.buildAwareness(
@@ -107,7 +106,7 @@ export async function buildIndexesAndMap(
     )
     writeFileSync(
       path.join(corpusDir(root), 'awareness.md'),
-      awarenessDocument(report.body, SYSTEM_KB),
+      awarenessDocument(report.body, SYSTEM_KB, coverageOf(corpus)),
       'utf8',
     )
     territories = report.territories.length

@@ -128,7 +128,7 @@ export const BUILDER_ROLE = 'builder'
  * consultant can see and writes nothing to the site; its working place is the
  * room. A ROLE KEY, never a display name — those live in `group-chat.json`.
  */
-export const ASSISTANT_ROLE = 'assistant'
+export const COORDINATOR_ROLE = 'coordinator'
 
 /**
  * Role names this project used to write, and still reads (REQ-174).
@@ -341,11 +341,11 @@ export function settingsPrimingConfig(): Record<string, unknown> {
  * lost by delivering them there, and putting them in the prefix would give every
  * delegation a prefix of its own.
  */
-/** The assistant's priming and reminders, as the role mapping takes them ([[REQ-357]]). */
-export function assistantPrimingConfig(): Record<string, unknown> {
+/** The coordinator's priming and reminders, as the role mapping takes them ([[REQ-357]]). */
+export function coordinatorPrimingConfig(): Record<string, unknown> {
   return {
-    priming: (primingDocument.assistant_priming as RawEntry[]).map(normalise),
-    reminders: (primingDocument.assistant_reminders as RawEntry[]).map(normalise),
+    priming: (primingDocument.coordinator_priming as RawEntry[]).map(normalise),
+    reminders: (primingDocument.coordinator_reminders as RawEntry[]).map(normalise),
   }
 }
 
@@ -614,8 +614,8 @@ export const BUSINESS_LINE_PROVIDER = 'business.line'
  */
 export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
 
-/** The assistant's manual, projected from its own read-only box ([[REQ-357]]). */
-export const ASSISTANT_MANUAL_PROVIDER = 'assistant.manual'
+/** The coordinator's manual, projected from its own read-only box ([[REQ-357]]). */
+export const COORDINATOR_MANUAL_PROVIDER = 'coordinator.manual'
 
 /** The consultant's room framing, null unless this business runs a group chat ([[REQ-357]]). */
 export const GROUP_ROOM_PROVIDER = 'group.room'
@@ -1328,18 +1328,18 @@ export function groupRoomFraming(memberFraming: string | null): string | null {
   return `${memberFraming}\n\n${template('group-room')}`
 }
 
-/** The assistant's manual provider, bound to its own box ([[REQ-357]]). */
-export function registerAssistantProviders(providers: Untyped, binding: { box: Untyped }): void {
-  providers.register(ASSISTANT_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+/** The coordinator's manual provider, bound to its own box ([[REQ-357]]). */
+export function registerCoordinatorProviders(providers: Untyped, binding: { box: Untyped }): void {
+  providers.register(COORDINATOR_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
 }
 
-/** The assistant's role, loaded through the framework's mapping ([[REQ-357]]). */
-export function assistantRole(lib: Untyped, providers: Untyped): Untyped {
+/** The coordinator's role, loaded through the framework's mapping ([[REQ-357]]). */
+export function coordinatorRole(lib: Untyped, providers: Untyped): Untyped {
   const roles = lib.rolesFromMapping(
-    { roles: { [ASSISTANT_ROLE]: assistantPrimingConfig() } },
+    { roles: { [COORDINATOR_ROLE]: coordinatorPrimingConfig() } },
     { providers },
   )
-  return roles[ASSISTANT_ROLE]
+  return roles[COORDINATOR_ROLE]
 }
 
 export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {

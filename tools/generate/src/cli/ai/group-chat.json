@@ -2,7 +2,7 @@
   "about": [
     "The group chat's display names ([[REQ-357]]). The ONE place they are written.",
     "",
-    "Code, priming and surface text name ROLES — `consultant`, `assistant` — and",
+    "Code, priming and surface text name ROLES — `consultant`, `coordinator` — and",
     "never these strings, so renaming a participant is an edit here and nothing",
     "else. They are what the room shows beside each contribution and what the",
     "room's `names` map hands every member brief. `client` is how the person",
@@ -14,7 +14,7 @@
   ],
   "names": {
     "consultant": "Alice",
-    "assistant": "Bob",
+    "coordinator": "Bob",
     "client": "You",
     "room": "Room"
   },

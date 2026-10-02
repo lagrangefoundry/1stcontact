@@ -853,10 +853,8 @@ async function buildMap(
 
   const { embeddings, metadata } = await lib.loadIndex(indexSource)
   const vectors = new Map(metadata.map((row: Untyped, i: number) => [row.uid, embeddings[i]]))
-  const docs = lib.documentsFromTickets(
-    await lib.resolveCorpus(binding.store, binding.kb),
-    vectors,
-  )
+  const corpus = await lib.resolveCorpus(binding.store, binding.kb)
+  const docs = lib.documentsFromTickets(corpus, vectors)
 
   const find = async (query: string): Promise<string[]> => {
     const hits = await lib.search(query, {
@@ -900,7 +898,7 @@ async function buildMap(
 
   writeFileSync(
     path.join(corpusDir(root), AWARENESS_FILE),
-    awarenessDocument(report.body, SYSTEM_KB),
+    awarenessDocument(report.body, SYSTEM_KB, coverageOf(corpus)),
     'utf8',
   )
 
@@ -922,8 +920,22 @@ async function buildMap(
  * the exact `(type, kind, kb)` triple the report lookup queries on, and the same
  * triple the corpus recursion guard excludes — so the map is found by priming and
  * kept out of the corpus it describes, with no special case for either.
+ *
+ * AND WHAT IT WAS BUILT OVER ([[REQ-358]]): `covers` maps each corpus document
+ * to the version the map was drawn from, in the manifest's own spelling. That is
+ * what lets {@link kbSkew} see a map that is behind its corpus — the one part of
+ * a build that could fail after the index was written and leave nothing behind
+ * that disagreed with anything. Empty covers nothing, which is the honest reading
+ * of a map that does not say.
  */
-export function awarenessDocument(body: string, kbName: string): string {
+export function awarenessDocument(
+  body: string,
+  kbName: string,
+  covers: Record<string, string> = {},
+): string {
+  const entries = Object.keys(covers)
+    .sort()
+    .map((uid) => `    ${uid}: '${covers[uid]}'`)
   const front = [
     '---',
     'type: system',
@@ -932,10 +944,41 @@ export function awarenessDocument(body: string, kbName: string): string {
     'fields:',
     '  kind: awareness_report',
     `  kb: ${kbName}`,
+    ...(entries.length > 0 ? ['  covers:', ...entries] : ['  covers: {}']),
     '---',
     '',
   ].join('\n')
   return front + body.trim() + '\n'
+}
+
+/** A resolved corpus as the map's `covers` field: uid -> the version it was read at. */
+export function coverageOf(corpus: Array<{ uid: string; updated_at: string }>): Record<string, string> {
+  return Object.fromEntries(corpus.map((doc) => [doc.uid, doc.updated_at]))
+}
+
+/**
+ * What a map says it was built over, read back from its own frontmatter.
+ *
+ * Read by line rather than through a YAML parser because {@link awarenessDocument}
+ * is the only writer and its shape is fixed; a map written before `covers` existed
+ * — or with none at all — reads as covering nothing.
+ */
+export function mapCoverage(text: string | undefined): Record<string, string> {
+  const covers: Record<string, string> = {}
+  if (text === undefined) return covers
+  const front = /^---\n([\s\S]*?)\n---/.exec(text)?.[1] ?? ''
+  let inside = false
+  for (const line of front.split('\n')) {
+    if (line.startsWith('  covers:')) {
+      inside = true
+      continue
+    }
+    if (!inside) continue
+    const entry = /^ {4}(\S+): '([^']*)'$/.exec(line)
+    if (entry === null) break
+    covers[entry[1]] = entry[2]
+  }
+  return covers
 }
 
 /**
@@ -980,7 +1023,25 @@ export async function buildKb(root: string = kbRoot()): Promise<BuildResult> {
     sources: binding.sources,
   })
 
-  const map = await buildMap(root, binding, indexSource, embedder)
+  // THE MAP IS THE ONE STEP THAT RUNS AFTER THE INDEX IS ALREADY WRITTEN
+  // ([[REQ-358]]), so its failure is named rather than passed through: on
+  // 2026-10-01 a rebuild refreshed both indexes and left a map three days old,
+  // listing neither DOC-63 nor DOC-64. `kbSkew` now refuses that state, so the
+  // next `ensure` rebuilds and `1c assets` will not inline it; this says why.
+  let map: Awaited<ReturnType<typeof buildMap>>
+  try {
+    map = await buildMap(root, binding, indexSource, embedder)
+  } catch (err) {
+    throw new Error(
+      'The index and the chunk index were rebuilt, but the awareness map was NOT: ' +
+        `${err instanceof Error ? err.message : String(err)}\n\n` +
+        `The map on disk still describes the previous build. \`1c kb ensure\` will ` +
+        `rebuild and \`1c assets\` will refuse to inline it until a build finishes. ` +
+        `The map's paragraphs are written by ${process.env.LAGRANGE_KM_DESCRIBER ?? 'the Claude Code CLI'}` +
+        ' (set ANTHROPIC_API_KEY to use the API instead).',
+      { cause: err },
+    )
+  }
 
   return {
     documents: stats.total,
@@ -1197,6 +1258,16 @@ export interface KbSkew {
    */
   outdated: string[]
   /**
+   * Corpus documents the awareness map was not built over ([[REQ-358]]).
+   *
+   * The map is primed into every session as the landscape of what exists, so a
+   * document it does not list is one a session is never pointed at — searchable,
+   * and never searched for. Absent from the map's `covers`, or covered at another
+   * version than the corpus holds, which means the map was drawn before the
+   * document said what it says now.
+   */
+  unmapped: string[]
+  /**
    * Documents the corpus predicate excludes — present as text, indexed never.
    *
    * The awareness map, and anything that arrives beside it. Reported rather than
@@ -1259,13 +1330,17 @@ export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise
   const docIndex = manifest(bundle.index)
   const chunkIndex = manifest(bundle.chunks)
 
+  const mapped = mapCoverage(bundle.docs[AWARENESS_FILE]?.text)
+
   const missing: string[] = []
   const stale: string[] = []
+  const unmapped: string[] = []
   for (const doc of corpus) {
     const inDocs = docIndex[doc.uid]
     const inChunks = chunkIndex[doc.uid]
     if (inDocs === undefined || inChunks === undefined) missing.push(doc.uid)
     else if (inDocs !== doc.updated_at || inChunks !== doc.updated_at) stale.push(doc.uid)
+    if (mapped[doc.uid] !== doc.updated_at) unmapped.push(doc.uid)
   }
 
   // The projections re-rendered and compared (BUG-156). HERE RATHER THAN IN THE
@@ -1293,6 +1368,7 @@ export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise
     missing: missing.sort(),
     stale: stale.sort(),
     outdated: outdated.sort(),
+    unmapped: unmapped.sort(),
     exempt: exempt.sort(),
   }
 }
@@ -1317,9 +1393,7 @@ export async function kbSkew(bundle: KbBundle, root: string = kbRoot()): Promise
  * told the index is behind when the index is fine looks in the wrong place.
  */
 export function kbSkewError(skew: KbSkew): string | null {
-  if (skew.missing.length === 0 && skew.stale.length === 0 && skew.outdated.length === 0) {
-    return null
-  }
+  if (!skewed(skew)) return null
   const lines: string[] = []
   if (skew.missing.length > 0 || skew.stale.length > 0) {
     lines.push(
@@ -1333,6 +1407,13 @@ export function kbSkewError(skew: KbSkew): string | null {
       'A projected reference in this corpus no longer matches the declarations it ' +
         'is rendered from, so this bundle would ship a document that is ' +
         'retrievable, confident and wrong.',
+    )
+  }
+  if (skew.unmapped.length > 0) {
+    if (lines.length > 0) lines.push('')
+    lines.push(
+      'The awareness map was not built over this corpus, so every session would ' +
+        'be primed with a landscape that leaves documents out.',
     )
   }
   if (skew.missing.length > 0) {
@@ -1359,8 +1440,26 @@ export function kbSkewError(skew: KbSkew): string | null {
       ...skew.outdated.map((uid) => `    ${uid}`),
     )
   }
+  if (skew.unmapped.length > 0) {
+    lines.push(
+      '',
+      `  UNMAPPED (${skew.unmapped.length}) — absent from the awareness map, or ` +
+        'mapped at another version:',
+      ...skew.unmapped.map((uid) => `    ${uid}`),
+    )
+  }
   lines.push('', 'Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order).')
   return lines.join('\n')
+}
+
+/** Whether any of the four disagreements holds. `exempt` is reported, never failed on. */
+function skewed(skew: KbSkew): boolean {
+  return (
+    skew.missing.length > 0 ||
+    skew.stale.length > 0 ||
+    skew.outdated.length > 0 ||
+    skew.unmapped.length > 0
+  )
 }
 
 /** {@link kbSkewError} as a throw, carrying the finding for a caller that wants it. */
@@ -1382,9 +1481,7 @@ export class KbSkewError extends Error {
  */
 export async function requireCoherentKb(bundle: KbBundle, root: string = kbRoot()): Promise<KbSkew> {
   const skew = await kbSkew(bundle, root)
-  if (skew.missing.length > 0 || skew.stale.length > 0 || skew.outdated.length > 0) {
-    throw new KbSkewError(skew)
-  }
+  if (skewed(skew)) throw new KbSkewError(skew)
   return skew
 }
 

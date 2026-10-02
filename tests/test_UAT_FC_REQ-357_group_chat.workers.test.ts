@@ -24,12 +24,13 @@ import {
   type ModelStep,
   type ScriptedClient,
 } from './support/scripted-model-client'
-import { applySchema, seedTenantSite } from './support/d1-site-factory'
+import { applySchema, seedTenantSite, splitStatements } from './support/d1-site-factory'
+import retireAssistantSessions from '../db/migrations/0024_retire_assistant_sessions.sql?raw'
 import { nextSlug } from './support/site-seed'
 
 /**
  * [[REQ-357]] — a builder conversation as a group chat: one room in which the
- * client, the consultant and the assistant all post, behind a per-business
+ * client, the consultant and the coordinator all post, behind a per-business
  * switch.
  *
  * EVERY CASE DRIVES THE ROUTES A REQUEST DRIVES — the switch, `/api/ai/session`,
@@ -43,12 +44,12 @@ import { nextSlug } from './support/site-seed'
  *
  * NOTHING ABOUT THE SURFACES IS RESTATED. Which L1 tools are reads and which
  * writes is read out of the declaration; the display names out of
- * `group-chat.json`; the assistant's model out of `backends.json`.
+ * `group-chat.json`; the coordinator's model out of `backends.json`.
  */
 
 const BUSINESS = 'req357-business'
 const NAMES = groupNames()
-const ASSISTANT_MODEL = (backendsDocument as Record<string, { model?: string }>).claude_assistant
+const COORDINATOR_MODEL = (backendsDocument as Record<string, { model?: string }>).claude_coordinator
   .model as string
 
 /** Tool names the L1 declaration groups under a READ, and under a WRITE. */
@@ -128,9 +129,9 @@ async function open(site: string): Promise<Opened> {
   return (await response.json()) as Opened
 }
 
-/** Who a request was from: the assistant runs on its own backend's model. */
-const memberOf = (req: ModelRequest): 'consultant' | 'assistant' =>
-  req.model === ASSISTANT_MODEL ? 'assistant' : 'consultant'
+/** Who a request was from: the coordinator runs on its own backend's model. */
+const memberOf = (req: ModelRequest): 'consultant' | 'coordinator' =>
+  req.model === COORDINATOR_MODEL ? 'coordinator' : 'consultant'
 
 /** Whether the request is the tool loop's second leg (the tool result is back). */
 function afterTool(req: ModelRequest): boolean {
@@ -156,9 +157,9 @@ type Action =
  * plain reply. Out of script, a member declines — which is what settles the
  * exchange.
  */
-function roomClient(script: { consultant: Action[]; assistant: Action[] }): ScriptedClient {
+function roomClient(script: { consultant: Action[]; coordinator: Action[] }): ScriptedClient {
   const seen: ModelRequest[] = []
-  const pending: Record<string, Action | null> = { consultant: null, assistant: null }
+  const pending: Record<string, Action | null> = { consultant: null, coordinator: null }
   return {
     seen,
     messages: {
@@ -237,7 +238,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     expect(opened.sessionId).toBe(`site-${site}`)
     expect(opened.group).toBeUndefined()
 
-    const client = roomClient({ consultant: [], assistant: [] })
+    const client = roomClient({ consultant: [], coordinator: [] })
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hello.' }))
     // ONE MODEL, NO ROOM TOOLS, NO ROOM PROSE, NO ROOM.
@@ -278,7 +279,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     const homed = await Promise.all(
       members.map(async (uid) => (await tickets.get({ uid })).ticket.fields?.session_id),
     )
-    expect(homed).toEqual([`site-${site}`, `assistant-${site}`])
+    expect(homed).toEqual([`site-${site}`, `coordinator-${site}`])
 
     // THE CONSULTANT'S CONVERSATION IS ITS PRIVATE SESSION NOW, UNCHANGED…
     const privateRead = await post('/api/ai/private', { site })
@@ -288,7 +289,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     }
     expect(sessions.map((m) => [m.role, m.name])).toEqual([
       ['consultant', NAMES.consultant],
-      ['assistant', NAMES.assistant],
+      ['coordinator', NAMES.coordinator],
     ])
     expect(sessions[0].turns).toEqual(history)
 
@@ -299,17 +300,17 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     expect(back.turns).toEqual(history)
   })
 
-  it('test_UAT_FC_REQ-357_the_assistant_reads_and_posts_and_cannot_write_delegate_draw_or_photograph', async () => {
+  it('test_UAT_FC_REQ-357_the_coordinator_reads_and_posts_and_cannot_write_delegate_draw_or_photograph', async () => {
     await setGroupChat(true)
     const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('manual') })
     const opened = await open(site)
-    const client = roomClient({ consultant: [{ say: 'Noted.' }], assistant: [{ say: 'Agreed.' }] })
+    const client = roomClient({ consultant: [{ say: 'Noted.' }], coordinator: [{ say: 'Agreed.' }] })
     setModelClient(client)
     await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi both.' }))
 
-    const assistantReq = client.seen.find((req) => memberOf(req) === 'assistant')
-    expect(assistantReq, 'the assistant took a round').toBeDefined()
-    const offered = toolNames(assistantReq!)
+    const coordinatorReq = client.seen.find((req) => memberOf(req) === 'coordinator')
+    expect(coordinatorReq, 'the coordinator took a round').toBeDefined()
+    const offered = toolNames(coordinatorReq!)
     for (const tool of [...READ_TOOLS, ...ROOM_TOOLS]) expect(offered).toContain(tool)
     for (const tool of WRITE_TOOLS) expect(offered).not.toContain(tool)
     // No delegation, no image generation or editing, no camera.
@@ -321,7 +322,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     for (const tool of ROOM_TOOLS) expect(toolNames(consultantReq)).toContain(tool)
     expect(toolNames(consultantReq)).toContain('Delegate')
     // THE MANUAL NAMES THE ROLE, NOT A DISPLAY NAME.
-    expect(sentText(assistantReq!)).toContain('You are the assistant in a group chat')
+    expect(sentText(coordinatorReq!)).toContain('You are the coordinator in a group chat')
   })
 
   it('test_UAT_FC_REQ-357_a_client_message_posts_to_the_room_and_both_members_are_called_on_a_cold_isolate', async () => {
@@ -335,7 +336,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
 
     const client = roomClient({
       consultant: [{ say: 'A deeper blue would read as calmer.' }],
-      assistant: [{ say: 'That matches what you asked for on Monday.' }],
+      coordinator: [{ say: 'That matches what you asked for on Monday.' }],
     })
     setModelClient(client)
     const stream = await frames(
@@ -343,11 +344,11 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     )
 
     // BOTH MEMBERS WERE CALLED — neither recorded as skipped.
-    expect(new Set(client.seen.map(memberOf))).toEqual(new Set(['consultant', 'assistant']))
+    expect(new Set(client.seen.map(memberOf))).toEqual(new Set(['consultant', 'coordinator']))
     const said = posts(stream).map((f) => [f.meta?.speaker, f.content])
     expect(said).toContainEqual([NAMES.client, 'Make it calmer.'])
     expect(said).toContainEqual([NAMES.consultant, 'A deeper blue would read as calmer.'])
-    expect(said).toContainEqual([NAMES.assistant, 'That matches what you asked for on Monday.'])
+    expect(said).toContainEqual([NAMES.coordinator, 'That matches what you asked for on Monday.'])
     expect(posts(stream).some((f) => /was skipped/.test(f.content))).toBe(false)
 
     // THE BRIEF IS WHAT A MEMBER RECEIVED — not the client's words relayed.
@@ -357,7 +358,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     // EACH MEMBER'S EVENTS ARE FORWARDED, tagged, and the exchange ends once.
     const memberDone = stream.filter((f) => f.kind === MEMBER_DONE).map((f) => f.meta?.member)
     expect(memberDone).toContain(NAMES.consultant)
-    expect(memberDone).toContain(NAMES.assistant)
+    expect(memberDone).toContain(NAMES.coordinator)
     const ends = stream.filter((f) => f.kind === 'done')
     expect(ends).toHaveLength(1)
     expect(ends[0].meta?.status).toBe('complete')
@@ -380,7 +381,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     const held: ModelStep = () => []
     const base = roomClient({
       consultant: [{ step: held }],
-      assistant: [{ say: 'I should not be reached.' }],
+      coordinator: [{ say: 'I should not be reached.' }],
     })
     const client: ScriptedClient = {
       seen: base.seen,
@@ -424,8 +425,8 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     const ends = first.filter((f) => f.kind === 'done')
     expect(ends).toHaveLength(1)
     expect(ends[0].meta?.status).toBe('aborted')
-    // The assistant never got a round, and the room is free again.
-    expect(base.seen.some((req) => memberOf(req) === 'assistant')).toBe(false)
+    // The coordinator never got a round, and the room is free again.
+    expect(base.seen.some((req) => memberOf(req) === 'coordinator')).toBe(false)
     const [after] = await rooms(site)
     expect(after.fields.exchange ?? '').toBe('')
     expect(await (await post('/api/ai/stop', { sessionId: opened.sessionId })).json()).toEqual({
@@ -448,7 +449,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
             then: { say: 'I added a services page.' },
           },
         ],
-        assistant: [],
+        coordinator: [],
       }),
     )
     const stream = await frames(
@@ -462,11 +463,11 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     const { results } = await env.DB.prepare(
       'SELECT session_id, role FROM turn_spend WHERE session_id IN (?, ?)',
     )
-      .bind(`site-${site}`, `assistant-${site}`)
+      .bind(`site-${site}`, `coordinator-${site}`)
       .all<{ session_id: string; role: string }>()
     const rows = (results ?? []).map((r) => [r.session_id, r.role])
     expect(rows).toContainEqual([`site-${site}`, 'consultant'])
-    expect(rows).toContainEqual([`assistant-${site}`, 'assistant'])
+    expect(rows).toContainEqual([`coordinator-${site}`, 'coordinator'])
   })
 
   it('test_UAT_FC_REQ-357_the_room_transcript_replays_with_speaker_attribution', async () => {
@@ -476,7 +477,7 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     setModelClient(
       roomClient({
         consultant: [{ say: 'Here is my view.' }],
-        assistant: [{ say: 'And the brief says premium.' }],
+        coordinator: [{ say: 'And the brief says premium.' }],
       }),
     )
     const live = posts(
@@ -491,7 +492,86 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     expect(replayed.slice(0, 3)).toEqual([
       [NAMES.client, 'user', 'Thoughts?'],
       [NAMES.consultant, 'assistant', 'Here is my view.'],
-      [NAMES.assistant, 'assistant', 'And the brief says premium.'],
+      [NAMES.coordinator, 'assistant', 'And the brief says premium.'],
     ])
+  })
+  it('test_UAT_FC_REQ-358_both_members_are_primed_to_read_doc_64_and_only_in_a_room', async () => {
+    // FINDING 13'S LESSON ([[REQ-358]]): a document nothing names is not read, so
+    // both members' assembled priming names DOC-64 — the one that says what each
+    // of them does and how a build runs — and the consultant's says it only where
+    // the business runs a group chat.
+    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('doc64') })
+    const solo = scriptedClient([says('Hello.')])
+    setModelClient(solo)
+    await frames(await post('/api/ai/prompt', { sessionId: (await open(site)).sessionId, text: 'Hi.' }))
+    expect(sentText(solo.seen[0])).not.toContain('DOC-64')
+
+    resetAiHost()
+    resetChatHost()
+    await setGroupChat(true)
+    const opened = await open(site)
+    const client = roomClient({ consultant: [{ say: 'Noted.' }], coordinator: [{ say: 'Agreed.' }] })
+    setModelClient(client)
+    await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi both.' }))
+    const consultantReq = client.seen.find((req) => memberOf(req) === 'consultant')
+    const coordinatorReq = client.seen.find((req) => memberOf(req) === 'coordinator')
+    expect(sentText(consultantReq!)).toMatch(/read DOC-64 in your knowledge base/)
+    expect(sentText(coordinatorReq!)).toMatch(/DOC-64 in your knowledge base/)
+    expect(sentText(consultantReq!)).toContain('you share with the coordinator')
+    expect(sentText(consultantReq!)).not.toMatch(/your assistant/)
+  })
+
+  it('test_UAT_FC_REQ-358_a_room_opened_before_the_rename_is_recreated_with_the_coordinator', async () => {
+    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('rename') })
+    // THE CONSULTANT'S CONVERSATION, which is what must come through untouched.
+    setModelClient(scriptedClient([says('Darker it is.')]))
+    await frames(
+      await post('/api/ai/prompt', { sessionId: (await open(site)).sessionId, text: 'Darker.' }),
+    )
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    const { tickets: chats } = await tickets.query({ predicate: 'type=chat', limit: 'all' })
+    const consultantUid = chats.find((t) => t.fields?.session_id === `site-${site}`)!.uid
+
+    // WHAT A DATABASE OPENED UNDER REQ-357 HOLDS: the second member homed as
+    // `assistant-<site>`, and a room whose roster lists it.
+    const { ticket: legacy } = await tickets.create({
+      type: 'chat',
+      title: `assistant-${site}`,
+      body: '',
+      fields: { session_id: `assistant-${site}`, backend: `claude_assistant+site:${site}` },
+    })
+    const { ticket: oldRoom } = await tickets.create({
+      type: 'chat',
+      title: `Group chat: ${site}`,
+      body: '',
+      fields: {
+        session_id: `room-${site}`,
+        backend: '',
+        members: [consultantUid, legacy.uid],
+        is_group: true,
+      },
+    })
+
+    for (const statement of splitStatements(retireAssistantSessions)) {
+      await env.DB.prepare(statement).run()
+    }
+    resetAiHost()
+    resetChatHost()
+
+    // ONE ROOM — a new one — whose second member is the coordinator and not the
+    // orphan, beside the consultant's unchanged conversation (BUG-116).
+    await setGroupChat(true)
+    const reopened = await open(site)
+    expect(reopened.ready).toBe(true)
+    const after = await rooms(site)
+    expect(after).toHaveLength(1)
+    expect(after[0].uid).not.toBe(oldRoom.uid)
+    const members = after[0].fields.members as string[]
+    expect(members[0]).toBe(consultantUid)
+    expect(members).not.toContain(legacy.uid)
+    const homed = await Promise.all(
+      members.map(async (uid) => (await tickets.get({ uid })).ticket.fields?.session_id),
+    )
+    expect(homed).toEqual([`site-${site}`, `coordinator-${site}`])
   })
 })

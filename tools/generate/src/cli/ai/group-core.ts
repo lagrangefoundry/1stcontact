@@ -2,7 +2,7 @@
  * The group chat's host-side vocabulary ([[REQ-357]]).
  *
  * A builder conversation can be a ROOM: one transcript in which the client, the
- * consultant and the assistant all post. The room itself — turn-taking,
+ * consultant and the coordinator all post. The room itself — turn-taking,
  * attribution, the transcript — is lagrange-framework's (`createGroup`,
  * `openGroup`, `Orchestrator`, `GroupToolbox`); nothing here reimplements it.
  * What lives here is what only this host can say: the names the room shows, the
@@ -13,10 +13,10 @@
  * `host-core.ts`, beside the turn path every member round goes through.
  */
 import groupChatDocument from './group-chat.json'
-import { ASSISTANT_ROLE, CONSULTANT_ROLE } from './roles'
+import { COORDINATOR_ROLE, CONSULTANT_ROLE } from './roles'
 
-/** The adapter variant the assistant runs on — its own `backends.json` entry. */
-export const ASSISTANT_BACKEND = 'claude_assistant'
+/** The adapter variant the coordinator runs on — its own `backends.json` entry. */
+export const COORDINATOR_BACKEND = 'claude_coordinator'
 
 /** The speakers the framework reserves for the operator and for the room itself. */
 const OPERATOR_SPEAKER = '@operator'
@@ -24,7 +24,7 @@ const OPERATOR_SPEAKER = '@operator'
 /** The display names, read from the one config entry that holds them. */
 export interface GroupNames {
   consultant: string
-  assistant: string
+  coordinator: string
   client: string
   room: string
 }
@@ -53,7 +53,7 @@ export function groupNames(): GroupNames {
   }
   return {
     consultant: read('consultant'),
-    assistant: read('assistant'),
+    coordinator: read('coordinator'),
     client: read('client'),
     room: read('room'),
   }
@@ -68,9 +68,9 @@ export function groupRoomSettings(): GroupRoomSettings {
   }
 }
 
-/** The assistant's private session for a site. */
-export function assistantSessionIdFor(site: string): string {
-  return `assistant-${site}`
+/** The coordinator's private session for a site. */
+export function coordinatorSessionIdFor(site: string): string {
+  return `coordinator-${site}`
 }
 
 /** The room's session for a site — one room per site. */
@@ -78,9 +78,9 @@ export function roomSessionIdFor(site: string): string {
   return `room-${site}`
 }
 
-/** The name the assistant's backend is registered under, per site. */
-export function assistantBackendName(site: string): string {
-  return `${ASSISTANT_BACKEND}+site:${site}`
+/** The name the coordinator's backend is registered under, per site. */
+export function coordinatorBackendName(site: string): string {
+  return `${COORDINATOR_BACKEND}+site:${site}`
 }
 
 /** The site a room id addresses, or null. Existence is the caller's check. */
@@ -196,15 +196,15 @@ export function roomTurn(contribution: RoomContribution, names: GroupNames): Roo
 /** The room's `names` map: member ticket -> display name. */
 export function memberNames(
   consultantTicket: string,
-  assistantTicket: string,
+  coordinatorTicket: string,
   names: GroupNames,
 ): Record<string, string> {
-  return { [consultantTicket]: names.consultant, [assistantTicket]: names.assistant }
+  return { [consultantTicket]: names.consultant, [coordinatorTicket]: names.coordinator }
 }
 
 /** Which role a member session is. */
 export function roleOfMember(sessionId: string, site: string): string {
-  return sessionId === assistantSessionIdFor(site) ? ASSISTANT_ROLE : CONSULTANT_ROLE
+  return sessionId === coordinatorSessionIdFor(site) ? COORDINATOR_ROLE : CONSULTANT_ROLE
 }
 
 // -- one stream out of many producers -----------------------------------------

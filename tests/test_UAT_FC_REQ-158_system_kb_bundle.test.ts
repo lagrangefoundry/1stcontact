@@ -104,7 +104,12 @@ async function buildFixtureKb(root: string): Promise<void> {
   )
   writeFileSync(
     path.join(dir, 'awareness.md'),
-    awarenessDocument('## Behaviour modules\n\nCarousels and forms. Start at DOC-A.\n', SYSTEM_KB),
+    awarenessDocument(
+      '## Behaviour modules\n\nCarousels and forms. Start at DOC-A.\n',
+      SYSTEM_KB,
+      // Drawn over what was just indexed ([[REQ-358]]), as a real build's map is.
+      JSON.parse(readFileSync(path.join(dir, 'index', 'manifest.json'), 'utf8')),
+    ),
     'utf8',
   )
 }
