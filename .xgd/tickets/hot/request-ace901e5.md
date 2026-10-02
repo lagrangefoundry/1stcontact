@@ -6,10 +6,10 @@ title: 'Builder chat: group chat — a room with the consultant and the assistan
   a per-business switch'
 created_by: EPIC-19
 created_at: '2026-10-01T21:04:15.900939+00:00'
-updated_at: '2026-10-02T00:25:07.741155+00:00'
+updated_at: '2026-10-02T00:26:16.347209+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 14
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-68d3ad6f
+  commits:
+  - working_sha: 6401f8f1fa3f72e1c5547697e4a3e48a31e7dc83
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9c5b6555bda313e6d0b4963944eb5084d522d567
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c56e8cbef8837b806986142b31c878090b1100a7
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.431
 ---
 
 ## What changes
