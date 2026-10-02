@@ -6,10 +6,10 @@ title: 'Group chat: a retired room''s surviving junction blocks the room from ev
   being created again'
 created_by: EPIC-19
 created_at: '2026-10-02T04:42:49.806091+00:00'
-updated_at: '2026-10-02T05:50:37.269159+00:00'
+updated_at: '2026-10-02T15:18:50.604749+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
