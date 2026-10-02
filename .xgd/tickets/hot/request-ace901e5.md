@@ -6,10 +6,10 @@ title: 'Builder chat: group chat — a room with the consultant and the assistan
   a per-business switch'
 created_by: EPIC-19
 created_at: '2026-10-01T21:04:15.900939+00:00'
-updated_at: '2026-10-02T00:26:16.347209+00:00'
+updated_at: '2026-10-02T01:18:44.777347+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 14
