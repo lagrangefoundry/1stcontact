@@ -6,9 +6,9 @@ title: 'Group chat: the second agent is the coordinator, and both agents are poi
   at DOC-64'
 created_by: EPIC-19
 created_at: '2026-10-02T01:04:30.865457+00:00'
-updated_at: '2026-10-02T02:15:17.797264+00:00'
+updated_at: '2026-10-02T02:15:27.269372+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
