@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-02T23:23:14.749316+00:00'
+updated_at: '2026-10-02T23:25:37.751667+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -62,5 +62,28 @@ Decision for you: should I file a ticket in lagrange-framework for the notice ch
 <!-- xgd-chat role="user" ts="2026-10-02T23:23:13.700504+00:00" -->
 #### You
 **Why **`GroupSay`** doesn't fit 1-1:** - **It would fail.** It posts by claiming the session's turn lock, which the consultant's own running turn already holds. A call from inside that turn would wait 60 seconds and then error (`manager.js:1622`). - **It would corrupt the record.** Even with the lock, it records a complete separate turn inside the open one, which is what the lock exists to prevent. - **The client wouldn't see it live.** It writes to the stored session log, not to the stream the client is watching, so the message would only appear after a page reload. - **The surface rules it out.** The group tool's own description treats posting into a private session as an error (`not_a_room`). <-- interesting, but take a look at EPIC-7 in LF - all of those issues with contention in a room we need to solve.
+
+<!-- xgd-turn id="3d7c1eb3-c38a-442d-a59b-b8a1a1614396-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T23:25:35.839356+00:00" -->
+#### Claude
+Now recording the revised assessment and the cross-reference on REQ-360.
+
+You're right, and I've changed my assessment. All four of my objections are problems EPIC-7 has to solve for interposition anyway, and its decisions settle them:
+
+- **Lease contention and the separate turn:** EPIC-7 stores a mid-round message as a record *inside* the open round, where it happened, not as a new turn (§16, REQ-200). The consultant's own round already holds the turn lock, so there's no wait and no second turn wedged in.
+- **Not reaching the live stream:** the post can be sent to the client as soon as the `GroupSay` call returns, before the next call. So the client sees it before a long `Delegate` starts. The split-round display in REQ-201 then draws it where it happened.
+- **`not_a_room`:** this is narrowed to "someone else's 1:1 chat". Posting into your own conversation becomes allowed.
+
+Seen this way, the interim notice is interposition in the other direction, AI to user. It also gives one `GroupSay` that behaves the same in a room or a DM, which is what §13.3(a)'s "no role named anywhere" asks for.
+
+As before, I filed this as a ticket in lagrange-framework rather than writing code from here: **REQ-205** (`request-4fee9d24`), at `draft`. It covers both of the options you wanted:
+
+- **A (option 1):** `GroupSay` can target the caller's own 1:1 chat mid-round. It also gets a flag that keeps the round open in a room, because REQ-197 currently ends a member's round when it posts.
+- **B (option 2):** while a delegated build runs, the system sends a "still working, N min" heartbeat, with no model cooperation. It reuses the timer the delegation tool already runs. The heartbeat is temporary: never archived, and each one replaces the last in the UI. This is outbound only, so it doesn't conflict with §13.1, which only rules out sending messages *into* a blocked delegation.
+
+REQ-205 depends on REQ-200 and REQ-201, both still `draft`. I've added the revised assessment and the cross-reference to REQ-360. It stays at `draft` with no code until REQ-205 lands; after that, the work here is granting the tool, a priming line, and styling the heartbeat.
+
+One thing works today: in a 1:1 chat, text the consultant writes before calling `Delegate` already reaches the client live. Should I add a priming line telling it so now? It's a prompt-only change, so it doesn't need a ticket.
 
 <!-- xgd-chat-end -->
