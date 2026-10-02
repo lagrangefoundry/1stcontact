@@ -6,10 +6,10 @@ title: 'Link elements reject tel: and mailto: URIs, so a phone number cannot be 
   tappable'
 created_by: xgd
 created_at: '2026-10-02T04:47:46.773737+00:00'
-updated_at: '2026-10-02T05:50:28.496331+00:00'
+updated_at: '2026-10-02T15:18:37.822940+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
