@@ -26,6 +26,7 @@ import {
 } from './support/scripted-model-client'
 import { applySchema, seedTenantSite, splitStatements } from './support/d1-site-factory'
 import retireAssistantSessions from '../db/migrations/0024_retire_assistant_sessions.sql?raw'
+import restoreRetiredRooms from '../db/migrations/0025_restore_retired_rooms.sql?raw'
 import { nextSlug } from './support/site-seed'
 
 /**
@@ -521,57 +522,122 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     expect(sentText(consultantReq!)).not.toMatch(/your assistant/)
   })
 
-  it('test_UAT_FC_REQ-358_a_room_opened_before_the_rename_is_recreated_with_the_coordinator', async () => {
-    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('rename') })
-    // THE CONSULTANT'S CONVERSATION, which is what must come through untouched.
+  /** The consultant's transcript comment body — what must come through any fix byte-identical. */
+  async function consultantTranscript(site: string): Promise<string> {
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    const { tickets: chats } = await tickets.query({ predicate: 'type=chat', limit: 'all' })
+    const home = chats.find((t) => t.fields?.session_id === `site-${site}`)
+    expect(home, 'the consultant conversation has a chat ticket').toBeDefined()
+    const { comments } = await tickets.comments({ uid: home!.uid })
+    const transcript = comments.filter((c) => c.fields?.kind === 'chat_transcript')
+    expect(transcript).toHaveLength(1)
+    return String(transcript[0].body)
+  }
+
+  /** A site with a consultant conversation already in it. */
+  async function siteWithConversation(slug: string): Promise<{ site: string; transcript: string }> {
+    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug(slug) })
     setModelClient(scriptedClient([says('Darker it is.')]))
     await frames(
       await post('/api/ai/prompt', { sessionId: (await open(site)).sessionId, text: 'Darker.' }),
     )
-    const tickets = await ticketStoreFor(routerEnv() as never, scope)
-    const { tickets: chats } = await tickets.query({ predicate: 'type=chat', limit: 'all' })
-    const consultantUid = chats.find((t) => t.fields?.session_id === `site-${site}`)!.uid
+    resetAiHost()
+    resetChatHost()
+    return { site, transcript: await consultantTranscript(site) }
+  }
+
+  it('test_UAT_FC_BUG-176_a_room_whose_member_is_replaced_keeps_its_ticket_and_contributions', async () => {
+    // [[BUG-176]] supersedes REQ-358's "recreated": a room opened before the
+    // rename keeps its ticket, junction and history; only its roster changes.
+    const { site } = await siteWithConversation('replaced')
+    await setGroupChat(true)
+    const first = await open(site)
+    setModelClient(
+      roomClient({ consultant: [{ say: 'Here is my view.' }], coordinator: [{ say: 'Agreed.' }] }),
+    )
+    await frames(await post('/api/ai/prompt', { sessionId: first.sessionId, text: 'Thoughts?' }))
+    resetAiHost()
+    resetChatHost()
 
     // WHAT A DATABASE OPENED UNDER REQ-357 HOLDS: the second member homed as
-    // `assistant-<site>`, and a room whose roster lists it.
+    // `assistant-<site>`, listed in the room's roster.
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    const [room] = await rooms(site)
+    const consultantUid = (room.fields.members as string[])[0]
     const { ticket: legacy } = await tickets.create({
       type: 'chat',
       title: `assistant-${site}`,
       body: '',
       fields: { session_id: `assistant-${site}`, backend: `claude_assistant+site:${site}` },
     })
-    const { ticket: oldRoom } = await tickets.create({
-      type: 'chat',
-      title: `Group chat: ${site}`,
-      body: '',
-      fields: {
-        session_id: `room-${site}`,
-        backend: '',
-        members: [consultantUid, legacy.uid],
-        is_group: true,
-      },
-    })
+    await tickets.update({ uid: room.uid, patch: { fields: { members: [consultantUid, legacy.uid] } } })
+    // The consultant's conversation as it stands once its room rounds are in it.
+    const transcript = await consultantTranscript(site)
 
-    for (const statement of splitStatements(retireAssistantSessions)) {
-      await env.DB.prepare(statement).run()
+    // THE MIGRATIONS AS A REAL DATABASE RUNS THEM: 0024 retires, 0025 restores.
+    for (const sql of [retireAssistantSessions, restoreRetiredRooms]) {
+      for (const statement of splitStatements(sql)) await env.DB.prepare(statement).run()
     }
     resetAiHost()
     resetChatHost()
 
-    // ONE ROOM — a new one — whose second member is the coordinator and not the
-    // orphan, beside the consultant's unchanged conversation (BUG-116).
-    await setGroupChat(true)
     const reopened = await open(site)
-    expect(reopened.ready).toBe(true)
+    expect(reopened.ready, reopened.error).toBe(true)
     const after = await rooms(site)
-    expect(after).toHaveLength(1)
-    expect(after[0].uid).not.toBe(oldRoom.uid)
+    expect(after.map((r) => r.uid)).toEqual([room.uid])
     const members = after[0].fields.members as string[]
-    expect(members[0]).toBe(consultantUid)
     expect(members).not.toContain(legacy.uid)
     const homed = await Promise.all(
       members.map(async (uid) => (await tickets.get({ uid })).ticket.fields?.session_id),
     )
     expect(homed).toEqual([`site-${site}`, `coordinator-${site}`])
+    // THE CONTRIBUTIONS SURVIVE, and the consultant's conversation is untouched.
+    const said = reopened.turns.map((t) => t.markdown)
+    expect(said).toContain('Thoughts?')
+    expect(said).toContain('Here is my view.')
+    expect(await consultantTranscript(site)).toBe(transcript)
+  })
+
+  it('test_UAT_FC_BUG-176_an_archived_room_whose_junction_survives_is_created_afresh', async () => {
+    const { site, transcript } = await siteWithConversation('orphan')
+    await setGroupChat(true)
+    expect((await open(site)).ready).toBe(true)
+    const [room] = await rooms(site)
+
+    // THE ROOM TICKET GOES; ITS JUNCTION, in the Durable Object, does not.
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    await tickets.archive({ uid: room.uid })
+    resetAiHost()
+    resetChatHost()
+
+    const reopened = await open(site)
+    expect(reopened.ready, reopened.error).toBe(true)
+    expect(reopened.sessionId).toBe(`room-${site}`)
+    const after = await rooms(site)
+    expect(after).toHaveLength(1)
+    expect(after[0].uid).not.toBe(room.uid)
+    const homed = await Promise.all(
+      (after[0].fields.members as string[]).map(
+        async (uid) => (await tickets.get({ uid })).ticket.fields?.session_id,
+      ),
+    )
+    expect(homed).toEqual([`site-${site}`, `coordinator-${site}`])
+    // THE CONSULTANT'S CONVERSATION, byte-identical through all of it.
+    expect(await consultantTranscript(site)).toBe(transcript)
+  })
+
+  it('test_UAT_FC_BUG-176_a_business_with_no_room_opens_one_around_its_existing_conversation', async () => {
+    const { site, transcript } = await siteWithConversation('legacy')
+    const tickets = await ticketStoreFor(routerEnv() as never, scope)
+    const { tickets: chats } = await tickets.query({ predicate: 'type=chat', limit: 'all' })
+    const consultantUid = chats.find((t) => t.fields?.session_id === `site-${site}`)!.uid
+
+    await setGroupChat(true)
+    const opened = await open(site)
+    expect(opened.ready, opened.error).toBe(true)
+    const made = await rooms(site)
+    expect(made).toHaveLength(1)
+    expect((made[0].fields.members as string[])[0]).toBe(consultantUid)
+    expect(await consultantTranscript(site)).toBe(transcript)
   })
 })
