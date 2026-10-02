@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T20:21:07.554975+00:00'
+updated_at: '2026-10-02T20:24:17.810676+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6123,5 +6123,63 @@ ok lots to catch you up on - please take a look at Charlie's Plumbing business a
 I need your help to create REQ tickets for our next experiment. The key is to add the new plan-panel - in v1 this should just front-face questions from Alice - later it will provide status - what Alice is doing, where we are in the process etc.
 
 Can you read the material - summarize your understanding of it and ask your questions please?
+
+<!-- xgd-turn id="6f44fc7c-e4d8-418b-8c51-167ad8a080f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T20:24:17.508204+00:00" -->
+#### Claude
+I'm reading the material: DOC-65 and Charlie's room directly, and the 500KB "Alice and Bob go to work" chat through a reader agent.I've read DOC-65, CHAT-58's transcript, and Charlie's Plumbing in your local store: the plan, the room, both agents' sessions and the eight builder workers. Here's my understanding, then my questions.
+
+## What I understand
+
+**What the Charlie session showed.** The design judgement was there. Alice was good on the business: she flagged the Roto-Rooter trademark, made the 8am–10pm cutoff the main trust claim, and argued for publishing the callout fee. She built variants without being asked and kept the plan honestly. The conversation is what failed:
+- About 15 agent words for every client word, and up to 7 questions in one post.
+- Several topics per post, and three silences of 10–25 minutes with no notice.
+- Facts weren't collected, so the pages read as a mockup.
+- Bob made **zero** plan writes, restated Alice, offered opinions, and once made one up.
+
+The plan bears this out: PLAN-1 is still at `intake` with three pages built, and every one of its checks has an empty `asked_at`.
+
+**The hypothesis (DOC-65 §1).** One designer voice in the chat, plus an always-visible panel rendered from the plan ticket, beats two voices in the chat. The next test runs with Bob off, and the design doesn't depend on Bob.
+
+**How the panel works (§4).** It holds no state of its own; it renders the plan ticket.
+- Alice writes questions for the client ("asks") into the plan, and the panel refreshes.
+- Answers save as the client enters them, with no submit step.
+- Alice hears about answers through the change notice she gets each turn, the same one that reports the client's page edits. It names the answered asks and their values, and leaves out her own changes. An answer never starts a turn on its own.
+
+**What goes on the panel (§5, §6).** Only facts the client can answer unaided and that stay true: phone, hours, towns, fee, licence, "do you have a price list?". Style, layout and choosing between variants stay in the chat. The `asks` schema has typed inputs, choices and uploads, plus `needed_by`, `blocking` and a status. All asks are shown, with no cap.
+
+**v1 scope (your message).** The panel shows Alice's asks and nothing else. Phase, decisions and "Alice is working on…" come later.
+
+**Rules for the chat (§7).** One topic per post, at most one question, the client's topic takes priority, and think before posting rather than posting the working-out. Meet the client where they are on the technical and marketing axes. Announce the stage before going away to work, ask for documents rather than data entry, and run milestone reviews unprompted.
+
+**What exists today:**
+- There's no plan UI and no route for the client to write to the plan.
+- `planPanel()` in `plan-core.ts` already produces a read-only projection.
+- The change notice (`session-delta.ts`) reports ticket *titles* within a 400-character budget, which for the plan would only say "the plan changed".
+- The chat already tints each speaker, but the names are small.
+
+## Questions
+
+1. **What does "Bob off" mean mechanically?** One option is the group-chat switch off, so we're back on today's 1:1 path with the consultant. The other is a room with only Alice in it. The first needs nothing new and avoids BUG-176. The second keeps the room in the test. I lean to switch off.
+2. **v1 is asks only, but is the one-line phase in or out?** DOC-65 says framing progress by phase is what fixes the "nearly done" impression, and the phase is already in the plan. It costs one line. Out unless you say so.
+3. **Is uploading as an answer in v1?** "Ask for documents, not data entry" is half of §6's rules, and the upload pipeline (material tickets) exists. It makes the ticket noticeably bigger, though, because closing the loop means Alice extracts facts from the upload and fills in the related asks herself. I'd include it.
+4. **What can the client do besides answer?** I'd say they can mark an ask "I don't know / doesn't apply" (`skipped`), and change an answer they gave earlier, in which case Alice is told again. Agreed?
+5. **How do the agents learn §6–§7's rules?** DOC-65 is filed as an architecture document, not as one of the system documents the agents read, and they're primed with DOC-64. I can see three options:
+   - a. update DOC-64 with §6–§7;
+   - b. add an agent-facing document derived from DOC-65;
+   - c. put the core rules into the priming directly.
+
+   I'd do a and c. These are prompt and document changes, so they need no ticket, but they must land with the panel or the test measures the old behaviour.
+6. **Do you want the client's position on the two axes recorded in the plan?** CHAT-58 suggested an optional `client: {technical, marketing, note}` field in `brief`, and you never confirmed it. Include it or drop it?
+7. **The divider.** Should the panel's height and collapsed state be remembered per user, like the builder's other dividers? And should it start open or collapsed when there are no asks?
+8. **Is the speaker styling in scope?** That's DOC-65 §3: a larger name, an initial avatar, a subtle tint. With Bob off there's only one agent speaking, so I'd leave it out of this experiment.
+9. **How many tickets?** My proposal is **one REQ** under EPIC-19:
+   - the `asks` schema and the operations for Alice to write them;
+   - the client's answer route;
+   - the panel above the chat with the divider;
+   - the change notice naming answered asks.
+
+   Plus the prompt and document work from question 5, done directly. Everything in that REQ lands on one branch and none of it is useful on its own. Is one ticket right?
 
 <!-- xgd-chat-end -->
