@@ -82,6 +82,8 @@ import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-si
 import {
   openBusinessSession,
   openSession,
+  privateSessions,
+  stopExchange,
   streamPrompt,
   tailSession,
   UnknownSessionError,
@@ -205,8 +207,11 @@ import {
 } from './turn-log'
 import {
   delegationResolverFor,
+  groupChatResolverFor,
+  groupChatView,
   networkSettingsView,
   writeDelegationChoice,
+  writeGroupChatChoice,
 } from './network-settings'
 import { platformSites } from './directory'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
@@ -895,6 +900,9 @@ function chatHost(
         // document, no per-business override — rather than to a builder that
         // will not talk.
         env.DB ? delegationResolverFor(env, scope.businessId) : null,
+        // AND WHETHER ITS BUILDER CONVERSATION IS A GROUP CHAT ([[REQ-357]]),
+        // bound here for delegation's reason. Off where there is no database.
+        env.DB ? groupChatResolverFor(env, scope.businessId) : null,
       )
     })()
     // EVICTED IF IT FAILS TO BUILD. A rejected promise left in the map would
@@ -2052,6 +2060,12 @@ export const DNS_UNDO_PATH = '/api/domain/changes/undo'
  * nothing.
  */
 export const NETWORK_DELEGATION_PATH = '/api/network/delegation'
+
+/**
+ * Whether this business's builder conversation is a group chat ([[REQ-357]]).
+ * The delegation route's sibling, with the same two methods for the same reason.
+ */
+export const NETWORK_GROUP_CHAT_PATH = '/api/network/group-chat'
 
 /**
  * What `/api/ai/session` is asked for when the conversation is the business's own
@@ -4647,6 +4661,27 @@ async function routeUncached(
     }
 
     /**
+     * GET / POST /api/network/group-chat — the group-chat switch ([[REQ-357]]).
+     *
+     * Beside delegation and shaped like it: a boolean and nothing else, refused
+     * by name otherwise, answered with what is now in force. It takes effect the
+     * next time the builder conversation is opened — the host reads it per
+     * request, so no isolate holds a stale answer.
+     */
+    if (p === NETWORK_GROUP_CHAT_PATH && method === 'GET') {
+      return json(200, await groupChatView(env, requireScope().businessId))
+    }
+    if (p === NETWORK_GROUP_CHAT_PATH && method === 'POST') {
+      const scope = requireScope()
+      const body = await readJsonBody(request)
+      if (typeof body.enabled !== 'boolean') {
+        return json(400, { error: "'enabled' must be true or false." })
+      }
+      await writeGroupChatChoice(env, scope.businessId, body.enabled)
+      return json(200, await groupChatView(env, scope.businessId))
+    }
+
+    /**
      * GET /api/hostname — what public address this business has, if any
      * ([[REQ-238]]).
      *
@@ -5857,6 +5892,44 @@ async function routeUncached(
        */
       const ledger = await openTurn(env.DB ? env : null, requireScope().businessId, sessionId)
       return streamTurn(host, sessionId, text, scrub, ctx, ledger)
+    }
+
+    /**
+     * POST /api/ai/stop — end a group-chat exchange ([[REQ-357]]).
+     *
+     * DURABLE, NOT A SOCKET CLOSE: the request is recorded on the room's ticket,
+     * which the isolate running the exchange reads between rounds and while a
+     * round is in flight — so it reaches the run whichever isolate it lands in.
+     * Answers whether there was an exchange to stop.
+     */
+    if (p === '/api/ai/stop' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      const host = await chatHost(env, requireScope(), deps, url.origin)
+      try {
+        return json(200, await stopExchange(sessionId, host.deps))
+      } catch (err) {
+        if (err instanceof UnknownSessionError) return json(404, { error: err.message })
+        throw err
+      }
+    }
+
+    /**
+     * POST /api/ai/private — each group-chat member's own session, read-only, for
+     * the Debug tab ([[REQ-357]]). 404 where the business runs no group chat.
+     */
+    if (p === '/api/ai/private' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = body.site
+      if (typeof site !== 'string' || site === '') {
+        return json(400, { error: 'site is required' })
+      }
+      const host = await chatHost(env, requireScope(), deps, url.origin)
+      const sessions = await privateSessions(site, {}, host.deps)
+      return sessions ? json(200, sessions) : json(404, { error: 'no group chat for this site' })
     }
 
     /**

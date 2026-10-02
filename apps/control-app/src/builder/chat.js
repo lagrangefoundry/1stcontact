@@ -51,7 +51,7 @@
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
 import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE } from './config.js'
-import { streamChatPrompt, streamChatReattach } from './api.js'
+import { stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
@@ -136,6 +136,53 @@ export const CHAT_ID_PREFIX = 'builder-chat:'
 
 /** Shown before the pane has a conversation to display. */
 const EMPTY_TEXT = 'Ask for a change to your site.'
+
+/** A group chat with nothing said in it yet ([[REQ-357]]). */
+const ROOM_EMPTY_TEXT = 'Say what you would like — your consultant and your assistant are both here.'
+
+/** What a contribution the room recorded about a participant carries ([[REQ-357]]). */
+const ROOM_NOTE = 'Recorded by the room — not something this participant said.'
+
+/** Said when the client writes while an exchange is still running ([[REQ-357]]). */
+const ROOM_BUSY_TEXT =
+  'The room is still talking. Your message is back in the box — send it when they finish, or press Stop.'
+
+/** The kinds an exchange's stream carries that this pane reads ([[REQ-357]]). */
+const ROOM_POST = 'room_post'
+
+/**
+ * An exchange's events, as the frames `webui-chat`'s follow mode draws
+ * ([[REQ-357]]).
+ *
+ * A room post opens an attributed turn; the exchange's own end closes the last
+ * one. A member's own events — what it streams while deliberating, its round's
+ * end — are dropped: they are its private session, not the room. Text that
+ * belongs to no member (a refusal, an error) is passed through, so it is said in
+ * the conversation rather than lost.
+ */
+export async function* roomFrames(events) {
+  for await (const event of events) {
+    if (event?.kind === ROOM_POST) {
+      const meta = event.meta ?? {}
+      yield {
+        kind: 'turn_start',
+        role: meta.role === 'user' ? 'user' : 'assistant',
+        content: event.content ?? '',
+        speaker: meta.speaker ?? '',
+        ...(meta.ts ? { ts: meta.ts } : {}),
+        ...(meta.turn_id ? { turn_id: meta.turn_id } : {}),
+        ...(meta.passed ? { passed: true } : {}),
+      }
+      continue
+    }
+    if (event?.meta?.member) continue
+    if (event?.kind === 'done') {
+      yield { kind: 'done', status: event.meta?.status ?? 'complete' }
+      continue
+    }
+    yield event
+  }
+}
 
 /**
  * How long to wait before each attempt at finding out what became of a lost
@@ -265,7 +312,11 @@ const RECOVERY_CHASES = 3
 export function createChatPanel(options = {}) {
   const {
     storage,
-    transport = { streamPrompt: streamChatPrompt, streamReattach: streamChatReattach },
+    transport = {
+      streamPrompt: streamChatPrompt,
+      streamReattach: streamChatReattach,
+      stopExchange: stopChatExchange,
+    },
     onSiteChanged = () => {},
     onBusinessChanged = () => {},
     onDnsChanged = () => {},
@@ -590,6 +641,10 @@ export function createChatPanel(options = {}) {
     chat = null
     element.replaceChildren()
     if (!session) return
+    if (session.group) {
+      paintRoom(session)
+      return
+    }
 
     const next = sessionKey
     const id = session.sessionId
@@ -713,6 +768,67 @@ export function createChatPanel(options = {}) {
       // is now only for a `streamReattach` that rejects before yielding
       // anything, which the widget never sees and therefore never reports.
     })
+  }
+
+  /**
+   * Draw a group chat ([[REQ-357]]): the room's transcript, every contribution
+   * labelled with who said it, a composer that posts into the room, and a Stop
+   * that ends the exchange.
+   *
+   * THE SAME PANEL, IN FOLLOW MODE. `webui-chat` already draws an attributed
+   * stream — a `turn_start` carrying a `speaker` — so the room is this pane's own
+   * chat widget handed the exchange as frames, rather than a second component.
+   * The client's own words are drawn on their edge because their contributions
+   * are the `user` side; everybody else's carry their name.
+   *
+   * ECHO-FREE. The composer hands the text to the room and paints nothing: the
+   * client's message arrives back as the room's first post, exactly as it is
+   * recorded, so what streams live and what a reload draws are the same thing.
+   *
+   * WHAT A MEMBER SAYS TO ITSELF STAYS OUT. Each member's own events are on the
+   * stream — their site writes still move the preview — but only what they post
+   * to the room is drawn here. Their deliberation is on the Debug tab.
+   */
+  function paintRoom(session) {
+    const next = sessionKey
+    const id = session.sessionId
+    const speakers = Object.values(session.group?.names ?? {})
+    chat = mountChat(element, {
+      id: `${CHAT_ID_PREFIX}${next}`,
+      emptyText: ROOM_EMPTY_TEXT,
+      toolPane: false,
+      maxSubmissionChars: CHAT_MAX_SUBMISSION_CHARS,
+      overLongText: CHAT_OVER_LONG_MESSAGE,
+      ...(storage ? { storage } : {}),
+      attribution: (turn) => ({
+        side: turn.role === 'user' ? 'right' : 'left',
+        self: turn.role === 'user',
+        ...(turn.role === 'user' ? {} : { tone: Math.max(0, speakers.indexOf(turn.speaker)) }),
+        ...(turn.meta?.marks?.passed ? { diagnostic: ROOM_NOTE } : {}),
+      }),
+      onSubmit: (text) => {
+        if (chat.isFollowing()) {
+          // ONE EXCHANGE AT A TIME, and the words are not lost: they go back in
+          // the box rather than into a request the room would refuse.
+          if ((chat.getInputMarkdown() ?? '').trim() === '') chat.setInputMarkdown(text)
+          note(ROOM_BUSY_TEXT)
+          return
+        }
+        void chat.follow(roomFrames(watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told)))
+      },
+      onStop: () => {
+        void Promise.resolve(transport.stopExchange?.(id)).catch(() => {})
+      },
+      onTurnLost: (lost) => void chaseLostTurn(lost),
+    })
+    for (const turn of session.turns ?? []) {
+      chat.appendMessage(turn.role, turn.markdown, {
+        ...(at(turn.ts) ?? {}),
+        speaker: turn.speaker,
+        ...(turn.passed ? { marks: { passed: true } } : {}),
+      })
+    }
+    if (session.ready === false) note(session.error || 'The group chat is not available.')
   }
 
   /**

@@ -1,0 +1,25 @@
+{
+  "about": [
+    "The group chat's display names ([[REQ-357]]). The ONE place they are written.",
+    "",
+    "Code, priming and surface text name ROLES — `consultant`, `assistant` — and",
+    "never these strings, so renaming a participant is an edit here and nothing",
+    "else. They are what the room shows beside each contribution and what the",
+    "room's `names` map hands every member brief. `client` is how the person",
+    "using the builder sees their own contributions; `room` labels the notes the",
+    "room itself records (a participant skipped or declining).",
+    "",
+    "`room` holds the budgets a new room is created with: the most member rounds",
+    "one exchange may take, and the most posts one participant may make in it."
+  ],
+  "names": {
+    "consultant": "Alice",
+    "assistant": "Bob",
+    "client": "You",
+    "room": "Room"
+  },
+  "room": {
+    "max_auto_turns": 6,
+    "max_contributions": 2
+  }
+}

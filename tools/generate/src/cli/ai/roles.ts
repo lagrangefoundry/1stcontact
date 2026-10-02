@@ -123,6 +123,13 @@ export const SETTINGS_ROLE = 'settings'
 export const BUILDER_ROLE = 'builder'
 
 /**
+ * The group chat's second member ([[REQ-357]]). It reads everything the
+ * consultant can see and writes nothing to the site; its working place is the
+ * room. A ROLE KEY, never a display name — those live in `group-chat.json`.
+ */
+export const ASSISTANT_ROLE = 'assistant'
+
+/**
  * Role names this project used to write, and still reads (REQ-174).
  *
  * THE RENAME IS ACCEPTED ON READ RATHER THAN MIGRATED, and only one of the two
@@ -333,6 +340,14 @@ export function settingsPrimingConfig(): Record<string, unknown> {
  * lost by delivering them there, and putting them in the prefix would give every
  * delegation a prefix of its own.
  */
+/** The assistant's priming and reminders, as the role mapping takes them ([[REQ-357]]). */
+export function assistantPrimingConfig(): Record<string, unknown> {
+  return {
+    priming: (primingDocument.assistant_priming as RawEntry[]).map(normalise),
+    reminders: (primingDocument.assistant_reminders as RawEntry[]).map(normalise),
+  }
+}
+
 export function builderPrimingConfig(
   tools: Record<string, unknown>,
   withCorpus = false,
@@ -595,6 +610,12 @@ export const BUSINESS_LINE_PROVIDER = 'business.line'
  */
 export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
 
+/** The assistant's manual, projected from its own read-only box ([[REQ-357]]). */
+export const ASSISTANT_MANUAL_PROVIDER = 'assistant.manual'
+
+/** The consultant's room framing, null unless this business runs a group chat ([[REQ-357]]). */
+export const GROUP_ROOM_PROVIDER = 'group.room'
+
 /**
  * The worker's map and mechanism over the platform reference ([[REQ-355]]).
  *
@@ -815,9 +836,12 @@ export function registerSiteProviders(
      * the grant come from one decision.
      */
     writing?: boolean
+    /** The framework's group-member framing, where this business runs a room ([[REQ-357]]). */
+    room?: string | null
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+  providers.register(GROUP_ROOM_PROVIDER, async () => groupRoomFraming(binding.room ?? null))
   providers.register(DELEGATION_METHOD_PROVIDER, async () =>
     delegationMethod(binding.delegating === true, binding.writing === true),
   )
@@ -1273,6 +1297,31 @@ export function registerSettingsProviders(
  * @param box the worker's Toolbox — the one its own tools are projected from,
  *   which is NOT the consultant's. See {@link BUILDER_MANUAL_PROVIDER}.
  */
+/**
+ * What the consultant is told about the room, or `null` with group chat off
+ * ([[REQ-357]]). The framework's own group-member framing followed by this
+ * product's one paragraph; null renders nothing, so with the switch off the
+ * prompt is byte-for-byte what it was.
+ */
+export function groupRoomFraming(memberFraming: string | null): string | null {
+  if (memberFraming === null) return null
+  return `${memberFraming}\n\n${template('group-room')}`
+}
+
+/** The assistant's manual provider, bound to its own box ([[REQ-357]]). */
+export function registerAssistantProviders(providers: Untyped, binding: { box: Untyped }): void {
+  providers.register(ASSISTANT_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+}
+
+/** The assistant's role, loaded through the framework's mapping ([[REQ-357]]). */
+export function assistantRole(lib: Untyped, providers: Untyped): Untyped {
+  const roles = lib.rolesFromMapping(
+    { roles: { [ASSISTANT_ROLE]: assistantPrimingConfig() } },
+    { providers },
+  )
+  return roles[ASSISTANT_ROLE]
+}
+
 export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {
   providers.register(BUILDER_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
 }

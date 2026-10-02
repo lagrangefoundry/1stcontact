@@ -1,0 +1,19 @@
+-- [[REQ-357]] — WHETHER A BUSINESS'S BUILDER CONVERSATION IS A GROUP CHAT.
+--
+-- The second switch `0022` was shaped for: a column on the same row, so a
+-- business can hold an opinion about group chat while inheriting everything
+-- else.
+--
+-- NULLABLE, AND NULL MEANS OFF. Unlike `delegate_tool_calls` there is no
+-- deployment document to inherit from — group chat ships off for everybody — so
+-- NULL and `0` both read as off and the builder behaves exactly as it did before
+-- this column existed. The two are kept distinct anyway, because "never asked"
+-- and "turned off" are different answers to the incident question `updated_at`
+-- exists for.
+--
+-- INTEGER, `0`/`1`, for `0022`'s reason.
+--
+-- LAST STATEMENT IN THE FILE, which is what the test harness's `atHead` marker
+-- asks about. An `ALTER TABLE ADD COLUMN` leaves no `sqlite_master` row, so the
+-- marker reads the table's shape.
+ALTER TABLE business_network_settings ADD COLUMN group_chat INTEGER;

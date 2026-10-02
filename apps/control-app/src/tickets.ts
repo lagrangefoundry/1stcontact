@@ -630,6 +630,9 @@ export function productTypePack(): ProductTypePack {
         ...chatSchemas().chat.fields,
         kb_cursor: { type: 'string' },
         pending_turn: { type: 'string' },
+        // [[REQ-357]] — a room's one-exchange-at-a-time guard, a JSON string
+        // like `pending_turn` beside it, written by compare-and-set.
+        exchange: { type: 'string' },
         frame: { type: 'string' },
       },
     },

@@ -192,8 +192,12 @@ const MIGRATIONS = [
   // treats an absent row as *inherit*, so a missing table could just as easily
   // degrade into a suite in which no business ever holds an opinion, which is
   // indistinguishable from the feature not being wired at all.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0022_business_network_settings.sql?raw'),
+  // [[REQ-357]] — `business_network_settings.group_chat`, the second switch on
+  // that row. The chat host reads it whenever a builder conversation opens, so a
+  // suite that skipped this file would fail on an unknown column there.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0023_group_chat_switch.sql?raw'),
 ]
 
 /**
@@ -316,8 +320,11 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .bind('business_network_settings')
+  // `0023` is an `ALTER TABLE ADD COLUMN`, so the marker is the column ([[REQ-357]]).
+  const row = await DB.prepare(
+    "SELECT name FROM pragma_table_info('business_network_settings') WHERE name = ?",
+  )
+    .bind('group_chat')
     .first<{ name: string }>()
   return row !== null
 }

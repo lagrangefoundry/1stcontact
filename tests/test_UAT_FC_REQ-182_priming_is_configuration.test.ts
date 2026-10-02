@@ -25,6 +25,7 @@ import {
 import {
   consultantRole,
   DELEGATION_METHOD_PROVIDER,
+  GROUP_ROOM_PROVIDER,
   MANUAL_PROVIDER,
   primingConfig,
   primingText,
@@ -441,6 +442,8 @@ describe('REQ-182 — a host with no corpus loads the other declared order', () 
     // delegation method entry joined that order, and it is registered on the same
     // call and unconditionally, precisely so that the switch decides what it
     // RENDERS rather than whether the role loads.
-    expect(names).toEqual([DELEGATION_METHOD_PROVIDER, MANUAL_PROVIDER])
+    // [[REQ-357]] — the group chat's room framing joined it on the same terms:
+    // registered unconditionally, rendering nothing with the switch off.
+    expect(names).toEqual([DELEGATION_METHOD_PROVIDER, GROUP_ROOM_PROVIDER, MANUAL_PROVIDER])
   })
 })

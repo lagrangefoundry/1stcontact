@@ -1254,6 +1254,10 @@ export function mountBuilder(root, options = {}) {
    */
   const debug = createDebugPanel({
     ...(debugTransport ? { transport: debugTransport } : {}),
+    // [[REQ-357]] — A FLIP OF THE GROUP-CHAT SWITCH REOPENS THE CONVERSATION, so
+    // the builder shows the room (or the consultant's own conversation again) at
+    // once rather than on the next site switch.
+    onGroupChatChanged: () => void showSite(currentSite),
   })
   shell.getPanel(DEBUG_TAB.id).append(debug.element)
 
@@ -1414,6 +1418,8 @@ export function mountBuilder(root, options = {}) {
 
   async function showSite(site) {
     const mine = ++generation
+    // The Debug tab's agent sessions follow the site in scope ([[REQ-357]]).
+    void debug.setSite(site ?? null)
     // CAPTURED, NOT READ LATER. The open below is async and `currentBusiness`
     // may have moved on by the time it answers — the generation token already
     // stops that answer reaching the pane, and this keeps the key describing the

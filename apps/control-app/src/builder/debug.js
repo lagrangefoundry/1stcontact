@@ -3,8 +3,10 @@
  *
  * IT IS THE FRAME THE REST OF THE EPIC HANGS OFF, and it holds exactly one
  * working control today: whether this business's consultant delegates
- * construction to a cheaper worker. The group-chat switch beside it is not
- * rendered, on this repository's own doctrine rather than for tidiness —
+ * construction to a cheaper worker, and — since [[REQ-357]] — the group-chat
+ * switch beside it, with each agent's own session below it while that is on.
+ * Before the room existed the group-chat switch was not rendered, on this
+ * repository's own doctrine rather than for tidiness —
  * `delegation.json` says *off means never composed, not composed-and-refusing*,
  * `development.ts` composes no surface where there is no address, and the console
  * is unrendered when unentitled. A switch with nothing behind it is
@@ -39,7 +41,13 @@
  */
 
 import { mountFields } from '@lagrangefoundry/webui-fields'
-import { fetchDelegation, saveDelegation } from './api.js'
+import {
+  fetchDelegation,
+  fetchGroupChat,
+  fetchPrivateSessions,
+  saveDelegation,
+  saveGroupChat,
+} from './api.js'
 
 /**
  * The pane's heading.
@@ -104,6 +112,36 @@ export function delegationSource(view) {
 }
 
 /** Said while the first read is in flight, so the pane is never blank-and-silent. */
+/**
+ * The group-chat switch ([[REQ-357]]) — the second entry the section was written
+ * as a list for. Whether this business's builder conversation is a room shared by
+ * the client, the consultant and the assistant.
+ */
+export const GROUP_CHAT_FIELD = Object.freeze({
+  name: 'groupChat',
+  label: 'Group chat',
+  type: 'boolean',
+})
+
+export const GROUP_CHAT_HINT =
+  'With this on, the builder conversation is a room: the client, the consultant ' +
+  'and the assistant all post in it, each labelled. The consultant’s own ' +
+  'conversation carries on unchanged as its private session, shown below. With it ' +
+  'off the builder is exactly as it was, back in that conversation.'
+
+export const GROUP_CHAT_TIMING = 'Takes effect the next time the builder conversation is opened.'
+
+/** The heading over each agent's own session ([[REQ-357]]; EPIC-22 §2). */
+export const PRIVATE_SECTION_TITLE = 'Each agent’s own session'
+
+export const PRIVATE_HINT =
+  'What each agent said to itself while deciding what to post. The room shows ' +
+  'only what they posted.'
+
+export const PRIVATE_NO_SITE = 'Open a site to see its agents’ sessions.'
+
+export const PRIVATE_UNREADABLE = 'Could not read the agents’ sessions for this site.'
+
 export const DEBUG_LOADING = 'Reading this business’s network configuration…'
 
 /** Said when a read fails — a request the operator DID make, so it is reported. */
@@ -121,10 +159,42 @@ export const DEBUG_NO_BUSINESS = 'No business is open, so there is nothing here 
  * @param {{load?: Function, save?: Function}} [options.transport]
  *   injected by tests; each defaults to the origin call.
  */
+function paragraph(text) {
+  const p = document.createElement('p')
+  p.className = 'builder-debug__empty'
+  p.textContent = text
+  return p
+}
+
+/** One agent's session, read-only: whose, then each turn in and out ([[REQ-357]]). */
+function memberSession(member) {
+  const block = document.createElement('details')
+  block.className = 'builder-debug__member'
+  block.open = true
+  const summary = document.createElement('summary')
+  summary.textContent = `${member.name} (${member.role})`
+  block.append(summary)
+  if (member.turns.length === 0) block.append(paragraph('Nothing yet.'))
+  for (const turn of member.turns) {
+    const line = document.createElement('div')
+    line.className = `builder-debug__turn builder-debug__turn--${turn.role}`
+    const who = document.createElement('strong')
+    who.textContent = turn.role === 'user' ? 'In: ' : 'Out: '
+    const text = document.createElement('span')
+    text.textContent = turn.markdown
+    line.append(who, text)
+    block.append(line)
+  }
+  return block
+}
+
 export function createDebugPanel(options = {}) {
-  const { transport = null } = options
+  const { transport = null, onGroupChatChanged = () => {} } = options
   const load = transport?.load ?? fetchDelegation
   const save = transport?.save ?? saveDelegation
+  const loadGroup = transport?.loadGroupChat ?? fetchGroupChat
+  const saveGroup = transport?.saveGroupChat ?? saveGroupChat
+  const loadPrivate = transport?.loadPrivate ?? fetchPrivateSessions
 
   const element = document.createElement('div')
   element.className = 'builder-debug'
@@ -153,12 +223,40 @@ export function createDebugPanel(options = {}) {
   timing.textContent = DELEGATE_TIMING
   section.append(subtitle, fieldHost, hint, source, timing)
 
+  // THE SECOND SWITCH ([[REQ-357]]), drawn only once its own read has answered:
+  // a control drawn from a value it did not read is what this pane refuses.
+  const groupHost = document.createElement('div')
+  const groupHint = document.createElement('p')
+  groupHint.className = 'builder-debug__hint'
+  groupHint.textContent = GROUP_CHAT_HINT
+  const groupTiming = document.createElement('p')
+  groupTiming.className = 'builder-debug__hint'
+  groupTiming.textContent = GROUP_CHAT_TIMING
+  const groupBlock = document.createElement('div')
+  groupBlock.className = 'builder-debug__group'
+  groupBlock.append(groupHost, groupHint, groupTiming)
+
+  // EACH AGENT'S OWN SESSION, while group chat is on and a site is open.
+  const privateSection = document.createElement('section')
+  privateSection.className = 'builder-debug__section builder-debug__private'
+  const privateTitle = document.createElement('h3')
+  privateTitle.className = 'builder-debug__subtitle'
+  privateTitle.textContent = PRIVATE_SECTION_TITLE
+  const privateHint = document.createElement('p')
+  privateHint.className = 'builder-debug__hint'
+  privateHint.textContent = PRIVATE_HINT
+  const privateBody = document.createElement('div')
+  privateSection.append(privateTitle, privateHint, privateBody)
+
   const notice = document.createElement('p')
   notice.className = 'builder-debug__empty'
 
   let fields = null
+  let groupFields = null
   let businessId = null
+  let site = null
   let view = null
+  let groupView = null
   /**
    * WHOSE ANSWER IS STILL WANTED. The read is a round trip and the operator may
    * switch business while it is in flight; without this the previous business's
@@ -212,11 +310,62 @@ export function createDebugPanel(options = {}) {
    * heading naming this one — is the worst version of that crossing, because the
    * next thing the operator does is click it.
    */
+  /** Draw the group-chat switch from the answer read ([[REQ-357]]). */
+  function drawGroup(answer) {
+    groupView = answer
+    groupFields?.destroy()
+    section.append(groupBlock)
+    groupFields = mountFields(groupHost, {
+      schema: [GROUP_CHAT_FIELD],
+      values: { [GROUP_CHAT_FIELD.name]: answer.groupChat === true },
+      layout: 'stacked',
+      editable: [GROUP_CHAT_FIELD.name],
+      commit: 'auto',
+      onCommit: async (changes) => {
+        groupView = await saveGroup(changes[GROUP_CHAT_FIELD.name] === true)
+        void drawPrivate()
+        onGroupChatChanged(groupView)
+      },
+    })
+    void drawPrivate()
+  }
+
+  /** Each agent's own session, for the site in scope ([[REQ-357]]). */
+  async function drawPrivate() {
+    const mine = generation
+    if (groupView?.groupChat !== true) {
+      privateSection.remove()
+      return
+    }
+    element.append(privateSection)
+    if (!site) {
+      privateBody.replaceChildren(paragraph(PRIVATE_NO_SITE))
+      return
+    }
+    let answer
+    try {
+      answer = await loadPrivate(site)
+    } catch {
+      answer = undefined
+    }
+    if (mine !== generation) return
+    if (!answer) {
+      privateBody.replaceChildren(paragraph(PRIVATE_UNREADABLE))
+      return
+    }
+    privateBody.replaceChildren(...answer.members.map(memberSession))
+  }
+
   function setBusiness(next) {
     businessId = next ?? null
     fields?.destroy()
     fields = null
+    groupFields?.destroy()
+    groupFields = null
+    groupBlock.remove()
+    privateSection.remove()
     view = null
+    groupView = null
     source.textContent = ''
     const mine = ++generation
     if (!businessId) {
@@ -227,7 +376,7 @@ export function createDebugPanel(options = {}) {
     // Leaving the previous business's switch on screen under this one's heading
     // is the one outcome a failure here may not produce.
     showNotice(DEBUG_LOADING)
-    return load()
+    const delegation = load()
       .then((answer) => {
         if (mine !== generation) return
         draw(answer)
@@ -239,6 +388,22 @@ export function createDebugPanel(options = {}) {
         // said nothing would read as a tab that is not finished.
         showNotice(DEBUG_UNREADABLE)
       })
+    // THE GROUP-CHAT SWITCH ([[REQ-357]]), after the delegation read and only
+    // where that drew a section to sit in. A read that fails draws no switch:
+    // the tab still answers the question it already answered.
+    const group = delegation
+      .then(() => (mine === generation && view !== null ? loadGroup() : null))
+      .then((answer) => {
+        if (answer && mine === generation && view !== null) drawGroup(answer)
+      })
+      .catch(() => {})
+    return Promise.all([delegation, group]).then(() => {})
+  }
+
+  /** Which site's agents the private-session view reads ([[REQ-357]]). */
+  function setSite(next) {
+    site = next ?? null
+    return drawPrivate()
   }
 
   return {
@@ -246,6 +411,9 @@ export function createDebugPanel(options = {}) {
     setBusiness,
     /** What the pane believes is in force — for the host and for a suite. */
     getView: () => view,
+    /** The group-chat switch's answer ([[REQ-357]]). */
+    getGroupView: () => groupView,
+    setSite,
     /** Which business it is drawing — for the host and for a suite. */
     getBusiness: () => businessId,
     /** Read again and follow the answer — the same path `setBusiness` takes. */
@@ -254,6 +422,8 @@ export function createDebugPanel(options = {}) {
     destroy() {
       fields?.destroy()
       fields = null
+      groupFields?.destroy()
+      groupFields = null
       element.remove()
     },
   }

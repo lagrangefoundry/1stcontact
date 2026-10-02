@@ -61,11 +61,14 @@
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
 import {
+  ASSISTANT_ROLE,
+  assistantRole,
   BUILDER_ROLE,
   builderRole,
   CONSULTANT_ROLE,
   consultantRole,
   LEGACY_ROLE_NAMES,
+  registerAssistantProviders,
   registerBudgetProvider,
   registerBuilderProviders,
   registerMemoryProviders,
@@ -92,6 +95,30 @@ import {
 import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
+import LIBRARY_DECLARATION from './library-surface.json'
+import {
+  ASSISTANT_BACKEND,
+  EXCHANGE_FIELD,
+  EventChannel,
+  assistantBackendName,
+  assistantSessionIdFor,
+  groupNames,
+  groupRoomSettings,
+  guardIsStale,
+  memberNames,
+  readGuard,
+  roleOfMember,
+  roomSessionIdFor,
+  roomTurn,
+  siteOfRoom,
+  writeGuard,
+  type ExchangeGuard,
+  type GroupNames,
+  MEMBER_DONE,
+  ROOM_POST,
+  type RoomContribution,
+  type RoomTurn,
+} from './group-core'
 import type { LibraryDeps } from './library-core'
 import {
   L1_DECLARATION,
@@ -807,6 +834,22 @@ export interface HostDeps {
    * semantics, and the surface that offers the switch says so in words.
    */
   delegation?: DelegationResolver | null
+
+  /**
+   * Whether the business in scope runs its builder conversation as a group chat
+   * ([[REQ-357]]), asked per request. Absent — the `1c` CLI, which has no
+   * businesses and no ticket store to home a room in — is off.
+   */
+  groupChat?: { enabled(): Promise<boolean> } | null
+
+  /** The ticket store a room is homed in ([[REQ-357]]). Required for group chat. */
+  tickets?: Untyped | null
+
+  /**
+   * What the assistant reads beside the site ([[REQ-357]]): the corpus and the
+   * ticket reader, each with the grant it travels with. Never a write surface.
+   */
+  assistantSurfaces?: Array<{ surface: Untyped; granted?: Record<string, unknown> }>
 }
 
 
@@ -906,6 +949,16 @@ export const MAX_PRIMING_CHARS = 200_000
 
 /** One `SessionManager` per site, keyed by the store it acts on. */
 const managers = new Map<string, Promise<Untyped>>()
+
+/** Whether each cached manager was composed for a group chat ([[REQ-357]]). */
+const managerGrouped = new Map<string, boolean>()
+
+/**
+ * What a grouped manager's room wiring is ([[REQ-357]]): the live maps both
+ * members' `GroupRuntime`s read, filled when the room is opened. Keyed by the
+ * manager object, so a rebuilt manager carries its own.
+ */
+const groupWirings = new WeakMap<object, GroupWiring>()
 
 /**
  * What a site's next turn has to be told, under the same key (REQ-131, REQ-160).
@@ -1110,14 +1163,34 @@ export class UnknownSessionError extends Error {
  * generated from the corpus. Both track their source, which is how priming stays
  * in agreement with what the session can actually do and actually knows.
  */
-function managerFor(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<Untyped> {
+function managerFor(
+  slug: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+  grouped = false,
+): Promise<Untyped> {
   const key = managerKey(slug, deps)
   let existing = managers.get(key)
+  // REBUILT WHEN THE GROUP-CHAT SWITCH HAS MOVED ([[REQ-357]]), rather than
+  // cached under a second key. The backend registry is global and keyed by
+  // NAME, and a resumed session reaches its backend by the name its
+  // `session_start` recorded — so two managers for one site would share one
+  // registration, and whichever was built last would hand the other its tools.
+  // One manager per site, composed for the switch as it now stands, is the
+  // arrangement where that cannot happen.
+  if (existing && managerGrouped.get(key) !== grouped) existing = undefined
   if (!existing) {
-    existing = build(slug, opts, deps)
+    existing = build(slug, opts, deps, grouped)
     managers.set(key, existing)
+    managerGrouped.set(key, grouped)
   }
   return existing
+}
+
+/** Whether the business in scope runs its builder conversation as a room ([[REQ-357]]). */
+async function groupChatOn(deps: HostDeps): Promise<boolean> {
+  if (!deps.groupChat || !deps.tickets) return false
+  return deps.groupChat.enabled()
 }
 
 /** The manager for one business's settings conversation ([[REQ-239]]). */
@@ -1262,7 +1335,12 @@ export function sessionContextSurface(
   }
 }
 
-async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise<Untyped> {
+async function build(
+  slug: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+  grouped = false,
+): Promise<Untyped> {
   const lib = await ai(deps)
 
   // THE MODEL AND THE REPLY CEILING, AS THIS PROJECT'S DECISION (BUG-67). Ahead
@@ -1619,6 +1697,18 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       })
     : null
 
+  // -- the group chat's room tools ([[REQ-357]]) -----------------------------
+  //
+  // `undefined` WITH THE SWITCH OFF, and everything group-shaped hangs off it:
+  // no room tools on the consultant, no room framing in its priming, no
+  // assistant role, no assistant backend. Off is the builder exactly as it was.
+  //
+  // ONE `GroupRuntime` PER MEMBER, each naming its own speaker, over maps the
+  // room fills when it is opened — held by reference, so a room created after
+  // this manager is still reachable from both members' tools. The manager is
+  // late-bound here for the delegation runtime's reason.
+  const wiring: GroupWiring | undefined = grouped ? newGroupWiring(lib) : undefined
+
   const box = await createL1Toolbox(
     slug,
     { ...opts, actor: 'ai' },
@@ -1648,6 +1738,12 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.extraSurfaces ?? []),
+        // THE ROOM'S READ AND POST TOOLS ([[REQ-357]]), where this business runs
+        // a group chat. Additive: every tool the consultant already had is
+        // still here, unchanged.
+        ...(wiring
+          ? [{ surface: new lib.GroupToolbox(wiring.consultant), granted: lib.groupInstanceConfig() }]
+          : []),
         // HANDING WORK OVER ([[REQ-295]]), where this deployment delegates.
         //
         // COMPOSED BESIDE the consultant's `l1` and `fidelity` entries, and it
@@ -1824,6 +1920,8 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // the entry renders nothing, so the prompt is byte-for-byte what this host
     // sent before delegation existed.
     delegating: runtime !== null,
+    // [[REQ-357]] — what the consultant is told about the room, or nothing.
+    room: wiring ? String(lib.defaultGroupMemberFraming()) : null,
     // [[REQ-343]] — AND WHETHER IT IS TOLD IT HAS A CHOICE, which is the same
     // question as whether it kept its write groups. The SAME value the grant was
     // narrowed with, so the framing cannot describe a session the grant does not
@@ -1951,6 +2049,11 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted, Boolean(workerKnowledge))
   }
 
+  // AND THE ASSISTANT, where this business runs a group chat ([[REQ-357]]).
+  if (wiring) {
+    named[ASSISTANT_ROLE] = await composeAssistant(lib, slug, opts, deps, wiring, providers, fidelity)
+  }
+
   manager = new lib.SessionManager(named, deps.archive, {
     ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
     // BOTH HALVES, EXPLICITLY (DOC-22 §10). The manager defaults the registry and
@@ -1968,11 +2071,114 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
     // delivered where it is actually read: in the seed, every turn.
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
+  if (wiring) {
+    wiring.consultant.manager = manager
+    wiring.assistant.manager = manager
+    groupWirings.set(manager, wiring)
+  }
   // ASSIGNED AND THEN RETURNED, rather than returned directly ([[REQ-295]]). The
   // delegation runtime above holds `() => manager`, so this assignment is what
   // closes the cycle; returning the expression would leave the holder null for
   // the life of the manager and every delegation refusing for want of one.
   return manager
+}
+
+/** A grouped manager's room wiring ([[REQ-357]]) — see {@link groupWirings}. */
+interface GroupWiring {
+  /** room chat ticket -> room session id, filled when the room is opened. */
+  rooms: Record<string, string>
+  /** room chat ticket -> (member ticket -> display name). */
+  names: Record<string, Record<string, string>>
+  /** Each member's `GroupRuntime`; its `speaker` is set to the member's ticket on open. */
+  consultant: Untyped
+  assistant: Untyped
+}
+
+function newGroupWiring(lib: Untyped): GroupWiring {
+  const rooms: Record<string, string> = {}
+  const names: Record<string, Record<string, string>> = {}
+  // NO `sessionId`, so a successful post does not end the member's round
+  // (lagrange-framework REQ-197 is out of this ticket's scope): the round ends
+  // when the member's turn does, through the turn path every round takes.
+  const runtime = () => new lib.GroupRuntime({ manager: null, rooms, names })
+  return { rooms, names, consultant: runtime(), assistant: runtime() }
+}
+
+/**
+ * The assistant: its read-only box, its backend and its role ([[REQ-357]]).
+ *
+ * READ ACCESS TO WHAT THE CONSULTANT CAN SEE, AND NOTHING THAT WRITES. The L1
+ * read groups (`instances.json`'s `assistant` entry), the corpus and the ticket
+ * reader (`deps.assistantSurfaces`), the Library's read group, and the room. No
+ * camera, no image surface, no delegation, no ledger writes. The decisions the
+ * consultant recorded reach it through the product tier's seed, which reads the
+ * engagement's ledger for every role on this manager.
+ *
+ * NO ACCESS CONTROL BETWEEN THE TWO, deliberately (operator decision,
+ * 2026-10-01): the ticket reader reaches the consultant's own transcript like any
+ * other ticket.
+ *
+ * ITS OWN SURFACE INSTANCES, never the consultant's: a Toolbox binds each surface
+ * to the grant it was built with ({@link l1SurfaceSet}).
+ */
+async function composeAssistant(
+  lib: Untyped,
+  slug: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+  wiring: GroupWiring,
+  providers: Untyped,
+  fidelity: FidelityDeps | null,
+): Promise<Untyped> {
+  const { surfaces, granted } = await l1SurfaceSet(
+    slug,
+    { ...opts, actor: 'ai' },
+    {
+      role: ASSISTANT_ROLE,
+      lib: deps.lib,
+      store: deps.store,
+      extraOps: deps.extraOps ?? {},
+      measurer: fidelity ? browserMeasurer(fidelity) : null,
+      pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
+      assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
+      addresses: deps.addresses ? () => deps.addresses!(slug) : null,
+      extraSurfaces: [
+        ...(deps.assistantSurfaces ?? []),
+        ...(deps.library
+          ? [
+              {
+                surface: await librarySurfaceFor(lib, deps.library(slug)),
+                granted: readOnlyGrant(libraryInstanceConfig(), [LIBRARY_DECLARATION]),
+              },
+            ]
+          : []),
+        { surface: new lib.GroupToolbox(wiring.assistant), granted: lib.groupInstanceConfig() },
+      ],
+    },
+  )
+  const box = new lib.Toolbox(surfaces, granted, {
+    audit: deps.audit ?? null,
+    session: assistantSessionIdFor(slug),
+    role: ASSISTANT_ROLE,
+  })
+  // GUARDED AND NARRATED like the consultant's, so every member round is held to
+  // its own window and says why it stopped. Constructed under its OWN
+  // `backends.json` name, which is what decides the model and the ceiling.
+  lib.registerBackend(assistantBackendName(slug), () =>
+    guardTurn(
+      lib,
+      narrateExhaustion(
+        new lib.ClaudeAPIBackend({
+          ...(modelClient ? { client: modelClient } : {}),
+          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+          name: ASSISTANT_BACKEND,
+          tools: toolSet(lib, box),
+        }),
+      ),
+    ),
+  )
+  registerAssistantProviders(providers, { box })
+  return assistantRole(lib, providers)
 }
 
 /**
@@ -2665,6 +2871,11 @@ export async function openSession(
   // arranged: {@link siteForSession} derives the same binding from the id and
   // the store, so it holds for any isolate, at any time, whether or not this
   // call was the one that opened the session.
+  // A GROUP CHAT OPENS ITS ROOM ([[REQ-357]]). With the switch off nothing below
+  // changes; with it on, the builder's conversation is the room and the site's
+  // own conversation carries on, unchanged, as the consultant's private session —
+  // which is what this function returns again the moment the switch goes off.
+  if (await groupChatOn(deps)) return openRoomSession(slug, opts, deps)
   const sessionId = sessionIdFor(slug)
   // BEFORE THE MANAGER, because building one opens this session's junction and
   // the store has to be holding this session's bytes by then ([[REQ-307]]).
@@ -2936,9 +3147,47 @@ export async function* streamPrompt(
     return
   }
   const slug = await siteForSession(sessionId, deps)
-  if (!slug) throw new UnknownSessionError(sessionId)
-  const manager = await managerFor(slug, opts, deps)
-  await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
+  if (!slug) {
+    // A ROOM'S ID RUNS AN EXCHANGE ([[REQ-357]]) — only where this business runs
+    // a group chat and the site is this tenant's, which is the same check
+    // {@link siteForSession} makes for a conversation.
+    const room = siteOfRoom(sessionId)
+    if (room && (await groupChatOn(deps)) && (await deps.store.hasDraft(room))) {
+      yield* streamExchange(room, text, opts, deps)
+      return
+    }
+    throw new UnknownSessionError(sessionId)
+  }
+  const manager = await managerFor(slug, opts, deps, await groupChatOn(deps))
+  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn)
+}
+
+/**
+ * One builder turn in one site session — the consultant's, or a room member's
+ * ([[REQ-357]]).
+ *
+ * THE BODY {@link streamPrompt} HAS ALWAYS HAD, lifted out so a room's member
+ * rounds go through it rather than around it. Every round therefore gets what a
+ * consultant turn gets: the pending-turn record ([[BUG-121]]), the spend meter and
+ * the turn clock, {@link SITE_CHANGED} after tool activity, the context guard and
+ * the exhaustion narration.
+ *
+ * THE ASSISTANT'S SIGNALS ARE KEPT APART from the consultant's. The change
+ * baseline and the per-turn signal are the consultant's reminders — "the site
+ * moved since your last turn" — and an assistant turn absorbing them would tell
+ * the consultant nothing moved.
+ */
+async function* siteTurn(
+  manager: Untyped,
+  slug: string,
+  sessionId: string,
+  role: string,
+  backend: string,
+  text: string,
+  deps: HostDeps,
+  turn?: string,
+): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  await attach(manager, sessionId, role, backend)
 
   // REQ-131 — the push half of the change journal. The comparison happens here
   // because this is the only place that knows where a turn begins, and the
@@ -2949,7 +3198,8 @@ export async function* streamPrompt(
   // journal file directly. `SiteStore.counter` is the same number through the
   // port REQ-142 drew, so it is one line here and the only cost is an `await`
   // the surrounding function was already able to take.
-  const key = managerKey(slug, deps)
+  const key =
+    role === CONSULTANT_ROLE ? managerKey(slug, deps) : `${managerKey(slug, deps)}\0${role}`
   const store = deps.store
   const before = baselines.get(key)
   const at = await store.counter(slug)
@@ -3080,19 +3330,416 @@ export async function* streamPrompt(
       session: sessionId,
       turn: spendTurn,
       startedAt: spendStartedAt,
-      role: CONSULTANT_ROLE,
+      role,
       outcome,
       // AND WHAT IT HANDED OFF ([[REQ-295]]). Asked only where this deployment
       // composes the delegation surface at all: with the switch off there can be
       // no attribution, and a host that cannot delegate should not pay a junction
       // read per turn to be told so.
-      attributed: manager.roles[BUILDER_ROLE] ? turnAttributions(manager, sessionId) : null,
+      attributed:
+        role === CONSULTANT_ROLE && manager.roles[BUILDER_ROLE]
+          ? turnAttributions(manager, sessionId)
+          : null,
     })
     // AND HOW FULL IT LEFT THE CONVERSATION ([[REQ-296]]). Off the same terminal
     // event the meter reads, in the same `finally`, and with the same rule about
     // a turn that measured nothing: the last real figure stands rather than being
     // blanked by a turn that merely failed to measure.
     await writeOccupancy(deps, spendMeta, sessionId)
+  }
+}
+
+// -- the group chat ([[REQ-357]]) ---------------------------------------------
+
+/**
+ * A builder conversation that is a room: the room's transcript, every turn
+ * attributed to who said it, and the names it is drawn with.
+ */
+export interface RoomSession extends ChatSession {
+  turns: RoomTurn[]
+  group: { names: GroupNames }
+}
+
+/** An open room and both of its members, each ready to take a round. */
+interface OpenRoom {
+  group: Untyped
+  names: GroupNames
+  consultant: { ticket: string; sessionId: string }
+  assistant: { ticket: string; sessionId: string }
+}
+
+/** What a second exchange against a live room is told. */
+export const EXCHANGE_BUSY =
+  'This room is already in the middle of an exchange. Wait for it to finish, or stop it first.'
+
+/** How often a running exchange looks for a stop request while a round is in flight. */
+const STOP_POLL_MS = 2_000
+
+/** Thrown out of the orchestrator's prompt function to end an exchange that was stopped. */
+class ExchangeStopped extends Error {
+  constructor() {
+    super('the exchange was stopped')
+    this.name = 'ExchangeStopped'
+  }
+}
+
+/** The chat ticket homing a session, minted by draining it if it has never drained. */
+async function homeTicket(manager: Untyped, deps: HostDeps, sessionId: string): Promise<string> {
+  let uid = String((await deps.archive.homeRef(sessionId)) ?? '')
+  if (uid === '') {
+    await manager.sync(sessionId)
+    uid = String((await deps.archive.homeRef(sessionId)) ?? '')
+  }
+  if (uid === '') throw new Error(`session '${sessionId}' has no chat ticket to join a room with.`)
+  return uid
+}
+
+/**
+ * Open a site's room, creating it the first time ([[REQ-357]]).
+ *
+ * THE ROOM IS THE FRAMEWORK'S. `createGroup` homes it on a chat ticket of its own
+ * with the two members' chat tickets as its roster; `openGroup` reopens it.
+ * The consultant's member session IS the site's existing conversation, unchanged
+ * — it simply becomes private — and the assistant's is `assistant-<site>`.
+ *
+ * SURVIVES ISOLATE EVICTION BY CONSTRUCTION. Nothing here is held only in this
+ * isolate: every junction the run depends on is filled from its durable object
+ * first, then both member sessions are attached — so a cold isolate's
+ * orchestrator finds both members live rather than recording either as skipped
+ * merely because its junction was not loaded here.
+ */
+async function openRoom(manager: Untyped, slug: string, deps: HostDeps): Promise<OpenRoom> {
+  const lib = await ai(deps)
+  const wiring = groupWirings.get(manager)
+  if (!wiring) throw new Error(`the conversation for '${slug}' was not composed as a group chat.`)
+  const names = groupNames()
+  const consultantSid = sessionIdFor(slug)
+  const assistantSid = assistantSessionIdFor(slug)
+  const roomSid = roomSessionIdFor(slug)
+  for (const sid of [consultantSid, assistantSid, roomSid]) await prepareJunction(deps, sid)
+  await attach(manager, consultantSid, CONSULTANT_ROLE, siteBackendName(slug))
+  await attach(manager, assistantSid, ASSISTANT_ROLE, assistantBackendName(slug))
+  const consultant = { ticket: await homeTicket(manager, deps, consultantSid), sessionId: consultantSid }
+  const assistant = { ticket: await homeTicket(manager, deps, assistantSid), sessionId: assistantSid }
+  const labels = memberNames(consultant.ticket, assistant.ticket, names)
+  const existing = String((await deps.archive.homeRef(roomSid)) ?? '')
+  const settings = groupRoomSettings()
+  const group = existing
+    ? await lib.openGroup(manager, deps.tickets, existing, labels)
+    : await lib.createGroup(manager, deps.tickets, {
+        members: [consultant.ticket, assistant.ticket],
+        sessionId: roomSid,
+        title: `Group chat: ${slug}`,
+        names: labels,
+        maxAutoTurns: settings.maxAutoTurns,
+        maxContributions: settings.maxContributions,
+        endRoundOnPost: false,
+      })
+  await group.revive()
+  // THE MEMBERS' TOOLS REACH THE ROOM THROUGH THESE, filled now that it exists.
+  wiring.rooms[group.chatUid] = roomSid
+  wiring.names[group.chatUid] = labels
+  wiring.consultant.speaker = consultant.ticket
+  wiring.assistant.speaker = assistant.ticket
+  return { group, names, consultant, assistant }
+}
+
+/**
+ * Open the builder conversation as a room ([[REQ-357]]) — what {@link openSession}
+ * answers while the business's switch is on.
+ *
+ * THE ROOM'S TRANSCRIPT, ATTRIBUTED, and the same reading on every reload: the
+ * contributions come off the room's own record, each carrying who said it. Never
+ * `live` — an exchange is streamed by the request that runs it, and a page that
+ * reloads mid-exchange is drawn from the record as it stands.
+ */
+async function openRoomSession(
+  slug: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+): Promise<RoomSession> {
+  const names = groupNames()
+  const sessionId = roomSessionIdFor(slug)
+  const empty = { sessionId, turns: [], cursor: 0, live: false, group: { names } }
+  let room: OpenRoom
+  try {
+    room = await openRoom(await managerFor(slug, opts, deps, true), slug, deps)
+  } catch (err) {
+    return { ...empty, ready: false, error: operatorMessage(err) }
+  }
+  const { contributions, cursor } = room.group.history(0) as {
+    contributions: RoomContribution[]
+    cursor: number
+  }
+  return {
+    ...empty,
+    turns: contributions.map((c) => roomTurn(c, names)),
+    cursor,
+    ready: true,
+  }
+}
+
+async function roomTicket(deps: HostDeps, uid: string): Promise<Untyped> {
+  const record = await deps.tickets.get({ uid })
+  return record?.ticket ?? record
+}
+
+function isConflict(error: unknown): boolean {
+  const text = `${(error as { code?: string })?.code ?? ''} ${(error as Error)?.message ?? ''}`
+  return /conflict|version|stale|expected_version/i.test(text)
+}
+
+/**
+ * Rewrite the room's exchange guard by compare-and-set, re-reading on a lost race.
+ * `change` returns the next value, or `undefined` to write nothing.
+ */
+async function updateGuard(
+  deps: HostDeps,
+  uid: string,
+  change: (held: ExchangeGuard | null) => ExchangeGuard | '' | undefined,
+): Promise<boolean> {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const ticket = await roomTicket(deps, uid)
+    const next = change(readGuard(ticket?.fields?.[EXCHANGE_FIELD]))
+    if (next === undefined) return false
+    try {
+      await deps.tickets.update({
+        uid,
+        patch: { fields: { [EXCHANGE_FIELD]: next === '' ? '' : writeGuard(next) } },
+        expected_version: ticket.version,
+      })
+      return true
+    } catch (error) {
+      if (!isConflict(error)) throw error
+    }
+  }
+  return false
+}
+
+const liveGuard = (held: ExchangeGuard | null): ExchangeGuard | null =>
+  held && !guardIsStale(held, TURN_TIMEOUT_SECONDS) ? held : null
+
+/** Claim the room for one exchange; false if one is already live. */
+async function claimExchange(deps: HostDeps, uid: string): Promise<boolean> {
+  const ticket = await roomTicket(deps, uid)
+  if (liveGuard(readGuard(ticket?.fields?.[EXCHANGE_FIELD]))) return false
+  try {
+    await deps.tickets.update({
+      uid,
+      patch: {
+        fields: {
+          [EXCHANGE_FIELD]: writeGuard({ at: new Date().toISOString(), calling: '', stop: false }),
+        },
+      },
+      expected_version: ticket.version,
+    })
+    return true
+  } catch (error) {
+    // LOST THE RACE: another request claimed it between the read and the write.
+    if (isConflict(error)) return false
+    throw error
+  }
+}
+
+/**
+ * Run one exchange in a site's room, inside the prompt request ([[REQ-357]]).
+ *
+ * The client's message is posted as the operator's contribution and the
+ * framework's `Orchestrator` runs one exchange. ITS PROMPT FUNCTION IS
+ * {@link siteTurn} — the consultant's own turn path — so every member round is a
+ * full builder turn, and each member's events are forwarded to this stream
+ * tagged with whose they are. Every post the room records is forwarded too, as a
+ * `room_post` carrying its speaker, which is what the panel draws.
+ *
+ * ONE EXCHANGE AT A TIME, guarded by a compare-and-set field on the room ticket
+ * rather than an in-memory flag, so the guard holds whichever isolate a second
+ * request lands in. A stop request is honoured between rounds and, while a round
+ * is in flight, by the framework's control-record stop on that member's session.
+ *
+ * A CLIENT THAT WALKS AWAY DOES NOT END THE EXCHANGE. The room has several
+ * participants mid-conversation and the run finishes under the request's
+ * `waitUntil`; the way to end one is to stop it.
+ */
+async function* streamExchange(
+  slug: string,
+  text: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  type Event = { kind: string; content: string; meta?: Record<string, unknown> }
+  const lib = await ai(deps)
+  const manager = await managerFor(slug, opts, deps, true)
+  const room = await openRoom(manager, slug, deps)
+  const { group, names } = room
+  const roomUid = String(group.chatUid)
+
+  if (!(await claimExchange(deps, roomUid))) {
+    yield { kind: TEXT, content: EXCHANGE_BUSY }
+    yield { kind: DONE, content: '', meta: { status: 'refused' } }
+    return
+  }
+
+  const channel = new EventChannel<Event>()
+  let emitted = group.cursor() as number
+  const flushPosts = (): void => {
+    const { contributions, cursor } = group.history(emitted) as {
+      contributions: RoomContribution[]
+      cursor: number
+    }
+    emitted = cursor
+    for (const c of contributions) {
+      const turn = roomTurn(c, names)
+      channel.push({ kind: ROOM_POST, content: turn.markdown, meta: { ...turn } })
+    }
+  }
+  const stopAsked = async (): Promise<boolean> =>
+    (await roomTicket(deps, roomUid).then((t) => readGuard(t?.fields?.[EXCHANGE_FIELD])))?.stop === true
+  let stopped = false
+
+  const seam = async (member: { sessionId: string }, brief: Untyped): Promise<void> => {
+    flushPosts()
+    if (await stopAsked()) {
+      stopped = true
+      throw new ExchangeStopped()
+    }
+    // THE HEARTBEAT, and who is calling — what a stop request reads.
+    await updateGuard(deps, roomUid, (held) =>
+      held ? { ...held, at: new Date().toISOString(), calling: member.sessionId } : undefined,
+    )
+    const role = roleOfMember(member.sessionId, slug)
+    const backend = role === ASSISTANT_ROLE ? assistantBackendName(slug) : siteBackendName(slug)
+    const name = role === ASSISTANT_ROLE ? names.assistant : names.consultant
+    // A STOP THAT LANDS MID-ROUND, in whichever isolate, ends the round here with
+    // the framework's own control-record stop on the member's junction.
+    let polling = false
+    const poll = setInterval(() => {
+      if (polling || stopped) return
+      polling = true
+      void stopAsked()
+        .then((asked) => {
+          if (!asked) return
+          stopped = true
+          manager.requestStop(member.sessionId, null, { reason: 'stopped' })
+        })
+        .catch(() => {})
+        .finally(() => {
+          polling = false
+        })
+    }, STOP_POLL_MS)
+    try {
+      for await (const event of siteTurn(
+        manager,
+        slug,
+        member.sessionId,
+        role,
+        backend,
+        String(lib.briefText(brief)),
+        deps,
+      )) {
+        const meta = { ...(event.meta ?? {}), member: name }
+        channel.push(event.kind === DONE ? { kind: MEMBER_DONE, content: '', meta } : { ...event, meta })
+      }
+    } finally {
+      clearInterval(poll)
+    }
+    flushPosts()
+  }
+
+  const run = (async () => {
+    try {
+      await group.contributeAsOperator(text)
+      flushPosts()
+      const handover = await new lib.Orchestrator(group, { prompt: seam }).run()
+      flushPosts()
+      channel.push({
+        kind: DONE,
+        content: '',
+        meta: {
+          status: 'complete',
+          stop: handover.stop,
+          reason: handover.reason,
+          contributions: handover.contributions,
+        },
+      })
+    } catch (err) {
+      try {
+        flushPosts()
+      } catch {
+        // The record is what it is; the stream still has to end.
+      }
+      if (err instanceof ExchangeStopped || stopped) {
+        channel.push({ kind: DONE, content: '', meta: { status: 'aborted', stop: 'stopped' } })
+      } else {
+        channel.push({ kind: TEXT, content: `\n\n_${operatorMessage(err)}_` })
+        channel.push({ kind: DONE, content: '', meta: { status: 'error' } })
+      }
+    } finally {
+      try {
+        await updateGuard(deps, roomUid, () => '')
+      } finally {
+        for (const sid of [room.consultant.sessionId, room.assistant.sessionId]) {
+          await deps.junctions?.flush?.(sid)
+        }
+        channel.close()
+      }
+    }
+  })()
+
+  try {
+    yield* channel.drain()
+  } finally {
+    await run
+  }
+}
+
+/**
+ * Ask a running exchange to stop ([[REQ-357]]). Durable: the request is a write
+ * on the room ticket, read by whichever isolate is running the exchange. Answers
+ * whether there was an exchange to stop.
+ */
+export async function stopExchange(
+  sessionId: string,
+  deps: HostDeps,
+): Promise<{ stopping: boolean }> {
+  const slug = siteOfRoom(sessionId)
+  if (!slug || !deps.tickets || !(await deps.store.hasDraft(slug))) {
+    throw new UnknownSessionError(sessionId)
+  }
+  const uid = String((await deps.archive.homeRef(roomSessionIdFor(slug))) ?? '')
+  if (uid === '') return { stopping: false }
+  const stopping = await updateGuard(deps, uid, (held) =>
+    liveGuard(held) ? { ...(held as ExchangeGuard), stop: true } : undefined,
+  )
+  return { stopping }
+}
+
+/**
+ * Each member's own private session, for the Debug tab ([[REQ-357]]; EPIC-22 §2).
+ *
+ * What each agent said to itself deciding, which the room does not contain.
+ * `null` where the business does not run a group chat.
+ */
+export async function privateSessions(
+  slug: string,
+  opts: GlobalOptions,
+  deps: HostDeps,
+): Promise<{ members: Array<{ role: string; name: string; turns: ChatTurn[] }> } | null> {
+  if (!(await groupChatOn(deps)) || !(await deps.store.hasDraft(slug))) return null
+  const manager = await managerFor(slug, opts, deps, true)
+  const names = groupNames()
+  const read = async (sessionId: string): Promise<ChatTurn[]> => {
+    await prepareJunction(deps, sessionId)
+    return (await storedTranscript(manager, sessionId))?.turns ?? []
+  }
+  return {
+    members: [
+      { role: CONSULTANT_ROLE, name: names.consultant, turns: await read(sessionIdFor(slug)) },
+      {
+        role: ASSISTANT_ROLE,
+        name: names.assistant,
+        turns: await read(assistantSessionIdFor(slug)),
+      },
+    ],
   }
 }
 
@@ -3155,7 +3802,7 @@ export async function* tailSession(
   // runs ahead of `attach` in {@link openSession}.
   const manager = business
     ? await managerForBusiness(business, deps)
-    : await managerFor(slug as string, opts, deps)
+    : await managerFor(slug as string, opts, deps, await groupChatOn(deps))
   for await (const record of manager.watch(sessionId, { cursor })) {
     const kind = String(record.kind)
     if (kind === 'delta') {
@@ -3279,6 +3926,7 @@ export async function aiStatus(
  */
 export function resetAiHost(): void {
   managers.clear()
+  managerGrouped.clear()
   signals.clear()
   baselines.clear()
   // CLEARED WITH THE MANAGERS IT COUNTS FOR ([[REQ-251]]). A count that outlived

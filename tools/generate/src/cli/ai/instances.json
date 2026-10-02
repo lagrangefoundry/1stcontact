@@ -18,6 +18,12 @@
     }
   },
 
+  "assistant": {
+    "l1": {
+      "groups": ["ReadSite", "MeasureDrawings"]
+    }
+  },
+
   "builder": {
     "l1": {
       "groups": [

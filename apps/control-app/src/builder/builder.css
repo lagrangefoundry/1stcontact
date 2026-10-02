@@ -4503,3 +4503,38 @@ body {
   font-size: 0.9em;
   color: var(--shell-fg-muted);
 }
+
+/*
+ * The group chat ([[REQ-357]]).
+ *
+ * `webui-chat` marks each member's bubble with a `data-tone` and defines no
+ * colour for it, so the host does: one quiet edge per member, enough to tell the
+ * consultant's posts from the assistant's at a glance without reading a name.
+ */
+.builder-chat .chat-message[data-tone='0'] {
+  border-inline-start: 3px solid var(--shell-accent, #7c3aed);
+}
+
+.builder-chat .chat-message[data-tone='1'] {
+  border-inline-start: 3px solid var(--shell-border, #d4d4d8);
+}
+
+/* Each agent's own session, on the Debug tab: read-only, one turn per line. */
+.builder-debug__member {
+  margin: 0 0 12px;
+}
+
+.builder-debug__member > summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.builder-debug__turn {
+  margin: 4px 0;
+  font-size: 0.85em;
+  white-space: pre-wrap;
+}
+
+.builder-debug__turn--user {
+  color: var(--shell-fg-muted);
+}

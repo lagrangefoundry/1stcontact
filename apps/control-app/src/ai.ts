@@ -704,6 +704,7 @@ export function workerHost(
    * `delegation.json` and composes exactly what it composes today.
    */
   delegation: HostDeps['delegation'] = null,
+  groupChat: HostDeps['groupChat'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -891,6 +892,17 @@ export function workerHost(
       // carries it — and an absent one is the bundled document, which is the
       // decision that belongs one level down rather than here.
       delegation,
+      // [[REQ-357]] — the group-chat switch, the ticket store a room is homed in,
+      // and what the assistant may read. The assistant gets its own instances of the
+      // read-only surfaces the consultant holds (the corpus and the ticket
+      // reader), granted identically; the
+      // image generator and the development surface are deliberately absent.
+      groupChat,
+      tickets,
+      assistantSurfaces: [
+        ...(knowing ? [sessionKnowledgeSurface(knowledge)] : []),
+        sessionTicketSurface(tickets),
+      ],
     },
     // TWO TIERS DRAINED BY ONE CALL ([[REQ-307]]). The route already awaits this
     // where it matters — inside the `ctx.waitUntil` that holds the isolate open

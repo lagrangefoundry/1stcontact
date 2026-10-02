@@ -261,10 +261,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-353 AC3 — the section, and one control 
     expect(text).toContain(DEBUG.DELEGATE_TIMING)
     expect(DEBUG.DELEGATE_TIMING).toMatch(/next conversation/i)
 
-    // CLAIM 9 — NO GROUP-CHAT SWITCH. The room is framework REQ-183 and gated, so
-    // there is nothing behind a flag; a rendered switch that cannot be moved is
-    // present-and-refusing, which `delegation.json`, `development.ts` and the
-    // console each reject in their own words. Exactly one row is rendered.
+    // CLAIM 9, AS [[REQ-357]] LEFT IT — the group-chat switch now exists beside
+    // this one, but it is drawn only from ITS OWN read, never from a default.
+    // This mount serves no group-chat read, so exactly one row is rendered and
+    // nothing claims to say whether group chat is on.
     expect(app.debug.element.querySelectorAll('.fields-row')).toHaveLength(1)
     expect(text.toLowerCase()).not.toContain('group chat')
   })

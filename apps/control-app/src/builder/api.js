@@ -724,6 +724,35 @@ export async function* streamChatReattach(sessionId, cursor, fetchImpl = fetch) 
  * conversation, and the honest place to report that the assistant is
  * unreachable is in the conversation.
  */
+/**
+ * Ask a running group-chat exchange to stop ([[REQ-357]]). Durable on the origin,
+ * so it reaches the exchange whichever isolate is running it.
+ */
+export async function stopChatExchange(sessionId, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/stop'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/stop → ${res.status}`)
+  return res.json()
+}
+
+/**
+ * Each group-chat member's private session for a site ([[REQ-357]]), or `null`
+ * where the business runs no group chat.
+ */
+export async function fetchPrivateSessions(site, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/private'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ site }),
+  })
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`POST /api/ai/private → ${res.status}`)
+  return res.json()
+}
+
 async function* postEventStream(path, body, failure, fetchImpl) {
   const res = await send(fetchImpl, path, {
     method: 'POST',
@@ -1815,6 +1844,26 @@ export async function saveDelegation(enabled, fetchImpl = fetch) {
   if (!res.ok) {
     const said = await res.json().catch(() => null)
     throw new Error(said?.error || `POST /api/network/delegation → ${res.status}`)
+  }
+  return res.json()
+}
+
+/** Whether this business's builder conversation is a group chat ([[REQ-357]]). */
+export async function fetchGroupChat(fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/network/group-chat'), { method: 'GET' })
+  if (!res.ok) throw new Error(`GET /api/network/group-chat → ${res.status}`)
+  return res.json()
+}
+
+export async function saveGroupChat(enabled, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/network/group-chat'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ enabled }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/network/group-chat → ${res.status}`)
   }
   return res.json()
 }

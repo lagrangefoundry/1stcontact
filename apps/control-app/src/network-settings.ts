@@ -197,3 +197,80 @@ export async function networkSettingsView(
     deployment,
   }
 }
+
+/**
+ * Whether this business's builder conversation is a group chat ([[REQ-357]]).
+ *
+ * THE SAME ROW AS DELEGATION, A COLUMN OF ITS OWN — the shape `0022` was drawn
+ * for. NULL and `0` both read as off: group chat has no deployment document to
+ * inherit, it ships off for everybody, and a business nobody has touched behaves
+ * exactly as it did before the column existed.
+ *
+ * A STORED VALUE THAT IS NOT A BOOLEAN IS REFUSED BY NAME rather than coerced, for
+ * the reason the delegation reader passes its own through: a word in an INTEGER
+ * column is a repair script's mistake, and resolving it to `true` would open a
+ * room nobody chose.
+ */
+export async function readGroupChatChoice(
+  env: NetworkSettingsEnv,
+  businessId: string,
+): Promise<boolean | null> {
+  const row = await env.DB.prepare(`SELECT group_chat FROM ${TABLE} WHERE business_id = ?`)
+    .bind(businessId)
+    .first<{ group_chat: unknown }>()
+  const raw = row?.group_chat
+  if (raw === null || raw === undefined) return null
+  const stored = asStoredChoice(raw)
+  if (typeof stored !== 'boolean') {
+    throw new Error(
+      `business '${businessId}' stores a group_chat value that is not a boolean: ` +
+        `${JSON.stringify(raw)}`,
+    )
+  }
+  return stored
+}
+
+/** Write the switch; one row per business, the delegation column untouched. */
+export async function writeGroupChatChoice(
+  env: NetworkSettingsEnv,
+  businessId: string,
+  enabled: boolean,
+  now: Date = new Date(),
+): Promise<void> {
+  await env.DB.prepare(
+    `INSERT INTO ${TABLE} (business_id, group_chat, updated_at) VALUES (?, ?, ?) ` +
+      `ON CONFLICT(business_id) DO UPDATE SET group_chat = excluded.group_chat, ` +
+      `updated_at = excluded.updated_at`,
+  )
+    .bind(businessId, enabled ? 1 : 0, now.toISOString())
+    .run()
+}
+
+/** What the Debug tab draws the group-chat switch from. */
+export interface GroupChatView {
+  groupChat: boolean
+  stored: boolean | null
+}
+
+export async function groupChatView(
+  env: NetworkSettingsEnv,
+  businessId: string,
+): Promise<GroupChatView> {
+  const stored = await readGroupChatChoice(env, businessId)
+  return { groupChat: stored === true, stored }
+}
+
+/**
+ * The host's question, asked per request ([[REQ-357]]).
+ *
+ * ON `deps`, like delegation's resolver and for its reason: two businesses served
+ * by one isolate must never see each other's value. Read when a conversation
+ * opens and when a turn arrives, so a flip shows on the next open of the builder
+ * rather than on the next isolate.
+ */
+export function groupChatResolverFor(
+  env: NetworkSettingsEnv,
+  businessId: string,
+): { enabled(): Promise<boolean> } {
+  return { enabled: async () => (await readGroupChatChoice(env, businessId)) === true }
+}
