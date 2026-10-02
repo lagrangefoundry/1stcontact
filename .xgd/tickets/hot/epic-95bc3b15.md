@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-01T21:04:29.081599+00:00'
+updated_at: '2026-10-02T01:04:46.378538+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2113,3 +2113,6 @@ Whether the assistant may read the consultant's private session. Recommendation:
 
 
 **Filed: [[REQ-357]]** (2026-10-01) — group chat: a room with the consultant and the assistant, behind a per-business switch. Operator decision on the open question: **no controls between the agents.** The room is where both work, but the assistant has the same read access to the ticket store as the consultant, including the consultant's private transcript. Nothing is built to prevent it, because there is no motivation for such controls.
+
+
+- **REQ-358** (2026-10-01): the second agent's role is `coordinator` (operator decision; supersedes REQ-357's `assistant`). The code names are removed from DOC-64, both roles' priming names DOC-64, and the system landscape is regenerated so DOC-63/64 appear on the map. Finding 13's lesson: an indexed document that isn't on the map doesn't get read.
