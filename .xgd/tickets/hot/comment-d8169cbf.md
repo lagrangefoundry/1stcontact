@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T03:40:37.127972+00:00'
+updated_at: '2026-10-02T04:41:43.782539+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6087,5 +6087,11 @@ The migration retired rooms to get rid of the old `assistant` member. It could h
 For tonight, the delete I gave you is still safe: it removes an empty room session that was already archived, and the consultant's conversation (CHAT-1) is untouched.
 
 Want me to file that as a bug under EPIC-19?
+
+<!-- xgd-turn id="686521c8-7fe3-454f-8c2f-de5888257210-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T04:41:42.961344+00:00" -->
+#### You
+Yes please create a bug for this. Can you also create a bug on the debug tab - I am not seeing the chats from A and B there. It needs to update.
 
 <!-- xgd-chat-end -->
