@@ -5,9 +5,9 @@ type: todo
 title: 'Builder sessions: measure and reduce cost per session'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:30.678889+00:00'
-updated_at: '2026-10-02T17:48:30.678889+00:00'
+updated_at: '2026-10-02T17:49:04.546944+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: open
 fields:
   kind: user_task
@@ -29,3 +29,5 @@ Likely contributors, inferred from tool use rather than measured:
 First step: measure cost per agent, per tool and per turn for a session. Then reduce. The volume reductions in the next hypothesis should help on their own.
 
 Not a priority until the core interaction works.
+
+See [[DOC-65]].
