@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:12:36.846252+00:00'
+updated_at: '2026-10-02T17:13:37.561714+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -947,5 +947,73 @@ One easy fix - Bob and Alice's contributions are insufficiently distinguished. I
 One thing I am wondering about is turning the plan into a panel which is always visible - Bobs job is primarily to keep that up to date. Its a dashboard and progress indicator - with User facing CTAs: e.g. What is the CSLB number just goes on the panel. Charlie gets around to it whenever - and BTW Charlie has big gaps here when Alice is busy. Part of what troubles me is that I want Charlie to read and respond to Alice first and in these exchanges Bob is coming in with process and disrupting the core design conversation. It feels like Bob should say less.
 
 Also BTW that session cost $33 which is probably 3x what we can afford with our current pricing model for this point. I'm not too worried about it yet but just calling it out.
+
+<!-- xgd-turn id="d17f3049-42ad-40e5-97ec-eaad37709010-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-02T17:13:36.111842+00:00" -->
+#### Claude
+You're right. My "Bob never narrated the wait" point was the wrong emphasis given interposition is coming. The problem is too much text, and Bob is the easiest place to cut it.
+
+## A panel Bob keeps up to date
+
+I think this is the right move, and it solves more than the volume. DOC-62 §5 already says "the plan is a panel, not a message" and "a stream widget demands a response where a panel can be glanced at and ignored." What you're adding is that **the panel is where the client acts**, not just where they look.
+
+It also handles three things the session showed:
+
+1. **Bob keeps pushing without saying anything.** The one thing Bob demonstrably got right was persistence: you answered because he kept asking. A dropped question doesn't need repeating if it's sitting on the panel as "we need from you: service area, CSLB number" with a count badge. It stays visible and costs no text.
+2. **Alice's busy time becomes useful.** While she's building, Charlie fills in the panel items at his own pace. Those 25-minute gaps become the time when the facts get collected, rather than dead time.
+3. **Facts get collected over time.** The panel is the natural home for the "Substance and proof" list I said DOC-64 is missing: callout fee, response time, towns, guarantee, reviews. Each item can say why it matters ("a published callout fee is the most disarming fact a plumber can state"), and it gets answered whenever Charlie gets to it. No questionnaire up front.
+
+Roughly what the panel shows:
+- **Phase:** "Rough first version". This also fixes the "nearly done" impression, because it's always framed by phase, not by how few items are left.
+- **Needs your answer:** fact requests, answered right there.
+- **Needs your choice:** e.g. `/heavy` vs `/family`, with links.
+- **Decided / still open:** compact progress.
+- **Alice is working on…:** once interposition lands.
+
+This needs a new section in the plan, because facts aren't decisions. Something like `asks: [{ id, question, why, needed_by_phase, answer, answered_at }]`, maintained by Bob, answered by the client. Delivering those answers to Alice is a design point in itself: she needs to know when one comes in so she can use it.
+
+## Bob says less
+
+Agreed, and the panel is what makes that possible. Most of what Bob said this session moves to the panel:
+- "here's where we stand" summaries become the panel
+- re-asked questions become ask items
+- "Alice still needs X" becomes an ask item
+
+That leaves Bob's voice for very few cases:
+- **Milestone checks.** "Are we all happy with the layout?", and only after the client has responded to Alice's work. These stay spoken on purpose, because asking out loud is what shows the client that this is a question they're allowed to ask.
+- **When he's addressed.** "Bob, what's left?"
+- **Narrating the wait,** once interposition exists.
+
+Two rules would protect the design conversation:
+- **Bob never posts in the same round as Alice unless he's addressed.** The client reads and responds to Alice first.
+- **Bob doesn't speak to report anything the panel already shows.**
+
+## Telling them apart
+
+All three ideas are cheap and they work together: name at least the size of the body text, an initial avatar, and a faint background tint. I'd add one more. If Bob's posts become rare and short, a slightly more compact style for them (smaller text, or a subtler tint) signals that they're secondary to Alice's.
+
+## Cost
+
+$33 is worth tracking. The volume fix should also cut cost, since every long post is re-read by every participant on later rounds. From the tool calls, other likely contributors are:
+- Alice rewriting her standing note 16 times
+- 11 builder delegations
+- Bob re-reading the room from the start on most rounds ("read them from cursor 0")
+
+That's an inference from what each agent did, not a measurement; I don't have a token breakdown. Something to dig into when it becomes a priority.
+
+## Next steps, if you agree
+
+1. **Update DOC-64:**
+   - Bob's voice limited to the cases above
+   - the panel as Bob's main output
+   - the "Substance and proof" facts list
+   - intake limited to what shapes the first pass
+   - the reference-site inventory method
+   - client-asset preparation as part of verification
+   - a sensitivity check on how people are described
+
+   It's a doc change, so no ticket needed.
+2. **The plan `asks` section and the panel** are new code. Since a plan ticket already exists, REQ-356 has evidently been built, so this would be a new ticket rather than an edit to it. Tell me if you want me to file one.
 
 <!-- xgd-chat-end -->
