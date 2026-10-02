@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T18:26:08.470588+00:00'
+updated_at: '2026-10-02T18:39:01.328725+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1234,5 +1234,19 @@ I've added both points to DOC-65 and updated the ticket. Nothing else changed.
 - **Anything that comes up mid-topic goes elsewhere.** A fact goes on the panel. A design issue she notices becomes an open decision in the plan and waits its turn.
 
 I added two test measures to match: the baseline now records "topics per post: often 3+" from the Charlie session, and the new measures include whether Alice followed the client's topic when he switched.
+
+<!-- xgd-turn id="41bbe3da-44aa-4dd8-8d78-3f82c18fd19a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:38:59.965973+00:00" -->
+#### You
+Two more:
+
+There are two axis that we need to think about our customer's interaction on (1) lets call it technical - how much do they know about web technologies (2) marketing - how much do they know about how to sell their wares.
+
+Its extremely important that we meet the customer where they are and use language that is appropriate. Charlie might not understand what a "form' is. Emma might want to discuss the potential for cross-site scripting. Alice needs to adjust. The same is true for marketing Brian might know exactly who his customers are and how to talk to to them. Gary might only know about how to frame pictures.
+
+For our trial runs I want to assume we are working with people who really don't know and need the most help.
+
+Part of this comes back to Alice needs to ask questions that Charlie can answer. Asking "What font do you want for the masthead" is obviously wrong. But even questions about messaging might not get the expected answers. What we know Charlie can answer are questions about his actual experiences, what does he do? What does he do most often? He knows about plumbing, day to day interactions with customers and vendors AND he knows his business. So if Alice is struggling to get purchase on what she needs she can go to those things, extrapolate and then veryfy - "So you spend most of your time on blocked lines - should we make that more prominent on the site?"
 
 <!-- xgd-chat-end -->
