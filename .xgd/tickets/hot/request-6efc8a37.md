@@ -6,9 +6,9 @@ title: 'Link elements reject tel: and mailto: URIs, so a phone number cannot be 
   tappable'
 created_by: xgd
 created_at: '2026-10-02T04:47:46.773737+00:00'
-updated_at: '2026-10-02T05:47:44.096256+00:00'
+updated_at: '2026-10-02T05:50:28.496331+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -81,3 +81,32 @@ Out of scope: capture (`hrefOf` in the capture extract script) still records onl
 - An image `src` of `tel:…`/`mailto:…` is still refused, which pins that the widening is link-only.
 
 Regression scope: `req106-l1-links`, the REQ-331 run-link test, `req107-authored-l1-envelope`, `reconciliation-l1-*`, and the L1 email-render tests.
+
+## Further detail after building out the site
+
+The engagement has now produced three complete variant home pages. The gap affects **all three identically**, which sharpens the report in two ways.
+
+### 1. It is not a styling problem, and styling makes it worse
+
+Each variant renders the phone number inside a deliberately styled call-to-action — a filled, high-contrast plate with generous padding, sized as the largest interactive-looking element on the first screen at 375px. It is the single conversion action on every version of the page.
+
+Because the element paints as a button and cannot carry a `tel:` destination, the result is a control that **invites a tap it cannot honour**. On a desktop that is a minor disappointment. On the mobile viewport this audience actually arrives on, it is a dead end at the exact moment the visitor is deciding whether to trust the business.
+
+This is worth separating from "nice to have": a page whose only conversion action is inert is not a working page, however well it is composed. The better the button is styled, the more misleading the defect becomes — so the usual mitigation (make the affordance clearer) actively increases the harm.
+
+### 2. The workarounds available today are all worse than the defect
+
+Enumerated and rejected while building:
+
+- **Plain text number.** Honest but inert; the visitor must memorise or transcribe digits and switch apps.
+- **Styled box that looks tappable.** What exists now. Worse than plain text, for the reason above.
+- **Linking to a contact page or anchor instead.** Adds a navigation step to an interaction that has to be one gesture, and does not place a call.
+- **Routing through an `https:` redirector that bounces to `tel:`.** Would technically pass the validator. Rejected outright: it sends a customer's call through a third party for no reason other than to evade a scheme check, and it would break silently.
+
+There is no composition of the existing vocabulary that places a call.
+
+### Suggested scope
+
+`tel:` and `mailto:` admitted to the accepted href schemes for link elements, with `javascript:` and `data:` still refused. Both are inert with respect to script execution, and `mailto:` has the identical problem for any site wanting a clickable email address.
+
+If a narrower change is preferred, `tel:` alone would unblock this class of site — local trade, emergency services, anything whose primary action is a phone call.
