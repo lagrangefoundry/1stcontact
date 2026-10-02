@@ -6,9 +6,9 @@ title: 'Consultant context: drop old tool results and stop oversized results ent
   it'
 created_by: EPIC-20
 created_at: '2026-10-02T18:49:38.862851+00:00'
-updated_at: '2026-10-02T23:04:02.837243+00:00'
+updated_at: '2026-10-02T23:04:10.628534+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.440
+  story_points: 5
 ---
 
 **Parent:** EPIC-20. **Evidence:** EPIC-20 § "Charlie's Plumbing session, 2026-10-01/02".
