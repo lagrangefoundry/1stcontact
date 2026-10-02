@@ -12,6 +12,7 @@
  * glyph box); only box/image leaves pin a height.
  */
 import {
+  isSafeHref,
   isSafeUrl,
   L1_FRAME_TARGET,
   l1AnimateTracks,
@@ -4304,7 +4305,7 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       }
       const words = escapeHtml(run.text)
       // REQ-331 — a run that is a LINK takes an `<a>`, on exactly the terms the
-      // node-level link takes one: the same `isSafeUrl` allowlist, the same
+      // node-level link takes one: the same `isSafeHref` allowlist, the same
       // `_blank`-always-carries-its-`rel` rule, and the same edit-render
       // behaviour (the element is kept, only the navigable attributes are
       // dropped, so clicking opens the copy editor instead of navigating).
@@ -4312,7 +4313,7 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       // An `<a>` is emitted even when the run carries no declarations of its
       // own: the anchor is the run's SUBSTANCE, not an ornament, and a link
       // rendered as bare text is the failure this axis exists to prevent.
-      const href = run.link && isSafeUrl(run.link.href) ? relativizeUrl(run.link.href.trim()) : undefined
+      const href = run.link && isSafeHref(run.link.href) ? relativizeUrl(run.link.href.trim()) : undefined
       // REQ-333 — a synthesised `<a>` must not inherit UA LINK STYLING it was not
       // asked for. `a:-webkit-any-link { color: -webkit-link }` is a rule on the
       // ELEMENT, so it beats the sentence's inherited colour: a white hero run
@@ -4414,13 +4415,14 @@ function emitNode(
   // its focus indicator. `image` is the one exception — a void element cannot be
   // an anchor, so it wraps.
   //
-  // `href` clears the same `isSafeUrl` allowlist as `image.src` and
-  // `backgroundImageUrl`: an unsafe href degrades to the plain element, never a
+  // `href` clears `isSafeHref` — `image.src`'s allowlist plus `tel:` and
+  // `mailto:` (REQ-359), which a link can mean and an image cannot. An unsafe
+  // href degrades to the plain element, never a
   // live `javascript:` link. `_blank` always carries its `rel`; the opener
   // reference is a security hole, not a preference.
   const nodeLink: L1Link | undefined = (node as { link?: L1Link }).link
   const href =
-    nodeLink && isSafeUrl(nodeLink.href) ? relativizeUrl(nodeLink.href.trim()) : undefined
+    nodeLink && isSafeHref(nodeLink.href) ? relativizeUrl(nodeLink.href.trim()) : undefined
   //
   // REQ-116 — in the edit render a link has no target: clicking it opens its copy
   // editor, it does not navigate. The `<a>` ELEMENT is kept (only the navigable

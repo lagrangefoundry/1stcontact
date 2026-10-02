@@ -73,6 +73,8 @@ export {
   l1InlinedDrawings,
   danglingFontFamilies,
   isSafeUrl,
+  // [[REQ-359]] — the link-only allowlist: `isSafeUrl` plus `tel:` and `mailto:`.
+  isSafeHref,
   L1_ENVELOPE,
   L1_STRUCTURAL_RULES,
 } from './validate'

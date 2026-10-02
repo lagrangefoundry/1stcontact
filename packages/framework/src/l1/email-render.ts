@@ -25,6 +25,7 @@
  * reference: a message is a closed document by the time it leaves.
  */
 import {
+  isSafeHref,
   isSafeUrl,
   resolveL1Palette,
   resolveL1TextStyles,
@@ -223,7 +224,7 @@ function anchor(
   inner: string,
   decls: string[],
 ): string {
-  if (!isSafeUrl(link.href)) return inner
+  if (!isSafeHref(link.href)) return inner
   const rel = link.newTab ? ' target="_blank" rel="noopener noreferrer"' : ''
   const label = link.ariaLabel ? ` aria-label="${escapeHtml(link.ariaLabel)}"` : ''
   return `<a href="${escapeHtml(link.href)}"${rel}${label}${styleAttr(decls)}>${inner}</a>`

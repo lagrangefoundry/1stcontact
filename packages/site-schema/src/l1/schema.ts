@@ -1102,9 +1102,9 @@ export const l1InteractionSchema = z
 export const l1LinkSchema = z
   .object({
     /**
-     * Cleared by the same `isSafeUrl` allowlist that guards `image.src` and
-     * `backgroundImageUrl`, so `javascript:` is rejected with no new security
-     * surface. An unsafe href degrades to the un-linked element — never a live
+     * Cleared by `isSafeHref` — the `isSafeUrl` allowlist that guards
+     * `image.src` and `backgroundImageUrl`, plus `tel:` and `mailto:` (REQ-359) —
+     * so `javascript:` is rejected with no new security surface. An unsafe href degrades to the un-linked element — never a live
      * unsafe link.
      */
     href: z.string(),
@@ -1186,7 +1186,7 @@ export type L1Heading = z.infer<typeof l1HeadingSchema>
 //
 // The obligations ride in on REQ-106's rail: L1 already carries what is not
 // negotiable, because the renderer is the sole sink. `newTab` cannot be asked
-// for without its `rel`; an `href` clears `isSafeUrl`. In the same way a
+// for without its `rel`; an `href` clears `isSafeHref`. In the same way a
 // document here names WHICH panel and WHAT it looks like, and the renderer owns
 // the dialog role, the focus trap, the Escape key, the scroll lock and the
 // return of focus — none of which any document can name, vary or defeat.
@@ -2371,7 +2371,7 @@ export const l1TextRunSchema = z
      * have silently dropped the anchor and left the reproduction with dead text
      * where the reference had a link.
      *
-     * Cleared by the same `isSafeUrl` allowlist as the node-level link, so an
+     * Cleared by the same `isSafeHref` allowlist as the node-level link, so an
      * unsafe href degrades to a plain run — never a live `javascript:` link.
      */
     link: l1LinkSchema.optional(),
