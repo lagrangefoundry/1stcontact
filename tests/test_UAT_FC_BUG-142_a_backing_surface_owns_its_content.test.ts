@@ -302,6 +302,9 @@ function authoredPage(): { doc: L1Document; measured: MeasuredTextHeights } {
     layout: 'stack',
     axes: { surfaceFill: fill },
     geometry: { keyframes: frames(y, height) },
+    // BUG-173 — full-bleed at every rung, so it fills its container, as the fold
+    // writes it; a frozen identity line would stop short above the widest rung.
+    sizing: { width: { mode: 'fluid' } },
     children,
   })
   const doc: L1Document = {

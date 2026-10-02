@@ -49,6 +49,7 @@ export {
   // BUG-143 — the surface→run backing the containment assertion is made against,
   // and the two sampling sets the envelope probes derive from the capture.
   deriveSurfaceBacking,
+  deriveFullBleedSurfaces,
   envelopeHeights,
   offSampleWidths,
   promoteToFlow,

@@ -40,6 +40,8 @@ import {
   l1PlainText,
   resolveLayoutMode,
   validateL1,
+  type L1Column,
+  type L1ColumnTerm,
   type L1Document,
   type L1Geometry,
   type L1Node,
@@ -50,6 +52,7 @@ import {
 } from '@1stcontact/site-schema'
 import {
   classifyElement,
+  FULL_BLEED_TOLERANCE_PX,
   hasTextSubstance,
   holdAcrossReflowWindows,
   isBackingSurfaceId,
@@ -228,6 +231,15 @@ export interface EvaluateOptions {
    * recursing into it.
    */
   backing?: SurfaceBacking
+  /**
+   * BUG-173 — the backing surfaces that were FULL-BLEED at every captured rung,
+   * from {@link deriveFullBleedSurfaces}, by path. Supplied, the evaluation
+   * reports an `escape` finding for each one whose right edge stops short of the
+   * viewport at this width: a band that spanned the window everywhere it was
+   * measured and no longer does is the surface coming apart, whether or not any
+   * run has yet crossed the edge it left behind.
+   */
+  fullBleed?: ReadonlySet<string>
 }
 
 function lerp(a: number, b: number, t: number): number {
@@ -592,6 +604,57 @@ function isNowrapAt(node: L1Text, width: number): boolean {
  * the browser resolves the rest; guessing at it here would trade a known
  * approximation for an unknown one.
  */
+/**
+ * BUG-173 — one column term in px at viewport `vw`, mirroring `anchorDecls` /
+ * `anchorTrackRules` in the renderer: `[lead +] constant + fraction * extent`,
+ * capped by `maxPx`. The tracked constant resolves through the same cascade the
+ * renderer compiles its media rules from, and holds its last value above the
+ * ladder exactly as the final rule does.
+ */
+function columnTermAt(term: L1ColumnTerm, col: L1Column, vw: number, lead: number): number {
+  const constant = term.pxTrack ? evalScalarTrack(term.pxTrack, vw) : (term.px ?? 0)
+  const inner = Math.min(col.containerPx, vw) - col.insetPx * 2
+  const extent = col.maxWidthPx === undefined ? inner : Math.min(col.maxWidthPx, inner)
+  const value = lead + constant + (term.fraction ?? 0) * extent
+  return term.maxPx === undefined ? value : Math.min(term.maxPx, value)
+}
+
+/**
+ * BUG-173 — an absolutely-placed box with its column-anchored axes (REQ-88)
+ * resolved from the column function rather than the keyframes, as the renderer's
+ * CSS resolves them.
+ *
+ * The keyframes are the captured record of what the function evaluates to at each
+ * rung, so at a rung the two agree. Above the widest rung they do not: the
+ * renderer holds the final keyframe for every axis it keyframes, but an anchored
+ * axis is a static `calc()` of `100vw` and keeps moving. A model that read the
+ * keyframes there held the whole page still and so could never see content
+ * walking off a surface that had stopped.
+ */
+function anchorBox(box: EvalBox, geo: L1Geometry, col: L1Column | undefined, vw: number): EvalBox {
+  const anchor = col && geo.place !== 'flow' ? geo.anchor : undefined
+  if (!anchor) return box
+  const origin = Math.max(0, (vw - col!.containerPx) / 2) + col!.insetPx
+  return {
+    ...box,
+    ...(anchor.x ? { x: columnTermAt(anchor.x, col!, vw, origin) } : {}),
+    ...(anchor.width ? { width: Math.max(0, columnTermAt(anchor.width, col!, vw, 0)) } : {}),
+  }
+}
+
+/**
+ * BUG-173 — whether a node's width is a FLUID fill that owns the width axis.
+ *
+ * The renderer suppresses the keyframe widths for such a node, exactly as it
+ * does for a column-anchored width (REQ-88): the keyframes stay in the document
+ * as the captured record, and the box takes its containing block's width. This is
+ * what the fold writes for a node that was the viewport's width at every rung, so
+ * the surface keeps spanning the window above the widest one instead of freezing.
+ */
+export function tracksContainerWidth(node: L1Node): boolean {
+  return geometryOf(node) !== undefined && 'sizing' in node && node.sizing?.width?.mode === 'fluid'
+}
+
 function runCharCost(content: L1Text['text']): number {
   if (typeof content === 'string') return content.length
   return content.reduce((n, run) => n + run.text.length * (run.axes?.sizeScale ?? 1), 0)
@@ -766,7 +829,9 @@ function packRowLines(widths: number[], avail: number, gap: number, eps: number)
 
 interface Ctx {
   width: number
-  opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing'>>
+  /** BUG-173 — the document's centred column, for REQ-88 anchored axes. */
+  column?: L1Column
+  opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed'>>
   leaves: EvalLeaf[]
   /**
    * REQ-278 — the corner an absolutely-placed node is absolute TO: the nearest
@@ -886,7 +951,7 @@ function layoutInFlow(
   const lead = leadingOffset(node, width, vh)
   const box: EvalBox = pinned
     ? (() => {
-        const g = evalGeometry(node.geometry!, width, vh)
+        const g = anchorBox(evalGeometry(node.geometry!, width, vh), node.geometry!, ctx.column, width)
         return { ...g, x: g.x + ctx.origin.x, y: g.y + ctx.origin.y }
       })()
     : lead
@@ -923,6 +988,9 @@ function layoutInFlow(
    * what makes a leading offset able to reproduce a captured gap exactly.
    */
   const adv = (h: number): number => (lead ? lead.y + h : h)
+  // BUG-173 — a fluid width owns the axis over the keyframes, as it does in the
+  // renderer's CSS: the box fills the extent its parent gave it.
+  if (tracksContainerWidth(node)) box.width = frame.width
   // REQ-97 — the node's own `sizing.width` narrows whatever extent it was given,
   // for every kind alike (the renderer emits the same width/min/max CSS for all
   // of them). It reads loudest on `text`, whose *height* is a function of its
@@ -1437,6 +1505,44 @@ export function deriveSurfaceBacking(
 }
 
 /**
+ * BUG-173 — the backing surfaces whose box spans the viewport at EVERY captured
+ * width, at the height that width was captured at, by path.
+ *
+ * Unanimity for the same reason {@link deriveSurfaceBacking} demands it: a surface
+ * that is full-bleed at mobile and inset at desktop was never promised to span the
+ * window, so its stopping short is the page's design. One that spanned it
+ * everywhere it was measured carries that promise to every width, and the widths
+ * above the widest rung — where nothing was measured — are exactly where a
+ * reproduction that froze it breaks it.
+ */
+export function deriveFullBleedSurfaces(
+  doc: L1Document,
+  options: { measured?: MeasuredTextHeights } = {},
+): Set<string> {
+  const widths = doc.widths.length ? [...doc.widths] : [1280]
+  const heightOf = capturedHeightByWidth(doc)
+  const surfaces = synthesizedSurfacePaths(doc)
+  const spans = (box: EvalBox | undefined, width: number): boolean =>
+    box !== undefined &&
+    box.height > 0 &&
+    Math.abs(box.x) <= FULL_BLEED_TOLERANCE_PX &&
+    Math.abs(box.width - width) <= FULL_BLEED_TOLERANCE_PX
+  let out: Set<string> | undefined
+  for (const width of widths) {
+    const rest = evaluateLayout(doc, width, { measured: options.measured, viewportHeight: heightOf.get(width) })
+    const here = new Set<string>()
+    for (const leaf of rest.leaves) {
+      if (leaf.kind === 'box' && isBackingSurfaceId(leaf.id) && spans(leaf.box, width)) here.add(leaf.path)
+    }
+    for (const [path, id] of surfaces) {
+      if (isBackingSurfaceId(id) && spans(rest.boxes.get(path), width)) here.add(path)
+    }
+    out = out ? new Set([...out].filter((p) => here.has(p))) : here
+  }
+  return out ?? new Set()
+}
+
+/**
  * Analytically evaluate an L1 document at `width`: resolve every leaf's box and
  * report geometry-envelope violations (sibling overlap, horizontal clip beyond
  * the viewport, pinned-box content overflow, and — where the caller supplies
@@ -1451,7 +1557,7 @@ export function evaluateLayout(
   width: number,
   options: EvaluateOptions = {},
 ): LayoutResult {
-  const opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing'>> = {
+  const opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed'>> = {
     contentScale: options.contentScale ?? 1,
     epsilonPx: options.epsilonPx ?? 2,
   }
@@ -1465,6 +1571,7 @@ export function evaluateLayout(
     measured: options.measured,
     textCursor: new Map(),
     viewportHeight: options.viewportHeight,
+    column: doc.column,
   }
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
   layout(doc.root, rootFrame, '0', ctx)
@@ -1628,6 +1735,32 @@ export function evaluateLayout(
           width,
         })
       }
+    }
+  }
+
+  // BUG-173 — a surface that spanned the viewport at every captured rung must
+  // still span it here. The runs it backs are asserted above; this asserts the
+  // surface itself, because a band can stop short of the window long before any
+  // run crosses the edge it left behind — and then the page shows a background
+  // ending in mid-air, which is the defect whether or not copy has reached it.
+  if (options.fullBleed) {
+    const leafAt = new Map(ctx.leaves.map((l) => [l.path, l]))
+    const surfaceIds = synthesizedSurfacePaths(doc)
+    for (const surfacePath of options.fullBleed) {
+      const box = leafAt.get(surfacePath)?.box ?? ctx.boxes.get(surfacePath)
+      if (!box || box.width <= 0 || box.height <= 0) continue
+      const short = width - (box.x + box.width)
+      if (short <= opts.epsilonPx) continue
+      findings.push({
+        kind: 'escape',
+        detail:
+          `backing surface ${leafAt.get(surfacePath)?.id ?? surfaceIds.get(surfacePath) ?? surfacePath} ` +
+          `was full-bleed at every captured width and stops ${Math.round(short)}px short of the ` +
+          `viewport's right edge`,
+        paths: [surfacePath],
+        boxes: [box],
+        width,
+      })
     }
   }
 
@@ -1967,11 +2100,19 @@ export function capturedHeights(doc: L1Document): number[] {
  * Two points per segment is the smallest sampling that can see a bracket bend
  * anywhere along its length rather than only where a constant happens to land.
  *
- * Nothing is sampled BELOW the first rung or above the last: the renderer holds the
- * end keyframe there, so the geometry is identical to the rung's and the only
- * difference a sample could report is that boxes measured at 320px overflow a
- * viewport narrower than 320px — which is true of every page and says nothing about
- * this one.
+ * Nothing is sampled BELOW the first rung: the renderer holds the base keyframe
+ * there, so the only difference a sample could report is that boxes measured at
+ * 320px overflow a viewport narrower than 320px — which is true of every page and
+ * says nothing about this one.
+ *
+ * BUG-173 — but ONE width is sampled ABOVE the last rung, a third again past it
+ * (1920px on a ladder that ends at 1440). The premise that excluded it — "the
+ * renderer holds the end keyframe there, so the geometry is the rung's" — is true
+ * below the ladder and false above it: column anchors, relaxed `fit-content`
+ * widths, fluid fills and the height response all keep tracking the viewport past
+ * the widest rung while every keyframed box freezes. The page there is a mixture
+ * of frozen and live boxes, not a copy of the top sample, and on the pages this
+ * was reported from content walked straight off the band that had stopped.
  */
 export function offSampleWidths(doc: L1Document): number[] {
   const rungs = [...doc.widths].sort((a, b) => a - b)
@@ -1982,6 +2123,7 @@ export function offSampleWidths(doc: L1Document): number[] {
     out.add(Math.round(rungs[i] + span / 3))
     out.add(Math.round(rungs[i] + (2 * span) / 3))
   }
+  out.add(Math.round((rungs[rungs.length - 1] * 4) / 3))
   for (const rung of rungs) out.delete(rung)
   return [...out].sort((a, b) => a - b)
 }
@@ -2007,11 +2149,15 @@ function envelopeAt(
   measured?: MeasuredTextHeights,
 ): EnvelopeReport {
   const backing = deriveSurfaceBacking(doc, { measured })
+  // BUG-173 — resolved once from the resting document, like `backing`, and for
+  // the same reason: whether a surface spanned the window is a fact about what
+  // was measured, not about the sample being asked.
+  const fullBleed = deriveFullBleedSurfaces(doc, { measured })
   const byWidth = widths.flatMap((width) =>
     heights.map((height) => ({
       width,
       height,
-      findings: evaluateLayout(doc, width, { contentScale, measured, viewportHeight: height, backing })
+      findings: evaluateLayout(doc, width, { contentScale, measured, viewportHeight: height, backing, fullBleed })
         .findings,
     })),
   )

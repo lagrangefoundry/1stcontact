@@ -35,6 +35,7 @@ import {
   type L1Document,
   type L1Filter,
   type L1FontFace,
+  type L1AxisSizing,
   type L1Geometry,
   type L1GradientStop,
   type L1LinearGradient,
@@ -1439,6 +1440,15 @@ export type FoldLeafKind = 'text' | 'image' | 'box' | 'control' | 'unknown' | 'e
  * (doing so mispairs every real `box-*` leaf and reports phantom fidelity
  * deltas). {@link isSynthesizedSurfaceId} is the single place that knows this.
  */
+/**
+ * BUG-173 — the tolerance, in px, within which a box's width "equals the
+ * viewport" at a captured rung. Shared by the fold, which marks such a node as
+ * tracking its container ({@link markViewportTracking}), and by the probe, which
+ * holds such a surface to spanning the window — the two must agree on which
+ * boxes they are about.
+ */
+export const FULL_BLEED_TOLERANCE_PX = 1.5
+
 export const SYNTHESIZED_SURFACE_ID_PREFIXES = ['section-band-', 'section-bg-', 'card-'] as const
 
 /** True for a fold-synthesized backing surface — see {@link SYNTHESIZED_SURFACE_ID_PREFIXES}. */
@@ -2045,6 +2055,58 @@ export function holdAcrossReflowWindows(roots: L1Node[], widths: number[]): void
     }
   }
   for (const root of roots) walk(root, hold)
+}
+
+/**
+ * BUG-173 — mark every node that was the viewport's width at EVERY captured rung as
+ * filling its container (`sizing.width: fluid`), so it keeps spanning the window
+ * above the widest rung instead of freezing at that rung's literal.
+ *
+ * The capture already answers "does this box keep scaling?". A width that equals
+ * the viewport at six rungs from 320 to 1440 is the identity line, and the fold
+ * used to write it as six keyframes tracing that line — which the renderer then
+ * held at 1440px for every wider window, while the column-anchored copy standing
+ * on it kept following the viewport and walked off its right edge.
+ *
+ * Nothing is inferred beyond the evidence:
+ *  - a node whose width PLATEAUS across the upper rungs (a capped page) is not the
+ *    viewport's width at every rung, so it is left exactly as it was emitted and
+ *    keeps holding its captured width — the reproduction scales above the top
+ *    rung only where the original did;
+ *  - a node is only marked where its containing block itself spans the viewport
+ *    (the page root, a geometry-less wrapper of it, or another marked node, none
+ *    of them inset by padding), because `fluid` fills the CONTAINER, and a fill
+ *    of anything narrower would move the box at the rungs it already matches;
+ *  - a node whose width is column-anchored (REQ-88) keeps its anchor, which
+ *    already owns the axis.
+ *
+ * At every captured rung the rendered box is unchanged — it was already exactly
+ * the viewport's width there.
+ *
+ * MUTATES IN PLACE, like {@link holdAcrossReflowWindows}.
+ */
+export function markViewportTracking(root: L1Node, widths: number[]): void {
+  if (widths.length === 0) return
+  const ladder = new Set(widths)
+  const spansEveryRung = (geo: L1Geometry): boolean =>
+    geo.keyframes.length === ladder.size &&
+    geo.keyframes.every((kf) => ladder.has(kf.at) && Math.abs(kf.width - kf.at) <= FULL_BLEED_TOLERANCE_PX)
+  const inset = (node: L1Node): boolean =>
+    'padding' in node && (node.padding !== undefined || node.responsivePadding !== undefined)
+  const walk = (node: L1Node, containerSpans: boolean): void => {
+    const geo = 'geometry' in node ? node.geometry : undefined
+    let spans = containerSpans && geo === undefined
+    // Every kind that can carry geometry carries `sizing` too (REQ-105), so the
+    // property is read structurally — a node folded without one has no key at all.
+    const sized = node as { sizing?: L1AxisSizing }
+    if (geo && containerSpans && !geo.anchor?.width && spansEveryRung(geo) && sized.sizing?.width === undefined) {
+      sized.sizing = { ...sized.sizing, width: { mode: 'fluid' } }
+      spans = true
+    }
+    const children = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+    for (const child of children) walk(child, spans && !inset(node))
+  }
+  walk(root, true)
 }
 
 /**
@@ -4440,6 +4502,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // that needs the WHOLE page: one node's reflow is evidence about the window
   // every other node crosses too, including the controls inside a recovered form.
   holdAcrossReflowWindows([root, ...(opts.forms ?? []).map((f) => f.form)], widths)
+  markViewportTracking(root, widths)
 
   const result = validateL1(doc)
   if (!result.ok) {
