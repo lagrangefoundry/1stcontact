@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-58
 created_by: xgd
 created_at: '2026-09-30T22:04:36.498520+00:00'
-updated_at: '2026-10-02T17:49:27.324189+00:00'
+updated_at: '2026-10-02T18:07:49.427182+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -1158,5 +1158,19 @@ I've filed the new design doc as DOC-65 and the three deferred items as ToDos (T
 The doc records two choices I made that you may want to change:
 - **When an answer reaches Alice:** I recommended her next turn, waking her early only for a question she's blocked on. That's open question 1.
 - **DOC-64:** I left it as is. DOC-65 says it is the current position wherever the two conflict, and reconciling DOC-64 is deferred until after the test.
+
+<!-- xgd-turn id="2ba549ca-5821-47de-902d-d7229e18d8be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T18:07:49.203414+00:00" -->
+#### You
+Let discuss the open questions and see if we can resolve them.
+
+1. Charlie can edit the webpage and Alice is informed (in the reminder text, I believe) that is how she should be notified of any changes to the plan ticket should 
+2. This is important - it may ultimately be Bob's role? - the conversation needs to be stage-managed:
+ - All questions that Alice has should go into the plan and the pannel - we can talk about how this looks, we can add grouping or whatever but later for now as soon as Alicve things of something it needs put it in the panel.
+ - Alice (or Bob) needs to explain what is happening - "we are just going to rough something up now - don't worry this is far from final" / " I need to take a few minutes now to implement what we discussed - can you answer some of the questions in the panel while I do that?"
+ - large open questions - style, color pallet, even font - Charlie cannot answer those unaided - the panel is to ask questions that we expect him to know the answer to
+ 3. All of them right now - we can try to simplify/organize etc later
+ 4. No picking a variant is at best a large open question per above its a conversation. We do need a better interface on that experience BTW but not a problem for now. ALSO the pannel is better suited to questions that endure - Charlies phone number is always Charlies phone number - Which variant is ephemeral it depends on the varients right now we might go through 4 rounds with different variants.
 
 <!-- xgd-chat-end -->
