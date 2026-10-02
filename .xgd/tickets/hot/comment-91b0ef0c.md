@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T03:42:43.403022+00:00'
+updated_at: '2026-10-02T04:06:47.807714+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3554,5 +3554,13 @@ The fix is small: round the rectangle to whole pixels before cutting it. Then ad
 ## Separate, and not new
 
 Joyful's reproduction screenshot is **1700px wide at a 1280 window**, so the copy overflows sideways by 420px. It was already that wide in the 29 Sep iteration, so today's changes didn't cause it. It's a real defect, though, and BUG-173's new above-the-widest-width check probably won't catch it, because the overflow happens at a captured width. Worth looking at once joyful can complete an iteration again.
+
+<!-- xgd-turn id="4150298e-1484-4587-a5ba-7d251c72c192-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T04:06:47.355976+00:00" -->
+#### You
+So the repro of Gigabyte is excellent - 0 unmeasured and the site scals correctly horizontally.
+
+On the other two do we need a code fix for them? Can you create a ticket?
 
 <!-- xgd-chat-end -->
