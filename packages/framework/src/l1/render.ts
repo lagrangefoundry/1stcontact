@@ -2382,6 +2382,12 @@ function imageSizes(
     return conditions.join(', ')
   }
 
+  // BUG-173 — a fluid fill owns the axis over the keyframes, as in `geometryRules`.
+  if (fillsWidth(geometry, sizing)) {
+    const max = sizing?.width?.maxPx
+    return max === undefined ? '100vw' : `(max-width: ${num(max)}px) 100vw, ${num(max)}px`
+  }
+
   const frames = geometry?.keyframes
   if (frames && frames.length > 0) {
     if (frames.length === 1) return `${num(frames[0].width)}px`
@@ -2590,6 +2596,18 @@ function pictureSources(delivery: ImageDelivery | undefined, sizesAttr: string):
 const BACKGROUND_DPR = 2
 
 /**
+ * BUG-173 — whether a geometry-placed node's width is a fluid FILL that owns the
+ * width axis, suppressing its keyframe widths the way a column anchor does
+ * (REQ-88). The keyframes stay in the document as the captured record of the
+ * box at each rung; the fill is what keeps it tracking its container between
+ * and beyond them. A node with no geometry has no keyframe widths to suppress,
+ * and its fluid width is just {@link sizingCss}'s `width: 100%`.
+ */
+function fillsWidth(geometry: L1Geometry | undefined, sizing: L1AxisSizing | undefined): boolean {
+  return geometry !== undefined && sizing?.width?.mode === 'fluid'
+}
+
+/**
  * REQ-222 — the node's box width in px at one viewport width, or null when this
  * renderer does not own it.
  *
@@ -2612,6 +2630,13 @@ function nodeWidthAt(
 ): number | null {
   const anchoredWidth = column ? geometry?.anchor?.width : undefined
   if (anchoredWidth && column) return anchorWidthAt(anchoredWidth, column, vw)
+  // BUG-173 — a fluid fill owns the axis over the keyframes ({@link fillsWidth}).
+  // The fold writes it only where the container spans the viewport, so the box is
+  // the viewport's width — and an overstatement anywhere else, the safe direction.
+  if (fillsWidth(geometry, sizing)) {
+    const max = sizing?.width?.maxPx
+    return max === undefined ? vw : Math.min(max, vw)
+  }
 
   const frames = geometry?.keyframes
   if (frames && frames.length > 0) {
@@ -2925,6 +2950,14 @@ function geometryRules(
   geo: L1Geometry,
   column?: L1Column,
   nowrapFromPx?: number,
+  /**
+   * BUG-173 — the node's `sizing.width` is a fluid fill ({@link fillsWidth}), so
+   * the width axis belongs to it and the keyframe widths are suppressed, exactly
+   * as a column-anchored width suppresses them. Without this the fill would be
+   * overridden at every breakpoint by a literal, and the final one held above
+   * the widest rung is precisely the frozen band this exists to remove.
+   */
+  fluidWidth = false,
 ): Rule[] {
   const frames = geo.keyframes
   const rules: Rule[] = []
@@ -2932,7 +2965,7 @@ function geometryRules(
   // column while its width stays keyframed (see `l1ColumnAnchorSchema`).
   const anchor = column ? geo.anchor : undefined
   const anchoredX = Boolean(anchor?.x)
-  const anchoredWidth = Boolean(anchor?.width)
+  const anchoredWidth = Boolean(anchor?.width) || fluidWidth
   // REQ-351 (issue 4) — the response is read PER KEYFRAME, because that is where
   // the capture measured it. A node whose height tracks the viewport at 1024 and
   // above and is fixed below now says exactly that; one pair of node-level scalars
@@ -3032,7 +3065,7 @@ function geometryRules(
   if (geo.place === 'flow') {
     const flowDecls = (kf: L1Geometry['keyframes'][number]): string[] => {
       const d: string[] = [`margin-left: ${kf.x}px`, `margin-top: ${kf.y}px`]
-      d.push(...widthDecls(kf.at, `${kf.width}px`))
+      if (!fluidWidth) d.push(...widthDecls(kf.at, `${kf.width}px`))
       if (kf.height !== undefined) {
         const h = kf.atHeight
         d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hFat(kf), h) : `${kf.height}px`}`)
@@ -3051,7 +3084,7 @@ function geometryRules(
       const d = [
         `margin-left: ${lerpCalc(a.x, a.at, b.x, b.at)}`,
         `margin-top: ${lerpCalc(a.y, a.at, b.y, b.at)}`,
-        ...widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at)),
+        ...(fluidWidth ? [] : widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at))),
       ]
       if (a.height !== undefined && b.height !== undefined) {
         const atH =
@@ -4477,7 +4510,9 @@ function emitNode(
     // qualifies on the same terms; a box's width is structure and never does.
     const nowrapFromPx =
       node.kind === 'text' || node.kind === 'control' ? node.axes?.nowrapFromPx : undefined
-    state.rules.push(...geometryRules(selector, node.geometry, state.column, nowrapFromPx))
+    state.rules.push(
+      ...geometryRules(selector, node.geometry, state.column, nowrapFromPx, fillsWidth(node.geometry, node.sizing)),
+    )
   }
   /**
    * The text-axis bag → CSS, shared by the `text` run and the REQ-96 `control`

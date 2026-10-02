@@ -150,6 +150,10 @@ function bandPage(opts: {
       keyframes: withResponse(frames(opts.band), opts.bandResponse),
       ...(opts.bandSegments ? { segments: opts.bandSegments } : {}),
     },
+    // BUG-173 — a band that is the viewport's width at every rung fills its
+    // container, exactly as the fold writes it; a frozen identity line would stop
+    // short of the window above the widest rung.
+    ...(opts.band.every((f) => f.x === 0 && f.width === f.at) ? { sizing: { width: { mode: 'fluid' as const } } } : {}),
   }
   const runs: L1Node[] = opts.runs.map((r) => ({
     kind: 'text',
@@ -452,18 +456,19 @@ describe('BUG-143 — the off-sample probe characterises each ladder segment', (
     // interior points per segment can see a bracket bend anywhere along its length.
     const ladderDoc: L1Document = { ...cleanPage(), widths: LADDER }
     const sampled = offSampleWidths(ladderDoc)
-    expect(sampled.length).toBe(2 * (LADDER.length - 1))
+    // Two per segment, plus BUG-173's one width above the top rung.
+    expect(sampled.length).toBe(2 * (LADDER.length - 1) + 1)
     // Nothing sampled twice, nothing on a rung, and every segment covered twice.
     expect(new Set(sampled).size).toBe(sampled.length)
     for (const rung of LADDER) expect(sampled).not.toContain(rung)
     for (let i = 0; i < LADDER.length - 1; i++) {
       expect(sampled.filter((w) => w > LADDER[i] && w < LADDER[i + 1]).length).toBe(2)
     }
-    // Nothing below the first rung or above the last: the renderer holds the end
-    // keyframe there, so the only thing such a sample could report is that boxes
-    // measured at 320px overflow a viewport narrower than 320px.
+    // Nothing below the first rung: the renderer holds the base keyframe there, so
+    // the only thing such a sample could report is that boxes measured at 320px
+    // overflow a viewport narrower than 320px. (BUG-173 superseded the matching
+    // exclusion ABOVE the last rung — see its UATs.)
     expect(Math.min(...sampled)).toBeGreaterThan(LADDER[0])
-    expect(Math.max(...sampled)).toBeLessThan(LADDER[LADDER.length - 1])
   })
 })
 
