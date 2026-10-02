@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T00:35:42.364306+00:00'
+updated_at: '2026-10-02T00:42:03.528174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3458,5 +3458,12 @@ A round would most likely spend its budget re-deriving exactly that and file rou
 There's one good reason to run a round anyway: if you want to test whether the loop finds this on its own. That's a fair test of the system, and it's what you said you're after. If you go that way, do it before I file the ticket, so the round has nothing to copy from.
 
 Which would you like?
+
+<!-- xgd-turn id="4d8362b4-a8d8-49e8-9adb-f98aa9686121-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-02T00:42:02.376239+00:00" -->
+#### You
+1. Once we have 173 then what? is a recapture sufficient or is a diagnosis required?
+   2. Please create the ticket for the unmeasured
 
 <!-- xgd-chat-end -->
