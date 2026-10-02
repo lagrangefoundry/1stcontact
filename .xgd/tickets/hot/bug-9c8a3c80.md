@@ -6,9 +6,9 @@ title: 'Group chat: a retired room''s surviving junction blocks the room from ev
   being created again'
 created_by: EPIC-19
 created_at: '2026-10-02T04:42:49.806091+00:00'
-updated_at: '2026-10-02T05:49:33.362693+00:00'
+updated_at: '2026-10-02T05:49:33.981486+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -54,3 +54,19 @@ Delete the leftover junction for the empty archived room. It held only a session
 - A room whose member is replaced keeps its ticket and its contributions, and opens with the new member in its roster.
 - A site whose room ticket is archived but whose room junction survives opens a new room, and the consultant's `site-<site>` transcript is byte-identical before and after.
 - A business with a consultant conversation and no room opens a room whose consultant member is that conversation, with its transcript intact.
+
+
+## What landed
+- **`db/migrations/0025_restore_retired_rooms.sql`** (0024 is applied and immutable, so this is a follow-up rather than an edit). It un-archives every room that 0024 archived because its roster named an `assistant-<site>` session, together with the transcript comments 0024 archived with it, and drops the retired member from the roster. Guards: it only restores a room that has **no live successor** under the same `room-<site>` session id, so a session never ends up with two homes. It only restores comments archived at or up to 60s before their room's archive moment, which leaves a chat copy's surplus comments archived. Idempotent. The `assistant-<site>` sessions, their transcripts and their junctions stay retired. Their junctions are kept deliberately: nothing ever opens that id again.
+- **`openRoom` (`host-core.ts`) keeps a reopened room's roster at exactly [consultant, coordinator]** through the framework's own `group.remove`/`group.add` (`keepRoster`). That is how a replaced member gives way without the room being retired, and it is where the coordinator joins a room restored by 0025. The coordinator's chat ticket may not exist until it first drains, which SQL cannot do.
+- **`openRoom` discards an orphan room junction** (`discardOrphanRoomJunction`) when no live ticket homes `room-<site>` and a junction exists, then creates the room afresh. It is called only with `roomSessionIdFor(slug)`, never with `site-<site>` or `coordinator-<site>`. It deletes the log directly (`SessionLog.delete`) and only then calls `manager.closeSession` to drop cached state. Calling `closeSession` first would drain to the archive, which would mint a memberless chat ticket for the room.
+- **Junction decision recorded at the only other chat-archive path**: `chat-copy.ts`'s stray row. Its junction is kept deliberately, because it is keyed by the *source* business's session id, which is still live there. No upstream framework change was needed.
+
+## Supersedes
+REQ-358's "a room opened before the rename is recreated with the coordinator" (test `test_UAT_FC_REQ-358_a_room_opened_before_the_rename_is_recreated_with_the_coordinator`, removed). A room whose member is replaced is now **kept**, with the same ticket uid and its contributions, and only its roster changes.
+
+## UATs (in `tests/test_UAT_FC_REQ-357_group_chat.workers.test.ts`; real route, D1, ticket store, junction DO)
+- `test_UAT_FC_BUG-176_a_room_whose_member_is_replaced_keeps_its_ticket_and_contributions`: a real room with contributions has its roster pointed at a legacy `assistant-<site>` ticket. Migrations 0024 then 0025 are run. On reopen it is the same room uid, the roster is [site, coordinator], the contributions are in the turns, and the consultant transcript is byte-identical.
+- `test_UAT_FC_BUG-176_an_archived_room_whose_junction_survives_is_created_afresh`: the room ticket is archived while its junction survives. Reopening yields one new room with both members, and the consultant transcript is byte-identical.
+- `test_UAT_FC_BUG-176_a_business_with_no_room_opens_one_around_its_existing_conversation`: a legacy business with no room gets a room whose consultant member is its existing conversation, with the transcript intact.
+The first two fail without the `host-core.ts` change, with exactly the symptom's "already has a junction" error.
