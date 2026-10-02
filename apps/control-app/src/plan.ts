@@ -42,6 +42,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'decisions',
   'checks',
   'tasks',
+  'asks',
 ]
 
 /**

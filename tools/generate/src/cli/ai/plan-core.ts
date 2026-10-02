@@ -69,6 +69,34 @@ export const VERDICTS = ['yes', 'not_sure', 'no'] as const
 export const TASK_STATUSES = ['todo', 'doing', 'done', 'dropped'] as const
 export const FEATURE_STATUSES = ['wanted', 'not_wanted', 'later'] as const
 
+/**
+ * [[REQ-364]] — what shape of answer an ask takes ([[DOC-65]] §6). The two choice
+ * types carry `options`; any ask may also accept a document instead.
+ */
+export const ASK_INPUTS = [
+  'text',
+  'number',
+  'currency',
+  'phone',
+  'email',
+  'url',
+  'date',
+  'single_choice',
+  'multi_choice',
+  'upload',
+] as const
+/** The inputs an answer is picked from rather than typed. */
+export const CHOICE_INPUTS: readonly string[] = ['single_choice', 'multi_choice']
+/**
+ * When an ask's answer is needed. IT ORDERS THE LIST AND NEVER HIDES AN ASK: a
+ * question on the panel costs the client nothing until they choose to answer it.
+ */
+export const NEEDED_BY = ['first_pass', 'revision', 'prelaunch'] as const
+export const ASK_STATUSES = ['open', 'answered', 'skipped', 'withdrawn'] as const
+/** Who an answer is recorded as coming from: the client, or the agent that filled it. */
+export const CLIENT = 'client'
+export const ASK_ANSWERERS: readonly string[] = [CLIENT, 'consultant', 'coordinator']
+
 /** The body's sections, in the order a new plan has them. */
 export const BRIEF_SECTION = 'Brief'
 export const LOG_SECTION = 'Decision log'
@@ -121,6 +149,37 @@ export interface PlanTask {
   decisions?: string[]
 }
 
+/**
+ * A question waiting for the client ([[REQ-364]], [[DOC-65]] §6).
+ *
+ * TWO OWNERS. The agent owns the wording, the input and the reason; the client owns
+ * the answer. An agent edit never overwrites an answer the client gave.
+ */
+export interface PlanAsk {
+  id: string
+  prompt: string
+  /** One line, shown to the client: why it matters. */
+  why: string
+  input: string
+  options?: string[]
+  /** "Or upload a document instead." */
+  accepts_upload?: boolean
+  needed_by: string
+  /** The agent cannot proceed without it. */
+  blocking: boolean
+  status: string
+  /** A typed value, or the option(s) picked. */
+  answer?: string | string[]
+  /** The material ticket uid of an uploaded file that answers it. */
+  answer_material?: string
+  /** `client`, or the agent that filled it in from client material. */
+  answered_by?: string
+  answered_at?: string
+  /** What the client's answer replaced, when they changed it. */
+  previous_answer?: string | string[]
+  withdrawn_reason?: string
+}
+
 export interface PlanFields {
   kind: string
   /** The store-minted site key ([[DOC-45]] §6) — sites carry no slug. */
@@ -131,6 +190,8 @@ export interface PlanFields {
   decisions: PlanDecision[]
   checks: PlanCheck[]
   tasks: PlanTask[]
+  /** [[REQ-364]] — the questions waiting for the client. */
+  asks: PlanAsk[]
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -180,6 +241,7 @@ export function seedPlan(siteKey: string): Plan {
       decisions: planSeed.decisions.map((d) => ({ ...d, state: 'open', compared: false })),
       checks: planSeed.checks.map((c) => ({ ...c, triggers: [...c.triggers], answers: [] })),
       tasks: [],
+      asks: [],
     },
     body: SECTIONS.map((name) => `## ${name}`).join('\n\n'),
   }
@@ -298,6 +360,71 @@ export function checkPlan(fields: PlanFields): void {
       if (!decisionIds.has(id)) bad(`task ${t.id} names decision ${id}, which is not a decision`)
     }
   }
+  checkAsks(fields.asks ?? [], bad)
+}
+
+const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
+
+/** The answer an ask holds is one its input can produce. */
+export function answerFits(ask: Pick<PlanAsk, 'input' | 'options'>, answer: unknown): string | null {
+  if (ask.input === 'multi_choice') {
+    if (!Array.isArray(answer) || answer.length === 0) return 'takes one or more of its options'
+    const off = answer.find((a) => !(ask.options ?? []).includes(String(a)))
+    return off === undefined ? null : `has no option ${JSON.stringify(off)}`
+  }
+  if (typeof answer !== 'string' || answer.trim() === '') return 'takes a non-empty answer'
+  if (ask.input === 'single_choice' && !(ask.options ?? []).includes(answer)) {
+    return `has no option ${JSON.stringify(answer)}`
+  }
+  if (ask.input === 'number' && !Number.isFinite(Number(answer.replace(/,/g, '')))) {
+    return 'takes a number'
+  }
+  return null
+}
+
+/**
+ * [[REQ-364]] — the asks' rules: closed vocabularies, options where a choice needs
+ * them, an answer only where one was given and only one the input could produce, a
+ * skip only from the client, and a reason on every withdrawal, so a later turn
+ * knows why it must not ask again.
+ */
+function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
+  const ids = new Set<string>()
+  for (const a of asks) {
+    if (!filled(a.id)) bad('an ask has no id')
+    if (ids.has(a.id)) bad(`two asks are called ${a.id}`)
+    ids.add(a.id)
+    if (!filled(a.prompt)) bad(`ask ${a.id} has no prompt`)
+    if (!filled(a.why)) bad(`ask ${a.id} has no reason: the client is told why it matters`)
+    if (!(ASK_INPUTS as readonly string[]).includes(a.input)) bad(`ask ${a.id} has unknown input ${JSON.stringify(a.input)}`)
+    if (CHOICE_INPUTS.includes(a.input)) {
+      if (!Array.isArray(a.options) || a.options.length < 2 || !a.options.every(filled)) {
+        bad(`ask ${a.id} is a ${a.input} and needs at least two options`)
+      }
+    }
+    if (!(NEEDED_BY as readonly string[]).includes(a.needed_by)) {
+      bad(`ask ${a.id} has unknown needed_by ${JSON.stringify(a.needed_by)}`)
+    }
+    if (typeof a.blocking !== 'boolean') bad(`ask ${a.id} must say whether it is blocking`)
+    if (!(ASK_STATUSES as readonly string[]).includes(a.status)) bad(`ask ${a.id} has unknown status ${JSON.stringify(a.status)}`)
+    if (a.answered_by !== undefined && !ASK_ANSWERERS.includes(a.answered_by)) {
+      bad(`ask ${a.id} cannot be answered by ${JSON.stringify(a.answered_by)}`)
+    }
+    if (a.status === 'answered') {
+      if (!a.answered_by || !filled(a.answered_at)) bad(`ask ${a.id} is answered without saying by whom and when`)
+      const hasMaterial = filled(a.answer_material)
+      if (a.answer === undefined && !hasMaterial) bad(`ask ${a.id} is answered with neither an answer nor a document`)
+      if (a.answer !== undefined) {
+        const wrong = answerFits(a, a.answer)
+        if (wrong) bad(`ask ${a.id} ${wrong}`)
+      }
+      if (hasMaterial && a.answer === undefined && !(a.accepts_upload || a.input === 'upload')) {
+        bad(`ask ${a.id} does not take a document`)
+      }
+    }
+    if (a.status === 'skipped' && a.answered_by !== CLIENT) bad(`only the client skips ask ${a.id}`)
+    if (a.status === 'withdrawn' && !filled(a.withdrawn_reason)) bad(`ask ${a.id} cannot be withdrawn without a reason`)
+  }
 }
 
 /**
@@ -311,6 +438,7 @@ export function planPanel(fields: PlanFields): {
   decisions: Record<string, string[]>
   open_checks: { id: string; question: string; answered_by: string[] }[]
   tasks: { done: number; total: number; doing: string[]; next: string[] }
+  asks: { open: { id: string; prompt: string; needed_by: string; blocking: boolean }[]; answered: string[]; skipped: string[] }
 } {
   const decisions: Record<string, string[]> = {}
   for (const state of DECISION_STATES) decisions[state] = []
@@ -337,7 +465,34 @@ export function planPanel(fields: PlanFields): {
         .filter((t) => t.status === 'todo' && (t.depends_on ?? []).every((dep) => done.has(dep)))
         .map((t) => t.title),
     },
+    // [[REQ-364]] — WITHDRAWN ASKS ARE LEFT OUT, and stay in the plan with their
+    // reason for whoever reads the plan itself.
+    asks: {
+      open: orderedAsks(fields.asks ?? [])
+        .filter((a) => a.status === 'open')
+        .map((a) => ({ id: a.id, prompt: a.prompt, needed_by: a.needed_by, blocking: a.blocking })),
+      answered: (fields.asks ?? []).filter((a) => a.status === 'answered').map((a) => a.id),
+      skipped: (fields.asks ?? []).filter((a) => a.status === 'skipped').map((a) => a.id),
+    },
   }
+}
+
+/**
+ * Asks in the order the client sees them: by `needed_by`, blocking first within
+ * each, and otherwise as the agent added them.
+ */
+export function orderedAsks(asks: PlanAsk[]): PlanAsk[] {
+  const rank = (a: PlanAsk): number =>
+    (NEEDED_BY as readonly string[]).indexOf(a.needed_by) * 2 + (a.blocking ? 0 : 1)
+  return asks
+    .map((a, i) => ({ a, i }))
+    .sort((x, y) => rank(x.a) - rank(y.a) || x.i - y.i)
+    .map(({ a }) => a)
+}
+
+/** An answer as one line of text. */
+export function answerText(answer: string | string[] | undefined): string {
+  return Array.isArray(answer) ? answer.join(', ') : (answer ?? '')
 }
 
 /**
@@ -381,6 +536,18 @@ export function planReminder(plan: Plan | null): string | null {
   for (const c of panel.open_checks) {
     lines.push(`Asked and awaiting an answer: "${c.question}"${c.answered_by.length ? ` (answered by ${c.answered_by.join(', ')})` : ''}.`)
   }
+  if (panel.asks.open.length) {
+    lines.push(
+      `Waiting for the client on the panel (${panel.asks.open.length}): ${list(panel.asks.open.map((a) => `${a.id}${a.blocking ? ' (blocking)' : ''}`))}.`,
+    )
+  }
+  const known = (f.asks ?? []).filter((a) => a.status === 'answered')
+  if (known.length) {
+    lines.push(
+      `Answered: ${list(known.map((a) => `${a.id} = ${a.answer !== undefined ? JSON.stringify(answerText(a.answer)) : `document ${a.answer_material}`}`))}.`,
+    )
+  }
+  if (panel.asks.skipped.length) lines.push(`The client skipped: ${list(panel.asks.skipped)}.`)
   if (panel.tasks.total) {
     const bits = [`${panel.tasks.done} of ${panel.tasks.total} done`]
     if (panel.tasks.doing.length) bits.push(`doing: ${list(panel.tasks.doing)}`)
@@ -435,6 +602,144 @@ function clientEntry(index: number, d: PlanDecision, quote: string): string {
   return [`### Decision ${index}`, '', what, '', `**The client said:** "${quote}"`].join('\n')
 }
 
+function askIn(fields: PlanFields, id: string): PlanAsk {
+  const found = (fields.asks ?? []).find((a) => a.id === id)
+  if (!found) throw refuse('UNKNOWN_ASK', `the plan has no ask ${JSON.stringify(id)}`)
+  return found
+}
+
+const answeredByClient = (a: PlanAsk): boolean => a.status === 'answered' && a.answered_by === CLIENT
+
+/** What the client may do to an ask from the panel ([[REQ-364]]). */
+export const CLIENT_ACTIONS = ['answer', 'skip'] as const
+
+/**
+ * The client answering or skipping an ask from the panel ([[REQ-364]]).
+ *
+ * THE CLIENT'S HALF OF THE OWNERSHIP RULE, and the only path that writes
+ * `answered_by: client`. Changing an answer is answering again: what it replaces
+ * is kept as `previous_answer`, so the agent is told "changed from … to …" rather
+ * than hearing about a fact it thinks it already has.
+ *
+ * Pure, like every operation here: it changes a copy, checks it, and answers it, so
+ * a refused answer leaves the plan as it was.
+ */
+export function clientAnswer(
+  plan: Plan,
+  input: { ask: string; action: string; answer?: unknown; answer_material?: unknown },
+  at: string,
+): Plan {
+  const next = copy(plan)
+  next.fields.asks = next.fields.asks ?? []
+  const a = askIn(next.fields, input.ask)
+  if (a.status === 'withdrawn') throw refuse('ASK_WITHDRAWN', `ask ${a.id} is no longer needed`)
+  const prior = a.status === 'answered' ? a.answer : undefined
+  if (input.action === 'skip') {
+    a.status = 'skipped'
+    delete a.answer
+    delete a.answer_material
+  } else if (input.action === 'answer') {
+    const material = str(input.answer_material)
+    const typed = Array.isArray(input.answer) ? input.answer.map(String) : str(input.answer)
+    if (typed === undefined && material === undefined) {
+      throw refuse(PLAN_INVALID, `an answer to ${a.id} needs a value or a document`)
+    }
+    a.status = 'answered'
+    if (typed !== undefined) a.answer = typed
+    else delete a.answer
+    if (material !== undefined) a.answer_material = material
+    else delete a.answer_material
+  } else {
+    throw refuse(PLAN_INVALID, `unknown action ${JSON.stringify(input.action)}`)
+  }
+  a.answered_by = CLIENT
+  a.answered_at = at
+  if (prior !== undefined) a.previous_answer = prior
+  else delete a.previous_answer
+  checkPlan(next.fields)
+  return next
+}
+
+/** One ask the client changed, as the next turn's notice reports it ([[REQ-364]]). */
+export interface ClientChange {
+  id: string
+  status: string
+  answer?: string | string[]
+  previous?: string | string[]
+  material?: string
+  at: string
+}
+
+/**
+ * What the client did on the panel after `since`, oldest first ([[REQ-364]]).
+ *
+ * ONLY THE CLIENT'S. `answered_by` is the attribution, so an agent's own fill — and
+ * every wording edit, which never touches it — is left out by construction rather
+ * than by remembering who wrote what.
+ */
+export function clientChangesSince(fields: PlanFields, since: string): ClientChange[] {
+  return (fields.asks ?? [])
+    .filter((a) => a.answered_by === CLIENT && (a.status === 'answered' || a.status === 'skipped'))
+    .filter((a) => typeof a.answered_at === 'string' && a.answered_at > since)
+    .map((a) => ({
+      id: a.id,
+      status: a.status,
+      ...(a.answer !== undefined ? { answer: a.answer } : {}),
+      ...(a.previous_answer !== undefined ? { previous: a.previous_answer } : {}),
+      ...(a.answer_material ? { material: a.answer_material } : {}),
+      at: a.answered_at as string,
+    }))
+    .sort((x, y) => x.at.localeCompare(y.at))
+}
+
+/**
+ * The bound on the plan-answers notice, in characters — `DELTA_BUDGET_CHARS`'
+ * reason: it rides a turn, so its cost is bounded in the thing it spends.
+ */
+export const PLAN_ANSWERS_BUDGET_CHARS = 600
+/** The shortest a value is cut to before entries start being left for `read_plan`. */
+const MIN_VALUE_CHARS = 12
+
+const clip = (text: string, max: number): string =>
+  text.length <= max ? text : `${text.slice(0, Math.max(1, max - 1))}…`
+
+/**
+ * The notice line, or `null` when the client did nothing on the panel.
+ *
+ * THE COUNT IS ALWAYS EXACT AND THE VALUES ARE WHAT GET CUT, for `deltaLine`'s
+ * reason: a value is recoverable by reading the plan and the magnitude is not.
+ * Values shrink first; only when even the shortest cut cannot fit every ask does
+ * the line name as many as fit and send the reader to `read_plan` for the rest.
+ */
+export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS_BUDGET_CHARS): string | null {
+  if (changes.length === 0) return null
+  const noun = changes.length === 1 ? 'question' : 'questions'
+  const head = `Your client updated ${changes.length} ${noun} on the plan panel since your last turn: `
+  const tail = '.'
+  const render = (c: ClientChange, max: number): string => {
+    const v = (x: string | string[] | undefined): string => JSON.stringify(clip(answerText(x), max))
+    if (c.status === 'skipped') return `skipped ${c.id}`
+    const doc = c.material ? ` (document ${c.material})` : ''
+    const value = c.answer !== undefined ? v(c.answer) : 'a document'
+    const what = `${value}${c.answer !== undefined ? doc : ` ${c.material}`}`
+    return c.previous !== undefined ? `changed ${c.id} from ${v(c.previous)} to ${what}` : `answered ${c.id}: ${what}`
+  }
+  const room = budget - head.length - tail.length
+  for (let max = 200; max >= MIN_VALUE_CHARS; max = Math.floor(max / 2)) {
+    const all = changes.map((c) => render(c, max)).join('; ')
+    if (all.length <= room) return `${head}${all}${tail}`
+  }
+  const shown: string[] = []
+  let used = 0
+  for (const c of changes) {
+    const one = render(c, MIN_VALUE_CHARS)
+    if (used + one.length + 2 > room - 40 && shown.length > 0) break
+    shown.push(one)
+    used += one.length + 2
+  }
+  return `${head}${shown.join('; ')} — and ${changes.length - shown.length} more (read_plan for them)${tail}`
+}
+
 /** What every operation answers: the plan as stored, and its projection. */
 const answer = (plan: Plan): Record<string, unknown> => ({
   plan: plan.fields,
@@ -449,7 +754,10 @@ const answer = (plan: Plan): Record<string, unknown> => ({
  * runs on the result, and only then does the host store it — so a refused write
  * leaves the plan byte-identical.
  */
-export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Promise<Untyped>> {
+export function planOperations(
+  deps: PlanDeps,
+  role: PlanRole = 'consultant',
+): Record<string, (p: Params) => Promise<Untyped>> {
   const now = (): string => (deps.now ? deps.now() : new Date().toISOString())
   const change = async (edit: (plan: Plan) => void): Promise<Record<string, unknown>> =>
     answer(
@@ -605,13 +913,78 @@ export function planOperations(deps: PlanDeps): Record<string, (p: Params) => Pr
       change((plan) => {
         plan.fields.phase = String(p.phase)
       }),
+
+    // ── asks: both roles ([[REQ-364]]) ───────────────────────────────────────
+    set_ask: (p) =>
+      change((plan) => {
+        const asks = (plan.fields.asks = plan.fields.asks ?? [])
+        const id = str(p.ask) ?? ''
+        let a = asks.find((x) => x.id === id)
+        if (!a) {
+          // A NEW ASK NEEDS WHAT EVERY ASK HAS, so the panel never shows one it
+          // cannot draw or explain.
+          if (!id || !str(p.prompt) || !str(p.why) || !str(p.input)) {
+            throw refuse('UNKNOWN_ASK', `the plan has no ask ${JSON.stringify(id)}; to add one, give it an id, a prompt, a reason and an input`)
+          }
+          a = { id, prompt: '', why: '', input: '', needed_by: 'first_pass', blocking: false, status: 'open' }
+          asks.push(a)
+        } else if (a.status === 'withdrawn') {
+          // WITHDRAWN IS REMEMBERED so a later turn does not ask again by accident;
+          // asking again on purpose says so.
+          if (p.reopen !== true) {
+            throw refuse('ASK_WITHDRAWN', `ask ${id} was withdrawn (${a.withdrawn_reason}); pass reopen to ask it again`)
+          }
+          a.status = 'open'
+          delete a.withdrawn_reason
+        }
+        // THE WORDING IS THE AGENT'S AND THE ANSWER IS NOT: nothing below touches
+        // `answer`, `status` or who answered.
+        if (str(p.prompt)) a.prompt = str(p.prompt)!
+        if (str(p.why)) a.why = str(p.why)!
+        if (str(p.input)) a.input = str(p.input)!
+        if (Array.isArray(p.options)) a.options = p.options.map(String)
+        if (typeof p.accepts_upload === 'boolean') a.accepts_upload = p.accepts_upload
+        if (str(p.needed_by)) a.needed_by = str(p.needed_by)!
+        if (typeof p.blocking === 'boolean') a.blocking = p.blocking
+      }),
+    withdraw_ask: (p) =>
+      change((plan) => {
+        const a = askIn(plan.fields, String(p.ask))
+        // THE CLIENT'S ANSWER STAYS: it is a fact they gave, whatever the site
+        // now needs.
+        if (answeredByClient(a)) throw refuse('ASK_ANSWERED', `the client has answered ${a.id}; it stays as their answer`)
+        a.status = 'withdrawn'
+        a.withdrawn_reason = str(p.reason)
+      }),
+    fill_ask: (p) =>
+      change((plan) => {
+        const a = askIn(plan.fields, String(p.ask))
+        if (a.status === 'withdrawn') throw refuse('ASK_WITHDRAWN', `ask ${a.id} was withdrawn (${a.withdrawn_reason})`)
+        if (answeredByClient(a)) throw refuse('ASK_ANSWERED', `the client has answered ${a.id}; their answer stands`)
+        // THE DECLARED TYPE IS A STRING, so a multi-choice fill arrives as one line.
+        const typed = Array.isArray(p.answer)
+          ? p.answer.map(String)
+          : a.input === 'multi_choice' && str(p.answer)
+            ? str(p.answer)!.split(';').map((x) => x.trim()).filter(Boolean)
+            : str(p.answer)
+        a.status = 'answered'
+        if (typed !== undefined) a.answer = typed
+        else delete a.answer
+        a.answer_material = str(p.material)
+        // THE ANSWERER IS THE GRANT, NOT A PARAMETER — `answer_check`'s rule.
+        a.answered_by = role
+        a.answered_at = now()
+        delete a.previous_answer
+      }),
   }
 }
 
 /** The groups each role is granted ([[DOC-64]] §5's "who writes what"). */
 export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   const work = role === 'consultant' ? 'PlanWork' : 'CoordinatePlan'
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work] } }
+  // [[REQ-364]] — BOTH ROLES KEEP ASKS: either can be the one maintaining the
+  // panel, so turning the room on or off changes who keeps it and not how.
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks'] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()
@@ -622,9 +995,9 @@ function planToolboxClass(lib: Untyped): Promise<Untyped> {
     if (existing) return existing
     const built = Promise.resolve(
       class PlanToolbox extends mod.ToolboxSurface {
-        constructor(deps: PlanDeps) {
+        constructor(deps: PlanDeps, role: PlanRole) {
           super(PLAN_DECLARATION)
-          for (const [op, run] of Object.entries(planOperations(deps))) {
+          for (const [op, run] of Object.entries(planOperations(deps, role))) {
             ;(this as unknown as Params)[op] = run
           }
         }
@@ -635,8 +1008,15 @@ function planToolboxClass(lib: Untyped): Promise<Untyped> {
   })
 }
 
-/** The surface, bound to one site's plan. */
-export async function planSurfaceFor(lib: Untyped, deps: PlanDeps): Promise<Untyped> {
+/**
+ * The surface, bound to one site's plan and to the role it is granted to — which is
+ * what an agent's fill is recorded as.
+ */
+export async function planSurfaceFor(
+  lib: Untyped,
+  deps: PlanDeps,
+  role: PlanRole = 'consultant',
+): Promise<Untyped> {
   const PlanToolbox = await planToolboxClass(lib)
-  return new PlanToolbox(deps)
+  return new PlanToolbox(deps, role)
 }

@@ -408,6 +408,9 @@ export function productTypePack(): ProductTypePack {
         decisions: { type: 'list' },
         checks: { type: 'list' },
         tasks: { type: 'list' },
+        // [[REQ-364]] — the questions waiting for the client on the plan panel.
+        // A plan stored before asks existed reads as having none.
+        asks: { type: 'list' },
       },
       body: { required: true, non_empty: true },
     },

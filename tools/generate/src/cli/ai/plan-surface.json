@@ -4,13 +4,13 @@
   "surface_version": 1,
   "title": "The site plan",
   "call_type": "inproc",
-  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.",
+  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**Asks are the questions waiting for the client.** They show on a panel above the chat, where the client answers them whenever they like, without interrupting the conversation. Put a question there only if the client can answer it unaided and the answer stays true: their phone number, opening hours, the towns they cover, whether they have a price list. Questions of judgement — style, which version they prefer, what to lead with — belong in the conversation. The client owns the answer; you own the wording. Their answers reach you at the start of your next turn.",
   "param_types": {},
   "shapes": {
     "plan": {
-      "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks",
+      "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks, and asks",
       "body": "the written part: the client's own words, the decision log, and notes",
-      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, and task progress"
+      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, task progress, and the asks still open"
     }
   },
   "errors": {
@@ -31,6 +31,15 @@
     },
     "SCHEMA_INVALID": {
       "message": "the change was not well-formed. Nothing was written, and the plan is exactly as it was."
+    },
+    "UNKNOWN_ASK": {
+      "message": "the plan has no ask by that id. Read the plan to see the asks it holds; to add one, give it an id, a prompt, a reason and an input."
+    },
+    "ASK_WITHDRAWN": {
+      "message": "that ask was withdrawn, and its reason is in the plan. It is not asked again unless you say it applies again."
+    },
+    "ASK_ANSWERED": {
+      "message": "the client has answered that ask. Their answer stands; nothing was written."
     }
   },
   "operations": [
@@ -207,6 +216,53 @@
       },
       "returns": { "shape": "plan" },
       "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_ask",
+      "tool": "set_ask",
+      "effect": "write",
+      "summary": "Put a question on the client's panel, or reword one.",
+      "description": "Put it there the moment you think of it, rather than holding it for the right moment or asking it in the conversation: a question on the panel costs the client nothing until they choose to answer it. Short prompt, one-line reason — the reason is what makes them bother. Prefer asking for a document over several typed fields: \"upload your business card\" beats four boxes for address, phone, email and licence number, so set `accepts_upload` wherever a document could answer it.\n\nOnly facts the client knows and that stay true go here. If you cannot proceed without the answer, ask it in the conversation instead, as the one question of that message.\n\nEditing an ask changes its wording, input or reason and never the client's answer. An ask that was withdrawn is not asked again unless you pass `reopen`.",
+      "params": {
+        "ask": { "type": "string", "required": true, "description": "A short id for the ask, e.g. `callout_fee`. A new id adds an ask; an existing one edits it." },
+        "prompt": { "type": "string", "description": "The question, short and in the client's words." },
+        "why": { "type": "string", "description": "One line, shown to the client: why it matters." },
+        "input": { "type": "string", "enum": ["text", "number", "currency", "phone", "email", "url", "date", "single_choice", "multi_choice", "upload"], "description": "The shape of the answer. `upload` asks for a document only." },
+        "options": { "type": "array", "description": "For `single_choice` and `multi_choice`: the choices, at least two." },
+        "accepts_upload": { "type": "boolean", "description": "True when a document could answer it instead of a typed value." },
+        "needed_by": { "type": "string", "enum": ["first_pass", "revision", "prelaunch"], "description": "When the answer is needed. It orders the panel and never hides an ask, so a pre-publish detail can sit there from the start. Default `first_pass`." },
+        "blocking": { "type": "boolean", "description": "True when you cannot go on without it." },
+        "reopen": { "type": "boolean", "description": "Ask a withdrawn ask again, because it applies again." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "withdraw_ask",
+      "tool": "withdraw_ask",
+      "effect": "write",
+      "summary": "Take a question off the client's panel because it no longer applies.",
+      "description": "For example, the client says they do not want an email address on the site: withdraw the email ask. It leaves the panel and stays in the plan with your reason, so nobody asks it again. An ask the client has answered cannot be withdrawn.",
+      "params": {
+        "ask": { "type": "string", "required": true, "description": "The ask's id." },
+        "reason": { "type": "string", "required": true, "description": "Why it no longer applies." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "fill_ask",
+      "tool": "fill_ask",
+      "effect": "write",
+      "summary": "Answer a question on the panel from something the client uploaded.",
+      "description": "When a document answers an ask — a business card gives the phone number and address — take the fact from it and fill the ask in, citing the material, so the client sees the question go away. They can still change it. An answer the client gave themselves is never replaced.",
+      "params": {
+        "ask": { "type": "string", "required": true, "description": "The ask's id." },
+        "material": { "type": "string", "required": true, "description": "The uid of the material the answer came from." },
+        "answer": { "type": "string", "description": "The fact, as taken from the material. For a multi-choice ask, its options separated by `;`. Omit when the document itself is the answer." }
+      },
+      "returns": { "shape": "plan" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
     }
   ],
   "groups": [
@@ -237,6 +293,13 @@
       "title": "Coordinating the plan",
       "description": "The coordinator's part: recording the client's answers, asking checks and recording answers, tracking progress and the phase. Nothing here is an opinion of the site.",
       "operations": ["record_client_answer", "ask_check", "record_check_answer", "set_task_status", "set_phase"]
+    },
+    {
+      "group": "KeepAsks",
+      "effect": "write",
+      "title": "Keeping the client's questions",
+      "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, and filling them in from what the client uploaded.",
+      "operations": ["set_ask", "withdraw_ask", "fill_ask"]
     }
   ],
   "sequences": [],
