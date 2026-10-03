@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-03T17:22:03.640181+00:00'
+updated_at: '2026-10-03T17:23:37.616380+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3608,5 +3608,33 @@ Iteration 1 failed at repro. repro failed (exit 1): promoteToFlow: produced an i
 The repro can produce poor results but it feels like it should complete with something on every site, not error out.
 
 Can you create me bugs to fix these two please?
+
+<!-- xgd-turn id="fb1d5601-2321-4c61-867f-6b5c13d8867d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T17:23:31.497360+00:00" -->
+#### Claude
+I've filed **BUG-180** (`bug-a78cf9fb`), at `draft`, high priority, under EPIC-12. It's one ticket, not two, because both sites fail for the same reason.
+
+**Why they fail:** BUG-142 added a step that keeps an element's size from shifting between two of the browser widths we capture, whenever that range is one where the layout changes. That step finds the values to hold by looking for anything that has a list of per-width values. One other setting also has such a list: the setting for how a container arranges its children (in a row, a column, and so on).
+
+So on any page whose arrangement changes between widths, the step stamps a hold onto that setting. The checker that validates every page layout rejects it, and the run stops. The step runs in two places, which is why the two errors look different:
+
+- **hearingzone510** fails while the page layout is first being built.
+- **bluelotus** fails later, during the pass that reworks the page so its text can grow without overlapping.
+
+Gigabyte Alchemy, faelan and joyful happen to have no such arrangement change, which is why we've never seen this before.
+
+**The ticket asks for two things:**
+
+1. **Fix the cause.** The step applies the hold only to size and position values, named explicitly, and leaves the arrangement setting alone. If it turns out a change of arrangement genuinely needs holding as well, that should be added on purpose: the checker allowing it, and the code that produces the HTML and CSS respecting it.
+2. **Your principle: always produce something.** If an improvement pass (like the one bluelotus failed in) produces an invalid page, the run serves the page as it was before that pass, says the pass was skipped and why, and carries on. The only case that still fails is when the first page layout is itself invalid, because there's nothing earlier to fall back to; fix 1 removes the known cause of that.
+
+**Tests in the ticket:**
+- a small made-up page that reproduces the failure before the fix and passes after it
+- an improvement pass that produces an invalid page and gets skipped
+- both of your sites completing a reproduction
+- the existing tests for this area staying green
+
+**Once it lands:** restart the console and press [recapture] on both sites. Each should finish and show a reproduction, however rough.
 
 <!-- xgd-chat-end -->
