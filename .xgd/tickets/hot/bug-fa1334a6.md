@@ -6,9 +6,9 @@ title: set_standing_note reports success but the next turn is primed with an old
   note
 created_by: xgd
 created_at: '2026-10-03T21:24:06.495716+00:00'
-updated_at: '2026-10-03T23:30:04.310905+00:00'
+updated_at: '2026-10-03T23:30:09.161343+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.464
+  story_points: 1
 ---
 
 ## What happened
