@@ -2961,6 +2961,11 @@ function geometryRules(
    * the widest rung is precisely the frozen band this exists to remove.
    */
   fluidWidth = false,
+  /**
+   * REQ-372 — the run's `textAlign`. A relaxed run (below) grows past its captured
+   * width; this decides which captured edge — or the centre — stays put while it does.
+   */
+  textAlign?: string,
 ): Rule[] {
   const frames = geo.keyframes
   const rules: Rule[] = []
@@ -3031,11 +3036,38 @@ function geometryRules(
   const widthDecls = (atPx: number, value: string): string[] =>
     relaxed(atPx) ? [`width: fit-content`, `min-width: ${value}`] : [`width: ${value}`]
 
+  /**
+   * REQ-372 — the horizontal-position declaration(s) for one rung.
+   *
+   * Relaxing the width to a floor (above) grows the box from its LEFT edge,
+   * whatever the run's alignment. For a `left` run that is right. For a `center`
+   * run whose glyphs outgrow the captured width it moves the visual centre right
+   * by half the overflow: an icon glyph 50px wide in a 40px centred box painted
+   * 5px right of the reference, and a centred heading that renders 10px wider (an
+   * edit, a fallback face) drifts the same way. So a centred run is pinned by the
+   * centre of its captured box and a right-aligned run by its right edge, and the
+   * box is pulled back over that point by its own width. `translate` (not
+   * `transform`) so an authored `transform` on the node composes rather than
+   * being replaced. While the content still fits, the box is exactly the captured
+   * width, so the result is the captured box to the pixel.
+   *
+   * Rungs below the wrap threshold keep a fixed width and the plain left edge;
+   * they reset `translate`, because each rung overrides the ones beneath it.
+   */
+  const pivot = textAlign === 'center' ? 0.5 : textAlign === 'right' ? 1 : 0
+  const pivots = pivot > 0 && nowrapFromPx !== undefined && !anchoredX
+  const leftDecls = (atPx: number, prop: 'left' | 'margin-left', x: string, w: string): string[] => {
+    if (!pivots) return [`${prop}: ${x}`]
+    if (!relaxed(atPx)) return [`${prop}: ${x}`, 'translate: none']
+    const offset = pivot === 1 ? w : `${w} / 2`
+    return [`${prop}: calc(${x} + ${offset})`, `translate: ${pivot === 1 ? '-100%' : '-50%'} 0`]
+  }
+
   /** Held (non-interpolated) declarations for one keyframe. */
   const decls = (kf: L1Geometry['keyframes'][number]): string[] => {
     const h = kf.atHeight
     const d: string[] = [`top: ${h ? viewportResponsive(`${kf.y}px`, yFat(kf), h) : `${kf.y}px`}`]
-    if (!anchoredX) d.push(`left: ${kf.x}px`)
+    if (!anchoredX) d.push(...leftDecls(kf.at, 'left', `${kf.x}px`, `${kf.width}px`))
     if (!anchoredWidth) d.push(...widthDecls(kf.at, `${kf.width}px`))
     if (kf.height !== undefined) {
       d.push(`height: ${h ? viewportResponsive(`${kf.height}px`, hFat(kf), h) : `${kf.height}px`}`)
@@ -3067,7 +3099,7 @@ function geometryRules(
    */
   if (geo.place === 'flow') {
     const flowDecls = (kf: L1Geometry['keyframes'][number]): string[] => {
-      const d: string[] = [`margin-left: ${kf.x}px`, `margin-top: ${kf.y}px`]
+      const d: string[] = [...leftDecls(kf.at, 'margin-left', `${kf.x}px`, `${kf.width}px`), `margin-top: ${kf.y}px`]
       if (!fluidWidth) d.push(...widthDecls(kf.at, `${kf.width}px`))
       if (kf.height !== undefined) {
         const h = kf.atHeight
@@ -3085,7 +3117,7 @@ function geometryRules(
         continue
       }
       const d = [
-        `margin-left: ${lerpCalc(a.x, a.at, b.x, b.at)}`,
+        ...leftDecls(a.at, 'margin-left', lerpCalc(a.x, a.at, b.x, b.at), lerpCalc(a.width, a.at, b.width, b.at)),
         `margin-top: ${lerpCalc(a.y, a.at, b.y, b.at)}`,
         ...(fluidWidth ? [] : widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at))),
       ]
@@ -3145,7 +3177,9 @@ function geometryRules(
         return `calc(${base} + ${shift})`
       }
       const d = [`top: ${respond(lerpCalc(a.y, a.at, b.y, b.at), yFat(a))}`]
-      if (!anchoredX) d.push(`left: ${lerpCalc(a.x, a.at, b.x, b.at)}`)
+      if (!anchoredX) {
+        d.push(...leftDecls(a.at, 'left', lerpCalc(a.x, a.at, b.x, b.at), lerpCalc(a.width, a.at, b.width, b.at)))
+      }
       if (!anchoredWidth) d.push(...widthDecls(a.at, lerpCalc(a.width, a.at, b.width, b.at)))
       if (a.height !== undefined && b.height !== undefined) {
         d.push(`height: ${respond(lerpCalc(a.height, a.at, b.height, b.at), hFat(a))}`)
@@ -4518,8 +4552,16 @@ function emitNode(
     // qualifies on the same terms; a box's width is structure and never does.
     const nowrapFromPx =
       node.kind === 'text' || node.kind === 'control' ? node.axes?.nowrapFromPx : undefined
+    const textAlign = node.kind === 'text' || node.kind === 'control' ? node.axes?.textAlign : undefined
     state.rules.push(
-      ...geometryRules(selector, node.geometry, state.column, nowrapFromPx, fillsWidth(node.geometry, node.sizing)),
+      ...geometryRules(
+        selector,
+        node.geometry,
+        state.column,
+        nowrapFromPx,
+        fillsWidth(node.geometry, node.sizing),
+        textAlign,
+      ),
     )
   }
   /**
