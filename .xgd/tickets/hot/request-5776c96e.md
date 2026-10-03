@@ -6,10 +6,10 @@ title: 'Builder: a plan panel above the chat, where the consultant''s questions 
   for the client'
 created_by: EPIC-19
 created_at: '2026-10-02T21:02:05.849959+00:00'
-updated_at: '2026-10-02T23:31:01.525044+00:00'
+updated_at: '2026-10-03T00:15:59.134859+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-95bc3b15
