@@ -869,15 +869,26 @@ function titleFromText(text: string, filename: string): string {
       start = close + 1
     }
   }
+  let alt = ''
   for (const line of lines.slice(start)) {
-    const trimmed = line.replace(/^#+\s*/, '').trim()
+    // MARKUP IS NOT A TITLE EITHER (BUG-184). Markdown admits inline HTML, and a
+    // letterhead that opens with its logo's `<img …>` tag was titled with the tag.
+    // Tags and comments are stripped before the substance test, so a line of pure
+    // markup is empty and skipped, and markup around text leaves only the text.
+    // The first `alt` seen is kept as the fallback for a document with no text.
+    if (alt === '') alt = line.match(/\balt\s*=\s*(["'])\s*([^"']*?)\s*\1/i)?.[2] ?? ''
+    const trimmed = line
+      .replace(/<!--.*?(-->|$)/g, '')
+      .replace(/<\/?[a-z][^>]*>/gi, '')
+      .replace(/^#+\s*/, '')
+      .trim()
     // A RULE IS NOT A TITLE. `---`, `***`, `===` clear the length bar and say
     // nothing; without this an unclosed opening rule is titled `---` for exactly
     // the reason the front-matter fence was.
     if (/^[-=*_]+$/.test(trimmed)) continue
     if (trimmed.length >= 3) return clipTitle(trimmed)
   }
-  return filename || 'Untitled material'
+  return alt !== '' ? clipTitle(alt) : filename || 'Untitled material'
 }
 
 /**
