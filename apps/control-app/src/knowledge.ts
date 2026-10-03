@@ -384,7 +384,7 @@ export class ProjectKnowledge {
       embedder: this.embedder,
     })) as { total: number; added: number; kept: number }
     const chunkStats = (await buildChunkIndex(
-      await materialTextView(this.store),
+      materialTextView(this.store),
       this.kbs,
       this.chunks,
       { embedder: this.embedder },
@@ -693,9 +693,12 @@ export async function projectKnowledgeFor(
   })
 }
 
+/** The comments that hold a document's own text (REQ-173). */
+const TEXT_COMMENTS = `type="comment" AND fields.kind="${MATERIAL_TEXT_KIND}"`
+
 /**
- * The store as the CHUNK index should read it: a material's body is its own
- * extracted text (REQ-173).
+ * The store as a material's TEXT reads: a material's body is its own extracted
+ * text (REQ-173), for the chunk index and for the session that reads its hits.
  *
  * WHY A VIEW AND NOT A CORPUS CHANGE. `buildChunkIndex` chunks `ticket.body` and
  * only `ticket.body`, so once REQ-173 moved a document's text into a
@@ -708,17 +711,28 @@ export async function projectKnowledgeFor(
  * vector this ticket exists to get rid of. Substituting the body keeps every one
  * of those properties right and needs no declaration at all.
  *
+ * `get` IS SUBSTITUTED AS WELL AS `query`, AND THE SESSION READS THROUGH IT
+ * ([[BUG-185]]). A chunk hit's `start`/`end` are offsets into the text this view
+ * gave the chunk builder, and the knowledge surface's `KnowledgeGet` and
+ * `KnowledgeOutline` read through `store.get`. Over the bare store those reads
+ * returned the digest, so the offsets a chunk hit hands the model addressed a
+ * different string and a client's uploaded document could not be read at all.
+ * One view on both paths is what makes "search wide, read deep" address one text.
+ *
+ * LIVE, NOT A SNAPSHOT. Every call reads the comments it needs at the time it
+ * runs, because the session's runtime lives as long as the isolate and a
+ * document uploaded after it opened must read whole on the turn it is found.
+ * `query` reads every text comment in ONE query and maps them by
+ * `fields.subject_uid` — once per call, not once per material, which would be
+ * quadratic on a path that runs on every upload — and skips that read when the
+ * result is empty. `get` reads the one ticket's text comment by predicate, not
+ * its whole comment list, which for a `chat` ticket is the transcript.
+ *
  * IT IS TEMPORARY AND IT IS NAMED AS SUCH. The proper home for this is the
  * knowledge component: `buildChunkIndex` learning to chunk a designated comment
- * kind alongside the body, which is a change in `lagrange-framework`. When that
- * lands, this function and its call site are DELETED — the chunk builder will be
- * given `this.store` like the document builder, and the behaviour will not
- * change.
- *
- * ONE QUERY, NOT ONE PER MATERIAL. The comments are read once and mapped by
- * `fields.subject_uid`. Reading them per material would be a scan of every
- * comment in the store per document, which is quadratic in the corpus on a path
- * that runs on every upload.
+ * kind alongside the body, and its reads resolving the same text, which is a
+ * change in `lagrange-framework`. When that lands, this function and its call
+ * sites are DELETED and the behaviour will not change.
  *
  * THE MANIFEST'S PREMISE SURVIVES, which is the one thing about this that is
  * easy to get silently wrong. The chunk manifest keys on the parent's
@@ -727,30 +741,47 @@ export async function projectKnowledgeFor(
  * not"*. That holds here because `ingest` writes the comment BEFORE the first
  * index pass ever sees the material and nothing edits it afterwards — so the
  * text a given `updated_at` implies is fixed, exactly as a body would be.
+ *
+ * Every other member is the store's own, bound to it, so the view is a drop-in
+ * `TicketStore` wherever one is taken.
  */
-export async function materialTextView(store: TicketStore): Promise<Untyped> {
-  const { tickets } = await store.query({
-    predicate: `type="comment" AND fields.kind="${MATERIAL_TEXT_KIND}"`,
-    limit: 'all',
-  })
-  const text = new Map<string, string>()
-  for (const comment of tickets) {
-    const subject = String((comment.fields as Record<string, unknown>)?.subject_uid ?? '')
-    if (subject !== '' && comment.body) text.set(subject, comment.body)
+export function materialTextView(store: TicketStore): TicketStore {
+  const query: TicketStore['query'] = async (args) => {
+    const result = await store.query(args)
+    if (result.tickets.length === 0) return result
+    const { tickets: comments } = await store.query({
+      predicate: TEXT_COMMENTS,
+      limit: 'all',
+    })
+    const text = new Map<string, string>()
+    for (const comment of comments) {
+      const subject = String((comment.fields as Record<string, unknown>)?.subject_uid ?? '')
+      if (subject !== '' && comment.body) text.set(subject, comment.body)
+    }
+    if (text.size === 0) return result
+    return {
+      ...result,
+      tickets: result.tickets.map((ticket) =>
+        text.has(ticket.uid) ? { ...ticket, body: text.get(ticket.uid) as string } : ticket,
+      ),
+    }
   }
-  // THE STORE ITSELF when there is nothing to substitute, so a deployment with no
-  // documents yet indexes through exactly the object the document index does and
-  // this file adds no code path to a corpus it has nothing to say about.
-  if (text.size === 0) return store
-  return {
-    query: async (args: { predicate?: string; limit?: number | 'all' }) => {
-      const result = await store.query(args)
-      return {
-        ...result,
-        tickets: result.tickets.map((ticket) =>
-          text.has(ticket.uid) ? { ...ticket, body: text.get(ticket.uid) as string } : ticket,
-        ),
-      }
+  const get: TicketStore['get'] = async (args) => {
+    const result = await store.get(args)
+    if (!result?.ticket) return result
+    const { tickets } = await store.query({
+      predicate: `${TEXT_COMMENTS} AND fields.subject_uid="${result.ticket.uid}"`,
+      limit: 1,
+    })
+    const own = tickets[0]?.body
+    return own ? { ...result, ticket: { ...result.ticket, body: own } } : result
+  }
+  return new Proxy(store, {
+    get(target, prop) {
+      if (prop === 'query') return query
+      if (prop === 'get') return get
+      const value = Reflect.get(target, prop, target)
+      return typeof value === 'function' ? value.bind(target) : value
     },
-  }
+  })
 }
