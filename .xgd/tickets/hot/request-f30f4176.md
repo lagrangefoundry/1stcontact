@@ -6,10 +6,10 @@ title: 'fold: a band''s hero <img> is painted over the band''s own scrim (and fi
   further Zyro residuals)'
 created_by: repro-console:repro-www-hearingzone510-com#1
 created_at: '2026-10-03T19:22:40.995134+00:00'
-updated_at: '2026-10-03T19:22:40.995134+00:00'
+updated_at: '2026-10-03T22:07:08.344761+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong
