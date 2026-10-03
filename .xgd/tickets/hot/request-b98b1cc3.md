@@ -6,10 +6,10 @@ title: 'Screenshots: show the page a screen at a time, with a conservative defau
   the AI can widen'
 created_by: EPIC-20
 created_at: '2026-10-02T19:01:38.804395+00:00'
-updated_at: '2026-10-02T19:01:38.804395+00:00'
+updated_at: '2026-10-03T16:45:09.423274+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-0923bb64
