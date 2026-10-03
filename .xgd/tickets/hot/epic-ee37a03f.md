@@ -5,9 +5,9 @@ type: epic
 title: 'Identity: impersonation, multiple login emails, and delegate access'
 created_by: martin-github@westhead.me
 created_at: '2026-10-03T17:23:39.835613+00:00'
-updated_at: '2026-10-03T18:09:59.832229+00:00'
+updated_at: '2026-10-03T18:19:01.006389+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -25,88 +25,65 @@ signed in** from **what they may act on**. Today those are one fact.
    they can sign in with.
 3. **Delegates.** A business owner invites someone else to run their business.
 
-## 1. Impersonation (platform operator only)
+## 1. Impersonation → "open any business" from the console (platform operator only)
 
-### What the operator gets
+### Decision (2026-10-03): v1 is a console Open control, not full impersonation
 
-- **Entry point: the platform console.** Today the console lists **sites**
-  (`builder/platform-sites.js`, `GET /api/admin/sites`) and **no users**. This
-  item adds a way to find a user: by email, or from a site's owning account. It
-  also adds an **Impersonate** action on that user, which starts acting as them.
-- **"As them" means everything resolves as that user.** That covers their
-  business selector, their default business, their profile portal and every
-  tab. It is more than entering one of their businesses. The `scope.ts`
-  `platform_operator` bypass already lets the operator into any business, but
-  as themselves with `role: null`. That is the gap this closes.
-- **The operator keeps their own powers.** They keep the platform console and
-  their `platform_operator` capability throughout. From inside an
-  impersonation they can switch straight to another user or back to
-  themselves, without signing out or sending a new magic link.
-- **A banner on every page** while impersonating. It names the impersonated
-  user and has a one-click **Stop impersonating** control. It appears on every
-  control-app page, including the builder, the portal and the console. It
-  cannot be dismissed.
+The operator can already **enter** any business. `scope.ts:415` lets a
+`platform_operator` resolve a scope for any business that has a grant and is
+active, with no membership. What is missing is **navigation**:
 
-### The model this implies
+- The business selector lists only `admission.businesses`, which comes from
+  membership rows.
+- The console lists every site and its business, but has no way to open the
+  app in one.
+- So there is no route by which the operator actually reaches someone else's
+  business.
 
-**Where it attaches.** Each request resolves identity as cookie → session
-subject → primary email → `admit(env, email)` → `Admission` → `resolveScope`
-(`index.ts:463-518`). Impersonation substitutes the subject between
-`sessionIdentity` and `admit`. **It does not add a column to `sessions`.** That
-table is a verbatim copy of the `auth-passwordless` component's schema, and
-`test_UAT_FC_REQ-202_passwordless_schema` pins the copy. Impersonation state
-lives in its own table instead, keyed by the session's `origin_id` so it
-survives the 24-hour rotation:
-`(origin_id, actor_id, subject_id, started_at, ended_at)`.
+**What the operator gets:**
 
-The session then carries two identities:
+- **An Open control on every business in the platform console.** It is a link
+  or button on each row of the console list (`builder/platform-sites.js`).
+- Pressing it opens the builder app scoped to that business (`/b/<id>`). This
+  is the same view the selector gives for an owned business.
+- **Getting back is the existing selector.** It still lists the operator's own
+  businesses, so switching back is one choice. The console stays reachable
+  throughout, because the console gate reads the operator's own admission and
+  that admission has not changed.
+- **A visible reminder.** While the open business is one the operator holds no
+  membership on, every page shows a banner: "You are in <business> as platform
+  operator". It also offers a way back to their own business.
+- **The selector shows the entered business.** That business is not in the
+  operator's membership list. The selector shows it as the current entry,
+  marked as entered rather than owned, until the operator switches away.
 
-- the **actor**: the real signed-in person, always the operator here
-- the **subject**: whom the request resolves as
+**What this deliberately is not:**
 
-Ordinary scope and business resolution read the subject. Two decisions read
-the actor:
+- It does not act as a **user**. The operator sees the **business** as it is,
+  not a particular person's selector, profile portal or account pages.
+- Entering through the bypass returns `role: null` (`scope.ts:412`). So
+  **owner-gated controls stay closed** while the operator is inside, for
+  example adding or inviting contacts. These are the `ownsBusiness` checks at
+  `router.ts:4015-4764`. The operator sees the business and does not act as its
+  owner. **Open question:** is that enough for support, or should those
+  controls open to the operator too?
+- **Audit.** Each entry to a business without a membership leaves an audit
+  event: who entered it and when.
 
-- the platform-console gate
-- the right to start, switch or stop an impersonation
+### Deferred: full user impersonation
 
-Today the console gate is `ownsPlatformBusiness(admission)`. Run against the
-subject's admission, it would lock the operator out of the console the moment
-they impersonate. Keeping the console means that gate evaluates the actor.
+Acting as a specific **user** is parked until the console Open control proves
+insufficient. That means seeing their selector, their profile portal and their
+account pages. If it comes back, these are the findings for it:
 
-### Constraints
-
-- **Who may impersonate:** holders of the hosting capability,
-  `users.platform_operator` or `PLATFORM_ADMINS`. This is the one cross-account
-  power the codebase already admits ([[DOC-42]] §8, [[REQ-185]]). It is not
-  `memberships.role = owner` of the 1st Contact business. Owning a business does
-  not confer reach into other people's accounts.
-- **Audited.** Starting, switching and stopping each leave an audit event
-  recording the actor and the subject. Writes made while impersonating are
-  attributed to the actor acting as the subject, never to the subject alone. A
-  customer-visible change must not read as though the customer made it.
-- **No escalation through the subject.** An operator cannot impersonate a
-  user and then use that user's session to impersonate a third person. Every
-  impersonation decision reads the actor.
-- **Ending an impersonation does not end the operator's sign-in.**
-- **Out of scope: the public site.** `apps/public-site` reads the same cookie
-  to check membership (`public-site/src/session.ts`). Impersonating there is
-  not part of v1. It keeps resolving the actor.
-
-### Open questions
-
-- Should impersonation be **time-boxed** (auto-expiring after N hours)?
-  [[DOC-40]] §6 and CHAT-23 prefer time-boxed, audited access. Proposal:
-  impersonation lasts no longer than the operator's own session, with no
-  separate timer in v1.
-- Are any actions **refused while impersonating**? Candidates:
-  - sending outbound mail as the customer
-  - Stripe payment actions
-  - deleting the account
-  - adding or removing the customer's login emails
-
-  Proposal: v1 refuses removing a login email and deleting the account. It
-  allows everything else, and the audit trail covers it.
+- Identity resolves cookie → session subject → primary email → `admit()`
+  (`index.ts:463-518`). That chain is the seam where a subject would be
+  substituted.
+- `sessions` is a pinned copy of the `auth-passwordless` schema
+  (`test_UAT_FC_REQ-202_passwordless_schema`). Impersonation state would need
+  its own table, keyed by `origin_id`.
+- The console gate and the impersonation controls must read the **actor**, not
+  the subject. Otherwise impersonating locks the operator out of the console.
 
 ## 2. Multiple login emails (profile portal)
 
@@ -158,7 +135,14 @@ they impersonate. Keeping the console means that gate evaluates the actor.
 
 ### What the business owner gets
 
-- On the **Contacts** tab, a **Make delegate** invite. It is a separate act
+- **The flow:** the owner adds the person to their contacts, then invites them
+  as a delegate.
+  - Adding already exists. It is the **+** ("Add a contact") on the Contacts
+    list (`builder/people.js:1082`, `/api/people/add`, `addContact`). It shows
+    only to an owner of the business (`canInvite`).
+  - **Open question:** the operator reported this as missing. Is the **+**
+    not visible, not discoverable, or missing something it needs?
+- On the **Contacts** tab, a **Make delegate** invite on a selected contact. It is a separate act
   from the existing portal **Invite** ([[REQ-199]]). `invites.ts` is built on
   "two acts, two functions, no flag", and the delegate invite follows that.
 - The invitee gets an email. They follow it and **sign in to the platform**,
@@ -219,8 +203,9 @@ they impersonate. Keeping the console means that gate evaluates the actor.
 
 ## Interactions between the three
 
-- Impersonating a delegate shows the delegate's selector, with the delegated
-  businesses in it.
+- An operator who uses the console's Open on a business sees that business,
+  not anyone's delegate list. A delegate's selector is only visible as that
+  delegate, which is the deferred full impersonation.
 - Delegate invites go to an address. If that address is already a login email
   on an existing account (item 2), the membership attaches to that account
   rather than creating a new one.
@@ -229,8 +214,8 @@ they impersonate. Keeping the console means that gate evaluates the actor.
 
 Keep the ticket count small ([[REQ-170]]-style single tickets per feature):
 
-- **REQ — Impersonation:** the actor/subject session, the console action, the
-  banner, the audit trail
+- **REQ — Console "Open business":** the Open control, the selector showing
+  an entered business, the banner, the entry audit event
 - **REQ — Login emails on the profile portal:** `verified_at`, add/remove, the
   last-validated rule
 - **REQ — Delegates:** the `delegate` role, the contacts-tab invite and accept,
