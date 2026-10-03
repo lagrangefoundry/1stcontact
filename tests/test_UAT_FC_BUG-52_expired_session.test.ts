@@ -154,10 +154,13 @@ describe('BUG-52 — a refusal is no longer a default', () => {
     // could not answer has not said this session owns the platform business, so
     // the operator console is absent here for the same reason the switcher is
     // empty — nobody was asked, and being untold is not ownership.
+    // [[REQ-367]]'s `entered` joins them on the same terms: nobody was asked,
+    // so no business was entered.
     expect(result.businesses).toEqual({
       person: null,
       businesses: [],
       ownsPlatformBusiness: false,
+      entered: null,
     })
     expect(seen).toEqual([])
   })

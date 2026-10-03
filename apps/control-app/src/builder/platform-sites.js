@@ -49,6 +49,7 @@ import {
   CONSOLE_BUSINESS_NAME_MISSING,
   CONSOLE_FIELDS,
   CONSOLE_METER_UNREADABLE,
+  CONSOLE_OPEN_LABEL,
   CONSOLE_PANE_EMPTY,
   CONSOLE_PERIOD_DAYS,
   CONSOLE_PERIOD_LABEL,
@@ -63,7 +64,7 @@ import {
 } from './config.js'
 import { mountListDetail } from '@lagrangefoundry/webui-list-detail'
 import { clearDetail } from './detail-pane.js'
-import { fetchPlatformSites, fetchTenantCost } from './api.js'
+import { businessPath, fetchPlatformSites, fetchTenantCost } from './api.js'
 import { dollars, periodOfDays } from './tenant-cost.js'
 
 /** The list/detail's stable id — what namespaces its split position. */
@@ -192,6 +193,28 @@ export function addressSection() {
       container.append(link)
     },
   }
+}
+
+/**
+ * The row's way into its business ([[REQ-367]]).
+ *
+ * A LINK TO THE BUILDER UNDER THAT BUSINESS'S PREFIX, and nothing more: the
+ * server already lets the platform operator resolve a scope inside any hosted
+ * business, so what was missing was a route there, not a permission. A real
+ * anchor, so a middle click opens it beside the console and the browser's own
+ * affordances work. The SAME tab by default — the operator is going there, and
+ * the switcher and the banner are how they come back.
+ *
+ * ITS CLICK DOES NOT ALSO SELECT THE ROW. Navigating away makes the selection
+ * moot, and a middle click that changed the detail pane behind the new tab
+ * would be a side effect nobody asked for.
+ */
+function openControl(businessId) {
+  const link = el('a', 'builder-console-sites__open', CONSOLE_OPEN_LABEL)
+  link.href = businessPath(businessId, '/')
+  link.dataset.open = businessId
+  link.addEventListener('click', (event) => event.stopPropagation())
+  return link
 }
 
 /** One labelled fact in the detail pane, addressed by its id and never its label. */
@@ -363,6 +386,7 @@ export function mountPlatformSites(
       ),
       el('span', 'builder-console-sites__row-address', site.address ?? ''),
       el('span', 'builder-console-sites__row-cost', dollars(site.costMicros ?? null)),
+      openControl(site.business),
     )
     return row
   }

@@ -57,11 +57,44 @@ export function getBusinessScope() {
 /**
  * Prefix a same-origin path with the current business.
  *
- * Deliberately NOT applied to `/api/status` or `/api/businesses`: both are asked
- * BEFORE a business is chosen and neither is about one. Everything else is.
+ * Deliberately NOT applied to `/api/status`: it is asked BEFORE a business is
+ * chosen and is not about one. `/api/businesses` IS scoped since [[REQ-367]] —
+ * its answer is still about the account, but whether the business in scope is
+ * one the account holds or one the platform operator ENTERED is a fact about the
+ * scope, and only a scoped request can be told it. Unscoped, it is the same
+ * request it always was.
  */
 function scoped(path) {
-  return businessScope === null ? path : `/b/${encodeURIComponent(businessScope)}${path}`
+  return businessPath(businessScope, path)
+}
+
+/**
+ * A same-origin path under an explicitly named business ([[REQ-367]]) — the
+ * console's Open control, which links to a business that is not the one in
+ * scope. {@link scoped} with the id given rather than the current one.
+ */
+export function businessPath(businessId, path) {
+  const id = String(businessId ?? '').trim()
+  return id === '' ? path : `/b/${encodeURIComponent(id)}${path}`
+}
+
+/**
+ * The business a page URL names, or null ([[REQ-367]]).
+ *
+ * THE INVERSE OF {@link scoped}, beside it so the prefix's shape is one fact on
+ * this side of the wire. The console's Open control is a link to `/b/<id>/`, and
+ * the document the builder boots in is served under that prefix — so the boot
+ * reads it here and scopes its first request to it, which is what lets the
+ * server say the business was entered rather than held.
+ */
+export function businessFromPath(pathname) {
+  const match = /^\/b\/([^/]+)/.exec(String(pathname ?? ''))
+  if (!match) return null
+  try {
+    return decodeURIComponent(match[1]).trim() || null
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -330,11 +363,16 @@ export async function postSurface(surface, fetchImpl = fetch) {
  * business, and saying so is what keeps the failure mode of every path through
  * here "no console" rather than "an offered one".
  */
-const noSession = () => ({ person: null, businesses: [], ownsPlatformBusiness: false })
+const noSession = () => ({
+  person: null,
+  businesses: [],
+  ownsPlatformBusiness: false,
+  entered: null,
+})
 
 export async function fetchBusinesses(fetchImpl = fetch) {
   try {
-    const res = await send(fetchImpl, '/api/businesses')
+    const res = await send(fetchImpl, scoped('/api/businesses'))
     if (res.status === 401) throw new SessionEndedError(SESSION_EXPIRED)
     if (!res.ok) return noSession()
     const body = await res.json()
@@ -363,6 +401,16 @@ export async function fetchBusinesses(fetchImpl = fetch) {
        * the same fact as one that does, and must not round up to it.
        */
       ownsPlatformBusiness: body?.ownsPlatformBusiness === true,
+      /**
+       * The business in scope, when it was ENTERED rather than held
+       * ([[REQ-367]]) — the platform operator inside someone else's. Carried by
+       * name for {@link noSession}'s reason: a field this list forgets is a
+       * banner that silently never draws.
+       */
+      entered:
+        typeof body?.entered?.id === 'string'
+          ? { id: body.entered.id, name: String(body.entered.name ?? body.entered.id) }
+          : null,
     }
   } catch (error) {
     // EXCEPT A REFUSED ONE ([[BUG-52]]). "No switcher and an unscoped session"
@@ -398,8 +446,10 @@ export async function fetchBusinesses(fetchImpl = fetch) {
 export async function fetchBusinessRecord(fetchImpl = fetch) {
   const id = getBusinessScope()
   if (!id) return null
-  const { businesses } = await fetchBusinesses(fetchImpl)
-  const mine = businesses.find((b) => b?.id === id)
+  const { businesses, entered } = await fetchBusinesses(fetchImpl)
+  // An ENTERED business is not in the list ([[REQ-367]]) and is still the one
+  // in scope, so its name is read from where the endpoint puts it.
+  const mine = businesses.find((b) => b?.id === id) ?? (entered?.id === id ? entered : null)
   return mine ? { id: mine.id, name: mine.name ?? '' } : null
 }
 

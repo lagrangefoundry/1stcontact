@@ -163,6 +163,13 @@ export const ACCEPTANCE_REQUESTED = 'acceptance.requested'
  */
 export const SESSION_RECORDED = 'session.recorded'
 
+/**
+ * The platform operator opened the app inside a business they hold no
+ * membership on ([[REQ-367]]). Filed on the OPERATOR's own contact, with the
+ * business entered as the `ref` — the audit of who went in, and when.
+ */
+export const OPERATOR_ENTERED = 'operator.entered'
+
 /* ── Mail ────────────────────────────────────────────────────────────────── */
 
 /**
@@ -193,6 +200,7 @@ const LABELS = {
   [EMAIL_BOUNCED]: 'Email bounced',
   [EMAIL_RECEIVED]: 'Email received',
   [SESSION_RECORDED]: 'Active session',
+  [OPERATOR_ENTERED]: 'Entered a business as platform operator',
 }
 
 /**

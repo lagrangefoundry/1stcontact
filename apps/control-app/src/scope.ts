@@ -441,3 +441,27 @@ export async function resolveScope(
 function firstAdmissible(businesses: AdmittedBusiness[]): AdmittedBusiness | null {
   return businesses.find((b) => b.selectable) ?? null
 }
+
+/**
+ * The business this scope was ENTERED rather than held ([[REQ-367]]) — or null.
+ *
+ * NON-NULL EXACTLY WHEN {@link resolveScope} TOOK THE HOSTING BYPASS: an admitted
+ * caller whose resolved business is not one of their memberships. That is the
+ * only route by which the two can differ, so the predicate is "not held" rather
+ * than a second read of `platform_operator` — this file stays that column's only
+ * reader, and the answer cannot drift from the decision that produced the scope.
+ *
+ * IT CARRIES THE NAME because both of its readers say it: the chrome's banner and
+ * switcher entry, and the audit event. The caller's own list cannot supply it —
+ * that list is memberships, which is precisely what this business is not in.
+ */
+export async function enteredBusiness(
+  env: IdentityEnv,
+  admission: Admission | null | undefined,
+  scope: Scope | null,
+): Promise<{ id: string; name: string } | null> {
+  if (!admission?.ok || scope === null) return null
+  if (admission.businesses.some((b) => b.businessId === scope.businessId)) return null
+  const business = await admissibleBusiness(env, scope.businessId)
+  return business ? { id: business.businessId, name: business.name } : null
+}
