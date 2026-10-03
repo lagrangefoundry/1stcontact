@@ -5,9 +5,9 @@ type: doc
 title: L1 Reproduction Vocabulary (living draft)
 created_by: xgd
 created_at: '2026-07-23T01:29:19.345635+00:00'
-updated_at: '2026-08-31T19:43:14.207169+00:00'
+updated_at: '2026-10-03T17:01:41.160621+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: draft
 fields:
   doc_kind: architecture
@@ -79,6 +79,11 @@ Every noun below comes in a `target` / `local` pair.
 - **Design rule for L1 axes:** an axis belongs in L1 **iff it moves a pixel** (iff
   it is part of the sufficient statistic). No inert aesthetic dials; no pixel-mover
   left out.
+  Worked example (REQ-365): `textDecoration` said *which* line a run paints but not
+  *where*, so faelan.com's `text-underline-offset: 4px` link painted 2px high at the
+  engine's `auto` with zero value deltas. The fix was a typed `underlineOffsetPx`
+  axis (run, text node, interaction state) plus the comparator reading it — the
+  pixel-mover joined the statistic instead of a raw-CSS hole being opened.
 
 ### The three qualifiers (where the identities hold today)
 The free-fidelity theorem holds only on:
