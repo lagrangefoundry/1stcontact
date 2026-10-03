@@ -6,10 +6,10 @@ title: 'values-diff: a run clipped away by its ancestor reads clean, and 18 of 2
   deltas compare the wrong thing'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:50.344172+00:00'
-updated_at: '2026-10-03T20:21:48.058686+00:00'
+updated_at: '2026-10-03T20:35:01.315008+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -20,6 +20,11 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-57ef52fd
+  commits:
+  - working_sha: ee378c143ea9a4a592253c974417f822b58cbfc9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.455
 ---
 
 # values-diff: a run clipped away by its ancestor reads clean, and 18 of 23 deltas compare the wrong thing
