@@ -6,7 +6,7 @@ title: set_standing_note reports success but the next turn is primed with an old
   note
 created_by: xgd
 created_at: '2026-10-03T21:24:06.495716+00:00'
-updated_at: '2026-10-03T21:24:59.999648+00:00'
+updated_at: '2026-10-03T21:25:26.925157+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -48,3 +48,8 @@ This points to the priming snapshot being taken from something other than the la
 **Confirmation, now real:** the turn after that one was primed with a standing note that still says "REQ per-side borders NOT filed… possible persistence bug, not yet filed". The final write of the previous turn was successful (note_bytes 1959) and listed REQ-375 and BUG-193 as filed. The priming note matches a write from **two** turns back, so every later successful write was dropped from priming.
 
 Separately, the decision ledger delivered in the same priming was current (2 entries, correct), so the problem looks specific to the standing note's storage or read path.
+
+## Retraction: probably not a bug (reporter error)
+On reflection, the evidence doesn't support this report. The record delivered to the agent is explicitly a snapshot "as this turn began". All of the "missing" writes were made **within the current turn**, so a start-of-turn snapshot is not expected to contain them. The note that was delivered matches the last write of the **previous** turn exactly, which is correct behaviour. My earlier "confirmation" mistook a record re-delivered mid-turn (still the start-of-turn snapshot) for a new turn's priming.
+
+Suggest closing this as not-a-bug. A possible small improvement: when the record is re-delivered within a turn, label it as the start-of-turn snapshot (e.g. "as of change N, start of this turn"), so the agent doesn't read it as a failed write.
