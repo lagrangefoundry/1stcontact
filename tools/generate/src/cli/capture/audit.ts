@@ -30,6 +30,7 @@ import { readCapture } from './bundle'
 import { staleCaptureDetail } from './schema'
 import type { BrowserDriverFactory, Capture, Viewport } from './types'
 import type { ReferenceBundle } from '../../store/reference-store'
+import type { UnmeasuredProperty } from '../gate-core'
 
 export type { CoverageVerdict, CoverageEntry } from './coverage'
 export type { ObservedProperty, RawAudit } from './audit-script'
@@ -126,6 +127,27 @@ export function auditObservations(raw: RawAudit, capture: Capture, bundle: strin
     carried,
     stale: staleCaptureDetail(capture),
   }
+}
+
+/**
+ * BUG-178 — the audit's findings that are UNMEASURED on a gate run: used by the
+ * page, and either no L1 axis can say them (`not-expressible`) or this bundle
+ * carries no instance of an axis the extractor records (`lost`). `declined` is
+ * not among them — a declined mechanism's rendered outcome IS measured, by the
+ * axis the register names — and `untriaged` is a register gap, not a page fact.
+ */
+export function unmeasuredPropertiesOf(audit: CaptureAudit): UnmeasuredProperty[] {
+  const row = (f: AuditFinding, verdict: UnmeasuredProperty['verdict']): UnmeasuredProperty => ({
+    property: f.property,
+    verdict,
+    count: f.count,
+    values: [...f.values],
+    ...(f.note ? { note: f.note } : {}),
+  })
+  return [
+    ...audit.notExpressible.map((f) => row(f, 'not-expressible')),
+    ...audit.lost.map((f) => row(f, 'lost')),
+  ]
 }
 
 /** What {@link runCaptureAudit} needs beyond the bundle. */

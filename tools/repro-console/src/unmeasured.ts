@@ -26,8 +26,8 @@
  * silent parts are named on the page beside the total.
  */
 
-/** The four things an iteration can fail to measure, in the order they are read. */
-export type UnmeasuredPartId = 'axes' | 'bands' | 'populations' | 'probes'
+/** The things an iteration can fail to measure, in the order they are read. */
+export type UnmeasuredPartId = 'axes' | 'bands' | 'populations' | 'probes' | 'properties'
 
 /** One component of the set, and what the report was able to say about it. */
 export interface UnmeasuredPart {
@@ -118,10 +118,26 @@ function declinedNames(value: unknown): string[] {
   return out
 }
 
+/** `text-underline-offset (4px), overflow-x (hidden)` — one row per property. */
+function propertyNames(rows: unknown[]): string | undefined {
+  const named: string[] = []
+  for (const row of rows) {
+    const property = (row as { property?: unknown })?.property
+    if (typeof property !== 'string') continue
+    const values = (row as { values?: unknown })?.values
+    const shown = Array.isArray(values) ? values.filter((v): v is string => typeof v === 'string') : []
+    const notes = [shown.join(', ')]
+    if ((row as { verdict?: unknown })?.verdict === 'lost') notes.push('not carried by this bundle')
+    const said = notes.filter(Boolean).join('; ')
+    named.push(said ? `${property} (${said})` : property)
+  }
+  return named.length ? named.join(', ') : undefined
+}
+
 /**
  * The unmeasured set of one gate report ([[REQ-277]] behaviour 1).
  *
- * The four parts are the ticket's definition, mapped onto the fields the gate
+ * The first four parts are the ticket's definition, mapped onto the fields the gate
  * already writes:
  *
  * | part | `gate.json` | what it means |
@@ -130,6 +146,16 @@ function declinedNames(value: unknown): string[] {
  * | bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared ([[BUG-111]]) |
  * | populations | `values.unmatched` + `values.unpairedActual` + `values.bandPaintActual` | an element on either side that paired with nothing ([[BUG-106]], [[BUG-161]]) |
  * | probes | `values.sectionsNotComparable` + `values.notComparableAxes` | a measurement the run declared it could not make at all ([[BUG-102]], [[BUG-139]]) |
+ * | properties | `unmeasuredProperties` | a property the reference page USES that the capture audit found no axis can say, or this bundle does not carry ([[BUG-178]]) |
+ *
+ * `properties` is the one part read from outside the comparator: the other four
+ * are silences the comparator ran into, and this one is what [[REQ-275]]'s
+ * capture audit already knew about the page before any comparison ran. It is in
+ * the set ONLY when the report carries the field, because the gate attaches it
+ * only when it ran the audit — a pre-shot gate opens no browser and asks no
+ * audit, so it claims nothing either way and its total is the four-part one. A
+ * field that is present and `null` means the audit was attempted and failed,
+ * and that part is SILENT like any other the report cannot speak for.
  *
  * `values.nonSurfaceSections` ([[REQ-308]]) is NOT a fifth part and is not summed
  * into `bands`: a reference band that paints nothing is one no fold could ever
@@ -201,6 +227,12 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
   // reads as nothing to say, which is what it is.
   const nonSurface = countOf(values.nonSurfaceSections) ?? 0
 
+  // BUG-178 — the audit's rows, named with their values, because "6 properties"
+  // is not actionable and "text-underline-offset (4px)" says what to go and add.
+  const hasProperties = Object.prototype.hasOwnProperty.call(report, 'unmeasuredProperties')
+  const propertyRows = (report as { unmeasuredProperties?: unknown }).unmeasuredProperties
+  const propertyDetail = Array.isArray(propertyRows) ? propertyNames(propertyRows) : undefined
+
   const parts: UnmeasuredPart[] = [
     {
       id: 'axes',
@@ -243,6 +275,17 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
       count: probes,
       ...(probeDetail ? { detail: probeDetail } : {}),
     },
+    ...(hasProperties
+      ? [
+          {
+            id: 'properties' as const,
+            label: 'properties',
+            one: 'property',
+            count: countOf(propertyRows),
+            ...(propertyDetail ? { detail: propertyDetail } : {}),
+          },
+        ]
+      : []),
   ]
   const known = parts.filter((part) => part.count !== null)
   return {
@@ -267,7 +310,7 @@ export function headlineOf(set: UnmeasuredSet): string {
   return set.silent.length ? `unmeasured ≥ ${set.total}` : `unmeasured ${set.total}`
 }
 
-/** `3 axes, 2 bands, 2 populations, 0 probes`, plus what the report cannot say. */
+/** `3 axes, 2 bands, 2 populations, 0 probes, 1 property`, plus what the report cannot say. */
 export function breakdownOf(set: UnmeasuredSet): string {
   const counted = set.parts
     .filter((part) => part.count !== null)

@@ -43,7 +43,7 @@ export { AUDIT_SCRIPT } from './audit-script'
 export type { ObservedProperty, RawAudit } from './audit-script'
 export { CAPTURE_COVERAGE } from './coverage'
 export type { CoverageEntry, CoverageVerdict } from './coverage'
-export { auditObservations, combineAudits, runCaptureAudit } from './audit'
+export { auditObservations, combineAudits, runCaptureAudit, unmeasuredPropertiesOf } from './audit'
 export type {
   AuditFinding,
   CaptureAudit,

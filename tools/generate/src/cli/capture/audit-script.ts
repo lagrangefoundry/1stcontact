@@ -22,7 +22,9 @@
  *     noise that looks like signal.
  *
  * So: **a longhand is in use when some rule declaring it matches a visible
- * element**, plus whatever visible elements carry in an inline `style`. Both
+ * element it applies to**, plus whatever visible elements carry in an inline
+ * `style`. "Applies to" is the spec's own line for the property (BUG-178): a
+ * `vertical-align` on a block box is declared and matched and does nothing. Both
  * halves are read off this page; neither is a list anybody maintains.
  *
  * SHORTHANDS ARE EXPANDED BY THE BROWSER, not by a table here. A rule declaring
@@ -102,6 +104,25 @@ export const AUDIT_SCRIPT = `(() => {
   // stays as mechanical as the rest of the walk.
   var NO_OP = { initial: 1, inherit: 1, unset: 1, revert: 1, 'revert-layer': 1 }
 
+  // BUG-178 — a declaration whose property does not APPLY to any element it
+  // reaches is inert, and counting it as use makes the report lie. The case that
+  // found it: a reset's \`img,svg,video{vertical-align:middle;display:block}\`
+  // matches every image on the page, and vertical-align does nothing to a block
+  // box — so the audit reported a run axis "lost" that no element could carry.
+  // Each entry is the CSS spec's own "Applies to" line, read off the computed
+  // style, so like NO_OP above it is the spec's judgement and not a wishlist.
+  var APPLIES = {
+    // CSS 2.2 §10.8.1: inline-level and 'table-cell' elements. A flex or grid
+    // item is blockified, so its computed display is already not inline here.
+    'vertical-align': function (cs) { return cs.display.indexOf('inline') === 0 || cs.display === 'table-cell' }
+  }
+  function appliesToAny(prop, els) {
+    var test = APPLIES[prop]
+    if (!test) return true
+    for (var i = 0; i < els.length; i++) if (test(getComputedStyle(els[i]))) return true
+    return false
+  }
+
   var seen = {}
   function note(prop, value) {
     // A custom property moves no pixels by itself: it reaches the page only
@@ -124,18 +145,20 @@ export const AUDIT_SCRIPT = `(() => {
       if (rule.cssRules && !rule.selectorText) { walk(rule.cssRules); continue }
       if (!rule.style || !rule.selectorText) continue
       var selector = rule.selectorText.replace(PSEUDO_EL, '').replace(DYNAMIC, '')
-      var matched = false
+      var matched = []
       try {
         for (var k = 0; k < visible.length; k++) {
-          if (visible[k].matches(selector)) { matched = true; break }
+          if (visible[k].matches(selector)) matched.push(visible[k])
         }
-      } catch (e) { matched = false }
-      if (!matched) continue
+      } catch (e) { matched = [] }
+      if (!matched.length) continue
       for (var p = 0; p < rule.style.length; p++) {
         var name = rule.style[p]
         var value = rule.style.getPropertyValue(name)
         var longs = longhands(name, value)
-        for (var q = 0; q < longs.length; q++) note(longs[q], value)
+        for (var q = 0; q < longs.length; q++) {
+          if (appliesToAny(longs[q], matched)) note(longs[q], value)
+        }
       }
     }
   }
@@ -152,7 +175,9 @@ export const AUDIT_SCRIPT = `(() => {
       var n2 = inline[p2]
       var val2 = inline.getPropertyValue(n2)
       var longs2 = longhands(n2, val2)
-      for (var q2 = 0; q2 < longs2.length; q2++) note(longs2[q2], val2)
+      for (var q2 = 0; q2 < longs2.length; q2++) {
+        if (appliesToAny(longs2[q2], [visible[v]])) note(longs2[q2], val2)
+      }
     }
   }
 
