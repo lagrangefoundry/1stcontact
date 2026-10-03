@@ -5,9 +5,9 @@ type: request
 title: 'Contacts: delegate access to a business'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:49.444265+00:00'
-updated_at: '2026-10-03T19:34:48.515215+00:00'
+updated_at: '2026-10-03T19:35:45.081360+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   epic_parent: epic-ee37a03f
@@ -25,6 +25,7 @@ fields:
   version: 0.2.449
   story_points: 8
 ---
+
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
 
@@ -209,9 +210,14 @@ on `accountOwnsBusiness`.
 
 **Default business** (`resolveBusiness`):
 1. A remembered selection still wins.
-2. Otherwise, if no owned business is live and a delegated business is
-   selectable, open a delegated one, preferring a live one.
-3. Otherwise open the first selectable business, as before.
+2. Otherwise, if the person holds any selectable delegated business:
+   - if one of their **owned** businesses is live, open that owned business.
+     This rule is stated explicitly rather than left to membership order,
+     because a delegate membership granted before their own business existed
+     sorts first.
+   - else open a delegated business, preferring a live one.
+3. Otherwise open the first selectable business, as before. Somebody who
+   delegates nothing sees no change.
 
 **Not changed.**
 - Entitlement is still the business's own capacity grant (`admittedBusiness`),
@@ -245,6 +251,25 @@ New UATs `tests/test_UAT_FC_REQ-369_*`:
   - the Contacts tab shows the delegate badge and the Delegate section only
     when `canDelegate` is true
 
-Existing assertion updated: `test_UAT_FC_REQ-197_render`'s closed template-key
-list gains `delegate`. That is the intended growth of the platform's message
-set.
+Existing assertions updated. Both are intended consequences of this ticket:
+- `test_UAT_FC_REQ-197_render`: the closed template-key list gains
+  `delegate`.
+- `test_UAT_FC_REQ-194_no_permission_check_reads_role`: the role vocabulary is
+  still declared only in `identity.ts`, but it now has a second value
+  (`'delegate'`, declared once) and exactly two readers, `ownsBusiness` and
+  `operatesBusiness`, both through `OWNER_ROLE`. A third reader still fails.
+
+Already failing, and not caused by this ticket:
+`test_UAT_FC_REQ-180_no_plan_or_billing_or_invoice_route_exists_in_the_builder`
+fails on `xgd-working` because of an existing `/api/plan` route.
+
+## Interaction with REQ-367 (merged alongside)
+
+REQ-367 landed the operator's "entered" switcher entry while this ticket was
+in flight. The two marks are combined in one `businessLabel`:
+- An **entered** business shows only the entered suffix. The operator holds
+  no role in it.
+- Every membership entry shows **owned** or **delegated**, plus "access
+  ended" when lapsed.
+
+`businessesPayload` takes both `entered` (REQ-367) and `live` (this ticket).
