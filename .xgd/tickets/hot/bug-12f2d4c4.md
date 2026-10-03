@@ -6,10 +6,10 @@ title: 'Upload note: says an uploaded image is ''on your site'' when it''s only 
   to use'
 created_by: EPIC-19
 created_at: '2026-10-03T18:52:23.230996+00:00'
-updated_at: '2026-10-03T20:02:36.454461+00:00'
+updated_at: '2026-10-03T21:17:07.760573+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: medium
