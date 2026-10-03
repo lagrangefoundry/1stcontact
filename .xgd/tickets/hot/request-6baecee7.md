@@ -6,7 +6,7 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-02T23:25:25.674250+00:00'
+updated_at: '2026-10-03T00:19:33.685617+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -99,3 +99,14 @@ So the interim notice is the outbound mirror of interposition, and one `GroupSay
 - style the heartbeat line.
 
 Separately, and available today: in a 1:1 session, prose written before `Delegate` already reaches the client live. A priming line saying so would help immediately.
+
+
+
+## Held: waiting on lagrange-framework EPIC-7 §17 (2026-10-02)
+
+The requirement and the current gaps are now recorded upstream as lagrange-framework EPIC-7 §17, the outbound addendum to interposition. The build is lagrange-framework REQ-205, step 4 of EPIC-7 §16, after REQ-200 and REQ-201. Its heartbeat half could be pulled forward.
+
+REQ-360 holds only the 1st Contact side, which stays parked at `draft` until EPIC-7 delivers the infrastructure:
+- grant the generalised `GroupSay` and heartbeat to the consultant role;
+- priming: say it, then carry on;
+- style the heartbeat status line in the builder chat.
