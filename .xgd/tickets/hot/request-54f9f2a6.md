@@ -7,9 +7,9 @@ title: 'capture/renderer/fold: a non-Elementor scroll-reveal is captured at opac
   on every surface), and a min-height pill loses its height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#1
 created_at: '2026-10-03T19:40:26.182498+00:00'
-updated_at: '2026-10-03T22:57:32.676313+00:00'
+updated_at: '2026-10-03T22:57:33.059496+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -187,3 +187,36 @@ Q1: L1 can express it (see above). Q2: is it in L1? `$ITER/page.json` node `0.5.
 - **BUG-188** (`instrument-blind`): `1c l1-gate`'s layout model has no margin collapse, so it passes sampleFidelity at 0.009px over issue 2's +84px. Its escape magnitudes are 575.75px away from Chromium.
 - **BUG-189** (`instrument-blind`): gate coverage does not flag a reference section with a box and no content, so issue 1's lost sections read as `structural-failure` instead of `capture-incomplete`.
 - The 6 CRITICAL missing nav links were added to **REQ-302** issue 2 as a comment (same class, now losing content at a sampled width).
+
+
+
+---
+
+## What landed (free-coded)
+
+All four issues are fixed. Each fix is the general mechanism, not one keyed to Zyro.
+
+**Issue 1 (capture): the reveal settle lands any content, not only images.** `REVEAL_MEDIA` (`tools/generate/src/cli/capture/page-scripts.ts`, run by both drivers after the scroll and image decode) is generalised in place. Any element that is **fully transparent AND displaced by a transform** is landed to `opacity:1; transform:none !important` and marked `data-1c-revealed`, provided it holds something to see: non-empty text with a box, a decoded image with a box, or a control/svg/video/iframe with a box. The REQ-370 guards stay: a carousel ancestor (or self) is skipped, and plain opacity-0 with no transform is not a reveal. A new guard skips an element that is also made unreachable (`visibility:hidden` or `pointer-events:none`), because that is a closed dropdown, not a reveal. The return value counts the elements landed. Decisions:
+- The count is not added to `capture.json`. The `data-1c-revealed` marks in `rendered.html` already record what the settle forced, so no schema bump.
+- The longer per-step scroll dwell (proposal step 2) was not added. The force is deterministic, and runs after the observer has already had its chance.
+- `transition--fade` (opacity 0 with no transform) is still **not** covered. It is indistinguishable from a fading carousel's parked slide by signature. Not seen losing content on this bundle.
+- Needs a **re-capture** of the reference to take effect (`1c refold` cannot pick it up).
+
+**Issue 2 (renderer): a flowing box holding pinned children is its own BFC.** In `packages/framework/src/l1/render.ts` (`case 'box'`), a geometry-less box with at least one child that has `geometry` now also emits `display: flow-root` beside `position: relative`. Its first in-flow child's `margin-top` therefore no longer collapses out and moves the box's border box (the frame the pinned children are placed from). A box with nothing pinned in it keeps plain block layout. Measured on this bundle (refold of a copy of `$REF`, rendered in Chromium at 1280): root y 0, `#backdrop-0` y 0, `#backdrop-1` y 966, `scrollHeight` 2946. That matches the reference exactly; before the fix it was 84 / 84 / 1050 / 3030.
+
+**Issue 3 (fold): a self-painting run (chip) keeps its box height as padding.** New `withChipInset` in `tools/generate/src/l1/fold.ts`. For a chip (`isSelfPaintingRun`: pill radius or padded control), the box's vertical room beyond `2×border + line block` is stated as `padding.topPx`/`bottomPx` (and `responsivePadding` where it varies by width). The line block is `lines × lineHeightPx` when known, or else the glyph box height. It is centred on the glyphs, and the two sides are rounded so they still sum to the box. A chip whose own captured padding already fills its box is unchanged. On this bundle every CTA pill folds to `{topPx: 18, bottomPx: 17}` (1+18+19+17+1 = 56; 8/8 at 320 where the label wraps) and renders 55px tall in Chromium with a fallback font, where it was 21px. The pill stays pinned at its border-box top.
+- **Relation to REQ-370 issue 4.** REQ-370's `selfSurfaceLines` (which moves a `surface.self` run's pin to its line box) no longer applies to a chip: a chip paints its own pill, so moving its pin would shrink the pill. It still applies to a non-chip self-surface run, whose surface is a separate box. REQ-370's UATs are unchanged and pass.
+
+**Issue 4 (fold + values-diff): a backdrop's level and a no-op clip are not dropped axes.**
+- `axisCarriedBy('zIndex', …)` answers "cannot say" for a backdrop box, because the fold decides a backdrop's layer and states it by placement (see the box leaf's REQ-347 comment). A non-backdrop box still reports a dropped level.
+- New `paintsMaskEdge` in `tools/generate/src/cli/capture/mask-geometry.ts`. `clip-path: inset(0)` (any all-zero inset, no `round`) clips the element to its own border box, so it is no edge. Both the fold's captured-axis list and values-diff's mask presence/coverage comparison now ignore it. A rounded or non-zero inset, or any gradient mask, is still a mask.
+- On this bundle `1c l1-gate … --json` → `foldResiduals: []` (was 5). The 4 HIGH values-diff `zIndex` deltas on the bands (13 vs 0) **remain**: the reproduction deliberately paints backdrops without a z-index. Whether a flat document's backdrop should be compared on raw level is an instrument question left open.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-371_reveal_root_margin_pill_height.test.ts`:
+- issue 1 (the real `REVEAL_MEDIA` under jsdom): an unactivated Zyro text wrapper and a form wrapper are landed and marked, with count 2. An empty wrapper, a carousel slide, a closed (`visibility:hidden`) menu and an already-active wrapper are left alone.
+- issue 2: the renderer emits `display: flow-root` on a flowing box with pinned children and not on one without. A Chromium case (runs where `chromiumAvailable()`) checks root 0 / pinned 0 / margined flow child 84.
+- issue 3: the Zyro pill fixture folds to padding 18/17, pinned at its border box. A padded pill whose padding already fills its box is unchanged.
+- issue 4: z-indexed, `inset(0px)`-clipped full-bleed bands fold with no residual. `paintsMaskEdge` separates zero insets from rounded/non-zero insets and gradients.
+Regression: `tests/test_UAT_FC_REQ-370_zyro_residuals.test.ts` and the full vitest suite.
