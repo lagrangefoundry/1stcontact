@@ -162,6 +162,10 @@ export interface ValueElement {
   verticalAlign?: string | null
   /** REQ-370 — computed `white-space` when it preserves wrapping spaces, else null. */
   whiteSpace?: string | null
+  /** BUG-190 — set when this run is a `::before`/`::after` glyph (REQ-366) the
+   *  reference measured off its HOST element: its `renderedTextBox` is the host's
+   *  box, not a glyph extent, so the diff measures it host against host. */
+  pseudoGlyph?: 'before' | 'after'
   /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
   fontLoaded?: boolean
   // ── REQ-63 typography treatment axes (null / absent when the no-op default) ──
@@ -2870,7 +2874,13 @@ export function diffManifests(
       // (glyph extent — carries the real wrapping/line-count difference via height)
       // and `position`, both compared below/above. So box-`size` is compared only
       // for NON-text elements (fields, images, surface panels) whose box IS painted.
-      const isTextRun = exp.renderedTextBox != null && act.renderedTextBox != null
+      //
+      // BUG-190 — except a reference pseudo-glyph run. Its `renderedTextBox` IS its
+      // host box (a Range cannot reach generated content), while ours is a real text
+      // node's glyph advance: the two measure different rects, and agreed ink read
+      // as `23×18 → 18×18`. The host box is the one rect both sides measured, so
+      // that is what is compared — as `size`, like any box that is the measurement.
+      const isTextRun = exp.renderedTextBox != null && act.renderedTextBox != null && !exp.pseudoGlyph
       if (!isTextRun) {
         // REQ-53 — width is container-determined (exact, Group B); height emerges
         // from text wrapping × font metrics (tolerant, Group C). Split the axis so
@@ -2891,7 +2901,7 @@ export function diffManifests(
     // signal; a multi-line run's width is its widest line and height its wrapped
     // block (wrapping-confounded, like box), so the same integer-rounding tolerance
     // applies.
-    if (exp.renderedTextBox && act.renderedTextBox) {
+    if (exp.renderedTextBox && act.renderedTextBox && !exp.pseudoGlyph) {
       const dtw = Math.abs(exp.renderedTextBox.width - act.renderedTextBox.width)
       const dth = Math.abs(exp.renderedTextBox.height - act.renderedTextBox.height)
       // Relative, not absolute: the glyph extent scales with text length, so a
@@ -2962,6 +2972,25 @@ export function diffManifests(
     // genuinely disagree about node identity — a self-painting chip (BUG-20) is
     // self on both sides and keeps the own-axis comparison untouched.
     const surface = exp.surface?.self === true && act.surface && !act.surface.self ? act.surface : null
+    // BUG-190 — and the REVERSE: the reference run sits on an ancestor's surface
+    // (a band, a card) while ours paints its OWN, materially smaller plate. Both
+    // sides then report the same `surfaceFill`, so the own-axis comparison reads
+    // clean over a plate the reference never paints (five header nav links on
+    // joyfulculinarycreations.com, 19% of the ranked pixel score, 0 deltas). The
+    // reproduction has invented a surface; say so.
+    if (exp.surface?.self === false && act.surface?.self === true) {
+      const eb = exp.surface.box
+      const ab = act.surface.box
+      if (ab.width * ab.height < 0.5 * eb.width * eb.height) {
+        push(
+          exp,
+          'surfaceFill',
+          `surface band ${sizeLabel(eb)}`,
+          `own plate ${sizeLabel(ab)}`,
+          Math.max(eb.width - ab.width, eb.height - ab.height),
+        )
+      }
+    }
     const actRadiusPx = surface ? surface.borderRadiusPx : act.borderRadiusPx
     const actShadow = surface ? surface.boxShadow : act.boxShadow
     // The backing box IS the control's painted rect, so its geometry is what the
@@ -3073,7 +3102,11 @@ export function diffManifests(
     compareTreatment(exp, act, 'backdropFilter', exp.backdropFilter, act.backdropFilter)
     compareTreatment(exp, act, 'outline', exp.outline, act.outline)
     compareValueField(exp, act, 'blendMode', exp.blendMode, act.blendMode)
-    compareValueField(exp, act, 'pseudo', exp.pseudo, act.pseudo)
+    // BUG-190 — a reference glyph painted by `::before`/`::after` that we draw as
+    // the same codepoint in a real text run (pairing joins on text) is the same ink
+    // by a different mechanism; the axis compares appearance, not mechanism.
+    const sameGlyphAsText = !!exp.pseudoGlyph && act.text === exp.text && act.renderedTextBox != null
+    if (!sameGlyphAsText) compareValueField(exp, act, 'pseudo', exp.pseudo, act.pseudo)
     // REQ-63 — element opacity. A ghosted (partial-opacity) element vs a solid one
     // is a tonal defect no colour field holds; a small tolerance absorbs rounding.
     if (exp.opacity !== undefined && act.opacity !== undefined) {
@@ -4438,24 +4471,29 @@ export function diffManifests(
   // per-element rows stay — the aggregate is an *added* headline, not a rollup.
   const systemicThreshold = opts.systemicThreshold ?? 5
   if (systemicThreshold > 0) {
-    const byKind = new Map<DeltaKind, ValueDelta[]>()
+    // BUG-190 — grouped by PROPERTY, not kind. A kind holds several properties
+    // (`treatment` = filter, pseudo, text-shadow, …) and the row is labelled with
+    // its first member's, so 16 `pseudo` rows + 1 `filter` row headlined as a
+    // `filter` drift ×17 that existed on exactly one element.
+    const byProperty = new Map<DeltaProperty, ValueDelta[]>()
     for (const d of kept) {
       if (d.systemic) continue
       if (KIND_TIER[d.kind] !== 'LOW' && KIND_TIER[d.kind] !== 'MEDIUM') continue
-      const g = byKind.get(d.kind)
+      const g = byProperty.get(d.property)
       if (g) g.push(d)
-      else byKind.set(d.kind, [d])
+      else byProperty.set(d.property, [d])
     }
-    for (const [kind, group] of byKind) {
+    for (const [property, group] of byProperty) {
       if (group.length < systemicThreshold) continue
       const count = group.length
-      const tier = escalateTier(KIND_TIER[kind], count, systemicThreshold)
       const sample = group[0]
+      const kind = sample.kind
+      const tier = escalateTier(KIND_TIER[kind], count, systemicThreshold)
       kept.push({
         text: `⟨${count} elements⟩`,
         role: 'aggregate',
-        property: sample.property,
-        expected: `systemic ${kind} drift ×${count}`,
+        property,
+        expected: `systemic ${property} drift ×${count}`,
         actual: `e.g. ${sample.expected} → ${sample.actual}`,
         kind,
         tier,
