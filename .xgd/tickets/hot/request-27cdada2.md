@@ -16,6 +16,7 @@ fields:
   created_by: EPIC-20
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-708f6963
 ---
 
 **Parent:** EPIC-20. **Depends on:** lagrange-framework REQ-203 (per-backend `max_iterations` and `effort`) for the builder step limit and the consultant's effort. The model change and the meter fix do not depend on it.
