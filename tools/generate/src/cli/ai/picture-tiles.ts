@@ -191,7 +191,8 @@ export function planTiles(
     first = last = tileAt(found.top)
     const end = tileAt(Math.max(found.top, found.bottom - 1))
     if (end > first) {
-      spans = `Section ${address} starts in tile ${first} and runs to tile ${end}; ask for tiles \`${first + 1}-${end}\` to see the rest of it.`
+      const rest = end === first + 1 ? `${end}` : `${first + 1}-${end}`
+      spans = `Section ${address} starts in tile ${first} and runs to tile ${end}; ask for tiles \`${rest}\` to see the rest of it.`
     }
   } else {
     ;({ first, last } = rangeOf(ask.tiles ?? settings.defaultTiles, count))

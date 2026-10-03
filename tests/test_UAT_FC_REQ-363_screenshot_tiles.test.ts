@@ -231,6 +231,7 @@ describe('REQ-363 — a page picture is one screen at a time, with a conservativ
     // A section that runs past its tile says so, and says how to see the rest.
     const tall = (await ops.screenshot({ of: { kind: 'draft' }, section: '0.1' })) as ContentBlock[]
     expect(texts(tall).join(' ')).toMatch(/Section 0\.1 starts in tile 1 and runs to tile 2/)
+    expect(texts(tall).join(' ')).toContain('ask for tiles `2` to see the rest of it')
   })
 
   it('test_UAT_FC_REQ_363_section_is_refused_where_there_are_no_addresses', async () => {
