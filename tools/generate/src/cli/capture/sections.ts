@@ -160,6 +160,7 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.inlineBox) run.inlineBox = r.inlineBox
   if (r.textFlow !== undefined) run.textFlow = r.textFlow
   if (r.verticalAlign !== undefined) run.verticalAlign = r.verticalAlign
+  if (r.whiteSpace !== undefined) run.whiteSpace = r.whiteSpace
   run.transformRotateDeg = r.transformRotateDeg
   run.transformScale = r.transformScale
   // BUG-153 (item 1) — the "the chain held something we could not decompose" flag

@@ -594,6 +594,12 @@ export const RUN_AXES: readonly AnyElementAxis<ContentRun, RawRun>[] = [
     ...sharedRun((r) => r.verticalAlign),
   },
   {
+    axis: 'whiteSpace',
+    role: 'carried',
+    note: 'REQ-370 — computed `white-space` when it preserves spaces that wrap (`break-spaces` / `pre-wrap`); carried for the fold, which writes it onto the run. Its effect on width is already compared, as `renderedTextBox`.',
+    ...sharedRun((r) => r.whiteSpace),
+  },
+  {
     axis: 'fontStyle',
     role: 'compared',
     note: 'REQ-63 — `font-style` when italic/oblique. Compared by value, so italic-vs-oblique is a delta.',

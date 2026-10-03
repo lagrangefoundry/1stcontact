@@ -26,7 +26,7 @@ export type {
 export { HINTS_SCRIPT, extractHints } from './hints'
 export { VIEWPORTS, resolveViewport, screenshotUrl } from './screenshot'
 export type { ViewportName } from './screenshot'
-export { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
+export { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, REVEAL_MEDIA, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
 export type { StructuralHints, HintNode, ParentLayout, SizingUnit, HintDriver } from './hints'
 export {
   createPlaywrightDriver,

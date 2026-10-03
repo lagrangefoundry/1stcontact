@@ -2038,6 +2038,16 @@ export const l1TextAxesSchema = z
      * is exact at every sample and never pins a run the reference wrapped.
      */
     nowrapFromPx: finite.nonnegative().optional(),
+    /**
+     * REQ-370 — the run keeps its spaces and lets them take width while it still
+     * wraps. Under `break-spaces` a trailing space, and the space at a soft wrap,
+     * widen the line and so move a centred one; `pre-wrap` keeps them but lets a
+     * line-end space hang. Absent: spaces collapse, the CSS default.
+     *
+     * A closed enum and never a raw `white-space` value: `nowrapFromPx` is still
+     * the only way to say "do not wrap", so the two cannot contradict each other.
+     */
+    whiteSpace: z.enum(['break-spaces', 'pre-wrap']).optional(),
     // ── REQ-91 text pixel-movers ──────────────────────────────────────────────
     /** Text-fill gradient (a `background-clip: text` paint) — replaces the flat `color`. */
     gradientFill: l1GradientSchema.optional(),

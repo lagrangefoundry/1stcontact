@@ -261,6 +261,36 @@ function lineCountOf(el: ValueElement): number | undefined {
 }
 
 /**
+ * REQ-370 — where the LINES of a run that is its own surface (a button, a pill
+ * link: `surface.self`) actually sit, or `undefined` when its box already is
+ * them.
+ *
+ * REQ-265 records a run's line box as its `box`, which holds for any run whose
+ * element shrinks to its text. A self-surface run's element is the BUTTON: its
+ * box is the border box, and the reference centres the label inside it (flex
+ * `align-items: center`, or symmetric padding). Pinning the text node at that box
+ * put the label on the button's top border — 13.9px high on hearingzone510.com's
+ * 52px "SCHEDULE AN APPOINTMENT", 6px on its bordered phone pill.
+ *
+ * The glyphs say where the lines are: half-leading is symmetric, so the line
+ * block is centred on the rendered text box. The returned top is the LINE BOX's,
+ * less the run's own top padding, because the renderer insets the text by that
+ * padding inside the box it is given.
+ */
+function selfSurfaceLines(el: ValueElement): { top: number; height: number } | undefined {
+  const box = el.box
+  const glyphs = el.renderedTextBox
+  const lines = lineCountOf(el)
+  if (!el.surface?.self || !box || !glyphs || lines === undefined || !el.lineHeightPx) return undefined
+  const height = lines * el.lineHeightPx
+  if (box.height <= height + 1) return undefined
+  const centre = glyphs.y + glyphs.height / 2
+  const top = Math.max(box.y, Math.min(box.y + box.height - height, centre - height / 2))
+  const pad = el.paddingTopPx !== undefined && Number.isFinite(el.paddingTopPx) ? Math.max(0, el.paddingTopPx) : 0
+  return { top: top - pad, height: height + pad }
+}
+
+/**
  * REQ-88 — the smallest captured width from which the reference set this run on a
  * single line at *every* wider sample, or `undefined` if it never did.
  *
@@ -803,6 +833,8 @@ function textAxes(el: ValueElement): L1TextAxes {
     axes.lineHeightPx = Math.round(el.lineHeightPx * 100) / 100
   if (el.letterSpacingPx !== undefined) axes.letterSpacingPx = Math.round(el.letterSpacingPx * 100) / 100
   if (el.textAlign) axes.textAlign = el.textAlign
+  // REQ-370 — spaces the reference lets take width.
+  if (el.whiteSpace === 'break-spaces' || el.whiteSpace === 'pre-wrap') axes.whiteSpace = el.whiteSpace
   const tt = el.textTransform
   if (tt === 'uppercase' || tt === 'lowercase' || tt === 'capitalize') axes.textTransform = tt
   if (el.fontStyle && /italic/i.test(el.fontStyle)) axes.fontStyle = 'italic'
@@ -3141,6 +3173,96 @@ function nameCapturedBackdrops(
   return boxIdx
 }
 
+/**
+ * REQ-370 — how much of each other two boxes must cover before a photograph and a
+ * backdrop are read as layers of ONE ground rather than as neighbours.
+ */
+const GROUND_MUTUAL_COVER = 0.9
+
+/**
+ * REQ-370 — the photographs the reference paints BENEATH a captured backdrop, per
+ * backdrop.
+ *
+ * A Zyro (and Squarespace, and Wix) hero is a background wrapper holding an
+ * `<img>` and an overlay `<div>` over it: the photograph, then a translucent veil.
+ * The fold reads the overlay as a backdrop — a full-bleed fill, background layer,
+ * nested in its band — and the `<img>` as a content image, emitted after the band
+ * in reading order. So the photograph painted over its own veil, and the hero read
+ * at full brightness where the reference is 45% darker (hearingzone510.com:
+ * region 1, half the page's ranked score, zero value deltas).
+ *
+ * The test is the capture's, not a guess: the two boxes are the same box (each
+ * covers {@link GROUND_MUTUAL_COVER} of the other at the widest width) and the
+ * capture recorded the image at a LOWER level than the backdrop. An image level
+ * with the backdrop or above it is left alone, because then the reference really
+ * does paint the photograph over the fill.
+ */
+function groundImagesUnder(
+  backdrops: readonly L1Box[],
+  content: readonly L1Node[],
+  level: ReadonlyMap<L1Node, number>,
+  widths: readonly number[],
+): Map<L1Box, L1Node[]> {
+  const grounds = new Map<L1Box, L1Node[]>()
+  const widest = Math.max(...widths)
+  const rects = foldRectsOf([...backdrops, ...content], new Map())
+  const at = (node: L1Node): FoldRect | undefined => rects.get(node)?.get(widest)
+  const area = (r: FoldRect): number => Math.max(0, r.width) * Math.max(0, r.height)
+  const overlap = (a: FoldRect, b: FoldRect): number =>
+    Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) *
+    Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y))
+  for (const node of content) {
+    if (node.kind !== 'image') continue
+    const own = at(node)
+    const ownLevel = level.get(node) ?? 0
+    if (!own || area(own) <= 0) continue
+    let best: L1Box | undefined
+    let bestCover = 0
+    for (const b of backdrops) {
+      const bLevel = level.get(b)
+      const rect = at(b)
+      if (bLevel === undefined || bLevel <= ownLevel || !rect || area(rect) <= 0) continue
+      const shared = overlap(own, rect)
+      if (shared < GROUND_MUTUAL_COVER * area(own) || shared < GROUND_MUTUAL_COVER * area(rect)) continue
+      if (shared > bestCover) {
+        bestCover = shared
+        best = b
+      }
+    }
+    if (!best) continue
+    clipGroundTo(node, best)
+    const list = grounds.get(best)
+    if (list) list.push(node)
+    else grounds.set(best, [node])
+  }
+  return grounds
+}
+
+/**
+ * REQ-370 — a ground never paints past its backdrop. The wrapper both are read
+ * from is the band's clipping background box (`overflow: hidden; inset: 0` on
+ * every builder that uses the pattern), and a photograph left overhanging it —
+ * 11.56px on hearingzone510.com — would hand the band a content extent the
+ * reference never shows.
+ */
+function clipGroundTo(node: L1Node, backdrop: L1Box): void {
+  const geo = foldGeometryOf(node)
+  const frames = new Map((backdrop.geometry?.keyframes ?? []).map((kf) => [kf.at, kf]))
+  for (const kf of geo?.keyframes ?? []) {
+    const b = frames.get(kf.at)
+    if (!b || b.height === undefined || kf.height === undefined) continue
+    const x = Math.max(kf.x, b.x)
+    const y = Math.max(kf.y, b.y)
+    const right = Math.min(kf.x + kf.width, b.x + b.width)
+    const bottom = Math.min(kf.y + kf.height, b.y + b.height)
+    if (right <= x || bottom <= y) continue
+    kf.x = round2(x)
+    kf.y = round2(y)
+    kf.width = round2(right - x)
+    kf.height = round2(bottom - y)
+  }
+}
+
 /** REQ-332 — one folded leaf and the clip box that cut it off, per width. */
 interface ClipRow {
   node: L1Node
@@ -3357,6 +3479,7 @@ function nestBackingSurfaces(
   textHeights: ReadonlyMap<L1Node, Map<number, number>>,
   widths: readonly number[],
   ownable: readonly L1Box[] = [],
+  grounds: ReadonlyMap<L1Box, readonly L1Node[]> = new Map(),
 ): OwnershipResult {
   const built = new Map<L1Node, L1Node>()
   const owned = new Set<L1Node>()
@@ -3367,7 +3490,9 @@ function nestBackingSurfaces(
   // Ownable-but-never-owning members sit between the surfaces and the content in
   // `order`, so a backdrop paints after the reconstructed band it shares a parent
   // with and before anything that holds copy.
-  const all: L1Node[] = [...surfaces, ...ownable, ...content]
+  // REQ-370 — a backdrop's grounds sit immediately before it, so wherever the
+  // backdrop lands they sort under it.
+  const all: L1Node[] = [...surfaces, ...ownable.flatMap((b) => [...(grounds.get(b) ?? []), b]), ...content]
   const order = new Map<L1Node, number>(all.map((n, i) => [n, i]))
   const isSurfaceNode = new Set<L1Node>(surfaces)
 
@@ -3422,19 +3547,29 @@ function nestBackingSurfaces(
   }
 
   const kids = new Map<L1Node, L1Node[]>()
-  const claim = (node: L1Node, isSurface: boolean): void => {
-    const parent = ownerOf(node, isSurface)
-    if (!parent) return
+  const adopt = (parent: L1Box, node: L1Node): void => {
     owned.add(node)
     const list = kids.get(parent)
     if (list) list.push(node)
     else kids.set(parent, [node])
   }
+  const claim = (node: L1Node, isSurface: boolean): L1Box | undefined => {
+    const parent = ownerOf(node, isSurface)
+    if (parent) adopt(parent, node)
+    return parent
+  }
   for (const surface of surfaces) claim(surface, true)
   // REQ-338 — as a surface for claiming purposes (a backdrop may only sit inside a
   // strictly larger box, or an equal-sized one painted before it), never as one
   // for parenting purposes.
-  for (const node of ownable) claim(node, true)
+  for (const node of ownable) {
+    const parent = claim(node, true)
+    // REQ-370 — a ground goes where its backdrop goes, without a containment
+    // test of its own: the photograph under a hero's scrim routinely overhangs
+    // the band by a few pixels the reference clips away, and leaving it at the
+    // top level would paint it over the band's own scrim again.
+    if (parent) for (const g of grounds.get(node) ?? []) adopt(parent, g)
+  }
   for (const node of content) claim(node, false)
 
   const build = (surface: L1Box): L1Node => {
@@ -3617,6 +3752,14 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
    *  background layer, beneath all content (see where they are emitted below). */
   const backdropNodes: L1Box[] = []
   /**
+   * REQ-370 — the level the reference captured for each backdrop and image leaf,
+   * kept beside the node rather than on it: a backdrop's own layer is the fold's
+   * decision (see the box leaf below), but WHICH of a backdrop and a photograph
+   * sharing its box paints over the other is the capture's, and only the captured
+   * levels can say. Read by {@link groundImagesUnder}.
+   */
+  const capturedLevel = new Map<L1Node, number>()
+  /**
    * REQ-332 — each folded leaf beside the clip box that cuts it off, per width.
    * Collected here rather than derived later because the link between a leaf and
    * the capture row it came from only exists inside this loop.
@@ -3688,7 +3831,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         // {@link ceil2}) that still contains the measured content; a box/image
         // leaf has no such constraint and stays on nearest.
         const width = withHeight ? round2(box.width) : ceil2(box.width)
-        const kf: L1Keyframe = { at: c.width, x: round2(box.x), y: round2(box.y), width }
+        // REQ-370 — a text run that is its own surface sits where its lines are,
+        // not on its border (see {@link selfSurfaceLines}).
+        const lines = withHeight || useFlowBox ? undefined : selfSurfaceLines(c.element!)
+        const kf: L1Keyframe = { at: c.width, x: round2(box.x), y: round2(lines?.top ?? box.y), width }
         if (withHeight && Number.isFinite(box.height)) kf.height = round2(box.height)
         // REQ-88 — the viewport height this keyframe was measured at, so a height
         // response has an origin to be measured from.
@@ -3816,7 +3962,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         new Map(
           framed.map((c) => {
             const el = c.element!
-            return [c.width, (el.inlineBox ?? el.box!).height] as const
+            const lines = flow ? undefined : selfSurfaceLines(el)
+            return [c.width, lines?.height ?? (el.inlineBox ?? el.box!).height] as const
           }),
         ),
       )
@@ -3956,6 +4103,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       }
       if (Object.keys(axes).length) node.axes = axes
       if (vis) node.visibility = vis
+      if (widest.zIndex !== undefined && Number.isFinite(widest.zIndex)) capturedLevel.set(node, widest.zIndex)
       // REQ-331 — the montage declaration (see `stackedElements`). Marked on the
       // row's own cells rather than on `widest` alone, so a picture that only
       // overlaps at a narrow width is still declared.
@@ -4046,8 +4194,10 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // is a backing surface depends on whether anything actually stands on it,
       // which is not knowable until every leaf is folded — see
       // {@link nameCapturedBackdrops}, run once after this loop.
-      if (isBackdrop(node)) backdropNodes.push(node)
-      else {
+      if (isBackdrop(node)) {
+        backdropNodes.push(node)
+        if (widest.zIndex !== undefined && Number.isFinite(widest.zIndex)) capturedLevel.set(node, widest.zIndex)
+      } else {
         node.id = `box-${boxIdx++}`
         // REQ-347 — a painted surface stacks too (a scrim over a hero, a badge
         // behind a card), read on the same terms as the text and image leaves
@@ -4455,6 +4605,15 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // as colliding with its own copy, and no run could name it as what it sits on.
   nameCapturedBackdrops(backdropNodes, [...body, ...slotNodes], textHeights, widths, boxIdx)
 
+  // REQ-370 — a photograph the capture recorded BENEATH a backdrop (a hero image
+  // under its own scrim) leaves the content and travels with that backdrop, so it
+  // lands in whatever owns the backdrop, immediately before it.
+  const grounds = groundImagesUnder(backdropNodes, body, capturedLevel, widths)
+  const grounded = new Set<L1Node>([...grounds.values()].flat())
+  const bodyNodes = grounded.size ? body.filter((n) => !grounded.has(n)) : body
+  /** The backdrop layer in paint order: each backdrop preceded by its grounds. */
+  const backdropLayer: L1Node[] = backdropNodes.flatMap((b) => [...(grounds.get(b) ?? []), b])
+
   // BUG-142 — state the ownership the fold already knows. A band, a section
   // background and a card that back content become containers holding it, so the
   // panel and the words on it are one node from here on. A surface that backs
@@ -4468,10 +4627,11 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // copy standing on it.
   const ownership = nestBackingSurfaces(
     [...bandNodes, ...sectionBgNodes, ...cardNodes],
-    [...body, ...slotNodes],
+    [...bodyNodes, ...slotNodes],
     textHeights,
     widths,
     backdropNodes,
+    grounds,
   )
   /** The members of one paint layer that are still top-level, as rebuilt. */
   const topLevel = (layer: readonly L1Node[]): L1Node[] =>
@@ -4483,9 +4643,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const paintOrder = [
     ...topLevel(bandNodes),
     ...topLevel(sectionBgNodes),
-    ...topLevel(backdropNodes),
+    ...topLevel(backdropLayer),
     ...topLevel(cardNodes),
-    ...topLevel(body),
+    ...topLevel(bodyNodes),
     ...topLevel(slotNodes),
   ]
   // BUG-142 — the BACKGROUND LAYER is everything at the top level that holds no

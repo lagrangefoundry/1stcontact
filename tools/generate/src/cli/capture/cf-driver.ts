@@ -39,7 +39,7 @@
  * egress against, so the corruption would land as a false verdict rather than as
  * a crash. Reuse lives strictly *below* the driver.
  */
-import { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
+import { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, REVEAL_MEDIA, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
 import type { EgressGuard, EgressRequest } from './egress-guard'
 import type {
   BrowserDriver,
@@ -228,6 +228,7 @@ class CfBrowserDriver implements BrowserDriver {
     await page.addStyleTag({ content: SETTLE_CSS }).catch(() => undefined)
     await page.evaluate(SETTLE_SCROLL).catch(() => undefined)
     await page.evaluate(IMAGES_DECODED).catch(() => undefined)
+    await page.evaluate(REVEAL_MEDIA).catch(() => undefined)
     await page.waitForNetworkIdle().catch(() => undefined)
   }
 
