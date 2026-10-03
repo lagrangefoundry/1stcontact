@@ -317,10 +317,13 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     // the framework rather than restated here: what is asserted is that each
     // entry's window is the one its own model has, not that the pair happen to
     // be two numbers this file also knows.
+    // …OR THE ONE THE ENTRY DECLARES, the documented escape hatch for a model the
+    // installed table does not name yet ([[REQ-362]]: opus-5-5).
     expect(projectBackendWindow(lib, 'claude')).toBe(
-      (lib as unknown as { modelContextWindow: (m: string) => number }).modelContextWindow(
-        backendsDocument.claude.model,
-      ),
+      (backendsDocument.claude as { context_window?: number }).context_window ??
+        (lib as unknown as { modelContextWindow: (m: string) => number }).modelContextWindow(
+          backendsDocument.claude.model,
+        ),
     )
     expect(projectBackendWindow(lib, 'claude_builder')).toBe(
       (lib as unknown as { modelContextWindow: (m: string) => number }).modelContextWindow(

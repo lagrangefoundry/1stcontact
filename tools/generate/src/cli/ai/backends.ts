@@ -167,8 +167,14 @@ export { backendsDocument }
 export const PROJECT_BACKEND = 'claude'
 
 /**
- * The model in force for {@link PROJECT_BACKEND}, or `''` where none is
- * configured ([[REQ-292]]).
+ * The model in force for the configured backend `name` — {@link PROJECT_BACKEND}
+ * by default — or `''` where none is configured ([[REQ-292]]).
+ *
+ * BY NAME SINCE [[REQ-362]]. The meter asked only for the consultant's model and
+ * stamped it on every role's row, so a coordinator turn on Haiku was recorded —
+ * and priced — as Opus. Each role now asks for the backend it was constructed
+ * under, read with the same `{family}` the adapter itself uses, so a variant's
+ * unset keys fall through to the family exactly as they do on the wire.
  *
  * ASKED OF THE FRAMEWORK RATHER THAN READ OUT OF {@link backendsDocument}. The
  * settings that reach the wire are the consumer's document merged per key over
@@ -179,8 +185,10 @@ export const PROJECT_BACKEND = 'claude'
  * the wire quietly falls back to the framework's, and only one of the two
  * readings would notice.
  */
-export function projectBackendModel(lib: AiLibrary): string {
-  const settings = lib.backendSettings(PROJECT_BACKEND) as { model?: string } | undefined
+export function projectBackendModel(lib: AiLibrary, name: string = PROJECT_BACKEND): string {
+  const settings = lib.backendSettings(name, { family: PROJECT_BACKEND }) as
+    | { model?: string }
+    | undefined
   return typeof settings?.model === 'string' ? settings.model : ''
 }
 

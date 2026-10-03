@@ -10,6 +10,7 @@ import {
 import type { Scope } from '../apps/control-app/src/scope'
 import { EXCHANGE_BUSY, resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
+import { COUNTER_KEYS, costMicros, type TurnCounters } from '../tools/generate/src/cli/ai/spend-core'
 import { L1_DECLARATION } from '../tools/generate/src/cli/ai/toolbox-core'
 import { groupNames, ROOM_POST, MEMBER_DONE } from '../tools/generate/src/cli/ai/group-core'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
@@ -504,6 +505,40 @@ describe('REQ-357 — the builder conversation as a group chat', () => {
     const rows = (results ?? []).map((r) => [r.session_id, r.role])
     expect(rows).toContainEqual([`site-${site}`, 'consultant'])
     expect(rows).toContainEqual([`coordinator-${site}`, 'coordinator'])
+  })
+
+  it('test_UAT_FC_REQ-362_each_member_rounds_spend_row_names_and_is_priced_at_its_own_backend', async () => {
+    // [[REQ-362]] — the meter stamped the consultant's backend and model on
+    // every role's row, so a coordinator round on Haiku was recorded, and
+    // priced, as Opus. Each row must name the backend that ran.
+    await setGroupChat(true)
+    const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('meter') })
+    const opened = await open(site)
+    setModelClient(roomClient({ consultant: [{ say: 'Noted.' }], coordinator: [{ say: 'Agreed.' }] }))
+    await frames(await post('/api/ai/prompt', { sessionId: opened.sessionId, text: 'Hi both.' }))
+
+    type Row = TurnCounters & { role: string; backend: string; model: string; cost_micros: number | null }
+    const { results } = await env.DB.prepare(
+      `SELECT role, backend, model, cost_micros, ${COUNTER_KEYS.join(', ')}
+         FROM turn_spend WHERE session_id IN (?, ?)`,
+    )
+      .bind(`site-${site}`, `coordinator-${site}`)
+      .all<Row>()
+    const rows = results ?? []
+    const documented = backendsDocument as Record<string, { model?: string }>
+    const expected: Record<string, string> = { consultant: 'claude', coordinator: 'claude_coordinator' }
+    for (const role of Object.keys(expected)) {
+      const mine = rows.filter((r) => r.role === role)
+      expect(mine.length, `${role} rounds were metered`).toBeGreaterThan(0)
+      for (const row of mine) {
+        expect([row.backend, row.model]).toEqual([expected[role], documented[expected[role]].model])
+        expect(row.cost_micros).not.toBeNull()
+        expect(row.cost_micros).toBe(costMicros(row, row.backend, row.model))
+      }
+    }
+    // The pair is the consultant's Opus and the coordinator's Haiku, priced apart.
+    expect(documented.claude.model).toBe('claude-opus-5-5')
+    expect(documented.claude_coordinator.model).toBe('claude-haiku-4-5')
   })
 
   it('test_UAT_FC_REQ-357_the_room_transcript_replays_with_speaker_attribution', async () => {

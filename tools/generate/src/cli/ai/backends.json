@@ -63,12 +63,28 @@
     "coordinator converses in the room and reads, it never builds, so what it runs on",
     "is a separate decision from what a worker runs on and each is one edit here.",
     "Haiku, for DOC-62's latency reason — a one-second participant beside a",
-    "ten-minute one. 16000 because it writes contributions, not pages."
+    "ten-minute one. 16000 because it writes contributions, not pages.",
+    "",
+    "THE CONSULTANT IS ON claude-opus-5-5 ([[REQ-362]]): the current Opus, and",
+    "cheaper than opus-5 on every counter — most of all on cache reads, which are",
+    "the consultant's biggest line. Same 1M window and 128K output ceiling, so",
+    "64000 stands for the reasons above. `context_window` is declared because the",
+    "installed framework's model table does not yet name opus-5-5 — the one case",
+    "that key exists for, and `checkProjectWindows` would refuse to start without",
+    "it. Delete it once the framework's table carries the model, so the window",
+    "follows the next change of `model` rather than outliving it.",
+    "",
+    "OPUS 5.5 DEFAULTS TO EFFORT medium WHERE OPUS 5 DEFAULTED TO high. This entry",
+    "should declare `effort: high`, and `claude_builder` `max_iterations: 100`",
+    "(3 of 8 builder runs exhausted the 50-call limit) — both wait on",
+    "lagrange-framework REQ-203: `configureBackends` rejects a key it does not",
+    "declare, so naming either today would stop the host starting."
   ],
 
   "claude": {
-    "model": "claude-opus-5",
-    "max_tokens": 64000
+    "model": "claude-opus-5-5",
+    "max_tokens": 64000,
+    "context_window": 1000000
   },
 
   "claude_builder": {
