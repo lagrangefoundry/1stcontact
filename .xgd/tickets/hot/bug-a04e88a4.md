@@ -6,10 +6,10 @@ title: 'gate coverage: a reference section with a box and no content is not flag
   so a capture that lost 2 of 6 sections reads structural-failure instead of capture-incomplete'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#1
 created_at: '2026-10-03T19:40:51.297163+00:00'
-updated_at: '2026-10-03T23:35:55.233172+00:00'
+updated_at: '2026-10-03T23:36:17.875917+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -18,9 +18,15 @@ fields:
   priority: medium
   chat_comment: comment-4808793a
   story_points: 3
+  commits:
+  - working_sha: 3a41e65ee19112431a15870d4e30725688b3277a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 4d2144300d4964166bde960de0c066ab69761910
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.466
 ---
-
-
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#1`.
 
