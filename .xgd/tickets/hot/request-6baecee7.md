@@ -6,7 +6,7 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-03T00:19:33.685617+00:00'
+updated_at: '2026-10-03T00:24:00.785279+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -16,6 +16,9 @@ fields:
   priority: medium
   chat_comment: comment-aba7cf65
 ---
+
+> **Status: blocked upstream.** REQ-360 depends on lagrange-framework REQ-205 (the generalised `GroupSay` plus delegation heartbeat; design in lagrange-framework EPIC-7 §17). The say half of REQ-205 also depends on lagrange-framework REQ-200 and REQ-201; the heartbeat half has no such dependency. A cross-repo blocker cannot go in `depends_on`, so it is recorded here. Stay at `draft` until REQ-205 lands. The 1st Contact work is then: grant, priming, heartbeat styling.
+
 
 ## What I was trying to achieve
 
