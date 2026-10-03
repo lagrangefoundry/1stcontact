@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T22:38:06.557427+00:00'
+updated_at: '2026-10-03T23:15:25.601196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6370,5 +6370,25 @@ What it asks for:
 Out of scope, and noted in the ticket:
 - **A shareable link that works without signing in.** I've recorded it on the epic as Finding 17, as an open access-policy question, and haven't filed it.
 - **Your local dev setup.** A phone can't reach 127.0.0.1, so this only helps in production.
+
+<!-- xgd-turn id="69cad496-687d-4a5b-8e5d-7ca58e0d406b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T23:15:22.526610+00:00" -->
+#### You
+Can we discuss Charlie's plumbing 2?
+
+This was, for me, a better experience. There is still a great deal for us to do here but I do sort of feel like we are making progress. Unfortunately, after all the work building it, this was better without Bob we may still bring him back but let's proceed without for the moment.
+
+The questions panel at the top worked OK. It was less obvious what to do with it than I thought - Alice did point me there but only at the start.
+
+I think the biggest thing missing was that Alice needs to hold the cadence of the experience. I need to see "I'm going to rough up a site for you now, I'll probably need 10-15 mins while I'm doing this you could complete the questions in the pannel above." I wasn't getting these - neither warnings that Alice would disappear, nor reminders to look at the questions.
+
+Related - I wanted Alice to own the process with statements like "Now we are going to create a first rough cut" or "We've been on a couple of rounds of refining this, are you getting what you expected?" There was no initial capturing of functionality so its a little hard to know if we are done.
+
+We can work on the layout of the questions a bit but that's  a detail for later.
+
+Good news the cost is much more reasonable I think we got further than round one for 40% of the cost so that helps
+
+I have to say I am still wondering about the site - it still looks like a mock plumber site not a real plumber site- and I know the pictures are going to look fake its not that. The real plumber sites are FULL they are busy - possibly too busy - but they look like places work gets done - ours still looks like an HTML class
 
 <!-- xgd-chat-end -->
