@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T19:26:20.221094+00:00'
+updated_at: '2026-10-03T22:35:26.098279+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6342,5 +6342,11 @@ Not easily, today. It depends where you're running.
 My suggestion is one ticket for option 1 now. Its scope would also tell the consultant how the client gets the draft onto a phone, so a suggestion like this comes with a way to act on it. Option 2 would be parked as an open question on the epic until you want to decide the policy.
 
 Shall I file that?
+
+<!-- xgd-turn id="16d25dbe-c730-40ce-8a12-9992b1265df0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T22:35:24.476993+00:00" -->
+#### You
+Oh I love 1 please file that
 
 <!-- xgd-chat-end -->
