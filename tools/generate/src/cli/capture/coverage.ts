@@ -180,7 +180,7 @@ const REGISTER: readonly CoverageEntry[] = [
   },
   ...rows(
     'recorded',
-    "an element's `borderWidthPx` — the THICKEST painted side, projected as uniform. A page that paints one side only is carried as if it painted four; the per-side shape is the `border` axis's, and L1 carries only a uniform `border` plus `borderLeft`",
+    "an element's `borderWidthPx` — the THICKEST painted side, projected as uniform. A page that paints one side only is carried as if it painted four; L1 can author every side (`borderTop`/`Right`/`Bottom`/`Left`, REQ-374) but the capture folds only a uniform `border` plus `borderLeft`",
     'border-top-width',
     'border-right-width',
     'border-bottom-width',

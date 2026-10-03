@@ -475,6 +475,14 @@ function boxShadowCss(s: L1Shadow | readonly L1Shadow[]): string | null {
   return layers.length ? layers.join(', ') : null
 }
 
+/** REQ-374 — each per-side border axis and the CSS side it paints. */
+const BORDER_SIDES = [
+  ['borderTop', 'top'],
+  ['borderRight', 'right'],
+  ['borderBottom', 'bottom'],
+  ['borderLeft', 'left'],
+] as const
+
 /** A box border → `<w>px <style> <color>`, or null if unpaintable. */
 function borderCss(b: L1Border): string | null {
   const c = cssColor(b.color)
@@ -841,11 +849,13 @@ function surfaceDecls(
     const b = borderCss(a.border)
     if (b) out.push(`border: ${b}`)
   }
-  // BUG-14 — a coloured left-accent border (card rule). Emitted after `border`
-  // so an explicit `border-left` wins; re-derived from numeric/enum/hex fields.
-  if (a.borderLeft) {
-    const b = borderCss(a.borderLeft)
-    if (b) out.push(`border-left: ${b}`)
+  // BUG-14 / REQ-374 — the per-side borders (a card's left rule, a footer's top
+  // divider). Emitted after `border` so each restyles its own side and the rest
+  // keep the uniform one; re-derived from numeric/enum/hex fields.
+  for (const [key, side] of BORDER_SIDES) {
+    const border = a[key]
+    const b = border && borderCss(border)
+    if (b) out.push(`border-${side}: ${b}`)
   }
   if (a.boxShadow) {
     const sh = boxShadowCss(a.boxShadow)
