@@ -1,0 +1,33 @@
+{
+  "about": [
+    "How `screenshot` shows a page: one screen at a time ([[REQ-363]]).",
+    "",
+    "WHY TILES. A full-page shot reduced on its longest edge leaves a tall page a",
+    "sliver: a 1280x9059 desktop page arrived as 169x1024 in the Charlie's",
+    "Plumbing session, and nothing on it could be read. A visitor sees one screen",
+    "and scrolls, so a page picture is a screen-height tile, reduced by WIDTH.",
+    "",
+    "WHAT EACH VALUE IS.",
+    "- `default_tiles`: which tiles a call with no `tiles` and no `section` gets.",
+    "  `1` is the screen a visitor sees on arrival. `3`, `2-5` and `all` are the",
+    "  other forms.",
+    "- `default_detail`: the detail a call that names none gets.",
+    "- `max_tiles_per_call`: the most tiles one call returns. Asking for more",
+    "  returns the first batch and says what remains, never refuses.",
+    "- `detail_widths`: the widest a tile is sent at, per detail. A tile is never",
+    "  upscaled, so a narrower viewport (mobile 375) is always sent as it is.",
+    "- `provider_max_edge`: the provider downscales any image with an edge over",
+    "  this before the model sees it, so no tile is sent with an edge past it.",
+    "- `pixels_per_token`: the provider's image price, width x height / this, used",
+    "  only to state each tile's approximate cost in its label.",
+    "",
+    "Changing any of these changes `screenshot` with no code change."
+  ],
+
+  "default_tiles": "1",
+  "default_detail": "normal",
+  "max_tiles_per_call": 4,
+  "detail_widths": { "low": 768, "normal": 1024, "high": 1568 },
+  "provider_max_edge": 1568,
+  "pixels_per_token": 750
+}

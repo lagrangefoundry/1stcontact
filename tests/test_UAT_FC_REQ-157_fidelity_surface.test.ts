@@ -277,8 +277,10 @@ describe('REQ-157 AC2 — one picture source, and every operation takes it', () 
         expect(banned).not.toContain(name)
         // A picture is named by the declared type or it is not a picture: the
         // three scalar exceptions are a URL to capture and a bundle to describe
-        // or judge against, none of which is a picture.
-        const scalarExceptions = ['url', 'bundle', 'reference']
+        // or judge against, none of which is a picture. [[REQ-363]] adds three
+        // more that are not a picture either: which screens of one to see
+        // (`tiles`, `section`) and at what `detail`.
+        const scalarExceptions = ['url', 'bundle', 'reference', 'tiles', 'section', 'detail']
         if (!scalarExceptions.includes(name)) expect(spec.type).toBe('picture')
       }
     }

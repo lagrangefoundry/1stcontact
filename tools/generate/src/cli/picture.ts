@@ -38,6 +38,7 @@ import type { PageStep } from './capture/interact'
 import {
   rasterizeImage,
   resolveViewport,
+  screenshotAndMeasure,
   screenshotUrl,
   VIEWPORTS,
 } from './capture/screenshot'
@@ -125,6 +126,62 @@ export interface ResolvedPicture {
    * invents a mechanism" into "the model reads the caption".
    */
   note?: string
+  /**
+   * [[REQ-363]] — the page's top-level sections, where they are on it.
+   *
+   * PRESENT ONLY FOR OUR OWN PAGES, and only when asked for: a `draft`, `edit` or
+   * `revision` is an L1 render, so its sections have the addresses `describe_page`
+   * hands out. A `url` is a stranger's markup and a `reference` is a recording, so
+   * neither has an address to give, and this is absent for them rather than
+   * invented. Empty means the page was read and no section was found.
+   */
+  sections?: PageSection[]
+}
+
+/** One top-level section of a rendered page, in page (CSS) pixels. */
+export interface PageSection {
+  /** Its L1 address — the form `describe_page` and every write operation use. */
+  address: string
+  top: number
+  bottom: number
+}
+
+/**
+ * [[REQ-363]] — where a rendered page's top-level sections are, read in the page.
+ *
+ * THE ADDRESSING IS THE RENDERER'S, not re-derived. The document's root is its
+ * first node and therefore carries the first class the renderer hands out
+ * (`l1-0`), and every child the renderer emits is exactly one element, in order —
+ * so the n-th element child of the root is the node at `0.n`, the address
+ * `describe_page` gives it. A root that is only a wrapper around one container is
+ * descended through, because "the page's sections" on such a page are that
+ * container's children, and `0.0.n` is still their address. A page with no L1
+ * root (a module-only page) answers with no sections rather than guessed ones.
+ *
+ * Read AFTER the shot, so the positions are those of the layout the pixels show.
+ * A section with no height (a closed panel) is in no tile, so it is not listed.
+ */
+export const SECTIONS_SCRIPT =
+  '(() => {' +
+  "  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE');" +
+  "  let root = document.querySelector('body > .l1-0');" +
+  '  if (!root) return [];' +
+  "  let at = '0';" +
+  '  let kids = real(root);' +
+  '  while (kids.length === 1 && real(kids[0]).length > 0) {' +
+  "    at += '.0'; root = kids[0]; kids = real(root);" +
+  '  }' +
+  '  const y = window.scrollY || 0;' +
+  '  return kids.map((el, i) => {' +
+  '    const r = el.getBoundingClientRect();' +
+  "    return { address: at + '.' + i, top: Math.round(r.top + y), bottom: Math.round(r.bottom + y) };" +
+  '  }).filter((s) => s.bottom > s.top);' +
+  '})()'
+
+/** What a caller wants resolved beside the pixels. */
+export interface ResolveOptions {
+  /** [[REQ-363]] — measure the page's top-level sections (our own pages only). */
+  sections?: boolean
 }
 
 /** Raised when a picture source names something that is not there. */
@@ -413,6 +470,7 @@ async function storedPicture(
 export async function resolvePicture(
   source: PictureSource,
   deps: PictureDeps,
+  options: ResolveOptions = {},
 ): Promise<ResolvedPicture> {
   const viewportName = source.viewport ?? 'desktop'
   const viewport = resolveViewport(viewportName)
@@ -420,6 +478,21 @@ export async function resolvePicture(
   // driven refuses by name whichever kind it was — and before any browser is
   // leased for it.
   const steps = drivableSteps(source)
+
+  /** One of our own pages, photographed — and measured, when that was asked. */
+  async function ownPage(url: string, driven: readonly PageStep[] = []) {
+    const shot = await screenshotAndMeasure<PageSection[]>(
+      url,
+      viewport,
+      deps.driverFactory,
+      driven,
+      options.sections ? SECTIONS_SCRIPT : undefined,
+    )
+    return {
+      bytes: shot.bytes,
+      ...(options.sections ? { sections: Array.isArray(shot.measured) ? shot.measured : [] } : {}),
+    }
+  }
 
   switch (source.kind) {
     case 'reference':
@@ -430,7 +503,7 @@ export async function resolvePicture(
       const url = previewUrl(deps, source.kind, source.page)
       const after = steps.length ? `, after ${steps.map((s) => `\`${s.source}\``).join(' then ')}` : ''
       return {
-        bytes: await screenshotUrl(url, viewport, deps.driverFactory, steps),
+        ...(await ownPage(url, steps)),
         label: `${deps.slug} ${source.kind}${pagePath(source.page)} at ${viewportName}${after}`,
         viewport,
         ...(source.kind === 'edit' ? { note: EDIT_CHANNEL_NOTE } : {}),
@@ -441,7 +514,7 @@ export async function resolvePicture(
       const id = needed(source.revision, 'revision', 'revision')
       const url = previewUrl(deps, revisionChannel(id), source.page)
       return {
-        bytes: await screenshotUrl(url, viewport, deps.driverFactory),
+        ...(await ownPage(url)),
         label: `${deps.slug} revision ${id}${pagePath(source.page)} at ${viewportName}`,
         viewport,
       }

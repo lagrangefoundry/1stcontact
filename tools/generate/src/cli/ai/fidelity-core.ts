@@ -33,7 +33,7 @@ import { EXTRACT_SCRIPT } from '../capture/extract'
 import type { RawSignals } from '../capture/extract'
 import type { Capture, BrowserDriverFactory } from '../capture/types'
 import type { ValueManifest } from '../capture/values-diff'
-import { computeDiff, cropRaster, downsampleRaster } from '../perceptual-core'
+import { computeDiff, cropRaster, downsampleRaster, extractRect, scaleRaster } from '../perceptual-core'
 import type { Raster } from '../perceptual-core'
 import { decodePng, encodePng } from '../png'
 // FROM `gate-core`, NOT `gate` — the split REQ-157 made and the reason it made
@@ -56,6 +56,8 @@ import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
 import { assertPublicUrl, egressGuard, summariseRefusals, UrlRefusedError } from '../capture/egress-guard'
 import type { EgressRefusal } from '../capture/egress-guard'
 import fidelitySurface from './fidelity-surface.json'
+import { checkAsk, detailOf, planTiles, tileLabel, tileScale, TILE_SETTINGS } from './picture-tiles'
+import type { Detail, TileAsk, TileSettings } from './picture-tiles'
 
 /** The declaration, imported as data for the reason `toolbox-core.ts` gives. */
 export const FIDELITY_DECLARATION: Record<string, unknown> = fidelitySurface as Record<
@@ -67,7 +69,10 @@ export const FIDELITY_DECLARATION: Record<string, unknown> = fidelitySurface as 
 export const FIDELITY_SURFACE_VERSION = Number(FIDELITY_DECLARATION.surface_version)
 
 /**
- * The longest edge, in pixels, any image this surface hands the model may have.
+ * The longest edge, in pixels, a STORED picture is reduced to before the model
+ * sees it. [[REQ-363]] — a page is no longer reduced this way: it is shown a
+ * screen at a time and reduced by width (`picture-tiles.ts`). A stored picture is
+ * already the size it is and has no screens, so it keeps this rule unchanged.
  *
  * WHY THERE IS A CAP AT ALL, and why it is here rather than in the caller. The
  * value the model sees is the same value the host yields as tool activity, which
@@ -243,6 +248,56 @@ async function imageBlocks(picture: ResolvedPicture): Promise<{
   }
 }
 
+/**
+ * [[REQ-363]] — a page picture, as the tiles one call asked for.
+ *
+ * The full-page shot is decoded once and only the selected screens are cut,
+ * reduced and encoded, so asking for the first tile of a long page costs one
+ * screen's worth of encoding and one screen's worth of the model's context. Each
+ * tile carries its own text block — where it is, which sections it shows and
+ * what it costs — so a transcript that has had the images redacted out still
+ * says what was looked at, and the model can ask for the next one without
+ * guessing. Whatever was asked for and not sent is said in a closing block.
+ */
+async function tileBlocks(
+  picture: ResolvedPicture,
+  ask: TileAsk,
+  detail: Detail,
+  settings: TileSettings,
+): Promise<ContentBlock[]> {
+  const raster = await decodePng(picture.bytes, picture.label)
+  const plan = planTiles(raster.width, raster.height, picture.viewport, picture.sections, ask, settings)
+  const blocks: ContentBlock[] = []
+  for (const tile of plan.tiles) {
+    const cut = extractRect(raster, {
+      x: 0,
+      y: tile.rasterTop,
+      w: raster.width,
+      h: tile.rasterHeight,
+    }).raster
+    const sent = scaleRaster(cut, tileScale(cut.width, cut.height, detail, settings))
+    const bytes = await encodePng(sent)
+    if (bytes.length > MAX_IMAGE_BYTES) {
+      throw new PictureSourceError(
+        `tile ${tile.index} is ${bytes.length} bytes, over the ${MAX_IMAGE_BYTES}-byte ceiling. ` +
+          `Ask for it at a lower detail, or compare instead of looking.`,
+      )
+    }
+    const text =
+      tileLabel(picture.label, plan, tile, sent, cut, settings) +
+      (picture.note ? `. ${picture.note}` : '')
+    blocks.push(
+      { type: 'text', text },
+      {
+        type: 'image',
+        source: { type: 'base64', media_type: IMAGE_MEDIA_TYPE, data: bytesToBase64(bytes) },
+      },
+    )
+  }
+  if (plan.after) blocks.push({ type: 'text', text: plan.after })
+  return blocks
+}
+
 // ── the operations ───────────────────────────────────────────────────────────
 
 /** Validated arguments, as the Toolbox hands them over. See `toolbox-core.ts`. */
@@ -280,6 +335,13 @@ export interface FidelityDeps extends PictureDeps {
    * would be two ways to name one thing.
    */
   adoptCapture?(bundle: string): Promise<{ uid: string; created: boolean }>
+
+  /**
+   * [[REQ-363]] — how `screenshot` tiles a page. Absent in every deployment,
+   * which reads `picture-tiles.json`; present only where a caller wants other
+   * settings without editing that file.
+   */
+  tiles?: TileSettings
 }
 
 /**
@@ -522,12 +584,23 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
     },
 
     screenshot: async (p) => {
-      const picture = await resolvePicture(p.of as PictureSource, deps)
-      const { blocks } = await imageBlocks(picture)
+      const source = p.of as PictureSource
+      const ask: TileAsk = { tiles: p.tiles, section: p.section, detail: p.detail }
+      const settings = deps.tiles ?? TILE_SETTINGS
+      // REFUSED BEFORE A BROWSER IS LEASED: an ask that cannot be answered costs
+      // nothing, whichever kind of picture it names.
+      checkAsk(source?.kind, ask)
       // THE BLOCKS ARE THE RETURN VALUE. Not a wrapper carrying them — the
       // wire adapter puts exactly this array on the `tool_result`, so anything
       // around it would be a shape the model never sees.
-      return blocks
+      if (source?.kind === 'image') {
+        // A stored picture is the size it is and has no screens ([[REQ-363]]
+        // leaves it exactly as it was): the whole image, longest edge capped.
+        return (await imageBlocks(await resolvePicture(source, deps))).blocks
+      }
+      const detail = detailOf(ask, settings)
+      const picture = await resolvePicture(source, deps, { sections: true })
+      return tileBlocks(picture, ask, detail, settings)
     },
 
     compare: async (p) => {

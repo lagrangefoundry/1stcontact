@@ -878,10 +878,20 @@ export function round(v: number): number {
  * going through this function.
  */
 export function downsampleRaster(src: Raster, maxEdge: number): Raster {
-  const longest = Math.max(src.width, src.height)
-  if (longest <= maxEdge) return src
+  return scaleRaster(src, maxEdge / Math.max(src.width, src.height))
+}
 
-  const scale = maxEdge / longest
+/**
+ * Box-filter downscale by a factor — the arithmetic {@link downsampleRaster}
+ * applies, for a caller whose bound is not the longest edge.
+ *
+ * [[REQ-363]] — a screen-height TILE is reduced by its width (a desktop tile to
+ * about 1,024 wide), and by the provider's edge limit only as a ceiling. Both are
+ * a factor, so both reach the one resampler rather than a second copy of it. A
+ * factor of 1 or more returns the raster UNCHANGED: nothing here ever upscales.
+ */
+export function scaleRaster(src: Raster, scale: number): Raster {
+  if (scale >= 1) return src
   const w = Math.max(1, Math.floor(src.width * scale))
   const h = Math.max(1, Math.floor(src.height * scale))
   const c = src.channels

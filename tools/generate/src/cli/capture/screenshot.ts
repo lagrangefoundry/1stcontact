@@ -57,6 +57,28 @@ export async function screenshotUrl(
   factory: BrowserDriverFactory,
   steps: readonly PageStep[] = [],
 ): Promise<Uint8Array> {
+  return (await screenshotAndMeasure(url, viewport, factory, steps)).bytes
+}
+
+/**
+ * {@link screenshotUrl}, and one reading of the page it just photographed.
+ *
+ * [[REQ-363]] — a tile is labelled with the sections it shows, and where a
+ * section sits is a fact about THIS layout at THIS width. So the reading is taken
+ * in the same session and after the shutter, when the page is laid out at exactly
+ * the viewport the pixels were taken at, rather than by a second browser lease
+ * that could lay the page out differently and would cost a second load.
+ *
+ * A failed reading is `null`, never a lost picture: what it buys is a label, and
+ * a picture without its label is still the picture that was asked for.
+ */
+export async function screenshotAndMeasure<T = unknown>(
+  url: string,
+  viewport: Viewport,
+  factory: BrowserDriverFactory,
+  steps: readonly PageStep[] = [],
+  script?: string,
+): Promise<{ bytes: Uint8Array; measured: T | null }> {
   const driver = await factory()
   try {
     // REQ-216 — a DRIVEN shot loads at the width it is going to be driven at,
@@ -67,7 +89,15 @@ export async function screenshotUrl(
     // refuse — correctly, and uselessly. Nothing about an undriven shot moves.
     await driver.navigate(url, steps.length ? viewport : undefined)
     if (steps.length) await drivePage(driver, steps)
-    return await driver.screenshot(viewport)
+    const bytes = await driver.screenshot(viewport)
+    if (!script) return { bytes, measured: null }
+    let measured: T | null = null
+    try {
+      measured = await driver.query<T>(script)
+    } catch {
+      measured = null
+    }
+    return { bytes, measured }
   } finally {
     await driver.close()
   }
