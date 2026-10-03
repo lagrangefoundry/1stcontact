@@ -19,6 +19,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-57ef52fd
 ---
 
 # values-diff: a run clipped away by its ancestor reads clean, and 18 of 23 deltas compare the wrong thing
