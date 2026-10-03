@@ -6,9 +6,9 @@ title: 'Screenshots: show the page a screen at a time, with a conservative defau
   the AI can widen'
 created_by: EPIC-20
 created_at: '2026-10-02T19:01:38.804395+00:00'
-updated_at: '2026-10-03T17:05:57.006249+00:00'
+updated_at: '2026-10-03T17:06:05.175588+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -28,6 +28,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.443
+  story_points: 5
 ---
 
 **Parent:** EPIC-20. **Evidence:** EPIC-20 § "Charlie's Plumbing session, 2026-10-01/02".
