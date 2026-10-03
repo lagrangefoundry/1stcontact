@@ -6,9 +6,9 @@ title: 'fold: the reflow-window hold writes segments onto responsiveLayout, so a
   page with a layout switch fails repro outright'
 created_by: EPIC-12
 created_at: '2026-10-03T17:23:19.154669+00:00'
-updated_at: '2026-10-03T18:08:13.436330+00:00'
+updated_at: '2026-10-03T18:18:11.229969+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -72,3 +72,27 @@ Iteration 6 fails the same way: `promoteToFlow: produced an invalid L1 document 
 Iteration 5 on this site reached the gate. So a site that previously reproduced can begin failing when a fold change produces new reflow windows (today's `d20a12c157` is a candidate). This failure is not limited to new sites, and fix 2 ("declined, not fatal") is what keeps one bad pass from blocking a working site.
 
 Test plan addition: `1c repro` on `storage/references/joyfulculinarycreations.com/index` exits 0 and writes a page (main checkout only).
+
+
+## Implementation (what landed)
+
+**Fix 1: choice made, `responsiveLayout` left unchanged.** `holdAcrossReflowWindows` now collects tracks from an explicit list of segment-bearing axes: `geometry`, every track under `responsive` (`fontSizePx` / `lineHeightPx` / `letterSpacingPx`), and every track under `responsivePadding`. It no longer collects "anything with a `keyframes` array". `responsiveLayout` is never touched. **Why not add `segments` to the layout schema:** the schema already documents a layout keyframe as discrete ("no `segments` companion — a layout mode has nothing to interpolate, it snaps"). A layout switch already behaves as a held window, so there is nothing for the hold to add. (`column.*.pxTrack` was outside the old one-level duck-typed reach and stays outside it, so this does not change behaviour there.)
+
+**Fix 2: an invalid recovery is declined, not fatal.**
+- `promoteToFlow` throws a typed `InvalidRecoveryError` (same message: `promoteToFlow: produced an invalid L1 document — …`) instead of a bare `Error`.
+- `chooseRecovery` catches only that error type. It serves the base and returns `served: false`, `promoted: []`, `invalid: <validation detail>`, with the recovery priced as the base. Any other error still propagates, so a genuine bug still ends the run loudly.
+- `RecoveryVerdict` gains `recovered` (the recovery's document, or the base when it is declined). `l1-gate` prices `recoveredFindings` from it rather than calling `promoteToFlow` a second time, which would have re-thrown.
+- The output names the reason: `1c repro` prints `recovery declined: produced an invalid L1 document — <detail>` in its served-document block, and `1c l1-gate` prints the same line under its recovery line (`RecoveryCost.invalid`, `ServedEnvelope.recovery.invalid`).
+- `flowL1` (the author's "stack this group" edit) refuses an invalid result as `SCHEMA_INVALID` instead of throwing.
+- `RecoveryChoiceOptions.promote` is an optional override for the recovery pass. It exists so the declined path has evidence: once fix 1 is in, nothing live produces an invalid recovery.
+- The fold's own output still fails if it is invalid, as specified.
+
+## Test evidence
+
+`tests/test_UAT_FC_BUG-180_responsive_layout_has_no_segments.test.ts`:
+- `hold_writes_no_segments_onto_responsive_layout`: a row whose `responsiveLayout` switches 375→768, beside a banner whose geometry snaps across that window. After the hold, `responsiveLayout` has only `keyframes`, the row's geometry and the banner's `responsive.fontSizePx` are `snap` on that window, and the document passes `validateL1`. Verified RED without the fold fix.
+- `invalid_recovery_is_declined_and_the_base_served`: `chooseRecovery` with a recovery that raises `InvalidRecoveryError` serves the base, `served: false`, and `invalid` carries the detail.
+- `any_other_recovery_error_still_ends_the_run`: a non-validation error still throws.
+- `real_bundles_with_a_layout_switch_reproduce` (main checkout only, because bundles are gitignored): `cmdRepro` on hearingzone510, bluelotus and joyful writes a draft, with no invalid recovery.
+
+Manual run on copies of the three real bundles: `1c refold` then `1c repro` exits 0 for all three, and the recovery is valid on each (declined on cost, not on validity). `1c l1-gate` on bluelotus runs to a verdict. Regression scope passed: BUG-112/113/142/160/173, REQ-278/337/350, bug8-reflow, req11 structured edit (15 files, 91 tests). `tools/generate` typecheck is clean.
