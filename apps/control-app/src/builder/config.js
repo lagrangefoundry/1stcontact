@@ -373,6 +373,17 @@ export const OPERATOR_BANNER = (name) => `You are in ${name} as platform operato
 export const OPERATOR_BANNER_BACK = (name) => `Back to ${name}`
 
 /**
+ * What each business in the switcher is TO the signed-in person ([[REQ-369]]).
+ *
+ * EVERY ENTRY IS MARKED, owned included. A person holding both their own
+ * business and one they help run must be able to tell which is which at a
+ * glance, and marking only the delegated one makes "owned" the absence of a
+ * word. A business reached without a membership (the operator's bypass) has
+ * neither role and carries neither mark.
+ */
+export const BUSINESS_ROLE_SUFFIX = { owner: ' · owned', delegate: ' · delegated' }
+
+/**
  * What the builder says when NOTHING on the account can be entered ([[REQ-179]]
  * reopen, [[DOC-42]] §10.1).
  *

@@ -1971,7 +1971,8 @@ body {
 .builder-people__stage,
 .builder-people__access,
 .builder-people__suspended,
-.builder-people__bounced {
+.builder-people__bounced,
+.builder-people__delegate {
   flex: none;
   font-size: 0.72em;
   line-height: 1.6;
@@ -2469,6 +2470,24 @@ body {
 }
 
 .builder-people__fulfil:hover {
+  border-color: var(--shell-accent);
+}
+
+/* Make / Revoke delegate (REQ-369): the fulfilment button's metrics, for the
+ * same reason — both open something consequential from a person's pane. */
+.builder-people__delegate-btn {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  cursor: pointer;
+  margin: 0 8px;
+  padding: var(--builder-control-padding);
+  color: var(--shell-fg);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+.builder-people__delegate-btn:hover {
   border-color: var(--shell-accent);
 }
 

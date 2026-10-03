@@ -150,15 +150,17 @@ describe('REQ-197 — rendering substitutes, or it refuses', () => {
 })
 
 describe('REQ-197 — the three templates, and what the invite has to say', () => {
-  it('UAT_FC_REQ-197 there are exactly three templates: invite, signin and lapsed', () => {
+  it('UAT_FC_REQ-197 the templates are exactly invite, signin, lapsed and delegate', () => {
     // A FOURTH ARRIVED WITH [[REQ-223]] — `asset`, the download a public form
     // promised — and [[REQ-247]] took it away again: the copy a FORM sends is a
     // page of the site that sends it, so it is no longer looked up here at all.
     // The claim this pins is unchanged and is not about the number: the key set
     // is CLOSED, and every key in it is seeded complete enough to send the
     // moment it exists.
-    expect([...TEMPLATE_KEYS]).toEqual(['invite', 'signin', 'lapsed'])
-    expect(Object.keys(SEED_TEMPLATES).sort()).toEqual(['invite', 'lapsed', 'signin'])
+    // [[REQ-369]] added `delegate`: an owner asking somebody to help run their
+    // business is a different act from the invite, so it is different copy.
+    expect([...TEMPLATE_KEYS]).toEqual(['invite', 'signin', 'lapsed', 'delegate'])
+    expect(Object.keys(SEED_TEMPLATES).sort()).toEqual(['delegate', 'invite', 'lapsed', 'signin'])
     // Each is complete enough to send the moment it is seeded: a subject, a
     // body, and a declaration that its own body satisfies.
     for (const key of TEMPLATE_KEYS) {

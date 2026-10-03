@@ -1527,6 +1527,37 @@ export async function invitePeople(ids, subject, body, fetchImpl = fetch) {
 }
 
 /**
+ * Make one contact a delegate of the open business, and mail them the
+ * invitation ([[REQ-369]]). Owners only; the refusal's sentence is read back.
+ */
+export async function makeDelegate(id, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/delegate'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/people/delegate → ${res.status}`)
+  }
+  return res.json()
+}
+
+/** Withdraw a delegate of the open business ([[REQ-369]]). Owners only. */
+export async function revokeDelegate(id, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/people/delegate/revoke'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ id }),
+  })
+  if (!res.ok) {
+    const said = await res.json().catch(() => null)
+    throw new Error(said?.error || `POST /api/people/delegate/revoke → ${res.status}`)
+  }
+  return res.json()
+}
+
+/**
  * Provision a business for an existing account — 1st Contact filling an order.
  *
  * `/api/admin/` AND NOT `scoped()`, and the difference is the ticket's ([[REQ-180]]

@@ -1495,7 +1495,46 @@ export function ownsBusiness(
   businessId: string,
 ): boolean {
   if (!admission?.ok) return false
-  return admission.businesses.some((b) => b.businessId === businessId && b.role === 'owner')
+  return admission.businesses.some((b) => b.businessId === businessId && b.role === OWNER_ROLE)
+}
+
+/** The role a business's owners hold — what {@link provisionBusiness} writes. */
+export const OWNER_ROLE = 'owner'
+
+/**
+ * The role somebody an owner invited to help run their business holds
+ * ([[REQ-369]]).
+ *
+ * A ROLE VALUE AND NOT A TABLE. [[DOC-40]] §2 anticipates "several memberships
+ * against one business", and `memberships.role` carries no CHECK constraint so
+ * that adding one is a code change. Stored as its own value, rather than as a
+ * second `owner` row, so that per-tab grants can later be keyed off it without
+ * migrating anybody.
+ */
+export const DELEGATE_ROLE = 'delegate'
+
+/**
+ * May this person RUN that business — as its owner or as a delegate
+ * ([[REQ-369]])?
+ *
+ * EVERYTHING AN OWNER MAY DO EXCEPT DELEGATION MANAGEMENT, and that exception
+ * is why this is a second predicate rather than a widening of
+ * {@link ownsBusiness}. Inviting, listing and revoking delegates stay on that
+ * one, and so does {@link ownsPlatformBusiness} — a delegate of the 1st Contact
+ * business does not get the operator console or fulfilment.
+ *
+ * AND THE HOSTING BYPASS STILL ANSWERS FALSE. `role: null` is neither role, so
+ * entering a business you do not belong to grants this no more than it grants
+ * ownership.
+ */
+export function operatesBusiness(
+  admission: Admission | null | undefined,
+  businessId: string,
+): boolean {
+  if (!admission?.ok) return false
+  return admission.businesses.some(
+    (b) => b.businessId === businessId && (b.role === OWNER_ROLE || b.role === DELEGATE_ROLE),
+  )
 }
 
 /**

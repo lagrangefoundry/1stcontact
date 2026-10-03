@@ -29,6 +29,7 @@ import {
   BUSINESS_LABEL,
   BUSINESS_LAPSED_SUFFIX,
   BUSINESS_ENTERED_SUFFIX,
+  BUSINESS_ROLE_SUFFIX,
   OPERATOR_BANNER,
   OPERATOR_BANNER_BACK,
   BUSINESS_LAPSE_EXPIRED_ON,
@@ -66,7 +67,7 @@ import { createModalShell, modalButton, modalFooter } from './modal.js'
  *
  * Pure, and exported, so that fallback is provable without a DOM.
  *
- * @param {Array<{id: string, selectable?: boolean}>} businesses
+ * @param {Array<{id: string, selectable?: boolean, role?: string|null, live?: boolean}>} businesses
  * @param {string|null} storedId
  * @returns {string|null} the id to open, or null when none can be entered
  */
@@ -75,8 +76,44 @@ export function resolveBusiness(businesses, storedId) {
   const wanted = String(storedId ?? '').trim()
   const stored = list.find((b) => b.id === wanted)
   if (stored && stored.selectable !== false) return stored.id
-  const first = list.find((b) => b.selectable !== false)
+  const open = list.filter((b) => b.selectable !== false)
+  // A DELEGATE LANDS IN THE BUSINESS THEY CAME TO RUN ([[REQ-369]]). Everyone
+  // gets a starter business of their own, so a delegate who has never touched
+  // theirs would otherwise open on an empty, unpublished site. When nothing
+  // they OWN is live, a delegated business wins — a live one first. An owner
+  // with a live business, and anybody who delegates nothing, gets the first
+  // selectable business exactly as before.
+  //
+  // AND THE CONVERSE IS STATED, NOT LEFT TO ORDER. A delegate membership granted
+  // before their own business existed sorts first, so "first selectable" would
+  // open somebody else's business on a person whose own is live.
+  const delegated = open.filter((b) => b.role === 'delegate')
+  if (delegated.length > 0) {
+    const ownLive = open.find((b) => b.role !== 'delegate' && b.live === true)
+    if (ownLive) return ownLive.id
+    return (delegated.find((b) => b.live === true) ?? delegated[0]).id
+  }
+  const first = open[0]
   return first ? first.id : null
+}
+
+/**
+ * One business's label: its name, what it is to this person, and whether it
+ * can still be entered ([[REQ-369]], [[REQ-179]]).
+ *
+ * ONE FUNCTION FOR THE SWITCHER AND THE ACCOUNT SURFACE, so the two cannot mark
+ * the same business differently.
+ *
+ * @param {{id: string, name?: string, selectable?: boolean, role?: string|null}} b
+ * @returns {string}
+ */
+export function businessLabel(b) {
+  // AN ENTERED BUSINESS SAYS SO AND NOTHING ELSE ([[REQ-367]]): the operator
+  // holds no role in it, and it is current, so it is neither marked owned nor
+  // lapsed.
+  if (b.entered) return `${b.name || b.id}${BUSINESS_ENTERED_SUFFIX}`
+  const role = BUSINESS_ROLE_SUFFIX[b.role] ?? ''
+  return `${b.name || b.id}${role}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
 }
 
 /**
@@ -172,10 +209,7 @@ export function createBusinessSwitcher({
   let visiting = entered ? { id: entered.id, name: entered.name, entered: true } : null
   const entries = visiting ? [visiting, ...businesses] : businesses
 
-  const labelOf = (b) =>
-    `${b.name || b.id}${
-      b.entered ? BUSINESS_ENTERED_SUFFIX : b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''
-    }`
+  const labelOf = businessLabel
 
   // Marked on the wrapper rather than inferred by every reader: `app.js` blocks
   // the tabs on the same fact, the stylesheet dims on it, and a suite asserts
@@ -420,7 +454,7 @@ export function openAccountSurface({ host = null, person = null, businesses = []
 
     const label = document.createElement('span')
     label.className = 'builder-account__business-name'
-    label.textContent = `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
+    label.textContent = businessLabel(b)
     row.append(label)
 
     // THE REASON GOES BESIDE THE BUSINESS IT BELONGS TO, and this is the one

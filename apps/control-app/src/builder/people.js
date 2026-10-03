@@ -101,8 +101,10 @@ import {
   promoteInbound,
   setInboundSuppressed,
   invitePeople,
+  makeDelegate,
   openGrant,
   provisionBusinessFor,
+  revokeDelegate,
   revokeGrant,
   savePersonRecord,
   subscribeContacts,
@@ -338,7 +340,7 @@ export { NO_NAME_YET }
  * scans this list for is who signed up, and a column reading "Not a member"
  * against most rows would spend the eye's attention on the ordinary case.
  */
-function renderRow(person, bounced = new Set(), selection = null) {
+function renderRow(person, bounced = new Set(), selection = null, delegates = new Set()) {
   const row = el('div', 'builder-people__row')
   // THE CHECKBOX IS PART OF THE ROW AND NOT A COLUMN BESIDE IT ([[REQ-199]]).
   // `list-detail` renders one content cell per row, so the tick has to live
@@ -388,6 +390,11 @@ function renderRow(person, bounced = new Set(), selection = null) {
     // takes a click to find — so it is a pill on the row, on the same idiom the
     // suspended one uses, and for the same reason: it fires on the exception.
     row.append(el('span', 'builder-people__bounced', 'bounced'))
+  }
+  if (delegates.has(person.id)) {
+    // WHO ELSE RUNS THIS BUSINESS ([[REQ-369]]). An owner deciding who to make a
+    // delegate, or who to revoke, is looking for exactly this row.
+    row.append(el('span', 'builder-people__delegate', 'delegate'))
   }
   return row
 }
@@ -961,6 +968,8 @@ export function createPeoplePanel(options = {}) {
     add: addContact,
     inviteDraft: fetchInviteDraft,
     invite: invitePeople,
+    delegate: makeDelegate,
+    undelegate: revokeDelegate,
     fulfil: provisionBusinessFor,
     // OPTIONAL AT THE SEAM, AND THE PANEL CHECKS FOR IT ([[REQ-233]]). A suite
     // that injects a transport to assert something else entirely should not have
@@ -977,6 +986,10 @@ export function createPeoplePanel(options = {}) {
   let all = []
   let canFulfil = false
   let canInvite = false
+  /** Owner of this business — delegation management is theirs alone ([[REQ-369]]). */
+  let canDelegate = false
+  /** The contacts who are live delegates of this business, as `/api/people` reported them. */
+  let delegates = new Set()
   /**
    * The contacts holding a bounced message, as `/api/people` reported them.
    *
@@ -1079,7 +1092,9 @@ export function createPeoplePanel(options = {}) {
    * business* ([[DOC-42]] §7), which is true of Alice on hers. Not rendering it
    * is not the gate: `/api/people/add` asks the same question again for itself.
    */
-  const add = el('button', 'builder-people__add', '+')
+  // `+ Add` AND NOT A BARE `+` ([[REQ-369]]). The glyph alone, in a row of
+  // filter chrome, was reported missing by an owner who had it on screen.
+  const add = el('button', 'builder-people__add', '+ Add')
   add.type = 'button'
   add.hidden = true
   add.title = 'Add a contact'
@@ -1379,6 +1394,65 @@ export function createPeoplePanel(options = {}) {
       }
     })()
     return modal
+  }
+
+  /**
+   * MAKE DELEGATE: say what is about to happen, then do it ([[REQ-369]]).
+   *
+   * A CONFIRMATION AND NOT A COMPOSER. The copy is the `delegate` template's,
+   * and unlike the invite there is no per-send edit: what matters to the owner
+   * here is not the wording but the consequence, so that is what the dialog
+   * states.
+   */
+  function openDelegate(person, view) {
+    const who = displayNameOf(person) || person.email || person.id
+    const modal = createModalShell({ host: element, title: 'Make delegate' })
+    modal.panel.append(el('h2', 'builder-modal__title', 'Make delegate'))
+    modal.panel.append(
+      el(
+        'p',
+        'builder-people__delegate-hint',
+        `${who} will be emailed at ${person.email || 'their primary address'} and, once they sign in, ` +
+          'can do everything you can in this business except manage its delegates. ' +
+          'You can revoke this at any time.',
+      ),
+    )
+    const said = el('p', 'builder-people__delegate-said', '')
+    said.hidden = true
+    modal.panel.append(said)
+    const go = modalButton('Send invitation', 'builder-modal__btn builder-modal__btn--primary', async () => {
+      go.disabled = true
+      try {
+        const answer = await transport.delegate(person.id)
+        const result = answer.result ?? {}
+        said.textContent =
+          result.status === 'failed'
+            ? `${who} is a delegate, but the email did not go: ${result.reason ?? 'the provider refused it'}.`
+            : `${who} is a delegate. The invitation went to ${result.to}.`
+        said.hidden = false
+        await refresh()
+        await reopen(person.id, view)
+      } catch (err) {
+        said.textContent = err instanceof Error ? err.message : String(err)
+        said.hidden = false
+      } finally {
+        go.disabled = false
+      }
+    })
+    modal.panel.append(modalFooter([go, modalButton('Close', 'builder-modal__btn', () => modal.close())]))
+    modal.mount()
+    return modal
+  }
+
+  /** REVOKE: immediate, and reported in the pane it was pressed in ([[REQ-369]]). */
+  async function revokeDelegateOf(person, view) {
+    try {
+      await transport.undelegate(person.id)
+      await refresh()
+      await reopen(person.id, view)
+    } catch (err) {
+      view.append(el('p', 'builder-people__delegate-said', err instanceof Error ? err.message : String(err)))
+    }
   }
 
   /**
@@ -1927,6 +2001,47 @@ export function createPeoplePanel(options = {}) {
      * question again for itself, because a control that is merely absent from a
      * page is not refused to anyone who can type a URL.
      */
+    /**
+     * DELEGATE: let this contact help run the business ([[REQ-369]]).
+     *
+     * OWNERS ONLY, on `canDelegate` — a delegate sees no such section, because
+     * delegation management is the one thing they may not do. Not rendering it
+     * is not the gate: both routes ask the question again for themselves.
+     *
+     * ONE PERSON AT A TIME, from their own pane rather than the checked
+     * selection. Handing somebody the business is a decision about a person,
+     * and a multi-select would make it possible to do to five people by
+     * accident what should be done to one on purpose.
+     */
+    if (canDelegate) {
+      const box = section(view, 'Delegate')
+      const standing = detail.delegate ?? null
+      const live = standing?.status === 'active'
+      box.append(
+        el(
+          'p',
+          'builder-people__delegate-state',
+          live
+            ? `A delegate since ${shortWhen(standing.grantedAt)} — they can run this business, but cannot manage its delegates.`
+            : standing
+              ? `Was a delegate until ${shortWhen(standing.revokedAt)}.`
+              : 'Not a delegate. A delegate can do everything you can in this business except manage its delegates.',
+        ),
+      )
+      const said = el('p', 'builder-people__delegate-said', '')
+      said.hidden = true
+      const button = el(
+        'button',
+        'builder-people__delegate-btn',
+        live ? 'Revoke delegate' : 'Make delegate',
+      )
+      button.type = 'button'
+      button.addEventListener('click', () =>
+        live ? revokeDelegateOf(detail.person, view) : openDelegate(detail.person, view),
+      )
+      box.append(button, said)
+    }
+
     if (canFulfil) {
       const fulfil = section(view, 'Add a business')
       const button = el('button', 'builder-people__fulfil', 'Provision a business')
@@ -2061,7 +2176,7 @@ export function createPeoplePanel(options = {}) {
     // WRAPPED so the row can see the bounce set and the selection without either
     // becoming a field on the person — the component calls this per row and
     // holds nothing else.
-    renderRow: (person) => renderRow(person, bounced, selection),
+    renderRow: (person) => renderRow(person, bounced, selection, delegates),
     mode: 'no-tab',
     openDetail,
     emptyDetail: emptyPane(),
@@ -2087,7 +2202,9 @@ export function createPeoplePanel(options = {}) {
     all = Array.isArray(answer.people) ? answer.people : []
     canFulfil = answer.canFulfil === true
     canInvite = answer.canInvite === true
+    canDelegate = answer.canDelegate === true
     bounced = new Set(Array.isArray(answer.bounced) ? answer.bounced : [])
+    delegates = new Set(Array.isArray(answer.delegates) ? answer.delegates : [])
     // A TICK ON SOMEBODY WHO IS NO LONGER IN THE LIST IS DROPPED ([[REQ-199]]).
     // Kept, it would be an id nothing can send to and a refusal in every later
     // send — and it would make the button's count disagree with the number of
@@ -2221,6 +2338,8 @@ export function createPeoplePanel(options = {}) {
     all = []
     canFulfil = false
     canInvite = false
+    canDelegate = false
+    delegates = new Set()
     bounced = new Set()
     // THE SELECTION GOES WITH THE LIST. These are other people entirely, and a
     // tick surviving a business switch is a checked id in a business that has no

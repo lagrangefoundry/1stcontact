@@ -1,6 +1,6 @@
 import { MEMBER_SIGNED_UP } from './builder/contact-events.js'
 import { contactEventInsert } from './events'
-import type { Admission, IdentityEnv, UserRow } from './identity'
+import { OWNER_ROLE, type Admission, type IdentityEnv, type UserRow } from './identity'
 import { ensureOwnBusiness } from './onboarding'
 import { splitBusinessPrefix } from './scope'
 
@@ -347,7 +347,15 @@ export async function guardTerms(
     // one failed write and they are locked out permanently, with the remedy on
     // the far side of the lock. They have already clicked agree by the time this
     // runs, so nothing here provisions for somebody who did not.
-    if (admission.businesses.length === 0) await ensureOwnBusiness(env, admission.user)
+    //
+    // "NOTHING" MEANS NOTHING THEY OWN ([[REQ-369]]). A delegate holds a
+    // membership on somebody else's business and still gets a starter business
+    // of their own — everyone does — so a delegate membership must not read as
+    // already holding one. An `owner` row through a shared account still does,
+    // which is the case the sentence above is about.
+    if (!admission.businesses.some((b) => b.role === OWNER_ROLE)) {
+      await ensureOwnBusiness(env, admission.user)
+    }
     await acceptTerms(env, admission.user.id, version, options.now)
     // 204 and no body: the caller that posted this is the interstitial's own
     // script, which reloads on success and has nothing to read.
