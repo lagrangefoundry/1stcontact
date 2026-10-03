@@ -558,6 +558,12 @@ export const RUN_AXES: readonly AnyElementAxis<ContentRun, RawRun>[] = [
     ...sharedRun((r) => r.renderedTextBox ?? undefined),
   },
   {
+    axis: 'pseudoGlyph',
+    role: 'carried',
+    note: 'BUG-190 — the run is a `::before`/`::after` glyph (REQ-366) whose `renderedTextBox` is its HOST box, not a glyph extent. Not diffed: it is what tells the diff to measure the run host against host.',
+    ...sharedRun((r) => r.pseudoGlyph),
+  },
+  {
     axis: 'colorInferred',
     role: 'carried',
     note: 'REQ-35 — the colour was a `#000000`/`#ffffff` fallback, not a measurement. Not an axis the diff compares: it is what STOPS the diff holding a reproduction to a colour the capture only guessed.',
