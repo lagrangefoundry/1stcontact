@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:10:20.971605+00:00'
+updated_at: '2026-10-03T18:17:39.996679+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,13 @@ I've written up EPIC-23. It has a new title, "Identity: impersonation, multiple 
 4. **Delegate with no business of their own.** Confirm they get an account but no starter business.
 
 **Children:** I'm proposing three tickets, one per feature. None blocks another, and they can land in any order. Say the word and I'll create them.
+
+<!-- xgd-turn id="8f7df6e5-584f-4575-b3d3-317262fda6ec-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T18:17:39.372958+00:00" -->
+#### You
+**Impersonation is the one real design decision.** Today you can already enter any business, but only as yourself. <-- I was not aware of this. This may be sufficient but there is a navigation issue - I have no way to open businesses other than my own. That could be solved with a console control - I can see all the businesses listed, I just need a link/button that will let me open the app in that business.
+
+Contacts are stored per business, but sign-in only works for platform-level users. So the delegate invite has to find or create a platform user for the contact's email. <-- that's ok, there is a missing UI - the business owner needs to be able to manually add contacts - once they can they just add the delegate email to their contacts list and send the invite.
 
 <!-- xgd-chat-end -->
