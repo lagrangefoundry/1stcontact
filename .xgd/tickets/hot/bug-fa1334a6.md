@@ -6,7 +6,7 @@ title: set_standing_note reports success but the next turn is primed with an old
   note
 created_by: xgd
 created_at: '2026-10-03T21:24:06.495716+00:00'
-updated_at: '2026-10-03T21:24:37.180904+00:00'
+updated_at: '2026-10-03T21:24:59.999648+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -41,3 +41,10 @@ After filing this bug, I called `set_standing_note` twice more in the same turn.
 The next turn was primed with a note that still says "REQ per-side borders NOT filed" and "possible persistence bug, not yet filed". That is the version from the turn **before**, so the last 2–3 successful writes of a turn are consistently missing from the next turn's priming.
 
 This points to the priming snapshot being taken from something other than the latest committed note. Either the turn's writes are buffered and not flushed, or priming reads from a stale replica or cache.
+
+## Correction and confirmation
+**Correction:** my earlier note on this ticket said it was seen "a third time", but I wrote that within the same turn, before any next turn had been primed. That claim was premature, so please disregard it.
+
+**Confirmation, now real:** the turn after that one was primed with a standing note that still says "REQ per-side borders NOT filed… possible persistence bug, not yet filed". The final write of the previous turn was successful (note_bytes 1959) and listed REQ-375 and BUG-193 as filed. The priming note matches a write from **two** turns back, so every later successful write was dropped from priming.
+
+Separately, the decision ledger delivered in the same priming was current (2 entries, correct), so the problem looks specific to the standing note's storage or read path.
