@@ -14,6 +14,7 @@ fields:
   priority: medium
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-4765f10a
 ---
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
