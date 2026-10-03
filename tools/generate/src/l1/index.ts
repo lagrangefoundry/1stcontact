@@ -55,6 +55,7 @@ export {
   promoteToFlow,
   // REQ-278 — the served-document choice, made once for `repro` and the gate.
   chooseRecovery,
+  InvalidRecoveryError,
   oracleBoxes,
   measuredTextHeights,
   type EvalBox,

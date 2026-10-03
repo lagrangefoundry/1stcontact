@@ -2018,13 +2018,15 @@ export async function run(argv: string[]): Promise<void> {
           served.byWidth.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
           `  ·  off-sample ` +
           served.offSample.map((w) => `${w.width}${w.height ? `\u00d7${w.height}` : ''}:${w.findings}`).join(' ') +
-          `\n      recovery ${served.document === 'recovery' ? 'served' : 'declined'}: ` +
-          `${served.recovery.promoted} region(s) flow, at ` +
-          `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
-          `${served.recovery.fidelityResiduals} residual(s)` +
-          (served.document === 'recovery'
-            ? ' — the capture reproduced, and resilient to content that grows'
-            : ' — a different page, not a repaired one')
+          (served.recovery.invalid
+            ? `\n      recovery declined: produced an invalid L1 document — ${served.recovery.invalid}`
+            : `\n      recovery ${served.document === 'recovery' ? 'served' : 'declined'}: ` +
+              `${served.recovery.promoted} region(s) flow, at ` +
+              `maxΔ ${served.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
+              `${served.recovery.fidelityResiduals} residual(s)` +
+              (served.document === 'recovery'
+                ? ' — the capture reproduced, and resilient to content that grows'
+                : ' — a different page, not a repaired one'))
         : ''
       console.log(
         `Reproduced ${ref} → ${draftDir}\n` +
@@ -2103,6 +2105,10 @@ export async function run(argv: string[]): Promise<void> {
             `${report.recovery.servedFindings} finding(s) → ${report.recovery.recoveredFindings}, ` +
             `at maxΔ ${report.recovery.fidelityMaxDeltaPx.toFixed(1)}px / ` +
             `${report.recovery.fidelityResiduals} fidelity residual(s)\n` +
+            // BUG-180 — an invalid recovery is declined, not fatal; say why.
+            (report.recovery.invalid
+              ? `  recovery declined: produced an invalid L1 document — ${report.recovery.invalid}\n`
+              : '') +
             // BUG-113 — the gate grades the bundle's RETAINED l1.json, because
             // that is what `1c repro` serves. When a re-fold of the same oracle
             // would produce something else, say so: the verdict is still about

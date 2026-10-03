@@ -130,6 +130,8 @@ export interface ServedEnvelope {
     promoted: number
     fidelityMaxDeltaPx: number
     fidelityResiduals: number
+    /** BUG-180 — the validation error, when the recovery was declined as invalid. */
+    invalid?: string
   }
 }
 
@@ -198,6 +200,7 @@ function measureServed(
       promoted: choice.promoted.length,
       fidelityMaxDeltaPx: choice.recovery.maxDelta,
       fidelityResiduals: choice.recovery.residuals,
+      ...(choice.invalid ? { invalid: choice.invalid } : {}),
     },
   }
 }
