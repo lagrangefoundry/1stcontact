@@ -641,31 +641,17 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     expect(asked[0].model).toBe(WORKER_MODEL)
     expect(turnTailText(asked[0])).toContain('Lay out the About page as three sections.')
 
-    // AND THEN IT WAS NUDGED ANYWAY ([[BUG-163]]). A worker that has reported
-    // nothing is asked once more before the delegation is called silent
-    // ([[BUG-71]]), and that decision is made on two facts: whether the CALLER
-    // cancelled, and whether the turn ran out of tool iterations. A turn this
-    // repository's own guard ended — `status: 'aborted'`, `stop_reason:
-    // 'context_budget'` — is neither, so the nudge goes out. So the second
-    // request is NOT the guard having failed: it is a second turn, and it is
-    // named from upstream's own words rather than inferred from being second.
-    expect(asked.length).toBeGreaterThan(1)
-    expect(asked[1].model).toBe(WORKER_MODEL)
-    expect(turnTailText(asked[1])).toContain(nudgeText([WORKER_CHECK]))
-
-    // AND IT COULD ONLY BE CUT OFF. The nudge opens a fresh turn on the same
-    // conversation, so its first request carries the same over-ceiling history
-    // and the same guard stops it on the same tool call. The count therefore
-    // stops at TWO: a third request would mean the nudge's turn had carried on,
-    // and the script has one waiting to prove it did not. The ask cannot be
-    // answered, whatever the worker meant to say.
-    //
-    // THE HALF THAT IS NOT IN THIS REPOSITORY. The fix is that the nudge should
-    // not fire for a turn that was aborted, and that decision lives in the
-    // framework's delegation toolbox — the terminal event already carries the
-    // reason, so the shape is the one [[BUG-71]] established for `exhausted`.
-    // This is the assertion that flips back to one request when it lands.
-    expect(asked).toHaveLength(2)
+    // AND IT WAS NOT ASKED AGAIN ([[BUG-163]], [[BUG-191]]). A worker that has
+    // reported nothing is ordinarily nudged once before the delegation is called
+    // silent ([[BUG-71]]) — but a turn that closed `aborted` is not: the nudge
+    // would open a fresh turn on the same over-ceiling history and the same guard
+    // would cut it off on its first request, billed in full for nothing. That
+    // decision is upstream's (lagrange-framework BUG-75) and it has landed, so the
+    // worker sent exactly the one request of its own work, and the script's
+    // second and third steps — waiting to prove a nudge had gone out — are never
+    // reached.
+    expect(asked).toHaveLength(1)
+    expect(asked.map(turnTailText).join('\n')).not.toContain(nudgeText([WORKER_CHECK]))
 
     // AND THE CALLER WAS NOT. It carried on, was handed the delegation's result,
     // and answered its client — a worker running out of room is an outcome the
@@ -678,16 +664,13 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     expect(answered).toContain('finish this myself')
     expect(events.at(-1)?.meta?.status).toBe('complete')
 
-    // AND THE WASTE IS A FIGURE RATHER THAN AN ARGUMENT ([[BUG-163]]). Both of
-    // the worker's requests are billed to the caller — the guard closes a stopped
-    // turn properly precisely so its spend is not lost — so the nudge's full
-    // request is on the bill beside the work's, and what it costs to ask a worker
-    // that had run out of room is readable off the meter rather than only
-    // arguable from the code.
+    // AND THE BILL SAYS SO ([[BUG-163]]). The worker's one request is billed to
+    // the caller — the guard closes a stopped turn properly precisely so its spend
+    // is not lost — and there is no nudge request beside it.
     const attributed = JSON.parse((await meter(sessionId))[0].attributed!) as {
       usage: Record<string, number>
     }[]
     expect(attributed).toHaveLength(1)
-    expect(attributed[0].usage.input_tokens).toBe(overWorker + nudgeRequest)
+    expect(attributed[0].usage.input_tokens).toBe(overWorker)
   })
 })

@@ -54,6 +54,16 @@ export const TEXT = 'text'
 export const DONE = 'done'
 export const TOOL_ACTIVITY = 'tool_activity'
 
+/**
+ * The junction record kind that closes a turn.
+ *
+ * Matched rather than produced, unlike the three above, and here for the same
+ * one-definition-site reason: `host-core.ts` reads the caller's own `turn_end`
+ * and `account-core.ts` reads a worker's ([[BUG-191]]), and `/core` does not
+ * re-export it.
+ */
+export const TURN_END = 'turn_end'
+
 /** One event as the library's `promptStream` yields it. */
 export interface StreamEvent {
   kind: string
