@@ -52,11 +52,16 @@ export const TEMPLATE_TYPE = 'template'
  * why they stay business-scoped tickets: a business with two sites has one
  * sign-in email, not two.
  *
+ * `delegate` ([[REQ-369]]) is the fourth: an owner asking somebody to help run
+ * their business. It is a different act from `invite` — it grants a membership
+ * on this business rather than asking a contact to sign up — so it is different
+ * copy, and an owner who edits one must not be editing the other.
+ *
  * `asset` IS GONE FROM THIS LIST AND THE OMISSION IS THE CHANGE. It was the copy
  * a gated download rendered, and a gated download is exactly a form's message —
  * so it moved, with the rest of them, to the site.
  */
-export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed'] as const
+export const TEMPLATE_KEYS = ['invite', 'signin', 'lapsed', 'delegate'] as const
 
 /**
  * One of the seeded system keys.
@@ -499,6 +504,39 @@ export const SEED_TEMPLATES: Record<TemplateKey, SeedTemplate> = {
       'your browser:</p>',
       '<p>{{cta_url}}</p>',
       '<p>If you did not ask to sign in, you can ignore this message.</p>',
+    ].join('\n'),
+  },
+
+  /**
+   * The delegate invitation ([[REQ-369]]): an owner asking somebody to help run
+   * their business.
+   *
+   * `{{business}}` IS DECLARED, unlike the other seeds' tokens beyond the link.
+   * The header's argument against `{{name}}` is that the sender may not hold
+   * one; here the sender is the business itself and always holds its own name —
+   * and an invitation to help run "a business" that does not say which one is a
+   * message nobody can act on.
+   *
+   * THE SAME THREE PARTS THE INVITE CARRIES, for the same reason: the pasteable
+   * URL is the route in for every client that mangles the button.
+   */
+  delegate: {
+    title: 'Delegate invitation email',
+    subject: 'You have been invited to help run {{business}}',
+    placeholders: ['cta_url', 'business'],
+    from: '1st Contact <invite@1stcontact.io>',
+    body: [
+      '<p>Hello,</p>',
+      '<p>You have been invited to help run {{business}}. The link below signs you',
+      'in — there is no password to choose — and {{business}} will be waiting in',
+      'your list of businesses.</p>',
+      '<p><a href="{{cta_url}}" style="display:inline-block;padding:12px 20px;',
+      'background:#111111;color:#ffffff;text-decoration:none;border-radius:6px;',
+      'font-weight:600">Accept the invitation</a></p>',
+      '<p>If that button does not work, copy the address below and paste it into',
+      'your browser:</p>',
+      '<p>{{cta_url}}</p>',
+      '<p>If you were not expecting this, you can ignore it and nothing will happen.</p>',
     ].join('\n'),
   },
 

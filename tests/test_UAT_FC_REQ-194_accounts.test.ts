@@ -163,10 +163,16 @@ describe('REQ-194 — the account is a table', () => {
     const identity = code(
       fs.readFileSync(path.join(REPO, 'apps', 'control-app', 'src', 'identity.ts'), 'utf8'),
     )
-    // Two writes (`provisionBusiness`, `ensurePlatformOperator`) and exactly one
-    // read, which is `ownsBusiness`.
+    // Two writes (`provisionBusiness`, `ensurePlatformOperator`) and the one
+    // constant the reads go through.
     expect([...identity.matchAll(/['"]owner['"]/g)]).toHaveLength(3)
-    expect([...identity.matchAll(/role === 'owner'/g)]).toHaveLength(1)
+    // [[REQ-369]] ADDED THE SECOND ROLE AND THE SECOND READER, deliberately:
+    // `delegate` is declared once, beside `owner`, and exactly two predicates
+    // read the vocabulary — `ownsBusiness` (owner) and `operatesBusiness`
+    // (owner or delegate). A third reader is still what this catches.
+    expect([...identity.matchAll(/['"]delegate['"]/g)]).toHaveLength(1)
+    expect([...identity.matchAll(/role === 'owner'/g)]).toHaveLength(0)
+    expect([...identity.matchAll(/\.role === OWNER_ROLE/g)]).toHaveLength(2)
   })
 
   it('test_UAT_FC_REQ-194_the_chrome_is_told_who_is_signed_in_under_that_noun', () => {

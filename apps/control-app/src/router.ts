@@ -263,6 +263,15 @@ import {
   UnknownInviteeError,
   type InviteResult,
 } from './invites'
+import {
+  DelegateRefusedError,
+  delegateContactIds,
+  delegateStatusOf,
+  liveBusinessIds,
+  makeDelegate,
+  revokeDelegate,
+  UnknownDelegateError,
+} from './delegates'
 import { currentNameOf, type NamePatch } from './names'
 import { displayNameFrom, NAME_PART_NAMES } from './builder/people-name.js'
 import { chromeHtml } from './chrome'
@@ -272,7 +281,9 @@ import type { RequestLog } from './log'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
 import { NoBusinessError, businessPath, splitBusinessPrefix, type Scope } from './scope'
 import {
+  requirePlatformTenant,
   findAccount,
+  operatesBusiness,
   ownsBusiness,
   ownsPlatformBusiness,
   provisionBusiness,
@@ -1887,6 +1898,15 @@ export const PERSON_ADD_PATH = '/api/people/add'
  * about which template they mean.
  */
 export const PERSON_INVITE_PATH = '/api/people/invite'
+/**
+ * Make a contact a delegate of this business, and revoke one ([[REQ-369]]).
+ *
+ * TWO PATHS FOR TWO ACTS, on `/api/people/add` and `/api/people/invite`'s
+ * precedent, and BOTH OWNER-ONLY: delegation management is the one thing a
+ * delegate may not do in a business they help run.
+ */
+export const PERSON_DELEGATE_PATH = '/api/people/delegate'
+export const PERSON_DELEGATE_REVOKE_PATH = '/api/people/delegate/revoke'
 
 /**
  * What we have said to one person, and whether it arrived ([[REQ-198]]).
@@ -2225,6 +2245,13 @@ export interface BusinessesPayload {
     name: string
     selectable: boolean
     lapse: BusinessLapse | null
+    /**
+     * `owner`, `delegate`, or null for a business reached without a membership
+     * ([[REQ-369]]). Absent on the dev-open path, where there is no admission.
+     */
+    role?: string | null
+    /** At least one of its sites has a published revision ([[REQ-369]]). */
+    live?: boolean
   }>
   /**
    * Whether this session owns the 1st Contact business ([[REQ-297]], [[DOC-42]]
@@ -2287,6 +2314,7 @@ export function businessesPayload(
   scope: Scope | null,
   personName: string | null = null,
   ownsPlatform: boolean = false,
+  live: ReadonlySet<string> = new Set(),
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
@@ -2296,6 +2324,12 @@ export function businessesPayload(
         name: b.name,
         selectable: b.selectable,
         lapse: b.lapse,
+        // WHAT THIS PERSON IS TO IT, AND WHETHER IT IS PUBLISHED ([[REQ-369]]).
+        // The switcher marks each entry owned or delegated by the first, and a
+        // delegate whose own business is not live opens on the delegated one
+        // by the second.
+        role: b.role,
+        live: live.has(b.businessId),
       })),
       ownsPlatformBusiness: ownsPlatform,
     }
@@ -3316,6 +3350,12 @@ async function routeUncached(
           // and a client that guessed would draw a control whose routes then
           // refuse it.
           ownsPlatformBusiness(identityEnv, deps.admission),
+          deps.admission?.ok
+            ? await liveBusinessIds(
+                identityEnv,
+                deps.admission.businesses.map((b) => b.businessId),
+              )
+            : new Set(),
         ),
       )
     }
@@ -4012,7 +4052,17 @@ async function routeUncached(
         seq,
         people: await peopleOf(identityEnv, scope),
         canFulfil: ownsPlatformBusiness(identityEnv, deps.admission),
-        canInvite: ownsBusiness(deps.admission, scope.businessId),
+        // OWNERS AND DELEGATES BOTH ([[REQ-369]]). Adding and inviting contacts
+        // is running the business, which a delegate does; delegation management
+        // is the one exception, and it is `canDelegate`.
+        canInvite: operatesBusiness(deps.admission, scope.businessId),
+        canDelegate: ownsBusiness(deps.admission, scope.businessId),
+        /**
+         * The contacts who are live delegates of this business ([[REQ-369]]),
+         * a set beside the rows for the reason `bounced` is: the rows are this
+         * business's contacts and the membership is a platform user's.
+         */
+        delegates: await delegateContactIds(identityEnv, scope.businessId),
         /**
          * The contacts holding a bounced message ([[REQ-198]], [[REQ-199]]).
          *
@@ -4053,9 +4103,13 @@ async function routeUncached(
      */
     if (p === PERSON_DETAIL_PATH && method === 'GET') {
       const id = new URL(request.url).searchParams.get('id') ?? ''
-      const detail = await personDetail(identityEnv, requireScope(), id)
+      const scope = requireScope()
+      const detail = await personDetail(identityEnv, scope, id)
       if (!detail) return json(404, { error: 'No such person in this business.' })
-      return json(200, detail)
+      // WHERE THEY STAND AS A DELEGATE OF THIS BUSINESS ([[REQ-369]]), or null
+      // if they never were one. The membership is a platform user's, resolved
+      // through the contact's primary address.
+      return json(200, { ...detail, delegate: await delegateStatusOf(identityEnv, scope.businessId, id) })
     }
 
     /**
@@ -4149,8 +4203,8 @@ async function routeUncached(
      */
     if (p === PERSON_INBOUND_PROMOTE_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return json(403, { error: 'Only an owner of this business may add contacts to it.' })
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner or delegate of this business may add contacts to it.' })
       }
       const body = await readJsonBody(request)
       try {
@@ -4190,8 +4244,8 @@ async function routeUncached(
       method === 'POST'
     ) {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return json(403, { error: 'Only an owner of this business may triage its mail.' })
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner or delegate of this business may triage its mail.' })
       }
       const body = await readJsonBody(request)
       const address = typeof body.address === 'string' ? body.address : ''
@@ -4279,7 +4333,7 @@ async function routeUncached(
      */
     if (p === PERSON_RECORD_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
         console.warn(
           JSON.stringify({
             event: 'person_record_refused',
@@ -4287,7 +4341,7 @@ async function routeUncached(
             email: deps.admission?.ok ? deps.admission.user.email : null,
           }),
         )
-        return json(403, { error: 'Only an owner of this business may edit its people.' })
+        return json(403, { error: 'Only an owner or delegate of this business may edit its people.' })
       }
       const body = await readJsonBody(request)
       const patch: PersonPatch = {}
@@ -4335,8 +4389,8 @@ async function routeUncached(
      */
     if (p === PERSON_ADD_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return json(403, { error: 'Only an owner of this business may add contacts to it.' })
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner or delegate of this business may add contacts to it.' })
       }
       const body = await readJsonBody(request)
       return json(
@@ -4370,8 +4424,8 @@ async function routeUncached(
      */
     if (p === PERSON_INVITE_PATH && method === 'GET') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return json(403, { error: 'Only an owner of this business may invite people to it.' })
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner or delegate of this business may invite people to it.' })
       }
       return json(200, await inviteDraft(await openTickets(), mailFrom(env)))
     }
@@ -4443,7 +4497,7 @@ async function routeUncached(
      */
     if (p === PERSON_INVITE_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
         console.warn(
           JSON.stringify({
             event: 'invite_refused',
@@ -4451,7 +4505,7 @@ async function routeUncached(
             email: deps.admission?.ok ? deps.admission.user.email : null,
           }),
         )
-        return json(403, { error: 'Only an owner of this business may invite people to it.' })
+        return json(403, { error: 'Only an owner or delegate of this business may invite people to it.' })
       }
       const body = await readJsonBody(request)
       const ids = Array.isArray(body.ids)
@@ -4508,6 +4562,84 @@ async function routeUncached(
         ids,
       )
       return json(200, { results })
+    }
+
+    /**
+     * POST /api/people/delegate {id} — make this contact a delegate of this
+     * business and mail them the invitation ([[REQ-369]]).
+     *
+     * OWNERS ONLY, AND `ownsBusiness` RATHER THAN `operatesBusiness` IS THE
+     * POINT. A delegate holds everything an owner holds in this business except
+     * this: they cannot appoint, list-manage or revoke other delegates.
+     *
+     * THE LINK IS MINTED IN THE PLATFORM TENANT, unlike the portal invite's. The
+     * delegate signs in to the platform, so the token has to resolve there.
+     *
+     * 409 FOR A REFUSAL THE OWNER CAN ACT ON (no address, withdrawn, already an
+     * owner) and 404 for an id that names nobody in this business.
+     */
+    if (p === PERSON_DELEGATE_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        console.warn(
+          JSON.stringify({
+            event: 'delegate_refused',
+            businessId: scope.businessId,
+            email: deps.admission?.ok ? deps.admission.user.email : null,
+          }),
+        )
+        return json(403, { error: 'Only an owner of this business may make somebody a delegate.' })
+      }
+      const body = await readJsonBody(request)
+      try {
+        const result = await makeDelegate(
+          {
+            env: identityEnv,
+            scope,
+            store: await openTickets(),
+            send: deps.sendEmail ?? mailerFor(env, { fetch: deps.fetch }),
+            from: mailFrom(env),
+            inviteUrl: inviteUrlIssuer(
+              identityEnv as SessionEnv,
+              requirePlatformTenant(identityEnv),
+              new URL(request.url).origin,
+            ),
+            grantedBy: deps.admission?.ok ? deps.admission.user.email : null,
+          },
+          typeof body.id === 'string' ? body.id : '',
+        )
+        return json(200, { result })
+      } catch (error) {
+        if (error instanceof UnknownDelegateError) return json(404, { error: error.message })
+        if (error instanceof DelegateRefusedError) return json(409, { error: error.message })
+        throw error
+      }
+    }
+
+    /**
+     * POST /api/people/delegate/revoke {id} — withdraw a delegate ([[REQ-369]]).
+     *
+     * OWNERS ONLY, for the same reason. The membership row is kept with
+     * `revoked_at` stamped ([[REQ-170]]'s keep-the-history rule).
+     */
+    if (p === PERSON_DELEGATE_REVOKE_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return json(403, { error: 'Only an owner of this business may revoke a delegate.' })
+      }
+      const body = await readJsonBody(request)
+      try {
+        const delegate = await revokeDelegate(
+          identityEnv,
+          scope,
+          typeof body.id === 'string' ? body.id : '',
+        )
+        return json(200, { delegate })
+      } catch (error) {
+        if (error instanceof UnknownDelegateError) return json(404, { error: error.message })
+        if (error instanceof DelegateRefusedError) return json(409, { error: error.message })
+        throw error
+      }
     }
 
     /**
@@ -4574,7 +4706,7 @@ async function routeUncached(
      */
     if (p === BUSINESS_NAME_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
         console.warn(
           JSON.stringify({
             event: 'business_name_refused',
@@ -4582,7 +4714,7 @@ async function routeUncached(
             email: deps.admission?.ok ? deps.admission.user.email : null,
           }),
         )
-        return json(403, { error: 'Only an owner of this business may change its name.' })
+        return json(403, { error: 'Only an owner or delegate of this business may change its name.' })
       }
       const body = await readJsonBody(request)
       try {
@@ -4761,7 +4893,7 @@ async function routeUncached(
      */
     if (p === HOSTNAME_CLAIM_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope.businessId)) {
         console.warn(
           JSON.stringify({
             event: 'hostname_claim_refused',
@@ -4769,7 +4901,7 @@ async function routeUncached(
             email: deps.admission?.ok ? deps.admission.user.email : null,
           }),
         )
-        return json(403, { error: 'Only an owner of this business may choose its address.' })
+        return json(403, { error: 'Only an owner or delegate of this business may choose its address.' })
       }
       const body = await readJsonBody(request)
       try {
