@@ -5,7 +5,7 @@ type: epic
 title: 'Identity: impersonation, multiple login emails, and delegate access'
 created_by: martin-github@westhead.me
 created_at: '2026-10-03T17:23:39.835613+00:00'
-updated_at: '2026-10-03T18:32:17.353351+00:00'
+updated_at: '2026-10-03T18:33:04.253460+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -235,15 +235,10 @@ account pages. If it comes back, these are the findings for it:
   on an existing account (item 2), the membership attaches to that account
   rather than creating a new one.
 
-## Proposed children
+## Children
 
-Keep the ticket count small ([[REQ-170]]-style single tickets per feature):
-
-- **REQ — Console "Open business":** the Open control, the selector showing
-  an entered business, the banner, the entry audit event
-- **REQ — Login emails on the profile portal:** `verified_at`, add/remove, Make
-  primary, the last-validated rule
-- **REQ — Delegates:** the `delegate` role, the contacts-tab invite and accept,
-  the owner-gate audit, the selector
+- [[REQ-367]] — Platform console: open any business, with an operator banner
+- [[REQ-368]] — Profile portal: multiple login emails, validation, and primary
+- [[REQ-369]] — Contacts: delegate access to a business
 
 The three can land independently. None blocks another.
