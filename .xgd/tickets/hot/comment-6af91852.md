@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-182
 created_by: xgd
 created_at: '2026-10-03T19:34:29.467563+00:00'
-updated_at: '2026-10-03T20:01:38.615189+00:00'
+updated_at: '2026-10-03T20:29:58.319131+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -84,5 +84,62 @@ The other three belong in the framework. REQ-203 already covers the cap. The nud
 <!-- xgd-chat role="user" ts="2026-10-03T20:01:26.781758+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="941ae0ce-2acc-4597-8abb-c88f0be713e8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T20:29:56.794380+00:00" -->
+#### Claude
+I'll take "continue" as a go-ahead for my recommendation: scope BUG-182 to priming the builder with the condensed L1 vocabulary. Reading the ticket and the priming code first.
+
+Still reading code; nothing has been changed. I'm checking how the builder's priming providers are wired, so the vocabulary can be added as one more entry the same way.
+
+Now scoping the ticket and cutting the branch.
+
+Building the shared, file-free schema walk module by moving the helpers out of `kb-projection.ts`.
+
+Writing the new module.
+
+Now the `priming.json` entries and template.
+
+Writing the first UAT.
+
+Running the new UAT in the branch worktree.
+
+All 4 pass. Now I'll look at the rendered vocabulary itself, to check its size and that it reads well.
+
+The vocabulary UAT passes, including the new value sets. Next, the end-to-end UAT: a real delegation in workerd, checking what the worker is actually sent.
+
+Both pass. Now the regression scope: the builder priming suites, the KB projection suites (since I moved helpers out of `kb-projection.ts`), and a typecheck.
+
+Seven failures. The REQ-295/REQ-341 delegation cases are on my notes as already failing on a clean tree. The four BUG-48 failures need checking, since they cover the projection I touched.
+
+Same failures on the clean tree, so they're pre-existing. The two REQ-295 workers cases match my notes from 2026-10-01. Now a typecheck.
+
+I'll commit on the branch, merge it back under the lock, then call `move-to-free-coded` without `--version` so the command does the bump itself. My notes say that avoids the version race.
+
+The work has landed. Last step: the ticket body needs the one change from during the build (the named-values section) and the test results.
+
+I went ahead with my recommendation: BUG-182 now covers the one fix that belongs to this repo. Every builder worker is primed with the page vocabulary, so it no longer has to look field names up one search at a time. The work has landed on xgd-working, the ticket is at `free_coded` (version 0.2.454, 3 story points), and the branch is cleaned up. I haven't promoted it to `ready_to_reconcile`; that's your call.
+
+**What the worker now gets**
+- **Where:** a new "page vocabulary" section in both of the builder's priming setups (with and without the system knowledge base). It sits second, after the role text and inside the cached part of the prompt, so it costs one cache write per deployment rather than a fetch per delegation.
+- **What it lists:** the page's own fields, every kind of element with its fields (the ones every kind shares are listed once), every field shape those reach, and every named value set.
+- **Size:** about 14k characters against `REF-l1`'s 39k. It drops the per-field explanations but omits no kind, field or shape.
+- **How it stays current:** it's generated from the same L1 schemas `REF-l1` comes from, by a new module, `tools/generate/src/cli/ai/l1-vocabulary-core.ts`, that reads no files and so also works in the deployed Worker. `kb-projection.ts` now uses the same code instead of keeping its own copy, and `REF-l1` comes out unchanged.
+
+**One gap I found while building it:** `REF-l1` never lists what the named value sets accept. It says "`layout` — layout mode" but never `stack | row | grid`, and the same goes for `easing`, `align`, `color` and others. A worker reading only `REF-l1` would still have to guess these, so the vocabulary spells them out. `REF-l1` itself still has the gap; it could be fixed the same way if you want.
+
+**Tests**
+- Two new tests pass: one checks the vocabulary against the schema, and one runs a real delegation in workerd and checks the worker's prompt (with and without the knowledge base). The consultant's prompt doesn't get the vocabulary.
+- The 14-file regression run had 7 failures, all of which also fail on the clean tree without my change:
+  - **BUG-48 (4):** a structural rule, `zoomGroupChromeAgrees`, has no definition to project.
+  - **REQ-341 (1)** and **REQ-295 workers (2):** already on my list of known failures.
+
+**Still open, in lagrange-framework (no tickets filed yet):**
+- The 50-call cap per worker run. This waits on REQ-203; then `claude_builder` gets `max_iterations: 100` here.
+- The nudge turn gets a full 50 calls when it should only report.
+- Check matching in `ReportResult` is too strict: a reworded `passed` check gets the whole report refused, and a reworded `failed` check is silently dropped.
+
+Should I file tickets there for the last two?
 
 <!-- xgd-chat-end -->
