@@ -6,9 +6,9 @@ title: 'fold: a run present at only some widths is stitched to a same-text run e
   and its clip container hides it'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:42.639404+00:00'
-updated_at: '2026-10-03T17:36:48.950540+00:00'
+updated_at: '2026-10-03T17:37:10.829363+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -28,6 +28,7 @@ fields:
   version: 0.2.445
   story_points: 5
 ---
+
 
 # fold: a run present at only some widths is stitched to a same-text run elsewhere on the page, and the clip container it lands in hides it
 
@@ -252,8 +253,10 @@ pairing, the clip-region nesting, the capture's run/field selection) with no new
    border, no fill, no background image, and a box no thicker than twice its border (+1px) on its thin
    axis — is recorded as a text-free field, exactly like an `<hr>`. The fold already turns a bordered
    text-free field into a `box` leaf.
-5. **Capture schema 13.** Both are new axes; `CAPTURE_SCHEMA` goes 12 → 13 so a schema-12 bundle reports
-   the gap and the operator re-captures.
+5. **Capture schema 14.** Both are new axes; `CAPTURE_SCHEMA` goes to 14 so an older bundle reports the
+   gap and the operator re-captures. (Written as 12 → 13 on the branch; REQ-365 took 13 for
+   `underlineOffsetPx` concurrently, so the merge into xgd-working renumbered this axis to 14 and kept
+   both. Reconcile: the merge commit `925c2fc8dd` carries that renumbering.)
 
 ### Test plan
 
@@ -266,5 +269,31 @@ pairing, the clip-region nesting, the capture's run/field selection) with no new
     nested.
   - capture (real `EXTRACT_SCRIPT` under jsdom): an empty `<i>` with a `::before` glyph yields a run with
     the glyph text and the pseudo's family; an empty divider span with a 2.5px top border yields a field;
-    an outlined (non-rule) empty box does not; a bundle at schema 12 reports the new axis as stale.
+    an outlined (non-rule) empty box does not; a bundle at schema 13 reports the new axis as stale.
 - Regression scope: the REQ-332 / REQ-338 / REQ-351 fold and capture UATs and the responsive-diff UATs.
+
+## What landed
+
+- Commits: `d20a12c1` (the change), merged into xgd-working by `925c2fc8dd` (schema renumbered to 14 on
+  conflict with REQ-365), version `0.2.445` via `be1d06d14f`.
+- `tools/generate/src/cli/responsive-table.ts`: `alignByPosition` / `pagePositionOf` / `pageExtentOf`;
+  `buildResponsiveTable` keeps one track per row and aligns only when a key's count changes.
+- `tools/generate/src/l1/fold.ts` `nestClipRegions`: the every-laid-out-width membership rule.
+- `tools/generate/src/cli/capture/extract.ts`: `pseudoGlyphOf` / `cssUnescape` / `borderRuleOf`; the text
+  walk visits elements too; glyph runs get a flow of their own; `fieldsUnder` admits border rules.
+  `pseudoGlyph` is added to `RawRun` / `ContentRun` and carried by `sections.ts`.
+- UATs: `tests/test_UAT_FC_REQ-366_width_gated_runs_and_empty_element_ink.test.ts` (10). 7 fail on the
+  unfixed source; the other 3 are guard-rails (equal counts keep document order, an outlined box is not a
+  rule, no generated content records nothing).
+
+### Evidence on the real bundle
+
+Refolding `storage/references/joyfulculinarycreations.com/index/multistate.json` offline (no browser):
+
+- **before:** both "Meet the Chef" / "Get in Touch" nodes sit inside `clip: true`, and one carries
+  320–1024 keyframes plus `y −4572` at 1280 and `−4672` at 1440.
+- **after:** the header links carry keyframes only at 1280/1440, at `y 70`, inside no clip region; the
+  footer links carry the full 320–1440 ladder.
+
+Issue 2 needs a **re-capture** of the reference (schema 14) before it shows up in a gate run. I have not
+done the re-capture or the pixel check: Chromium is blocked in this sandbox.
