@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-03T19:34:37.282509+00:00'
+updated_at: '2026-10-03T19:37:00.098507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -140,5 +140,33 @@ I've added two new files to the Charlie folder and listed them in `README.md`. N
 <!-- xgd-chat role="user" ts="2026-10-03T19:34:32.639901+00:00" -->
 #### You
 Oh this turn around I said his favourite business is installations of kitchesn and bathrooms
+
+<!-- xgd-turn id="7d9013d8-8d79-46bd-bbb9-8fa2780dd419-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T19:36:57.102303+00:00" -->
+#### Claude
+That doesn't fit what I wrote, so I'm reworking the files around it. First I'm finding every place that conflicts.
+
+Now services, testimonials and the family story.
+
+I've reworked all four files so kitchen and bathroom installations are Charlie's favourite work. Emergencies are still what the phone rings for and what pays the bills, but installs are what he loves and wants more of. I couldn't find where you said this to Alice and Bob: the dev site's database stops at Bob's callout-fee question. I took your word for it and added it to the README's canon table.
+
+**What changed**
+- **README fragments:**
+  - **New "What I love doing" section:** installs are somebody's good news rather than their bad day. He likes fitting a new bathroom into an old Westside bungalow where nothing is square. He does all the plumbing and works with a tile and cabinet contractor he trusts. He also admits emergencies come first, so an install can slip a day.
+  - **Last week:** a Pleasure Point bathroom where a 1962 pink tub became a walk-in shower for a man recovering from a hip replacement. He sent Charlie a photo of himself standing in it.
+  - **What he won't do:** this used to say he doesn't do remodels. It now says he does the plumbing on kitchens and bathrooms but not the tile or cabinets.
+  - **Design question:** the reply now says that if the website got him a couple more bathrooms a month he'd be happy.
+- **`services.md`:** installs now come first, with prices:
+  - bathroom plumbing: $3,500–6,000, or $6,000–9,500 if the layout moves
+  - kitchen plumbing: $1,800–3,500, or $4,000–7,000 to move the sink to an island
+  - walk-in and accessible showers
+  - fixture swaps
+
+  It also describes how an install works: a free visit before you buy anything, then a written quote from Emma. I removed "big remodels" from the list of things he won't do.
+- **`testimonials.md`:** the Airbnb host's four stars are now because a bathroom refit slipped two days, which Charlie had warned about. I added three install reviews: Bill's walk-in shower, an island sink in a 1924 bungalow that two other plumbers said couldn't be done, and both bathrooms for a family in Soquel.
+- **`family-story.md`:** Walt taught Charlie bathrooms ("anyone can fix a leak, but a good bathroom in an old house is a craft"). His plan for the next five years is to hand more night calls to Dave and do more bathrooms himself.
+
+This gives the site an obvious secondary pitch: emergency work up front and a planned-installs section underneath. That's worth seeing if Alice and Bob pick up on it themselves.
 
 <!-- xgd-chat-end -->
