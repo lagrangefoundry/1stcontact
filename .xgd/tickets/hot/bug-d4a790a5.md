@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-49bb7930
 ---
 
 # gate: `unmeasured` reports 0 while the capture audit already knows 7 used properties the reproduction cannot say
