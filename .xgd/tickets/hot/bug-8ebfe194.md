@@ -6,7 +6,7 @@ title: Delegated builder turn ends 'aborted' and reports nothing, so all checks 
   back unreported although its writes landed
 created_by: xgd
 created_at: '2026-10-03T19:58:22.721660+00:00'
-updated_at: '2026-10-03T22:57:49.844954+00:00'
+updated_at: '2026-10-03T23:01:59.875126+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -70,3 +70,14 @@ The field's description in the result shape tells the caller what `context_budge
 - a worker that finishes its turn and simply says nothing: no `ended` field
 
 Regression scope: the BUG-167 and REQ-296 suites.
+
+
+## As implemented
+
+- `budget-core.ts`: `TURN_END` (`'turn_end'`) now lives here beside `TEXT`/`DONE`/`TOOL_ACTIVITY`, and `host-core.ts` imports it instead of defining its own (one definition site).
+- `account-core.ts`: new `workerEnding(lib, records, ceiling)` returns a `WorkerEnding` (or `null`) read from the worker's **last** `turn_end` record. `reportingDelegationToolbox(lib, ceiling = 0)` attaches it as `ended` on any non-`reported` result, beside `activity`. The `ended` description is added to the delegation result shape the caller reads. A `0` ceiling only means a budget stop goes unnamed.
+- `host-core.ts`: the reporting toolbox is built with the worker's ceiling, `projectBackendCeiling(lib, workerSettings.backend)`. That is the same settings name the worker's guard was built under, so `ended` names a budget stop on the same line the guard drew (151,200 tokens for Haiku 4.5 today).
+
+**Adjacent test brought up to date:** `test_UAT_FC_REQ-296_a_worker_is_guarded_against_its_own_smaller_window_and_not_the_callers` was failing on clean xgd-working. It still asserted that the nudge goes out after a budget stop (two worker requests). Upstream lagrange-framework BUG-75 has since landed and skips the nudge for an `aborted` turn, which is the `nudge_skipped` this ticket observed. The case now asserts one worker request, no nudge text, and only that one request on the bill. Its own comment had predicted that flip.
+
+Regression run: the BUG-191, BUG-167 and REQ-296 suites, 14/14 passing in workerd. The type check is clean.
