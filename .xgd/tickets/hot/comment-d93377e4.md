@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-03T19:26:26.435785+00:00'
+updated_at: '2026-10-03T19:28:08.193028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,32 @@ Bob's question to Charlie, "What do you charge to come out?", is still unanswere
 That's great - I would like the readme to contain chat fragments that I can paste in that talk to aspects of Charlie and his job. He doesn't know web design or marketing so what he can talk about are his customers, his jobs what he did last week, what he is best at, USP.
 
 Can you also create a doc with some mock customer testimonials
+
+<!-- xgd-turn id="1e33aed4-f98e-4cb0-a273-f8f5b1bf74a6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T19:28:02.691726+00:00" -->
+#### Claude
+I've added the chat fragments to `README.md` and created `testimonials.md` alongside it. As before, nothing is committed.
+
+**Chat fragments.** These are in a new "Chat fragments" section of `README.md`. Each is a short quote in Charlie's plain voice that you can paste straight into the room. They're grouped by topic:
+- **Answers to the room's open questions (marked ★):**
+  - the callout fee: $125 including the first half hour, then $45 per quarter hour, the same price at night
+  - how fast he gets there: within the hour in town, about 25–30 jobs a week, busier in winter
+  - the real list of neighbourhoods, and where he won't go
+  - the guarantee: if it fails within a year, the return visit is free
+- **What he's best at:** drains and old clay sewer lines, using a camera before telling anyone to dig.
+- **His customers:** long-time older customers, landlords near the university, vacation-rental hosts, a few restaurants and property managers.
+- **Last week:** three specific jobs, in Seabright, Live Oak and on Soquel Ave.
+- **Why him rather than the big franchises:** nobody on commission, no upselling, all word of mouth.
+- **Dave and Emma.** Emma's fragment makes her the person who runs the business: she makes the decisions, does the quotes and handles the money, and it was her call to drop 24-hour cover. That gives you an in-character way past the front-office stereotype you were worried about.
+- **What he won't do**, and some "I wouldn't know, you tell me" replies for when Alice or Bob ask him about design.
+
+**Testimonials.** `testimonials.md` has 10 made-up reviews written to look like the real thing. They vary in length and style: two are four stars with a small complaint, and one is a lowercase Google review complaining about the answering service. Each one backs up a detail from the fragments, such as the published price, the camera, the free return visit or Dave turning up fast. Several retell the "last week" jobs from the customer's side.
+
+Anything in the fragments becomes part of Charlie's story once you paste it. Two of them add new facts you may not want:
+- Dave spent four years with another company before joining Charlie.
+- Charlie mentions a daughter-in-law, which means Dave is married.
+
+Change or drop those before pasting if they don't suit your version of Charlie.
 
 <!-- xgd-chat-end -->
