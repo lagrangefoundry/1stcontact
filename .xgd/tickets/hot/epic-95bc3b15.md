@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-03T22:38:00.264368+00:00'
+updated_at: '2026-10-03T23:16:34.817437+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2130,3 +2130,19 @@ Whether the assistant may read the consultant's private session. Recommendation:
 The consultant asked a client to check the draft on their phone; the product offered no way to. Filed **[[REQ-376]]** — *View on your phone*: a QR code beside "Open in a new tab", encoding the same draft URL, generated in the browser. Sign-in is unchanged; the consultant's priming names the control.
 
 **Parked, open question:** a shareable, sign-in-free draft link (read-only, expiring, revocable). It makes a private draft reachable by link-holders, so it's a DOC-5 access-policy decision, not a builder feature. Not filed.
+
+
+### Finding 18 — Charlie's Plumbing 2: one agent with the plan panel (2026-10-03)
+
+Run 2 used one consultant (group chat off) with the REQ-364 plan panel. The operator judged it better than run 1, which had two agents.
+
+**Measured from the local store:**
+- **Spend:** the consultant's turns cost $6.88 on opus-5-5, over 12 turns. In run 1 the consultant cost $28.88 and Bob $0.90, both on opus-5, so Bob was not on Haiku. Builder-worker spend is attributed elsewhere, so these figures are consultant-only.
+- **The client waited in silence through every build:** 17.3 min, 27.9 min, 10.4 min and 7.7 min. No turn said in advance that the consultant was going away or how long for, and none pointed the client at the panel during the wait. Every message arrived only when the turn ended.
+- **The plan's process layer never moved.** At the end, `phase` was still `intake`, `functionality` was `[]`, `tasks` was `[]`, and 20 of 22 decisions were `open`. All 8 milestone questions (`checks`: layout_happy, quality_bar_met, seen_on_phone…) had an empty `answers` list, so none was ever asked.
+- **The panel itself worked:** 6 asks were answered, 1 skipped and 1 left open. The client said it was less obvious what to do with it than expected, and the consultant only pointed to it once, at the start.
+- **Builder aborts:** 4 builder sessions ended `silent`, with no summary or reason (BUG-191). One left a broken link that nobody reported.
+
+**Diagnosis.** The structures DOC-65 designed (phase, the milestone questions and their triggers, functionality) all exist on the plan ticket. Every one of them depends on the consultant remembering to use it, and none was used. This is the same pattern as Finding 13: anything that relies on the model remembering doesn't happen. The parts that did work, the panel asks and the page digest, are ones the host renders or that the consultant had to write to get anything done.
+
+**On the site's quality:** the operator said it reads as a mock plumber site and looks like an HTML class, compared with real plumber sites, which are dense and busy. Nothing in our process calibrates density or conventions to the client's kind of business. The consultant's guidance pushes toward restraint and breathing room, and in turn 6 it added more of both.
