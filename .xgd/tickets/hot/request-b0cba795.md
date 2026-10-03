@@ -5,10 +5,10 @@ type: request
 title: 'Site pane: View on your phone — a QR code for the draft preview'
 created_by: EPIC-19
 created_at: '2026-10-03T22:37:53.385855+00:00'
-updated_at: '2026-10-03T23:36:28.208199+00:00'
+updated_at: '2026-10-03T23:37:35.257913+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 3
@@ -16,6 +16,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c232ad5b
+  commits:
+  - working_sha: f3aaf1155ee9986331688abd6964a21088812945
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 8fbcb133ed517e454a2771e3c37efb67d4112ec2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.469
 ---
 
 ## What changes
