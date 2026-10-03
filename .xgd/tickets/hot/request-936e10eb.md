@@ -5,10 +5,10 @@ type: request
 title: 'l1: no text-underline-offset axis, so a link underline paints 2px high'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:21.646192+00:00'
-updated_at: '2026-10-03T17:02:40.389904+00:00'
+updated_at: '2026-10-03T17:08:50.135579+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - l1-cannot-express
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-dec8f8ed
+  commits:
+  - working_sha: 4f5d8f55aef2bd2cf73471703ab13067c16773fa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 66b438e49c510baeb840b4051cc84fafdf42de27
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.444
 ---
 
 # L1 cannot place an underline: `text-underline-offset` has no axis, so a link's line paints 2px high
@@ -167,4 +175,3 @@ UATs are in `tests/test_UAT_FC_REQ-365_underline_offset_axis.test.ts`, with the 
 - *(needs Chromium; skipped in the sandbox)* the extractor records `4` for a declared offset and `null` for `auto` or no underline. That helper was checked offline instead, by driving `underlineOffsetOf` directly.
 
 Regression scope: 41 files, covering fold, values-diff, value-axes, the coverage register, the capture schema, inline runs, the renderer and the email target. All passed except `reconciliation-l1-navigation` AC845, a jsdom `hashchange` assertion that also fails on clean xgd-working.
-
