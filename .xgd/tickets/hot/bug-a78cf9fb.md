@@ -6,10 +6,10 @@ title: 'fold: the reflow-window hold writes segments onto responsiveLayout, so a
   page with a layout switch fails repro outright'
 created_by: EPIC-12
 created_at: '2026-10-03T17:23:19.154669+00:00'
-updated_at: '2026-10-03T18:20:01.859941+00:00'
+updated_at: '2026-10-03T18:25:54.446274+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
