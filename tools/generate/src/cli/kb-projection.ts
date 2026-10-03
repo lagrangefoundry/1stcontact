@@ -63,6 +63,18 @@ import type {
 } from '@1stcontact/framework/modules'
 import * as SiteSchema from '@1stcontact/site-schema'
 import l1Surface from './ai/l1-surface.json'
+import {
+  def,
+  elementKinds,
+  isOptional,
+  namedSchemas,
+  objectShape,
+  range,
+  reachableShapes,
+  readableName,
+  typeWords,
+  unwrap,
+} from './ai/l1-vocabulary-core'
 
 /**
  * A projected document, before it is given a corpus file's frontmatter.
@@ -407,148 +419,7 @@ function controlEntry(name: string, spec: BehaviorControlSpec): string {
   return parts.join('; ')
 }
 
-function range(min?: number, max?: number): string {
-  if (min !== undefined && max !== undefined) return `${min}–${max}`
-  if (min !== undefined) return `at least ${min}`
-  if (max !== undefined) return `at most ${max}`
-  return ''
-}
-
 // ── projection 2: the L1 layout vocabulary ───────────────────────────────────
-
-/**
- * Every schema in `@1stcontact/site-schema` that has a name, keyed by IDENTITY.
- *
- * A Zod schema is a value, and the same value is reachable from several places —
- * `surfaceGradient` in the surface group IS `l1GradientSchema`. Keying the map on
- * the object means a reference is recognised as one wherever it appears, so a
- * shape is described once and pointed at everywhere else. Rendering it inline at
- * each use would repeat the gradient contract a dozen times and lose the fact
- * that they are the same thing.
- *
- * The export name is the identity the codebase itself uses, so it is what the
- * document says. `l1LinearGradientSchema` reads as `linear gradient`.
- */
-function namedSchemas(): Map<unknown, string> {
-  const named = new Map<unknown, string>()
-  for (const [key, value] of Object.entries(SiteSchema as Record<string, unknown>)) {
-    if (!key.startsWith('l1') || !key.endsWith('Schema')) continue
-    if (value === null || typeof value !== 'object') continue
-    if (!named.has(value)) named.set(value, key)
-  }
-  return named
-}
-
-/** `l1LinearGradientSchema` → `linear gradient`. */
-function readableName(exportName: string): string {
-  return exportName
-    .replace(/^l1/, '')
-    .replace(/Schema$/, '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .toLowerCase()
-}
-
-/** Zod's internal definition of a schema, which is where introspection lives. */
-type ZodLike = { def?: Record<string, unknown> } & Record<string, unknown>
-
-function def(schema: unknown): Record<string, unknown> {
-  return ((schema as ZodLike | null)?.def ?? {}) as Record<string, unknown>
-}
-
-/** Unwrap the wrappers that add no vocabulary — optional, default, lazy, readonly. */
-function unwrap(schema: unknown, named: Map<unknown, string>): unknown {
-  let current = schema
-  for (let hop = 0; hop < 12; hop += 1) {
-    if (named.has(current)) return current
-    const d = def(current)
-    const kind = d.type
-    if (kind === 'optional' || kind === 'nullable' || kind === 'readonly' || kind === 'default') {
-      current = d.innerType
-    } else if (kind === 'lazy' && typeof d.getter === 'function') {
-      current = (d.getter as () => unknown)()
-    } else if (kind === 'pipe') {
-      current = d.in
-    } else return current
-  }
-  return current
-}
-
-/** The numeric bounds a schema's checks declare, as `1–400` or `at least 0`. */
-function numericRange(schema: unknown): string {
-  const checks = (def(schema).checks ?? []) as Array<Record<string, unknown>>
-  let min: number | undefined
-  let max: number | undefined
-  for (const check of checks) {
-    const inner = ((check as { _zod?: { def?: Record<string, unknown> } })._zod?.def ??
-      def(check)) as Record<string, unknown>
-    if (inner.check === 'greater_than' && typeof inner.value === 'number') min = inner.value
-    if (inner.check === 'less_than' && typeof inner.value === 'number') max = inner.value
-  }
-  return range(min, max)
-}
-
-/**
- * One field's type, in words, referring to named shapes rather than expanding them.
- *
- * `depth` exists only to stop an unnamed self-referential shape; every shape that
- * recurses in practice (`box`, `container`) is named, so the guard never fires on
- * the real schema and is there so that a future one cannot hang a build.
- */
-function typeWords(schema: unknown, named: Map<unknown, string>, depth = 0): string {
-  const inner = unwrap(schema, named)
-  const name = named.get(inner)
-  if (name && depth > 0) return readableName(name)
-  const d = def(inner)
-  switch (d.type) {
-    case 'enum': {
-      const values = Object.keys((d.entries ?? {}) as Record<string, unknown>)
-      return values.map((v) => `\`${v}\``).join(' | ')
-    }
-    case 'literal': {
-      const values = (d.values ?? []) as unknown[]
-      return values.map((v) => `\`${String(v)}\``).join(' | ')
-    }
-    case 'string':
-      return 'text'
-    case 'boolean':
-      return 'true / false'
-    case 'number': {
-      const bounds = numericRange(inner)
-      return bounds ? `number, ${bounds}` : 'number'
-    }
-    case 'array':
-      return `a list of ${depth > 3 ? 'values' : typeWords(d.element, named, depth + 1)}`
-    case 'union': {
-      const options = (d.options ?? []) as unknown[]
-      return depth > 3
-        ? 'one of several shapes'
-        : options.map((o) => typeWords(o, named, depth + 1)).join(' or ')
-    }
-    case 'record':
-      return `named ${depth > 3 ? 'values' : typeWords(d.valueType, named, depth + 1)}`
-    case 'object':
-      return 'a group of fields'
-    default:
-      return String(d.type ?? 'value')
-  }
-}
-
-/** Whether a field may be omitted. */
-function isOptional(schema: unknown): boolean {
-  const kind = def(schema).type
-  return kind === 'optional' || kind === 'default'
-}
-
-/** The object shape a schema resolves to, or `null` when it is not an object. */
-function objectShape(
-  schema: unknown,
-  named: Map<unknown, string>,
-): Record<string, unknown> | null {
-  const inner = unwrap(schema, named)
-  const d = def(inner)
-  if (d.type !== 'object') return null
-  return (d.shape ?? {}) as Record<string, unknown>
-}
 
 /** One field line: name, type, whether it may be omitted, and what it means. */
 function fieldLine(
@@ -685,71 +556,6 @@ function documentSection(
   return lines
 }
 
-/**
- * Each element kind in the node union: what it is called, the shape it accepts,
- * and the declaration it was written in — which is what scopes its field prose to
- * the fields it actually declares (see {@link harvestDeclarations}).
- */
-function elementKinds(named: Map<unknown, string>): Array<{
-  kind: string
-  declaration: string | undefined
-  shape: Record<string, unknown>
-}> {
-  const union = unwrap(SiteSchema.l1NodeSchema, new Map())
-  const options = (def(union).options ?? []) as unknown[]
-  const kinds: Array<{ kind: string; declaration: string | undefined; shape: Record<string, unknown> }> = []
-  for (const option of options) {
-    const shape = objectShape(option, new Map())
-    if (!shape) continue
-    const literal = (def(unwrap(shape.kind, new Map())).values ?? []) as unknown[]
-    const kind = literal.length ? String(literal[0]) : '(unnamed)'
-    kinds.push({ kind, declaration: named.get(option), shape })
-  }
-  // Named order rather than union order: `named` is only used for field types,
-  // and the union's own order is the one the schema declares, which is the one a
-  // maintainer chose. Nothing is sorted, deliberately.
-  return kinds
-}
-
-/**
- * Every named shape reachable from the element kinds, breadth-first from the
- * fields they declare. Terminates because `named` is finite and each shape is
- * expanded once.
- */
-function reachableShapes(
-  seeds: unknown[],
-  named: Map<unknown, string>,
-): Array<{ name: string; shape: Record<string, unknown> }> {
-  const seen = new Set<string>()
-  const found: Array<{ name: string; shape: Record<string, unknown> }> = []
-  const queue = [...seeds]
-  const elementNames = new Set(
-    ((def(unwrap(SiteSchema.l1NodeSchema, new Map())).options ?? []) as unknown[])
-      .map((o) => named.get(o))
-      .filter((n): n is string => typeof n === 'string'),
-  )
-  while (queue.length > 0) {
-    const schema = queue.shift()
-    const inner = unwrap(schema, named)
-    const name = named.get(inner)
-    const d = def(inner)
-    if (d.type === 'union') {
-      for (const option of (d.options ?? []) as unknown[]) queue.push(option)
-    }
-    if (d.type === 'array') queue.push(d.element)
-    if (d.type === 'record') queue.push(d.valueType)
-    if (!name || seen.has(name)) continue
-    seen.add(name)
-    // The element kinds have their own section above; describing them a second
-    // time here would be the one duplication this whole file exists to avoid.
-    const shape = elementNames.has(name) ? null : objectShape(inner, named)
-    if (!shape) continue
-    found.push({ name, shape })
-    for (const field of Object.values(shape)) queue.push(field)
-  }
-  found.sort((a, b) => readableName(a.name).localeCompare(readableName(b.name)))
-  return found
-}
 
 /**
  * The validation envelope: the limits every page is held to, whoever wrote it.

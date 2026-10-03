@@ -46,6 +46,7 @@
 import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
 import { planReminder, type Plan } from './plan-core'
+import { builderVocabulary } from './l1-vocabulary-core'
 
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -622,6 +623,18 @@ export const BUSINESS_LINE_PROVIDER = 'business.line'
  * which for this pair is the precise failure the split grant exists to prevent.
  */
 export const BUILDER_MANUAL_PROVIDER = 'builder.manual'
+
+/**
+ * The page vocabulary the builder writes in, generated from the L1 schemas
+ * ([[BUG-182]]).
+ *
+ * A PROVIDER RATHER THAN A `text:` ENTRY because it is projected, never authored
+ * — the same rule as the manual. The words around it are this file's template;
+ * the list is {@link builderVocabulary}'s, from the schemas the validator
+ * enforces. It sits before the cache boundary in both of the builder's orders, so
+ * every worker of a deployment shares it in the cached prefix.
+ */
+export const BUILDER_VOCABULARY_PROVIDER = 'builder.vocabulary'
 
 /** The coordinator's manual, projected from its own read-only box ([[REQ-357]]). */
 export const COORDINATOR_MANUAL_PROVIDER = 'coordinator.manual'
@@ -1311,9 +1324,10 @@ export function registerSettingsProviders(
 }
 
 /**
- * Bind the one name the builder's configuration adds ([[REQ-295]]).
+ * Bind the names the builder's configuration adds: its manual ([[REQ-295]]) and
+ * its page vocabulary ([[BUG-182]]).
  *
- * ONE, because everything else a worker is told it shares with the consultant
+ * ONLY THOSE, because everything else a worker is told it shares with the consultant
  * and reads under the consultant's own names: `site.line` says which site, and
  * `site.digest` says what is currently on it. Those are facts about the SITE, and
  * both roles are on the same one in the same manager — a second binding would be
@@ -1359,6 +1373,9 @@ export function coordinatorRole(lib: Untyped, providers: Untyped): Untyped {
 
 export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {
   providers.register(BUILDER_MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
+  providers.register(BUILDER_VOCABULARY_PROVIDER, async () =>
+    fill(template('builder-vocabulary'), { vocabulary: builderVocabulary() }),
+  )
 }
 
 /**
