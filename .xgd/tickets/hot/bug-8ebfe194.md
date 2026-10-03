@@ -6,15 +6,16 @@ title: Delegated builder turn ends 'aborted' and reports nothing, so all checks 
   back unreported although its writes landed
 created_by: xgd
 created_at: '2026-10-03T19:58:22.721660+00:00'
-updated_at: '2026-10-03T19:58:22.721660+00:00'
+updated_at: '2026-10-03T22:57:43.939976+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-9eb8d065
+  severity: medium
 ---
 
 ## What happened
