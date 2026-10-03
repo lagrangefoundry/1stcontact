@@ -6,10 +6,10 @@ title: 'Backends: consultant on Opus 5.5, spend meter records each role''s own b
   builder step limit 100'
 created_by: EPIC-20
 created_at: '2026-10-02T18:49:40.887550+00:00'
-updated_at: '2026-10-03T01:01:36.076315+00:00'
+updated_at: '2026-10-03T19:41:48.851473+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-0923bb64
