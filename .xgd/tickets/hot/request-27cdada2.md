@@ -6,10 +6,10 @@ title: 'Backends: consultant on Opus 5.5, spend meter records each role''s own b
   builder step limit 100'
 created_by: EPIC-20
 created_at: '2026-10-02T18:49:40.887550+00:00'
-updated_at: '2026-10-03T00:59:30.828719+00:00'
+updated_at: '2026-10-03T01:01:25.135198+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-0923bb64
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-708f6963
+  commits:
+  - working_sha: 25bceef09d1ff4ac3d8b4324400b14ae840bce23
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cd3cfa540c54b8fe636cfc9d947fb1942adf9ef6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.442
 ---
 
 **Parent:** EPIC-20. **Depends on:** lagrange-framework REQ-203 (per-backend `max_iterations` and `effort`) for the builder step limit and the consultant's effort. The model change and the meter fix do not depend on it.
