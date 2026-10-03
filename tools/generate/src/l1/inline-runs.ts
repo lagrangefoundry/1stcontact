@@ -66,6 +66,7 @@ export interface InlineRunElement {
   // that decides whether a flow varies was reading four of a dozen.
   fontFamily?: string
   textDecoration?: string | null
+  underlineOffsetPx?: number | null
   textTransform?: string | null
   letterSpacingPx?: number
   /** The navigation target of the nearest enclosing anchor, when the run is in one. */
@@ -131,6 +132,7 @@ function signature(el: InlineRunElement): string {
     el.fontStyle ?? 'normal',
     el.fontFamily ?? '',
     el.textDecoration ?? '',
+    el.underlineOffsetPx ?? '',
     el.textTransform ?? '',
     el.letterSpacingPx ?? 0,
     el.href ?? '',

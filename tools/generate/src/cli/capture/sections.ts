@@ -104,6 +104,7 @@ function toContentRun(r: RawRun): ContentRun {
   // REQ-63 — typography treatment axes + list marker (null when the no-op default).
   run.fontStyle = r.fontStyle
   run.textDecoration = r.textDecoration
+  run.underlineOffsetPx = r.underlineOffsetPx
   run.textTransform = r.textTransform
   run.fontVariant = r.fontVariant
   run.listMarker = r.listMarker

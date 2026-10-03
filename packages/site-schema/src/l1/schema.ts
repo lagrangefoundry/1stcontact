@@ -1039,6 +1039,23 @@ export const l1FocusRingSchema = z
   .strict()
 
 /**
+ * REQ-365 — the PLACEMENT of an underline: `text-underline-offset`, in px.
+ *
+ * `textDecoration` says which line is painted and nothing about where. Left
+ * unset, every engine places an underline at its own `auto` offset, which for a
+ * 24px face sits about 2px higher than a page that declared `4px` — the same
+ * ink, painted in a different place, and the only pixel disagreement left on a
+ * page whose every value otherwise agreed. Pixels rather than `em` because that
+ * is how the web writes it and how the capture reads it (a computed length): an
+ * `em` here would re-scale a line the reference held fixed on every width a
+ * node's `responsive.fontSizePx` track covers. Bounded by the envelope.
+ *
+ * Absent is the engine's `auto`. The axis means nothing without a line to place,
+ * and the renderer only ever emits it beside one.
+ */
+const l1UnderlineOffsetPx = finite
+
+/**
  * The paint + motion delta a node takes on in an interaction state. It is the
  * shared surface group (REQ-98) plus the two run axes a hover most often changes
  * (colour, underline) plus a typed motion — so a state can restate any axis the
@@ -1048,6 +1065,8 @@ const interactionStateShape = {
   ...surfaceAxesShape,
   color: l1Color.optional(),
   textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
+  /** REQ-365 — where the state's underline sits; see {@link l1UnderlineOffsetPx}. */
+  underlineOffsetPx: l1UnderlineOffsetPx.optional(),
   motion: l1MotionSchema.optional(),
 } as const
 
@@ -2024,6 +2043,8 @@ export const l1TextAxesSchema = z
     gradientFill: l1GradientSchema.optional(),
     /** Painted decoration line (underline / strike / overline). */
     textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
+    /** REQ-365 — where the underline sits; see {@link l1UnderlineOffsetPx}. */
+    underlineOffsetPx: l1UnderlineOffsetPx.optional(),
     /** A glow / drop shadow on the glyphs. */
     textShadow: l1ShadowSchema.optional(),
     /** Small-caps rendering. */
@@ -2342,6 +2363,11 @@ export const l1TextRunAxesSchema = z
      * WITHOUT one has to be able to say so.
      */
     textDecoration: z.enum(['none', 'underline', 'line-through', 'overline']).optional(),
+    /**
+     * REQ-365 — where this run's underline sits; see {@link l1UnderlineOffsetPx}.
+     * The linked word in a sentence is exactly where a page restates the offset.
+     */
+    underlineOffsetPx: l1UnderlineOffsetPx.optional(),
   })
   .strict()
 

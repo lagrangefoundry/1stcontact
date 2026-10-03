@@ -160,6 +160,8 @@ export interface RawRun extends RawGeometry {
   fontStyle: string | null
   /** `text-decoration-line` when underline/line-through/overline, else null. */
   textDecoration: string | null
+  /** REQ-365 — computed `text-underline-offset` in px when an underline is painted and it is not `auto`, else null. */
+  underlineOffsetPx: number | null
   /** `text-transform` when uppercase/lowercase/capitalize, else null. */
   textTransform: string | null
   /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */
@@ -1592,6 +1594,17 @@ export const EXTRACT_SCRIPT = `(() => {
     var line = ('' + (s.textDecorationLine || s.textDecoration || '')).split(' ')[0];
     return (line && line !== 'none') ? line : null;
   }
+  // REQ-365 -- where that underline sits: the computed text-underline-offset in
+  // px, or null for 'auto' (the engine's own placement) and for a run that paints
+  // no underline, where the inherited value places nothing. A percentage computes
+  // to itself, not to a length, and reads null rather than as a guess.
+  function underlineOffsetOf(s) {
+    if (textDecorationOf(s) !== 'underline') return null;
+    var v = '' + (s.textUnderlineOffset || '');
+    if (!/^-?[\\d.]+px$/.test(v)) return null;
+    var n = Math.round(parseFloat(v) * 100) / 100;
+    return isNaN(n) ? null : n;
+  }
   // REQ-48 (item 3) -- the element's masked/clipped edge (feather halo or shaped
   // clip). Either mechanism collapses to one field; presence is what the eye reads.
   function maskEdgeOf(s) {
@@ -2658,6 +2671,7 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-63 typography treatment axes (null when the no-op default).
         fontStyle: paintedOrNull(s.fontStyle),
         textDecoration: textDecorationOf(s),
+        underlineOffsetPx: underlineOffsetOf(s),
         textTransform: paintedOrNull(s.textTransform),
         fontVariant: paintedOrNull(s.fontVariantCaps || s.fontVariant),
         listMarker: listMarkerOf(s),

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-365 — where an underline sits</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; font-family: Georgia, serif; background: #ffffff; color: #111827; }
+      section { padding: 40px 20px; }
+      p { font-size: 24px; line-height: 36px; }
+      /* THE CASE — faelan.com's hero sentence: a linked word that declares where
+         its underline sits. */
+      a.placed { color: inherit; text-decoration: underline; text-underline-offset: 4px; }
+      /* CONTROL — an underline left at the engine's own placement. */
+      a.auto { color: inherit; text-decoration: underline; }
+    </style>
+  </head>
+  <body>
+    <section>
+      <p>Artist • <a class="placed" href="https://open.spotify.com/artist/x">Musician</a> • Creator</p>
+    </section>
+    <section>
+      <p><a class="auto" href="https://example.test/">Read the story</a></p>
+    </section>
+  </body>
+</html>

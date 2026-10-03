@@ -772,6 +772,11 @@ function foldTextRun(el: ValueElement, base: ValueElement): L1TextRun {
   // not — otherwise the run would inherit a line the reference does not paint.
   const dec = (v: string | null | undefined): L1TextRunAxes['textDecoration'] => foldTextDecoration(v) ?? 'none'
   if (dec(el.textDecoration) !== dec(base.textDecoration)) axes.textDecoration = dec(el.textDecoration)
+  // REQ-365 — where the run's underline sits, on the same diff-against-base rule:
+  // the node already places a line it paints itself, and the property inherits,
+  // so a run restating the node's offset would carry nothing.
+  const offset = el.underlineOffsetPx
+  if (typeof offset === 'number' && offset !== base.underlineOffsetPx) axes.underlineOffsetPx = offset
   const run: L1TextRun = { text: el.textFlow ?? el.text }
   if (Object.keys(axes).length > 0) run.axes = axes
   // The anchor the run sits in, when it is not the one the whole node sits in.
@@ -808,6 +813,8 @@ function textAxes(el: ValueElement): L1TextAxes {
   if (grad) axes.gradientFill = grad
   const dec = foldTextDecoration(el.textDecoration)
   if (dec) axes.textDecoration = dec
+  // REQ-365 — the capture records an offset only beside a painted underline.
+  if (typeof el.underlineOffsetPx === 'number') axes.underlineOffsetPx = el.underlineOffsetPx
   const caps = foldFontVariantCaps(el.fontVariant)
   if (caps) axes.fontVariantCaps = caps
   const marker = foldListMarker(el.listMarker)
