@@ -5,10 +5,10 @@ type: request
 title: 'Platform console: open any business, with an operator banner'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:31.746993+00:00'
-updated_at: '2026-10-03T18:32:31.746993+00:00'
+updated_at: '2026-10-03T19:06:57.761042+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-ee37a03f
   priority: medium
