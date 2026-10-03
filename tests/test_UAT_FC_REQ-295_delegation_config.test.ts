@@ -156,7 +156,7 @@ describe('REQ-295 — the worker runs a cheaper model and the consultant does no
 
     // AND THE CONSULTANT IS UNTOUCHED. A delegation that quietly changed the
     // caller's model would be the one change this must not make.
-    expect(backendsDocument.claude.model).toBe('claude-opus-5')
+    expect(backendsDocument.claude.model).toBe('claude-opus-5-5')
     expect(backendsDocument.claude.max_tokens).toBe(64000)
   })
 

@@ -49,10 +49,23 @@
     "folded under `claude`: pricing by the name that ran is the whole point of the",
     "two-level key, and a lookup that fell back to the family would price whatever",
     "a variant was configured with at the family's rates — which is the confidently",
-    "wrong figure this file exists to avoid."
+    "wrong figure this file exists to avoid. `claude_coordinator` ([[REQ-357]]) is",
+    "keyed for the same reason: since [[REQ-362]] a coordinator turn's row records",
+    "the backend that ran rather than the consultant's, and an absent entry would",
+    "leave every one of them unpriced.",
+    "",
+    "`claude-opus-5` stays under `claude` after the consultant moved to opus-5-5",
+    "([[REQ-362]]): rows already written keep their counters, and re-pricing one",
+    "needs the rate of the model it actually ran on."
   ],
 
   "claude": {
+    "claude-opus-5-5": {
+      "input": 4,
+      "output": 20,
+      "cache_read": 0.2,
+      "cache_write": 5
+    },
     "claude-opus-5": {
       "input": 5,
       "output": 25,
@@ -68,6 +81,15 @@
   },
 
   "claude_builder": {
+    "claude-haiku-4-5": {
+      "input": 1,
+      "output": 5,
+      "cache_read": 0.1,
+      "cache_write": 1.25
+    }
+  },
+
+  "claude_coordinator": {
     "claude-haiku-4-5": {
       "input": 1,
       "output": 5,

@@ -2674,6 +2674,13 @@ async function writeTurnSpend(
     turn: string
     startedAt: string
     role: string
+    /**
+     * The `backends.json` name this turn's role runs on ([[REQ-362]]) —
+     * {@link PROJECT_BACKEND} where omitted. Recorded, and priced, as the backend
+     * that ran: the consultant's name stamped on a coordinator's row priced
+     * Haiku's tokens at Opus rates.
+     */
+    backend?: string
     outcome: string
     /**
      * What this turn caused ELSEWHERE — a delegated worker's requests
@@ -2723,8 +2730,8 @@ async function writeTurnSpend(
       startedAt: facts.startedAt,
       endedAt: new Date().toISOString(),
       role: facts.role,
-      backend: PROJECT_BACKEND,
-      model: projectBackendModel(lib),
+      backend: facts.backend ?? PROJECT_BACKEND,
+      model: projectBackendModel(lib, facts.backend ?? PROJECT_BACKEND),
       outcome: facts.outcome,
     })
     if (record === null) return
@@ -3439,6 +3446,9 @@ async function* siteTurn(
       turn: spendTurn,
       startedAt: spendStartedAt,
       role,
+      // THE ROLE'S OWN BACKEND ([[REQ-362]]): a room's coordinator round runs on
+      // `claude_coordinator`, and its row must say so.
+      backend: role === COORDINATOR_ROLE ? COORDINATOR_BACKEND : PROJECT_BACKEND,
       outcome,
       // AND WHAT IT HANDED OFF ([[REQ-295]]). Asked only where this deployment
       // composes the delegation surface at all: with the switch off there can be
