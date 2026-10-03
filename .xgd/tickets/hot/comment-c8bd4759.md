@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-188
 created_by: xgd
 created_at: '2026-10-03T22:53:12.660269+00:00'
-updated_at: '2026-10-03T23:05:44.397091+00:00'
+updated_at: '2026-10-03T23:06:08.339200+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,20 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="22bdab08-2eca-4c3e-9dce-1fb45db7f8b6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T23:06:05.529860+00:00" -->
+#### Claude
+Checking whether anything is left over from the previous session.
+
+Everything is in place. One last foreground run of the UATs on `xgd-working` as it stands now:
+
+The free-coding of BUG-188 was already finished in the previous session; nothing is left to do. The ticket is parked at `free_coded`, and promoting it to `ready_to_reconcile` is your call.
+
+- **Ticket:** `free_coded`, version 0.2.463, 3 story points. It records two commits: the fix `68dc6f71d5` and the version bump `7f832cb16a`. Both are already on `xgd-working`.
+- **Branch:** `free-BUG-188` has been merged, and its worktree and lock are gone.
+- **Ticket body:** it keeps the original filing and adds the diagnosis, a test plan, and a "What landed" section. Each of the 5 UATs matches a line in the test plan.
+- **Tests:** I just re-ran the 5 UATs on `xgd-working` in the foreground and all pass. The wider regression run (57 test files that touch the layout model or gate) passed last session.
 
 <!-- xgd-chat-end -->
