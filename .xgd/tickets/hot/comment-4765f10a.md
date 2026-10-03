@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-368
 created_by: xgd
 created_at: '2026-10-03T19:00:14.789054+00:00'
-updated_at: '2026-10-03T22:06:18.394786+00:00'
+updated_at: '2026-10-03T22:09:36.855205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -129,5 +129,22 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="36b9cc0f-1d27-4991-8b5a-791e84e47a3e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T22:09:35.475990+00:00" -->
+#### Claude
+Branch is merged; only teardown remains.
+
+The `cd … &&` prefix may be defeating the sandbox exclusion for `xgd branch clean` (same shape as the `env` prefix issue). Retrying it bare.
+
+REQ-368's free-coding is now complete. The `free-REQ-368` branch and its worktree are gone, and the merge lock is released.
+
+- **Checked first:** the branch head `7301b15c0d` is already part of `xgd-working`, so deleting the branch lost no work. The ticket is still at `free_coded`, with both commits recorded in `fields.commits`.
+- **Teardown:** my first `xgd branch clean REQ-368` removed the worktree folder, but the sandbox blocked it from deleting git's bookkeeping under `.git/worktrees/`. That happened because I'd put `cd … &&` in front of the command, so the sandbox no longer recognised it as the one command allowed to delete there. Running it on its own worked, and `git worktree list` and `git branch` now show nothing for REQ-368.
+
+I added the `cd … &&` case to my existing memory note about command prefixes breaking this exemption, so it doesn't happen again.
+
+No code changed in this session. The ticket is ready for you to promote to `ready_to_reconcile` when you're happy.
 
 <!-- xgd-chat-end -->
