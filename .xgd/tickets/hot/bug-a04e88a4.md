@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-4808793a
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#1`.
