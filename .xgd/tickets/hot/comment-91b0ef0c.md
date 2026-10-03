@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-03T17:23:37.616380+00:00'
+updated_at: '2026-10-03T17:55:53.695680+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3636,5 +3636,16 @@ Gigabyte Alchemy, faelan and joyful happen to have no such arrangement change, w
 - the existing tests for this area staying green
 
 **Once it lands:** restart the console and press [recapture] on both sites. Each should finish and show a reproduction, however rough.
+
+<!-- xgd-turn id="5bd5507c-e858-4768-9ab5-85fddfe9f0f2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T17:55:49.921608+00:00" -->
+#### You
+https://joyfulculinarycreations.com
+
+failed with this:
+Iteration 6 failed at repro. repro failed (exit 1): promoteToFlow: produced an invalid L1 document — /root/children/14/children/3/responsiveLayout: Unrecognized key: "segments"; /root/children/19/responsiveLayout: Unrecognized key: "segments"
+
+Will BUG-180 fix this?
 
 <!-- xgd-chat-end -->
