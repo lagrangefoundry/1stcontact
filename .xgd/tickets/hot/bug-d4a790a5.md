@@ -6,10 +6,10 @@ title: 'gate: unmeasured reports 0 while the capture audit lists 7 used-but-not-
   properties'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:32.142754+00:00'
-updated_at: '2026-10-03T19:50:38.465058+00:00'
+updated_at: '2026-10-03T20:04:49.662477+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-49bb7930
+  commits:
+  - working_sha: 695eabf2248a2f64490aaa7db41360d6f0fc3883
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a92145b54d1fe386e6859e4aaebe2bf72ceee425
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.451
 ---
 
 # gate: `unmeasured` reports 0 while the capture audit already knows 7 used properties the reproduction cannot say
