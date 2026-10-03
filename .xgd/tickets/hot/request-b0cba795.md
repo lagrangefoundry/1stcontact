@@ -5,10 +5,10 @@ type: request
 title: 'Site pane: View on your phone — a QR code for the draft preview'
 created_by: EPIC-19
 created_at: '2026-10-03T22:37:53.385855+00:00'
-updated_at: '2026-10-03T22:37:53.385855+00:00'
+updated_at: '2026-10-03T23:28:23.495853+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   story_points: 3
