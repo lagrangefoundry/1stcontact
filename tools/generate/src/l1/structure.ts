@@ -30,6 +30,7 @@ import {
   offSampleWidths,
   oracleBoxes,
   promoteToFlow,
+  InvalidRecoveryError,
   type EvalBox,
   type OracleSource,
 } from './probes'
@@ -307,12 +308,18 @@ export function flowL1(
   if (pinned.length === 0) {
     return refuse('SCHEMA_INVALID', `Everything in ${address} is already stacked in flow.`)
   }
-  const { doc: next } = promoteToFlow(doc, {
-    only: address,
-    measured: measuredTextHeights(measured),
-    site: options.site,
-  })
-  return { ok: true, doc: next }
+  try {
+    const { doc: next } = promoteToFlow(doc, {
+      only: address,
+      measured: measuredTextHeights(measured),
+      site: options.site,
+    })
+    return { ok: true, doc: next }
+  } catch (err) {
+    // BUG-180 — an invalid result is a refused edit, not a crash.
+    if (err instanceof InvalidRecoveryError) return refuse('SCHEMA_INVALID', err.message)
+    throw err
+  }
 }
 
 /** Where one run moved between two measurements of the same page. */

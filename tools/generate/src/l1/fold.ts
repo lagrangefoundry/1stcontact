@@ -2015,23 +2015,27 @@ export function holdAcrossReflowWindows(roots: L1Node[], widths: number[]): void
   const reflow = new Array(widths.length - 1).fill(false)
 
   type Track = { keyframes: Array<{ at: number }>; segments?: L1Segment[] }
-  /** Every responsive track a node carries, whatever axis it belongs to. */
+  /**
+   * Every responsive track a node carries whose schema HAS a `segments` key:
+   * geometry, and the scalar tracks under `responsive` / `responsivePadding`.
+   *
+   * BUG-180 — an explicit list, not "anything with a `keyframes` array".
+   * `responsiveLayout` has keyframes too, but they are discrete layout modes
+   * under a strict schema with no `segments` companion (a mode switch already
+   * snaps — there is nothing to hold). Duck typing wrote `segments` onto it, and
+   * every page with a layout switch inside a reflow window failed validation.
+   */
   const tracksOf = (node: L1Node): Track[] => {
-    const out: Track[] = []
-    const consider = (value: unknown): void => {
-      if (!value || typeof value !== 'object') return
-      const candidate = value as Partial<Track>
-      if (Array.isArray(candidate.keyframes) && candidate.keyframes.length > 1) {
-        out.push(candidate as Track)
-      }
+    const axes = node as unknown as {
+      geometry?: Track
+      responsive?: Record<string, Track | undefined>
+      responsivePadding?: Record<string, Track | undefined>
     }
-    for (const value of Object.values(node as unknown as Record<string, unknown>)) {
-      consider(value)
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        for (const nested of Object.values(value as Record<string, unknown>)) consider(nested)
-      }
-    }
-    return out
+    return [
+      axes.geometry,
+      ...Object.values(axes.responsive ?? {}),
+      ...Object.values(axes.responsivePadding ?? {}),
+    ].filter((track): track is Track => !!track && track.keyframes.length > 1)
   }
 
   const walk = (node: L1Node, visit: (n: L1Node) => void): void => {

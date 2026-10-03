@@ -2955,6 +2955,29 @@ export interface RecoveryVerdict {
   promoted: string[]
   base: RecoveryScore
   recovery: RecoveryScore
+  /**
+   * The recovery's own document, whichever won — or the base, when the recovery
+   * was declined for being invalid and there is no other document to price.
+   */
+  recovered: L1Document
+  /**
+   * BUG-180 — set when the recovery produced a document that fails `validateL1`.
+   * It is declined, not fatal: the base is served and this carries the
+   * validation error, so the gate can say why. A poor page is still a page.
+   */
+  invalid?: string
+}
+
+/**
+ * BUG-180 — a recovery pass produced a document the validator rejects. Typed so
+ * {@link chooseRecovery} can decline exactly this and nothing else: a bug that
+ * throws anything other than an invalid document still ends the run loudly.
+ */
+export class InvalidRecoveryError extends Error {
+  constructor(readonly detail: string) {
+    super(`promoteToFlow: produced an invalid L1 document — ${detail}`)
+    this.name = 'InvalidRecoveryError'
+  }
 }
 
 export interface RecoveryChoiceOptions {
@@ -2967,6 +2990,12 @@ export interface RecoveryChoiceOptions {
    * THAT, not of the body alone (BUG-113), and the caller owns the mounting.
    */
   compose?: (doc: L1Document) => L1Document
+  /**
+   * The recovery pass itself — {@link promoteToFlow} unless overridden. A seam
+   * for evidence: the "invalid recovery is declined" path has no live cause
+   * once BUG-180's hold fix is in, so a UAT supplies one here.
+   */
+  promote?: (doc: L1Document, options: PromoteOptions) => PromoteResult
 }
 
 /** Score one candidate: its envelope as composed, its fidelity as written. */
@@ -3074,11 +3103,28 @@ export function chooseRecovery(
   oracle: OracleSource,
   options: RecoveryChoiceOptions = {},
 ): RecoveryVerdict {
-  const { doc: recovered, promoted } = promoteToFlow(base, {
-    scale: options.scale,
-    measured: options.measured,
-  })
   const baseScore = scoreCandidate(base, oracle, options)
+  let attempt: PromoteResult
+  try {
+    attempt = (options.promote ?? promoteToFlow)(base, {
+      scale: options.scale,
+      measured: options.measured,
+    })
+  } catch (err) {
+    // BUG-180 — the base is the fold's own validated output and always exists,
+    // so an invalid recovery costs the recovery, never the reproduction.
+    if (!(err instanceof InvalidRecoveryError)) throw err
+    return {
+      doc: base,
+      served: false,
+      promoted: [],
+      base: baseScore,
+      recovery: baseScore,
+      recovered: base,
+      invalid: err.detail,
+    }
+  }
+  const { doc: recovered, promoted } = attempt
   const recoveryScore = scoreCandidate(recovered, oracle, options)
   // A tenth of a pixel: the recovery's leading offsets are rounded to that, so a
   // difference at or below it is the rounding and not a regression.
@@ -3094,6 +3140,7 @@ export function chooseRecovery(
     promoted,
     base: baseScore,
     recovery: recoveryScore,
+    recovered,
   }
 }
 
@@ -3631,7 +3678,7 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
   const result = validateL1(next, options.site)
   if (!result.ok) {
     const detail = result.errors.map((e) => `${e.path}: ${e.message}`).join('; ')
-    throw new Error(`promoteToFlow: produced an invalid L1 document — ${detail}`)
+    throw new InvalidRecoveryError(detail)
   }
   return { doc: result.value, promoted }
 }

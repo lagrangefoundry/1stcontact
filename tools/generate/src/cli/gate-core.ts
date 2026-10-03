@@ -45,7 +45,6 @@ import {
   acceptanceGate,
   contentRobustnessProbe,
   measuredTextHeights,
-  promoteToFlow,
   chooseRecovery,
   sampleFidelityProbe,
 } from '../l1/probes'
@@ -1189,6 +1188,11 @@ export interface RecoveryCost {
   fidelityMaxDeltaPx: number
   /** Oracle samples the recovered document would place out of tolerance. */
   fidelityResiduals: number
+  /**
+   * BUG-180 — the validation error, when the recovery produced an invalid
+   * document and was declined for it. The numbers above then price the base.
+   */
+  invalid?: string
 }
 
 export interface L1GateResult extends AcceptanceReport {
@@ -1342,12 +1346,13 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
     ),
     recoveredFindings: countFindings(
       contentRobustnessProbe(
-        mountBehaviours(promoteToFlow(base, { scale: CONTENT_SCALE, measured }).doc, forms),
+        mountBehaviours(choice.recovered, forms),
         { scale: CONTENT_SCALE, measured },
       ),
     ),
     fidelityMaxDeltaPx: choice.recovery.maxDelta,
     fidelityResiduals: choice.recovery.residuals,
+    ...(choice.invalid ? { invalid: choice.invalid } : {}),
   }
   return { ...report, promoted: choice.promoted, recovery, foldResiduals, forms, staleFold }
 }
