@@ -6,10 +6,10 @@ title: 'fold: a band''s hero <img> is painted over the band''s own scrim (and fi
   further Zyro residuals)'
 created_by: repro-console:repro-www-hearingzone510-com#1
 created_at: '2026-10-03T19:22:40.995134+00:00'
-updated_at: '2026-10-03T22:29:40.684189+00:00'
+updated_at: '2026-10-03T22:30:08.687991+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-5711e554
+  commits:
+  - working_sha: 1e1eb983242e4fc2f32aac57a32cf8d05fb091a4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 26c7713fa5279895e0a2886c4f4e53b0ca93b247
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.456
 ---
 
 # fold: a band's hero `<img>` is painted over the band's own scrim — and five further residuals on a Zyro page
