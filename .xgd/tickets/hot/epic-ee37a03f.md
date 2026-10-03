@@ -5,7 +5,7 @@ type: epic
 title: 'Identity: impersonation, multiple login emails, and delegate access'
 created_by: martin-github@westhead.me
 created_at: '2026-10-03T17:23:39.835613+00:00'
-updated_at: '2026-10-03T18:26:39.423919+00:00'
+updated_at: '2026-10-03T18:32:17.353351+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -108,9 +108,13 @@ account pages. If it comes back, these are the findings for it:
   other account exists (existence oracle, see the `user_emails` comments).
 - **Adding an address does not validate it.** An unvalidated address can
   receive a magic link. Signing in through that link is what validates it.
-- **Primary:** one address stays primary (`idx_user_emails_one_primary`). It is
-  where platform mail is sent. Open question: does the owner choose the
-  primary, or is it always the first validated address?
+- **Primary (decided 2026-10-03):** exactly one address is primary
+  (`idx_user_emails_one_primary`). The platform sends its mail there, and it is
+  the address you are shown as. **It defaults to the first address you
+  entered.** On the profile portal, a **Make primary** control next to each
+  **validated** address lets you choose a different one. An unvalidated
+  address cannot be made primary. You cannot remove the primary address until
+  you have made another address primary.
 
 ### What already exists
 
@@ -132,7 +136,8 @@ account pages. If it comes back, these are the findings for it:
   by design. Nobody can edit their own profile today. The only address-editing
   path is `setPersonRecord` (`people.ts:975`), which lets an owner rewrite a
   contact's **primary** address. This item adds add and remove for your own
-  addresses, and the last-validated rule enforced by the server.
+  addresses, Make primary, and the last-validated rule, all enforced by the
+  server.
 
 ## 3. Delegate access (contacts page)
 
@@ -236,8 +241,8 @@ Keep the ticket count small ([[REQ-170]]-style single tickets per feature):
 
 - **REQ — Console "Open business":** the Open control, the selector showing
   an entered business, the banner, the entry audit event
-- **REQ — Login emails on the profile portal:** `verified_at`, add/remove, the
-  last-validated rule
+- **REQ — Login emails on the profile portal:** `verified_at`, add/remove, Make
+  primary, the last-validated rule
 - **REQ — Delegates:** the `delegate` role, the contacts-tab invite and accept,
   the owner-gate audit, the selector
 
