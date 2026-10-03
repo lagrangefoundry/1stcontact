@@ -676,6 +676,9 @@ function checkSurface(
     boxShadow?: ShadowLike | readonly ShadowLike[]
     border?: { widthPx: number }
     borderLeft?: { widthPx: number }
+    borderTop?: { widthPx: number }
+    borderRight?: { widthPx: number }
+    borderBottom?: { widthPx: number }
     backdropBlurPx?: number
     backgroundImageUrl?: string
     pattern?: { spacingPx: number; thicknessPx?: number; angleDeg?: number }
@@ -701,8 +704,11 @@ function checkSurface(
     })
   }
   checkShadow(axes.boxShadow, `${path}/boxShadow`, errors)
-  if (axes.border) checkEffectLen(axes.border.widthPx, `${path}/border/widthPx`, errors)
-  if (axes.borderLeft) checkEffectLen(axes.borderLeft.widthPx, `${path}/borderLeft/widthPx`, errors)
+  // REQ-374 — the uniform border and each per-side one take the same bound.
+  for (const key of ['border', 'borderTop', 'borderRight', 'borderBottom', 'borderLeft'] as const) {
+    const b = axes[key]
+    if (b) checkEffectLen(b.widthPx, `${path}/${key}/widthPx`, errors)
+  }
   checkEffectLen(axes.backdropBlurPx, `${path}/backdropBlurPx`, errors)
   if (axes.backgroundImageUrl !== undefined && !isSafeUrl(axes.backgroundImageUrl)) {
     errors.push({
