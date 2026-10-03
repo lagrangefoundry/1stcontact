@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-03T19:33:14.561859+00:00'
+updated_at: '2026-10-03T19:34:37.282509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -134,5 +134,11 @@ I've added two new files to the Charlie folder and listed them in `README.md`. N
 - Walt Hendricks, the old plumber, and Rick at Coastal Sewer, who Charlie sends whole-line jobs to.
 - Dave's wife is Lucia, a teacher, and they have a baby on the way. This also fits the "daughter-in-law" fragment from earlier.
 - Charlie is 56 and the business has two vans.
+
+<!-- xgd-turn id="7d9013d8-8d79-46bd-bbb9-8fa2780dd419-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T19:34:32.639901+00:00" -->
+#### You
+Oh this turn around I said his favourite business is installations of kitchesn and bathrooms
 
 <!-- xgd-chat-end -->
