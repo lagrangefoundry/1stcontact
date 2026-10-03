@@ -29,7 +29,7 @@ import {
   offSampleProbe,
   onSampleProbe,
 } from '../l1'
-import type { FoldedForm, FoldResidual, MeasuredTextHeights, RecoveryVerdict } from '../l1'
+import type { FoldedForm, FoldResidual, MeasuredTextHeights, OracleSource, RecoveryVerdict } from '../l1'
 import { draftDir, emptyDir, ensureDir, fsReferenceBundle, siteDir, writeDraftBase, writeJson } from '../store'
 import type { ReferenceBundle } from '../store'
 import { ctxOf } from './commands'
@@ -172,6 +172,7 @@ function measureServed(
   choice: RecoveryVerdict,
   forms: FoldedForm[],
   measured: MeasuredTextHeights,
+  oracle: OracleSource,
 ): ServedEnvelope {
   // The browser is given the page body with every behaviour's controls mounted
   // into their seams, so that is what gets measured — not the body alone.
@@ -184,7 +185,7 @@ function measureServed(
     // the surface→run backing and asserts containment; a direct evaluation cannot,
     // which is how this line could read a clean envelope on a page whose panels
     // had slid off their copy.
-    byWidth: onSampleProbe(served, { measured }).byWidth.map((w) => ({
+    byWidth: onSampleProbe(served, { measured, oracle }).byWidth.map((w) => ({
       width: w.width,
       ...(w.height !== undefined ? { height: w.height } : {}),
       findings: w.findings.length,
@@ -364,7 +365,7 @@ export async function cmdRepro(slug: string, opts: ReproOptions): Promise<ReproR
   // BUG-113 — the page has been written; now say what was written and at what
   // price. Measured against the bundle's retained oracle, so a bundle without one
   // reports nothing rather than a number it cannot stand behind.
-  const served = choice ? measureServed(choice, forms, measured!) : undefined
+  const served = choice && oracle ? measureServed(choice, forms, measured!, oracle) : undefined
 
   return {
     slug,

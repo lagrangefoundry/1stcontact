@@ -1875,6 +1875,14 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
 
 // ── probe (a): sample fidelity ────────────────────────────────────────────────
 
+/** Intersection-over-union of two boxes — BUG-186's non-text pairing score. */
+function boxIoU(a: EvalBox, b: EvalBox): number {
+  const { width, height } = intersectionOf(a, b)
+  const inter = width * height
+  const union = a.width * a.height + b.width * b.height - inter
+  return union > 0 ? inter / union : 0
+}
+
 export interface FidelityDelta {
   text: string
   width: number
@@ -1997,20 +2005,50 @@ export function sampleFidelityProbe(
     // counterpart. Leaving them in the queue would
     // shift every real `box-*` leaf by the number of surfaces before it and
     // report phantom deltas.
-    const nonTextQueues = new Map<string, EvalBox[]>()
+    //
+    // BUG-186 — but the two sides are not ordered by the same procedure: the oracle
+    // is in DOM order, and the fold emits captured backdrops where it nests them
+    // (a hero's scrim inside its band, after four later bands' backdrops), so the
+    // k-th "(generic)" on one side was the (k+1)-th on the other and every band
+    // was graded against its neighbour's box. Within a kind the pairing is
+    // therefore GEOMETRIC — best overlap first, one-to-one — and document order
+    // only breaks ties and pairs what overlaps nothing.
+    const nonTextLeaves = new Map<string, EvalBox[]>()
     for (const l of leaves) {
       if (l.kind !== 'image' && l.kind !== 'box') continue
       if (isSynthesizedSurfaceId(l.id)) continue
-      const q = nonTextQueues.get(l.kind)
+      const q = nonTextLeaves.get(l.kind)
       if (q) q.push(l.box)
-      else nonTextQueues.set(l.kind, [l.box])
+      else nonTextLeaves.set(l.kind, [l.box])
     }
-    const nonTextCursor = new Map<string, number>()
-    for (const o of table.filter((t) => t.width === width && t.kind !== 'text')) {
-      const idx = nonTextCursor.get(o.kind) ?? 0
-      nonTextCursor.set(o.kind, idx + 1)
+    const nonTextOracle = table.filter((t) => t.width === width && t.kind !== 'text')
+    const pairedLeaf = new Map<OracleBox, EvalBox>()
+    for (const [kind, boxes] of nonTextLeaves) {
+      const samples = nonTextOracle.filter((o) => o.kind === kind)
+      const candidates: Array<{ oi: number; li: number; iou: number }> = []
+      samples.forEach((o, oi) =>
+        boxes.forEach((b, li) => {
+          const iou = boxIoU(o.box, b)
+          if (iou > 0) candidates.push({ oi, li, iou })
+        }),
+      )
+      candidates.sort((x, y) => y.iou - x.iou || x.oi - y.oi || x.li - y.li)
+      const takenLeaf = new Set<number>()
+      for (const c of candidates) {
+        if (pairedLeaf.has(samples[c.oi]) || takenLeaf.has(c.li)) continue
+        pairedLeaf.set(samples[c.oi], boxes[c.li])
+        takenLeaf.add(c.li)
+      }
+      const rest = boxes.filter((_, li) => !takenLeaf.has(li))
+      for (const o of samples) {
+        if (pairedLeaf.has(o)) continue
+        const next = rest.shift()
+        if (next) pairedLeaf.set(o, next)
+      }
+    }
+    for (const o of nonTextOracle) {
       const label = o.text || `(${o.kind})`
-      const got = nonTextQueues.get(o.kind)?.[idx]
+      const got = pairedLeaf.get(o)
       if (!got) {
         unmatched.push({ text: label, width })
         continue
@@ -2045,7 +2083,19 @@ export interface EnvelopeReport {
    * kept: every reader flattens this list and counts findings, and a second
    * parallel array would let the two disagree about what was sampled.
    */
-  byWidth: Array<{ width: number; height?: number; findings: LayoutFinding[] }>
+  byWidth: Array<{
+    width: number
+    height?: number
+    findings: LayoutFinding[]
+    /**
+     * BUG-186 — `overlap` / `buried` pairs set aside because the REFERENCE paints
+     * the same two elements intersecting by the same amount at this width
+     * ({@link referenceExhibits}). Present only where the probe was handed the
+     * oracle (on-sample), and listed rather than dropped so the size of what was
+     * excused stays readable.
+     */
+    inReference?: LayoutFinding[]
+  }>
 }
 
 /**
@@ -2147,6 +2197,7 @@ function envelopeAt(
   heights: number[],
   contentScale: number,
   measured?: MeasuredTextHeights,
+  reference?: readonly OracleBox[],
 ): EnvelopeReport {
   const backing = deriveSurfaceBacking(doc, { measured })
   // BUG-173 — resolved once from the resting document, like `backing`, and for
@@ -2154,14 +2205,93 @@ function envelopeAt(
   // was measured, not about the sample being asked.
   const fullBleed = deriveFullBleedSurfaces(doc, { measured })
   const byWidth = widths.flatMap((width) =>
-    heights.map((height) => ({
-      width,
-      height,
-      findings: evaluateLayout(doc, width, { contentScale, measured, viewportHeight: height, backing, fullBleed })
-        .findings,
-    })),
+    heights.map((height) => {
+      const { leaves, findings } = evaluateLayout(doc, width, {
+        contentScale,
+        measured,
+        viewportHeight: height,
+        backing,
+        fullBleed,
+      })
+      if (!reference) return { width, height, findings }
+      const at = reference.filter((o) => o.width === width)
+      const kindOf = new Map(leaves.map((l) => [l.path, l.kind]))
+      const kept: LayoutFinding[] = []
+      const inReference: LayoutFinding[] = []
+      for (const f of findings) (referenceExhibits(f, kindOf, at) ? inReference : kept).push(f)
+      return { width, height, findings: kept, ...(inReference.length ? { inReference } : {}) }
+    }),
   )
   return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
+}
+
+/** BUG-186 — per-axis tolerance (px) for "the reference paints this pair the same way". */
+const REFERENCE_TOL_PX = 2
+
+/** Width and height of the intersection of two boxes (0 on an axis they do not share). */
+function intersectionOf(a: EvalBox, b: EvalBox): { width: number; height: number } {
+  return {
+    width: Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)),
+    height: Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)),
+  }
+}
+
+function sameSize(a: EvalBox, b: EvalBox, tol: number): boolean {
+  return Math.abs(a.width - b.width) <= tol && Math.abs(a.height - b.height) <= tol
+}
+
+/**
+ * BUG-186 — does the reference itself paint this `overlap` / `buried` pair?
+ *
+ * The collision scan has no reference side: it asserts "a run painted over its
+ * neighbour is a reproduction defect", so a geometry copied FAITHFULLY from a
+ * reference whose own boxes intersect — Zyro grid text boxes whose line boxes
+ * overlap, a two-line heading whose `line-height` is below its content area, a
+ * label whose box runs under the next column's icon — was reported as a defect.
+ * REQ-331 answered the collage case in the fold, by marking the MEDIA side
+ * `stacked`; that premise fails for the text–text and text–glyph pairs, which
+ * are most of them. So the question is asked here, for every pair kind, as
+ * REQ-331 states it: an overlap the reproduction INVENTED is a finding, one the
+ * reference also paints is not.
+ *
+ * True when each leaf has a distinct oracle counterpart of the same kind at this
+ * width and of the same size, the two leaves sit offset from their counterparts
+ * by ONE common translation, and the counterparts intersect by the same amount as
+ * the leaves do. Counterparts are found by geometry rather than by text because
+ * the oracle does not always record a run under its own words (a `<p>` captured
+ * as the bare text node `"F"` with the paragraph's box). The translation is
+ * allowed because the envelope also samples viewport heights the reference was
+ * not captured at, and a height response (a hero that centres its copy) moves
+ * the pair rigidly — the same collision, somewhere else. A pair the reproduction
+ * changed — the run that grew seven lines into its neighbour, a label that moved
+ * on its own — has no such counterpart pair and stays a finding.
+ */
+function referenceExhibits(
+  finding: LayoutFinding,
+  kindOf: ReadonlyMap<string, EvalLeaf['kind']>,
+  oracleAt: readonly OracleBox[],
+): boolean {
+  if (finding.kind !== 'overlap' && finding.kind !== 'buried') return false
+  const [a, b] = finding.boxes ?? []
+  if (!a || !b || finding.paths.length !== 2) return false
+  const tol = REFERENCE_TOL_PX
+  const counterparts = (path: string, box: EvalBox): OracleBox[] =>
+    oracleAt.filter((o) => o.kind === kindOf.get(path) && sameSize(o.box, box, tol))
+  const ours = intersectionOf(a, b)
+  const as = counterparts(finding.paths[0], a)
+  const bs = counterparts(finding.paths[1], b)
+  return as.some((oa) =>
+    bs.some((ob) => {
+      if (oa === ob) return false
+      const rigid =
+        Math.abs(a.x - oa.box.x - (b.x - ob.box.x)) <= tol && Math.abs(a.y - oa.box.y - (b.y - ob.box.y)) <= tol
+      if (!rigid) return false
+      const theirs = intersectionOf(oa.box, ob.box)
+      return (
+        Math.abs(theirs.width - ours.width) <= tol && Math.abs(theirs.height - ours.height) <= tol
+      )
+    }),
+  )
 }
 
 /**
@@ -2211,7 +2341,18 @@ export function offSampleProbe(
  */
 export function onSampleProbe(
   doc: L1Document,
-  options: { widths?: number[]; heights?: number[]; measured?: MeasuredTextHeights } = {},
+  options: {
+    widths?: number[]
+    heights?: number[]
+    measured?: MeasuredTextHeights
+    /**
+     * BUG-186 — the reference, so a collision it paints identically at a captured
+     * width is set aside ({@link referenceExhibits}). Only this probe takes it:
+     * the off-sample widths have no oracle, and a content-perturbed sample is by
+     * construction not the reference's geometry.
+     */
+    oracle?: OracleSource
+  } = {},
 ): EnvelopeReport {
   return envelopeAt(
     doc,
@@ -2219,6 +2360,7 @@ export function onSampleProbe(
     options.heights ?? envelopeHeights(doc),
     1,
     options.measured,
+    options.oracle ? oracleBoxes(options.oracle) : undefined,
   )
 }
 
@@ -2330,7 +2472,7 @@ export function acceptanceGate(
     heights,
     measured,
   })
-  const onSample = onSampleProbe(served, { widths: options.fidelity?.widths, heights, measured })
+  const onSample = onSampleProbe(served, { widths: options.fidelity?.widths, heights, measured, oracle })
   return {
     pass: sampleFidelity.pass && offSample.pass && contentRobustness.pass && onSample.pass,
     sampleFidelity,
