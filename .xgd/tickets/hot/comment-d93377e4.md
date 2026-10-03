@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-02T17:57:23.655647+00:00'
+updated_at: '2026-10-03T19:26:26.435785+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,13 @@ I've set up a folder for Charlie at `example-businesses/charlies-plumbing/` in t
 
 **Where the chat stands**
 Bob's question to Charlie, "What do you charge to come out?", is still unanswered. I left the callout price blank on the invoice so you can choose a number and use it in both places. Alice's suggested next questions are jobs per week and response time, the real list of neighbourhoods, then whether the work comes with a guarantee.
+
+<!-- xgd-turn id="1e33aed4-f98e-4cb0-a273-f8f5b1bf74a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T19:26:22.097811+00:00" -->
+#### You
+That's great - I would like the readme to contain chat fragments that I can paste in that talk to aspects of Charlie and his job. He doesn't know web design or marketing so what he can talk about are his customers, his jobs what he did last week, what he is best at, USP.
+
+Can you also create a doc with some mock customer testimonials
 
 <!-- xgd-chat-end -->
