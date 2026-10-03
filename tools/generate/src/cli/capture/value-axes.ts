@@ -334,8 +334,14 @@ export const GEOMETRY_AXES: readonly AnyElementAxis<ElementGeometry, RawGeometry
   {
     axis: 'zIndex',
     role: 'compared',
-    note: 'REQ-48 (item 2) — effective paint order; the only axis that separates two correctly-positioned but wrongly-stacked elements.',
+    note: 'REQ-48 (item 2) — effective paint order; the only axis that separates two correctly-positioned but wrongly-stacked elements. BUG-187: compared as the relative order of each overlapping pair, never as a level on its own.',
     ...sharedGeometry((g) => g.zIndex),
+  },
+  {
+    axis: 'paintStack',
+    role: 'compared',
+    note: 'BUG-187 — the stacking chain `zIndex` is one link of (outermost box first, each as document path + level). The `zIndex` axis orders every OVERLAPPING pair through it, so two elements in sibling stacking contexts are ordered where their chains diverge rather than by two integers that were never on one scale.',
+    ...sharedGeometry((g) => g.paintStack),
   },
   {
     axis: 'filter',

@@ -49,6 +49,21 @@ export interface ClipAncestor extends Box {
   id: string
 }
 
+/**
+ * BUG-187 — one level in the chain of stacking a paint-ordered box sits in.
+ *
+ * `id` is the box's place in the document (the same `.`-joined child-index path
+ * {@link ClipAncestor.id} uses) and `z` the level it paints at inside the
+ * stacking context that holds it. An element's `paintStack` lists these from the
+ * outermost box down to the element itself, and two elements' paint order is
+ * decided where their chains first name different boxes — the comparison a single
+ * `zIndex` integer cannot make once the two sit in sibling stacking contexts.
+ */
+export interface PaintLevel {
+  id: string
+  z: number
+}
+
 /** Screen dimensions for a screenshot / viewport. */
 export interface Viewport {
   width: number
@@ -482,6 +497,13 @@ export interface ElementGeometry {
    * geometry field; only this paint-order axis separates them.
    */
   zIndex?: number
+  /**
+   * BUG-187 — the stacking chain {@link zIndex} is one link of: every box that
+   * carries this element through paint order, outermost first, ending at the
+   * element. Absent on a bundle older than schema 16, which the diff then orders
+   * on {@link zIndex} alone and says so.
+   */
+  paintStack?: PaintLevel[]
   /**
    * REQ-48 (item 3) — treatments REQ-47's shape (radius/border/box-shadow) can't
    * hold. Each is the raw computed value when painted, else null; the diff

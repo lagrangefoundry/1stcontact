@@ -211,20 +211,27 @@ describe('REQ-48 item 8b — perceptual OKLab colour distance', () => {
 // ── Item 2 — layering / z-order ──────────────────────────────────────────────
 
 describe('REQ-48 item 2 — layering / z-order', () => {
+  // The caption overlaps the portrait's lower edge — the overlap paint order is about.
+  const PORTRAIT = { x: 0, y: 0, width: 300, height: 300 }
+  const CAPTION = { x: 0, y: 260, width: 300, height: 40 }
+
   it('test_UAT_FC_REQ-48_wrong_z_order_flagged_high', () => {
     // Portrait and caption correctly *placed* but their stacking is swapped —
     // identical on every 2D field, separated only by paint order. HIGH.
-    const expected = mani('ref', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })])
-    const actual = mani('draft', [el('portrait', { zIndex: 5 }), el('caption', { zIndex: 1 })])
+    // BUG-187 — paint order is a relation between the two OVERLAPPING elements,
+    // so the swap is one inverted pair: one delta, on the element that belongs on top.
+    const expected = mani('ref', [el('portrait', { zIndex: 1, box: PORTRAIT }), el('caption', { zIndex: 5, box: CAPTION })])
+    const actual = mani('draft', [el('portrait', { zIndex: 5, box: PORTRAIT }), el('caption', { zIndex: 1, box: CAPTION })])
     const report = diffManifests(expected, actual)
     const z = report.deltas.filter((d) => d.kind === 'zOrder')
-    expect(z).toHaveLength(2)
+    expect(z).toHaveLength(1)
+    expect(z[0].text).toBe('caption')
     expect(z.every((d) => d.tier === 'HIGH')).toBe(true)
   })
 
   it('test_UAT_FC_REQ-48_matching_z_order_clean', () => {
-    const m = mani('ref', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })])
-    const report = diffManifests(m, mani('draft', [el('portrait', { zIndex: 1 }), el('caption', { zIndex: 5 })]))
+    const m = mani('ref', [el('portrait', { zIndex: 1, box: PORTRAIT }), el('caption', { zIndex: 5, box: CAPTION })])
+    const report = diffManifests(m, mani('draft', [el('portrait', { zIndex: 1, box: PORTRAIT }), el('caption', { zIndex: 5, box: CAPTION })]))
     expect(report.deltas).toHaveLength(0)
   })
 

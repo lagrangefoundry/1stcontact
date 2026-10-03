@@ -101,7 +101,10 @@ export const SEEDED_DEFECTS: SeededDefect[] = [
   { name: 'wrong text casing', expects: 'text', inject: (m) => void (firstText(m).text = firstText(m).text.toUpperCase()) },
   { name: 'displaced position', expects: 'position', inject: (m) => void (firstText(m).box!.y += 300) },
   { name: 'colour drift', expects: 'color', inject: (m) => void (firstText(m).color = '#557799') },
-  { name: 'wrong z-order', expects: 'zOrder', inject: (m) => void (theImg(m).zIndex = 99) },
+  // BUG-187 — paint order is compared between OVERLAPPING elements, so the seeded
+  // defect is a real inversion: the image (above the copy it overlaps at z 1) is
+  // dropped below it. Raising it to 99 would reorder nothing and fire nothing.
+  { name: 'wrong z-order', expects: 'zOrder', inject: (m) => void (theImg(m).zIndex = -1) },
   { name: 'ellipse not circle', expects: 'media', inject: (m) => void (theImg(m).box!.height = 100) },
   { name: 'missing photo child', expects: 'presence', inject: (m) => void m.elements.splice(m.elements.indexOf(theImg(m)), 1) },
   { name: 'lost text glow', expects: 'treatment', inject: (m) => void (firstText(m).textShadow = null) },

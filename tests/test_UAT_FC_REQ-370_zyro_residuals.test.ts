@@ -409,8 +409,9 @@ describe('REQ-370 — a bundle taken before schema 15 says it is owed a re-captu
     }) as unknown as Capture
 
   it('test_UAT_FC_REQ-370_a_schema_14_bundle_names_the_white_space_axis_as_missing', () => {
-    expect(CAPTURE_SCHEMA).toBe(15)
+    // BUG-187 moved the schema past 15; a 15 bundle still carries the white-space axis.
+    expect(CAPTURE_SCHEMA).toBeGreaterThanOrEqual(15)
     expect(staleCaptureAxes(bundle(14)).map((a) => a.axis).join(' | ')).toMatch(/whiteSpace/)
-    expect(staleCaptureAxes(bundle(15))).toEqual([])
+    expect(staleCaptureAxes(bundle(15)).map((a) => a.axis).join(' | ')).not.toMatch(/whiteSpace/)
   })
 })

@@ -7,7 +7,8 @@
  *   1. A run its nearest clipping ancestor cuts off is compared as `visibleFraction`.
  *   2. A paint axis is read off the union of reproduction layers sharing the box.
  *   3. `paintedSurfaces` breaks an area tie by paint order (topmost first).
- *   4. `zIndex` is compared as the rank the fold can author (clamped to the envelope).
+ *   4. A `zIndex` level the fold cannot author is not a delta while the ORDER holds
+ *      (BUG-187 superseded the clamp: paint order is compared per overlapping pair).
  *   5. A coalesced reference section is compared against every band it covers.
  *   6. A band's fill may be painted by a descendant covering ≥ 99% of it.
  *   7. A one-quantum line-height difference is not a delta; layout findings name their probe.
@@ -131,14 +132,18 @@ describe('BUG-179 item 2 — coincident reproduction layers paint as one', () =>
 
 describe('BUG-179 item 4 — paint order is compared as a rank', () => {
   it('test_UAT_FC_BUG-179_a_z_index_clamped_by_the_fold_is_not_a_delta', () => {
+    // BUG-187 — compared as the order of OVERLAPPING elements, which is what a
+    // clamp can and cannot change: `z:9999` authored as `z:1000` keeps the logo
+    // over the hero, so it is not a delta; a level that drops it under is.
     const logo: Box = { x: 20, y: 70, width: 232, height: 66 }
     const z = (e: number, a: number) =>
-      diffManifests(manifest([box('(img)', logo, { zIndex: e })]), manifest([box('(img)', logo, { zIndex: a })])).deltas.filter(
-        (d) => d.property === 'zIndex',
-      )
+      diffManifests(
+        manifest([box('(generic)', HERO, { zIndex: 2 }), box('(img)', logo, { zIndex: e })]),
+        manifest([box('(generic)', HERO, { zIndex: 2 }), box('(img)', logo, { zIndex: a })]),
+      ).deltas.filter((d) => d.property === 'zIndex')
     expect(z(9999, 1000)).toEqual([])
-    // A real reordering inside the envelope is still reported.
-    expect(z(2, 5)).toHaveLength(1)
+    // A real reordering is still reported.
+    expect(z(5, 1)).toHaveLength(1)
   })
 })
 

@@ -150,6 +150,8 @@ function toContentRun(r: RawRun): ContentRun {
   if (r.headingLevel != null) run.headingLevel = r.headingLevel
   run.arrangement = r.arrangement
   run.zIndex = r.zIndex
+  // BUG-187 — the stacking chain `zIndex` is one link of, carried verbatim.
+  if (r.paintStack !== undefined) run.paintStack = r.paintStack
   run.filter = r.filter
   run.textShadow = r.textShadow
   run.maskEdge = r.maskEdge
@@ -197,6 +199,8 @@ function toField(f: RawField): Field {
     boxShadow: f.boxShadow,
     arrangement: f.arrangement,
     zIndex: f.zIndex,
+    // BUG-187 — see toContentRun above.
+    ...(f.paintStack !== undefined ? { paintStack: f.paintStack } : {}),
     filter: f.filter,
     textShadow: f.textShadow,
     maskEdge: f.maskEdge,

@@ -8,7 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
-import type { BandPaint, Box, ClipAncestor, SurfaceShape } from './types'
+import type { BandPaint, Box, ClipAncestor, PaintLevel, SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -111,6 +111,8 @@ export interface RawGeometry {
   arrangement: 'row' | 'stack' | null
   /** REQ-48 (item 2) — effective computed `z-index` as an integer (`auto` → 0). */
   zIndex: number
+  /** BUG-187 — the stacking chain `zIndex` is one link of (see {@link PaintLevel}). */
+  paintStack?: PaintLevel[]
   /** REQ-48 (item 3) — computed `filter` when painted, else null. */
   filter: string | null
   /** REQ-48 (item 3) — computed `text-shadow` when painted, else null. */
@@ -1669,6 +1671,46 @@ export const EXTRACT_SCRIPT = `(() => {
     var ct = '' + (cs.contain || '');
     return ct.indexOf('paint') >= 0 || ct.indexOf('layout') >= 0 || ct.indexOf('strict') >= 0 || ct.indexOf('content') >= 0;
   }
+  // BUG-187 -- THE WHOLE CHAIN zIndexOf IS ONE LINK OF, so two elements can be
+  // ordered where their chains first name different boxes.
+  //
+  // zIndexOf answers with the first level it meets, which is right among
+  // positioned siblings in one container and meaningless across two: on
+  // hearingzone510.com (Zyro) every section's ground is .block-background at
+  // z-index 13 and its copy sits in .block-layout at 14, inside a .layout-element
+  // at 1. Read one integer each, the ground (13) paints over the copy (1), the
+  // opposite of the page. Read as chains, [13] against [14, 1] diverge at the
+  // first link and the copy is on top, which is what the screenshot shows.
+  //
+  // A LINK is every box that travels through paint order as one unit: a box
+  // z-index applies to and that declares a level, or any box that establishes a
+  // stacking context (level 0 when it declares none). Each is recorded as its
+  // document path and its level, outermost first. The element itself closes the
+  // chain at level 0 when it is not a link of its own, so two leaves in one
+  // context still have an id to be put in document order by.
+  var PAINT_PATHS = new Map();
+  function paintPathOf(node) {
+    var p = PAINT_PATHS.get(node);
+    if (p === undefined) { p = nodePathOf(node); PAINT_PATHS.set(node, p); }
+    return p;
+  }
+  function paintStackOf(el) {
+    var chain = [];
+    var node = el;
+    var guard = 0;
+    while (node && node.nodeType === 1 && node !== document.documentElement && guard++ < 64) {
+      var cs = getComputedStyle(node);
+      var level = null;
+      if (zIndexApplies(node, cs)) {
+        var z = parseInt(cs.zIndex, 10);
+        if (!isNaN(z)) level = z;
+      }
+      if (level === null && establishesStackingContext(node, cs)) level = 0;
+      if (level !== null || node === el) chain.push({ id: paintPathOf(node), z: level === null ? 0 : level });
+      node = node.parentElement;
+    }
+    return chain.reverse();
+  }
   // REQ-48 (item 3) -- a computed value that is painted, or null when it is the
   // no-op default. Normalises the several spellings of "nothing" to one null.
   function paintedOrNull(v) {
@@ -2733,6 +2775,18 @@ export const EXTRACT_SCRIPT = `(() => {
       var last = nodes[members[members.length - 1]];
       last.flow = last.flow.replace(/ +$/, '');
     });
+    // BUG-187 -- every element some OTHER run is nested inside. An element that
+    // holds one text node of its own and a styled child with its own run --
+    // <p>F<span>or over 20 years</span></p> -- is not that one run's box: its
+    // contents are the whole paragraph, so "F" was recorded at 667x157 against a
+    // reproduction that paints the glyph in a span of its own at 11x22. Walking
+    // up from each run's element stops at the first ancestor already marked,
+    // because everything above it was marked by the same walk.
+    var nestsRun = new Set();
+    for (var ni = 0; ni < nodes.length; ni++) {
+      var up = nodes[ni].el.parentElement;
+      while (up && !nestsRun.has(up)) { nestsRun.add(up); up = up.parentElement; }
+    }
     for (var ri2 = 0; ri2 < nodes.length; ri2++) {
       // REQ-302 -- the emitted index the excluded subtree belongs at. Taken here
       // rather than in pass 1 because pass 1 counts CANDIDATE nodes and pass 2
@@ -2744,7 +2798,8 @@ export const EXTRACT_SCRIPT = `(() => {
       var el = nodes[ri2].el;
       // The element's box IS the run's box only while it holds a single run; when
       // it holds several, that shared box says nothing about where this one paints.
-      var ownRun = runCounts.get(el) === 1;
+      // BUG-187 -- and the same holds when the other run is a descendant's.
+      var ownRun = runCounts.get(el) === 1 && !nestsRun.has(el);
       // REQ-366 -- a glyph run reads its type off the pseudo-element that paints
       // it, and its box off the element (the glyph has no text node to measure).
       var glyphSel = nodes[ri2].glyph;
@@ -2869,6 +2924,7 @@ export const EXTRACT_SCRIPT = `(() => {
         headingLevel: headingLevelOf(el),
         arrangement: null,
         zIndex: zIndexOf(el),
+        paintStack: paintStackOf(el),
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s),
@@ -3039,6 +3095,7 @@ export const EXTRACT_SCRIPT = `(() => {
         headingLevel: headingLevelOf(el),
         arrangement: null,
         zIndex: zIndexOf(el),
+        paintStack: paintStackOf(el),
         filter: paintedOrNull(s.filter),
         textShadow: paintedOrNull(s.textShadow),
         maskEdge: maskEdgeOf(s) || (frame ? frame.maskEdge : null),

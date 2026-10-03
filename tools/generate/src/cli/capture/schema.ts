@@ -166,8 +166,16 @@ import type { Capture } from './types'
  *   only shape is a solid rectangle covering it is recorded as a painted field.
  *   (d) A decoded image parked in a scroll-reveal pre-state (transparent AND
  *   displaced) is landed before measuring, so it is in the oracle at all.
+ * - **16** — BUG-187: two things the values-diff could not compare because the
+ *   two sides did not hold them in common. (a) Every run and field records its
+ *   `paintStack` — the chain of stacking boxes its `zIndex` is one link of — so
+ *   paint order between two elements in sibling stacking contexts is decidable
+ *   (hearingzone510.com's section grounds at 13 under copy at 14 → 1). (b) A text
+ *   node whose element also holds a nested run (`<p>F<span>…</span></p>`) is
+ *   measured over its own range; a pre-16 bundle records it with the whole
+ *   paragraph's box and glyph extent.
  */
-export const CAPTURE_SCHEMA = 15
+export const CAPTURE_SCHEMA = 16
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -533,6 +541,22 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // is — the `href` asymmetry — so this only ever removes the axis.
     present: (c) =>
       [...runs(c), ...fields(c)].some((r) => typeof r.href === 'string' && /^(tel|mailto):/i.test(r.href)),
+  },
+  {
+    since: 16,
+    axis: "an element's stacking chain (paintStack)",
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // Written on every run and field from schema 16, so its presence anywhere is
+    // the axis, whatever the page stacks.
+    present: (c) => [...runs(c), ...fields(c)].some((r) => Array.isArray(r.paintStack)),
+  },
+  {
+    since: 16,
+    axis: "a text node's own box beside a nested run (not its element's)",
+    where: 'a content run (`sections[].content[]`)',
+    // Unprovable for `zIndex`'s reason: a pre-16 bundle records a box on every
+    // run, and only the page's markup says whose box it was.
+    present: () => false,
   },
 ]
 

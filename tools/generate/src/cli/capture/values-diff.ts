@@ -42,6 +42,7 @@ import type {
   GradientStop,
   InteractionState,
   NameSource,
+  PaintLevel,
   RenderEngine,
   SurfaceShape,
   TextGradient,
@@ -59,8 +60,6 @@ import { filterChain, filterPaints, paintedShadowLayers, shadowLabel } from './t
 import { isBandPaint } from '../perceptual-core'
 // BUG-153 (item 2) — what a mask DOES to its box, rather than whether one exists.
 import { maskCoverage, maskCoverageLabel, paintsMaskEdge } from './mask-geometry'
-// BUG-179 (item 4) — the paint-order bound the fold clamps a captured z-index to.
-import { L1_ENVELOPE } from '@1stcontact/site-schema'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
 // longer projects anything itself.
@@ -241,6 +240,12 @@ export interface ValueElement {
   arrangement?: Arrangement | null
   /** REQ-48 (item 2) — effective paint order (computed `z-index`, `auto` → 0). */
   zIndex?: number
+  /**
+   * BUG-187 — the stacking chain {@link zIndex} is one link of, outermost first
+   * (see `PaintLevel`). Paint order is compared through it, pair by pair; absent
+   * on a pre-schema-16 bundle, which is then ordered on `zIndex` alone.
+   */
+  paintStack?: PaintLevel[]
   /** REQ-48 (item 3) — computed `filter` when painted (blur/drop-shadow halo), else null. */
   filter?: string | null
   /** REQ-48 (item 3) — computed `text-shadow` when painted (glow), else null. */
@@ -2578,9 +2583,71 @@ function visibleFractionOf(el: ValueElement): number | undefined {
 
 const percentLabel = (f: number): string => `${Math.round(f * 100)}% visible`
 
-/** BUG-179 (item 4) — a z-index as the paint rank the fold can author (see `foldPaintOrder`). */
-function paintRank(z: number): number {
-  return Math.max(L1_ENVELOPE.paintOrder.min, Math.min(L1_ENVELOPE.paintOrder.max, Math.round(z)))
+/**
+ * BUG-187 — the least share of the smaller box two boxes must have in common for
+ * their paint order to be a fact anyone could see. Two bands that meet on a
+ * rounded pixel overlap by a 1px sliver, and which one is on top of that sliver
+ * is nothing an eye or a screenshot measures.
+ */
+const PAINT_OVERLAP_MIN = 0.01
+
+/** BUG-187 — whether two boxes share enough area for one to paint over the other. */
+function paintOverlaps(a: Box, b: Box): boolean {
+  const iw = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)
+  const ih = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)
+  if (iw <= 0 || ih <= 0) return false
+  const smaller = Math.min(a.width * a.height, b.width * b.height)
+  return smaller > 0 && (iw * ih) / smaller >= PAINT_OVERLAP_MIN
+}
+
+/** Document order of two `.`-joined child-index paths: negative when `a` comes first. */
+function compareDocPaths(a: string, b: string): number {
+  const pa = a.split('.')
+  const pb = b.split('.')
+  for (let i = 0; i < Math.min(pa.length, pb.length); i++) {
+    const d = Number(pa[i]) - Number(pb[i])
+    if (d !== 0) return d
+  }
+  // An ancestor precedes everything inside it.
+  return pa.length - pb.length
+}
+
+/**
+ * BUG-187 — which of two elements on ONE side paints above the other, as that
+ * side's own capture states it: positive when `a` is above, negative when `b` is,
+ * `0` when the side cannot say.
+ *
+ * Read through the stacking chains when both carry one (see `PaintLevel`): the
+ * first link the chains disagree on decides — by level, then by document order
+ * at an equal level — and an element inside another's chain paints above it.
+ * Two runs of one element share a whole chain and have no order between them.
+ *
+ * Without chains (a bundle older than schema 16) the side is read as ONE flat
+ * level: `zIndex`, then the element's place in the manifest. That is the reading
+ * this ticket exists to stop relying on, so the caller reports it whenever it is
+ * used; it is kept because it is still right for the montage it was built for —
+ * positioned siblings in one container — and declining outright would lose that.
+ */
+function paintOrderOf(a: ValueElement, ai: number, b: ValueElement, bi: number): number {
+  const sa = a.paintStack
+  const sb = b.paintStack
+  if (sa && sb && sa.length > 0 && sb.length > 0) {
+    let k = 0
+    while (k < sa.length && k < sb.length && sa[k].id === sb[k].id) k++
+    if (k === sa.length && k === sb.length) return 0
+    if (k === sa.length) return -1
+    if (k === sb.length) return 1
+    if (sa[k].z !== sb[k].z) return sa[k].z - sb[k].z
+    return compareDocPaths(sa[k].id, sb[k].id)
+  }
+  if (a.zIndex === undefined || b.zIndex === undefined) return 0
+  return a.zIndex !== b.zIndex ? a.zIndex - b.zIndex : ai - bi
+}
+
+/** A short name for the other element of an inverted pair, for the delta's label. */
+const paintPartnerLabel = (e: ValueElement): string => {
+  const t = e.text.length > 32 ? `${e.text.slice(0, 31)}…` : e.text
+  return `"${t}"`
 }
 
 export function diffManifests(
@@ -2977,21 +3044,9 @@ export function diffManifests(
           styleOk)
       if (!ok) push(exp, 'border', borderLabel(e), borderLabel(a))
     }
-    // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
-    // element stacks on the wrong side of its neighbours (portrait over caption,
-    // scrim behind instead of in front) — invisible to every 2D field above.
-    //
-    // BUG-179 (item 4) — compared as the RANK the fold can author, not as the raw
-    // number. `foldPaintOrder` clamps a captured level to `L1_ENVELOPE.paintOrder`
-    // by design, because a rank is what paints: `z:9999` and `z:1000` both mean
-    // "above every other level" on a page whose other levels are 2. So both sides
-    // are clamped to the same envelope before they are compared, and only a level
-    // that differs INSIDE it — a real reordering — is a delta.
-    if (exp.zIndex !== undefined && act.zIndex !== undefined) {
-      const ez = paintRank(exp.zIndex)
-      const az = paintRank(act.zIndex)
-      if (ez !== az) push(exp, 'zIndex', `z:${exp.zIndex}`, `z:${act.zIndex}`, Math.abs(ez - az))
-    }
+    // REQ-48 (item 2) — paint order is NOT compared here, per element: it is a
+    // relation between two elements, and is compared over every overlapping pair
+    // once all pairs are known (BUG-187, below the `arrangement` pass).
     // BUG-179 (item 1) — how much of the element is actually PAINTED. `box` is a
     // `getBoundingClientRect` and `renderedTextBox` a `Range`; neither knows about
     // an ancestor's `overflow`, so a run folded into a clip container 7000px down
@@ -3291,6 +3346,10 @@ export function diffManifests(
   // REQ-73 — every paired element with a box, for the adjacent-gap axis below.
   // BUG-174 — and the population the `arrangement` pass relates over.
   const gapPairs: Array<{ exp: ValueElement; act: ValueElement }> = []
+  // BUG-187 — every pair, with the reproduction element as PAIRED rather than as
+  // layer-resolved: paint order is a fact about where that element sits in its own
+  // side's document, and `resolveLayers` hands back a copy that has no place there.
+  const paintPairs: Array<{ exp: ValueElement; act: ValueElement }> = []
   // BUG-174 — a paired object's card and the deltas it was built from, so the
   // `arrangement` pass — which can only run once EVERY pair is known — can add
   // its finding to the card of the element it is about.
@@ -3366,6 +3425,7 @@ export function diffManifests(
       continue
     }
     matched++
+    paintPairs.push({ exp, act })
     act = resolveLayers(exp, act)
     // Containment: is the accessible name rendered *inside* the field box
     // (placeholder) or *outside* it (label/aria)? The placeholder-inside vs
@@ -3497,6 +3557,7 @@ export function diffManifests(
       continue
     }
     matched++
+    paintPairs.push({ exp, act: taken })
     const act = resolveLayers(exp, taken)
 
     // Verbatim content. Elements pair on the case-folded, whitespace-collapsed
@@ -3683,7 +3744,71 @@ export function diffManifests(
       const start = deltas.length
       push(exp, 'arrangement', arrangementLabel(e), arrangementLabel(a))
       const card = pairedCards.get(exp)
-      if (card) cards[card.at] = buildObjectCard(exp, card.act, [...card.own, ...objectDeltas(start)])
+      if (card) {
+        // BUG-187 — accumulated, because the paint-order pass below may add to the same card.
+        card.own = [...card.own, ...objectDeltas(start)]
+        cards[card.at] = buildObjectCard(exp, card.act, card.own)
+      }
+    }
+  }
+
+  // BUG-187 — paint ORDER, compared as a relation between overlapping elements.
+  //
+  // REQ-48 compared each element's `zIndex` with its counterpart's, which made
+  // two numbers comparable that neither side ever put on one scale. The two sides
+  // express paint order by different procedures — a Zyro page by `z-index: 13`
+  // on every section's ground, the fold by where in the document it puts the
+  // ground, writing no level at all — so hearingzone510.com reported six HIGH
+  // `z:13 → z:0` deltas on grounds that paint correctly, and reported the one
+  // real inversion on the page (the hero photograph painted over its own 45%
+  // scrim) only as an unexplained `z:2 → z:0` on the scrim.
+  //
+  // What the eye sees is which of two overlapping things is on top. So for every
+  // two paired elements whose boxes overlap on BOTH sides, each side says which
+  // one paints above — from its own capture, by its own procedure — and only a
+  // pair both sides order strictly, and order differently, is a delta. It is
+  // filed on the element the reference paints above, naming the other; one
+  // element's inversions aggregate into one delta, magnitude the count.
+  //
+  // This supersedes BUG-179 item 4's clamp to the fold's authorable rank: a level
+  // that differs on an element with nothing under or over it moves no pixel, and
+  // a clamp that merges two reference levels into one is a delta exactly when the
+  // merge reorders something that overlaps.
+  const paintOrderFlat = { reference: false, reproduction: false }
+  {
+    const expAt = new Map(expected.elements.map((e, i) => [e, i] as const))
+    const actAt = new Map(actual.elements.map((e, i) => [e, i] as const))
+    const flat = (a: ValueElement, b: ValueElement): boolean => !a.paintStack?.length || !b.paintStack?.length
+    const order = paintPairs.filter((p) => p.exp.box && p.act.box && p.exp.zIndex !== undefined && p.act.zIndex !== undefined)
+    const inverted = new Map<ValueElement, ValueElement[]>()
+    for (let i = 0; i < order.length; i++) {
+      for (let j = i + 1; j < order.length; j++) {
+        const p = order[i]
+        const q = order[j]
+        if (p.exp === q.exp || p.act === q.act) continue
+        if (!paintOverlaps(p.exp.box!, q.exp.box!) || !paintOverlaps(p.act.box!, q.act.box!)) continue
+        const e = paintOrderOf(p.exp, expAt.get(p.exp) ?? i, q.exp, expAt.get(q.exp) ?? j)
+        const a = paintOrderOf(p.act, actAt.get(p.act) ?? i, q.act, actAt.get(q.act) ?? j)
+        if (e === 0 || a === 0) continue
+        if (flat(p.exp, q.exp)) paintOrderFlat.reference = true
+        if (flat(p.act, q.act)) paintOrderFlat.reproduction = true
+        if (Math.sign(e) === Math.sign(a)) continue
+        const [above, below] = e > 0 ? [p.exp, q.exp] : [q.exp, p.exp]
+        const list = inverted.get(above)
+        if (list) list.push(below)
+        else inverted.set(above, [below])
+      }
+    }
+    for (const [above, belows] of inverted) {
+      const start = deltas.length
+      const other = paintPartnerLabel(belows[0])
+      const more = belows.length > 1 ? ` (+${belows.length - 1} more)` : ''
+      push(above, 'zIndex', `above ${other}${more}`, `below ${other}${more}`, belows.length)
+      const card = pairedCards.get(above)
+      if (card) {
+        card.own = [...card.own, ...objectDeltas(start)]
+        cards[card.at] = buildObjectCard(above, card.act, card.own)
+      }
     }
   }
 
@@ -4376,6 +4501,21 @@ export function diffManifests(
       // Both are the same fact to the gate — "compared, and not evaluated here" —
       // so both arrive in the same list rather than in a second one nothing reads.
       ...unreadableTransformAxes(expected, actual),
+      // BUG-187 — and a side whose paint order had to be read on one flat level,
+      // because its capture predates the stacking chain. The pairs were compared,
+      // so this is not silence; it is a reading that cannot tell two stacking
+      // contexts apart, and the round should know which side to re-capture.
+      ...(['reference', 'reproduction'] as const)
+        .filter((side) => paintOrderFlat[side])
+        .map((side) => ({
+          axis: 'paintStack',
+          scope: 'element' as const,
+          side,
+          reason:
+            'this side carries no stacking chain (captured before schema 16), so overlapping pairs ' +
+            'were ordered on one flat level — `zIndex`, then document order — which reads two ' +
+            'stacking contexts\' levels as if they were on one scale',
+        })),
       // BUG-153 (item 2) — and the mask pairs this run could not resolve.
       ...(maskGeometryUnresolved
         ? [
