@@ -6,10 +6,10 @@ title: 'fold: a padded run takes its ancestor band fill as its own chip, paintin
   a transparent nav as opaque plates'
 created_by: repro-console:repro-joyfulculinarycreations-com#7
 created_at: '2026-10-03T19:41:51.098837+00:00'
-updated_at: '2026-10-03T22:43:28.274470+00:00'
+updated_at: '2026-10-03T22:44:11.281388+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -18,6 +18,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-3350b5a4
+  commits:
+  - working_sha: f3a5eb11da8bd336a12949421258640d6b56574e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6509681ff5ffa992ebb5cc5e5823658457cff2ea
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.457
 ---
 
 # fold: a padded run takes its ancestor band's fill as its own chip, so a transparent nav paints five opaque black plates
