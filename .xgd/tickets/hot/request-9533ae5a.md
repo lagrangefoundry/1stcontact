@@ -5,7 +5,7 @@ type: request
 title: 'Profile portal: multiple login emails, validation, and primary'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:40.956444+00:00'
-updated_at: '2026-10-03T22:13:14.858206+00:00'
+updated_at: '2026-10-03T22:13:15.430956+00:00'
 completed_at: null
 last_field_updated: body
 status: ready_to_reconcile
