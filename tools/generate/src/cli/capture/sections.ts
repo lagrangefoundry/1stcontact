@@ -119,6 +119,8 @@ function toContentRun(r: RawRun): ContentRun {
   run.opacity = r.opacity
   run.outline = r.outline
   run.pseudo = r.pseudo
+  // REQ-366 — the run IS a pseudo-element's glyph; carried only when it is.
+  if (r.pseudoGlyph) run.pseudoGlyph = r.pseudoGlyph
   // REQ-47 — rendered geometry / shape / structure (always captured live).
   run.box = r.box
   // REQ-58 (T1) — tight rendered-text bounds (null when unmeasurable).

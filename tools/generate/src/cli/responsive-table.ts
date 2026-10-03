@@ -95,15 +95,95 @@ function propertySignature(el: ValueElement): string {
 }
 
 /**
- * Build the N-way per-node table. Elements at each size are grouped into FIFO
- * queues by join key (mirroring the values-diff pairing), then aligned
- * occurrence-by-occurrence across sizes — so repeated identical texts pair in
- * document order and a node missing from one size leaves that column absent.
+ * REQ-366 — where an element sits down its page, as a fraction of that page's
+ * extent (0 = top, 1 = bottom of the lowest captured box). Undefined when the
+ * element carries no box. Page heights differ by thousands of pixels across a
+ * ladder, so raw `y` cannot be compared between widths; the fraction can.
+ */
+function pagePositionOf(el: ValueElement, extent: number): number | undefined {
+  if (!el.box || !(extent > 0)) return undefined
+  return (el.box.y + el.box.height / 2) / extent
+}
+
+/** The lowest captured box edge in a manifest — the page extent {@link pagePositionOf} divides by. */
+function pageExtentOf(manifest: ValueManifest): number {
+  let extent = 0
+  for (const el of manifest.elements) {
+    if (el.box) extent = Math.max(extent, el.box.y + el.box.height)
+  }
+  return extent
+}
+
+/**
+ * REQ-366 — align two occurrence lists of one key whose LENGTHS DIFFER.
+ *
+ * Returns `pairs[i] = j` (or -1) for each `a[i]`. Every element of the shorter
+ * list is matched, the order of both lists is preserved, and among those
+ * alignments the one whose matched pairs sit closest down the page wins. Ties go
+ * to the earliest candidates, so where geometry cannot tell the occurrences apart
+ * the result is exactly the document-order FIFO this replaced.
+ */
+function alignByPosition(a: (number | undefined)[], b: (number | undefined)[]): number[] {
+  const n = a.length
+  const m = b.length
+  const cost = (i: number, j: number): number => {
+    const x = a[i]
+    const y = b[j]
+    return x === undefined || y === undefined ? 0 : Math.abs(x - y)
+  }
+  // f[i][j] — the cheapest alignment of a[0..i) with b[0..j) that matches every
+  // element of the shorter list's prefix; Infinity where that is impossible.
+  const f: number[][] = Array.from({ length: n + 1 }, () => new Array<number>(m + 1).fill(Infinity))
+  f[0][0] = 0
+  for (let i = 0; i <= n; i++) {
+    for (let j = 0; j <= m; j++) {
+      if (i === 0 && j === 0) continue
+      let best = Infinity
+      if (i > 0 && j > 0) best = f[i - 1][j - 1] + cost(i - 1, j - 1)
+      // Skip an element of the LONGER list only — the shorter one is matched whole.
+      if (n < m && j > 0) best = Math.min(best, f[i][j - 1])
+      if (n > m && i > 0) best = Math.min(best, f[i - 1][j])
+      f[i][j] = best
+    }
+  }
+  const pairs = new Array<number>(n).fill(-1)
+  let i = n
+  let j = m
+  while (i > 0 || j > 0) {
+    // Prefer skipping a TRAILING element: the matches then fall on the earliest
+    // candidates whenever costs tie, which is the FIFO behaviour.
+    if (n < m && j > 0 && f[i][j] === f[i][j - 1]) j--
+    else if (n > m && i > 0 && f[i][j] === f[i - 1][j]) i--
+    else {
+      pairs[i - 1] = j - 1
+      i--
+      j--
+    }
+  }
+  return pairs
+}
+
+/**
+ * Build the N-way per-node table. Elements at each size are grouped into queues
+ * by join key in document order, then aligned occurrence-by-occurrence across
+ * sizes, so repeated identical texts pair in document order and a node missing
+ * from one size leaves that column absent.
+ *
+ * REQ-366 — ONLY WHILE THE COUNT HOLDS. A label can occur once below a breakpoint
+ * and twice above it: a primary nav that collapses into a hamburger on a phone,
+ * repeating its links in a footer that never collapses. Pairing those by
+ * document order made occurrence 0 the HEADER link at 1280 and the FOOTER link at
+ * 320–1024, one row stitched across 4500px of page; the fold then built one node
+ * from it and the footer's clipping container swallowed the header nav whole.
+ * So when a key's count changes between adjacent sizes, the occurrences are
+ * aligned by where they sit down the page ({@link alignByPosition}) and the one
+ * with no counterpart starts (or ends) its own row: a presence flip, which is
+ * what it is. Equal counts pair in document order exactly as before.
  */
 export function buildResponsiveTable(projections: LabelledProjection[]): ResponsiveTable {
   const sizes = projections.map((p) => p.size)
 
-  // Per-size FIFO queues keyed by join key, preserving document order.
+  // Per-size queues keyed by join key, preserving document order.
   const perSize = projections.map((p) => {
     const queues = new Map<string, ValueElement[]>()
     for (const el of p.manifest.elements) {
@@ -114,6 +194,7 @@ export function buildResponsiveTable(projections: LabelledProjection[]): Respons
     }
     return queues
   })
+  const extents = projections.map((p) => pageExtentOf(p.manifest))
 
   // The union of keys, in first-seen order across sizes (stable output order).
   const keyOrder: string[] = []
@@ -129,12 +210,55 @@ export function buildResponsiveTable(projections: LabelledProjection[]): Respons
 
   const rows: ResponsiveRow[] = []
   for (const key of keyOrder) {
-    // How many occurrences of this key exist at the size that has the most (a
-    // node present at every size occurs once per size; a repeated text N times).
-    const occurrences = Math.max(...perSize.map((q) => q.get(key)?.length ?? 0))
-    for (let i = 0; i < occurrences; i++) {
+    // One track per row: the element at each size index, plus the row's most
+    // recent sighting (what the next size is aligned against).
+    type Track = { at: (ValueElement | undefined)[]; last?: { el: ValueElement; si: number } }
+    let tracks: Track[] = []
+    perSize.forEach((queues, si) => {
+      const cur = queues.get(key) ?? []
+      if (!cur.length) return
+      const live = tracks.filter((t) => t.last)
+      const match: number[] =
+        live.length === cur.length
+          ? live.map((_, i) => i)
+          : alignByPosition(
+              live.map((t) => pagePositionOf(t.last!.el, extents[t.last!.si])),
+              cur.map((el) => pagePositionOf(el, extents[si])),
+            )
+      const owner = new Map<number, Track>()
+      match.forEach((j, i) => {
+        if (j >= 0) owner.set(j, live[i])
+      })
+      // Rebuild the track order: existing tracks keep their relative order, and a
+      // new one is inserted where its element falls in this size's document order.
+      const next: Track[] = []
+      const placed = new Set<Track>()
+      let cursor = 0
+      cur.forEach((el, j) => {
+        let t = owner.get(j)
+        if (t) {
+          while (cursor < tracks.length && !placed.has(t)) {
+            const u = tracks[cursor++]
+            if (!placed.has(u)) {
+              next.push(u)
+              placed.add(u)
+            }
+          }
+        } else {
+          t = { at: new Array(projections.length).fill(undefined) }
+          next.push(t)
+          placed.add(t)
+        }
+        t.at[si] = el
+        t.last = { el, si }
+      })
+      for (; cursor < tracks.length; cursor++) if (!placed.has(tracks[cursor])) next.push(tracks[cursor])
+      tracks = next
+    })
+
+    for (const track of tracks) {
       const cells: ResponsiveCell[] = projections.map((p, si) => {
-        const el = perSize[si].get(key)?.[i]
+        const el = track.at[si]
         return { size: p.size.name, width: p.size.width, present: !!el, element: el }
       })
       const present = cells.filter((c) => c.element)

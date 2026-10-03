@@ -147,8 +147,13 @@ import type { Capture } from './types'
  *   band. A reproduction paints each band on a full-bleed box whose five axes the
  *   diff reads; a pre-12 bundle has nothing to compare them against, so they stay
  *   unmeasured on it until the reference is re-captured.
+ * - **13** — REQ-366: an EMPTY element's ink. An icon font's glyph painted by an
+ *   empty element's `::before`/`::after` is recorded as a run (`pseudoGlyph`),
+ *   and an empty element whose only ink is a border rule (a page-builder divider)
+ *   as a field, as an `<hr>` is. A pre-13 bundle recorded neither, so those
+ *   elements were drawn nowhere and compared against nothing.
  */
-export const CAPTURE_SCHEMA = 12
+export const CAPTURE_SCHEMA = 13
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -480,6 +485,15 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Every band carries it from schema 12, so the key's presence on any section
     // is the axis — there is no page shape on which a current extractor omits it.
     present: (c) => c.sections.some((s) => typeof s.paint === 'object' && s.paint !== null),
+  },
+  {
+    since: 13,
+    axis: "an empty element's ink (a ::before/::after glyph run, a border-rule field)",
+    where: 'a content run (`sections[].content[]`, `pseudoGlyph`) and a field (`sections[].fields[]`)',
+    // A glyph run proves the extractor looked. A page with no icon fonts records
+    // none however new its extractor is — the `href` asymmetry again — so this only
+    // ever removes the axis from a finding.
+    present: (c) => runs(c).some((r) => typeof r.pseudoGlyph === 'string'),
   },
 ]
 
