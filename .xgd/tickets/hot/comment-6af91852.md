@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-182
 created_by: xgd
 created_at: '2026-10-03T19:34:29.467563+00:00'
-updated_at: '2026-10-03T20:00:34.256124+00:00'
+updated_at: '2026-10-03T20:01:38.615189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -78,5 +78,11 @@ BUG-182 should take on the one fix that belongs to this repo: **prime the builde
 The other three belong in the framework. REQ-203 already covers the cap. The nudge cap and the check matching would be new framework tickets; check matching is cross-language, so it needs conformance tests in both JS and Python.
 
 **Decision for you:** should I scope BUG-182 to the priming change, and file the framework items as tickets there (with your OK)? Or do you want to hold BUG-182 until REQ-203 lands and do the `max_iterations` change here as well?
+
+<!-- xgd-turn id="941ae0ce-2acc-4597-8abb-c88f0be713e8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T20:01:26.781758+00:00" -->
+#### You
+Please continue
 
 <!-- xgd-chat-end -->
