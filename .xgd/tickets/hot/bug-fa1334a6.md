@@ -6,15 +6,23 @@ title: set_standing_note reports success but the next turn is primed with an old
   note
 created_by: xgd
 created_at: '2026-10-03T21:24:06.495716+00:00'
-updated_at: '2026-10-03T23:29:56.746855+00:00'
+updated_at: '2026-10-03T23:30:04.310905+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c0c95f3e
+  commits:
+  - working_sha: dc9a0cc4352ff6b4839e0da52ecf63fe716db1d5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b2d5f6d7c4ff5dedc40850cf3d8d692e73e5bdc9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.464
 ---
 
 ## What happened
