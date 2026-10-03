@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T23:15:25.601196+00:00'
+updated_at: '2026-10-03T23:16:54.674731+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6390,5 +6390,76 @@ We can work on the layout of the questions a bit but that's  a detail for later.
 Good news the cost is much more reasonable I think we got further than round one for 40% of the cost so that helps
 
 I have to say I am still wondering about the site - it still looks like a mock plumber site not a real plumber site- and I know the pictures are going to look fake its not that. The real plumber sites are FULL they are busy - possibly too busy - but they look like places work gets done - ours still looks like an HTML class
+
+<!-- xgd-turn id="69cad496-687d-4a5b-8e5d-7ca58e0d406b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T23:16:54.269798+00:00" -->
+#### Claude
+I've read the Charlie 2 transcript. I'm pulling the timings, costs and plan state next so we're discussing numbers rather than impressions.
+
+I read the Charlie 2 transcript and its plan in your local store. The numbers back up how it felt to you, and they point at the same root cause for the cadence problem and the process problem. I've recorded the measurements on the epic as Finding 18.
+
+## Cost
+
+| | Run 1 (Alice + Bob) | Run 2 (Alice only) |
+|---|---|---|
+| Consultant | $28.88 (opus-5) | **$6.88** (opus-5-5, 12 turns) |
+| Bob | $0.90, **on opus-5** | — |
+
+Builder-worker spend is recorded separately, so these figures cover the consultant only. That's probably why they look better than your 40%. One surprise: **in run 1 Bob ran on Opus, not Haiku.** That's worth knowing before we judge the two-agent design on that run.
+
+## Cadence: you waited without warning in every build
+
+| Your message | Wait before Alice replied |
+|---|---|
+| "Can we try C" | **17.3 min** |
+| "ok I answered your questions" | 7.7 min |
+| "lets put the prices on a services page" | **27.9 min** |
+| retry of the same | 10.4 min |
+
+None of those turns said up front "I'm going away, about 15 minutes, meanwhile the panel needs you." Everything Alice said arrived only when the turn ended.
+
+## Process: the structure was there, but Alice never used it
+
+At the end of the session the plan read:
+- **phase:** still `intake`
+- **functionality:** empty
+- **tasks:** empty
+- **decisions:** 20 of 22 still `open`
+
+The plan also has 8 milestone questions with triggers, which DOC-65 calls checks, for example *"Are we all happy with the layout?"* after the first rough cut and *"You said [quality bar] — does this meet it?"*. **None was ever asked.** That's exactly the *"we've done a couple of rounds, are you getting what you expected?"* moment you wanted, and it was designed but never fired.
+
+That's Finding 13 again: anything that relies on Alice remembering doesn't happen. What did work, the panel asks and the page digest, are things the host renders or that Alice had to write to get anything done.
+
+So I don't think more prompting is the answer. **The host should handle the cadence, because the host knows what's happening:**
+
+1. **Announce before building.** When Alice starts a builder session, the host posts a status line right away: *"Building the services page — usually 10–20 minutes."* If questions are open on the panel, it adds *"Meanwhile, 2 questions above need you."* That's a fixed rule, so it can't be forgotten. Alice could supply the wording as a required field of the build call, with the host guaranteeing it gets posted.
+2. **Mark when a milestone is due.** Several of the milestone triggers can be detected mechanically: the first build finishing, a count of revision rounds since then, and a click on Publish. When one fires, the host puts *"Due: ask whether the layout is right"* into Alice's per-turn digest as a fact rather than advice. The digest is the one channel we've seen her act on.
+3. **Show the phase, and flag it when it's stale.** "Phase: intake" while three pages exist is visibly wrong. Showing it on the panel lets you see it, and the digest can flag the mismatch to Alice.
+4. **Ask about features first.** Start every new plan with one multi-select ask: *"Which of these do you need: quote form, booking, reviews, price list, blog…"*. Then "are we done?" has a checklist to answer against, and it's your checklist card idea from the Bob discussion, placed on the panel.
+
+## "It looks like an HTML class"
+
+I agree, and I think it's built into our approach rather than a styling slip. Our priming pushes Alice toward agency taste: restraint, breathing room, "premium". When you said the site felt thin, she made the photos bigger and added breathing room, which is the opposite of what a trade site needs. Real plumber sites are dense on purpose:
+- a strip of trust badges
+- a star rating with a count
+- a grid of service tiles with icons
+- coupons and specials
+- financing
+- a service-area list or map
+- a phone number in three places
+- "why choose us" icons
+
+Those are the conventions of the trade, and visitors read them as signs that this is a working business.
+
+Nothing in our process measures how dense the site should be for the kind of business. The cheapest fix is a step where Alice **captures three real competitor sites before the first rough cut** and states the conventions she'll follow. Captures are now essentially free, since REQ-286 dropped the browser quota. "Show me what this kind of business looks like" also works as a variant comparison to put in front of the client.
+
+## How I'd file it
+
+Two tickets:
+- **Cadence and process: items 1–4.** They're all the host acting on the plan, and they'd land together.
+- **Genre calibration:** the competitor capture step, plus a priming change so that "thin" doesn't automatically get answered with more white space.
+
+Shall I file those? Or tell me if you want the competitor captures folded into the first ticket so it's one.
 
 <!-- xgd-chat-end -->
