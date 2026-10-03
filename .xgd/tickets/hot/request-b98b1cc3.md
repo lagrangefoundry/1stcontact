@@ -6,7 +6,7 @@ title: 'Screenshots: show the page a screen at a time, with a conservative defau
   the AI can widen'
 created_by: EPIC-20
 created_at: '2026-10-02T19:01:38.804395+00:00'
-updated_at: '2026-10-03T16:45:38.393797+00:00'
+updated_at: '2026-10-03T17:01:51.493991+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -104,3 +104,17 @@ The `screenshot` description in `fidelity-surface.json` is rewritten to match: w
 - changed configuration (default tiles / detail / cap) changes behaviour;
 - `after` steps still drive the page before a tiled shot.
 Regression scope: the REQ-157 and REQ-218 fidelity UATs, and the fidelity-surface declaration validation.
+
+
+## As built (commit c64d5f56441d)
+
+Landed as designed above. Details settled during implementation:
+
+- **Refusals, all before a browser is leased:** `tiles` and `section` together; `tiles`/`section` on a stored `image`; `section` on a `url` or `reference` picture; an unknown `detail`. After the page is shot: a `tiles` value that isn't `N`, `N-M` or `all`, or a first tile past the end ("this page is 12 tiles long, so there is no tile 13"); a `section` address that isn't one of the page's top-level sections (the refusal lists the ones that are). A range running past the end is clamped to the last tile.
+- **A section spanning several tiles** returns the tile its top is in, and the text adds "Section 0.1 starts in tile 1 and runs to tile 2; ask for tiles `2-2`…" so the model can fetch the rest.
+- **Section measurement** runs in the same browser session, after the shutter (so positions match the layout the pixels show, at the shot's viewport, including after `after` steps). If the measurement fails the picture is still returned, just without section addresses. Sections with zero height (a closed panel) are not listed.
+- **The last tile** is the remainder of the page, not a padded full screen (e.g. `page y 8800–9059 of 9059 px`).
+- **REQ-157's "no picture synonyms" invariant** (`test_UAT_FC_REQ_157_no_operation_carries_its_own_ref_shaped_parameters`) whitelisted the scalar params that aren't pictures; `tiles`, `section` and `detail` were added to that list. Its intent — every param that names a picture uses the one `picture` type — is unchanged.
+- The `screenshot` declaration also gained a `where` and `more` entry in the `picture` result shape, and the stored-picture paragraph now says a stored picture is shown whole (no screens), longest edge reduced. `surface_version` 7 → 8.
+
+UATs: `tests/test_UAT_FC_REQ-363_screenshot_tiles.test.ts` (9 tests, all passing). Regression run: REQ-157, REQ-216, REQ-218, BUG-80/118/127/148/99, REQ-126/182/284/302/361, BUG-63, the assistant-control-surface reconciliation, and the workerd suites REQ-154/156/206/217/286 and BUG-129 — all green. `test_UAT_FC_REQ-146_every_error_path_out_of_the_router_is_scrubbed` fails, but it fails identically on clean xgd-working and is unrelated (router error scrubbing).
