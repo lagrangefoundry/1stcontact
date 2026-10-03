@@ -204,6 +204,7 @@ body {
 .builder-toolbar__modes button,
 .builder-toolbar__colors,
 .builder-toolbar__publish,
+.builder-toolbar__phone,
 .builder-toolbar__points,
 .builder-toolbar__panels,
 .builder-toolbar__panels select,
@@ -303,6 +304,37 @@ body {
 .builder-toolbar__open {
   margin-left: auto;
   color: var(--shell-accent, #7c3aed);
+}
+
+/* View on your phone ([[REQ-376]]) — the code is drawn on white whatever the
+   theme, because a scanner reads dark-on-light and the quiet zone around it is
+   part of the code rather than padding. */
+.builder-phone__code {
+  align-self: center;
+  width: min(240px, 60vw);
+  margin: 4px 0 12px;
+}
+
+.builder-phone__code svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.builder-phone__how {
+  margin: 0 0 12px;
+}
+
+.builder-phone__url {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.builder-phone__url input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
 }
 
 /* Mark Points ([[REQ-210]]). The pressed state has to be unmistakable rather

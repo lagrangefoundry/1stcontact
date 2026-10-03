@@ -43,6 +43,7 @@ import { createPageIndex } from './pages.js'
 import { createDisplayPanel } from './panel.js'
 import { openFontPopup } from './font-popup.js'
 import { openPalettePopup } from './palette-popup.js'
+import { openPhonePreview } from './phone-preview.js'
 import { createUploadOverlay } from './upload.js'
 import {
   colorsAction,
@@ -51,6 +52,7 @@ import {
   modeToggleAction,
   openInNewTabAction,
   pagesAction,
+  phonePreviewAction,
   panelsAction,
   publishAction,
   subjectAction,
@@ -643,7 +645,7 @@ export function mountBuilder(root, options = {}) {
       // control belongs wherever a page is shown — and it sits directly after
       // the toggle in each, so that flipping channel does not move it out from
       // under the pointer that just used it.
-      actions: ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'publish'],
+      actions: ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'phone-preview', 'publish'],
     })
     .registerMode({
       id: 'edit',
@@ -679,6 +681,7 @@ export function mountBuilder(root, options = {}) {
         'panels',
         'colors',
         'open-new-tab',
+        'phone-preview',
         'publish',
       ],
     })
@@ -853,6 +856,9 @@ export function mountBuilder(root, options = {}) {
   /** The subject write, beside the listing and from the same seam. */
   const writeSubject = pagesTransport?.saveSubject ?? saveSubject
 
+  /** The draft render of the page in `src` — the one honest address ([[BUG-131]]). */
+  const draftUrl = (src) => previewChannelUrl(src, 'draft')
+
   const toolbar = createToolbar({
     panel,
     // THE SCOPE, HANDED DOWN ([[REQ-179]]). A toolbar action acts on the site
@@ -871,7 +877,10 @@ export function mountBuilder(root, options = {}) {
       // (DOC-28 §10), and the edit channel is deliberately not production: the
       // one channel name here is the whole of the fix, and it is here because
       // this module is already the only place that composes channel URLs.
-      openInNewTabAction((src) => previewChannelUrl(src, 'draft')),
+      openInNewTabAction(draftUrl),
+      // THE SAME ADDRESS, CARRIED TO A PHONE ([[REQ-376]]). `draftUrl` is passed
+      // to both rather than spelled twice, so the tab and the code cannot drift.
+      phonePreviewAction(draftUrl, (url) => openPhonePreview({ host: shell.element, url })),
       publishAction(lockedPublish),
     ],
   })

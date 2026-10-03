@@ -35,9 +35,11 @@ const SITES = [
  * property of the site, not of one rendering of it, so there is no channel in
  * which changing it is meaningless. `pages` ([[REQ-248]]) joins them on the same
  * reasoning — which page is shown and which channel shows it are independent
- * questions, so the control belongs wherever a page is shown.
+ * questions, so the control belongs wherever a page is shown. `phone-preview`
+ * ([[REQ-376]]) sits beside `open-new-tab` wherever that is offered, because it
+ * carries the same address to another device.
  */
-const DECLARED = ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'publish']
+const DECLARED = ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'phone-preview', 'publish']
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

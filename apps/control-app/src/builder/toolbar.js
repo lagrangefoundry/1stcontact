@@ -237,6 +237,47 @@ export function openInNewTabAction(honestUrl) {
 }
 
 /**
+ * View on your phone — the same draft address as a QR code ([[REQ-376]]).
+ *
+ * ONE ADDRESS, TWO CONTROLS. It takes the very `honestUrl` "Open in new tab"
+ * takes, so the tab and the phone can never be shown different renders: the
+ * draft of the page the pane is on, in either channel ([[BUG-131]]).
+ *
+ * THE DIALOG IS THE HOST'S, as the palette is `colorsAction`'s: drawing a QR
+ * code and a sign-in note is not toolbar business, and this module stays
+ * import-free. `open(url)` returns a handle the action keeps in step.
+ *
+ * THE CODE TRACKS THE PAGE. While the dialog is open every `src` event re-sends
+ * the address, so a client who changes page with it open sees the new page's
+ * code, never the old one. And the dialog is closed with this element: the strip
+ * is rebuilt on every mode and site change, and a dialog left open across a site
+ * change would be naming another site's draft.
+ *
+ * @param {(src: string) => string} honestUrl the production render of this URL
+ * @param {(url: string) => {element: Element, update: (url: string) => void, close: () => void}} open
+ */
+export function phonePreviewAction(honestUrl, open) {
+  return {
+    id: 'phone-preview',
+    create({ panel, subscribe, cleanup }) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__phone'
+      btn.textContent = 'View on your phone'
+      let dialog = null
+      const live = () => (dialog?.element.isConnected ? dialog : null)
+      btn.addEventListener('click', () => {
+        if (live()) return
+        dialog = open(honestUrl(panel.getSrc()))
+      })
+      subscribe('src', () => live()?.update(honestUrl(panel.getSrc())))
+      cleanup(() => live()?.close())
+      return btn
+    },
+  }
+}
+
+/**
  * Colors — opens the palette popup in manage mode (REQ-133 §1).
  *
  * ONE MORE ACTION SPEC, not a branch. The toolbar renders whatever the active
