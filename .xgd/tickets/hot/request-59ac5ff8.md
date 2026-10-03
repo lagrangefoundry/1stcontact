@@ -5,9 +5,9 @@ type: request
 title: Per-side borders in the page vocabulary (e.g. a left rule on a pull quote)
 created_by: xgd
 created_at: '2026-10-03T19:59:20.362346+00:00'
-updated_at: '2026-10-03T23:32:45.522394+00:00'
+updated_at: '2026-10-03T23:32:53.223161+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.465
+  story_points: 2
 ---
 
 ## What I was trying to do
@@ -56,7 +57,7 @@ The ticket suggested `border` accept either the shorthand or `{ top?, right?, bo
 - It follows CSS's own `border` / `border-<side>` cascade, so the override rule is one sentence.
 
 ### Not covered
-The capture side (extract → fold → values-diff) still records a one-sided border as the uniform thickest side, plus `borderLeft`, as `coverage.ts` documents. Reproducing a reference page's one-sided top or bottom border is a separate fidelity capability. This change covers authoring and rendering.
+The capture side (extract → fold → values-diff) still records a one-sided border as the uniform thickest side, plus `borderLeft`, as `coverage.ts` documents. Reproducing a reference page's one-sided top or bottom border is a separate fidelity capability. This change covers authoring and rendering. The capture coverage register's note was corrected to say L1 can now author every side while the capture folds only the uniform and left borders.
 
 ## Why free-coded
 This adds three schema axes, their envelope bounds, two emitters and the email allowlist. It is small and follows the existing `borderLeft` pattern exactly.
