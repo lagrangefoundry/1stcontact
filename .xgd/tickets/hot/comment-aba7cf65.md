@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-03T00:19:49.603257+00:00'
+updated_at: '2026-10-03T00:23:28.453518+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -113,5 +113,13 @@ I've added the addendum to EPIC-7 as a new **§17, "the outbound direction"**, a
 - **REQ-205 (lagrange-framework):** I'd filed this last round as the build ticket, and §17 refers to it. I've added a note pointing it back to §17.
 
 Decision for you: §13.3 says no tickets are filed until a stage is about to be built, and REQ-205 is ahead of that. If you'd rather keep this in the epic only, I'll remove REQ-205 and drop the references to it. The other option is to keep it as the place to start the heartbeat early.
+
+<!-- xgd-turn id="fe372e04-f876-470c-9b0d-dfe242d3bffd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T00:23:27.839224+00:00" -->
+#### You
+And 360 is dependent on the upstream work?
+
+§13.3 says no tickets are filed until a stage is about to be built <-- that is an exageration but it captures the intent that a large feature backlog is unhelpful - we should create the tickets as we need them. This is where we are.
 
 <!-- xgd-chat-end -->
