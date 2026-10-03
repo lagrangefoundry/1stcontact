@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:31:23.915975+00:00'
+updated_at: '2026-10-03T18:33:25.535205+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -167,5 +167,25 @@ Once you've picked, I'll create the three child tickets: Console "Open business"
 <!-- xgd-chat role="user" ts="2026-10-03T18:31:23.247605+00:00" -->
 #### You
 Yeah make it b please - it should default to the first you entered, but you can choose a different one.
+
+<!-- xgd-turn id="72178db9-5047-41ee-ae87-49169af6af11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T18:33:22.373513+00:00" -->
+#### Claude
+Created the three children; now linking them in the epic's children list.
+
+Option (b) is in the epic: your primary email defaults to the first address you entered, and a **Make primary** control lets you choose another. Only validated addresses can be made primary, and you can't remove the primary until another address is primary.
+
+I've created the three child tickets. Each is at `draft`, linked to EPIC-23, and holds its full section of the epic:
+
+| Ticket | Scope |
+|---|---|
+| **REQ-367** | Platform console: an **Open** control on each business, a banner while you're in a business you don't belong to, an audit entry each time you open one. In v1 you can look but not use owner-only controls; full superuser access comes later. |
+| **REQ-368** | Profile portal: add and remove login emails, track whether each is validated, Make primary, and never remove the last validated address. |
+| **REQ-369** | Delegates: the `delegate` role, Make delegate on a contact, accepting the invite (which also creates their own starter business), and revoking. Plus the owner-only route review, the owned/delegated marks in the selector, and defaulting to a delegated business when the delegate's own isn't published. |
+
+None of them blocks another, so they can land in any order. Each one gets built in its own ticket session; this epic session doesn't write code.
+
+One question is still open in REQ-369. You said there's no way to add contacts, but the Contacts list already has a small **+** button ("Add a contact") that only shows to the business owner. Can you not see it, or is it missing something you need? If it's just too easy to miss, making it more visible goes into REQ-369.
 
 <!-- xgd-chat-end -->
