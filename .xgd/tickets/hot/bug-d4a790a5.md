@@ -6,9 +6,9 @@ title: 'gate: unmeasured reports 0 while the capture audit lists 7 used-but-not-
   properties'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:32.142754+00:00'
-updated_at: '2026-10-03T20:04:49.662477+00:00'
+updated_at: '2026-10-03T20:05:01.748731+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.451
+  story_points: 3
 ---
 
 # gate: `unmeasured` reports 0 while the capture audit already knows 7 used properties the reproduction cannot say
