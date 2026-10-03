@@ -571,18 +571,48 @@ function ownColours(node: L1Node): { literals: string[]; refs: number } {
   return { literals, refs }
 }
 
+/** A hex as one spelling — `#abc`, `#AABBCC` and `#aabbccff` are the same colour. */
+function canonicalHex(hex: string): string | undefined {
+  const c = parseHex(hex)
+  if (!c) return undefined
+  const h = c.slice(0, 3).map((n) => n.toString(16).padStart(2, '0')).join('')
+  return c[3] >= 1 ? `#${h}` : `#${h}${Math.round(c[3] * 255).toString(16).padStart(2, '0')}`
+}
+
 function checkPaletteDiscipline(visits: Visit[], palette: L1Palette | undefined, flag: Flag): void {
   if (!palette || Object.keys(palette).length === 0) return
+  // [[BUG-183]] A literal that IS a palette colour is never a choice: the entry
+  // exists, and the copy will silently stop following it when the palette
+  // changes. That holds whatever the page's habit, so it is not proportional —
+  // a page that references none of its palette is exactly where it matters.
+  const named = new Map<string, string>()
+  for (const name of Object.keys(palette)) {
+    let hex: string | undefined
+    try {
+      hex = canonicalHex(resolveL1Color({ ref: name } as L1Color, palette))
+    } catch {
+      hex = undefined
+    }
+    if (hex && !named.has(hex)) named.set(hex, name)
+  }
   const counted = visits.map((v) => ({ v, ...ownColours(v.node) }))
+  for (const c of counted) {
+    for (const literal of new Set(c.literals)) {
+      const name = named.get(canonicalHex(literal) ?? '')
+      if (name !== undefined) {
+        flag(c.v, 'inconsistent', `${literal} written by hand — it is the palette's '${name}'; reference it`)
+      }
+    }
+  }
   const literals = counted.reduce((a, c) => a + c.literals.length, 0)
   const refs = counted.reduce((a, c) => a + c.refs, 0)
   // Proportional: only where the palette is the page's own habit are the
   // exceptions to it a finding. A page mostly in literals is a different story.
   if (literals === 0 || refs < literals) return
   for (const c of counted) {
-    if (!c.literals.length) continue
-    const shown = [...new Set(c.literals)].slice(0, 3).join(', ')
-    flag(c.v, 'inconsistent', `literal colours (${shown}) where the page uses its palette`)
+    const stray = [...new Set(c.literals)].filter((l) => !named.has(canonicalHex(l) ?? ''))
+    if (!stray.length) continue
+    flag(c.v, 'inconsistent', `literal colours (${stray.slice(0, 3).join(', ')}) where the page uses its palette`)
   }
 }
 
