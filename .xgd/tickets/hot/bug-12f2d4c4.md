@@ -6,9 +6,9 @@ title: 'Upload note: says an uploaded image is ''on your site'' when it''s only 
   to use'
 created_by: EPIC-19
 created_at: '2026-10-03T18:52:23.230996+00:00'
-updated_at: '2026-10-03T20:01:39.847400+00:00'
+updated_at: '2026-10-03T20:02:36.454461+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   severity: medium
@@ -52,3 +52,9 @@ Update `tests/test_UAT_FC_REQ-287_the_note_names_the_label.test.ts`'s expectatio
 - an unlabelled one says the same with the filename;
 - a failed copy uses the Library wording;
 - no upload note contains "on your site as" or "put it on the site".
+
+
+## What landed
+- `uploadNote` (`apps/control-app/src/builder/app.js`): success line is now "Added — **IMAGE-3** is ready to use on your site." (the filename in backticks when there's no label). The failure line is now "It's in your Library, but isn't ready to use on the site yet: <reason>". The first line, the reference-role line, the bare "Added.", and the "can't search it yet" line are unchanged.
+- `tests/test_UAT_FC_REQ-287_the_note_names_the_label.test.ts`: the expectations now use the new sentence. The label-versus-filename choice REQ-287 pins is unchanged. BUG-181 supersedes only REQ-287's wording of the sentence.
+- New `tests/test_UAT_FC_BUG-181_upload_note_says_ready_not_on_site.test.ts` (real builder + chat pane, only HTTP injected), with four cases: a labelled upload is ready to use, an unlabelled one names its filename, a failed copy uses the Library wording and doesn't say "is ready to use", and the reference line and first line are unchanged. Every case asserts the note has no "on your site as", "it's on your site" or "put it on the site".
