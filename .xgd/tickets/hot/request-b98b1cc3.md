@@ -6,9 +6,9 @@ title: 'Screenshots: show the page a screen at a time, with a conservative defau
   the AI can widen'
 created_by: EPIC-20
 created_at: '2026-10-02T19:01:38.804395+00:00'
-updated_at: '2026-10-03T16:45:09.423274+00:00'
+updated_at: '2026-10-03T16:45:38.393797+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -67,3 +67,40 @@ The `screenshot` description in `fidelity-surface.json` is rewritten to match: w
 - `low`, `normal` and `high` produce the documented widths. `high` never exceeds the provider's no-downscale limit.
 - A stored-image picture is reduced exactly as before.
 - Changing the default tile count, detail or per-call cap in configuration changes behaviour with no code change.
+
+
+## Implementation design (free-coded, 2026-10-03)
+
+**Where it lives.** The `screenshot` operation in `fidelity-core.ts` stays the single entry point; tiling is a pure module `tools/generate/src/cli/ai/picture-tiles.ts`, and its settings are `tools/generate/src/cli/ai/picture-tiles.json` (the same "a JSON file with an `about` and the values" pattern as `turn-clock.json`). Nothing new is built for resampling: the existing box-average resampler in `perceptual-core.ts` gains a width-targeted entry point beside `downsampleRaster`, and tiles are cut with the existing `extractRect`.
+
+**How tiles are made.** The browser still takes one full-page shot at the viewport (unchanged capture path, one browser lease per call); the page is sliced into screen-height tiles (`VIEWPORTS[...].height`: desktop 800, tablet 1024, mobile 667) and only the selected tiles are encoded and sent. A reference bundle's stored full-page shot is tiled the same way.
+
+**Section addresses.** For our own rendered pages (`draft`, `edit`, `revision`), the same browser session measures the top-level sections after the shot: the L1 root is the body's `.l1-0` element (the renderer's first node class), and its element children are `0.0`, `0.1`, … — the same addresses `describe_page` hands out (descending through a single-child wrapper, so a page wrapped in one container still lists its real sections). `url` and `reference` pictures have no L1 addresses: their tiles carry position only, and asking for a `section` on them is refused by name (PICTURE_INVALID).
+
+**Parameters added to `screenshot`:**
+- `tiles` — `"3"`, `"2-5"` or `"all"` (1-based). Default comes from configuration (`"1"`).
+- `section` — a top-level section address (e.g. `0.3`); returns the tile containing that section's top, and says which tile the section ends in. `tiles` and `section` together are refused.
+- `detail` — `low` | `normal` | `high`; default from configuration (`normal`).
+
+**Widths.** A tile is scaled so its width is at most the detail's width (`low` 768, `normal` 1024, `high` 1568 — all configured) and never upscaled, and both edges are kept within the provider's no-downscale limit (1568, configured). So desktop: 768 / 1024 / 1280; tablet: 768 at every detail; mobile: always 375.
+
+**The per-call cap.** At most `max_tiles_per_call` (default 4) tiles are returned. Asking for more returns the first batch plus a closing text block saying how many tiles remain and the exact `tiles` value to ask for next.
+
+**Labels.** Each tile's text block reads like: `<picture label> — tile 2 of 9, page y 800–1600 of 7200 px; sections 0.0.2, 0.0.3; 1024×640 (reduced from 1280×800), about 874 tokens` plus the channel caption when there is one. Token cost is width×height÷750 (configured divisor).
+
+**Unchanged.** `kind: image` keeps the whole-image, longest-edge (`MAX_IMAGE_EDGE`) reduction; `tiles`/`section` on an image are refused, `detail` is ignored. `compare` and `check_fidelity` still measure full-resolution rasters. `after` steps work for tiles exactly as before.
+
+**Configuration proven, not asserted.** `fidelityOperations` takes an optional `tiles` settings override in its deps (defaulting to `picture-tiles.json`), so a UAT changes the default tile, detail and cap and observes the behaviour change with no code change.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-363_screenshot_tiles.test.ts`, through `fidelityOperations` with only the browser doubled (real PNGs, real decode):
+- default desktop draft of a 1280×9059 page → one image 1024 wide × one screen tall, labelled `tile 1 of 12` with y-range and section addresses;
+- default mobile → one image 375 wide, one screen tall;
+- `section` → the tile holding that section's top; `section` on a `url` picture is refused;
+- `tiles: "all"` on a 12-tile page → 4 images and "8 remain" with the next `tiles` value;
+- `low`/`normal`/`high` widths, `high` within the provider limit;
+- a stored image is reduced exactly as before (longest edge);
+- changed configuration (default tiles / detail / cap) changes behaviour;
+- `after` steps still drive the page before a tiled shot.
+Regression scope: the REQ-157 and REQ-218 fidelity UATs, and the fidelity-surface declaration validation.
