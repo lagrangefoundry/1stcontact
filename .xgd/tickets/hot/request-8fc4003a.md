@@ -5,10 +5,10 @@ type: request
 title: 'Contacts: delegate access to a business'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:49.444265+00:00'
-updated_at: '2026-10-03T18:32:49.444265+00:00'
+updated_at: '2026-10-03T19:09:33.666201+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   epic_parent: epic-ee37a03f
   priority: medium
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-738f3501
 ---
+
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
 
@@ -116,7 +117,126 @@ Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions
   on an existing account (item 2), the membership attaches to that account
   rather than creating a new one.
 
+## Answer to the open question: the **+**
+
+The **+** exists and works. It is drawn only when `canInvite` is true, and
+`canInvite` was `ownsBusiness`, which is false for anyone holding no `owner`
+membership on the open business. That includes the platform operator inside a
+customer's business through the hosting bypass (`role: null`). Owners do see
+it, but as a bare `+` glyph in the filter row, which is easy to miss.
+Resolution:
+- The **+** now reads **+ Add** (still titled "Add a contact"), so it can be
+  found.
+- It shows for owners **and delegates**, because adding contacts is not
+  delegation management.
+- Opening owner gates to the operator stays out of scope (REQ-367 / EPIC-23
+  §1 follow-up).
+
+## Design (implemented in this ticket)
+
+**Role model.** `memberships.role = 'delegate'`. No migration: the column has
+no CHECK constraint. `(user_id, business_id)` is unique, so re-inviting a
+revoked delegate reinstates the same row: `revoked_at` cleared, `granted_at`
+and `granted_by` restamped.
+
+**Two predicates.**
+- `ownsBusiness` (owner only) is unchanged. It is the gate for delegation
+  management and for `ownsPlatformBusiness` (the console and fulfilment).
+- New `operatesBusiness` (owner **or** delegate) is the gate for everything
+  else that used to be owner-only. Reclassified: `/api/people/add`,
+  `/api/people/invite` (GET and POST), `/api/people/record`,
+  `/api/people/inbound/promote`, `/api/people/inbound/discard|restore`,
+  `/api/business/name` and `/api/hostname/claim`.
+- `canInvite` now answers `operatesBusiness`. A new `canDelegate` answers
+  `ownsBusiness`.
+
+**Make delegate** (`delegates.ts`, `POST /api/people/delegate {id}`, owner
+only, 403 otherwise):
+1. Read the contact in this business (scoped by tenant). Refuse if they have
+   no primary address.
+2. Resolve that address to a **platform-tenant** user. If there is none,
+   create one with `addContact` in the platform tenant. That reuses the same
+   account-minting path as every 1st Contact customer.
+   - If the address already signs into an existing account, the membership
+     attaches to that account.
+   - Refuse if the platform user is withdrawn (`status != active`).
+   - Refuse if they already own this business.
+3. Write or reinstate the `delegate` membership on this business **at invite
+   time**. Their access is the owner's act, and signing in through the link
+   is how they reach it.
+4. Mint an invite link in the **platform** tenant (`inviteUrlFor`).
+5. Send the new `delegate` template. It is a fourth `TEMPLATE_KEYS` entry,
+   business-neutral, and declares `cta_url` and `business`.
+6. Record the message against the contact through `sendRecordedEmail`.
+
+It does **not** move the contact's pipeline stage, because it is a different
+act from the portal Invite.
+
+**Revoke** (`POST /api/people/delegate/revoke {id}`, owner only): stamps
+`memberships.revoked_at`. The row is kept. The business leaves the
+delegate's selector on the next request, and a named request for it is
+refused `not_a_member`.
+
+**Status on the tab.**
+- `/api/people` carries `canDelegate` and `delegates` (contact ids whose
+  primary address is held by a live delegate).
+- `/api/people/detail` carries `delegate: {status: 'active'|'revoked',
+  grantedAt, revokedAt} | null`.
+- A row is badged **delegate**. The detail pane has a **Delegate** section
+  for owners, with **Make delegate** (confirm dialog) or **Revoke delegate**.
+
+**Starter business for delegates.** Terms acceptance provisions through
+`ensureOwnBusiness` when the person holds **no `owner` membership**. That
+replaces "holds no membership at all", so a delegate who signs up still gets
+their own account and starter business. `ensureOwnBusiness` stays idempotent
+on `accountOwnsBusiness`.
+
+**Selector.**
+- `/api/businesses` entries carry `role` and `live`. `live` means the
+  business has at least one site with a published revision (`site_revisions`
+  row): the "published" predicate, confirmed against the publish model, where
+  live is `MAX(site_revisions.id)`.
+- The switcher labels each entry **owned** or **delegated**. An entry entered
+  through the hosting bypass has `role: null` and is unmarked.
+
+**Default business** (`resolveBusiness`):
+1. A remembered selection still wins.
+2. Otherwise, if no owned business is live and a delegated business is
+   selectable, open a delegated one, preferring a live one.
+3. Otherwise open the first selectable business, as before.
+
+**Not changed.**
+- Entitlement is still the business's own capacity grant (`admittedBusiness`),
+  so a delegate enters under the business's grant.
+- Account and portal surfaces read the person's own `account_id`, never
+  memberships, so a delegate gains nothing on the owner's account.
 
 ## Test plan
 
-UATs `test_UAT_FC_<TICKET-ID>_*`, one per rule above: the happy path, plus each refusal the body names.
+New UATs `tests/test_UAT_FC_REQ-369_*`:
+
+- **Workers suite** (real D1 and the deployed `worker.fetch`, with Access
+  JWTs):
+  - make delegate creates a platform user and a delegate membership, and
+    mails one message from the `delegate` template
+  - an address that already signs in attaches to the existing account
+  - refusals: not an owner (a delegate cannot delegate), no primary address,
+    already an owner
+  - the delegate's admission lists the business with `role: delegate`
+  - a delegate passes the reclassified gates (add contact) but not the
+    delegate routes
+  - accepting terms as a delegate provisions their own starter business and
+    keeps the delegate membership
+  - revoke stamps `revoked_at`, keeps the row and removes the business from
+    the selector; re-inviting reinstates the row
+  - `/api/businesses` carries `role` and `live`
+- **jsdom suite**:
+  - `resolveBusiness` default rule: remembered wins, delegated over an
+    unpublished own business, own when published
+  - the switcher marks entries owned or delegated
+  - the Contacts tab shows the delegate badge and the Delegate section only
+    when `canDelegate` is true
+
+Existing assertion updated: `test_UAT_FC_REQ-197_render`'s closed template-key
+list gains `delegate`. That is the intended growth of the platform's message
+set.
