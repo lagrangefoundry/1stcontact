@@ -17,6 +17,11 @@
  * and the refusal path are untouched. Its workers sibling proves the origin half
  * — that the label is in the answer for this to spend.
  *
+ * [[BUG-181]] REWORDED THE SENTENCE, not the naming: it now reads *"Added —
+ * **IMAGE-25** is ready to use on your site."*, because the copy into the
+ * site's asset store places nothing on a page. The label/filename choice this
+ * file pins is unchanged.
+ *
  * ONLY THE HTTP CALLS ARE INJECTED, for the reason every other builder suite
  * gives: they are the network. The note is composed by the module the browser
  * runs and read back off the messages the chat pane actually holds.
@@ -139,11 +144,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-287 — what the confirmation calls the m
     )
 
     const note = noteIn(app)
-    expect(note).toContain("Added, and it's on your site as **IMAGE-25**.")
+    expect(note).toContain('Added — **IMAGE-25** is ready to use on your site.')
     // AND NOT ALSO BY THE STORAGE KEY, in the sentence whose whole job is to hand
     // over a name. The uuid appearing twice would leave the client guessing which
     // of the two to type back.
-    expect(note).not.toContain('on your site as `3d727c09')
+    expect(note).not.toContain('`3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png` is ready')
 
     // THE FILENAME IS STILL THE FIRST LINE, in bold, as the thing they dropped —
     // it is the only name they already know, and it is how they recognise which
@@ -168,7 +173,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-287 — what the confirmation calls the m
 
     await dropOnChat(app, new File(['b'], 'logo.png', { type: 'image/png' }))
 
-    expect(noteIn(app)).toContain("Added, and it's on your site as `logo.png`.")
+    expect(noteIn(app)).toContain('Added — `logo.png` is ready to use on your site.')
   })
 
   it('test_UAT_FC_REQ-287_a_label_is_not_a_placement_and_does_not_produce_the_placement_sentence', async () => {
@@ -191,7 +196,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-287 — what the confirmation calls the m
 
     const note = noteIn(unplaced)
     expect(note).toContain("Added. I'll read it — it won't appear on your site.")
-    expect(note).not.toContain('on your site as')
+    expect(note).not.toContain('ready to use')
     expect(note).not.toContain('DOC-4')
     // AND THE LINE THAT REPORTS WHAT WENT WRONG IS UNTOUCHED — it says what
     // happened rather than what to call it, and this ticket changed only naming.

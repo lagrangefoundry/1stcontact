@@ -2191,12 +2191,18 @@ function uploadNote(file, result, failure) {
   // client just dropped and the only name they already know. This sentence
   // answers a different question — what to call it from here on — and the two
   // names belong in the note together.
-  if (result.site_asset) lines.push(`Added, and it's on your site as ${placedName(result)}.`)
+  //
+  // READY TO USE, NOT ON THE SITE ([[BUG-181]]). `site_asset` records only that
+  // the bytes were copied into the site's asset store. No page uses the image,
+  // the draft is unchanged and nothing is published, so the note says it is
+  // available to place. It never says it is "on your site": a client reads that
+  // as live and goes looking for it.
+  if (result.site_asset) lines.push(`Added — ${placedName(result)} is ready to use on your site.`)
   else if (result.role === 'reference') {
     lines.push("Added. I'll read it — it won't appear on your site.")
   } else lines.push('Added.')
   if (result.site_asset_error) {
-    lines.push(`I couldn't put it on the site yet: ${result.site_asset_error}`)
+    lines.push(`It's in your Library, but isn't ready to use on the site yet: ${result.site_asset_error}`)
   }
   if (result.indexed === false) {
     lines.push("I've stored it, but I can't search it yet.")
