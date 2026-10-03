@@ -6,10 +6,10 @@ title: 'values-diff: pseudo-glyph runs measured by host box vs glyph advance, ow
   fill compared one way, aggregate mislabelled'
 created_by: repro-console:repro-joyfulculinarycreations-com#7
 created_at: '2026-10-03T19:42:43.950023+00:00'
-updated_at: '2026-10-03T23:36:52.175211+00:00'
+updated_at: '2026-10-03T23:38:41.472911+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - instrument-asymmetric
