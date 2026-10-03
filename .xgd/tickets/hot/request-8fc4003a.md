@@ -5,18 +5,25 @@ type: request
 title: 'Contacts: delegate access to a business'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:49.444265+00:00'
-updated_at: '2026-10-03T19:09:33.666201+00:00'
+updated_at: '2026-10-03T19:34:41.528463+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   epic_parent: epic-ee37a03f
   priority: medium
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-738f3501
+  commits:
+  - working_sha: 2ab460e12d80925e4e52371d46b73c9a03d6f7cb
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ac69e3071a4406ff626b3d50f3cdb4278dbe346d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.449
 ---
-
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
 
