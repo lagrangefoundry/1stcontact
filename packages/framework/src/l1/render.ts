@@ -4862,6 +4862,12 @@ function emitNode(
       base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
       base.push(...axisSizingCss(node.sizing, parent))
       if (!node.geometry) base.push('position: relative')
+      // REQ-371 — a flowing box that also holds pinned children is the frame they
+      // are placed from, so it must not let its first in-flow child's top margin
+      // collapse OUT through it: `position: relative` alone is no formatting
+      // context, and the collapsed margin moved the root's border box (and every
+      // pinned surface with it) down by the hero's 84px while the hero stayed put.
+      if (!node.geometry && (node.children ?? []).some((c) => c.geometry)) base.push('display: flow-root')
       const inner = (node.children ?? [])
         .map((child, i) => emitNode(child, state, [...path, i]))
         .join('')

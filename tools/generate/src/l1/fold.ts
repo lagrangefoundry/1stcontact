@@ -85,6 +85,7 @@ import { frameAt, rebaseInto, responseAt, surfaceBorderInset } from './rebase'
 // paints: the shadow parse and the filter identity table, read by the fold here
 // and by the comparator in `values-diff.ts`.
 import { FILTER_FUNCTIONS, parseShadowLayers, type ShadowLayer } from '../cli/capture/treatments'
+import { paintsMaskEdge } from '../cli/capture/mask-geometry'
 import {
   boxDistance,
   clusterControls,
@@ -278,6 +279,9 @@ function lineCountOf(el: ValueElement): number | undefined {
  * padding inside the box it is given.
  */
 function selfSurfaceLines(el: ValueElement): { top: number; height: number } | undefined {
+  // REQ-371 — a chip paints its own pill, so it keeps its box and states the
+  // inset as padding instead (see {@link withChipInset}).
+  if (isSelfPaintingRun(el)) return undefined
   const box = el.box
   const glyphs = el.renderedTextBox
   const lines = lineCountOf(el)
@@ -288,6 +292,40 @@ function selfSurfaceLines(el: ValueElement): { top: number; height: number } | u
   const top = Math.max(box.y, Math.min(box.y + box.height - height, centre - height / 2))
   const pad = el.paddingTopPx !== undefined && Number.isFinite(el.paddingTopPx) ? Math.max(0, el.paddingTopPx) : 0
   return { top: top - pad, height: height + pad }
+}
+
+/**
+ * REQ-371 — a self-painting run (a chip: see {@link isSelfPaintingRun}) seen
+ * through its BOX: the vertical inset that box holds around its lines, stated as
+ * padding, or the element unchanged when its own padding already accounts for it.
+ *
+ * A chip paints its pill on the text node itself, and a text node's height is
+ * natural — border + padding + lines. A pill sized by `min-height` and centred by
+ * `display: flex; align-items: center` (Zyro's `.grid-button--primary`) has no
+ * padding at all, so the node rendered at its line height: a 56px CTA 21px tall,
+ * and every band below it 35px high.
+ *
+ * The lines sit where the glyphs say (half-leading is symmetric, so the line block
+ * is centred on the rendered text box); what is left of the box above and below
+ * them is the inset. The two sides are rounded so they still sum to the box, since
+ * the padding axis is what fixes the node's height.
+ */
+function withChipInset(el: ValueElement): ValueElement {
+  const box = el.box
+  const glyphs = el.renderedTextBox
+  if (!box || !glyphs || !Number.isFinite(glyphs.height) || glyphs.height <= 0) return el
+  const lines = lineCountOf(el)
+  const lineH = lines !== undefined && el.lineHeightPx ? lines * el.lineHeightPx : glyphs.height
+  const border = el.border?.widthPx && Number.isFinite(el.border.widthPx) ? Math.max(0, el.border.widthPx) : 0
+  const inner = box.height - 2 * border
+  const own = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) ? Math.max(0, v) : 0)
+  if (inner - lineH - own(el.paddingTopPx) - own(el.paddingBottomPx) <= 1) return el
+  const contentTop = box.y + border
+  const centre = glyphs.y + glyphs.height / 2
+  const lineTop = Math.max(contentTop, Math.min(contentTop + inner - lineH, centre - lineH / 2))
+  const total = Math.round(inner - lineH)
+  const top = Math.min(total, Math.round(lineTop - contentTop))
+  return { ...el, paddingTopPx: top, paddingBottomPx: total - top }
 }
 
 /**
@@ -1807,7 +1845,8 @@ function capturedAxesOf(el: ValueElement): CapturedAxis[] {
   has('backdropFilter', el.backdropFilter)
   has('blendMode', el.blendMode)
   if (el.opacity !== undefined && el.opacity < 1) axes.push('opacity')
-  has('maskEdge', el.maskEdge)
+  // REQ-371 — an `inset(0)` clip clips nothing (see `paintsMaskEdge`).
+  if (paintsMaskEdge(el.maskEdge)) axes.push('maskEdge')
   has('transformRotateDeg', el.transformRotateDeg)
   if (el.transformScale !== undefined && el.transformScale !== 1) axes.push('transformScale')
   // REQ-347 — a declared paint level. `has` already drops 0, which is the level
@@ -1859,8 +1898,12 @@ function axisCarriedBy(axis: CapturedAxis, node: L1Node): boolean | undefined {
       return node.mask !== undefined
     // REQ-347 — a node field on every kind, like `transform` and `mask`, so every
     // leaf can be judged on it.
+    //
+    // REQ-371 — except a backdrop, whose level is the fold's decision (it is
+    // placed in the background layer, see the box leaf), so its captured level is
+    // stated by where it sits rather than dropped.
     case 'zIndex':
-      return node.paintOrder !== undefined
+      return node.kind === 'box' && isBackdrop(node) ? undefined : node.paintOrder !== undefined
     case 'objectFit':
       return node.kind === 'image' ? on('objectFit') : undefined
     case 'backgroundImageUrl':
@@ -3929,11 +3972,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // photograph, so it is read at every leaf branch exactly as `transform` is.
       const textPaintOrder = foldPaintOrder(widest)
       if (textPaintOrder !== undefined) node.paintOrder = textPaintOrder
-      const pad = foldPadding(widest)
+      // REQ-371 — a chip's pill height is its padding (see `withChipInset`).
+      const padOf = (el: ValueElement): ValueElement => (chip ? withChipInset(el) : el)
+      const pad = foldPadding(padOf(widest))
       if (pad) node.padding = pad
       // REQ-88 — a side that varies across the ladder gets its own track, so the
       // widest sample's inset is no longer replayed at every width.
-      const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: c.element! })))
+      const padTracks = responsivePaddingTracks(framed.map((c) => ({ width: c.width, element: padOf(c.element!) })))
       if (padTracks) node.responsivePadding = padTracks
       children.push(node)
       recordClip(node, framed)

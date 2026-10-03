@@ -58,7 +58,7 @@ import { colorDistance } from './color-values'
 import { filterChain, filterPaints, paintedShadowLayers, shadowLabel } from './treatments'
 import { isBandPaint } from '../perceptual-core'
 // BUG-153 (item 2) — what a mask DOES to its box, rather than whether one exists.
-import { maskCoverage, maskCoverageLabel } from './mask-geometry'
+import { maskCoverage, maskCoverageLabel, paintsMaskEdge } from './mask-geometry'
 // BUG-179 (item 4) — the paint-order bound the fold clamps a captured z-index to.
 import { L1_ENVELOPE } from '@1stcontact/site-schema'
 // REQ-274 — the single declaration site for every value axis, and the only thing
@@ -3136,9 +3136,10 @@ export function diffManifests(
    * are exempt: there is nothing there to be silent about.
    */
   const compareMask = (exp: ValueElement, act: ValueElement): void => {
-    const e = exp.maskEdge
-    const a = act.maskEdge
-    if (e === undefined || a === undefined) return
+    if (exp.maskEdge === undefined || act.maskEdge === undefined) return
+    // REQ-371 — an `inset(0)` clip is no edge on either side (see `paintsMaskEdge`).
+    const e = paintsMaskEdge(exp.maskEdge) ? exp.maskEdge : null
+    const a = paintsMaskEdge(act.maskEdge) ? act.maskEdge : null
     if (!!e !== !!a) {
       push(exp, 'mask', e ? 'present' : 'none', a ? 'present' : 'none')
       return
@@ -3264,7 +3265,7 @@ export function diffManifests(
       paints: (v) => !!v.blendMode && v.blendMode.toLowerCase() !== 'normal',
       agrees: (e, a) => a.blendMode !== undefined && (e.blendMode ?? '').toLowerCase() === (a.blendMode ?? '').toLowerCase(),
     },
-    { key: 'maskEdge', paints: (v) => !!v.maskEdge, agrees: (e, a) => e.maskEdge === a.maskEdge },
+    { key: 'maskEdge', paints: (v) => paintsMaskEdge(v.maskEdge), agrees: (e, a) => e.maskEdge === a.maskEdge },
     paddingAxis('paddingTopPx'),
     paddingAxis('paddingRightPx'),
     paddingAxis('paddingBottomPx'),

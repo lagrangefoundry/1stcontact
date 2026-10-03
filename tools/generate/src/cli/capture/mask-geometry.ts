@@ -300,3 +300,19 @@ export function maskCoverage(maskEdge: string | null | undefined, box: MaskBox |
 export function maskCoverageLabel(c: MaskCoverage): string {
   return `${(c.opaque * 100).toFixed(1)}% opaque / ${(c.erased * 100).toFixed(1)}% erased`
 }
+
+/**
+ * REQ-371 — does a captured `maskEdge` paint an edge at all?
+ *
+ * The capture folds `mask-image` and `clip-path` into one field, and a builder
+ * routinely sets `clip-path: inset(0px)` on every band (Zyro does) purely to clip
+ * its own overflowing slide-in content to the band. That clips the element to its
+ * own border box — exactly where it already ends — so it is no edge, and reading
+ * it as one reported a "dropped mask" on every band of the page that no
+ * reproduction could ever honour or need to. A rounded inset (`inset(0 round 8px)`)
+ * does paint a shape, and stays a mask.
+ */
+export function paintsMaskEdge(maskEdge: string | null | undefined): boolean {
+  if (!maskEdge) return false
+  return !/^inset\(\s*0(?:px|%)?(?:\s+0(?:px|%)?){0,3}\s*\)$/i.test(maskEdge.trim())
+}

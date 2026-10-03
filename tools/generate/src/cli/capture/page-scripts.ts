@@ -132,41 +132,56 @@ export const IMAGES_DECODED = `Promise.all(
  * therefore missing from the reference screenshot AND from the oracle: zero
  * pixels, zero deltas, nothing anywhere but an unreferenced mirrored asset.
  *
- * So the rule is the pre-state's SIGNATURE rather than a class name: a decoded
- * image with a real box, under an element (itself included) that is fully
- * transparent AND displaced by a transform — "hidden, and waiting to slide in".
- * Opacity alone is not enough: a fading carousel parks its inactive slides at
- * `opacity: 0` with no transform, and revealing them would stack every slide on
- * the active one. A carousel ancestor is skipped outright for the same reason.
+ * REQ-371 — and not only images. Zyro's text, forms and footers slide in the same
+ * way (`.transition--slide:not([data-animation-state=active]){opacity:0;
+ * transform:translateY(20%)}`), and on bluelotusintegralhealing.com 19 of 29
+ * wrappers were never activated: two of six sections — a contact form, a
+ * mailing-list form, the copyright line, the logo — captured empty.
+ *
+ * So the rule is the pre-state's SIGNATURE rather than a class name: an element
+ * that is fully transparent AND displaced by a transform — "hidden, and waiting to
+ * slide in" — holding something to see: copy, a decoded image, or a control, with
+ * a real box. Opacity alone is not enough: a fading carousel parks its inactive
+ * slides at `opacity: 0` with no transform, and revealing them would stack every
+ * slide on the active one. A carousel ancestor is skipped outright for the same
+ * reason, and so is an element also made unreachable (`visibility: hidden`,
+ * `pointer-events: none`) — a closed dropdown, not a reveal.
  *
  * Each element it lands is marked `data-1c-revealed`, so what the settle changed
  * stays visible in the rendered DOM. Returns how many it landed.
  */
 export const REVEAL_MEDIA = `(() => {
   var carousel = /(^|[\\s_-])(carousel|slider|swiper|slick|splide|glide|flickity)([\\s_-]|$)/i;
+  var area = function (el) { var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  var holdsContent = function (el) {
+    if ((el.textContent || '').trim() && area(el)) return true;
+    var imgs = el.tagName === 'IMG' ? [el] : Array.prototype.slice.call(el.getElementsByTagName('img'));
+    for (var i = 0; i < imgs.length; i++) {
+      if (imgs[i].complete && (imgs[i].naturalWidth > 0 || imgs[i].currentSrc) && area(imgs[i])) return true;
+    }
+    var controls = el.querySelectorAll('input,textarea,select,button,svg,video,iframe');
+    for (var j = 0; j < controls.length; j++) if (area(controls[j])) return true;
+    return false;
+  };
+  var inCarousel = function (el) {
+    for (; el && el !== document.body; el = el.parentElement) {
+      if (carousel.test(el.getAttribute('class') || '') || el.getAttribute('aria-roledescription') === 'carousel') return true;
+    }
+    return false;
+  };
   var landed = 0;
-  var imgs = Array.prototype.slice.call(document.images);
-  for (var i = 0; i < imgs.length; i++) {
-    var img = imgs[i];
-    if (!img.complete || !(img.naturalWidth > 0 || img.currentSrc)) continue;
-    var r = img.getBoundingClientRect();
-    if (!(r.width > 0 && r.height > 0)) continue;
-    var hidden = [];
-    var inCarousel = false;
-    for (var el = img; el && el !== document.body; el = el.parentElement) {
-      if (carousel.test(el.getAttribute('class') || '') || el.getAttribute('aria-roledescription') === 'carousel') {
-        inCarousel = true;
-        break;
-      }
-      var s = getComputedStyle(el);
-      if (parseFloat(s.opacity) === 0 && s.transform && s.transform !== 'none') hidden.push(el);
-    }
-    if (inCarousel || !hidden.length) continue;
-    for (var j = 0; j < hidden.length; j++) {
-      hidden[j].style.setProperty('opacity', '1', 'important');
-      hidden[j].style.setProperty('transform', 'none', 'important');
-      hidden[j].setAttribute('data-1c-revealed', '');
-    }
+  var all = Array.prototype.slice.call(document.body.getElementsByTagName('*'));
+  for (var k = 0; k < all.length; k++) {
+    var el = all[k];
+    var s = getComputedStyle(el);
+    if (!(parseFloat(s.opacity) === 0 && s.transform && s.transform !== 'none')) continue;
+    // A closed menu or dropdown parks the same way but is also made unreachable;
+    // a reveal wrapper is not.
+    if (s.visibility === 'hidden' || s.pointerEvents === 'none') continue;
+    if (inCarousel(el) || !holdsContent(el)) continue;
+    el.style.setProperty('opacity', '1', 'important');
+    el.style.setProperty('transform', 'none', 'important');
+    el.setAttribute('data-1c-revealed', '');
     landed++;
   }
   return landed;
