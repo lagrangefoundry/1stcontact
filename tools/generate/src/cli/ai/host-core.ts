@@ -150,6 +150,7 @@ import {
   DONE,
   TEXT,
   TOOL_ACTIVITY,
+  TURN_END,
   budgetStopMeta,
   budgetStopNotice,
   guardTurn,
@@ -1828,10 +1829,15 @@ async function build(
         ...(runtime
           ? [
               {
-                // `wrote` and `activity` beside the framework's result
-                // ([[BUG-167]]); the account itself is the runtime's hook
-                // ([[REQ-354]]) — see {@link reportingDelegationToolbox}.
-                surface: new (reportingDelegationToolbox(lib))(runtime),
+                // `wrote`, `activity` and `ended` beside the framework's result
+                // ([[BUG-167]], [[BUG-191]]); the account itself is the runtime's
+                // hook ([[REQ-354]]) — see {@link reportingDelegationToolbox}. The
+                // ceiling is the WORKER'S, by the name its guard was built under,
+                // so `ended` names a budget stop on the same line the guard drew.
+                surface: new (reportingDelegationToolbox(
+                  lib,
+                  projectBackendCeiling(lib as Untyped, workerSettings?.backend),
+                ))(runtime),
                 granted: lib.delegationInstanceConfig(runtime.roleNames()),
               },
             ]
@@ -2847,17 +2853,6 @@ async function writeOccupancy(
     // Deliberately swallowed, in a `finally`, for {@link writeTurnSpend}'s reason.
   }
 }
-
-/**
- * The junction record kind that closes a turn.
- *
- * A LITERAL, matched rather than restated — the same liberty {@link TOOL_ACTIVITY}
- * and {@link DONE} already take with upstream's vocabulary, and for the same
- * reason: it is a string on the wire either way, `/core` does not re-export it,
- * and naming it here is what stops the one comparison this file makes against
- * that vocabulary being a bare string buried mid-function.
- */
-const TURN_END = 'turn_end'
 
 /**
  * What the turn that just closed handed off, and what that cost ([[REQ-295]]).

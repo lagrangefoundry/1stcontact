@@ -50,6 +50,7 @@ import type { L1Node } from '@1stcontact/site-schema'
 import { canonicalJson, diffOutlines } from '../../store/revision-model'
 import type { SiteOutline } from '../../store/revision-model'
 import type { SiteStore, StoredPage } from '../../store/site-store'
+import { BUDGET_STOP_REASON, TURN_END, budgetStopMeta } from './budget-core'
 
 // ── what a capture is ────────────────────────────────────────────────────────
 
@@ -785,6 +786,72 @@ export function workerActivity(lib: Untyped, records: readonly Untyped[]): Worke
 }
 
 /**
+ * How a worker's turn ended, when it did not finish ([[BUG-191]]).
+ *
+ * WHY IT EXISTS. A worker turn that closed `aborted` used to reach the caller as
+ * `outcome: silent` and a `nudge_skipped` telling it to read the worker's session
+ * record — which the caller has no operation for. The record does say why, and
+ * this is that, read by the host and put where the caller already looks.
+ */
+export interface WorkerEnding {
+  /** The turn's own status — `aborted` or `error`. Never `complete`. */
+  status: string
+  /**
+   * Why it was stopped, when anything says: {@link BUDGET_STOP_REASON} for this
+   * host's context-budget guard, otherwise the reason the stop itself recorded.
+   */
+  reason?: string
+  /** What the worker's last request carried, on a budget stop. */
+  occupancy_tokens?: number
+  /** The most one worker request may carry, on a budget stop. */
+  ceiling?: number
+  /** The error the turn ended on, clipped. */
+  error?: string
+}
+
+/**
+ * {@link WorkerEnding} from a worker's junction records, or `null` when its last
+ * turn completed ([[BUG-191]]).
+ *
+ * THE LAST `turn_end` IS THE ONE THAT DECIDED THE OUTCOME. A nudge that ran is a
+ * second turn, and how that one ended is what left the delegation unreported; a
+ * nudge that was skipped leaves the first turn last.
+ *
+ * THE BUDGET STOP IS DERIVED, NOT READ. The guard names `context_budget` on the
+ * adapter's terminal event and the manager does not forward it — but the
+ * `turn_end` record carries the status and the per-request usage the guard fired
+ * on, which is exactly what {@link budgetStopMeta} re-derives the consultant's own
+ * stop from. `ceiling` is the WORKER'S, because its guard is held to its own
+ * window; `0` means no budget stop can be named, and nothing else changes.
+ */
+export function workerEnding(
+  lib: Untyped,
+  records: readonly Untyped[],
+  ceiling: number,
+): WorkerEnding | null {
+  for (let at = records.length - 1; at >= 0; at -= 1) {
+    const record = records[at]
+    if (record?.kind !== TURN_END) continue
+    const status = String(record.status ?? '')
+    if (status === '' || status === 'complete') return null
+    const ending: WorkerEnding = { status }
+    const budget = budgetStopMeta(lib, record, ceiling)
+    if (budget) {
+      ending.reason = BUDGET_STOP_REASON
+      ending.occupancy_tokens = Number(budget.occupancy_tokens)
+      ending.ceiling = ceiling
+    } else if (typeof record.reason === 'string' && record.reason !== '') {
+      ending.reason = record.reason
+    }
+    if (typeof record.error === 'string' && record.error !== '') {
+      ending.error = clip(record.error, ACTIVITY_CLIP)
+    }
+    return ending
+  }
+  return null
+}
+
+/**
  * Whether a {@link DraftChanges} records anything written ([[BUG-167]]).
  *
  * A truncated list counts: `truncated` is present only when there were more
@@ -1031,6 +1098,16 @@ const HOST_RESULT_FIELDS = {
     "refusal, and a run that read and then stopped shows the read. 'last_words' is the " +
     'last thing the worker said, when it said anything. Long values are clipped and say ' +
     "so; the worker's own session, named by 'session', holds them in full.",
+  ended:
+    "Present only when the worker's turn did not finish — it was stopped or it failed — " +
+    "and read by the host from the worker's session record, so you never need to read " +
+    "that record yourself. 'status' is how the turn ended ('aborted' or 'error'). " +
+    "'reason' says why when anything recorded it. 'context_budget' means the host " +
+    "stopped the worker between two requests because its context had reached " +
+    "'occupancy_tokens' of the 'ceiling' one request may carry: everything it wrote " +
+    "before that landed and is in 'account', and that worker has no room left, so send " +
+    "what remains as a new, smaller delegation rather than asking it again. 'error' is " +
+    'the error the turn ended on, when it errored.',
 }
 
 /** `declaration` with {@link HOST_RESULT_FIELDS} added to its result shape. */
@@ -1043,8 +1120,8 @@ function withHostResultFields(declaration: Untyped): Untyped {
 }
 
 /**
- * `DelegationToolbox`, with `wrote` and `activity` added to its result
- * ([[BUG-167]]).
+ * `DelegationToolbox`, with `wrote`, `activity` and `ended` added to its result
+ * ([[BUG-167]], [[BUG-191]]).
  *
  * THE ACCOUNT IS NO LONGER TAKEN HERE ([[REQ-354]]). The bracket, the record
  * and the host-settled checks are {@link draftAccount}, on the framework's own
@@ -1059,10 +1136,14 @@ function withHostResultFields(declaration: Untyped): Untyped {
  * are added to the declaration's result shape so the caller reads about them
  * where it reads about the rest.
  *
+ * `ceiling` is the worker's budget ceiling ([[REQ-296]]), which is what lets
+ * `ended` name a budget stop; `0` leaves the stop unnamed and nothing else
+ * changes.
+ *
  * NOTHING HERE EVER FAILS THE DELEGATION: a log read that throws costs its
  * field and nothing else.
  */
-export function reportingDelegationToolbox(lib: Untyped): Untyped {
+export function reportingDelegationToolbox(lib: Untyped, ceiling = 0): Untyped {
   const declaration = withHostResultFields(lib.DelegationToolbox.DECLARATION)
   return class ReportingDelegationToolbox extends lib.DelegationToolbox {
     constructor(runtime: Untyped, options: Untyped = {}) {
@@ -1076,7 +1157,8 @@ export function reportingDelegationToolbox(lib: Untyped): Untyped {
       if (result.outcome === lib.DELEGATION_REPORTED) return result
       try {
         const [records] = this.runtime.manager.logFor(result.session).readFrom(0)
-        return { ...result, activity: workerActivity(lib, records) }
+        const ended = workerEnding(lib, records, ceiling)
+        return { ...result, activity: workerActivity(lib, records), ...(ended ? { ended } : {}) }
       } catch {
         return result
       }
