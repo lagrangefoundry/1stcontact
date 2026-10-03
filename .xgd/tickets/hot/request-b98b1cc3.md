@@ -6,10 +6,10 @@ title: 'Screenshots: show the page a screen at a time, with a conservative defau
   the AI can widen'
 created_by: EPIC-20
 created_at: '2026-10-02T19:01:38.804395+00:00'
-updated_at: '2026-10-03T17:03:34.923404+00:00'
+updated_at: '2026-10-03T17:05:57.006249+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-0923bb64
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d953efda
+  commits:
+  - working_sha: c64d5f56441d2e865ee4803537051b1301255d00
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6f693aea31ba928c7e1dd661fa51b643c9cf931d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 06f10c9cffa6b2f2bd67bbd80d730347dda86eaf
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.443
 ---
 
 **Parent:** EPIC-20. **Evidence:** EPIC-20 § "Charlie's Plumbing session, 2026-10-01/02".
