@@ -5,16 +5,24 @@ type: bug
 title: KnowledgeGet refuses a material uid that KnowledgeSearch just returned (not_in_corpus)
 created_by: xgd
 created_at: '2026-10-03T19:16:59.056170+00:00'
-updated_at: '2026-10-03T22:37:41.394649+00:00'
+updated_at: '2026-10-03T22:45:05.568929+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-ecf4d163
   severity: high
+  commits:
+  - working_sha: 59e8aabb24b8cc14670b3773ae72ceee57b44843
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 49c3eabd047eda3c100246c27d5d2dcf39a38246
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.458
 ---
 
 ## What happened
