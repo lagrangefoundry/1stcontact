@@ -6,10 +6,10 @@ title: 'fold: a padded run takes its ancestor band fill as its own chip, paintin
   a transparent nav as opaque plates'
 created_by: repro-console:repro-joyfulculinarycreations-com#7
 created_at: '2026-10-03T19:41:51.098837+00:00'
-updated_at: '2026-10-03T19:41:51.098837+00:00'
+updated_at: '2026-10-03T22:37:31.635537+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong
