@@ -247,7 +247,8 @@ describe('BUG-112 — on-sample layout collisions reach the verdict', () => {
     // to carry the geometry its `detail` asserts, or the sentence is a
     // measurement the artifact does not contain; this pin is where that became
     // visible, and it says six keys now rather than five.
-    expect(Object.keys(first).sort()).toEqual(['boxes', 'detail', 'height', 'kind', 'paths', 'width'])
+    // BUG-179 (item 7) — and `probe`, the envelope probe that found it: seven.
+    expect(Object.keys(first).sort()).toEqual(['boxes', 'detail', 'height', 'kind', 'paths', 'probe', 'width'])
     expect(first.kind).toBe('overlap')
     expect(CLEAN_COVERAGE.findings).toEqual([]) // the shape is shared, the source is not
 

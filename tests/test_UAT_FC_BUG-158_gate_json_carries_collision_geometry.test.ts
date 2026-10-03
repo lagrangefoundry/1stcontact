@@ -202,7 +202,7 @@ describe('BUG-158 — a collision in gate.json carries the geometry its sentence
     // measurement.
     const probe = contentRobustnessProbe(footerDoc(), { heights: [768] })
     const finding = probe.byWidth.flatMap((w) => w.findings).find((f) => f.kind === 'escape')!
-    const collision = layoutCollisions(probe).find((c) => c.kind === 'escape')!
+    const collision = layoutCollisions({ contentRobustness: probe }).find((c) => c.kind === 'escape')!
 
     expect(collision.boxes).toEqual(finding.boxes)
     collision.boxes![0].height = -1

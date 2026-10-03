@@ -492,10 +492,10 @@ describe('BUG-143 — the verdict carries the findings', () => {
     // construction. The block now carries every containment escape the other two
     // envelope probes found, each naming the sample it was found at.
     const doc = snappingPage()
-    const collisions = layoutCollisions(
-      onSampleProbe(doc, { heights: [CAPTURED_HEIGHT] }),
-      offSampleProbe(doc, { heights: [CAPTURED_HEIGHT] }),
-    )
+    const collisions = layoutCollisions({
+      onSample: onSampleProbe(doc, { heights: [CAPTURED_HEIGHT] }),
+      offSample: offSampleProbe(doc, { heights: [CAPTURED_HEIGHT] }),
+    })
     const found = collisions.filter((c) => c.kind === 'escape')
     expect(found.length).toBeGreaterThan(0)
     expect(found[0].detail).toMatch(/^at \d+px×\d+px: /)
@@ -546,7 +546,7 @@ describe('BUG-143 — the reproduction the defect was reported on', () => {
     const gate = acceptanceGate(doc, ms, { measured })
     expect(gate.contentRobustness.pass).toBe(false)
     expect(
-      layoutCollisions(gate.onSample, gate.offSample, gate.contentRobustness).filter(
+      layoutCollisions({ onSample: gate.onSample, offSample: gate.offSample, contentRobustness: gate.contentRobustness }).filter(
         (c) => c.kind === 'escape',
       ).length,
     ).toBeGreaterThan(0)

@@ -77,7 +77,11 @@ function sliceBackgroundColorOffline(): (slice: StubSlice) => string | null {
   expect(sliceFrom).toBeGreaterThan(0)
   expect(sliceTo).toBeGreaterThan(sliceFrom)
   const src = `${EXTRACT_SCRIPT.slice(colorFrom, colorTo)}\n${EXTRACT_SCRIPT.slice(sliceFrom, sliceTo)}`
-  const build = new Function('getComputedStyle', `${src}\nreturn sliceBackgroundColor;`) as (
+  // BUG-179 (item 6) — a slice that paints nothing itself falls back to a
+  // descendant covering it. These stub slices have no descendants, so that read
+  // is stood in by its answer for them (it is exercised by the BUG-179 UATs).
+  const noDescendant = 'function coveringDescendantFill() { return null; }'
+  const build = new Function('getComputedStyle', `${noDescendant}\n${src}\nreturn sliceBackgroundColor;`) as (
     gcs: (el: StubEl) => { backgroundColor: string },
   ) => (slice: StubSlice) => string | null
   return build((el: StubEl) => ({ backgroundColor: el.bg }))

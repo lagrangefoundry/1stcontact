@@ -59,6 +59,8 @@ import { filterChain, filterPaints, paintedShadowLayers, shadowLabel } from './t
 import { isBandPaint } from '../perceptual-core'
 // BUG-153 (item 2) — what a mask DOES to its box, rather than whether one exists.
 import { maskCoverage, maskCoverageLabel } from './mask-geometry'
+// BUG-179 (item 4) — the paint-order bound the fold clamps a captured z-index to.
+import { L1_ENVELOPE } from '@1stcontact/site-schema'
 // REQ-274 — the single declaration site for every value axis, and the only thing
 // that reads either side's input. See `value-axes.ts` for why this module no
 // longer projects anything itself.
@@ -551,6 +553,8 @@ export type DeltaProperty =
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
   | 'viewport'
   | 'overflow'
+  // ── BUG-179 (item 1) — how much of the element an ancestor's clip leaves painted ──
+  | 'visibleFraction'
   // ── REQ-48 (item 7) web-font load ────────────────────────────────────────
   | 'fontLoad'
   // ── REQ-48 (item 1) motion & interaction ─────────────────────────────────
@@ -1590,6 +1594,8 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   aspect: 'B',
   overflow: 'B',
   viewport: 'B',
+  // BUG-179 — what a clipping ancestor leaves visible is emergent from layout.
+  visibleFraction: 'B',
 }
 
 /**
@@ -1608,6 +1614,9 @@ export const DERIVED_PROPERTIES: ReadonlySet<DeltaProperty> = new Set<DeltaPrope
 /** The kind a fine-grained {@link DeltaProperty} belongs to (for the tier table). */
 const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   missing: 'presence',
+  // BUG-179 (item 1) — a run its ancestor clips away is, to the eye, a run that is
+  // not there: present in the document, absent from the page.
+  visibleFraction: 'presence',
   viewport: 'viewport',
   overflow: 'overflow',
   fontLoad: 'fontLoad',
@@ -2532,6 +2541,46 @@ function attributeSubScales(
   return { rows, kept, rolledUp: deltas.length - kept.length }
 }
 
+/**
+ * BUG-179 (item 7) — the precision a sub-pixel length is RECORDED at. Both sides
+ * write lengths rounded to two decimals, and `round2(37.125)` is `37.12` on one
+ * side and `37.13` on the other by float error alone, so a difference of one
+ * recording step is not a measurement of anything. A delta whose own magnitude
+ * rounds to zero is not emitted.
+ */
+const LENGTH_QUANTUM_PX = 0.01
+const withinQuantum = (d: number): boolean => d <= LENGTH_QUANTUM_PX + 1e-6
+
+/** BUG-179 (item 1) — a visible-fraction difference past this is a delta (5% of the element). */
+const VISIBLE_FRACTION_TOL = 0.05
+
+/**
+ * BUG-179 (item 1) — the fraction of an element's box its nearest clipping
+ * ancestor leaves painted: `area(box ∩ clip) / area(box)`. `1` when nothing
+ * clips it, `undefined` when the element has no box to measure.
+ *
+ * NEAREST clipper only, because that is the one the capture records (REQ-332).
+ * A run cut off by a FURTHER ancestor, inside a nearer clipper that does contain
+ * it, reads as visible: an under-report, never a fabricated clip.
+ */
+function visibleFractionOf(el: ValueElement): number | undefined {
+  const b = el.box
+  if (!b || !(b.width > 0) || !(b.height > 0)) return undefined
+  const c = el.clip
+  if (!c) return 1
+  const iw = Math.min(b.x + b.width, c.x + c.width) - Math.max(b.x, c.x)
+  const ih = Math.min(b.y + b.height, c.y + c.height) - Math.max(b.y, c.y)
+  if (iw <= 0 || ih <= 0) return 0
+  return Math.min(1, (iw * ih) / (b.width * b.height))
+}
+
+const percentLabel = (f: number): string => `${Math.round(f * 100)}% visible`
+
+/** BUG-179 (item 4) — a z-index as the paint rank the fold can author (see `foldPaintOrder`). */
+function paintRank(z: number): number {
+  return Math.max(L1_ENVELOPE.paintOrder.min, Math.min(L1_ENVELOPE.paintOrder.max, Math.round(z)))
+}
+
 export function diffManifests(
   expected: ValueManifest,
   actual: ValueManifest,
@@ -2594,6 +2643,17 @@ export function diffManifests(
    * a smaller scale.
    */
   let maskGeometryUnresolved = false
+  /**
+   * BUG-179 (item 1) — whether the reference RECORDED clipping at all.
+   *
+   * `clip` is absent both where nothing clips an element and on a bundle taken
+   * before REQ-332 read it, so an element's own absence cannot tell the two apart.
+   * The manifest can: one recorded clip anywhere proves the extractor looked. On
+   * a manifest with none, every reference element would read fully visible by
+   * default, so the axis stays silent there rather than report a clip the
+   * reference was never measured for.
+   */
+  const clipMeasured = expected.elements.some((el) => !!el.clip)
 
   // REQ-48 (item 9) — the calendar-year mask folds every 4-digit year in the
   // *join key* and the verbatim-text comparison, so a footer that differs only by
@@ -2918,8 +2978,30 @@ export function diffManifests(
     // REQ-48 (item 2) — paint order. A wrong z-index means a correctly-placed
     // element stacks on the wrong side of its neighbours (portrait over caption,
     // scrim behind instead of in front) — invisible to every 2D field above.
-    if (exp.zIndex !== undefined && act.zIndex !== undefined && exp.zIndex !== act.zIndex) {
-      push(exp, 'zIndex', `z:${exp.zIndex}`, `z:${act.zIndex}`, Math.abs(exp.zIndex - act.zIndex))
+    //
+    // BUG-179 (item 4) — compared as the RANK the fold can author, not as the raw
+    // number. `foldPaintOrder` clamps a captured level to `L1_ENVELOPE.paintOrder`
+    // by design, because a rank is what paints: `z:9999` and `z:1000` both mean
+    // "above every other level" on a page whose other levels are 2. So both sides
+    // are clamped to the same envelope before they are compared, and only a level
+    // that differs INSIDE it — a real reordering — is a delta.
+    if (exp.zIndex !== undefined && act.zIndex !== undefined) {
+      const ez = paintRank(exp.zIndex)
+      const az = paintRank(act.zIndex)
+      if (ez !== az) push(exp, 'zIndex', `z:${exp.zIndex}`, `z:${act.zIndex}`, Math.abs(ez - az))
+    }
+    // BUG-179 (item 1) — how much of the element is actually PAINTED. `box` is a
+    // `getBoundingClientRect` and `renderedTextBox` a `Range`; neither knows about
+    // an ancestor's `overflow`, so a run folded into a clip container 7000px down
+    // the page paired clean on colour, box and glyph extent while not one of its
+    // pixels reached the screen. Both sides already carry the nearest clipping
+    // ancestor (REQ-332), so the fraction is read the same way on both.
+    if (clipMeasured) {
+      const ev = visibleFractionOf(exp)
+      const av = visibleFractionOf(act)
+      if (ev !== undefined && av !== undefined && Math.abs(ev - av) > VISIBLE_FRACTION_TOL) {
+        push(exp, 'visibleFraction', percentLabel(ev), percentLabel(av), Math.abs(ev - av))
+      }
     }
     // REQ-48 (item 3) — treatments beyond box-shadow (filter halo, text glow,
     // mask-feather / clip edge). Like box-shadow, compare *presence*: a missing
@@ -3126,6 +3208,83 @@ export function diffManifests(
     box: sv.box,
   }) as ValueElement
 
+  // ── BUG-179 (item 2) — the paint of COINCIDENT reproduction layers ─────────
+  //
+  // A reference element can be ONE node that holds a photograph, its filter, its
+  // opacity and its padding, while the reproduction paints the same rectangle as
+  // a STACK of nodes: the text on one, the backdrop on another, both at the same
+  // box. Pair-by-box (BUG-151) is satisfied by every layer in the stack and
+  // cannot choose between them, so whichever it took had the rest of the paint
+  // missing, and the diff reported a hero photograph as absent beside the very
+  // node that painted it.
+  //
+  // So a paired element's paint axes are read off the UNION of the layers that
+  // share its box (±2px on every edge): where the paired layer disagrees with the
+  // reference and a coincident layer agrees, that layer's value is the one
+  // compared. Only for a reference value that PAINTS — a missing photograph,
+  // filter, ghosting, blend, mask or inset is what a stack can hide; an extra one
+  // on the reproduction is not hidden by any layer that lacks it.
+  const COINCIDENT_TOL_PX = 2
+  const coincident = (a: Box, b: Box): boolean =>
+    Math.abs(a.x - b.x) <= COINCIDENT_TOL_PX &&
+    Math.abs(a.y - b.y) <= COINCIDENT_TOL_PX &&
+    Math.abs(a.width - b.width) <= COINCIDENT_TOL_PX &&
+    Math.abs(a.height - b.height) <= COINCIDENT_TOL_PX
+  const paddingAxis = (key: 'paddingTopPx' | 'paddingRightPx' | 'paddingBottomPx' | 'paddingLeftPx') => ({
+    key,
+    paints: (v: ValueElement): boolean => (v[key] ?? 0) > 0,
+    agrees: (e: ValueElement, a: ValueElement): boolean =>
+      e[key] !== undefined && a[key] !== undefined && Math.abs(e[key]! - a[key]!) <= paddingTol,
+  })
+  const LAYER_PAINT_AXES: ReadonlyArray<{
+    key: keyof ValueElement
+    paints: (v: ValueElement) => boolean
+    agrees: (e: ValueElement, a: ValueElement) => boolean
+  }> = [
+    {
+      key: 'backgroundImageUrl',
+      paints: (v) => assetBasename(v.backgroundImageUrl) !== null,
+      agrees: (e, a) => assetBasename(e.backgroundImageUrl) === assetBasename(a.backgroundImageUrl),
+    },
+    {
+      key: 'filter',
+      paints: (v) => filterPaints(v.filter),
+      agrees: (e, a) => a.filter !== undefined && filterChain(e.filter) === filterChain(a.filter),
+    },
+    {
+      key: 'opacity',
+      paints: (v) => v.opacity !== undefined && v.opacity < 1,
+      agrees: (e, a) =>
+        e.opacity !== undefined && a.opacity !== undefined && Math.abs(e.opacity - a.opacity) <= opacityValueTol,
+    },
+    {
+      key: 'blendMode',
+      paints: (v) => !!v.blendMode && v.blendMode.toLowerCase() !== 'normal',
+      agrees: (e, a) => a.blendMode !== undefined && (e.blendMode ?? '').toLowerCase() === (a.blendMode ?? '').toLowerCase(),
+    },
+    { key: 'maskEdge', paints: (v) => !!v.maskEdge, agrees: (e, a) => e.maskEdge === a.maskEdge },
+    paddingAxis('paddingTopPx'),
+    paddingAxis('paddingRightPx'),
+    paddingAxis('paddingBottomPx'),
+    paddingAxis('paddingLeftPx'),
+  ]
+  /** `act` with each disagreeing painted axis taken from a coincident layer that agrees (see above). */
+  const resolveLayers = (exp: ValueElement, act: ValueElement): ValueElement => {
+    const box = act.box
+    if (!box) return act
+    const layers = actual.elements.filter((o) => o !== act && !!o.box && coincident(o.box, box))
+    if (layers.length === 0) return act
+    let out = act
+    for (const ax of LAYER_PAINT_AXES) {
+      if (!ax.paints(exp) || ax.agrees(exp, out)) continue
+      const donor = layers.find((l) => ax.agrees(exp, l))
+      if (!donor) continue
+      if (out === act) out = { ...act }
+      ;(out as unknown as Record<string, unknown>)[ax.key] = donor[ax.key]
+    }
+    return out
+  }
+
   // REQ-73 — every paired element with a box, for the adjacent-gap axis below.
   // BUG-174 — and the population the `arrangement` pass relates over.
   const gapPairs: Array<{ exp: ValueElement; act: ValueElement }> = []
@@ -3204,6 +3363,7 @@ export function diffManifests(
       continue
     }
     matched++
+    act = resolveLayers(exp, act)
     // Containment: is the accessible name rendered *inside* the field box
     // (placeholder) or *outside* it (label/aria)? The placeholder-inside vs
     // label-above defect the perceptual + value diffs both miss.
@@ -3281,8 +3441,9 @@ export function diffManifests(
       const actLh = act.lineHeightPx
       if (expLh !== undefined && actLh !== undefined) {
         const lineHeightTol = Math.max(lineHeightFloor, lineHeightRatio * expLh)
-        if (Math.abs(expLh - actLh) > lineHeightTol) {
-          push(exp, 'lineHeightPx', `${expLh}`, `${actLh}`)
+        const d = Math.abs(expLh - actLh)
+        if (d > lineHeightTol && !withinQuantum(d)) {
+          push(exp, 'lineHeightPx', `${expLh}`, `${actLh}`, d)
         }
       } else if (expLh !== actLh) {
         push(exp, 'lineHeightPx', expLh !== undefined ? `${expLh}` : 'normal', actLh !== undefined ? `${actLh}` : 'normal')
@@ -3325,14 +3486,15 @@ export function diffManifests(
     if (exp.textless) continue
     const start = deltas.length
     const q = queues.get(joinKey(exp.text))
-    const act = takeMatch(q, exp)
-    if (!act) {
+    const taken = takeMatch(q, exp)
+    if (!taken) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')
       cards.push(buildObjectCard(exp, undefined, objectDeltas(start)))
       continue
     }
     matched++
+    const act = resolveLayers(exp, taken)
 
     // Verbatim content. Elements pair on the case-folded, whitespace-collapsed
     // key, so a pairing that survives can still differ in casing — small-caps
@@ -3444,13 +3606,15 @@ export function diffManifests(
     }
     if (exp.lineHeightPx !== undefined && act.lineHeightPx !== undefined) {
       const lineHeightTol = Math.max(lineHeightFloor, lineHeightRatio * exp.lineHeightPx)
-      if (Math.abs(exp.lineHeightPx - act.lineHeightPx) > lineHeightTol) {
-        push(exp, 'lineHeightPx', `${exp.lineHeightPx}`, `${act.lineHeightPx}`)
+      const d = Math.abs(exp.lineHeightPx - act.lineHeightPx)
+      if (d > lineHeightTol && !withinQuantum(d)) {
+        push(exp, 'lineHeightPx', `${exp.lineHeightPx}`, `${act.lineHeightPx}`, d)
       }
     }
     if (exp.letterSpacingPx !== undefined && act.letterSpacingPx !== undefined) {
-      if (Math.abs(exp.letterSpacingPx - act.letterSpacingPx) > letterSpacingTol) {
-        push(exp, 'letterSpacingPx', `${exp.letterSpacingPx}`, `${act.letterSpacingPx}`)
+      const d = Math.abs(exp.letterSpacingPx - act.letterSpacingPx)
+      if (d > letterSpacingTol && !withinQuantum(d)) {
+        push(exp, 'letterSpacingPx', `${exp.letterSpacingPx}`, `${act.letterSpacingPx}`, d)
       }
     }
     comparePadding(exp, act)
@@ -3659,12 +3823,105 @@ export function diffManifests(
       ? pairSectionsByGeometry(expSections, actSections)
       : pairSectionsByOrdinal(expSections, actSections)
 
+  const claimedActual = new Set<SectionValues>()
+  for (const m of sectionMatches.values()) claimedActual.add(m.section)
+
+  // ── BUG-179 (item 5) — a COALESCED reference section against the bands it covers ──
+  //
+  // The reference may record as one section what the reproduction paints as
+  // several raw bands: a 1331px section whose 50% veil covers only its first
+  // 267px is, on our side, a 267px band at opacity 0.5 above a 1064px one at 1.
+  // The geometric join pairs the section with the larger band, reports its
+  // opacity as wrong, and files the smaller band — the one that DOES carry the
+  // veil — as an unpaired population.
+  //
+  // So a reproduction band no reference section claimed, lying vertically
+  // inside a paired one, is COVERED by it: claimed, and its paint read as part of
+  // the section's. Each section paint axis agrees when ANY band in the group
+  // agrees — not an area-weighted mean, which on that page reads 0.9 against
+  // the 0.5 that describes only the first 267px, and so would report the very
+  // delta this exists to remove. As with coincident element layers, only a
+  // reference value that PAINTS is looked for in the group.
+  const COVER_TOL_PX = 2
+  const covers = (outer: Box, inner: Box): boolean =>
+    inner.y >= outer.y - COVER_TOL_PX && inner.y + inner.height <= outer.y + outer.height + COVER_TOL_PX
+  const overlaysAgree = (eo: SectionValues['overlay'], ao: SectionValues['overlay']): boolean =>
+    (!eo && !ao) ||
+    (!!eo &&
+      !!ao &&
+      eo.color.toLowerCase() === ao.color.toLowerCase() &&
+      Math.abs(eo.opacity - ao.opacity) <= opacityTol &&
+      // REQ-338 — and it composites the same way. A `darken` veil and a `normal`
+      // one at the same colour and alpha paint different pixels over the same
+      // photograph, so comparing colour and alpha alone reported clean on a band
+      // that was 13.96% of joyfulculinarycreations.com's pixel disagreement.
+      (eo.blendMode ?? 'normal') === (ao.blendMode ?? 'normal'))
+  const SECTION_PAINT_AXES: ReadonlyArray<{
+    key: keyof SectionValues
+    paints: (v: SectionValues) => boolean
+    agrees: (e: SectionValues, a: SectionValues) => boolean
+  }> = [
+    { key: 'overlay', paints: (v) => !!v.overlay, agrees: (e, a) => overlaysAgree(e.overlay, a.overlay) },
+    {
+      key: 'surfaceFill',
+      paints: (v) => !!v.surfaceFill,
+      agrees: (e, a) => !!e.surfaceFill && !!a.surfaceFill && colorDistance(e.surfaceFill, a.surfaceFill) <= colorTol,
+    },
+    {
+      key: 'backgroundImageUrl',
+      paints: (v) => assetBasename(v.backgroundImageUrl) !== null,
+      agrees: (e, a) => assetBasename(e.backgroundImageUrl) === assetBasename(a.backgroundImageUrl),
+    },
+    {
+      key: 'opacity',
+      paints: (v) => v.opacity !== undefined && v.opacity < 1,
+      agrees: (e, a) =>
+        e.opacity !== undefined && a.opacity !== undefined && Math.abs(e.opacity - a.opacity) <= opacityValueTol,
+    },
+    {
+      key: 'filter',
+      paints: (v) => filterPaints(v.filter),
+      agrees: (e, a) => a.filter !== undefined && filterChain(e.filter) === filterChain(a.filter),
+    },
+    {
+      key: 'blendMode',
+      paints: (v) => !!v.blendMode && v.blendMode.toLowerCase() !== 'normal',
+      agrees: (e, a) => a.blendMode !== undefined && (e.blendMode ?? '').toLowerCase() === (a.blendMode ?? '').toLowerCase(),
+    },
+  ]
+  /** The reproduction bands each reference section covers beyond its own match. */
+  const coveredBands = new Map<SectionValues, SectionValues[]>()
+  if (geometryJoin && !flatRepro) {
+    for (const [ei, m] of sectionMatches) {
+      const es = expSections[ei]
+      if (!es.box) continue
+      const group = actSections.filter((as) => !claimedActual.has(as) && !!as.box && covers(es.box!, as.box))
+      if (group.length === 0) continue
+      for (const as of group) claimedActual.add(as)
+      coveredBands.set(m.section, group)
+    }
+  }
+  /** `as` with each disagreeing painted axis taken from a covered band that agrees. */
+  const resolveBands = (es: SectionValues, as: SectionValues): SectionValues => {
+    const group = coveredBands.get(as)
+    if (!group) return as
+    let out = as
+    for (const ax of SECTION_PAINT_AXES) {
+      if (!ax.paints(es) || ax.agrees(es, out)) continue
+      const donor = group.find((b) => ax.agrees(es, b))
+      if (!donor) continue
+      if (out === as) out = { ...as }
+      ;(out as unknown as Record<string, unknown>)[ax.key] = donor[ax.key]
+    }
+    return out
+  }
+
   // Nothing is compared and nothing is listed under the flat-L1 verdict: the reason
   // above stands in for the whole per-section pass.
   const joinable: readonly SectionValues[] = flatRepro ? [] : expSections
   joinable.forEach((es, ei) => {
     const match = sectionMatches.get(ei)
-    const as = match?.section
+    const as = match ? resolveBands(es, match.section) : undefined
     const label = `§${es.index}`
     const pairing: SectionPairing = {
       label,
@@ -3708,18 +3965,7 @@ export function diffManifests(
 
     const eo = es.overlay
     const ao = as.overlay
-    const overlayOk =
-      (!eo && !ao) ||
-      (!!eo &&
-        !!ao &&
-        eo.color.toLowerCase() === ao.color.toLowerCase() &&
-        Math.abs(eo.opacity - ao.opacity) <= opacityTol &&
-        // REQ-338 — and it composites the same way. A `darken` veil and a `normal`
-        // one at the same colour and alpha paint different pixels over the same
-        // photograph, so comparing colour and alpha alone reported clean on a band
-        // that was 13.96% of joyfulculinarycreations.com's pixel disagreement.
-        (eo.blendMode ?? 'normal') === (ao.blendMode ?? 'normal'))
-    if (!overlayOk) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
+    if (!overlaysAgree(eo, ao)) record(label, 'section', 'overlay', overlayLabel(eo), overlayLabel(ao))
 
     // REQ-271 — the band's own base fill: the single most visually dominant
     // property of a page, and until now compared by nothing at all. An L1 render
@@ -3862,8 +4108,6 @@ export function diffManifests(
         ]
       : []),
   ]
-  const claimedActual = new Set<SectionValues>()
-  for (const m of sectionMatches.values()) claimedActual.add(m.section)
   const unpairedActualSections: UnpairedSection[] = flatRepro
     ? []
     : actSections
@@ -3938,7 +4182,11 @@ export function diffManifests(
   // BUG-174 — the reference band each reproduction band was paired with, so a
   // band-paint box can ask whether BOTH records carried its paint.
   const expectedOf = new Map<SectionValues, SectionValues>()
-  for (const [ei, m] of sectionMatches) expectedOf.set(m.section, expSections[ei])
+  for (const [ei, m] of sectionMatches) {
+    expectedOf.set(m.section, expSections[ei])
+    // BUG-179 (item 5) — a covered band was compared as part of its section.
+    for (const b of coveredBands.get(m.section) ?? []) expectedOf.set(b, expSections[ei])
+  }
   /**
    * BUG-174 — every paint axis of this box was compared: the box carries all
    * five, its band record carries all five (so the represented check above read

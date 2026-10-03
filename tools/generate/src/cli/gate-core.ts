@@ -175,6 +175,10 @@ export interface CoverageFinding {
  * halves of the same sentence, for a caller that wants to sort or navigate
  * rather than read.
  */
+/** BUG-179 (item 7) — the envelope probes a layout finding can come from, in report order. */
+export const LAYOUT_PROBES = ['onSample', 'offSample', 'contentRobustness'] as const
+export type LayoutProbe = (typeof LAYOUT_PROBES)[number]
+
 export interface LayoutCollision {
   /**
    * BUG-143 — `escape` joins the pair: a backing surface that has stopped covering
@@ -182,6 +186,14 @@ export interface LayoutCollision {
    * other two do — every surface that can print one can print all three.
    */
   kind: 'overlap' | 'clip' | 'escape' | 'buried'
+  /**
+   * BUG-179 (item 7) — which envelope probe found it. The three are different
+   * claims: an `onSample` collision is visible at a width the reference was
+   * captured at, an `offSample` one only between the rungs, and a
+   * `contentRobustness` one only once the copy grows. Without the name an escape
+   * found under 2.5× text read as an on-sample defect at a captured width.
+   */
+  probe: LayoutProbe
   /** Operator-facing sentence: what collided with what, at which width. */
   detail: string
   /** The captured width the collision was found at. */
@@ -225,11 +237,12 @@ export interface LayoutCollision {
  * reading `findings: []` under a failed verdict, which is the shape of the gap
  * this whole ticket is about.
  */
-export function layoutCollisions(...reports: EnvelopeReport[]): LayoutCollision[] {
-  return reports.flatMap((report) =>
-    report.byWidth.flatMap(({ width, height, findings }) =>
+export function layoutCollisions(reports: Partial<Record<LayoutProbe, EnvelopeReport>>): LayoutCollision[] {
+  return LAYOUT_PROBES.flatMap((probe) =>
+    (reports[probe]?.byWidth ?? []).flatMap(({ width, height, findings }) =>
       findings.map((f) => ({
         kind: f.kind,
+        probe,
         detail: `at ${width}px${height !== undefined ? `×${height}px` : ''}: ${f.detail}`,
         width,
         ...(height !== undefined ? { height } : {}),
@@ -864,11 +877,11 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // or under content growth, or at an unmeasured viewport height, is the same
   // structural defect as one that has left it at a captured width — and it is the
   // one the operator reported while this block read `pass: true, findings: []`.
-  const collisions = layoutCollisions(
-    input.l1Gate.onSample,
-    escapesOnly(input.l1Gate.offSample),
-    escapesOnly(input.l1Gate.contentRobustness),
-  )
+  const collisions = layoutCollisions({
+    onSample: input.l1Gate.onSample,
+    offSample: escapesOnly(input.l1Gate.offSample),
+    contentRobustness: escapesOnly(input.l1Gate.contentRobustness),
+  })
 
   let verdict: GateVerdict
   let diagnosis: string

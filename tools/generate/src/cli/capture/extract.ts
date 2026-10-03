@@ -1014,9 +1014,18 @@ export const EXTRACT_SCRIPT = `(() => {
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       var b = absBox(el);
       if (b.width <= 0 || b.height <= 0) continue;
-      SURFACE_INDEX.push({ el: el, box: b, area: b.width * b.height });
+      SURFACE_INDEX.push({ el: el, box: b, area: b.width * b.height, order: i });
     }
-    SURFACE_INDEX.sort(function (a, b) { return a.area - b.area; });
+    // BUG-179 (item 3) -- an area TIE is broken by PAINT ORDER, topmost first.
+    // querySelectorAll is document order, so a higher index is a descendant or a
+    // later sibling: the box painted ON TOP. A stable area-only sort kept DOM
+    // order instead, so a parent band that exactly coincides with the veiled
+    // backdrop painted over it came first, and surfaceFillOf stopped at the
+    // parent's opaque white without ever reaching the veil the eye sees.
+    SURFACE_INDEX.sort(function (a, b) {
+      var d = a.area - b.area;
+      return Math.abs(d) < 1 ? b.order - a.order : d;
+    });
     return SURFACE_INDEX;
   }
   /** Does the outer box contain the inner box (1px sub-pixel layout tolerance)? */
@@ -2524,6 +2533,32 @@ export const EXTRACT_SCRIPT = `(() => {
   //     overlayInBox already records as the band's overlay and which the fold
   //     layers above the fill it veils. Taking it as the fill would paint it twice
   //     and paint it solid.
+  // BUG-179 (item 6) -- the fill a band paints THROUGH A DESCENDANT.
+  //
+  // A band element that paints nothing itself may still be painted edge to edge
+  // by a child (a page builder's inner container carrying the colour). The band
+  // read only its own element and its coincident layers, so it recorded
+  // {kind: none} over a footer whose every pixel is that child's colour. A
+  // descendant that paints an OPAQUE fill over at least 99% of the band is the
+  // band's fill; the topmost one in paint order when several qualify.
+  var COVERING_FILL_MIN = 0.99;
+  function coveringDescendantFill(el, box) {
+    if (!el || !box || !(box.width > 0) || !(box.height > 0)) return null;
+    var idx = paintedSurfaces();
+    var best = null;
+    for (var i = 0; i < idx.length; i++) {
+      var cand = idx[i];
+      if (cand.el === el || !el.contains(cand.el)) continue;
+      var rgba = rgbaOf(getComputedStyle(cand.el).backgroundColor);
+      if (!rgba || rgba[3] < 0.999) continue;
+      var b = cand.box;
+      var iw = Math.min(b.x + b.width, box.x + box.width) - Math.max(b.x, box.x);
+      var ih = Math.min(b.y + b.height, box.y + box.height) - Math.max(b.y, box.y);
+      if (iw <= 0 || ih <= 0 || (iw * ih) / (box.width * box.height) < COVERING_FILL_MIN) continue;
+      if (!best || cand.order > best.order) best = cand;
+    }
+    return best ? rgbToHex(getComputedStyle(best.el).backgroundColor) : null;
+  }
   function sliceBackgroundColor(slice) {
     var layers = slice.layers || [];
     var box = slice.box;
@@ -2537,7 +2572,7 @@ export const EXTRACT_SCRIPT = `(() => {
       if (!rgba || rgba[3] < 0.999) continue;
       return rgbToHex(lcs.backgroundColor);
     }
-    return rgbToHex(getComputedStyle(slice.el).backgroundColor);
+    return rgbToHex(getComputedStyle(slice.el).backgroundColor) || coveringDescendantFill(slice.el, box);
   }
 
   // Which slice owns this box. Containment first; failing that the nearest slice
@@ -3230,7 +3265,8 @@ export const EXTRACT_SCRIPT = `(() => {
     var band = br.el;
     var s = getComputedStyle(band);
     // REQ-271 -- see the geometric path above: the band's own fill, or null.
-    var bg = rgbToHex(s.backgroundColor);
+    // BUG-179 (item 6) -- or the fill a descendant paints over the whole band.
+    var bg = rgbToHex(s.backgroundColor) || coveringDescendantFill(band, br.box);
     var grp = itemGroup(band);
     var bbox = br.box;
     // REQ-302 -- one walk, producing both the content runs and the index each
