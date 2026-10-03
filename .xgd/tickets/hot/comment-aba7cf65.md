@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-03T00:23:28.453518+00:00'
+updated_at: '2026-10-03T00:24:10.092098+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -121,5 +121,20 @@ Decision for you: §13.3 says no tickets are filed until a stage is about to be 
 And 360 is dependent on the upstream work?
 
 §13.3 says no tickets are filed until a stage is about to be built <-- that is an exageration but it captures the intent that a large feature backlog is unhelpful - we should create the tickets as we need them. This is where we are.
+
+<!-- xgd-turn id="fe372e04-f876-470c-9b0d-dfe242d3bffd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T00:24:08.531147+00:00" -->
+#### Claude
+Yes. Everything still left on REQ-360 depends on lagrange-framework REQ-205:
+
+- **The notice tool:** the consultant can't be granted a `GroupSay` that posts into its own conversation until that `GroupSay` exists. That half of REQ-205 in turn waits on REQ-200 (storing the message inside the running round) and REQ-201 (displaying a round split around it).
+- **The heartbeat:** this needs the side channel into the live stream and the delegation tool's timer upstream. It does *not* need REQ-200 or REQ-201, so it is the half that could be built first.
+
+A dependency on another repo can't go in `depends_on`, so I put a "blocked upstream" banner at the top of REQ-360's body saying this. The rest of the body is unchanged, and the ticket stays at `draft`.
+
+The one thing that doesn't depend on upstream is a priming line telling the consultant that, in a 1:1 chat, text it writes before calling `Delegate` already reaches the client live. That's a prompt change, so it needs no ticket. I can add it now if you want.
+
+Understood on §13.3: REQ-205 stays, because we're at the point of building it.
 
 <!-- xgd-chat-end -->
