@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T18:50:07.364801+00:00'
+updated_at: '2026-10-03T18:50:48.663513+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6279,5 +6279,22 @@ Each of these is one line in the ticket if you want it changed.
 <!-- xgd-chat role="user" ts="2026-10-03T18:50:06.209215+00:00" -->
 #### You
 Added, and it's on your site as **IMAGE-3**. <-- this message is alarming and untrue - the image is not on my site, in fact its not even on my draft, it is AVAILABLE for use on my site is better wordinng
+
+<!-- xgd-turn id="5b2c198f-87f9-4849-8207-fa396deaf9a5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T18:50:46.045383+00:00" -->
+#### Claude
+You're right. The sentence describes a storage step as if it were a change to your site.
+
+**What actually happens.** When you upload with the Site role, the bytes are copied into the site's asset store, and that's all `result.site_asset` means (`apps/control-app/src/builder/app.js:2133`). Nothing is put on a page, the draft doesn't change, and nothing is published. "It's on your site" reads as all three, and for a client it's alarming. They'll go looking for the picture on their homepage, or worry it went live.
+
+**Proposed wording:**
+- **Main sentence:** *"Added — **IMAGE-3** is ready to use on your site."* If you want it plainer: *"Added as **IMAGE-3**. It's available to use on your site."*
+- **The line under it:** *"I couldn't put it on the site yet: …"* is wrong in the same way. It should become *"It's in your Library, but isn't ready to use on the site yet: …"*.
+- **Unchanged:** the reference-role line (*"I'll read it — it won't appear on your site"*) is accurate.
+
+**Where it goes.** The sentence came from REQ-287, which is at `ready_to_reconcile`, so its body is frozen and its UATs pin the old text. The fix needs its own small bug under EPIC-19 that changes both lines and updates those UATs, and should ask for "on your site" not to appear in any upload note for an item that isn't on a page. It's about one point.
+
+Shall I file it with the first wording, or would you rather phrase it differently?
 
 <!-- xgd-chat-end -->
