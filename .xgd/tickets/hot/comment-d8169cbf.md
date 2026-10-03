@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-02T21:02:43.049892+00:00'
+updated_at: '2026-10-03T18:50:07.364801+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6273,5 +6273,11 @@ I've filed **REQ-364**, *"Builder: a plan panel above the chat, where the consul
 Each of these is one line in the ticket if you want it changed.
 
 **On switching Bob back on:** BUG-176 is already at `ready_to_reconcile`, so the fix that lets a retired room be created again has landed. I tried to add a note to it saying you need the coordinator kept available, but its body is frozen. That requirement is recorded in REQ-364 and on the epic instead.
+
+<!-- xgd-turn id="5b2c198f-87f9-4849-8207-fa396deaf9a5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T18:50:06.209215+00:00" -->
+#### You
+Added, and it's on your site as **IMAGE-3**. <-- this message is alarming and untrue - the image is not on my site, in fact its not even on my draft, it is AVAILABLE for use on my site is better wordinng
 
 <!-- xgd-chat-end -->
