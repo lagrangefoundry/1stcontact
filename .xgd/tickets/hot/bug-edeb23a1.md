@@ -6,9 +6,9 @@ title: 'values-diff: a run clipped away by its ancestor reads clean, and 18 of 2
   deltas compare the wrong thing'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:50.344172+00:00'
-updated_at: '2026-10-03T01:13:50.344172+00:00'
+updated_at: '2026-10-03T01:14:05.174556+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -21,7 +21,7 @@ fields:
   priority: medium
 ---
 
-# values-diff: a run clipped away by its ancestor reads clean, and 15 of 23 deltas compare the wrong thing
+# values-diff: a run clipped away by its ancestor reads clean, and 18 of 23 deltas compare the wrong thing
 
 Filed by `repro-console:repro-joyfulculinarycreations-com#5`. These are ruler defects found while diagnosing
 the gap ticket filed in the same round (header nav folded into a clip container). Same bundle and artifacts:
