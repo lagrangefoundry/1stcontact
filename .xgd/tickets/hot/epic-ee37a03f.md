@@ -5,7 +5,7 @@ type: epic
 title: 'Identity: impersonation, multiple login emails, and delegate access'
 created_by: martin-github@westhead.me
 created_at: '2026-10-03T17:23:39.835613+00:00'
-updated_at: '2026-10-03T18:19:01.006389+00:00'
+updated_at: '2026-10-03T18:26:39.423919+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -62,11 +62,14 @@ active, with no membership. What is missing is **navigation**:
 - It does not act as a **user**. The operator sees the **business** as it is,
   not a particular person's selector, profile portal or account pages.
 - Entering through the bypass returns `role: null` (`scope.ts:412`). So
-  **owner-gated controls stay closed** while the operator is inside, for
+  **owner-gated controls stay closed in v1** while the operator is inside, for
   example adding or inviting contacts. These are the `ownsBusiness` checks at
-  `router.ts:4015-4764`. The operator sees the business and does not act as its
-  owner. **Open question:** is that enough for support, or should those
-  controls open to the operator too?
+  `router.ts:4015-4764`.
+- **Target, after v1 (decided 2026-10-03): the platform operator can do
+  everything in any business.** That includes every owner-gated control. v1
+  ships navigation only. Opening the owner gates to the operator is a
+  follow-up, and it must go through the hosting capability
+  (`platform_operator`), not through a fake `owner` membership.
 - **Audit.** Each entry to a business without a membership leaves an audit
   event: who entered it and when.
 
@@ -157,8 +160,8 @@ account pages. If it comes back, these are the findings for it:
   - Today's invite writes **no membership**.
   - On acceptance, today's flow calls `ensureOwnBusiness`
     (`onboarding.ts:118`), which provisions the invitee a **new business of
-    their own**. A delegate acceptance must write the delegate membership
-    instead, and it must not provision a starter business.
+    their own**. A delegate acceptance writes the delegate membership **as
+    well as** that. See "Everyone gets a starter business" below.
 - **V1 access is everything an owner has**, except managing delegates. A
   delegate cannot invite, list-manage or revoke delegates.
 - The owner can **revoke** a delegate. Revoking sets `memberships.revoked_at`
@@ -181,25 +184,42 @@ account pages. If it comes back, these are the findings for it:
   owner-only. **The 1st Contact business's fulfilment actions** (the console,
   `provisionBusiness`) stay owner-only. A delegate of 1st Contact does not get
   the console.
+- **Delegation is to a business, not to an account.** A delegate holds a
+  membership on one business. They gain nothing on the owner's **account**:
+  not its billing, not the owner's profile, not the owner's other businesses.
+  Within the delegated business they hold everything an owner holds, except
+  delegation management.
 - **Entitlement is the business's, not the person's.** A delegate enters a
-  business under that business's grant ([[DOC-40]] §5 / REQ-184). A delegate
-  with no business of their own still needs an account, but no starter business.
-  Open question: confirm that.
-- **The selector** reads `admission.businesses` through `businessesPayload`
-  (`router.ts:2285`). That data already includes memberships of any role. The
-  payload needs `role` added so the switcher (`builder/business.js`) can mark
-  delegated businesses.
+  business under that business's grant ([[DOC-40]] §5 / REQ-184), never under
+  their own.
+- **Everyone gets a starter business, delegates included** (decided
+  2026-10-03). Accepting a delegate invite runs the ordinary onboarding:
+  `ensureOwnBusiness` creates the delegate's own account and starter business,
+  **and** writes the delegate membership. The delegate's own business may never
+  be paid for, and that is fine.
+- **The selector says owned or delegated.** Every business in the switcher
+  (`builder/business.js`) is visibly marked as **owned** or **delegated**. The
+  data already arrives through `admission.businesses` → `businessesPayload`
+  (`router.ts:2285`), which includes memberships of any role. The payload needs
+  `role` added so the switcher can tell them apart.
+- **Default business prefers a live delegated business.** When the app opens
+  with no remembered business, it picks a delegated business over the
+  delegate's own **if their own business is not published**. That way a
+  delegate whose own starter business is untouched and unpaid lands in the
+  business they came to run. A remembered selection still wins: the default
+  only applies when nothing is remembered. "Published" means the business has
+  at least one site that is live. The child ticket confirms the exact
+  predicate against the publish model.
 - **Future, not v1:** access per tab. Store the role so that per-tab grants can
   be added later without a migration of existing rows. Do not build per-tab
   access now.
 
 ### Open questions
 
-- Can a delegate see the **owner's account-level pages** (billing, the owner's
-  profile)? Proposal: no. Delegation covers the business, not the owner's
-  account.
-- Can a delegate **delete the business**, or change its plan and payment?
-  Proposal: v1 treats those as owner-only, alongside delegation management.
+- Business-scoped plan and payment controls: the business's plan, its
+  payment method, and deleting the business. "Full access except delegation"
+  would open them to delegates. None of them exists as a business-scoped
+  control yet, so nothing in v1 has to decide. Revisit when billing lands.
 
 ## Interactions between the three
 
