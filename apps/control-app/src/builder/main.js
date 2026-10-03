@@ -1,5 +1,11 @@
 import { mountBuilder } from './app.js'
-import { fetchAiStatus, fetchBusinesses, streamPublish } from './api.js'
+import {
+  businessFromPath,
+  fetchAiStatus,
+  fetchBusinesses,
+  setBusinessScope,
+  streamPublish,
+} from './api.js'
 import { loadOrSignOut } from './session.js'
 import { mountL1EditBridge, resolveEditTarget } from '/framework/edit-client.js'
 import { formatL1Path, L1_EDIT_PAGE_ATTR } from '/framework/site-schema-edit.js'
@@ -63,6 +69,15 @@ const root = document.getElementById('app')
  * What stays here is the wiring — which calls open the builder, and what is
  * mounted when they answer.
  */
+/**
+ * THE PAGE'S OWN URL MAY NAME A BUSINESS ([[REQ-367]]) — the console's Open
+ * control links to `/b/<id>/`. Scoping the first request to it is what lets the
+ * server say whether that business is held or was entered, and the builder then
+ * opens on it rather than on whatever storage remembered.
+ */
+const linkedBusiness = businessFromPath(location.pathname)
+setBusinessScope(linkedBusiness)
+
 const loaded = await loadOrSignOut(root, () =>
   Promise.all([fetchBusinesses(), fetchAiStatus()]),
 )
@@ -78,6 +93,9 @@ if (loaded) {
     // about the SESSION, which is what this endpoint answers, and reported by it
     // rather than inferred from the list above.
     ownsPlatformBusiness: businesses.ownsPlatformBusiness === true,
+    // [[REQ-367]] — the business the URL named, and whether it was entered.
+    linkedBusiness,
+    entered: businesses.entered,
     aiStatus,
     // [[REQ-222]] — THE STREAMING FORM, so the builder can say how far through
     // resizing the pictures a first publish is. The non-streaming `publishSite`

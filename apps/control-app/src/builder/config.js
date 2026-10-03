@@ -244,6 +244,8 @@ export const CONSOLE_SITES_EMPTY = 'No site has been provisioned on this platfor
 export const CONSOLE_SITES_NONE_SELECTED = 'Choose a site on the left to see whose it is.'
 export const CONSOLE_SITE_NO_ADDRESS =
   'This site has no public address, so there is nowhere to link to. It cannot be published either.'
+/** The console row's way into the business it lists ([[REQ-367]]). */
+export const CONSOLE_OPEN_LABEL = 'Open'
 export const CONSOLE_BUSINESS_NAME_MISSING = 'No business record answers for this site.'
 export const CONSOLE_ACCOUNT_PLATFORM = '1st Contact itself — no owner account.'
 export const CONSOLE_ACCOUNT_MISSING = 'No account record answers for this business.'
@@ -357,6 +359,18 @@ export const STORAGE_KEYS = {
  */
 export const BUSINESS_LABEL = 'Business'
 export const BUSINESS_LAPSED_SUFFIX = ' (access ended)'
+
+/**
+ * A business the platform operator ENTERED rather than holds ([[REQ-367]]).
+ *
+ * The switcher shows it as the current entry with this suffix, and the banner
+ * above every tab says the same thing in a sentence — *entered*, not *owned*, so
+ * nobody inside someone else's business mistakes it for their own. The way back
+ * names the business it returns to, because "back" alone does not say where.
+ */
+export const BUSINESS_ENTERED_SUFFIX = ' (entered as platform operator)'
+export const OPERATOR_BANNER = (name) => `You are in ${name} as platform operator.`
+export const OPERATOR_BANNER_BACK = (name) => `Back to ${name}`
 
 /**
  * What the builder says when NOTHING on the account can be entered ([[REQ-179]]

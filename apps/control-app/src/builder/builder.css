@@ -2896,6 +2896,33 @@ body {
   border-bottom: 1px solid #d9a93a;
 }
 
+/* [[REQ-367]] — the platform operator inside a business they do not hold. A
+   colour of its own, because it is not a problem the way the session strip is:
+   it is a standing fact about where the operator is. */
+.builder-operator-banner {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  line-height: 1.4;
+  color: #f5f3ff;
+  background: #5b21b6;
+  border-bottom: 1px solid #3b0764;
+}
+
+.builder-operator-banner__back {
+  margin-left: auto;
+  padding: 0.25rem 0.75rem;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  color: inherit;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+}
+
 .builder-signed-out {
   display: flex;
   gap: 0.75rem;
@@ -3956,9 +3983,15 @@ body {
    the money, because it is what the list is ordered by. */
 .builder-console-sites__row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) auto;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.6fr) auto auto;
   gap: 8px;
   align-items: baseline;
+}
+
+/* [[REQ-367]] — the row's way into its business. Last, after the money, so the
+   column the list is ordered by keeps its place. */
+.builder-console-sites__open {
+  font-size: 0.85em;
 }
 
 .builder-console-sites__row-business {

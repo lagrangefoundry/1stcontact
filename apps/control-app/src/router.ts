@@ -34,7 +34,8 @@ import {
   portalAcceptances,
   setPreference,
 } from './acceptances'
-import { eventsOf, type EventEnv } from './events'
+import { contactEventInsert, eventsOf, type EventEnv } from './events'
+import { OPERATOR_ENTERED } from './builder/contact-events.js'
 import { ChatAddressError, readChats, writeChats, type ChatsPayload } from './chat-copy'
 import { payloadToWrite, readSiteDraft, type SitePayload } from '../../../tools/generate/src/cli/push'
 import { publishSite, revisionHistory } from '../../../tools/generate/src/publish/publish'
@@ -270,7 +271,13 @@ import { redactor } from './redact'
 import { KINDS } from './generated/logging'
 import type { RequestLog } from './log'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
-import { NoBusinessError, businessPath, splitBusinessPrefix, type Scope } from './scope'
+import {
+  NoBusinessError,
+  businessPath,
+  enteredBusiness,
+  splitBusinessPrefix,
+  type Scope,
+} from './scope'
 import {
   findAccount,
   ownsBusiness,
@@ -2248,6 +2255,16 @@ export interface BusinessesPayload {
    * nobody who can type a URL.
    */
   ownsPlatformBusiness: boolean
+  /**
+   * The business this session ENTERED rather than holds ([[REQ-367]]) — the
+   * platform operator inside somebody else's business — or null.
+   *
+   * BESIDE `businesses` AND NEVER IN IT. That list is memberships, and an entry
+   * in it is a statement that this person operates the business; a hosted
+   * business is not one, and the chrome marks it differently and drops it the
+   * moment the operator switches away. Null for every scope that is held.
+   */
+  entered: { id: string; name: string } | null
 }
 
 /**
@@ -2287,6 +2304,7 @@ export function businessesPayload(
   scope: Scope | null,
   personName: string | null = null,
   ownsPlatform: boolean = false,
+  entered: { id: string; name: string } | null = null,
 ): BusinessesPayload {
   if (admission?.ok) {
     return {
@@ -2298,6 +2316,7 @@ export function businessesPayload(
         lapse: b.lapse,
       })),
       ownsPlatformBusiness: ownsPlatform,
+      entered,
     }
   }
   return {
@@ -2311,6 +2330,7 @@ export function businessesPayload(
     // operator console would be a shape that reads as a feature and would
     // eventually be relied upon.
     ownsPlatformBusiness: false,
+    entered: null,
   }
 }
 
@@ -2698,6 +2718,34 @@ async function routeUncached(
   }
 
   if (p === '/' || p === '/index.html') {
+    /**
+     * ENTERING A BUSINESS YOU DO NOT HOLD LEAVES A RECORD ([[REQ-367]]).
+     *
+     * THE PAGE LOAD IS THE ENTRY. The console's Open control is a link to
+     * `/b/<id>/`, and the chrome is only ever scoped to a business it does not
+     * hold by arriving at that document — switching away drops it, and nothing
+     * in the switcher can select it again. So this is one row per time the
+     * operator opened the app inside someone else's business, and not one per
+     * API call the app then makes there.
+     *
+     * ON THE OPERATOR'S OWN CONTACT, in the immutable spine, with the business
+     * entered as the `ref`. *Who* is the contact and *when* is `occurred_at`;
+     * the business the row is filed under is derived from the operator's own
+     * `users` row by the insert itself, so it is the operator's business that
+     * holds the record and not the customer's they walked into.
+     *
+     * AWAITED, so a page served inside another business is always a recorded
+     * one — the same ordering the gate keeps between a download and its event.
+     */
+    const entered = await enteredBusiness(identityEnv, deps.admission, scope)
+    if (entered && deps.admission?.ok) {
+      await contactEventInsert(identityEnv, {
+        contactId: deps.admission.user.id,
+        kind: OPERATOR_ENTERED,
+        ref: entered.id,
+        detail: { business: entered.id, name: entered.name },
+      }).run()
+    }
     return new Response(chromeHtml(), {
       status: 200,
       headers: { 'content-type': 'text/html; charset=utf-8' },
@@ -3316,6 +3364,7 @@ async function routeUncached(
           // and a client that guessed would draw a control whose routes then
           // refuse it.
           ownsPlatformBusiness(identityEnv, deps.admission),
+          await enteredBusiness(identityEnv, deps.admission, scope),
         ),
       )
     }

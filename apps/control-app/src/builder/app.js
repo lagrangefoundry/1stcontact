@@ -21,6 +21,7 @@ import {
 import {
   accountAvatar,
   createBusinessSwitcher,
+  createOperatorBanner,
   openAccountSurface,
   resolveBusiness,
 } from './business.js'
@@ -132,6 +133,21 @@ export function mountBuilder(root, options = {}) {
      * of forgetting to pass it is a missing control rather than an offered one.
      */
     ownsPlatformBusiness = false,
+    /**
+     * The business the page's URL named, if any ([[REQ-367]]) — a hint that
+     * outranks the remembered selection, because a link that names a business
+     * is a more recent statement than storage. Still only a hint: one the
+     * account cannot open falls back exactly as a stale stored id does.
+     */
+    linkedBusiness = null,
+    /**
+     * The business this session ENTERED rather than holds ([[REQ-367]]) —
+     * `{id, name}` from `/api/businesses`, or null. Non-null only for the
+     * platform operator inside somebody else's business; the builder opens on
+     * it, the switcher shows it marked, and a banner says so on every tab until
+     * the operator switches away.
+     */
+    entered = null,
     /**
      * What the operator console's DETAIL PANE composes ([[REQ-298]]).
      *
@@ -432,7 +448,8 @@ export function mountBuilder(root, options = {}) {
    * bigger fact than a lapsed grant — nothing runs either way — so the wider
    * block wins and this one does not add a second banner under it.
    */
-  const noBusiness = businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
+  const noBusiness =
+    !entered && businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
   if (noBusiness && !blocked) blockTabs(shell, BUSINESS_NONE_SELECTABLE_MESSAGE)
 
   /**
@@ -505,10 +522,44 @@ export function mountBuilder(root, options = {}) {
    */
   const switcher = createBusinessSwitcher({
     businesses,
+    entered,
     onSelect: (id) => void selectBusiness(id),
   })
   const shellBar = shell.element.querySelector('.shell-bar')
   ;(shellBar ?? shell.element).prepend(switcher.element)
+
+  /**
+   * THE OPERATOR BANNER ([[REQ-367]]) — on `root`, above the shell, so it is on
+   * every tab for as long as the entered business is the one open.
+   *
+   * THE WAY BACK IS THE OPERATOR'S FIRST OWN BUSINESS, chosen by the same
+   * `resolveBusiness` a fresh mount uses with nothing remembered — so "back"
+   * lands where opening the builder plainly would, and is absent when there is
+   * no business of their own to land on.
+   */
+  const home = entered ? resolveBusiness(businesses, null) : null
+  const homeName = home ? (businesses.find((b) => b.id === home)?.name ?? home) : null
+  let operatorBanner = entered
+    ? createOperatorBanner({
+        name: entered.name,
+        back: home ? { name: homeName, onBack: () => void selectBusiness(home) } : null,
+      })
+    : null
+  if (operatorBanner) root.prepend(operatorBanner.element)
+
+  /**
+   * Switching anywhere else leaves the entered business for good: the banner
+   * goes, and the page URL stops naming it, so a reload opens the operator's
+   * own business rather than silently re-entering — and re-recording — theirs.
+   */
+  function leaveEntered(id) {
+    if (!operatorBanner || id === entered.id) return
+    operatorBanner.destroy()
+    operatorBanner = null
+    if (typeof history !== 'undefined' && /^\/b\//.test(location.pathname)) {
+      history.replaceState(history.state, '', '/')
+    }
+  }
 
   /**
    * The operator console, as a full-surface view ([[REQ-298]]).
@@ -1527,7 +1578,7 @@ export function mountBuilder(root, options = {}) {
    * prevent, arrived at from the other side.
    */
   function businessRecord(id) {
-    const entry = businesses.find((b) => b.id === id)
+    const entry = businesses.find((b) => b.id === id) ?? (entered?.id === id ? entered : null)
     return entry ? { id: entry.id, name: entry.name } : null
   }
 
@@ -1643,7 +1694,11 @@ export function mountBuilder(root, options = {}) {
   async function selectBusiness(businessId) {
     currentBusiness = businessId ?? null
     setBusinessScope(currentBusiness)
-    businessStorage.setItem('id', currentBusiness ?? '')
+    leaveEntered(currentBusiness)
+    // AN ENTERED BUSINESS IS NOT REMEMBERED ([[REQ-367]]). The stored id is the
+    // operator's own selection; re-entering someone else's is the console's
+    // Open control, which is the act that leaves an audit record.
+    if (!operatorBanner) businessStorage.setItem('id', currentBusiness ?? '')
     switcher.set(currentBusiness)
 
     // A failure to list is not a failure to run: the pane keeps what it had, and
@@ -1747,7 +1802,8 @@ export function mountBuilder(root, options = {}) {
    * outliving a grant produces. With no businesses at all it resolves to null,
    * which sets no prefix and leaves every URL exactly as it was.
    */
-  const initialBusiness = resolveBusiness(businesses, businessStorage.getItem('id'))
+  const initialBusiness =
+    entered?.id ?? resolveBusiness(businesses, linkedBusiness ?? businessStorage.getItem('id'))
   switcher.set(initialBusiness)
   void selectBusiness(initialBusiness)
 
@@ -1815,6 +1871,10 @@ export function mountBuilder(root, options = {}) {
     get sessionNotice() {
       return sessionNotice?.element ?? null
     },
+    /** The operator banner ([[REQ-367]]), or null when none is up. */
+    get operatorBanner() {
+      return operatorBanner?.element ?? null
+    },
     /**
      * What the overlay calls when a drop is committed — named so the refusal on
      * an unconfigured deployment is provable without simulating a browser
@@ -1824,6 +1884,7 @@ export function mountBuilder(root, options = {}) {
     receiveFiles,
     destroy() {
       banner?.remove()
+      operatorBanner?.destroy()
       unwatchSession()
       sessionNotice?.element.remove()
       unbindDocument()

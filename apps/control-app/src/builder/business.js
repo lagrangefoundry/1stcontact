@@ -28,6 +28,9 @@ import {
   SIGN_OUT_LABEL,
   BUSINESS_LABEL,
   BUSINESS_LAPSED_SUFFIX,
+  BUSINESS_ENTERED_SUFFIX,
+  OPERATOR_BANNER,
+  OPERATOR_BANNER_BACK,
   BUSINESS_LAPSE_EXPIRED_ON,
   BUSINESS_LAPSE_SENTENCES,
 } from './config.js'
@@ -142,7 +145,12 @@ export function lapseSentence(lapse) {
  * @param {string|null} [spec.selected] the id to show as current
  * @param {(id: string) => void} [spec.onSelect] fired only on an operator change
  */
-export function createBusinessSwitcher({ businesses = [], selected = null, onSelect = () => {} } = {}) {
+export function createBusinessSwitcher({
+  businesses = [],
+  entered = null,
+  selected = null,
+  onSelect = () => {},
+} = {}) {
   const element = document.createElement('div')
   element.className = 'builder-business'
 
@@ -153,22 +161,45 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
   let suspended = false
   let wasDisabled = false
 
-  const labelOf = (b) => `${b.name || b.id}${b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''}`
+  /**
+   * THE BUSINESS THE OPERATOR ENTERED, SHOWN AS AN ENTRY AND NOT AS A MEMBERSHIP
+   * ([[REQ-367]]). It is first, because it is the current one; it is labelled as
+   * entered, because it is not theirs; and it is dropped the moment the operator
+   * switches away — see {@link leave} — because nothing in this control may
+   * select it again. Re-entering is the console's Open control, which is the act
+   * that is audited.
+   */
+  let visiting = entered ? { id: entered.id, name: entered.name, entered: true } : null
+  const entries = visiting ? [visiting, ...businesses] : businesses
+
+  const labelOf = (b) =>
+    `${b.name || b.id}${
+      b.entered ? BUSINESS_ENTERED_SUFFIX : b.selectable === false ? BUSINESS_LAPSED_SUFFIX : ''
+    }`
 
   // Marked on the wrapper rather than inferred by every reader: `app.js` blocks
   // the tabs on the same fact, the stylesheet dims on it, and a suite asserts
   // it. One derivation, three consumers.
-  const noneSelectable = businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
+  const noneSelectable =
+    !visiting && businesses.length > 0 && !businesses.some((b) => b.selectable !== false)
   if (noneSelectable) element.dataset.noneSelectable = 'true'
 
-  if (businesses.length > 1) {
+  /** Drop the entered business once the selection is anywhere else. */
+  function leave(id) {
+    if (!visiting || id === visiting.id) return
+    visiting = null
+    select?.querySelector('option[data-entered="true"]')?.remove()
+  }
+
+  if (entries.length > 1) {
     select = document.createElement('select')
     select.className = 'builder-business__select'
     select.setAttribute('aria-label', BUSINESS_LABEL)
-    for (const b of businesses) {
+    for (const b of entries) {
       const opt = document.createElement('option')
       opt.value = b.id
       opt.textContent = labelOf(b)
+      if (b.entered) opt.dataset.entered = 'true'
       // A lapsed business is readable and unreachable — the state the ticket
       // asks for, expressed with the attribute the platform already means it
       // with, so keyboard and assistive technology get it for free.
@@ -185,13 +216,14 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
     }
     select.addEventListener('change', () => {
       current = select.value
+      leave(current)
       onSelect(current)
     })
     element.append(select)
-  } else if (businesses.length === 1) {
+  } else if (entries.length === 1) {
     const name = document.createElement('span')
     name.className = 'builder-business__name'
-    name.textContent = labelOf(businesses[0])
+    name.textContent = labelOf(entries[0])
     element.append(name)
   }
   // Zero businesses renders nothing at all. An empty switcher would be a control
@@ -241,9 +273,12 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
      */
     set(id) {
       current = id
+      leave(id)
       if (select && id) select.value = id
       return current
     },
+    /** The business currently shown as entered, or null ([[REQ-367]]). */
+    entered: () => (visiting ? { id: visiting.id, name: visiting.name } : null),
     /**
      * Say that a business is called something else now ([[REQ-239]]).
      *
@@ -273,6 +308,48 @@ export function createBusinessSwitcher({ businesses = [], selected = null, onSel
       const only = element.querySelector('.builder-business__name')
       if (only) only.textContent = labelOf(entry)
     },
+    destroy() {
+      element.remove()
+    },
+  }
+}
+
+/**
+ * The reminder that this business is not the operator's own ([[REQ-367]]).
+ *
+ * ABOVE EVERY TAB, because the fact is about the whole session and not one
+ * surface: the platform operator, inside a business they hold no membership on.
+ * It names the business, and it offers the way back — to the operator's own
+ * business, named — so getting out never needs the switcher to be found first.
+ *
+ * NO WAY BACK IS DRAWN WHEN THERE IS NOWHERE TO GO BACK TO: an operator with no
+ * selectable business of their own still gets the sentence, and a button that
+ * could only fail would be worse than none.
+ *
+ * NOTHING HERE DECIDES WHAT LEAVING MEANS. `onBack` is the shell's own switch,
+ * the same one the switcher calls, so the banner cannot leave the scope half-moved.
+ */
+export function createOperatorBanner({ name, back = null } = {}) {
+  const element = document.createElement('div')
+  element.className = 'builder-operator-banner'
+  element.setAttribute('role', 'status')
+
+  const text = document.createElement('span')
+  text.className = 'builder-operator-banner__text'
+  text.textContent = OPERATOR_BANNER(name)
+  element.append(text)
+
+  if (back) {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'builder-operator-banner__back'
+    button.textContent = OPERATOR_BANNER_BACK(back.name)
+    button.addEventListener('click', () => back.onBack())
+    element.append(button)
+  }
+
+  return {
+    element,
     destroy() {
       element.remove()
     },
