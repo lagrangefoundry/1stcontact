@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-03T19:28:08.193028+00:00'
+updated_at: '2026-10-03T19:33:14.561859+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -100,5 +100,39 @@ Anything in the fragments becomes part of Charlie's story once you paste it. Two
 - Charlie mentions a daughter-in-law, which means Dave is married.
 
 Change or drop those before pasting if they don't suit your version of Charlie.
+
+<!-- xgd-turn id="41ff8084-cb5a-42b5-bf2b-68be0720cf5d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T19:31:21.011135+00:00" -->
+#### You
+Can you also give me quotes for the full range of what he does? And the story of the family business please
+
+<!-- xgd-turn id="41ff8084-cb5a-42b5-bf2b-68be0720cf5d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T19:33:09.994320+00:00" -->
+#### Claude
+I've added two new files to the Charlie folder and listed them in `README.md`. Nothing is committed yet.
+
+**`services.md`: everything he does, with prices.** I took "quotes" to mean both what Charlie says about each job and what he charges for it. Each service has a fragment in his voice with a typical price range, all on top of the $125 callout fee:
+- **Drains and sewers:** blocked sinks and toilets, clearing the main sewer line ($275–350), camera inspection, high-pressure jetting, spot sewer repairs, and grease lines for restaurants on a schedule.
+- **Water heaters:** repairs, tank replacement ($2,400–2,900 installed), and tankless, which is Dave's area.
+- **Leaks and pipes:** burst pipes, leaks under the slab, shutoff valves and pressure regulators, and partial repipes only.
+- **Smaller jobs:** faucets, running toilets, garbage disposals and hookups.
+- **Gas:** "call PG&E first, then me".
+- **What he won't do:** jobs he sends to others by name, plus free estimates and free "is this an emergency?" advice over the phone.
+
+**`family-story.md`: the family business.** There's a full narrative for your reference, then the same story split into quotes Charlie would say out of order and only when asked. In outline:
+- Charlie grew up in Watsonville and learned the trade under an old Santa Cruz plumber called Walt.
+- When Walt retired in 2001 he gave Charlie a shoebox of customer index cards, and about forty of those households still call.
+- Emma kept the business alive through the 2009 slump with contracts for landlords and restaurants.
+- In 2019 Charlie fell asleep at a red light after a 3am Christmas-morning job. That's why Emma ended the 24-hour callouts.
+- Dave left for four years in San Jose so he wouldn't be "Charlie's kid", then phoned in 2021 asking if there was room for him.
+- Charlie's knees have about five years of crawl spaces left. The plan is for Dave to take over and keep the Charlie's name.
+
+**New details you might not want:** I checked the new files against the README fragments and testimonials and they agree. These details are new, so change any you don't want before pasting:
+- Charlie's surname is Moreno.
+- Walt Hendricks, the old plumber, and Rick at Coastal Sewer, who Charlie sends whole-line jobs to.
+- Dave's wife is Lucia, a teacher, and they have a baby on the way. This also fits the "daughter-in-law" fragment from earlier.
+- Charlie is 56 and the business has two vans.
 
 <!-- xgd-chat-end -->
