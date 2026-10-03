@@ -5,10 +5,10 @@ type: request
 title: An operator console for tenant cost
 created_by: EPIC-20
 created_at: '2026-09-21T23:44:45.407051+00:00'
-updated_at: '2026-09-22T20:12:26.113298+00:00'
+updated_at: '2026-10-03T13:56:43.932949+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
@@ -29,7 +29,6 @@ fields:
   version: 0.2.320
   story_points: 8
 ---
-
 
 ## Why
 
