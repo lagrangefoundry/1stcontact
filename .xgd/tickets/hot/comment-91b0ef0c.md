@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-03T17:55:53.695680+00:00'
+updated_at: '2026-10-03T17:56:56.764191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3647,5 +3647,20 @@ failed with this:
 Iteration 6 failed at repro. repro failed (exit 1): promoteToFlow: produced an invalid L1 document — /root/children/14/children/3/responsiveLayout: Unrecognized key: "segments"; /root/children/19/responsiveLayout: Unrecognized key: "segments"
 
 Will BUG-180 fix this?
+
+<!-- xgd-turn id="5bd5507c-e858-4768-9ab5-85fddfe9f0f2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T17:56:53.058153+00:00" -->
+#### Claude
+Yes, BUG-180 will fix this. It's the same failure, in the same text-reflow pass that bluelotus fails in. BUG-180 covers it twice over:
+
+1. **The cause.** The step that stamps a hold onto the arrangement setting stops doing so, which removes this exact error.
+2. **The safety net.** Even if some other bug made that pass produce an invalid page, the run would skip the pass and serve the page as it was before it, instead of failing.
+
+One thing that's different from the other two sites: joyful iteration 5 got as far as the gate (the scoring step), so this site used to get past this point. My guess is that a change landed this morning (`d20a12c157`) created the new layout-change ranges that trigger the bug, though I haven't verified that. Either way, a site that already worked can start failing, which makes the second fix more important than it looked.
+
+I've added this to BUG-180 as an addendum, including joyful in its test plan. It's still at `draft` and nothing has been built yet. Once you promote it and it lands, restart the console and press [recapture] on joyful.
+
+Joyful also still needs **BUG-175** (the crash on fractional-sized images) before it can finish. Past this step, it reaches the gate step that crashed in iteration 5. Promote both together.
 
 <!-- xgd-chat-end -->
