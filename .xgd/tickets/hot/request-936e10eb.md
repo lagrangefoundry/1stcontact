@@ -5,10 +5,10 @@ type: request
 title: 'l1: no text-underline-offset axis, so a link underline paints 2px high'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:21.646192+00:00'
-updated_at: '2026-10-03T17:09:01.081730+00:00'
+updated_at: '2026-10-03T17:19:16.574468+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - l1-cannot-express
