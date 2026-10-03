@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-12
 created_by: xgd
 created_at: '2026-09-16T01:00:43.968268+00:00'
-updated_at: '2026-10-02T04:07:38.701816+00:00'
+updated_at: '2026-10-03T17:22:03.640181+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3590,5 +3590,23 @@ The tests cover:
 Good news on Gigabyte Alchemy: 0 unmeasured and correct horizontal scaling means BUG-173 and BUG-174 did what they were meant to.
 
 I left joyful's 1700px-wide overflow out of this ticket deliberately: it predates this crash and has a different cause. Once joyful can complete an iteration, it'll show up in the comparison, and a diagnosis round should pick it up then.
+
+<!-- xgd-turn id="fb1d5601-2321-4c61-867f-6b5c13d8867d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T17:21:56.170470+00:00" -->
+#### You
+Two issues, reproduction of: 
+
+https://www.hearingzone510.com/
+
+Iteration 1 failed at repro. repro failed (exit 1): hildren/6/children/0/children/4/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/0/children/7/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/1/children/1/children/1/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/1/children/1/children/2/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/2/children/2/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/2/children/4/responsiveLayout: Unrecognized key: "segments"; /root/children/7/responsiveLayout: Unrecognized key: "segments"
+
+http://www.bluelotusintegralhealing.com
+
+Iteration 1 failed at repro. repro failed (exit 1): promoteToFlow: produced an invalid L1 document — /root/children/5/children/3/responsiveLayout: Unrecognized key: "segments"; /root/children/6/children/1/responsiveLayout: Unrecognized key: "segments"; /root/children/7/responsiveLayout: Unrecognized key: "segments"
+
+The repro can produce poor results but it feels like it should complete with something on every site, not error out.
+
+Can you create me bugs to fix these two please?
 
 <!-- xgd-chat-end -->
