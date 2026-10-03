@@ -2,11 +2,18 @@
  * Vetted client behaviour for the `account-portal` behavior ([[REQ-183]],
  * [[REQ-245]]).
  *
- * THREE JOBS, AND NONE OF THEM DELETES ANYTHING. It fills the account line and
+ * FOUR JOBS, AND NONE OF THEM DELETES THE ACCOUNT. It fills the account line and
  * the holdings sentence from the endpoint the instance names; it folds the
- * erasure explanation away behind the control; and it draws the contact's own
+ * erasure explanation away behind the control; it draws the contact's own
  * acceptances, offering a control on exactly the ones the endpoint marked
- * editable.
+ * editable; and it draws the addresses they sign in with, offering Remove and
+ * Make primary on exactly the rows the endpoint marked as allowing them, plus a
+ * form to add one ([[REQ-368]]).
+ *
+ * THE FOURTH JOB IS THE SECOND OPENING, BOUNDED THE SAME WAY. Its one `POST`
+ * names an action and an address and nothing else — never a person, which the
+ * endpoint reads from the session — and the endpoint refuses removing the
+ * primary or the last validated address whatever this file sends.
  *
  * THE THIRD JOB IS THE ONE OPENING IN A CONTRACT THAT WAS READ-ONLY, AND IT IS
  * BOUNDED AT BOTH ENDS ([[REQ-245]] §2). This file makes exactly two kinds of
@@ -45,6 +52,9 @@ const REVEAL_SELECTOR = 'button[aria-expanded]'
 const AGREEMENTS_SELECTOR = '[data-account-agreements]'
 const PREFERENCES_SELECTOR = '[data-account-preferences]'
 const PREFS_ERROR_SELECTOR = '[data-account-prefs-error]'
+const EMAILS_SELECTOR = '[data-account-emails]'
+const ADDRESSES_SELECTOR = '[data-account-addresses]'
+const EMAILS_ERROR_SELECTOR = '[data-account-emails-error]'
 
 /**
  * How the person reading this portal is named on it.
@@ -380,6 +390,180 @@ export async function setPreference(section, entry, box, fetchImpl) {
   }
 }
 
+/* -- Sign-in addresses ([[REQ-368]]) ------------------------------------- */
+
+/**
+ * Where one address stands, in words.
+ *
+ * VALIDATED IS SAID, AND SO IS ITS ABSENCE, WITH THE REMEDY. An unvalidated
+ * address already receives sign-in links; signing in through one is the only
+ * thing that validates it, so the row says so rather than leaving the reader to
+ * guess what "not validated" asks of them.
+ *
+ * Pure and exported, because the phrasing is the claim.
+ */
+export function addressStatus(entry) {
+  if (!entry || typeof entry !== 'object') return ''
+  var parts = []
+  if (entry.primary) parts.push('Primary')
+  parts.push(entry.validated ? 'Validated' : 'Not validated yet — sign in with it to validate it')
+  return parts.join(' · ')
+}
+
+/** Rows the endpoint returned, defensively — anything else is no rows. */
+export function addressRows(payload) {
+  if (!payload || typeof payload !== 'object' || !Array.isArray(payload.emails)) return null
+  var rows = []
+  for (var i = 0; i < payload.emails.length; i++) {
+    var entry = payload.emails[i]
+    if (entry && typeof entry === 'object' && typeof entry.id === 'string' && typeof entry.email === 'string') {
+      rows.push(entry)
+    }
+  }
+  return rows
+}
+
+/** Where the addresses endpoint is named. */
+function emailsSrc(section) {
+  var region = section.querySelector(EMAILS_SELECTOR)
+  return region ? region.getAttribute('data-emails-src') : null
+}
+
+/** A `type="button"` button — a bare one inside the add form would submit it. */
+function button(doc, className, text, onClick) {
+  var node = doc.createElement('button')
+  node.type = 'button'
+  node.className = className
+  node.textContent = text
+  node.addEventListener('click', onClick)
+  return node
+}
+
+/**
+ * Draw the list and the add form from the endpoint's answer.
+ *
+ * A CONTROL EXISTS ONLY WHERE THE ROW SAYS IT MAY. There is no disabled Remove
+ * on the primary: the row arrives `removable: false` and gets no button, for the
+ * reason the preferences carry no greyed checkbox.
+ */
+function paintAddresses(section, rows, call) {
+  var list = section.querySelector(ADDRESSES_SELECTOR)
+  var region = section.querySelector(EMAILS_SELECTOR)
+  if (!list) return
+  var doc = list.ownerDocument
+  while (list.firstChild) list.removeChild(list.firstChild)
+  for (var i = 0; i < rows.length; i++) {
+    var entry = rows[i]
+    var row = doc.createElement('li')
+    row.className = 'account-portal__address'
+    row.setAttribute('data-address-id', entry.id)
+    row.appendChild(span(doc, 'account-portal__addressemail', entry.email))
+    row.appendChild(span(doc, 'account-portal__addressstatus', addressStatus(entry)))
+    if (entry.canMakePrimary) {
+      row.appendChild(
+        button(doc, 'account-portal__makeprimary', 'Make primary', changeFor(section, call, { action: 'primary', id: entry.id })),
+      )
+    }
+    if (entry.removable) {
+      row.appendChild(
+        button(doc, 'account-portal__removeaddress', 'Remove', changeFor(section, call, { action: 'remove', id: entry.id })),
+      )
+    }
+    list.appendChild(row)
+  }
+
+  var formRow = doc.createElement('li')
+  formRow.className = 'account-portal__address'
+  var form = doc.createElement('form')
+  form.className = 'account-portal__addform'
+  form.setAttribute('data-address-add', '')
+  var input = doc.createElement('input')
+  input.type = 'email'
+  input.className = 'account-portal__addinput'
+  input.setAttribute('aria-label', 'Another address to sign in with')
+  input.placeholder = 'Another address'
+  input.autocomplete = 'email'
+  var submit = doc.createElement('button')
+  submit.type = 'submit'
+  submit.className = 'account-portal__addaddress'
+  submit.textContent = 'Add'
+  form.appendChild(input)
+  form.appendChild(submit)
+  form.addEventListener('submit', function (event) {
+    event.preventDefault()
+    void changeAddresses(section, { action: 'add', email: input.value }, call)
+  })
+  formRow.appendChild(form)
+  list.appendChild(formRow)
+  if (region) region.hidden = false
+}
+
+function changeFor(section, call, body) {
+  return function () {
+    void changeAddresses(section, body, call)
+  }
+}
+
+/**
+ * Read the caller's addresses and draw them.
+ *
+ * A FAILURE COSTS THE SECTION AND NOTHING ELSE: it stays hidden, as rendered.
+ */
+export async function loadAddresses(section, fetchImpl) {
+  var src = emailsSrc(section)
+  if (!src) return
+  var call = fetchImpl || (typeof fetch === 'function' ? fetch : null)
+  if (!call) return
+  var rows
+  try {
+    var response = await call(src, { method: 'GET', credentials: 'same-origin' })
+    if (!response || !response.ok) throw new Error('refused')
+    rows = addressRows(await response.json())
+  } catch (_e) {
+    return
+  }
+  if (rows) paintAddresses(section, rows, call)
+}
+
+/**
+ * The addresses section's one write: add, remove or make primary.
+ *
+ * THE ANSWER IS THE TRUTH. A success returns the whole list and the section is
+ * redrawn from it; a refusal leaves the list as it was and shows the endpoint's
+ * own reason, because "you must keep at least one validated address" is the
+ * reader's to know and this file must not paraphrase it. A primary change also
+ * moves the account line, so that is re-read too.
+ */
+export async function changeAddresses(section, body, fetchImpl) {
+  var src = emailsSrc(section)
+  var error = section.querySelector(EMAILS_ERROR_SELECTOR)
+  var call = fetchImpl || (typeof fetch === 'function' ? fetch : null)
+  if (!src || !call) return
+  var payload = null
+  var ok = false
+  try {
+    var response = await call(src, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    ok = !!response && response.ok
+    payload = await response.json()
+  } catch (_e) {
+    payload = null
+  }
+  var rows = ok ? addressRows(payload) : null
+  if (rows) {
+    paintAddresses(section, rows, call)
+    if (error) fill(error, '')
+    if (body.action === 'primary') void loadAccount(section, call)
+    return
+  }
+  var reason = payload && typeof payload.error === 'string' && payload.error ? payload.error : ''
+  if (error) fill(error, reason || 'That change could not be saved just now.')
+}
+
 /** Attach every behaviour to one portal `<section>`. */
 export function enhanceAccountPortal(section, fetchImpl) {
   try {
@@ -394,6 +578,7 @@ export function enhanceAccountPortal(section, fetchImpl) {
     }
     void loadAccount(section, fetchImpl)
     void loadPreferences(section, fetchImpl)
+    void loadAddresses(section, fetchImpl)
   } catch (_e) {
     // Isolation: enhancement failure leaves the fully-expanded server baseline.
   }

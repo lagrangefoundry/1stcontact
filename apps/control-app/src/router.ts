@@ -34,6 +34,13 @@ import {
   portalAcceptances,
   setPreference,
 } from './acceptances'
+import {
+  addSignInAddress,
+  makePrimarySignInAddress,
+  removeSignInAddress,
+  signInAddressesOf,
+  SignInAddressRefusedError,
+} from './sign-in-addresses'
 import { contactEventInsert, eventsOf, type EventEnv } from './events'
 import { OPERATOR_ENTERED } from './builder/contact-events.js'
 import { ChatAddressError, readChats, writeChats, type ChatsPayload } from './chat-copy'
@@ -1625,6 +1632,17 @@ export const BUSINESSES_PATH = '/api/businesses'
  * preferences these are is the one changing them — and the prefix says so.
  */
 export const ACCEPTANCES_PATH = '/api/acceptances'
+
+/**
+ * Where a signed-in person reads and changes the addresses they sign in with
+ * ([[REQ-368]]).
+ *
+ * THE PORTAL'S SECOND WRITE, ON ITS OWN PATH for {@link ACCEPTANCES_PATH}'s
+ * reason: what the portal may change has to be legible from the endpoints it
+ * names. `/api/` and not `/api/admin/`, because the person whose addresses these
+ * are is the one changing them.
+ */
+export const SIGN_IN_ADDRESSES_PATH = '/api/account/emails'
 
 /**
  * Where the OPERATOR adds a business to an account ([[REQ-180]]).
@@ -3456,6 +3474,51 @@ async function routeUncached(
         }
         throw err
       }
+    }
+
+    /**
+     * GET/POST /api/account/emails — the addresses the caller signs in with
+     * ([[REQ-368]]).
+     *
+     * SCOPED AS {@link ACCEPTANCES_PATH} IS: it requires an admission and not a
+     * scope, and the person is read off the admission and never off the request.
+     * An address id in the body that belongs to somebody else matches nothing in
+     * `sign-in-addresses.ts`, which answers it exactly as an id that does not
+     * exist.
+     *
+     * ONE POST, THREE ACTS, named by `action`: `add` takes an `email`; `remove`
+     * and `primary` take the address `id`. Every answer — success or not — that
+     * changes nothing on the list says why; every success returns the whole list,
+     * so the page redraws from what the server now holds.
+     */
+    if (p === SIGN_IN_ADDRESSES_PATH && (method === 'GET' || method === 'POST')) {
+      const admission = deps.admission
+      if (!admission?.ok) return json(404, { error: scrub(ADMIN_ONLY_MESSAGE) })
+      const person = { id: admission.user.id, tenantId: admission.user.tenant_id }
+      if (method === 'GET') {
+        return json(200, { emails: await signInAddressesOf(identityEnv, person.id) })
+      }
+      const body = await readJsonBody(request)
+      const action = typeof body.action === 'string' ? body.action : ''
+      const id = typeof body.id === 'string' ? body.id : ''
+      try {
+        if (action === 'add') {
+          const email = typeof body.email === 'string' ? body.email : ''
+          return json(200, { emails: await addSignInAddress(identityEnv, person, email) })
+        }
+        if (action === 'remove') {
+          return json(200, { emails: await removeSignInAddress(identityEnv, person.id, id) })
+        }
+        if (action === 'primary') {
+          return json(200, { emails: await makePrimarySignInAddress(identityEnv, person.id, id) })
+        }
+      } catch (err) {
+        if (err instanceof SignInAddressRefusedError) {
+          return json(err.status, { error: scrub(err.message) })
+        }
+        throw err
+      }
+      return json(400, { error: 'action must be add, remove or primary.' })
     }
 
     /**
@@ -6314,7 +6377,7 @@ async function routeUncached(
       const portalStore =
         authored !== null
           ? hostStore
-          : portalFallbackStore(BUSINESSES_PATH, ACCEPTANCES_PATH)
+          : portalFallbackStore(BUSINESSES_PATH, ACCEPTANCES_PATH, SIGN_IN_ADDRESSES_PATH)
       const rel = p.slice(PORTAL_PATH.length) || '/'
       // `draft` rather than a published revision: the portal is not published
       // through `public-site` and has no revision log of its own yet, so the

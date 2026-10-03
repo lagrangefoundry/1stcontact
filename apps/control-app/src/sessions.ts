@@ -463,6 +463,64 @@ export function signInMailer(deps: {
   }
 }
 
+/**
+ * Remember which address a link was mailed to ([[REQ-368]]).
+ *
+ * THE COMPONENT HOLDS NO ADDRESS, ON PURPOSE (see 0001's note on its schema),
+ * so the host keeps this one fact beside it: the token, and the `user_emails`
+ * row it was sent to. It is read once, by {@link redeemSignIn}, which is the
+ * moment the address is proved.
+ *
+ * EVERY LINK THE COMPONENT MAILS PASSES HERE — sign-in and invite alike — because
+ * it sits inside {@link passwordlessFor}'s mail port rather than in one route.
+ * Following an invite proves the address it was sent to exactly as a sign-in link
+ * does.
+ */
+async function recordIssuedAddress(
+  env: SessionEnv,
+  tenantId: string,
+  token: string | null,
+  to: string,
+): Promise<void> {
+  if (!token) return
+  const address = await addressRow(env, tenantId, to)
+  if (!address) return
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO login_token_addresses (token_id, email_id, created_at) VALUES (?, ?, ?)',
+  )
+    .bind(token, address.id, new Date().toISOString())
+    .run()
+}
+
+/**
+ * Redeem a link, and mark the address it was mailed to validated ([[REQ-368]]).
+ *
+ * THE ONE PLACE A TOKEN IS REDEEMED, so the stamp cannot be skipped by a second
+ * route. Only a redemption the component accepted stamps anything: an expired,
+ * used or unknown token proves nothing about any address.
+ *
+ * `COALESCE`, because validated is a fact about the FIRST sign-in through the
+ * address. The row is then deleted — it has answered its one question.
+ */
+export async function redeemSignIn(
+  env: SessionEnv,
+  tenantId: string,
+  token: string,
+  now: Date = new Date(),
+): Promise<Redemption> {
+  const result = await passwordlessFor(env, tenantId).redeem(token)
+  if (result.status === REDEEM_STATUS.OK) {
+    await env.DB.batch([
+      env.DB.prepare(
+        'UPDATE user_emails SET verified_at = COALESCE(verified_at, ?) ' +
+          'WHERE id = (SELECT email_id FROM login_token_addresses WHERE token_id = ?)',
+      ).bind(now.toISOString(), token),
+      env.DB.prepare('DELETE FROM login_token_addresses WHERE token_id = ?').bind(token),
+    ])
+  }
+  return result
+}
+
 /** Refused because no address row in this business carries that address. */
 export class UnknownAddressError extends Error {
   readonly name = 'UnknownAddressError'
@@ -520,17 +578,28 @@ export function passwordlessFor(
     rotateAfterMs?: number | null
   } = {},
 ): Auth {
+  // THE TOKEN THE COMPONENT IS ABOUT TO MAIL ([[REQ-368]]). `issue` builds the
+  // URL and hands it to `sendLoginEmail` in one step, and only `buildUrl` is
+  // told the token while only `sendLoginEmail` is told the address — so the
+  // first leaves it here for the second. One instance serves one request, and
+  // `issue` awaits the send before it returns, so nothing interleaves.
+  let minted: string | null = null
+  const deliver = config.sendLoginEmail
   const settings: PasswordlessConfig = {
     resolveSubject: (email: string) => subjectFor(env, tenantId, email),
-    sendLoginEmail:
-      config.sendLoginEmail ??
-      (() => {
-        throw new Error('this PasswordlessAuth was built to read sessions, not to send mail')
-      }),
+    sendLoginEmail: deliver
+      ? async (message) => {
+          await recordIssuedAddress(env, tenantId, minted, message.to)
+          await deliver(message)
+        }
+      : () => {
+          throw new Error('this PasswordlessAuth was built to read sessions, not to send mail')
+        },
     buildUrl: ({ token }: { token: string }) => {
       if (!config.origin) {
         throw new Error('this PasswordlessAuth was built without an origin to build links from')
       }
+      minted = token
       return signInUrl(config.origin, token)
     },
     cookie: sessionCookie(env),
@@ -712,7 +781,14 @@ export async function endSessionsFor(env: SessionEnv, subjectId: string): Promis
  */
 export async function purgeSessions(env: SessionEnv): Promise<PurgeReport> {
   if (!sessionsConfigured(env)) return { tokens: 0, sessions: 0, retired: 0 }
-  return passwordlessFor(env, requirePlatformTenant(env)).purgeExpired()
+  const report = await passwordlessFor(env, requirePlatformTenant(env)).purgeExpired()
+  // THE ADDRESS A LINK WAS MAILED TO GOES WITH THE LINK ([[REQ-368]]). A token
+  // the component has reaped can never be redeemed, so what it was sent to has
+  // nothing left to prove.
+  await env.DB.prepare(
+    'DELETE FROM login_token_addresses WHERE token_id NOT IN (SELECT id FROM login_tokens)',
+  ).run()
+  return report
 }
 
 /**

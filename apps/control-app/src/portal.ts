@@ -35,8 +35,7 @@ import type { Scope } from './scope'
  * that does not delete the account converts a missing feature into a lie, and the
  * only defence is that nothing here says otherwise.
  *
- * WHAT IS DELIBERATELY ABSENT. No plan, no charges, no editing of details, no
- * export, and no route to adding a business ([[REQ-183]] §5) — the last because
+ * WHAT IS DELIBERATELY ABSENT. No plan, no charges, no export, and no route to adding a business ([[REQ-183]] §5) — the last because
  * `provisionBusiness` writes a live grant while we are pre-billing, so a
  * customer-reachable creation control is an unbounded free-plan mint
  * ([[REQ-180]] D2).
@@ -264,10 +263,13 @@ export function portalSiteJson(): Record<string, unknown> {
  *   posts the one thing they may change ([[REQ-245]]). Passed for exactly the
  *   same reason, and SEPARATE from the first for the reason the module's config
  *   gives: what may be written has to be legible from the definition.
+ * @param emailsEndpoint where it reads and changes the addresses this person
+ *   signs in with ([[REQ-368]]). Passed, and separate, for the same two reasons.
  */
 export function portalHomePage(
   accountEndpoint: string,
   acceptancesEndpoint: string,
+  emailsEndpoint: string,
 ): Record<string, unknown> {
   return {
     id: 'account',
@@ -288,6 +290,10 @@ export function portalHomePage(
           // Where the agreements come from and where the one write goes
           // ([[REQ-245]]). Relative, for the same reason.
           acceptances: acceptancesEndpoint,
+          // Where the addresses this person signs in with are read and changed
+          // ([[REQ-368]]). Relative, for the same reason.
+          emails: emailsEndpoint,
+          emailsLabel: 'Addresses you sign in with',
           revealLabel: 'Delete account',
           dismissLabel: 'Close',
           preferencesLabel: 'Your preferences',
@@ -325,18 +331,19 @@ export function portalHomePage(
 export function portalFallbackStore(
   accountEndpoint: string,
   acceptancesEndpoint: string,
+  emailsEndpoint: string,
 ): MemorySiteStore {
-  // MEMOISED ON BOTH ENDPOINTS ([[REQ-245]]). The cache key is the definition
+  // MEMOISED ON EVERY ENDPOINT ([[REQ-245]], [[REQ-368]]). The cache key is the definition
   // this store holds, and the definition now names two URLs — keyed on one, a
   // deployment that moved only the second would be served the page built for the
   // first, for the isolate's lifetime.
-  const cacheKey = `${accountEndpoint}\n${acceptancesEndpoint}`
+  const cacheKey = `${accountEndpoint}\n${acceptancesEndpoint}\n${emailsEndpoint}`
   const cached = FALLBACKS.get(cacheKey)
   if (cached) return cached
   const store = memorySiteStore()
   store.seed(PORTAL_SLUG, {
     siteJson: portalSiteJson(),
-    pages: { 'home.json': portalHomePage(accountEndpoint, acceptancesEndpoint) },
+    pages: { 'home.json': portalHomePage(accountEndpoint, acceptancesEndpoint, emailsEndpoint) },
   })
   FALLBACKS.set(cacheKey, store)
   return store

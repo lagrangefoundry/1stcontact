@@ -55,6 +55,11 @@ export function accountPortal({
 }: BehaviorProps = {}): string {
   const account = typeof config.account === 'string' ? config.account : ''
   const acceptances = typeof config.acceptances === 'string' ? config.acceptances : ''
+  const emails = typeof config.emails === 'string' ? config.emails : ''
+  const emailsLabel =
+    typeof config.emailsLabel === 'string' && config.emailsLabel
+      ? config.emailsLabel
+      : 'Addresses you sign in with'
   const preferencesLabel =
     typeof config.preferencesLabel === 'string' && config.preferencesLabel
       ? config.preferencesLabel
@@ -97,10 +102,27 @@ export function accountPortal({
     edit ? undefined : assertSafeUrl(acceptances, 'account-portal acceptances') || undefined,
   )
 
+  /*
+   * THE THIRD ENDPOINT ([[REQ-368]]), on exactly the second one's terms: the
+   * same allowlist, omitted in the edit render, and absent means the region is
+   * never asked for and stays hidden. Its rows and its add form are drawn by
+   * `client.js` from the endpoint's answer — there is nothing true to render
+   * for an address list before that answer arrives.
+   */
+  const emailsAttr = attr(
+    'data-emails-src',
+    edit ? undefined : assertSafeUrl(emails, 'account-portal emails') || undefined,
+  )
+
   return `<section class="account-portal" data-account-portal${accountAttr}>
   <div class="account-portal__body" data-l1-slot="body">
     <p class="account-portal__identity" data-fc-invariant data-account-identity></p>
     ${body.htmls[0] ?? ''}
+  </div>
+  <div class="account-portal__emails" data-fc-invariant data-account-emails hidden${emailsAttr}>
+    <p class="account-portal__emailshead">${escapeHtml(emailsLabel)}</p>
+    <ul class="account-portal__addresses" data-account-addresses></ul>
+    <p class="account-portal__emailserror" data-account-emails-error hidden></p>
   </div>
   <div class="account-portal__agreements" data-fc-invariant data-account-agreements hidden${acceptancesAttr}>
     <p class="account-portal__agreementshead">${escapeHtml(preferencesLabel)}</p>

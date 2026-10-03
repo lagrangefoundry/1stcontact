@@ -196,8 +196,12 @@ const MIGRATIONS = [
   // [[REQ-357]] — `business_network_settings.group_chat`, the second switch on
   // that row. The chat host reads it whenever a builder conversation opens, so a
   // suite that skipped this file would fail on an unknown column there.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0023_group_chat_switch.sql?raw'),
+  // [[REQ-368]] — `user_emails.verified_at` and `login_token_addresses`. Sign-in
+  // records which address a link was mailed to and stamps it validated on redeem,
+  // so a suite that skipped this file would fail on every issued link.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0026_login_email_verification.sql?raw'),
 ]
 
 /**
@@ -320,11 +324,9 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  // `0023` is an `ALTER TABLE ADD COLUMN`, so the marker is the column ([[REQ-357]]).
-  const row = await DB.prepare(
-    "SELECT name FROM pragma_table_info('business_network_settings') WHERE name = ?",
-  )
-    .bind('group_chat')
+  // `0026` ends in a `CREATE TABLE`, so the marker is that table ([[REQ-368]]).
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .bind('login_token_addresses')
     .first<{ name: string }>()
   return row !== null
 }
