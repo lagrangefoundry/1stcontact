@@ -5,9 +5,9 @@ type: request
 title: 'l1: no text-underline-offset axis, so a link underline paints 2px high'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:21.646192+00:00'
-updated_at: '2026-10-03T17:08:50.135579+00:00'
+updated_at: '2026-10-03T17:09:01.081730+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.444
+  story_points: 5
 ---
 
 # L1 cannot place an underline: `text-underline-offset` has no axis, so a link's line paints 2px high
