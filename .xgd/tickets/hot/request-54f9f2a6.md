@@ -7,10 +7,10 @@ title: 'capture/renderer/fold: a non-Elementor scroll-reveal is captured at opac
   on every surface), and a min-height pill loses its height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#1
 created_at: '2026-10-03T19:40:26.182498+00:00'
-updated_at: '2026-10-03T19:41:52.632756+00:00'
+updated_at: '2026-10-03T22:41:54.239652+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - capture-loses-it

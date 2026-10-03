@@ -6,9 +6,9 @@ title: 'fold: a padded run takes its ancestor band fill as its own chip, paintin
   a transparent nav as opaque plates'
 created_by: repro-console:repro-joyfulculinarycreations-com#7
 created_at: '2026-10-03T19:41:51.098837+00:00'
-updated_at: '2026-10-03T22:37:31.635537+00:00'
+updated_at: '2026-10-03T22:43:28.274470+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -227,3 +227,50 @@ the FAQ icon link; if the class numbering moves, find the `<a href="faq-2/">` wh
   cross-stacking-context `zIndex` comparison.
 - `surfaceFill ×6` (`#636a63`/`#28542d` → `#ffffff`) and `backgroundImage ×2`: present and identical in
   iteration 5, owned by REQ-302 issue 4 / REQ-351 / BUG-179.
+
+
+---
+
+## What landed (free-coded)
+
+**Issue 1 — fold.** `isPaddedControlRun` (`tools/generate/src/l1/fold.ts`) now also requires the fill to
+be the run's own wherever the capture recorded whose it is: a run whose `surface.self` is `false` is not
+a padded control, so it takes no chip axes and folds to a bare text leaf. A capture with no `surface`
+record at all keeps the BUG-21 vertical-inset reading. A padded control whose `surface.self` is `true`
+(BUG-21's buttons) keeps the chip path. Offline check: `1c refold` on a copy of the joyfulculinarycreations
+bundle now emits no text run with a `surfaceFill`, and no `#000000` card plate appears at the link
+widths in their place (the only `#000000` boxes are the full-bleed hero layers, as before).
+
+**Issue 2 — renderer.** `geometryRules` (`packages/framework/src/l1/render.ts`) now takes the run's
+`textAlign`. On every rung where the run is relaxed (`nowrapFromPx` applies, width becomes
+`fit-content` with the captured width as `min-width`) and its left edge is not column-anchored:
+- `center`: `left: calc(<x> + <w> / 2)` with `translate: -50% 0`, so the captured centre stays fixed
+  as the box grows;
+- `right`: `left: calc(<x> + <w>)` with `translate: -100% 0`, so the captured right edge stays fixed;
+- `left` / `justify` / unset: unchanged, byte for byte.
+The same applies to the flow frame's `margin-left`. Rungs below the wrap threshold of a centred or
+right-aligned relaxed run emit the plain left edge plus `translate: none`, because each rung overrides
+the ones beneath it. While the content still fits, the box is exactly the captured width, so the result
+equals the captured box.
+
+`translate`, not `transform`, so a node's authored `transform` composes with it. Known limitation: an
+entrance or scroll animation that animates `translate` on the same node replaces the centring offset
+while it runs, and the node settles back to the centred position afterwards.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-372_padded_run_ancestor_fill_and_centred_relaxed_run.test.ts`:
+- `test_UAT_FC_REQ-372_padded_link_on_a_band_folds_with_no_surface_fill`: a padded link with
+  `surface.self: false` and a band-wide surface box folds with no `surfaceFill`, and no `#000000` plate
+  is painted at the link's width. Fails without the fold change.
+- `test_UAT_FC_REQ-372_self_painting_padded_button_keeps_its_chip`: a padded button with
+  `surface.self: true` keeps its fill and radius.
+- `test_UAT_FC_REQ-372_centred_relaxed_run_is_pinned_by_its_captured_centre`: emitted CSS for a centred,
+  a right-aligned and a left-aligned relaxed run at L1 `{x:255, width:40}`.
+- `test_UAT_FC_REQ-372_centred_overflowing_run_paints_centred_on_its_captured_box` (Chromium, runs only
+  where an engine launches): the overflowing centred run's rendered box centres on 275, the right-aligned
+  one ends at 295, and the left-aligned one starts at 255.
+
+Regression scope: every `tests/*.test.ts` that drives `foldToL1` or `renderL1Document` (121 files). All
+pass except `reconciliation-colour-palette-overlay` AC931, which fails the same way on clean xgd-working
+(font-family difference, unrelated to this change).

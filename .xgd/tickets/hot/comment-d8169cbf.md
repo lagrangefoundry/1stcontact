@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T22:35:26.098279+00:00'
+updated_at: '2026-10-03T22:38:06.557427+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6348,5 +6348,27 @@ Shall I file that?
 <!-- xgd-chat role="user" ts="2026-10-03T22:35:24.476993+00:00" -->
 #### You
 Oh I love 1 please file that
+
+<!-- xgd-turn id="16d25dbe-c730-40ce-8a12-9992b1265df0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T22:38:06.461985+00:00" -->
+#### Claude
+No QR library in the tree — worth noting in the ticket. Filing.
+
+Now I'll record it on the epic, along with the parked shareable-link question.
+
+I've filed **REQ-376**, *"Site pane: View on your phone — a QR code for the draft preview"*, under EPIC-19 at `draft`, estimated at 3 points.
+
+What it asks for:
+- **A "View on your phone" control** beside "Open in a new tab". It shows a QR code for the same draft URL, which is always the draft view, even in Edit mode, so the two controls can't disagree.
+- **No change to who can see a draft.** The phone goes through the normal sign-in.
+- **The QR code is made in the browser.** It's never sent to an outside QR service, because that would leak the URL. There's no QR library in the repo yet, so the implementer either adds a small one or writes the encoder.
+- **A short instruction** saying what will happen ("point your camera… you'll be asked to sign in with the same email"), plus the URL with a copy button for phones that can't scan.
+- **The code changes when you switch pages**, so it never points at a page that's no longer in the pane.
+- **Alice is told the control exists**, so when she says "check it on your phone" the client has a way to do it.
+
+Out of scope, and noted in the ticket:
+- **A shareable link that works without signing in.** I've recorded it on the epic as Finding 17, as an open access-policy question, and haven't filed it.
+- **Your local dev setup.** A phone can't reach 127.0.0.1, so this only helps in production.
 
 <!-- xgd-chat-end -->
