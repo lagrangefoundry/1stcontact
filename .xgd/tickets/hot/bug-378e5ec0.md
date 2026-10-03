@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-386c6971
 ---
 
 # values-diff: a pseudo-glyph run is measured by its host box on one side and its glyph advance on the other, own-vs-ancestor fill is compared one way only, and a "filter ×17" aggregate is 16 pseudo rows
