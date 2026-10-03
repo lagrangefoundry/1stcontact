@@ -5,10 +5,10 @@ type: request
 title: 'Profile portal: multiple login emails, validation, and primary'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:40.956444+00:00'
-updated_at: '2026-10-03T19:30:05.370797+00:00'
+updated_at: '2026-10-03T22:13:07.628637+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   epic_parent: epic-ee37a03f
   priority: medium
