@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-369
 created_by: xgd
 created_at: '2026-10-03T19:00:47.979851+00:00'
-updated_at: '2026-10-03T19:36:16.862518+00:00'
+updated_at: '2026-10-03T19:37:03.586418+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -131,5 +131,13 @@ REQ-369 is built, merged into `xgd-working`, and parked at `free_coded`. The com
 **Merge note:** REQ-367's "entered as platform operator" marking in the business selector landed while I was working. The merge had conflicts in the selector code, its labels and the `/api/businesses` response. I kept both: a business you have entered shows only the "entered" label, and every business you belong to shows owned or delegated.
 
 Whenever you're ready, you can move the ticket to `ready_to_reconcile`.
+
+<!-- xgd-turn id="69cdd094-2d08-45bb-99d9-2a03768704d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T19:37:00.339154+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above): Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
