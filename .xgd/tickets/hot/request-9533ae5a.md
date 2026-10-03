@@ -5,9 +5,9 @@ type: request
 title: 'Profile portal: multiple login emails, validation, and primary'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:40.956444+00:00'
-updated_at: '2026-10-03T19:29:51.402434+00:00'
+updated_at: '2026-10-03T19:30:05.370797+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-ee37a03f
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.448
+  story_points: 5
 ---
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
