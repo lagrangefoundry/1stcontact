@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-02T23:25:37.751667+00:00'
+updated_at: '2026-10-03T00:18:27.877111+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,11 @@ As before, I filed this as a ticket in lagrange-framework rather than writing co
 REQ-205 depends on REQ-200 and REQ-201, both still `draft`. I've added the revised assessment and the cross-reference to REQ-360. It stays at `draft` with no code until REQ-205 lands; after that, the work here is granting the tool, a priming line, and styling the heartbeat.
 
 One thing works today: in a 1:1 chat, text the consultant writes before calling `Delegate` already reaches the client live. Should I add a priming line telling it so now? It's a prompt-only change, so it doesn't need a ticket.
+
+<!-- xgd-turn id="9dbd7ed5-6cd4-4b30-99ca-e0c54a93b225-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T00:18:26.831473+00:00" -->
+#### You
+I suspect the correct approach is to add this to EPIC-7? Could you write an addendum to EPIC-7's ticket explaining the requirement and the current issues? Perhaps you hold on to the 1c side of the work when EPIC-7 delivers the incrastructure?
 
 <!-- xgd-chat-end -->
