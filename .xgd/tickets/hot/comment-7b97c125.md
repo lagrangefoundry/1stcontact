@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:19:14.424051+00:00'
+updated_at: '2026-10-03T18:25:46.551976+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -120,5 +120,21 @@ The delegate flow in the epic now reads: add the person as a contact, then **Mak
 - Should a delegate's new account come with no starter business?
 
 The three proposed child tickets are now Console "Open business", Login emails, and Delegates. I'll create them once you've answered these.
+
+<!-- xgd-turn id="50658cd7-a16a-4bb2-9592-12db2aaea1e7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T18:25:44.238194+00:00" -->
+#### You
+recorded in the audit log.
+
+One consequence to decide on. When you enter a business you're not a member of, you have no role there, so the owner-only controls stay closed. That covers adding and inviting contacts, and the other people actions (nine checks in `router.ts`). You'd see the business but not act as its owner. Is that enough for support, or should those controls open to you too? <-- superuser needs to be able to do everything, but not necessarily in v1
+
+**Still open from last time:** - Who chooses the primary email? - Should delegates be kept off the owner's account pages and away from plan, payment and deleting the business? - Should a delegate's new account come with no starter business?
+
+What do you mean by primary email?'
+
+Delegates are delegated to a business NOT an account.
+
+Everyone gets a started business but for delegates they may not pay to run it (which is fine). A nice feature would be for the business selection to default to a delegated business if the business they own is not published. Also the selector should be clear about which businesses are owned vs delegated
 
 <!-- xgd-chat-end -->
