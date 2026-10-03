@@ -28,7 +28,9 @@
  * REQ-157's "reproduces `1c gate`'s reconciliation" a property of the build
  * rather than of anyone's care.
  */
-import { readCapture, readForms, readL1, readMultiState } from './capture/bundle'
+import { readCapture, readForms, readL1, readMultiState, readRenderedHtml } from './capture/bundle'
+// BUG-189 — a band's own full-bleed paint record is not content standing on it.
+import { isBandPaint } from './perceptual-core'
 // `./capture/theme`, NOT `./capture/capture` — same deep-path rule as the fold
 // import below. `capture.ts` re-exports this, but it also imports `./pipeline`,
 // and taking it from there would put Playwright back in the Worker's graph.
@@ -141,6 +143,14 @@ export const VALUES_TIER_FLOOR: SeverityTier = 'MEDIUM'
 export const SECTION_DENSITY_PX = 1200
 
 /**
+ * BUG-189 — the shortest band an `empty-section` finding names. Below it a
+ * contentless band is a rule, a spacer or a header strip, and nothing a page
+ * lost; the two bands `www.bluelotusintegralhealing.com` lost were 560px and
+ * 392px.
+ */
+export const EMPTY_SECTION_MIN_PX = 200
+
+/**
  * One content-completeness proxy that came back suspect.
  *
  * BUG-161 — "reference-coverage" until this ticket, and the rename is the finding:
@@ -148,7 +158,7 @@ export const SECTION_DENSITY_PX = 1200
  * reproduction painted what the capture recorded. See {@link CoverageFinding.side}.
  */
 export interface CoverageFinding {
-  kind: 'unreferenced-image' | 'section-density' | 'stale-capture' | 'unpainted-image'
+  kind: 'unreferenced-image' | 'section-density' | 'stale-capture' | 'unpainted-image' | 'empty-section'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
   /**
@@ -296,7 +306,28 @@ export interface ReferenceCoverage {
   pageHeightPx: number
   /** `pageHeightPx / max(1, sections)` — the segmentation-density proxy. */
   pxPerSection: number
+  /**
+   * BUG-189 — reference bands at least {@link EMPTY_SECTION_MIN_PX} tall that
+   * paint no image and hold no manifest element. Optional so a coverage block
+   * built before the proxy existed still type-checks; absent reads as unmeasured.
+   */
+  emptySections?: EmptySection[]
+  /**
+   * BUG-189 — visible text in `rendered.html` that appears in no string anywhere
+   * in `capture.json`. `null` when the bundle carries no `rendered.html`
+   * (unmeasured). Reported, not a finding on its own: skip-links and hidden
+   * mobile menus put a few strings here on a complete capture.
+   */
+  unrecordedText?: string[] | null
   findings: CoverageFinding[]
+}
+
+/** BUG-189 — one reference band with a box and no content. */
+export interface EmptySection {
+  /** Ordinal in the reference manifest's `sections`. */
+  index: number
+  y: number
+  height: number
 }
 
 /**
@@ -688,6 +719,83 @@ function referencedAssets(manifest: ValueManifest): Set<string> {
 }
 
 /**
+ * BUG-189 — reference bands with a box and no content: tall enough to be page
+ * substance, painting no image, and holding no manifest element whose box centre
+ * falls inside them. The band's OWN full-bleed paint record ({@link isBandPaint})
+ * is the band, not something standing on it, so it does not count as content —
+ * on the bundle this was filed from it was the only element either lost band had.
+ */
+function emptySectionsOf(manifest: ValueManifest): EmptySection[] {
+  const pageWidth = manifest.viewport?.width ?? 0
+  const content = manifest.elements.filter((el) => el.box && !isBandPaint(el, manifest.sections, pageWidth))
+  const empty: EmptySection[] = []
+  for (const section of manifest.sections) {
+    const b = section.box
+    if (!b || b.height < EMPTY_SECTION_MIN_PX || section.backgroundImageUrl) continue
+    const holds = content.some((el) => {
+      const cy = el.box!.y + el.box!.height / 2
+      return cy >= b.y && cy < b.y + b.height
+    })
+    if (!holds) empty.push({ index: section.index, y: Math.round(b.y), height: Math.round(b.height) })
+  }
+  return empty
+}
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', trade: '™',
+  mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
+}
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (whole, e: string) => {
+    if (e[0] !== '#') return NAMED_ENTITIES[e.toLowerCase()] ?? whole
+    const code = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
+    return Number.isFinite(code) && code <= 0x10ffff ? String.fromCodePoint(code) : whole
+  })
+}
+
+const collapse = (s: string): string => s.replace(/\s+/g, ' ').trim()
+
+/**
+ * BUG-189 — the text nodes of a rendered DOM a reader could see: everything
+ * outside comments and `<script>`/`<style>`/`<template>`/`<noscript>`/`<svg>`/
+ * `<head>`, entities decoded, whitespace collapsed, and at least two letters
+ * long. A tag scan rather than a parser — the question is "which strings", not
+ * "which tree", and this runs in the Worker with no DOM.
+ */
+function renderedTextRuns(html: string): string[] {
+  const body = html
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(script|style|template|noscript|svg|head)\b[\s\S]*?<\/\1\s*>/gi, ' ')
+  const runs = body
+    .split(/<[^>]*>/)
+    .map((t) => collapse(decodeEntities(t)))
+    .filter((t) => /\p{L}{2,}/u.test(t))
+  return [...new Set(runs)]
+}
+
+/**
+ * BUG-189 — rendered text the capture recorded nowhere. "Nowhere" is literal:
+ * every string value in `capture.json`, case- and whitespace-folded, so a run
+ * the capture split, merged into a longer run, or kept as an accessible name
+ * still counts as recorded. The inverse proxy to {@link emptySectionsOf}.
+ */
+function unrecordedTextOf(html: string, capture: Capture): string[] {
+  const recorded: string[] = []
+  const walk = (v: unknown): void => {
+    if (typeof v === 'string') recorded.push(collapse(v).toLowerCase())
+    else if (Array.isArray(v)) v.forEach(walk)
+    else if (v && typeof v === 'object') Object.values(v).forEach(walk)
+  }
+  walk(capture)
+  const corpus = recorded.join('\n')
+  return renderedTextRuns(html).filter((t) => !corpus.includes(t.toLowerCase()))
+}
+
+/** How many unrecorded strings an `empty-section` sentence quotes. */
+const QUOTED_TEXT = 5
+
+/**
  * Read the bundle's reference-coverage proxies.
  *
  * Both are numbers the pipeline already computed and simply never reported:
@@ -756,6 +864,28 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
         `a band this long is usually under-segmentation rather than a uniformly-styled page.`,
     })
   }
+  // BUG-189 — a band with a box and no content, corroborated by rendered text the
+  // capture never recorded. Either alone is weak (a decorative band; a hidden
+  // menu); together they say the capture saw the section's box and lost what
+  // stood in it. A bundle with no `rendered.html` cannot corroborate.
+  const html = await readRenderedHtml(bundle)
+  const unrecordedText = html === null ? null : unrecordedTextOf(html, capture)
+  const emptySections = emptySectionsOf(manifest)
+  if (emptySections.length && unrecordedText?.length) {
+    const px = emptySections.reduce((n, s) => n + s.height, 0)
+    const pct = Math.round((100 * px) / Math.max(1, pageHeightPx))
+    const quoted = unrecordedText.slice(0, QUOTED_TEXT).map((t) => `"${t.length > 60 ? `${t.slice(0, 57)}…` : t}"`)
+    findings.push({
+      kind: 'empty-section',
+      detail:
+        `${emptySections.length} reference section(s) have a box and no content — ` +
+        `${emptySections.map((s) => `section ${s.index} (y ${s.y}, ${s.height}px)`).join(', ')}, ` +
+        `${px}px or ${pct}% of the ${pageHeightPx}px page — while ${unrecordedText.length} visible ` +
+        `string(s) in rendered.html appear nowhere in capture.json: ${quoted.join(', ')}` +
+        `${unrecordedText.length > QUOTED_TEXT ? `, …+${unrecordedText.length - QUOTED_TEXT}` : ''}. ` +
+        `The capture recorded the sections' boxes and lost what stood in them.`,
+    })
+  }
 
   return {
     mirroredImages: images.length,
@@ -764,6 +894,8 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
     sections,
     pageHeightPx,
     pxPerSection,
+    emptySections,
+    unrecordedText,
     findings,
   }
 }
@@ -891,8 +1023,25 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   let verdict: GateVerdict
   let diagnosis: string
   let nextStep: string
+  // BUG-189 — the one coverage finding that invalidates the ORACLE, not just the
+  // value gates' view of it. Every other gate — the L1 gate, the value diff, the
+  // perceptual eye's regions — is measured against a reference that lost whole
+  // sections, so a structural failure or a pass beneath it is not evidence either
+  // way. It outranks the whole ladder, breach or no breach.
+  const emptySection = referenceFindings.some((f) => f.kind === 'empty-section')
 
-  if (!input.l1Gate.pass) {
+  if (emptySection) {
+    verdict = 'capture-incomplete'
+    diagnosis =
+      'The reference capture lost whole sections: it recorded their boxes and nothing that stood in ' +
+      'them, while the reference DOM still holds their text. Every other gate on this run — structural, ' +
+      'values and perceptual — is measured against that impoverished oracle, so none of them is evidence ' +
+      `about the reproduction (\`coverage.findings\` names the sections and the text).` +
+      (input.l1Gate.pass ? '' : ' The structural gate also failed; that failure is against the same oracle.')
+    nextStep =
+      'This is a CAPTURE defect, not a reproduction defect. Close the extraction gap and re-capture ' +
+      'before spending a round on this reference.'
+  } else if (!input.l1Gate.pass) {
     verdict = 'structural-failure'
     // BUG-112 — an on-sample collision is named HERE rather than left to
     // `1c l1-gate`, because it is the one structural failure an operator can
