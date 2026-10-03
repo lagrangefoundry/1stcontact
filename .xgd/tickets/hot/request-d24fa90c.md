@@ -6,9 +6,9 @@ title: 'fold: a run present at only some widths is stitched to a same-text run e
   and its clip container hides it'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:42.639404+00:00'
-updated_at: '2026-10-03T01:13:42.639404+00:00'
+updated_at: '2026-10-03T16:44:34.128913+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -19,6 +19,7 @@ fields:
   priority: medium
   chat_comment: comment-e8d759ce
 ---
+
 
 # fold: a run present at only some widths is stitched to a same-text run elsewhere on the page, and the clip container it lands in hides it
 
@@ -209,3 +210,53 @@ python3 -c "import json;s=open('storage/references/joyfulculinarycreations.com/i
 - **Right (after a re-capture):** a record exists at each icon box and at the divider box. `actual.png` has
   more than 4000 `#cc9955` pixels, and regions #4/#6/#9/#11/#12 are gone or carry a node lead on both sides.
   Re-run with `CHROMIUM_LAUNCH_ARGS=--single-process bin/1c gate repro-joyfulculinarycreations-com --ref storage/references/joyfulculinarycreations.com/index --sandbox`.
+
+---
+
+## Implementation scope (free-coded, REQ-366 session)
+
+Free-coded because both fixes are narrow, located changes to existing seams (the responsive table's
+pairing, the clip-region nesting, the capture's run/field selection) with no new module or design.
+
+### Issue 1 — what changes
+
+1. **Responsive-table pairing (`buildResponsiveTable`).** When a join key occurs the same number of
+   times at two adjacent widths, occurrences still pair in document order (unchanged). When the count
+   *differs*, the smaller set is aligned to the larger one by **geometric continuity**: an
+   order-preserving alignment that minimises the distance between each occurrence's vertical position
+   normalised to its page's extent. The occurrence with no counterpart becomes its own row, present
+   only at the widths that have it (a presence flip). So a header label that exists only from 1280 no
+   longer inherits the footer label's 320–1024 cells.
+2. **Clip-region membership (`nestClipRegions`).** A leaf joins a clipping container only if it recorded
+   that same clipping ancestor at **every width it has a keyframe**. A leaf present at a width where
+   that ancestor does not cut it is not rebased into the container (a node has one parent, so
+   partial membership would hide it at the widths it is not clipped).
+
+### Issue 2 — what changes
+
+3. **Pseudo-element glyph runs (capture).** An empty element (no text of its own) whose `::before`
+   (else `::after`) paints a quoted-string `content` and whose box is at least 4×4px is recorded as a
+   text run: the text is the generated glyph, the typography (family, size, weight, colour) is the
+   pseudo-element's computed style, the box is the element's. It never joins an inline flow with its
+   neighbours (its font is not theirs). The run carries `pseudoGlyph: 'before' | 'after'`. The fold
+   folds it through the existing text path, so an icon reproduces as a `text` leaf in its mirrored face.
+4. **Border-rule fields (capture).** An empty element whose only ink is a border **rule** — painted
+   border, no fill, no background image, and a box no thicker than twice its border (+1px) on its thin
+   axis — is recorded as a text-free field, exactly like an `<hr>`. The fold already turns a bordered
+   text-free field into a `box` leaf.
+5. **Capture schema 13.** Both are new axes; `CAPTURE_SCHEMA` goes 12 → 13 so a schema-12 bundle reports
+   the gap and the operator re-captures.
+
+### Test plan
+
+- `tests/test_UAT_FC_REQ-366_*.test.ts`:
+  - table: a label present once below 1280 and twice from 1280 pairs the narrow-width occurrence with the
+    geometrically matching (footer) occurrence; the header occurrence is a 1280+-only presence-flip row;
+    equal counts still pair in document order.
+  - fold: the header label does not land inside the footer's clipping container, carries keyframes only
+    at the widths it was captured at, and a leaf that lacks the clip frame at one of its widths is not
+    nested.
+  - capture (real `EXTRACT_SCRIPT` under jsdom): an empty `<i>` with a `::before` glyph yields a run with
+    the glyph text and the pseudo's family; an empty divider span with a 2.5px top border yields a field;
+    an outlined (non-rule) empty box does not; a bundle at schema 12 reports the new axis as stale.
+- Regression scope: the REQ-332 / REQ-338 / REQ-351 fold and capture UATs and the responsive-diff UATs.
