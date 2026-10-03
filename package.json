@@ -1,6 +1,6 @@
 {
   "name": "1stcontact",
-  "version": "0.2.450",
+  "version": "0.2.451",
   "private": true,
   "packageManager": "pnpm@11.9.0",
   "engines": {
