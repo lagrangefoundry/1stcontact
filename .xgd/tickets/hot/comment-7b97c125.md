@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:26:53.125531+00:00'
+updated_at: '2026-10-03T18:31:23.915975+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -161,5 +161,11 @@ So once you have several addresses, something has to decide which one is primary
 I'd go with (b), defaulting to (a). It's a small addition, and without it you'd have no way to move your mail off an old address short of removing it.
 
 Once you've picked, I'll create the three child tickets: Console "Open business", Login emails, and Delegates.
+
+<!-- xgd-turn id="72178db9-5047-41ee-ae87-49169af6af11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T18:31:23.247605+00:00" -->
+#### You
+Yeah make it b please - it should default to the first you entered, but you can choose a different one.
 
 <!-- xgd-chat-end -->
