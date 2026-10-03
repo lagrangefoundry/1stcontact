@@ -5,10 +5,10 @@ type: request
 title: Per-side borders in the page vocabulary (e.g. a left rule on a pull quote)
 created_by: xgd
 created_at: '2026-10-03T19:59:20.362346+00:00'
-updated_at: '2026-10-03T23:32:53.223161+00:00'
+updated_at: '2026-10-03T23:38:34.444212+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
