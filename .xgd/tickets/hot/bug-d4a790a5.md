@@ -6,10 +6,10 @@ title: 'gate: unmeasured reports 0 while the capture audit lists 7 used-but-not-
   properties'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:32.142754+00:00'
-updated_at: '2026-10-03T20:05:01.748731+00:00'
+updated_at: '2026-10-03T21:56:15.969536+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - instrument-blind
