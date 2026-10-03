@@ -6,9 +6,9 @@ title: 'fold: the reflow-window hold writes segments onto responsiveLayout, so a
   page with a layout switch fails repro outright'
 created_by: EPIC-12
 created_at: '2026-10-03T17:23:19.154669+00:00'
-updated_at: '2026-10-03T17:23:19.154669+00:00'
+updated_at: '2026-10-03T17:56:44.979625+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -62,3 +62,12 @@ gigabytealchemy, faelan and joyful never had a multi-keyframe `responsiveLayout`
 ## Verification after landing
 
 Restart the console, then press **[recapture]** on both sites. Each should reach `gate` and render a reproduction, whatever its quality.
+
+
+## Addendum: a third site, joyfulculinarycreations.com (2026-10-03)
+
+Iteration 6 fails the same way: `promoteToFlow: produced an invalid L1 document — /root/children/14/children/3/responsiveLayout: Unrecognized key: "segments"; /root/children/19/responsiveLayout: Unrecognized key: "segments"`. This is the recovery call site (`probes.ts:3629`).
+
+Iteration 5 on this site reached the gate. So a site that previously reproduced can begin failing when a fold change produces new reflow windows (today's `d20a12c157` is a candidate). This failure is not limited to new sites, and fix 2 ("declined, not fatal") is what keeps one bad pass from blocking a working site.
+
+Test plan addition: `1c repro` on `storage/references/joyfulculinarycreations.com/index` exits 0 and writes a page (main checkout only).
