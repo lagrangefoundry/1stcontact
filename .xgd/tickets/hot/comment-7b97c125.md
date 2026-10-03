@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:25:46.551976+00:00'
+updated_at: '2026-10-03T18:26:53.125531+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,30 @@ What do you mean by primary email?'
 Delegates are delegated to a business NOT an account.
 
 Everyone gets a started business but for delegates they may not pay to run it (which is fine). A nice feature would be for the business selection to default to a delegated business if the business they own is not published. Also the selector should be clear about which businesses are owned vs delegated
+
+<!-- xgd-turn id="50658cd7-a16a-4bb2-9592-12db2aaea1e7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T18:26:50.138312+00:00" -->
+#### Claude
+I've recorded all of these in EPIC-23:
+- **Superuser can do everything in any business. That's the target, not v1.** v1 ships the console **Open** control only, so the owner-only controls stay closed when you enter a business you're not a member of. Opening them comes later, through your platform-operator flag rather than a fake owner membership.
+- **Delegates are delegated to a business, not an account.** They get nothing on the owner's account: no billing, no profile, no other businesses. Inside the business they can do everything except manage delegation.
+  - The business's plan, payment and delete controls don't exist as per-business controls yet, so v1 doesn't need to decide them. They're parked until billing lands.
+- **Everyone gets a starter business, delegates included.** Accepting a delegate invite runs the normal onboarding, which creates their own account and starter business, and also adds the delegate membership. It's fine if they never pay for their own.
+- **The selector marks each business as owned or delegated.**
+- **The default business prefers a delegated one.** If the delegate has no remembered selection and their own business isn't published, the app opens their delegated business instead. A remembered selection always wins. I've defined "published" as at least one live site; the child ticket will check that against how publishing actually works.
+
+**What I meant by primary email:** each person's addresses include exactly one marked primary. The database allows only one. It isn't about sign-in, because a sign-in link works for any of your addresses. It matters in two places:
+
+1. **Where the platform writes to you.** Invites, notices and alerts have to go to a single address.
+2. **Who you appear as.** The current sign-in resolves to your primary address, and that's the email shown on your profile and in the console.
+
+So once you have several addresses, something has to decide which one is primary. The options are:
+- **(a)** Automatic: your first validated address, i.e. the one you signed up with, unless you remove it.
+- **(b)** A "make primary" control next to each validated address on your profile.
+
+I'd go with (b), defaulting to (a). It's a small addition, and without it you'd have no way to move your mail off an old address short of removing it.
+
+Once you've picked, I'll create the three child tickets: Console "Open business", Login emails, and Delegates.
 
 <!-- xgd-chat-end -->
