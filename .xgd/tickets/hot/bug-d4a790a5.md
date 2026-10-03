@@ -6,9 +6,9 @@ title: 'gate: unmeasured reports 0 while the capture audit lists 7 used-but-not-
   properties'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:32.142754+00:00'
-updated_at: '2026-10-03T01:03:32.142754+00:00'
+updated_at: '2026-10-03T19:50:22.967981+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -52,3 +52,26 @@ CHROMIUM_LAUNCH_ARGS=--single-process node tools/generate/bin/1c.mjs gate repro-
 - **Right:** the unmeasured line names `text-underline-offset` (and the six background/overflow properties) as used-but-not-expressible, and does not count `vertical-align` on a block image.
 
 Related gap ticket for the axis itself: REQ-365 (`l1-has-no-text-underline-offset-axis`).
+
+
+## Implementation design (free-coded, BUG-178 session)
+
+**Note:** REQ-365 has since landed, so the register now marks `text-underline-offset` as `recorded`, not `not-expressible`. On a bundle captured before REQ-365 it would surface as `lost`. The mechanism below is the same either way.
+
+1. **The gate runs the audit.** `1c gate` (`cmdGate`) runs REQ-275's `runCaptureAudit` against the reference bundle with the same driver factory, but only when it is launching a browser anyway. With both `--actual-image` and `--actual-manifest` supplied, the gate stays browser-free and no audit runs; the existing pinned behaviour is that a fully pre-shot gate never asks for a page.
+2. **`gate.json` carries `unmeasuredProperties`.** One row per audit finding with verdict `not-expressible` or `lost`: `{ property, verdict, count, values, note }`.
+   - An audit that was attempted and failed writes `unmeasuredProperties: null` plus `unmeasuredPropertiesError: <reason>`.
+   - A gate that did not audit omits both fields.
+   - The verdict is not changed. The diagnosis gains a sentence naming the properties, and the CLI text report prints them.
+3. **The console's unmeasured set gains a fifth part, `properties`** (`tools/repro-console/src/unmeasured.ts`). Its count is the number of rows and its detail names each property with its values, so the headline and breakdown name `text-underline-offset (4px)` and the rest.
+   - When the report omits the field, the part is omitted rather than silent. A pre-shot or pre-BUG-178 report keeps its existing total, and `compareSets` already compares two iterations over the parts both carry.
+   - When the field is `null` (audit failed), the part is SILENT, so the headline reads `unmeasured ≥ N`.
+4. **Inert declarations are not counted** (`AUDIT_SCRIPT`). A matched rule's longhand counts as USE only if the property APPLIES to at least one visible element the rule matches, per the CSS spec's "Applies to" line. The same check covers inline styles. The applicability table is spec knowledge, like the CSS-wide-keyword list. Today it holds `vertical-align`: applies to inline-level boxes and table cells. So `img{vertical-align:middle;display:block}` is not observed, and the false `lost` row disappears.
+
+## Test plan
+`tests/test_UAT_FC_BUG-178_unexpressed_properties_are_unmeasured.test.ts`:
+- An audit with not-expressible and lost rows, passed through `reconcileGates` → `gate.json` → `unmeasuredOf`/`headlineOf`/`breakdownOf`: the headline counts them and the breakdown names `text-underline-offset (4px)`. The verdict is unchanged.
+- A report without the field keeps its four-part total, with no `≥`. A report with `unmeasuredProperties: null` reads `≥` and names `properties` as silent.
+- `cmdGate` driven through a fake browser driver whose page query returns a raw audit: `gate.json` carries `unmeasuredProperties`. A fully pre-shot `cmdGate` carries none and never asks the driver for a page.
+- `AUDIT_SCRIPT` evaluated over a DOM (jsdom, boxes stubbed visible): `vertical-align` on a `display:block` img is not observed. On an inline element it is.
+- Regression scope: the gate and unmeasured UATs (BUG-103/106/110/111/139/161/174, REQ-256/275/277/308, cross-gate reconciliation).
