@@ -7,9 +7,9 @@ title: 'capture/renderer/fold: a non-Elementor scroll-reveal is captured at opac
   on every surface), and a min-height pill loses its height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#1
 created_at: '2026-10-03T19:40:26.182498+00:00'
-updated_at: '2026-10-03T22:57:29.373666+00:00'
+updated_at: '2026-10-03T22:57:32.676313+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -28,6 +28,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.460
+  story_points: 5
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#1` (reproduction console, loop 1, iteration 1).
