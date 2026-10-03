@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T18:52:32.343507+00:00'
+updated_at: '2026-10-03T19:26:20.221094+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6315,5 +6315,32 @@ The ticket changes two lines and leaves the rest of the note alone:
 - **Unchanged:** the line naming the file you dropped, and the reference-role line.
 
 It also sets a rule: no upload note may say an item is "on your site", because uploading never places anything on a page. The REQ-287 tests that expect the old wording get updated to match.
+
+<!-- xgd-turn id="c3c85e5b-9b27-4e05-8584-ceb91dd42344-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T19:25:18.848227+00:00" -->
+#### You
+Alice just said: **Have a scroll through it, ideally on your phone too. Does C feel like your business, or does it bury the emergency side too much?**
+
+Its a good idea - we can share a draft site using the link from the: "Open in a new tab" link - is that easy to get to a phone somehow?
+
+<!-- xgd-turn id="c3c85e5b-9b27-4e05-8584-ceb91dd42344-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T19:26:16.271164+00:00" -->
+#### Claude
+Not easily, today. It depends where you're running.
+
+**In production it works, with one sign-in.** The draft preview (`/preview/<site>/draft/<page>`) is served by the builder itself, so it sits behind the same Cloudflare Access login as the builder. Email the "Open in a new tab" URL to yourself, open it on the phone, and sign in with the same email. The draft then renders. That's fine for you. For a client like Charlie it's three steps, none of which the UI suggests, and Alice gave him no way to do them.
+
+**On your dev setup it can't.** The builder is on `127.0.0.1:8799`, which only exists on your Mac, so a phone has nothing to connect to. For your own testing, the closest you can get is Chrome's device toolbar (⌘⇧M in DevTools) on the new-tab view.
+
+**So Alice proposed something the product doesn't support.** That's worth fixing either way, and there are two options:
+
+1. **A "View on your phone" control** next to "Open in a new tab" that shows a QR code for the same draft URL. It's cheap, it changes nothing about who can see a draft, and it works in production because the phone just goes through the normal sign-in. It solves Alice's request for the owner.
+2. **A shareable draft link:** read-only, expiring, revocable, and viewable without signing in. It's what clients will actually want ("let my wife look at it"), but it's a real policy decision. Today a draft is private by construction, and this would make it reachable by anyone holding the link. It belongs with the magic-link and scoped-access rules in DOC-5, and shouldn't be decided in passing.
+
+My suggestion is one ticket for option 1 now. Its scope would also tell the consultant how the client gets the draft onto a phone, so a suggestion like this comes with a way to act on it. Option 2 would be parked as an open question on the epic until you want to decide the policy.
+
+Shall I file that?
 
 <!-- xgd-chat-end -->
