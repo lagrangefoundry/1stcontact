@@ -6,9 +6,9 @@ title: 'Backends: consultant on Opus 5.5, spend meter records each role''s own b
   builder step limit 100'
 created_by: EPIC-20
 created_at: '2026-10-02T18:49:40.887550+00:00'
-updated_at: '2026-10-03T00:52:48.581460+00:00'
+updated_at: '2026-10-03T00:59:30.828719+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -44,3 +44,19 @@ Opus 5.5 binds thinking blocks to an unedited history ("preserved thinking"); on
 - A consultant turn's `turn_spend` row reads `claude` / `claude-opus-5-5` and is priced at the 5.5 rates.
 - A coordinator turn's row reads `claude_coordinator` / `claude-haiku-4-5` and is priced at Haiku rates.
 - With the framework key available: the consultant's requests carry `effort: high`, and a builder run can make more than 50 tool calls.
+
+
+## What landed (free-coded)
+
+- **Consultant on Opus 5.5.** `backends.json` `claude` → `claude-opus-5-5`, `max_tokens` 64000 unchanged, plus `context_window: 1000000` because the installed framework's model table names only `claude-opus-5`. Delete the key once the framework knows the model.
+- **Prices.** `prices.json` `claude` → `claude-opus-5-5` at $4 / $20 / $0.20 cache read / $5 cache write. `claude-opus-5` stays so rows already written can still be re-priced. **Also added: `claude_coordinator` → `claude-haiku-4-5`** ($1 / $5 / $0.10 / $1.25). This follows from the meter fix: once a coordinator row names `claude_coordinator`, an absent entry would leave every coordinator turn unpriced (`cost_micros` NULL).
+- **Meter records the backend that ran.** `writeTurnSpend` takes the role's configured backend: coordinator → `claude_coordinator`, everything else → `claude`. `projectBackendModel(lib, name)` now resolves the model for any configured backend through the framework's merge, using the same `{family: 'claude'}` the adapter uses. The row's `cost_micros` is priced from that (backend, model) pair.
+- **Every configured backend can be priced.** Each `backends.json` entry's resolved model has a `prices.json` entry under its own backend name.
+- **Deferred, blocked upstream:** the consultant's `effort: high` and `claude_builder`'s `max_iterations: 100`. lagrange-framework REQ-203 is still `draft`, and `configureBackends` rejects a key it doesn't declare at start-up, so naming either today would stop the host from starting. `backends.json`'s `about` records the pending edits.
+- **Not verified: the preserved-thinking risk.** A live consultant conversation past one window slide on Opus 5.5 has not been run, because the sandbox has no network to Anthropic. It still has to be checked on a live session.
+
+## Test plan
+
+- `tests/test_UAT_FC_REQ-362_consultant_on_opus_5_5.test.ts`: the consultant resolves `claude-opus-5-5` at the 5.5 rates with a 1M window; every configured backend resolves to a model `prices.json` can price; the coordinator stays on Haiku.
+- `tests/test_UAT_FC_REQ-357_group_chat.workers.test.ts` › `test_UAT_FC_REQ-362_each_member_rounds_spend_row_names_and_is_priced_at_its_own_backend`: a real room exchange through the Worker route. Consultant rows read `claude`/`claude-opus-5-5`, coordinator rows read `claude_coordinator`/`claude-haiku-4-5`, and each `cost_micros` equals its counters priced at its own pair.
+- Superseded pins updated: the REQ-295 consultant-model pin now reads `claude-opus-5-5`. The REQ-296 window assertion accepts an entry's declared `context_window` (the documented escape hatch) before the framework table.
