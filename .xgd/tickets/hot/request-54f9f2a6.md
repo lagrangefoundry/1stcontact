@@ -7,9 +7,9 @@ title: 'capture/renderer/fold: a non-Elementor scroll-reveal is captured at opac
   on every surface), and a min-height pill loses its height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#1
 created_at: '2026-10-03T19:40:26.182498+00:00'
-updated_at: '2026-10-03T19:40:26.182498+00:00'
+updated_at: '2026-10-03T19:41:52.632756+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -169,3 +169,11 @@ Q1: L1 can express it (see above). Q2: is it in L1? `$ITER/page.json` node `0.5.
 - `renderedTextBox "Troy is a wonderful…"` 502×379 vs 502×355: one line fewer at the same width (16 vs 15 lines at 24px). Not separated this round; the L1 `resources.fonts` declares only Lato 400 while runs use 500/600, which may matter, but I did not test it.
 - `gap (generic)→(generic)` −1px vs 120px, `size (generic)` 1280×513 vs 1280×432, `paddingBottomPx` 0 vs 48, `contentAnchor §4` center 0.45 vs top 0.19: these all describe `section-band-1`/`backdrop-1` and the testimonial band after issues 2 and 3 moved them. Re-measure after 2 and 3 before reading them as defects.
 - Unmeasured 13: the 1 probe is issue 3's shift. I did not decompose the 3 bands / 9 populations further.
+
+
+
+## Related tickets filed this round
+
+- **BUG-188** (`instrument-blind`): `1c l1-gate`'s layout model has no margin collapse, so it passes sampleFidelity at 0.009px over issue 2's +84px. Its escape magnitudes are 575.75px away from Chromium.
+- **BUG-189** (`instrument-blind`): gate coverage does not flag a reference section with a box and no content, so issue 1's lost sections read as `structural-failure` instead of `capture-incomplete`.
+- The 6 CRITICAL missing nav links were added to **REQ-302** issue 2 as a comment (same class, now losing content at a sampled width).
