@@ -606,6 +606,12 @@ export const RUN_AXES: readonly AnyElementAxis<ContentRun, RawRun>[] = [
     ...sharedRun((r) => r.textDecoration),
   },
   {
+    axis: 'underlineOffsetPx',
+    role: 'compared',
+    note: 'REQ-365 — `text-underline-offset` in px when an underline is painted and it is not `auto` (null). Absent on a bundle taken before capture schema 13, which reads as unmeasured.',
+    ...sharedRun((r) => r.underlineOffsetPx),
+  },
+  {
     axis: 'textTransform',
     role: 'compared',
     note: 'REQ-63 — `text-transform` when uppercase / lowercase / capitalize.',

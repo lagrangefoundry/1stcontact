@@ -166,6 +166,8 @@ export interface ValueElement {
   fontStyle?: string | null
   /** `text-decoration-line` when underline/line-through/overline, else null. */
   textDecoration?: string | null
+  /** REQ-365 — `text-underline-offset` in px when not `auto`, else null; absent when the side did not record it. */
+  underlineOffsetPx?: number | null
   /** `text-transform` when uppercase/lowercase/capitalize, else null. */
   textTransform?: string | null
   /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */
@@ -499,6 +501,7 @@ export type DeltaProperty =
   // ── REQ-63 typography treatment axes ──────────────────────────────────────
   | 'fontStyle'
   | 'textDecoration'
+  | 'underlineOffsetPx'
   | 'textTransform'
   | 'fontVariant'
   | 'listMarker'
@@ -1539,6 +1542,7 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   fontFamily: 'A',
   fontStyle: 'A',
   textDecoration: 'A',
+  underlineOffsetPx: 'A',
   textTransform: 'A',
   fontVariant: 'A',
   backdropFilter: 'A',
@@ -1631,6 +1635,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   // `property` still distinguishes them in the delta row.
   fontStyle: 'textTreatment',
   textDecoration: 'textTreatment',
+  // REQ-365 — where the line sits is the same treatment as which line it is.
+  underlineOffsetPx: 'textTreatment',
   textTransform: 'textTreatment',
   fontVariant: 'textTreatment',
   listMarker: 'marker',
@@ -1900,6 +1906,13 @@ function shapeLabel(radiusPx: number | undefined): string {
  * difference in differs by many pixels or by a colour.
  */
 const SHADOW_LENGTH_TOL_PX = 1
+
+/**
+ * REQ-365 — how far two underline offsets may disagree and still be the same
+ * placement. Half a pixel: both sides are computed lengths from one extractor, so
+ * any real difference is a whole declared pixel, and the faelan.com defect was two.
+ */
+const UNDERLINE_OFFSET_TOL_PX = 0.5
 
 /**
  * REQ-331 — how far apart two colour ALPHAS may be. One step of 8-bit alpha:
@@ -3390,6 +3403,18 @@ export function diffManifests(
     // (null-normalised), guarded on both sides carrying the field.
     compareValueField(exp, act, 'fontStyle', exp.fontStyle, act.fontStyle)
     compareValueField(exp, act, 'textDecoration', exp.textDecoration, act.textDecoration)
+    // REQ-365 — where that underline sits. Null is the engine's `auto`, a value
+    // like any other, so an offset on one side against `auto` on the other is a
+    // delta; skipped when either side did not record the axis (a pre-13 bundle).
+    if (exp.underlineOffsetPx !== undefined && act.underlineOffsetPx !== undefined) {
+      const e = exp.underlineOffsetPx
+      const a = act.underlineOffsetPx
+      const off = e === null || a === null ? e !== a : Math.abs(e - a) > UNDERLINE_OFFSET_TOL_PX
+      if (off) {
+        const label = (v: number | null): string => (v === null ? 'auto' : `${v}px`)
+        push(exp, 'underlineOffsetPx', label(e), label(a), e !== null && a !== null ? Math.abs(e - a) : 0)
+      }
+    }
     compareValueField(exp, act, 'textTransform', exp.textTransform, act.textTransform)
     compareValueField(exp, act, 'fontVariant', exp.fontVariant, act.fontVariant)
     compareValueField(exp, act, 'listMarker', exp.listMarker, act.listMarker)

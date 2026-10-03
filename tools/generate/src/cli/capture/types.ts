@@ -631,6 +631,8 @@ export interface ContentRun extends ElementGeometry {
   fontStyle?: string | null
   /** `text-decoration-line` when underline/line-through/overline, else null. */
   textDecoration?: string | null
+  /** REQ-365 — `text-underline-offset` in px when an underline is painted and it is not `auto`, else null. Absent before capture schema 13. */
+  underlineOffsetPx?: number | null
   /** `text-transform` when uppercase/lowercase/capitalize, else null. */
   textTransform?: string | null
   /** `font-variant`/`font-variant-caps` when small-caps and kin, else null. */

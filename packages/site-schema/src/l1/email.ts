@@ -94,7 +94,7 @@ export interface L1EmailTarget {
  *     member of this family is a paint effect that either does nothing or
  *     paints something the author did not author.
  *   - `gradientFill`, `textShadow`, `fontVariantCaps`, `listMarker`,
- *     `nowrapFromPx` — the same argument on the type axes.
+ *     `nowrapFromPx`, `underlineOffsetPx` — the same argument on the type axes.
  *   - `objectFit` / `objectPosition` — `object-fit` is not supported; an image
  *     in a message is sized by its own `width` and nothing else.
  *   - `dialog`, `action` and `zoom` — an overlay is a script, and there is no

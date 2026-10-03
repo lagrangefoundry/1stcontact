@@ -920,6 +920,8 @@ function stateDecls(state: L1HoverState | L1FocusState, base: L1Transform | unde
   const c = cssColor(state.color)
   if (c) out.push(`color: ${c}`)
   if (state.textDecoration) out.push(`text-decoration-line: ${state.textDecoration}`)
+  const offset = px(state.underlineOffsetPx)
+  if (offset) out.push(`text-underline-offset: ${offset}`)
   if (state.motion) {
     const t = motionTransformCss(state.motion, base)
     if (t) out.push(`transform: ${t}`)
@@ -4300,6 +4302,10 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
       if (a.fontWeight !== undefined) decls.push(`font-weight: ${Math.round(a.fontWeight)}`)
       if (a.fontStyle) decls.push(`font-style: ${a.fontStyle}`)
       if (a.textDecoration) decls.push(`text-decoration: ${a.textDecoration}`)
+      // REQ-365 — where the line sits. Not a longhand of `text-decoration`, so
+      // absent it is the engine's `auto`, which is not where the page put it.
+      const offset = px(a.underlineOffsetPx)
+      if (offset) decls.push(`text-underline-offset: ${offset}`)
       if (a.baselineShiftEm !== undefined) {
         decls.push(`vertical-align: ${a.baselineShiftEm}em`)
       }
@@ -4562,6 +4568,11 @@ function emitNode(
       if (a.textDecoration && a.textDecoration !== 'none') {
         base.push(`text-decoration-line: ${a.textDecoration}`)
       }
+      // REQ-365 — emitted whether or not this node paints a line itself: the
+      // property inherits, and a linked run inside the node is where the line
+      // usually is.
+      const underlineOffset = px(a.underlineOffsetPx)
+      if (underlineOffset) base.push(`text-underline-offset: ${underlineOffset}`)
       if (a.fontVariantCaps && a.fontVariantCaps !== 'normal') {
         base.push(`font-variant-caps: ${a.fontVariantCaps}`)
       }

@@ -147,8 +147,12 @@ import type { Capture } from './types'
  *   band. A reproduction paints each band on a full-bleed box whose five axes the
  *   diff reads; a pre-12 bundle has nothing to compare them against, so they stay
  *   unmeasured on it until the reference is re-captured.
+ * - **13** — REQ-365: where a run's underline sits (`underlineOffsetPx`, the
+ *   computed `text-underline-offset`). A pre-13 bundle records that a link is
+ *   underlined and not where, so a reproduction paints the line at the engine's
+ *   `auto` offset — 2px high on faelan.com's 24px link — and nothing compares it.
  */
-export const CAPTURE_SCHEMA = 12
+export const CAPTURE_SCHEMA = 13
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -480,6 +484,14 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Every band carries it from schema 12, so the key's presence on any section
     // is the axis — there is no page shape on which a current extractor omits it.
     present: (c) => c.sections.some((s) => typeof s.paint === 'object' && s.paint !== null),
+  },
+  {
+    since: 13,
+    axis: "a run's underline placement (underlineOffsetPx)",
+    where: 'a content run (`sections[].content[]`)',
+    // The key is written on every run from schema 13 (null for `auto`), so its
+    // presence on any run is the axis, whatever the page underlines.
+    present: (c) => runs(c).some((r) => 'underlineOffsetPx' in r),
   },
 ]
 

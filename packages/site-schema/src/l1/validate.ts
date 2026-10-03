@@ -119,6 +119,13 @@ export const L1_ENVELOPE = {
    */
   runBaselineShiftEm: { min: -10, max: 10 },
   /**
+   * REQ-365 — how far an underline may sit from the glyphs it marks. A real page
+   * places one a few pixels below the baseline; a line a hundred pixels off has
+   * left its word behind and paints across whatever line sits beside it, with
+   * nothing in the document to say which word it belongs to.
+   */
+  underlineOffsetPx: { min: -100, max: 100 },
+  /**
    * REQ-326 — how many behaviours one node's entrance may compose. The floor is
    * two because a one-item list is a single behaviour spelled the long way, and
    * the schema refuses that spelling outright; the ceiling is comfortably more
@@ -494,6 +501,14 @@ function checkEffectLen(
   }
 }
 
+/** REQ-365 — bound an underline offset, wherever an axis group carries one. */
+function checkUnderlineOffset(v: number | undefined, path: string, errors: ValidationError[]): void {
+  const { min, max } = L1_ENVELOPE.underlineOffsetPx
+  if (v !== undefined && !inRange(v, min, max)) {
+    errors.push({ path, message: `underlineOffsetPx=${v} out of range [${min}, ${max}]` })
+  }
+}
+
 /**
  * REQ-91 — robustness bounds for the structured effect axes (shadow/border/blur/
  * mask/transform lengths + scale) and the security scheme-check for a box
@@ -781,6 +796,7 @@ function checkInteraction(
     const s = interaction[state]
     if (!s) continue
     checkSurface(s, `${path}/${state}`, errors)
+    checkUnderlineOffset(s.underlineOffsetPx, `${path}/${state}/underlineOffsetPx`, errors)
     const m = s.motion
     if (m) {
       checkEffectLen(m.offsetXPx, `${path}/${state}/motion/offsetXPx`, errors)
@@ -1199,6 +1215,7 @@ function walk(
         errors.push({ path: `${path}/axes/${k}`, message: `${k}=${v} out of range` })
       }
     }
+    checkUnderlineOffset(node.axes.underlineOffsetPx, `${path}/axes/underlineOffsetPx`, errors)
   }
 
   // REQ-211 — a multi-variate node's runs take the same bounds their node does,
@@ -1233,6 +1250,7 @@ function walk(
           message: `baselineShiftEm=${a.baselineShiftEm} out of range [${L1_ENVELOPE.runBaselineShiftEm.min}, ${L1_ENVELOPE.runBaselineShiftEm.max}]`,
         })
       }
+      checkUnderlineOffset(a.underlineOffsetPx, `${at}/underlineOffsetPx`, errors)
     })
   }
 

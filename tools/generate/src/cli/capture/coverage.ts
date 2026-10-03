@@ -122,6 +122,12 @@ const REGISTER: readonly CoverageEntry[] = [
     present: anyRun('textDecoration', truthy),
   },
   {
+    property: 'text-underline-offset',
+    verdict: 'recorded',
+    note: "a run's `underlineOffsetPx`, when an underline is painted and the offset is not `auto` (REQ-365)",
+    present: anyRun('underlineOffsetPx', (v) => typeof v === 'number'),
+  },
+  {
     property: 'font-variant-caps',
     verdict: 'recorded',
     note: "a run's `fontVariant` (REQ-63)",
@@ -480,12 +486,12 @@ const REGISTER: readonly CoverageEntry[] = [
   ),
   ...rows(
     'not-expressible',
-    "L1's `textDecoration` is a closed enum of LINES (`underline`/`line-through`/`overline`); it " +
-      'carries no colour, style, thickness or offset for the line it paints',
+    "L1's `textDecoration` is a closed enum of LINES (`underline`/`line-through`/`overline`); beside " +
+      'it only `underlineOffsetPx` places one (REQ-365), and nothing carries the colour, style or ' +
+      'thickness of the line it paints',
     'text-decoration-color',
     'text-decoration-style',
     'text-decoration-thickness',
-    'text-underline-offset',
     'text-underline-position',
     'text-decoration-skip-ink',
   ),
