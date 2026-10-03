@@ -121,6 +121,14 @@ const REGISTER: readonly CoverageEntry[] = [
     note: "a run's `textDecoration` (REQ-63)",
     present: anyRun('textDecoration', truthy),
   },
+  ...rows(
+    'recorded',
+    "a run's `whiteSpace`, only for the two values that keep spaces which take width while the run " +
+      'still wraps (`break-spaces` / `pre-wrap`), with the run text keeping its edge space (REQ-370). ' +
+      'Every other value is a wrapping decision, and wrapping is measured (`nowrapFromPx`, REQ-88)',
+    'white-space',
+    'white-space-collapse',
+  ).map((e) => ({ ...e, present: anyRun('whiteSpace', truthy) })),
   {
     property: 'text-underline-offset',
     verdict: 'recorded',
@@ -406,8 +414,6 @@ const REGISTER: readonly CoverageEntry[] = [
       'the reference held the run on one line at every captured width, and each width has its own ' +
       'measured `box`/`renderedTextBox`. A declaration says what the author asked for; the ladder ' +
       'says what the page did, and the second is what a reproduction has to match',
-    'white-space',
-    'white-space-collapse',
     'text-wrap-mode',
     'text-wrap-style',
     'word-break',
@@ -497,9 +503,10 @@ const REGISTER: readonly CoverageEntry[] = [
   ),
   ...rows(
     'not-expressible',
-    'the capture models no vector leaf: `<svg>` is not in the field selector and L1 has no vector ' +
-      'kind, so an inline icon reaches a reproduction as nothing at all — its paint is the second ' +
-      'problem, not the first',
+    'the capture models no vector leaf and L1 has no vector kind, so an inline icon reaches a ' +
+      'reproduction as nothing at all — its paint is the second problem, not the first. The one ' +
+      'exception is an `<svg>` whose only shape is a solid rectangle covering it, which IS a box: its ' +
+      'fill is recorded as that field\'s `surfaceFill` (REQ-370)',
     'fill',
     'fill-opacity',
     'fill-rule',

@@ -218,6 +218,11 @@ export interface RawRun extends RawGeometry {
   textFlow?: string
   /** Computed `vertical-align` when the run is lifted off the baseline, else null. */
   verticalAlign?: string | null
+  /**
+   * REQ-370 — computed `white-space` when it PRESERVES spaces that wrap
+   * (`break-spaces` / `pre-wrap`), else null. Under it `text` keeps its edge space.
+   */
+  whiteSpace?: string | null
   /** REQ-58 (item 3b) — card/panel fill `#rrggbb` behind the run (the nearest
    *  painted ancestor background), null when the run sits on the section band. */
   surfaceFill?: string | null
@@ -1174,6 +1179,16 @@ export const EXTRACT_SCRIPT = `(() => {
   function collapseWs(t) { return (t || '').replace(HTML_WS, ' '); }
   function trimWs(t) { return (t || '').replace(HTML_WS_EDGE, ''); }
   function collapseText(t) { return trimWs(collapseWs(t)); }
+  // REQ-370 -- a run whose computed white-space PRESERVES its spaces lets them take
+  // width: under \`break-spaces\` a trailing space, and the space at a soft wrap,
+  // widen the line, and a centred line moves by half a space. Trimming that space
+  // made a faithful reproduction unreachable (25 of hearingzone510.com's 26
+  // renderedTextBox deltas). Only the two values that wrap AND keep spaces count;
+  // \`pre\` and \`nowrap\` are measured as line count, as before (REQ-88).
+  function preservedWhiteSpaceOf(s) {
+    var v = s && s.whiteSpace;
+    return (v === 'break-spaces' || v === 'pre-wrap') ? v : null;
+  }
   // Largest painted corner radius (px). Rounded-vs-square is visually obvious but
   // tiny in pixels, so it is captured as an explicit rendered value, not left to
   // an image diff to (barely) see.
@@ -1949,15 +1964,17 @@ export const EXTRACT_SCRIPT = `(() => {
   //     emitted the absolute URL would send its own visitors back to the site it
   //     was captured from, which is the opposite of reproducing the link.
   //   - cross-origin -> the absolute URL, which is what the reference means.
-  //   - anything but http/https -> null. mailto:/tel:/javascript: are all
-  //     refused by the L1 URL allowlist (isSafeUrl), so recording one would fold a
-  //     document the validator then rejects.
+  //   - tel:/mailto: -> the attribute as written (REQ-370). REQ-359 widened the
+  //     L1 link allowlist (isSafeHref) to exactly these two schemes; the body rule
+  //     here is the same one, so a recorded value always folds.
+  //   - anything else (javascript:, data:, ...) -> null, still refused by L1.
   function hrefOf(el) {
     var a = el.closest ? el.closest('a[href]') : null;
     if (!a) return null;
     var raw = a.getAttribute('href');
     if (raw == null || raw.trim() === '') return null;
     raw = raw.trim();
+    if (/^(tel|mailto):./i.test(raw)) return /[\\u0000-\\u0020\\u007f-\\u009f"'\\\\<>]/.test(raw) ? null : raw;
     var u;
     try { u = new URL(raw, location.href); } catch (e) { return null; }
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
@@ -2654,7 +2671,10 @@ export const EXTRACT_SCRIPT = `(() => {
       if (!t) { pendingSpace = true; continue; }
       if (pendingSpace && flow.charAt(0) !== ' ') flow = ' ' + flow;
       pendingSpace = false;
-      nodes.push({ node: n, el: owner, text: t, flow: flow });
+      // REQ-370 -- the edge spaces stay where they take width (collapsed to one,
+      // as the extractor collapses every run, so markup indentation is not text).
+      var kept = preservedWhiteSpaceOf(getComputedStyle(owner)) ? collapseWs(n.nodeValue) : t;
+      nodes.push({ node: n, el: owner, text: kept, flow: flow });
       runCounts.set(owner, (runCounts.get(owner) || 0) + 1);
     }
     // REQ-211 -- assign each run to the inline flow it sits in. The flow root is
@@ -2782,6 +2802,7 @@ export const EXTRACT_SCRIPT = `(() => {
         inlineBox: inFlow ? absBox(flowInfo[ri2].root) : undefined,
         textFlow: inFlow ? nodes[ri2].flow : undefined,
         verticalAlign: (inFlow && s.verticalAlign && s.verticalAlign !== 'baseline') ? s.verticalAlign : undefined,
+        whiteSpace: preservedWhiteSpaceOf(s),
         color: resolvedColor || '#000000',
         colorInferred: !resolvedColor,
         fontFamily: familyStack(s.fontFamily),
@@ -2886,6 +2907,56 @@ export const EXTRACT_SCRIPT = `(() => {
   // element does (a11yRole + document order); it carries the image handle as
   // backgroundImageUrl rather than src, because it paints a SURFACE behind
   // content, not replaced content in flow.
+  // REQ-370 -- an inline <svg> that is only a solid RECTANGLE covering itself.
+  //
+  // The capture models no vector leaf (coverage.ts: fill/stroke not-expressible),
+  // which is right for an icon and wrong for this: Zyro paints a testimonial
+  // card's panel as \`<svg preserveAspectRatio="none" viewBox="0 0 80 80"><path
+  // d="M0 0H80V80H0V0Z"/></svg>\` filled from a CSS variable, over a div with no
+  // background. Nothing read a background colour, so the capture recorded nothing
+  // 606px wide, and white review copy reproduced on the band's grey (hearingzone510
+  // .com: 44.90% of the ranked score at zero deltas). A rectangle that covers its
+  // own box IS a box, which L1 already expresses.
+  //
+  // Returns the shape's opaque fill as #rrggbb, or null for anything else: more
+  // than one shape, a shape that does not cover the viewBox, an aspect ratio the
+  // viewBox would letterbox, a gradient/pattern fill, a translucent fill.
+  var SVG_RECT_PATH = /^M\\s*0[\\s,]+0\\s*H\\s*([\\d.]+)\\s*V\\s*([\\d.]+)\\s*H\\s*0\\s*(?:V\\s*0\\s*)?Z$/i;
+  function svgPanelFillOf(svg) {
+    var shapes = [];
+    var kids = svg.children;
+    for (var i = 0; i < kids.length; i++) {
+      var t = kids[i].tagName.toLowerCase();
+      if (t === 'title' || t === 'desc' || t === 'defs') continue;
+      shapes.push(kids[i]);
+    }
+    if (shapes.length !== 1) return null;
+    var shape = shapes[0];
+    var vb = (svg.getAttribute('viewBox') || '').trim().split(/[\\s,]+/).map(parseFloat);
+    if (vb.length !== 4 || vb[0] !== 0 || vb[1] !== 0 || !(vb[2] > 0) || !(vb[3] > 0)) return null;
+    var tag = shape.tagName.toLowerCase();
+    var w = null, h = null;
+    if (tag === 'rect') {
+      if ((parseFloat(shape.getAttribute('x')) || 0) !== 0 || (parseFloat(shape.getAttribute('y')) || 0) !== 0) return null;
+      var rw = shape.getAttribute('width') || '', rh = shape.getAttribute('height') || '';
+      w = rw === '100%' ? vb[2] : parseFloat(rw);
+      h = rh === '100%' ? vb[3] : parseFloat(rh);
+    } else if (tag === 'path') {
+      var m = SVG_RECT_PATH.exec((shape.getAttribute('d') || '').trim());
+      if (m) { w = parseFloat(m[1]); h = parseFloat(m[2]); }
+    }
+    if (w === null || h === null || Math.abs(w - vb[2]) > 0.01 || Math.abs(h - vb[3]) > 0.01) return null;
+    var box = svg.getBoundingClientRect();
+    if (!(box.width > 0 && box.height > 0)) return null;
+    if ((svg.getAttribute('preserveAspectRatio') || '').trim() !== 'none' &&
+        Math.abs(box.width / box.height - vb[2] / vb[3]) > 0.01 * (vb[2] / vb[3])) return null;
+    var ss = getComputedStyle(shape);
+    var fill = rgbaOf(ss.fill);
+    if (!fill || fill[3] < 0.999) return null;
+    var fo = parseFloat(ss.fillOpacity);
+    if (!isNaN(fo) && fo < 0.999) return null;
+    return rgbToHex(ss.fill);
+  }
   function fieldsUnder(root, excludes) {
     var out = [];
     var cands = [];
@@ -2893,6 +2964,14 @@ export const EXTRACT_SCRIPT = `(() => {
     for (var ci = 0; ci < els.length; ci++) cands.push({ el: els[ci], bgUrl: null });
     var bgs = backdropBoxes();
     var added = 0;
+    // REQ-370 -- an inline SVG that is only a filled rectangle (svgPanelFillOf).
+    var svgs = root.querySelectorAll('svg');
+    for (var si = 0; si < svgs.length; si++) {
+      var panelFill = svgPanelFillOf(svgs[si]);
+      if (!panelFill) continue;
+      cands.push({ el: svgs[si], bgUrl: null, fill: panelFill });
+      added++;
+    }
     // REQ-366 -- an empty element whose only ink is a border rule (borderRuleOf).
     var empties = root.querySelectorAll(':empty');
     for (var ei = 0; ei < empties.length; ei++) {
@@ -2994,7 +3073,8 @@ export const EXTRACT_SCRIPT = `(() => {
         // opacity .49 -- that black is what darkens it), and capturing the image
         // without the fill under it reproduces the photograph at full brightness.
         // Null when the element paints no fill of its own.
-        surfaceFill: rgbToHex(s.backgroundColor),
+        // REQ-370 -- or, for an SVG rectangle panel, the fill of its one shape.
+        surfaceFill: cands[i].fill || rgbToHex(s.backgroundColor),
         accessibleName: an.name,
         nameSource: an.source,
         // REQ-93 — the behavioural facts a mounted behavior module needs and no

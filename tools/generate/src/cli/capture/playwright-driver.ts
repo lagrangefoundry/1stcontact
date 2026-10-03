@@ -11,6 +11,7 @@ import {
   FONT_BARRIER,
   FONTS_READY,
   IMAGES_DECODED,
+  REVEAL_MEDIA,
   SETTLE_CSS,
   SETTLE_SCROLL,
 } from './page-scripts'
@@ -208,6 +209,10 @@ class PlaywrightDriver implements BrowserDriver {
     // just now, during the scroll.
     await page
       .evaluate(IMAGES_DECODED)
+      .catch(() => undefined)
+    // REQ-370 — land any scroll-reveal pre-state the scroll left hidden.
+    await page
+      .evaluate(REVEAL_MEDIA)
       .catch(() => undefined)
     // Let the newly-triggered subresource requests settle.
     await page.waitForLoadState('networkidle').catch(() => undefined)

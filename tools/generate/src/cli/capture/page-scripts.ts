@@ -120,3 +120,54 @@ export const IMAGES_DECODED = `Promise.all(
         });
   })
 ).then(function () { return true; })`
+
+/**
+ * REQ-370 — land a scroll-reveal pre-state the scroll did not clear.
+ *
+ * {@link SETTLE_CSS} names Elementor's pre-animation class, and every other
+ * builder spells its own: Zyro hides a revealed image with
+ * `.transition--root-hidden [data-animation-role=image]{opacity:0;transform:translateY(20%)}`,
+ * cleared only once its observer marks it active AND loaded — which the stepped
+ * scroll did not leave it in. Three photographs on hearingzone510.com were
+ * therefore missing from the reference screenshot AND from the oracle: zero
+ * pixels, zero deltas, nothing anywhere but an unreferenced mirrored asset.
+ *
+ * So the rule is the pre-state's SIGNATURE rather than a class name: a decoded
+ * image with a real box, under an element (itself included) that is fully
+ * transparent AND displaced by a transform — "hidden, and waiting to slide in".
+ * Opacity alone is not enough: a fading carousel parks its inactive slides at
+ * `opacity: 0` with no transform, and revealing them would stack every slide on
+ * the active one. A carousel ancestor is skipped outright for the same reason.
+ *
+ * Each element it lands is marked `data-1c-revealed`, so what the settle changed
+ * stays visible in the rendered DOM. Returns how many it landed.
+ */
+export const REVEAL_MEDIA = `(() => {
+  var carousel = /(^|[\\s_-])(carousel|slider|swiper|slick|splide|glide|flickity)([\\s_-]|$)/i;
+  var landed = 0;
+  var imgs = Array.prototype.slice.call(document.images);
+  for (var i = 0; i < imgs.length; i++) {
+    var img = imgs[i];
+    if (!img.complete || !(img.naturalWidth > 0 || img.currentSrc)) continue;
+    var r = img.getBoundingClientRect();
+    if (!(r.width > 0 && r.height > 0)) continue;
+    var hidden = [];
+    var inCarousel = false;
+    for (var el = img; el && el !== document.body; el = el.parentElement) {
+      if (carousel.test(el.getAttribute('class') || '') || el.getAttribute('aria-roledescription') === 'carousel') {
+        inCarousel = true;
+        break;
+      }
+      var s = getComputedStyle(el);
+      if (parseFloat(s.opacity) === 0 && s.transform && s.transform !== 'none') hidden.push(el);
+    }
+    if (inCarousel || !hidden.length) continue;
+    for (var j = 0; j < hidden.length; j++) {
+      hidden[j].style.setProperty('opacity', '1', 'important');
+      hidden[j].style.setProperty('transform', 'none', 'important');
+      hidden[j].setAttribute('data-1c-revealed', '');
+    }
+    landed++;
+  }
+  return landed;
+})()`

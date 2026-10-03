@@ -739,6 +739,8 @@ export interface ContentRun extends ElementGeometry {
   textFlow?: string
   /** Computed `vertical-align` when the run is lifted off the baseline, else null. */
   verticalAlign?: string | null
+  /** REQ-370 — computed `white-space` when it preserves wrapping spaces (`break-spaces`/`pre-wrap`), else null. Absent before capture schema 15. */
+  whiteSpace?: string | null
 }
 
 export interface SectionItem {

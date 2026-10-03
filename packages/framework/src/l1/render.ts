@@ -4548,17 +4548,22 @@ function emitNode(
       if (r?.lineHeightPx) state.rules.push(...scalarAxisRules(selector, 'line-height', r.lineHeightPx))
       if (r?.letterSpacingPx) state.rules.push(...scalarAxisRules(selector, 'letter-spacing', r.letterSpacingPx))
       if (a.textAlign) base.push(`text-align: ${a.textAlign}`)
+      // REQ-370 — spaces that take width (see `axes.whiteSpace`).
+      if (a.whiteSpace) base.push(`white-space: ${a.whiteSpace}`)
       // REQ-88 — a run the reference kept on one line must not become breakable
       // just because the fold gave it a fixed-width box (see `axes.nowrapFromPx`).
       // At or below the ladder's floor the pin is unconditional; above it, it
       // starts at the width from which the reference stopped wrapping.
+      // REQ-370 — on a run that preserves its spaces only the WRAP mode is pinned:
+      // `white-space: nowrap` would collapse the very spaces `whiteSpace` keeps.
+      const nowrap = a.whiteSpace ? 'text-wrap-mode: nowrap' : 'white-space: nowrap'
       if (a.nowrapFromPx !== undefined) {
-        if (a.nowrapFromPx <= (state.minWidth ?? 0)) base.push('white-space: nowrap')
+        if (a.nowrapFromPx <= (state.minWidth ?? 0)) base.push(nowrap)
         else {
           state.rules.push({
             media: `(min-width: ${a.nowrapFromPx}px)`,
             selector,
-            decls: ['white-space: nowrap'],
+            decls: [nowrap],
           })
         }
       }

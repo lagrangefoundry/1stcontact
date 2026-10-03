@@ -156,8 +156,18 @@ import type { Capture } from './types'
  *   and an empty element whose only ink is a border rule (a page-builder divider)
  *   as a field, as an `<hr>` is. A pre-14 bundle recorded neither, so those
  *   elements were drawn nowhere and compared against nothing.
+ * - **15** — REQ-370: four things hearingzone510.com (a Zyro page) showed the
+ *   extractor dropping. (a) A run whose computed `white-space` preserves spaces
+ *   that wrap (`break-spaces` / `pre-wrap`) records it as `whiteSpace` and keeps
+ *   the edge space in its `text`: under `break-spaces` that space takes width,
+ *   and a pre-15 bundle is one space narrower than the page on every such run.
+ *   (b) A link's `tel:` / `mailto:` target is recorded (REQ-359 taught L1 to
+ *   accept them; the extractor still threw them away). (c) An inline `<svg>` whose
+ *   only shape is a solid rectangle covering it is recorded as a painted field.
+ *   (d) A decoded image parked in a scroll-reveal pre-state (transparent AND
+ *   displaced) is landed before measuring, so it is in the oracle at all.
  */
-export const CAPTURE_SCHEMA = 14
+export const CAPTURE_SCHEMA = 15
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -506,6 +516,23 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // none however new its extractor is — the `href` asymmetry again — so this only
     // ever removes the axis from a finding.
     present: (c) => runs(c).some((r) => typeof r.pseudoGlyph === 'string'),
+  },
+  {
+    since: 15,
+    axis: "a run's preserved white space (whiteSpace, with the edge space kept in its text)",
+    where: 'a content run (`sections[].content[]`)',
+    // Written on every run from schema 15 (null when spaces collapse), so the
+    // key's presence on any run is the axis, whatever the page declares.
+    present: (c) => runs(c).some((r) => 'whiteSpace' in r),
+  },
+  {
+    since: 15,
+    axis: 'a tel: / mailto: link target (href)',
+    where: 'a content run or field (`href`)',
+    // A page with no phone or mail link records none however new its extractor
+    // is — the `href` asymmetry — so this only ever removes the axis.
+    present: (c) =>
+      [...runs(c), ...fields(c)].some((r) => typeof r.href === 'string' && /^(tel|mailto):/i.test(r.href)),
   },
 ]
 

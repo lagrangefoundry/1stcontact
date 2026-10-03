@@ -161,6 +161,8 @@ export interface ValueElement {
   textFlow?: string
   /** Computed `vertical-align` when the run is lifted off the baseline, else null. */
   verticalAlign?: string | null
+  /** REQ-370 — computed `white-space` when it preserves wrapping spaces, else null. */
+  whiteSpace?: string | null
   /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
   fontLoaded?: boolean
   // ── REQ-63 typography treatment axes (null / absent when the no-op default) ──
