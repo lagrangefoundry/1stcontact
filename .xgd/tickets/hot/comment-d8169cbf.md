@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T18:50:48.663513+00:00'
+updated_at: '2026-10-03T18:51:52.737244+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6296,5 +6296,11 @@ You're right. The sentence describes a storage step as if it were a change to yo
 **Where it goes.** The sentence came from REQ-287, which is at `ready_to_reconcile`, so its body is frozen and its UATs pin the old text. The fix needs its own small bug under EPIC-19 that changes both lines and updates those UATs, and should ask for "on your site" not to appear in any upload note for an item that isn't on a page. It's about one point.
 
 Shall I file it with the first wording, or would you rather phrase it differently?
+
+<!-- xgd-turn id="dcd2dc6a-a32e-4602-a66e-c57732928143-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T18:51:52.267596+00:00" -->
+#### You
+First wording works - small bug is fine
 
 <!-- xgd-chat-end -->
