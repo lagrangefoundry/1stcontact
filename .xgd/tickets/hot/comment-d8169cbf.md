@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T18:51:52.737244+00:00'
+updated_at: '2026-10-03T18:52:32.343507+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6302,5 +6302,18 @@ Shall I file it with the first wording, or would you rather phrase it differentl
 <!-- xgd-chat role="user" ts="2026-10-03T18:51:52.267596+00:00" -->
 #### You
 First wording works - small bug is fine
+
+<!-- xgd-turn id="dcd2dc6a-a32e-4602-a66e-c57732928143-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T18:52:31.079454+00:00" -->
+#### Claude
+I've filed **BUG-181**, *"Upload note: says an uploaded image is 'on your site' when it's only available to use"*. It's under EPIC-19, at `draft`, 1 point.
+
+The ticket changes two lines and leaves the rest of the note alone:
+- **After a successful upload:** *"Added — **IMAGE-3** is ready to use on your site."* Anything uploaded before images had labels shows its filename instead.
+- **When the copy fails:** *"It's in your Library, but isn't ready to use on the site yet: …"*
+- **Unchanged:** the line naming the file you dropped, and the reference-role line.
+
+It also sets a rule: no upload note may say an item is "on your site", because uploading never places anything on a page. The REQ-287 tests that expect the old wording get updated to match.
 
 <!-- xgd-chat-end -->
