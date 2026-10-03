@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-02T21:02:19.323772+00:00'
+updated_at: '2026-10-03T22:38:00.264368+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2123,3 +2123,10 @@ Whether the assistant may read the consultant's private session. Recommendation:
 
 
 - **REQ-364** (2026-10-02): the plan panel, v1 (DOC-65). The consultant's asks for the client sit in the plan ticket and are answered in a collapsible panel above the chat. The client can answer, skip, change an answer or upload against an ask; the consultant can withdraw one. Answers reach the consultant through the per-turn change notice, and nothing wakes it. A one-line phase is shown. DOC-64 and the consultant's priming are updated with the rules. The next test runs with the group chat off, the coordinator stays available, and switching back on depends on BUG-176.
+
+
+### Finding 17 — previewing the draft on a phone (2026-10-03)
+
+The consultant asked a client to check the draft on their phone; the product offered no way to. Filed **[[REQ-376]]** — *View on your phone*: a QR code beside "Open in a new tab", encoding the same draft URL, generated in the browser. Sign-in is unchanged; the consultant's priming names the control.
+
+**Parked, open question:** a shareable, sign-in-free draft link (read-only, expiring, revocable). It makes a private draft reachable by link-holders, so it's a DOC-5 access-policy decision, not a builder feature. Not filed.
