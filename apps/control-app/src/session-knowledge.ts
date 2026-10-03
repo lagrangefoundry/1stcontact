@@ -18,7 +18,12 @@ import {
   search as kmSearch,
   searchChunks as kmSearchChunks,
 } from './generated/knowledge'
-import { PROJECT_KB, projectKnowledgeFor, type ProjectKnowledgeEnv } from './knowledge'
+import {
+  PROJECT_KB,
+  materialTextView,
+  projectKnowledgeFor,
+  type ProjectKnowledgeEnv,
+} from './knowledge'
 import { canEmbed } from './embedder'
 import type { Scope } from './scope'
 import {
@@ -178,6 +183,21 @@ function asMap(value: Untyped): Map<string, Untyped> {
  * it from the store that uid's own knowledge base declares. That is the routing
  * `sources` exists for, and it is why one index spanning several KBs was always
  * the component's model even when a host only had one.
+ *
+ * ONLY THE FAN-OUT AND THE MERGE ARE OURS; EVERY PER-HIT STEP IS THE BASE'S
+ * ([[BUG-185]]). The merged hits go through the base class's own post-processing
+ * in upstream's order, and skipping any of it is not a simplification:
+ *
+ *   - `_disclose` folds each returned uid into the snapshot `get` resolves
+ *     against. The session's runtime lives as long as the isolate, so without
+ *     it a document indexed after the first turn — every upload made while the
+ *     client is talking — is found by search and refused by `KnowledgeGet` as
+ *     `not_in_corpus`. Only uids a `kb`-gated search actually returned are
+ *     admitted, so this does not widen the `document` axis.
+ *   - `_claimedHits` attaches each hit's corpus claims. `provenance` is what
+ *     fences client material as untrusted data; a hit without it reaches the
+ *     model as if we had written it.
+ *   - `_withTurns` gives a transcript chunk the turn it sits in.
  */
 export class CoRankedKnowledge extends KnowledgeToolbox {
   private readonly perKb: Map<string, Untyped>
@@ -223,18 +243,20 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
           }),
         ),
       )
-      return coRank(perKb as RankedHit[][], top_k)
+      return this._claimedHits(this._disclose(coRank(perKb as RankedHit[][], top_k)))
     })
   }
 
   async chunk_search({
     query,
     kb = null,
+    doc = null,
     top_k = DEFAULT_TOP_K,
     chunks_per_hit = DEFAULT_CHUNKS_PER_HIT,
   }: {
     query: string
     kb?: string | string[] | null
+    doc?: string | null
     top_k?: number
     chunks_per_hit?: number
   }): Promise<RankedHit[]> {
@@ -248,6 +270,7 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
             store: runtime.store,
             kbs: runtime.kbs,
             kb: name,
+            doc,
             topK: top_k,
             chunksPerHit: chunks_per_hit,
             embedder: runtime.embedder,
@@ -255,7 +278,9 @@ export class CoRankedKnowledge extends KnowledgeToolbox {
           }),
         ),
       )
-      return coRank(perKb as RankedHit[][], top_k)
+      return this._claimedHits(
+        await this._withTurns(this._disclose(coRank(perKb as RankedHit[][], top_k))),
+      )
     })
   }
 }
@@ -335,7 +360,11 @@ export async function sessionKnowledgeFor(
     perKb.set(
       PROJECT_KB,
       await KnowledgeRuntime.open({
-        store: project.store,
+        // THE TEXT VIEW, NOT THE BARE STORE ([[BUG-185]]). The chunk index was
+        // built over `materialTextView`, so its hits' `start`/`end` are offsets
+        // into a material's own text; `KnowledgeGet` and `KnowledgeOutline` must
+        // read that same text, not the digest the ticket body holds.
+        store: materialTextView(project.store),
         kbs: new Map([[PROJECT_KB, projectKb()]]),
         // KEYED BY THE NAME THE DECLARATION RESOLVES TO, not by the KB's own
         // name — they differ here. `kb/knowledge_bases.json` gives the project KB

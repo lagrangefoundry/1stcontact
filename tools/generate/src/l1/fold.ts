@@ -1724,7 +1724,8 @@ function isSelfPaintingRun(el: ValueElement): boolean {
  * a card is a common shape and its fill genuinely belongs to the enclosing card.
  * Two further guards keep an ancestor-attributed treatment on the card box, where
  * the chip axes cannot carry it: a `surfaceGradient` (no chip gradient axis) and a
- * `borderLeft` accent bar (no chip borderLeft axis).
+ * `borderLeft` accent bar (no chip borderLeft axis). A third requires the fill to be
+ * the run's own wherever the capture recorded whose it is (REQ-372).
  */
 function isPaddedControlRun(el: ValueElement): boolean {
   const vPad = (el.paddingTopPx ?? 0) + (el.paddingBottomPx ?? 0)
@@ -1732,6 +1733,13 @@ function isPaddedControlRun(el: ValueElement): boolean {
   if (!el.surfaceFill) return false
   if (el.surfaceGradient) return false
   if (el.borderLeft && el.borderLeft.widthPx > 0) return false
+  // REQ-372 — the fill must be the run's OWN. `surfaceFill` walks ancestors, so a
+  // padded nav link (`padding: 13px 20px` on a transparent `<nav>`) standing on the
+  // hero band reports the band's fill, and taking it as a chip painted every link
+  // as an opaque plate over the photograph. The capture says whose fill it is:
+  // `surface.self: false` means an ancestor painted it. A capture that recorded no
+  // surface record at all keeps the vertical-inset reading above.
+  if (el.surface && !el.surface.self) return false
   return true
 }
 
