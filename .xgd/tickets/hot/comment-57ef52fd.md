@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-179
 created_by: xgd
 created_at: '2026-10-03T19:56:19.685260+00:00'
-updated_at: '2026-10-03T20:23:32.046247+00:00'
+updated_at: '2026-10-03T20:36:03.113121+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,87 @@ I sent `1stcontact-3f` that script's location and the points from my last messag
 - **Item 7b:** `layoutCollisions` drops the probe name, and three tests call it.
 
 Its plan covers all seven items, so nothing is left for this session unless you want me to review its work once it lands.
+
+<!-- xgd-turn id="01b175f8-23a4-4ad2-a797-4926b5dcb106-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T20:35:58.097003+00:00" -->
+#### Claude
+I'm reading the values-diff and capture code to map the ticket's seven items onto real code before I scope and cut the branch.
+
+Still mapping the diff code: I've found where zIndex, filter, opacity and padding get compared. Next I'll look at the text-free pairing pass (items 2 and 7) and section pairing (item 5).
+
+Now checking how element-axis rows in `value-axes.ts` get the bundle schema, so a clip-derived `visibleFraction` reads as unmeasured on bundles older than schema 7.
+
+Still reading: item 6's fill fallback lives in `sliceBackgroundColor`. I'm checking how a transparent result becomes `{"kind":"none"}` before I change it.
+
+Code map is done. Item 7b is a `probe` field on `LayoutCollision`. Checking its other callers, then I'll update the ticket, cut the branch and start coding.
+
+Updating the ticket with the agreed approach before I write code.
+
+Ticket is updated and at `free_coding`, and the branch is cut. Now writing the code in the worktree.
+
+Now the edits to `values-diff.ts`: first the type tables.
+
+Type tables are in. Now the comparator changes: zIndex clamp, `visibleFraction`, and the line-height quantum.
+
+Now item 2, resolving paint axes across coincident reproduction layers.
+
+Only my edits are in the worktree. Continuing with item 2, the coincident layers.
+
+That's a useful harness. I'll use it to verify and delete it before committing. Now item 5, section coalescing.
+
+On the real iteration-5 manifests, items 1, 2, 4, 5 and 7a behave as specified: the 5 clip deltas are added and the 11 false deltas are gone. Now the extract.ts items (3, and 6 on both paths).
+
+Now verifying the browser script still parses, since Chromium is blocked in the sandbox.
+
+The script parses. Now item 7b in `gate-core.ts`.
+
+Now the UAT file, then the typecheck and the regression scope.
+
+I'll exercise items 3 and 6 offline too, by slicing the real functions out of `EXTRACT_SCRIPT` (the same pattern as the BUG-174 tests).
+
+All 11 pass. Next, the typecheck and the regression scope: the values-diff, gate, band-paint and collision suites.
+
+The only type errors are the known missing control-app `generated/` artifacts in a fresh worktree; there are none in the files I touched. Running the regression scope.
+
+Whole suites are failing at load time. Checking the error.
+
+This is the known fresh-worktree gap: `apps/control-app/src/generated` is missing. I'm copying the gitignored build artifact from the main checkout so the suites can load.
+
+Three failures. BUG-64 is a known upstream regression. Checking BUG-112 and BUG-161.
+
+The only failure left is BUG-64, a known upstream regression that doesn't touch these files. Running a wider fold/capture sweep as well.
+
+The only failure is REQ-180, which also fails on clean working. Preparing the commit: version bump, and leaving out the harness files.
+
+Working moved forward during the session. The fast-forward was clean; re-running the core suites on top of it before committing.
+
+Committed. Now: lock, merge into xgd-working, move to `free_coded`, clean up.
+
+Fast-forwarded. Moving to `free_coded` first, since a ticket auto-commit landing after the bump would block the version gate.
+
+Status is `free_coded` with the commit recorded. Now the story points, a body correction for item 6 (it also covers the top-level band path, as the other session pointed out), and cleanup.
+
+BUG-179 is implemented and merged into `xgd-working` as `ee378c143e` (version 0.2.455). The ticket is at `free_coded` with that commit recorded, story points set to 5, and the body updated to match what landed.
+
+**Effect on the real iteration-5 manifests:** I re-ran the diff offline on the saved manifests and it goes from 23 deltas to 17. The 11 false deltas from items 2, 4, 5 and 7 are gone: `zIndex`, `backgroundImage` ×2, `filter`, `opacity` ×2, `lineHeightPx` ×3 and padding ×2. The five header links now report CRITICAL `visibleFraction 100% → 0%`. The `surfaceFill` rows that remain are items 3 and 6, which only change once the page is captured again in a browser.
+
+**What changed, by item:**
+1. **Clipped runs:** `visibleFraction` is computed from the `box` and `clip` both sides already record, so it works on this bundle without a re-capture. It only looks at the *nearest* clipping ancestor, and it stays silent on bundles that never recorded clipping.
+2. **Several reproduction layers at the same box:** paint axes (`backgroundImage`, `filter`, `opacity`, blend, mask, padding) are read from all reproduction layers sharing the paired box. This only applies when the reference value actually paints something, so an extra image on our side is still reported.
+3. **`paintedSurfaces`:** when two surfaces have equal area, the one painted on top now comes first.
+4. **`zIndex`:** both sides are clamped to the same range the fold uses before comparing, so `9999` against `1000` agrees, but a real reordering still shows.
+5. **Coalesced section:** a reference section now claims the unpaired reproduction bands inside it, and an axis agrees if any band in the group agrees. I changed this from the ticket's "area-weighted" wording, because a weighted mean reads 0.9 against the reference's 0.5 here and would keep the false delta.
+6. **Band fill painted by a descendant:** if a band paints no fill itself, a child covering at least 99% of it supplies the fill. This applies to both band paths, including the top-level one the reference footer actually uses. That gap was pointed out by another session that had started on BUG-179; it stopped and left this work to me.
+7. **Small ones:** a line-height or letter-spacing difference of 0.01px or less is no longer reported. Every `gate.json` `layout.findings` entry now names its probe (`onSample`, `offSample` or `contentRobustness`).
+
+**Tests:**
+- The new UAT file `tests/test_UAT_FC_BUG-179_values_diff_measures_what_paints.test.ts` has 11 tests, all passing. Items 3 and 6 are tested by running the real browser-script functions on stub elements, because Chromium is blocked in the sandbox.
+- I updated four existing UATs for the new contract: BUG-112, BUG-143, BUG-158 and BUG-161.
+- Across about 145 related suites the only failures are BUG-64 and REQ-180, which also fail on a clean tree.
+
+**Still to do:**
+- Items 3 and 6 have not run in a real browser. To confirm them, capture the reference again and re-run the gate command from the ticket's "How to see it" section.
+- The ticket is ready for you to promote to `ready_to_reconcile` when you're happy with it.
 
 <!-- xgd-chat-end -->
