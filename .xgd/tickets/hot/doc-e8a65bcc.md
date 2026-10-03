@@ -5,9 +5,9 @@ type: doc
 title: 'How-To: Faithful Founder-Site Reproduction (successor runbook)'
 created_by: xgd
 created_at: '2026-07-03T01:39:12.471124+00:00'
-updated_at: '2026-08-31T19:43:01.915731+00:00'
+updated_at: '2026-10-03T17:01:47.073749+00:00'
 completed_at: null
-last_field_updated: system_kb
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -185,7 +185,7 @@ The value-diff reads *computed styles*; `1c diff` reads *pixels*. It is the sibl
 - **Rotation pivot.** A layer child rotates about its **centre** (the CSS default the source relies on); a `transform-origin: top left` swings every rotated photo away from its intended spot despite matching `top`/`left`. Whole-montage emboss → suspect the pivot.
 - **Circle vs ellipse.** `shape: circle` needs a *square* box; if a motion wrapper or a percentage height collapses the image's height, `object-fit` yields an **ellipse**. Crop the portrait (`1c crop`) and check width == height; the fix is `aspect-ratio: 1` + not depending on a percentage height.
 - **Mask feather geometry.** A farthest-corner `ellipse at center` feathers far more than the source's box-sized `ellipse 92% 92%` — **halos ring the photos**. Match the ellipse size *and* the opaque stop.
-- **Text vertical rhythm.** A positioned wordmark/label sits high unless its line-height (`leading`) is set; a markdown link underline hugs the letters without `text-underline-offset`; a `shadow: glow` vs `soft` changes the halo. These show as thin **doubled outlines** on the text.
+- **Text vertical rhythm.** A positioned wordmark/label sits high unless its line-height (`leading`) is set; a markdown link underline hugs the letters without `text-underline-offset` (L1 carries it as `underlineOffsetPx` since REQ-365; a bundle older than capture schema 13 needs a re-capture to record it); a `shadow: glow` vs `soft` changes the halo. These show as thin **doubled outlines** on the text.
 - **Dynamic content.** `© {year}` renders the *build* year (`© 2026`) vs the source's hardcoded `© 2025` — a permanent single-run delta you can knowingly accept.
 
 **Run both gates:** `values-diff` for the band-stack (text, colour, section treatments); `1c diff` for the art-directed layer. A montage that passes `values-diff` has barely been checked.
