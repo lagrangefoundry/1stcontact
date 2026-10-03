@@ -3179,6 +3179,13 @@ function nestClipRegions(
     // element was captured at; the first frame is as good as any.
     const id = [...row.frames.values()][0]?.id
     if (id === undefined) continue
+    // REQ-366 — a leaf joins only if that ancestor cuts it at EVERY width it is
+    // laid out at. A node has one parent, so a leaf nested here is clipped to this
+    // box at every width; one present at a width the ancestor never held it (a
+    // header link whose row was stitched to a footer link's narrower widths) was
+    // rebased 4572px above the footer menu and clipped away entirely.
+    const laidOut = foldGeometryOf(row.node)?.keyframes ?? []
+    if (laidOut.some((kf) => row.frames.get(kf.at)?.id !== id)) continue
     const g = groups.get(id)
     if (g) g.push(row)
     else groups.set(id, [row])

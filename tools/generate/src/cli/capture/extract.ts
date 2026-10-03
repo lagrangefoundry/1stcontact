@@ -147,6 +147,13 @@ export interface RawGeometry {
 export interface RawRun extends RawGeometry {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   text: string
+  /**
+   * REQ-366 — set when this run's text is the GENERATED CONTENT of an empty
+   * element's `::before` / `::after` (an icon font's glyph) rather than a text
+   * node. Its typography is the pseudo-element's and its box is the element's.
+   * Absent on every ordinary run, and on a pre-13 bundle.
+   */
+  pseudoGlyph?: 'before' | 'after'
   color: string
   /** REQ-35 — true when `color` fell back to the `#000000` sentinel (unresolvable). */
   colorInferred?: boolean
@@ -1268,6 +1275,63 @@ export const EXTRACT_SCRIPT = `(() => {
     var b = pseudoContentPainted(el, '::before');
     var a = pseudoContentPainted(el, '::after');
     return b && a ? 'both' : b ? 'before' : a ? 'after' : null;
+  }
+  // REQ-366 -- the glyph an EMPTY element paints through ::before / ::after.
+  //
+  // An icon font's mark (Font Awesome's <i class="fas fa-laptop"></i>) is
+  // generated content on an element with no text of its own, so the text walk
+  // never reached it, and pseudoOf above only ever described elements that were
+  // already records for another reason. On joyfulculinarycreations.com six
+  // icon-box icons and three social icons were recorded nowhere, and the
+  // reproduction drew none of them -- 0 deltas, because nothing was compared.
+  //
+  // Only a QUOTED STRING counts: url(), counter() and attr() are not a glyph this
+  // record can carry. And only on an element at least 4x4px, so a zero-size
+  // clearfix with content: "." is not an icon. Returns { sel, text } or null.
+  function pseudoGlyphOf(el) {
+    if (el.firstElementChild || collapseText(el.textContent) !== '') return null;
+    var sels = ['::before', '::after'];
+    for (var i = 0; i < sels.length; i++) {
+      var c;
+      try { c = getComputedStyle(el, sels[i]).content; } catch (e) { continue; }
+      var m = /^(["'])([\\s\\S]*)\\1$/.exec(c || '');
+      if (!m) continue;
+      var text = cssUnescape(m[2]);
+      if (trimWs(text) === '') continue;
+      var b = absBox(el);
+      if (!(b.width >= 4 && b.height >= 4)) return null;
+      return { sel: sels[i], text: text };
+    }
+    return null;
+  }
+  // A CSS string's escapes (\\f109, \\"), resolved to the characters they name.
+  function cssUnescape(str) {
+    return str.replace(/\\\\([0-9a-fA-F]{1,6})[ \\t\\n\\r\\f]?|\\\\([\\s\\S])/g, function (_, hex, ch) {
+      return hex ? String.fromCodePoint(parseInt(hex, 16)) : ch;
+    });
+  }
+  // REQ-366 -- an EMPTY element whose only ink is a BORDER RULE.
+  //
+  // A page-builder divider is <span class="elementor-divider-separator"></span>
+  // styled border-top: 2.5px solid: no text, no fill, no image, so neither the
+  // text walk nor the media/backdrop candidates ever reached it. It is the same
+  // thing an <hr> is, so it becomes a field exactly as an <hr> does.
+  //
+  // A RULE, not any bordered box: the element must be no thicker than twice its
+  // border (+1px) on its thin axis, so the border IS the element. An outlined
+  // button or card paints a border around content that lives elsewhere, and
+  // recording those would put a field on one side of a diff and not the other.
+  function borderRuleOf(el) {
+    if (el.namespaceURI !== 'http://www.w3.org/1999/xhtml') return false;
+    if (/^(input|textarea|select|hr|img|br|wbr|script|style|link|meta|template|iframe|video|canvas|object|embed)$/.test(el.tagName.toLowerCase())) return false;
+    var s = getComputedStyle(el);
+    var bd = boxBorderOf(s);
+    if (!(bd.width > 0)) return false;
+    if (rgbToHex(s.backgroundColor)) return false;
+    if (s.backgroundImage && s.backgroundImage !== 'none') return false;
+    var b = absBox(el);
+    var thin = Math.min(b.width, b.height);
+    return thin > 0 && thin <= 2 * bd.width + 1;
   }
   // REQ-63 / BUG-10 — a painted list marker (disc / decimal / …), else null. The
   // CSS *initial* value of list-style-type is 'disc' on EVERY element, so reading
@@ -2514,7 +2578,8 @@ export const EXTRACT_SCRIPT = `(() => {
     // which costs nothing and removes the inversion at its source rather than
     // asking the fold to sort its way out of it.
     var excludedAtNode = -1;
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    // REQ-366 -- elements too, for the glyph an empty element paints (pseudoGlyphOf).
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, null);
     var n;
     // BUG-25 — two passes, because a run's geometry depends on whether its element
     // holds more than one run. Pass 1 selects the qualifying text nodes and counts
@@ -2528,6 +2593,19 @@ export const EXTRACT_SCRIPT = `(() => {
     // without this, <span>A</span> <span>B</span> rejoins as "AB".
     var pendingSpace = false;
     for (; (n = walker.nextNode()); ) {
+      if (n.nodeType === 1) {
+        // Cheapest test first: almost every element has children or text.
+        if (n.firstElementChild) continue;
+        var g = pseudoGlyphOf(n);
+        if (!g || !visible(n) || moduleInvariant(n)) continue;
+        if (excludes && insideAny(n, excludes)) {
+          if (excludedAtNode === -1) excludedAtNode = nodes.length;
+          continue;
+        }
+        nodes.push({ node: n, el: n, text: trimWs(collapseWs(g.text)), flow: g.text, glyph: g.sel });
+        runCounts.set(n, (runCounts.get(n) || 0) + 1);
+        continue;
+      }
       var flow = collapseWs(n.nodeValue);
       var t = trimWs(flow);
       var owner = n.parentElement;
@@ -2571,6 +2649,9 @@ export const EXTRACT_SCRIPT = `(() => {
     var flowIds = [];
     var flowInfo = [];
     for (var gi = 0; gi < nodes.length; gi++) {
+      // REQ-366 -- a glyph is never part of a sentence: its face is not its
+      // neighbours', so rejoining it would set the icon in the copy's font.
+      if (nodes[gi].glyph) { flowInfo.push({ key: 'g' + (FLOW_SEQ++), root: nodes[gi].el }); continue; }
       var groot = flowRootOf(nodes[gi].el);
       var ri = flowRoots.indexOf(groot);
       if (ri === -1) { ri = flowRoots.length; flowRoots.push(groot); flowIds.push('f' + (FLOW_SEQ++)); }
@@ -2609,11 +2690,14 @@ export const EXTRACT_SCRIPT = `(() => {
       // The element's box IS the run's box only while it holds a single run; when
       // it holds several, that shared box says nothing about where this one paints.
       var ownRun = runCounts.get(el) === 1;
-      var s = getComputedStyle(el);
-      var glyphs = ownRun ? renderedTextBox(el) : textNodeBox(n);
+      // REQ-366 -- a glyph run reads its type off the pseudo-element that paints
+      // it, and its box off the element (the glyph has no text node to measure).
+      var glyphSel = nodes[ri2].glyph;
+      var s = glyphSel ? getComputedStyle(el, glyphSel) : getComputedStyle(el);
+      var glyphs = glyphSel ? absBox(el) : ownRun ? renderedTextBox(el) : textNodeBox(n);
       // REQ-338 (issue 7) -- measured before the box, because the box's
       // half-leading is half of this same line box (see lineBoxOf).
-      var pitch = runLinePitch(ownRun ? el : n);
+      var pitch = glyphSel ? null : runLinePitch(ownRun ? el : n);
       // REQ-265 -- a run's box is the LINE BOX it occupies. For a block element
       // the border box already is that; for an inline one the rect is the content
       // area, so \lineBoxOf\ converts it (and returns null for every other case,
@@ -2622,7 +2706,7 @@ export const EXTRACT_SCRIPT = `(() => {
       // un-inflated, because every consumer reads \`box\` as the space the content
       // occupies and \`transformRotateDeg\` as how that space is then turned.
       var runTf = accTransformOf(el);
-      var runBox = layoutBoxOf(el, runTf, ownRun ? (lineBoxOf(el, s, pitch) || absBox(el)) : (glyphs || absBox(el)));
+      var runBox = layoutBoxOf(el, runTf, glyphSel ? absBox(el) : ownRun ? (lineBoxOf(el, s, pitch) || absBox(el)) : (glyphs || absBox(el)));
       // A text-fill gradient is a background-image gradient clipped to the text
       // (background-clip: text). Capture the raw gradient CSS for TS-side
       // normalization; ignore non-clipped backgrounds (those are band fills).
@@ -2657,6 +2741,7 @@ export const EXTRACT_SCRIPT = `(() => {
       out.push({
         role: roleOf(el),
         text: text,
+        pseudoGlyph: glyphSel ? glyphSel.slice(2) : undefined,
         inlineGroup: inFlow ? flowKey : undefined,
         inlineIndex: inFlow ? flowGroup.indexOf(ri2) : undefined,
         inlineBox: inFlow ? absBox(flowInfo[ri2].root) : undefined,
@@ -2773,6 +2858,13 @@ export const EXTRACT_SCRIPT = `(() => {
     for (var ci = 0; ci < els.length; ci++) cands.push({ el: els[ci], bgUrl: null });
     var bgs = backdropBoxes();
     var added = 0;
+    // REQ-366 -- an empty element whose only ink is a border rule (borderRuleOf).
+    var empties = root.querySelectorAll(':empty');
+    for (var ei = 0; ei < empties.length; ei++) {
+      if (!borderRuleOf(empties[ei])) continue;
+      cands.push({ el: empties[ei], bgUrl: null });
+      added++;
+    }
     for (var bi = 0; bi < bgs.length; bi++) {
       var bel = bgs[bi].el;
       // The band's OWN background is already the section's background (a band root

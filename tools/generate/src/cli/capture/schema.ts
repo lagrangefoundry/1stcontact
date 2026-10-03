@@ -151,8 +151,13 @@ import type { Capture } from './types'
  *   computed `text-underline-offset`). A pre-13 bundle records that a link is
  *   underlined and not where, so a reproduction paints the line at the engine's
  *   `auto` offset — 2px high on faelan.com's 24px link — and nothing compares it.
+ * - **14** — REQ-366: an EMPTY element's ink. An icon font's glyph painted by an
+ *   empty element's `::before`/`::after` is recorded as a run (`pseudoGlyph`),
+ *   and an empty element whose only ink is a border rule (a page-builder divider)
+ *   as a field, as an `<hr>` is. A pre-14 bundle recorded neither, so those
+ *   elements were drawn nowhere and compared against nothing.
  */
-export const CAPTURE_SCHEMA = 13
+export const CAPTURE_SCHEMA = 14
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -492,6 +497,15 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // The key is written on every run from schema 13 (null for `auto`), so its
     // presence on any run is the axis, whatever the page underlines.
     present: (c) => runs(c).some((r) => 'underlineOffsetPx' in r),
+  },
+  {
+    since: 14,
+    axis: "an empty element's ink (a ::before/::after glyph run, a border-rule field)",
+    where: 'a content run (`sections[].content[]`, `pseudoGlyph`) and a field (`sections[].fields[]`)',
+    // A glyph run proves the extractor looked. A page with no icon fonts records
+    // none however new its extractor is — the `href` asymmetry again — so this only
+    // ever removes the axis from a finding.
+    present: (c) => runs(c).some((r) => typeof r.pseudoGlyph === 'string'),
   },
 ]
 

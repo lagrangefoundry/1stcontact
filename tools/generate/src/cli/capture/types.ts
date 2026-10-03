@@ -620,6 +620,13 @@ export interface ContentRun extends ElementGeometry {
   role: 'heading' | 'subheading' | 'body' | 'link' | 'action' | 'listitem'
   /** Verbatim text (DOC-13 §5). */
   text: string
+  /**
+   * REQ-366 — set when this run's text is the GENERATED CONTENT of an empty
+   * element's `::before` / `::after` (an icon font's glyph) rather than a text
+   * node. Its typography is the pseudo-element's and its box is the element's.
+   * Absent on every ordinary run, and on a pre-13 bundle.
+   */
+  pseudoGlyph?: 'before' | 'after'
   color: string
   fontFamily: string
   /** REQ-48 (item 7) — false when the intended named face did not resolve (a fallback rendered). */
