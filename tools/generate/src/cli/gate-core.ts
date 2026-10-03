@@ -282,6 +282,36 @@ export interface ReferenceCoverage {
 }
 
 /**
+ * BUG-178 — one property the reference page USES that this run could not
+ * measure, because the capture audit ([[REQ-275]]) found it either
+ * `not-expressible` (no L1 axis can say it) or `lost` (the extractor records it
+ * and this bundle carries no instance of it).
+ *
+ * The gate used to compose its unmeasured count from comparator-side silence
+ * alone, so a property the capture KNEW the page used was invisible twice: no
+ * delta, because nothing compared it, and no unmeasured row, because nothing
+ * asked the audit. On `faelan.com` that was the whole of the remaining pixel
+ * score, under a headline reading `unmeasured 0`.
+ */
+export interface UnmeasuredProperty {
+  /** A CSS longhand (`text-underline-offset`) or a DOM fact (`dom:target`). */
+  property: string
+  verdict: 'not-expressible' | 'lost'
+  /** Matching declarations, or carrying elements for a DOM fact. */
+  count: number
+  /** Up to six distinct authored values — what is at stake. */
+  values: string[]
+  /** The register's reason. */
+  note?: string
+}
+
+/** `text-underline-offset (4px)` — one row as a reader names it. */
+export function unmeasuredPropertyLabel(p: UnmeasuredProperty): string {
+  const values = p.values.length ? ` (${p.values.join(', ')})` : ''
+  return `${p.property}${values}${p.verdict === 'lost' ? ' — recorded, but not carried by this bundle' : ''}`
+}
+
+/**
  * What the reconciliation concluded.
  *
  * - `pass`                     — every gate this command owns is clear: the eye is
@@ -462,6 +492,14 @@ export interface ReconcileInput {
     sectionsNotComparable?: string
   }
   floor?: Partial<GateFloor>
+  /**
+   * BUG-178 — what the capture audit found the reference uses and this run cannot
+   * measure, or why the audit could not run. ABSENT when no audit was attempted
+   * (a fully pre-shot gate never opens a browser), which the report carries on
+   * as absence rather than as an empty list: nothing was asked, so nothing is
+   * claimed.
+   */
+  properties?: readonly UnmeasuredProperty[] | { error: string }
 }
 
 export interface GateReport {
@@ -551,6 +589,19 @@ export interface GateReport {
    * sentence naming them.
    */
   layout: { pass: boolean; findings: LayoutCollision[] }
+  /**
+   * BUG-178 — the properties the reference page uses that this run could not
+   * measure (see {@link UnmeasuredProperty}). The repro console counts them as
+   * the `properties` part of the unmeasured set.
+   *
+   * THREE STATES, and the console reads each differently: absent — no audit was
+   * attempted, so the part is not in the set at all; `null` — the audit was
+   * attempted and failed (`unmeasuredPropertiesError` says why), so the part is
+   * SILENT and the headline becomes `≥`; an array — counted, `[]` meaning the
+   * audit ran and found nothing.
+   */
+  unmeasuredProperties?: UnmeasuredProperty[] | null
+  unmeasuredPropertiesError?: string
 }
 
 /**
@@ -763,6 +814,9 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // band lost WHICH axis, which is the only form of this fact an operator can act
   // on. `sectionsNotComparable` above is its all-bands-at-once sibling.
   const notComparableAxes = [...input.values.notComparableAxes]
+  // BUG-178 — the audit's rows, or nothing when it did not run or failed.
+  const properties =
+    input.properties && !('error' in input.properties) ? input.properties.map((p) => ({ ...p, values: [...p.values] })) : []
   // BUG-161 (issue 3) — the coverage block, PLUS the one completeness finding the
   // reference-side proxies structurally cannot make.
   //
@@ -1030,6 +1084,15 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // BUG-161 — the two sides named apart, because they are two different things
     // to go and look at: a reference-side finding says the capture is impoverished
     // and a reproduction-side one says WE dropped page substance.
+    // BUG-178 — the seventh way the pass rung was silent: a property the capture
+    // audit KNOWS the reference uses, and that no axis on either side carries.
+    // Nothing compared it, so it produced no delta, and nothing counted it.
+    if (properties.length > 0) {
+      outstanding.push(
+        `${properties.length} property/properties the reference uses could not be measured — ` +
+          `${properties.map(unmeasuredPropertyLabel).join('; ')} (\`unmeasuredProperties\`)`,
+      )
+    }
     if (referenceFindings.length) {
       outstanding.push(
         `reference coverage reports ${namedCoverage(referenceFindings)} ` +
@@ -1151,6 +1214,11 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     },
     coverage,
     layout: { pass: input.l1Gate.onSample.pass && collisions.length === 0, findings: collisions },
+    ...(input.properties === undefined
+      ? {}
+      : 'error' in input.properties
+        ? { unmeasuredProperties: null, unmeasuredPropertiesError: input.properties.error }
+        : { unmeasuredProperties: properties }),
   }
 }
 

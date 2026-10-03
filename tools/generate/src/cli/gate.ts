@@ -37,7 +37,7 @@
  */
 import path from 'node:path'
 import { writeFileSync } from 'node:fs'
-import { readCapture, readMultiState } from './capture'
+import { readCapture, readMultiState, createPlaywrightDriver, runCaptureAudit, unmeasuredPropertiesOf } from './capture'
 import type { ReferenceBundle } from '../store/reference-store'
 import type {
   BrowserDriverFactory,
@@ -82,6 +82,7 @@ export type {
   GateFloor,
   ReconcileInput,
   GateReport,
+  UnmeasuredProperty,
 } from './gate-core'
 
 import {
@@ -89,8 +90,9 @@ import {
   PERCEPTUAL_PCT_FLOOR,
   referenceCoverage,
   reconcileGates,
+  unmeasuredPropertyLabel,
 } from './gate-core'
-import type { GateReport, GateVerdict, GateFloor } from './gate-core'
+import type { GateReport, GateVerdict, GateFloor, ReconcileInput } from './gate-core'
 // REQ-274 — one formatter for an unmeasured axis, beside the declaration it
 // comes from, so the terminal row and the JSON row cannot describe it differently.
 import { unmeasuredAxisLabel } from './capture/value-axes'
@@ -228,6 +230,21 @@ export function formatGateReport(report: GateReport, ref: string): string {
           ),
         ]
       : []),
+    // BUG-178 — the properties the reference USES that nothing on either side
+    // could measure, from the capture audit. Silent when the audit found none or
+    // did not run; a failed audit says so, because silence there would read as none.
+    ...(report.unmeasuredProperties?.length
+      ? [
+          wrap(
+            `⚠ ${report.unmeasuredProperties.length} property/properties the reference uses could not be measured — ` +
+              `${report.unmeasuredProperties.map(unmeasuredPropertyLabel).join('; ')}`,
+            '               ',
+          ),
+        ]
+      : []),
+    ...(report.unmeasuredProperties === null
+      ? [wrap(`⚠ the capture audit did not run, so unmeasured properties are not counted: ${report.unmeasuredPropertiesError ?? 'unknown error'}`, '               ')]
+      : []),
     `  perceptual   mean ${report.perceptual.meanDiff.toFixed(2)} / 255 · ${report.perceptual.pctOverThreshold.toFixed(1)}% of pixels over threshold · ${report.perceptual.regions} region(s)`,
     floorMark,
     '',
@@ -325,7 +342,22 @@ export async function cmdGate(opts: GateOptions): Promise<GateReport> {
     nodeSources: { ref: values.expected, actual: values.actual },
   })
 
-  const report = reconcileGates({ l1Gate, coverage, perceptual, values: values.report, floor: opts.floor })
+  // BUG-178 — the capture audit, run only when this gate is opening a browser
+  // anyway. A fully pre-shot gate is browser-free by contract (it fails a stale
+  // bundle before any page is asked for), so it attempts no audit and claims
+  // nothing about properties. A failed audit does not fail the gate: it makes
+  // the part SILENT, which is the honest report of a measurement not made.
+  let properties: ReconcileInput['properties']
+  if (!(opts.actualImagePath && opts.actualManifestPath)) {
+    try {
+      const audit = await runCaptureAudit(refBundle, { driverFactory: opts.driverFactory ?? createPlaywrightDriver })
+      properties = unmeasuredPropertiesOf(audit)
+    } catch (err) {
+      properties = { error: err instanceof Error ? err.message : String(err) }
+    }
+  }
+
+  const report = reconcileGates({ l1Gate, coverage, perceptual, values: values.report, floor: opts.floor, properties })
   if (out) writeFileSync(path.join(out, 'gate.json'), JSON.stringify(report, null, 2))
   return report
 }
