@@ -6,10 +6,10 @@ title: 'fold: a run present at only some widths is stitched to a same-text run e
   and its clip container hides it'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:42.639404+00:00'
-updated_at: '2026-10-03T16:44:34.128913+00:00'
+updated_at: '2026-10-03T16:44:40.271481+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong
@@ -19,7 +19,6 @@ fields:
   priority: medium
   chat_comment: comment-e8d759ce
 ---
-
 
 # fold: a run present at only some widths is stitched to a same-text run elsewhere on the page, and the clip container it lands in hides it
 
