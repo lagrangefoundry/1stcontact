@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-03T00:18:27.877111+00:00'
+updated_at: '2026-10-03T00:19:49.603257+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,27 @@ One thing works today: in a 1:1 chat, text the consultant writes before calling 
 <!-- xgd-chat role="user" ts="2026-10-03T00:18:26.831473+00:00" -->
 #### You
 I suspect the correct approach is to add this to EPIC-7? Could you write an addendum to EPIC-7's ticket explaining the requirement and the current issues? Perhaps you hold on to the 1c side of the work when EPIC-7 delivers the incrastructure?
+
+<!-- xgd-turn id="9dbd7ed5-6cd4-4b30-99ca-e0c54a93b225-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T00:19:47.271291+00:00" -->
+#### Claude
+I've added the addendum to EPIC-7 as a new **§17, "the outbound direction"**, and REQ-360 now holds only the 1st Contact side until EPIC-7 delivers.
+
+**What §17 says:**
+- **Requirement (17.1):** the two silences seen in the real session (ten minutes, then over half an hour) and the consultant's two asks. One is a one-line notice mid-round that doesn't end the round. The other is an automatic working indicator during a delegated build.
+- **Where things fall short today (17.2):**
+  - In a 1:1 chat, text written before `Delegate` already reaches the client live. The silence comes from the blocking tool call, and the UI shows nothing while it runs.
+  - In a room the notice can't be done at all, because a successful `GroupSay` ends the member's round (REQ-197). That makes §13.2's Alice unable to say "back in twenty minutes" and then go and build.
+  - Nothing works the same in both a room and a DM, which conflicts with §13.3(a).
+- **The approach (17.3):** a table pairing each problem with generalising `GroupSay` today (turn lock, a separate turn inside the open one, not reaching the live stream, `not_a_room`, round ends on post) against the decision EPIC-7 has already made that solves it. The interim notice is the outbound mirror of interposition: a record stored inside the open round, sent live, and drawn with the split-round display. One question is left open there: whether a post that keeps the round open counts against `max_contributions`.
+- **Heartbeat (17.4):** temporary and never archived, built on the delegation tool's existing timer. It explains why this doesn't conflict with §13.1, and notes it needs a side channel into the live stream.
+- **Build order (17.5):** this is step 4 of §16, after REQ-200 and REQ-201. The heartbeat half depends on neither and could be built earlier.
+
+**Ticket housekeeping:**
+- **REQ-360 (1st Contact):** parked at `draft`. What remains for it is granting the tool to the consultant, the "say it, then carry on" priming line, and styling the heartbeat line.
+- **REQ-205 (lagrange-framework):** I'd filed this last round as the build ticket, and §17 refers to it. I've added a note pointing it back to §17.
+
+Decision for you: §13.3 says no tickets are filed until a stage is about to be built, and REQ-205 is ahead of that. If you'd rather keep this in the epic only, I'll remove REQ-205 and drop the references to it. The other option is to keep it as the place to start the heartbeat early.
 
 <!-- xgd-chat-end -->
