@@ -6,10 +6,10 @@ title: 'Upload note: says an uploaded image is ''on your site'' when it''s only 
   to use'
 created_by: EPIC-19
 created_at: '2026-10-03T18:52:23.230996+00:00'
-updated_at: '2026-10-03T19:57:19.514344+00:00'
+updated_at: '2026-10-03T20:01:39.847400+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   severity: medium
   priority: medium
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-6a2f3df4
+  commits:
+  - working_sha: 193c929bacac36560129e18122cfe28da2c65114
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 65d5301da897cbc3024cea76c7d7118004d2396e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.450
 ---
 
 ## Symptom
