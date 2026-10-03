@@ -238,12 +238,16 @@ export interface LayoutCollision {
  * this whole ticket is about.
  */
 export function layoutCollisions(reports: Partial<Record<LayoutProbe, EnvelopeReport>>): LayoutCollision[] {
-  return LAYOUT_PROBES.flatMap((probe) =>
-    (reports[probe]?.byWidth ?? []).flatMap(({ width, height, findings }) =>
+  return LAYOUT_PROBES.flatMap((probe) => {
+    // BUG-188 — the sentence says when the copy was grown, because every number
+    // in it is then the grown document's and not the page's.
+    const scale = reports[probe]?.contentScale
+    const grown = scale !== undefined ? `, copy grown ${scale}×` : ''
+    return (reports[probe]?.byWidth ?? []).flatMap(({ width, height, findings }) =>
       findings.map((f) => ({
         kind: f.kind,
         probe,
-        detail: `at ${width}px${height !== undefined ? `×${height}px` : ''}: ${f.detail}`,
+        detail: `at ${width}px${height !== undefined ? `×${height}px` : ''}${grown}: ${f.detail}`,
         width,
         ...(height !== undefined ? { height } : {}),
         paths: [...f.paths],
@@ -252,13 +256,14 @@ export function layoutCollisions(reports: Partial<Record<LayoutProbe, EnvelopeRe
         // from, and a shared rect is a rect someone else can move.
         ...(f.boxes ? { boxes: f.boxes.map((b) => ({ ...b })) } : {}),
       })),
-    ),
-  )
+    )
+  })
 }
 
 /** BUG-143 — the containment escapes in an envelope report, and nothing else. */
 function escapesOnly(report: EnvelopeReport): EnvelopeReport {
   return {
+    ...report,
     pass: report.byWidth.every((w) => w.findings.every((f) => f.kind !== 'escape')),
     byWidth: report.byWidth.map((w) => ({ ...w, findings: w.findings.filter((f) => f.kind === 'escape') })),
   }

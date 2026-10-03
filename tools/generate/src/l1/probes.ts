@@ -915,12 +915,72 @@ function translateSubtree(node: L1Node, box: EvalBox, ctx: Ctx, fromLeaf: number
  * pushed, after they are placed; the height returned to the caller's flow is the
  * untranslated one (see {@link translateSubtree}).
  */
-function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx): number {
+function layout(node: L1Node, frame: EvalBox, path: string, ctx: Ctx, slot: FlowSlot = IN_FLEX): number {
   const fromLeaf = ctx.leaves.length
-  const { advance, box } = layoutInFlow(node, frame, path, ctx)
+  const { advance, box } = layoutInFlow(node, frame, path, ctx, slot)
   ctx.boxes.set(path, { ...box })
   translateSubtree(node, box, ctx, fromLeaf)
   return advance
+}
+
+/**
+ * BUG-188 — which formatting context a node is laid out in, as the renderer's CSS
+ * decides it.
+ *
+ * Every `container` is emitted `display: flex` or `grid`, where a margin never
+ * collapses. A `box` is a plain block `div`, and the root sits in `body`, which is
+ * a block too. In a block context a top margin can collapse through its parent's
+ * top edge. On www.bluelotusintegralhealing.com that moved the root, and with it
+ * every absolutely-placed band and panel, 84px down in Chromium. Because the model
+ * had no notion of a block context, it read the same page as exact to 0.009px.
+ *
+ * `absorbed`: this node's top margin has already been taken by an ancestor
+ * ({@link collapsedTopMargin}), so it sits at its frame's top and must not be
+ * counted again.
+ */
+interface FlowSlot {
+  block: boolean
+  absorbed?: true
+}
+
+const IN_FLEX: FlowSlot = { block: false }
+
+/**
+ * BUG-188 — whether a node is a block box that lets its first in-flow child's top
+ * margin pass up through its own top edge (CSS 2 §8.3.1). A box that sits in a
+ * block context does, unless something separates the two edges or makes it a
+ * formatting-context root:
+ *   - top padding or a top border separates the edges.
+ *   - an absolute placement or `clip` (`overflow: hidden`) starts a new block
+ *     formatting context.
+ *   - a link or action retags the box as an `<a>` or `<button>`, so it is no
+ *     longer a plain block.
+ */
+function passesMarginThrough(node: L1Node, width: number): boolean {
+  if (node.kind !== 'box' || !node.children?.length) return false
+  if (isPinned(node) || node.clip) return false
+  if ((node as { link?: unknown }).link || (node as { action?: unknown }).action) return false
+  return paddingAt(node, width).top === 0 && surfaceBorderInset(node.axes).top === 0
+}
+
+/** BUG-188 — the child whose top margin can reach a block box's top edge. */
+function firstInFlowChild(node: L1Node, width: number): L1Node | undefined {
+  return childrenOf(node).find((c) => !isPinned(c) && !hidden(c, width))
+}
+
+/**
+ * BUG-188 — the top margin a node in a block context actually takes. It is the
+ * node's own leading offset, collapsed with every margin that passes up to it
+ * through a chain of {@link passesMarginThrough} boxes. CSS combines them as the
+ * largest positive margin plus the most negative one. The whole amount is applied
+ * once, at the outermost node of the chain.
+ */
+function collapsedTopMargin(node: L1Node, width: number, vh?: number): number {
+  const margins: number[] = []
+  for (let n: L1Node | undefined = node; n; n = passesMarginThrough(n, width) ? firstInFlowChild(n, width) : undefined) {
+    margins.push(leadingOffset(n, width, vh)?.y ?? 0)
+  }
+  return Math.max(0, ...margins) + Math.min(0, ...margins)
 }
 
 /** {@link layout}'s body: the flow placement, before any paint-time translate. */
@@ -929,6 +989,7 @@ function layoutInFlow(
   frame: EvalBox,
   path: string,
   ctx: Ctx,
+  slot: FlowSlot,
 ): { advance: number; box: EvalBox } {
   const { width, opts } = ctx
   if (hidden(node, width)) return { advance: 0, box: { ...frame, height: 0 } }
@@ -949,14 +1010,18 @@ function layoutInFlow(
   const pinned = isPinned(node)
   const vh = ctx.viewportHeight
   const lead = leadingOffset(node, width, vh)
+  // BUG-188 — the vertical margin this node actually takes in its parent's flow:
+  // its own lead in a flex context, its lead collapsed with whatever passes up
+  // through it in a block context, and nothing if an ancestor already took it.
+  const dy = pinned || slot.absorbed ? 0 : slot.block ? collapsedTopMargin(node, width, vh) : (lead?.y ?? 0)
   const box: EvalBox = pinned
     ? (() => {
         const g = anchorBox(evalGeometry(node.geometry!, width, vh), node.geometry!, ctx.column, width)
         return { ...g, x: g.x + ctx.origin.x, y: g.y + ctx.origin.y }
       })()
     : lead
-      ? { x: frame.x + lead.x, y: frame.y + lead.y, width: flowWidth(node, width)!, height: 0 }
-      : { ...frame }
+      ? { x: frame.x + lead.x, y: frame.y + dy, width: flowWidth(node, width)!, height: 0 }
+      : { ...frame, y: frame.y + dy }
   // A node that establishes a containing block becomes the origin for its own
   // subtree; every other node passes its parent's along unchanged.
   //
@@ -974,7 +1039,17 @@ function layoutInFlow(
   // absolute descendant inside the border, and `box-sizing: border-box` keeps the
   // border inside the rect the keyframes pinned. A card's 4px accent rule is the
   // case that makes it visible.
-  const donated = pinned || lead ? surfaceBorderInset('axes' in node ? node.axes : undefined) : undefined
+  //
+  // BUG-188 — and so does every other box and container. The renderer emits
+  // `position: relative` for one that declares no geometry, so it is a containing
+  // block too. While such a node always sat where its parent's origin already
+  // was, leaving it out changed nothing. A collapsed margin moves it (the root of
+  // a page whose first section carries a top margin), and its absolute children
+  // move with it.
+  const donated =
+    pinned || lead || node.kind === 'box' || node.kind === 'container'
+      ? surfaceBorderInset('axes' in node ? node.axes : undefined)
+      : undefined
   const placed: Ctx = donated
     ? { ...ctx, origin: { x: box.x + donated.left, y: box.y + donated.top } }
     : ctx
@@ -987,7 +1062,7 @@ function layoutInFlow(
    * it down by 40px more than its own box — which is what the browser does and
    * what makes a leading offset able to reproduce a captured gap exactly.
    */
-  const adv = (h: number): number => (lead ? lead.y + h : h)
+  const adv = (h: number): number => (pinned ? h : dy + h)
   // BUG-173 — a fluid width owns the axis over the keyframes, as it does in the
   // renderer's CSS: the box fills the extent its parent gave it.
   if (tracksContainerWidth(node)) box.width = frame.width
@@ -1202,13 +1277,18 @@ function layoutInFlow(
       } else {
         // Stack: each child fills the width and stacks vertically.
         let cursorY = interior.y
+        // BUG-188 — a box's children sit in a block context. If this box let its
+        // first in-flow child's top margin through, that margin is already in
+        // this box's own position.
+        const block: FlowSlot = { block: node.kind === 'box' }
+        const through = slot.block && passesMarginThrough(node, width) ? firstInFlowChild(node, width) : undefined
         children.forEach((child, i) => {
           if (isPinned(child)) {
             layout(child, { ...box }, `${path}.${i}`, inner)
             return
           }
           const childFrame: EvalBox = { x: interior.x, y: cursorY, width: interior.width, height: 0 }
-          const h = layout(child, childFrame, `${path}.${i}`, inner)
+          const h = layout(child, childFrame, `${path}.${i}`, inner, child === through ? { block: true, absorbed: true } : block)
           cursorY += h + gap
         })
         // REQ-278 — a column's content height is where its CURSOR ends, not the
@@ -1574,7 +1654,9 @@ export function evaluateLayout(
     column: doc.column,
   }
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
-  layout(doc.root, rootFrame, '0', ctx)
+  // BUG-188 — the root is a block inside `body`, so a top margin can collapse
+  // through it.
+  layout(doc.root, rootFrame, '0', ctx, { block: true })
 
   // REQ-332 — a declared clip cuts its subtree down to its own box, ONCE, before
   // any probe reads a leaf.
@@ -2076,6 +2158,13 @@ export function sampleFidelityProbe(
 export interface EnvelopeReport {
   pass: boolean
   /**
+   * BUG-188 — the content scale the samples were evaluated under, present only
+   * when the content was grown (not 1). Every box in a finding is the box of the
+   * GROWN document. Without the number, a reader takes a 2.5× magnitude for what
+   * the browser draws: a 643px escape was taken for a 575px model error.
+   */
+  contentScale?: number
+  /**
    * One entry per (width, height) the probe sampled.
    *
    * BUG-143 — a width may now appear more than once, once per viewport height
@@ -2222,7 +2311,11 @@ function envelopeAt(
       return { width, height, findings: kept, ...(inReference.length ? { inReference } : {}) }
     }),
   )
-  return { pass: byWidth.every((w) => w.findings.length === 0), byWidth }
+  return {
+    pass: byWidth.every((w) => w.findings.length === 0),
+    ...(contentScale !== 1 ? { contentScale } : {}),
+    byWidth,
+  }
 }
 
 /** BUG-186 — per-axis tolerance (px) for "the reference paints this pair the same way". */
