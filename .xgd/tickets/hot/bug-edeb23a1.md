@@ -6,9 +6,9 @@ title: 'values-diff: a run clipped away by its ancestor reads clean, and 18 of 2
   deltas compare the wrong thing'
 created_by: repro-console:repro-joyfulculinarycreations-com#5
 created_at: '2026-10-03T01:13:50.344172+00:00'
-updated_at: '2026-10-03T20:35:01.315008+00:00'
+updated_at: '2026-10-03T20:35:25.441194+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -139,7 +139,7 @@ All seven items are fixed in the ruler. None of them changes the fold or the rep
 3. **`paintedSurfaces()` tie-break** (`extract.ts`). Surfaces are sorted by area, and equal areas (within 1px²) are broken by paint order: the later element in document order (a descendant or a later sibling) comes first. This affects the live reproduction extraction now. A reference bundle picks it up on re-capture.
 4. **`zIndex`** is compared after clamping both sides to `L1_ENVELOPE.paintOrder` (−1000..1000), the same clamp `foldPaintOrder` applies. So `9999` against `1000` agrees.
 5. **Coalesced reference section.** A reproduction band that no reference section claimed, and that lies vertically inside a paired reference section (±2px), is *covered* by it. Covered bands are claimed, so they leave `unpairedActualSections`. Each of the section's paint axes (`overlay`, `surfaceFill`, `backgroundImage`, `opacity`, `filter`, `blendMode`) agrees if *any* band in the group agrees, under the same "reference value paints" rule as item 2. Not area-weighted as first proposed: a weighted mean reads 0.9 against the reference's 0.5 on this exact band, because that 0.5 describes only the first 267.5px. A weighted mean would therefore still report the false delta.
-6. **`sliceBackgroundColor`** (`extract.ts`). When neither a coincident layer nor the slice element paints an opaque fill, a descendant that paints an opaque fill over ≥ 99% of the slice is taken as the band fill (the topmost one, in paint order). This needs a re-capture of the reference.
+6. **Band fill painted by a descendant** (`extract.ts`, new `coveringDescendantFill`). When neither a coincident layer nor the band element paints a fill, a descendant that paints an opaque fill over ≥ 99% of the band is taken as the band fill (the topmost one, in paint order). This applies on both band paths: the geometric slice (`sliceBackgroundColor`) and the top-level band root (`bandRoots.forEach`), which is the path the reference footer actually goes through. This needs a re-capture of the reference.
 7. (a) `lineHeightPx` and `letterSpacingPx` ignore a difference within the 0.01px recording quantum: `37.13` against `37.12` is no longer a delta, and the delta now carries its own magnitude. (b) Every `gate.json` `layout.findings` entry now carries `probe: 'onSample' | 'offSample' | 'contentRobustness'`. `layoutCollisions` takes the reports keyed by probe name.
 
 ## Test plan
@@ -152,4 +152,8 @@ All seven items are fixed in the ruler. None of them changes the fold or the rep
 - `37.13` against `37.12`: no delta; `37.13` against `37.0`: still a delta
 - layout findings carry their probe name
 
-Items 3 and 6 run inside the browser extraction script. They are covered by the existing BUG-161 and BUG-174 band-paint suites as a regression check, and by the re-gate in "How to see it".
+- items 3 and 6, offline: `paintedSurfaces` and `coveringDescendantFill` are sliced out of `EXTRACT_SCRIPT` and run on stub elements (the BUG-161/174 pattern). The tie puts the veil before its parent. A descendant covering 99% gives `#edc251`; one covering 50% gives null.
+
+Existing UATs updated for the contract change: BUG-112 (the collision key set now includes `probe`), BUG-143 and BUG-158 (`layoutCollisions` takes reports keyed by probe), BUG-161 (its offline `sliceBackgroundColor` harness stands in `coveringDescendantFill → null` for its descendant-free stub slices).
+
+Verified on the real `iteration-5` manifests (offline `diffManifests`): 23 → 17 deltas. The 5 `visibleFraction` deltas on the header links were added. Gone: `zIndex`, `backgroundImage` ×2, `filter`, `opacity` ×2, `lineHeightPx` ×3 and padding ×2. The surfaceFill rows that remain belong to items 3 and 6 and need a browser re-gate or a re-capture.
