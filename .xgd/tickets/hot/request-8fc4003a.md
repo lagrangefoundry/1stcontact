@@ -5,9 +5,9 @@ type: request
 title: 'Contacts: delegate access to a business'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:49.444265+00:00'
-updated_at: '2026-10-03T19:34:41.528463+00:00'
+updated_at: '2026-10-03T19:34:48.515215+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-ee37a03f
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.449
+  story_points: 8
 ---
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
