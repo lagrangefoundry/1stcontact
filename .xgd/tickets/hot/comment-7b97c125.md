@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-23
 created_by: xgd
 created_at: '2026-10-03T17:57:02.385659+00:00'
-updated_at: '2026-10-03T18:17:39.996679+00:00'
+updated_at: '2026-10-03T18:19:14.424051+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -88,5 +88,37 @@ I've written up EPIC-23. It has a new title, "Identity: impersonation, multiple 
 **Impersonation is the one real design decision.** Today you can already enter any business, but only as yourself. <-- I was not aware of this. This may be sufficient but there is a navigation issue - I have no way to open businesses other than my own. That could be solved with a console control - I can see all the businesses listed, I just need a link/button that will let me open the app in that business.
 
 Contacts are stored per business, but sign-in only works for platform-level users. So the delegate invite has to find or create a platform user for the contact's email. <-- that's ok, there is a missing UI - the business owner needs to be able to manually add contacts - once they can they just add the delegate email to their contacts list and send the invite.
+
+<!-- xgd-turn id="8f7df6e5-584f-4575-b3d3-317262fda6ec-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-03T18:19:11.729030+00:00" -->
+#### Claude
+Rewriting section 1 around the console "Open" control, and noting add-contact in section 3.
+
+I've updated EPIC-23 with both changes.
+
+**Impersonation becomes "Open business" from the console.** Full impersonation is parked, and the epic keeps the design notes in case it comes back. v1 is:
+- An **Open** control on every business row in the platform console. It opens the app scoped to that business.
+- While you're in a business you don't belong to, a banner on every page says so and gives you a way back. The business selector shows that business as the current one, marked as entered rather than owned.
+- Getting back is just the normal selector, since it still lists your own businesses.
+- The console stays available the whole time. Your own sign-in never changes, so the console check still sees you.
+- Each entry is recorded in the audit log.
+
+One consequence to decide on. When you enter a business you're not a member of, you have no role there, so the owner-only controls stay closed. That covers adding and inviting contacts, and the other people actions (nine checks in `router.ts`). You'd see the business but not act as its owner. Is that enough for support, or should those controls open to you too?
+
+**Adding contacts may already exist.** The Contacts list has a small **+** button ("Add a contact", `builder/people.js:1082`), backed by a working add endpoint. It only shows to an owner of the business. So either:
+- you were in a business you don't own (for example, entered as operator, which is exactly the case above), or
+- the + is too easy to miss.
+
+Which is it? If it's discoverability, that fix goes into the delegates ticket.
+
+The delegate flow in the epic now reads: add the person as a contact, then **Make delegate** on them.
+
+**Still open from last time:**
+- Who chooses the primary email?
+- Should delegates be kept off the owner's account pages and away from plan, payment and deleting the business?
+- Should a delegate's new account come with no starter business?
+
+The three proposed child tickets are now Console "Open business", Login emails, and Delegates. I'll create them once you've answered these.
 
 <!-- xgd-chat-end -->
