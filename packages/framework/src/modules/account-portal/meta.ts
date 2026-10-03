@@ -50,6 +50,13 @@ import type { BehaviorMeta } from '../behavior'
  * So the property a UAT asserts has changed shape rather than gone: the module
  * makes exactly two kinds of request, to exactly two declared endpoints, and one
  * of them can only ever move a preference.
+ *
+ * [[REQ-368]] OPENS IT BY ONE MORE THING, ON THE SAME TERMS. A third endpoint,
+ * {@link accountPortalMeta.config.emails}, carries the addresses the person signs
+ * in with, and its one `POST` adds one, removes one or chooses the primary. The
+ * bound is again the endpoint's: it acts only on the caller's own addresses, and
+ * refuses to remove the primary or the last validated address. Still no `DELETE`,
+ * `PUT` or `PATCH`, and still nothing that deletes the account or grants access.
  */
 export const accountPortalMeta = {
   id: 'account-portal',
@@ -87,6 +94,18 @@ export const accountPortalMeta = {
      * change" a question about a handler somewhere else.
      */
     acceptances: { type: 'url', required: false },
+    /**
+     * Where the module reads THE ADDRESSES THIS PERSON SIGNS IN WITH, and posts
+     * the three changes they may make to them ([[REQ-368]]).
+     *
+     * OPTIONAL AND SEPARATE for exactly {@link acceptances}' reasons: a portal
+     * authored before this existed stays valid and draws no list, and what may be
+     * written stays legible from the contract. The region is hidden until the
+     * endpoint answers.
+     */
+    emails: { type: 'url', required: false },
+    /** What the addresses section is headed, on {@link preferencesLabel}'s grounds. */
+    emailsLabel: { type: 'string', required: false, default: 'Addresses you sign in with' },
     /**
      * What the erasure explanation is folded away under before it is asked for.
      *
@@ -167,6 +186,22 @@ export const accountPortalMeta = {
         'one row per acceptance the endpoint returned, in the order it returned ' +
         'them; the module supplies the list, the checkbox and nothing else, and ' +
         'every paint axis is inherited from the L1 around it',
+    },
+    /**
+     * The sign-in addresses list and its add form ([[REQ-368]]).
+     *
+     * INVARIANT ON {@link preferences}' GROUNDS: its rows are the reader's own
+     * facts, fetched, and which rows carry Remove or Make primary is the
+     * endpoint's answer for each row — never this module's, and never the page's.
+     */
+    addresses: {
+      element: 'ul',
+      required: false,
+      invariant: true,
+      invariantPresentation:
+        'one row per address the endpoint returned, in its order, each with its ' +
+        'validated state and only the controls the row permits, then one form to ' +
+        'add an address; every paint axis is inherited from the L1 around it',
     },
   },
   conformance: {

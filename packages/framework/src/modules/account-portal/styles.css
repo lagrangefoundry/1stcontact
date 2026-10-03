@@ -39,3 +39,16 @@
 .account-portal__agreementshead,
 .account-portal__prefserror { margin: 0; padding: 0; border: 0; }
 .account-portal__preferences { list-style: none; }
+
+/*
+ * The sign-in addresses region ([[REQ-368]]), on the agreements' reasoning: the
+ * list and its form arrive with user-agent layout nobody chose, and the page
+ * author cannot reach these invariant elements to undo it.
+ */
+.account-portal__emails,
+.account-portal__emailshead,
+.account-portal__addresses,
+.account-portal__address,
+.account-portal__addform,
+.account-portal__emailserror { margin: 0; padding: 0; border: 0; }
+.account-portal__addresses { list-style: none; }

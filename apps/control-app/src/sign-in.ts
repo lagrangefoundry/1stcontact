@@ -2,6 +2,7 @@ import { accessLogoutUrl, accessTokenFrom, type AccessEnv } from './access'
 import { mailerFor, mailFrom, type MailEnv, type SendEmail } from './mail'
 import {
   passwordlessFor,
+  redeemSignIn,
   REDEEM_STATUS,
   sessionCookie,
   sessionsConfigured,
@@ -227,7 +228,7 @@ async function redeem(request: Request, env: SignInEnv, token: string): Promise<
   }
 
   const tenantId = signInTenant(env, new URL(request.url).hostname)
-  const result = await passwordlessFor(env, tenantId).redeem(token)
+  const result = await redeemSignIn(env, tenantId, token)
   if (result.status !== REDEEM_STATUS.OK || !result.setCookie) {
     // ONE PAGE FOR ALL THREE REFUSALS — see the file header.
     return page(200, shell('Sign in', deadBody()))

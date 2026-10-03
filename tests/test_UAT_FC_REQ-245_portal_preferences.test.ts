@@ -42,6 +42,7 @@ import {
 
 const ACCOUNT_ENDPOINT = '/api/businesses'
 const ACCEPTANCES_ENDPOINT = '/api/acceptances'
+const EMAILS_ENDPOINT = '/api/account/emails'
 
 /** The shipped default, assembled exactly as the store's own loader assembles it. */
 function loadPortal() {
@@ -49,7 +50,7 @@ function loadPortal() {
     slug: PORTAL_SLUG,
     sourceDir: '',
     base: portalSiteJson(),
-    pages: [portalHomePage(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT)],
+    pages: [portalHomePage(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT, EMAILS_ENDPOINT)],
     assetFiles: [],
   })
   if (!loaded.ok) throw new Error(JSON.stringify(loaded.errors))
@@ -354,12 +355,16 @@ describe('REQ-245 — the one write, and its bounds', () => {
       path.join(__dirname, '..', 'packages/framework/src/modules/account-portal/client.js'),
       'utf8',
     )
+    //
+    // [[REQ-368]] ADDS ONE MORE, ON THE SAME TERMS: a second `POST`, to its own
+    // declared endpoint, that changes the caller's own sign-in addresses. Still no
+    // destructive verb and no field naming anything else.
     expect(source).not.toMatch(/method:\s*'(PUT|PATCH|DELETE)'/i)
-    expect(source.match(/method:\s*'POST'/g) ?? []).toHaveLength(1)
+    expect(source.match(/method:\s*'POST'/g) ?? []).toHaveLength(2)
     const urls = Object.entries(accountPortalMeta.config)
       .filter(([, spec]) => spec.type === 'url')
       .map(([name]) => name)
-    expect(urls).toEqual(['account', 'acceptances'])
+    expect(urls).toEqual(['account', 'acceptances', 'emails'])
   })
 
   it('test_UAT_FC_REQ-245_an_unreachable_endpoint_costs_the_section_and_nothing_else', async () => {
@@ -382,7 +387,7 @@ describe('REQ-245 — the shipped portal carries the endpoint', () => {
     // A business that has authored no portal of its own still gets the section,
     // through the same in-memory store [[REQ-183]] built — so the surface lands
     // everywhere on the day it ships rather than for whoever authors next.
-    const store = portalFallbackStore(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT)
+    const store = portalFallbackStore(ACCOUNT_ENDPOINT, ACCEPTANCES_ENDPOINT, EMAILS_ENDPOINT)
     const pages = await store.readPages(PORTAL_SLUG)
     const instance = (pages[0].page as { modules: Array<{ config: Record<string, unknown> }> })
       .modules[0]
