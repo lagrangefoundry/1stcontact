@@ -6,9 +6,9 @@ title: 'values-diff: pseudo-glyph runs measured by host box vs glyph advance, ow
   fill compared one way, aggregate mislabelled'
 created_by: repro-console:repro-joyfulculinarycreations-com#7
 created_at: '2026-10-03T19:42:43.950023+00:00'
-updated_at: '2026-10-03T23:36:47.990290+00:00'
+updated_at: '2026-10-03T23:36:52.175211+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -27,6 +27,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.467
+  story_points: 3
 ---
 
 # values-diff: a pseudo-glyph run is measured by its host box on one side and its glyph advance on the other, own-vs-ancestor fill is compared one way only, and a "filter ×17" aggregate is 16 pseudo rows
