@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-188
 created_by: xgd
 created_at: '2026-10-03T22:53:12.660269+00:00'
-updated_at: '2026-10-03T23:05:23.485688+00:00'
+updated_at: '2026-10-03T23:05:44.397091+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -112,5 +112,14 @@ BUG-188 is fixed and the ticket is at `free_coded` (commits `68dc6f71d5` plus th
 **Not done:** the browser self-check inside `l1-gate` that the ticket suggested. It would add a Chromium dependency to a command that is deliberately analytic. Issue 2 turned out not to be a divergence, and issue 1 is now modelled. Chromium can't launch in this sandbox anyway. Say if you still want it, ideally as its own ticket.
 
 The ticket body keeps the original filing and now has two added sections: the diagnosis, and what landed. I also saved a note that escape boxes in `gate.json` usually come from the 2.5× grown-copy check, so later investigations look at the finding's `probe` field first.
+
+<!-- xgd-turn id="22bdab08-2eca-4c3e-9dce-1fb45db7f8b6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-03T23:05:40.891697+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
