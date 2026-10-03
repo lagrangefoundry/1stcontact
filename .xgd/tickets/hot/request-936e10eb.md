@@ -5,9 +5,9 @@ type: request
 title: 'l1: no text-underline-offset axis, so a link underline paints 2px high'
 created_by: repro-console:repro-faelan-com#6
 created_at: '2026-10-03T01:03:21.646192+00:00'
-updated_at: '2026-10-03T16:45:49.397351+00:00'
+updated_at: '2026-10-03T17:02:40.389904+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -114,3 +114,57 @@ CHROMIUM_LAUNCH_ARGS=--single-process node tools/generate/bin/1c.mjs gate repro-
 ---
 
 The gate's headline `unmeasured 0` while the capture audit lists 7 not-expressible properties in use is a separate ruler defect, filed as its own bug and cross-referenced in the closing report.
+
+---
+
+## Implementation (what landed, free-coded)
+
+Both issues are done, as one change. The defect is a single substrate gap, and the comparator half is what proves the L1 half.
+
+### Behaviour
+
+1. **L1 axis.** `underlineOffsetPx` is an optional finite number, in px. It sits beside `textDecoration` in three places: a text run's axes (`l1TextRunAxesSchema`), a text or control node's axes (`l1TextAxesSchema`), and an interaction state (hover/focus). Leaving it out means the engine's `auto` placement.
+   - **Why px and not em:** the web declares it in px and the capture reads a computed length. An `em` value would re-scale a line that the reference held fixed across a node's `responsive.fontSizePx` track.
+   - **Structured-only:** a CSS string in this slot is refused by the schema.
+2. **Envelope.** `L1_ENVELOPE.underlineOffsetPx` is [-100, 100]. An out-of-range value is refused, and the refusal names the path: `/text/<i>/axes/underlineOffsetPx` for a run, `/axes/underlineOffsetPx` for a node, `/<state>/underlineOffsetPx` for a state.
+3. **Renderer.** It emits `text-underline-offset: <n>px` in three places: in a run's own rule beside `text-decoration`, on a text node beside `text-decoration-line`, and in a state's declarations. On a node it is emitted whether or not that node paints a line itself, because the property inherits and the line usually sits on a linked run inside the node. When the axis is absent, nothing is emitted.
+4. **Capture.** `extract.ts` `underlineOffsetOf` records the computed `text-underline-offset` in px on every run, rounded to 2 decimals. It records `null` for `auto`, for a percentage, and for a run that paints no underline. The value is projected through `sections.ts` onto `ContentRun.underlineOffsetPx`.
+   - `CAPTURE_SCHEMA` is now **13**. A new `CAPTURE_SCHEMA_AXES` entry names the axis as stale on an older bundle unless that bundle carries the key.
+   - The coverage register moves `text-underline-offset` from `not-expressible` to `recorded`. Its `present` witness is a numeric `underlineOffsetPx` on any run.
+5. **Fold.**
+   - A node takes the captured offset whenever it carries one. The capture records one only beside an underline.
+   - A run takes the offset when it is a number that differs from its base run's. This is the same diff-against-base rule `textDecoration` uses.
+   - The inline-run variation signature includes the offset.
+6. **Comparator (issue 2).** `underlineOffsetPx` is a value axis in `value-axes.ts` (`compared`, shared run reader), a `DeltaProperty`, class `A`, and kind `textTreatment`.
+   - `null` vs a number is a delta. Two numbers more than 0.5px apart are a delta, with that magnitude. Labels read `4px` and `auto`.
+   - The comparison is skipped when either side did not record the axis, as with a pre-13 bundle.
+7. **Email target.** It does not allow-list the axis, so an email page refuses it by name. This follows the same reasoning as the other type pixel-movers.
+
+### Design decisions
+- **Thickness, colour and style were not added.** No observed page needs them, and they stay `not-expressible` in the register. The register note now says that only the offset is carried.
+- **No `auto` sentinel in L1.** A run underlined at `auto` inside a node that declares an offset would inherit that offset. No reference so far has that combination, so it is left out.
+- **No fold for interaction states.** The fold does not read a hover-state offset, because the capture does not record one. L1 and the renderer support it on a state.
+
+### Follow-up for the operator
+faelan.com needs a **re-capture**. This is a capture-side change, so `1c refold` cannot pick it up. The ticket's own checks then apply: the audit no longer lists `text-underline-offset`, the Musician run carries `underlineOffsetPx: 4`, and no ranked region sits over "Musician".
+
+### Docs
+- DOC-27 has a worked example under its design rule for L1 axes.
+- The DOC-19 runbook line about a link underline that hugs its letters now names the axis and the schema-13 re-capture.
+
+### Test plan
+UATs are in `tests/test_UAT_FC_REQ-365_underline_offset_axis.test.ts`, with the fixture `tests/fixtures/capture/req365-underline-offset.html`:
+- the envelope admits the offset on a run, a node and a hover state
+- an out-of-range offset is refused, by path, at all three
+- a CSS-string value is refused (structured-only)
+- the renderer places the line on the run, the node and the state, and emits nothing when the axis is absent
+- the fold carries the linked run's offset into L1 and onto the page
+- an underlined node carries its offset, and `auto` carries none
+- the comparator reports `4px` vs `auto`, and `4px` vs `2px`
+- agreeing offsets (within 0.5px), two `auto`s, and a side that never recorded the axis all report nothing
+- the register says `recorded`, with a witness
+- a schema-12 bundle is named stale for the axis
+- *(needs Chromium; skipped in the sandbox)* the extractor records `4` for a declared offset and `null` for `auto` or no underline. That helper was checked offline instead, by driving `underlineOffsetOf` directly.
+
+Regression scope: 41 files, covering fold, values-diff, value-axes, the coverage register, the capture schema, inline runs, the renderer and the email target. All passed except `reconciliation-l1-navigation` AC845, a jsdom `hashchange` assertion that also fails on clean xgd-working.
+
