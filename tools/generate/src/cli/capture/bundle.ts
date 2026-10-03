@@ -99,6 +99,15 @@ export async function readCapture(bundle: ReferenceBundle): Promise<Capture> {
 }
 
 /**
+ * BUG-189 — the bundle's post-JS DOM as text, or `null` when the bundle carries
+ * no `rendered.html`. Null is "unmeasured", never "empty page".
+ */
+export async function readRenderedHtml(bundle: ReferenceBundle): Promise<string | null> {
+  const bytes = await bundle.read(RENDERED_MEMBER)
+  return bytes ? decoder.decode(bytes) : null
+}
+
+/**
  * BUG-23 — the bundle's origin→mirror asset map, or `[]` when the bundle carries
  * no `capture.json`. Tolerant because the map is only *needed* by a document that
  * actually references remote media: a bundle without it and without remote

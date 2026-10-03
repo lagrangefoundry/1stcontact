@@ -258,6 +258,16 @@ export function formatGateReport(report: GateReport, ref: string): string {
       ? [`    unreferenced: ${c.unreferencedImages.slice(0, 6).join(', ')}${c.unreferencedImages.length > 6 ? `, …+${c.unreferencedImages.length - 6}` : ''}`]
       : []),
     `    sections   ${c.sections} across ${c.pageHeightPx}px (${c.pxPerSection} px/section)`,
+    // BUG-189 — the two contentless-section proxies, printed whether or not they
+    // corroborate each other into a finding.
+    ...(c.emptySections?.length
+      ? [`    empty      ${c.emptySections.map((s) => `section ${s.index} (y ${s.y}, ${s.height}px)`).join(', ')}`]
+      : []),
+    ...(c.unrecordedText === null
+      ? ['    text       not measured — the bundle carries no rendered.html']
+      : c.unrecordedText?.length
+        ? [`    text       ${c.unrecordedText.length} rendered string(s) the capture never recorded`]
+        : []),
     ...c.findings.map((f) => `    ⚠ ${f.kind}: ${f.detail}`),
     '',
     wrap(report.diagnosis, '  '),

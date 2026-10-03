@@ -938,16 +938,34 @@ const surfaceAxesShape = {
   overlay: l1OverlaySchema.optional(),
   /** A drop shadow cast by the node — one layer, or REQ-331's ordered stack. */
   boxShadow: l1BoxShadowSchema.optional(),
-  /** A painted border (uniform, all four sides). */
+  /**
+   * A painted border on all four sides. A per-side axis below overrides its own
+   * side and leaves the other three as this one paints them.
+   */
   border: l1BorderSchema.optional(),
   /**
-   * BUG-14 — a coloured left-accent border (a card's orange/blue rule), distinct
-   * from the uniform {@link border}: a card frequently carries only a thick
-   * `border-left` as its accent, and drawing that as a full box outline is the
-   * wrong look. A typed left-border primitive (never raw CSS) keeps the accent
-   * faithful while the substrate stays safe by construction.
+   * BUG-14 — a coloured left-accent border (a card's orange/blue rule, a pull
+   * quote's rule), distinct from the uniform {@link border}: a card frequently
+   * carries only a thick `border-left` as its accent, and drawing that as a full
+   * box outline is the wrong look. A typed left-border primitive (never raw CSS)
+   * keeps the accent faithful while the substrate stays safe by construction.
+   *
+   * REQ-374 — one of four. Alone it paints the left side only; beside `border`
+   * it restyles the left side and the other three keep `border`.
    */
   borderLeft: l1BorderSchema.optional(),
+  /**
+   * REQ-374 — the top side only: a divider above a footer or trust strip, a
+   * tab's indicator. Same shape and override rule as {@link borderLeft}.
+   */
+  borderTop: l1BorderSchema.optional(),
+  /** REQ-374 — the right side only; same shape and override rule as {@link borderLeft}. */
+  borderRight: l1BorderSchema.optional(),
+  /**
+   * REQ-374 — the bottom side only: a rule under a heading or band, an
+   * underline-style tab. Same shape and override rule as {@link borderLeft}.
+   */
+  borderBottom: l1BorderSchema.optional(),
   /** Frosted-glass blur of whatever sits behind the node (backdrop-filter). */
   backdropBlurPx: finite.nonnegative().optional(),
   /**

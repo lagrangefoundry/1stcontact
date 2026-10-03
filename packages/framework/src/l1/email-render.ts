@@ -144,11 +144,20 @@ function paddingCss(p: L1Padding | undefined): string | null {
   return `padding:${side(p.topPx)} ${side(p.rightPx)} ${side(p.bottomPx)} ${side(p.leftPx)}`
 }
 
-function borderCss(b: L1Border | undefined): string | null {
+/** `property` is `border` or a REQ-374 per-side `border-top` / `border-left` / … */
+function borderCss(b: L1Border | undefined, property = 'border'): string | null {
   if (!b) return null
   const c = color(b.color)
-  return c === null ? null : `border:${px(b.widthPx)} ${b.style ?? 'solid'} ${c}`
+  return c === null ? null : `${property}:${px(b.widthPx)} ${b.style ?? 'solid'} ${c}`
 }
+
+/** REQ-374 — each per-side border axis and its property, emitted after `border`. */
+const BORDER_SIDES = [
+  ['borderTop', 'border-top'],
+  ['borderRight', 'border-right'],
+  ['borderBottom', 'border-bottom'],
+  ['borderLeft', 'border-left'],
+] as const
 
 /** The declared width of a node, when it declares a fixed one. */
 function fixedWidth(sizing: L1AxisSizing | undefined): number | null {
@@ -164,6 +173,10 @@ function surfaceDecls(node: L1Node): string[] {
   if (fill) out.push(`background-color:${fill}`)
   const border = borderCss(axes.border as L1Border | undefined)
   if (border) out.push(border)
+  for (const [key, property] of BORDER_SIDES) {
+    const side = borderCss(axes[key] as L1Border | undefined, property)
+    if (side) out.push(side)
+  }
   const radius = px(axes.borderRadiusPx as number | undefined)
   if (radius) out.push(`border-radius:${radius}`)
   const pad = paddingCss(node.padding)

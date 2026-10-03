@@ -107,13 +107,23 @@ export interface L1EmailTarget {
  *
  * WHAT IS PRESENT IS WHAT A TABLE-AND-INLINE-STYLES EMITTER CAN ACTUALLY
  * HONOUR: boxes and stacks and rows, words with a size, a weight, a colour and
- * an alignment, pictures with a width, a fill behind a box, a border, a
- * padding, and a link.
+ * an alignment, pictures with a width, a fill behind a box, a border (on all
+ * sides or per side), a padding, and a link.
  */
 export const L1_EMAIL_TARGET: L1EmailTarget = {
   kinds: ['box', 'container', 'text', 'image'],
   nodeAxes: ['padding', 'sizing'],
-  surfaceAxes: ['surfaceFill', 'border', 'borderRadiusPx'],
+  // REQ-374 — a per-side border is an inline `border-<side>`, which every
+  // client honours; a divider above a message's footer is the common case.
+  surfaceAxes: [
+    'surfaceFill',
+    'border',
+    'borderTop',
+    'borderRight',
+    'borderBottom',
+    'borderLeft',
+    'borderRadiusPx',
+  ],
   textAxes: [
     'color',
     'fontFamily',

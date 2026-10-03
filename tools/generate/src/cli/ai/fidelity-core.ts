@@ -686,6 +686,8 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           unreferencedImages: report.coverage.unreferencedImages,
           sections: report.coverage.sections,
           pxPerSection: report.coverage.pxPerSection,
+          emptySections: report.coverage.emptySections,
+          unrecordedText: report.coverage.unrecordedText,
           findings: report.coverage.findings,
         },
       }
