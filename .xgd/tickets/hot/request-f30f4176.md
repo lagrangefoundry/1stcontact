@@ -6,9 +6,9 @@ title: 'fold: a band''s hero <img> is painted over the band''s own scrim (and fi
   further Zyro residuals)'
 created_by: repro-console:repro-www-hearingzone510-com#1
 created_at: '2026-10-03T19:22:40.995134+00:00'
-updated_at: '2026-10-03T22:07:08.344761+00:00'
+updated_at: '2026-10-03T22:29:40.684189+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -379,3 +379,62 @@ is empty (or holds only the `-1` srcset duplicates).
 - The 74 `escape` findings (content-robustness): REQ-324's single-run-surface class; its recovery
   promoted the surfaces but `chooseRecovery` declined to serve it — appended to REQ-324 as a comment.
 - values-diff false deltas (6 `zIndex` z:13, 3 `mask`, the `F` box) — filed as a second instrument bug.
+
+
+---
+
+## What landed (free-coded, REQ-370)
+
+All six issues are implemented under this one ticket. Issues 1 and 4 take effect on `1c refold`;
+issues 2, 3, 5 and 6 need a **re-capture** of the bundle (capture schema bumped **14 → 15**, so the
+stale-capture detail names the missing axes on the current bundle).
+
+- **Issue 1 (fold)** — `groundImagesUnder` (`tools/generate/src/l1/fold.ts`): an image leaf whose box
+  and a captured backdrop's box each cover ≥90% of the other, and whose captured `zIndex` is LOWER
+  than the backdrop's, leaves the content and travels with that backdrop — nested wherever the
+  backdrop is owned (`nestBackingSurfaces` adopts it into the backdrop's parent without its own
+  containment test), immediately before it — and is clipped to the backdrop's box (the builder's
+  background wrapper is `overflow:hidden; inset:0`). An image captured at or above the backdrop's
+  level is left in the content. On the real bundle `section-band-0` now holds
+  `[image-1, backdrop-0, …runs]`, `image-1` at 1280×1157 (was 1168.56, at root, after the band).
+- **Issue 2 (capture)** — `svgPanelFillOf` (`extract.ts`): an inline `<svg>` whose only shape is a
+  `<rect>` or a `M0 0H{w}V{h}H0(V0)Z` path covering its viewBox, with `preserveAspectRatio="none"`
+  (or a matching aspect), and an opaque solid fill, is recorded by `fieldsUnder` as a text-free
+  field with that fill as `surfaceFill` (plus its box and `zIndex`, as any field). The fold then
+  emits it as a painted box. Icons and every other SVG stay unrecorded (coverage note updated).
+  Not added to the run surface walk: these panels sit under runs that overhang them, and adding
+  them there would double-paint via the card reconstruction.
+- **Issue 3 (L1 + renderer + capture + fold)** — new strict text axis
+  `whiteSpace: 'break-spaces' | 'pre-wrap'` (`packages/site-schema/src/l1/schema.ts`). The renderer
+  emits `white-space: <value>`, and where `nowrapFromPx` also applies it pins only
+  `text-wrap-mode: nowrap` (plain `white-space: nowrap` would collapse the kept space). The
+  extractor records `whiteSpace` (null unless the computed value is one of the two) and, for such
+  runs, keeps the edge space in `text` (collapsed to one, not trimmed). Carried as a `carried`
+  value axis; the fold writes it onto the text node. `coverage.ts`: `white-space` and
+  `white-space-collapse` move from `declined` to `recorded`.
+- **Issue 4 (fold)** — `selfSurfaceLines`: a text run whose `surface.self` is true and whose box is
+  taller than its line block is pinned at its line box — centred on `renderedTextBox` (half-leading
+  is symmetric), less its own top padding — instead of at the border-box origin; its ownership
+  height is the line block. On the bundle the three buttons land within 0.2px of the reference
+  (SCHEDULE AN APPOINTMENT 14.84 vs 14.84, 510-865-8113 17.0 vs 17.0, EXPLORE MORE SERVICES 15.06 vs 15.2).
+  Done as geometry, not `distribution: center`, because the run is absolutely pinned.
+- **Issue 5 (capture)** — `hrefOf` records `tel:`/`mailto:` hrefs as written, under the same body
+  rule as REQ-359's `isSafeHref`; every other non-web scheme still returns null.
+- **Issue 6 (capture)** — new shared page script `REVEAL_MEDIA` (`page-scripts.ts`), run by both
+  drivers after `IMAGES_DECODED`: for each decoded image with a real box, any ancestor (itself
+  included) that is `opacity: 0` AND has a non-`none` transform — the scroll-reveal pre-state
+  signature — is forced to `opacity:1; transform:none` and marked `data-1c-revealed`. Opacity alone
+  does not qualify (fading carousels), and any image under a carousel/slider ancestor is skipped.
+  An image the reveal cannot land still surfaces in `coverage.unreferencedImages`, as before.
+
+## Test plan (as built)
+
+`tests/test_UAT_FC_REQ-370_zyro_residuals.test.ts` — 18 UATs: issue 1 fold ordering + clip, and the
+negative (photo captured above the fill stays in content); issue 4 button label centred, and a run
+whose box is its line box unchanged; issue 3 envelope (accepts the two values, rejects others),
+renderer (emits the value, `text-wrap-mode: nowrap` beside `nowrapFromPx`, plain runs unchanged),
+fold carries value + kept space, extractor keeps the trailing space under `break-spaces` and trims
+otherwise, coverage verdict; issue 2 extractor records the rectangle panel with box+fill, ignores an
+icon; issue 5 tel/mailto recorded, `javascript:` refused, tel folds to a link; issue 6 reveal lands a
+transparent+displaced wrapper and leaves a carousel slide and a plain fade alone; schema 15 names
+`whiteSpace` as missing on a schema-14 bundle. Capture cases run the real page scripts under jsdom.
