@@ -1939,10 +1939,11 @@ export async function run(argv: string[]): Promise<void> {
       // command goes through `withCleanStdout` so a browser launch, a font
       // fetch or a Vite notice cannot land in the middle of the document.
       const json = flags.json === true
-      const { name, capture, l1, hints } = json
+      const { name, capture, l1, foldWarning, hints } = json
         ? await withCleanStdout(() => cmdCapturePage(url, fsReferenceStore(cwd)))
         : await cmdCapturePage(url, fsReferenceStore(cwd))
-      const l1Nodes = (l1.root.kind === 'box' || l1.root.kind === 'container' ? l1.root.children?.length : 0) ?? 0
+      // BUG-202 — a capture whose fold failed is still a capture; it has no l1.json.
+      const l1Nodes = l1 ? ((l1.root.kind === 'box' || l1.root.kind === 'container' ? l1.root.children?.length : 0) ?? 0) : 0
       const dir = bundleDir(cwd, name)
       if (json) {
         console.log(
@@ -1954,7 +1955,8 @@ export async function run(argv: string[]): Promise<void> {
               sections: capture.sections.length,
               assets: capture.assets.length,
               l1Nodes,
-              widths: l1.widths.length,
+              widths: l1?.widths.length ?? 0,
+              ...(foldWarning ? { foldWarning } : {}),
             },
             null,
             2,
@@ -1965,7 +1967,9 @@ export async function run(argv: string[]): Promise<void> {
       console.log(
         `Captured ${url} → ${dir}\n` +
           `  ${capture.sections.length} section(s), ${capture.assets.length} asset(s)\n` +
-          `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); ` +
+          (l1
+            ? `  l1.json: ${l1Nodes} node(s) across ${l1.widths.length} width(s); `
+            : `  no l1.json — the fold failed: ${foldWarning}\n  `) +
           `hints.json: ${hints.nodes.length} node(s), ${hints.mediaBreakpoints.length} @media breakpoint(s)`,
       )
       return

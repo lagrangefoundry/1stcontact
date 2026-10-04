@@ -43,6 +43,10 @@ import {
   FONT_BARRIER,
   FONTS_READY,
   IMAGES_DECODED,
+  LEAVE_PAGE,
+  NETWORK_IDLE_MS,
+  NETWORK_QUIET_MS,
+  ordinaryUserAgent,
   REVEAL_MEDIA,
   SCROLL_TO_TOP,
   SETTLE_CSS,
@@ -59,6 +63,9 @@ import type {
 } from './types'
 
 const DEFAULT_VIEWPORT: Viewport = { width: 1280, height: 800 }
+
+/** BUG-202 — network quiet is waited for, never required. */
+const QUIET = { idleTime: NETWORK_IDLE_MS, timeout: NETWORK_QUIET_MS }
 
 /** Default ceiling on a leased session, in ms. Long enough for a ladder, short
  *  enough that a wedged run cannot hold a billed session until the idle reaper. */
@@ -109,6 +116,8 @@ export interface PuppeteerPage {
   evaluate(script: string): Promise<unknown>
   addStyleTag(options: { content: string }): Promise<unknown>
   waitForNetworkIdle(options?: { idleTime?: number; timeout?: number }): Promise<void>
+  /** Optional — BUG-202 sends an ordinary browser's agent where the library allows it. */
+  setUserAgent?(userAgent: string): Promise<void>
   screenshot(options: { fullPage: boolean; type: 'png' }): Promise<Uint8Array | string>
   content(): Promise<string>
   /** Optional — used only to tell a top-level navigation from an iframe's. */
@@ -122,6 +131,8 @@ export interface PuppeteerContext {
 
 export interface PuppeteerBrowser {
   createBrowserContext(): Promise<PuppeteerContext>
+  /** Optional — the agent the browser would announce, which BUG-202 un-headlesses. */
+  userAgent?(): Promise<string>
   close(): Promise<void>
 }
 
@@ -175,6 +186,9 @@ class CfBrowserDriver implements BrowserDriver {
     this.page = page
 
     await page.setViewport(viewport ?? DEFAULT_VIEWPORT)
+    // BUG-202 — ask as a visitor's browser does: some hosts stall on `HeadlessChrome`.
+    const agent = await this.browser.userAgent?.().catch(() => null)
+    if (agent && page.setUserAgent) await page.setUserAgent(ordinaryUserAgent(agent)).catch(() => undefined)
     // REQ-48 (item 1) — freeze-determinism precondition. Motion is
     // time-dependent, so an unfrozen page projects a different frame every run
     // and the whole gate is flaky. `prefers-reduced-motion: reduce` collapses
@@ -211,9 +225,13 @@ class CfBrowserDriver implements BrowserDriver {
     }) as never)
 
     const timeout = this.opts.navigationTimeoutMs ?? 30_000
-    await page.goto(url, { waitUntil: 'networkidle0', timeout })
+    // BUG-202 — THE DOCUMENT'S `load`, THEN A BOUNDED QUIET. Requiring
+    // `networkidle0` timed out on any page whose widgets never stop talking; see
+    // `NETWORK_QUIET_MS`. Only a document that does not load fails the capture.
+    await page.goto(url, { waitUntil: 'load', timeout })
+    await page.waitForNetworkIdle(QUIET).catch(() => undefined)
 
-    // REQ-48 (item 7) — network idle can settle before the browser swaps from a
+    // REQ-48 (item 7) — the network can go quiet before the browser swaps from a
     // fallback face to the intended @font-face, so computed styles read now
     // would record fallback metrics (FOUT). Best-effort: an engine without the
     // FontFaceSet API must not block the capture.
@@ -237,7 +255,7 @@ class CfBrowserDriver implements BrowserDriver {
     await page.evaluate(SETTLE_SCROLL).catch(() => undefined)
     await page.evaluate(IMAGES_DECODED).catch(() => undefined)
     await page.evaluate(REVEAL_MEDIA).catch(() => undefined)
-    await page.waitForNetworkIdle().catch(() => undefined)
+    await page.waitForNetworkIdle(QUIET).catch(() => undefined)
     // REQ-377 — home again, and wait for it: a page script can scroll after the
     // settle's own return, and a sticky box is measured wherever the scroll is.
     await page.evaluate(SCROLL_TO_TOP).catch(() => undefined)
@@ -372,8 +390,12 @@ class CfBrowserDriver implements BrowserDriver {
    */
   async close(): Promise<void> {
     const context = this.context
+    const page = this.page
     this.context = null
     this.page = null
+    // BUG-202 — LEAVE THE PAGE FIRST: a connection it holds open (a chat
+    // widget's long-poll) otherwise holds the close until it gives up.
+    await page?.goto(LEAVE_PAGE, { timeout: NETWORK_QUIET_MS }).catch(() => undefined)
     await context?.close()
   }
 

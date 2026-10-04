@@ -72,6 +72,7 @@ import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionIdFor } from '../../../tools/generate/src/cli/ai/host-core'
 import { chatLedger } from './ledger'
 import { sitePlan } from './plan'
+import { businessPath } from './scope'
 import {
   bufferedAuditSink,
   type AuditLine,
@@ -717,6 +718,17 @@ export function workerHost(
   // this through an injectable seam, and a seam that hands back nothing must
   // read as "no corpus" rather than as a corpus that throws on first use.
   const knowing = knowledge != null
+  // [[BUG-202]] — WHERE A COMP'S SNAPSHOT IS SEEN, scoped to this business for
+  // the reason `assetUrl` is: a tile replayed from the transcript must still name
+  // the business it belongs to. Absent with no business, which draws every comp
+  // tile as a link only — the `1c` CLI's permanent state.
+  const compMemberUrl = settings
+    ? (uid: string, member: string): string =>
+        businessPath(
+          settings.businessId,
+          `/api/material/file?uid=${encodeURIComponent(uid)}&member=${encodeURIComponent(member)}`,
+        )
+    : undefined
   return {
     audit,
     deps: {
@@ -855,7 +867,7 @@ export function workerHost(
       // THE SITE'S PLAN ([[REQ-356]]), on the ledger's condition: a ticket store,
       // which this host always has. The ledger above writes its decisions into
       // this same plan, so the two are one record seen through two surfaces.
-      plan: (site: string) => sitePlan(tickets, site),
+      plan: (site: string) => sitePlan(tickets, site, compMemberUrl),
       priming: knowing ? sessionPriming(knowledge) : null,
       // THE PLATFORM REFERENCE FOR A DELEGATED WORKER ([[REQ-355]]) — the system
       // half of the pair above and never the tenant's, so a worker can look up
@@ -877,7 +889,7 @@ export function workerHost(
       // condition rather than the corpus delta's: a ticket store, which this host
       // always has. The plan is the site's, so a session with no knowledge base
       // still has a client answering its questions.
-      planAnswers: (sessionId: string, site: string) => planAnswersDelta(tickets, sessionId, site),
+      planAnswers: (sessionId: string, site: string) => planAnswersDelta(tickets, sessionId, site, compMemberUrl),
       // WHAT THE TURN COST ([[REQ-292]]), passed straight through:
       // `host-core.ts` folds the terminal event's spend and calls this from the
       // `finally` that already closes the pending record, and `spend.ts` decides

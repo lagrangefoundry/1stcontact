@@ -11,6 +11,9 @@ import {
   FONT_BARRIER,
   FONTS_READY,
   IMAGES_DECODED,
+  LEAVE_PAGE,
+  NETWORK_QUIET_MS,
+  ordinaryUserAgent,
   REVEAL_MEDIA,
   SCROLL_TO_TOP,
   SETTLE_CSS,
@@ -77,6 +80,11 @@ class PlaywrightDriver implements BrowserDriver {
       reducedMotion: 'reduce',
     })
     this.page = await context.newPage()
+    // BUG-202 — ask as a visitor's browser does: some hosts stall on `HeadlessChrome`.
+    const agent = await this.page.evaluate('navigator.userAgent').catch(() => null)
+    if (typeof agent === 'string' && agent !== ordinaryUserAgent(agent)) {
+      await context.setExtraHTTPHeaders({ 'User-Agent': ordinaryUserAgent(agent) })
+    }
 
     // Cache every response as it arrives; bodies are read after load settles.
     const pending: Response[] = []
@@ -139,9 +147,13 @@ class PlaywrightDriver implements BrowserDriver {
       })
     }
 
-    await this.page.goto(url, { waitUntil: 'networkidle' })
+    // BUG-202 — THE DOCUMENT'S `load`, THEN A BOUNDED QUIET. Requiring
+    // `networkidle` timed out on any page whose widgets never stop talking; see
+    // `NETWORK_QUIET_MS`. Only a document that does not load fails the capture.
+    await this.page.goto(url, { waitUntil: 'load' })
+    await this.page.waitForLoadState('networkidle', { timeout: NETWORK_QUIET_MS }).catch(() => undefined)
 
-    // REQ-48 (item 7) — web-font load precondition. `networkidle` can settle
+    // REQ-48 (item 7) — web-font load precondition. The network can go quiet
     // before the browser swaps from a fallback face to the intended @font-face,
     // so computed styles read now would record fallback metrics (FOUT) and every
     // downstream delta would be contaminated. Waiting on `document.fonts.ready`
@@ -215,8 +227,10 @@ class PlaywrightDriver implements BrowserDriver {
     await page
       .evaluate(REVEAL_MEDIA)
       .catch(() => undefined)
-    // Let the newly-triggered subresource requests settle.
-    await page.waitForLoadState('networkidle').catch(() => undefined)
+    // Let the newly-triggered subresource requests settle — for a bounded time
+    // (BUG-202): this used to wait out the full default timeout on a page whose
+    // network never goes idle, once per navigation of the ladder.
+    await page.waitForLoadState('networkidle', { timeout: NETWORK_QUIET_MS }).catch(() => undefined)
     // REQ-377 — home again, and wait until the page is there. The settle's own
     // return can be undone by a page script that scrolls once the network goes
     // quiet, and every sticky box is measured wherever the scroll then is.
@@ -296,6 +310,10 @@ class PlaywrightDriver implements BrowserDriver {
   }
 
   async close(): Promise<void> {
+    // BUG-202 — LEAVE THE PAGE FIRST. A connection the page holds open (a chat
+    // widget's long-poll) made the browser's own close wait it out, about 30 s,
+    // once per navigation of a capture's twenty-odd. Leaving drops them.
+    await this.page?.goto(LEAVE_PAGE, { timeout: NETWORK_QUIET_MS }).catch(() => undefined)
     await this.browser?.close()
     this.browser = null
     this.page = null

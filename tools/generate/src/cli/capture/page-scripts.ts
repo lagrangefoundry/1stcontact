@@ -228,3 +228,40 @@ export const REVEAL_MEDIA = `(() => {
   }
   return landed;
 })()`
+
+// ── navigation: when a page counts as loaded ([[BUG-202]]) ───────────────────
+
+/**
+ * How long a capture waits for the network to go quiet after the document has
+ * loaded, ms — and then it captures anyway.
+ *
+ * NOT `networkidle` AS A PRECONDITION. A trade site carries a chat widget, a
+ * review widget, analytics beacons and a consent manager, and some of those hold
+ * a connection open for as long as the page is open: its network never goes
+ * idle, so a navigation that required it timed out on a page that had loaded in
+ * under four seconds, three attempts running. The document's own `load` is the
+ * precondition; quiet is a bounded courtesy, so a page whose widgets never stop
+ * talking costs this long and no longer.
+ */
+export const NETWORK_QUIET_MS = 3_000
+
+/**
+ * Where a driver goes before it closes ([[BUG-202]]): nowhere. Leaving the page
+ * drops every connection it holds open, which a browser's close otherwise waits
+ * out. The egress guard lets it through — no request leaves the browser.
+ */
+export const LEAVE_PAGE = 'about:blank'
+
+/** How long without a request counts as quiet, ms — puppeteer's and Playwright's own figure. */
+export const NETWORK_IDLE_MS = 500
+
+/**
+ * The browser's user agent, as an ordinary browser would send it.
+ *
+ * A headless Chromium announces itself as `HeadlessChrome`, and some hosts stall
+ * or answer differently when they see it ([[BUG-202]], from BUG-204). The capture
+ * is of the page a visitor sees, so it asks as a visitor's browser does.
+ */
+export function ordinaryUserAgent(userAgent: string): string {
+  return userAgent.replace(/HeadlessChrome/g, 'Chrome')
+}

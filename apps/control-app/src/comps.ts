@@ -55,8 +55,30 @@ async function ticketOrNull(tickets: TicketStore, uid: string): Promise<Ticket |
   }
 }
 
-/** The comp board's notes, kept on this business's reference tickets. */
-export function compDeps(tickets: TicketStore): CompDeps {
+/** The member keys a capture's attachments hold. */
+async function membersOf(tickets: TicketStore, uid: string): Promise<Set<string>> {
+  return new Set(
+    (await tickets.attachments({ uid })).attachments.map(memberOf).filter((m): m is string => m !== null),
+  )
+}
+
+/** The desktop full-page screenshot a capture holds — the ladder's, else the default shot. */
+function desktopOf(members: Set<string>): string | null {
+  const ladder = `screenshot-${DESKTOP_WIDTH}.png`
+  return members.has(ladder) ? ladder : members.has(SCREENSHOT_MEMBER) ? SCREENSHOT_MEMBER : null
+}
+
+/**
+ * The comp board's notes, kept on this business's reference tickets.
+ *
+ * `memberUrl` is where one member of a capture can be seen ([[BUG-202]]) — the
+ * business-scoped file route, composed by the caller that knows the business.
+ * Without it there is no snapshot to show, and every comp tile is a link only.
+ */
+export function compDeps(
+  tickets: TicketStore,
+  memberUrl?: (uid: string, member: string) => string,
+): CompDeps {
   return {
     async get(reference) {
       const ticket = await ticketOrNull(tickets, reference)
@@ -71,6 +93,16 @@ export function compDeps(tickets: TicketStore): CompDeps {
       if (!record) throw new Error(`${reference} is not a capture`)
       return record
     },
+    ...(memberUrl
+      ? {
+          async snapshot(reference: string) {
+            const ticket = await ticketOrNull(tickets, reference)
+            if (!ticket || !recordOf(ticket)) return null
+            const desktop = desktopOf(await membersOf(tickets, ticket.uid))
+            return desktop ? memberUrl(ticket.uid, desktop) : null
+          },
+        }
+      : {}),
   }
 }
 
@@ -95,13 +127,7 @@ export async function compBoard(tickets: TicketStore, comps: PlanComp[]): Promis
     comps.map(async (comp) => {
       const ticket = await ticketOrNull(tickets, comp.reference)
       const record = ticket ? recordOf(ticket) : null
-      const members = ticket
-        ? new Set(
-            (await tickets.attachments({ uid: ticket.uid })).attachments
-              .map(memberOf)
-              .filter((m): m is string => m !== null),
-          )
-        : new Set<string>()
+      const members = ticket ? await membersOf(tickets, ticket.uid) : new Set<string>()
       const shot = (width: number): string | null =>
         members.has(`screenshot-${width}.png`) ? `screenshot-${width}.png` : null
       const motion = ticket ? (ticket.fields as Record<string, unknown>).motion : null
@@ -111,7 +137,7 @@ export async function compBoard(tickets: TicketStore, comps: PlanComp[]): Promis
         likes: record?.likes ?? [],
         dislikes: record?.dislikes ?? [],
         motion: typeof motion === 'string' && motion !== '' ? motion : null,
-        desktop: shot(DESKTOP_WIDTH) ?? (members.has(SCREENSHOT_MEMBER) ? SCREENSHOT_MEMBER : null),
+        desktop: desktopOf(members),
         phone: shot(PHONE_WIDTH),
       }
     }),

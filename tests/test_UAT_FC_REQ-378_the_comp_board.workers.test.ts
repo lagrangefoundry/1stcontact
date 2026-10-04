@@ -316,3 +316,52 @@ describe('REQ-378 — the consultant can search the web', () => {
     expect(row!.cost_micros).toBe(100 * 4 + 10 * 20 + 2 * 10_000)
   })
 })
+
+describe('BUG-202 — every comp reaches the conversation as a tile that opens the real site', () => {
+  /** The thumbnail address a tile names: this business's file route, the capture's desktop shot. */
+  const heroOf = (reference: string): string =>
+    `/b/${BUSINESS}/api/material/file?uid=${reference}&member=screenshot-1280.png`
+
+  it('test_UAT_FC_BUG-202_the_consultant_adding_a_comp_is_handed_its_tile', async () => {
+    const { sessionId } = await site()
+    let reference = ''
+    let answered = ''
+    await turn(sessionId, 'Let us look at plumbers near me.', [
+      calls('capture_site', { url: COMP_URL }),
+      (req) => {
+        reference = referenceIn(req)
+        return calls('add_comp', { reference })(req)
+      },
+      (req) => {
+        answered = JSON.stringify(req.messages[req.messages.length - 1])
+        return says('Here is Joe’s.')(req)
+      },
+    ])
+    // The tile, in the tool's answer: the hero, the name and address, the live link.
+    expect(answered).toContain('exactly as written')
+    expect(answered).toContain(heroOf(reference))
+    expect(answered).toContain('joes-plumbing.test')
+    expect(answered).toContain(`[Open the real site ↗](${COMP_URL})`)
+    // And the thumbnail it names is served, as the picture.
+    const hero = await ask(heroOf(reference))
+    expect(hero.status).toBe(200)
+    expect(hero.headers.get('content-type')).toContain('image/png')
+  })
+
+  it('test_UAT_FC_BUG-202_a_comp_the_client_adds_reaches_the_next_turn_as_a_tile_once', async () => {
+    const { site: key, sessionId } = await site()
+    await turn(sessionId, 'Hello.', [says('Hello.')])
+
+    const added = await post(PLAN_COMP_PATH, { site: key, action: 'add', url: COMP_URL })
+    const [comp] = ((await added.json()) as { comps: BoardComp[] }).comps
+
+    const next = await turn(sessionId, 'I added one.', [says('Let us look.')])
+    const told = turnTailText(next[0])
+    expect(told).toContain('Your client added 1 comp to the board')
+    expect(told).toContain(heroOf(comp.reference))
+    expect(told).toContain(`[Open the real site ↗](${COMP_URL})`)
+    // Once: the following turn is not told again.
+    const after = await turn(sessionId, 'And now?', [says('Still here.')])
+    expect(turnTailText(after[0])).not.toContain('Your client added')
+  })
+})

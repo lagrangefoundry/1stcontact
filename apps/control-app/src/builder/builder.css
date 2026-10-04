@@ -1319,6 +1319,25 @@ body {
 }
 
 /*
+ * A comp's snapshot in a turn ([[BUG-202]]) — the hero of a full-page screenshot.
+ *
+ * Picked out by its address, because the tile is plain markdown and the only
+ * thing that says "this picture is one file of a capture" is the `member=` the
+ * file route names it by. A full-page shot is thousands of pixels tall, so under
+ * the rule above it would shrink to a sliver; this shows its top instead, which
+ * is the hero — what the client sees first on the real site.
+ */
+.builder-chat img[src*="member=screenshot"] {
+  width: 100%;
+  max-width: 420px;
+  height: 220px;
+  max-height: none;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid var(--shell-border, #d4d4d8);
+}
+
+/*
  * The colour row and the escalation row (REQ-140).
  *
  * Both live in the parameter sheet's region under the editing box, and both are

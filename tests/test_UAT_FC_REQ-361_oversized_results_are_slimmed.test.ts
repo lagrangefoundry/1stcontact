@@ -114,9 +114,11 @@ describe('REQ-361 — a delegation account names whole things rather than copyin
 
 describe('REQ-361 — capture_site summarises what it refused', () => {
   it('test_UAT_FC_REQ-361_a_capture_full_of_data_urls_reports_a_per_reason_summary_under_2kb', async () => {
+    // [[BUG-202]] — a `data:` URL is no longer refused at all (it reaches no
+    // host), so the long unfetchable URLs this summary must not echo are `ftp:`.
     const dataUrls = Array.from(
       { length: 41 },
-      (_, i) => `data:image/png;base64,${String(i).padStart(4, '0')}${'A'.repeat(6000)}`,
+      (_, i) => `ftp://files.example.test/${String(i).padStart(4, '0')}${'A'.repeat(6000)}`,
     )
     const d = guardedCaptureDeps({
       subresources: [...dataUrls, 'http://169.254.169.254/beacon.gif', 'https://cdn.example.test/app.js'],
@@ -134,10 +136,10 @@ describe('REQ-361 — capture_site summarises what it refused', () => {
     expect(result.bundle).toBeTruthy()
     const { refusals } = result
     // Every refusal is counted, under a reason that names the scheme.
-    expect(Object.keys(refusals.reasons).sort()).toEqual(['private-address', 'scheme: data:'])
-    expect(refusals.reasons['scheme: data:'] % 41).toBe(0)
-    expect(refusals.reasons['scheme: data:']).toBeGreaterThan(0)
-    expect(refusals.total).toBe(refusals.reasons['scheme: data:'] + refusals.reasons['private-address'])
+    expect(Object.keys(refusals.reasons).sort()).toEqual(['private-address', 'scheme: ftp:'])
+    expect(refusals.reasons['scheme: ftp:'] % 41).toBe(0)
+    expect(refusals.reasons['scheme: ftp:']).toBeGreaterThan(0)
+    expect(refusals.total).toBe(refusals.reasons['scheme: ftp:'] + refusals.reasons['private-address'])
     // At most five examples, one of each reason among them, none carrying a payload.
     expect(refusals.examples.length).toBeLessThanOrEqual(5)
     expect(new Set(refusals.examples.map((e) => e.reason))).toEqual(new Set(['scheme', 'private-address']))

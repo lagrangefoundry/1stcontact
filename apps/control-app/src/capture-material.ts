@@ -49,6 +49,7 @@ import {
   type ReferenceBundle,
 } from '../../../tools/generate/src/store/reference-store'
 import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
+import { readFoldWarning } from '../../../tools/generate/src/cli/capture/bundle'
 
 /** The ticket type a capture lands as — [[DOC-38]] §9's second material type. */
 export const REFERENCE_TYPE = 'reference'
@@ -208,6 +209,10 @@ export async function adoptCapture(
     // Empty rather than absent when it recorded none, so a recapture of a page
     // that dropped its animation does not keep the old line.
     motion: captureMotion(capture) ?? '',
+    // [[BUG-202]] — why this page could not be folded for reproduction, or empty.
+    // The capture is a comp either way; this is for the reproduction tooling, and
+    // empty rather than absent so a recapture that folds clears it.
+    fold_warning: (await readFoldWarning(bundle)) ?? '',
   }
 
   const existing = await findByBundle(store, bundle.name)

@@ -172,6 +172,9 @@ export const MAX_CAPTURE_MS = 60_000
 /** Only these two schemes reach the network. `file:` and `data:` are the point. */
 const ALLOWED_SCHEMES = new Set(['http:', 'https:'])
 
+/** Schemes whose URL is its own payload — no request leaves the browser ([[BUG-202]]). */
+const INLINE_SCHEMES = /^(data|blob):/i
+
 /**
  * Hostnames that name this machine or its network by word rather than by
  * number. Matched on the whole label set, so `notlocalhost.com` is unaffected.
@@ -362,6 +365,13 @@ export function egressGuard(limits: { maxRedirects?: number } = {}): EgressGuard
     },
     allow(url: string, about: EgressRequest = {}): boolean {
       const kind = about.kind ?? 'subresource'
+      // BUG-202 — AN INLINE RESOURCE IS NOT EGRESS. A `data:` or `blob:` URL
+      // carries its own bytes and reaches no host, so there is nothing for this
+      // guard to refuse: refusing them broke a page's inline images and reported
+      // 300 "refusals" on one site. The page itself is still never one.
+      if (kind === 'subresource' && INLINE_SCHEMES.test(url)) return true
+      // Nor is the blank page a driver leaves for before it closes.
+      if (url === 'about:blank') return true
       const refusal = classifyUrl(url)
       if (refusal) return refuse(refusal, kind)
       // REDIRECTS COUNTED AS REDIRECTS (BUG-127). The depth is this request's

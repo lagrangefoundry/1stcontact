@@ -19,6 +19,7 @@
  */
 import {
   L1_ENVELOPE,
+  L1_VIEWPORT_RESPONSE_BOUND,
   isSafeHref,
   isSafeUrl,
   l1PlainText,
@@ -2277,6 +2278,38 @@ export function markViewportTracking(root: L1Node, widths: number[]): void {
     for (const child of children) walk(child, spans && !inset(node))
   }
   walk(root, true)
+}
+
+/**
+ * [[BUG-202]] — drop any viewport-response factor beyond the envelope's bound.
+ *
+ * A factor is a measured box delta divided by a viewport-height delta, and a
+ * scroll-driven animation can move a box far more than the viewport moved: one
+ * trade site produced a `yFactor` below −10 and the whole capture failed
+ * validation. A factor that large is not a reflow the reproduction should follow
+ * — it is motion the capture happened to sample — so the factor is dropped (the
+ * keyframe keeps its captured position, exact at its own height) rather than
+ * clamped to a bound that would be equally untrue. A response left with neither
+ * axis goes with it.
+ *
+ * MUTATES IN PLACE, like {@link markViewportTracking}.
+ */
+export function dropOutOfRangeResponses(roots: L1Node[]): void {
+  const walk = (node: L1Node): void => {
+    const geo = 'geometry' in node ? node.geometry : undefined
+    for (const kf of geo?.keyframes ?? []) {
+      const r = kf.viewportResponse
+      if (!r) continue
+      for (const axis of ['yFactor', 'heightFactor'] as const) {
+        const f = r[axis]
+        if (f !== undefined && Math.abs(f) > L1_VIEWPORT_RESPONSE_BOUND) delete r[axis]
+      }
+      if (r.yFactor === undefined && r.heightFactor === undefined) delete kf.viewportResponse
+    }
+    const children = node.kind === 'container' ? node.children : node.kind === 'box' ? (node.children ?? []) : []
+    for (const child of children) walk(child)
+  }
+  for (const root of roots) walk(root)
 }
 
 /**
@@ -5185,6 +5218,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // every other node crosses too, including the controls inside a recovered form.
   holdAcrossReflowWindows([root, ...(opts.forms ?? []).map((f) => f.form)], widths)
   markViewportTracking(root, widths)
+  dropOutOfRangeResponses([root, ...(opts.forms ?? []).map((f) => f.form)])
 
   const result = validateL1(doc)
   if (!result.ok) {
