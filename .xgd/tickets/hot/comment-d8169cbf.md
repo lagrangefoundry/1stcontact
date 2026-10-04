@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:49:03.879705+00:00'
+updated_at: '2026-10-04T20:49:32.912735+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7031,5 +7031,25 @@ One was a duplicate and one wasn't.
 <!-- xgd-chat role="user" ts="2026-10-04T20:49:03.366757+00:00" -->
 #### You
 One thing we need to be careful of with these responsive pages - they (obviously) look different at different widths - is the AI aware of the width that we have set the page to?
+
+<!-- xgd-turn id="79e5790c-b6f3-4a2e-9304-0ce4981ece34-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T20:49:31.329650+00:00" -->
+#### Claude
+No. Alice doesn't know what width you're looking at, and nothing in the product tells her.
+
+**What you see.** The preview pane has no width setting; there's no desktop/tablet/phone toggle among its controls. The draft renders at whatever width the pane happens to be, and that width depends on where the divider is and how big your window is. Often it's somewhere between tablet and desktop, which can sit on either side of a breakpoint, so what you see shifts as you resize.
+
+**What Alice sees.** Her `screenshot` defaults to **desktop**. She can ask for other widths, and her manual tells her to "say which one you are judging". But no message, per-turn digest or tool result gives her the pane's actual width. The browser already measures it (`points.js` reads the viewport width for click handling), but the measurement never reaches the server.
+
+**What can go wrong.** You complain about a layout you see at about 800px. She takes a desktop screenshot at full width, sees a different layout, and either says it looks fine or "fixes" the wrong breakpoint. That would explain some of Charlie 2's whitespace back-and-forth.
+
+**What I'd do:**
+1. **A width control on the preview**: Desktop, Tablet, Phone, plus "Fit pane". The page then renders at a known width, so you both talk about the same layout.
+2. **Every prompt carries the preview's width.** The per-turn digest tells Alice *"The client is viewing the draft at 812px (between the tablet and desktop layouts)."*
+3. **A `screenshot` option for the client's width**, so she can look at exactly what you're seeing.
+4. **When she judges a page, she says which width.** That's already in her manual; the digest line gives her something concrete to name.
+
+Shall I file that as one REQ under EPIC-19?
 
 <!-- xgd-chat-end -->
