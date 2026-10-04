@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:51:35.624643+00:00'
+updated_at: '2026-10-04T20:54:43.593830+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7072,5 +7072,11 @@ It covers:
 5. **A priming rule.** When you comment on how something looks, she assumes you mean the width you're viewing, checks at that width first, and says which width any change was made for.
 
 The comp viewer's desktop/phone toggle will use the same control styling.
+
+<!-- xgd-turn id="b58e410a-6f84-405c-83c2-144e4ac5dbaa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T20:54:42.801079+00:00" -->
+#### You
+Good - also not on BUG-202 that Alice did pull a different comp on a second round
 
 <!-- xgd-chat-end -->
