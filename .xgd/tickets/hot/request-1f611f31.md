@@ -5,16 +5,24 @@ type: request
 title: Builder (delegated worker) cannot read the client's uploaded documents
 created_by: xgd
 created_at: '2026-10-04T20:37:43.834612+00:00'
-updated_at: '2026-10-04T20:59:36.258146+00:00'
+updated_at: '2026-10-04T21:00:02.989609+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-809d2084
   story_points: 3
+  commits:
+  - working_sha: bf12b9701c8177b3a4870005014ae93d437ebb37
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 68ed07cf0e415484e0a0dc3e100a677e3ab99794
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.489
 ---
 
 ## What we were trying to do
