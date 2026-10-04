@@ -6,9 +6,9 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-04T12:30:03.217362+00:00'
+updated_at: '2026-10-04T12:37:47.431264+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -17,7 +17,7 @@ fields:
   chat_comment: comment-aba7cf65
 ---
 
-> **Status: blocked upstream.** REQ-360 depends on lagrange-framework REQ-205 (the generalised `GroupSay` plus delegation heartbeat; design in lagrange-framework EPIC-7 §17). The say half of REQ-205 also depends on lagrange-framework REQ-200 and REQ-201; the heartbeat half has no such dependency. A cross-repo blocker cannot go in `depends_on`, so it is recorded here. Stay at `draft` until REQ-205 lands. The 1st Contact work is then: grant, priming, heartbeat styling.
+> **Status: built (2026-10-04).** lagrange-framework REQ-205 landed. The 1st Contact side is the build heartbeat; see "As built" at the end. The interim notice turned out to be covered already by REQ-379, so `GroupSay` is not granted to the 1:1 consultant.
 
 
 ## What I was trying to achieve
@@ -123,22 +123,52 @@ REQ-205 is at `ready_to_reconcile` upstream and is in the shared `@lagrangefound
 - During a delegated build, `DelegationRuntime` writes a `progress` control record every `progressIntervalMs` (default 60 s): `still working, elapsed N min`. Only `manager.watch` yields it. The round's own `promptStream` is blocked inside the `Delegate` call and yields nothing.
 - `webui-chat` ignores both `interim` and `progress` event kinds.
 
-## What changes in 1st Contact
+## As built (2026-10-04)
 
-1. **Grant: 1:1 consultant gets `GroupSay` on its own conversation.** Where the business does not run a group chat, the consultant is composed with a `GroupToolbox` whose runtime names its own session: `speaker` and `sessionId` are both the consultant's session id (`site-<slug>`). `GroupSay` with `group` set to that id records an interim line and the round carries on. Any other `group` is refused (no room is reachable from a 1:1 grant). Group-chat mode is unchanged: the consultant's room runtime has no `sessionId`, so a post to the room already leaves its round running.
-2. **Priming: say it, then carry on.** Where the consultant both delegates and holds `GroupSay`, it is told: before handing over work that will take a while, post one short line saying what is being built and roughly how long, then delegate in the same round. In 1:1 the priming names the `group` value to use; in a room it posts to the room.
-3. **Live heartbeat on the turn's own stream.** `streamPrompt` (site half) polls the session's junction from the turn's start while `promptStream` runs, and interleaves every new `progress` record as a `{kind: 'progress', content, meta: {elapsed_s}}` event. Polling stops when the turn ends. Without this the heartbeat would only reach a reattached client.
-4. **Interim lines reach the panel as prose.** The live `interim` event is forwarded as a `text` event (`\n\n` + line), so it lands in the reply bubble at its position, before the long tool call that follows. `tailSession` projects `interim` records the same way and `progress` records as `progress` events. Transcript turns painted on load run through `readableInterims`, so the stored markers never reach the client.
-5. **Heartbeat styling.** The builder chat panel intercepts `progress` frames and shows one status line between the messages and the composer, with each heartbeat replacing the last. The line clears when the turn's `done` arrives. It is a polite live region (`role="status"`) with a muted pulse.
+### Scope change from the plan above: the heartbeat only
 
-Out of scope: the split-round display (REQ-201, upstream), group-chat room UI changes.
+The plan above also had a 1:1 `GroupSay` grant and a "say it, then carry on" priming line. Neither was built. REQ-379 (`1fc49e8223`, landed 2026-10-03 after this ticket was parked) already covers option 1 for the case that matters:
+- `Delegate` takes a required `note`.
+- The host shows it to the client as a status line *before* the build runs, guaranteed by `cadence-core.ts`'s `keepClientOriented`, not by priming.
 
-## Test plan
+A `GroupSay` on the consultant's own conversation would be a second, model-optional way to say the same thing in the same place. So the thing left missing was option 2, a sign of life *during* the build, and that is what was built. Group-chat rooms are out of scope: in a room, the consultant's round already continues after a `GroupSay`, because its room runtime carries no `sessionId`, and room heartbeats would need the room panel's exchange stream.
 
-`tests/test_UAT_FC_REQ-360_*`, scripted provider SDK only:
-- A 1:1 consultant round calls `GroupSay` on its own session id and then a slow tool. The SSE event sequence carries the line as `text` before the slow tool's `tool_activity`, and the round continues to its final prose.
-- `GroupSay` naming any other ref from a 1:1 grant is refused, and nothing is written.
-- A delegated build held past k progress intervals yields k `progress` events on the live `streamPrompt` stream, before the `Delegate` tool's `tool_activity`. A build inside one interval yields none.
-- `tailSession` projects `interim` → `text` and `progress` → `progress`.
-- The consultant's priming carries the "say it, then carry on" line exactly when it delegates.
-- Panel: a `progress` frame shows one status line, a second replaces it, `done` clears it, and `progress` never reaches `webui-chat`.
+### What the client sees
+
+While a delegated build runs, the builder chat shows one muted status line between the conversation and the composer:
+- **Text.** `still working, elapsed N min`, the framework's fixed text.
+- **Cadence.** Every `progress_seconds` (default 60), with each new line replacing the last.
+- **Clearing.** The line disappears as soon as anything else arrives (the build came back and the assistant is talking) or the stream ends by any route: `done`, a dropped connection, an error.
+- **Short builds.** A build that finishes inside one interval shows nothing.
+- **Reload.** A client that reloads mid-build gets the latest figure on rejoin.
+- **Record.** Heartbeats never appear in the reply bubble or the stored transcript.
+
+### How
+
+- **Config: `delegation.json` / `delegation.ts`.** New key `progress_seconds`: a number of seconds, 0 or more. Absent means `DEFAULT_PROGRESS_SECONDS` = 60, and `0` turns the heartbeat off. Anything else (a string, a negative number, null) is refused by name as `DelegationConfigError`. The value is passed to `lib.DelegationRuntime` as `progressIntervalMs`.
+- **Live stream: `progress-core.ts` `withProgress`.** It wraps the site turn's `manager.promptStream` in `host-core.ts` `streamPrompt`.
+  - It reads the session junction forward from where the turn started, on `manager.pollIntervalMs`, while the turn's stream is pending.
+  - Each new `progress` record becomes a `{kind: 'progress', content, meta: {elapsed_s}}` event; a batch holding several yields only the latest.
+  - Records are drained before the pending event is passed on, so heartbeats precede the `Delegate` result's `tool_activity`.
+  - A consumer that walks away mid-build is noticed at the next heartbeat. The pending step is still allowed to finish before the turn's stream is closed, which keeps the turn's existing end-of-turn semantics.
+- **Reattach: `tailSession`.** Projects `progress` records the same way. `manager.watch` already serves only the current one.
+- **Panel: `chat.js` `withProgressLine`.**
+  - Wraps the prompt stream and both reattach streams.
+  - `progress` frames go to a single `div.builder-chat-progress` (`role="status"`, `aria-live="polite"`), placed after `.chat-widget-messages`, and are never forwarded to `webui-chat`.
+  - `builder.css` styles it as a muted italic line with a pulsing dot. The dot holds still under `prefers-reduced-motion`.
+
+### UATs
+
+`tests/test_UAT_FC_REQ-360_build_heartbeat.workers.test.ts`, through the Worker's `route` with a real D1, sessions and delegation surface. The only double is the Anthropic client, with the worker held open:
+- a held build streams ≥3 `progress` frames on `/api/ai/prompt` before the `Delegate` result, each matching the framework text with a numeric `elapsed_s`, and the turn ends normally;
+- after the turn, the reopened transcript has the reply and no `still working`;
+- a client that reloads mid-build gets a heartbeat on `/api/ai/reattach`, and the tail ends with `done`;
+- with the shipped 60 s cadence, a build that returns at once produces no `progress` frame;
+- `progress_seconds` ships at 60, is 60 when absent, accepts 0, and refuses `"60"` / -1 / null by name;
+- `progress_seconds: 0` produces no `progress` frame even when the build is held.
+
+`tests/test_UAT_FC_REQ-360_progress_line.test.ts`, jsdom against the installed `webui-chat`:
+- one status line placed after the messages; the second heartbeat replaces the first; the next text clears it; the reply holds no heartbeat text;
+- a stream that ends mid-build with no `done` leaves no line behind.
+
+Mutation-checked: disabling the merge in `withProgress` fails the three live cases, removing the `tailSession` projection fails the reattach case, and removing the panel wrapper fails both panel cases.
