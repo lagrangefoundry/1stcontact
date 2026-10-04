@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-382
 created_by: xgd
 created_at: '2026-10-04T15:22:44.679160+00:00'
-updated_at: '2026-10-04T15:36:22.752956+00:00'
+updated_at: '2026-10-04T15:36:50.660156+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -90,5 +90,19 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="9a8b2149-3ace-4ce3-9c95-2dc2c102443b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T15:36:50.361640+00:00" -->
+#### Claude
+The `cd … &&` prefix breaks the sandbox exclusion for `xgd branch clean`. Retrying it as a bare command:
+
+REQ-382's free-coding is now complete. The leftover `free-REQ-382` branch and its worktree are deleted, and the merge lock is released.
+
+- **Ticket:** REQ-382 is at `free_coded` with both commits recorded: `fafea067de` (the fix) and `e493348dfc` (the version bump). Before deleting the branch I confirmed `fafea067de` is already in `xgd-working`, so nothing was lost.
+- **Why the last cleanup failed:** I had put `cd … &&` in front of `xgd branch clean`. That prefix stops the sandbox from recognising the command, so it couldn't delete the worktree's git metadata. Running it on its own worked first time.
+- **No tests run this turn:** the only change was the cleanup. The tests from the implementation run (the 4 new REQ-382 tests and the 83 fold test files) passed and still stand.
+
+The ticket body already describes what landed and the test plan, so it's ready for you to promote to `ready_to_reconcile` whenever you choose.
 
 <!-- xgd-chat-end -->
