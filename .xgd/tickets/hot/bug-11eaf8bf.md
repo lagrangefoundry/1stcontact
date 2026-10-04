@@ -6,10 +6,10 @@ title: 'values-diff/probes: a rotated collage and a wrong mask both read as clea
   and content-robustness wraps a nowrap run'
 created_by: repro-console:repro-faelan-com#2
 created_at: '2026-09-26T21:30:35.067519+00:00'
-updated_at: '2026-09-27T00:31:39.960443+00:00'
+updated_at: '2026-10-04T04:54:48.038623+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - instrument-blind
