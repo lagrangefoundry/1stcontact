@@ -78,6 +78,7 @@ import type {
   NotComparableAxis,
   SeverityTier,
   StateProjection,
+  ValueElement,
   ValueManifest,
   ValuesDiffReport,
 } from './capture/values-diff'
@@ -158,7 +159,13 @@ export const EMPTY_SECTION_MIN_PX = 200
  * reproduction painted what the capture recorded. See {@link CoverageFinding.side}.
  */
 export interface CoverageFinding {
-  kind: 'unreferenced-image' | 'section-density' | 'stale-capture' | 'unpainted-image' | 'empty-section'
+  kind:
+    | 'unreferenced-image'
+    | 'section-density'
+    | 'stale-capture'
+    | 'unpainted-image'
+    | 'empty-section'
+    | 'unstable-read'
   /** Operator-facing sentence: what was measured and why it reads as a gap. */
   detail: string
   /**
@@ -741,6 +748,77 @@ function emptySectionsOf(manifest: ValueManifest): EmptySection[] {
   return empty
 }
 
+/**
+ * BUG-194 — one text run the oracle places in two irreconcilable places: at one
+ * width, the same run with the same x/width/height sits HIGHER on the page in the
+ * taller of two viewports than in the shorter one, by more than its own height.
+ */
+interface UnstableRead {
+  text: string
+  width: number
+  /** `[shorter, taller]` viewport heights the run was read at. */
+  heights: [number, number]
+  /** The run's `box.y` in each of {@link heights}, in the same order. */
+  ys: [number, number]
+}
+
+/** How many unstable runs an `unstable-read` sentence quotes. */
+const QUOTED_READS = 5
+
+/**
+ * BUG-194 — a self-consistency probe for the oracle itself. A capture read
+ * mid-scroll (a sticky header recorded as `r.top + scrollY` while a smooth scroll
+ * is still settling) puts one element in a different place on every projection,
+ * and no other proxy here can see it: every image is referenced and every band
+ * holds content.
+ *
+ * Per width, the shortest and tallest `rest` projections are compared run by run
+ * (paired on text + occurrence). ONE DIRECTION ONLY: content below a `100vh` hero
+ * keeps its size and legitimately moves DOWN as the viewport grows — by the height
+ * delta or a multiple of it — so "differs by more than its height" fires on every
+ * healthy vh layout (hundreds of runs on the committed references). A taller
+ * viewport never moves an in-flow run UP; one that does was not read at rest.
+ */
+function unstableReadsOf(oracle: MultiStateCapture): UnstableRead[] {
+  const rest = oracle.projections.filter((p) => p.state === 'rest')
+  if (!rest.length) return []
+  const engine = rest[0].engine
+  const byWidth = new Map<number, StateProjection[]>()
+  for (const p of rest) {
+    if (p.engine !== engine) continue
+    byWidth.set(p.viewport.width, [...(byWidth.get(p.viewport.width) ?? []), p])
+  }
+  const keyed = (manifest: ValueManifest): Map<string, { text: string; box: NonNullable<ValueElement['box']> }> => {
+    const seen = new Map<string, number>()
+    const out = new Map<string, { text: string; box: NonNullable<ValueElement['box']> }>()
+    for (const el of manifest.elements) {
+      const text = collapse(el.text ?? '')
+      if (!text || !el.box) continue
+      const n = seen.get(text) ?? 0
+      seen.set(text, n + 1)
+      out.set(`${n}\u0000${text}`, { text, box: el.box })
+    }
+    return out
+  }
+  const reads: UnstableRead[] = []
+  for (const [width, ps] of [...byWidth].sort(([a], [b]) => a - b)) {
+    if (ps.length < 2) continue
+    const sorted = [...ps].sort((a, b) => a.viewport.height - b.viewport.height)
+    const short = sorted[0]
+    const tall = sorted[sorted.length - 1]
+    if (tall.viewport.height === short.viewport.height) continue
+    const tallRuns = keyed(tall.manifest)
+    for (const [key, { text, box: a }] of keyed(short.manifest)) {
+      const b = tallRuns.get(key)?.box
+      if (!b) continue
+      if (Math.abs(a.x - b.x) > 1 || Math.abs(a.width - b.width) > 1 || Math.abs(a.height - b.height) > 1) continue
+      if (a.y - b.y <= Math.max(a.height, 1)) continue
+      reads.push({ text, width, heights: [short.viewport.height, tall.viewport.height], ys: [a.y, b.y] })
+    }
+  }
+  return reads
+}
+
 const NAMED_ENTITIES: Record<string, string> = {
   amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', trade: '™',
   mdash: '—', ndash: '–', hellip: '…', rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“',
@@ -887,6 +965,25 @@ export async function referenceCoverage(bundle: ReferenceBundle): Promise<Refere
     })
   }
 
+  // BUG-194 — the oracle disagreeing with itself. Checked across every rest
+  // projection, not just the widest one the proxies above read.
+  const unstable = unstableReadsOf(oracle)
+  if (unstable.length) {
+    const quoted = unstable.slice(0, QUOTED_READS).map((r) => {
+      const t = r.text.length > 40 ? `${r.text.slice(0, 37)}…` : r.text
+      return `"${t}" at ${r.width}px y ${r.ys[0].toFixed(1)} (h ${r.heights[0]}) → ${r.ys[1].toFixed(1)} (h ${r.heights[1]})`
+    })
+    findings.push({
+      kind: 'unstable-read',
+      detail:
+        `${unstable.length} text run(s) sit HIGHER on the page in the taller viewport than in the shorter one at ` +
+        `the same width, with the same x, width and height, by more than their own height: ` +
+        `${quoted.join('; ')}${unstable.length > QUOTED_READS ? `; …+${unstable.length - QUOTED_READS}` : ''}. ` +
+        `A taller viewport never moves an in-flow run up — the reference was read while the page was not at ` +
+        `rest (typically mid-scroll), so its boxes are not one page.`,
+    })
+  }
+
   return {
     mirroredImages: images.length,
     referencedImages: images.length - unreferencedImages.length,
@@ -1029,14 +1126,31 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // sections, so a structural failure or a pass beneath it is not evidence either
   // way. It outranks the whole ladder, breach or no breach.
   const emptySection = referenceFindings.some((f) => f.kind === 'empty-section')
+  // BUG-194 — and the oracle that contradicts itself: the same run in two places
+  // at one width. Nothing measured against it is a measurement of the page.
+  const unstableRead = referenceFindings.some((f) => f.kind === 'unstable-read')
 
-  if (emptySection) {
+  if (emptySection || unstableRead) {
     verdict = 'capture-incomplete'
+    const defects: string[] = []
+    if (emptySection) {
+      defects.push(
+        'the reference capture lost whole sections: it recorded their boxes and nothing that stood in ' +
+          'them, while the reference DOM still holds their text',
+      )
+    }
+    if (unstableRead) {
+      defects.push(
+        'the reference disagrees with itself: it places the same text run in irreconcilable positions ' +
+          'across viewport heights at one width, so it was read while the page was not at rest',
+      )
+    }
+    const [first, ...rest] = defects
     diagnosis =
-      'The reference capture lost whole sections: it recorded their boxes and nothing that stood in ' +
-      'them, while the reference DOM still holds their text. Every other gate on this run — structural, ' +
-      'values and perceptual — is measured against that impoverished oracle, so none of them is evidence ' +
-      `about the reproduction (\`coverage.findings\` names the sections and the text).` +
+      `${first[0].toUpperCase()}${first.slice(1)}${rest.length ? `; and ${rest.join('; and ')}` : ''}. ` +
+      'Every other gate on this run — structural, values and perceptual — is measured against that ' +
+      'oracle, so none of them is evidence about the reproduction ' +
+      `(\`coverage.findings\` gives the detail).` +
       (input.l1Gate.pass ? '' : ' The structural gate also failed; that failure is against the same oracle.')
     nextStep =
       'This is a CAPTURE defect, not a reproduction defect. Close the extraction gap and re-capture ' +
