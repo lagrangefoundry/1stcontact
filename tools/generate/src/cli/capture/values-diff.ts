@@ -512,6 +512,8 @@ export type DeltaProperty =
   | 'gradient'
   // ── REQ-62 card / panel gradient fill behind the run ─────────────────────
   | 'surfaceGradient'
+  // ── BUG-198 — the extent of the surface a run sits on ─────────────────────
+  | 'surfaceBox'
   | 'overlay'
   | 'borderLeft'
   | 'border'
@@ -1557,6 +1559,8 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   surfaceFill: 'A',
   gradient: 'A',
   surfaceGradient: 'A',
+  // BUG-198 — a surface's extent is layout, the residual of how it was built.
+  surfaceBox: 'B',
   overlay: 'A',
   borderLeft: 'A',
   border: 'A',
@@ -1652,6 +1656,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   gradient: 'gradient',
   // REQ-62 — a panel gradient is a gradient defect; reuse the `gradient` kind.
   surfaceGradient: 'gradient',
+  // BUG-198 — a surface painted over the wrong rect is a size defect.
+  surfaceBox: 'size',
   overlay: 'overlay',
   borderLeft: 'borderLeft',
   border: 'border',
@@ -2147,6 +2153,8 @@ const KIND_PARAMS: Record<ObjectKind, string[]> = {
     'letterSpacingPx',
     'lineHeightPx',
     'renderedTextBox',
+    // BUG-198 — the rect the run's surface is painted over (see surfaceBox).
+    'surface',
     'box',
   ],
   // REQ-336 — the RING. An image's card compared five parameters and `border` was
@@ -2188,6 +2196,7 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
   letterSpacingPx: ['letterSpacingPx'],
   lineHeightPx: ['lineHeightPx'],
   renderedTextBox: ['renderedTextBox'],
+  surface: ['surfaceBox'],
   box: ['position', 'size'],
   nameSource: ['containment'],
   placeholderColor: ['placeholderColor'],
@@ -2235,6 +2244,8 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return el.renderedTextBox ? textBoxLabel(el.renderedTextBox) : '—'
     case 'box':
       return boxLabel(el.box)
+    case 'surface':
+      return el.surface ? boxLabel(el.surface.box) : '—'
     case 'name':
       return el.accessibleName || '—'
     case 'nameSource':
@@ -2362,6 +2373,14 @@ const SECTION_OVERLAP_MIN = 0.5
  * tight floor would refuse those.
  */
 const FIELD_PAIR_IOU_MIN = 0.25
+
+/**
+ * BUG-198 — how far any one edge of a run's surface may sit from the reference's
+ * before the extent is a delta. A few px: the same band laid out by two engines
+ * of the same browser lands within sub-pixel rounding, while the defect this axis
+ * exists for (a bar reproduced as a run-sized card) is hundreds of px off.
+ */
+const SURFACE_EDGE_TOL_PX = 4
 
 /**
  * Area intersection-over-union of two boxes — the unnamed-field pairing score.
@@ -2759,6 +2778,52 @@ export function diffManifests(
     if (q) q.push(el)
     else map.set(key, [el])
   }
+  // BUG-198 (item 1) — the PAINTED SURFACES behind our runs, as the textless
+  // records a reference panel can pair against when no field of ours does.
+  //
+  // The two sides record the same painted thing by different procedures. The
+  // reference's testimonial panel is an inline-SVG rectangle, which the capture
+  // admits as a field (REQ-370); our reproduction paints the same panel as a
+  // coloured box, which the capture admits only as the surface its runs sit on
+  // (a colour-only box is a field only when full-bleed). The reference record
+  // therefore found no field to pair with and read as a CRITICAL `missing` over a
+  // panel our page plainly paints. A sibling surface is a box we DID record, with
+  // its rect and its fill, so it is what the reference panel is compared against.
+  const surfaceQueue: ValueElement[] = []
+  for (const el of actual.elements) {
+    const s = el.surface
+    if (el.textless || !s || s.self || !el.surfaceFill) continue
+    if (surfaceQueue.some((o) => boxIoU(o.box!, s.box) > 0.98)) continue
+    surfaceQueue.push({
+      text: '(surface)',
+      role: 'generic',
+      a11yRole: 'generic',
+      textless: true,
+      color: '',
+      fontFamily: '',
+      fontSizePx: 0,
+      fontWeight: 0,
+      box: s.box,
+      surfaceFill: el.surfaceFill,
+      borderRadiusPx: s.borderRadiusPx,
+      boxShadow: s.boxShadow,
+      border: s.border,
+    })
+  }
+  /** The run surface of ours that best overlaps a reference panel, taken from the queue. */
+  const takeSurface = (exp: ValueElement): ValueElement | undefined => {
+    if (!exp.box || !exp.surfaceFill || exp.backgroundImageUrl) return undefined
+    let best = -1
+    let bestIoU = 0
+    for (let i = 0; i < surfaceQueue.length; i++) {
+      const score = boxIoU(exp.box, surfaceQueue[i].box!)
+      if (score > bestIoU) {
+        bestIoU = score
+        best = i
+      }
+    }
+    return best >= 0 && bestIoU >= FIELD_PAIR_IOU_MIN ? surfaceQueue.splice(best, 1)[0] : undefined
+  }
 
   const deltas: ValueDelta[] = []
   let matched = 0
@@ -3046,10 +3111,12 @@ export function diffManifests(
       (exp.borderRadiusPx ?? 0) > 0 &&
       Math.abs(exp.box.width - act.surface.box.width) <= widthTol &&
       Math.abs(exp.box.height - act.surface.box.height) <= widthTol
+    let inventedPlate = false
     if (exp.surface?.self === false && act.surface?.self === true && !fillLessChip) {
       const eb = exp.surface.box
       const ab = act.surface.box
       if (ab.width * ab.height < 0.5 * eb.width * eb.height) {
+        inventedPlate = true
         push(
           exp,
           'surfaceFill',
@@ -3058,6 +3125,25 @@ export function diffManifests(
           Math.max(eb.width - ab.width, eb.height - ab.height),
         )
       }
+    }
+    // BUG-198 (item 2) — the surface's EXTENT, wherever the run does not paint it
+    // itself. Both sides record the box their run sits on, and nothing compared the
+    // two: a header bar's gradient reproduced on a run-sized card, the rest of the
+    // bar white, held 48% of the ranked score at zero deltas. The two cases above
+    // already judge this rect their own way (a split control's backing box, an
+    // invented plate), so it is compared only where neither did.
+    if (exp.surface && act.surface && !surface && !inventedPlate && !fillLessChip && !(exp.surface.self && act.surface.self)) {
+      const eb = exp.surface.box
+      const ab = act.surface.box
+      // The SIDE edges only. A reproduction legitimately builds one band as a
+      // vertical stack of same-fill slabs (one per row of content), so a run's
+      // surface there is a slab of the reference's band: the top and bottom edges
+      // differ by hundreds of px over identical pixels (40 such runs on
+      // hearingzone510.com). A slab that paints a DIFFERENT fill is reported by
+      // `surfaceFill`/`surfaceGradient` already. The width has no such freedom:
+      // a band is full-bleed or it is not.
+      const edge = Math.max(Math.abs(eb.x - ab.x), Math.abs(eb.x + eb.width - (ab.x + ab.width)))
+      if (edge > SURFACE_EDGE_TOL_PX) push(exp, 'surfaceBox', boxLabel(eb), boxLabel(ab), edge)
     }
     const actRadiusPx = surface ? surface.borderRadiusPx : act.borderRadiusPx
     const actShadow = surface ? surface.boxShadow : act.boxShadow
@@ -3519,6 +3605,9 @@ export function diffManifests(
         else if (!exp.box || !q.some((el) => !!el.box)) act = q.splice(0, 1)[0]
       }
     }
+    // BUG-198 (item 1) — no field of ours is this panel; a run surface of ours may be.
+    const viaSurface = !act ? takeSurface(exp) : undefined
+    if (viaSurface) act = viaSurface
     if (!act) {
       unmatched++
       push(exp, 'missing', 'present', 'absent')
@@ -3526,8 +3615,12 @@ export function diffManifests(
       continue
     }
     matched++
-    paintPairs.push({ exp, act })
-    act = resolveLayers(exp, act)
+    // A run surface has no paint stack of its own, and no coincident layers to
+    // resolve: it is already the topmost painted box under the runs it backs.
+    if (!viaSurface) {
+      paintPairs.push({ exp, act })
+      act = resolveLayers(exp, act)
+    }
     // Containment: is the accessible name rendered *inside* the field box
     // (placeholder) or *outside* it (label/aria)? The placeholder-inside vs
     // label-above defect the perceptual + value diffs both miss.
@@ -3714,6 +3807,11 @@ export function diffManifests(
     if (exp.surfaceFill && act.surfaceFill) {
       const dEfill = colorDistance(exp.surfaceFill, act.surfaceFill)
       if (dEfill > colorTol) push(exp, 'surfaceFill', exp.surfaceFill, act.surfaceFill, dEfill)
+    } else if (exp.surfaceFill !== undefined && act.surfaceFill !== undefined && !exp.surfaceFill !== !act.surfaceFill) {
+      // BUG-198 (item 2) — or when exactly one side paints a fill behind the run.
+      // Both sides MEASURED it (`null` is "no fill", absent is "not recorded"), so a
+      // solid on one side against none on the other is a disagreement, not a gap.
+      push(exp, 'surfaceFill', exp.surfaceFill || '(none)', act.surfaceFill || '(none)')
     }
     if (Math.abs(exp.fontSizePx - act.fontSizePx) > fontSizeTol) {
       push(exp, 'fontSizePx', `${exp.fontSizePx}`, `${act.fontSizePx}`, Math.abs(exp.fontSizePx - act.fontSizePx))
