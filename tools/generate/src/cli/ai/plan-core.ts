@@ -214,6 +214,12 @@ export interface PlanAsk {
   answered_at?: string
   /** What the client's answer replaced, when they changed it. */
   previous_answer?: string | string[]
+  /**
+   * [[BUG-200]] — the options the client has ticked on a multi-choice ask and not
+   * yet finished with. NOT AN ANSWER: the ask keeps its status and attribution, so
+   * it is still counted as open and the agent is not told until they press Done.
+   */
+  draft?: string[]
   withdrawn_reason?: string
 }
 
@@ -600,7 +606,8 @@ export const takesSeveral = (a: Pick<PlanAsk, 'multiple' | 'upload_role'>): bool
 /** The answer an ask holds is one its input can produce. */
 export function answerFits(ask: Pick<PlanAsk, 'input' | 'options'>, answer: unknown): string | null {
   if (ask.input === 'multi_choice') {
-    if (!Array.isArray(answer) || answer.length === 0) return 'takes one or more of its options'
+    // [[BUG-200]] — NONE IS AN ANSWER: "none of these" is the client saying so.
+    if (!Array.isArray(answer)) return 'takes a list of its options'
     const off = answer.find((a) => !(ask.options ?? []).includes(String(a)))
     return off === undefined ? null : `has no option ${JSON.stringify(off)}`
   }
@@ -659,6 +666,11 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
       }
     }
     if (a.status === 'skipped' && a.answered_by !== CLIENT) bad(`only the client skips ask ${a.id}`)
+    if (a.draft !== undefined) {
+      if (a.input !== 'multi_choice') bad(`ask ${a.id} is a ${a.input} and keeps no draft`)
+      const wrong = answerFits(a, a.draft)
+      if (wrong) bad(`ask ${a.id}'s draft ${wrong}`)
+    }
     if (a.status === 'withdrawn' && !filled(a.withdrawn_reason)) bad(`ask ${a.id} cannot be withdrawn without a reason`)
   }
 }
@@ -767,9 +779,9 @@ export function documentsText(uids: string[]): string {
   return uids.length === 1 ? `document ${uids[0]}` : `${uids.length} documents (${uids.join(', ')})`
 }
 
-/** An answer as one line of text. */
+/** An answer as one line of text. An empty multi-choice is "none of these" ([[BUG-200]]). */
 export function answerText(answer: string | string[] | undefined): string {
-  return Array.isArray(answer) ? answer.join(', ') : (answer ?? '')
+  return Array.isArray(answer) ? (answer.length ? answer.join(', ') : 'none of these') : (answer ?? '')
 }
 
 /**
@@ -906,8 +918,11 @@ function askIn(fields: PlanFields, id: string): PlanAsk {
 
 const answeredByClient = (a: PlanAsk): boolean => a.status === 'answered' && a.answered_by === CLIENT
 
-/** What the client may do to an ask from the panel ([[REQ-364]]). */
-export const CLIENT_ACTIONS = ['answer', 'skip'] as const
+/**
+ * What the client may do to an ask from the panel ([[REQ-364]]). `draft` keeps the
+ * ticks on a multi-choice ask they have not finished with ([[BUG-200]]).
+ */
+export const CLIENT_ACTIONS = ['answer', 'skip', 'draft'] as const
 
 /**
  * The client answering or skipping an ask from the panel ([[REQ-364]]).
@@ -929,6 +944,17 @@ export function clientAnswer(
   next.fields.asks = next.fields.asks ?? []
   const a = askIn(next.fields, input.ask)
   if (a.status === 'withdrawn') throw refuse('ASK_WITHDRAWN', `ask ${a.id} is no longer needed`)
+  // [[BUG-200]] — A DRAFT IS NOT AN ANSWER. It changes nothing but the ticks: not
+  // the status, so the ask is still counted as open, and not `answered_at`, so the
+  // agent hears nothing until the client presses Done and answers with them all.
+  if (input.action === 'draft') {
+    if (a.input !== 'multi_choice') throw refuse(PLAN_INVALID, `${a.id} is a ${a.input} and saves on pick`)
+    if (!Array.isArray(input.answer)) throw refuse(PLAN_INVALID, `a draft of ${a.id} is a list of its options`)
+    a.draft = input.answer.map(String)
+    checkPlan(next.fields)
+    return next
+  }
+  delete a.draft
   const prior = a.status === 'answered' ? a.answer : undefined
   if (input.action === 'skip') {
     a.status = 'skipped'
@@ -1441,6 +1467,7 @@ export function planOperations(
         a.answered_by = role
         a.answered_at = now()
         delete a.previous_answer
+        delete a.draft
         featuresAnswered(plan.fields, a)
         return { ask: a }
       }),
