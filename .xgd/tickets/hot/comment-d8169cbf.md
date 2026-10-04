@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T16:13:54.241854+00:00'
+updated_at: '2026-10-04T17:56:22.436796+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6937,5 +6937,15 @@ This is a framework bug that REQ-206, the web search work, introduced yesterday.
 - **Turn off adaptive thinking for the consultant in config.** That would sidestep the bug, but it changes how Alice behaves, so it would muddy the experiment. I wouldn't do it.
 
 Separately, your panel shows "A contact form" as the only feature, which is BUG-200's collapse. Tick one, use "Change" to add the rest, or tell her in the chat.
+
+<!-- xgd-turn id="fcefe168-0cf3-48bf-afc4-d04f7060f497-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:56:20.990821+00:00" -->
+#### You
+Some details as I play Charlie-3:
+
+1. I can't see the comparison sites - the consultant tells me that it is showing something on the "comparison board" but I see the Your 1st Contact Site and no new controls.
+2. 2 of 3 comparison sites failed to load
+3. The consultant seemed to be relying on me to find the comp sites. Whilst it should ask, it should also go looking itself.
 
 <!-- xgd-chat-end -->
