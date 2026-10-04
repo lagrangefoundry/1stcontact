@@ -6,9 +6,9 @@ title: 'capture: an underline propagated from a <u> ancestor is dropped; the ref
   paints a fractional half-leading the reproduction floors'
 created_by: repro-console:repro-www-hearingzone510-com#4
 created_at: '2026-10-04T16:21:19.317130+00:00'
-updated_at: '2026-10-04T17:12:52.425394+00:00'
+updated_at: '2026-10-04T17:27:41.098981+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -243,3 +243,53 @@ here) + 62.8% (issue 2 here) + 21.7% (REQ-265) = 100%. The button-box and "F" de
 BUG-187, and the unmeasured 4 is on BUG-199. The 5 `arrangement` deltas (Hours ×2, 9 am - 5 pm,
 Services, FAX) and the HIGH `a11yRole` on "5" sit in the same footer block. I didn't trace them,
 and they are not claimed by any issue here.
+
+
+---
+
+## What landed (free-coded, REQ-384 session 2026-10-04)
+
+Both issues are fixed in the capture (`tools/generate/src/cli/capture/extract.ts`). `CAPTURE_SCHEMA` 21 → **22**. **The hearingzone510.com bundle needs a re-capture** before either fix shows in a gate.
+
+### Issue 1: a propagated decoration is recorded (as proposed)
+- New `paintedDecorationOf(el, s, pseudo)` in `EXTRACT_SCRIPT`. A run's `textDecoration` is its own computed line if it has one. Otherwise it is the line of the **nearest ancestor that declares one**. The walk goes up through in-flow inline **and block** ancestors, because a block's decoration also propagates to its in-flow block descendants. It stops at an atomic inline (`display: inline-*`), a float, or an absolutely/fixed-positioned box, since propagation does not reach into those. For a glyph run the walk starts at the host element, because the pseudo-element is its child.
+- `underlineOffsetPx` is read from the **declaring** element's style, so a propagated underline sits where its declarer says.
+- Any line propagates, including `line-through` and `overline`, not only `underline`.
+- Thickness and colour stay as they are (already unmeasured / not expressible).
+
+### Issue 2: resolved, and it was the capture, not the renderer
+The separating test was not needed, because the cause is in the capture's arithmetic. The reference's runs are inline `<span>`s (`<p class="body" style="--lineHeightDesktop:1.3;--fontSizeDesktop:18px"><span style="font-family: Montserrat">We match…`). For an inline run, `lineBoxOf` (REQ-265) derives the line-box top from the span's content area as `contentTop − (lh − contentH) / 2`, using the **exact** half-leading. Chromium (Blink `CalculateLeadingSpace`) gives the ascent side **floor(leading / 2)**. So the recorded `box.y` sat **above** the line top the page actually used, by the fractional part:
+- 0.695 at 18px / 23.39, recorded 0.70, real 0
+- 2.5 at 18 / 27, real 2
+- −0.895 at Prata 24 / 31.21, real −1
+
+The reproduction is a block `<p>` measured by its border box, which is the real line top. L1 pinned it at the too-high top, so it painted its glyphs 0.5–0.7px high. That matches the ink centroids in the evidence (ours ~1px higher after snapping), and it explains why every local Chromium configuration "floored": the engine always floors, and only the capture's arithmetic did not.
+
+**Fix:** `half = Math.floor((lh − contentH) / 2 + 1e-3)`. The epsilon absorbs float noise on a 1/64px LayoutUnit. Block runs are untouched.
+
+**defect_class for issue 2, revised:** an instrument asymmetry in the capture, not `renderer-wrong` and not a browser difference. The two sides measured "line top" two ways: a derived exact half-leading for inline runs, the border box for block runs.
+
+**Not changed, same class:** `fold.ts` `selfSurfaceLines` and `withChipInset` place a line block by centring it on `renderedTextBox`, which is also an exact half-leading. They are out of this ticket's evidence, and REQ-383 issue 4 pins their hundredth-precision output, so they are left alone. If a chip or button label turns up 0.5px off, look there first.
+
+### Schema 22 stale axes
+Two entries were added to `CAPTURE_SCHEMA_AXES`:
+- `an underline an ancestor propagates to a run (textDecoration)`. This one is unprovable, so `present: () => false`.
+- `an inline run's line top, at the engine's floored half-leading (box)`. A pre-22 bundle is named stale for it when any run's `renderedTextBox.y − box.y` is a fractional pixel.
+
+## Test plan (as landed)
+`tests/test_UAT_FC_REQ-384_propagated_decoration.test.ts`. The browser legs run under `CHROMIUM_LAUNCH_ARGS=--single-process`, which works in the sandbox.
+- Fixture `req384-propagated-decoration.html`:
+  - `<u><a style="text-decoration:none">` records `underline`.
+  - A decorated block's descendant `<p>` records `underline`.
+  - The offset comes from the declaring `<u>` (3px).
+  - `<s><span>` records `line-through` with a null offset.
+  - Controls record null: an `inline-block` inside `<u>`, a float inside an underlined `<p>`, and plain text.
+- Fixture `req384-floored-half-leading.html`: one-line absolutely-placed `<p><span>` at line-heights 1.3 (fractional), 27, 28, and 72px type in 60 / 61. Each run's `box.y` equals the `<p>`'s top to 0.005px, and the glyph offset is a whole pixel.
+- Schema: a pre-22 bundle is named stale for both new axes, and a current one is not. A whole-pixel glyph offset does not mark the line-top axis stale.
+- Without the code change, the issue 1 leg fails (`expected null to be 'underline'`) and the issue 2 leg fails (`expected 99.8 to be close to 100`).
+- Regression scope: every suite that imports `EXTRACT_SCRIPT`, `CAPTURE_SCHEMA`, `staleCaptureAxes`, `cmdCapturePage`, the Playwright driver or the gate (95 files). 13 tests fail, and the same 13 fail on clean xgd-working: BUG-16, REQ-308, REQ-333 ×2, REQ-12 ×2, AC694, REQ-58, REQ-83, REQ-13, REQ-211, REQ-269, REQ-350.
+
+## Re-check after a re-capture
+Run the ticket's two `python3` snippets on the next iteration's `expected-manifest.json`:
+- The `<u>` runs should read `'underline'`.
+- `We match… ref` should read `[0.0]`, and `Adjustments / Lakeshore` should read `[2.0]`, equal to ours.
