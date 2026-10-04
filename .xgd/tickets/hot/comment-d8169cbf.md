@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:14:17.047728+00:00'
+updated_at: '2026-10-04T01:14:41.413011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6746,5 +6746,19 @@ Two tests cover it: deleting an item removes it from Alice's Library list, and d
 <!-- xgd-chat role="user" ts="2026-10-04T01:14:15.958063+00:00" -->
 #### You
 Yes I do is is weirdly a link - it should be a clear and dangerous looking CTA like a red trash can or similar
+
+<!-- xgd-turn id="390f623f-4903-41b3-bd80-dcdfa133dcad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:14:40.421772+00:00" -->
+#### Claude
+You're right. It's a real `<button>`, but its CSS strips the border and background and leaves small underlined red text, so it reads as a link.
+
+I've added the fix to BUG-196:
+- **A proper danger button**: a trash-can icon with the word **Delete**, in the red danger colour, filled or with a strong outline, normal button size, with hover and focus states.
+- **The same button everywhere delete appears**: the Library detail pane, the Library list, and answered questions on the plan panel.
+- **The confirmation dialog's Delete button uses the same style**, so both steps look dangerous.
+- **Screen readers still hear "Delete this from your Library."**
+
+It's tested by checking that each delete control renders as a danger-styled button with the trash icon, not as a link.
 
 <!-- xgd-chat-end -->
