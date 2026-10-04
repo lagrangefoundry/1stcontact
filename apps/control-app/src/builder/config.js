@@ -912,5 +912,11 @@ export const PLAN_SKIPPED = 'Skipped'
 export const PLAN_CHANGE = 'Change'
 export const PLAN_UPLOAD = 'Upload a document'
 export const PLAN_DOCUMENT = 'A document you sent'
+/** [[BUG-196]] — an upload ask that takes several files at once. */
+export const PLAN_UPLOAD_SEVERAL = 'Upload files'
+/** [[BUG-196]] — an answer of several files. */
+export const PLAN_DOCUMENTS = (n) => `${n} files you sent`
+/** [[BUG-196]] — a file the answer cited that has since been deleted from the Library. */
+export const PLAN_DOCUMENT_GONE = 'Deleted from your Library'
 export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
 export const PLAN_SAVE_FAILED = (message) => `That answer was not saved: ${message}`

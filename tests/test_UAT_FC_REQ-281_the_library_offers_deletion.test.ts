@@ -190,21 +190,19 @@ const cancelButton = () =>
 // ── where it is ──────────────────────────────────────────────────────────────
 
 describe('REQ-281 — reachable, not prominent', () => {
-  it('test_UAT_FC_REQ-281_the_delete_control_is_in_the_detail_pane_and_not_on_the_row', async () => {
-    // *"Deleting is rare and irreversible from the client's point of view. It
-    // belongs in the detail pane, not on the row."* A row-level control on a
-    // list of three identically-titled pictures is a control that gets pressed
-    // on the wrong one.
+  it('test_UAT_FC_REQ-281_the_delete_control_is_in_the_detail_pane', async () => {
+    // [[BUG-196]] SUPERSEDES *"not on the row"*: wherever the client sees an
+    // upload, its actions are visible, so the row carries one too (its own suite
+    // pins that). What stays REQ-281's is the pane's control, at its foot.
     const { panel } = await library()
     expect(deleteButton(panel)).toBeNull()
 
     await open(panel, 'material-de9ac4ed')
     const button = deleteButton(panel)
     expect(button).not.toBeNull()
-    expect(button?.textContent).toMatch(/library/i)
+    // THE ACCESSIBLE NAME SAYS WHERE IT DELETES FROM; the visible word is "Delete".
+    expect(button?.getAttribute('aria-label')).toMatch(/library/i)
 
-    // NOT INSIDE A ROW, asserted structurally rather than by position: it is in
-    // the detail, which is the claim.
     expect(button?.closest('.list-detail-row')).toBeNull()
     expect(button?.closest('.builder-library__detail')).not.toBeNull()
   })

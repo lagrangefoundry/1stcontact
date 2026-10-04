@@ -356,12 +356,15 @@ import {
   type IndexMaterial,
   type MaterialChange,
   type MaterialRole,
+  type MaterialRow,
 } from './material'
 import { sitePlan } from './plan'
 import {
   CLIENT_ACTIONS,
   clientAnswer,
   panelView,
+  askMaterials,
+  type PlanFields,
   type Plan,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 
@@ -812,7 +815,10 @@ function chatHost(
         // currently stands ([[REQ-229]]). The same one every other surface on
         // this host is composed from — the catalogue and the client's Library
         // must not put different bytes on the site for the same material.
-        (site: string) => chatLibrary(tickets, store, site, renderer ?? undefined),
+        (site: string) =>
+          chatLibrary(tickets, store, site, renderer ?? undefined, () =>
+            deps.index ? deps.index(env, scope) : defaultIndexer(env, scope),
+          ),
         // THE BUSINESS'S OWN RECORD, AND WHICH BUSINESS THIS IS ([[REQ-239]]).
         //
         // ASSEMBLED HERE BECAUSE THE SCOPE IS HERE. `scope.businessId` is
@@ -2581,6 +2587,28 @@ async function placeOnSite(
       site_asset_error: scrub(err instanceof Error ? err.message : String(err)),
     }
   }
+}
+
+/**
+ * The plan panel's view, with the Library rows its answered uploads cite ([[BUG-196]]).
+ *
+ * THE PANEL SHOWS WHAT IT CAN DO WITH AN UPLOAD, and that turns on facts only the
+ * Library holds: what the file is for, where it came from, whether it is on the
+ * site. So the rows travel with the view — `listMaterial`'s own rows, the ones the
+ * Library tab draws — rather than the panel asking a second route per file. A uid
+ * the client has since deleted has no row, and the panel draws it as gone.
+ */
+async function panelWithMaterial(
+  tickets: TicketStore,
+  fields: PlanFields,
+): Promise<ReturnType<typeof panelView> & { materials: Record<string, MaterialRow> }> {
+  const view = panelView(fields)
+  const cited = new Set(view.asks.flatMap((a) => askMaterials(a)))
+  const materials: Record<string, MaterialRow> = {}
+  if (cited.size > 0) {
+    for (const row of await listMaterial(tickets)) if (cited.has(row.uid)) materials[row.uid] = row
+  }
+  return { ...view, materials }
 }
 
 /**
@@ -5634,7 +5662,8 @@ async function routeUncached(
       if (site === '') return json(400, { error: 'site is required' })
       if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
       // THIS PORT CREATES THE PLAN ON FIRST READ, so it never answers null.
-      return json(200, panelView((await sitePlan(await openTickets(), site).read())!.fields))
+      const tickets = await openTickets()
+      return json(200, await panelWithMaterial(tickets, (await sitePlan(tickets, site).read())!.fields))
     }
 
     if (p === PLAN_ASK_PATH && method === 'POST') {
@@ -5647,9 +5676,13 @@ async function routeUncached(
       }
       if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
       const tickets = await openTickets()
-      if (typeof body.answer_material === 'string' && body.answer_material !== '') {
+      // ONE DOCUMENT OR SEVERAL ([[BUG-196]]), and every one must be this business's.
+      const cited = (Array.isArray(body.answer_material) ? body.answer_material : [body.answer_material]).filter(
+        (m): m is string => typeof m === 'string' && m !== '',
+      )
+      for (const uid of cited) {
         try {
-          await readMaterial(tickets, body.answer_material)
+          await readMaterial(tickets, uid)
         } catch {
           return json(400, { error: 'that document is not in this business\'s Library' })
         }
@@ -5664,7 +5697,7 @@ async function routeUncached(
           if ((err as { code?: string }).code !== 'CONFLICT') throw err
           written = await plan.write(answerIt)
         }
-        return json(200, panelView(written.fields))
+        return json(200, await panelWithMaterial(tickets, written.fields))
       } catch (err) {
         const code = (err as { code?: string }).code ?? ''
         const status = { UNKNOWN_ASK: 404, ASK_WITHDRAWN: 409, CONFLICT: 409, PLAN_INVALID: 400 }[code]
