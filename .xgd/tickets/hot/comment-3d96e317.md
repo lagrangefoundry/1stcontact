@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:22:21.460402+00:00'
+updated_at: '2026-10-04T17:27:14.558668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,11 @@ I've filed this as **DOC-66** (`doc-8ec7a301`): "AI naming & pronouns — no nam
 I filed it as `doc_kind: architecture`, a design record for us. That keeps it out of the knowledge base shipped to the AI. If you want the AI itself to know it has no name, the system prompt is the place for that.
 
 I also copied the relevant parts of this conversation onto the ticket's transcript.
+
+<!-- xgd-turn id="6fb79e3b-4258-4186-b1f7-0adbdac6682f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:27:13.329466+00:00" -->
+#### You
+No the AI is a "Consultant" not an assistant
 
 <!-- xgd-chat-end -->
