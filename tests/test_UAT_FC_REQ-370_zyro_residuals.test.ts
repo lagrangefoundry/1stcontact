@@ -123,17 +123,22 @@ describe('REQ-370 issue 1 — a photograph captured beneath its backdrop scrim p
     const photo = nodes.find((n) => n.node.kind === 'image')!
     const veil = nodes.find((n) => n.node.kind === 'box' && n.node.axes?.opacity === 0.45)!
     expect(photo && veil, 'both layers are folded').toBeTruthy()
-    // Same parent, photo first — so the veil darkens it, as on the page.
+    // Same parent, photo first — so the veil darkens it, as on the page. REQ-382:
+    // the photo stands in the clip that crops it, and that clip is the veil's sibling.
     const parentOf = (n: { ancestors: L1Node[] }) => n.ancestors[n.ancestors.length - 1]
-    expect(parentOf(photo)).toBe(parentOf(veil))
-    const siblings = (parentOf(photo) as { children: L1Node[] }).children
-    expect(siblings.indexOf(photo.node)).toBeLessThan(siblings.indexOf(veil.node))
+    const clip = parentOf(photo)
+    expect(clip.kind === 'container' && clip.clip).toBe(true)
+    const outer = photo.ancestors[photo.ancestors.length - 2]
+    expect(outer).toBe(parentOf(veil))
+    const siblings = (outer as { children: L1Node[] }).children
+    expect(siblings.indexOf(clip)).toBeLessThan(siblings.indexOf(veil.node))
     // And the headline still paints over both.
     const head = nodes.find((n) => (n.node as { text?: string }).text === 'Hear what matters.')!
     const order = nodes.map((n) => n.node)
     expect(order.indexOf(head.node)).toBeGreaterThan(order.indexOf(veil.node))
-    // The 11.56px the photograph overhangs its clipping wrapper is not painted.
-    for (const at of LADDER) expect(kfAt(photo.node, at)!.height).toBe(kfAt(veil.node, at)!.height)
+    // The 11.56px the photograph overhangs its clipping wrapper is not painted —
+    // REQ-382: cut off by the clip at the veil's box, not by shrinking the photo.
+    for (const at of LADDER) expect(kfAt(clip, at)!.height).toBe(kfAt(veil.node, at)!.height)
   })
 
   it('test_UAT_FC_REQ-370_a_photo_captured_above_the_fill_is_left_in_the_content', () => {
