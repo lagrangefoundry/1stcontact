@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-6d0d2af6
 ---
 
 Filed by `repro-console:repro-www-hearingzone510-com#3`. Bundle: `storage/references/www.hearingzone510.com/index`. Evidence: `storage/tmp/repro-console/repro-www-hearingzone510-com/iteration-3/diff/`. One bundle. Companion gap ticket: see the round's request.
