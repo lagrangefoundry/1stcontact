@@ -56,6 +56,7 @@ import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
 import { assertPublicUrl, egressGuard, summariseRefusals, UrlRefusedError } from '../capture/egress-guard'
 import type { EgressRefusal } from '../capture/egress-guard'
 import fidelitySurface from './fidelity-surface.json'
+import { compTile, compTileDisplay } from './plan-core'
 import { checkAsk, detailOf, planTiles, tileLabel, tileScale, TILE_SETTINGS } from './picture-tiles'
 import type { Detail, TileAsk, TileSettings } from './picture-tiles'
 
@@ -528,6 +529,10 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
           // fidelity verdict wrong, and it is invisible unless it is said here.
           // Summarised, never listed ([[REQ-361]]) — see `summariseRefusals`.
           refusals: summariseRefusals(refusals),
+          // [[BUG-202]] — SAID WHEN THE FOLD FAILED, and only then. The capture is
+          // still whole for looking at — screenshots, page facts, description —
+          // and this is a fact for reproducing it, not a reason to give it up.
+          ...(result.foldWarning ? { fold_warning: result.foldWarning } : {}),
         }
       } catch (error) {
         // A refusal of the typed URL never reaches the browser, so it arrives
@@ -535,7 +540,12 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
         if (error instanceof UrlRefusedError) {
           throw new Error(`REFUSED: ${error.message}`)
         }
-        throw error
+        // [[BUG-202]] — A SITE WE COULD NOT CAPTURE IS STILL A SITE THE CLIENT CAN
+        // SEE. The address passed the egress rules (a refusal is answered above,
+        // and never linked), so the tile without a snapshot goes back with the
+        // failure: the client opens the real site even when our browser could not.
+        const message = error instanceof Error ? error.message : String(error)
+        throw new Error(`${message}\n\n${compTileDisplay(compTile({ title: '', url }, null))}`)
       }
     },
 

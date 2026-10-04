@@ -100,6 +100,12 @@ export const l1TextResponsiveSchema = z
 // height, not just at the six the capture happened to visit.
 
 /**
+ * The largest response factor either axis may carry, in either direction. Named
+ * so the fold can keep within it ([[BUG-202]]) rather than restate it.
+ */
+export const L1_VIEWPORT_RESPONSE_BOUND = 10
+
+/**
  * How a node's vertical geometry responds to the viewport **height** — the axis a
  * width ladder cannot see at all.
  *
@@ -121,8 +127,8 @@ export const l1TextResponsiveSchema = z
  */
 export const l1ViewportResponseSchema = z
   .object({
-    yFactor: finite.min(-10).max(10).optional(),
-    heightFactor: finite.min(-10).max(10).optional(),
+    yFactor: finite.min(-L1_VIEWPORT_RESPONSE_BOUND).max(L1_VIEWPORT_RESPONSE_BOUND).optional(),
+    heightFactor: finite.min(-L1_VIEWPORT_RESPONSE_BOUND).max(L1_VIEWPORT_RESPONSE_BOUND).optional(),
   })
   .strict()
 

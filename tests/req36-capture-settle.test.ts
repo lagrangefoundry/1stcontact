@@ -67,7 +67,7 @@ describe('REQ-36 capture settle — driver behaviour', () => {
     expect(settleSrc).toMatch(/img\.complete/)
     // This one stays on the DRIVER: waiting for the network is a Playwright call,
     // not page script, and each driver spells it in its own library's terms.
-    expect(driverSrc).toMatch(/waitForLoadState\('networkidle'\)/)
+    expect(driverSrc).toMatch(/waitForLoadState\('networkidle'/)
   })
 })
 

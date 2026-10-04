@@ -264,6 +264,12 @@ export interface CompDeps {
   get(reference: string): Promise<CompRecord | null>
   /** Replace the likes and/or dislikes held on the reference ticket. */
   note(reference: string, notes: { likes?: string[]; dislikes?: string[] }): Promise<CompRecord>
+  /**
+   * [[BUG-202]] — where the comp's hero thumbnail can be seen, or `null` when its
+   * capture holds no screenshot. Absent where nothing could show one (the `1c`
+   * CLI), which draws every tile as a link only.
+   */
+  snapshot?(reference: string): Promise<string | null>
 }
 
 export interface PlanFields {
@@ -1087,6 +1093,83 @@ export function clientCompChangesSince(fields: PlanFields, since: string): Clien
     .sort((x, y) => x.at.localeCompare(y.at))
 }
 
+/** A client-added comp since a cursor ([[BUG-202]]) — what the next turn shows. */
+export interface ClientCompAdd {
+  reference: string
+  title: string
+  url: string
+  at: string
+}
+
+/** The comps the client put on the board since `since`, oldest first ([[BUG-202]]). */
+export function clientCompAddsSince(fields: PlanFields, since: string): ClientCompAdd[] {
+  return (fields.comps ?? [])
+    .filter((c) => c.source === CLIENT && typeof c.added_at === 'string' && c.added_at > since)
+    .map((c) => ({ reference: c.reference, title: c.title, url: c.url, at: c.added_at }))
+    .sort((x, y) => x.at.localeCompare(y.at))
+}
+
+/** Markdown's own punctuation, escaped, so a stranger's page title stays text. */
+const markdownText = (text: string): string => text.replace(/[\\`*_{}[\]()<>#!|~]/g, (c) => `\\${c}`)
+
+/** An address as a markdown link target: no spaces, no parentheses to end it early. */
+const markdownTarget = (url: string): string => url.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')
+
+/** The host a comp lives at, for the tile's address line. */
+function hostOf(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+/**
+ * A comp as the client first sees it in the conversation ([[BUG-202]]): its hero
+ * thumbnail, its name and address, and a link that opens the real site in a new
+ * tab — the live site with its motion and its clutter, which a screenshot is not.
+ *
+ * MARKDOWN THE CONSULTANT PASTES, NOT A CARD, for [[REQ-217]]'s reason: the line
+ * is inside the assistant's own turn, so replaying the transcript replays the
+ * tile, where a card would be gone on reload. A comp with no snapshot (a capture
+ * that took none, or one that failed outright) is still a tile and still opens
+ * the real site — what the client can always see, even when we could not.
+ *
+ * THE TITLE IS A STRANGER'S `<title>`, escaped, so it cannot become a link or a
+ * picture of its own. The address is an http(s) URL the capture already vetted.
+ */
+export function compTile(comp: { title: string; url: string }, snapshot: string | null): string {
+  const host = hostOf(comp.url)
+  const name = markdownText(comp.title.trim() || host)
+  const lines: string[] = []
+  if (snapshot) lines.push(`![${name}](${markdownTarget(snapshot)})`)
+  lines.push(`**${name}** · ${markdownText(host)}${snapshot ? '' : " — couldn't take a snapshot"}`)
+  lines.push(`[Open the real site ↗](${markdownTarget(comp.url)})`)
+  return lines.join('\n\n')
+}
+
+/** The sentence that hands a tile to the consultant, as `display` ([[BUG-202]]). */
+export function compTileDisplay(tile: string): string {
+  return (
+    'Show this comp to your client by including these lines in your reply, exactly as written, ' +
+    'and invite them to open the real site before you ask what they like and dislike:\n\n' +
+    tile
+  )
+}
+
+/**
+ * The notice for comps the client added since the last turn, or `null`
+ * ([[BUG-202]]). NOT CLIPPED like the notes line: a tile cut short is broken
+ * markdown, and a client adds a handful of comps, not dozens.
+ */
+export function clientCompAddsLine(tiles: string[]): string | null {
+  if (tiles.length === 0) return null
+  const head =
+    `Your client added ${tiles.length} comp${tiles.length === 1 ? '' : 's'} to the board since your last turn. ` +
+    'Show each one in your reply with its lines, exactly as written, and invite them to open the real site:'
+  return [head, ...tiles].join('\n\n')
+}
+
 /** One comp and its notes as a notice entry: `Title: likes …; dislikes …`. */
 export function compNotesText(comp: Pick<CompRecord, 'title' | 'likes' | 'dislikes'>): string {
   const part = (label: string, items: string[]): string =>
@@ -1475,11 +1558,16 @@ export function planOperations(
     // ── the comp board: both roles ([[REQ-378]]) ────────────────────────────
     add_comp: async (p) => {
       const held = await compRecord(String(p.reference ?? ''))
-      return change((plan) => {
+      const written = await change((plan) => {
         const { plan: next, comp } = addComp(plan, held, 'consultant', now())
         plan.fields.comps = next.fields.comps
         return { comp }
       })
+      // [[BUG-202]] — AND THE TILE THE CLIENT SEES IT BY. Outside `change`, whose
+      // confirmation clips every string: a tile cut at 200 characters is broken
+      // markdown.
+      const snapshot = (await deps.comps!.snapshot?.(held.reference)) ?? null
+      return { ...written, display: compTileDisplay(compTile(held, snapshot)) }
     },
     note_comp: async (p) => {
       const reference = String(p.reference ?? '')

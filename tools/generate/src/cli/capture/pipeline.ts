@@ -343,6 +343,12 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
 }
 
 /**
+ * How long one capture may spend on retries in all, ms ([[BUG-202]]): one
+ * navigation timeout. Once that much has gone, nothing more is retried.
+ */
+export const RETRY_BUDGET_MS = 30_000
+
+/**
  * Whether a navigation failed because the *hostname* did not resolve (BUG-67).
  *
  * The distinction this draws is between a fact about the address and a fact
@@ -430,6 +436,7 @@ function hostCandidates(url: string): string[] {
 export async function runCapturePipeline(url: string, opts: CapturePipelineOptions = {}): Promise<CaptureResult> {
   const factory = required(opts.driverFactory, 'runCapturePipeline driverFactory')
   const attempts = Math.max(1, (opts.retries ?? 2) + 1)
+  const started = Date.now()
   const candidates = hostCandidates(url)
   const unresolved: string[] = []
   let lastErr: unknown
@@ -449,6 +456,11 @@ export async function runCapturePipeline(url: string, opts: CapturePipelineOptio
           unresolved.push(candidate)
           break
         }
+        // BUG-202 — AND THE RETRIES HAVE A BUDGET IN TIME, not only in count. A
+        // reset that failed in a second is worth asking again; a document that
+        // took the whole navigation timeout not to load already spent what a
+        // retry may, and asking twice more tripled a 30 s wait, said nowhere.
+        if (Date.now() - started >= RETRY_BUDGET_MS) break
       }
     }
     // ONLY A RESOLUTION FAILURE EARNS THE OTHER SPELLING. A host that timed out

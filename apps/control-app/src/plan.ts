@@ -157,7 +157,12 @@ export async function createPlan(tickets: TicketStore, siteKey: string): Promise
  * reason: a plan holds what a client said, and two turns racing must not lose one
  * of them silently. The declared `CONFLICT` says to read and write again.
  */
-export function sitePlan(tickets: TicketStore, siteKey: string): PlanDeps {
+export function sitePlan(
+  tickets: TicketStore,
+  siteKey: string,
+  /** [[BUG-202]] — where a capture's member is seen, for the comp tiles' snapshots. */
+  memberUrl?: (uid: string, member: string) => string,
+): PlanDeps {
   return {
     async read(): Promise<Plan> {
       return toPlan(await ensurePlan(tickets, siteKey))
@@ -180,7 +185,7 @@ export function sitePlan(tickets: TicketStore, siteKey: string): PlanDeps {
     },
 
     // [[REQ-378]] — the comp board's notes live on this business's captures.
-    comps: compDeps(tickets),
+    comps: compDeps(tickets, memberUrl),
   }
 }
 

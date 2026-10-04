@@ -13,7 +13,7 @@
  */
 import type { L1Document, L1FontFace } from '@1stcontact/site-schema'
 import { captureLadderScreenshots, captureStructuralHints, runCapturePipeline, runMultiStateCapture } from './pipeline'
-import { readCapture, writeBundle, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState } from './bundle'
+import { readCapture, writeBundle, writeFoldWarning, writeForms, writeHints, writeL1, writeLadderScreenshots, writeMultiState } from './bundle'
 import { bundleNameFor, type ReferenceStore } from '../../store/reference-store'
 import { foldToL1 } from '../../l1/fold'
 import type { FoldedForm } from '../../l1/forms'
@@ -56,8 +56,19 @@ export interface CapturePageResult {
   capture: Capture
   /** REQ-58 (T2) — the reference projected across the viewport ladder, persisted as `multistate.json`. */
   multiState: MultiStateCapture
-  /** REQ-83 — the multi-viewport capture folded into one L1 document (`l1.json`). */
-  l1: L1Document
+  /**
+   * REQ-83 — the multi-viewport capture folded into one L1 document (`l1.json`),
+   * or `null` when the fold failed ([[BUG-202]]) — see {@link foldWarning}.
+   */
+  l1: L1Document | null
+  /**
+   * [[BUG-202]] — why the fold failed, or `null` when it did not. A failed fold
+   * costs the reproduction artifact and nothing else: the screenshots, the
+   * capture record and the ladder are all written, so the capture is still a
+   * comp. Recorded in the bundle as `fold-warning.json` for the reproduction
+   * tooling.
+   */
+  foldWarning: string | null
   /** REQ-83 — the advisory structural-hint sidecar (`hints.json`). */
   hints: StructuralHints
 }
@@ -172,17 +183,33 @@ export async function cmdCapturePage(
   // REQ-93 — the same fold recovers the page's behaviours: each captured form
   // becomes a `slot` seam in the document plus a binding written beside it, so
   // the two artifacts always agree about which seams exist.
+  //
+  // [[BUG-202]] — A FAILED FOLD NEVER COSTS THE CAPTURE. The fold is for
+  // reproduction; a comp needs the screenshots, `capture.json` and the
+  // description, all already written. A fold that threw used to fail the whole
+  // capture over a bound one keyframe broke, and a competitor's site never
+  // reached the board. Now the failure is recorded beside the bundle and the
+  // capture carries on, with no `l1.json` to mislead a refold.
   const forms: FoldedForm[] = []
-  const l1 = foldToL1(multiState, {
-    fonts: fontResourcesFromTheme(result.capture.theme.fonts),
-    forms,
-  })
-  await writeL1(bundle, l1)
-  await writeForms(bundle, forms)
+  let l1: L1Document | null = null
+  let foldWarning: string | null = null
+  try {
+    l1 = foldToL1(multiState, {
+      fonts: fontResourcesFromTheme(result.capture.theme.fonts),
+      forms,
+    })
+  } catch (err) {
+    foldWarning = err instanceof Error ? err.message : String(err)
+  }
+  if (l1) {
+    await writeL1(bundle, l1)
+    await writeForms(bundle, forms)
+  }
+  await writeFoldWarning(bundle, foldWarning)
   const hints = await captureStructuralHints(captured, {
     driverFactory: opts.driverFactory,
   })
   await writeHints(bundle, hints)
 
-  return { name: bundle.name, capture: result.capture, multiState, l1, hints }
+  return { name: bundle.name, capture: result.capture, multiState, l1, foldWarning, hints }
 }

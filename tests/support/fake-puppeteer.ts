@@ -137,6 +137,14 @@ class FakePage implements PuppeteerPage {
   }
 
   async goto(url: string): Promise<unknown> {
+    // The blank page is what a browser shows without asking anyone for it: no
+    // request, and it leaves whatever the page was doing — even a hung load.
+    // [[BUG-202]]'s driver goes there before it closes.
+    if (url === 'about:blank') {
+      this.pageUrl = url
+      this.document = ''
+      return {}
+    }
     if (this.opts.failOnGoto) throw new Error('net::ERR_CONNECTION_REFUSED')
     if (this.opts.hang) return new Promise(() => {})
     if (!this.intercepting) throw new Error('fake browser: interception was never armed')

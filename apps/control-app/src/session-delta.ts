@@ -7,7 +7,10 @@ import { compDeps } from './comps'
 import {
   clientChangesLine,
   clientChangesSince,
+  clientCompAddsLine,
+  clientCompAddsSince,
   clientCompChangesSince,
+  compTile,
   clientCompNotesLine,
   type CompRecord,
   type PlanFields,
@@ -342,6 +345,8 @@ export async function planAnswersDelta(
   store: TicketStore,
   sessionId: string,
   siteKey: string,
+  /** [[BUG-202]] — where a capture's member is seen, for a client-added comp's tile. */
+  memberUrl?: (uid: string, member: string) => string,
 ): Promise<string | null> {
   const plan = await findPlan(store, siteKey)
   if (!plan) return null
@@ -353,14 +358,24 @@ export async function planAnswersDelta(
   // [[REQ-378]] — AND THE COMP NOTES THE CLIENT WROTE, on the same cursor: the
   // plan entry says who wrote them and when, the reference ticket holds them.
   const compChanges = clientCompChangesSince(fields, since)
-  if (changes.length === 0 && compChanges.length === 0) return null
-  const newest = [...changes, ...compChanges].map((c) => c.at).sort().pop() as string
+  // [[BUG-202]] — AND THE COMPS THE CLIENT ADDED, so the consultant shows each one
+  // as a tile in its reply: the client added it on the panel, and the tile is how
+  // it reaches the conversation, where it survives a reload.
+  const compAdds = clientCompAddsSince(fields, since)
+  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0) return null
+  const newest = [...changes, ...compChanges, ...compAdds].map((c) => c.at).sort().pop() as string
   await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
-  const comps = compDeps(store)
+  const comps = compDeps(store, memberUrl)
   const noted = (await Promise.all(compChanges.map((c) => comps.get(c.reference)))).filter(
     (c): c is CompRecord => c !== null,
   )
-  return [clientChangesLine(changes), clientCompNotesLine(noted)].filter(Boolean).join('\n') || null
+  const tiles = await Promise.all(
+    compAdds.map(async (c) => compTile(c, (await comps.snapshot?.(c.reference)) ?? null)),
+  )
+  return (
+    [clientChangesLine(changes), clientCompNotesLine(noted), clientCompAddsLine(tiles)].filter(Boolean).join('\n') ||
+    null
+  )
 }
 
 function asMap(value: Untyped): Map<string, Untyped> {

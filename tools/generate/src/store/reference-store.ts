@@ -56,6 +56,8 @@ export const RAW_MEMBER = 'raw.html'
 export const MULTISTATE_MEMBER = 'multistate.json'
 /** The ladder folded into one L1 document (REQ-83). */
 export const L1_MEMBER = 'l1.json'
+/** Why the fold failed, when it did ([[BUG-202]]) — written instead of `l1.json`. */
+export const FOLD_WARNING_MEMBER = 'fold-warning.json'
 /** The behaviour bindings the fold recovered (REQ-93). */
 export const FORMS_MEMBER = 'forms.json'
 /** The advisory structural-hint sidecar (REQ-83). */

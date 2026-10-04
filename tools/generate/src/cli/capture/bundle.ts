@@ -37,6 +37,7 @@ import {
   CAPTURE_MEMBER,
   FORMS_MEMBER,
   HINTS_MEMBER,
+  FOLD_WARNING_MEMBER,
   L1_MEMBER,
   MULTISTATE_MEMBER,
   RAW_MEMBER,
@@ -150,6 +151,23 @@ export function readMultiState(bundle: ReferenceBundle): Promise<MultiStateCaptu
  */
 export async function writeL1(bundle: ReferenceBundle, doc: L1Document): Promise<void> {
   await bundle.write(L1_MEMBER, encodeJson(doc))
+}
+
+/**
+ * [[BUG-202]] — record why the fold failed, in place of `l1.json`. A capture whose
+ * fold fails is still a capture; this is what the reproduction tooling reads to
+ * learn why there is nothing to refold from.
+ */
+export async function writeFoldWarning(bundle: ReferenceBundle, warning: string | null): Promise<void> {
+  // A STORE HAS NO DELETE, so a recapture that folds cleanly clears an earlier
+  // warning by writing `null` over it — and writes nothing where there was none.
+  if (warning === null && (await bundle.read(FOLD_WARNING_MEMBER)) === null) return
+  await bundle.write(FOLD_WARNING_MEMBER, encodeJson({ warning }))
+}
+
+/** The bundle's fold warning, or null when its fold succeeded ([[BUG-202]]). */
+export async function readFoldWarning(bundle: ReferenceBundle): Promise<string | null> {
+  return (await readJson<{ warning: string }>(bundle, FOLD_WARNING_MEMBER))?.warning ?? null
 }
 
 /**
