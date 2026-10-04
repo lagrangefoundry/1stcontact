@@ -6,10 +6,10 @@ title: 'values-diff: a div colour panel is never recorded on the reproduction si
   and a run''s surface extent is compared nowhere'
 created_by: repro-console:repro-www-hearingzone510-com#3
 created_at: '2026-10-04T15:05:20.439713+00:00'
-updated_at: '2026-10-04T15:30:02.368915+00:00'
+updated_at: '2026-10-04T15:32:12.322411+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - instrument-asymmetric
@@ -18,6 +18,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-6d0d2af6
+  commits:
+  - working_sha: b919aeb177755f5b7e4cf60dcc1357980d8cc38e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 03229358d891f74076da666f89b8f0ba5ce274e3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.482
 ---
 
 Filed by `repro-console:repro-www-hearingzone510-com#3`. Bundle: `storage/references/www.hearingzone510.com/index`. Evidence: `storage/tmp/repro-console/repro-www-hearingzone510-com/iteration-3/diff/`. One bundle. Companion gap ticket: see the round's request.
