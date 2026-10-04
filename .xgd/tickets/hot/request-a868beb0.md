@@ -7,9 +7,9 @@ title: 'fold: content is nested under a surface absent at widths where the conte
   plates, escapes cannot-tell)'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:18:58.353036+00:00'
-updated_at: '2026-10-04T18:41:29.176715+00:00'
+updated_at: '2026-10-04T18:48:20.790849+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -134,3 +134,38 @@ These are the whole of the gate's diagnosis: card-3 22, backdrop-2 20, backdrop-
 
 ---
 Companion bug (instrument side of issue 1 and the recovery readout for issue 3): **BUG-201**. REQ-383 HEAD-regression note: COMMENT on REQ-383 from this round.
+
+
+---
+
+## Implementation (free-coded)
+
+**Scope of this ticket's code:** issues 1 and 2. Issue 3 is `cannot-tell` by its own diagnosis. The recovered document's finding list it needs is BUG-201's instrument work, so there is no fold change to make for it here. It stays open as a question and has no code.
+
+### Issue 1: a surface never owns content it does not exist beside
+
+`nestBackingSurfaces`' `containsEverywhere` (`tools/generate/src/l1/fold.ts`) now **disqualifies** a candidate parent at any width where the child has a rect and the parent has none. Before, it skipped that width. A width where only the parent is present is still skipped, because an absent child loses nothing by being nested. The general invariant: content present at a width is never nested under a surface absent at that width, so it never inherits a `visibility` gate that hides it there.
+
+### Issue 2: the captured band-wide surface decides band membership
+
+Each surface row now records `bandSurfaceEverywhere`: the run's captured `surface.box` (not a panel) spans the viewport at **every** width the run is present. A row with that flag, a solid fill and no gradient is treated as standing on the band, whatever its own width. It is classified before the geometric fallbacks (run width ≥ 0.7, BUG-19's bar gaps) can make it a card:
+- with no treatment of its own, it becomes a **band row**. It defines the band like any full-width band row, and a captured backdrop of the same fill carries it (REQ-380);
+- with a treatment of its own (border, accent rule, shadow, radius), it **stays a card without the fill** (REQ-351's `hasOwnCardTreatment` terms).
+
+Design decision during implementation: the first cut tested "`surfaceFrames` is empty". The footer's social rings carry an accent rule, and its `accentBox` fallback adds frames, so they escaped that test and kept `#edc251`. The flag reads the surface itself, so an accent wrapper's rect is not mistaken for evidence about whose fill it is.
+
+### Verified on the real bundle (refold + `l1-gate` of a `$TMPDIR` copy)
+
+- `sampleFidelity.unmatched` at 320/375: 6/6 → **0/0** (the testimonial heading, quote, Dan H., Parent / CFO and arrows render on phones). 768–1440 is unchanged (REQ-381's off-screen slides).
+- `#edc251` nodes: `card-6..8` (rings) + `card-10..15` (nav plates) + the "Follow us" plate → **only `backdrop-10`**, the full-bleed footer. The rings keep `borderLeft` 3px `#ffffff` with no fill.
+- Expected ruler movement: served layout findings 938 → 980 (+42). Every one of the 42 is on the testimonial content at 320/375 (overlap/escape around "We've really enjoyed…" and "What people are saying"). That content was `display:none` before, so no probe could see it. This is newly measured content, not a regression. It belongs to the same population as issue 3 / REQ-381.
+
+### Test plan
+
+`tests/test_UAT_FC_REQ-385_the_fold_nests_and_bands_from_the_capture.test.ts` covers this through `foldToL1` → `renderL1Document` over synthetic multi-viewport captures. All 4 fail on the pre-fix fold and pass after:
+- content present at a width is never nested under a surface absent there (no gating ancestor at 320/375);
+- the served page does not hide always-present content on phones (no `display:none` on the heading's ancestor chain below 768);
+- runs whose captured surface is the band paint no plates of their own (every band-fill node is full-bleed at every keyframe);
+- a treatment the run bears itself keeps a card without the band's colour (both a `border` ring and an `accentBox` accent-rule ring).
+
+Regression scope: all 91 test files that exercise `foldToL1` / refold / l1-gate pass (782 passed, 39 skipped). The `tools/generate` typecheck is clean.
