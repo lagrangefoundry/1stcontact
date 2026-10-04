@@ -6,9 +6,9 @@ title: 'fold: a full-width bar gradient is painted on a card the size of its tex
   run, and a clipped cover photo is rescaled by resizing its box'
 created_by: repro-console:repro-www-hearingzone510-com#3
 created_at: '2026-10-04T15:05:17.764524+00:00'
-updated_at: '2026-10-04T15:25:59.907221+00:00'
+updated_at: '2026-10-04T15:29:30.679784+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -133,3 +133,30 @@ print([(k['at'],k['height']) for k in n['geometry']['keyframes']])"
 - 5 CRITICAL `arrangement` deltas in the footer ("Hours" ×2, "9 am - 5 pm", "Services ": expected beside, actual below; "FAX (510) 865-811": the reverse). The footer's root-level child order in `page.json` interleaves the location section's slices with the footer's (`0.14` band-6 → `0.15` band-11 → … → `0.24` band-9 → `0.25` band-10). That is REQ-380's mechanism, so these will probably move with it. I did not prove it.
 - HIGH `zIndex` "(generic) #1d1e20 expected above image, actual below". Region #2's photograph tone matches (ref meanRgb (107.01,86.37,67.65) vs ours (110.42,90.05,71.12)), so the scrim is visibly applied. This looks like BUG-187 item 1's raw-level comparison, and I have not re-proved it.
 - Regions #7, #11, #12 (1014.49 + 716.47 + 704.06 = 6.75%) are single text lines in the services section, with the same text on both sides. I did not diagnose them.
+
+
+---
+
+## Implementation (what landed)
+
+Both issues are fixed in `tools/generate/src/l1/fold.ts`. They are fold-only, so `1c refold` picks them up with no re-capture.
+
+**Issue 1: a band-wide gradient takes the captured surface rect.** In the surface-row builder, `shapeBoxAt` used to decline every surface rect at least as wide as the viewport. It now **accepts** that rect when the row carries a `gradient` and none of the run's own card treatments (`borderLeft`, `border`, `boxShadow`, `borderRadiusPx > 0`). The row's `surfaceFrames` are then the captured surface box at every width, and `buildCards` uses them instead of the run box.
+- The REQ-88 rule still holds for any row whose run element has its own treatment, so an accent rule is never stretched across a band. That row keeps its run/accent box.
+- The run-box fallback remains only for rows whose capture recorded no `surface.box`.
+- On the stored hearingzone510 bundle, `card-0` (the `#f2b374`→`#f0dac4` gradient) refolds to `x 0, y 0`, full width, height 40 at 375–1440 and 41.59 at 320.
+
+**Issue 2: an overhanging ground is clipped, not resized.** `clipGroundTo` no longer intersects the ground's keyframes with the backdrop's. If the ground overhangs its backdrop at any captured width (beyond `FOLD_CONTAINS_EPS`), it keeps its **captured** geometry and is wrapped in a `{kind:'container', layout:'stack', clip:true}` node. That node takes a copy of the backdrop's geometry (and its visibility, if set), and the ground is rebased into it. A ground already inside its backdrop at every width is returned unchanged, so no container is added. The container takes the ground's place in the backdrop layer, immediately before the backdrop. `groundImagesUnder` now returns `{grounds, grounded}` so the original image is still removed from the content.
+- On the stored bundle, the "black and white bed linen" image refolds to heights `320 350.64, 375/768 317.13, 1024 1021.27, 1280/1440 1168.56`, and its clip parent is at the backdrop's `347.17 / 314 / 1011.16 / 1157`.
+
+**Explicit supersession:** this replaces REQ-370 issue 1's "clipped to its box" by resizing. That intent (photo under its scrim, cropped to the backdrop) is preserved, but the crop is now expressed as a clip. `test_UAT_FC_REQ-370_the_hero_photo_precedes_its_scrim_in_paint_order_and_is_clipped_to_it` was updated to match: the photo stands in a `clip` container, that container is the veil's sibling and precedes it, and the container's height equals the veil's at every width.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-382_band_gradient_and_clipped_cover_ground.test.ts`:
+- `a_band_wide_gradient_takes_the_captured_surface_rect`: a sticky-bar run (352×23.4) on a 40px full-width gradient surface folds to one gradient-painting node at `x 0`, width = viewport, height 40.
+- `a_gradient_row_with_its_own_accent_rule_keeps_its_run_box`: with a `borderLeft` on the run, the gradient node stays narrower than the viewport.
+- `the_ground_keeps_its_captured_box_inside_a_clip_at_the_backdrop`: the 1168.56 hero photo keeps height 1168.56 inside a `clip: true` container whose height equals the 1157 veil's.
+- `a_ground_inside_its_backdrop_gets_no_clip`: a ground that fits its backdrop has no clip ancestor.
+
+Regression: all 83 suites that call `foldToL1`/`refold` pass (737 tests), and `tools/generate` typecheck is clean. The pixel gate (`1c gate … --sandbox`) needs Chromium and was not run in this session.
