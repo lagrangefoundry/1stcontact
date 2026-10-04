@@ -121,9 +121,15 @@ export interface EvalLeaf {
  * because the fix is different — a paint level, not structure or a declaration —
  * and because flow recovery reads `overlap` pairs as its to-do list and moving a
  * run cannot unbury it.
+ *
+ * BUG-197 — `declared-backing-uncovered` is the fifth: a run's `backedBy` names a
+ * surface that does not cover it AT REST, at a captured width. It is not an
+ * `escape` — nothing came apart when the viewport moved; the declaration was false
+ * where it was measured — and its fix is the fold's choice of surface, not the
+ * surface's sizing. Only the on-sample probe reports it.
  */
 export interface LayoutFinding {
-  kind: 'overlap' | 'clip' | 'escape' | 'buried'
+  kind: 'overlap' | 'clip' | 'escape' | 'buried' | 'declared-backing-uncovered'
   detail: string
   /** Paths of the leaves involved. */
   paths: string[]
@@ -1510,11 +1516,47 @@ function capturedHeightByWidth(doc: L1Document): Map<number, number> {
  * holding between the measurements — between two width rungs, at a viewport height
  * nothing was captured at, or under content the page did not ship with. Which is
  * precisely the operator's report.
+ *
+ * BUG-197 — the declared tier used to link every `backedBy` pair unconditionally,
+ * which broke the promise above: a declaration the fold's own geometry contradicts
+ * AT REST entered the set, and the probes then reported it as an `escape` under a
+ * diagnosis that says "the page is exact at rest and comes apart the moment the
+ * viewport moves" — false on its face, and pointing the implementer at surface
+ * sizing when the defect is the fold naming the wrong surface. A declared pair is
+ * now held to the resting states exactly as an observed one is; where it fails one,
+ * it is kept OUT of the set and returned in {@link ResolvedSurfaceBacking.uncovered}
+ * instead, for the on-sample probe to report as `declared-backing-uncovered`.
  */
 export function deriveSurfaceBacking(
   doc: L1Document,
   options: { measured?: MeasuredTextHeights; widths?: number[] } = {},
 ): SurfaceBacking {
+  return resolveSurfaceBacking(doc, options).backing
+}
+
+/**
+ * BUG-197 — a `backedBy` declaration that does not hold at a captured width: the
+ * run is not covered by the surface it names, at that width and the height that
+ * width was captured at. `finding` is the `declared-backing-uncovered` finding the
+ * on-sample probe reports for it.
+ */
+export interface UncoveredDeclaration {
+  width: number
+  /** The viewport height the width was captured at, where the document records one. */
+  height?: number
+  finding: LayoutFinding
+}
+
+export interface ResolvedSurfaceBacking {
+  backing: SurfaceBacking
+  uncovered: UncoveredDeclaration[]
+}
+
+/** {@link deriveSurfaceBacking}, with the declarations it refused alongside. */
+export function resolveSurfaceBacking(
+  doc: L1Document,
+  options: { measured?: MeasuredTextHeights; widths?: number[] } = {},
+): ResolvedSurfaceBacking {
   const widths = options.widths ?? (doc.widths.length ? [...doc.widths] : [1280])
   const heightOf = capturedHeightByWidth(doc)
   // No `backing` option on these evaluations — they are what DEFINES the backing,
@@ -1536,11 +1578,16 @@ export function deriveSurfaceBacking(
       if (!cur.includes(surfacePath)) cur.push(surfacePath)
     } else backing.set(runPath, [surfacePath])
   }
-  /** The declared and the covered pairs of one resting state, as `run→surface` keys. */
+  /**
+   * The covered pairs of one resting state, as `run→surface` keys, and the
+   * declared pairs whose surface is painted there — each with its overhang, null
+   * where the declaration holds.
+   */
   const pairsAt = (
+    width: number,
     leaves: EvalLeaf[],
     boxes: Map<string, EvalBox>,
-  ): { declared: Set<string>; covered: Set<string> } => {
+  ): { declared: Map<string, LayoutFinding | null>; covered: Set<string> } => {
     // Two sources for the same thing, because a surface can be either shape: a
     // childless pinned box reaches the leaf scan, and one that owns the content
     // it backs does not (BUG-142) and is found by its path in the document.
@@ -1554,12 +1601,26 @@ export function deriveSurfaceBacking(
       surfaces.push({ path, id, box })
     }
     const byId = new Map(surfaces.map((sf) => [sf.id!, sf]))
-    const declared = new Set<string>()
+    const declared = new Map<string, LayoutFinding | null>()
     const covered = new Set<string>()
     for (const run of leaves) {
       if (run.kind !== 'text' || run.box.height <= 0 || run.box.width <= 0) continue
       const own = run.backedBy !== undefined ? byId.get(run.backedBy) : undefined
-      if (own) declared.add(`${run.path}|${own.path}`)
+      if (own) {
+        const out = overhang(run.box, own.box, 2)
+        declared.set(
+          `${run.path}|${own.path}`,
+          out && {
+            kind: 'declared-backing-uncovered',
+            detail:
+              `${run.text ? `'${run.text}'` : run.kind} declares backedBy ${run.backedBy} but is not ` +
+              `covered by it at rest — ${Math.round(out.px)}px ${out.side}`,
+            paths: [run.path, own.path],
+            boxes: [{ ...run.box }, { ...own.box }],
+            width,
+          },
+        )
+      }
       for (const surface of surfaces) {
         // REQ-332 — a captured backdrop backs the copy standing on it exactly as a
         // reconstructed band does, so it is attributable here too. Without this no
@@ -1571,18 +1632,32 @@ export function deriveSurfaceBacking(
     }
     return { declared, covered }
   }
-  const perWidth = rests.map((r) => pairsAt(r.leaves, r.boxes))
-  for (const key of new Set(perWidth.flatMap((p) => [...p.declared]))) {
-    const [runPath, surfacePath] = key.split('|')
-    link(runPath, surfacePath)
+  const perWidth = rests.map((r) => ({ width: r.width, ...pairsAt(r.width, r.leaves, r.boxes) }))
+  const uncovered: UncoveredDeclaration[] = []
+  // Declared: linked only if it holds at every resting state its surface is
+  // painted in. A surface hidden at a width says nothing there either way.
+  for (const key of new Set(perWidth.flatMap((p) => [...p.declared.keys()]))) {
+    const fails = perWidth.flatMap((p) => {
+      const f = p.declared.get(key)
+      return f ? [{ width: p.width, finding: f }] : []
+    })
+    if (fails.length === 0) {
+      const [runPath, surfacePath] = key.split('|')
+      link(runPath, surfacePath)
+      continue
+    }
+    for (const { width, finding } of fails) {
+      const height = heightOf.get(width)
+      uncovered.push({ width, ...(height !== undefined ? { height } : {}), finding })
+    }
   }
   // Unanimity: covered at EVERY resting state, not merely at one of them.
   for (const key of perWidth[0]?.covered ?? []) {
-    if (!perWidth.every((p) => p.covered.has(key) || p.declared.has(key))) continue
+    if (!perWidth.every((p) => p.covered.has(key))) continue
     const [runPath, surfacePath] = key.split('|')
     link(runPath, surfacePath)
   }
-  return backing
+  return { backing, uncovered }
 }
 
 /**
@@ -2298,8 +2373,14 @@ function envelopeAt(
   contentScale: number,
   measured?: MeasuredTextHeights,
   reference?: readonly OracleBox[],
+  /**
+   * BUG-197 — report each `backedBy` declaration that fails at rest. Only the
+   * on-sample probe asks: it is a fact about a captured width, not about a sample
+   * between the rungs or under grown content.
+   */
+  reportUncovered = false,
 ): EnvelopeReport {
-  const backing = deriveSurfaceBacking(doc, { measured })
+  const { backing, uncovered } = resolveSurfaceBacking(doc, { measured })
   // BUG-173 — resolved once from the resting document, like `backing`, and for
   // the same reason: whether a surface spanned the window is a fact about what
   // was measured, not about the sample being asked.
@@ -2313,6 +2394,7 @@ function envelopeAt(
         backing,
         fullBleed,
       })
+      if (reportUncovered) findings.push(...uncoveredAt(uncovered, width, height, heights))
       if (!reference) return { width, height, findings }
       const at = reference.filter((o) => o.width === width)
       const kindOf = new Map(leaves.map((l) => [l.path, l.kind]))
@@ -2327,6 +2409,25 @@ function envelopeAt(
     ...(contentScale !== 1 ? { contentScale } : {}),
     byWidth,
   }
+}
+
+/**
+ * BUG-197 — the at-rest declaration failures that belong to the sample
+ * (`width`, `height`): reported once per captured width, at the height it was
+ * captured at — or at the first height sampled there, where that height is not
+ * among `heights` — so the count is the number of false declarations rather than
+ * that number times the height bracket.
+ */
+function uncoveredAt(
+  uncovered: readonly UncoveredDeclaration[],
+  width: number,
+  height: number,
+  heights: readonly number[],
+): LayoutFinding[] {
+  return uncovered
+    .filter((u) => u.width === width)
+    .filter((u) => (u.height !== undefined && heights.includes(u.height) ? u.height === height : height === heights[0]))
+    .map((u) => ({ ...u.finding, paths: [...u.finding.paths], boxes: u.finding.boxes?.map((b) => ({ ...b })) }))
 }
 
 /** BUG-186 — per-axis tolerance (px) for "the reference paints this pair the same way". */
@@ -2465,6 +2566,7 @@ export function onSampleProbe(
     1,
     options.measured,
     options.oracle ? oracleBoxes(options.oracle) : undefined,
+    true,
   )
 }
 
@@ -3271,9 +3373,15 @@ function scoreCandidate(
    *
    * The escapes are not dropped — they reach the operator through the acceptance
    * gate's `layout` block, which is where the ticket asks for them.
+   *
+   * BUG-197 — a `declared-backing-uncovered` finding is excluded for the same
+   * reason: it measures the fold's `backedBy`, which both candidates inherit.
    */
   const count = (r: EnvelopeReport): number =>
-    r.byWidth.reduce((n, w) => n + w.findings.filter((f) => f.kind !== 'escape').length, 0)
+    r.byWidth.reduce(
+      (n, w) => n + w.findings.filter((f) => f.kind !== 'escape' && f.kind !== 'declared-backing-uncovered').length,
+      0,
+    )
   const fidelity = sampleFidelityProbe(doc, oracle, { measured })
   /**
    * BUG-143 — graded at the heights the capture MEASURED, not at the envelope
