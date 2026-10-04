@@ -6,9 +6,9 @@ title: 'capture: a carousel''s clip is recorded at the slide, not the swiper tha
   cuts it; fold drops a band''s height response when its bottom is not a section edge'
 created_by: repro-console:repro-joyfulculinarycreations-com#8
 created_at: '2026-10-04T15:03:19.208056+00:00'
-updated_at: '2026-10-04T15:31:33.261433+00:00'
+updated_at: '2026-10-04T15:31:33.442331+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -248,3 +248,16 @@ puts it in the `l1-cannot-express` class, which needs a schema decision, not a f
 - `test_UAT_FC_REQ-381_*`: (1) extract a page with a two-level overflow carousel in Chromium and check that the off-screen
   slide's run records the outer clipper's id, while the visible slide keeps its own nearest box; (2) fold a projection pair
   where a band opens on a section edge and closes mid-section, and check that its keyframes carry `yFactor` and no `heightFactor`.
+
+
+### What landed
+- `extract.ts` `clipOf`: as scoped above. The containment test compares `getBoundingClientRect` boxes on both sides (the element's own box, or its frame for a framed image), so a transformed `.swiper-wrapper` is in the same frame as the boxes it is tested against.
+- `schema.ts`: `CAPTURE_SCHEMA` 18 → 19, with a `since: 19` stale axis "the overflow ancestor that cuts an element (clip)".
+  The choice of ancestor leaves no contradiction in the record, so the axis is cleared only when a bundle records no clip at all.
+  Existing bundles (this one is schema 17) are flagged as needing a re-capture for issue 1.
+- `fold.ts` `buildSolidBands`: as scoped above (top measured → `yFactor`; `heightFactor` only when the bottom is measured as well).
+- UATs: `tests/test_UAT_FC_REQ-381_the_clip_that_cuts_and_a_band_s_measured_top.test.ts`. There are three: an off-screen slide shares the
+  swiper's clip id and box with the arrow; a fitting slide keeps its own nearest box; a band that closes mid-section has
+  `yFactor 1` and no `heightFactor` at every ladder width. Two of them failed on the pre-change code at exactly the defect named above.
+  The 104 suites touching the fold, the extractor or the capture schema all pass, before and after merging REQ-382's concurrent `fold.ts` change.
+- Not done: the re-capture and the `1c l1-gate` run the ticket describes. Issue 1 needs a fresh capture of the reference bundle before it shows in the gate.
