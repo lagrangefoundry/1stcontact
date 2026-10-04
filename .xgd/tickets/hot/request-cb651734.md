@@ -6,10 +6,10 @@ title: 'capture: an underline propagated from a <u> ancestor is dropped; the ref
   paints a fractional half-leading the reproduction floors'
 created_by: repro-console:repro-www-hearingzone510-com#4
 created_at: '2026-10-04T16:21:19.317130+00:00'
-updated_at: '2026-10-04T17:27:41.098981+00:00'
+updated_at: '2026-10-04T17:28:18.192283+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - capture-loses-it
@@ -18,6 +18,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-ef2bc33a
+  commits:
+  - working_sha: 173091e0ea32ea3334d744a46ad36998cbeaa466
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5183da70834ac4702b5a10edf283f93f48e65246
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.486
 ---
 
 # capture: an underline propagated from a `<u>` ancestor is dropped; and the reference paints a fractional half-leading that the renderer floors
