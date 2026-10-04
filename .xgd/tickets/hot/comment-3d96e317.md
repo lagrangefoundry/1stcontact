@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:16:28.896358+00:00'
+updated_at: '2026-10-04T17:19:19.621918+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,12 @@ Two questions would sharpen this:
 2. Is the AI ever meant to speak *as* the business to the owner's customers?
 
 If the answer to the second is yes, the naming question splits into two: one label for the owner's view, and a separate disclosure rule for the customer's view.
+
+<!-- xgd-turn id="ec3cd87d-adc4-4248-8ce0-9091939c048c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:19:19.429863+00:00" -->
+#### You
+1 - this is a 2 AI one person scenario
+2 - not in any features that we have yet
 
 <!-- xgd-chat-end -->
