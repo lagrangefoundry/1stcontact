@@ -918,6 +918,9 @@ export const PLAN_SKIP = 'Skip'
 export const PLAN_SKIP_TITLE = "I don't know, or it doesn't apply"
 export const PLAN_SKIPPED = 'Skipped'
 export const PLAN_CHANGE = 'Change'
+/** [[BUG-200]] — finishing a multi-select: with something ticked, and with nothing. */
+export const PLAN_DONE = 'Done'
+export const PLAN_NONE_OF_THESE = 'None of these'
 export const PLAN_UPLOAD = 'Upload a document'
 export const PLAN_DOCUMENT = 'A document you sent'
 /** [[BUG-196]] — an upload ask that takes several files at once. */

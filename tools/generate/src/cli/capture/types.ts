@@ -443,7 +443,7 @@ export interface SurfaceShape {
 export type Arrangement = 'row' | 'stack'
 
 /** REQ-47 — where a control's accessible name is rendered. */
-export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt'
+export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | 'title'
 
 /**
  * REQ-47 — per-element rendered geometry, shape and structure, shared by text
@@ -636,7 +636,7 @@ export interface Field extends ElementGeometry {
   /** REQ-383 — the words the control paints inside its box (its `placeholder`
    *  attribute), else null. Recorded independently of {@link nameSource}: a
    *  control named by a visible `<label>` can still paint different words inside
-   *  itself, and the one-name a11y read kept only the label. Optional so pre-20
+   *  itself, and the one-name a11y read kept only the label. Optional so pre-21
    *  bundles still parse. */
   placeholderText?: string | null
   /** REQ-269 — the element's own per-side padding, as a text run has carried all

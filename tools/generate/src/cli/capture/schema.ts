@@ -196,14 +196,20 @@ import type { Capture } from './types'
  *   `overflow: hidden` inside an `overflow: hidden` swiper recorded each
  *   off-screen slide's copy against its own slide (which contains it), so the
  *   fold saw nothing escaping and built no clipping container.
- * - **20** — REQ-383: a form control's placeholder, as bluelotusintegralhealing.com
+ * - **20** — BUG-199: media that is a link's ONLY ink is that link. Its
+ *   `a11yRole` is the link's (an `<a href><img>` recorded `img` where the same
+ *   element as `<a href><svg>` recorded `link`), and its `accessibleName` is the
+ *   link's name — the link's aria, the media's alt / `<title>`, else the link's
+ *   `title` attribute (`nameSource: 'title'`). A pre-20 bundle names a
+ *   title-only icon link nothing, so its name can never match a reproduction's.
+ * - **21** — REQ-383: a form control's placeholder, as bluelotusintegralhealing.com
  *   showed. (a) Every field records the WORDS it paints inside its box
  *   (`placeholderText`), whatever names it: the one-name a11y read let a visible
  *   `<label>` win and the placeholder string reached no bundle file. (b) Its
  *   `placeholderColor` composes the pseudo-element's own `opacity`, which fades the
- *   ink as an alpha does; a pre-20 bundle records the opaque declared colour.
+ *   ink as an alpha does; a pre-21 bundle records the opaque declared colour.
  */
-export const CAPTURE_SCHEMA = 20
+export const CAPTURE_SCHEMA = 21
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -633,14 +639,25 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
   },
   {
     since: 20,
+    axis: "a linked icon's name, read off its link (accessibleName)",
+    where: 'a media field (`sections[].fields[]`)',
+    // The contradiction a pre-20 bundle leaves: an icon whose alt the link names
+    // and whose accessibleName is empty. A bundle with no such icon cannot differ.
+    present: (c) =>
+      !fields(c).some(
+        (f) => typeof f.src === 'string' && f.src.startsWith('assets/inline-svg-') && !!f.alt && !f.accessibleName,
+      ),
+  },
+  {
+    since: 21,
     axis: "a control's placeholder words (placeholderText)",
     where: 'a field (`sections[].fields[]`)',
-    // Written on every field from schema 20 (null when it has none), so the key's
+    // Written on every field from schema 21 (null when it has none), so the key's
     // presence on any field is the axis.
     present: (c) => fields(c).some((f) => 'placeholderText' in f),
   },
   {
-    since: 20,
+    since: 21,
     axis: "a placeholder's ink faded by its own opacity (placeholderColor)",
     where: 'a field (`sections[].fields[]`)',
     // A faded and an opaque ink read the same in the record, so the only thing

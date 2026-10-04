@@ -333,7 +333,7 @@ export interface ValueElement {
   placeholderColor?: string | null
   /**
    * REQ-383 — the words a control paints inside its box (its `placeholder`),
-   * null when it has none, absent on a bundle older than schema 20. Independent of
+   * null when it has none, absent on a bundle older than schema 21. Independent of
    * `accessibleName`: a visibly-labelled control can paint different words inside
    * itself, and a reproduction that drops them matched on every axis compared.
    */
@@ -2028,6 +2028,7 @@ function nameSourceLabel(src: NameSource | null | undefined): string {
   if (src === 'aria') return 'aria (outside)'
   if (src === 'text') return 'text'
   if (src === 'alt') return 'alt'
+  if (src === 'title') return 'title'
   return 'none'
 }
 
@@ -2137,10 +2138,20 @@ const CONTROL_ROLES: ReadonlySet<string> = new Set([
   'link',
 ])
 
+/**
+ * BUG-199 — a media element, whatever its role. A picture that is a link's only
+ * ink reports the LINK's role (the a11y tree's answer), so `a11yRole === 'img'`
+ * no longer finds every picture; the media substance (`objectFit`, recorded only
+ * for an `<img>` and an inline-SVG icon) does.
+ */
+function isMediaElement(el: ValueElement): boolean {
+  return el.a11yRole === 'img' || el.objectFit != null
+}
+
 /** Bucket a projected element into its object kind (for the card heading). */
 function objectKindOf(el: ValueElement): ObjectKind {
   if (!el.textless) return 'text'
-  if (el.a11yRole === 'img') return 'image'
+  if (isMediaElement(el)) return 'image'
   if (el.a11yRole === 'separator') return 'divider'
   if (el.a11yRole && CONTROL_ROLES.has(el.a11yRole)) return 'control'
   return 'box'
@@ -3321,7 +3332,7 @@ export function diffManifests(
   // box aspect ratio — a portrait meant to be a circle (1:1) rendered as an
   // ellipse (≠1) is the same box size within px tolerance yet visibly wrong.
   const compareMedia = (exp: ValueElement, act: ValueElement): void => {
-    const media = exp.a11yRole === 'img' && act.a11yRole === 'img'
+    const media = isMediaElement(exp) && isMediaElement(act)
     if (!media) return
     if (exp.objectFit != null && act.objectFit != null && exp.objectFit !== act.objectFit) {
       push(exp, 'objectFit', exp.objectFit, act.objectFit)
@@ -3667,7 +3678,7 @@ export function diffManifests(
     }
     // REQ-383 — the placeholder's words. Compared when BOTH sides were captured by
     // an extractor that reads them (the key is present, null or not), so a field
-    // reproduced with no placeholder is a delta and a pre-20 reference stays inert.
+    // reproduced with no placeholder is a delta and a pre-21 reference stays inert.
     if (exp.placeholderText !== undefined && act.placeholderText !== undefined) {
       const expPh = exp.placeholderText ?? null
       const actPh = act.placeholderText ?? null
