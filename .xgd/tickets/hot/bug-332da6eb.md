@@ -5,10 +5,10 @@ type: bug
 title: 'bin/deploy: ships stale builder browser assets beside a fresh Worker'
 created_by: EPIC-19
 created_at: '2026-10-04T17:58:10.800589+00:00'
-updated_at: '2026-10-04T21:01:09.321513+00:00'
+updated_at: '2026-10-04T21:01:17.160089+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   story_points: 2
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-20fa21fe
+  commits:
+  - working_sha: 73e4d0bdff1d0f8db99fcf783940f150646204d7
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5a3fc59034ab4f15ba8d05ee427bbf537eadda9e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.490
 ---
 
 ## Symptom (2026-10-04)
