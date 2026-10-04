@@ -186,8 +186,10 @@ describe('REQ-371 issue 3 — a min-height pill keeps its height', () => {
       padding?: { topPx?: number; bottomPx?: number }
       geometry?: { keyframes: Array<{ at: number; y: number }> }
     }
-    // 1 border + 17.5 + 19 line + 17.5 + 1 border = 56, split 18/17 so it still sums.
-    expect(node.padding).toEqual({ topPx: 18, bottomPx: 17 })
+    // 1 border + 17.5 + 19 line + 17.5 + 1 border = 56. REQ-383 (issue 4) — kept at
+    // the fold's hundredth precision rather than rounded 18/17, which set the
+    // glyphs half a pixel low.
+    expect(node.padding).toEqual({ topPx: 17.5, bottomPx: 17.5 })
     expect(node.geometry!.keyframes.find((k) => k.at === 1280)!.y, 'pinned at its border box, not its lines').toBeCloseTo(654, 0)
   })
 

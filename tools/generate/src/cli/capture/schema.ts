@@ -196,8 +196,14 @@ import type { Capture } from './types'
  *   `overflow: hidden` inside an `overflow: hidden` swiper recorded each
  *   off-screen slide's copy against its own slide (which contains it), so the
  *   fold saw nothing escaping and built no clipping container.
+ * - **20** — REQ-383: a form control's placeholder, as bluelotusintegralhealing.com
+ *   showed. (a) Every field records the WORDS it paints inside its box
+ *   (`placeholderText`), whatever names it: the one-name a11y read let a visible
+ *   `<label>` win and the placeholder string reached no bundle file. (b) Its
+ *   `placeholderColor` composes the pseudo-element's own `opacity`, which fades the
+ *   ink as an alpha does; a pre-20 bundle records the opaque declared colour.
  */
-export const CAPTURE_SCHEMA = 19
+export const CAPTURE_SCHEMA = 20
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -624,6 +630,22 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Which ancestor was chosen leaves no contradiction in the record, so the only
     // thing provable is that it cannot matter: a page that records no clip at all.
     present: (c) => ![...runs(c), ...fields(c)].some((e) => e.clip !== null && typeof e.clip === 'object'),
+  },
+  {
+    since: 20,
+    axis: "a control's placeholder words (placeholderText)",
+    where: 'a field (`sections[].fields[]`)',
+    // Written on every field from schema 20 (null when it has none), so the key's
+    // presence on any field is the axis.
+    present: (c) => fields(c).some((f) => 'placeholderText' in f),
+  },
+  {
+    since: 20,
+    axis: "a placeholder's ink faded by its own opacity (placeholderColor)",
+    where: 'a field (`sections[].fields[]`)',
+    // A faded and an opaque ink read the same in the record, so the only thing
+    // provable is that it cannot matter: a page that paints no placeholder.
+    present: (c) => !fields(c).some((f) => typeof f.placeholderColor === 'string'),
   },
 ]
 

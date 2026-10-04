@@ -307,8 +307,12 @@ export function selfSurfaceLines(el: ValueElement): { top: number; height: numbe
  *
  * The lines sit where the glyphs say (half-leading is symmetric, so the line block
  * is centred on the rendered text box); what is left of the box above and below
- * them is the inset. The two sides are rounded so they still sum to the box, since
- * the padding axis is what fixes the node's height.
+ * them is the inset. The two sides still sum to the box, since the padding axis is
+ * what fixes the node's height.
+ *
+ * REQ-383 (issue 4) — at the precision the fold writes geometry (a hundredth),
+ * not whole pixels: a 56px pill with 1px borders around a 19px line is 17.5 / 17.5,
+ * and rounding it to 18 / 17 set every centred CTA's glyphs half a pixel low.
  */
 function withChipInset(el: ValueElement): ValueElement {
   const box = el.box
@@ -323,9 +327,9 @@ function withChipInset(el: ValueElement): ValueElement {
   const contentTop = box.y + border
   const centre = glyphs.y + glyphs.height / 2
   const lineTop = Math.max(contentTop, Math.min(contentTop + inner - lineH, centre - lineH / 2))
-  const total = Math.round(inner - lineH)
-  const top = Math.min(total, Math.round(lineTop - contentTop))
-  return { ...el, paddingTopPx: top, paddingBottomPx: total - top }
+  const total = round2(inner - lineH)
+  const top = Math.min(total, round2(lineTop - contentTop))
+  return { ...el, paddingTopPx: top, paddingBottomPx: round2(total - top) }
 }
 
 /**
@@ -733,7 +737,7 @@ const PADDING_MAX = 10_000
  */
 function foldPadding(el: ValueElement): L1Padding | undefined {
   const side = (v: number | undefined): number | undefined =>
-    v !== undefined && Number.isFinite(v) && v > 0 ? clamp(Math.round(v), 0, PADDING_MAX) : undefined
+    v !== undefined && Number.isFinite(v) && v > 0 ? clamp(round2(v), 0, PADDING_MAX) : undefined
   const pad: L1Padding = {}
   const top = side(el.paddingTopPx)
   const right = side(el.paddingRightPx)
@@ -964,7 +968,7 @@ function responsivePaddingTracks(
     for (const c of framed) {
       const raw = c.element[axis]
       if (raw === undefined || raw === null || !Number.isFinite(raw)) continue
-      keyframes.push({ at: c.width, value: clamp(Math.round(raw), 0, PADDING_MAX) })
+      keyframes.push({ at: c.width, value: clamp(round2(raw), 0, PADDING_MAX) })
     }
     if (keyframes.length < 2 || keyframes.every((k) => k.value === keyframes[0].value)) continue
     out[field] = { keyframes }
@@ -1421,6 +1425,9 @@ function foldTransform(el: ValueElement): L1Transform | undefined {
  * document order decides, which on faelan.com put a 64px headline underneath an
  * opaque collage photograph.
  *
+ * REQ-383 — where the element overlaps another whose chain parts from its own
+ * decisively, the level {@link paintOrderingLevels} read there wins over `zIndex`.
+ *
  * ZERO IS NOT A LEVEL. `z-index: auto` and `z-index: 0` both arrive as 0 and both
  * mean "document order decides" to a flat document, which is exactly what absent
  * means — so the field is omitted rather than written, and a page that stacks
@@ -1434,11 +1441,75 @@ function foldTransform(el: ValueElement): L1Transform | undefined {
  * every other level on the page, and dropping it would silently return the node to
  * document order — which is the defect, not a safe default.
  */
-function foldPaintOrder(el: ValueElement): number | undefined {
-  const z = el.zIndex
+function foldPaintOrder(el: ValueElement, levels?: ReadonlyMap<string, number>): number | undefined {
+  const own = el.paintStack?.[el.paintStack.length - 1]?.id
+  const z = (own !== undefined ? levels?.get(own) : undefined) ?? el.zIndex
   if (z === undefined || !Number.isFinite(z)) return undefined
   const clamped = Math.max(L1_ENVELOPE.paintOrder.min, Math.min(L1_ENVELOPE.paintOrder.max, Math.round(z)))
   return clamped === 0 ? undefined : clamped
+}
+
+/**
+ * REQ-383 (issue 5) — the level that ORDERS an element against what it overlaps,
+ * read off the captured `paintStack`s, per element; absent where the captured
+ * `zIndex` already says it.
+ *
+ * `zIndex` is the innermost applicable level, walking up from the element. The
+ * fold flattens the page, so what a flat sibling needs is the level at which its
+ * chain parts from the chain of the element it is actually drawn against — on
+ * bluelotusintegralhealing.com the footer logo is `[14, 8, 0, 0]` and its
+ * innermost level is 0, while the copyright run it overlaps is `[14, 7, 0]`: the
+ * page decides them at 8 > 7, and a flat `0` against `7` painted the run over the
+ * logo.
+ *
+ * Per element (keyed by its own place in the document, the last link of its chain),
+ * over every element its box overlaps in ANY projection — one level serves every
+ * width, so it has to hold against what it meets at each: the
+ * index where the two chains first name different boxes, counted only where the
+ * two levels there DIFFER (a tie is decided by document order at every depth, so
+ * it says nothing). The DEEPEST such index wins, because the nearest decisive
+ * comparison is the one between neighbours. One integer cannot carry a whole
+ * chain, so an element drawn against partners that part from it at two different
+ * depths keeps only the nearer; an element that overlaps nothing with a chain
+ * keeps its `zIndex`, so a page that stacks nothing folds exactly as before.
+ */
+function paintOrderingLevels(projections: readonly StateProjection[]): Map<string, number> {
+  const out = new Map<string, number>()
+  const depth = new Map<string, number>()
+  const note = (el: ValueElement, k: number): void => {
+    const stack = el.paintStack!
+    const own = stack[stack.length - 1].id
+    if (k <= (depth.get(own) ?? -1)) return
+    depth.set(own, k)
+    out.set(own, stack[k].z)
+  }
+  for (const p of projections) {
+    const chained = p.manifest.elements.filter(
+      (e) => e.box && e.box.width > 0 && e.box.height > 0 && (e.paintStack?.length ?? 0) > 0,
+    )
+    for (let i = 0; i < chained.length; i++) {
+      for (let j = i + 1; j < chained.length; j++) {
+        const a = chained[i]
+        const b = chained[j]
+        const ab = a.box!
+        const bb = b.box!
+        const overlaps =
+          Math.min(ab.x + ab.width, bb.x + bb.width) > Math.max(ab.x, bb.x) &&
+          Math.min(ab.y + ab.height, bb.y + bb.height) > Math.max(ab.y, bb.y)
+        if (!overlaps) continue
+        const sa = a.paintStack!
+        const sb = b.paintStack!
+        let k = 0
+        while (k < sa.length && k < sb.length && sa[k].id === sb[k].id) k++
+        // One chain a prefix of the other: an element inside the other's own box.
+        if (k >= sa.length || k >= sb.length) continue
+        if (!Number.isFinite(sa[k].z) || !Number.isFinite(sb[k].z) || sa[k].z === sb[k].z) continue
+        note(a, k)
+        note(b, k)
+      }
+    }
+  }
+  return out
 }
 
 /** A captured `backdrop-filter: blur(Npx)` → N (px), else undefined. */
@@ -1553,6 +1624,10 @@ export function isSynthesizedSurfaceId(id: string | undefined): boolean {
  * `overlap` findings, a fill colliding with the copy it was painted for) and
  * UN-asserted (0 `escape` findings, because no run could name one as its backing
  * surface) — the two states a surface must never be in at once.
+ *
+ * REQ-383 — childless unless it CARRIES a band (see `nestBackingSurfaces`): then it
+ * is a container owning the runs standing on it, and still the captured element
+ * its oracle sample was read from, so the pairing queue takes it from its rect.
  */
 export const CAPTURED_BACKDROP_ID_PREFIX = 'backdrop-'
 
@@ -3785,6 +3860,18 @@ interface OwnershipResult {
  * They still own nothing: an element-level background photograph is a CAPTURED
  * element with its own oracle counterpart, not a surface the fold reconstructed
  * from the runs standing on it, so it is never a candidate parent.
+ *
+ * REQ-383 (issue 1) — EXCEPT a backdrop that CARRIES a band (`owners`). When
+ * {@link buildSolidBands} declines to rebuild a band because a captured backdrop
+ * of the same fill already paints it, that backdrop is the band: the runs are
+ * `backedBy` it, and leaving it childless left them pinned siblings of a pinned
+ * plate that nothing could make follow them — every carried band escaped its
+ * copy under growth (bluelotusintegralhealing.com: 30 of 40 escapes), and the
+ * recovery made it worse by flowing the copy past the plate. Such a backdrop
+ * owns like a band, keeping its id and fill so its oracle pairing is unchanged.
+ * REQ-338's paint-order reason for "never owns" still holds when the owner is
+ * the backdrop itself: its children paint after it. Containment at every width
+ * still decides which runs it takes.
  */
 function nestBackingSurfaces(
   surfaces: readonly L1Box[],
@@ -3793,12 +3880,31 @@ function nestBackingSurfaces(
   widths: readonly number[],
   ownable: readonly L1Box[] = [],
   grounds: ReadonlyMap<L1Box, readonly L1Node[]> = new Map(),
+  owners: ReadonlySet<L1Box> = new Set(),
 ): OwnershipResult {
   const built = new Map<L1Node, L1Node>()
   const owned = new Set<L1Node>()
   const readingOrder = new Map<L1Node, number>()
   content.forEach((node, i) => readingOrder.set(node, i))
-  if (surfaces.length === 0 || content.length === 0) return { built, owned, readingOrder }
+  /**
+   * REQ-383 — the reading-order key a node holds through its TEXT, when it holds
+   * any. The ordering exists for the pairings that run in document order, and
+   * those pair text only (non-text leaves pair geometrically, BUG-186). An image
+   * sits in the fold's child list wherever its table row fell, so a backdrop that
+   * owns the footer logo took the logo's early index and sorted the whole footer
+   * ahead of the sections above it — every repeated label in it was then graded
+   * against the wrong section (800px at 320 on bluelotusintegralhealing.com).
+   */
+  const textOrder = new Map<L1Node, number>()
+  const holdsText = (node: L1Node): boolean =>
+    node.kind === 'text' ||
+    ((node.kind === 'box' || node.kind === 'container') && (node.children ?? []).some(holdsText))
+  content.forEach((node, i) => {
+    if (holdsText(node)) textOrder.set(node, i)
+  })
+  // REQ-383 — a page whose every band is carried has no reconstructed surface at
+  // all, and its backdrops are then the only owners.
+  if ((surfaces.length === 0 && owners.size === 0) || content.length === 0) return { built, owned, readingOrder }
   const widest = Math.max(...widths)
   // Ownable-but-never-owning members sit between the surfaces and the content in
   // `order`, so a backdrop paints after the reconstructed band it shares a parent
@@ -3807,7 +3913,9 @@ function nestBackingSurfaces(
   // backdrop lands they sort under it.
   const all: L1Node[] = [...surfaces, ...ownable.flatMap((b) => [...(grounds.get(b) ?? []), b]), ...content]
   const order = new Map<L1Node, number>(all.map((n, i) => [n, i]))
-  const isSurfaceNode = new Set<L1Node>(surfaces)
+  /** Every candidate parent: the surfaces, and the backdrops that carry a band. */
+  const parents: L1Box[] = [...surfaces, ...ownable.filter((b) => owners.has(b))]
+  const isSurfaceNode = new Set<L1Node>(parents)
 
   const rects = foldRectsOf(all, textHeights)
   const rectAt = (node: L1Node, at: number): FoldRect | undefined => rects.get(node)?.get(at)
@@ -3841,7 +3949,7 @@ function nestBackingSurfaces(
     const childArea = child.width * child.height
     let best: L1Box | undefined
     let bestArea = Infinity
-    for (const surface of surfaces) {
+    for (const surface of parents) {
       if (surface === node) continue
       const parent = rectAt(surface, widest)
       if (!parent || parent.width <= 0 || parent.height <= 0) continue
@@ -3873,8 +3981,8 @@ function nestBackingSurfaces(
   }
   for (const surface of surfaces) claim(surface, true)
   // REQ-338 — as a surface for claiming purposes (a backdrop may only sit inside a
-  // strictly larger box, or an equal-sized one painted before it), never as one
-  // for parenting purposes.
+  // strictly larger box, or an equal-sized one painted before it), and as one for
+  // parenting purposes only when it carries a band (REQ-383, `owners`).
   for (const node of ownable) {
     const parent = claim(node, true)
     // REQ-370 — a ground goes where its backdrop goes, without a containment
@@ -3903,7 +4011,11 @@ function nestBackingSurfaces(
       (a, b) => keyOf(a) - keyOf(b) || (order.get(a) ?? 0) - (order.get(b) ?? 0),
     )
     const earliest = sorted.map(keyOf).filter((k) => k >= 0)
-    if (earliest.length) readingOrder.set(surface, Math.min(...earliest))
+    const earliestText = members.flatMap((m) => (textOrder.has(m) ? [textOrder.get(m)!] : []))
+    if (earliestText.length) {
+      textOrder.set(surface, Math.min(...earliestText))
+      readingOrder.set(surface, Math.min(...earliestText))
+    } else if (earliest.length) readingOrder.set(surface, Math.min(...earliest))
     const nested = sorted.map((member) => rebaseInto(inner.get(member)!, geo, surface.axes))
     const { kind: _kind, children: _children, ...rest } = surface
     const container: L1ContainerNode = {
@@ -3915,7 +4027,7 @@ function nestBackingSurfaces(
     return container
   }
 
-  for (const surface of surfaces) {
+  for (const surface of parents) {
     if (owned.has(surface)) continue
     const node = build(surface)
     if (node !== surface) {
@@ -3958,6 +4070,8 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   const edgeResponses = sectionEdgeResponses(probes, projections)
   const sectionResponses = sectionViewportResponses(probes)
   const columnFit = fitColumn(projections)
+  // REQ-383 — the level each element is ordered at against what it overlaps.
+  const orderingLevels = paintOrderingLevels(projections)
 
   // REQ-211 — the rejoin plan. Built from EVERY projection, not just the widest:
   // the row loop reads a row's widest PRESENT element, which for a run that
@@ -4240,7 +4354,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // REQ-347 — the level the reference paints this run at (see `foldPaintOrder`).
       // NOT AN IMAGE AXIS: the loss that named this was a HEADLINE painted under a
       // photograph, so it is read at every leaf branch exactly as `transform` is.
-      const textPaintOrder = foldPaintOrder(widest)
+      const textPaintOrder = foldPaintOrder(widest, orderingLevels)
       if (textPaintOrder !== undefined) node.paintOrder = textPaintOrder
       // REQ-371 — a chip's pill height is its padding (see `withChipInset`).
       const padOf = (el: ValueElement): ValueElement => (chip ? withChipInset(el) : el)
@@ -4450,7 +4564,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       if (transform) node.transform = transform
       // REQ-347 — the level the reference paints this photograph at, beside the
       // rotation and on the same terms.
-      const paintOrder = foldPaintOrder(widest)
+      const paintOrder = foldPaintOrder(widest, orderingLevels)
       if (paintOrder !== undefined) node.paintOrder = paintOrder
       // REQ-269 — a linked image is a link like any other; the renderer WRAPS this
       // one (a void element cannot be an anchor) rather than retagging it.
@@ -4545,7 +4659,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
         // `z-index: 10` and whose copy declares nothing would hide its own words
         // behind its own photograph. The level a backdrop paints at is already
         // stated, by where the fold puts it.
-        const boxPaintOrder = foldPaintOrder(widest)
+        const boxPaintOrder = foldPaintOrder(widest, orderingLevels)
         if (boxPaintOrder !== undefined) node.paintOrder = boxPaintOrder
         children.push(node)
         recordClip(node, framed)
@@ -4963,6 +5077,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // though, because paint order is the whole point of a backdrop and only nesting
   // can put a section's overlay element between the section's own fill and the
   // copy standing on it.
+  //
+  // REQ-383 — except a backdrop that carries a band REQ-380 declined to rebuild:
+  // that backdrop IS the band, so it owns the band's runs as the band would have.
   const ownership = nestBackingSurfaces(
     [...bandNodes, ...sectionBgNodes, ...cardNodes],
     [...bodyNodes, ...slotNodes],
@@ -4970,6 +5087,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     widths,
     backdropNodes,
     grounds,
+    new Set(carriedBands.filter(({ backdrop }) => isBackingSurfaceId(backdrop.id)).map(({ backdrop }) => backdrop)),
   )
   /** The members of one paint layer that are still top-level, as rebuilt. */
   const topLevel = (layer: readonly L1Node[]): L1Node[] =>

@@ -810,6 +810,12 @@ export const FIELD_AXES: readonly AnyElementAxis<Field, RawField>[] = [
     note: 'REQ-265 — the RENDERED ink of a control\'s placeholder, composited. A UA pseudo-element inherits nothing, so no other axis on the control describes it.',
     ...sharedField((f) => f.placeholderColor ?? undefined),
   },
+  {
+    axis: 'placeholderText',
+    role: 'compared',
+    note: 'REQ-383 — the words a control paints inside its box, recorded whatever names the control. A visible `<label>` above and different words inside are two facts; the one-name a11y read kept only the label.',
+    ...sharedField((f) => f.placeholderText ?? undefined),
+  },
 ]
 
 // ── the section axes ─────────────────────────────────────────────────────────

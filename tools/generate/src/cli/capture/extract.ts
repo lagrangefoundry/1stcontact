@@ -347,6 +347,8 @@ export interface RawField extends RawGeometry {
    * for a control with no placeholder, and for every non-control element.
    */
   placeholderColor?: string | null
+  /** REQ-383 — the words the control paints inside its box, whatever names it; null when none. */
+  placeholderText?: string | null
   /**
    * REQ-269 — the element's own per-side padding, exactly as {@link RawRun}
    * records it for a text run.
@@ -1550,13 +1552,21 @@ export const EXTRACT_SCRIPT = `(() => {
       return a > 0 ? [px[0], px[1], px[2], a] : null;
     } catch (e) { return null; }
   }
+  // REQ-383 -- and through the pseudo-element's own \`opacity\`, which fades the
+  // ink exactly as an alpha does but is not part of its colour: a Zyro field that
+  // declares \`color: #0d141a; opacity: .5\` on \`::placeholder\` painted
+  // (133,136,139) over white while the capture recorded the opaque #0d141a.
   function placeholderColorOf(el) {
     var tag = (el.tagName || '').toLowerCase();
     if (tag !== 'input' && tag !== 'textarea') return null;
     if (!el.placeholder) return null;
     var c = null;
-    try { c = resolvedRgba(getComputedStyle(el, '::placeholder').color); } catch (e) { return null; }
+    var ps = null;
+    try { ps = getComputedStyle(el, '::placeholder'); c = resolvedRgba(ps.color); } catch (e) { return null; }
     if (!c || c[3] === 0) return null;
+    var fade = parseFloat(ps.opacity);
+    if (isFinite(fade) && fade >= 0 && fade < 1) c = [c[0], c[1], c[2], c[3] * fade];
+    if (c[3] === 0) return null;
     if (c[3] < 0.999) {
       var under = surfaceFillOf(el);
       if (under) {
@@ -1569,6 +1579,19 @@ export const EXTRACT_SCRIPT = `(() => {
       }
     }
     return '#' + h2(c[0]) + h2(c[1]) + h2(c[2]);
+  }
+  // REQ-383 -- the words a control paints INSIDE its box, whatever names it.
+  //
+  // accessibleNameOf reports ONE name, the label winning over the placeholder, so
+  // a control with both a \`<label for>\` above it and a placeholder inside it
+  // recorded the label and lost the placeholder string entirely -- the words the
+  // reference paints in every empty field of bluelotusintegralhealing.com's two
+  // forms reached no bundle file. Null when the control has none.
+  function placeholderTextOf(el) {
+    var tag = (el.tagName || '').toLowerCase();
+    if (tag !== 'input' && tag !== 'textarea') return null;
+    var ph = el.getAttribute('placeholder');
+    return ph && ph.trim() ? collapseText(ph) : null;
   }
   // REQ-308 -- the type a form control paints with.
   //
@@ -3339,6 +3362,9 @@ export const EXTRACT_SCRIPT = `(() => {
         // REQ-265 -- the one painted value a control carries that no other axis
         // can hold (see placeholderColorOf). Null for anything without one.
         placeholderColor: placeholderColorOf(el),
+        // REQ-383 -- the placeholder's WORDS, independent of nameSource (see
+        // placeholderTextOf). Null for anything without one.
+        placeholderText: placeholderTextOf(el),
         // REQ-269 -- the per-side padding, read exactly as the text-run path 90
         // lines above reads it. A control's padding IS its content inset; without
         // it the renderer's zero-look reset governs and the placeholder paints

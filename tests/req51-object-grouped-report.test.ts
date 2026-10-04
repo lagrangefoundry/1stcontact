@@ -200,6 +200,8 @@ describe('REQ-51 image and control cards carry relevant params', () => {
       'fontSizePx',
       'fontWeight',
       'lineHeightPx',
+      // REQ-383 — and the words it paints inside itself.
+      'placeholderText',
       'placeholderColor',
       'box',
     ])

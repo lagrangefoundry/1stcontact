@@ -331,6 +331,13 @@ export interface ValueElement {
    * on every value the diff compared and differ by the whole of the ink.
    */
   placeholderColor?: string | null
+  /**
+   * REQ-383 — the words a control paints inside its box (its `placeholder`),
+   * null when it has none, absent on a bundle older than schema 20. Independent of
+   * `accessibleName`: a visibly-labelled control can paint different words inside
+   * itself, and a reproduction that drops them matched on every axis compared.
+   */
+  placeholderText?: string | null
 }
 
 /**
@@ -569,6 +576,8 @@ export type DeltaProperty =
   | 'backgroundImage'
   // ── REQ-265 — a control's placeholder ink (a UA pseudo-element inherits nothing) ──
   | 'placeholderColor'
+  // ── REQ-383 — the words a control paints inside its box ──
+  | 'placeholderText'
   // ── BUG-169 — the page canvas: what shows through wherever no band paints ──
   | 'bodyBackground'
   // ── REQ-48 (item 5) multi-viewport / responsive reflow ───────────────────
@@ -1556,6 +1565,8 @@ const VALUE_TYPE: Record<DeltaProperty, 'A' | 'B'> = {
   // REQ-265 — the placeholder's ink is an authored value like any other colour:
   // once L1 can carry it, the repair is to copy the reference's value into place.
   placeholderColor: 'A',
+  // REQ-383 — the placeholder's words are authored copy, like `text`.
+  placeholderText: 'A',
   surfaceFill: 'A',
   gradient: 'A',
   surfaceGradient: 'A',
@@ -1714,6 +1725,8 @@ const PROPERTY_KIND: Record<DeltaProperty, DeltaKind> = {
   backgroundImage: 'media',
   // REQ-265 — placeholder ink is ink: a colour defect, ranked like every other.
   placeholderColor: 'color',
+  // REQ-383 — the placeholder's words are copy: a text defect.
+  placeholderText: 'text',
   transform: 'transform',
   motion: 'motion',
 }
@@ -2169,7 +2182,18 @@ const KIND_PARAMS: Record<ObjectKind, string[]> = {
   // only ink a placeholder-only control has, and its absence here is how a row
   // reading `placeholderColor #746f69` on both sides looked complete beside a
   // textarea painting its placeholder three pixels off.
-  control: ['name', 'nameSource', 'fontFamily', 'fontSizePx', 'fontWeight', 'lineHeightPx', 'placeholderColor', 'box'],
+  // REQ-383 — and the words it paints inside itself, beside the ink they paint in.
+  control: [
+    'name',
+    'nameSource',
+    'fontFamily',
+    'fontSizePx',
+    'fontWeight',
+    'lineHeightPx',
+    'placeholderText',
+    'placeholderColor',
+    'box',
+  ],
   divider: ['box'],
   // BUG-107 — a painted box carries no name and no typography; what it HAS is the
   // surface it paints (fill, background photograph) and the rect it paints it in.
@@ -2200,6 +2224,7 @@ const PARAM_PROPS: Record<string, DeltaProperty[]> = {
   box: ['position', 'size'],
   nameSource: ['containment'],
   placeholderColor: ['placeholderColor'],
+  placeholderText: ['placeholderText'],
   objectFit: ['objectFit'],
   aspect: ['aspect'],
   border: ['border'],
@@ -2252,6 +2277,8 @@ function paramValue(name: string, el: ValueElement | undefined): string {
       return nameSourceLabel(el.nameSource)
     case 'placeholderColor':
       return el.placeholderColor ?? '—'
+    case 'placeholderText':
+      return el.placeholderText ?? '—'
     case 'objectFit':
       return el.objectFit ?? '—'
     case 'aspect':
@@ -3637,6 +3664,14 @@ export function diffManifests(
       if (dEph > colorTol) {
         push(exp, 'placeholderColor', exp.placeholderColor, act.placeholderColor, dEph)
       }
+    }
+    // REQ-383 — the placeholder's words. Compared when BOTH sides were captured by
+    // an extractor that reads them (the key is present, null or not), so a field
+    // reproduced with no placeholder is a delta and a pre-20 reference stays inert.
+    if (exp.placeholderText !== undefined && act.placeholderText !== undefined) {
+      const expPh = exp.placeholderText ?? null
+      const actPh = act.placeholderText ?? null
+      if (expPh !== actPh) push(exp, 'placeholderText', expPh ?? '(none)', actPh ?? '(none)')
     }
     // BUG-27 — the painted media handle. Compared by mirrored basename because the
     // two sides legitimately name the same bytes differently: the reference carries

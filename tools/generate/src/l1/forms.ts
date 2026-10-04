@@ -64,6 +64,13 @@ export interface FoldedFormField {
    * pushes every field below it down, so the whole form drifts.
    */
   labelMode: 'visible' | 'placeholder'
+  /**
+   * REQ-383 — the words the reference paints INSIDE a visibly-labelled box, when
+   * they are not the label: "Your Name*" above and "Enter your name" inside are
+   * two facts, and `labelMode` can only place the one label. Absent when the
+   * control has no placeholder, or when the placeholder IS the label.
+   */
+  placeholder?: string
 }
 
 /** A form the fold recovered: the slot it mounts at, plus its derived config. */
@@ -244,7 +251,11 @@ export function foldedFormFor(slot: string, group: ControlRow[], form: L1Node): 
     while (used.has(name)) name = `${name}-${i + 1}`
     used.add(name)
     const labelMode = el.nameSource === 'placeholder' ? 'placeholder' : 'visible'
-    return { name, label: label || `Field ${i + 1}`, type, labelMode }
+    const field: FoldedFormField = { name, label: label || `Field ${i + 1}`, type, labelMode }
+    // REQ-383 — a placeholder-labelled control's placeholder is its label already.
+    const placeholder = el.placeholderText?.trim()
+    if (placeholder && labelMode === 'visible') field.placeholder = placeholder
+    return field
   })
 
   const folded: FoldedForm = { slot, behavior: 'contact-form', fields, form, residuals }

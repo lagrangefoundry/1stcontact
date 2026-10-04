@@ -53,6 +53,7 @@ export function contactForm({
           name: String(f.name ?? ''),
           label: String(f.label ?? ''),
           labelMode: f.labelMode === 'placeholder' ? 'placeholder' : 'visible',
+          ...(typeof f.placeholder === 'string' && f.placeholder ? { placeholder: f.placeholder } : {}),
           type: ((FIELD_TYPES as readonly string[]).includes(f.type as string)
             ? (f.type as string)
             : 'text') as ContactFormField['type'],

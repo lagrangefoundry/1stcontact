@@ -238,6 +238,9 @@ function toField(f: RawField): Field {
     // REQ-265 — the placeholder's rendered ink. Carried verbatim; the fold writes
     // it onto the control's axes and the renderer paints the pseudo-element with it.
     placeholderColor: f.placeholderColor,
+    // REQ-383 — the placeholder's words, carried verbatim; the fold writes them
+    // onto the form field and values-diff compares them.
+    placeholderText: f.placeholderText,
     // REQ-269 — the control's content inset. Carried verbatim, exactly as a text
     // run's padding is; the fold writes it onto the control leaf's `padding` axis.
     paddingTopPx: f.paddingTopPx,

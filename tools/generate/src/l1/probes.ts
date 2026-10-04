@@ -51,6 +51,7 @@ import {
   type L1ViewportResponse,
 } from '@1stcontact/site-schema'
 import {
+  CAPTURED_BACKDROP_ID_PREFIX,
   classifyElement,
   FULL_BLEED_TOLERANCE_PX,
   hasTextSubstance,
@@ -2118,9 +2119,10 @@ export function sampleFidelityProbe(
   const unmatched: Array<{ text: string; width: number }> = []
   const mounted: Array<{ text: string; width: number }> = []
   let maxDelta = 0
+  const ownedBackdrops = ownedBackdropPaths(doc)
 
   for (const width of widths) {
-    const { leaves } = evaluateLayout(doc, width, { measured: options.measured })
+    const { leaves, boxes } = evaluateLayout(doc, width, { measured: options.measured })
     // REQ-88 — the rects a behavior module mounts into. Oracle text inside one is
     // the behaviour's markup, not L1's, so it is set aside rather than graded.
     const slotBoxes = leaves.filter((l) => l.kind === 'slot').map((l) => l.box)
@@ -2181,10 +2183,21 @@ export function sampleFidelityProbe(
     // was graded against its neighbour's box. Within a kind the pairing is
     // therefore GEOMETRIC — best overlap first, one-to-one — and document order
     // only breaks ties and pairs what overlaps nothing.
+    //
+    // REQ-383 — a captured backdrop that OWNS its runs is a structural node, not a
+    // leaf, but it is still the captured element its oracle `box` sample was read
+    // from: it goes in the `box` queue from its resolved rect, in document order.
+    const nonText: Array<{ path: string; kind: string; box: EvalBox }> = [
+      ...leaves
+        .filter((l) => (l.kind === 'image' || l.kind === 'box') && !isSynthesizedSurfaceId(l.id))
+        .map((l) => ({ path: l.path, kind: l.kind as string, box: l.box })),
+      ...[...ownedBackdrops].flatMap((path) => {
+        const box = boxes.get(path)
+        return box && box.width > 0 && box.height > 0 ? [{ path, kind: 'box', box }] : []
+      }),
+    ].sort((a, b) => comparePaths(a.path, b.path))
     const nonTextLeaves = new Map<string, EvalBox[]>()
-    for (const l of leaves) {
-      if (l.kind !== 'image' && l.kind !== 'box') continue
-      if (isSynthesizedSurfaceId(l.id)) continue
+    for (const l of nonText) {
       const q = nonTextLeaves.get(l.kind)
       if (q) q.push(l.box)
       else nonTextLeaves.set(l.kind, [l.box])
@@ -2781,15 +2794,36 @@ function staysPut(node: L1Node): boolean {
 function synthesizedSurfacePaths(doc: L1Document): Map<string, string> {
   const out = new Map<string, string>()
   const walk = (node: L1Node, path: string): void => {
-    // REQ-332 — a captured backdrop is a backing surface here too. It is a leaf
-    // today, so the escape probe finds it in the leaf scan either way; keyed on
-    // the narrower predicate this map would disagree with the attribution that
-    // populates it the moment one ever owns its content.
+    // REQ-332 — a captured backdrop is a backing surface here too. One that
+    // carries a band owns its content (REQ-383), and is then found only here.
     if (isBackingSurfaceId(node.id)) out.set(path, node.id!)
     childrenOf(node).forEach((child, i) => walk(child, `${path}.${i}`))
   }
   walk(doc.root, '0')
   return out
+}
+
+/**
+ * REQ-383 — the paths of every captured backdrop that owns content: a structural
+ * node with a captured element of its own (see {@link sampleFidelityProbe}).
+ */
+function ownedBackdropPaths(doc: L1Document): Set<string> {
+  const out = new Set<string>()
+  const walk = (node: L1Node, path: string): void => {
+    const kids = childrenOf(node)
+    if (kids.length && node.id?.startsWith(CAPTURED_BACKDROP_ID_PREFIX)) out.add(path)
+    kids.forEach((child, i) => walk(child, `${path}.${i}`))
+  }
+  walk(doc.root, '0')
+  return out
+}
+
+/** Document order of two node paths (`0.2.10` after `0.2.9`; a parent before its children). */
+function comparePaths(a: string, b: string): number {
+  const pa = a.split('.').map(Number)
+  const pb = b.split('.').map(Number)
+  for (let i = 0; i < Math.min(pa.length, pb.length); i++) if (pa[i] !== pb[i]) return pa[i] - pb[i]
+  return pa.length - pb.length
 }
 
 /** A node's children, for the two kinds that have them. */
@@ -3683,7 +3717,10 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
     if (options.only === path) {
       const promotable = [...pinned].filter((i) => !staysPut(children[i]))
       components.splice(0, components.length, ...(promotable.length > 0 ? [promotable] : []))
-    } else if (path === '0' || isSynthesizedSurfaceId(node.id)) {
+    } else if (path === '0' || isBackingSurfaceId(node.id)) {
+      // REQ-383 — a captured backdrop that carries a band owns its runs as the
+      // band would have (fold.ts `nestBackingSurfaces`), so it is a section here
+      // exactly as the band would have been.
       // Where collisions were found they already define the regions, and every
       // other pinned child flows beside them (see `plan`); what was missing is
       // the node with no collision at all, which was left entirely pinned.
@@ -3724,6 +3761,8 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
     type Item = { region: number; bands: number[][] }
     interface Plan {
       absolute: number[]
+      /** REQ-383 — the children already in flow, kept where they were. */
+      inFlow: number[]
       cells: number[][]
       bands: number[][]
       items: Item[]
@@ -3743,8 +3782,12 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
     const plan = (): Plan => {
       const flowing: number[] = []
       const absolute: number[] = []
+      const inFlow: number[] = []
       children.forEach((c, i) => {
-        if (!isPinned(c)) return
+        if (!isPinned(c)) {
+          inFlow.push(i)
+          return
+        }
         if (staysPut(c)) absolute.push(i)
         else flowing.push(i)
       })
@@ -3795,6 +3838,17 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
       const cursor = new Map<number, number>(
         widths.map((w) => [w, (borderTops.get(w) ?? 0) + inset.top]),
       )
+      // REQ-383 (issue 2) — a child already in flow precedes the recovered flow
+      // in the rebuilt node (see `rebuiltChildren`), so the cursor starts past
+      // the space it takes. A REQ-377 pin rail is page-tall, and the first
+      // flowed band's lead comes out negative by exactly that much — which puts
+      // it where the capture did, at every sampled width.
+      for (const i of inFlow) {
+        for (const w of widths) {
+          const box = visibleBox(i, w)
+          if (box) cursor.set(w, Math.max(cursor.get(w)!, box.y + box.height))
+        }
+      }
       const rowAt = new Map<number, Map<number, boolean>>()
       const cellLeads = new Map<number, Lead[]>()
       const memberLeads = new Map<number, Lead[]>()
@@ -3861,10 +3915,10 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
           cursor.set(w, placed.bottom)
         }
       }
-      return { absolute, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom: cursor }
+      return { absolute, inFlow, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom: cursor }
     }
 
-    const { absolute, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom } = plan()
+    const { absolute, inFlow, cells, bands, items, rowAt, cellLeads, memberLeads, contentBottom } = plan()
 
     /**
      * REQ-278 — the segments of the ladder the flow is DISCONTINUOUS across.
@@ -3896,6 +3950,13 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
      * at a width the capture never saw.
      */
     const discontinuous = new Set<number>()
+    // REQ-383 — every lead after a kept in-flow child absorbs that child's extent,
+    // so where its own track snaps, theirs must too.
+    for (const i of inFlow) {
+      geometryOf(children[i])?.segments?.forEach((seg, k) => {
+        if (seg === 'snap') discontinuous.add(k)
+      })
+    }
     for (const band of bands) {
       const modes = rowAt.get(band[0])!
       for (let i = 0; i < widths.length - 1; i++) {
@@ -3956,9 +4017,11 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
     }
 
     const emitted: L1Node[] = []
-    // The fills are re-attached AHEAD of the flow (see below), so every recovered
-    // region's reported path counts from after them.
-    const flowBase = absolute.length
+    // The fills, and the children already in flow, are re-attached AHEAD of the
+    // flow (see below), so every recovered region's reported path counts from
+    // after them.
+    const kept = children.map((_, i) => i).filter((i) => absolute.includes(i) || inFlow.includes(i))
+    const flowBase = kept.length
     // BUG-9's reporting contract, kept: one region covering every child means the
     // NODE is the region, and its bare path is what the report names. A region
     // that shares the node with survivors or with a fill is named by its own
@@ -3988,7 +4051,13 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
     // exactly where they were: they are out of flow, so their position in the
     // child list decides only paint order, and painting them first is what makes
     // them backgrounds.
-    const rebuiltChildren = [...absolute.map((i) => children[i]), ...emitted]
+    //
+    // REQ-383 (issue 2) — so is a child that was ALREADY in flow (a REQ-377 pin
+    // rail), in its original order among them. It used to be in neither list and
+    // was silently dropped, taking the sticky header and everything pinned in it
+    // out of the recovered page. Ahead of the flow is where the cursor (see
+    // `plan`) already counted it.
+    const rebuiltChildren = [...kept.map((i) => children[i]), ...emitted]
     const rebuilt =
       node.kind === 'container'
         ? { ...node, layout: 'stack' as const, responsiveLayout: undefined, gapPx: 0, children: rebuiltChildren }

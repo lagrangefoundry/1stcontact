@@ -68,6 +68,10 @@ export const contactFormMeta = {
         // it is a captured FACT about the control's accessible name, and the a11y
         // tree is its only witness.
         labelMode: { type: 'enum', required: false, values: ['visible', 'placeholder'], default: 'visible' },
+        // REQ-383 — the words painted inside the box when they are not the label
+        // (a field labelled "Your Name*" above that says "Enter your name"
+        // within). Like `label`, copy the module escapes; never markup.
+        placeholder: { type: 'string', required: false },
         // THE VALUES COME FROM THE MODULE THAT NAMES THEM ([[REQ-223]]). A list
         // restated here is a second answer to what a field type is, and the half
         // that drifts is whichever one the next type is not added to.

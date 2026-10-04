@@ -633,6 +633,12 @@ export interface Field extends ElementGeometry {
    *  describes it and no geometry field can see it. Optional so pre-REQ-265
    *  bundles still parse. */
   placeholderColor?: string | null
+  /** REQ-383 — the words the control paints inside its box (its `placeholder`
+   *  attribute), else null. Recorded independently of {@link nameSource}: a
+   *  control named by a visible `<label>` can still paint different words inside
+   *  itself, and the one-name a11y read kept only the label. Optional so pre-20
+   *  bundles still parse. */
+  placeholderText?: string | null
   /** REQ-269 — the element's own per-side padding, as a text run has carried all
    *  along. On a form control this is the content inset the placeholder and the
    *  typed text sit in; captured on a text-free element for the first time here,

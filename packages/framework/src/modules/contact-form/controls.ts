@@ -23,6 +23,8 @@ export interface ContactFormField {
   name: string
   label: string
   labelMode: 'visible' | 'placeholder'
+  /** REQ-383 — the words painted inside the box, when they are not the label. */
+  placeholder?: string
   type: ContactFormFieldType
   required: boolean
 }
@@ -50,7 +52,11 @@ export function contactFormControls(
     // inside the box. The `<label>` stays in the DOM regardless — the a11y
     // obligation is not negotiable — but it is visually hidden (see the module's
     // invariant elements).
-    const placeholder = field.labelMode === 'placeholder' ? field.label : undefined
+    //
+    // REQ-383 — the words painted INSIDE the box are their own fact: a field
+    // labelled above may still say something else within, and when it does, that
+    // is what goes in. `labelMode` keeps deciding only where the label goes.
+    const placeholder = field.placeholder || (field.labelMode === 'placeholder' ? field.label : undefined)
     const id = controlId(field.name)
     if (field.type === 'textarea') {
       controls[field.name] = {
