@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:12:43.103328+00:00'
+updated_at: '2026-10-04T01:14:17.047728+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6740,5 +6740,11 @@ I've added deletion to BUG-196 rather than filing a separate ticket.
 - **She can delete only what you can.**
 
 Two tests cover it: deleting an item removes it from Alice's Library list, and deleting an item that's in use leaves it on the page.
+
+<!-- xgd-turn id="390f623f-4903-41b3-bd80-dcdfa133dcad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:14:15.958063+00:00" -->
+#### You
+Yes I do is is weirdly a link - it should be a clear and dangerous looking CTA like a red trash can or similar
 
 <!-- xgd-chat-end -->
