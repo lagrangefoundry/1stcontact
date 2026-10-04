@@ -6,13 +6,14 @@ title: 'The consultant and the coordinator: roles, the plan, the decisions, and 
   a build runs'
 created_by: CHAT-58
 created_at: '2026-10-01T21:03:32.795277+00:00'
-updated_at: '2026-10-04T02:43:58.584418+00:00'
+updated_at: '2026-10-04T21:27:52.364937+00:00'
 completed_at: null
 last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
 ---
+
 
 # The consultant and the coordinator: how we build a site together
 
@@ -274,7 +275,7 @@ The consultant answers with a position and, if the answer is no, what it would d
 
    Clients often say "website" when they mean "more customers". Record what they say; the diagnosis (whether a website change is really what will help) is the consultant's. Everything goes in the plan, with quotes in the body.
 2. **Plan.** The consultant reads the brief and drafts tasks. The coordinator makes sure every concept decision is covered by some task.
-3. **Comp review** — the step before the first build ([[REQ-378]]). The consultant and the client look at three or four real comparable sites ("comps") in the client's trade and area. The consultant asks *"Who do you lose jobs to? Whose site have you looked at and thought 'that's what I want'?"*, then proposes a range: one national chain, one or two strong local independents (found by searching the web, never from memory), and one outlier that shows the options, such as a clean premium site. Each comp is captured and put on the plan panel's comp board, and the client can add their own. The client opens each one in the preview pane, and their likes and dislikes are recorded on it in their own words. The conventions the client agrees with ("dense services grid, phone in three places, reviews near the top, no coupons") become the `visual_concept` decision, linked to the comps that shaped them, and features the comps bring up go into `functionality`. Work from each comp's written description, and take screenshots sparingly.
+3. **Comp review** — the step before the first build ([[REQ-378]]). The consultant and the client look at three or four real comparable sites ("comps") in the client's trade and area. The consultant asks *"Who do you lose jobs to? Whose site have you looked at and thought 'that's what I want'?"*, and in the same turn searches the web itself for strong businesses in the client's trade and town ([[BUG-202]]): the client's sites add to the consultant's search, they never replace it. Together they aim for a range: one national chain, one or two strong local independents (found by searching the web, never from memory), and one outlier that shows the options, such as a clean premium site. Each comp is captured and put on the plan panel's comp board, and the client can add their own. Every comp appears in the conversation as a tile (its hero thumbnail, its name and address, and a link that opens the real site), including a site whose capture failed, and the consultant invites the client to open the real site, with its motion and clutter, before asking what they like and dislike. Their likes and dislikes are recorded on it in their own words. The conventions the client agrees with ("dense services grid, phone in three places, reviews near the top, no coupons") become the `visual_concept` decision, linked to the comps that shaped them, and features the comps bring up go into `functionality`. Work from each comp's written description, and take screenshots sparingly.
 4. **First pass** (`phase: first_pass`). The consultant builds a fast, rough, complete version of one page, following the conventions the comp review agreed. Choices it makes are `defaulted`. The coordinator keeps the client oriented while it works.
 5. **First review.** The coordinator fires the first-pass checks. The consultant answers honestly against the brief. The client reacts to what they can see.
 6. **Revision rounds** (`phase: revision`).
