@@ -6,10 +6,10 @@ title: 'values-diff: a div colour panel is never recorded on the reproduction si
   and a run''s surface extent is compared nowhere'
 created_by: repro-console:repro-www-hearingzone510-com#3
 created_at: '2026-10-04T15:05:20.439713+00:00'
-updated_at: '2026-10-04T15:05:20.439713+00:00'
+updated_at: '2026-10-04T15:30:02.368915+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: body
+status: free_coding
 fields:
   defect_class:
   - instrument-asymmetric
@@ -45,3 +45,25 @@ Both carry the same `surfaceGradient`. The run's `values-diff.json` object compa
 **Proposed.** Compare `surface.box` per text run when either side's `surface.self` is false, with a tolerance on each edge (a few px). Also compare `surfaceFill`/`surfaceGradient` when they are present on either side. **This will add deltas.** On this bundle it adds at least this run's surface box, and it turns a 0-delta 48% region into a measured one.
 
 **See it.** `python3 -c "import json;[print(f,[e['surface']['box'] for e in json.load(open('storage/tmp/repro-console/repro-www-hearingzone510-com/iteration-3/diff/'+f))['elements'] if 'Learn to train' in (e.get('text') or '')]) for f in ('expected-manifest.json','actual-manifest.json')]"` shows the two different boxes. `grep -c surface` over that run's `params` names in `values-diff.json` `objects` is 0 now. When fixed, a `surface` param appears and mismatches until the gap ticket's issue 1 lands.
+
+
+## Resolution (free-coded)
+
+Both fixes are in `tools/generate/src/cli/capture/values-diff.ts`. The extractor is unchanged: admitting colour-only boxes as fields would change what the fold emits on reference pages. The asymmetry is reconciled where the two records meet instead.
+
+**Item 1: an unmatched reference panel pairs against a run surface of ours.** A textless reference record that has a `surfaceFill`, a box, and no background image may find no field of ours to pair with, by name or by box overlap. When that happens it is paired against the painted surface behind our runs (`surface` with `self: false`, carrying the run's `surfaceFill`). The pairing uses the same box-overlap floor that field pairing uses (IoU ≥ 0.25). Each surface is taken at most once, and coincident surfaces count once. The pair is then compared like any field pair (fill ΔE, position, size), so a panel we paint in the wrong colour or rect still reports, but it no longer reads as `missing`. When no surface of ours overlaps the panel, it stays an honest `missing`. On this bundle: `unmatched` 2 → 0, CRITICAL `missing` 2 → 0, and no other delta changes.
+
+**Item 2: a run's surface extent is a compared axis, `surfaceBox`.** The kind is `size` and the value type is B. It is compared per text run whenever both sides recorded a `surface` and the run does not paint its own surface on both sides. Two cases are excluded because existing checks already judge them: the split control (BUG-22) and the invented plate (BUG-190). Only the **side edges** (left and right) are compared, with a 4px tolerance. Vertical edges are deliberately not compared, because a reproduction legitimately builds one band as a vertical stack of same-fill slabs. Comparing all four edges added 40 HIGH false deltas on this bundle over identical pixels, and a slab with a different fill is already reported by `surfaceFill`/`surfaceGradient`. Every text run's object card gains a `surface` row showing both sides' surface rect. On this bundle the header run "Learn to train your brain to hear better." now reports `surfaceBox (0, 0) 1280×40 → (464, 8) 352×23` (HIGH). It is the only delta added.
+
+**Item 2 (fill): a fill on exactly one side is a delta.** `surfaceFill` on a text run used to be compared only when both sides carried a colour. It now also reports when both sides *measured* it and exactly one paints a fill (`null` = measured none, shown as `(none)`). Absent (`undefined`, not recorded) stays inert. `surfaceGradient` was already compared whenever the reference recorded it. On this bundle the header run's reference has no `surfaceFill` recorded, so this rule does not fire there.
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-198_surface_pairing_and_extent.test.ts` runs `diffManifests` on fixtures built from this bundle's manifest values:
+- A reference SVG panel with an identical run surface of ours: paired, zero `missing`, `unmatched` 0.
+- The same panel with a differently filled surface: paired, with a `surfaceFill` delta.
+- A panel with no overlapping surface: still `missing`.
+- The header run on a full-bleed bar against ours on a run-sized card: a `surfaceBox` delta, and the card's `surface` row is mismatched.
+- A run on a same-fill vertical slab of the reference band: no `surfaceBox`.
+- A fill on exactly one side, both measured: a `surfaceFill` delta. A fill not recorded on one side: none.
+Regression scope: every `tests/*values-diff*` suite plus the BUG-190, BUG-197 and REQ-370 UATs.
