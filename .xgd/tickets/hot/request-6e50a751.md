@@ -7,9 +7,9 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T15:18:26.843587+00:00'
+updated_at: '2026-10-04T15:18:32.175175+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -27,6 +27,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.479
+  story_points: 5
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#2` (reproduction console, loop 1, iteration 2).
