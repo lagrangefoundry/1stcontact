@@ -846,7 +846,22 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return null;
   }
+  //
+  // REQ-381 -- THE ONE THAT CUTS, NOT MERELY THE NEAREST. Elementor/Swiper put
+  // \`overflow: hidden\` on every slide AND on the \`.swiper\` around them, so the
+  // nearest clipper of a slide's copy was always its own slide: one id per slide,
+  // each box wholly containing its copy, and the fold rightly concluded nothing
+  // escapes anything -- while the \`.swiper\` that does cut the off-screen slides
+  // was never recorded on them (joyfulculinarycreations.com: 70 layout findings,
+  // the whole structural-failure verdict with issue 2). So an overflow box that
+  // wholly contains the element, on every axis it clips, is passed over; the
+  // first one the element escapes is recorded. When none cuts, the nearest is
+  // still the answer, so content that fits reads exactly as it did. An element
+  // with no area is not tested -- a 0x0 box at the origin escapes everything.
   function clipOf(el) {
+    var own = absBox(el);
+    var sized = own.width > 0 && own.height > 0;
+    var nearest = null;
     var node = el;
     while (node && node.nodeType === 1 && node !== document.documentElement) {
       var cs = getComputedStyle(node);
@@ -854,11 +869,16 @@ export const EXTRACT_SCRIPT = `(() => {
       var oy = cs.overflowY || 'visible';
       if (ox !== 'visible' || oy !== 'visible') {
         var b = absBox(node);
-        return { id: nodePathOf(node), x: b.x, y: b.y, width: b.width, height: b.height };
+        var rec = { id: nodePathOf(node), x: b.x, y: b.y, width: b.width, height: b.height };
+        if (!sized) return rec;
+        if (!nearest) nearest = rec;
+        var cutsX = ox !== 'visible' && (own.x < b.x - 1 || own.x + own.width > b.x + b.width + 1);
+        var cutsY = oy !== 'visible' && (own.y < b.y - 1 || own.y + own.height > b.y + b.height + 1);
+        if (cutsX || cutsY) return rec;
       }
       node = node.parentElement;
     }
-    return null;
+    return nearest;
   }
   // REQ-265 -- an inline element's rect is its CONTENT AREA, not its line box.
   //

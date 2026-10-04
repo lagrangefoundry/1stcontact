@@ -2965,16 +2965,21 @@ function buildSolidBands(
       // to serve the whole ladder: a band that grew with the viewport at the two
       // widest widths and not below was described as not growing anywhere. Per
       // keyframe there is nothing to reconcile, so the gate goes with the field.
+      //
+      // REQ-381 (issue 2) — A MEASURED TOP IS NOT DISCARDED WITH AN UNMEASURED
+      // BOTTOM. A band sliced by fill group can close mid-section, where no edge
+      // was probed; it used to get no response at all, so a band whose top
+      // travels 1:1 with the viewport was pinned while every run on it moved
+      // (joyfulculinarycreations.com `section-band-2`: 32 escapes). With only the
+      // top known, the band translates with it and its height is left alone.
       const edges = vh ? edgeResponses.get(w) : undefined
-      if (edges) {
-        const fTop = edges.get(Math.round(top))
-        const fBottom = edges.get(Math.round(bottom))
-        if (fTop !== undefined && fBottom !== undefined) {
-          const r: L1ViewportResponse = {}
-          if (Math.abs(fTop) >= 0.005) r.yFactor = fTop
-          if (Math.abs(fBottom - fTop) >= 0.005) r.heightFactor = fBottom - fTop
-          if (r.yFactor !== undefined || r.heightFactor !== undefined) kf.viewportResponse = r
-        }
+      const fTop = edges?.get(Math.round(top))
+      if (fTop !== undefined) {
+        const fBottom = edges!.get(Math.round(bottom))
+        const r: L1ViewportResponse = {}
+        if (Math.abs(fTop) >= 0.005) r.yFactor = fTop
+        if (fBottom !== undefined && Math.abs(fBottom - fTop) >= 0.005) r.heightFactor = fBottom - fTop
+        if (r.yFactor !== undefined || r.heightFactor !== undefined) kf.viewportResponse = r
       }
       keyframes.push(kf)
       present.push(w)
