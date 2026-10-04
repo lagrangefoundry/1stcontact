@@ -6,19 +6,25 @@ title: Tell the user before any long-running operation, with a rough duration (1
   / 5 min / 30 min)
 created_by: xgd
 created_at: '2026-10-04T18:30:59.347301+00:00'
-updated_at: '2026-10-04T21:00:53.555910+00:00'
+updated_at: '2026-10-04T21:01:54.360851+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   epic_parent: epic-95bc3b15
   chat_comment: comment-fd4f41e6
+  commits:
+  - working_sha: 0631e7e34a9ef776e6f84731e2b144dd8ad75120
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 72d73a8d340d4886d396249cc773385877af723d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.491
 ---
-
-
 
 ## What we were trying to do
 During a consultation, the consultant agent made several `capture_site` calls back to back in one turn. Two of them timed out and were retried. The turn lasted about 20 minutes, and the user saw nothing: no message saying work had started, nothing about what was happening, and no idea how long it would take.
