@@ -1327,6 +1327,36 @@ async function runTool(box: Untyped, name: string, input: Record<string, unknown
  * and — since delegation — every worker's, and all three want exactly this. Three
  * copies of a projection is how one of them silently stops matching its box.
  */
+/**
+ * How many web searches one consultant backend may run ([[REQ-378]]) — the
+ * framework's `max_uses` cap. A comp review is three or four sites found among a
+ * few searches; twenty leaves room for a second round without leaving the meter
+ * open. Each search is billed and recorded in `turn_spend`.
+ */
+export const CONSULTANT_WEB_SEARCHES = 20
+
+/**
+ * Web search, as the consultant backend's own surface ([[REQ-378]],
+ * lagrange-framework REQ-206).
+ *
+ * THE BACKEND'S TOOLBOX AND NOT THE HOST'S. The provider runs the search, so
+ * there is no handler for {@link toolSet} to wrap: what the backend needs is the
+ * `web` surface in its own Toolbox, which declares the tool to the provider in
+ * the provider's form, offers it only where the adapter's `capabilities` say it
+ * can search, and spends each search against the cap.
+ *
+ * THE GRANT TRAVELS WITH THE SURFACE, for [[REQ-228]]'s reason: `web` is the
+ * framework's surface, and an `instances.json` entry for it is a grant the in-repo
+ * declaration validator cannot check.
+ */
+function webSearchFor(lib: Untyped): Record<string, unknown> {
+  if (!lib.WebToolbox || !lib.webInstanceConfig) return {}
+  return {
+    surfaces: [new lib.WebToolbox()],
+    toolConfig: lib.webInstanceConfig({ maxUses: CONSULTANT_WEB_SEARCHES }),
+  }
+}
+
 function toolSet(lib: Untyped, box: Untyped): Untyped[] {
   const schemas = box.schemas() as Record<
     string,
@@ -1972,6 +2002,7 @@ async function build(
               // library's own message rather than at construction.
               ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
               tools: toolSet(lib, box),
+              ...webSearchFor(lib),
             }),
             cadenceHooks(deps, slug),
           ),

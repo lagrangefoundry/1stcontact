@@ -285,3 +285,34 @@ describe('REQ-378 — the consultant keeps the comp board', () => {
     expect((await (await tickets()).get({ uid: comp.reference })).ticket.type).toBe('reference')
   })
 })
+
+describe('REQ-378 — the consultant can search the web', () => {
+  it('test_UAT_FC_REQ-378_the_consultant_is_granted_web_search_and_each_search_is_priced', async () => {
+    const { sessionId } = await site()
+    // One request that ran two searches, reported where Anthropic reports them.
+    const searched: ModelStep = (req) => [
+      { type: 'message_start', message: { usage: { input_tokens: 100 } } },
+      ...says('I found three plumbers near you.')(req),
+      { type: 'message_delta', usage: { output_tokens: 10, server_tool_use: { web_search_requests: 2 } } },
+    ]
+    const seen = await turn(sessionId, 'Find local plumbers like me.', [searched])
+
+    // GRANTED ON THE BACKEND THAT OFFERS IT: the provider's own tool, in its own
+    // form, capped per session by configuration.
+    const tools = ((seen[0] as unknown as { tools?: Record<string, unknown>[] }).tools ?? [])
+    const search = tools.find((t) => t.name === 'web_search')
+    expect(search, 'web_search is in the consultant request').toBeDefined()
+    expect(String(search!.type)).toMatch(/^web_search_/)
+    expect(search!.max_uses).toBe(20)
+
+    // METERED: the searches are counted beside the tokens and priced at the
+    // per-search rate — 100 x 4 + 10 x 20 + 2 x 10,000 micros on claude-opus-5-5.
+    const row = await (env.DB as D1Database)
+      .prepare('SELECT model, web_search_requests, cost_micros FROM turn_spend WHERE session_id = ?')
+      .bind(sessionId)
+      .first<{ model: string; web_search_requests: number; cost_micros: number }>()
+    expect(row).toMatchObject({ web_search_requests: 2 })
+    expect(row!.model).toBe('claude-opus-5-5')
+    expect(row!.cost_micros).toBe(100 * 4 + 10 * 20 + 2 * 10_000)
+  })
+})

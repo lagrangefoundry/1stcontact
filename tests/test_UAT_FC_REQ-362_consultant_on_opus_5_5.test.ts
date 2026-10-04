@@ -32,6 +32,8 @@ describe('REQ-362 — consultant on Opus 5.5, each role priced at its own backen
       output: 20,
       cache_read: 0.2,
       cache_write: 5,
+      // [[REQ-378]] — $10 per 1,000 web searches, in the same per-million unit.
+      web_search: 10_000,
     })
     // The 1M window resolves — from the framework's table once it knows the
     // model, from the entry's declared `context_window` until then.

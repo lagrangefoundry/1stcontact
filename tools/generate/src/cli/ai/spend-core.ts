@@ -53,6 +53,10 @@ export const COUNTER_KEYS = [
   'output_tokens',
   'cache_read_input_tokens',
   'cache_creation_input_tokens',
+  // [[REQ-378]] — the web searches the provider ran inside the turn (lagrange-
+  // framework REQ-206). Not tokens, but billed per use and reported as a usage
+  // counter beside them, so it is priced and stored the same way.
+  'web_search_requests',
 ] as const
 
 export type CounterKey = (typeof COUNTER_KEYS)[number]
@@ -73,7 +77,15 @@ export const RATE_OF: Record<CounterKey, string> = {
   output_tokens: 'output',
   cache_read_input_tokens: 'cache_read',
   cache_creation_input_tokens: 'cache_write',
+  web_search_requests: 'web_search',
 }
+
+/**
+ * The counters a price entry may leave unpriced ([[REQ-378]]): a backend that
+ * cannot search reports zero searches, so its entry need not name a search rate.
+ * A turn that DID search under an entry with no rate is unpriced, never free.
+ */
+const OPTIONAL_RATES: ReadonlySet<CounterKey> = new Set(['web_search_requests'])
 
 /** The price table as loaded — exported so a UAT can assert against the document. */
 export { priceDocument }
@@ -219,8 +231,8 @@ export function ratesFor(backend: string, model: string): Rates | null {
   const out: Rates = {}
   for (const key of COUNTER_KEYS) {
     const rate = (rates as Record<string, unknown>)[RATE_OF[key]]
-    if (typeof rate !== 'number' || !Number.isFinite(rate)) return null
-    out[RATE_OF[key]] = rate
+    if (typeof rate === 'number' && Number.isFinite(rate)) out[RATE_OF[key]] = rate
+    else if (!OPTIONAL_RATES.has(key)) return null
   }
   return out
 }
@@ -238,7 +250,15 @@ export function costMicros(usage: TurnCounters, backend: string, model: string):
   const rates = ratesFor(backend, model)
   if (rates === null) return null
   let micros = 0
-  for (const key of COUNTER_KEYS) micros += usage[key] * rates[RATE_OF[key]]
+  for (const key of COUNTER_KEYS) {
+    const rate = rates[RATE_OF[key]]
+    // [[REQ-378]] — searches run under an entry that names no search rate.
+    if (rate === undefined) {
+      if (usage[key] > 0) return null
+      continue
+    }
+    micros += usage[key] * rate
+  }
   return Math.round(micros)
 }
 

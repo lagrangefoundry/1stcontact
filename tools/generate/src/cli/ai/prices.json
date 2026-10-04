@@ -56,7 +56,13 @@
     "",
     "`claude-opus-5` stays under `claude` after the consultant moved to opus-5-5",
     "([[REQ-362]]): rows already written keep their counters, and re-pricing one",
-    "needs the rate of the model it actually ran on."
+    "needs the rate of the model it actually ran on.",
+    "",
+    "WEB SEARCH IS THE FIFTH RATE ([[REQ-378]]), on the backend whose consultant may",
+    "search. It is billed per search, not per token: $10 per 1,000 searches (Anthropic,",
+    "2026-10-03; a failed search is not billed) is 10,000 dollars per MILLION searches,",
+    "so it sits in the same unit as the token rates and `count x rate` is still micros.",
+    "An entry that names no search rate prices a turn that searched as unpriced."
   ],
 
   "claude": {
@@ -64,19 +70,22 @@
       "input": 4,
       "output": 20,
       "cache_read": 0.2,
-      "cache_write": 5
+      "cache_write": 5,
+      "web_search": 10000
     },
     "claude-opus-5": {
       "input": 5,
       "output": 25,
       "cache_read": 0.5,
-      "cache_write": 6.25
+      "cache_write": 6.25,
+      "web_search": 10000
     },
     "claude-sonnet-5": {
       "input": 3,
       "output": 15,
       "cache_read": 0.3,
-      "cache_write": 3.75
+      "cache_write": 3.75,
+      "web_search": 10000
     }
   },
 

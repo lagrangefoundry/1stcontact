@@ -79,7 +79,9 @@ export function rowFor(tenantId: string, record: TurnSpendRecord): unknown[] {
     record.model,
     record.outcome,
     record.requests,
-    ...COUNTER_KEYS.map((key) => record.usage[key]),
+    // ZERO FOR A COUNTER THE RECORD DOES NOT CARRY ([[REQ-378]]): a record built
+    // before `web_search_requests` existed ran no search, which is what zero says.
+    ...COUNTER_KEYS.map((key) => record.usage[key] ?? 0),
     // NULL AND NOT `'[]'` for a turn that delegated nothing. An empty array in
     // the column would read as "asked and found none", which is a different
     // claim from "this deployment has no delegation" — and only one of them is

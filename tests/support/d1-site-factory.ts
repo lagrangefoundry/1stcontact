@@ -200,8 +200,13 @@ const MIGRATIONS = [
   // [[REQ-368]] — `user_emails.verified_at` and `login_token_addresses`. Sign-in
   // records which address a link was mailed to and stamps it validated on redeem,
   // so a suite that skipped this file would fail on every issued link.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0026_login_email_verification.sql?raw'),
+  // [[REQ-378]] — `turn_spend.web_search_requests`, the fifth billed counter. The
+  // chat host writes it on every metered turn, so a suite that skipped this file
+  // would write no spend row at all — silently, because the meter swallows its
+  // own failure.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0027_turn_spend_web_search.sql?raw'),
 ]
 
 /**
@@ -324,9 +329,10 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  // `0026` ends in a `CREATE TABLE`, so the marker is that table ([[REQ-368]]).
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .bind('login_token_addresses')
+  // `0027` is an `ALTER TABLE ADD COLUMN`, so the marker is read from the
+  // table's shape ([[REQ-378]]).
+  const row = await DB.prepare("SELECT name FROM pragma_table_info('turn_spend') WHERE name = ?")
+    .bind('web_search_requests')
     .first<{ name: string }>()
   return row !== null
 }

@@ -1,0 +1,11 @@
+-- [[REQ-378]] — HOW MANY WEB SEARCHES A TURN RAN, beside its four token counters.
+--
+-- The consultant can now search the web (lagrange-framework REQ-206), and the
+-- provider bills each search on top of the tokens. The library reports the count
+-- as a fifth usage counter, `web_search_requests`, and `turn_spend` keeps every
+-- counter it is billed from, so a past period can be re-priced from the raw
+-- counts alone.
+--
+-- ZERO FOR EVERY EXISTING ROW, which is true rather than a guess: no turn before
+-- this column existed could search.
+ALTER TABLE turn_spend ADD COLUMN web_search_requests INTEGER NOT NULL DEFAULT 0;
