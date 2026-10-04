@@ -6,9 +6,9 @@ title: 'Builder: start with comparable sites — a comp board, viewed in the pre
   pane, with web search'
 created_by: EPIC-19
 created_at: '2026-10-04T00:14:10.660139+00:00'
-updated_at: '2026-10-04T03:01:35.441685+00:00'
+updated_at: '2026-10-04T04:22:01.697898+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -115,3 +115,14 @@ Agreed with the operator on 2026-10-03: build everything on the branch and hold 
 - `tests/test_UAT_FC_REQ-378_viewing_a_comp.test.ts`: the board UI (add, note); opening a comp gives the viewing mode with no edit or publish; the desktop/phone toggle; "Back to your draft" restores the same page.
 - `tests/test_UAT_FC_REQ-378_the_comp_review_method.test.ts`: the priming and DOC-64 name the comp review as the step before the first build.
 - Existing pins updated by design: REQ-356 (the plan schema gains `comps`) and REQ-362 (the consultant's price entry gains `web_search`). `test_UAT_FC_REQ-292_turn_price`, which had failed since REQ-206 added the counter, passes again.
+
+
+## Added 2026-10-03: the consultant's own view, from Charlie's Plumbing 2
+
+Asked out of character whether starting with comps would help, the consultant said yes. Its evidence: the client's "real plumber sites are FULL" note was the most useful input of the session and arrived about twenty turns in, so everything before it was built to a vague "clean" and then rebuilt dense. It added three refinements, which this ticket adopts:
+
+1. **The client's likes and dislikes are the brief.** Ask what feels like a real business, what feels cheap or pushy, and what they'd steal. (Already in §2, and confirmed.)
+2. **Comps set the level, not the template.** What a comp fixes is density and conventions: prices shown, licence near the top, services as tiles, how much proof sits above the fold. It must not become a copy of a local competitor's page. **The content always comes from the client.** And a convention is only taken up if the client's real material can fill it. If comps show star counts, award badges or "#1 in town", the consultant doesn't invent them. It uses the client's own reviews, licence and prices, or leaves the convention out. The priming and DOC-64 say this explicitly.
+3. **The mix includes a bad one.** This replaces §5's "an outlier that shows the options". The range is one big chain, one or two good locals, and **one site the client thinks is bad**. A site everyone agrees is bad pins down what to avoid as precisely as a good one shows what to aim for. The board records whether each comp is admired or avoided, so the consultant can tell which notes are positive and which are warnings.
+
+Additional UAT: a comp entry can be marked admired or avoided, and the consultant's next turn sees which.
