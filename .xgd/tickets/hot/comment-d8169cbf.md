@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T16:12:09.114591+00:00'
+updated_at: '2026-10-04T16:13:10.397259+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6905,5 +6905,19 @@ I've written it into **BUG-200**, *"Plan panel: a multi-select question collapse
 - **Single choices and typed answers** still save straight away, as now.
 
 Until it's fixed, the workaround for this run is to tick one box, then use "Change" on the answered question to add the rest one at a time. Or just tell Alice the features in the chat.
+
+<!-- xgd-turn id="36f8529f-b1a2-4ad6-b719-9868f1a3f6c7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T16:13:10.053896+00:00" -->
+#### You
+I hit this in the chat window: Getting to know your business
+
+### What you've told us
+
+Which of these does your site need?A contact formChange
+
+I am the creator of this tool and this is the first test session that we are attempting. We are going to create a new site Charlie's Plumbing it is a fictional Rotor Router and basic domestic plumbing company based in Santa Cruz. I am going to role play the owner and you are going to help me build a site. We may break character to discuss bugs and issues I will prefix messages that break character with bc - can you start by introducing your self and describing your process?
+
+*400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0.thinking: each thinking block must contain thinking"},"request_id":"req_011CfhVUpG9spBhfKnzWRDAs"}*
 
 <!-- xgd-chat-end -->
