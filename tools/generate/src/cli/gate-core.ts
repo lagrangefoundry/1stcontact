@@ -54,7 +54,7 @@ import {
 // here. The boxes a collision carries are the probe's own, unchanged, so the type
 // has to be the probe's own too: a structurally-identical local copy would let
 // the two drift and read to a caller as if they were different facts.
-import type { AcceptanceReport, EnvelopeReport, EvalBox } from '../l1/probes'
+import type { AcceptanceReport, EnvelopeReport, EvalBox, FidelityDelta, SampleFidelityReport } from '../l1/probes'
 import { mountBehaviours } from '../l1/forms'
 import type { FoldedForm } from '../l1/forms'
 import type { ReferenceBundle } from '../store/reference-store'
@@ -205,8 +205,23 @@ export interface LayoutCollision {
    * BUG-197 — `declared-backing-uncovered`: a `backedBy` the fold wrote that is
    * already false at a captured width, named apart from `escape` because nothing
    * moved — the fold chose the wrong surface.
+   *
+   * BUG-201 — `missing-at-width` and `displaced-at-width` are the sample-fidelity
+   * probe's two findings: a run the reference paints at a captured width that the
+   * document does not draw there at all, and one it draws beyond tolerance from
+   * where the reference paints it. Neither is a collision, but both are the same
+   * class of claim — the served page is not the oracle at a width it was measured
+   * at — and a failed `sampleFidelity` used to reach `gate.json` as `l1Pass:
+   * false` and nothing else.
    */
-  kind: 'overlap' | 'clip' | 'escape' | 'buried' | 'declared-backing-uncovered'
+  kind:
+    | 'overlap'
+    | 'clip'
+    | 'escape'
+    | 'buried'
+    | 'declared-backing-uncovered'
+    | 'missing-at-width'
+    | 'displaced-at-width'
   /**
    * BUG-179 (item 7) — which envelope probe found it. The three are different
    * claims: an `onSample` collision is visible at a width the reference was
@@ -214,7 +229,7 @@ export interface LayoutCollision {
    * `contentRobustness` one only once the copy grows. Without the name an escape
    * found under 2.5× text read as an on-sample defect at a captured width.
    */
-  probe: LayoutProbe
+  probe: LayoutProbe | 'sampleFidelity'
   /** Operator-facing sentence: what collided with what, at which width. */
   detail: string
   /** The captured width the collision was found at. */
@@ -288,6 +303,48 @@ function escapesOnly(report: EnvelopeReport): EnvelopeReport {
     pass: report.byWidth.every((w) => w.findings.every((f) => f.kind !== 'escape')),
     byWidth: report.byWidth.map((w) => ({ ...w, findings: w.findings.filter((f) => f.kind === 'escape') })),
   }
+}
+
+/**
+ * BUG-201 — the sample-fidelity probe's failures as layout findings: every oracle
+ * run with no reproduced counterpart (`missing-at-width`) and every one drawn
+ * beyond tolerance (`displaced-at-width`), narrowest width first — content
+ * completeness is read before geometry, and the phone widths are where a section
+ * hidden by the served CSS goes missing. No paths: a missing run has no leaf.
+ */
+export function fidelityFindings(report: SampleFidelityReport): LayoutCollision[] {
+  const byWidth = <T extends { width: number }>(xs: readonly T[]): T[] => [...xs].sort((a, b) => a.width - b.width)
+  // A testimonial is a paragraph; the sentence names the run, it does not reprint it.
+  const quote = (t: string): string => {
+    const flat = t.replace(/\s+/g, ' ').trim()
+    return `"${flat.length > 80 ? `${flat.slice(0, 79)}…` : flat}"`
+  }
+  // Absent lists read as empty: a hand-built probe from before the lists existed
+  // says nothing failed, which is what its own `pass` says too.
+  const missing = byWidth(report.unmatched ?? []).map((u) => ({
+    kind: 'missing-at-width' as const,
+    probe: 'sampleFidelity' as const,
+    detail: `at ${u.width}px: ${quote(u.text)} is painted by the reference and not drawn`,
+    width: u.width,
+    paths: [],
+  }))
+  const displaced = byWidth(report.residuals ?? []).map((r) => ({
+    kind: 'displaced-at-width' as const,
+    probe: 'sampleFidelity' as const,
+    detail:
+      `at ${r.width}px: ${quote(r.text)} is drawn off the reference by ` +
+      `dx ${r.dx.toFixed(1)} / dy ${r.dy.toFixed(1)} / dw ${r.dw.toFixed(1)}px (tolerance ${report.tolerancePx}px)`,
+    width: r.width,
+    paths: [],
+  }))
+  return [...missing, ...displaced]
+}
+
+/** `[[320, 6], [375, 6]]` — how many findings fall at each width, narrowest first. */
+function perWidth(findings: readonly LayoutCollision[]): Array<[number, number]> {
+  const counts = new Map<number, number>()
+  for (const f of findings) counts.set(f.width, (counts.get(f.width) ?? 0) + 1)
+  return [...counts].sort(([a], [b]) => a - b)
 }
 
 /** The first `n` collisions as one semicolon-joined sentence, with a tail count. */
@@ -436,7 +493,16 @@ export interface ReconcileInput {
    * it backs is not visible at a captured width, so `onSample` alone can carry a
    * failed verdict with nothing at all to say about why.
    */
-  l1Gate: Pick<L1GateResult, 'pass' | 'onSample' | 'offSample' | 'contentRobustness'>
+  l1Gate: Pick<L1GateResult, 'pass' | 'onSample' | 'offSample' | 'contentRobustness'> &
+    /**
+     * BUG-201 — the sample-fidelity probe, so a run the reference paints at a
+     * captured width and the document does not draw is NAMED rather than folded
+     * into `pass`. OPTIONAL where its siblings are required: every real caller
+     * holds a whole {@link L1GateResult} and passes it, while a hand-built input
+     * omitting it is saying "not asked about" — and the report then carries no
+     * `sampleFidelity` block, which the console reads as exactly that.
+     */
+    Partial<Pick<L1GateResult, 'sampleFidelity'>>
   coverage: ReferenceCoverage
   /**
    * REQ-157 — `regions` is only ever counted here, so this asks for something
@@ -649,6 +715,15 @@ export interface GateReport {
    * sentence naming them.
    */
   layout: { pass: boolean; findings: LayoutCollision[] }
+  /**
+   * BUG-201 — the sample-fidelity probe as it ran: the lists behind the
+   * `missing-at-width` / `displaced-at-width` findings in `layout.findings`, and
+   * the tolerance they were judged at. ABSENT when the input carried no probe
+   * (see {@link ReconcileInput.l1Gate}). The repro console counts `unmatched`
+   * into the `populations` part of the unmeasured set: a run that paired with
+   * nothing is BUG-106's population, one instrument further in.
+   */
+  sampleFidelity?: SampleFidelityReport
   /**
    * BUG-178 — the properties the reference page uses that this run could not
    * measure (see {@link UnmeasuredProperty}). The repro console counts them as
@@ -1115,11 +1190,19 @@ export function reconcileGates(input: ReconcileInput): GateReport {
   // or under content growth, or at an unmeasured viewport height, is the same
   // structural defect as one that has left it at a captured width — and it is the
   // one the operator reported while this block read `pass: true, findings: []`.
-  const collisions = layoutCollisions({
-    onSample: input.l1Gate.onSample,
-    offSample: escapesOnly(input.l1Gate.offSample),
-    contentRobustness: escapesOnly(input.l1Gate.contentRobustness),
-  })
+  // BUG-201 — and FIRST, the sample-fidelity probe's own failures. A run the
+  // reference paints at a captured width that the document does not draw is the
+  // worst structural defect by the brief's ordering (content completeness before
+  // geometry), and it used to be the one the report could not name at all.
+  const fidelity = input.l1Gate.sampleFidelity
+  const collisions = [
+    ...(fidelity ? fidelityFindings(fidelity) : []),
+    ...layoutCollisions({
+      onSample: input.l1Gate.onSample,
+      offSample: escapesOnly(input.l1Gate.offSample),
+      contentRobustness: escapesOnly(input.l1Gate.contentRobustness),
+    }),
+  ]
 
   let verdict: GateVerdict
   let diagnosis: string
@@ -1182,10 +1265,26 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // a surface the run never sat on, and "size the surface from its content" is
     // the wrong fix for that.
     const uncovered = collisions.filter((c) => c.kind === 'declared-backing-uncovered')
-    const overlaps = collisions.filter(
-      (c) => c.kind !== 'escape' && c.kind !== 'buried' && c.kind !== 'declared-backing-uncovered',
-    )
+    // BUG-201 — the sample-fidelity findings, named before every collision class.
+    const missing = collisions.filter((c) => c.kind === 'missing-at-width')
+    const displaced = collisions.filter((c) => c.kind === 'displaced-at-width')
+    const overlaps = collisions.filter((c) => c.kind === 'overlap' || c.kind === 'clip')
     const sentences: string[] = []
+    if (missing.length) {
+      sentences.push(
+        perWidth(missing)
+          .map(([w, n]) => `${n} run(s) the reference paints at width ${w}px are not drawn`)
+          .join('; ') +
+          ` — ${namedCollisions(missing)}. ` +
+          'Content the reference shows and the page does not is a completeness defect, ahead of any geometry.',
+      )
+    }
+    if (displaced.length) {
+      sentences.push(
+        `${displaced.length} run(s) are drawn beyond tolerance of where the reference paints them at a ` +
+          `captured width — ${namedCollisions(displaced)}.`,
+      )
+    }
     if (overlaps.length) {
       sentences.push(
         `the SERVED document collides with itself at ${
@@ -1219,6 +1318,19 @@ export function reconcileGates(input: ReconcileInput): GateReport {
       ? `The acceptance gate failed: ${sentences.join(' Also, ')}`
       : 'The acceptance gate failed: the reproduction is not geometrically faithful to the oracle.'
     const steps: string[] = []
+    if (missing.length) {
+      steps.push(
+        'Draw each missing run at the width named (`layout.findings`, `kind: "missing-at-width"`) first — ' +
+          'if the served CSS hides it there (`display: none` at that width), the hiding is the defect; if the ' +
+          'document has no leaf for it, the fold dropped it.',
+      )
+    }
+    if (displaced.length) {
+      steps.push(
+        'Then place each displaced run where the reference paints it (`kind: "displaced-at-width"` gives ' +
+          'the per-axis miss).',
+      )
+    }
     if (overlaps.length) {
       steps.push(
         'Fix the collisions first (`layout.findings` lists every pair and width) — either give the ' +
@@ -1520,6 +1632,7 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     },
     coverage,
     layout: { pass: input.l1Gate.onSample.pass && collisions.length === 0, findings: collisions },
+    ...(fidelity ? { sampleFidelity: fidelity } : {}),
     ...(input.properties === undefined
       ? {}
       : 'error' in input.properties
@@ -1562,6 +1675,17 @@ export interface RecoveryCost {
   fidelityMaxDeltaPx: number
   /** Oracle samples the recovered document would place out of tolerance. */
   fidelityResiduals: number
+  /**
+   * BUG-201 — the recovered document's own content-robustness findings, the
+   * list `recoveredFindings` counts. Counts alone said the recovery lost and
+   * never said where, so "why is it not served" could not be answered from the
+   * report.
+   */
+  findings: LayoutCollision[]
+  /** BUG-201 — the recovered document's sample-fidelity misses, the list behind `fidelityResiduals`. */
+  residuals: FidelityDelta[]
+  /** BUG-201 — oracle samples the recovered document does not draw at all. */
+  unmatched: SampleFidelityReport['unmatched']
   /**
    * BUG-180 — the validation error, when the recovery produced an invalid
    * document and was declined for it. The numbers above then price the base.
@@ -1712,20 +1836,26 @@ export async function cmdL1Gate(bundle: ReferenceBundle): Promise<L1GateResult> 
     r.byWidth.reduce((n, w) => n + w.findings.length, 0)
   // The arrow always reads base → recovery, whichever of the two is being
   // served: it is the trade itself, not a statement about the winner.
+  const recoveredRobustness = contentRobustnessProbe(mountBehaviours(choice.recovered, forms), {
+    scale: CONTENT_SCALE,
+    measured,
+  })
+  // BUG-201 — the lists behind the recovery's counts. Re-measured rather than
+  // threaded out of `chooseRecovery`, whose score is a comparison and only needs
+  // the counts; this is the same probe over the same document, so it agrees.
+  const recoveredFidelity = sampleFidelityProbe(choice.recovered, multiState, { measured })
   const recovery: RecoveryCost = {
     promoted: choice.promoted,
     served: choice.served,
     servedFindings: countFindings(
       contentRobustnessProbe(mountBehaviours(base, forms), { scale: CONTENT_SCALE, measured }),
     ),
-    recoveredFindings: countFindings(
-      contentRobustnessProbe(
-        mountBehaviours(choice.recovered, forms),
-        { scale: CONTENT_SCALE, measured },
-      ),
-    ),
+    recoveredFindings: countFindings(recoveredRobustness),
     fidelityMaxDeltaPx: choice.recovery.maxDelta,
     fidelityResiduals: choice.recovery.residuals,
+    findings: layoutCollisions({ contentRobustness: recoveredRobustness }),
+    residuals: recoveredFidelity.residuals,
+    unmatched: recoveredFidelity.unmatched,
     ...(choice.invalid ? { invalid: choice.invalid } : {}),
   }
   return { ...report, promoted: choice.promoted, recovery, foldResiduals, forms, staleFold }

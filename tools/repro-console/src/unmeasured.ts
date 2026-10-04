@@ -144,7 +144,7 @@ function propertyNames(rows: unknown[]): string | undefined {
  * |---|---|---|
  * | axes | `values.unmeasuredAxes` | a compared axis only one side of the projection can read ([[REQ-274]]) |
  * | bands | `values.unpairedSections` + `values.unpairedActualSections` | a section with no counterpart, so its section-level values were never compared ([[BUG-111]]) |
- * | populations | `values.unmatched` + `values.unpairedActual` + `values.bandPaintActual` | an element on either side that paired with nothing ([[BUG-106]], [[BUG-161]]) |
+ * | populations | `values.unmatched` + `values.unpairedActual` + `values.bandPaintActual` (+ `sampleFidelity.unmatched`) | an element on either side that paired with nothing ([[BUG-106]], [[BUG-161]], [[BUG-201]]) |
  * | probes | `values.sectionsNotComparable` + `values.notComparableAxes` | a measurement the run declared it could not make at all ([[BUG-102]], [[BUG-139]]) |
  * | properties | `unmeasuredProperties` | a property the reference page USES that the capture audit found no axis can say, or this bundle does not carry ([[BUG-178]]) |
  *
@@ -194,9 +194,18 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
   // `sum` rather than `?? 0`, so a report written before `bandPaintActual` existed
   // makes this part SILENT instead of manufacturing a zero — the arrival of the
   // quantity must not read as the set getting smaller. See the module header.
+  // BUG-201 — and the oracle runs the STRUCTURAL gate paired with nothing: a run
+  // the reference paints at a captured width that the document does not draw.
+  // The value diff compares one width, so a section hidden on phones reached the
+  // round as `unmeasured 0`. Counted ONLY when the report carries the probe, on
+  // the terms `unmeasuredProperties` is below: the gate attaches it whenever it
+  // ran the structural gate, and an older report that predates the block keeps
+  // the total it always had rather than going silent on a part it never had.
+  const fidelityBlock = (report as { sampleFidelity?: { unmatched?: unknown } }).sampleFidelity
+  const notDrawn = fidelityBlock ? countOf(fidelityBlock.unmatched) ?? 0 : 0
   const populations = sum(
-    sum(countOf(values.unmatched), countOf(values.unpairedActual)),
-    countOf(values.bandPaintActual),
+    sum(sum(countOf(values.unmatched), countOf(values.unpairedActual)), countOf(values.bandPaintActual)),
+    notDrawn,
   )
   const bandPaint = countOf(values.bandPaintActual) ?? 0
   // A reason is one probe that did not run; its absence is the probe running.
@@ -264,8 +273,17 @@ export function unmeasuredOf(report: unknown): UnmeasuredSet {
       // paint boxes are the part of this count no fold can drive to zero (an L1
       // render paints every band as a real box), so a reader comparing two rounds
       // has to be able to see which part of the total is which.
-      ...(bandPaint
-        ? { detail: `${bandPaint} of these are a band's own paint, compared only on the section record's axes` }
+      ...(bandPaint || notDrawn
+        ? {
+            detail: [
+              ...(bandPaint
+                ? [`${bandPaint} of these are a band's own paint, compared only on the section record's axes`]
+                : []),
+              ...(notDrawn
+                ? [`${notDrawn} are runs the reference paints at a captured width that the page does not draw`]
+                : []),
+            ].join('; '),
+          }
         : {}),
     },
     {
