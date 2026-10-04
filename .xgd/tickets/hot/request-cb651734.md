@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-ef2bc33a
 ---
 
 # capture: an underline propagated from a `<u>` ancestor is dropped; and the reference paints a fractional half-leading that the renderer floors
