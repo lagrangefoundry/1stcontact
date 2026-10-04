@@ -6,10 +6,10 @@ title: 'l1-gate/values-diff: a fold-declared backedBy that fails at rest is repo
   as a viewport-motion escape; a chip inset is compared as padding vs min-height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:40.799488+00:00'
-updated_at: '2026-10-04T15:06:38.550346+00:00'
+updated_at: '2026-10-04T15:12:36.145073+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - instrument-blind
