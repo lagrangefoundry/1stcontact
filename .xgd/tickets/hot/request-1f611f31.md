@@ -13,6 +13,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-809d2084
 ---
 
 ## What we were trying to do
