@@ -6,9 +6,9 @@ title: Tell the user before any long-running operation, with a rough duration (1
   / 5 min / 30 min)
 created_by: xgd
 created_at: '2026-10-04T18:30:59.347301+00:00'
-updated_at: '2026-10-04T21:01:54.360851+00:00'
+updated_at: '2026-10-04T21:01:58.913295+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -24,6 +24,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.491
+  story_points: 3
 ---
 
 ## What we were trying to do
