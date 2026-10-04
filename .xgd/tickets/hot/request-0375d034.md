@@ -6,10 +6,10 @@ title: 'Preview width: a width control on the draft, and the consultant is told 
   width the client is viewing'
 created_by: EPIC-19
 created_at: '2026-10-04T20:51:27.988344+00:00'
-updated_at: '2026-10-04T21:49:56.004979+00:00'
+updated_at: '2026-10-04T21:50:08.182616+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-0751884f
+  commits:
+  - working_sha: 03fb0f5a4cbda6ca6dcde607ce576ee7ec61e22b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d635767904296333542b71fab11f4141c083418f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.493
 ---
 
 ## What changes
