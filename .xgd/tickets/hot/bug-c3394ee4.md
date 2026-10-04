@@ -6,7 +6,7 @@ title: 'Comps: two of three competitor sites fail to capture, and the consultant
   search for its own'
 created_by: EPIC-19
 created_at: '2026-10-04T17:57:56.542712+00:00'
-updated_at: '2026-10-04T18:43:33.666847+00:00'
+updated_at: '2026-10-04T20:55:02.547493+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -71,3 +71,8 @@ BUG-204 reports the same Charlie 3 captures and reaches the same `networkidle` d
 - **`data:` URLs** (300 "refusals" on one site) are inline images. Keep them as they are, don't report them as refused fetches.
 
 BUG-204 is closed as a duplicate of this ticket.
+
+
+## Correction 2026-10-04: the consultant did search, but only in a later round
+
+The original finding (fix 3) covered only the first two turns. Over the whole Charlie 3 session, the turn ledger shows **one** web search, in the turn starting 18:30:20 UTC. It led to a comp the consultant chose itself, "Bay Area Construction & Plumbing | Full Steam Ahead", added at 18:47:20 beside the client's Duncan Plumbing. So search works, and the consultant will use it. What's missing is the timing: it searched only after the client's own list proved thin, and it ran one search for one comp. Fix 3 stands as written: search in the **same** turn as asking the client, aiming for the full mix, rather than as a fallback in a later round.
