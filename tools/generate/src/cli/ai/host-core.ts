@@ -78,6 +78,7 @@ import {
   settingsRole,
   toolTranscriptNote,
   type TurnSignal,
+  type ClientView,
   type WorkerKnowledge,
 } from './roles'
 import { delegationForScope, type DelegationResolver } from './delegation'
@@ -1504,7 +1505,13 @@ async function build(
   // the two answers come to disagree, and a session that could photograph a
   // drawing but not measure one is a shape nobody asked for. So the deps are
   // built once here and both consumers read them.
-  const fidelity = deps.fidelity ? deps.fidelity(slug) : null
+  //
+  // [[REQ-388]] — and the picture the client is looking at is the CONSULTANT'S
+  // signal, read late: a `screenshot` at `viewport: "client"` is at the width
+  // their builder reported with the turn in progress.
+  const fidelity = deps.fidelity
+    ? { ...deps.fidelity(slug), clientView: () => signals.get(managerKey(slug, deps))?.view ?? null }
+    : null
 
   // -- delegation: construction on a cheaper session ([[REQ-295]]) -----------
   //
@@ -3194,6 +3201,11 @@ export async function* streamPrompt(
   opts: GlobalOptions = {},
   deps: HostDeps,
   turn?: string,
+  /**
+   * [[REQ-388]] — the width the client is viewing the draft at, reported with
+   * this prompt. Absent is ordinary: the `1c` CLI has no preview to report from.
+   */
+  view?: ClientView | null,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
   /**
    * A SETTINGS TURN IS A SHORTER FUNCTION, NOT A BRANCHED ONE ([[REQ-239]]).
@@ -3340,7 +3352,7 @@ export async function* streamPrompt(
     throw new UnknownSessionError(sessionId)
   }
   const manager = await managerFor(slug, opts, deps, await groupChatOn(deps))
-  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn)
+  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn, view)
 }
 
 /**
@@ -3367,6 +3379,7 @@ async function* siteTurn(
   text: string,
   deps: HostDeps,
   turn?: string,
+  view?: ClientView | null,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
   await attach(manager, sessionId, role, backend)
 
@@ -3412,6 +3425,9 @@ async function* siteTurn(
     delta,
     answers,
     interrupted,
+    // [[REQ-388]] — THIS turn's report and never an earlier one's: a turn that
+    // reported no width says nothing about one, rather than repeating the last.
+    view: view ?? null,
   })
 
   // BEFORE THE MODEL, AND THAT IS THE WHOLE OF THE GUARANTEE ([[BUG-121]]). An

@@ -96,6 +96,7 @@ import {
   tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
+import { readClientView, type ClientView } from '../../../tools/generate/src/cli/ai/roles'
 import {
   sessionImageDescriber,
   sessionTextDescriber,
@@ -6406,6 +6407,17 @@ async function routeUncached(
       if (text.length > MAX_PROMPT_CHARS) {
         return json(400, { error: OVER_LONG_PROMPT_MESSAGE })
       }
+      /**
+       * WHICH WIDTH THE CLIENT IS LOOKING AT, reported with the prompt
+       * ([[REQ-388]]). Absent is ordinary — a direct caller, an older client —
+       * and is told to nobody. Present and malformed is refused at the front
+       * door, beside the other body checks: a width the assistant is told the
+       * client is looking at has to be one somebody is looking at.
+       */
+      const view = readClientView(body.view)
+      if (view === null) {
+        return json(400, { error: 'view must be {width, mode} with mode desktop, tablet, phone or fit' })
+      }
       const host = await chatHost(env, requireScope(), deps, url.origin)
       /**
        * THE LEDGER IS OPENED HERE, AND *HERE* IS THE WHOLE OF IT ([[REQ-306]]).
@@ -6425,7 +6437,7 @@ async function routeUncached(
        * as this route did before the ledger existed.
        */
       const ledger = await openTurn(env.DB ? env : null, requireScope().businessId, sessionId)
-      return streamTurn(host, sessionId, text, scrub, ctx, ledger)
+      return streamTurn(host, sessionId, text, scrub, ctx, ledger, view)
     }
 
     /**
@@ -7148,6 +7160,7 @@ function streamTurn(
   scrub: (text: string) => string,
   ctx?: RouteContext,
   ledger?: OpenTurn | null,
+  view?: ClientView,
 ): Response {
   const encoder = new TextEncoder()
   const frame = (event: unknown): Uint8Array =>
@@ -7209,7 +7222,7 @@ function streamTurn(
          * did: a deployment with no database, or an open that failed, must leave
          * the turn behaving exactly as it did before either record existed.
          */
-        for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id)) {
+        for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id, view)) {
           if (event.kind === 'done') {
             const status = typeof event.meta?.status === 'string' ? event.meta.status : ''
             outcome = status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : 'complete'

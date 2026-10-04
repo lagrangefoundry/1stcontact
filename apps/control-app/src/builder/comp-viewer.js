@@ -89,7 +89,8 @@ export function createCompViewer({ onBack }) {
     next.disabled = index >= comps.length - 1
     nav.append(prev, el('span', 'comp-viewer__count', `${index + 1} / ${comps.length}`), next)
     banner.append(nav)
-    const widths = el('span', 'comp-viewer__widths')
+    // [[REQ-388]] — the same segmented control the preview's width uses.
+    const widths = el('span', 'comp-viewer__widths builder-segmented')
     widths.setAttribute('role', 'group')
     for (const [id, label] of [
       ['desktop', COMP_DESKTOP],

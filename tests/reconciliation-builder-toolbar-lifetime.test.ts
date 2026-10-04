@@ -39,7 +39,7 @@ const SITES = [
  * ([[REQ-376]]) sits beside `open-new-tab` wherever that is offered, because it
  * carries the same address to another device.
  */
-const DECLARED = ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'phone-preview', 'publish']
+const DECLARED = ['mode-toggle', 'pages', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish']
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

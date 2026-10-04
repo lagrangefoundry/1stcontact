@@ -239,6 +239,59 @@ export function openInNewTabAction(honestUrl) {
 }
 
 /**
+ * The preview's width — *Desktop · Tablet · Phone · Fit pane* ([[REQ-388]]).
+ *
+ * ONE SEGMENTED CONTROL, beside "Open in new tab" in both channels. A width is a
+ * property of how the draft is LOOKED AT, so it holds in View and in Edit alike,
+ * and flipping channel does not re-lay the page out under the operator.
+ *
+ * THE CONTROLLER IS NOT OWNED HERE, for `markPointsAction`'s reason: the strip is
+ * rebuilt on every mode and site change, and a choice kept in this closure would
+ * be lost on the first flip while the pane went on showing it. Each button says
+ * the width it renders at in its title, so "Tablet" is never a guess about what
+ * this site calls a tablet.
+ *
+ * @param {object} controller `createPreviewWidth`'s — `mode`, `set`, `widthOf`, `onChange`
+ * @param {Record<string, string>} labels the control's words for each setting
+ * @param {readonly string[]} modes the settings, in the order offered
+ */
+export function previewWidthAction(controller, labels, modes) {
+  return {
+    id: 'preview-width',
+    create({ cleanup }) {
+      const group = document.createElement('div')
+      group.className = 'builder-toolbar__width builder-segmented'
+      group.setAttribute('role', 'group')
+      group.setAttribute('aria-label', 'Preview width')
+      const buttons = modes.map((mode) => {
+        const btn = document.createElement('button')
+        btn.type = 'button'
+        btn.dataset.width = mode
+        btn.textContent = labels[mode]
+        btn.addEventListener('click', () => controller.set(mode))
+        group.append(btn)
+        return btn
+      })
+      const sync = () => {
+        for (const btn of buttons) {
+          const mode = btn.dataset.width
+          const width = controller.widthOf(mode)
+          btn.setAttribute('aria-pressed', String(mode === controller.mode()))
+          btn.title =
+            width === null
+              ? `${labels[mode]} — the draft follows the width of the pane`
+              : `${labels[mode]} — the draft laid out at ${width}px`
+        }
+      }
+      sync()
+      // Owned by the toolbar, so the subscription dies with this element.
+      cleanup(controller.onChange(sync))
+      return group
+    },
+  }
+}
+
+/**
  * View on your phone — the same draft address as a QR code ([[REQ-376]]).
  *
  * ONE ADDRESS, TWO CONTROLS. It takes the very `honestUrl` "Open in new tab"

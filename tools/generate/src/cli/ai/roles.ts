@@ -45,6 +45,8 @@
 
 import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
+// [[REQ-388]] — the width control's settings, shared with the builder that offers them.
+import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
 import { planReminder, type Plan } from './plan-core'
 import { builderVocabulary } from './l1-vocabulary-core'
 
@@ -544,6 +546,53 @@ export interface TurnSignal {
   answers?: string | null
   /** Whether the PREVIOUS turn of this conversation failed to finish ([[BUG-121]]). */
   interrupted?: boolean
+  /** The width the client is viewing the draft at, reported with THIS turn ([[REQ-388]]). */
+  view?: ClientView | null
+}
+
+/** The builder's width control settings ([[REQ-388]]) — `view-width.js` is the one definition. */
+export type ClientViewMode = 'desktop' | 'tablet' | 'phone' | 'fit'
+
+/**
+ * Which width the client is looking at the draft at, as their builder reports it
+ * with each prompt ([[REQ-388]]).
+ *
+ * `width` IS THE LAYOUT WIDTH, NOT THE PANE'S. A fixed choice is laid out at its
+ * own width and scaled to fit, so a phone choice in a narrow pane is still 375px
+ * of layout; `fit` is laid out at whatever the pane is. `height` is the visible
+ * height in the same layout pixels, so a picture taken at it is one screen of
+ * what they see.
+ */
+export interface ClientView {
+  width: number
+  height?: number
+  mode: ClientViewMode
+}
+
+/** The widest layout a report may claim — far past any real screen, short of absurd. */
+const MAX_VIEW_PX = 10_000
+
+/**
+ * Read a reported view off a request body ([[REQ-388]]).
+ *
+ * `undefined` WHEN NONE WAS SENT, which is ordinary — the `1c` CLI and a client
+ * predating the control send none. `null` WHEN ONE WAS SENT AND IS NOT ONE, so
+ * the route can refuse it by name rather than tell the assistant a width nobody
+ * is looking at.
+ */
+export function readClientView(value: unknown): ClientView | null | undefined {
+  if (value === undefined || value === null) return undefined
+  if (typeof value !== 'object') return null
+  const { width, height, mode } = value as Record<string, unknown>
+  const px = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= MAX_VIEW_PX
+  if (!px(width)) return null
+  if (height !== undefined && !px(height)) return null
+  if (typeof mode !== 'string' || !(VIEW_MODES as readonly string[]).includes(mode)) return null
+  return {
+    width: Math.round(width),
+    ...(height !== undefined ? { height: Math.round(height) } : {}),
+    mode: mode as ClientViewMode,
+  }
 }
 
 /**
@@ -896,7 +945,7 @@ export function registerSiteProviders(
   // mapping at all. A host with no digest to give renders nothing and the
   // framework drops the entry and its separator.
   providers.register(PAGE_DIGEST_PROVIDER, async () =>
-    binding.digest ? pageDigest(await binding.digest()) : null,
+    binding.digest ? pageDigest(await binding.digest(), binding.signal()?.view ?? null) : null,
   )
   // [[REQ-356]] — REGISTERED EITHER WAY for the digest's reason. A plan that
   // cannot be read is silence rather than a failed turn: the plan makes a turn
@@ -1002,10 +1051,62 @@ function digestPage(page: DigestPage, focused: boolean, rung: DigestRung): strin
   return lines.join('\n')
 }
 
+/** `768px (tablet)` — a ladder width, with the builder's name for it if it has one. */
+function layoutName(width: number, ladder: readonly number[]): string {
+  const named = layoutLabel(width, ladder)
+  return named ? `${width}px (${named})` : `${width}px`
+}
+
+/**
+ * Where a width sits on the site's ladder, in words ([[REQ-388]]).
+ *
+ * THE LAYOUT IS DECIDED BY THE LADDER, NOT BY THE NUMBER. 812px means nothing to
+ * a session until it is said which two of the page's own layouts it falls between,
+ * because that is what decides which rules are in force and which width a fix
+ * belongs at.
+ */
+function ladderPlace(width: number, ladder: readonly number[]): string | null {
+  if (ladder.length === 0) return null
+  if (ladder.includes(width)) return fill(template('page-digest-view-at'), { at: layoutName(width, ladder) })
+  const below = ladder.filter((w) => w < width)
+  const above = ladder.filter((w) => w > width)
+  if (below.length === 0) {
+    return fill(template('page-digest-view-below'), { at: layoutName(above[0], ladder) })
+  }
+  if (above.length === 0) {
+    return fill(template('page-digest-view-above'), { at: layoutName(below[below.length - 1], ladder) })
+  }
+  return fill(template('page-digest-view-between'), {
+    low: layoutName(below[below.length - 1], ladder),
+    high: layoutName(above[0], ladder),
+  })
+}
+
+/**
+ * The line that says which width the client is looking at ([[REQ-388]]), or
+ * `null` when this turn reported none.
+ *
+ * STATED AS A FACT, BESIDE THE OTHER FACTS. It arrives with the turn for the same
+ * reason the counter does: a session that is not told guesses, and a guess here
+ * is a fix made at the wrong breakpoint for a complaint about another one.
+ */
+export function viewLine(view: ClientView | null, ladder: readonly number[]): string | null {
+  if (view === null) return null
+  const sorted = [...ladder].sort((a, b) => a - b)
+  const place = ladderPlace(view.width, sorted)
+  return fill(template('page-digest-view'), {
+    width: view.width,
+    mode: (VIEW_LABELS as Record<string, string>)[view.mode],
+    place: place === null ? '' : ` — ${place}`,
+  })
+}
+
 /** The whole digest at one rung, with the page list cut to `keep`. */
-function digestAt(digest: SiteDigest, rung: DigestRung, keep: number): string {
+function digestAt(digest: SiteDigest, rung: DigestRung, keep: number, view: ClientView | null): string {
   const shown = digest.pages.slice(0, keep)
   const parts = [template('page-digest'), digestState(digest)]
+  const seen = viewLine(view, digest.widths)
+  if (seen !== null) parts.push(seen)
   if (digest.pages.length === 0) {
     parts.push(template('page-digest-no-pages'))
   } else {
@@ -1040,10 +1141,10 @@ function digestAt(digest: SiteDigest, rung: DigestRung, keep: number): string {
  * a store that could not be read; neither is a reason to put a heading over
  * nothing, and neither is a reason to fail the turn.
  */
-export function pageDigest(digest: SiteDigest | null): string | null {
+export function pageDigest(digest: SiteDigest | null, view: ClientView | null = null): string | null {
   if (digest === null) return null
   for (const rung of DIGEST_RUNGS) {
-    const rendered = digestAt(digest, rung, digest.pages.length)
+    const rendered = digestAt(digest, rung, digest.pages.length, view)
     if (rendered.length <= MAX_DIGEST_CHARS) return rendered
   }
   // THE LAST RUNG, CUT. Every page as one line is the floor; a site with more
@@ -1052,10 +1153,10 @@ export function pageDigest(digest: SiteDigest | null): string | null {
   // complete listing. One page is the minimum — a digest listing none would be a
   // heading over nothing, which is what `null` is for.
   let keep = digest.pages.length
-  let rendered = digestAt(digest, 'bare', keep)
+  let rendered = digestAt(digest, 'bare', keep, view)
   while (rendered.length > MAX_DIGEST_CHARS && keep > 1) {
     keep -= 1
-    rendered = digestAt(digest, 'bare', keep)
+    rendered = digestAt(digest, 'bare', keep, view)
   }
   return rendered
 }

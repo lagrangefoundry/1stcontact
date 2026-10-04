@@ -46,11 +46,11 @@ import { cmdL1Gate, referenceCoverage, reconcileGates } from '../gate-core'
 import {
   pictureSteps,
   pictureUrl,
+  pictureViewport,
   resolvePicture,
   PictureNotFoundError,
   PictureSourceError,
 } from '../picture'
-import { resolveViewport } from '../capture/screenshot'
 import { drivePage } from '../capture/interact'
 import type { PictureDeps, PictureSource, ResolvedPicture } from '../picture'
 import { assertPublicUrl, egressGuard, summariseRefusals, UrlRefusedError } from '../capture/egress-guard'
@@ -399,7 +399,7 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
     try {
       // Laid out at the width the steps are named at, for the reason
       // `screenshotUrl` gives; an undriven manifest keeps its existing load.
-      await driver.navigate(url, steps.length ? resolveViewport(source.viewport) : undefined)
+      await driver.navigate(url, steps.length ? pictureViewport(source, deps).viewport : undefined)
       if (steps.length) await drivePage(driver, steps)
       return flattenSignals(await driver.query<RawSignals>(EXTRACT_SCRIPT), url)
     } finally {

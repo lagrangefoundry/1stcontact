@@ -164,8 +164,63 @@ export function createDisplayPanel(options = {}) {
     const rec = { id, el, src: '', stale: true }
     frames.set(id, rec)
     element.append(el)
+    layOut(el)
     return rec
   }
+
+  /**
+   * The width every frame is laid out at, or `null` to fill the pane ([[REQ-388]]).
+   *
+   * A FIXED WIDTH IS LAID OUT, THEN SCALED — NEVER REFLOWED. The point of
+   * choosing *Phone* is that the draft's phone layout is what is on screen, so
+   * the frame is given exactly that width whatever the pane is; when the pane is
+   * narrower it is shrunk to fit with a transform, which changes how big it looks
+   * and not which layout is in force. When the pane is wider it is centred, with
+   * the pane's own background either side.
+   *
+   * EVERY FRAME, NOT THE SHOWN ONE, for [[BUG-79]]'s reason: View and Edit are
+   * two frames, and a width that held in one channel and not the other would
+   * re-lay the page out under the operator on every flip.
+   */
+  let fixedWidth = null
+
+  /** What the pane offers, in CSS pixels. */
+  function paneSize() {
+    return { w: element.clientWidth, h: element.clientHeight }
+  }
+
+  /** How much a fixed-width frame is shrunk to fit the pane. 1 when it fits, or when there is none. */
+  function scaleOf(width) {
+    const { w } = paneSize()
+    return width === null || w <= 0 || w >= width ? 1 : w / width
+  }
+
+  function layOut(el) {
+    const { style } = el
+    if (fixedWidth === null) {
+      for (const prop of ['width', 'height', 'left', 'right', 'transform', 'transformOrigin']) style[prop] = ''
+      return
+    }
+    const { w, h } = paneSize()
+    const scale = scaleOf(fixedWidth)
+    style.width = `${fixedWidth}px`
+    // Tall enough that, once shrunk, it still fills the pane top to bottom.
+    style.height = h > 0 ? `${h / scale}px` : '100%'
+    style.right = 'auto'
+    style.left = scale < 1 || w <= 0 ? '0px' : `${Math.round((w - fixedWidth) / 2)}px`
+    style.transformOrigin = '0 0'
+    style.transform = scale < 1 ? `scale(${scale})` : ''
+  }
+
+  function layOutAll() {
+    for (const f of frames.values()) layOut(f.el)
+  }
+
+  // The pane is resized by the divider and the window, and a shrunk frame has to
+  // follow it. Absent `ResizeObserver` (a test DOM) the host re-fits by calling
+  // `setViewport` again, which is the whole of what a resize does.
+  const resizes = typeof ResizeObserver === 'function' ? new ResizeObserver(() => layOutAll()) : null
+  resizes?.observe(element)
 
   /** Show this frame and hide every other. `null` hides them all (a mount mode). */
   function display(rec) {
@@ -399,6 +454,26 @@ export function createDisplayPanel(options = {}) {
       }
       navigate(current, current.src)
     },
+    /**
+     * Lay the draft out at `width` CSS pixels, or fill the pane with `null`
+     * ([[REQ-388]]). See {@link fixedWidth}.
+     */
+    setViewport(width) {
+      fixedWidth = typeof width === 'number' && Number.isFinite(width) && width > 0 ? width : null
+      element.classList.toggle('builder-panel--fixed', fixedWidth !== null)
+      layOutAll()
+    },
+    /**
+     * The width the draft is LAID OUT at and how much of it is visible, in the
+     * draft's own CSS pixels ([[REQ-388]]) — what the client is actually looking
+     * at, which is what the assistant is told. A fixed width is its own width
+     * whatever the pane is; filling the pane is the pane's.
+     */
+    viewport() {
+      const { w, h } = paneSize()
+      const scale = scaleOf(fixedWidth)
+      return { width: fixedWidth ?? w, height: Math.round(h / scale) }
+    },
     getModes: () => [...modes.values()],
     getMode: () => activeId,
     getSite: () => site,
@@ -424,6 +499,7 @@ export function createDisplayPanel(options = {}) {
       }
     },
     destroy() {
+      resizes?.disconnect()
       element.remove()
       modes.clear()
       frames.clear()

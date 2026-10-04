@@ -379,6 +379,11 @@ const RECOVERY_CHASES = 3
  *   appear keeps the short form they typed while the turn carries the long one.
  *   A reloaded transcript replays what the session recorded — the expansion —
  *   which is the honest archive: it is what the assistant was actually told.
+ * @param {() => ({width: number, height?: number, mode: string} | null)} [options.promptView]
+ *   [[REQ-388]] — the width the client is viewing the draft at, read at the
+ *   moment of each submission and sent with it. A seam for the same reason
+ *   `expandPrompt` is one: this pane knows nothing about the preview beside it,
+ *   only that a turn carries what the host says it carries.
  * @param {(src: string, alt: string) => void} [options.onImageClick]
  *   REQ-220 — the reader clicked a picture in the transcript.
  *
@@ -410,6 +415,7 @@ export function createChatPanel(options = {}) {
     onPlanChanged = () => {},
     onTurnEnd = () => {},
     expandPrompt = (markdown) => markdown,
+    promptView = () => null,
     onImageClick = null,
     reopen = null,
     wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
@@ -807,7 +813,7 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(withProgressLine(transport.streamPrompt(id, wire), progressLine), told)
+        return watchForWrites(withProgressLine(transport.streamPrompt(id, wire, promptView()), progressLine), told)
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
@@ -935,7 +941,9 @@ export function createChatPanel(options = {}) {
           note(ROOM_BUSY_TEXT)
           return
         }
-        void chat.follow(roomFrames(watchForWrites(transport.streamPrompt(id, expandPrompt(text)), told), onRoomActivity))
+        void chat.follow(
+          roomFrames(watchForWrites(transport.streamPrompt(id, expandPrompt(text), promptView()), told), onRoomActivity),
+        )
       },
       onStop: () => {
         void Promise.resolve(transport.stopExchange?.(id)).catch(() => {})
