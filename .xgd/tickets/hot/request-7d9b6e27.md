@@ -6,9 +6,9 @@ title: Tell the user before any long-running operation, with a rough duration (1
   / 5 min / 30 min)
 created_by: xgd
 created_at: '2026-10-04T18:30:59.347301+00:00'
-updated_at: '2026-10-04T20:55:27.981553+00:00'
+updated_at: '2026-10-04T21:00:53.555910+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -17,6 +17,7 @@ fields:
   epic_parent: epic-95bc3b15
   chat_comment: comment-fd4f41e6
 ---
+
 
 
 ## What we were trying to do
@@ -55,14 +56,15 @@ Not a duplicate. **REQ-379** (landed) gave `Delegate` a required client-visible 
 
 **Retries.** When a slow call has the same tool and the same input as an earlier call in the same turn whose result was an error (`Error: …`), it is announced as a retry: `_Capturing https://example.com again (attempt 2; the last try failed) — about 5 minutes._` Attempts are counted per tool+input within the turn. No "of N" is shown, because the host has no retry cap: the consultant re-issues calls itself.
 
-**Per-turn guidance.** A new consultant per-turn reminder sets the rule. If you will be busy for more than about 20 seconds, tell the client first, in prose, with an estimate of about 1 minute, about 5 minutes, or about 30 minutes. The reminder also says that text written before a tool call reaches the client as it is written, and that the host adds its own line for slow tools.
+**Per-turn guidance.** A new consultant per-turn reminder, `announce-long-work`, sits right after `commission-construction`. REQ-342 requires `commission-construction` to directly follow `act-rather-than-narrate`, and REQ-171 keeps the whole reminder under 600 characters. It reads: "Busy for more than about 20 seconds? Tell your client first: about a minute, 5 minutes or 30 minutes. They see what you write before a tool call as you write it."
 
-**Test plan.** `tests/test_UAT_FC_REQ-386_long_work_is_announced.test.ts` drives `keepClientOriented` with a scripted backend stream (the real wrapper, with no mocks of our own code). It checks that:
-- the line for a slow call precedes the call's `tool_activity`, and carries the estimate
-- a fast tool gets no line
-- every slow call in a turn is announced, and the panel count appears only once
-- a retry after an `Error:` result is announced with its attempt number
-- `slow-tools.json` estimates are confined to 1/5/30 and cover the six tools
-- the consultant's reminders carry the 20-second rule
+**Test plan.** `tests/test_UAT_FC_REQ-386_long_work_is_announced.workers.test.ts` drives the Worker's own `/api/ai/session` and `/api/ai/prompt` routes. It uses a real D1, the real ticket store and the real capture pipeline. The only doubles are the Anthropic client and the browser. The scripted consultant captures a private address (refused by the capture guard, a real failure), captures it again, captures a good URL, then calls a fast tool. The test checks that:
+- each capture's line precedes that call's `tool_activity` and carries "about 5 minutes"
+- the repeat says "again (attempt 2; the last try failed)"
+- "Meanwhile, 2 questions above need you" appears exactly once, on the first line
+- the fast tool gets no line
+- the next turn's transcript carries the host's line
+- `slow-tools.json` lists exactly the six tools, each estimating 1, 5 or 30 minutes
+- the consultant's first request carries the 20-second reminder
 
-Regression scope: the REQ-379 cadence suite and the priming/reminder suites.
+Regression scope run: the REQ-379 cadence and panel suites, REQ-378 comp board, REQ-206, REQ-283, REQ-339, REQ-342, REQ-364, REQ-171, REQ-182, and the priming/config suites. All pass. The one failure in REQ-295's config suite (the REQ-341 case) also fails on clean xgd-working.
