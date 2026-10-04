@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-378
 created_by: xgd
 created_at: '2026-10-04T00:31:20.225391+00:00'
-updated_at: '2026-10-04T01:03:26.932426+00:00'
+updated_at: '2026-10-04T01:20:38.354419+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,5 +174,14 @@ I've built REQ-378 on the `free-REQ-378` branch (commit `511d2f82`) and, as agre
 3. Merge xgd-working into the branch, bump the version, fast-forward back into xgd-working, then mark the ticket `free_coded`.
 
 To run tests in this worktree, I copied `apps/control-app/src/generated/` and linked `@lagrangefoundry` from the main checkout. Both are gitignored, so they don't appear in the commit.
+
+<!-- xgd-turn id="17294d41-ecd7-44e8-8375-1165a3aea99b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:20:38.001346+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
