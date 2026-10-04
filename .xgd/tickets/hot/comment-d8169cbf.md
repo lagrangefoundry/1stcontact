@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T23:19:05.909930+00:00'
+updated_at: '2026-10-04T23:20:29.671856+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7100,5 +7100,59 @@ I think there are a few areas that I want to spend time (you will see this in th
 1. alternate page chooser - proposed design - label (metadata, pagename convention etc) the alternate designs and then make them available via a carosel - I would love an animated swap between pages if that is easy to do.
 2. questions - I do not yet see the reminder - do we support question answer areas for types: dates, prices also multi line answers. I do not yet see the progress indicators on the page (probably need to upgrade)
 3. Alice's busy status and overall progress - busy status right now is just the red button we need some kind of movement - also I would love to see some kind of progress indication that marked off initial data gathering -> style choices -> first draft -> ...-> colors and fonts -> finishing touches -> done this could perhaps sit above the questions? and show a spinner next to the current stage when Alice is working lets discuss
+
+<!-- xgd-turn id="5722a1ad-98c3-4007-b2ad-2d5c64508708-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T23:20:28.990645+00:00" -->
+#### Claude
+Reviewed. The metrics back you up, from the turn records:
+
+| | Turns | Spend | Alice's working time |
+|---|---|---|---|
+| Charlie 2 | 14 | $9.32 | 118 min |
+| Charlie 3 | 16 | **$6.92** | **87 min** |
+
+And Charlie 3 got further: comps reviewed, three looks, one chosen, movement added, finishing touches done.
+
+At the end Alice left the debrief tickets to me, so I've filed the conduct issues as **REQ-389**:
+1. **No contact detail goes public without your explicit approval.** This is a rule for Alice plus a code-level guard that refuses a site write adding an email address the plan hasn't recorded as approved.
+2. **Finish and check before handing back.** No more "shall I fix my crops?"
+3. **Check every width after changing the top of the page.** The call button disappeared on desktop.
+4. **Stop claiming parallel builds.** "The three looks are being built at the same time" wasn't true.
+5. **Ask questions in your terms.** No more "a web page on the side of your van".
+
+Now your three areas.
+
+## 1. Alternate page chooser
+
+I'd make a set of alternatives a first-class thing rather than ordinary pages marked "unreachable":
+- **Metadata on the pages, not a naming convention.** Each alternative records which page it's an alternative of (`home`), its label ("Workwear") and its set. They never appear in the page dropdown.
+- **A carousel in the preview** while a set is open: ‹ Workwear · 1 of 3 › and a **"Choose this one"** button. Choosing copies it onto the real page and clears the others, which Alice currently does by hand in a 5–10 minute builder session.
+- **The animated swap is easy.** Preload the next alternative in a second frame and cross-fade or slide between the two. It's CSS and costs nothing on the server.
+- **One component for two jobs.** The comp viewer needs the same "‹ 2 of 3 ›" browsing, so comps and alternatives would share it.
+
+## 2. Questions
+
+- **Already supported:** text, number, **currency (prices)**, phone, email, URL, **date**, single choice, multi-choice (BUG-200 fixes the collapse) and upload.
+- **Missing:** multi-line answers. That needs a new text-area input type, which is small.
+- **The reminder and progress counter landed in REQ-379.** You're probably on an old deploy. BUG-203 has since made `bin/deploy --env dev` build the browser files itself, so one deploy should bring them in. At 19:32 you said "I don't see any questions". Was the panel empty, or were the questions not showing? If it was empty, that's a separate issue.
+
+## 3. Busy status and overall progress
+
+**A progress tracker** above the questions. The stages I'd propose, from how Charlie 3 actually ran:
+
+> Getting to know you → Looking at other sites → First draft → Refining → Colours & fonts → Finishing touches → Ready to publish
+
+- Finished stages get a tick, and the current one shows a spinner while Alice works.
+- Stages can be revisited, so going back to refine after colours is fine and doesn't look like going backwards.
+- The plan's `phase` field already exists. Alice sets it, and REQ-379 flags it when it's stale. Finding 18 showed she never moved it on her own, so the tracker needs that stale-phase flag to be reliable.
+
+**Movement while she's busy:** an animated indicator on the current stage, plus a working line by the composer: *"Alice is building your home page · about 5 min · 2:14 so far"*. It uses the note she already writes before handing work to a builder (REQ-379). The elapsed timer is the cheapest reassurance there is, because "2:14 so far" is visibly alive. The red stop button stays, but as the way to stop her, not the only sign she's working.
+
+## Three questions before I file
+
+1. **Does my stage list match yours?** You had "style choices" before "first draft". In Charlie 3, the style direction came from comps, and colour and type came later as the three looks. I've used that order.
+2. **The tracker: on the plan panel or across the top of the builder?** It's the client's sense of where they are, so I'd lean toward the top of the panel as you suggested, always visible.
+3. **How many tickets?** I'd file two: the alternatives carousel (with the shared comp viewer), and the panel work (tracker, busy line, multi-line input).
 
 <!-- xgd-chat-end -->
