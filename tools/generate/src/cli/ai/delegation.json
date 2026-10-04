@@ -81,12 +81,22 @@
     "`l1-surface.json` declares its `effect`, and the narrowed grant is the",
     "consultant's entry filtered to the ones declared `read`. A write group added",
     "to the surface later is withheld without an edit to this file, and there is no",
-    "second list of group names to fall behind the first."
+    "second list of group names to fall behind the first.",
+    "",
+    "`progress_seconds` IS HOW OFTEN A RUNNING BUILD SAYS IT IS STILL RUNNING",
+    "([[REQ-360]]). A delegated build is one tool call in the consultant's turn and",
+    "can take half an hour; without a signal the client cannot tell it from a",
+    "crash. Every this-many seconds the framework records `still working, elapsed",
+    "N min` on the consultant's open round and the builder chat shows it as one",
+    "status line, each replacing the last. A build that finishes inside one",
+    "interval says nothing. `0` turns it off; absent is 60."
   ],
 
   "enabled": true,
 
   "primary_writes": false,
+
+  "progress_seconds": 60,
 
   "workers": {
     "builder": { "backend": "claude_builder" }

@@ -159,6 +159,7 @@ import {
 } from './budget-core'
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
 import { keepClientOriented, type CadenceHooks } from './cadence-core'
+import { PROGRESS, progressEvent, withProgress } from './progress-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -1575,6 +1576,10 @@ async function build(
           // audit attribution takes one. This host has exactly one session per
           // site, so the answer is derived rather than tracked.
           caller: () => sessionIdFor(slug),
+          // [[REQ-360]] — HOW OFTEN A BUILD SAYS IT IS STILL GOING, from the same
+          // document that turned delegation on. The framework records the line on
+          // the caller's open round; {@link withProgress} carries it to the client.
+          progressIntervalMs: delegation.progressSeconds * 1000,
           // THE HOST'S OWN RECORD OF WHAT A DELEGATION CHANGED ([[REQ-340]]),
           // bracketed by the framework, and the containment checks that record
           // answers so the worker is never asked them ([[REQ-354]]).
@@ -3422,9 +3427,16 @@ async function* siteTurn(
     // nothing ran every turn at 600 s, and a delegating turn spends its worker's
     // whole run inside one tool call. `turn-clock.json` gives the value and why
     // the platform can hold it.
-    for await (const event of manager.promptStream(sessionId, text, {
-      timeout: TURN_TIMEOUT_SECONDS,
-    })) {
+    // [[REQ-360]] — WITH THE BUILD'S HEARTBEAT PUT IN. The turn's own stream is
+    // parked inside a `Delegate` call for the whole build; the framework's
+    // `progress` records go to the junction, and this is what reads them back
+    // onto the stream the client is actually holding. See `progress-core.ts`.
+    const events = withProgress(
+      manager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
+      manager.logFor(sessionId),
+      manager.pollIntervalMs,
+    )
+    for await (const event of events) {
       // WHAT BECAME OF THE TURN, taken off the library's terminal event
       // ([[BUG-121]]). Seeing no terminal event at all is itself the answer —
       // `outcome` starts at `aborted` — because the consumer walking away is
@@ -4037,6 +4049,10 @@ export async function* tailSession(
         content: String(record.content ?? ''),
         meta: (record.meta ?? {}) as Record<string, unknown>,
       }
+    } else if (kind === PROGRESS) {
+      // [[REQ-360]] — the build's heartbeat. `watch` serves only the current one,
+      // so a reattach mid-build sees the latest figure and one after it sees none.
+      yield progressEvent(record)
     } else if (kind === 'turn_end' || kind === 'session_end') {
       // `turn_end` carries how the turn ENDED — `complete`, `aborted`, `error` —
       // and it rides along on `done` because a turn that stopped early looks
