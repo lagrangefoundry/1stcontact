@@ -6,9 +6,9 @@ title: 'Builder: start with comparable sites — a comp board, viewed in the pre
   pane, with web search'
 created_by: EPIC-19
 created_at: '2026-10-04T00:14:10.660139+00:00'
-updated_at: '2026-10-04T03:01:26.939379+00:00'
+updated_at: '2026-10-04T03:01:35.441685+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
