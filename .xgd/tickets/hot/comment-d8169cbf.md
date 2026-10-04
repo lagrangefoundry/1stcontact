@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:45:49.290963+00:00'
+updated_at: '2026-10-04T00:46:59.369451+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6639,5 +6639,31 @@ Children get filed as the design settles. One stop-gap needs no ticket: change t
 <!-- xgd-chat role="user" ts="2026-10-04T00:45:49.191465+00:00" -->
 #### You
 One thought - if we could decompose the page into sections that were reassembled (by concatenation) at build time then it would be safe for an agent to work of a section. Could L1 be adapted to allow that?
+
+<!-- xgd-turn id="2be70aef-743f-4f11-bc74-ae416627ae17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:46:59.132168+00:00" -->
+#### Claude
+Yes. Our pages are already almost built that way. I checked Charlie 2's home page: its root is a vertical stack, and its 12 direct children are the sections, each with a meaningful id:
+
+`emergency-bar` (sticky) · `header` · `hero-section-outer` · `services-glance` · `kitchens-bathrooms` · `process` · `story` · `emergencies` · `reviews` · `trust-strip` · `quote-form-section` · `footer`
+
+Rendering the root's children in order already is concatenation. So L1 doesn't need new expressive power. The change is in how a page is stored and addressed:
+
+- **A page frame** holds the page-wide settings (viewport widths, background, text colour, fonts), the page's modules, the SEO metadata, and **the ordered list of section ids**. It has one owner at a time. Adding, removing or reordering sections is a frame change.
+- **Each section is stored and versioned separately**, keyed by its id, not by its position. Addresses inside a section are relative to that section, so writing one section can't renumber another. That removes the hazard I described last turn.
+- **At render time** the frame and its sections are assembled into today's single document. The renderer and the validator don't change and still check the whole page.
+- **A builder reading one section reads only that section**, not the whole 29–41KB page. That saves context even with no parallel work at all.
+
+What has to be true for sections to be safely independent:
+1. **Sections can't reach into each other.** That means no overlapping, no negative margins into a neighbour, and no positioning across sections. It's checked when a section is written, not assumed. Pages reproduced from captures may not qualify, and they stay single-owner.
+2. **Section owners can't change the frame.** A builder that needs a new font or viewport width asks, and frame changes happen one at a time.
+3. **Every module needs a home.** The quote form currently sits at page level. It should belong to the section that holds it.
+4. **Ids must stay unique across the whole page**, including anchors like `#quote-form-section`. A write that would create a duplicate is refused.
+5. **The header, footer and emergency bar repeat on every page.** They should become shared, site-level sections with their own owner, instead of copies kept in step by hand.
+6. **The version guard works per section.** Two builders on two sections never conflict. Two on the same section get a refusal instead of a lost write.
+7. **Existing pages split mechanically** by their top-level sections. A page that isn't a simple stack stays whole.
+
+I've added this to EPIC-24 as the proposed direction for same-page parallel work, replacing its vaguer "stable addressing" option. It also changes the epic's order of work: same-page parallelism no longer has to come last, because sections become the natural unit for both the scope model and the guard.
 
 <!-- xgd-chat-end -->
