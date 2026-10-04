@@ -1227,6 +1227,17 @@ body {
   color: var(--shell-fg-muted, #71717a);
 }
 
+/* [[BUG-200]] — finishing a multi-select: the one real button on the question. */
+.plan-ask__done {
+  cursor: pointer;
+  padding: 2px 10px;
+  border: 1px solid var(--shell-accent, #7c3aed);
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-accent, #7c3aed);
+  color: #fff;
+  font: inherit;
+}
+
 .plan-ask--done {
   padding: 4px 10px;
   background: transparent;

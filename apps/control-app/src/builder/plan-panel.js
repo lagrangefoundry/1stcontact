@@ -15,6 +15,11 @@
  * when it is picked; a document saves when it has uploaded. There is no submit
  * step for the panel as a whole.
  *
+ * [[BUG-200]] — EXCEPT A MULTI-SELECT, where the first tick is never the whole
+ * answer. Its ticks are saved as a draft, which leaves the question open and tells
+ * the consultant nothing, and the client finishes it with Done — or "None of these"
+ * with nothing ticked — which answers with every tick at once.
+ *
  * [[REQ-378]] — AND THE COMP BOARD: "Sites we're comparing". Each comp is a captured
  * site with a thumbnail of its hero, who put it there, and the client's likes and
  * dislikes, which they edit in place (saved when they leave the box). The client
@@ -44,6 +49,8 @@ import {
   PLAN_DOCUMENT,
   PLAN_DOCUMENT_GONE,
   PLAN_DOCUMENTS,
+  PLAN_DONE,
+  PLAN_NONE_OF_THESE,
   PLAN_UPLOAD_SEVERAL,
   PLAN_FILLED_BY_AGENT,
   PLAN_NEEDS_ANSWER,
@@ -77,7 +84,8 @@ const el = (tag, className, text) => {
   return node
 }
 
-const answerText = (answer) => (Array.isArray(answer) ? answer.join(', ') : (answer ?? ''))
+const answerText = (answer) =>
+  Array.isArray(answer) ? (answer.length ? answer.join(', ') : PLAN_NONE_OF_THESE) : (answer ?? '')
 
 /** Notes as the box shows them, one per line, and back. */
 const notesText = (items) => (items ?? []).join('\n')
@@ -148,6 +156,8 @@ export function createPlanPanel(options = {}) {
   const blocks = new Map()
   /** Answered or skipped asks the client has opened to change. */
   const changing = new Set()
+  /** Ask id → the latest draft sent for it, so an older reply never redraws over it ([[BUG-200]]). */
+  const drafting = new Map()
 
   function fail(message) {
     error.textContent = PLAN_SAVE_FAILED(message)
@@ -161,6 +171,24 @@ export function createPlanPanel(options = {}) {
       error.hidden = true
       changing.delete(ask.id)
       if (asked === site) render(view)
+    } catch (err) {
+      fail(err?.message ?? String(err))
+    }
+  }
+
+  /**
+   * Keep a multi-select's ticks without answering it ([[BUG-200]]). The question
+   * stays where it is, open or opened to change; only the latest draft's reply is
+   * drawn, so quick ticks cannot be drawn back to an earlier set.
+   */
+  async function draft(ask, picked) {
+    const asked = site
+    const mine = (drafting.get(ask.id) ?? 0) + 1
+    drafting.set(ask.id, mine)
+    try {
+      const view = await transport.answerAsk({ site: asked, ask: ask.id, action: 'draft', answer: picked })
+      error.hidden = true
+      if (asked === site && drafting.get(ask.id) === mine) render(view)
     } catch (err) {
       fail(err?.message ?? String(err))
     }
@@ -246,22 +274,52 @@ export function createPlanPanel(options = {}) {
   function editor(ask) {
     const box = el('div', 'plan-ask__editor')
     const current = ask.status === 'answered' ? ask.answer : undefined
-    if (ask.input === 'single_choice' || ask.input === 'multi_choice') {
-      const multi = ask.input === 'multi_choice'
+    if (ask.input === 'multi_choice') {
+      // [[BUG-200]] — TICKS ARE A DRAFT; DONE IS THE ANSWER. The boxes show the
+      // draft where there is one, and otherwise what was answered.
+      const ticked = ask.draft ?? (Array.isArray(current) ? current : [])
       const group = el('div', 'plan-ask__choices')
-      group.setAttribute('role', multi ? 'group' : 'radiogroup')
+      group.setAttribute('role', 'group')
+      group.setAttribute('aria-label', ask.prompt)
+      const finish = el('button', 'plan-ask__done')
+      finish.type = 'button'
+      const picked = () => [...group.querySelectorAll('input:checked')].map((i) => i.value)
+      const label = () => {
+        finish.textContent = picked().length ? PLAN_DONE : PLAN_NONE_OF_THESE
+      }
+      for (const option of ask.options ?? []) {
+        const choice = el('label', 'plan-ask__choice')
+        const input = el('input')
+        input.type = 'checkbox'
+        input.name = `plan-ask-${ask.id}`
+        input.value = option
+        input.checked = ticked.includes(option)
+        input.addEventListener('change', () => {
+          label()
+          void draft(ask, picked())
+        })
+        choice.append(input, document.createTextNode(` ${option}`))
+        group.append(choice)
+      }
+      label()
+      finish.addEventListener('click', () => {
+        drafting.delete(ask.id)
+        void save(ask, { action: 'answer', answer: picked() })
+      })
+      box.append(group, finish)
+    } else if (ask.input === 'single_choice') {
+      const group = el('div', 'plan-ask__choices')
+      group.setAttribute('role', 'radiogroup')
       group.setAttribute('aria-label', ask.prompt)
       for (const option of ask.options ?? []) {
         const label = el('label', 'plan-ask__choice')
         const input = el('input')
-        input.type = multi ? 'checkbox' : 'radio'
+        input.type = 'radio'
         input.name = `plan-ask-${ask.id}`
         input.value = option
-        input.checked = Array.isArray(current) ? current.includes(option) : current === option
+        input.checked = current === option
         input.addEventListener('change', () => {
-          const picked = [...group.querySelectorAll('input:checked')].map((i) => i.value)
-          if (picked.length === 0) return
-          void save(ask, { action: 'answer', answer: multi ? picked : picked[0] })
+          if (input.checked) void save(ask, { action: 'answer', answer: option })
         })
         label.append(input, document.createTextNode(` ${option}`))
         group.append(label)
