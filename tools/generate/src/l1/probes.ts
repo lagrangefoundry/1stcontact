@@ -57,6 +57,7 @@ import {
   holdAcrossReflowWindows,
   isBackingSurfaceId,
   isSynthesizedSurfaceId,
+  selfSurfaceLines,
   type FoldableElement,
 } from './fold'
 import { responseAt, surfaceBorderInset } from './rebase'
@@ -1940,11 +1941,21 @@ export function oracleBoxes(oracle: OracleSource): OracleBox[] {
         // Height only. Taking the whole rect would move the fragment to the
         // flow root's x/y, which is where the REJOINED node belongs and where a
         // fragment does not — the fidelity probe pairs on this position.
+        //
+        // BUG-195 — and a run that is its own surface (a button: `surface.self`)
+        // is its LINE BLOCK's height, not its border box's. The fold pins such a
+        // run's top at its lines (REQ-370) and sizes it by them; measuring it by
+        // the button made the probes place a 43px run 14.5px down a 43px button
+        // and report the label escaping it. Same function as the fold's own
+        // `textHeights`, so the two halves of the box come from one procedure.
+        // An oracle element is a captured `ValueElement`; `OracleSource` only
+        // declares the fields the classifier reads.
+        const lines = selfSurfaceLines(el as Parameters<typeof selfSurfaceLines>[0])
         out.push({
           text: el.text,
           kind,
           width: p.viewport.width,
-          box: { ...el.box, height: (el.inlineBox ?? el.box).height },
+          box: { ...el.box, height: lines?.height ?? (el.inlineBox ?? el.box).height },
         })
       } else if (kind === 'image' || kind === 'box') {
         out.push({ text: el.text ?? '', kind, width: p.viewport.width, box: el.box })
