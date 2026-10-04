@@ -1,7 +1,7 @@
 {
   "surface": "library",
   "version": 1,
-  "surface_version": 3,
+  "surface_version": 4,
   "title": "The client's Library — everything they have given you",
   "call_type": "inproc",
   "overview": "Your client has a Library, and this is it. Every file they have dropped on a conversation is here — their logo, their photographs, their brand guidelines, the font their signwriter used — along with every picture you have generated for them. It is the same list they see on their own Library tab, and it is the catalogue of what this engagement has to work with.\n\n**Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. Do not think of these as two stores; think of one catalogue with a mark on some of its entries.\n\n**This is not the same list as `list_assets`, and the difference is real.** `list_assets` answers *what can this site reference today* — every file the site holds, including drawings you made yourself. This answers *what has the client given us*. The two overlap exactly where `placed_on` says they do. When you want to put a picture on a page that is already on the site, `list_assets` is your list; when you want to know what the client actually has, this one is.\n\n**Say the number, not the name you call it by.** Every item here has a number your client can see on their own Library row — `IMAGE-5`, `DOC-7`. It is the only name the two of you share: the catalogue name is a handle nobody says out loud, and a title is not unique — three pictures made from one request arrive titled the same, which is the whole reason the number exists. So say *\"the crucible, IMAGE-5\"* when you talk to your client about a picture, and expect them to say it back to you. This is not internal vocabulary and it is not a thing to hide from them: it is a catalogue number, the way a gallery or a print shop gives one, and it is theirs as much as yours.\n\n**Look before you ask.** You can see every picture in here — `screenshot` takes the name this catalogue gives you, unchanged. A client who has given you three photographs and been asked which one is best, by someone who never looked at them, has been given nothing. Read the catalogue, look at the pictures, form a view, and say it.",
@@ -40,6 +40,20 @@
       "size": "how many bytes were copied",
       "description": "what this picture shows, as described. Write your own alt text FROM this onto the element that places it",
       "placed_on": "every site this item is now on, including the one just placed"
+    },
+    "role_change": {
+      "item": "the catalogue item that changed",
+      "label": "its number in your client's Library",
+      "role": "what it is for now",
+      "republishable": "whether it may now be placed on the site",
+      "placed_on": "the sites it is on. Changing a role to 'site' makes it placeable; placing it is a separate step"
+    },
+    "deletion": {
+      "item": "the catalogue item that was deleted",
+      "label": "the number it had in your client's Library, which no longer means anything",
+      "deleted": "true: it is gone from the Library",
+      "still_on_site": "the sites that still show it. Deleting never takes a picture off a page, because the page holds its own copy",
+      "note": "what happened, in one sentence to pass on to your client"
     }
   },
   "errors": {
@@ -60,6 +74,12 @@
     },
     "SCHEMA_INVALID": {
       "message": "the call was not well-formed. Nothing was placed and the catalogue is exactly as it was."
+    },
+    "NOT_AN_UPLOAD": {
+      "message": "only a file your client uploaded themselves can be moved between 'site' and 'reference'. What anything else is for was worked out from where it came from, and it is not something to change."
+    },
+    "ALREADY_ON_SITE": {
+      "message": "that file is already on the site, so it cannot go back to being background reading: visitors can see it. To stop using it, take it off the page first."
     }
   },
   "operations": [
@@ -149,6 +169,61 @@
         "NO_SITE",
         "SCHEMA_INVALID"
       ]
+    },
+    {
+      "op": "set_upload_role",
+      "tool": "set_upload_role",
+      "effect": "write",
+      "summary": "Change what one of your client's uploads is for: on the site, or background reading. Only when they ask.",
+      "description": "A file's role says what your client wants it used for. `site` means they want it on the site, and only then can it be placed; `reference` means it is background for you to read.\n\n**The role is your client's decision, not yours.** Change it when they ask — \"use those photos on the site\" — or ask them first and change it when they say yes. Never change it because you would like to use a file. After you change it, tell them in the conversation that you did.\n\nOnly files your client uploaded themselves can be changed. A file already on the site cannot go back to `reference`. Setting `site` does not place anything; placing it is a separate step.",
+      "params": {
+        "item": {
+          "type": "item_name",
+          "required": true
+        },
+        "role": {
+          "type": "string",
+          "required": true,
+          "enum": [
+            "site",
+            "reference"
+          ],
+          "description": "`site` to make it usable on the site, `reference` for background reading."
+        }
+      },
+      "returns": {
+        "shape": "role_change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "DELETED",
+        "AMBIGUOUS",
+        "NOT_AN_UPLOAD",
+        "ALREADY_ON_SITE",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "delete_library_item",
+      "tool": "delete_library_item",
+      "effect": "write",
+      "summary": "Delete an item from your client's Library. Only when they tell you to, in this conversation.",
+      "description": "Removes the item from the Library: the file, what was written about it, and any edits made to it. It is the same thing your client's own Delete button does.\n\n**Only on your client's instruction, given in this conversation.** Never delete on your own judgement — not to tidy duplicates, not because a picture is poor. You may suggest deleting something; they decide.\n\n**It does not take anything off the site.** A picture already placed stays on its page, because the site keeps its own copy. The result says so; tell your client. To take it off the page as well, edit the page.\n\nThere is no undo. To have it back, your client uploads it again.",
+      "params": {
+        "item": {
+          "type": "item_name",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "deletion"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "DELETED",
+        "AMBIGUOUS",
+        "SCHEMA_INVALID"
+      ]
     }
   ],
   "groups": [
@@ -170,6 +245,16 @@
       "operations": [
         "place_on_site"
       ]
+    },
+    {
+      "group": "KeepLibrary",
+      "effect": "write",
+      "title": "Keeping the client's Library, on their say-so",
+      "description": "Changing what an upload is for, and deleting an item — the two corrections your client can make on their own Library tab, made for them when they ask. Neither is yours to decide.",
+      "operations": [
+        "set_upload_role",
+        "delete_library_item"
+      ]
     }
   ],
   "sequences": [
@@ -185,12 +270,12 @@
   ],
   "absences": [
     {
-      "name": "Changing what an item is",
-      "note": "There is no way to change an item's rights, what the client said it was for, or whether it may be published. Those were settled when the file arrived and they are the client's to change, on their own Library tab — not a gate for you to work around."
+      "name": "Changing an item's rights",
+      "note": "There is no way to change an item's rights or whether it may be published, except through what it is for, and only for files your client uploaded. Rights are settled by where a file came from, and anything fetched from elsewhere stays reference whatever anyone wants."
     },
     {
-      "name": "Removing anything",
-      "note": "There is no way for YOU to delete a catalogue item or take one back off the site. Removing a file the client gave you is theirs to decide, and a catalogue you could quietly prune would stop being an account of what they handed over.\n\nThey can do it, on their own Library tab, and you will see the item simply cease to be in the catalogue. A name you were given earlier that has since been deleted is refused as DELETED rather than as unknown, so you can tell \"they got rid of that\" apart from \"I misheard the name\"."
+      "name": "Taking something off the site",
+      "note": "Nothing here takes a picture off a page. Deleting a Library item leaves the site's copy where it is. To stop showing a picture, edit the page that shows it."
     },
     {
       "name": "Putting a picture in front of anybody",

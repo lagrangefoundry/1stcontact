@@ -224,12 +224,13 @@ describe('REQ-281 — the refusal the model reads is the declaration’s', () =>
     // projection of this manual from another ([[REQ-280]]'s own assertion).
     expect(declaration.surface_version).toBeGreaterThan(2)
 
-    // AND THE ABSENCE STILL SAYS THE ASSISTANT MAY NOT DELETE. The client can
-    // now; that is a different sentence, and conflating them would read as a
-    // capability the surface does not grant.
-    const removing = declaration.absences.find((a) => a.name === 'Removing anything')
-    expect(removing?.note).toMatch(/no way for YOU to delete/i)
-    expect(removing?.note).toMatch(/their own Library tab/i)
+    // [[BUG-196]] SUPERSEDES THE OLD ABSENCE ("no way for YOU to delete"): the
+    // assistant may now delete, on the client's instruction only, and the one
+    // thing it still cannot do is take a picture off the site by deleting it.
+    expect(declaration.absences.find((a) => a.name === 'Removing anything')).toBeUndefined()
+    expect(named('delete_library_item')).toContain('DELETED')
+    const offSite = declaration.absences.find((a) => a.name === 'Taking something off the site')
+    expect(offSite?.note).toMatch(/edit the page/i)
   })
 
   it('test_UAT_FC_REQ-281_the_declaration_still_validates_with_its_travelling_grant', async () => {

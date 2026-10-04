@@ -99,7 +99,7 @@ import {
   renderSafe,
 } from './markdown.js'
 import { mountImageEditor } from './image-editor.js'
-import { createModalShell, modalButton, modalFooter } from './modal.js'
+import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import { clearDetail } from './detail-pane.js'
 import { isEditablePicture } from './picture-kind.js'
 import { mountMaterialName } from './material-name.js'
@@ -134,69 +134,10 @@ const NO_DESCRIPTION =
   "Nothing has read this yet, so I can't find it by what's in it. Tell me what it is."
 
 /**
- * What the delete control is called, and what the dialog says — [[REQ-281]].
- *
- * **THE COPY IS THE FEATURE HERE, MORE THAN THE BUTTON IS.** Deleting is rare,
- * irreversible from the client's point of view, and — for a picture that is on
- * the site — surrounded by an assumption that is both natural and wrong. So
- * these strings are constants rather than inline literals: they are the thing
- * worth reading in one place, and they are what the suite asserts.
- *
- * `DELETE_LABEL` SAYS WHERE IT GOES FROM. *"Delete"* alone, on a pane that has a
- * picture at the top of it and a site one tab across, is exactly the ambiguity
- * `PLACED_STAYS` exists to resolve — so the control resolves it before it is
- * pressed.
+ * The delete control, its dialog and its sentences, and *Use on the site*, are
+ * `material-actions.js`'s ([[BUG-196]]) — shared with the plan panel, so an upload
+ * offers the same actions, styled the same way, wherever the client sees it.
  */
-const DELETE_LABEL = 'Delete this from your Library'
-
-/** The dialog's own confirm button. Short, because the title carries the noun. */
-const DELETE_CONFIRM = 'Delete'
-
-/** The way out, and the control that holds focus. */
-const DELETE_CANCEL = 'Keep it'
-
-/**
- * What a client loses, said in their terms.
- *
- * THE RECIPE IS NAMED ONLY WHERE THERE IS ONE. *"Any edits you have made to it"*
- * is a true sentence about an uncropped PDF and a meaningless one, and a
- * confirmation that lists consequences a reader cannot place is a confirmation
- * they stop reading.
- */
-const WHAT_GOES = 'The file itself and what we wrote about it are gone.'
-const EDITS_GO = 'The crop and the adjustments you made to it go with it.'
-
-/**
- * The half of the erasure a client cannot see on this pane.
- *
- * A name is how the two halves of an engagement point at one picture
- * ([[REQ-280]]), so a deleted number stops meaning anything to the consultant as
- * well — which is worth saying to somebody who has been talking about `IMAGE-5`
- * all afternoon.
- */
-const NAME_GOES = (name) =>
-  `If we have been calling it ${name}, that name will stop meaning anything.`
-
-/**
- * **THE SENTENCE THE WHOLE CTA TURNS ON** — [[REQ-281]].
- *
- * Placement COPIES the bytes: `promoteToSiteAsset` writes `placed_on` after the
- * copy it records, so a picture on a page is the site's own file and the Library
- * row is the catalogue entry. The natural assumption is the opposite one, and
- * acting on it would be alarming — a client who believes this takes their
- * shopfront photograph off their home page will not press it, and one who
- * presses it believing that and is right has had their site edited by a button
- * on a filing screen. Neither is acceptable, so the dialog says which it is.
- */
-const PLACED_STAYS =
-  'It stays on your site. The page has its own copy, so this does not take the ' +
-  'picture down — taking it down is a change to the page.'
-
-/** The only way back, stated so nobody goes looking for a bin. */
-const COMES_BACK = 'If you want it again you will have to upload it again.'
-
-/** What a refused deletion opens with — see `openConfirm`. */
-const DELETE_FAILED = 'That could not be deleted'
 
 /** The `kind` vocabulary (DOC-38 §9), as a filter offers it. */
 const KINDS = ['image', 'document', 'font', 'capture']
@@ -420,29 +361,6 @@ function inUse(row) {
  */
 function roleIsTheirs(row) {
   return (row.origin ?? 'uploaded') === 'uploaded'
-}
-
-/**
- * What the confirmation says about THIS item — [[REQ-281]].
- *
- * ONE FUNCTION, SO THE SENTENCES ARE CHOSEN IN ONE PLACE AND CAN BE READ AS A
- * PARAGRAPH. Each line is conditioned on a fact the row already carries, which
- * is what keeps the dialog from listing consequences a reader cannot place: a
- * PDF has no crop to lose, a file nobody has placed is not on any page, and an
- * item with no number has no shared name to stop meaning anything.
- *
- * `PLACED_STAYS` IS THE ONE THAT MATTERS AND IT IS CONDITIONAL ANYWAY. Telling a
- * client their unplaced photograph *stays on the site* would be a reassurance
- * about something that never happened, which reads as the product not knowing
- * what it holds. `placedList` is the same reading the rest of the pane makes.
- */
-function deletionLines(row) {
-  const lines = [WHAT_GOES]
-  if (Array.isArray(row.edits) && row.edits.length > 0) lines.push(EDITS_GO)
-  if (row.label) lines.push(NAME_GOES(row.label))
-  if (placedList(row).length > 0) lines.push(PLACED_STAYS)
-  lines.push(COMES_BACK)
-  return lines
 }
 
 function el(tag, className, text) {
@@ -682,8 +600,56 @@ export function createLibraryPanel(options = {}) {
       meta.append(pill)
     }
     wrap.append(meta)
+    wrap.append(rowActions(row))
     return wrap
   }
+
+  /**
+   * The actions on an upload, on its row ([[BUG-196]]).
+   *
+   * WHERE THE CLIENT SEES THE FILE, THEY SEE WHAT THEY CAN DO WITH IT. Moving a
+   * reference upload to the site used to be a select inside the rights record of
+   * a pane nobody was told to open, and deleting was at the foot of that same
+   * pane. Both are on the row now, as the same controls the pane and the plan
+   * panel mount; pressing one does not open the row.
+   */
+  function rowActions(row) {
+    const actions = el('div', 'builder-library__row-actions')
+    const failed = el('span', 'builder-library__row-failed')
+    failed.setAttribute('role', 'status')
+    if (canUseOnSite(row)) {
+      actions.append(
+        useOnSiteButton(async () => {
+          failed.textContent = ''
+          try {
+            Object.assign(row, await transport.setRole(row.uid, 'site'))
+            apply()
+          } catch (err) {
+            failed.textContent = err.message
+          }
+        }),
+      )
+    }
+    actions.append(
+      deleteButton(() => {
+        if (rowConfirming) return
+        rowConfirming = confirmDelete({
+          row,
+          host: getModalHost(),
+          remove: transport.remove,
+          onDeleted: () => forget(row.uid),
+          onClose: () => {
+            rowConfirming = null
+          },
+        })
+      }, 'builder-library__row-delete'),
+    )
+    actions.append(failed)
+    return actions
+  }
+
+  /** The delete dialog a row opened, so a second press does not open another. */
+  let rowConfirming = null
 
   // --- the detail ---------------------------------------------------------------
   /**
@@ -880,98 +846,29 @@ export function createLibraryPanel(options = {}) {
     view.append(host)
 
     /**
-     * Getting rid of it — [[REQ-281]].
+     * Getting rid of it — [[REQ-281]], styled as the dangerous action it is
+     * ([[BUG-196]]).
      *
-     * **AT THE FOOT OF THE PANE, AND NOT ON THE ROW.** Deleting is rare and, to
-     * the client, irreversible; what they come to this pane to do is look at a
-     * file, fix its name and correct what we said it is. So it is reachable from
-     * the one place that is already about THIS item, and it is as far from the
-     * name box and the picture as the pane goes — a destructive control beside
-     * an action somebody uses every day is a control that will eventually be
-     * pressed by accident.
-     *
-     * WRAPPED IN A BLOCK OF ITS OWN rather than appended bare, so the rule that
-     * separates it from the description belongs to the block and survives the
-     * button being restyled. A border on the button would be a border on the
-     * thing that is deliberately not styled as a button.
+     * AT THE FOOT OF THE PANE, as far from the name box and the picture as the
+     * pane goes, in a block of its own whose rule separates it from the
+     * description. The control and its dialog are `material-actions.js`'s, the
+     * same ones the row and the plan panel mount.
      */
     const danger = el('div', 'builder-library__danger')
-    const removeButton = el('button', 'builder-library__delete', DELETE_LABEL)
-    removeButton.type = 'button'
-    removeButton.addEventListener('click', () => openConfirm())
-    danger.append(removeButton)
+    danger.append(deleteButton(() => openConfirm(), 'builder-library__delete'))
     view.append(danger)
 
-    /**
-     * Ask before it happens, and say what will and will not happen.
-     *
-     * THE SHELL IS `modal.js`'s, like every other builder dialog, so the
-     * backdrop, Escape, the footer and the buttons are chrome this file does not
-     * own. What is written here is the two things only this dialog knows: the
-     * sentences, and that the origin is the one that decides.
-     *
-     * **CANCEL TAKES FOCUS**, on `domain.js`'s reasoning about releasing a
-     * customer's domain: a return press aimed at something else must not land on
-     * the control that deletes a client's file. It is also the wording that
-     * carries the default — *Keep it* is an answer, where *Cancel* is a way out
-     * of a question.
-     *
-     * **IT STAYS OPEN UNTIL THE ORIGIN HAS ANSWERED**, which is the difference
-     * from the release dialog beside it. Every other write on this pane can be
-     * rolled back by redrawing what the store holds; this one cannot, so a
-     * refusal has to reach the person who asked. Closing first and reporting
-     * into the pane behind would put the sentence somewhere they are no longer
-     * looking, and would leave them believing a file is gone when it is not.
-     */
     function openConfirm() {
       if (confirming) return
-      const name = row.label || row.title || row.filename
-      const modal = createModalShell({
+      confirming = confirmDelete({
+        row,
         host: getModalHost(),
-        title: `Delete ${name}?`,
+        remove: transport.remove,
+        onDeleted: () => forget(row.uid),
         onClose: () => {
           confirming = null
         },
       })
-      confirming = modal
-      modal.panel.append(el('h2', 'builder-modal__title', `Delete ${name}?`))
-      for (const line of deletionLines(row)) {
-        modal.panel.append(el('p', 'builder-library__confirm', line))
-      }
-      // EMPTY RATHER THAN ABSENT, and hidden by the stylesheet's `:empty`, on
-      // the panel's own refusal paragraph's reasoning: the element a message
-      // lands in already exists, so announcing into it does not depend on having
-      // just inserted it.
-      const failed = el('p', 'builder-library__confirm-failed')
-      failed.setAttribute('role', 'status')
-      modal.panel.append(failed)
-
-      const cancel = modalButton(DELETE_CANCEL, 'builder-modal__btn', () => modal.close())
-      const confirm = modalButton(
-        DELETE_CONFIRM,
-        'builder-modal__btn builder-modal__btn--primary builder-library__confirm-delete',
-        async () => {
-          confirm.disabled = true
-          cancel.disabled = true
-          failed.textContent = ''
-          try {
-            await transport.remove(row.uid)
-          } catch (err) {
-            // THE ORIGIN'S OWN SENTENCE, for the reason every other material
-            // refusal reaches its field unaltered: a second wording written here
-            // is how one refusal comes to be explained two different ways.
-            failed.textContent = `${DELETE_FAILED}: ${err.message}`
-            confirm.disabled = false
-            cancel.disabled = false
-            return
-          }
-          modal.close()
-          forget(row.uid)
-        },
-      )
-      modal.panel.append(modalFooter([cancel, confirm]))
-      modal.mount()
-      cancel.focus()
     }
 
     /**

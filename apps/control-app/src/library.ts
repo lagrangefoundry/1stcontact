@@ -35,6 +35,12 @@ import { LibraryRefusedError } from '../../../tools/generate/src/cli/ai/library-
 import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import {
+  AlreadyOnSiteError,
+  archiveMaterial,
+  RoleNotChosenError,
+  reviseRole,
+  type IndexMaterial,
+  type MaterialRole,
   listDeletedMaterial,
   listMaterial,
   readMaterial,
@@ -120,6 +126,12 @@ export function chatLibrary(
    * the client's put the same bytes on the site.
    */
   renderer?: ImageRenderer,
+  /**
+   * The search index's forget seam, opened only when something is deleted
+   * ([[BUG-196]]) — the one the client's own `DELETE /api/material` hands to
+   * `archiveMaterial`, so a file the consultant deletes stops answering searches too.
+   */
+  index?: () => Promise<IndexMaterial | null>,
 ): LibraryDeps {
   return {
     slug,
@@ -161,6 +173,26 @@ export function chatLibrary(
         // assistant is given the same account of a file the client is.
         description: full.body,
       }
+    },
+
+    /**
+     * [[BUG-196]] — `reviseRole`, the Library's own role control's call, with its two
+     * refusals given the surface's codes. It does not place: placing is
+     * `place_on_site`, a separate decision.
+     */
+    async setRole(name: string, role: string): Promise<CatalogueItem> {
+      try {
+        return catalogueItem(await reviseRole(tickets, { uid: name, role: role as MaterialRole }))
+      } catch (error) {
+        if (error instanceof RoleNotChosenError) throw new LibraryRefusedError('NOT_AN_UPLOAD', error.message)
+        if (error instanceof AlreadyOnSiteError) throw new LibraryRefusedError('ALREADY_ON_SITE', error.message)
+        throw error
+      }
+    },
+
+    /** [[BUG-196]] — `archiveMaterial`, exactly as the client's Delete button reaches it. */
+    async remove(name: string): Promise<void> {
+      await archiveMaterial(tickets, name, index ? await index() : null)
     },
 
     async place(name: string, as: string | null): Promise<PlacedItem> {

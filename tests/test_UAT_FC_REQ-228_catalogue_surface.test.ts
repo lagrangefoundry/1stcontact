@@ -545,10 +545,12 @@ describe('REQ-228 AC5 — a surface of its own, with its grant travelling with i
       Record<string, Record<string, unknown>>
     expect(instances.consultant).not.toHaveProperty('library')
     expect(instances.consultant).not.toHaveProperty('tickets')
-    // AND THE TRAVELLING GRANT IS BOTH GROUPS, because an assistant that can see
-    // a picture and not place it is the half-feature this ticket is about.
+    // AND THE TRAVELLING GRANT IS EVERY GROUP, because an assistant that can see
+    // a picture and not place it is the half-feature this ticket is about — and,
+    // since [[BUG-196]], one that cannot make the client's own two corrections on
+    // their say-so is the other half.
     expect(libraryInstanceConfig()).toEqual({
-      library: { groups: ['ReadLibrary', 'PlaceOnSite'] },
+      library: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary'] },
     })
   })
 
