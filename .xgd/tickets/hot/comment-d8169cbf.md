@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T23:20:29.671856+00:00'
+updated_at: '2026-10-04T23:28:09.088731+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7154,5 +7154,15 @@ I'd make a set of alternatives a first-class thing rather than ordinary pages ma
 1. **Does my stage list match yours?** You had "style choices" before "first draft". In Charlie 3, the style direction came from comps, and colour and type came later as the three looks. I've used that order.
 2. **The tracker: on the plan panel or across the top of the builder?** It's the client's sense of where they are, so I'd lean toward the top of the panel as you suggested, always visible.
 3. **How many tickets?** I'd file two: the alternatives carousel (with the shared comp viewer), and the panel work (tracker, busy line, multi-line input).
+
+<!-- xgd-turn id="7d042bd0-7f27-4f9f-9525-8457cbf43bb4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T23:28:08.627199+00:00" -->
+#### You
+I like your stages they are better than mine. Alice checks them off? I think it should be possible to go backwards and to complete them in the wrong order.
+
+Try top of the panel and see if it feels like a good use of realestate
+
+You choose
 
 <!-- xgd-chat-end -->
