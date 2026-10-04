@@ -2,6 +2,7 @@ import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
+import { createCompViewer } from './comp-viewer.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
@@ -623,6 +624,19 @@ export function mountBuilder(root, options = {}) {
    */
   const carry = createPageCarry({ pageState })
 
+  /**
+   * The comp viewer ([[REQ-378]]) and the draft channel to go back to.
+   * `draftMode` is whichever of View and Edit the client was in when they opened
+   * a comp, so going back puts them where they were.
+   */
+  let draftMode = 'view'
+  const compViewer = createCompViewer({ onBack: () => panel.setMode(draftMode) })
+  function openComp(reference, comps) {
+    if (panel.getMode() !== 'comp') draftMode = panel.getMode() ?? 'view'
+    compViewer.open(comps, reference)
+    panel.setMode('comp')
+  }
+
   const panel = createDisplayPanel({
     storage: shell.storage(STORAGE_KEYS.panel),
     site: sites[0]?.site ?? null,
@@ -691,6 +705,18 @@ export function mountBuilder(root, options = {}) {
         'phone-preview',
         'publish',
       ],
+    })
+    // [[REQ-378]] — A COMPARABLE SITE, VIEWED. Entered only from the comp board,
+    // never offered by the toggle and never remembered. It names NO toolbar
+    // actions, so edit, pages, colours and Publish are absent while it shows —
+    // its own banner is the only chrome — and the draft's frames are left
+    // exactly as they were, so "Back to your draft" returns to the same page.
+    .registerMode({
+      id: 'comp',
+      label: 'Viewing',
+      transient: true,
+      mount: (host) => compViewer.mount(host),
+      actions: [],
     })
     .restore()
 
@@ -1038,7 +1064,11 @@ export function mountBuilder(root, options = {}) {
    * The plan panel, above the chat ([[REQ-364]]). It renders the site's plan and
    * nothing else, so it is told only which site, and when the plan may have moved.
    */
-  const planPanel = createPlanPanel(planTransport ? { transport: planTransport } : {})
+  const planPanel = createPlanPanel({
+    ...(planTransport ? { transport: planTransport } : {}),
+    // [[REQ-378]] — a comp clicked on the board is shown in the preview pane.
+    onOpenComp: openComp,
+  })
 
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
@@ -1600,6 +1630,8 @@ export function mountBuilder(root, options = {}) {
     // [[REQ-364]] — the plan panel follows the site too, and needs no model: a
     // deployment that cannot reach one still shows the client its questions.
     void planPanel.setSite(site ?? null)
+    // [[REQ-378]] — another site's comps are not this one's: back to the draft.
+    if (panel.getMode() === 'comp') panel.setMode(draftMode)
     if (!site) {
       chat.setSession(null)
       return

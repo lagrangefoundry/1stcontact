@@ -59,6 +59,9 @@
  * @property {(state: PanelState) => string} [src]  document URL for this mode
  * @property {(host: HTMLElement, state: PanelState) => void} [mount] non-document mode
  * @property {string[]} [actions]                   toolbar action ids valid in this mode
+ * @property {boolean} [transient]                  [[REQ-378]] entered only by the host
+ *   (the comp viewer): not offered by the mode toggle, and never remembered, so a
+ *   reload opens the draft rather than a view with nothing to show
  */
 
 /** @typedef {{ site: string | null, mode: string | null }} PanelState */
@@ -269,7 +272,7 @@ export function createDisplayPanel(options = {}) {
     if (!modes.has(id)) throw new Error(`setMode: unknown mode "${id}"`)
     if (id === activeId) return
     activeId = id
-    storage?.setItem('mode', id)
+    if (!modes.get(id).transient) storage?.setItem('mode', id)
     // NOTHING IS INVALIDATED HERE. That omission is the whole of [[BUG-79]]:
     // moving between channels does not make either one's document any less
     // current, so neither is re-fetched and the one being left keeps its layout
@@ -298,7 +301,7 @@ export function createDisplayPanel(options = {}) {
     const savedSite = storage?.getItem('site')
     if (savedSite) setSite(savedSite)
     const savedMode = storage?.getItem('mode')
-    if (savedMode && modes.has(savedMode)) setMode(savedMode)
+    if (savedMode && modes.has(savedMode) && !modes.get(savedMode).transient) setMode(savedMode)
     return api
   }
 

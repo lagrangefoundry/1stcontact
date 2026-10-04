@@ -914,3 +914,29 @@ export const PLAN_UPLOAD = 'Upload a document'
 export const PLAN_DOCUMENT = 'A document you sent'
 export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
 export const PLAN_SAVE_FAILED = (message) => `That answer was not saved: ${message}`
+
+/** The comp board's words ([[REQ-378]]). */
+export const COMPS_HEADING = "Sites we're comparing"
+export const COMPS_ADD_LABEL = 'Add a site you like'
+export const COMPS_ADD_PLACEHOLDER = 'https://…'
+export const COMPS_ADD_BUTTON = 'Add'
+export const COMPS_ADDING = 'Looking at that site…'
+export const COMPS_FROM = { consultant: 'Suggested', client: 'You added' }
+export const COMPS_LIKES = 'Likes'
+export const COMPS_DISLIKES = 'Dislikes'
+export const COMPS_NOTES_HINT = 'One per line'
+export const COMPS_OPEN = (title) => `Look at ${title}`
+export const COMPS_REMOVE = 'Remove'
+export const COMPS_FAILED = (message) => `That was not saved: ${message}`
+
+/** The comp viewer's words ([[REQ-378]]). */
+export const COMP_VIEWING = (title) => `Viewing: ${title}`
+export const COMP_BACK = 'Back to your draft'
+export const COMP_PREVIOUS = 'Previous'
+export const COMP_NEXT = 'Next'
+export const COMP_VISIT = 'Visit the live site'
+export const COMP_DESKTOP = 'Desktop'
+export const COMP_PHONE = 'Phone'
+export const COMP_NO_PICTURE = 'There is no picture of this site yet.'
+export const COMP_MOTION_NOTE =
+  "This is a picture, so it doesn't show animation or what happens as you scroll. Visit the live site to see that."

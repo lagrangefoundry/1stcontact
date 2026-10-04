@@ -33,6 +33,7 @@
  */
 
 import {
+  captureMotion,
   captureTitle,
   describeCapture,
   type CaptureEssence,
@@ -203,6 +204,10 @@ export async function adoptCapture(
     // the row's fallback does when the field is absent — would state a filename
     // that is not one. See `library.js`, which shows the member count instead.
     content_type: memberContentType(CAPTURE_MEMBER),
+    // [[REQ-378]] — what the capture recorded about motion, for the comp viewer.
+    // Empty rather than absent when it recorded none, so a recapture of a page
+    // that dropped its animation does not keep the old line.
+    motion: captureMotion(capture) ?? '',
   }
 
   const existing = await findByBundle(store, bundle.name)

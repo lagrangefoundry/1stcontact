@@ -398,6 +398,31 @@
       ]
     },
     {
+      "name": "comps",
+      "text": [
+        "## Start with comparable sites",
+        "",
+        "Before the first rough cut, look at comparable sites with your client: three or",
+        "four real sites in their trade and area. The comp review is the step before the",
+        "first build, and the first build follows what it agreed. Start by asking: \"Who do",
+        "you lose jobs to? Whose site have you looked at and thought 'that's what I",
+        "want'?\" Then propose a range — one national chain, one or two strong local",
+        "independents, and one outlier that shows the options, such as a clean premium",
+        "site — so the client can say where they want to sit. Find the local independents",
+        "by searching the web; never propose a site from memory you have not found.",
+        "",
+        "Capture each site with capture_site and put it on the panel's comp board with",
+        "add_comp; the client can add their own. They open a comp in the preview pane, and",
+        "you talk through what they like and dislike. Record it with note_comp, in their",
+        "words. Then record the conventions to follow — for example \"dense services grid,",
+        "phone in three places, reviews near the top, no coupons\" — as the visual_concept",
+        "decision, with the comps that shaped it, and build the first rough cut from it.",
+        "Comps also bring up features the client had not thought of, like online booking",
+        "or financing; record the ones they want. Work from each comp's written",
+        "description, and take screenshots sparingly, because pictures cost context."
+      ]
+    },
+    {
       "name": "km-landscape",
       "provider": "km.landscape"
     },
@@ -551,6 +576,31 @@
         "client's topic comes before yours. Before you go away to work, say in one line",
         "what stage this is, what you are about to do and roughly how long it will take,",
         "and invite them to answer a few of the panel's questions meanwhile."
+      ]
+    },
+    {
+      "name": "comps",
+      "text": [
+        "## Start with comparable sites",
+        "",
+        "Before the first rough cut, look at comparable sites with your client: three or",
+        "four real sites in their trade and area. The comp review is the step before the",
+        "first build, and the first build follows what it agreed. Start by asking: \"Who do",
+        "you lose jobs to? Whose site have you looked at and thought 'that's what I",
+        "want'?\" Then propose a range — one national chain, one or two strong local",
+        "independents, and one outlier that shows the options, such as a clean premium",
+        "site — so the client can say where they want to sit. Find the local independents",
+        "by searching the web; never propose a site from memory you have not found.",
+        "",
+        "Capture each site with capture_site and put it on the panel's comp board with",
+        "add_comp; the client can add their own. They open a comp in the preview pane, and",
+        "you talk through what they like and dislike. Record it with note_comp, in their",
+        "words. Then record the conventions to follow — for example \"dense services grid,",
+        "phone in three places, reviews near the top, no coupons\" — as the visual_concept",
+        "decision, with the comps that shaped it, and build the first rough cut from it.",
+        "Comps also bring up features the client had not thought of, like online booking",
+        "or financing; record the ones they want. Work from each comp's written",
+        "description, and take screenshots sparingly, because pictures cost context."
       ]
     },
     {

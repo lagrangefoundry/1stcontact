@@ -71,6 +71,15 @@ export interface FakeBrowserOptions {
    * real sizes. The navigated URL's body becomes the document.
    */
   network?: Record<string, { body: string | Uint8Array; contentType?: string }>
+  /**
+   * What a page script answers ([[REQ-378]]), given the viewport last applied.
+   *
+   * DEFAULTS TO `true`, which every caller before this wanted. A caller driving a
+   * whole capture through the browser seam answers the extraction scripts here
+   * (`fake-capture-driver.ts`'s canned signals), so the real pipeline runs end to
+   * end over a fake browser.
+   */
+  evaluate?: (script: string, viewport: Viewport | undefined) => unknown
 }
 
 /** Eight bytes of a real PNG signature + IHDR, so a caller can sniff the type. */
@@ -198,7 +207,7 @@ class FakePage implements PuppeteerPage {
 
   async evaluate(script: string): Promise<unknown> {
     this.log.evaluated.push(script)
-    return true
+    return this.opts.evaluate ? this.opts.evaluate(script, this.log.viewports.at(-1)) : true
   }
 
   async addStyleTag(): Promise<unknown> {

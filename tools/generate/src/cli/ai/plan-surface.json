@@ -8,9 +8,10 @@
   "param_types": {},
   "shapes": {
     "plan": {
-      "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks, and asks",
+      "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks, asks, and the comp board",
       "body": "the written part: the client's own words, the decision log, and notes",
-      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, task progress, and the asks still open"
+      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, task progress, and the asks still open",
+      "comps": "the comp board with each site's likes and dislikes, when it has any sites"
     },
     "written": {
       "decision": "the decision as it now stands, when the change was to a decision",
@@ -20,7 +21,9 @@
       "feature": "the feature and its status, when the change was to a feature",
       "note": "the section and length of the note added, when the change was a note",
       "phase": "the phase, when the change was to the phase",
-      "ask": "the ask as it now stands, when the change was to an ask"
+      "ask": "the ask as it now stands, when the change was to an ask",
+      "comp": "the comp as it now stands, when the change was to the comp board",
+      "removed": "the reference taken off the comp board"
     }
   },
   "errors": {
@@ -50,6 +53,12 @@
     },
     "ASK_ANSWERED": {
       "message": "the client has answered that ask. Their answer stands; nothing was written."
+    },
+    "UNKNOWN_COMP": {
+      "message": "that is not a site on the comp board, or not a capture this business holds. Capture the address with capture_site, then add the reference it answers."
+    },
+    "NO_COMPS": {
+      "message": "this host keeps no comp board, so nothing was written."
     }
   },
   "operations": [
@@ -121,10 +130,11 @@
         "log": { "type": "integer", "description": "The number of the decision-log entry that explains it, if you recorded one." },
         "title": { "type": "string", "description": "For a new decision only: what it is." },
         "area": { "type": "string", "enum": ["purpose", "messaging", "style", "imagery", "functionality", "liveness", "structure"], "description": "For a new decision only." },
-        "tier": { "type": "string", "enum": ["concept", "detail"], "description": "For a new decision only: `concept` shapes what the site is; `detail` can be settled quickly." }
+        "tier": { "type": "string", "enum": ["concept", "detail"], "description": "For a new decision only: `concept` shapes what the site is; `detail` can be settled quickly." },
+        "comps": { "type": "array", "description": "The comps (reference uids on the board) that shaped this decision — for example the conventions recorded in `visual_concept`." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "UNKNOWN_COMP", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "set_task",
@@ -273,6 +283,44 @@
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "add_comp",
+      "tool": "add_comp",
+      "effect": "write",
+      "summary": "Put a captured site on the client's comp board — \"Sites we're comparing\".",
+      "description": "Comps are real sites in the client's trade and area that you and the client look at before the first build. Capture the address with `capture_site` first, then give the `reference.uid` it answered. The client sees the site on their plan panel with a thumbnail of its hero, and can open it in the preview pane. Adding a site that is already on the board changes nothing.",
+      "params": {
+        "reference": { "type": "string", "required": true, "description": "The reference uid `capture_site` answered for the site." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_COMP", "NO_COMPS", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "note_comp",
+      "tool": "note_comp",
+      "effect": "write",
+      "summary": "Record what the client likes and dislikes about a comp, in their words.",
+      "description": "Short notes, one item each, as the client said them (\"phone number in three places\", \"too many coupons\"). Each list you give replaces that list; leave one out to keep it. The client can edit the same notes on their panel, and you are told on your next turn when they do.",
+      "params": {
+        "reference": { "type": "string", "required": true, "description": "The comp's reference uid." },
+        "likes": { "type": "array", "description": "What the client likes about it, one short item each." },
+        "dislikes": { "type": "array", "description": "What the client dislikes about it, one short item each." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_COMP", "NO_COMPS", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "remove_comp",
+      "tool": "remove_comp",
+      "effect": "write",
+      "summary": "Take a site off the comp board.",
+      "description": "The capture stays in the client's Library; only its place on the board goes.",
+      "params": {
+        "reference": { "type": "string", "required": true, "description": "The comp's reference uid." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["UNKNOWN_COMP", "CONFLICT", "SCHEMA_INVALID"]
     }
   ],
   "groups": [
@@ -310,6 +358,13 @@
       "title": "Keeping the client's questions",
       "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, and filling them in from what the client uploaded.",
       "operations": ["set_ask", "withdraw_ask", "fill_ask"]
+    },
+    {
+      "group": "KeepComps",
+      "effect": "write",
+      "title": "Keeping the comp board",
+      "description": "The comparable sites you and the client look at before the first build, and what the client likes and dislikes about each.",
+      "operations": ["add_comp", "note_comp", "remove_comp"]
     }
   ],
   "sequences": [],

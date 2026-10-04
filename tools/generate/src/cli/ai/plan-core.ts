@@ -96,6 +96,8 @@ export const ASK_STATUSES = ['open', 'answered', 'skipped', 'withdrawn'] as cons
 /** Who an answer is recorded as coming from: the client, or the agent that filled it. */
 export const CLIENT = 'client'
 export const ASK_ANSWERERS: readonly string[] = [CLIENT, 'consultant', 'coordinator']
+/** [[REQ-378]] — who put a site on the comp board. */
+export const COMP_SOURCES = ['consultant', CLIENT] as const
 
 /** The body's sections, in the order a new plan has them. */
 export const BRIEF_SECTION = 'Brief'
@@ -125,6 +127,8 @@ export interface PlanDecision {
   answer?: { quote: string; at: string }
   /** The `### Decision N` entry in the body that records it. */
   log?: number
+  /** [[REQ-378]] — the comps (reference uids) that shaped it. */
+  comps?: string[]
 }
 
 export interface PlanCheckAnswer {
@@ -180,6 +184,49 @@ export interface PlanAsk {
   withdrawn_reason?: string
 }
 
+/**
+ * A site on the comp board ([[REQ-378]]): a comparable site the client and the
+ * consultant are looking at before the first build.
+ *
+ * A POINTER TO A CAPTURE, NOT A COPY OF ONE. Every comp is a `reference` ticket
+ * made by `capture_site`, and the client's likes and dislikes live on that ticket.
+ * The plan holds which captures are on the board, who put them there, and who last
+ * wrote the notes and when — the attribution the next turn's notice is read from,
+ * exactly as `answered_by` is for an ask. The title and address are kept here too,
+ * so the per-turn reminder can name a comp without reading its ticket.
+ */
+export interface PlanComp {
+  reference: string
+  title: string
+  url: string
+  source: string
+  added_at: string
+  /** Who last wrote the comp's likes and dislikes: `client`, or the agent. */
+  notes_by?: string
+  notes_at?: string
+}
+
+/** A comp as its reference ticket holds it ([[REQ-378]]). */
+export interface CompRecord {
+  reference: string
+  title: string
+  url: string
+  likes: string[]
+  dislikes: string[]
+}
+
+/**
+ * The host's side of the comp board's notes ([[REQ-378]]): the reference tickets
+ * the plan points at. Absent where the host keeps no tickets, which leaves the
+ * board unavailable rather than half-working.
+ */
+export interface CompDeps {
+  /** The capture as a comp, or `null` when this business holds no such capture. */
+  get(reference: string): Promise<CompRecord | null>
+  /** Replace the likes and/or dislikes held on the reference ticket. */
+  note(reference: string, notes: { likes?: string[]; dislikes?: string[] }): Promise<CompRecord>
+}
+
 export interface PlanFields {
   kind: string
   /** The store-minted site key ([[DOC-45]] §6) — sites carry no slug. */
@@ -192,6 +239,8 @@ export interface PlanFields {
   tasks: PlanTask[]
   /** [[REQ-364]] — the questions waiting for the client. */
   asks: PlanAsk[]
+  /** [[REQ-378]] — the comp board: comparable sites, in the order they were added. */
+  comps: PlanComp[]
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -221,6 +270,8 @@ export interface PlanDeps {
   write(change: (plan: Plan) => Plan): Promise<Plan>
   /** The clock. Absent is the wall clock. */
   now?: () => string
+  /** [[REQ-378]] — the reference tickets the comp board points at. */
+  comps?: CompDeps
 }
 
 type Params = Record<string, unknown>
@@ -242,6 +293,7 @@ export function seedPlan(siteKey: string): Plan {
       checks: planSeed.checks.map((c) => ({ ...c, triggers: [...c.triggers], answers: [] })),
       tasks: [],
       asks: [],
+      comps: [],
     },
     body: SECTIONS.map((name) => `## ${name}`).join('\n\n'),
   }
@@ -361,6 +413,15 @@ export function checkPlan(fields: PlanFields): void {
     }
   }
   checkAsks(fields.asks ?? [], bad)
+  const comps = new Set<string>()
+  for (const c of fields.comps ?? []) {
+    if (!filled(c.reference)) bad('a comp has no reference')
+    if (comps.has(c.reference)) bad(`comp ${c.reference} is on the board twice`)
+    comps.add(c.reference)
+    if (!(COMP_SOURCES as readonly string[]).includes(c.source)) {
+      bad(`comp ${c.reference} has unknown source ${JSON.stringify(c.source)}`)
+    }
+  }
 }
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
@@ -494,6 +555,8 @@ export function orderedAsks(asks: PlanAsk[]): PlanAsk[] {
 export interface PanelView {
   phase: string
   asks: Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'>[]
+  /** [[REQ-378]] — the comp board, as the plan holds it; the host adds the notes. */
+  comps: PlanComp[]
 }
 
 /**
@@ -509,6 +572,7 @@ export function panelView(fields: PlanFields): PanelView {
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
       ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) => shown,
     ),
+    comps: fields.comps ?? [],
   }
 }
 
@@ -570,6 +634,12 @@ export function planReminder(plan: Plan | null): string | null {
     )
   }
   if (panel.asks.skipped.length) lines.push(`The client skipped: ${list(panel.asks.skipped)}.`)
+  const comps = f.comps ?? []
+  if (comps.length) {
+    lines.push(
+      `Sites you are comparing (${comps.length}): ${list(comps.map((c) => `${c.title} [${c.reference}]${c.source === CLIENT ? ' (the client added it)' : ''}`))}.`,
+    )
+  }
   if (panel.tasks.total) {
     const bits = [`${panel.tasks.done} of ${panel.tasks.total} done`]
     if (panel.tasks.doing.length) bits.push(`doing: ${list(panel.tasks.doing)}`)
@@ -766,6 +836,94 @@ export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS
   return `${head}${shown.join('; ')} — and ${changes.length - shown.length} more (read_plan for them)${tail}`
 }
 
+/** One comp whose notes the client wrote after a cursor ([[REQ-378]]). */
+export interface ClientCompChange {
+  reference: string
+  title: string
+  at: string
+}
+
+/**
+ * The comps whose likes and dislikes the client wrote after `since`, oldest first
+ * ([[REQ-378]]). `notes_by` is the attribution, for `clientChangesSince`'s reason.
+ */
+export function clientCompChangesSince(fields: PlanFields, since: string): ClientCompChange[] {
+  return (fields.comps ?? [])
+    .filter((c) => c.notes_by === CLIENT && typeof c.notes_at === 'string' && c.notes_at > since)
+    .map((c) => ({ reference: c.reference, title: c.title, at: c.notes_at as string }))
+    .sort((x, y) => x.at.localeCompare(y.at))
+}
+
+/** One comp and its notes as a notice entry: `Title: likes …; dislikes …`. */
+export function compNotesText(comp: Pick<CompRecord, 'title' | 'likes' | 'dislikes'>): string {
+  const part = (label: string, items: string[]): string =>
+    `${label} ${items.length ? items.map((x) => JSON.stringify(x)).join(', ') : 'nothing yet'}`
+  return `${comp.title} — ${part('likes', comp.likes)}; ${part('dislikes', comp.dislikes)}`
+}
+
+/**
+ * The notice line for comp notes the client wrote, or `null` ([[REQ-378]]).
+ * Bounded like {@link clientChangesLine}: the count is exact and the notes are
+ * what get cut.
+ */
+export function clientCompNotesLine(comps: CompRecord[], budget = PLAN_ANSWERS_BUDGET_CHARS): string | null {
+  if (comps.length === 0) return null
+  const head = `Your client updated their likes and dislikes on ${comps.length} comp${comps.length === 1 ? '' : 's'} since your last turn: `
+  const all = comps.map(compNotesText).join(' | ')
+  const room = budget - head.length - 1
+  return all.length <= room ? `${head}${all}.` : `${head}${clip(all, room - 30)} (read_plan for the rest).`
+}
+
+const compIn = (fields: PlanFields, reference: string): PlanComp => {
+  const found = (fields.comps ?? []).find((c) => c.reference === reference)
+  if (!found) throw refuse('UNKNOWN_COMP', `the comp board has no ${JSON.stringify(reference)}`)
+  return found
+}
+
+/**
+ * Put a capture on the comp board ([[REQ-378]]). Already there is not an error: it
+ * answers the entry as it stands, so adding the same site twice is harmless.
+ */
+export function addComp(
+  plan: Plan,
+  comp: Pick<CompRecord, 'reference' | 'title' | 'url'>,
+  source: string,
+  at: string,
+): { plan: Plan; comp: PlanComp } {
+  const next = copy(plan)
+  const comps = (next.fields.comps = next.fields.comps ?? [])
+  const held = comps.find((c) => c.reference === comp.reference)
+  if (held) return { plan: next, comp: held }
+  const entry: PlanComp = { reference: comp.reference, title: comp.title, url: comp.url, source, added_at: at }
+  comps.push(entry)
+  checkPlan(next.fields)
+  return { plan: next, comp: entry }
+}
+
+/** Record who wrote a comp's notes, and when ([[REQ-378]]). */
+export function notedComp(plan: Plan, reference: string, by: string, at: string): Plan {
+  const next = copy(plan)
+  const c = compIn(next.fields, reference)
+  c.notes_by = by
+  c.notes_at = at
+  return next
+}
+
+/** Take a comp off the board ([[REQ-378]]). Its capture stays in the Library. */
+export function removeComp(plan: Plan, reference: string): Plan {
+  const next = copy(plan)
+  compIn(next.fields, reference)
+  next.fields.comps = next.fields.comps.filter((c) => c.reference !== reference)
+  return next
+}
+
+/** Text items as a note list: strings, trimmed, empties dropped. */
+export function noteList(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined
+  const items = Array.isArray(value) ? value : String(value).split(/\n|;/)
+  return items.map((x) => String(x).trim()).filter((x) => x !== '')
+}
+
 /** What `read_plan` answers: the plan as stored, and its projection. */
 const answer = (plan: Plan): Record<string, unknown> => ({
   plan: plan.fields,
@@ -810,6 +968,15 @@ export function planOperations(
   role: PlanRole = 'consultant',
 ): Record<string, (p: Params) => Promise<Untyped>> {
   const now = (): string => (deps.now ? deps.now() : new Date().toISOString())
+  /** [[REQ-378]] — a capture this business holds, or a refusal that says why not. */
+  const compRecord = async (reference: string): Promise<CompRecord> => {
+    if (!deps.comps) throw refuse('NO_COMPS', 'this host keeps no comp board')
+    const held = reference ? await deps.comps.get(reference) : null
+    if (!held) {
+      throw refuse('UNKNOWN_COMP', `${JSON.stringify(reference)} is not a capture this business holds; capture_site the address first`)
+    }
+    return held
+  }
   const change = async (edit: (plan: Plan) => Record<string, unknown>): Promise<Record<string, unknown>> => {
     let written: Record<string, unknown> = {}
     await deps.write((current) => {
@@ -826,7 +993,19 @@ export function planOperations(
       const plan = await deps.read()
       // NO PLAN IS AN EMPTY ONE, not a refusal: a site nobody has planned yet has
       // the seed in front of it, and saying so is the useful answer.
-      return answer(plan ?? seedPlan(''))
+      const read = answer(plan ?? seedPlan(''))
+      // [[REQ-378]] — THE NOTES LIVE ON THE REFERENCE TICKETS, so the plan's read
+      // carries them: the comp board as the client sees it, notes and all.
+      const comps = plan?.fields.comps ?? []
+      if (comps.length && deps.comps) {
+        read.comps = await Promise.all(
+          comps.map(async (c) => {
+            const held = await deps.comps!.get(c.reference)
+            return { ...c, likes: held?.likes ?? [], dislikes: held?.dislikes ?? [] }
+          }),
+        )
+      }
+      return read
     },
 
     // ── the brief: both roles ────────────────────────────────────────────────
@@ -883,6 +1062,12 @@ export function planOperations(
         if (state) d.state = state
         if (typeof p.compared === 'boolean') d.compared = p.compared
         if (typeof p.log === 'number') d.log = p.log
+        // [[REQ-378]] — the comps that shaped it, each one on the board.
+        if (Array.isArray(p.comps)) {
+          const refs = p.comps.map(String)
+          for (const ref of refs) compIn(plan.fields, ref)
+          d.comps = refs
+        }
         return { decision: d }
       }),
     set_task: (p) =>
@@ -1045,6 +1230,38 @@ export function planOperations(
         delete a.previous_answer
         return { ask: a }
       }),
+
+    // ── the comp board: both roles ([[REQ-378]]) ────────────────────────────
+    add_comp: async (p) => {
+      const held = await compRecord(String(p.reference ?? ''))
+      return change((plan) => {
+        const { plan: next, comp } = addComp(plan, held, 'consultant', now())
+        plan.fields.comps = next.fields.comps
+        return { comp }
+      })
+    },
+    note_comp: async (p) => {
+      const reference = String(p.reference ?? '')
+      const plan = await deps.read()
+      compIn(plan?.fields ?? seedPlan('').fields, reference)
+      await compRecord(reference)
+      const notes = { likes: noteList(p.likes), dislikes: noteList(p.dislikes) }
+      if (notes.likes === undefined && notes.dislikes === undefined) {
+        throw refuse(PLAN_INVALID, 'give likes, dislikes or both')
+      }
+      const stored = await deps.comps!.note(reference, notes)
+      await change((current) => {
+        current.fields.comps = notedComp(current, reference, role, now()).fields.comps
+        return {}
+      })
+      return { comp: stored }
+    },
+    remove_comp: (p) =>
+      change((plan) => {
+        const reference = String(p.reference ?? '')
+        plan.fields.comps = removeComp(plan, reference).fields.comps
+        return { removed: reference }
+      }),
   }
 }
 
@@ -1053,7 +1270,7 @@ export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   const work = role === 'consultant' ? 'PlanWork' : 'CoordinatePlan'
   // [[REQ-364]] — BOTH ROLES KEEP ASKS: either can be the one maintaining the
   // panel, so turning the room on or off changes who keeps it and not how.
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks'] } }
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepComps'] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()

@@ -3,9 +3,13 @@ import { PROJECT_KB } from './knowledge'
 import type { SessionKnowledge } from './session-knowledge'
 import type { Ticket, TicketStore } from './tickets'
 import { findPlan } from './plan'
+import { compDeps } from './comps'
 import {
   clientChangesLine,
   clientChangesSince,
+  clientCompChangesSince,
+  clientCompNotesLine,
+  type CompRecord,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 
@@ -344,10 +348,19 @@ export async function planAnswersDelta(
   const chat = await findChat(store, sessionId)
   const raw = (chat?.fields ?? {})[PLAN_CURSOR_FIELD]
   const since = typeof raw === 'string' ? raw : ''
-  const changes = clientChangesSince((plan.fields ?? {}) as unknown as PlanFields, since)
-  if (changes.length === 0) return null
-  await writeField(store, sessionId, PLAN_CURSOR_FIELD, changes[changes.length - 1].at, chat)
-  return clientChangesLine(changes)
+  const fields = (plan.fields ?? {}) as unknown as PlanFields
+  const changes = clientChangesSince(fields, since)
+  // [[REQ-378]] — AND THE COMP NOTES THE CLIENT WROTE, on the same cursor: the
+  // plan entry says who wrote them and when, the reference ticket holds them.
+  const compChanges = clientCompChangesSince(fields, since)
+  if (changes.length === 0 && compChanges.length === 0) return null
+  const newest = [...changes, ...compChanges].map((c) => c.at).sort().pop() as string
+  await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
+  const comps = compDeps(store)
+  const noted = (await Promise.all(compChanges.map((c) => comps.get(c.reference)))).filter(
+    (c): c is CompRecord => c !== null,
+  )
+  return [clientChangesLine(changes), clientCompNotesLine(noted)].filter(Boolean).join('\n') || null
 }
 
 function asMap(value: Untyped): Map<string, Untyped> {

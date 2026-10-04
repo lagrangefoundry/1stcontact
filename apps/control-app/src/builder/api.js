@@ -534,6 +534,30 @@ export async function fetchPlan(site, fetchImpl = fetch) {
 }
 
 /**
+ * The client's half of the comp board ([[REQ-378]]).
+ *
+ * `add` captures `url` and puts it on the board; `note` replaces the `likes`
+ * and/or `dislikes` held for `reference`; `remove` takes it off. Answers the
+ * panel's view as the write left it, like {@link answerAsk}.
+ */
+export async function compAction({ site, action, url, reference, likes, dislikes }, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/plan/comp'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        site,
+        action,
+        ...(url !== undefined ? { url } : {}),
+        ...(reference !== undefined ? { reference } : {}),
+        ...(likes !== undefined ? { likes } : {}),
+        ...(dislikes !== undefined ? { dislikes } : {}),
+      }),
+    }),
+  )
+}
+
+/**
  * Answer or skip one ask on the plan panel ([[REQ-364]]).
  *
  * `action` is `answer` or `skip`. An answer is `answer` (a string, or the options

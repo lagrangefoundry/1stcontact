@@ -371,7 +371,19 @@ export function productTypePack(): ProductTypePack {
      * hero image is one blob across every capture that ever saw it.
      */
     reference: {
-      fields: { ...MATERIAL_FIELDS },
+      fields: {
+        ...MATERIAL_FIELDS,
+        // [[REQ-378]] — what the client likes and dislikes about a comparable
+        // site on the comp board, one short note each, in their words. On the
+        // capture rather than the plan, so the notes stay with the site they are
+        // about wherever it is looked at again.
+        likes: { type: 'list' },
+        dislikes: { type: 'list' },
+        // [[REQ-378]] — the motion the capture recorded (animation, transitions),
+        // as one line, or absent where it recorded none. A screenshot cannot show
+        // it, so the comp viewer says it in words.
+        motion: { type: 'string' },
+      },
       body: { required: false },
     },
 
@@ -411,6 +423,9 @@ export function productTypePack(): ProductTypePack {
         // [[REQ-364]] — the questions waiting for the client on the plan panel.
         // A plan stored before asks existed reads as having none.
         asks: { type: 'list' },
+        // [[REQ-378]] — the comp board: which captures are on it, and who wrote
+        // their notes last. A plan stored before comps existed reads as having none.
+        comps: { type: 'list' },
       },
       body: { required: true, non_empty: true },
     },

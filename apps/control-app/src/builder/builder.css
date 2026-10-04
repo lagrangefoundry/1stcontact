@@ -4748,3 +4748,214 @@ body {
 .builder-debug__turn--user {
   color: var(--shell-fg-muted);
 }
+
+/* --- the comp board ([[REQ-378]]) ---------------------------------------------
+ *
+ * THE THUMBNAIL IS THE HERO: the desktop full-page screenshot, cropped to its
+ * first viewport by a 16:10 box anchored at the top. No image is resized or
+ * stored for it — the box does the crop.
+ */
+.plan-comps {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: 8px;
+}
+
+.plan-comp {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-bg, #fff);
+}
+
+.plan-comp__open {
+  display: block;
+  padding: 0;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: 4px;
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--shell-surface-alt, #f4f4f5);
+  cursor: pointer;
+}
+
+.plan-comp__thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.plan-comp__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.plan-comp__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.plan-comp__source {
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-comp__remove {
+  margin-left: auto;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+  text-decoration: underline;
+}
+
+.plan-comp__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-comp__notes textarea {
+  resize: vertical;
+  padding: 3px 5px;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: var(--shell-radius, 6px);
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--shell-fg, #18181b);
+}
+
+.plan-comps__add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  margin-top: 8px;
+}
+
+.plan-comps__add[hidden] {
+  display: none;
+}
+
+.plan-comps__add-label {
+  flex-basis: 100%;
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-comps__url {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: var(--shell-radius, 6px);
+  font: inherit;
+}
+
+.plan-comps__status {
+  color: var(--shell-fg-muted, #71717a);
+}
+
+/* --- the comp viewer ([[REQ-378]]) ---------------------------------------------
+ *
+ * A VISIBLY DIFFERENT MODE: a dark banner across the top of the pane names the
+ * site being viewed, so a competitor's page can never be read as the draft.
+ */
+.comp-viewer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.comp-viewer__banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  padding: 8px 12px;
+  background: #27272a;
+  color: #fafafa;
+}
+
+.comp-viewer__title {
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.comp-viewer__banner button,
+.comp-viewer__visit {
+  padding: 3px 10px;
+  border: 1px solid #52525b;
+  border-radius: var(--shell-radius, 6px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.comp-viewer__banner button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.comp-viewer__back {
+  background: #fafafa !important;
+  color: #18181b !important;
+}
+
+.comp-viewer__width[aria-pressed='true'] {
+  background: #52525b;
+}
+
+.comp-viewer__nav,
+.comp-viewer__widths {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.comp-viewer__motion {
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  color: var(--shell-fg-muted, #71717a);
+  background: var(--shell-surface-alt, #f4f4f5);
+}
+
+.comp-viewer__stage {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  background: var(--shell-surface-alt, #f4f4f5);
+}
+
+.comp-viewer__shot {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.comp-viewer__shot--phone {
+  width: 375px;
+  max-width: 100%;
+  margin: 12px auto;
+  box-shadow: 0 0 0 1px var(--shell-border, #e4e4e7);
+}
+
+.comp-viewer__empty {
+  padding: 24px;
+  color: var(--shell-fg-muted, #71717a);
+}

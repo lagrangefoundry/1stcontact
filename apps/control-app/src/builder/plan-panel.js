@@ -15,12 +15,30 @@
  * when it is picked; a document saves when it has uploaded. There is no submit
  * step for the panel as a whole.
  *
+ * [[REQ-378]] — AND THE COMP BOARD: "Sites we're comparing". Each comp is a captured
+ * site with a thumbnail of its hero, who put it there, and the client's likes and
+ * dislikes, which they edit in place (saved when they leave the box). The client
+ * adds a site by its address — the route captures it — and clicking a thumbnail
+ * asks the host to show that comp in the preview pane (`onOpenComp`).
+ *
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
  */
-import { answerAsk, fetchPlan, uploadMaterial } from './api.js'
+import { answerAsk, compAction, fetchPlan, materialFileUrl, uploadMaterial } from './api.js'
 import {
+  COMPS_ADD_BUTTON,
+  COMPS_ADD_LABEL,
+  COMPS_ADD_PLACEHOLDER,
+  COMPS_ADDING,
+  COMPS_DISLIKES,
+  COMPS_FAILED,
+  COMPS_FROM,
+  COMPS_HEADING,
+  COMPS_LIKES,
+  COMPS_NOTES_HINT,
+  COMPS_OPEN,
+  COMPS_REMOVE,
   PLAN_CHANGE,
   PLAN_DOCUMENT,
   PLAN_FILLED_BY_AGENT,
@@ -55,17 +73,29 @@ const el = (tag, className, text) => {
 
 const answerText = (answer) => (Array.isArray(answer) ? answer.join(', ') : (answer ?? ''))
 
+/** Notes as the box shows them, one per line, and back. */
+const notesText = (items) => (items ?? []).join('\n')
+const notesOf = (text) =>
+  text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+
 /**
  * @param {object} [options]
- * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function}} [options.transport]
+ * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, compAction?: Function}} [options.transport]
+ * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
+ *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
  */
 export function createPlanPanel(options = {}) {
   const transport = {
     fetchPlan,
     answerAsk,
     uploadMaterial,
+    compAction,
     ...(options.transport ?? {}),
   }
+  const onOpenComp = options.onOpenComp ?? null
 
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
@@ -76,10 +106,24 @@ export function createPlanPanel(options = {}) {
   const openList = el('div', 'plan-panel__list plan-panel__list--open')
   const doneHeading = el('h3', 'plan-panel__heading', PLAN_TOLD_US)
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
-  element.append(phase, error, openHeading, openList, doneHeading, doneList)
+  // [[REQ-378]] — the comp board, between what is waiting and what is settled.
+  const compsHeading = el('h3', 'plan-panel__heading', COMPS_HEADING)
+  const compsList = el('div', 'plan-panel__list plan-comps')
+  const addForm = el('form', 'plan-comps__add')
+  const addInput = el('input', 'plan-comps__url')
+  addInput.type = 'url'
+  addInput.placeholder = COMPS_ADD_PLACEHOLDER
+  addInput.setAttribute('aria-label', COMPS_ADD_LABEL)
+  const addButton = el('button', 'plan-comps__add-button', COMPS_ADD_BUTTON)
+  addButton.type = 'submit'
+  const addStatus = el('span', 'plan-comps__status')
+  addForm.append(el('label', 'plan-comps__add-label', COMPS_ADD_LABEL), addInput, addButton, addStatus)
+  element.append(phase, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
 
   let site = null
   let generation = 0
+  /** Comp reference → its drawn block and what it was drawn from ([[REQ-378]]). */
+  const compBlocks = new Map()
   /** Ask id → its drawn block and what it was drawn from. */
   const blocks = new Map()
   /** Answered or skipped asks the client has opened to change. */
@@ -209,6 +253,76 @@ export function createPlanPanel(options = {}) {
     return block
   }
 
+  /** A comp-board write; redraws from what was stored ([[REQ-378]]). */
+  async function comp(body) {
+    const asked = site
+    try {
+      const view = await transport.compAction({ site: asked, ...body })
+      error.hidden = true
+      if (asked === site) render(view)
+      return true
+    } catch (err) {
+      error.textContent = COMPS_FAILED(err?.message ?? String(err))
+      error.hidden = false
+      return false
+    }
+  }
+
+  addForm.addEventListener('submit', async (event) => {
+    event.preventDefault()
+    const address = addInput.value.trim()
+    if (address === '' || !site) return
+    addButton.disabled = true
+    addStatus.textContent = COMPS_ADDING
+    const ok = await comp({ action: 'add', url: address })
+    addButton.disabled = false
+    addStatus.textContent = ''
+    if (ok) addInput.value = ''
+  })
+
+  /** One comp: its hero, its name and source, and the client's notes. */
+  function compBlock(entry) {
+    const block = el('div', 'plan-comp')
+    block.dataset.reference = entry.reference
+    block.dataset.source = entry.source
+    const open = el('button', 'plan-comp__open')
+    open.type = 'button'
+    open.setAttribute('aria-label', COMPS_OPEN(entry.title))
+    if (entry.desktop) {
+      // THE HERO IS THE TOP OF THE DESKTOP PAGE: the full-page screenshot, cropped
+      // to its first viewport by the box it sits in (see `builder.css`).
+      const thumb = el('img', 'plan-comp__thumb')
+      thumb.src = materialFileUrl(entry.reference, entry.desktop)
+      thumb.alt = ''
+      thumb.loading = 'lazy'
+      open.append(thumb)
+    }
+    open.addEventListener('click', () => onOpenComp?.(entry.reference, last?.comps ?? []))
+    const head = el('div', 'plan-comp__head')
+    head.append(
+      el('span', 'plan-comp__title', entry.title),
+      el('span', 'plan-comp__source', COMPS_FROM[entry.source] ?? entry.source),
+    )
+    const remove = el('button', 'plan-comp__remove', COMPS_REMOVE)
+    remove.type = 'button'
+    remove.addEventListener('click', () => void comp({ action: 'remove', reference: entry.reference }))
+    head.append(remove)
+    const notes = (label, key) => {
+      const box = el('label', `plan-comp__notes plan-comp__notes--${key}`)
+      const area = el('textarea', `plan-comp__${key}`)
+      area.rows = 2
+      area.placeholder = COMPS_NOTES_HINT
+      area.value = notesText(entry[key])
+      area.setAttribute('aria-label', `${label}: ${entry.title}`)
+      // `change` IS "LEFT THE BOX, HAVING CHANGED IT", which is the save point.
+      area.addEventListener('change', () => void comp({ action: 'note', reference: entry.reference, [key]: notesOf(area.value) }))
+      box.append(el('span', 'plan-comp__notes-label', label), area)
+      return box
+    }
+    block.append(open, head, notes(COMPS_LIKES, 'likes'), notes(COMPS_DISLIKES, 'dislikes'))
+    return block
+  }
+
   let last = null
 
   /** Draw a view, keeping every block that has not changed and the one in use. */
@@ -233,6 +347,25 @@ export function createPlanPanel(options = {}) {
     }
     place(openList, open, openBlock)
     place(doneList, done, doneBlock)
+    // [[REQ-378]] — the comp board, under the same rule: a block whose content
+    // has not changed is kept, and so is the one the client is typing in.
+    const comps = view.comps ?? []
+    const keptComps = new Map()
+    compsList.replaceChildren(
+      ...comps.map((entry) => {
+        const key = JSON.stringify(entry)
+        const held = compBlocks.get(entry.reference)
+        const inUse = held && active && held.node.contains(active)
+        const node = held && (held.key === key || inUse) ? held.node : compBlock(entry)
+        keptComps.set(entry.reference, { node, key: held && inUse ? held.key : key })
+        return node
+      }),
+    )
+    compBlocks.clear()
+    for (const [ref, held] of keptComps) compBlocks.set(ref, held)
+    compsHeading.hidden = !site
+    compsList.hidden = comps.length === 0
+    addForm.hidden = !site
     blocks.clear()
     for (const [id, held] of drawn) blocks.set(id, held)
     openHeading.hidden = open.length === 0
@@ -255,7 +388,7 @@ export function createPlanPanel(options = {}) {
     }
   }
 
-  render({ phase: '', asks: [] })
+  render({ phase: '', asks: [], comps: [] })
 
   return {
     element,
@@ -265,11 +398,14 @@ export function createPlanPanel(options = {}) {
       site = next ?? null
       changing.clear()
       blocks.clear()
+      compBlocks.clear()
       error.hidden = true
-      render({ phase: '', asks: [] })
+      render({ phase: '', asks: [], comps: [] })
       return refresh()
     },
     refresh,
+    /** The comp board as last drawn ([[REQ-378]]). */
+    comps: () => last?.comps ?? [],
     destroy() {
       site = null
       element.remove()

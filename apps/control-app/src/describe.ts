@@ -383,7 +383,43 @@ function measured(input: DescribeCaptureInput): string {
   if (sections > 0) parts.push(`${sections} section${sections === 1 ? '' : 's'} down the page.`)
   const assets = input.capture.assets?.length ?? 0
   if (assets > 0) parts.push(`${assets} image${assets === 1 ? '' : 's'} and font${assets === 1 ? '' : 's'} mirrored.`)
+  const motion = captureMotion(input.capture)
+  if (motion) parts.push(motion)
   return parts.join(' ')
+}
+
+/**
+ * The motion a capture recorded, as one line — or `null` where it recorded none
+ * ([[REQ-378]]).
+ *
+ * A SCREENSHOT CANNOT SHOW IT, so the comp viewer says it in words. Read off the
+ * per-element `motion` the capture declares (REQ-48: `animation` for keyframes,
+ * entrance and scroll-reveal; `transition` for hover; `both`) wherever it appears
+ * in the sections, so the count is what the page declared and not a guess.
+ */
+export function captureMotion(capture: CaptureEssence): string | null {
+  let animated = 0
+  let transitioned = 0
+  const seen = new Set<unknown>()
+  const walk = (node: unknown): void => {
+    if (typeof node !== 'object' || node === null || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
+    const motion = (node as Record<string, unknown>).motion
+    if (motion === 'animation' || motion === 'both') animated += 1
+    if (motion === 'transition' || motion === 'both') transitioned += 1
+    for (const value of Object.values(node)) walk(value)
+  }
+  walk(capture.sections ?? [])
+  if (animated === 0 && transitioned === 0) return null
+  const bits: string[] = []
+  const n = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`
+  if (animated > 0) bits.push(`animation (entrance or scroll-in) on ${n(animated, 'element')}`)
+  if (transitioned > 0) bits.push(`hover transitions on ${n(transitioned, 'element')}`)
+  return `Motion: uses ${bits.join(' and ')}, which a screenshot does not show.`
 }
 
 /**

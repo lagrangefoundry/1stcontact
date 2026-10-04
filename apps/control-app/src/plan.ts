@@ -28,6 +28,7 @@ import {
 } from '../../../tools/generate/src/cli/ai/plan-core'
 import { ledgerError } from '../../../tools/generate/src/cli/ai/ledger-core'
 import type { Ticket, TicketStore } from './tickets'
+import { compDeps } from './comps'
 
 /** The ticket type a plan is stored as. */
 export const PLAN_TYPE = 'plan'
@@ -43,6 +44,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'checks',
   'tasks',
   'asks',
+  'comps',
 ]
 
 /**
@@ -173,6 +175,9 @@ export function sitePlan(tickets: TicketStore, siteKey: string): PlanDeps {
       }
       return next
     },
+
+    // [[REQ-378]] — the comp board's notes live on this business's captures.
+    comps: compDeps(tickets),
   }
 }
 

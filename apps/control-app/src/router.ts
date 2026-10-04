@@ -359,11 +359,19 @@ import {
 } from './material'
 import { sitePlan } from './plan'
 import {
+  addComp,
+  CLIENT,
   CLIENT_ACTIONS,
   clientAnswer,
+  noteList,
+  notedComp,
   panelView,
+  removeComp,
   type Plan,
+  type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
+import { fidelityOperations } from '../../../tools/generate/src/cli/ai/fidelity-core'
+import { compBoard } from './comps'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -568,6 +576,15 @@ export async function sessionFidelity(
       // own store.
       sessionPictures(store, tickets, renderer)(site),
     )
+}
+
+/**
+ * The plan panel's view ([[REQ-364]]) with the comp board's notes and pictures
+ * added ([[REQ-378]]) — what every plan route answers.
+ */
+async function planView(tickets: TicketStore, fields: PlanFields): Promise<Record<string, unknown>> {
+  const view = panelView(fields)
+  return { ...view, comps: await compBoard(tickets, view.comps) }
 }
 
 /**
@@ -2229,6 +2246,10 @@ export const OVER_LONG_PROMPT_MESSAGE =
 /** The plan panel's read and its answer write ([[REQ-364]]). */
 export const PLAN_PATH = '/api/plan'
 export const PLAN_ASK_PATH = '/api/plan/ask'
+/** The client's half of the comp board ([[REQ-378]]): add a site, note it, remove it. */
+export const PLAN_COMP_PATH = '/api/plan/comp'
+/** What the client may do on the comp board. */
+export const COMP_ACTIONS = ['add', 'note', 'remove'] as const
 
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
@@ -5634,7 +5655,8 @@ async function routeUncached(
       if (site === '') return json(400, { error: 'site is required' })
       if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
       // THIS PORT CREATES THE PLAN ON FIRST READ, so it never answers null.
-      return json(200, panelView((await sitePlan(await openTickets(), site).read())!.fields))
+      const tickets = await openTickets()
+      return json(200, await planView(tickets, (await sitePlan(tickets, site).read())!.fields))
     }
 
     if (p === PLAN_ASK_PATH && method === 'POST') {
@@ -5664,12 +5686,97 @@ async function routeUncached(
           if ((err as { code?: string }).code !== 'CONFLICT') throw err
           written = await plan.write(answerIt)
         }
-        return json(200, panelView(written.fields))
+        return json(200, await planView(tickets, written.fields))
       } catch (err) {
         const code = (err as { code?: string }).code ?? ''
         const status = { UNKNOWN_ASK: 404, ASK_WITHDRAWN: 409, CONFLICT: 409, PLAN_INVALID: 400 }[code]
         if (status === undefined) throw err
         return json(status, { error: scrub((err as Error).message), code })
+      }
+    }
+
+    /**
+     * The client's half of the comp board ([[REQ-378]]).
+     *
+     * `add` IS A CAPTURE. The address is captured by the very `capture_site` the
+     * consultant calls — the same surface, assembled by the same
+     * {@link sessionFidelity} — so it is checked to exist, mirrored into this
+     * business's private bucket and adopted as a `reference` ticket exactly as
+     * the consultant's would be, and only then put on the board with the client
+     * as its source. An address that cannot be captured is refused with the
+     * capture's own reason and nothing is added.
+     *
+     * `note` writes the client's likes and dislikes onto that reference ticket and
+     * marks the plan entry as noted by the client, which is what the consultant's
+     * next turn is told from. `remove` takes a site off the board; its capture
+     * stays in the Library.
+     *
+     * Answers the plan panel's view, like the ask route, so the panel redraws from
+     * what is stored. It never starts a turn.
+     */
+    if (p === PLAN_COMP_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      const action = typeof body.action === 'string' ? body.action : ''
+      if (site === '' || !(COMP_ACTIONS as readonly string[]).includes(action)) {
+        return json(400, { error: `site and an action (${COMP_ACTIONS.join(', ')}) are required` })
+      }
+      if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
+      const tickets = await openTickets()
+      const plan = sitePlan(tickets, site)
+      const at = new Date().toISOString()
+      const writeIt = async (change: (current: Plan) => Plan): Promise<Plan> => {
+        try {
+          return await plan.write(change)
+        } catch (err) {
+          if ((err as { code?: string }).code !== 'CONFLICT') throw err
+          return plan.write(change)
+        }
+      }
+      try {
+        let written: Plan
+        if (action === 'add') {
+          const address = typeof body.url === 'string' ? body.url.trim() : ''
+          if (address === '') return json(400, { error: 'url is required' })
+          const fidelity = await sessionFidelity(env, requireScope(), deps, await openStore(), tickets, url.origin)
+          if (!fidelity) return json(503, { error: 'this deployment cannot capture sites' })
+          const captured = (await fidelityOperations(fidelity(site)).capture_site({ url: address })) as {
+            reference: { adopted: boolean; uid: string | null; why: string | null }
+          }
+          if (!captured.reference.adopted || !captured.reference.uid) {
+            return json(502, { error: scrub(`the site was captured but could not be added: ${captured.reference.why ?? 'unknown'}`) })
+          }
+          const record = await plan.comps!.get(captured.reference.uid)
+          if (!record) return json(502, { error: 'the capture could not be read back' })
+          written = await writeIt((current) => addComp(current, record, CLIENT, at).plan)
+        } else {
+          const reference = typeof body.reference === 'string' ? body.reference : ''
+          if (reference === '') return json(400, { error: 'reference is required' })
+          if (action === 'remove') {
+            written = await writeIt((current) => removeComp(current, reference))
+          } else {
+            const notes = { likes: noteList(body.likes), dislikes: noteList(body.dislikes) }
+            if (notes.likes === undefined && notes.dislikes === undefined) {
+              return json(400, { error: 'likes or dislikes are required' })
+            }
+            // CHECKED ON THE BOARD FIRST, so a note never lands on a capture the
+            // plan does not hold as a comp.
+            const current = await plan.read()
+            if (!(current?.fields.comps ?? []).some((c) => c.reference === reference)) {
+              return json(404, { error: 'that site is not on the comp board', code: 'UNKNOWN_COMP' })
+            }
+            await plan.comps!.note(reference, notes)
+            written = await writeIt((now) => notedComp(now, reference, CLIENT, at))
+          }
+        }
+        return json(200, await planView(tickets, written.fields))
+      } catch (err) {
+        const message = (err as Error).message ?? ''
+        if (/^REFUSED:/.test(message)) return json(400, { error: scrub(message.replace(/^REFUSED:\s*/, '')), code: 'REFUSED' })
+        const code = (err as { code?: string }).code ?? ''
+        const status = { UNKNOWN_COMP: 404, CONFLICT: 409, PLAN_INVALID: 400 }[code]
+        if (status === undefined) throw err
+        return json(status, { error: scrub(message), code })
       }
     }
 
