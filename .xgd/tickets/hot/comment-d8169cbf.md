@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T18:37:39.019306+00:00'
+updated_at: '2026-10-04T18:38:10.838123+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6991,5 +6991,17 @@ I've filed **BUG-203** under EPIC-16: deploy should build the browser files itse
 <!-- xgd-chat role="user" ts="2026-10-04T18:37:38.941438+00:00" -->
 #### You
 I actually think that we should show a tile in the chat with a link that opens the site in a new tab - the user needs to see the site for what it really is.
+
+<!-- xgd-turn id="b9603914-f506-4de3-a11f-8c17b90f157b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T18:38:09.716967+00:00" -->
+#### Claude
+Agreed. A screenshot hides exactly what makes these sites feel real: the motion, the pop-ups, the sheer busyness. I've added it to **BUG-202**, since that ticket already covers how comps are captured and found.
+
+- **Each comp appears in the chat as a tile** with its hero thumbnail, name and address, and an **"Open the real site ↗"** link. Assistant links already open in a new tab (LF REQ-170).
+- **The tile survives a reload.** It's built the same way as generated images in the chat (REQ-217): the tool hands Alice the exact markdown line to include, so it's stored in the transcript. Chat cards would vanish on reload.
+- **A comp whose capture failed still gets a tile**, with the link and a "couldn't take a snapshot" note. Rosenthal and Expert Plumbing would both have been viewable today this way, even though our capture failed on them.
+- **The screenshot viewer stays**, for comparing comps side by side later and for keeping notes. The tile is how the client first meets each site.
+- **Alice's instructions:** show the tile for each comp and invite the client to open the site before asking what they like and dislike.
 
 <!-- xgd-chat-end -->
