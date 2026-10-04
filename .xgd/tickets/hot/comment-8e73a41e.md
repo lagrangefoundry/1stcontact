@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-378
 created_by: xgd
 created_at: '2026-10-04T00:31:20.225391+00:00'
-updated_at: '2026-10-04T02:34:09.573104+00:00'
+updated_at: '2026-10-04T03:02:28.757502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -192,5 +192,128 @@ REQ-206 has landed
 please complete the free-coding of this ticket
 
 Project note (additive — does not override the above): Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="830cccb1-5dec-4009-aa6b-51693f373626-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T03:02:26.433947+00:00" -->
+#### Claude
+Status: REQ-206 is installed in the shared framework store, so I'm wiring the `web` surface into the consultant's grant now.
+
+First, bringing the branch up to date with xgd-working.
+
+Several files conflict: another ticket extended the plan in parallel. Inspecting each hunk.
+
+All union-style so far. Showing the remaining hunks.
+
+Mostly unions. The router needs care: xgd-working added `panelWithMaterial` where I added `planView`. Reading it.
+
+Resolving: union every hunk, and fold my `planView` into xgd-working's `panelWithMaterial` (one view function, adding `comps`).
+
+Merge resolves cleanly and type-checks. Committing the merge.
+
+Now the `web_search` grant. Finding how the host composes surfaces for the consultant.
+
+No ticket owns it, and this ticket is what turns searches on, so pricing them belongs here. Reading the spend core.
+
+Searches can be priced in the same units: $10 per 1,000 searches is 10,000 per million, so `count × rate` still gives micros. Checking how the D1 row stores the counters.
+
+Writing the migration and the spend-core change.
+
+Now the spend core and price table.
+
+Now composing the `web` surface and passing the backend's capabilities.
+
+Wiring type-checks. Next, UATs for the grant and the pricing. Checking where the framework reads the search count off the wire.
+
+Adding the web-search UAT to the workers suite: the consultant's request carries the provider tool, and a turn's searches are counted and priced in `turn_spend`.
+
+No model request reached the client, so the turn is failing before it starts. Printing the turn's stream to see the error.
+
+`readOnlyGrant` (used when the consultant's writes are delegated) needs a declaration for every granted surface. Reading it.
+
+A `web_search` entry reaches the request but not in the provider's form, so 1stcontact's own `toolSet` projection is flattening it. Inspecting.
+
+All five workers UATs pass, including the provider-form `web_search` and the priced searches. Removing the debug line, then DOC-64.
+
+DOC-64 updated. Adding the DOC-64 assertion to the method UAT.
+
+Now the full regression scope, extended with the spend, migration and toolbox suites.
+
+242 suites; running in chunks of 50 (long path lists make vitest find nothing), in the foreground.
+
+Triaging these seven failures, starting with their messages.
+
+Most look unrelated to my diff. Baselining them on the main checkout (clean xgd-working code), and reading the REQ-146 scrub rule, which may be mine.
+
+Four are pre-existing on clean xgd-working. Three are mine (declaration/grant validation), probably the new `web` entry in `instances.json`. Reading one.
+
+Those three pass now. REQ-146 fails on clean xgd-working too, but I'll check its scrub rule doesn't also flag my new route.
+
+My route only uses `scrub(...)` or literals, so the pre-existing hit is elsewhere. Running the remaining three chunks.
+
+The comp-board suite (with web search priced) and all the declaration suites pass. Now the spend insert.
+
+Spend suites pass, including `test_UAT_FC_REQ-292_turn_price`, which had been failing on xgd-working since REQ-206 landed. Baselining REQ-204/REQ-295 on clean xgd-working and running the last chunk.
+
+REQ-362 pins the consultant's price entry, so it needs the new rate. Checking REQ-349 on the baseline.
+
+Re-running the chunks that had my failures, to confirm only the pre-existing ones remain.
+
+Only baseline failures remain (all reproduced on clean xgd-working). Committing, then version bump on the tip and merge.
+
+The gate now allocates the version itself, so no manual bump. Committing the web-search and metering work on the branch.
+
+Updating the ticket body to the final as-built state before merging (the "held"/"remaining" sections are now done).
+
+Ticket updated. Now lock, bring the branch up to date with xgd-working, and merge back.
+
+Clean. Merging the branch into xgd-working.
+
+xgd-working is fast-forwarded. Recording the two code commits and moving the ticket to `free_coded` (the gate allocates the version).
+
+Ticket is `free_coded` at version 0.2.476. Tearing down the branch and worktree (bare command, so the sandbox exclusion matches).
+
+The worktree directory is gone, but the sandbox blocked deleting its git metadata, so it shows as `prunable` and the branch still exists. Trying the stale sweep once.
+
+REQ-378 is finished: the code is merged into xgd-working and the ticket is `free_coded` at version 0.2.476. One cleanup step needs you: the sandbox wouldn't let me delete the worktree's git metadata.
+
+**Merging in the other work.** Bringing in the latest xgd-working clashed with REQ-379 (milestones) and BUG-196 (uploads on the plan panel), which had extended the same plan files. I kept both sides everywhere. The plan view the API returns now carries their upload rows and my comp list together.
+
+**Web search for the consultant.** The consultant now gets `web_search` from the framework's new web surface. The framework only sends it to the provider correctly, and only counts searches against the limit, when its own backend holds the surface. 1stcontact passes the backend plain tool functions, so I gave the consultant's backend the surface directly. The limit is 20 searches, as a named constant in `host-core.ts`. Only the consultant gets search; the builder worker and the coordinator don't.
+
+**Where the grant is configured.** It isn't in `instances.json`. My first attempt put it there and broke seven tests, because REQ-228 already established that a framework surface's grant has to live with the surface. That's where it is now.
+
+**Searches are counted and priced.** REQ-206 added a fifth usage counter, and that change had left `test_UAT_FC_REQ-292_turn_price` failing on xgd-working. I added it as a fifth counter in the spend ledger:
+- Price: $10 per 1,000 searches, stored as 10,000 per million in `prices.json`. The price table is per million, so the cost arithmetic is unchanged.
+- A model with no search price records a turn that searched as unpriced, never as free.
+- New migration `0027` adds `turn_spend.web_search_requests`, defaulting to 0. Its hash is added to `manifest.json` and the test schema loader knows about it.
+
+**DOC-64.** Section 8 now has step 3, "Comp review", before the first pass, and the later steps are renumbered. A test checks it.
+
+**Tests:** all 10 tests in the three REQ-378 files pass. That includes one checking the consultant's request offers `web_search` in the provider's format, and that a turn's searches are counted and priced in `turn_spend`. I updated two existing tests on purpose: REQ-356 (the plan has a new `comps` field) and REQ-362 (the consultant's price entry has a search rate). Across 242 related test files, 10 tests still fail, and all 10 fail the same way on clean xgd-working:
+
+| Failing suite | Tests |
+|---|---|
+| REQ-145 build artifacts | 1 |
+| REQ-146 worker AI boundary | 1 |
+| REQ-148 behavior in workerd | 1 |
+| REQ-180 admin adds a business | 1 |
+| REQ-204 sign out | 1 |
+| REQ-295 delegation config (includes REQ-341) | 1 |
+| REQ-295 delegation (workers) | 2 |
+| REQ-349 style audit | 1 |
+| REQ-358 coordinator and DOC-64 | 1 |
+
+The REQ-358 failure is a knowledge-base check that has failed in the worktree from the start. It doesn't involve DOC-64.
+
+**The ticket** records three commits: `511d2f82` (comp list, viewer, method), `7fcf3e19` (web search and pricing) and `bfe377f8` (the version bump). Its body now describes what was built, including the two extra scope items: pricing searches, and the grant living in code.
+
+**One thing for you to run.** The worktree directory is gone and the merge lock looks released, but the sandbox blocked deleting `.git/worktrees/free-REQ-378`. Git lists it as prunable and the `free-REQ-378` branch still exists. To finish the cleanup, run this from a normal terminal:
+
+```
+xgd branch clean REQ-378
+```
+
+**Before anyone uses this on a real deployment:** migration 0027 needs applying, the knowledge base needs rebuilding so the published copy picks up the new DOC-64 step, and the app needs redeploying.
 
 <!-- xgd-chat-end -->
