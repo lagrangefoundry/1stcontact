@@ -19,6 +19,7 @@
 # WHAT THIS SCRIPT DELIBERATELY DOES NOT KNOW. It knows nothing about D1, nothing
 # about migrations, and no secret's name. Those are hooks:
 #
+#   bin/deploy.d/assets/     run first — BUG-203 builds the browser assets here
 #   bin/deploy.d/migrate/    run before the app deploys — REQ-143 lands D1 here
 #   bin/deploy.d/secrets/    run before the app deploys — REQ-146 lands the API key here
 #
@@ -160,6 +161,9 @@ first with `1c fonts mirror` — and for a dev seed pass `--quality 9` to it,
 which is roughly 20x faster than the default for about 9% more bytes.
 
 Hooks (any executable file, sorted, run before the app's upload):
+  bin/deploy.d/assets/    build what the app ships beside its Worker — the
+                          control app's browser assets, so they can never be
+                          older than the source the Worker is bundled from
   bin/deploy.d/migrate/   schema migrations
   bin/deploy.d/secrets/   `wrangler secret put` pushes — names only, never values
 
@@ -348,7 +352,9 @@ SNAPSHOT_DIR=".dev-snapshot"
 # THE ASSETS ARE COPIED AND NOT READ IN PLACE. `dist-assets` is rebuilt by
 # `1c assets` — which `bin/build` runs — so pointing the runner at the live
 # directory would leave the builder client as the one part of a frozen
-# environment that is not frozen.
+# environment that is not frozen. What is copied was built by THIS deploy's
+# `assets` hook ([[BUG-203]]), so the two halves of the snapshot come from the
+# one tree its `commit` names.
 ship_local() {
   local app="$1" app_dir="$2" name="$3"
   local snapshot="$app_dir/$SNAPSHOT_DIR"
@@ -465,6 +471,10 @@ for app in "${targets[@]}"; do
   [[ -n "$name" ]] || name="$app"
 
   step "$app → $name (--env $env_name, $target)"
+  # BUILD FIRST ([[BUG-203]]): a deploy ships what it just built, never what an
+  # earlier `bin/build` left lying in `dist-assets`, and a build that fails stops
+  # the deploy before any migration is applied for code that will not ship.
+  run_hooks assets "$app" "$app_dir" "$name"
   run_hooks migrate "$app" "$app_dir" "$name"
   run_hooks secrets "$app" "$app_dir" "$name"
 
