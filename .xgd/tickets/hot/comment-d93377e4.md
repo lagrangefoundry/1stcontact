@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-03T19:37:00.098507+00:00'
+updated_at: '2026-10-04T17:03:30.049196+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -168,5 +168,11 @@ I've reworked all four files so kitchen and bathroom installations are Charlie's
 - **`family-story.md`:** Walt taught Charlie bathrooms ("anyone can fix a leak, but a good bathroom in an old house is a craft"). His plan for the next five years is to hand more night calls to Dave and do more bathrooms himself.
 
 This gives the site an obvious secondary pitch: emergency work up front and a planned-installs section underneath. That's worth seeing if Alice and Bob pick up on it themselves.
+
+<!-- xgd-turn id="a91bcfeb-deec-4c16-8601-55f44fc1f94e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:03:29.948863+00:00" -->
+#### You
+Can you find me three real plumbing sites in Santa Cruz that would be Charile's competitiors
 
 <!-- xgd-chat-end -->
