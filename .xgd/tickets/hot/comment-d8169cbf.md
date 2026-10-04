@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T18:38:10.838123+00:00'
+updated_at: '2026-10-04T18:43:07.493494+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7003,5 +7003,11 @@ Agreed. A screenshot hides exactly what makes these sites feel real: the motion,
 - **A comp whose capture failed still gets a tile**, with the link and a "couldn't take a snapshot" note. Rosenthal and Expert Plumbing would both have been viewable today this way, even though our capture failed on them.
 - **The screenshot viewer stays**, for comparing comps side by side later and for keeping notes. The tile is how the client first meets each site.
 - **Alice's instructions:** show the tile for each comp and invite the client to open the site before asking what they like and dislike.
+
+<!-- xgd-turn id="6b6aba41-5b80-4bb9-ae9f-08cb33c3749f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T18:43:06.446304+00:00" -->
+#### You
+Alice filed REQ-386 and BUG-204 can you check those are not dupes of yours?
 
 <!-- xgd-chat-end -->
