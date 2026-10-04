@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T12:28:02.172061+00:00'
+updated_at: '2026-10-04T12:28:35.390389+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6850,5 +6850,35 @@ The same turn confirms several other open items:
 <!-- xgd-chat role="user" ts="2026-10-04T12:28:02.105423+00:00" -->
 #### You
 ok do you think we are ready to run it again - with a build/deploy step obv
+
+<!-- xgd-turn id="deba9e07-b7ee-49f1-b424-5285016bbed8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T12:28:34.976452+00:00" -->
+#### Claude
+Yes, I think you're ready. Everything we lined up has landed and is installed:
+
+| Ticket | What it gives you | Status |
+|---|---|---|
+| LF REQ-206 | web search for Alice | landed; the shared framework install already matches the framework tree |
+| REQ-378 | comp board, comp viewer, comps as the opening step | landed |
+| REQ-379 | panel counter, status line before going quiet, milestones that fall due | landed |
+| BUG-196 | uploads say what they're for, several files per question, visible delete and "use on site" | landed |
+| REQ-376 | View on your phone (QR) | landed |
+
+Before you start:
+1. **Run `bin/deploy --env dev`**, then reload the builder. The dev server is a frozen snapshot, so none of this is live until you deploy.
+2. **Start a new business, e.g. "Charlie's Plumbing 3".** The comp-first opening and the features question are seeded when a plan is created, so Charlie 2's existing plan won't get them.
+3. **Check web search is enabled for your Anthropic organisation.** It's an org setting in the Anthropic Console. If it's off, the first search will be refused and Alice will be stuck guessing comps again.
+
+Two things to expect in the run:
+- **Alice may still promise to build in parallel.** The one-line "builder sessions run one at a time" fix to her tool description never went in. It's harmless now, just inaccurate. If she says it, that's a reminder to make the fix.
+- **Long turns are still long.** REQ-379 tells you before she goes quiet but doesn't shorten the wait. That waits for EPIC-24.
+
+What I'd watch for, since it's what this run tests:
+- does she open with comps unprompted?
+- does she find good local independents through search?
+- does a status line appear before every build?
+- does the counter get you filling in the panel?
+- does the first rough cut come out at the right density?
 
 <!-- xgd-chat-end -->
