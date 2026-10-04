@@ -116,6 +116,8 @@ function toContentRun(r: RawRun): ContentRun {
   // REQ-332 — where this run is cut off, so the fold can put it inside a node
   // that clips instead of letting it grow the document.
   if (r.clip !== undefined) run.clip = r.clip
+  // REQ-377 — what pins this run to the viewport, so the fold can hold it there.
+  if (r.sticky !== undefined) run.sticky = r.sticky
   run.blendMode = r.blendMode
   run.opacity = r.opacity
   run.outline = r.outline
@@ -192,6 +194,8 @@ function toField(f: RawField): Field {
     backdropFilter: f.backdropFilter,
     // REQ-332 — see toContentRun above: the rectangle this element vanishes at.
     clip: f.clip,
+    // REQ-377 — see toContentRun above: what pins this element to the viewport.
+    ...(f.sticky !== undefined ? { sticky: f.sticky } : {}),
     blendMode: f.blendMode,
     opacity: f.opacity,
     outline: f.outline,

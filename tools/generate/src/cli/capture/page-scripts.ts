@@ -78,14 +78,55 @@ export const FONTS_READY =
  * and reveal Elementor's `.elementor-invisible` pre-animation state, so a
  * `fadeIn` block shows its content instead of `opacity: 0`. Injected as a style
  * tag rather than evaluated, so it applies to elements revealed later too.
+ *
+ * REQ-377 — and make every scroll the settle performs INSTANT. A page that
+ * declares `html{scroll-behavior:smooth}` turns each `scrollTo` into an animation
+ * that returns before it has moved, so the stepped scroll never reached the
+ * positions it was stepping through and the return to the top was still in
+ * flight when the page was measured (see {@link SCROLL_TO_TOP}).
  */
 export const SETTLE_CSS =
-  '*,*::before,*::after{animation-delay:0s!important;animation-duration:0s!important;transition-delay:0s!important;transition-duration:0s!important;}.elementor-invisible{visibility:visible!important;opacity:1!important;}'
+  'html,body{scroll-behavior:auto!important;}*,*::before,*::after{animation-delay:0s!important;animation-duration:0s!important;transition-delay:0s!important;transition-duration:0s!important;}.elementor-invisible{visibility:visible!important;opacity:1!important;}'
+
+/**
+ * REQ-377 — put the page back at scroll 0, and WAIT until it is there.
+ *
+ * Every box the extractor records is `r.top + window.scrollY`: right for an
+ * in-flow box at any scroll, and wrong for a `position: sticky` / `fixed` one
+ * at any scroll but 0, which is stuck to the viewport and so travels with the
+ * scroll. Under `html{scroll-behavior:smooth}` a bare `scrollTo(0, 0)`
+ * STARTS AN ANIMATION AND RETURNS, and nothing after it waited: on
+ * hearingzone510.com the sticky header was recorded at fifteen different y values
+ * across fifteen page loads of one bundle (1336.6 in `capture.json`, 12.6 to
+ * 401.7 across the projections), because each read caught the animation at a
+ * different point.
+ *
+ * So the return is `behavior: 'instant'` (which overrides the page's smooth
+ * scrolling for this one call, as {@link SETTLE_CSS}'s
+ * `scroll-behavior:auto` does for every other), and then a bounded poll for
+ * `scrollY === 0` — a page script can still be animating its own scroll, and
+ * the poll is what makes "at rest" a fact rather than a hope. Resolves to the
+ * `scrollY` it ended at, so a page that refuses to go home is visible to the
+ * caller instead of silently measured.
+ */
+export const SCROLL_TO_TOP = `(async () => {
+  var home = function () {
+    try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch (e) { window.scrollTo(0, 0); }
+  };
+  var at = function () { return (window.scrollY || window.pageYOffset || 0) + (window.scrollX || window.pageXOffset || 0); };
+  home();
+  for (var i = 0; i < 40 && at() !== 0; i++) {
+    await new Promise(function (r) { setTimeout(r, 50); });
+    home();
+  }
+  return window.scrollY || window.pageYOffset || 0;
+})()`
 
 /**
  * REQ-36 — scroll the full height in viewport steps to trip lazy-load / entrance
  * IntersectionObservers, return to the top, and promote any residual lazy image
- * to eager. Without it, below-fold images and animated text are captured blank
+ * to eager. REQ-377 — the return is {@link SCROLL_TO_TOP}, which waits for it.
+ * Without it, below-fold images and animated text are captured blank
  * and the reference screenshot silently omits real content.
  */
 export const SETTLE_SCROLL = `(async () => {
@@ -95,7 +136,8 @@ export const SETTLE_SCROLL = `(async () => {
     window.scrollTo(0, y);
     await sleep(120);
   }
-  window.scrollTo(0, 0);
+  // REQ-377 -- home, and wait until the page is actually there (see SCROLL_TO_TOP).
+  await ${SCROLL_TO_TOP};
   var imgs = Array.prototype.slice.call(document.images);
   for (var i = 0; i < imgs.length; i++) {
     var img = imgs[i];

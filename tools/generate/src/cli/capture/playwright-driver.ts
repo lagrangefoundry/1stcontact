@@ -12,6 +12,7 @@ import {
   FONTS_READY,
   IMAGES_DECODED,
   REVEAL_MEDIA,
+  SCROLL_TO_TOP,
   SETTLE_CSS,
   SETTLE_SCROLL,
 } from './page-scripts'
@@ -216,6 +217,12 @@ class PlaywrightDriver implements BrowserDriver {
       .catch(() => undefined)
     // Let the newly-triggered subresource requests settle.
     await page.waitForLoadState('networkidle').catch(() => undefined)
+    // REQ-377 — home again, and wait until the page is there. The settle's own
+    // return can be undone by a page script that scrolls once the network goes
+    // quiet, and every sticky box is measured wherever the scroll then is.
+    await page
+      .evaluate(SCROLL_TO_TOP)
+      .catch(() => undefined)
   }
 
   async screenshot(viewport?: Viewport): Promise<Uint8Array> {

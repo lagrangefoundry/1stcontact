@@ -8,7 +8,7 @@
  * The script is authored as a raw string, never a stringified TS function, so
  * the exact source below is what Chromium evaluates — no build step rewrites it.
  */
-import type { BandPaint, Box, ClipAncestor, PaintLevel, SurfaceShape } from './types'
+import type { BandPaint, Box, ClipAncestor, PaintLevel, StickyAncestor, SurfaceShape } from './types'
 
 /**
  * REQ-47 — rendered element geometry, shape, structure and arrangement. Every
@@ -61,6 +61,12 @@ export interface RawGeometry {
    * paint-in-full default L1 already had.
    */
   clip?: ClipAncestor | null
+  /**
+   * REQ-377 — the nearest ancestor (or self) the page pins to the viewport
+   * (computed `position: sticky` / `fixed`), with the offset it holds at; null
+   * when nothing pins the element. See {@link StickyAncestor}.
+   */
+  sticky?: StickyAncestor | null
   /** REQ-63 — computed `mix-blend-mode` when non-`normal` (multiply/screen/overlay), else null. */
   blendMode: string | null
   /** REQ-63 — computed element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */
@@ -486,6 +492,12 @@ export interface RawSignals {
    * disagreed about what a site is called is precisely the drift this avoids.
    */
   title: string
+  /**
+   * REQ-377 — `window.scrollY` at the moment of measurement. See
+   * {@link Capture.scrollY}: anything but 0 means every sticky / fixed box in
+   * this read is displaced by this much. Optional for a fake driver's signals.
+   */
+  scrollY?: number
 }
 
 export const EXTRACT_SCRIPT = `(() => {
@@ -795,6 +807,37 @@ export const EXTRACT_SCRIPT = `(() => {
     }
     return parts.reverse().join('.');
   }
+  // REQ-377 -- the nearest ancestor (or self) the page PINS TO THE VIEWPORT.
+  //
+  // A sticky header is in the same place at scroll 0 as one that scrolls away,
+  // so no box and no screenshot tells them apart -- and on hearingzone510.com the
+  // header that follows the reader down a 5650px page was reproduced as one that
+  // leaves at the first scroll, at no cost in any measurement. The id is
+  // nodePathOf's, for clipOf's reason: everything one ancestor pins belongs in
+  // one pinned node, and only a path says which ancestor that is at every width.
+  //
+  // topPx is where it holds: the computed top for a sticky box (a sticky box with
+  // top:auto holds nowhere, so it is not reported), the box's own viewport top
+  // for a fixed one. Both read at scroll 0, which the settle now guarantees.
+  function stickyOf(el) {
+    var node = el;
+    while (node && node.nodeType === 1 && node !== document.documentElement) {
+      var cs = getComputedStyle(node);
+      if (cs.position === 'sticky' || cs.position === 'fixed') {
+        var r = node.getBoundingClientRect();
+        var top = parseFloat(cs.top);
+        if (cs.position === 'sticky' && isNaN(top)) return null;
+        var b = absBox(node);
+        return {
+          id: nodePathOf(node),
+          x: b.x, y: b.y, width: b.width, height: b.height,
+          topPx: cs.position === 'fixed' ? r.top : top,
+        };
+      }
+      node = node.parentElement;
+    }
+    return null;
+  }
   function clipOf(el) {
     var node = el;
     while (node && node.nodeType === 1 && node !== document.documentElement) {
@@ -1001,6 +1044,12 @@ export const EXTRACT_SCRIPT = `(() => {
   // ancestors are unioned in because containment is not guaranteed (negative
   // margins, overflow) and an ancestor paints behind its child regardless.
   var SURFACE_INDEX = null;
+  // REQ-377 (issue 4) -- an indexed inline-SVG panel -> its opaque #rrggbb fill.
+  var PANEL_FILLS = new Map();
+  /** The fill an inline-SVG panel paints, or null for any other surface. */
+  function panelFillOfSurface(node) {
+    return PANEL_FILLS.get(node) || null;
+  }
   function paintedSurfaces() {
     if (SURFACE_INDEX) return SURFACE_INDEX;
     SURFACE_INDEX = [];
@@ -1017,10 +1066,18 @@ export const EXTRACT_SCRIPT = `(() => {
       // surfaceGradientOf would stop there, losing the panel's gradient (REQ-62).
       var img = cs.backgroundImage || 'none';
       var hasImage = img !== 'none' && img !== '';
-      if ((!fill || fill[3] <= 0) && !hasBar && !hasImage) continue;
+      // REQ-377 (issue 4) -- an inline-SVG PANEL paints a surface too. REQ-370
+      // records one as a field (svgPanelFillOf), and the run surface walk went on
+      // walking past it to the band behind: six testimonial runs on
+      // hearingzone510.com recorded the band's #d6d6d6 as the surface they sit on,
+      // while the page paints them on the panel's #224e7a. Indexed with its fill,
+      // so surfaceFillOf / surfaceOf can stop at it (see panelFillOfSurface).
+      var panel = el.localName === 'svg' ? svgPanelFillOf(el) : null;
+      if ((!fill || fill[3] <= 0) && !hasBar && !hasImage && !panel) continue;
       if (cs.display === 'none' || cs.visibility === 'hidden') continue;
       var b = absBox(el);
       if (b.width <= 0 || b.height <= 0) continue;
+      if (panel) PANEL_FILLS.set(el, panel);
       SURFACE_INDEX.push({ el: el, box: b, area: b.width * b.height, order: i });
     }
     // BUG-179 (item 3) -- an area TIE is broken by PAINT ORDER, topmost first.
@@ -1391,6 +1448,14 @@ export const EXTRACT_SCRIPT = `(() => {
     var acc = null; // [r,g,b,a], top layer first
     var chain = surfaceChainWithSelf(el);
     for (var i = 0; i < chain.length; i++) {
+      // REQ-377 (issue 4) -- an inline-SVG panel is an opaque solid: nothing
+      // behind it shows through, whatever its own background reads.
+      var panelHex = panelFillOfSurface(chain[i]);
+      if (panelHex) {
+        var pr = [parseInt(panelHex.slice(1, 3), 16), parseInt(panelHex.slice(3, 5), 16), parseInt(panelHex.slice(5, 7), 16), 1];
+        acc = acc ? composite(acc, pr) : pr;
+        break;
+      }
       var cs = getComputedStyle(chain[i]);
       var flat = flatGradientRgba(cs.backgroundImage);
       if (flat && flat[3] > 0) {
@@ -1533,6 +1598,8 @@ export const EXTRACT_SCRIPT = `(() => {
   function surfaceGradientOf(el) {
     var chain = surfaceChainWithSelf(el);
     for (var i = 0; i < chain.length; i++) {
+      // REQ-377 (issue 4) -- an opaque panel hides any gradient behind it.
+      if (panelFillOfSurface(chain[i])) return null;
       var gs = getComputedStyle(chain[i]);
       var img = gs.backgroundImage || 'none';
       var clip = gs.webkitBackgroundClip || gs.backgroundClip || '';
@@ -1568,6 +1635,13 @@ export const EXTRACT_SCRIPT = `(() => {
     for (var i = 0; i < chain.length; i++) {
       var node = chain[i];
       if (node === document.body || node === document.documentElement) break;
+      // REQ-377 (issue 4) -- an inline-SVG panel bears the surface. Flagged
+      // \`panel\`, because the panel is ALREADY in the bundle as a field of its
+      // own (REQ-370): a fold that also rebuilt a card from this run's fill would
+      // paint the one panel twice.
+      if (panelFillOfSurface(node)) {
+        return { self: false, box: absBox(node), borderRadiusPx: 0, boxShadow: null, border: null, panel: true };
+      }
       var cs = getComputedStyle(node);
       var fill = rgbaOf(cs.backgroundColor);
       var img = cs.backgroundImage || 'none';
@@ -2941,6 +3015,8 @@ export const EXTRACT_SCRIPT = `(() => {
         motion: motionOf(s),
         // REQ-332 -- where this element is cut off, if anything cuts it off.
         clip: clipOf(el),
+        // REQ-377 -- what pins this run to the viewport, if anything does.
+        sticky: stickyOf(el),
       });
     }
     // REQ-302 -- an exclusion after the last emitted run anchors at the end,
@@ -3114,6 +3190,8 @@ export const EXTRACT_SCRIPT = `(() => {
         // the picture inside it is smaller than the box now recorded, which would
         // read as a leaf escaping a region that in fact contains it.
         clip: clipOf(frame ? frame.el : el),
+        // REQ-377 -- what pins this element to the viewport, if anything does.
+        sticky: stickyOf(frame ? frame.el : el),
         objectFit: isImg ? (s.objectFit || 'fill') : null,
         // REQ-63 — how the image crops within its box (default '50% 50%').
         objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,
@@ -3520,5 +3598,8 @@ export const EXTRACT_SCRIPT = `(() => {
     // NO BACKTICKS ANYWHERE IN HERE: this whole script is a template literal,
     // so one in a comment ends the string and the rest becomes TypeScript.
     title: (document.title || '').trim(),
+    // REQ-377 - the scroll this read was taken at. Every box above is
+    // r.top + window.scrollY, which is wrong for a stuck box unless this is 0.
+    scrollY: window.scrollY || window.pageYOffset || 0,
   };
 })()`

@@ -374,6 +374,12 @@ export const GEOMETRY_AXES: readonly AnyElementAxis<ElementGeometry, RawGeometry
     ...sharedGeometry((g) => g.clip ?? undefined),
   },
   {
+    axis: 'sticky',
+    role: 'carried',
+    note: 'REQ-377 — the nearest ancestor the page pins to the viewport (`position: sticky` / `fixed`), as a box plus a document-wide id and the offset it holds at. Carried for the fold, which holds everything sharing an id in one pinned node; a still frame cannot see the difference, so nothing scores it.',
+    ...sharedGeometry((g) => g.sticky ?? undefined),
+  },
+  {
     axis: 'blendMode',
     role: 'compared',
     note: 'REQ-63 — computed `mix-blend-mode` when non-`normal`. Compared by value.',

@@ -174,8 +174,18 @@ import type { Capture } from './types'
  *   node whose element also holds a nested run (`<p>F<span>…</span></p>`) is
  *   measured over its own range; a pre-16 bundle records it with the whole
  *   paragraph's box and glyph extent.
+ * - **17** — REQ-377: three things hearingzone510.com showed. (a) The page is
+ *   measured AT REST: under `html{scroll-behavior:smooth}` the settle's return to
+ *   the top was an animation nothing waited for, so a sticky header was recorded
+ *   at fifteen different y values across the bundle's fifteen page loads. The
+ *   bundle now records the `scrollY` it was read at, so a future race is visible
+ *   in the bundle rather than in the pixels. (b) Every run and field records the
+ *   ancestor the page pins to the viewport (`sticky`: `position: sticky` /
+ *   `fixed`), so a fold can hold a header the way the page does. (c) A run over
+ *   an inline-SVG panel records the panel's fill as its `surfaceFill` (and the
+ *   panel as its `surface`, flagged `panel`), not the band behind the panel.
  */
-export const CAPTURE_SCHEMA = 16
+export const CAPTURE_SCHEMA = 17
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -557,6 +567,29 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Unprovable for `zIndex`'s reason: a pre-16 bundle records a box on every
     // run, and only the page's markup says whose box it was.
     present: () => false,
+  },
+  {
+    since: 17,
+    axis: 'the scroll offset the page was measured at (scrollY)',
+    where: 'the bundle (`capture.json` `scrollY`)',
+    // Written on every bundle from schema 17, so its presence is the axis.
+    present: (c) => typeof c.scrollY === 'number',
+  },
+  {
+    since: 17,
+    axis: "an element's pinned ancestor (sticky: position sticky / fixed)",
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // Written on every run and field from schema 17 (null when nothing pins it), so
+    // the key's presence on any element is the axis, whatever the page pins.
+    present: (c) => [...runs(c), ...fields(c)].some((e) => 'sticky' in e),
+  },
+  {
+    since: 17,
+    axis: "a run's surface over an inline-SVG panel (surfaceFill, surface.panel)",
+    where: 'a content run (`sections[].content[]`)',
+    // A page with no SVG panel records none however new its extractor is — the
+    // `href` asymmetry — so this only ever removes the axis from a finding.
+    present: (c) => runs(c).some((r) => (r.surface as { panel?: unknown } | null | undefined)?.panel === true),
   },
 ]
 

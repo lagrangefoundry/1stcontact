@@ -50,6 +50,25 @@ export interface ClipAncestor extends Box {
 }
 
 /**
+ * REQ-377 — the nearest ancestor (or self) the page PINS to the viewport —
+ * computed `position: sticky` or `fixed` — as its document box at scroll 0, the
+ * same stable path id {@link ClipAncestor} uses, and the viewport offset it holds
+ * at (`topPx`: the computed `top` for a sticky box, the box's own viewport top for
+ * a fixed one).
+ *
+ * L1 can say "this node holds at the top of the viewport" (`sticky`, REQ-325) and
+ * nothing in the bundle said which nodes the page held there, so a reproduction's
+ * header was a pinned box that scrolled away while the reference's followed the
+ * reader down the page — at no cost in any full-page screenshot, which cannot see
+ * scrolling at all. Everything sharing an id belongs inside one pinned node, which
+ * is how the fold rebuilds the header group rather than pinning each run apart.
+ */
+export interface StickyAncestor extends Box {
+  id: string
+  topPx: number
+}
+
+/**
  * BUG-187 — one level in the chain of stacking a paint-ordered box sits in.
  *
  * `id` is the box's place in the document (the same `.`-joined child-index path
@@ -411,6 +430,13 @@ export interface SurfaceShape {
   boxShadow: string | null
   /** Uniform box border of the surface (thickest painted side), else null. */
   border: BorderTreatment | null
+  /**
+   * REQ-377 (issue 4) — the surface is an inline-SVG panel, which the bundle
+   * already records as a painted field of its own (REQ-370). The run's
+   * `surfaceFill` is the panel's, and a fold must not rebuild a card from it:
+   * that would paint the one panel twice. Absent on every other surface.
+   */
+  panel?: true
 }
 
 /** REQ-47 — how an element sits relative to the previous element in its section. */
@@ -462,6 +488,12 @@ export interface ElementGeometry {
    * joyfulculinarycreations.com, 1699.75px against the reference's 1280.
    */
   clip?: ClipAncestor | null
+  /**
+   * REQ-377 — the nearest ancestor (or self) the page pins to the viewport
+   * (`position: sticky` / `fixed`), else null; absent on a pre-schema-17 bundle.
+   * Carried for the fold, which holds everything sharing an id in one pinned node.
+   */
+  sticky?: StickyAncestor | null
   /** REQ-63 — computed `mix-blend-mode` when non-`normal`, else null. */
   blendMode?: string | null
   /** REQ-63 — element `opacity` in 0..1 (1 when fully opaque); a partial value ghosts the element. */
@@ -879,6 +911,20 @@ export interface Capture {
    * schema 11 carries no canvas and its readers keep their fallbacks.
    */
   bodyBackground?: string
+  /**
+   * REQ-377 — the document scroll offset the page was MEASURED at.
+   *
+   * Every box in the bundle is `r.top + window.scrollY`, which is a document
+   * coordinate for an in-flow box at any scroll and for a `position: sticky` /
+   * `fixed` box only at 0: a box stuck to the viewport travels with the scroll.
+   * The settle returns the page to the top and waits for it, so this is `0` on
+   * every honest bundle — and anything else says, in the bundle, that its sticky
+   * boxes are displaced by exactly this much, instead of leaving the race to be
+   * found in the pixels.
+   *
+   * OPTIONAL: a pre-schema-17 bundle never recorded it.
+   */
+  scrollY?: number
   theme: Theme
   sections: Section[]
   assets: CaptureAsset[]

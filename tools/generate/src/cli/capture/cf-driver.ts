@@ -39,7 +39,15 @@
  * egress against, so the corruption would land as a false verdict rather than as
  * a crash. Reuse lives strictly *below* the driver.
  */
-import { FONT_BARRIER, FONTS_READY, IMAGES_DECODED, REVEAL_MEDIA, SETTLE_CSS, SETTLE_SCROLL } from './page-scripts'
+import {
+  FONT_BARRIER,
+  FONTS_READY,
+  IMAGES_DECODED,
+  REVEAL_MEDIA,
+  SCROLL_TO_TOP,
+  SETTLE_CSS,
+  SETTLE_SCROLL,
+} from './page-scripts'
 import type { EgressGuard, EgressRequest } from './egress-guard'
 import type {
   BrowserDriver,
@@ -218,7 +226,7 @@ class CfBrowserDriver implements BrowserDriver {
 
   /**
    * REQ-36 — settle below-fold lazy/animated content so the next
-   * {@link screenshot} / {@link query} sees the whole page. The same four steps
+   * {@link screenshot} / {@link query} sees the whole page. The same steps
    * the Playwright driver runs, over the same shared scripts. Best-effort
    * throughout: a page without these patterns is unaffected, and any step that
    * rejects must not fail the capture — the screenshot is still worth taking.
@@ -230,6 +238,9 @@ class CfBrowserDriver implements BrowserDriver {
     await page.evaluate(IMAGES_DECODED).catch(() => undefined)
     await page.evaluate(REVEAL_MEDIA).catch(() => undefined)
     await page.waitForNetworkIdle().catch(() => undefined)
+    // REQ-377 — home again, and wait for it: a page script can scroll after the
+    // settle's own return, and a sticky box is measured wherever the scroll is.
+    await page.evaluate(SCROLL_TO_TOP).catch(() => undefined)
   }
 
   /**
