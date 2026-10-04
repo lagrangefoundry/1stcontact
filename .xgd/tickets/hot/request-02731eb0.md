@@ -6,9 +6,9 @@ title: 'capture: a sticky header is measured mid smooth-scroll, so every read of
   oracle puts it somewhere different (and three further residuals)'
 created_by: repro-console:repro-www-hearingzone510-com#2
 created_at: '2026-10-03T23:09:19.474500+00:00'
-updated_at: '2026-10-04T00:18:48.891428+00:00'
+updated_at: '2026-10-04T00:39:32.285940+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -254,3 +254,36 @@ the testimonial rows.
   `EXPLORE MORE SERVICES`/card-2 ×46, `510-865-8113`/card-6 ×22) come from the probe pairing REQ-370
   issue 4's line-box top with the captured border-box height. Filed as a bug
   (`instrument-asymmetric`).
+
+
+---
+
+## What landed (free-coded)
+
+**Issue 1 — the page is measured at rest** (capture).
+- `SETTLE_CSS` now starts `html,body{scroll-behavior:auto!important}`, so every scroll the settle performs (the stepped scroll as well as the return) is instant.
+- New shared page script `SCROLL_TO_TOP` (`page-scripts.ts`): `scrollTo({top:0,left:0,behavior:'instant'})`, then a bounded poll (≤40 × 50ms) until the page is at 0; it resolves to the `scrollY` it ended at. `SETTLE_SCROLL` ends with it. Both drivers (`playwright-driver.ts`, `cf-driver.ts`) also run it as the **last** step of `settlePage`, after the network wait, because a page script can scroll once the network goes quiet.
+- `EXTRACT_SCRIPT` records `scrollY` in its signals. `captureOnce` writes it to `capture.json` as `scrollY`, including when it is 0: a bundle that says 0 was demonstrably measured at rest. `runMultiStateCapture` adds a matrix **note** naming any projection read at a non-zero `scrollY` (engine, viewport, state and the offset), rather than refusing the read.
+- `CAPTURE_SCHEMA` 16 → **17**, with the axes `scrollY`, `sticky` and the SVG-panel surface, so a schema-16 bundle (including `www.hearingzone510.com/index`) reports itself as owed a re-capture.
+
+**Issue 2 — `position: sticky` reaches the bundle and the fold** (capture + fold).
+- Every run and field records `sticky`: its nearest ancestor (or itself) with computed `position: sticky | fixed`, as that box at scroll 0, the same stable path id `clip` uses, and `topPx`. For a sticky box `topPx` is the computed `top`. For a fixed box it is the box's own viewport top. A sticky box with `top: auto` holds nowhere and is recorded as null. The axis is carried through `sections.ts`, the value-axes registry (`carried`) and `ValueElement`. `coverage.ts` moves `position` from `declined` to `recorded`; `top` stays declined.
+- The fold (`pinStickyGroups`) groups the top-level nodes that lie inside one pinned box at every width they are laid out at. That includes the grounds and cards behind the runs, which have no capture row of their own. Those nodes become **one L1 `sticky` container**, placed `flow` (L1 refuses `sticky` on an absolute track), with each member rebased onto it. CSS sticky holds only while its containing block is on screen, and the fold's root holds nothing in flow, so it is ~0px tall. The pin therefore sits in a **rail**: a flow `box` from the page's top to its bottom that paints nothing. The rail is the root's first child.
+- The pin holds at the level the page declares when the capture's `paintStack` names the pinned ancestor (hearingzone's `.top-blocks{z-index:18}` → `paintOrder: 18`). Otherwise it takes `sticky.lift`, so content passes behind it.
+- Only boxes that hold **from the first scroll** are pinned: captured top at or above the offset they hold at, and no taller than the viewport. That covers a header, a nav bar, a fixed banner. A sticky sidebar holds only through its own section, which the capture does not record, so it is left scrolling rather than given an invented page-long pin.
+
+**Issue 3** — no code, as the ticket specifies. Re-measure after the re-capture.
+
+**Issue 4 — a run over an inline-SVG panel stands on it** (capture + fold).
+- `paintedSurfaces` indexes an inline SVG that `svgPanelFillOf` accepts, with its fill. `surfaceFillOf` stops at it (opaque), `surfaceGradientOf` ends there, and `surfaceOf` returns it as the run's surface `{self:false, …, panel:true}`.
+- The fold reads `surface.panel` and builds no card or band from that run's fill, because REQ-370 already records the panel as a painted field. Without the flag, the same input folds to a second `#224e7a` surface (a full-width band), which is the double paint REQ-370 avoided.
+
+**Still required (operator):** re-capture `www.hearingzone510.com/index` with this extractor, then re-run the ticket's checks (the Python `box.y` probe, `grep -c '"sticky"'`, issue 3's keyframe probe, issue 4's `values-diff` probe). Nothing here was verified against a live page, because Chromium cannot launch in the sandbox this was built in.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-377_sticky_header_at_rest.test.ts` (18 UATs). The capture cases run the real page scripts under jsdom, which emulates a smooth-scrolling page (every non-`instant` `scrollTo` animates; a new scroll cancels one in flight). The fold cases run `foldToL1` on fixtures.
+- Issue 1: the emulation reproduces the race (a plain `scrollTo(0,0)` read at once records the bar displaced by `scrollY`). After `SETTLE_SCROLL` the bar reads at its scroll-0 y with `scrollY` 0. A page that scrolls itself after the settle is brought back by `SCROLL_TO_TOP`. `SETTLE_CSS` forces instant scrolling, and both drivers end `settlePage` with `SCROLL_TO_TOP`. `runCapturePipeline` writes `scrollY` to the bundle. `runMultiStateCapture` notes projections read at a non-zero scroll and stays silent at 0.
+- Issue 2: the capture records `sticky` (box, id, `topPx`) inside a sticky ancestor and null outside. A fixed ancestor holds at its viewport top. A sticky box with `top:auto` records null. `position` is a recorded coverage property. The fold builds one flow `sticky` node holding the header runs and grounds, with members rebased so their page position is unchanged. The pin sits in a page-tall rail that is the root's first child, and the body does not travel. It renders as `position: sticky; top: 0px; z-index: 1`. It holds at the captured `paintStack` level (18) when present. A sidebar pin, or no pin at all, folds to no `sticky`.
+- Issue 4: the run over the panel records `#224e7a` and `surface.panel`. A run beside the panel still reads the band. The fold paints the panel once with the flag, and more than once without it.
+- Stamp: a schema-16 bundle names `scrollY` and `sticky` as missing; schema 17 names nothing.
