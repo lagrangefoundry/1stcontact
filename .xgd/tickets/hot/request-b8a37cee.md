@@ -5,9 +5,9 @@ type: request
 title: Per-side borders in the page vocabulary (e.g. a left rule on a pull quote)
 created_by: xgd
 created_at: '2026-10-03T19:58:54.769433+00:00'
-updated_at: '2026-10-03T19:58:54.769433+00:00'
+updated_at: '2026-10-04T00:17:30.146605+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -27,3 +27,9 @@ Some way to set a border on individual sides. For example, `border` could accept
 
 ## Workarounds considered
 Nesting a thin filled box beside the text as a fake rule. That works for a left rule, but it's fragile across stacking breakpoints and adds elements that have no meaning. It's not a fix.
+
+
+---
+
+## Status note (REQ-373 session)
+This ticket's body is identical to **REQ-374** (request-59ac5ff8). REQ-374 already implements it: `borderTop` / `borderRight` / `borderBottom` beside `borderLeft` on the shared surface group, per-side overriding `border`, the same strict validation, and web and email rendering. The commits are 48032818cb and a77293dcb7, both on xgd-working, and REQ-374 is at ready_to_reconcile. No code was written under REQ-373. It is a duplicate and needs no further work.
