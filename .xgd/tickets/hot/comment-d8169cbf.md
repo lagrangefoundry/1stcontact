@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:58:20.144560+00:00'
+updated_at: '2026-10-04T01:12:15.558826+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6719,5 +6719,11 @@ The fix covers all three:
 - **Alice can change an upload's role**, but only for things you uploaded, never captured sites, and only when you ask or after checking with you. What a file is for is your choice. She tells you in the chat when she's done it.
 
 For Charlie 2 right now, open each photo in the Library and change "What it is for" to the site option. Alice can then place them.
+
+<!-- xgd-turn id="d98766e4-4230-4d17-8197-872ce346b479-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:12:14.486631+00:00" -->
+#### You
+Actually while we are here can I have a way to delete materials too (Alice should have one as well)
 
 <!-- xgd-chat-end -->
