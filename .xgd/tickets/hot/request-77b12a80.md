@@ -6,10 +6,10 @@ title: 'Plan panel and consultant cadence: progress counter, announce before goi
   quiet, milestones that fall due'
 created_by: EPIC-19
 created_at: '2026-10-04T01:19:03.873246+00:00'
-updated_at: '2026-10-04T01:46:07.952853+00:00'
+updated_at: '2026-10-04T01:47:23.915698+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-eb212a9a
+  commits:
+  - working_sha: 1fc49e82237ef7f6a9a6e8df7fe332bbe5107618
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 92351ffeb4f8df44b4c0506cc8e1c14e4dfbe9cd
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.475
 ---
-
 
 ## What changes
 
