@@ -74,6 +74,7 @@ import {
   saveMaterialRecipe,
   saveSubject,
   setBusinessScope,
+  subscribeDraft,
   undoDnsChange,
   uploadMaterial,
   writePalette,
@@ -260,6 +261,12 @@ export function mountBuilder(root, options = {}) {
      * the switch is visible and silently does nothing.
      */
     debugTransport = null,
+    /**
+     * The preview's draft feed ([[BUG-192]]). `null` keeps the origin's
+     * `EventSource`; a test injects `{subscribe(site, onChange)}` returning
+     * `{close}` to drive it without one.
+     */
+    draftTransport = null,
     /**
      * When the markdown engines have settled (BUG-42). Awaited before a
      * conversation is handed to the pane, because the pane paints each turn once.
@@ -706,6 +713,65 @@ export function mountBuilder(root, options = {}) {
   currentSite = panel.getSite()
 
   /**
+   * THE PREVIEW FOLLOWS THE DRAFT, NOT ONE CONVERSATION ([[BUG-192]]).
+   *
+   * The frame used to reload only on `site_changed`, which arrives inside the
+   * consultant's own chat stream — so a write made while that stream was not
+   * being read (a delegated builder that aborted, a dropped socket) landed in
+   * the draft and never on screen, and nothing compared the two afterwards. The
+   * draft feed reports the change count whoever wrote it, and reconnects on its
+   * own, reporting what it missed.
+   *
+   * ONE TEST FOR EVERY SIGNAL: IS THE FRAME BEHIND THIS COUNT. The preview
+   * response states the count it was rendered at — a `Server-Timing` metric,
+   * read off the frame's own navigation entry, because the page's bytes are the
+   * build's and may not carry it ([[REQ-119]]) — so a write the frame already shows — the
+   * operator's own save, which reloads at once, or a `site_changed` the feed
+   * then repeats — is not reloaded a second time. A second reload would tear
+   * down whatever the operator had started on the page since.
+   *
+   * `ifUnknown` IS WHAT TO DO WHEN THE FRAME CANNOT SAY: mid-load, or not a page.
+   * A reported write still reloads it — what is loading may predate the write —
+   * but the feed's opening `ready` frame does not, or every site switch would
+   * load the frame twice.
+   */
+  const followDraftFeed = draftTransport?.subscribe ?? subscribeDraft
+  let draftFeed = { close: () => {} }
+  let draftFeedKey = null
+  const shownAt = () => {
+    let stated = null
+    try {
+      const [entry] = panel.frame?.contentWindow?.performance?.getEntriesByType?.('navigation') ?? []
+      stated = entry?.serverTiming?.find((metric) => metric.name === 'draft-at')?.description ?? null
+    } catch {
+      // A document this origin cannot read cannot say which count it holds.
+    }
+    const at = stated == null || stated === '' ? NaN : Number(stated)
+    return Number.isSafeInteger(at) ? at : null
+  }
+  const catchUp = (at, ifUnknown) => {
+    if (!Number.isSafeInteger(at)) {
+      if (ifUnknown) panel.reloadDocument()
+      return
+    }
+    const shown = shownAt()
+    if (shown === null ? ifUnknown : shown < at) panel.reloadDocument()
+  }
+  /** Re-aim the feed at the site in scope — the business is part of its URL. */
+  const followDraft = (site) => {
+    const key = site ? `${currentBusiness ?? ''}\0${site}` : null
+    if (key === draftFeedKey) return
+    draftFeed.close()
+    draftFeed = { close: () => {} }
+    draftFeedKey = key
+    if (!site) return
+    draftFeed = followDraftFeed(site, (frame) => {
+      if (key !== draftFeedKey) return
+      catchUp(frame?.at, frame?.kind !== 'ready')
+    })
+  }
+
+  /**
    * The palette popup, in the one place that can host it (REQ-133).
    *
    * It mounts into `shell.element` for the reason the segment modal does: the
@@ -993,7 +1059,10 @@ export function mountBuilder(root, options = {}) {
     //
     // Fired PER WRITE rather than at the end of the turn, so a request answered
     // by several edits shows the page unfolding as the assistant works.
-    onSiteChanged: () => panel.reloadDocument(),
+    //
+    // [[BUG-192]] — through `catchUp`, so the draft feed reporting the same
+    // write a moment later does not reload the frame again.
+    onSiteChanged: (meta) => catchUp(meta?.at, true),
     // [[REQ-210]] — the pill's expansion is the assistant's ENTIRE channel for a
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
@@ -1519,6 +1588,8 @@ export function mountBuilder(root, options = {}) {
 
   async function showSite(site) {
     const mine = ++generation
+    // [[BUG-192]] — the preview's draft feed follows the site too.
+    followDraft(site ?? null)
     // The Debug tab's agent sessions follow the site in scope ([[REQ-357]]).
     void debug.setSite(site ?? null)
     // CAPTURED, NOT READ LATER. The open below is async and `currentBusiness`
@@ -1898,6 +1969,7 @@ export function mountBuilder(root, options = {}) {
       sessionNotice?.element.remove()
       unbindDocument()
       unbindSite()
+      draftFeed.close()
       switcher.destroy()
       unwatchChat()
       unwatchLibrary()

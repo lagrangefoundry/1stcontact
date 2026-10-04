@@ -1053,6 +1053,43 @@ export function subscribeMaterial(since, onChange, { EventSourceImpl = globalThi
   return { close: () => source.close() }
 }
 
+/**
+ * Watch one site's draft for writes, whoever made them ([[BUG-192]]).
+ *
+ * THE PREVIEW'S OWN CHANNEL. `site_changed` reaches the builder only inside the
+ * consultant's chat stream, so a write made while that stream was not being read
+ * — a delegated worker that aborted, a socket that dropped — never reached the
+ * frame. This feed is the draft's change count and nothing else, so it reports
+ * every structured write regardless of which session made it.
+ *
+ * `EventSource` FOR {@link subscribeMaterial}'S REASONS: the browser reconnects
+ * and re-presents the last count it saw, so the first poll after a drop reports
+ * what landed during it. No `since` means "from now" — the `ready` frame states
+ * the count the connection opened at.
+ *
+ * @param {string} site the site key
+ * @param {(frame: {kind: 'ready'|'draft', at: number}) => void} onChange
+ * @param {object} [opts]
+ * @param {typeof EventSource} [opts.EventSourceImpl] injected by tests
+ * @returns {{close: () => void}}
+ */
+export function subscribeDraft(site, onChange, { EventSourceImpl = globalThis.EventSource } = {}) {
+  // Without `EventSource` the preview still follows the writes it is told about
+  // in-stream, which is everything it did before this feed existed.
+  if (typeof EventSourceImpl !== 'function') return { close: () => {} }
+  const source = new EventSourceImpl(scoped(`/api/sites/changes?site=${encodeURIComponent(site)}`))
+  source.onmessage = (event) => {
+    let frame
+    try {
+      frame = JSON.parse(event.data)
+    } catch {
+      return
+    }
+    onChange(frame)
+  }
+  return { close: () => source.close() }
+}
+
 /** One piece of material with its description — the row plus the body. */
 export async function fetchMaterialItem(uid, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped(`/api/material/item?uid=${encodeURIComponent(uid)}`))

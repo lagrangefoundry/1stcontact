@@ -1270,6 +1270,11 @@ export interface RouterDeps {
    */
   contactChangePollMs?: number
   /**
+   * How often the preview's draft feed reads the change count ([[BUG-192]]).
+   * Injectable for {@link contactChangePollMs}' reason.
+   */
+  draftChangePollMs?: number
+  /**
    * The tenant's capture bundles, for the import route's rights gate (BUG-84).
    *
    * Injectable for the reason the stores above are: a UAT that has to plant a
@@ -1957,6 +1962,42 @@ export const PERSON_MESSAGES_PATH = '/api/people/messages'
  * re-presenting the last `id:` it saw as `Last-Event-ID`.
  */
 export const PERSON_CHANGES_PATH = '/api/people/changes'
+
+/**
+ * The builder preview's change feed ([[BUG-192]]).
+ *
+ * THE PREVIEW'S OWN SUBSCRIPTION TO THE DRAFT, independent of any conversation.
+ * The frame used to learn that the draft moved only from `site_changed`, which
+ * rides inside the consultant's chat stream — so a write made while that stream
+ * was not being read (a delegated worker that aborted, an isolate that died, a
+ * socket that dropped) reached the store and never the frame, and nothing
+ * compared the two afterwards.
+ *
+ * A `GET` SO IT CAN BE AN `EventSource`, on `/api/material/changes`' argument:
+ * the browser reconnects with backoff and re-presents the last `id:` it saw, so
+ * a dropped connection resumes at the change count it stopped on and the gap is
+ * reported on the first poll after it returns.
+ */
+export const SITE_CHANGES_PATH = '/api/sites/changes'
+
+/**
+ * The `Server-Timing` metric a builder preview response carries its change count
+ * in ([[BUG-192]]).
+ *
+ * THE FRAME HAS TO KNOW WHICH COUNT IT IS SHOWING, or the feed above cannot tell
+ * a change the frame is missing from one it already loaded — the operator's own
+ * palette or segment save reloads the frame at once, and a feed that reloaded it
+ * again two seconds later would tear down the edit they had started since.
+ *
+ * A HEADER, NOT THE PAGE. The preview's bytes are the build's bytes ([[REQ-119]])
+ * and a stamp in the document would break that equality. `Server-Timing` is the
+ * one response header a same-origin document can read about itself — through
+ * its navigation entry — so the count travels beside the page, not in it.
+ */
+export const DRAFT_AT_TIMING = 'draft-at'
+
+/** How often the preview feed asks the store whether the draft moved ([[BUG-192]]). */
+export const DRAFT_CHANGE_POLL_MS = 2000
 
 /**
  * One contact's history, page by page ([[REQ-267]] §8).
@@ -5474,6 +5515,31 @@ async function routeUncached(
       }
     }
 
+    /**
+     * GET /api/sites/changes?site= — the preview, live ([[BUG-192]]).
+     *
+     * OVER THE DRAFT'S CHANGE COUNTER, the number `site_changed` already carries
+     * as `at` — every structured write moves it, whichever session made it.
+     *
+     * A KEY THIS BUSINESS DOES NOT HOLD IS A 404, checked against the store the
+     * scope opened, exactly as the preview route checks it.
+     *
+     * THE CURSOR IS THE CLIENT'S. `Last-Event-ID` wins over `?since`, which seeds
+     * only the first connection; neither means "from now".
+     */
+    if (p === SITE_CHANGES_PATH && method === 'GET') {
+      const site = url.searchParams.get('site')
+      if (!site) return json(400, { error: 'site is required' })
+      const asked = request.headers.get('last-event-id') ?? url.searchParams.get('since')
+      const since = asked == null ? null : Number(asked)
+      if (since != null && !Number.isSafeInteger(since)) {
+        return json(400, { error: 'since must be an integer change count' })
+      }
+      const store = await openStore()
+      if (!(await store.hasDraft(site))) return text(404, 'Not found')
+      return streamDraftChanges(store, site, since, deps.draftChangePollMs ?? DRAFT_CHANGE_POLL_MS)
+    }
+
     if (p === '/api/revisions' && method === 'GET') {
       const site = url.searchParams.get('site')
       if (!site) return json(400, { error: 'site is required' })
@@ -6677,12 +6743,15 @@ async function routeUncached(
       if (!PREVIEW_CHANNELS.includes(channel as PreviewChannel)) {
       return text(404, 'Unknown channel')
       }
-      return servePreview(
-        await openStore(),
-        site,
-        channel as PreviewChannel,
-        preview[3] ?? '/',
-        platformFonts,
+      const store = await openStore()
+      // [[BUG-192]] — READ BEFORE THE RENDER, so the page holds at least this
+      // count. A write landing mid-render can only make the page newer than its
+      // stamp, which costs one redundant reload; the other order could stamp a
+      // count the page does not hold, and that change would never be shown.
+      const at = await store.counter(site)
+      return stampDraftAt(
+        await servePreview(store, site, channel as PreviewChannel, preview[3] ?? '/', platformFonts),
+        at,
       )
     }
 
@@ -7451,6 +7520,118 @@ function streamContactChanges(
       'cache-control': 'no-store',
     },
   })
+}
+
+/**
+ * The draft's change count, as a live stream ([[BUG-192]]).
+ *
+ * SAME WIRE FORMAT AS {@link streamContactChanges} — a `ready` frame stating the
+ * count the connection opened at, then `id: <at>` + `data:` whenever the count
+ * moves past the last one sent, and a `: ping` on an idle connection. Written on
+ * its own rather than factored out of that one because the half that differs is
+ * the whole of it: this is one integer per site, with no rows, no lookback and
+ * nothing to de-duplicate.
+ *
+ * ONE FRAME PER MOVE, CARRYING WHERE THE COUNT NOW IS, not one per change. The
+ * reader reloads a page; three writes inside one poll are one reload.
+ *
+ * TEARDOWN BOTH WAYS A CLIENT LEAVES, for {@link streamContactChanges}' reason.
+ */
+function streamDraftChanges(
+  store: SiteStore,
+  site: string,
+  since: number | null,
+  pollMs: number,
+): Response {
+  const encoder = new TextEncoder()
+  let stop = (): void => {}
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      let cursor = since ?? (await store.counter(site))
+      let live = true
+      let polling = false
+      let lastWrite = Date.now()
+      let timer: ReturnType<typeof setInterval> | null = null
+
+      const teardown = (): void => {
+        if (!live) return
+        live = false
+        if (timer != null) clearInterval(timer)
+        timer = null
+        try {
+          controller.close()
+        } catch {
+          // Already cancelled by the client.
+        }
+      }
+      const write = (frame: string): boolean => {
+        if (!live) return false
+        try {
+          controller.enqueue(encoder.encode(frame))
+          lastWrite = Date.now()
+          return true
+        } catch {
+          teardown()
+          return false
+        }
+      }
+      stop = teardown
+
+      if (!write(`id: ${cursor}\ndata: ${JSON.stringify({ kind: 'ready', at: cursor })}\n\n`)) return
+
+      const tick = async (): Promise<void> => {
+        if (polling || !live) return
+        polling = true
+        try {
+          const at = await store.counter(site)
+          // NOT `!==`. A count below the cursor is a client presenting an id from
+          // another site or a reset store; it is nothing this page is missing.
+          if (at > cursor) {
+            if (!write(`id: ${at}\ndata: ${JSON.stringify({ kind: 'draft', at })}\n\n`)) return
+            cursor = at
+          } else if (Date.now() - lastWrite >= SSE_HEARTBEAT_MS) {
+            write(': ping\n\n')
+          }
+        } catch {
+          // A failed read leaves the cursor where it was; the next tick repairs it.
+        } finally {
+          polling = false
+        }
+      }
+
+      // AT ONCE, NOT ONE INTERVAL IN. A reconnect presenting an old id is exactly
+      // the client this exists for, and it should not wait to be told.
+      void tick()
+      timer = setInterval(() => void tick(), pollMs)
+      if (typeof (timer as { unref?: () => void })?.unref === 'function') {
+        ;(timer as unknown as { unref: () => void }).unref()
+      }
+    },
+    cancel() {
+      stop()
+    },
+  })
+
+  return new Response(stream, {
+    status: 200,
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'x-content-type-options': 'nosniff',
+      'cache-control': 'no-store',
+    },
+  })
+}
+
+/**
+ * Say which change count a builder preview response was rendered at
+ * ([[BUG-192]], see {@link DRAFT_AT_TIMING}). Headers only; the body is untouched.
+ */
+function stampDraftAt(response: Response, at: number): Response {
+  if (response.status !== 200) return response
+  const headers = new Headers(response.headers)
+  headers.append('server-timing', `${DRAFT_AT_TIMING};desc="${at}"`)
+  return new Response(response.body, { status: 200, headers })
 }
 
 /**
