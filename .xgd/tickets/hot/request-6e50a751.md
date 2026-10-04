@@ -7,9 +7,9 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T12:43:34.428986+00:00'
+updated_at: '2026-10-04T12:43:49.507458+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -156,3 +156,9 @@ grep -o 'social-icons__link' storage/references/www.bluelotusintegralhealing.com
 ## Not attributed
 
 - HIGH `zIndex` on the footer logo: "expected above ©, actual below". The logo box `{504.94, 2617, 270×254.5}` overlaps the © box `{57.98, 2824.52, 503×18.19}` only over x 505–561, where the © glyphs (`renderedTextBox` width 166.73) do not reach. I found no visible consequence. It is the same document-order mechanism as issue 1's burial, and may clear with it.
+
+
+## Related tickets filed this round
+
+- **BUG-197** (`instrument-blind`, `instrument-asymmetric`): (1) the containment probe asserts a fold-declared `backedBy` without checking that it holds at rest, and then diagnoses this issue 1 as "exact at rest, comes apart when the viewport moves"; (2) the 12 LOW pill deltas compare padding on one side against min-height on the other.
+- Issue 2 continues REQ-370 issue 3, whose landing kept edge spaces "collapsed to one". REQ-370 is frozen at `ready_to_reconcile`, so the residual is filed here.
