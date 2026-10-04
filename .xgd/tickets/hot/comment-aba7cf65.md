@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-04T12:26:25.494488+00:00'
+updated_at: '2026-10-04T12:38:44.652103+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,96 @@ Understood on §13.3: REQ-205 stays, because we're at the point of building it.
 <!-- xgd-chat role="user" ts="2026-10-04T12:26:24.933047+00:00" -->
 #### You
 205 has landed, please proceed
+
+<!-- xgd-turn id="b51535ea-05d8-417b-a405-04816d32f2ae-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T12:38:44.187233+00:00" -->
+#### Claude
+Now let me see what REQ-205 actually delivered upstream.
+
+Framework REQ-205 is installed in the shared store; I'm now checking how 1st Contact's chat stream and panel would carry the new `interim` and `progress` events.
+
+Still mapping the wiring: the framework side is in place, and I'm checking how to give the 1:1 consultant a `GroupSay` that targets its own conversation.
+
+I have enough to scope the 1st Contact side. Recording the plan on REQ-360, then cutting the branch.
+
+Writing the plan onto REQ-360.
+
+Worktree ready. Looking at the existing delegation tests to reuse their scripted-provider setup.
+
+REQ-379 already added a required `note` on `Delegate` that's shown before the hand-off. Checking how that works so the new pieces fit alongside it.
+
+Adding a `progress_seconds` delegation setting, interleaving `progress` records into the live turn stream, and drawing them as one status line in the panel. Checking the panel's signal map first.
+
+Writing the code now: the delegation setting first.
+
+Now the progress-merging module.
+
+Now wiring it into host-core: the runtime interval, the live stream, and the reattach projection.
+
+Now the panel side in `chat.js`.
+
+Now the remaining three replacements (the earlier script aborted before writing).
+
+Adding the status line's style.
+
+Code is in. Now the UATs, starting with how the existing panel tests mount the chat with a fake transport.
+
+Writing the route-level UATs.
+
+All six pass. Checking they aren't vacuous by disabling the stream merge temporarily.
+
+The live-stream cases fail without the merge. Doing the same check for the reattach projection.
+
+Now the panel UAT (jsdom, against the installed `webui-chat`).
+
+Both panel cases fail without the wrapper. Now type-checking and running the regression scope.
+
+No type errors in the touched files. Running the adjacent suites (delegation, REQ-379 cadence, reload-during-turn, chat panel).
+
+Two REQ-295 failures. One matches a known pre-existing failure. Checking both against the main checkout.
+
+Both fail identically on the main checkout, so they're pre-existing. Running the node-side panel and config suites.
+
+Both also fail on the main checkout, so nothing new is broken. Reading my notes on this repo's version-bump and merge procedure before committing.
+
+Committing on the branch with explicit paths.
+
+Updating REQ-360's body to match what was built: the banner and the plan section I appended earlier are both now out of date.
+
+Ticket body updated. Now the lock and merge back into `xgd-working`.
+
+Merged. Promoting to `free_coded`, letting the gate do the version bump itself.
+
+Done. Updating my note on suites that already fail before any change, with the extra cases seen today.
+
+REQ-360 is built and at `free_coded`. A build the consultant hands off now shows "still working, elapsed N min" in the client's chat while it runs. I built less than we'd planned: the heartbeat only, no `GroupSay` for the consultant in a 1:1 chat and no priming line.
+
+**Why less.** REQ-379, which landed yesterday after we parked this ticket, already handles the notice before a build. `Delegate` now requires a `note`, and the host shows it to the client before the build starts. That's guaranteed by the host, which is stronger than asking the model in priming. A `GroupSay` into the consultant's own chat would just be a second, optional way to say the same thing in the same place. What was still missing was any sign of life during the build itself. If you'd still rather have `GroupSay` work the same in a 1:1 chat and a room, the grant is a small follow-up.
+
+**What the client sees:**
+- One muted line between the conversation and the message box, with a pulsing dot that stays still for users who've asked for reduced motion.
+- A new line every 60 seconds, each replacing the last.
+- The line disappears when the consultant starts talking again or the turn ends, including when the connection drops.
+- A build that finishes inside a minute shows nothing.
+- A client who reloads mid-build gets the latest figure.
+- The lines never go into the reply or the saved conversation.
+
+**How it works:**
+- **Interval:** a new `progress_seconds` setting in `delegation.json`, default 60; `0` turns it off.
+- **Live delivery:** REQ-205 writes the heartbeat to the session log, which the live turn's stream doesn't carry while `Delegate` is running. So the turn now also reads the log during that time and passes each heartbeat on (new file `progress-core.ts`). The reload path passes them on too.
+- **The line itself:** drawn by the builder chat panel (`chat.js`), styled in `builder.css`.
+
+**Tests:** 8 new tests, all passing:
+- 6 drive the real routes; only the model is faked, with the worker held open so a build is genuinely in progress.
+- 2 drive the chat panel against the installed chat component.
+- With each piece of the change disabled in turn, the tests covering it fail.
+
+In the related existing suites, 4 tests fail, and they fail the same way on the main checkout without this change:
+- the two delegation result tests in the REQ-295 suite;
+- the worker-permissions test in the delegation config suite;
+- the priming test in the REQ-122 chat host suite.
+
+**Ticket:** the commit is merged into `xgd-working` at version 0.2.477, and the branch is cleaned up. The body has an "As built" section explaining the scope change. Group-chat rooms are out of scope: room heartbeats would need the room panel's own stream. Promoting REQ-360 to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
