@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:18:22.284696+00:00'
+updated_at: '2026-10-04T01:19:16.680999+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6771,5 +6771,29 @@ I will run Charlie's plumbers again tomorrow - I want to check we have the key f
 3) Alice will remind me (particularly when she is quiet) to fill in the data fields
 
 ooh - could we have at the top of the panel after "Getting to know your business" a progress counter "You have 3 fields still to complete" / "Great all the fields are filled" in etc.
+
+<!-- xgd-turn id="34b33a79-f175-47b6-91c0-2acdd573d444-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:19:15.797305+00:00" -->
+#### Claude
+Short answer: **not yet for any of the three.** The work is in flight but nothing has landed. Here's where each stands.
+
+**1. Starting with comps: in progress, not ready.**
+- **REQ-378**, the comp board plus the priming that tells Alice to open with comps, is being coded (`free_coding`), not landed.
+- **It also needs web search**, lagrange-framework REQ-206, which is still being coded too.
+- **The shared framework install has to be refreshed** once REQ-206 lands, and you run that yourself.
+
+So "Alice knows what to do" depends on 378 landing. If it isn't in by tomorrow, you can steer her by hand with *"before you build anything, let's look at some competitor sites"*. She can capture any URLs you give her, but she can't search.
+
+**2. Telling you before she goes quiet: only a prompt rule today.** The panel instructions now include *"Before you go away to work, say in one line what stage this is, what you are about to do and roughly how long it will take."* That was added after your run, in commit 61fcee5863, so tomorrow is its first real test. It relies on her remembering, which is exactly what failed last time. The guaranteed version, where a status line appears in the chat the moment a builder session starts, is in the new ticket below.
+
+**3. Reminding you to fill in the panel: same situation.** The same rule ends *"…and invite them to answer a few of the panel's questions meanwhile."* It's prompt-only for tomorrow, and the guaranteed version is in the new ticket.
+
+**Your counter: filed as REQ-379**, together with the cadence work I'd held back. It covers:
+- **The progress line** under "Getting to know your business": **"3 questions still to answer"**, or **"All done — thanks, that's everything I need for now"** when nothing's open. Skipped and withdrawn questions don't count, and it updates the moment you answer one. I used "questions" rather than "fields" to match the panel's wording; say if you'd prefer "fields".
+- **A status line shown before a build runs**, with *"Meanwhile, N questions above need you"*, using the same count.
+- **Milestone questions marked as due** for Alice, a flag when the phase is stale, and an opening features question.
+
+**Before tomorrow, run `bin/deploy --env dev`.** Your dev server runs a frozen snapshot, so the new priming and anything else that lands tonight won't be live without it.
 
 <!-- xgd-chat-end -->
