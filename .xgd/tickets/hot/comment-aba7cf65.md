@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-360
 created_by: xgd
 created_at: '2026-10-02T22:35:08.650429+00:00'
-updated_at: '2026-10-03T00:24:10.092098+00:00'
+updated_at: '2026-10-04T12:26:25.494488+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -136,5 +136,11 @@ A dependency on another repo can't go in `depends_on`, so I put a "blocked upstr
 The one thing that doesn't depend on upstream is a priming line telling the consultant that, in a 1:1 chat, text it writes before calling `Delegate` already reaches the client live. That's a prompt change, so it needs no ticket. I can add it now if you want.
 
 Understood on §13.3: REQ-205 stays, because we're at the point of building it.
+
+<!-- xgd-turn id="b51535ea-05d8-417b-a405-04816d32f2ae-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T12:26:24.933047+00:00" -->
+#### You
+205 has landed, please proceed
 
 <!-- xgd-chat-end -->
