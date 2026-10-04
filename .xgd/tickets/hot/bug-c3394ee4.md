@@ -6,10 +6,10 @@ title: 'Comps: two of three competitor sites fail to capture, and the consultant
   search for its own'
 created_by: EPIC-19
 created_at: '2026-10-04T17:57:56.542712+00:00'
-updated_at: '2026-10-04T21:28:26.009788+00:00'
+updated_at: '2026-10-04T21:29:13.072374+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   story_points: 5
@@ -18,8 +18,15 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-dafd81d9
+  commits:
+  - working_sha: 5e50623d8611e67e3587e31265619a3949e6204a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 9b49490085a03aae6d72310859c0f946ec16de8d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.492
 ---
-
 
 ## Symptom (Charlie's Plumbing 3, 2026-10-04)
 
@@ -118,4 +125,3 @@ The original finding (fix 3) covered only the first two turns. Over the whole Ch
 `tests/test_UAT_FC_REQ-378_the_comp_board.workers.test.ts` (BUG-202 cases added): through the worker's own routes, the consultant's `add_comp` is handed the tile with this business's thumbnail URL, which is served as a PNG. A comp the client adds via `/api/plan/comp` reaches the next turn as a tile, once.
 
 Adjusted: REQ-361's refusal-summary UAT (see the supersession above), req36's driver-source regex, and the fake puppeteer, which now treats `about:blank` as a real browser does (no request).
-
