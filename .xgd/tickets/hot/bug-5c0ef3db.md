@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-2aa289a1
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#2` (reproduction console, loop 1, iteration 2). Found while diagnosing REQ-380 (the gap ticket filed this round, `fold-groups-band-rows-by-stream-adjacency-not-by-section`). These are instrument defects, not engine gaps.
