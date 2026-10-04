@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T23:28:09.088731+00:00'
+updated_at: '2026-10-04T23:28:55.714792+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7164,5 +7164,26 @@ I like your stages they are better than mine. Alice checks them off? I think it 
 Try top of the panel and see if it feels like a good use of realestate
 
 You choose
+
+<!-- xgd-turn id="7d042bd0-7f27-4f9f-9525-8457cbf43bb4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T23:28:54.566974+00:00" -->
+#### Claude
+I've filed two tickets, both high priority under EPIC-19.
+
+**REQ-390: stage tracker, working line, multi-line answers** (8 points)
+- **Yes, Alice ticks the stages off.** Each stage is not started, in progress or done. She starts one when work on it begins and ticks it when you agree it's finished. The seven stages replace the single `phase` field, and existing plans are migrated across.
+- **Any order, and backwards**, as you asked. Stages can be done out of order, skipped or reopened without anything looking like an error. Done stages are ticked wherever they sit, and reopening one just moves the "in progress" marker.
+- **Top of the panel, kept small.** It's one or two lines and can collapse to just the current stage. The ticket says you'll judge whether it earns the space, so it has to be easy to shrink.
+- **Movement while she works:** a spinner on the current stage, and a line by the composer: *"Alice is building your home page · about 5 min · 2:14 so far"*. Her name comes from configuration, not hard-coded.
+- **The multi-line answer type** is folded in here.
+
+**REQ-391: alternative looks carousel** (8 points)
+- **An alternative is labelled metadata, not a page name.** Each one records the page it's an alternative of and its label ("Workwear"). Alternatives never appear in the page dropdown, and "unreachable" never reaches the client.
+- **The preview carousel** shows ‹ Workwear · 1 of 3 ›, with a cross-fade or slide between alternatives. The neighbouring ones are preloaded so the swap is instant, and it switches without animation when reduced motion is on.
+- **"Choose this one" is one action**, not a 5–10 minute builder session. It replaces the page's content, records the decision and archives the others, and it can be undone through revision history.
+- **The comp viewer uses the same carousel.**
+
+That brings this round's debrief tickets to three, with REQ-389 for Alice's conduct. One thing to do before the next run: deploy, so REQ-379's counter and reminders actually show. Since BUG-203, `bin/deploy --env dev` builds the browser files itself.
 
 <!-- xgd-chat-end -->
