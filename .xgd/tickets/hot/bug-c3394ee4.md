@@ -6,10 +6,10 @@ title: 'Comps: two of three competitor sites fail to capture, and the consultant
   search for its own'
 created_by: EPIC-19
 created_at: '2026-10-04T17:57:56.542712+00:00'
-updated_at: '2026-10-04T21:29:24.233516+00:00'
+updated_at: '2026-10-04T22:42:20.784564+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: high
   story_points: 8
