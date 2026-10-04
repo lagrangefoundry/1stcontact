@@ -6,10 +6,10 @@ title: 'gate: a failing sample-fidelity probe never reaches gate.json, so a sect
   missing at phone widths is reported as 92 escapes'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:19:22.022816+00:00'
-updated_at: '2026-10-04T18:47:54.038480+00:00'
+updated_at: '2026-10-04T18:48:14.001988+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -17,6 +17,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-1f10286b
+  commits:
+  - working_sha: fb10ac1b2f536e6d0ad40919c8b764f14104f462
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ec47de1ac827b851fc6c1b1ce1ff765684a6d294
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.487
 ---
 
 Filed by `repro-console:repro-joyfulculinarycreations-com#9`. Bundle: `storage/references/joyfulculinarycreations.com/index`. Companion to REQ-385.
