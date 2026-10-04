@@ -139,6 +139,25 @@ export interface PlanCheck {
   triggers: string[]
   asked_at?: string
   answers: PlanCheckAnswer[]
+  /**
+   * [[REQ-379]] — the host saw one of its triggers happen, and nobody has asked or
+   * answered it since. Cleared by asking or answering it.
+   */
+  due?: { trigger: string; at: string }
+}
+
+/**
+ * [[REQ-379]] — the moments of a build the host can see for itself, recorded so
+ * a milestone falls due once for the moment that caused it and a stale phase can
+ * be told from a current one.
+ */
+export interface PlanMilestones {
+  /** When the first builder session that wrote the site completed. */
+  first_pass_at?: string
+  /** Builder sessions that completed after that one. */
+  revision_rounds?: number
+  /** When Publish was first opened. */
+  publish_opened_at?: string
 }
 
 export interface PlanTask {
@@ -192,6 +211,8 @@ export interface PlanFields {
   tasks: PlanTask[]
   /** [[REQ-364]] — the questions waiting for the client. */
   asks: PlanAsk[]
+  /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
+  milestones?: PlanMilestones
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -229,6 +250,126 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 /** A refusal under a code the declaration declares. */
 const refuse = (code: string, message: string): Error => ledgerError(code, message)
 
+/**
+ * [[REQ-379]] — the features a client is offered, in their words. Data, in
+ * `plan-seed.json`, so the list changes without a code change.
+ */
+export const FEATURE_CATALOGUE: readonly string[] = planSeed.feature_catalogue
+
+/** [[REQ-379]] — the seeded ask whose answer is the plan's `functionality`. */
+export const FEATURES_ASK = 'features'
+
+/** The asks a new plan starts with, their `options_from` resolved against the seed. */
+function seedAsks(): PlanAsk[] {
+  const lists: Record<string, readonly string[]> = { feature_catalogue: FEATURE_CATALOGUE }
+  return planSeed.asks.map(({ options_from, ...a }) => ({
+    ...a,
+    ...(options_from ? { options: [...(lists[options_from] ?? [])] } : {}),
+    status: 'open',
+  }))
+}
+
+/**
+ * [[REQ-379]] — the features ask's answer, written through to `functionality`.
+ *
+ * A PICKED FEATURE IS WANTED, and a catalogue feature this answer used to pick and
+ * no longer does is not wanted — so changing the answer moves the list with it. A
+ * feature recorded any other way (`set_feature`, or off the catalogue) is left as
+ * it is: the answer speaks only for what it offered.
+ */
+function featuresAnswered(fields: PlanFields, ask: PlanAsk): void {
+  if (ask.id !== FEATURES_ASK || ask.status !== 'answered' || !Array.isArray(ask.answer)) return
+  const picked = new Set(ask.answer)
+  for (const feature of ask.options ?? []) {
+    const existing = fields.functionality.find((f) => f.feature === feature)
+    if (picked.has(feature)) {
+      if (existing) existing.status = 'wanted'
+      else fields.functionality.push({ feature, status: 'wanted' })
+    } else if (existing?.status === 'wanted') {
+      existing.status = 'not_wanted'
+    }
+  }
+}
+
+/**
+ * [[REQ-379]] — the triggers the host fires itself, because it can see them
+ * happen. The seed's other trigger names (`before_fan_out`, `vague_dissatisfaction`,
+ * …) are judgements, and stay the coordinator's to raise.
+ */
+export const FIRST_PASS_COMPLETE = 'first_pass_complete'
+export const REVISION_ROUND_FINISHED = 'revision_round_finished'
+export const BEFORE_PUBLISH = 'before_publish'
+
+/** Every check `trigger` names falls due at `at`. */
+function fallDue(fields: PlanFields, trigger: string, at: string): void {
+  for (const c of fields.checks) {
+    if (c.triggers.includes(trigger)) c.due = { trigger, at }
+  }
+}
+
+/**
+ * [[REQ-379]] — a builder session finished having written the site.
+ *
+ * THE FIRST IS THE FIRST PASS, and every later one is a revision round: the host
+ * cannot tell a "revision" from any other piece of work, and it does not need to —
+ * what the checks ask about is the site as it now stands, which every completed
+ * session has changed.
+ */
+export function builderSessionCompleted(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  const m = (next.fields.milestones = next.fields.milestones ?? {})
+  if (!m.first_pass_at) {
+    m.first_pass_at = at
+    fallDue(next.fields, FIRST_PASS_COMPLETE, at)
+  } else {
+    m.revision_rounds = (m.revision_rounds ?? 0) + 1
+    fallDue(next.fields, REVISION_ROUND_FINISHED, at)
+  }
+  checkPlan(next.fields)
+  return next
+}
+
+/**
+ * [[REQ-379]] — the client opened Publish.
+ *
+ * ONCE, the first time: the pre-publish checks are about a site going out, and a
+ * site already out that is published again does not need them asked again.
+ */
+export function publishOpened(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  const m = (next.fields.milestones = next.fields.milestones ?? {})
+  if (m.publish_opened_at) return next
+  m.publish_opened_at = at
+  fallDue(next.fields, BEFORE_PUBLISH, at)
+  checkPlan(next.fields)
+  return next
+}
+
+/**
+ * [[REQ-379]] — the phase the build has visibly reached, and what shows it, or
+ * `null` when the plan's own phase is not behind it.
+ */
+export function phaseBehind(fields: PlanFields): { expected: string; because: string } | null {
+  const m = fields.milestones ?? {}
+  const seen: [string, string] | null = m.publish_opened_at
+    ? ['prelaunch', 'Publish has been opened']
+    : (m.revision_rounds ?? 0) > 0
+      ? ['revision', 'the first pass is built and revisions have started']
+      : m.first_pass_at
+        ? ['first_pass', 'pages have been built']
+        : null
+  if (!seen) return null
+  const rank = (phase: string): number => (PHASES as readonly string[]).indexOf(phase)
+  return rank(fields.phase) < rank(seen[0]) ? { expected: seen[0], because: seen[1] } : null
+}
+
+/** Why a check fell due, as the digest says it. */
+const DUE_BECAUSE: Record<string, string> = {
+  [FIRST_PASS_COMPLETE]: 'the first pass is built',
+  [REVISION_ROUND_FINISHED]: 'a round of revisions has finished',
+  [BEFORE_PUBLISH]: 'Publish has been opened',
+}
+
 /** What a new site's plan holds before anybody has said anything. */
 export function seedPlan(siteKey: string): Plan {
   return {
@@ -241,7 +382,7 @@ export function seedPlan(siteKey: string): Plan {
       decisions: planSeed.decisions.map((d) => ({ ...d, state: 'open', compared: false })),
       checks: planSeed.checks.map((c) => ({ ...c, triggers: [...c.triggers], answers: [] })),
       tasks: [],
-      asks: [],
+      asks: seedAsks(),
     },
     body: SECTIONS.map((name) => `## ${name}`).join('\n\n'),
   }
@@ -346,6 +487,9 @@ export function checkPlan(fields: PlanFields): void {
         bad(`check ${c.id} has unknown verdict ${JSON.stringify(a.verdict)}`)
       }
     }
+    if (c.due !== undefined && !(filled(c.due.trigger) && filled(c.due.at))) {
+      bad(`check ${c.id} is due without saying what made it due and when`)
+    }
   }
   const taskIds = new Set(fields.tasks.map((t) => t.id))
   for (const t of fields.tasks) {
@@ -437,6 +581,7 @@ export function planPanel(fields: PlanFields): {
   phase: string
   decisions: Record<string, string[]>
   open_checks: { id: string; question: string; answered_by: string[] }[]
+  due_checks: { id: string; question: string; trigger: string }[]
   tasks: { done: number; total: number; doing: string[]; next: string[] }
   asks: { open: { id: string; prompt: string; needed_by: string; blocking: boolean }[]; answered: string[]; skipped: string[] }
 } {
@@ -457,6 +602,11 @@ export function planPanel(fields: PlanFields): {
     open_checks: fields.checks
       .filter((c) => c.asked_at && !(ANSWERERS.every((by) => c.answers.some((a) => a.by === by))))
       .map((c) => ({ id: c.id, question: c.question, answered_by: c.answers.map((a) => a.by) })),
+    // [[REQ-379]] — FALLEN DUE AND NOT YET RAISED: the host saw the moment, and
+    // nobody has asked or answered since.
+    due_checks: fields.checks
+      .filter((c) => c.due)
+      .map((c) => ({ id: c.id, question: c.question, trigger: c.due!.trigger })),
     tasks: {
       done: done.size,
       total: live.length,
@@ -536,6 +686,15 @@ export function planReminder(plan: Plan | null): string | null {
   const panel = planPanel(f)
   const list = (items: string[]): string => items.join('; ')
   const lines = ['### The site plan', '', `Phase: ${f.phase}.`]
+  // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
+  // left to itself forgets: the phase it never moved, the milestone it never raised.
+  const behind = phaseBehind(f)
+  if (behind) {
+    lines.push(`The phase is behind the build: it still says ${f.phase}, but ${behind.because}. Move it on to ${behind.expected} with set_phase.`)
+  }
+  for (const c of panel.due_checks) {
+    lines.push(`Due: ask the client "${c.question}" (${c.id}) — ${DUE_BECAUSE[c.trigger] ?? c.trigger}. Record that you asked with ask_check and their answer with record_check_answer.`)
+  }
   const brief = f.brief as Record<string, unknown>
   const briefBits = [
     typeof brief.business === 'string' ? `business: ${brief.business}` : '',
@@ -682,6 +841,7 @@ export function clientAnswer(
   a.answered_at = at
   if (prior !== undefined) a.previous_answer = prior
   else delete a.previous_answer
+  featuresAnswered(next.fields, a)
   checkPlan(next.fields)
   return next
 }
@@ -908,6 +1068,8 @@ export function planOperations(
         // consultant's, so what it records is the consultant's answer.
         c.answers = c.answers.filter((a) => a.by !== 'alice')
         c.answers.push({ by: 'alice', verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        // [[REQ-379]] — ANSWERED IS RAISED: it is no longer due.
+        delete c.due
         return { check: c }
       }),
 
@@ -958,6 +1120,7 @@ export function planOperations(
         // since changed.
         c.asked_at = now()
         c.answers = []
+        delete c.due
         return { check: c }
       }),
     record_check_answer: (p) =>
@@ -966,6 +1129,7 @@ export function planOperations(
         const by = String(p.by)
         c.answers = c.answers.filter((a) => a.by !== by)
         c.answers.push({ by, verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        delete c.due
         return { check: c }
       }),
     set_task_status: (p) =>
@@ -1043,6 +1207,7 @@ export function planOperations(
         a.answered_by = role
         a.answered_at = now()
         delete a.previous_answer
+        featuresAnswered(plan.fields, a)
         return { ask: a }
       }),
   }
@@ -1053,7 +1218,10 @@ export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   const work = role === 'consultant' ? 'PlanWork' : 'CoordinatePlan'
   // [[REQ-364]] — BOTH ROLES KEEP ASKS: either can be the one maintaining the
   // panel, so turning the room on or off changes who keeps it and not how.
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks'] } }
+  // [[REQ-379]] — AND BOTH KEEP THE MILESTONES, for the same reason: with the room
+  // off there is no coordinator, and a phase only the coordinator could move never
+  // moved (EPIC-19 Finding 18).
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones'] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()

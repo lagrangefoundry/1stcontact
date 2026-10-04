@@ -104,7 +104,7 @@ const REWRITE = {
 }
 
 const CALLER: ModelStep[] = [
-  calls(DELEGATE_TOOL, { role: BUILDER_ROLE, goal: 'Rewrite the hero headline.' }),
+  calls(DELEGATE_TOOL, { note: 'Working on it now — a few minutes.', role: BUILDER_ROLE, goal: 'Rewrite the hero headline.' }),
   says('Checked.'),
 ]
 

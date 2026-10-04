@@ -28,7 +28,7 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 export const TURN_TIMEOUT_SECONDS: number = turnClockDocument.turn_timeout_seconds
 
 /** The delegation surface's tool, as the model calls it. */
-const DELEGATE_TOOL = 'Delegate'
+export const DELEGATE_TOOL = 'Delegate'
 
 /** How much of one worker's summary the account quotes. */
 const SUMMARY_CAP = 400
@@ -42,20 +42,14 @@ const UNTRUSTED_OPEN = '<<<untrusted>>>'
 const UNTRUSTED_CLOSE = '<<</untrusted>>>'
 
 /**
- * What a worker reported, out of a `Delegate` call's output, or `null`.
+ * A `Delegate` call's result, out of its output, or `null`.
  *
  * The Toolbox renders results as JSON text and fences the delegation result as
  * untrusted: the worker is a model that read site and third-party text, so its
  * words are data. Either shape is read. Anything that does not parse gives
- * `null`, because making up a summary would be worse than leaving it out.
- *
- * THE FENCE TRAVELS WITH THE QUOTE. The account is recorded as the assistant's
- * own prose, and quoting a fenced summary there without its markers would pass
- * text the Toolbox marked as data off as the consultant's own words to the next
- * turn. That would get around the Toolbox's provenance marking. So an untrusted
- * result is quoted still fenced.
+ * `null`, because making up a result would be worse than leaving it out.
  */
-function workerSummary(output: unknown): { text: string; untrusted: boolean } | null {
+export function delegationResult(output: unknown): { result: Record<string, unknown>; untrusted: boolean } | null {
   let result = output
   let untrusted = false
   if (typeof result === 'string') {
@@ -70,7 +64,23 @@ function workerSummary(output: unknown): { text: string; untrusted: boolean } | 
       return null
     }
   }
-  const summary = (result as { summary?: unknown } | null)?.summary
+  return typeof result === 'object' && result !== null ? { result: result as Record<string, unknown>, untrusted } : null
+}
+
+/**
+ * What a worker reported, out of a `Delegate` call's output, or `null`.
+ *
+ * THE FENCE TRAVELS WITH THE QUOTE. The account is recorded as the assistant's
+ * own prose, and quoting a fenced summary there without its markers would pass
+ * text the Toolbox marked as data off as the consultant's own words to the next
+ * turn. That would get around the Toolbox's provenance marking. So an untrusted
+ * result is quoted still fenced.
+ */
+function workerSummary(output: unknown): { text: string; untrusted: boolean } | null {
+  const parsed = delegationResult(output)
+  if (!parsed) return null
+  const { untrusted } = parsed
+  const summary = parsed.result.summary
   if (typeof summary !== 'string' || summary.trim() === '') return null
   const flat = summary.replace(/\s+/g, ' ').trim()
   const text = flat.length > SUMMARY_CAP ? `${flat.slice(0, SUMMARY_CAP - 1)}…` : flat

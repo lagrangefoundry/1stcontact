@@ -143,7 +143,7 @@ async function delegate(slug: string, accept: string[], report: Record<string, u
   const opened = await post('/api/ai/session', { site })
   const { sessionId } = (await opened.json()) as { sessionId: string }
   const client = twoSided(
-    [calls(DELEGATE_TOOL, { role: BUILDER_ROLE, goal: 'Rewrite the hero headline.', accept }), says('Checked.')],
+    [calls(DELEGATE_TOOL, { note: 'Working on it now — a few minutes.', role: BUILDER_ROLE, goal: 'Rewrite the hero headline.', accept }), says('Checked.')],
     [calls('set_l1', REWRITE), calls(REPORT_TOOL, report), says('Reported.')],
   )
   setModelClient(client)

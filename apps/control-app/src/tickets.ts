@@ -411,6 +411,8 @@ export function productTypePack(): ProductTypePack {
         // [[REQ-364]] — the questions waiting for the client on the plan panel.
         // A plan stored before asks existed reads as having none.
         asks: { type: 'list' },
+        // [[REQ-379]] — what the host has seen of the build. Absent until it has.
+        milestones: { type: 'object' },
       },
       body: { required: true, non_empty: true },
     },

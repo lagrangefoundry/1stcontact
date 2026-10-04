@@ -1103,6 +1103,11 @@ body {
   color: var(--shell-fg, #18181b);
 }
 
+.plan-panel__progress {
+  margin-top: 2px;
+  color: var(--shell-muted, #52525b);
+}
+
 .plan-panel__error {
   margin-top: 6px;
   color: var(--shell-danger, #b91c1c);

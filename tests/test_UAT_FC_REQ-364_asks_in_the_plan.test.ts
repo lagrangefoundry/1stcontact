@@ -176,8 +176,9 @@ describe('REQ-364 — the agent owns the wording; the client owns the answer', (
     await bob.run('fill_ask', { ask: 'licence', material: 'material-card', answer: 'GS-44102' })
     expect(ask(deps, 'phone')).toMatchObject({ status: 'answered', answered_by: 'consultant', answer_material: 'material-card' })
     expect(ask(deps, 'licence')).toMatchObject({ status: 'answered', answered_by: 'coordinator', answer: 'GS-44102' })
-    // The client sees those questions leave "needs your answer"…
-    expect(panelView(deps.stored().fields).asks.filter((a) => a.status === 'open')).toEqual([])
+    // The client sees those questions leave "needs your answer"… (the seeded
+    // features ask, [[REQ-379]], is the only one still there)
+    expect(panelView(deps.stored().fields).asks.filter((a) => a.status === 'open').map((a) => a.id)).toEqual(['features'])
     // …and can still change one.
     deps.client({ ask: 'phone', action: 'answer', answer: '07700 900124' })
     expect(ask(deps, 'phone')).toMatchObject({ answered_by: 'client', answer: '07700 900124', previous_answer: '07700 900123' })
@@ -252,7 +253,8 @@ describe('REQ-364 — what the next turn is told', () => {
     await alice.run('set_ask', { ask: 'callout_fee', prompt: 'Fee?', why: 'x', input: 'currency' })
     deps.client({ ask: 'callout_fee', action: 'answer', answer: '£60' })
     const reminder = planReminder(deps.stored())!
-    expect(reminder).toMatch(/Waiting for the client on the panel \(1\): towns \(blocking\)/)
+    // [[REQ-379]] — the seeded features ask waits alongside, after the blocking one.
+    expect(reminder).toMatch(/Waiting for the client on the panel \(2\): towns \(blocking\); features/)
     expect(reminder).toContain('callout_fee = "£60"')
   })
 })

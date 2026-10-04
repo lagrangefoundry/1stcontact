@@ -93,7 +93,7 @@ import {
   type DnsDeps,
 } from './dns-core'
 import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
-import { planInstanceConfig, planSurfaceFor, type PlanDeps } from './plan-core'
+import { builderSessionCompleted, planInstanceConfig, planPanel, planSurfaceFor, type PlanDeps } from './plan-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
@@ -158,6 +158,7 @@ import {
   overBudget,
 } from './budget-core'
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
+import { keepClientOriented, type CadenceHooks } from './cadence-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -1076,6 +1077,25 @@ function countedPlan(deps: HostDeps, slug: string): PlanDeps {
 }
 
 /**
+ * What the consultant's backend reads and writes to keep the client oriented
+ * ([[REQ-379]]): the panel's open count, and the milestone a completed builder
+ * session is. Through {@link countedPlan}, so the panel hears about the write.
+ * A host without plans has neither, and the status line goes without the count.
+ */
+function cadenceHooks(deps: HostDeps, slug: string): CadenceHooks {
+  if (!deps.plan) return {}
+  return {
+    openAsks: async () => {
+      const plan = await deps.plan!(slug).read()
+      return plan ? planPanel(plan.fields).asks.open.length : 0
+    },
+    builderCompleted: async () => {
+      await countedPlan(deps, slug).write((plan) => builderSessionCompleted(plan, new Date().toISOString()))
+    },
+  }
+}
+
+/**
  * The DNS changes each business's conversation has made and not yet reported
  * ([[REQ-260]]).
  *
@@ -1942,15 +1962,19 @@ async function build(
         // [[BUG-168]] — a turn that runs out of budget says what it did. Inside
         // the guard, so the guard's own stop is not mistaken for one.
         narrateExhaustion(
-          new lib.ClaudeAPIBackend({
-            ...(modelClient ? { client: modelClient } : {}),
-            // A Worker has no `process.env`; the key arrives from a `wrangler
-            // secret` and is passed in. Spread conditionally so Node keeps reading
-            // the environment and an absent key still fails at FIRST USE with the
-            // library's own message rather than at construction.
-            ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-            tools: toolSet(lib, box),
-          }),
+          // [[REQ-379]] — and one that goes quiet says so first.
+          keepClientOriented(
+            new lib.ClaudeAPIBackend({
+              ...(modelClient ? { client: modelClient } : {}),
+              // A Worker has no `process.env`; the key arrives from a `wrangler
+              // secret` and is passed in. Spread conditionally so Node keeps reading
+              // the environment and an absent key still fails at FIRST USE with the
+              // library's own message rather than at construction.
+              ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+              tools: toolSet(lib, box),
+            }),
+            cadenceHooks(deps, slug),
+          ),
         ),
       ),
   )

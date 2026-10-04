@@ -193,6 +193,7 @@ function toolResults(req: ModelRequest): string[] {
 }
 
 const delegates = calls(DELEGATE_TOOL, {
+  note: 'Working on it now — a few minutes.',
   role: BUILDER_ROLE,
   goal: 'Give the hero container a single-column layout on narrow screens.',
   accept: ['the hero stacks on narrow screens'],

@@ -103,6 +103,7 @@ function delegationResult(req: ModelRequest): Record<string, unknown> {
 
 const CALLER: ModelStep[] = [
   calls(DELEGATE_TOOL, {
+    note: 'Working on it now — a few minutes.',
     role: BUILDER_ROLE,
     goal: 'Lay out the About page as three sections.',
     accept: ['page home has no changes'],

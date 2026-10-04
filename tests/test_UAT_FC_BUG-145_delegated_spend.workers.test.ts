@@ -198,6 +198,7 @@ describe('BUG-145 — a delegation outlives the turn that caused it', () => {
         // `done` event and nowhere else, so a turn that never reaches one has
         // measured nothing whatever its requests actually cost.
         calls(DELEGATE_TOOL, {
+          note: 'Working on it now — a few minutes.',
           role: BUILDER_ROLE,
           goal: 'Lay out the About page as three sections: intro, team, contact.',
           accept: ['every section has a heading'],

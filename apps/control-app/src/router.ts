@@ -362,6 +362,7 @@ import {
   CLIENT_ACTIONS,
   clientAnswer,
   panelView,
+  publishOpened,
   type Plan,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 
@@ -5412,6 +5413,19 @@ async function routeUncached(
       const scope = requireScope()
       const ladder = (deps.ladder ?? ladderFor)(env, scope) ?? undefined
       const message = typeof body.message === 'string' ? body.message : undefined
+
+      // [[REQ-379]] — OPENING PUBLISH IS A MILESTONE the host sees for itself, so
+      // the pre-publish checks fall due for the consultant's next turn. The
+      // builder has no publish dialog; pressing Publish is the opening. Best
+      // effort: a plan that cannot be written never stands between a client and
+      // their publish.
+      try {
+        if (await store.hasDraft(site)) {
+          await sitePlan(await openTickets(), site).write((plan) => publishOpened(plan, new Date().toISOString()))
+        }
+      } catch {
+        // A milestone missed is not a publish refused.
+      }
 
       /*
        * [[REQ-238]] — WHERE THIS SITE CAN BE REACHED, read here in the Worker

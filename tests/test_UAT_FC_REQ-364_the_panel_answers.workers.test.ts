@@ -188,7 +188,8 @@ describe('REQ-364 — the client answers in the panel', () => {
       asks: PlanAsk[]
     }
     expect(view.phase).toBe('intake')
-    expect(view.asks.map((a) => a.id)).toEqual(['callout_fee', 'phone', 'towns', 'licence'])
+    // [[REQ-379]] — a new plan starts with the features ask, first in its order.
+    expect(view.asks.map((a) => a.id)).toEqual(['features', 'callout_fee', 'phone', 'towns', 'licence'])
 
     // NO TURN STARTED, AND NOTHING WAS SAID IN THE CONVERSATION.
     expect(watching.seen).toEqual([])
@@ -287,7 +288,7 @@ describe('REQ-364 — the consultant hears the answers on its next turn', () => 
     expect(exchange.some((f) => f.kind === PLAN_CHANGED)).toBe(true)
     const coordinatorTools = room.seen.find((req) => memberOf(req) === 'coordinator')!.tools.map((t) => t.name)
     expect(coordinatorTools).toEqual(expect.arrayContaining(['read_plan', 'set_ask', 'withdraw_ask', 'fill_ask']))
-    expect(Object.keys(await storedAsks(key)).sort()).toEqual(['callout_fee', 'towns'])
+    expect(Object.keys(await storedAsks(key)).sort()).toEqual(['callout_fee', 'features', 'towns'])
 
     // The client answers on the panel — the same route, whichever path is on.
     expect((await post(PLAN_ASK_PATH, { site: key, ask: 'callout_fee', action: 'answer', answer: '£60' })).status).toBe(200)

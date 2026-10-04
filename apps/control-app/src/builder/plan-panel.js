@@ -31,6 +31,8 @@ import {
   PLAN_SKIP,
   PLAN_SKIP_TITLE,
   PLAN_SKIPPED,
+  PLAN_STILL_TO_ANSWER,
+  PLAN_ALL_ANSWERED,
   PLAN_TOLD_US,
   PLAN_UPLOAD,
 } from './config.js'
@@ -70,13 +72,16 @@ export function createPlanPanel(options = {}) {
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
   const phase = el('div', 'plan-panel__phase')
+  // [[REQ-379]] — directly under the phase: how much is left for the client.
+  const progress = el('div', 'plan-panel__progress')
+  progress.setAttribute('role', 'status')
   const error = el('div', 'plan-panel__error')
   error.hidden = true
   const openHeading = el('h3', 'plan-panel__heading', PLAN_NEEDS_ANSWER)
   const openList = el('div', 'plan-panel__list plan-panel__list--open')
   const doneHeading = el('h3', 'plan-panel__heading', PLAN_TOLD_US)
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
-  element.append(phase, error, openHeading, openList, doneHeading, doneList)
+  element.append(phase, progress, error, openHeading, openList, doneHeading, doneList)
 
   let site = null
   let generation = 0
@@ -218,6 +223,10 @@ export function createPlanPanel(options = {}) {
     const asks = view.asks ?? []
     const open = asks.filter((a) => a.status === 'open')
     const done = asks.filter((a) => a.status === 'answered' || a.status === 'skipped')
+    // NOTHING TO COUNT BEFORE A SITE IS SHOWN: the empty placeholder view has no
+    // phase, and "all done" there would be a claim about a plan nobody has read.
+    progress.hidden = !view.phase
+    progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : PLAN_ALL_ANSWERED
     const active = document.activeElement
     const drawn = new Map()
     const place = (list, items, make) => {

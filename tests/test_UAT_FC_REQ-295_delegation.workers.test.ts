@@ -312,6 +312,7 @@ function delegationScript(): ScriptedClient {
       metered(
         { input_tokens: 9000, output_tokens: 200, cache_creation_input_tokens: 1000 },
         calls(DELEGATE_TOOL, {
+          note: 'Working on it now — a few minutes.',
           role: BUILDER_ROLE,
           goal: 'Lay out the About page as three sections: intro, team, contact.',
           accept: [CHECK_MET, CHECK_UNANSWERED],
@@ -604,6 +605,7 @@ describe('REQ-295 — delegating construction', () => {
         metered(
           { input_tokens: 9000, output_tokens: 200 },
           calls(DELEGATE_TOOL, {
+            note: 'Working on it now — a few minutes.',
             role: BUILDER_ROLE,
             goal: 'Lay out the About page.',
             accept: [CHECK_MET],
