@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:12:15.558826+00:00'
+updated_at: '2026-10-04T01:12:43.103328+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6725,5 +6725,20 @@ For Charlie 2 right now, open each photo in the Library and change "What it is f
 <!-- xgd-chat role="user" ts="2026-10-04T01:12:14.486631+00:00" -->
 #### You
 Actually while we are here can I have a way to delete materials too (Alice should have one as well)
+
+<!-- xgd-turn id="d98766e4-4230-4d17-8197-872ce346b479-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:12:42.400313+00:00" -->
+#### Claude
+I've added deletion to BUG-196 rather than filing a separate ticket.
+
+**You already have delete, but it's hard to find.** REQ-281 added a "Delete this from your Library" button to the Library item's detail pane. It removes the item from your Library. A picture already placed on a page stays there, because placing it made the site its own copy. Like "What it is for", you only reach it by opening the item, so the ticket's visibility fix now covers delete too: wherever you see an upload, on the panel's answered question or in the Library list, its actions are visible.
+
+**Alice gets delete as well**, using the same removal path as your button rather than a second mechanism. The rules:
+- **Only when you've asked, in that conversation.** She can suggest deleting duplicates but never decides it herself.
+- **She tells you what happened.** If the item was in use, the page keeps showing it, so to take it off the page she has to edit the page as well.
+- **She can delete only what you can.**
+
+Two tests cover it: deleting an item removes it from Alice's Library list, and deleting an item that's in use leaves it on the page.
 
 <!-- xgd-chat-end -->
