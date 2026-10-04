@@ -2521,6 +2521,12 @@ interface SurfaceRow {
    */
   bandSurface?: NonNullable<ValueElement['box']>
   /**
+   * REQ-385 (issue 2) — the resolved surface spans the viewport at every width
+   * the run is present, not only the widest: the capture measured the run as
+   * standing on the band throughout, so its fill is the band's.
+   */
+  bandSurfaceEverywhere?: boolean
+  /**
    * REQ-88 — the row's measured viewport-height response, inherited by its card.
    *
    * REQ-351 (issue 4) — keyed by WIDTH, because that is how it was measured: one
@@ -3931,12 +3937,21 @@ function nestBackingSurfaces(
    * — measured on `joyfulculinarycreations.com` as a 308px band reporting 4425px
    * of content at 320, and every section under it displaced by the difference.
    */
+  //
+  // REQ-385 (issue 1) — and a width where the CHILD is present and the parent is
+  // absent disqualifies, rather than being skipped. A child inherits its parent's
+  // `visibility` gate, so a surface cannot own content it does not exist beside:
+  // a band built from two off-screen carousel slides (768+ only) took the
+  // testimonial card that is visible at every width, and the whole section was
+  // `display: none` on phones. A width where only the parent is present is still
+  // skipped — an absent child loses nothing by being nested.
   const containsEverywhere = (surface: L1Node, node: L1Node): boolean => {
     let shared = 0
     for (const at of widths) {
       const parent = rectAt(surface, at)
       const child = rectAt(node, at)
-      if (!parent || !child) continue
+      if (!child) continue
+      if (!parent) return false
       shared++
       if (!contains(parent, child)) return false
     }
@@ -4477,6 +4492,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       const widestShape = widest.surface?.box
       const bandSurface =
         widestShape && widestAt > 0 && widestShape.width >= widestAt ? widestShape : undefined
+      // REQ-385 (issue 2) — and band-wide at EVERY width the run is present, read
+      // off the surface itself (an accent wrapper's `accentBox` is a different
+      // element and says nothing about whose fill this is).
+      const bandSurfaceEverywhere = framed.every((c) => {
+        const s = c.element!.surface
+        return Boolean(s?.box && !s.panel && s.box.width >= c.width)
+      })
       if (
         widest.box &&
         (surfFill ||
@@ -4499,6 +4521,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
           surfaceFrames: surfFrames,
           surfaceRadiusPx: surfShapeRadius,
           bandSurface,
+          bandSurfaceEverywhere,
           viewportResponse: new Map(
             framed.flatMap((c) => {
               const r = responseOf.get(c.element!)
@@ -4703,6 +4726,9 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // REQ-351 (issue 2) — is this row's fill a colour the BROWSER composited out of
   // what the band paints, rather than a fill of the row's own?
   const onCompositedBand = compositedBandRows(sectionsAtWidest, sectionsByWidth)
+  // REQ-385 (issue 2) — a solid-fill row whose captured surface is band-wide at
+  // every present width stands on the band, whatever its own width.
+  const onCapturedBand = (r: SurfaceRow): boolean => Boolean(r.bandSurfaceEverywhere && r.fill && !r.gradient)
   const bandRows: SurfaceRow[] = []
   const cardRows: SurfaceRow[] = []
   for (const r of surfaceRows) {
@@ -4716,6 +4742,16 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // for the treatments the run's own element bears; never for its colour.
       if (!hasOwnCardTreatment(r)) continue
       cardRows.push({ ...r, fill: undefined, gradient: undefined })
+    } else if (onCapturedBand(r)) {
+      // REQ-385 (issue 2) — the capture resolved this run's painting surface and
+      // it spans the viewport at every width the run is present: the fill is the
+      // band's, measured directly. The geometric rules above (run width, bar gaps)
+      // only guess at that, and a CENTRED footer stack satisfies neither — every
+      // run became a run-sized plate. So the row defines the band like any other
+      // band row, and a treatment the run bears itself keeps a card without the
+      // band's colour (REQ-351's terms).
+      if (hasOwnCardTreatment(r)) cardRows.push({ ...r, fill: undefined })
+      else bandRows.push(r)
     } else if (r.fill || r.gradient || hasCardTreatment(r)) cardRows.push(r)
   }
   // REQ-88 — the captured section boundaries per width: every section box's top
