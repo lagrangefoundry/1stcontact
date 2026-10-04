@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T18:43:07.493494+00:00'
+updated_at: '2026-10-04T18:44:01.138184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7009,5 +7009,21 @@ Agreed. A screenshot hides exactly what makes these sites feel real: the motion,
 <!-- xgd-chat role="user" ts="2026-10-04T18:43:06.446304+00:00" -->
 #### You
 Alice filed REQ-386 and BUG-204 can you check those are not dupes of yours?
+
+<!-- xgd-turn id="6b6aba41-5b80-4bb9-ae9f-08cb33c3749f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T18:44:00.526026+00:00" -->
+#### Claude
+One was a duplicate and one wasn't.
+
+**BUG-204 was a duplicate of my BUG-202**: the same Charlie 3 captures, with the same diagnosis that our capture waits for the network to go quiet and busy trade sites never do. I've closed it as abandoned, with a comment pointing to BUG-202. Alice's ticket did add findings I didn't have, so I copied them into BUG-202:
+- **The capture may be crawling the whole site.** Her one successful capture reported 12 pages. A comp needs only the page you asked for. That alone could explain much of the 20-minute turn, since each page loads in under 4 seconds in a normal browser.
+- **Retries are silent and slow.** Each address gets three attempts of 30 seconds, with nothing reported in between.
+- **Some hosts may stall headless browsers.** The capture should send ordinary browser headers.
+- **Inline `data:` images are reported as refused**, 300 of them on one site. They should just be kept as they are.
+
+**REQ-386 isn't a duplicate.** It extends **REQ-379**, which has landed and only gave builder sessions a note to the client before they run. Alice's ticket covers every slow operation: captures, screenshots and image generation. It adds a 20-second threshold, rough estimates (about 1, 5 or 30 minutes) and progress on retries. I've linked it to EPIC-19 and added a note:
+- **Build it on REQ-379's mechanism**, not a second status channel.
+- **Check one of her beliefs.** She thinks text she writes before a tool call doesn't reach you. On our setup that text should stream to you as she writes it, so the real gap may be that she can't tell it arrived, not that it doesn't. Worth confirming from your side: in this run, did you see any of her words before the 20-minute wait ended?
 
 <!-- xgd-chat-end -->
