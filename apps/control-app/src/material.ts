@@ -414,6 +414,22 @@ export interface IngestDeps {
  */
 export const MATERIAL_TEXT_KIND = 'material_text'
 
+/**
+ * A material's own extracted text, or `null` where it has none ([[REQ-387]]).
+ *
+ * THE ONE READ OF THE `material_text` COMMENT BY SUBJECT, shared by the knowledge
+ * view that `KnowledgeGet` reads through and by the Library's `get_library_item`,
+ * so a document reads as the same words on both paths. By predicate rather than
+ * by listing the ticket's comments, which for a `chat` ticket is the transcript.
+ */
+export async function materialText(store: TicketStore, uid: string): Promise<string | null> {
+  const { tickets } = await store.query({
+    predicate: `type="comment" AND fields.kind="${MATERIAL_TEXT_KIND}" AND fields.subject_uid="${uid}"`,
+    limit: 1,
+  })
+  return tickets[0]?.body || null
+}
+
 /** What one ingestion produced. */
 export interface Ingested {
   ticket: Ticket

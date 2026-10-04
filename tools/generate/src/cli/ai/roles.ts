@@ -104,9 +104,11 @@ export const SETTINGS_ROLE = 'settings'
  * WHAT IT STILL DOES NOT HOLD is what a WORKER has no business in rather than
  * what construction does not need: `Publish`, whose reach is the public internet;
  * `ManageAssets`, which registers a file from the operator's machine; and the
- * engagement's own surfaces — the ledger, the catalogue, the corpus, the session
- * context — which are the consultant's conversation with their client and not a
- * one-turn worker's. It cannot hand the work on either: the delegation surface it
+ * engagement's own surfaces — the ledger, the corpus, the session context, and
+ * any write to the catalogue — which are the consultant's conversation with their
+ * client and not a one-turn worker's. It may READ the catalogue ([[REQ-387]]): a
+ * brief that names a client's document to quote from has to be one the worker
+ * can open. It cannot hand the work on either: the delegation surface it
  * is composed with is scoped to no roles, so the one-level floor is a property of
  * the grant rather than a check somewhere that could be forgotten.
  *

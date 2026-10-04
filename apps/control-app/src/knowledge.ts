@@ -16,7 +16,7 @@ import { embedderFor, type EmbedderEnv } from './embedder'
 import type { Ticket, TicketStore, TicketStoreEnv } from './tickets'
 import { ticketStoreFor } from './tickets'
 import type { Scope } from './scope'
-import { MATERIAL_TEXT_KIND } from './material'
+import { MATERIAL_TEXT_KIND, materialText } from './material'
 import KB_CONFIG from '../../../kb/knowledge_bases.json'
 
 /**
@@ -769,11 +769,7 @@ export function materialTextView(store: TicketStore): TicketStore {
   const get: TicketStore['get'] = async (args) => {
     const result = await store.get(args)
     if (!result?.ticket) return result
-    const { tickets } = await store.query({
-      predicate: `${TEXT_COMMENTS} AND fields.subject_uid="${result.ticket.uid}"`,
-      limit: 1,
-    })
-    const own = tickets[0]?.body
+    const own = await materialText(store, result.ticket.uid)
     return own ? { ...result, ticket: { ...result.ticket, body: own } } : result
   }
   return new Proxy(store, {
