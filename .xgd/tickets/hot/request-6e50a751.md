@@ -7,9 +7,9 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T14:58:07.159648+00:00'
+updated_at: '2026-10-04T15:05:27.728156+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -163,3 +163,45 @@ grep -o 'social-icons__link' storage/references/www.bluelotusintegralhealing.com
 
 - **BUG-197** (`instrument-blind`, `instrument-asymmetric`): (1) the containment probe asserts a fold-declared `backedBy` without checking that it holds at rest, and then diagnoses this issue 1 as "exact at rest, comes apart when the viewport moves"; (2) the 12 LOW pill deltas compare padding on one side against min-height on the other.
 - Issue 2 continues REQ-370 issue 3, whose landing kept edge spaces "collapsed to one". REQ-370 is frozen at `ready_to_reconcile`, so the residual is filed here.
+
+
+---
+
+## Appended by `repro-console:repro-www-hearingzone510-com#3`: second bundle, same class
+
+`repro-console:repro-www-hearingzone510-com#3` is the iteration 3 re-measurement of `fold-groups-band-rows-by-stream-adjacency-not-by-section`, on a **second** Zyro bundle: `storage/references/www.hearingzone510.com/index` (captured 2026-10-04T12:31:57.996Z, schema 17). Evidence is in `storage/tmp/repro-console/repro-www-hearingzone510-com/iteration-3/`. Here this class is **the whole structural-failure verdict**.
+
+**The capture is right.** `capture.json` `sections[5]` = `{y 4279, h 757, #224e7a}` (Where To Find Us: three location columns) and `sections[6]` = `{y 5036, h 614, #757575}` (footer). The fold already emits the matching backdrops: `backdrop-5` `{4279, 757, #224e7a}` and `backdrop-6` `{5036, 614, #757575}` at 1280.
+
+**The fold shreds them into 12 slices.** At 1280, from `page.json`, as (path, id, y, h):
+
+| blue #224e7a (section 5) | grey #757575 (section 6) |
+|---|---|
+| `0.9` section-band-4: 4279, **584.41** | `0.25` section-band-10: 5036, 108.8 |
+| `0.14` section-band-6: 4863.91, 82 | `0.15` section-band-11: 5144.8, **20.8** |
+| `0.14.0` section-band-5: −0.5 (relative), **0.5** | `0.19` section-band-12: 5165.59, **20.8** |
+| `0.18` section-band-7: 4945.91, **24** | `0.16` section-band-13: 5186.39, 122.59 |
+| `0.20` section-band-8: 4969.91, 66.09 | `0.17` section-band-14: 5308.98, 120.19 |
+| `0.24` section-band-9: 4969.91, 66.09 (**identical to band-8**) | `0.23` section-band-15: 5429.17, 67 |
+
+The root child order interleaves the two fills: `0.14` blue → `0.15`/`0.16`/`0.17` grey → `0.18` blue → `0.19` grey → `0.20` blue → `0.23` grey → `0.24` blue → `0.25` grey. That is the stream adjacency your issue 1 describes. Both sections repeat the same texts: "Hours" and "9 am - 5 pm" appear in the location columns and again in the footer's location list. That supports your same-text-row interleave hypothesis.
+
+**Cost.**
+- `gate.json` `layout.findings`: **820 of 886** escapes name one of these slices: band-10 ×444, band-4 ×134, band-11 ×92, band-5 ×66, band-13 ×46, band-6 ×22, band-7 ×8, band-12 ×8. **All 214 `onSample`** findings are in this set, including 27 at the captured 1280×768. One example is `'© 2026 Hearing Zone Audiology All rights reserved.' is no longer covered by its backing surface section-band-10 — 372px below its bottom edge`, with the run at y 5499 and band-10 at 5036–5145. The other 66 are `contentRobustness` on pinned surfaces (REQ-337/BUG-160).
+- **11 of the 14 unmeasured**: `values-diff.json` `unpairedActual` indices 78, 82, 83, 84, 85, 117–122 are exactly these slices (e.g. `{y 4863.90625, h 82}`, `{y 5144.796875, h 20.796875}`).
+- The 5 CRITICAL footer `arrangement` deltas ("Hours" ×2, "9 am - 5 pm", "Services ", "FAX (510) 865-811": beside↔below) are probably the same interleave seen through document order. I did not prove this.
+
+**Re-verified on HEAD** (no browser):
+```
+bin/1c l1-gate repro-www-hearingzone510-com --ref storage/references/www.hearingzone510.com/index --sandbox --json > /tmp/g.json
+python3 -c "
+import json,re,collections as C
+g=json.load(open('/tmp/g.json'));c=C.Counter()
+for bw in g['onSample']['byWidth']:
+  for f in bw['findings']:
+    m=re.search(r'backing surface (\S+)',f['detail']);c[m.group(1) if m else f['kind']]+=1
+print(sum(c.values()),dict(c))"
+```
+**Wrong (now):** `214 {'section-band-4': 36, 'section-band-11': 24, 'section-band-10': 118, 'section-band-13': 12, 'section-band-5': 18, 'section-band-6': 6}`. **Right:** `0 {}`.
+
+**For the implementer.** Your proposed fix 1 (group by fill + captured section) and fix 2 (defer to a same-fill backdrop that already covers the rows) both close this bundle too. `backdrop-5` and `backdrop-6` are exact. This bundle also contains a 0.5px slice nested *inside* another slice (`section-band-5` under `section-band-6`) and two byte-identical slices (`-8`/`-9`), so add it to the fixture set. `defect_class` for this re-measurement: `fold-wrong`. The capture's two section records are exact, and L1 already expresses them as `backdrop-5`/`-6`.
