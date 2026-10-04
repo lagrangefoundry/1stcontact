@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T12:28:35.390389+00:00'
+updated_at: '2026-10-04T16:11:35.135503+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6880,5 +6880,13 @@ What I'd watch for, since it's what this run tests:
 - does a status line appear before every build?
 - does the counter get you filling in the panel?
 - does the first rough cut come out at the right density?
+
+<!-- xgd-turn id="5e59b984-20e9-4f75-ab9b-f5caee69750c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T16:11:35.070746+00:00" -->
+#### You
+I just started a new business to go through the charlie's plumber thing again. I was given a list of functionality in the "Getting to know your business panel" - It looked like a list of checkboxes but as soon as I clicked one is collapsed - that needs to be a multi-select
+
+BUG-200 is freshly created can you put this in there please?
 
 <!-- xgd-chat-end -->
