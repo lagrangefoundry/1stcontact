@@ -2836,10 +2836,57 @@ export function diffManifests(
         push(exp, prop, `${e}`, `${a}`, Math.abs(e - a))
       }
     }
-    side('paddingTopPx', exp.paddingTopPx, act.paddingTopPx)
+    // BUG-197 — the VERTICAL inset is not always carried by padding. A chip sized
+    // by `min-height` + flex centring records padding 0/0 with its label 18px
+    // inside a 56px box; one that pads its label records 18/17 in the same box.
+    // Both paint the same pill, and raw padding reports two deltas per chip over
+    // it. Where padding disagrees and one side carries none while its box is
+    // taller than its glyphs, compare the inset both sides DO measure alike —
+    // the glyph rect's offset inside the box — on the tolerance the glyph rect's
+    // own position is compared on.
+    const inset = verticalInset(exp, act)
+    if (inset) {
+      for (const [prop, e, a] of [
+        ['paddingTopPx', inset.exp.top, inset.act.top],
+        ['paddingBottomPx', inset.exp.bottom, inset.act.bottom],
+      ] as const) {
+        const d = Math.abs(e - a)
+        if (d > positionTol) push(exp, prop, `inset ${Math.round(e * 10) / 10}`, `inset ${Math.round(a * 10) / 10}`, d)
+      }
+    } else {
+      side('paddingTopPx', exp.paddingTopPx, act.paddingTopPx)
+      side('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
+    }
     side('paddingRightPx', exp.paddingRightPx, act.paddingRightPx)
-    side('paddingBottomPx', exp.paddingBottomPx, act.paddingBottomPx)
     side('paddingLeftPx', exp.paddingLeftPx, act.paddingLeftPx)
+  }
+  /**
+   * BUG-197 — each side's vertical inset as `renderedTextBox − box`, or null
+   * where raw padding is the right comparison: it agrees, a side lacks either
+   * rect, or neither side is a zero-padding box taller than its glyphs.
+   */
+  const verticalInset = (
+    exp: ValueElement,
+    act: ValueElement,
+  ): { exp: { top: number; bottom: number }; act: { top: number; bottom: number } } | null => {
+    const padOf = (v: ValueElement): [number | undefined, number | undefined] => [v.paddingTopPx, v.paddingBottomPx]
+    const [et, eb] = padOf(exp)
+    const [at, ab] = padOf(act)
+    if (et === undefined || eb === undefined || at === undefined || ab === undefined) return null
+    if (Math.abs(et - at) <= paddingTol && Math.abs(eb - ab) <= paddingTol) return null
+    const insetOf = (v: ValueElement): { top: number; bottom: number } | null =>
+      v.box && v.renderedTextBox && !v.pseudoGlyph
+        ? {
+            top: v.renderedTextBox.y - v.box.y,
+            bottom: v.box.y + v.box.height - (v.renderedTextBox.y + v.renderedTextBox.height),
+          }
+        : null
+    const ei = insetOf(exp)
+    const ai = insetOf(act)
+    if (!ei || !ai) return null
+    const unpaddedButTall = (top: number, bottom: number, i: { top: number; bottom: number }): boolean =>
+      top === 0 && bottom === 0 && i.top + i.bottom > positionTol
+    return unpaddedButTall(et, eb, ei) || unpaddedButTall(at, ab, ai) ? { exp: ei, act: ai } : null
   }
 
   /**
@@ -2986,7 +3033,20 @@ export function diffManifests(
     // clean over a plate the reference never paints (five header nav links on
     // joyfulculinarycreations.com, 19% of the ranked pixel score, 0 deltas). The
     // reproduction has invented a surface; say so.
-    if (exp.surface?.self === false && act.surface?.self === true) {
+    //
+    // BUG-197 — except where the reference element IS that plate, drawn without a
+    // fill: a transparent chip that paints its own border and radius over the
+    // same box ours fills. The surface walk skips it for having no fill, so it
+    // reads "on the band" while the page plainly draws a pill there. Such a pair
+    // is compared on border and radius, below, and nothing was invented.
+    const fillLessChip =
+      !!exp.box &&
+      !!act.surface &&
+      (exp.border?.widthPx ?? 0) > 0 &&
+      (exp.borderRadiusPx ?? 0) > 0 &&
+      Math.abs(exp.box.width - act.surface.box.width) <= widthTol &&
+      Math.abs(exp.box.height - act.surface.box.height) <= widthTol
+    if (exp.surface?.self === false && act.surface?.self === true && !fillLessChip) {
       const eb = exp.surface.box
       const ab = act.surface.box
       if (ab.width * ab.height < 0.5 * eb.width * eb.height) {

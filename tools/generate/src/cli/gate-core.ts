@@ -201,8 +201,12 @@ export interface LayoutCollision {
    * BUG-143 — `escape` joins the pair: a backing surface that has stopped covering
    * the content it backs. It travels on the same two keys for the same reason the
    * other two do — every surface that can print one can print all three.
+   *
+   * BUG-197 — `declared-backing-uncovered`: a `backedBy` the fold wrote that is
+   * already false at a captured width, named apart from `escape` because nothing
+   * moved — the fold chose the wrong surface.
    */
-  kind: 'overlap' | 'clip' | 'escape' | 'buried'
+  kind: 'overlap' | 'clip' | 'escape' | 'buried' | 'declared-backing-uncovered'
   /**
    * BUG-179 (item 7) — which envelope probe found it. The three are different
    * claims: an `onSample` collision is visible at a width the reference was
@@ -1173,7 +1177,14 @@ export function reconcileGates(input: ReconcileInput): GateReport {
     // document already DECLARED as a stack, so "declare it `stacked`" is exactly
     // the wrong advice, and the fix is a paint level rather than structure.
     const buried = collisions.filter((c) => c.kind === 'buried')
-    const overlaps = collisions.filter((c) => c.kind !== 'escape' && c.kind !== 'buried')
+    // BUG-197 — and a declaration that is false at rest is named apart from an
+    // escape: the page did not come apart when the viewport moved, the fold named
+    // a surface the run never sat on, and "size the surface from its content" is
+    // the wrong fix for that.
+    const uncovered = collisions.filter((c) => c.kind === 'declared-backing-uncovered')
+    const overlaps = collisions.filter(
+      (c) => c.kind !== 'escape' && c.kind !== 'buried' && c.kind !== 'declared-backing-uncovered',
+    )
     const sentences: string[] = []
     if (overlaps.length) {
       sentences.push(
@@ -1195,6 +1206,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
         `${escapes.length} backing surface(s) have left the content they back — ${namedCollisions(escapes)}. ` +
           'A panel that slides off its own copy is structural: the page is exact at rest and comes apart ' +
           'the moment the viewport moves, so no perceptual average will ever see it.',
+      )
+    }
+    if (uncovered.length) {
+      sentences.push(
+        `${uncovered.length} run(s) declare a backing surface that does not cover them at a captured width — ` +
+          `${namedCollisions(uncovered)}. The declaration is false at rest, where the page was measured: ` +
+          'the fold recorded the wrong surface as the one behind the copy.',
       )
     }
     diagnosis = sentences.length
@@ -1220,6 +1238,13 @@ export function reconcileGates(input: ReconcileInput): GateReport {
         'Make each escaping surface size itself from the content it backs rather than from a pinned ' +
           'rectangle measured once — a panel whose height is a constant cannot follow copy that reflows, ' +
           'and one whose height response was never measured cannot follow a viewport that grows.',
+      )
+    }
+    if (uncovered.length) {
+      steps.push(
+        "Fix the fold's `backedBy` for each uncovered run (`layout.findings` names the run, the declared " +
+          'surface and the width): it must name the surface the capture resolved as painting behind the run ' +
+          'at that width — not resize the surface it named.',
       )
     }
     steps.push('Then work `1c l1-gate --ref <bundle>` for the remaining residuals.')
