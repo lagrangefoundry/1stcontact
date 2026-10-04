@@ -2793,6 +2793,22 @@ function bandBaseFill(
  * actually change. So the bottom is clamped to the first real section edge at or
  * after this band's own content — the boundary is read from the capture instead
  * of guessed from where the next paragraph happens to start.
+ *
+ * REQ-380 (issue 1) — the groups are consecutive in PAGE order (top-to-bottom at
+ * the widest width), keyed by fill AND the captured section the row sits in, not
+ * consecutive in the row STREAM. Tiling is only correct when the groups occupy
+ * disjoint y-intervals, and stream adjacency is not that: on
+ * bluelotusintegralhealing.com the responsive table interleaves the contact
+ * section's rows with the footer's (each label once per section), so one white
+ * and one blue section shredded into ten slices, each cut off at the next
+ * fragment's top while its own copy ran on below it — 212 escapes, nine bands no
+ * reference element pairs with, and the footer logo painted over by four of them.
+ *
+ * And a group whose rows a captured backdrop of the same fill already covers at
+ * every width emits no band at all: that backdrop IS the surface, read straight
+ * off the page, and a reconstructed duplicate of it can only paint over what the
+ * backdrop's own section holds. Its runs are handed to the caller instead
+ * (`carried`), to be written onto the backdrop once it has its name.
  */
 function buildSolidBands(
   bandRows: SurfaceRow[],
@@ -2802,16 +2818,59 @@ function buildSolidBands(
   edgeResponses: Map<number, Map<number, number>>,
   sectionsAtWidest: readonly SectionValues[],
   sectionsByWidth: ReadonlyArray<readonly SectionValues[]>,
-): L1Box[] {
-  const groups: Array<{ fill: string; rows: SurfaceRow[] }> = []
-  for (const r of bandRows) {
-    if (!r.fill) continue
-    const last = groups[groups.length - 1]
-    if (last && last.fill === r.fill) last.rows.push(r)
-    else groups.push({ fill: r.fill, rows: [r] })
-  }
-  if (groups.length === 0) return []
+  backdrops: readonly L1Box[] = [],
+): { bands: L1Box[]; carried: Array<{ backdrop: L1Box; rows: SurfaceRow[] }> } {
   const widestW = Math.max(...widths)
+  /** The captured section a row stands in: greatest vertical overlap at its widest frame. */
+  const sectionOf = (r: SurfaceRow): number => {
+    const box = r.frames.find((f) => f.at === widestW)?.box ?? r.widest
+    let best = -1
+    let bestOverlap = 0
+    for (const sv of sectionsAtWidest) {
+      if (!sv.box) continue
+      const overlap = Math.min(box.y + box.height, sv.box.y + sv.box.height) - Math.max(box.y, sv.box.y)
+      if (overlap > bestOverlap) ((bestOverlap = overlap), (best = sv.index))
+    }
+    return best
+  }
+  // Page order. A row absent at the widest width has no coordinate comparable to
+  // the others', so it keeps the position of the stream row before it.
+  let carryKey = -Infinity
+  const placed = bandRows
+    .filter((r) => r.fill)
+    .map((r, i) => {
+      const at = r.frames.find((f) => f.at === widestW)
+      if (at) carryKey = at.box.y
+      return { r, i, key: carryKey }
+    })
+    .sort((a, b) => a.key - b.key || a.i - b.i)
+  const groups: Array<{ fill: string; section: number; rows: SurfaceRow[] }> = []
+  for (const { r } of placed) {
+    const section = sectionOf(r)
+    const last = groups[groups.length - 1]
+    if (last && last.fill === r.fill && last.section === section) last.rows.push(r)
+    else groups.push({ fill: r.fill!, section, rows: [r] })
+  }
+  const carried: Array<{ backdrop: L1Box; rows: SurfaceRow[] }> = []
+  if (groups.length === 0) return { bands: [], carried }
+  /** REQ-380 — a captured backdrop painting `fill` opaquely under every row of the group, at every width. */
+  const carrierOf = (fill: string, rows: readonly SurfaceRow[]): L1Box | undefined =>
+    backdrops.find((b) => {
+      const own = b.axes?.surfaceFill
+      if (typeof own !== 'string' || own.toLowerCase() !== fill.toLowerCase()) return false
+      if (b.axes?.opacity !== undefined || b.axes?.backgroundImageUrl) return false
+      return rows.every((r) =>
+        r.frames.every((f) => {
+          const kf = b.geometry?.keyframes.find((k) => k.at === f.at)
+          return (
+            kf !== undefined &&
+            kf.width !== undefined &&
+            kf.height !== undefined &&
+            foldRectContains({ x: kf.x, y: kf.y, width: kf.width, height: kf.height }, f.box)
+          )
+        }),
+      )
+    })
   const topAt = (g: { rows: SurfaceRow[] }, w: number): number | undefined => {
     let t = Infinity
     for (const r of g.rows) {
@@ -2936,6 +2995,13 @@ function buildSolidBands(
       sectionsByWidth,
     )
     if (base === null) return
+    // REQ-380 — tiled first and dropped here, so the neighbours' geometry is
+    // exactly what it would have been with this band present.
+    const carrier = carrierOf(base, entry.g.rows)
+    if (carrier) {
+      carried.push({ backdrop: carrier, rows: entry.g.rows })
+      return
+    }
     const id = `section-band-${oi}`
     const node: L1Box = { kind: 'box', id, geometry, axes: { surfaceFill: base } }
     const vis = visibilityFor(present, widths)
@@ -2947,7 +3013,7 @@ function buildSolidBands(
     for (const r of order[oi].g.rows) if (r.run) r.run.backedBy = id
     boxes.push(node)
   })
-  return boxes
+  return { bands: boxes, carried }
 }
 
 /**
@@ -4528,7 +4594,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     }
     sectionEdges.set(p.viewport.width, [...edges].sort((a, b) => a - b))
   }
-  const bandNodes = buildSolidBands(
+  const { bands: bandNodes, carried: carriedBands } = buildSolidBands(
     bandRows,
     widths,
     sectionEdges,
@@ -4536,6 +4602,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     edgeResponses,
     sectionsAtWidest,
     sectionsByWidth,
+    backdropNodes,
   )
   const cardNodes = buildCards(cardRows, widths, heightAt, columnFit)
 
@@ -4833,6 +4900,12 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // envelope reads as "ordinary painted content" — so a section band was reported
   // as colliding with its own copy, and no run could name it as what it sits on.
   nameCapturedBackdrops(backdropNodes, [...body, ...slotNodes], textHeights, widths, boxIdx)
+  // REQ-380 — the runs of a band the fold declined to rebuild stand on the
+  // backdrop that already paints it, which is only nameable now.
+  for (const { backdrop, rows } of carriedBands) {
+    if (!isBackingSurfaceId(backdrop.id)) continue
+    for (const r of rows) if (r.run) r.run.backedBy = backdrop.id
+  }
 
   // REQ-370 — a photograph the capture recorded BENEATH a backdrop (a hero image
   // under its own scrim) leaves the content and travels with that backdrop, so it

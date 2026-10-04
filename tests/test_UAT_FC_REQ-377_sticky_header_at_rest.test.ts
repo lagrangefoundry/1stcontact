@@ -495,6 +495,9 @@ describe('REQ-377 — a bundle taken before schema 17 says it is owed a re-captu
     const named = staleCaptureAxes(bundle(16)).map((a) => a.axis).join(' | ')
     expect(named).toMatch(/scrollY/)
     expect(named).toMatch(/sticky/)
-    expect(staleCaptureAxes(bundle(17))).toHaveLength(0)
+    // REQ-380 moved the schema past 17; a 17 bundle still carries both axes.
+    const at17 = staleCaptureAxes(bundle(17)).map((a) => a.axis).join(' | ')
+    expect(at17).not.toMatch(/scrollY/)
+    expect(at17).not.toMatch(/sticky/)
   })
 })
