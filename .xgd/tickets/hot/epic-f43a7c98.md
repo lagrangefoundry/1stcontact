@@ -6,7 +6,7 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-04T00:46:49.403231+00:00'
+updated_at: '2026-10-04T00:54:19.175599+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -73,3 +73,14 @@ The operator's suggestion, checked against real data. **Charlie's Plumbing 2's h
 7. **Migration:** existing pages are split mechanically by root child, and an existing page that isn't a flow stack stays whole.
 
 This makes "different sections of one page" a safe parallel unit, and it should probably replace item 4's "stable addressing" option outright.
+
+
+## Simplified plan, from the operator, 2026-10-03. Supersedes items 1–8 and the order of work above
+
+Three pieces, and nothing more until they're proven:
+
+1. **Pages can be decomposed.** A page is stored as a frame (page-wide settings, modules, SEO metadata, and the ordered list of sections) plus one file per section, assembled by concatenation at render. See "Proposed direction" above for the shape and the conditions a section must meet. A page that isn't decomposed keeps working exactly as today, as one file.
+2. **Locks: one agent per file at a time.** A builder session takes a lock on each file it will write (a section, or a page's frame, or a whole undecomposed page) before it starts, and releases it when it ends. A write to a file the session doesn't hold is refused. Locks are leased, so a session that dies or aborts silently (BUG-191) can't hold a file forever. The lock is the whole concurrency story: no scope algebra and no version merging. The client's own hand edits in the builder respect the same locks, so a section a builder is working on can't be edited underneath it, and the reverse.
+3. **The principal (the consultant) is taught all of it.** Its manual and priming explain decomposition and locks. It decides how to decompose an existing page, splits it, builds new pages already decomposed, and plans parallel work as one builder session per file. It must never promise parallel work it hasn't set up this way.
+
+Concurrent execution of builder sessions in the framework (lagrange-framework) is still needed underneath piece 3, and is filed there as a child once 1 and 2 have a shape.
