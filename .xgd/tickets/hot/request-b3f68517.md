@@ -6,7 +6,7 @@ title: 'Builder: start with comparable sites — a comp board, viewed in the pre
   pane, with web search'
 created_by: EPIC-19
 created_at: '2026-10-04T00:14:10.660139+00:00'
-updated_at: '2026-10-04T01:03:12.885273+00:00'
+updated_at: '2026-10-04T03:00:47.065418+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -74,9 +74,9 @@ UATs named `test_UAT_FC_<TICKET-ID>_*`:
 - The priming and DOC-64 name the comp review as the step before the first build.
 
 
-## As built (branch `free-REQ-378`, held unmerged until lagrange-framework REQ-206 lands)
+## As built
 
-Agreed with the operator on 2026-10-03: build everything now on the branch and don't merge until REQ-206 lands, so nothing ships without web search.
+Agreed with the operator on 2026-10-03: build everything on the branch and hold the merge until lagrange-framework REQ-206 landed, so nothing shipped without web search. REQ-206 landed the same day and the branch was merged with search in place.
 
 **Comp board data.** The plan gains `comps`: each entry is `{reference, title, url, source: consultant|client, added_at, notes_by?, notes_at?}`. The client's likes and dislikes are `likes`/`dislikes` lists on the comp's `reference` ticket. The plan records who last wrote the notes and when, which is where the consultant's next-turn notice is read from. Removing a comp (consultant or client) takes it off the board, and its capture stays in the Library. Adding a site that's already on the board changes nothing.
 
@@ -90,16 +90,17 @@ Agreed with the operator on 2026-10-03: build everything now on the branch and d
 
 **Motion.** At adoption, the capture's per-element `motion` record (`animation`/`transition`/`both`) becomes one line, for example "Motion: uses animation (entrance or scroll-in) on 3 elements and hover transitions on 5 elements, which a screenshot does not show." The line is added to the reference description and stored as `motion` on the ticket.
 
+**Web search (requirement 1).** The consultant's Claude API backend carries the framework's `web` surface (REQ-206) in its own Toolbox. That Toolbox declares `web_search` to the provider in the provider's own form, offers it only where the adapter can search (it's withheld silently elsewhere), and caps it at 20 searches (`CONSULTANT_WEB_SEARCHES`). Following REQ-228, the grant travels with the surface in `host-core.ts` rather than sitting in `instances.json`, because the in-repo declaration validator can't check a framework surface's grant. Only the consultant gets it; the builder worker and the coordinator don't.
+
+**Searches are metered and priced.** REQ-206 adds a fifth usage counter, `web_search_requests`, so 1stcontact's spend ledger takes it as a fifth counter too. It's priced at $10 per 1,000 searches, written as `web_search: 10000` per million in `prices.json` on the Claude consultant models, so `count × rate` is still micros. A price entry with no search rate prices a turn that searched as unpriced, never as free. Migration `0027_turn_spend_web_search.sql` adds `turn_spend.web_search_requests` (default 0), and a spend record that doesn't carry the counter is stored as zero.
+
 **Priming.** The consultant priming (with and without a corpus) has a "Start with comparable sites" section. It makes the comp review the step before the first build, with the opening question, the range (national chain, local independents, outlier), finding local independents by web search, the tools, the `visual_concept` conventions, and taking screenshots sparingly.
 
-## Remaining at merge (when REQ-206 lands)
+**DOC-64.** §8 "How we get there" now has step 3, **Comp review** — the step before the first build. It covers the opening question, the range of sites, local independents found by web search, the comp board, the client's likes and dislikes, `visual_concept` conventions linked to comps, and features into `functionality`. The first pass follows the conventions the review agreed, and the later steps are renumbered.
 
-1. Grant the provider `web_search` tool to the consultant through configuration, and add the UAT showing it's granted on a backend that offers it.
-2. Update DOC-64 §8 "How we get there" so the comp review is the step before the first pass, and add the UAT. Holding this back keeps the live knowledge base from describing tools production doesn't have yet.
-3. Merge xgd-working into the branch, bump the version on the tip, fast-forward into xgd-working, then run move-to-free-coded.
+## UATs
 
-## UATs so far
-
-- `tests/test_UAT_FC_REQ-378_the_comp_board.workers.test.ts`: a client URL is captured into a board entry with a hero and motion; an address that can't be captured is refused; the consultant captures, adds, notes and records conventions (and is granted the tools); client likes and dislikes persist on the reference ticket and reach the next turn once; remove.
+- `tests/test_UAT_FC_REQ-378_the_comp_board.workers.test.ts`: a client URL is captured into a board entry with a hero and motion; an address that can't be captured is refused; the consultant captures, adds, notes and records conventions (and is granted the tools); client likes and dislikes persist on the reference ticket and reach the next turn once; remove; the consultant is granted `web_search` (provider form, cap 20) and each search is counted and priced in `turn_spend`.
 - `tests/test_UAT_FC_REQ-378_viewing_a_comp.test.ts`: the board UI (add, note); opening a comp gives the viewing mode with no edit or publish; the desktop/phone toggle; "Back to your draft" restores the same page.
-- `tests/test_UAT_FC_REQ-378_the_comp_review_method.test.ts`: the priming names the comp review as the step before the first build.
+- `tests/test_UAT_FC_REQ-378_the_comp_review_method.test.ts`: the priming and DOC-64 name the comp review as the step before the first build.
+- Existing pins updated by design: REQ-356 (the plan schema gains `comps`) and REQ-362 (the consultant's price entry gains `web_search`). `test_UAT_FC_REQ-292_turn_price`, which had failed since REQ-206 added the counter, passes again.
