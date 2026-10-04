@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:42:43.067884+00:00'
+updated_at: '2026-10-04T00:43:00.145022+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6598,5 +6598,13 @@ Shall I do the prompt fix and file the framework ticket?
 <!-- xgd-chat role="user" ts="2026-10-04T00:42:42.385466+00:00" -->
 #### You
 I think we need to be quite structured about what can run in parallel and what can't - Its probably worth an EPIC - if developers are overwriting each other it will be chaos - they should be able to work on different sections but even that I think would need some thought to be safe
+
+<!-- xgd-turn id="53f55181-e83c-44c1-9eaf-40809186e88c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:42:59.845238+00:00" -->
+#### You
+I think we need to be quite structured about what can run in parallel and what can't - Its probably worth an EPIC - if developers are overwriting each other it will be chaos - they should be able to work on different sections but even that I think would need some thought to be safe
+
+Can you create an EPIC for this please?
 
 <!-- xgd-chat-end -->
