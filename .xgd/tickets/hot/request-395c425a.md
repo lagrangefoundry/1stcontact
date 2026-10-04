@@ -6,9 +6,9 @@ title: 'capture: a carousel''s clip is recorded at the slide, not the swiper tha
   cuts it; fold drops a band''s height response when its bottom is not a section edge'
 created_by: repro-console:repro-joyfulculinarycreations-com#8
 created_at: '2026-10-04T15:03:19.208056+00:00'
-updated_at: '2026-10-04T15:03:19.208056+00:00'
+updated_at: '2026-10-04T15:26:09.595030+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -210,3 +210,32 @@ How to see it: `CHROMIUM_LAUNCH_ARGS=--single-process 1c values-diff repro-joyfu
 - **92 contentRobustness escapes** on card-3/backdrop-N — REQ-337/BUG-160.
 - **5 `#535b53→#626862` surfaceFill deltas** — composited-scrim surfaceFill asymmetry (REQ-302 issue 4 class);
   not separately verified this round.
+
+
+---
+
+## Free-coding scope (REQ-381 session)
+
+**In scope: issues 1 and 2.** Issue 3 is out of scope. `l1ActionSchema`'s contract says a node naming neither
+`opens` nor `closes` is rejected by `L1_STRUCTURAL_RULES`, so `action: {}` cannot carry a plain button. That
+puts it in the `l1-cannot-express` class, which needs a schema decision, not a fold fix.
+
+### Issue 1: what changes (capture, `extract.ts` `clipOf`)
+- `clipOf` records the nearest `overflow` ancestor (self included) that **actually cuts** the element. It walks up,
+  skipping every overflow box that wholly contains the element's border box (within 1px) on each axis that box clips
+  (an axis whose computed overflow is `visible` cuts nothing on that axis). It returns the first box the element escapes.
+- When no overflow ancestor cuts the element, it returns the nearest one, as before (self counts; content that fits is a no-op for the fold).
+- An element with an empty box (no area) also keeps the nearest box, because a 0x0 box placed at the origin would read as escaping everything.
+- Result: the off-screen slides of a carousel (each slide `overflow:hidden`, inside a `.swiper` that is also `overflow:hidden`)
+  record the `.swiper`'s id and box, the same as the arrows, so `nestClipRegions` builds one clipping container for all of them.
+- Needs a re-capture to take effect on existing bundles.
+
+### Issue 2: what changes (fold, `fold.ts` `buildSolidBands`)
+- When the band's top lands on a measured section edge but its bottom does not, the keyframe carries
+  `viewportResponse {yFactor: fTop}` with no `heightFactor`: the band translates with its top. Before this change it carried no response.
+- When both edges are measured, behaviour is unchanged. When the top is unmeasured, no response is written, as before.
+
+### Test plan
+- `test_UAT_FC_REQ-381_*`: (1) extract a page with a two-level overflow carousel in Chromium and check that the off-screen
+  slide's run records the outer clipper's id, while the visible slide keeps its own nearest box; (2) fold a projection pair
+  where a band opens on a section edge and closes mid-section, and check that its keyframes carry `yFactor` and no `heightFactor`.
