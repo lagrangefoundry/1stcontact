@@ -278,7 +278,7 @@ function lineCountOf(el: ValueElement): number | undefined {
  * less the run's own top padding, because the renderer insets the text by that
  * padding inside the box it is given.
  */
-function selfSurfaceLines(el: ValueElement): { top: number; height: number } | undefined {
+export function selfSurfaceLines(el: ValueElement): { top: number; height: number } | undefined {
   // REQ-371 — a chip paints its own pill, so it keeps its box and states the
   // inset as padding instead (see {@link withChipInset}).
   if (isSelfPaintingRun(el)) return undefined
