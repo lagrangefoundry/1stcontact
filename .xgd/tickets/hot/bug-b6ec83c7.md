@@ -16,6 +16,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-1f10286b
 ---
 
 Filed by `repro-console:repro-joyfulculinarycreations-com#9`. Bundle: `storage/references/joyfulculinarycreations.com/index`. Companion to REQ-385.
