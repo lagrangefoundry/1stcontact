@@ -3888,19 +3888,31 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
             continue
           }
           const boxes = band.map((ci) => cellBox(cells[ci], w))
-          const placed = placeFlow(boxes, modes.get(w)!, top, left)
+          // A cell's own members stack inside it, measured from where the cell
+          // itself landed — which, by construction, is where it was captured.
+          const inners = band.map((ci, k) =>
+            placeFlow(
+              cells[ci].map((i) => visibleBox(i, w)),
+              false,
+              boxes[k]?.y ?? top,
+              boxes[k]?.x ?? left,
+            ),
+          )
+          // REQ-383 — and a cell is as tall as its stack makes it, which is its
+          // LAST member's bottom, not its lowest one's. Columns are matched at the
+          // widest width; at a narrower one a member whose copy wraps can run over
+          // the member below it, and the cell then ends above its union box —
+          // placing the next band from the union put everything after it that
+          // much too far down (12px from a testimonial grid on hearingzone510.com).
+          const flowBoxes = boxes.map((box, k) =>
+            box ? { ...box, height: Math.max(0, inners[k].bottom - box.y) } : null,
+          )
+          const placed = placeFlow(flowBoxes, modes.get(w)!, top, left)
           band.forEach((ci, k) => {
             const lead = placed.leads[k]
             const box = boxes[k]
             cellLeads.get(ci)!.push({ at: w, x: lead?.x ?? 0, y: lead?.y ?? 0, width: box?.width ?? 0 })
-            // A cell's own members stack inside it, measured from where the cell
-            // itself landed — which, by construction, is where it was captured.
-            const inner = placeFlow(
-              cells[ci].map((i) => visibleBox(i, w)),
-              false,
-              box?.y ?? top,
-              box?.x ?? left,
-            )
+            const inner = inners[k]
             cells[ci].forEach((i, m) => {
               const memberBox = visibleBox(i, w)
               const innerLead = inner.leads[m]

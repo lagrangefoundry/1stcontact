@@ -28,7 +28,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { JSDOM } from 'jsdom'
-import { contentRobustnessProbe, foldToL1, promoteToFlow, sampleFidelityProbe } from '../tools/generate/src'
+import { contentRobustnessProbe, evaluateLayout, foldToL1, promoteToFlow, sampleFidelityProbe } from '../tools/generate/src'
 import { measuredTextHeights, type FoldedForm } from '../tools/generate/src/l1'
 import { diffManifests, EXTRACT_SCRIPT, type RawSignals } from '../tools/generate/src/cli'
 import type {
@@ -194,6 +194,50 @@ describe('REQ-383 issue 2 — the recovery keeps the sticky header’s rail', ()
     expect(f.unmatched).toEqual([])
     expect(f.residuals).toEqual([])
     expect(f.maxDelta).toBeLessThanOrEqual(0.1)
+  })
+})
+
+describe('REQ-383 issue 2 — a recovered cell is as tall as its own stack', () => {
+  // Two columns that sit side by side from 1280 and stack at 768. At 1280 the left
+  // column's top member is taller (its copy wraps) and runs over the member below
+  // it, so the column's stack ends ABOVE its union box. Fixed-height images, so
+  // every position is the document's own; a run below both columns.
+  const W = [768, 1280, 1440]
+  type Frame = [x: number, y: number, width: number, height: number]
+  const img = (id: string, at: Record<number, Frame>): L1Node =>
+    ({
+      kind: 'image',
+      id,
+      src: `https://assets.example.test/${id}.png`,
+      alt: id,
+      geometry: {
+        keyframes: W.map((w) => ({ at: w, x: at[w][0], y: at[w][1], width: at[w][2], height: at[w][3] })),
+      },
+    }) as unknown as L1Node
+  const base = {
+    widths: W,
+    root: {
+      kind: 'box',
+      children: [
+        img('a1', { 768: [40, 0, 600, 100], 1280: [40, 0, 500, 150], 1440: [40, 0, 500, 100] }),
+        img('b1', { 768: [40, 200, 600, 100], 1280: [600, 0, 500, 100], 1440: [600, 0, 500, 100] }),
+        img('a2', { 768: [40, 120, 600, 20], 1280: [40, 120, 500, 20], 1440: [40, 120, 500, 20] }),
+        img('b2', { 768: [40, 320, 600, 20], 1280: [600, 120, 500, 20], 1440: [600, 120, 500, 20] }),
+        img('below', { 768: [40, 400, 600, 50], 1280: [40, 300, 600, 50], 1440: [40, 300, 600, 50] }),
+      ],
+    },
+  } as unknown as L1Document
+
+  it('test_UAT_FC_REQ-383_recovery_places_what_follows_an_out_of_order_cell_where_the_capture_did', () => {
+    const recovered = promoteToFlow(base).doc
+    for (const at of W) {
+      const where = (d: L1Document) => new Map(evaluateLayout(d, at).leaves.map((l) => [l.id, l.box.y]))
+      const before = where(base)
+      const after = where(recovered)
+      for (const id of ['a1', 'a2', 'b1', 'b2', 'below']) {
+        expect(after.get(id), `${id} at ${at}`).toBeCloseTo(before.get(id)!, 1)
+      }
+    }
   })
 })
 
