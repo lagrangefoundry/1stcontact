@@ -259,7 +259,7 @@ export interface RawField extends RawGeometry {
   /** Resolved accessible name (may be empty when the control is unlabelled). */
   accessibleName: string
   /** Where the accessible name comes from, or null when unnamed. */
-  nameSource: 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | null
+  nameSource: 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | 'title' | null
   /** REQ-48 (item 4) — computed `object-fit` for a media element (`img`), else null. */
   objectFit?: string | null
   /** REQ-63 — computed `object-position` for a media element (`img`) — how it crops within its box, else null. */
@@ -2216,8 +2216,38 @@ export const EXTRACT_SCRIPT = `(() => {
     // role="group" div that directly holds text still reports 'group' for
     // itself. Only reaching THROUGH one to an ancestor is the defect.
     if (el.getAttribute && el.getAttribute('role')) return el;
+    // BUG-199 -- media that is a link's ONLY ink is that link (see linkedMediaHostOf).
+    var host = linkedMediaHostOf(el);
+    if (host) return host;
     var anc = el.closest(SEMANTIC_ANCESTOR_SEL);
     return anc || el;
+  }
+  // BUG-199 -- the host a media element (an <img>, an <svg>) is the ONLY ink of:
+  // the nearest enclosing host matching sel that holds no other media and no copy
+  // of its own. Null otherwise -- then the media is a picture beside the host's
+  // own content, and keeps its own semantics.
+  //
+  // REQ-380's icon links are the case. The reference is <a href><svg></a>, and an
+  // <svg> is not in SEMANTIC_ANCESTOR_SEL, so closest() walked to the anchor and
+  // recorded 'link'. Its L1 reproduction is <a href><img></a>, and an <img> IS in
+  // SEMANTIC_ANCESTOR_SEL, so closest() matched the image itself and recorded
+  // 'img'. The same element read two roles, textless fields pair on role, and
+  // bluelotusintegralhealing.com's four social icons -- drawn, placed and linked
+  // correctly -- were four CRITICAL "missing" plus four unpaired. The a11y tree
+  // answers the same way for both: a link named by its image. So does this.
+  var LINK_HOST_SEL = 'a[href],[role="link" i]';
+  function soleMediaHostOf(media, sel) {
+    var host = media.parentElement && media.parentElement.closest ? media.parentElement.closest(sel) : null;
+    if (!host || host.querySelectorAll('svg, img').length !== 1) return null;
+    var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    for (var tn = walker.nextNode(); tn; tn = walker.nextNode()) {
+      if (!media.contains(tn) && trimWs(collapseWs(tn.nodeValue))) return null;
+    }
+    return host;
+  }
+  function linkedMediaHostOf(el) {
+    var t = el.tagName ? el.tagName.toLowerCase() : '';
+    return (t === 'img' || t === 'svg') ? soleMediaHostOf(el, LINK_HOST_SEL) : null;
   }
   function a11yRoleOf(rawEl) {
     var el = semanticOf(rawEl);
@@ -2244,17 +2274,36 @@ export const EXTRACT_SCRIPT = `(() => {
   // aria-label / aria-labelledby (explicit) → an associated <label> (rendered
   // OUTSIDE the control) → placeholder (rendered INSIDE the control) → value/text.
   // The *source* is the fact that separates placeholder-inside from label-above.
-  function accessibleNameOf(el) {
+  function ariaNameOf(el) {
     var aria = el.getAttribute && el.getAttribute('aria-label');
-    if (aria && aria.trim()) return { name: collapseText(aria), source: 'aria' };
+    if (aria && aria.trim()) return collapseText(aria);
     var lb = el.getAttribute && el.getAttribute('aria-labelledby');
     if (lb) {
-      var nm = collapseText(lb.split(/\\s+/).map(function (id) {
+      return collapseText(lb.split(/\\s+/).map(function (id) {
         var e = document.getElementById(id); return e ? e.textContent : '';
       }).join(' '));
-      if (nm) return { name: nm, source: 'aria' };
     }
+    return '';
+  }
+  function accessibleNameOf(el) {
+    var aria = ariaNameOf(el);
+    if (aria) return { name: aria, source: 'aria' };
     var tag = el.tagName.toLowerCase();
+    // BUG-199 -- media that is a link's only ink is named as that link is (see
+    // linkedMediaHostOf): the link's own aria, else the media's alternative text
+    // (an <img>'s alt, an <svg>'s <title>), else the link's title attribute. The
+    // reference's <a title="Go to Facebook page"><svg> named nothing while its
+    // reproduction's <img alt="Go to Facebook page"> named the same words.
+    var linkHost = linkedMediaHostOf(el);
+    if (linkHost) {
+      var hostAria = ariaNameOf(linkHost);
+      if (hostAria) return { name: hostAria, source: 'aria' };
+      var svgTitle = tag === 'svg' ? el.querySelector('title') : null;
+      var own = collapseText(tag === 'img' ? el.getAttribute('alt') : (svgTitle ? svgTitle.textContent : ''));
+      if (own) return { name: own, source: 'alt' };
+      var ttl = collapseText(linkHost.getAttribute('title'));
+      return ttl ? { name: ttl, source: 'title' } : { name: '', source: null };
+    }
     if (tag === 'input' || tag === 'textarea' || tag === 'select') {
       var lbl = null;
       if (el.id) {
@@ -3142,13 +3191,7 @@ export const EXTRACT_SCRIPT = `(() => {
   // decoration beside it, and stays unrecorded as before).
   var ICON_HOST_SEL = 'a[href], button, [role="button"], [role="link"]';
   function svgIconHostOf(svg) {
-    var host = svg.parentElement && svg.parentElement.closest ? svg.parentElement.closest(ICON_HOST_SEL) : null;
-    if (!host || host.querySelectorAll('svg').length !== 1 || host.querySelector('img')) return null;
-    var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
-    for (var tn = walker.nextNode(); tn; tn = walker.nextNode()) {
-      if (!svg.contains(tn) && trimWs(collapseWs(tn.nodeValue))) return null;
-    }
-    return host;
+    return soleMediaHostOf(svg, ICON_HOST_SEL);
   }
   // The paint an icon takes from the page's CSS, written onto each node as a
   // presentation attribute so the markup paints the same with no stylesheet

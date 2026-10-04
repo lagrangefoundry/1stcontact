@@ -196,8 +196,14 @@ import type { Capture } from './types'
  *   `overflow: hidden` inside an `overflow: hidden` swiper recorded each
  *   off-screen slide's copy against its own slide (which contains it), so the
  *   fold saw nothing escaping and built no clipping container.
+ * - **20** — BUG-199: media that is a link's ONLY ink is that link. Its
+ *   `a11yRole` is the link's (an `<a href><img>` recorded `img` where the same
+ *   element as `<a href><svg>` recorded `link`), and its `accessibleName` is the
+ *   link's name — the link's aria, the media's alt / `<title>`, else the link's
+ *   `title` attribute (`nameSource: 'title'`). A pre-20 bundle names a
+ *   title-only icon link nothing, so its name can never match a reproduction's.
  */
-export const CAPTURE_SCHEMA = 19
+export const CAPTURE_SCHEMA = 20
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -624,6 +630,17 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // Which ancestor was chosen leaves no contradiction in the record, so the only
     // thing provable is that it cannot matter: a page that records no clip at all.
     present: (c) => ![...runs(c), ...fields(c)].some((e) => e.clip !== null && typeof e.clip === 'object'),
+  },
+  {
+    since: 20,
+    axis: "a linked icon's name, read off its link (accessibleName)",
+    where: 'a media field (`sections[].fields[]`)',
+    // The contradiction a pre-20 bundle leaves: an icon whose alt the link names
+    // and whose accessibleName is empty. A bundle with no such icon cannot differ.
+    present: (c) =>
+      !fields(c).some(
+        (f) => typeof f.src === 'string' && f.src.startsWith('assets/inline-svg-') && !!f.alt && !f.accessibleName,
+      ),
   },
 ]
 

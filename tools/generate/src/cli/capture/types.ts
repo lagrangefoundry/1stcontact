@@ -443,7 +443,7 @@ export interface SurfaceShape {
 export type Arrangement = 'row' | 'stack'
 
 /** REQ-47 — where a control's accessible name is rendered. */
-export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt'
+export type NameSource = 'placeholder' | 'label' | 'aria' | 'text' | 'alt' | 'title'
 
 /**
  * REQ-47 — per-element rendered geometry, shape and structure, shared by text

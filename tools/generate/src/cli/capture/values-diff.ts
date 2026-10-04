@@ -2015,6 +2015,7 @@ function nameSourceLabel(src: NameSource | null | undefined): string {
   if (src === 'aria') return 'aria (outside)'
   if (src === 'text') return 'text'
   if (src === 'alt') return 'alt'
+  if (src === 'title') return 'title'
   return 'none'
 }
 
@@ -2124,10 +2125,20 @@ const CONTROL_ROLES: ReadonlySet<string> = new Set([
   'link',
 ])
 
+/**
+ * BUG-199 — a media element, whatever its role. A picture that is a link's only
+ * ink reports the LINK's role (the a11y tree's answer), so `a11yRole === 'img'`
+ * no longer finds every picture; the media substance (`objectFit`, recorded only
+ * for an `<img>` and an inline-SVG icon) does.
+ */
+function isMediaElement(el: ValueElement): boolean {
+  return el.a11yRole === 'img' || el.objectFit != null
+}
+
 /** Bucket a projected element into its object kind (for the card heading). */
 function objectKindOf(el: ValueElement): ObjectKind {
   if (!el.textless) return 'text'
-  if (el.a11yRole === 'img') return 'image'
+  if (isMediaElement(el)) return 'image'
   if (el.a11yRole === 'separator') return 'divider'
   if (el.a11yRole && CONTROL_ROLES.has(el.a11yRole)) return 'control'
   return 'box'
@@ -3294,7 +3305,7 @@ export function diffManifests(
   // box aspect ratio — a portrait meant to be a circle (1:1) rendered as an
   // ellipse (≠1) is the same box size within px tolerance yet visibly wrong.
   const compareMedia = (exp: ValueElement, act: ValueElement): void => {
-    const media = exp.a11yRole === 'img' && act.a11yRole === 'img'
+    const media = isMediaElement(exp) && isMediaElement(act)
     if (!media) return
     if (exp.objectFit != null && act.objectFit != null && exp.objectFit !== act.objectFit) {
       push(exp, 'objectFit', exp.objectFit, act.objectFit)
