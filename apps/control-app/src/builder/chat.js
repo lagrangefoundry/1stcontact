@@ -99,6 +99,47 @@ const BUSINESS_CHANGED = 'business_changed'
 const DNS_CHANGED = 'dns_changed'
 
 /**
+ * The host's event kind for "the build is still going" ([[REQ-360]]). Its meaning
+ * is `progress-core.ts`'s `PROGRESS`; this is the same string on the client's side
+ * of the wire.
+ */
+const PROGRESS = 'progress'
+
+/** The status line's class, for `builder.css` and for nothing else ([[REQ-360]]). */
+export const PROGRESS_LINE_CLASS = 'builder-chat-progress'
+
+/**
+ * Pass a turn through, showing its build heartbeat as one status line
+ * ([[REQ-360]]).
+ *
+ * A LINE AND NOT A MESSAGE. A heartbeat says *how long it has been*, and the
+ * figure before it is simply out of date — appended to the reply, thirty of them
+ * would be the wall of text this exists to prevent. So each one replaces the last
+ * in a single line that sits between the conversation and the composer, and is
+ * never handed to `webui-chat`, which has no use for the kind.
+ *
+ * GONE THE MOMENT ANYTHING ELSE ARRIVES, which is when it stops being true: the
+ * build has come back and the assistant is talking again. And gone when the
+ * stream ends by any road — `done`, a lost stream, a thrown one — because a line
+ * claiming work is under way, left over a turn that is not, is a worse lie than
+ * the silence it replaced.
+ */
+async function* withProgressLine(events, line) {
+  try {
+    for await (const event of events) {
+      if (event?.kind === PROGRESS) {
+        line.show(String(event.content ?? ''))
+        continue
+      }
+      line.clear()
+      yield event
+    }
+  } finally {
+    line.clear()
+  }
+}
+
+/**
  * Pass a turn through, telling the host each time it reports a write (BUG-43,
  * [[REQ-251]]).
  *
@@ -416,6 +457,34 @@ export function createChatPanel(options = {}) {
   let chat = null
   let sessionId = null
   let sessionKey = null
+
+  /**
+   * The build's status line ([[REQ-360]]) — see {@link withProgressLine}.
+   *
+   * PLACED AFTER THE MESSAGES AND BEFORE THE COMPOSER, which is where the reader's
+   * eye already is while they wait. `webui-chat` publishes no slot for it, so it
+   * goes beside the component's message list rather than inside it: inside, the
+   * next message the component appends would land underneath it.
+   */
+  const progressLine = {
+    el: null,
+    show(text) {
+      if (!this.el?.isConnected) {
+        this.el = document.createElement('div')
+        this.el.className = PROGRESS_LINE_CLASS
+        this.el.setAttribute('role', 'status')
+        this.el.setAttribute('aria-live', 'polite')
+        const messages = element.querySelector('.chat-widget-messages')
+        if (messages) messages.after(this.el)
+        else element.append(this.el)
+      }
+      this.el.textContent = text
+    },
+    clear() {
+      this.el?.remove()
+      this.el = null
+    },
+  }
 
   /**
    * Whether a lost turn is currently being chased, and how many times this
@@ -738,7 +807,7 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(transport.streamPrompt(id, wire), told)
+        return watchForWrites(withProgressLine(transport.streamPrompt(id, wire), progressLine), told)
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
@@ -797,7 +866,7 @@ export function createChatPanel(options = {}) {
     // reloaded page the one place edits happen invisibly, which is the failure
     // that had them reloading in the first place.
     Promise.resolve(
-      chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), told), {
+      chat.resume(watchForWrites(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), told), {
         markdown: seed?.markdown ?? '',
         // THE SEEDED TURN IS A TRANSCRIPT TURN TOO ([[BUG-138]]). It is not
         // appended by the loop above — it is handed to `resume` so the half
@@ -1009,7 +1078,7 @@ export function createChatPanel(options = {}) {
           // held by the one that set it up.
           chasing = false
           Promise.resolve(
-            chat.resume(watchForWrites(transport.streamReattach(id, session.cursor), told), {
+            chat.resume(watchForWrites(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), told), {
               // THE PANEL'S OWN PARTIAL, not the transcript's. What `resume`
               // continues is the bubble on screen, and the origin's fold stops at
               // the cursor the tail is about to resume FROM — so seeding from the

@@ -62,8 +62,21 @@ export interface DelegationSettings {
    * documents are exactly how it gets produced.
    */
   readonly primaryWrites: boolean
+  /**
+   * How often a delegated build tells the client it is still going, in seconds
+   * ([[REQ-360]]). `0` turns the signal off; absent is
+   * {@link DEFAULT_PROGRESS_SECONDS}.
+   */
+  readonly progressSeconds: number
   readonly workers: Readonly<Record<string, WorkerSettings>>
 }
+
+/**
+ * [[REQ-360]] — the heartbeat's cadence when a document does not say. A minute:
+ * a build that finishes inside one says nothing, and one that runs for half an
+ * hour says so thirty times rather than leaving the client looking at silence.
+ */
+export const DEFAULT_PROGRESS_SECONDS = 60
 
 /** A delegation document was malformed, or bound a role to a backend nobody declares. */
 export class DelegationConfigError extends Error {
@@ -122,6 +135,20 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
     )
   }
   const primaryWrites = rawPrimaryWrites ?? false
+  // [[REQ-360]] — a number of seconds, never negative. Refused by name rather
+  // than coerced: a `"60"` read as a string would leave the framework's default
+  // in force and this document saying something it does not do.
+  const rawProgress = mapping.progress_seconds
+  if (
+    rawProgress !== undefined &&
+    (typeof rawProgress !== 'number' || !Number.isFinite(rawProgress) || rawProgress < 0)
+  ) {
+    throw new DelegationConfigError(
+      `delegation 'progress_seconds' must be a number of seconds, 0 or more, got ` +
+        `${JSON.stringify(rawProgress)}`,
+    )
+  }
+  const progressSeconds = rawProgress ?? DEFAULT_PROGRESS_SECONDS
   const rawWorkers = mapping.workers ?? {}
   if (rawWorkers === null || typeof rawWorkers !== 'object' || Array.isArray(rawWorkers)) {
     throw new DelegationConfigError(
@@ -163,7 +190,7 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
     }
     workers[role] = Object.freeze({ backend })
   }
-  return Object.freeze({ enabled, primaryWrites, workers: Object.freeze(workers) })
+  return Object.freeze({ enabled, primaryWrites, progressSeconds, workers: Object.freeze(workers) })
 }
 
 /** The consumer's document, once installed. `null` means "the bundled one". */

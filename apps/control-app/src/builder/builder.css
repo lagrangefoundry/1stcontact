@@ -1078,6 +1078,51 @@ body {
 }
 
 /*
+ * [[REQ-360]] — the build's heartbeat: one quiet line between the conversation
+ * and the composer while a delegated build runs, replaced by each new figure and
+ * gone when the assistant speaks again. Not a message — it is not something the
+ * assistant said — so it carries none of a bubble's look. The dot pulses so a
+ * line that has not changed for a minute still reads as alive; it holds still for
+ * a reader who has asked for less motion.
+ */
+.builder-chat-progress {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--shell-muted, #52525b);
+}
+
+.builder-chat-progress::before {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: builder-chat-progress-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes builder-chat-progress-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .builder-chat-progress::before {
+    animation: none;
+  }
+}
+
+/*
  * [[REQ-364]] — the chat half: the plan panel stacked above the chat, behind a
  * vertical split. The half fills the outer split's pane; the split inside it does
  * the rest.
