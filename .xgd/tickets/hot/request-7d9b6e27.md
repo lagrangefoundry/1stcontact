@@ -6,14 +6,15 @@ title: Tell the user before any long-running operation, with a rough duration (1
   / 5 min / 30 min)
 created_by: xgd
 created_at: '2026-10-04T18:30:59.347301+00:00'
-updated_at: '2026-10-04T18:30:59.347301+00:00'
+updated_at: '2026-10-04T18:43:46.236361+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: epic_parent
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  epic_parent: epic-95bc3b15
 ---
 
 ## What we were trying to do
