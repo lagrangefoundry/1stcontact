@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:19:34.722378+00:00'
+updated_at: '2026-10-04T17:21:15.409625+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -118,5 +118,11 @@ So the recommendation stands, and it's simpler than before:
 - **"It"** in the rare places copy needs a pronoun.
 
 If you'd like this written down, I can draft it as a short copy and voice guideline. That's a documentation change, so it doesn't need a ticket.
+
+<!-- xgd-turn id="19fe3534-3932-4b76-baa6-07c1a987e265-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:21:15.017654+00:00" -->
+#### You
+Yeah I think its worth a short Doc ticket so we don't feel the need to keep revisiting it
 
 <!-- xgd-chat-end -->
