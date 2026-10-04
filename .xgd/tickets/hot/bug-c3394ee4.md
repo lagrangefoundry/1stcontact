@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-dafd81d9
 ---
 
 ## Symptom (Charlie's Plumbing 3, 2026-10-04)
