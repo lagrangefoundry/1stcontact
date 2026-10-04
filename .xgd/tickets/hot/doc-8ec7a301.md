@@ -6,9 +6,9 @@ title: AI naming & pronouns — no name, "I" in conversation, "Consultant" in th
   person
 created_by: CHAT-60
 created_at: '2026-10-04T17:21:58.583241+00:00'
-updated_at: '2026-10-04T17:27:35.017153+00:00'
+updated_at: '2026-10-04T17:27:49.647416+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: null
 fields:
   doc_kind: architecture
@@ -19,7 +19,7 @@ fields:
 ## 1. Decision
 
 - **The AI has no personal name.** In conversation it refers to itself as "I" and to the client as "you".
-- **On third-person surfaces it is called "Consultant"** (in running copy, "your consultant"), and the label is applied consistently. Third-person surfaces are revision history ("Changed by Assistant"), portal AI-activity transparency (DOC-5 policy 27), notifications, emails and help text.
+- **On third-person surfaces it is called "Consultant"** (in running copy, "your consultant"), and the label is applied consistently. Third-person surfaces are revision history ("Changed by Consultant"), portal AI-activity transparency (DOC-5 policy 27), notifications, emails and help text.
 - **Pronoun: write copy so none is needed.** Make the label the subject ("Your consultant updated your hero section"). Where a pronoun is unavoidable, use **"it"**. Do not use "he", "she" or "they".
 - **We do not correct users.** If an owner calls it "he" or "she", that is their relationship with the tool. Our copy does not argue with it.
 
