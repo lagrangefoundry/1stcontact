@@ -5,10 +5,10 @@ type: request
 title: Builder (delegated worker) cannot read the client's uploaded documents
 created_by: xgd
 created_at: '2026-10-04T20:37:43.834612+00:00'
-updated_at: '2026-10-04T21:00:02.989609+00:00'
+updated_at: '2026-10-04T21:24:52.747415+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
