@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:19:19.621918+00:00'
+updated_at: '2026-10-04T17:19:34.722378+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,25 @@ If the answer to the second is yes, the naming question splits into two: one lab
 #### You
 1 - this is a 2 AI one person scenario
 2 - not in any features that we have yet
+
+<!-- xgd-turn id="ec3cd87d-adc4-4248-8ce0-9091939c048c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:19:33.281226+00:00" -->
+#### Claude
+That helps. With two AIs and one person, the names did one job: they told the person which AI was talking. With a single AI, that job is gone. Nothing in the conversation needs a name now, so dropping it doesn't cost you anything.
+
+There are three places where the old setup could come back:
+
+- **Hidden delegation showing through.** If the one visible AI hands work to other agents behind the scenes, keep that out of the conversation: "I've checked the forms," not "the reviewer found…". The moment a second agent appears in the UI, you're back to needing names. If you ever do need to show it, use role labels like "Review" or "Build", not personas.
+- **Existing users.** Anyone who used the two-AI version may already know those names. Give them one line of transition copy at most. Don't explain it at length, or the change becomes bigger than it needs to be.
+- **Customer-facing features later.** None exist yet, so you don't need a disclosure rule today. Still, choose the role label now so it will work unchanged in customer-facing copy if that comes. A function word like "Assistant" will. A cute coined name will just need another rename later.
+
+So the recommendation stands, and it's simpler than before:
+
+- **No name.** The AI uses "I" in conversation.
+- **One plain role label** wherever it's mentioned in the third person: revision history, portal activity, notifications.
+- **"It"** in the rare places copy needs a pronoun.
+
+If you'd like this written down, I can draft it as a short copy and voice guideline. That's a documentation change, so it doesn't need a ticket.
 
 <!-- xgd-chat-end -->
