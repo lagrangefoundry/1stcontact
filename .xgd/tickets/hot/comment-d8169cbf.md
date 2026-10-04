@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:54:26.989215+00:00'
+updated_at: '2026-10-04T00:57:23.793303+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6690,5 +6690,14 @@ Two details I added inside your three, both small but necessary:
 - **The client's own edits in the builder respect the same locks.** Otherwise a hand edit and a builder session can still overwrite each other.
 
 Underneath piece 3, the framework still has to run builder sessions concurrently. That becomes a lagrange-framework child ticket once 1 and 2 have a shape.
+
+<!-- xgd-turn id="3f076e1b-d236-493d-a06b-b6a16ea0859d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:57:22.347708+00:00" -->
+#### You
+ok so one of Alice's questions was for images...3 issues:
+1) The question asked for images, the uploader only allowed one file to be uploaded
+2) The purpose of the images was to add them to the site but they were classified as background material so Alice can't use them
+3) Both me and Alice should have controls to promote such an image to use it on the site - neither of us do
 
 <!-- xgd-chat-end -->
