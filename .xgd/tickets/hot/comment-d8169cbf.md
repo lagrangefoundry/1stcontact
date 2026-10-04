@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:37:57.702786+00:00'
+updated_at: '2026-10-04T00:38:46.986496+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6571,5 +6571,26 @@ Still open from the last turn: I haven't yet filed the cadence and milestone tic
 <!-- xgd-chat role="user" ts="2026-10-04T00:37:57.511851+00:00" -->
 #### You
 Alice said: "I'll start with the first services section to set the pattern, and redo the page's opening in parallel." <-- does our delegation tool support that? It would be cool if it did...
+
+<!-- xgd-turn id="2be028d7-1ee8-451c-8157-ebf3dc07bb01-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:38:45.387319+00:00" -->
+#### Claude
+I've checked the framework's tool loop and the Charlie 2 records.
+
+**No, it doesn't run them in parallel, so Alice told Charlie something untrue.** If she asks for two builders in a single response, the framework's tool loop still runs them strictly one after another: it waits for each tool call to finish before starting the next (`api_tools.js`, about line 1149). Charlie 2's records confirm it. In the turn where she said "in parallel", her five builder sessions finished at 23:21, 23:22, 23:26, 23:28 and 23:29, one at a time with no overlap. Nothing in her tool manual tells her this, so she assumed.
+
+**It would be well worth having.** Her long turns, 17, 28 and 10 minutes, are mostly builder sessions queued end to end, so running independent ones side by side would shorten the waits that hurt the experience most. It's not free, though:
+
+- **The loop has to run them concurrently.** That's a framework change. It should be opt-in per tool: builder sessions can overlap, but most tools shouldn't.
+- **Two builders writing the same page could overwrite each other.** That's the real risk. Alice's own example, a services section plus the page's opening, is two builders on one page. So parallel work needs either separate scopes (different pages, or different sections of a page with each builder confined to its own), or a store that refuses a write based on a stale read. I haven't yet checked which guard our site store has. There is a `site_revision_claims` table, which suggests some protection, but I'd confirm before relying on it.
+- **Spend and limits.** Total cost is roughly the same, but it lands at once, and both builders run up against API rate limits together.
+
+What I'd do:
+1. **Now, as a prompt change with no ticket:** add one line to the builder-session tool description saying they run one at a time, so Alice stops promising parallel work.
+2. **A lagrange-framework ticket:** tools marked as safe to overlap, such as builder sessions, run concurrently when requested in the same response, with a cap on how many at once.
+3. **On our side, folded into that work:** confirm the site store refuses a write made against a stale read, and have Alice give each parallel builder a scope that doesn't overlap the others.
+
+Shall I do the prompt fix and file the framework ticket?
 
 <!-- xgd-chat-end -->
