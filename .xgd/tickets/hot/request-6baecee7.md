@@ -6,15 +6,23 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-04T12:37:47.431264+00:00'
+updated_at: '2026-10-04T12:38:10.963044+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-aba7cf65
+  commits:
+  - working_sha: 302d79e26b09db3e05e4379bb2d8f0c488777084
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5f4baee11d6c5216b1201da29f3e7682268cb57b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.477
 ---
 
 > **Status: built (2026-10-04).** lagrange-framework REQ-205 landed. The 1st Contact side is the build heartbeat; see "As built" at the end. The interim notice turned out to be covered already by REQ-379, so `GroupSay` is not granted to the 1:1 consultant.
