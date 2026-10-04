@@ -17,6 +17,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-068553ef
 ---
 
 # capture: a carousel's clip is recorded at the slide, not at the swiper that cuts it — plus a band whose bottom is not a section edge loses its height response
