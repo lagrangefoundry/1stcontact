@@ -6,10 +6,10 @@ title: 'capture: a variable font face collapses to its lowest declared weight, a
   a whole-page wrapper is captured as one band'
 created_by: repro-console:repro-joyfulculinarycreations-com#2
 created_at: '2026-09-27T00:01:14.275133+00:00'
-updated_at: '2026-09-27T01:19:51.907843+00:00'
+updated_at: '2026-10-04T04:54:48.054665+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - capture-loses-it
