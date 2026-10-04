@@ -44,6 +44,7 @@ import {
   listDeletedMaterial,
   listMaterial,
   readMaterial,
+  materialText,
   promoteToSiteAsset,
   storedImageOf,
   NotRepublishableError,
@@ -173,6 +174,15 @@ export function chatLibrary(
         // assistant is given the same account of a file the client is.
         description: full.body,
       }
+    },
+
+    /**
+     * [[REQ-387]] — the document's own words, as `KnowledgeGet` reads them. The
+     * name has already resolved against the catalogue, so this reaches material
+     * and nothing else.
+     */
+    async text(name: string): Promise<string | null> {
+      return materialText(tickets, name)
     },
 
     /**

@@ -1531,14 +1531,22 @@ async function build(
   // conversation. See {@link l1SurfaceSet}.
   //
   // WHAT IT COMPOSES IS THE L1 SURFACE, THE CAMERA, THE MANUAL AND — WHERE THIS
-  // DEPLOYMENT HAS ONE — THE PLATFORM REFERENCE, and deliberately nothing else:
-  // no client corpus, no ledger, no catalogue, no session context. A worker is
-  // handed a bounded piece of work and reports. The ledger and the catalogue are
-  // the ENGAGEMENT's, and a worker writing to either would be a second author on
-  // a record that exists to say what the consultant and their client settled.
-  // The client's corpus is out for the reason the builder's prose gives: the
-  // worker never sees the conversation and must not form its own view of what
-  // the client wants.
+  // DEPLOYMENT HAS THEM — THE PLATFORM REFERENCE AND THE CLIENT'S LIBRARY READ-ONLY,
+  // and deliberately nothing else: no client corpus, no ledger, no catalogue
+  // write, no session context. A worker is handed a bounded piece of work and
+  // reports. The ledger and the catalogue are the ENGAGEMENT's, and a worker
+  // writing to either would be a second author on a record that exists to say
+  // what the consultant and their client settled. The client's corpus is out for
+  // the reason the builder's prose gives: the worker never sees the conversation
+  // — which that corpus indexes — and must not form its own view of what the
+  // client wants.
+  //
+  // READING THE LIBRARY IS IN ([[REQ-387]]), because neither reason touches it.
+  // A brief that says *use the testimonials in DOC-7 verbatim* names material
+  // the client handed over, not a conversation; a worker that cannot open it puts
+  // a placeholder on the page and spends its calls looking. The grant is the
+  // coordinator's, derived from the declaration, so it can read and never place,
+  // re-role or delete.
   //
   // THE SYSTEM KB IS IN ([[REQ-355]]), read-only, because neither reason touches
   // it — it is our reference, not the engagement's record or the client's words.
@@ -1562,6 +1570,8 @@ async function build(
           extraSurfaces: [
             ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
             ...(workerKnowledge ? [workerKnowledge.surface()] : []),
+            // [[REQ-387]] — THE CLIENT'S LIBRARY, READ-ONLY.
+            ...(await readOnlyLibrary(lib, deps, slug)),
           ],
         },
       )
@@ -2246,6 +2256,30 @@ function newGroupWiring(lib: Untyped): GroupWiring {
 }
 
 /**
+ * The client's Library under a READ-ONLY grant, or nothing where this host keeps
+ * no Library — for every role that may look at the catalogue but not change it:
+ * the coordinator ([[REQ-364]]) and the delegated builder ([[REQ-387]]).
+ *
+ * THE GRANT IS DERIVED, NOT LISTED ({@link readOnlyGrant}), so a write group
+ * added to the declaration later is withheld from both with no edit here. A FRESH
+ * surface per call, never the consultant's instance: a Toolbox binds each surface
+ * to the grant it was built with.
+ */
+async function readOnlyLibrary(
+  lib: Untyped,
+  deps: HostDeps,
+  slug: string,
+): Promise<{ surface: Untyped; granted: Record<string, unknown> }[]> {
+  if (!deps.library) return []
+  return [
+    {
+      surface: await librarySurfaceFor(lib, deps.library(slug)),
+      granted: readOnlyGrant(libraryInstanceConfig(), [LIBRARY_DECLARATION]),
+    },
+  ]
+}
+
+/**
  * The coordinator: its read-only box, its backend and its role ([[REQ-357]]).
  *
  * READ ACCESS TO WHAT THE CONSULTANT CAN SEE, AND NOTHING THAT WRITES. The L1
@@ -2297,14 +2331,7 @@ async function composeCoordinator(
               },
             ]
           : []),
-        ...(deps.library
-          ? [
-              {
-                surface: await librarySurfaceFor(lib, deps.library(slug)),
-                granted: readOnlyGrant(libraryInstanceConfig(), [LIBRARY_DECLARATION]),
-              },
-            ]
-          : []),
+        ...(await readOnlyLibrary(lib, deps, slug)),
         { surface: new lib.GroupToolbox(wiring.coordinator), granted: lib.groupInstanceConfig() },
       ],
     },

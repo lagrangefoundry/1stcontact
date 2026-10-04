@@ -70,6 +70,34 @@ export const LIBRARY_SURFACE = 'library'
 export const LIBRARY_PAGE = 20
 
 /**
+ * How many characters of a document's own text one `get_library_item` returns
+ * ([[REQ-387]]).
+ *
+ * BOUNDED FOR THE SMALLER WINDOW. The reader this exists for is a delegated
+ * worker, held to its own (smaller) context ceiling, and a whole brand book in
+ * one tool result is how that ceiling is met halfway through a build. A page
+ * this size holds a services page's wording or a set of testimonials whole, and
+ * the answer says where the next one starts, so nothing is ever cut silently.
+ */
+export const LIBRARY_TEXT_PAGE = 20_000
+
+/** One page of an item's text, and where the next one starts — or `text: null` where there is none. */
+function textPage(
+  whole: string | null,
+  from: unknown,
+): { text: string | null; text_from: number; text_total: number; text_next: number | null } {
+  if (whole === null) return { text: null, text_from: 0, text_total: 0, text_next: null }
+  const start = Number.isInteger(from) && (from as number) > 0 ? Math.min(from as number, whole.length) : 0
+  const end = Math.min(start + LIBRARY_TEXT_PAGE, whole.length)
+  return {
+    text: whole.slice(start, end),
+    text_from: start,
+    text_total: whole.length,
+    text_next: end < whole.length ? end : null,
+  }
+}
+
+/**
  * One catalogue item, as the host reports it.
  *
  * IT EXTENDS {@link StoredImage} rather than restating its fields, and that is
@@ -176,6 +204,17 @@ export interface LibraryDeps {
   deleted(): Promise<CatalogueItem[]>
   /** One item in full: the row, plus what the describer wrote about it. */
   read(name: string): Promise<CatalogueItem & { description: string }>
+  /**
+   * The item's OWN extracted text, whole, or `null` where it has none — [[REQ-387]].
+   *
+   * NOT THE DESCRIPTION. For a document the description is a digest written so
+   * the item can be found again; a builder told to take a client's testimonials
+   * verbatim needs the words themselves. This is the same text the knowledge
+   * surface's `KnowledgeGet` reads for the material, reached through the catalogue
+   * so a worker that is never handed the client's corpus can still read what the
+   * client gave it. Paging is {@link libraryOperations}'s, not the host's.
+   */
+  text(name: string): Promise<string | null>
   /**
    * Put the item's bytes on the site, and report where they landed.
    *
@@ -421,6 +460,10 @@ export function libraryOperations(
         // listing deliberately omits it and this fetches the one that was asked
         // for. It is also what the alt text is written from.
         description: full.description,
+        // [[REQ-387]] — AND THE WORDS THEMSELVES, ONLY WHEN ASKED. Without the
+        // flag the answer is what it always was, so no session pays for text it
+        // did not want.
+        ...(p.text === true ? textPage(await deps.text(item.name), p.from) : {}),
       }
     },
 

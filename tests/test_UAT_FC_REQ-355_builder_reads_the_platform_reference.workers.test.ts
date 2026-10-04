@@ -309,12 +309,14 @@ describe('REQ-355 — the builder can search the platform reference', () => {
     const [first] = await delegateAndCapture('fence', WITH_KB)
     const offered = toolNames(first)
 
-    // BEHAVIOUR 4. Unchanged from before this ticket, and now asserted: the
-    // engagement's record and the client's catalogue are not the worker's to read
-    // or write, and it cannot hand the work on again.
+    // BEHAVIOUR 4. The engagement's record is not the worker's to read or write,
+    // the client's catalogue is not its to WRITE, and it cannot hand the work on
+    // again. Reading the catalogue is [[REQ-387]]'s, which narrowed this fence.
     const fenced = [
       ...(ledgerSurface.operations as { op: string; tool?: string }[]),
-      ...(librarySurface.operations as { op: string; tool?: string }[]),
+      ...(librarySurface.operations as { op: string; tool?: string; effect: string }[]).filter(
+        (operation) => operation.effect !== 'read',
+      ),
     ].map((operation) => operation.tool ?? operation.op)
     for (const tool of fenced) expect(offered).not.toContain(tool)
     expect(offered).not.toContain(DELEGATE_TOOL)

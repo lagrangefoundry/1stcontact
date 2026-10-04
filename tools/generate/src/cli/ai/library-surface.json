@@ -1,7 +1,7 @@
 {
   "surface": "library",
   "version": 1,
-  "surface_version": 4,
+  "surface_version": 5,
   "title": "The client's Library — everything they have given you",
   "call_type": "inproc",
   "overview": "Your client has a Library, and this is it. Every file they have dropped on a conversation is here — their logo, their photographs, their brand guidelines, the font their signwriter used — along with every picture you have generated for them. It is the same list they see on their own Library tab, and it is the catalogue of what this engagement has to work with.\n\n**Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. Do not think of these as two stores; think of one catalogue with a mark on some of its entries.\n\n**This is not the same list as `list_assets`, and the difference is real.** `list_assets` answers *what can this site reference today* — every file the site holds, including drawings you made yourself. This answers *what has the client given us*. The two overlap exactly where `placed_on` says they do. When you want to put a picture on a page that is already on the site, `list_assets` is your list; when you want to know what the client actually has, this one is.\n\n**Say the number, not the name you call it by.** Every item here has a number your client can see on their own Library row — `IMAGE-5`, `DOC-7`. It is the only name the two of you share: the catalogue name is a handle nobody says out loud, and a title is not unique — three pictures made from one request arrive titled the same, which is the whole reason the number exists. So say *\"the crucible, IMAGE-5\"* when you talk to your client about a picture, and expect them to say it back to you. This is not internal vocabulary and it is not a thing to hide from them: it is a catalogue number, the way a gallery or a print shop gives one, and it is theirs as much as yours.\n\n**Look before you ask.** You can see every picture in here — `screenshot` takes the name this catalogue gives you, unchanged. A client who has given you three photographs and been asked which one is best, by someone who never looked at them, has been given nothing. Read the catalogue, look at the pictures, form a view, and say it.",
@@ -31,7 +31,11 @@
       "source_url": "where it was fetched from, for anything we pulled rather than the client handed over",
       "edits": "what has been done to this picture — the recipe list_image_edits reads",
       "described": "whether it has been described yet, and by what",
-      "updated_at": "when the record last changed"
+      "updated_at": "when the record last changed",
+      "text": "ONLY WHEN YOU ASKED WITH text: true. The document's own words, exactly as the client gave them — one page of them, starting at text_from. This is what to quote from when a brief says to use the client's wording verbatim. null when the item has no text of its own: a picture, a font, or a document nothing could be read out of",
+      "text_from": "only with text: true — where in the whole text this page starts",
+      "text_total": "only with text: true — how long the whole text is, in characters",
+      "text_next": "only with text: true — pass this as from to read the next page. null means this page reaches the end: you have all of it"
     },
     "placement": {
       "item": "the catalogue item that was placed",
@@ -124,11 +128,19 @@
       "tool": "get_library_item",
       "effect": "read",
       "summary": "Read one catalogue item in full, including what it was described as.",
-      "description": "Everything the listing carries, plus the **description** — what the describer wrote about this file when it arrived, which for a picture is what it shows and for a document is what it says.\n\nRead this before you place a picture. The description is what your alt text should be written from, and it is the only account of a document's contents you get without the client reading it to you.\n\nName it however you are holding it: the catalogue name, the client's filename, or the Library's title.",
+      "description": "Everything the listing carries, plus the **description** — what the describer wrote about this file when it arrived, which for a picture is what it shows and for a document is what it says.\n\nRead this before you place a picture. The description is what your alt text should be written from. For a document it is a short account of what it says, written so the document can be found again — not the document itself.\n\nName it however you are holding it: the catalogue name, the client's filename, or the Library's title.\n\n**When you need a document's actual words**, ask with `text: true`. The answer then carries the text itself, one page at a time, and says where the next page starts — so a brief that says *use the client's testimonials verbatim* is answered by reading them, never by paraphrasing the description.",
       "params": {
         "item": {
           "type": "item_name",
           "required": true
+        },
+        "text": {
+          "type": "boolean",
+          "description": "True to have the answer carry the item's own text — a document's actual words — one page at a time. Leave it out when the description is enough."
+        },
+        "from": {
+          "type": "integer",
+          "description": "With text: true, where in the text to start reading. Leave it out for the beginning; pass the text_next the previous answer gave you for the next page."
         }
       },
       "returns": {
