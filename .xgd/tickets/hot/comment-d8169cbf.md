@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:54:43.593830+00:00'
+updated_at: '2026-10-04T20:55:10.947444+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7078,5 +7078,13 @@ The comp viewer's desktop/phone toggle will use the same control styling.
 <!-- xgd-chat role="user" ts="2026-10-04T20:54:42.801079+00:00" -->
 #### You
 Good - also not on BUG-202 that Alice did pull a different comp on a second round
+
+<!-- xgd-turn id="b58e410a-6f84-405c-83c2-144e4ac5dbaa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T20:55:07.289791+00:00" -->
+#### Claude
+I've added a correction to BUG-202, and the records back you up. My earlier claim that she never searched only covered the first two turns. Across the whole session the turn records show **one** web search, in the turn that started at 18:30. From it she added **"Bay Area Construction & Plumbing | Full Steam Ahead"** to the board at 18:47, next to your Duncan Plumbing.
+
+So search works and Alice will use it, which is good news for LF REQ-206. What's still wrong is the timing: she searched only once your list turned out thin, and ran one search for one comp. The fix in BUG-202 stands: she should search in the same turn she asks you who you compete with, and aim for the full mix from the start, not treat search as a fallback.
 
 <!-- xgd-chat-end -->
