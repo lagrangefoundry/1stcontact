@@ -272,6 +272,14 @@ export interface RawField extends RawGeometry {
   src?: string | null
   /** REQ-92 — a media element's `alt` text, else null (the L1 `image` leaf's `alt`). */
   alt?: string | null
+  /**
+   * REQ-380 — for an inline-SVG icon that is a link's only ink, the SVG's
+   * self-contained markup (computed paint written onto each node), which the
+   * capture pipeline writes into the bundle as the asset {@link src} names
+   * (`assets/inline-svg-<hash>.svg`). Null for every other element. Raw-only:
+   * no manifest or `capture.json` field carries it.
+   */
+  svgMarkup?: string | null
   /** BUG-27 — the element's own painted `background-color` (`#rrggbb`), else null.
    *  A backdrop layers its image over this fill; without it the image reproduces
    *  unshaded. Named to match {@link RawRun.surfaceFill}, which the fold reads. */
@@ -1248,6 +1256,8 @@ export const EXTRACT_SCRIPT = `(() => {
     var v = s && s.whiteSpace;
     return (v === 'break-spaces' || v === 'pre-wrap') ? v : null;
   }
+  // REQ-380 -- a preserved run's text as the browser lays it out: verbatim.
+  function keptWs(t) { return (t || '').replace(/\\r\\n?/g, '\\n'); }
   // Largest painted corner radius (px). Rounded-vs-square is visually obvious but
   // tiny in pixels, so it is captured as an explicit rendered value, not left to
   // an image diff to (barely) see.
@@ -2785,11 +2795,18 @@ export const EXTRACT_SCRIPT = `(() => {
         continue;
       }
       if (!t) { pendingSpace = true; continue; }
+      // REQ-370 -- the edge spaces stay where they take width.
+      // REQ-380 (issue 2) -- and so does EVERY space: under break-spaces/pre-wrap
+      // the browser keeps a run of spaces whole and gives each its advance, so
+      // collapsing "together.  Through" to one space set the rest of that line one
+      // space-width left of the reference (3.09px on a centred run, half of it the
+      // round's only CRITICAL delta). Both values keep segment breaks too, so a
+      // newline stays a newline; only CRLF is normalised, as the parser does.
+      var preserved = preservedWhiteSpaceOf(getComputedStyle(owner));
+      if (preserved) flow = keptWs(n.nodeValue);
       if (pendingSpace && flow.charAt(0) !== ' ') flow = ' ' + flow;
       pendingSpace = false;
-      // REQ-370 -- the edge spaces stay where they take width (collapsed to one,
-      // as the extractor collapses every run, so markup indentation is not text).
-      var kept = preservedWhiteSpaceOf(getComputedStyle(owner)) ? collapseWs(n.nodeValue) : t;
+      var kept = preserved ? keptWs(n.nodeValue) : t;
       nodes.push({ node: n, el: owner, text: kept, flow: flow });
       runCounts.set(owner, (runCounts.get(owner) || 0) + 1);
     }
@@ -3089,6 +3106,71 @@ export const EXTRACT_SCRIPT = `(() => {
     if (!isNaN(fo) && fo < 0.999) return null;
     return rgbToHex(ss.fill);
   }
+  // REQ-380 (issue 3) -- an inline <svg> that is the ONLY ink of a link or button.
+  //
+  // REQ-370 left every SVG but a rectangle panel unrecorded, which is right for a
+  // decorative glyph beside its own label and wrong for this: a footer's social
+  // links are each an <a href> holding a 24x24 <svg> and nothing else, so the
+  // capture held no element, no href and no name for any of them, and the
+  // reproduction painted the bare band where the reference has four white icons
+  // (bluelotusintegralhealing.com: 14.2% of the ranked score at zero deltas).
+  //
+  // The icon is recorded as a MEDIA field -- the record an <img> gets -- whose
+  // src names a bundle asset the pipeline writes from \`svgMarkup\`, so the fold
+  // emits the linked image leaf it already knows how to make. Returns the host,
+  // or null when the host has copy or other media of its own (then the SVG is a
+  // decoration beside it, and stays unrecorded as before).
+  var ICON_HOST_SEL = 'a[href], button, [role="button"], [role="link"]';
+  function svgIconHostOf(svg) {
+    var host = svg.parentElement && svg.parentElement.closest ? svg.parentElement.closest(ICON_HOST_SEL) : null;
+    if (!host || host.querySelectorAll('svg').length !== 1 || host.querySelector('img')) return null;
+    var walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+    for (var tn = walker.nextNode(); tn; tn = walker.nextNode()) {
+      if (!svg.contains(tn) && trimWs(collapseWs(tn.nodeValue))) return null;
+    }
+    return host;
+  }
+  // The paint an icon takes from the page's CSS, written onto each node as a
+  // presentation attribute so the markup paints the same with no stylesheet
+  // around it -- above all \`fill: currentColor\`, which resolves against the
+  // link's colour and would otherwise turn black.
+  var SVG_PAINT_PROPS = ['fill', 'fill-opacity', 'fill-rule', 'stroke', 'stroke-width',
+    'stroke-opacity', 'stroke-linecap', 'stroke-linejoin', 'opacity'];
+  function svgIconMarkupOf(svg) {
+    var clone = svg.cloneNode(true);
+    var from = [svg].concat(Array.prototype.slice.call(svg.querySelectorAll('*')));
+    var to = [clone].concat(Array.prototype.slice.call(clone.querySelectorAll('*')));
+    for (var i = 0; i < from.length; i++) {
+      var cs = getComputedStyle(from[i]);
+      var read = false;
+      for (var p = 0; p < SVG_PAINT_PROPS.length; p++) {
+        var v = cs.getPropertyValue(SVG_PAINT_PROPS[p]);
+        if (v) { to[i].setAttribute(SVG_PAINT_PROPS[p], v); read = true; }
+      }
+      to[i].removeAttribute('class');
+      if (read) to[i].removeAttribute('style');
+    }
+    // XMLSerializer writes the SVG namespace onto the root itself.
+    var color = getComputedStyle(svg).color;
+    if (color) clone.setAttribute('color', color);
+    return new XMLSerializer().serializeToString(clone);
+  }
+  // FNV-1a: the asset name is the markup's own hash, so every width of the ladder
+  // that sees the same icon names the same file.
+  function hash32(s) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ('0000000' + h.toString(16)).slice(-8);
+  }
+  function svgIconOf(svg) {
+    var host = svgIconHostOf(svg);
+    if (!host) return null;
+    var markup = svgIconMarkupOf(svg);
+    var title = svg.querySelector('title');
+    var name = (host.getAttribute('aria-label') || host.getAttribute('title') ||
+      (title ? title.textContent : '') || '');
+    return { src: 'assets/inline-svg-' + hash32(markup) + '.svg', markup: markup, alt: collapseText(name) };
+  }
   function fieldsUnder(root, excludes) {
     var out = [];
     var cands = [];
@@ -3100,8 +3182,10 @@ export const EXTRACT_SCRIPT = `(() => {
     var svgs = root.querySelectorAll('svg');
     for (var si = 0; si < svgs.length; si++) {
       var panelFill = svgPanelFillOf(svgs[si]);
-      if (!panelFill) continue;
-      cands.push({ el: svgs[si], bgUrl: null, fill: panelFill });
+      // REQ-380 -- or the only ink of a link (svgIconOf).
+      var icon = panelFill ? null : svgIconOf(svgs[si]);
+      if (!panelFill && !icon) continue;
+      cands.push({ el: svgs[si], bgUrl: null, fill: panelFill, icon: icon });
       added++;
     }
     // REQ-366 -- an empty element whose only ink is a border rule (borderRuleOf).
@@ -3134,7 +3218,10 @@ export const EXTRACT_SCRIPT = `(() => {
       if (el.type === 'hidden') continue;
       if (!visible(el)) continue;
       if (moduleInvariant(el)) continue;
-      if (excludes && insideAny(el, excludes)) continue;
+      // REQ-380 -- except an icon link: a row of identical icon links is very
+      // often the band's repeated-item group itself, and an item records only its
+      // text runs, so excluding the icon there would lose it by construction.
+      if (excludes && !cands[i].icon && insideAny(el, excludes)) continue;
       var s = getComputedStyle(el);
       var an = accessibleNameOf(el);
       var isImg = el.tagName.toLowerCase() === 'img';
@@ -3154,6 +3241,10 @@ export const EXTRACT_SCRIPT = `(() => {
       // REQ-308 -- the control's own type (see controlTypographyOf). Null for
       // every text-free element that is not a form control.
       var fieldType = controlTypographyOf(el, s);
+      // REQ-380 -- an icon link's SVG (svgIconOf) is recorded as media: its box
+      // gives the aspect an <img> would report from its natural size.
+      var iconRec = cands[i].icon || null;
+      if (iconRec && fieldBox && fieldBox.height > 0) intrinsicAspect = Math.round((fieldBox.width / fieldBox.height) * 100) / 100;
       var fieldRecord = {
         box: fieldBox,
         borderRadiusPx: frame ? frame.borderRadiusPx : borderRadiusOf(s, fieldBox),
@@ -3192,13 +3283,16 @@ export const EXTRACT_SCRIPT = `(() => {
         clip: clipOf(frame ? frame.el : el),
         // REQ-377 -- what pins this element to the viewport, if anything does.
         sticky: stickyOf(frame ? frame.el : el),
-        objectFit: isImg ? (s.objectFit || 'fill') : null,
+        objectFit: isImg ? (s.objectFit || 'fill') : iconRec ? 'contain' : null,
         // REQ-63 — how the image crops within its box (default '50% 50%').
         objectPosition: isImg ? (s.objectPosition || '50% 50%') : null,
         intrinsicAspect: intrinsicAspect,
         // REQ-92 — the media substance an L1 image leaf needs (resolved src + alt).
-        src: isImg ? (el.currentSrc || el.src || null) : null,
-        alt: isImg ? (el.alt || '') : null,
+        src: isImg ? (el.currentSrc || el.src || null) : iconRec ? iconRec.src : null,
+        alt: isImg ? (el.alt || '') : iconRec ? iconRec.alt : null,
+        // REQ-380 -- the icon's self-contained markup, which the pipeline writes to
+        // the bundle as the asset \`src\` names. Never projected into a manifest.
+        svgMarkup: iconRec ? iconRec.markup : null,
         // BUG-27 — the painted CSS background image this box carries (absolute URL),
         // null for every other text-free element. Distinct from src: it folds to a
         // box leaf painted BEHIND content, not an image leaf placed in flow.

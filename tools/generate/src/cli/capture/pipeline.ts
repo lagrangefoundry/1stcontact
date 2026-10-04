@@ -125,6 +125,29 @@ function buildAssets(responses: CapturedResponse[], documentUrl: string, images:
   return { assets, assetBytes, urlToLocal }
 }
 
+/**
+ * REQ-380 (issue 3) — mirror each inline-SVG icon the extractor recorded.
+ *
+ * An inline `<svg>` has no response to intercept, so {@link buildAssets} never
+ * sees it; the extractor hands over its markup instead, under the bundle path
+ * the field's `src` already names. Written as an ordinary `image` asset whose
+ * origin IS that path, so `localizeAssets` resolves it like any mirrored image.
+ */
+function addInlineSvgAssets(signals: RawSignals, build: AssetBuild): void {
+  for (const band of signals.bands) {
+    for (const f of band.fields ?? []) {
+      if (!f.svgMarkup || !f.src || build.assetBytes.has(f.src)) continue
+      build.assetBytes.set(f.src, new TextEncoder().encode(f.svgMarkup))
+      const asset: CaptureAsset = { id: f.src.split('/').pop()!, kind: 'image', src: f.src, localPath: f.src }
+      if (f.box) {
+        asset.width = Math.round(f.box.width)
+        asset.height = Math.round(f.box.height)
+      }
+      build.assets.push(asset)
+    }
+  }
+}
+
 /** Pull the original server HTML (the AI's cheap archive, DOC-13 §4). */
 function rawHtmlOf(responses: CapturedResponse[], documentUrl: string): string {
   const doc =
@@ -275,7 +298,9 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
     const renderedHtml = await driver.content()
     const responses = driver.responses()
 
-    const { assets, assetBytes, urlToLocal } = buildAssets(responses, url, signals.images)
+    const built = buildAssets(responses, url, signals.images)
+    addInlineSvgAssets(signals, built)
+    const { assets, assetBytes, urlToLocal } = built
 
     // BUG-12 — union the in-page CSSOM faces (same-origin) with faces recovered
     // from cached stylesheet bytes (cross-origin, which the CSSOM blocks), so a

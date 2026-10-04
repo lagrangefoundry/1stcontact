@@ -184,8 +184,15 @@ import type { Capture } from './types'
  *   `fixed`), so a fold can hold a header the way the page does. (c) A run over
  *   an inline-SVG panel records the panel's fill as its `surfaceFill` (and the
  *   panel as its `surface`, flagged `panel`), not the band behind the panel.
+ * - **18** — REQ-380: two things bluelotusintegralhealing.com (a Zyro page)
+ *   showed. (a) A run whose `white-space` preserves spaces keeps EVERY space and
+ *   segment break in its `text`, not one per run of them: a pre-18 bundle holds
+ *   "together. Through" where the page lays out "together.  Through", one space
+ *   advance short. (b) An inline `<svg>` that is the only ink of a link is
+ *   recorded as a media field (`src` → a mirrored `assets/inline-svg-*.svg`,
+ *   `alt` from the link's name, `href`), so the reproduction can draw it at all.
  */
-export const CAPTURE_SCHEMA = 17
+export const CAPTURE_SCHEMA = 18
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -590,6 +597,20 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // A page with no SVG panel records none however new its extractor is — the
     // `href` asymmetry — so this only ever removes the axis from a finding.
     present: (c) => runs(c).some((r) => (r.surface as { panel?: unknown } | null | undefined)?.panel === true),
+  },
+  {
+    since: 18,
+    axis: 'every preserved space in a break-spaces / pre-wrap run (text)',
+    where: 'a content run (`sections[].content[]`)',
+    // A collapsed run and a page that never doubled a space read the same, so
+    // the visible evidence is a doubled space or a newline in a preserving run.
+    present: (c) => runs(c).some((r) => r.whiteSpace != null && /  |\n/.test(String(r.text ?? ''))),
+  },
+  {
+    since: 18,
+    axis: 'an inline-SVG icon link (src → assets/inline-svg-*.svg)',
+    where: 'a media field (`sections[].fields[]`)',
+    present: (c) => fields(c).some((f) => typeof f.src === 'string' && f.src.startsWith('assets/inline-svg-')),
   },
 ]
 
