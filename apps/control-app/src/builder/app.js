@@ -1038,7 +1038,11 @@ export function mountBuilder(root, options = {}) {
    * The plan panel, above the chat ([[REQ-364]]). It renders the site's plan and
    * nothing else, so it is told only which site, and when the plan may have moved.
    */
-  const planPanel = createPlanPanel(planTransport ? { transport: planTransport } : {})
+  const planPanel = createPlanPanel({
+    ...(planTransport ? { transport: planTransport } : {}),
+    // [[BUG-196]] — the delete confirmation an answered upload opens mounts in the shell.
+    getModalHost: () => shell.element,
+  })
 
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),

@@ -93,6 +93,13 @@ export const CHOICE_INPUTS: readonly string[] = ['single_choice', 'multi_choice'
  */
 export const NEEDED_BY = ['first_pass', 'revision', 'prelaunch'] as const
 export const ASK_STATUSES = ['open', 'answered', 'skipped', 'withdrawn'] as const
+/**
+ * [[BUG-196]] — what an upload ask's files are FOR: the Library's two roles. `site`
+ * is something the client wants on the site (photographs, a logo) and is
+ * republishable as it lands; `reference` is background reading. Absent reads as
+ * `reference`, so nothing lands on the site's side unasked.
+ */
+export const UPLOAD_ROLES = ['site', 'reference'] as const
 /** Who an answer is recorded as coming from: the client, or the agent that filled it. */
 export const CLIENT = 'client'
 export const ASK_ANSWERERS: readonly string[] = [CLIENT, 'consultant', 'coordinator']
@@ -164,14 +171,21 @@ export interface PlanAsk {
   options?: string[]
   /** "Or upload a document instead." */
   accepts_upload?: boolean
+  /** [[BUG-196]] — what its uploads are for. Absent is `reference`. */
+  upload_role?: string
+  /** [[BUG-196]] — whether one pick may carry several files. Absent: only for a `site` ask. */
+  multiple?: boolean
   needed_by: string
   /** The agent cannot proceed without it. */
   blocking: boolean
   status: string
   /** A typed value, or the option(s) picked. */
   answer?: string | string[]
-  /** The material ticket uid of an uploaded file that answers it. */
-  answer_material?: string
+  /**
+   * The material ticket uid of an uploaded file that answers it — or, when one
+   * pick carried several files ([[BUG-196]]), every one of their uids.
+   */
+  answer_material?: string | string[]
   /** `client`, or the agent that filled it in from client material. */
   answered_by?: string
   answered_at?: string
@@ -365,6 +379,19 @@ export function checkPlan(fields: PlanFields): void {
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
 
+/** Every material an ask's answer cites, one or several ([[BUG-196]]). */
+export function askMaterials(a: Pick<PlanAsk, 'answer_material'>): string[] {
+  const m = a.answer_material
+  return (Array.isArray(m) ? m : m === undefined ? [] : [m]).filter(filled)
+}
+
+/** What an upload ask's files are for: its own role, or `reference` ([[BUG-196]]). */
+export const uploadRole = (a: Pick<PlanAsk, 'upload_role'>): string => a.upload_role ?? 'reference'
+
+/** Whether one pick may carry several files: as set, or by default for a `site` ask ([[BUG-196]]). */
+export const takesSeveral = (a: Pick<PlanAsk, 'multiple' | 'upload_role'>): boolean =>
+  a.multiple ?? uploadRole(a) === 'site'
+
 /** The answer an ask holds is one its input can produce. */
 export function answerFits(ask: Pick<PlanAsk, 'input' | 'options'>, answer: unknown): string | null {
   if (ask.input === 'multi_choice') {
@@ -406,13 +433,17 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
       bad(`ask ${a.id} has unknown needed_by ${JSON.stringify(a.needed_by)}`)
     }
     if (typeof a.blocking !== 'boolean') bad(`ask ${a.id} must say whether it is blocking`)
+    if (a.upload_role !== undefined && !(UPLOAD_ROLES as readonly string[]).includes(a.upload_role)) {
+      bad(`ask ${a.id} has unknown upload_role ${JSON.stringify(a.upload_role)}`)
+    }
+    if (a.multiple !== undefined && typeof a.multiple !== 'boolean') bad(`ask ${a.id} must say multiple as true or false`)
     if (!(ASK_STATUSES as readonly string[]).includes(a.status)) bad(`ask ${a.id} has unknown status ${JSON.stringify(a.status)}`)
     if (a.answered_by !== undefined && !ASK_ANSWERERS.includes(a.answered_by)) {
       bad(`ask ${a.id} cannot be answered by ${JSON.stringify(a.answered_by)}`)
     }
     if (a.status === 'answered') {
       if (!a.answered_by || !filled(a.answered_at)) bad(`ask ${a.id} is answered without saying by whom and when`)
-      const hasMaterial = filled(a.answer_material)
+      const hasMaterial = askMaterials(a).length > 0
       if (a.answer === undefined && !hasMaterial) bad(`ask ${a.id} is answered with neither an answer nor a document`)
       if (a.answer !== undefined) {
         const wrong = answerFits(a, a.answer)
@@ -506,10 +537,20 @@ export interface PanelView {
 export function panelView(fields: PlanFields): PanelView {
   return {
     phase: fields.phase,
+    // [[BUG-196]] — AN UPLOAD ASK'S ROLE AND ITS ONE-OR-SEVERAL ARE RESOLVED HERE,
+    // defaults included, so the panel reads them and never re-derives the rule.
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
-      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) => shown,
+      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) =>
+        shown.accepts_upload || shown.input === 'upload'
+          ? { ...shown, upload_role: uploadRole(shown), multiple: takesSeveral(shown) }
+          : shown,
     ),
   }
+}
+
+/** One or several uploaded documents, counted and named ([[BUG-196]]). */
+export function documentsText(uids: string[]): string {
+  return uids.length === 1 ? `document ${uids[0]}` : `${uids.length} documents (${uids.join(', ')})`
 }
 
 /** An answer as one line of text. */
@@ -566,7 +607,7 @@ export function planReminder(plan: Plan | null): string | null {
   const known = (f.asks ?? []).filter((a) => a.status === 'answered')
   if (known.length) {
     lines.push(
-      `Answered: ${list(known.map((a) => `${a.id} = ${a.answer !== undefined ? JSON.stringify(answerText(a.answer)) : `document ${a.answer_material}`}`))}.`,
+      `Answered: ${list(known.map((a) => `${a.id} = ${a.answer !== undefined ? JSON.stringify(answerText(a.answer)) : documentsText(askMaterials(a))}`))}.`,
     )
   }
   if (panel.asks.skipped.length) lines.push(`The client skipped: ${list(panel.asks.skipped)}.`)
@@ -665,7 +706,11 @@ export function clientAnswer(
     delete a.answer
     delete a.answer_material
   } else if (input.action === 'answer') {
-    const material = str(input.answer_material)
+    // ONE FILE OR SEVERAL ([[BUG-196]]): one is kept as a string, as it always was.
+    const several = Array.isArray(input.answer_material)
+      ? input.answer_material.map(str).filter((m): m is string => m !== undefined)
+      : []
+    const material = several.length > 1 ? several : (several[0] ?? str(input.answer_material))
     const typed = Array.isArray(input.answer) ? input.answer.map(String) : str(input.answer)
     if (typed === undefined && material === undefined) {
       throw refuse(PLAN_INVALID, `an answer to ${a.id} needs a value or a document`)
@@ -692,7 +737,8 @@ export interface ClientChange {
   status: string
   answer?: string | string[]
   previous?: string | string[]
-  material?: string
+  /** Every material the answer cites — several when one pick carried several files. */
+  material?: string[]
   at: string
 }
 
@@ -712,7 +758,7 @@ export function clientChangesSince(fields: PlanFields, since: string): ClientCha
       status: a.status,
       ...(a.answer !== undefined ? { answer: a.answer } : {}),
       ...(a.previous_answer !== undefined ? { previous: a.previous_answer } : {}),
-      ...(a.answer_material ? { material: a.answer_material } : {}),
+      ...(askMaterials(a).length ? { material: askMaterials(a) } : {}),
       at: a.answered_at as string,
     }))
     .sort((x, y) => x.at.localeCompare(y.at))
@@ -745,9 +791,10 @@ export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS
   const render = (c: ClientChange, max: number): string => {
     const v = (x: string | string[] | undefined): string => JSON.stringify(clip(answerText(x), max))
     if (c.status === 'skipped') return `skipped ${c.id}`
-    const doc = c.material ? ` (document ${c.material})` : ''
-    const value = c.answer !== undefined ? v(c.answer) : 'a document'
-    const what = `${value}${c.answer !== undefined ? doc : ` ${c.material}`}`
+    // HOW MANY ARRIVED IS SAID, NEVER CUT ([[BUG-196]]): a pick of six photographs
+    // reads as six, so the agent knows to look at all of them.
+    const doc = c.material ? ` (${documentsText(c.material)})` : ''
+    const what = c.answer !== undefined ? `${v(c.answer)}${doc}` : documentsText(c.material ?? [])
     return c.previous !== undefined ? `changed ${c.id} from ${v(c.previous)} to ${what}` : `answered ${c.id}: ${what}`
   }
   const room = budget - head.length - tail.length
@@ -1010,6 +1057,8 @@ export function planOperations(
         if (str(p.input)) a.input = str(p.input)!
         if (Array.isArray(p.options)) a.options = p.options.map(String)
         if (typeof p.accepts_upload === 'boolean') a.accepts_upload = p.accepts_upload
+        if (str(p.upload_role)) a.upload_role = str(p.upload_role)!
+        if (typeof p.multiple === 'boolean') a.multiple = p.multiple
         if (str(p.needed_by)) a.needed_by = str(p.needed_by)!
         if (typeof p.blocking === 'boolean') a.blocking = p.blocking
         return { ask: a }
