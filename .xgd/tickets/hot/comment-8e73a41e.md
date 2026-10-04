@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-378
 created_by: xgd
 created_at: '2026-10-04T00:31:20.225391+00:00'
-updated_at: '2026-10-04T00:37:41.755767+00:00'
+updated_at: '2026-10-04T00:43:30.348315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,11 @@ None of this needs your input unless you see something wrong:
 - **Motion line:** written from what the capture already records about animation (`multistate.json`) where that exists.
 
 Tell me which option you want and I'll start. If it's option 1, I'll set the ticket to `free_coding` and cut the branch.
+
+<!-- xgd-turn id="2790db03-0756-407b-b692-8847bb2099ef-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:43:29.019274+00:00" -->
+#### You
+all good - please go
 
 <!-- xgd-chat-end -->
