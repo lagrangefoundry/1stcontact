@@ -6,10 +6,10 @@ title: 'fold: a full-width bar gradient is painted on a card the size of its tex
   run, and a clipped cover photo is rescaled by resizing its box'
 created_by: repro-console:repro-www-hearingzone510-com#3
 created_at: '2026-10-04T15:05:17.764524+00:00'
-updated_at: '2026-10-04T15:29:58.323722+00:00'
+updated_at: '2026-10-04T15:40:35.081981+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - fold-wrong
