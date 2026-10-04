@@ -6,10 +6,10 @@ title: 'values-diff: a div colour panel is never recorded on the reproduction si
   and a run''s surface extent is compared nowhere'
 created_by: repro-console:repro-www-hearingzone510-com#3
 created_at: '2026-10-04T15:05:20.439713+00:00'
-updated_at: '2026-10-04T15:32:18.574101+00:00'
+updated_at: '2026-10-04T15:36:10.126046+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - instrument-asymmetric
