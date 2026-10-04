@@ -7,9 +7,9 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T15:18:32.175175+00:00'
+updated_at: '2026-10-04T15:18:51.283379+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   defect_class:
@@ -260,3 +260,5 @@ Two axes were added: preserved spaces in a preserving run, and the inline-SVG ic
 - Issue 3 (jsdom, then `runCapturePipeline` with a fake driver, then fold, then `localizeAssets`): each icon link is a media field with href, name, box and a unique asset path; the markup is self-contained; an svg beside its link's own copy stays unrecorded; the bundle carries the asset bytes at the field's path, `capture.json` does not carry the markup, the fold emits a linked image, and the mirror resolves it with nothing unmirrored.
 
 Regression scope: the fold/band suites (bug14, bug19, REQ-271/332/338/350, BUG-112/142/143/153/158/160/161/173/179, reconciliation-l1-*) and the capture suites (capture, bug12/16/27, REQ-211/269/270/275/302/333/338/366/370/377, BUG-187, coverage). `test_UAT_FC_BUG-48_*` (4) and `test_UAT_FC_REQ-349_a_control_matches_a_page_that_names_no_face` also fail on a clean xgd-working, so they predate this work.
+
+Also pre-existing, not caused by this change: `test_UAT_FC_BUG-14_real_captures_get_bands_and_treated_cards` (real-bundle, main checkout only) fails on joyfulculinarycreations.com `sampleFidelity` identically with and without this fold change. A full node sweep's other failures (builder 503s, webui scope, font registry, BUG-53/162, REQ-145/148/180 and others) were sampled on clean xgd-working and fail there identically.
