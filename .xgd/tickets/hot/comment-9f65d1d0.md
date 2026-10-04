@@ -5,7 +5,7 @@ type: comment
 title: Comment on doc DOC-66
 created_by: xgd
 created_at: '2026-10-04T17:22:13.539256+00:00'
-updated_at: '2026-10-04T17:22:13.722136+00:00'
+updated_at: '2026-10-04T17:27:44.662806+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -40,5 +40,13 @@ Worth a short doc ticket so we don't keep revisiting it.
 <!-- xgd-chat role="assistant" ts="2026-10-04T17:22:09Z" -->
 #### Claude
 Filed DOC-66. Label is 'Assistant' because the docs already say 'the assistant' and DOC-4 retired the caretaker framing. Includes reopen triggers: customer-facing AI speech, or more than one visible AI.
+
+<!-- xgd-chat role="user" ts="2026-10-04T17:27:40Z" -->
+#### You
+No, the AI is a "Consultant", not an assistant.
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:27:40Z" -->
+#### Claude
+Agreed. The docs already use "the consultant" about 100 times (DOC-4, DOC-33, DOC-49). Assistant gets the relationship backwards: it takes instructions, while a consultant brings expertise. DOC-66 now uses "Consultant" ("your consultant" in running copy). Caveat recorded: consultant is also a human job title, so off-app surfaces must mark it as AI, and a future customer-facing role needs its own label decision.
 
 <!-- xgd-chat-end -->
