@@ -18,6 +18,7 @@ fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-7bf45402
 ---
 
 Filed by `repro-console:repro-joyfulculinarycreations-com#9`, the reproduction of https://joyfulculinarycreations.com. The evidence comes from **one bundle**: `storage/references/joyfulculinarycreations.com/index` (capturedAt 2026-10-04T15:41:29.029Z, captureSchema 19). Every issue below is still present on HEAD (892f14aa37, which includes c5c06e0060 / REQ-383). I checked this by refolding a **copy** of the bundle (`cp -R … /tmp/jcc9-bundle && 1c refold --ref /tmp/jcc9-bundle`) and gating the copy. All three issues are on the fold side, so a re-capture is not needed.
