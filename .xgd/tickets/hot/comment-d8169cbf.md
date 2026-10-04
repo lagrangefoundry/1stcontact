@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:02:32.081105+00:00'
+updated_at: '2026-10-04T00:12:52.290397+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6517,5 +6517,17 @@ The range is what lets Charlie say where he wants to sit.
 
 1. **Web search for Alice: yes, or start with "ask the client" plus her own knowledge?**
 2. **One ticket?** I'd file one covering the comp board on the panel, screenshot display in the preview, the likes/dislikes notes, and the conventions decision, plus a priming change making the comp review the step before the first rough cut. Last turn's cadence and milestone ticket stays separate, because it's the host acting on the plan and this is a new step in the method.
+
+<!-- xgd-turn id="a8ff0e46-adb9-41dc-a02f-eba8ab1c9ab8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:12:52.207872+00:00" -->
+#### You
+Lets try the screen shot there needs to be some thought WRT to modal controls to - it can't be edited for example we have to be able to navigate back to the draft area
+
+The screenshot won't capture movement and animation though...
+
+like the board of comps idea - can we keep thumnails of the hero segment as reminders?
+
+There's no search tool. <-- are you completely sure I specifically asked for one - we need to add that its critical. I thought there was an Anthropic API we were using. Def hard requirement if we do not have it
 
 <!-- xgd-chat-end -->
