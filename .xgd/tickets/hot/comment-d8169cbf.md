@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-03T23:16:54.674731+00:00'
+updated_at: '2026-10-04T00:01:47.062634+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6461,5 +6461,15 @@ Two tickets:
 - **Genre calibration:** the competitor capture step, plus a priming change so that "thin" doesn't automatically get answered with more white space.
 
 Shall I file those? Or tell me if you want the competitor captures folded into the first ticket so it's one.
+
+<!-- xgd-turn id="c8277953-bdca-4ed7-8748-9c5652a718b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:01:45.612349+00:00" -->
+#### You
+I wonder if the whole experience should start with a discussion of comp sites. Could it be possible to display the sites in the preview panel area.
+
+Alice could bring up a list and invite Charlie to add to it. 
+
+They can have a discussion of the elements of style the customer likes and does not like for each site?
 
 <!-- xgd-chat-end -->
