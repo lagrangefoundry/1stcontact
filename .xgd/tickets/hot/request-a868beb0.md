@@ -7,10 +7,10 @@ title: 'fold: content is nested under a surface absent at widths where the conte
   plates, escapes cannot-tell)'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:18:58.353036+00:00'
-updated_at: '2026-10-04T18:48:20.790849+00:00'
+updated_at: '2026-10-04T18:48:49.214746+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-7bf45402
+  commits:
+  - working_sha: ae303a4d6387722819cf012b0a99a28a5db01ac6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b6d44cfaebd3dac992859675b29012481fe4b5eb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.488
 ---
 
 Filed by `repro-console:repro-joyfulculinarycreations-com#9`, the reproduction of https://joyfulculinarycreations.com. The evidence comes from **one bundle**: `storage/references/joyfulculinarycreations.com/index` (capturedAt 2026-10-04T15:41:29.029Z, captureSchema 19). Every issue below is still present on HEAD (892f14aa37, which includes c5c06e0060 / REQ-383). I checked this by refolding a **copy** of the bundle (`cp -R … /tmp/jcc9-bundle && 1c refold --ref /tmp/jcc9-bundle`) and gating the copy. All three issues are on the fold side, so a re-capture is not needed.
