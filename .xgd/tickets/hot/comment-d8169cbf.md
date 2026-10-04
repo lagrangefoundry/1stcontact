@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:49:32.912735+00:00'
+updated_at: '2026-10-04T20:51:08.622722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7051,5 +7051,11 @@ No. Alice doesn't know what width you're looking at, and nothing in the product 
 4. **When she judges a page, she says which width.** That's already in her manual; the digest line gives her something concrete to name.
 
 Shall I file that as one REQ under EPIC-19?
+
+<!-- xgd-turn id="5b9d2702-c9a1-4524-8584-9b3601f85576-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T20:51:07.095241+00:00" -->
+#### You
+Sounds good - ticket please
 
 <!-- xgd-chat-end -->
