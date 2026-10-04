@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-04T17:03:30.049196+00:00'
+updated_at: '2026-10-04T17:04:30.560324+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -174,5 +174,32 @@ This gives the site an obvious secondary pitch: emergency work up front and a pl
 <!-- xgd-chat role="user" ts="2026-10-04T17:03:29.948863+00:00" -->
 #### You
 Can you find me three real plumbing sites in Santa Cruz that would be Charile's competitiors
+
+<!-- xgd-turn id="a91bcfeb-deec-4c16-8601-55f44fc1f94e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:04:29.971442+00:00" -->
+#### Claude
+I found three real Santa Cruz plumbers that are close matches for Charlie, and I've read each company's homepage. A comparison is saved in the Charlie folder as `competitors.md` and linked from the README.
+
+1. **[Rosenthal Plumbing](https://www.rosenthalplumbing.com/)** is the closest match on story. It's a third-generation family business, running since 1984, doing drains, sewers and water heaters. Regular hours are Monday to Friday 8–5, with live phone answering around the clock. It shows 4.9 stars from more than 500 reviews.
+2. **[Expert Plumbing & Water Heaters](https://expertplumbingca.com/)** is run by two brothers based in Soquel, in business for 14+ years. They do emergency work, drains, sewers and water heaters. They have 4.97 stars from 703 Google reviews and have been voted "Best of Santa Cruz" six years running.
+3. **[Duncan Plumbing](https://www.duncanplumbing.us/)** competes for Charlie's favourite work. It does drains and rooter work plus kitchen and bathroom remodels, seven days a week from 7:30am to 9pm. It relies on badges (Diamond Certified, BBB A+, Google Guaranteed) and coupons, and its site has no person or story behind it.
+
+A few things stood out that Charlie could use:
+- **Nobody publishes a callout fee.** All three say "upfront" or "flat-rate" pricing but give no number. Charlie's $125 would set him apart, which is what Alice argued.
+- **They all lead with numbers:** star ratings, review counts, years in business, awards. Our draft has none of these. That's a big part of why it looks like a mock-up, and Alice and Bob should be asking Charlie about his reviews.
+- **Charlie's story is the stronger version of Rosenthal's.** Rosenthal states its family succession in one line. Walt's shoebox and Dave choosing to come back are far more specific.
+- **Duncan is the rival for bathrooms and kitchens**, and its site has no personality.
+
+There were other family-owned options I didn't look at closely: [City of Surf Plumbing](https://cityofsurfplumbing.org/), [Eco-Flow Plumbing](https://eco-flowplumbing.com/) and [Travis Martin Plumbing](https://www.santacruzcaplumber.com/).
+
+Sources:
+- [Rosenthal Plumbing](https://www.rosenthalplumbing.com/)
+- [Expert Plumbing](https://expertplumbingca.com/)
+- [Duncan Plumbing](https://www.duncanplumbing.us/)
+- [City of Surf Plumbing](https://cityofsurfplumbing.org/)
+- [Eco-Flow Plumbing](https://eco-flowplumbing.com/)
+- [Travis Martin Plumbing](https://www.santacruzcaplumber.com/)
+- [Yellow Pages Santa Cruz plumbers](https://www.yellowpages.com/santa-cruz-ca/plumbers)
 
 <!-- xgd-chat-end -->
