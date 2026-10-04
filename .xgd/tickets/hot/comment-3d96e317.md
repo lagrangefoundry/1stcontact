@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:27:14.558668+00:00'
+updated_at: '2026-10-04T17:27:55.006991+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,17 @@ I also copied the relevant parts of this conversation onto the ticket's transcri
 <!-- xgd-chat role="user" ts="2026-10-04T17:27:13.329466+00:00" -->
 #### You
 No the AI is a "Consultant" not an assistant
+
+<!-- xgd-turn id="6fb79e3b-4258-4186-b1f7-0adbdac6682f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:27:54.445302+00:00" -->
+#### Claude
+One example still said "Assistant". Fixing it.
+
+You're right. "Consultant" is already the established word. The docs use "the consultant" about 100 times, in DOC-4, DOC-33 (*The Consultation Playbook*) and DOC-49. My earlier search only looked for "assistant", so I missed it.
+
+DOC-66 is updated. The title and every example now use "Consultant", e.g. "Changed by Consultant" in revision history and "your consultant updated your hero section" in running copy. It also records the reason: an assistant takes instructions, while a consultant brings expertise and a point of view, so "Assistant" got the relationship backwards.
+
+I added one caveat to the doc. "Consultant" is also a human job title, so it sits a little closer to anthropomorphism than a plain function word would. The doc therefore requires anything read outside the app, such as emails and notifications, to mark the consultant clearly as AI. It also notes that if the AI ever talks to the owner's customers, that's a different role and needs its own label decision. The rest of the decision is unchanged.
 
 <!-- xgd-chat-end -->
