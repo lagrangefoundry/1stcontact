@@ -110,7 +110,7 @@ import {
   type ValueElement,
 } from '../cli/capture/values-diff'
 // REQ-332 — the clip box an element is cut off at; the fold's only reader of it.
-import type { ClipAncestor } from '../cli/capture/types'
+import type { ClipAncestor, StickyAncestor } from '../cli/capture/types'
 
 const FONT_SIZE = { min: 1, max: 400 }
 const FONT_WEIGHT = { min: 1, max: 1000 }
@@ -3470,6 +3470,176 @@ function nestClipRegions(
   return { built, members }
 }
 
+/** REQ-377 — one pinned ancestor, as the capture recorded it at each width. */
+interface StickyGroup {
+  topPx: number
+  /** The pinned box per width, at scroll 0. */
+  boxes: Map<number, StickyAncestor>
+  /** The stacking level the page holds it at (its `paintStack` entry), when known. */
+  level?: number
+}
+
+/**
+ * REQ-377 — every ancestor the page pins to the viewport, read off the captured
+ * elements' `sticky`, grouped by the ancestor's document path.
+ *
+ * Read from the PROJECTIONS rather than from the leaves the fold built, because
+ * a pinned header's ground — the band fill behind the logo and the nav — is a
+ * backdrop or a reconstructed surface, not a leaf with a capture row of its own.
+ * The group only says WHERE the pin is; which nodes travel with it is decided by
+ * geometry (see {@link pinStickyGroups}), which is what catches those grounds.
+ */
+function stickyGroupsOf(projections: readonly StateProjection[]): Map<string, StickyGroup> {
+  const groups = new Map<string, StickyGroup>()
+  for (const p of projections) {
+    for (const el of p.manifest.elements) {
+      const st = el.sticky
+      if (!st || !(st.width > 0) || !(st.height > 0)) continue
+      let g = groups.get(st.id)
+      if (!g) {
+        g = { topPx: st.topPx, boxes: new Map() }
+        groups.set(st.id, g)
+      }
+      g.boxes.set(p.viewport.width, st)
+      // The pinned ancestor's own level is the entry its path names in the chain.
+      const level = el.paintStack?.find((l) => l.id === st.id)?.z
+      if (level !== undefined && Number.isFinite(level) && g.level === undefined) g.level = level
+    }
+  }
+  return groups
+}
+
+/**
+ * REQ-377 — the page's bottom edge per width: the lowest captured element or
+ * section. What a pin's rail has to reach for the pin to hold to the end.
+ */
+function pageBottomAt(projections: readonly StateProjection[]): Map<number, number> {
+  const out = new Map<number, number>()
+  for (const p of projections) {
+    let bottom = 0
+    for (const b of [...p.manifest.elements.map((e) => e.box), ...(p.manifest.sections ?? []).map((s) => s.box)]) {
+      if (b && Number.isFinite(b.y + b.height)) bottom = Math.max(bottom, b.y + b.height)
+    }
+    out.set(p.viewport.width, round2(bottom))
+  }
+  return out
+}
+
+/**
+ * REQ-377 — the nodes a page pins to the viewport → ONE node that holds there.
+ *
+ * L1 says "hold this node at the top of the viewport" with `sticky` (REQ-325),
+ * and the fold never said it: a captured header that follows the reader down the
+ * page was reproduced as boxes pinned at `y` that scroll away at the first wheel
+ * turn — invisible to every full-page screenshot, which cannot see scrolling.
+ *
+ * THE SHAPE IS FORCED BY TWO RULES OF CSS STICKY. A pin cannot also be absolutely
+ * placed (`stickyIsInFlow`), so it is a FLOW node whose margins put it where the
+ * capture saw it; and a pin holds only as long as its containing block is on
+ * screen, while the fold's root holds nothing in flow and is therefore zero
+ * pixels tall. So the pin sits in a RAIL: a flow box from the page's top to its
+ * bottom that paints nothing, and is the release boundary the page's own body is.
+ * Inside the pin the members keep their absolute placement, rebased onto it.
+ *
+ * WHO TRAVELS: every top-level node lying inside the pinned box at every width it
+ * is laid out at — the runs, and the grounds and cards behind them that have no
+ * capture row of their own. A node the box holds at one width and not another is
+ * left where it is, for {@link nestClipRegions}' reason: a node has one parent.
+ *
+ * WHAT IS PINNED: only a box the page holds from the very first scroll — its
+ * captured top is already at the offset it holds at — and no taller than the
+ * viewport. That is a header, a nav bar, a fixed banner. A sticky SIDEBAR holds
+ * only through its own section, which the capture does not record, and a rail
+ * that held it to the end of the page would invent behaviour the page does not
+ * have; so it is left as it was, scrolling, which is at least the page at rest.
+ */
+function pinStickyGroups(
+  root: L1Box,
+  groups: ReadonlyMap<string, StickyGroup>,
+  widths: readonly number[],
+  heightAt: ReadonlyMap<number, number>,
+  pageBottom: ReadonlyMap<number, number>,
+  heightOf: (node: L1Node, at: number) => number,
+): void {
+  let pinIdx = 0
+  for (const group of groups.values()) {
+    const at = widths.filter((w) => group.boxes.has(w))
+    if (!at.length) continue
+    const holdsFromTop = at.every((w) => {
+      const b = group.boxes.get(w)!
+      const vh = heightAt.get(w)
+      return b.y <= group.topPx + FOLD_CONTAINS_EPS && (vh === undefined || b.height <= vh)
+    })
+    if (!holdsFromTop) continue
+
+    const kids = root.children ?? []
+    const members = kids.filter((node) => {
+      const geo = foldGeometryOf(node)
+      if (!geo || (geo.place ?? 'absolute') !== 'absolute' || !geo.keyframes.length) return false
+      return geo.keyframes.every((kf) => {
+        const b = group.boxes.get(kf.at)
+        if (!b) return false
+        const h = kf.height ?? heightOf(node, kf.at)
+        return (
+          kf.x >= b.x - FOLD_CONTAINS_EPS &&
+          kf.y >= b.y - FOLD_CONTAINS_EPS &&
+          kf.x + kf.width <= b.x + b.width + FOLD_CONTAINS_EPS &&
+          kf.y + h <= b.y + b.height + FOLD_CONTAINS_EPS
+        )
+      })
+    })
+    if (!members.length) continue
+
+    const pinFrames: L1Keyframe[] = at.map((w) => {
+      const b = group.boxes.get(w)!
+      return { at: w, x: round2(b.x), y: round2(b.y), width: round2(b.width), height: round2(b.height) }
+    })
+    const pinGeometry: L1Geometry = { place: 'flow', keyframes: pinFrames }
+    if (pinFrames.length > 1) {
+      pinGeometry.segments = pinFrames.slice(1).map((kf, i) => segmentKind(pinFrames[i], kf))
+    }
+    const pin: L1ContainerNode = {
+      kind: 'container',
+      id: `pin-${pinIdx}`,
+      layout: 'stack',
+      geometry: pinGeometry,
+      sticky: { topPx: round2(group.topPx) },
+      // Rebased against the pin's own frame: inside a flow node its margins are
+      // page coordinates (the rail starts at the page's origin), so the same
+      // subtraction an absolute parent takes is exact here too.
+      children: members.map((m) => rebaseInto(m, { keyframes: pinFrames }, undefined)),
+    }
+    // The level the page holds it at, when the capture says; otherwise just above
+    // the siblings that travel past it.
+    const level =
+      group.level === undefined
+        ? 0
+        : Math.max(L1_ENVELOPE.paintOrder.min, Math.min(L1_ENVELOPE.paintOrder.max, Math.round(group.level)))
+    if (level > 0) pin.paintOrder = level
+    else pin.sticky!.lift = true
+
+    const railFrames: L1Keyframe[] = at.map((w) => ({
+      at: w,
+      x: 0,
+      y: 0,
+      width: w,
+      height: round2(Math.max(pageBottom.get(w) ?? 0, group.boxes.get(w)!.y + group.boxes.get(w)!.height)),
+    }))
+    const railGeometry: L1Geometry = { place: 'flow', keyframes: railFrames }
+    if (railFrames.length > 1) {
+      railGeometry.segments = railFrames.slice(1).map((kf, i) => segmentKind(railFrames[i], kf))
+    }
+    const rail: L1Box = { kind: 'box', id: `pin-${pinIdx}-rail`, geometry: railGeometry, children: [pin] }
+    pinIdx++
+
+    const taken = new Set<L1Node>(members)
+    // The rail goes first: it is in flow and paints nothing, so its place in the
+    // list decides only that the absolutely-placed siblings after it paint over
+    // its empty area — and the pin inside it holds above them by its own level.
+    root.children = [rail, ...kids.filter((n) => !taken.has(n))]
+  }
+}
+
 /** What {@link nestBackingSurfaces} decided: the rebuilt nodes, and who was taken. */
 interface OwnershipResult {
   /** A surface that owns content → the container it became. */
@@ -4039,8 +4209,13 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // BUG-14 — record this run's immediate surface (composited fill / gradient +
       // card treatments) with its per-width geometry. No backing box is emitted
       // here; the band/card hierarchy is rebuilt from these rows after the loop.
-      const surfFill = (widest.surfaceFill ? colorToHex(widest.surfaceFill) : null) ?? undefined
-      const surfGrad = foldGradient(widest.surfaceGradient)
+      // REQ-377 (issue 4) — a run standing on an inline-SVG panel reports the
+      // panel's fill, and the panel is already a box leaf of its own (REQ-370). A
+      // card rebuilt from the run's fill would paint that one panel twice, so the
+      // fill is the panel's to paint and not this row's.
+      const onPanel = widest.surface?.panel === true
+      const surfFill = onPanel ? undefined : ((widest.surfaceFill ? colorToHex(widest.surfaceFill) : null) ?? undefined)
+      const surfGrad = onPanel ? undefined : foldGradient(widest.surfaceGradient)
       const surfBorderLeft = foldBorderLeftAxis(widest.borderLeft)
       const surfBorder = foldBorder(widest.border)
       const surfShadow = foldShadows(widest.boxShadow, { spread: true, inset: true })
@@ -4064,6 +4239,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // measured rect; it is consulted only when no card-shaped fill was resolved,
       // so a card that paints both keeps its fill rect for both.
       const shapeBoxAt = (el: ValueElement, at: number): NonNullable<ValueElement['box']> | undefined => {
+        if (el.surface?.panel) return undefined
         const shape = el.surface?.box
         return shape && shape.width < at ? shape : undefined
       }
@@ -4715,6 +4891,17 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
     kind: 'box',
     children: [...background, ...holdsContent],
   }
+  // REQ-377 — what the page pins to the viewport travels in one node that holds
+  // there. After every structural pass, because it moves top-level nodes as they
+  // finally stand; before the reflow and viewport passes, which must see the pin.
+  pinStickyGroups(
+    root,
+    stickyGroupsOf(projections),
+    widths,
+    heightAt,
+    pageBottomAt(projections),
+    (node, at) => textHeights.get(node)?.get(at) ?? 0,
+  )
   const doc: L1Document = { widths, root }
   if (band) doc.background = band
   // REQ-88 — declared only when at least one node actually anchors to it, so an

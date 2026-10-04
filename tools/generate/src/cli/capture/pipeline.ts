@@ -303,6 +303,9 @@ async function captureOnce(url: string, factory: BrowserDriverFactory): Promise<
       // Omitted when the page painted nothing on `<body>`, so an absent key stays
       // "not measured" instead of asserting a colour nobody saw.
       ...(signals.bodyBackground ? { bodyBackground: signals.bodyBackground } : {}),
+      // REQ-377 — the scroll this read was taken at, recorded even when it is 0:
+      // a bundle that says 0 has demonstrably been measured at rest.
+      ...(typeof signals.scrollY === 'number' ? { scrollY: signals.scrollY } : {}),
       theme: buildTheme(signals, fontFacesByFamily),
       sections: buildSections(signals, (src) => urlToLocal.get(src)),
       assets,
@@ -502,6 +505,15 @@ export async function runMultiStateCapture(
         for (const state of states) {
           if (driver.actuate) await driver.actuate(state)
           const signals = await driver.query<RawSignals>(EXTRACT_SCRIPT)
+          // REQ-377 — a projection read anywhere but the top has every sticky /
+          // fixed box displaced by the scroll, and fits that drift as a response
+          // to the viewport. Said where an operator reads the matrix, not left to
+          // be rediscovered in the pixels.
+          if (signals.scrollY) {
+            notes.push(
+              `projection ${engine} ${viewport.width}x${viewport.height}:${state} was read at scrollY ${signals.scrollY} — its sticky/fixed boxes are displaced by that much`,
+            )
+          }
           const manifest = flattenSignals(signals, `${url}@${engine}:${viewport.width}:${state}`)
           // Provenance is the *requested* combination, so pairing is deterministic
           // (the measured innerWidth can drift a px from the requested width).

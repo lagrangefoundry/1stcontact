@@ -317,13 +317,23 @@ const REGISTER: readonly CoverageEntry[] = [
     present: anyField('objectPosition', truthy),
   },
   { property: 'color-scheme', verdict: 'recorded', note: "a band's `colorScheme`" },
+  {
+    // REQ-377 — the one value of `position` that is not mechanism. A page that
+    // pins its header to the viewport is a different page to read from one whose
+    // header scrolls away, and no still image can show the difference: the box is
+    // in the same place at scroll 0 either way. Every other value stays declined —
+    // the box it lays out is measured.
+    property: 'position',
+    verdict: 'recorded',
+    note: "`sticky` / `fixed` only: the nearest pinned ancestor of a run or field, as its `sticky` (box, id and `topPx`); every other value is mechanism",
+    present: anyElement('sticky', (v) => v !== null && typeof v === 'object'),
+  },
 
   // ── declined: mechanism, or measured better elsewhere ─────────────────────
   ...rows(
     'declined',
     MECHANISM,
     'display',
-    'position',
     'top',
     'right',
     'bottom',

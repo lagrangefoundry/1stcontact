@@ -37,6 +37,7 @@ import type {
   Box,
   Capture,
   ClipAncestor,
+  StickyAncestor,
   ContentRun,
   Field,
   GradientStop,
@@ -134,6 +135,13 @@ export interface ValueElement {
    * pre-REQ-332 bundle.
    */
   clip?: ClipAncestor | null
+  /**
+   * REQ-377 — the nearest ancestor the page pins to the viewport, as a box plus
+   * a document-wide id and the offset it holds at. Carried for the fold, which
+   * holds everything sharing an id in one pinned node. Absent when nothing pins
+   * the element, and on a pre-schema-17 bundle.
+   */
+  sticky?: StickyAncestor | null
   /**
    * REQ-35 — true when this run's colour could not be resolved from computed
    * styles and fell back to the `#000000`/`#ffffff` sentinel. The capture was
