@@ -18,6 +18,15 @@
  * transcript, and read by the next turn. That is `narrateExhaustion`'s position
  * and its reason (`turn-clock-core.ts`).
  *
+ * [[REQ-386]] — AND EVERY OTHER SLOW CALL. Delegation is not the only way to go
+ * quiet: one consultant turn ran several `capture_site` calls, two timed out and
+ * were tried again, and the client sat through twenty silent minutes. The same
+ * position announces each call to a tool `slow-tools.json` lists, in the host's
+ * words, with an estimate of about 1, 5 or 30 minutes. A call that repeats one
+ * that failed earlier in the turn says it is a retry and which attempt. The words
+ * are the host's here, not the model's, because the model's own context already
+ * streams: prose written before a tool call reaches the client as it is written.
+ *
  * AND THE OTHER HALF: a builder session that completed having written the site
  * is a milestone the host can see for itself, so it records it on the plan
  * (`builderSessionCompleted`) and the checks it triggers fall due.
@@ -28,6 +37,7 @@
 
 import { TEXT, TOOL_ACTIVITY, type StreamEvent } from './budget-core'
 import { DELEGATE_TOOL, delegationResult } from './turn-clock-core'
+import slowToolsDocument from './slow-tools.json'
 
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -76,13 +86,83 @@ export function withClientNote(declaration: Untyped): Untyped {
  * own progress line shows — so the two never disagree about what is waiting.
  */
 export function statusLine(note: unknown, openAsks: number): string {
-  const flat = typeof note === 'string' ? note.replace(/\s+/g, ' ').trim() : ''
-  const said = flat === '' ? FALLBACK_NOTE : flat.length > NOTE_CAP ? `${flat.slice(0, NOTE_CAP - 1)}…` : flat
+  const flat = flatten(note)
+  return announcement(flat === '' ? FALLBACK_NOTE : capped(flat, NOTE_CAP), openAsks)
+}
+
+/** `said` as the client's italic line, with how many of the panel's asks wait. */
+function announcement(said: string, openAsks: number): string {
   const meanwhile =
     openAsks > 0
       ? ` Meanwhile, ${openAsks} ${openAsks === 1 ? 'question above needs' : 'questions above need'} you.`
       : ''
   return `_${said.replace(/_/g, '\\_')}_${meanwhile}`
+}
+
+function flatten(value: unknown): string {
+  return typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
+}
+
+function capped(text: string, cap: number): string {
+  return text.length > cap ? `${text.slice(0, cap - 1)}…` : text
+}
+
+/** One tool that keeps the client waiting, as `slow-tools.json` lists it. */
+export interface SlowTool {
+  tool: string
+  doing: string
+  fallback?: string
+  minutes: number
+}
+
+/** The estimates the client is given — orders of magnitude, nothing finer. */
+const ESTIMATES: Record<number, string> = {
+  1: 'about a minute',
+  5: 'about 5 minutes',
+  30: 'about 30 minutes',
+}
+
+/** The longest an input value is quoted at inside a line. */
+const VALUE_CAP = 120
+
+/**
+ * The slow tools, by the name the model calls them. An estimate outside 1/5/30
+ * is refused when this loads, so a mistyped number fails a deploy and never
+ * reaches a client as "about 7 minutes".
+ */
+export const SLOW_TOOLS: ReadonlyMap<string, SlowTool> = new Map(
+  (slowToolsDocument.tools as SlowTool[]).map((entry) => {
+    if (!(entry.minutes in ESTIMATES)) {
+      throw new Error(`slow-tools.json: ${entry.tool} estimates ${entry.minutes} minutes; use 1, 5 or 30.`)
+    }
+    return [entry.tool, entry]
+  }),
+)
+
+/**
+ * The line the client sees as a slow call starts ([[REQ-386]]). `attempt` above 1
+ * says the call is being tried again after an earlier one failed.
+ */
+export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt: number, openAsks: number): string {
+  let missing = false
+  const filled = slow.doing.replace(/\{(\w+)\}/g, (_, key: string) => {
+    const value = capped(flatten(input[key]), VALUE_CAP)
+    if (value === '') missing = true
+    return value
+  })
+  const doing = missing ? (slow.fallback ?? slow.doing) : filled
+  const again = attempt > 1 ? ` again (attempt ${attempt}; the last try failed)` : ''
+  return announcement(`${doing}${again} — ${ESTIMATES[slow.minutes]}.`, openAsks)
+}
+
+/** A tool's output that says the call failed — how the Toolbox renders every refusal and host error. */
+function failed(output: unknown): boolean {
+  return typeof output === 'string' && output.startsWith('Error:')
+}
+
+/** Tool and input as one key, so a repeat of the same call is recognised. */
+function callKey(name: string, input: unknown): string {
+  return `${name}\u0000${JSON.stringify(input ?? {})}`
 }
 
 /** What the host gives the wrapper. Each is optional; an absent one is a no-op. */
@@ -96,31 +176,54 @@ export interface CadenceHooks {
 /**
  * The consultant's backend, telling the client before it goes quiet.
  *
- * ONCE A TURN. The first `Delegate` a turn issues is announced; a later one in the
- * same turn has already been — the client was told the consultant is away.
+ * `Delegate` ONCE A TURN. The first `Delegate` a turn issues is announced; a later
+ * one in the same turn has already been — the client was told the consultant is
+ * away.
+ *
+ * EVERY SLOW CALL ([[REQ-386]]), because each is more waiting. The panel's count
+ * rides on the turn's first line only; repeating it on every line is noise.
  *
  * NOTHING HERE FAILS A TURN: a count that cannot be read is a line without the
  * count, and a milestone that cannot be written is a milestone missed.
  */
 export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): Untyped {
   async function* oriented(ref: string, content: unknown, opts: Record<string, unknown> = {}): AsyncGenerator<StreamEvent> {
-    let announced = false
+    let delegated = false
+    let counted = false
     let spoke = false
+    const failures = new Map<string, number>()
+
+    async function waiting(): Promise<number> {
+      if (counted) return 0
+      counted = true
+      try {
+        return hooks.openAsks ? await hooks.openAsks() : 0
+      } catch {
+        return 0
+      }
+    }
+
     for await (const event of backend.promptStream(ref, content, opts) as AsyncGenerator<StreamEvent>) {
-      if (event.kind === TOOL_ISSUE && event.meta?.name === DELEGATE_TOOL && !announced) {
-        announced = true
-        let open = 0
-        try {
-          open = hooks.openAsks ? await hooks.openAsks() : 0
-        } catch {
-          open = 0
-        }
-        const input = (event.meta?.input ?? {}) as Record<string, unknown>
-        yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${statusLine(input[DELEGATE_NOTE], open)}\n\n` }
+      const name = event.meta?.name as string | undefined
+      const input = (event.meta?.input ?? {}) as Record<string, unknown>
+      let line: string | null = null
+      if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL && !delegated) {
+        delegated = true
+        line = statusLine(input[DELEGATE_NOTE], await waiting())
+      } else if (event.kind === TOOL_ISSUE && name !== undefined && SLOW_TOOLS.has(name)) {
+        const attempt = (failures.get(callKey(name, input)) ?? 0) + 1
+        line = slowLine(SLOW_TOOLS.get(name)!, input, attempt, await waiting())
+      }
+      if (line !== null) {
+        yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${line}\n\n` }
         spoke = true
       }
       if (event.kind === TEXT && event.content) spoke = true
-      if (event.kind === TOOL_ACTIVITY && event.meta?.name === DELEGATE_TOOL && hooks.builderCompleted) {
+      if (event.kind === TOOL_ACTIVITY && name !== undefined && SLOW_TOOLS.has(name) && failed(event.meta?.output)) {
+        const key = callKey(name, event.meta?.input)
+        failures.set(key, (failures.get(key) ?? 0) + 1)
+      }
+      if (event.kind === TOOL_ACTIVITY && name === DELEGATE_TOOL && hooks.builderCompleted) {
         const result = delegationResult(event.meta?.output)?.result
         if (result?.outcome === REPORTED && result.wrote === true) {
           try {

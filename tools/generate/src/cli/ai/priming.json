@@ -641,6 +641,10 @@
       "provider": "delegation.reminder"
     },
     {
+      "name": "announce-long-work",
+      "text": "Busy for more than about 20 seconds? Tell your client first: about a minute, 5 minutes or 30 minutes. They see what you write before a tool call as you write it."
+    },
+    {
       "name": "method",
       "text": "At a real decision offer options that differ in kind rather than refining one \u2014 the rest of your method is in your knowledge base, not in these lines."
     },
