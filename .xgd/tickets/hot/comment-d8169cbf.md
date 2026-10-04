@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:01:47.062634+00:00'
+updated_at: '2026-10-04T00:02:32.081105+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6471,5 +6471,51 @@ I wonder if the whole experience should start with a discussion of comp sites. C
 Alice could bring up a list and invite Charlie to add to it. 
 
 They can have a discussion of the elements of style the customer likes and does not like for each site?
+
+<!-- xgd-turn id="c8277953-bdca-4ed7-8748-9c5652a718b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:02:31.942954+00:00" -->
+#### Claude
+Yes. I think this is the right opening, and most of the plumbing for it already exists.
+
+## Why it fits
+
+It's the variants lesson applied before anything is built. Charlie can't tell Alice "make it look busier, like a working business". But shown three real plumber sites, he can point and say "like that one". That needs no design vocabulary, and the likes and dislikes become his decisions rather than her taste.
+
+It also fixes "it looks like an HTML class" at the source. The density and conventions of a trade site get calibrated from real examples, with the client agreeing, before the first rough cut. Comps also bring out features he hadn't thought of: *"they've got a coupon, online booking and a financing banner — do you want any of those?"*. That's the functionality checklist we found missing from the plan.
+
+## Showing them in the preview pane
+
+Captures already do most of this. `capture_site` produces a `reference` ticket carrying full-page screenshots at several viewport widths, the rendered HTML, its assets, and a written description (REQ-166). There are three ways to show one:
+
+1. **Show the captured full-page screenshot in the preview pane**, scrollable, with the same desktop/phone toggle. **I'd recommend this.** It's safe, it's what was actually captured, and it can't fail on a site that blocks framing.
+2. **Show the live site in an iframe.** Many sites refuse to be framed, so we'd get a blank pane on some fraction of them, unpredictably. A "visit the real site" link next to the screenshot covers that need instead.
+3. **Serve the captured HTML from our own origin.** I'd avoid it: it means serving someone else's site, scripts and all, from our domain.
+
+There's a cost to watch on Alice's side. Every image she looks at costs context, so she should mostly work from each comp's written description and only take a screenshot when the discussion turns to something visual.
+
+## A board of comps
+
+- **One list for both of them.** A "sites we're comparing" list on the panel. Alice seeds it, and Charlie can add a URL himself. Clicking one shows it in the preview.
+- **Each comp gets a line of likes and dislikes**, recorded as structured notes on the comp's reference ticket. That's Charlie's view, in his words.
+- **Alice summarises the conventions she'll take** (*"dense services grid, phone in three places, reviews near the top, no coupons"*) and records them as the visual-concept decision. That's what the first rough cut is built from.
+
+## A gap: Alice can't search the web
+
+There's no search tool. She can only propose comps from what she already knows, which means national chains like Roto-Rooter or Mr. Rooter, or URLs she might invent. Capturing a URL checks that it really exists. Two ways to close the gap:
+- **Ask the client.** *"Who do you lose jobs to? Whose site have you looked at and thought 'that's what I want'?"* Real business owners know their competitors, and it's a good opening question in its own right.
+- **Give her web search** (Anthropic offers it as a server-side tool), so she can find strong local independents. Those are much better comps for a family plumber than national chains. It's a new capability and a cost decision, so it's yours to make.
+
+The board I'd aim for is three or four comps:
+- one national chain, polished and dense;
+- one or two strong local independents;
+- one outlier that shows the range, such as a clean premium site.
+
+The range is what lets Charlie say where he wants to sit.
+
+## Two questions before I file
+
+1. **Web search for Alice: yes, or start with "ask the client" plus her own knowledge?**
+2. **One ticket?** I'd file one covering the comp board on the panel, screenshot display in the preview, the likes/dislikes notes, and the conventions decision, plus a priming change making the comp review the step before the first rough cut. Last turn's cadence and milestone ticket stays separate, because it's the host acting on the plan and this is a new step in the method.
 
 <!-- xgd-chat-end -->
