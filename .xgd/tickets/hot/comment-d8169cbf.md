@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:38:46.986496+00:00'
+updated_at: '2026-10-04T00:42:43.067884+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6592,5 +6592,11 @@ What I'd do:
 3. **On our side, folded into that work:** confirm the site store refuses a write made against a stale read, and have Alice give each parallel builder a scope that doesn't overlap the others.
 
 Shall I do the prompt fix and file the framework ticket?
+
+<!-- xgd-turn id="9827c14f-3903-4e2f-8967-bcb3b9bfb270-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:42:42.385466+00:00" -->
+#### You
+I think we need to be quite structured about what can run in parallel and what can't - Its probably worth an EPIC - if developers are overwriting each other it will be chaos - they should be able to work on different sections but even that I think would need some thought to be safe
 
 <!-- xgd-chat-end -->
