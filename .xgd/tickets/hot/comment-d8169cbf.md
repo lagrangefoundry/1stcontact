@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T17:56:22.436796+00:00'
+updated_at: '2026-10-04T17:58:42.088931+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6947,5 +6947,43 @@ Some details as I play Charlie-3:
 1. I can't see the comparison sites - the consultant tells me that it is showing something on the "comparison board" but I see the Your 1st Contact Site and no new controls.
 2. 2 of 3 comparison sites failed to load
 3. The consultant seemed to be relying on me to find the comp sites. Whilst it should ask, it should also go looking itself.
+
+<!-- xgd-turn id="fcefe168-0cf3-48bf-afc4-d04f7060f497-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:58:40.769066+00:00" -->
+#### Claude
+I've found two of the three causes. Now checking why the comp board didn't show.
+
+Filed the comps bug. Now filing the deploy problem behind the missing comp board.
+
+I've traced all three, and the first one is partly my fault.
+
+**1. You can't see the comp board because your browser is running yesterday's UI.**
+`bin/deploy --env dev` copies the browser files from `dist-assets` but doesn't rebuild them. Those files were last built on Oct 3 at 11:12, before REQ-378. So the deploy shipped today's server code alongside yesterday's browser code:
+
+| What | Size | Comp board? |
+|---|---|---|
+| Source `plan-panel.js` | 22,772 bytes | yes |
+| Deployed `plan-panel.js` | 10,180 bytes | no |
+
+The comp is on the server (Duncan Plumbing is on the board), but the UI to show it never reached you. Neither did the progress counter or BUG-196's upload controls.
+
+My earlier instruction to "just run `bin/deploy --env dev`" was incomplete. The working sequence is:
+
+```
+bin/build
+bin/deploy --env dev
+bin/dev restart dev
+```
+
+I've filed **BUG-203** under EPIC-16: deploy should build the browser files itself, or refuse when they're stale. Shipping server and browser from two different commits without any warning defeats the point of the frozen snapshot. I've also corrected my notes so I don't repeat the mistake.
+
+**2. Two of your three sites failed, for two different reasons.** Both are filed in **BUG-202**.
+- **Rosenthal timed out.** Our capture waits for the page to stop all network activity. Trade sites keep running chat widgets, review widgets and tracking, so that never happens. A working page timed out three times. The fix is to wait for the page to load plus a short, capped settle time, then capture anyway.
+- **Expert Plumbing failed in our own processing.** After capturing the page, we convert it into our page format so we could rebuild it, and one of its scroll animations had a value outside the format's limits. That failure discarded the whole capture. A comp only needs the screenshots and description. The fix is that a conversion failure becomes a warning instead of losing the comp, and the converter clamps values like this one.
+
+**3. Alice didn't search at all.** The spend records show zero searches on both turns, although search was available. She followed REQ-378's method literally: ask "who do you lose jobs to?" first. Once you gave her URLs, she treated the list as done. BUG-202 changes her method so she searches for strong local businesses in the same turn as asking you, and offers her own picks alongside yours.
+
+**For this run:** do the build, deploy and restart now, and the board and counter should appear. Captures will keep failing on sites like these two until BUG-202 lands. In the meantime, you can ask Alice directly to search for more Santa Cruz plumbers.
 
 <!-- xgd-chat-end -->
