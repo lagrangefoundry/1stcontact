@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-60
 created_by: xgd
 created_at: '2026-10-04T17:15:06.330917+00:00'
-updated_at: '2026-10-04T17:21:15.409625+00:00'
+updated_at: '2026-10-04T17:22:21.460402+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,25 @@ If you'd like this written down, I can draft it as a short copy and voice guidel
 <!-- xgd-chat role="user" ts="2026-10-04T17:21:15.017654+00:00" -->
 #### You
 Yeah I think its worth a short Doc ticket so we don't feel the need to keep revisiting it
+
+<!-- xgd-turn id="19fe3534-3932-4b76-baa6-07c1a987e265-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T17:22:20.080656+00:00" -->
+#### Claude
+I've filed this as **DOC-66** (`doc-8ec7a301`): "AI naming & pronouns — no name, 'I' in conversation, 'Assistant' in third person".
+
+**The decision it records:**
+- **No name.** The AI says "I" and calls the client "you".
+- **The label is "Assistant".** It's used everywhere the AI is mentioned in the third person: revision history, the portal's AI-activity view, notifications and emails.
+- **Pronouns:** write the copy so none is needed. Where one can't be avoided, use "it", not "he", "she" or "they". We don't correct users who say "he" or "she".
+- **Agents behind the scenes stay hidden.** If another agent ever has to appear in the conversation, it gets a role label, not a persona name.
+
+**Two choices came from checking the existing docs:**
+- **"Assistant" rather than something like "Caretaker".** The docs already say "the assistant", and DOC-4 explicitly retired the caretaker framing.
+- **Two triggers for reopening it** are written into the doc: the AI starting to speak to the owner's customers, or a second AI becoming visible in the conversation again. Without one of those, it stays settled.
+
+I filed it as `doc_kind: architecture`, a design record for us. That keeps it out of the knowledge base shipped to the AI. If you want the AI itself to know it has no name, the system prompt is the place for that.
+
+I also copied the relevant parts of this conversation onto the ticket's transcript.
 
 <!-- xgd-chat-end -->
