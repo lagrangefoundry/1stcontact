@@ -45,6 +45,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'tasks',
   'asks',
   'comps',
+  'milestones',
 ]
 
 /**
@@ -84,7 +85,9 @@ function toPlan(ticket: Ticket): Plan {
 /** The plan's frontmatter as a field patch: every key, so a write is whole. */
 function toFields(plan: Plan): Record<string, unknown> {
   const out: Record<string, unknown> = {}
-  for (const key of PLAN_KEYS) out[key] = plan.fields[key]
+  // An optional key the plan does not hold yet is left out rather than written
+  // as nothing ([[REQ-379]]'s `milestones`).
+  for (const key of PLAN_KEYS) if (plan.fields[key] !== undefined) out[key] = plan.fields[key]
   return out
 }
 

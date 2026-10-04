@@ -150,6 +150,7 @@ describe('BUG-168 — the turn clock', () => {
       1000,
       [
         calls('Delegate', {
+          note: 'Working on it now — a few minutes.',
           role: BUILDER_ROLE,
           goal: 'Lay out the About page as three sections: intro, team, contact.',
           accept: [],

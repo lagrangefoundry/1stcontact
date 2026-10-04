@@ -356,22 +356,25 @@ import {
   type IndexMaterial,
   type MaterialChange,
   type MaterialRole,
+  type MaterialRow,
 } from './material'
 import { sitePlan } from './plan'
 import {
   addComp,
+  askMaterials,
   CLIENT,
   CLIENT_ACTIONS,
   clientAnswer,
   noteList,
   notedComp,
   panelView,
+  publishOpened,
   removeComp,
   type Plan,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 import { fidelityOperations } from '../../../tools/generate/src/cli/ai/fidelity-core'
-import { compBoard } from './comps'
+import { compBoard, type BoardComp } from './comps'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -576,15 +579,6 @@ export async function sessionFidelity(
       // own store.
       sessionPictures(store, tickets, renderer)(site),
     )
-}
-
-/**
- * The plan panel's view ([[REQ-364]]) with the comp board's notes and pictures
- * added ([[REQ-378]]) — what every plan route answers.
- */
-async function planView(tickets: TicketStore, fields: PlanFields): Promise<Record<string, unknown>> {
-  const view = panelView(fields)
-  return { ...view, comps: await compBoard(tickets, view.comps) }
 }
 
 /**
@@ -829,7 +823,10 @@ function chatHost(
         // currently stands ([[REQ-229]]). The same one every other surface on
         // this host is composed from — the catalogue and the client's Library
         // must not put different bytes on the site for the same material.
-        (site: string) => chatLibrary(tickets, store, site, renderer ?? undefined),
+        (site: string) =>
+          chatLibrary(tickets, store, site, renderer ?? undefined, () =>
+            deps.index ? deps.index(env, scope) : defaultIndexer(env, scope),
+          ),
         // THE BUSINESS'S OWN RECORD, AND WHICH BUSINESS THIS IS ([[REQ-239]]).
         //
         // ASSEMBLED HERE BECAUSE THE SCOPE IS HERE. `scope.businessId` is
@@ -2602,6 +2599,32 @@ async function placeOnSite(
       site_asset_error: scrub(err instanceof Error ? err.message : String(err)),
     }
   }
+}
+
+/**
+ * The plan panel's view, with the Library rows its answered uploads cite ([[BUG-196]])
+ * and the comp board's notes and pictures ([[REQ-378]]).
+ *
+ * THE PANEL SHOWS WHAT IT CAN DO WITH AN UPLOAD, and that turns on facts only the
+ * Library holds: what the file is for, where it came from, whether it is on the
+ * site. So the rows travel with the view — `listMaterial`'s own rows, the ones the
+ * Library tab draws — rather than the panel asking a second route per file. A uid
+ * the client has since deleted has no row, and the panel draws it as gone.
+ */
+async function panelWithMaterial(
+  tickets: TicketStore,
+  fields: PlanFields,
+): Promise<
+  Omit<ReturnType<typeof panelView>, 'comps'> & { materials: Record<string, MaterialRow>; comps: BoardComp[] }
+> {
+  const view = panelView(fields)
+  const cited = new Set(view.asks.flatMap((a) => askMaterials(a)))
+  const materials: Record<string, MaterialRow> = {}
+  if (cited.size > 0) {
+    for (const row of await listMaterial(tickets)) if (cited.has(row.uid)) materials[row.uid] = row
+  }
+  // [[REQ-378]] — and the comp board, with each comp's notes and pictures.
+  return { ...view, materials, comps: await compBoard(tickets, view.comps) }
 }
 
 /**
@@ -5434,6 +5457,19 @@ async function routeUncached(
       const ladder = (deps.ladder ?? ladderFor)(env, scope) ?? undefined
       const message = typeof body.message === 'string' ? body.message : undefined
 
+      // [[REQ-379]] — OPENING PUBLISH IS A MILESTONE the host sees for itself, so
+      // the pre-publish checks fall due for the consultant's next turn. The
+      // builder has no publish dialog; pressing Publish is the opening. Best
+      // effort: a plan that cannot be written never stands between a client and
+      // their publish.
+      try {
+        if (await store.hasDraft(site)) {
+          await sitePlan(await openTickets(), site).write((plan) => publishOpened(plan, new Date().toISOString()))
+        }
+      } catch {
+        // A milestone missed is not a publish refused.
+      }
+
       /*
        * [[REQ-238]] — WHERE THIS SITE CAN BE REACHED, read here in the Worker
        * for the reason the ladder and the template check are: `publishSite`
@@ -5656,7 +5692,7 @@ async function routeUncached(
       if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
       // THIS PORT CREATES THE PLAN ON FIRST READ, so it never answers null.
       const tickets = await openTickets()
-      return json(200, await planView(tickets, (await sitePlan(tickets, site).read())!.fields))
+      return json(200, await panelWithMaterial(tickets, (await sitePlan(tickets, site).read())!.fields))
     }
 
     if (p === PLAN_ASK_PATH && method === 'POST') {
@@ -5669,9 +5705,13 @@ async function routeUncached(
       }
       if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
       const tickets = await openTickets()
-      if (typeof body.answer_material === 'string' && body.answer_material !== '') {
+      // ONE DOCUMENT OR SEVERAL ([[BUG-196]]), and every one must be this business's.
+      const cited = (Array.isArray(body.answer_material) ? body.answer_material : [body.answer_material]).filter(
+        (m): m is string => typeof m === 'string' && m !== '',
+      )
+      for (const uid of cited) {
         try {
-          await readMaterial(tickets, body.answer_material)
+          await readMaterial(tickets, uid)
         } catch {
           return json(400, { error: 'that document is not in this business\'s Library' })
         }
@@ -5686,7 +5726,7 @@ async function routeUncached(
           if ((err as { code?: string }).code !== 'CONFLICT') throw err
           written = await plan.write(answerIt)
         }
-        return json(200, await planView(tickets, written.fields))
+        return json(200, await panelWithMaterial(tickets, written.fields))
       } catch (err) {
         const code = (err as { code?: string }).code ?? ''
         const status = { UNKNOWN_ASK: 404, ASK_WITHDRAWN: 409, CONFLICT: 409, PLAN_INVALID: 400 }[code]
@@ -5769,7 +5809,7 @@ async function routeUncached(
             written = await writeIt((now) => notedComp(now, reference, CLIENT, at))
           }
         }
-        return json(200, await planView(tickets, written.fields))
+        return json(200, await panelWithMaterial(tickets, written.fields))
       } catch (err) {
         const message = (err as Error).message ?? ''
         if (/^REFUSED:/.test(message)) return json(400, { error: scrub(message.replace(/^REFUSED:\s*/, '')), code: 'REFUSED' })

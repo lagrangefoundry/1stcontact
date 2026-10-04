@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:43:00.145022+00:00'
+updated_at: '2026-10-04T01:22:55.924011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6606,5 +6606,220 @@ I think we need to be quite structured about what can run in parallel and what c
 I think we need to be quite structured about what can run in parallel and what can't - Its probably worth an EPIC - if developers are overwriting each other it will be chaos - they should be able to work on different sections but even that I think would need some thought to be safe
 
 Can you create an EPIC for this please?
+
+<!-- xgd-turn id="53f55181-e83c-44c1-9eaf-40809186e88c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:43:55.316353+00:00" -->
+#### Claude
+I've created **EPIC-24**, *"Builder sessions: what may run in parallel — scopes, a draft-edit guard, and concurrent delegation"*, linked from EPIC-19 as Finding 20.
+
+You're right that this needs structure. While writing it up I found the risk is worse than builders running in parallel, because **draft edits have no protection against overwriting each other even today**:
+- **The last write silently wins.** `set_l1` replaces a whole element from a copy read earlier and sends no version with it. If two writers touch the same part of a page, one loses its work with no error. The client editing by hand and a builder session can already collide this way.
+- **Every write renumbers the page.** After each write, every element address on the page is regenerated; the tool's own description says *"never carry an address across your own edit."* A second builder on the same page would invalidate the first builder's addresses partway through, even if their sections never overlap.
+- **The publish guard doesn't cover drafts.** The `site_revision_claims` table protects publishing only, not draft edits.
+
+So "different sections of one page" isn't safe, even in principle, until the addressing changes. Today the only plausible parallel unit is **different pages**, and even pages share the palette, text styles, fonts, assets, header, footer and navigation.
+
+What the epic sets out to build:
+1. **A model of scopes:** one page, one section, site-wide style, shared parts like the header and footer, and assets. It says which of those can run at the same time.
+2. **Scopes enforced by the tools.** Each builder session is given a scope and its write tools refuse anything outside it. This is useful even without parallelism.
+3. **A draft-edit guard.** A write made from a stale read is refused instead of silently winning.
+4. **Addresses that survive other writes, or one owner per page at a time.** Same-page parallel work is possible only with one of these.
+5. **Concurrent builder sessions in the framework.** They'd be opt-in per tool and capped, with overlapping scopes refused before any work starts. That part is a lagrange-framework child ticket.
+6. **The truth in Alice's tool manual.** It says what can run at once, and the system enforces it.
+7. **Visibility** of what's running, on which scope, and for how long.
+8. **Limits on concurrent spend.**
+
+The order: the guard and scope enforcement first, because they make today's one-at-a-time building safer. Then parallel builder sessions limited to different pages. Same-page sections last, and only if the scope model shows they can be made safe.
+
+Children get filed as the design settles. One stop-gap needs no ticket: change the builder-session tool description to say sessions run one at a time, so Alice stops promising parallel work. Shall I make that change now?
+
+<!-- xgd-turn id="2be70aef-743f-4f11-bc74-ae416627ae17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:45:49.191465+00:00" -->
+#### You
+One thought - if we could decompose the page into sections that were reassembled (by concatenation) at build time then it would be safe for an agent to work of a section. Could L1 be adapted to allow that?
+
+<!-- xgd-turn id="2be70aef-743f-4f11-bc74-ae416627ae17-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:46:59.132168+00:00" -->
+#### Claude
+Yes. Our pages are already almost built that way. I checked Charlie 2's home page: its root is a vertical stack, and its 12 direct children are the sections, each with a meaningful id:
+
+`emergency-bar` (sticky) · `header` · `hero-section-outer` · `services-glance` · `kitchens-bathrooms` · `process` · `story` · `emergencies` · `reviews` · `trust-strip` · `quote-form-section` · `footer`
+
+Rendering the root's children in order already is concatenation. So L1 doesn't need new expressive power. The change is in how a page is stored and addressed:
+
+- **A page frame** holds the page-wide settings (viewport widths, background, text colour, fonts), the page's modules, the SEO metadata, and **the ordered list of section ids**. It has one owner at a time. Adding, removing or reordering sections is a frame change.
+- **Each section is stored and versioned separately**, keyed by its id, not by its position. Addresses inside a section are relative to that section, so writing one section can't renumber another. That removes the hazard I described last turn.
+- **At render time** the frame and its sections are assembled into today's single document. The renderer and the validator don't change and still check the whole page.
+- **A builder reading one section reads only that section**, not the whole 29–41KB page. That saves context even with no parallel work at all.
+
+What has to be true for sections to be safely independent:
+1. **Sections can't reach into each other.** That means no overlapping, no negative margins into a neighbour, and no positioning across sections. It's checked when a section is written, not assumed. Pages reproduced from captures may not qualify, and they stay single-owner.
+2. **Section owners can't change the frame.** A builder that needs a new font or viewport width asks, and frame changes happen one at a time.
+3. **Every module needs a home.** The quote form currently sits at page level. It should belong to the section that holds it.
+4. **Ids must stay unique across the whole page**, including anchors like `#quote-form-section`. A write that would create a duplicate is refused.
+5. **The header, footer and emergency bar repeat on every page.** They should become shared, site-level sections with their own owner, instead of copies kept in step by hand.
+6. **The version guard works per section.** Two builders on two sections never conflict. Two on the same section get a refusal instead of a lost write.
+7. **Existing pages split mechanically** by their top-level sections. A page that isn't a simple stack stays whole.
+
+I've added this to EPIC-24 as the proposed direction for same-page parallel work, replacing its vaguer "stable addressing" option. It also changes the epic's order of work: same-page parallelism no longer has to come last, because sections become the natural unit for both the scope model and the guard.
+
+<!-- xgd-turn id="7490c4ba-0731-40a1-803a-7b146948c74b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:54:02.466530+00:00" -->
+#### You
+Well I would try to simplify a little:
+(1) figure out a way that pages can bee decomposed
+(2) provide a system for locks so that only one agent can work on one file at a time
+(3) explain all this to the principal so it can decompose existing pages and build decomposed pages for parallelism
+
+<!-- xgd-turn id="7490c4ba-0731-40a1-803a-7b146948c74b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:54:25.571408+00:00" -->
+#### Claude
+Agreed, that's simpler and better. Locks avoid all the version-merging logic, and the consultant decides how to split a page instead of a mechanical rule. I've added it to EPIC-24 as the plan, explicitly replacing the earlier eight items:
+
+1. **Pages can be decomposed** into a frame plus one file per section, assembled by concatenation at render. The frame holds the page-wide settings, the modules, the SEO metadata and the section order. A page that isn't decomposed keeps working as one file.
+2. **Locks: one agent per file at a time.** A builder session locks each file it will write, whether a section, a frame or a whole undecomposed page, and releases them when it ends. A write to a file it doesn't hold is refused.
+3. **The consultant is taught it all.** She decides how to split existing pages, builds new pages already split, and plans parallel work as one builder session per file. She never promises parallelism she hasn't set up that way.
+
+Two details I added inside your three, both small but necessary:
+- **Locks are leased.** A builder session that dies silently, which we saw four times in Charlie 2, must not hold a file forever.
+- **The client's own edits in the builder respect the same locks.** Otherwise a hand edit and a builder session can still overwrite each other.
+
+Underneath piece 3, the framework still has to run builder sessions concurrently. That becomes a lagrange-framework child ticket once 1 and 2 have a shape.
+
+<!-- xgd-turn id="3f076e1b-d236-493d-a06b-b6a16ea0859d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:57:22.347708+00:00" -->
+#### You
+ok so one of Alice's questions was for images...3 issues:
+1) The question asked for images, the uploader only allowed one file to be uploaded
+2) The purpose of the images was to add them to the site but they were classified as background material so Alice can't use them
+3) Both me and Alice should have controls to promote such an image to use it on the site - neither of us do
+
+<!-- xgd-turn id="3f076e1b-d236-493d-a06b-b6a16ea0859d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:58:19.455369+00:00" -->
+#### Claude
+I've filed **BUG-196** under EPIC-19 (high severity, 3 points). I traced all three of your issues in the code, and two of them have the same cause:
+
+1. **Only one file.** The panel's file picker doesn't allow multiple files and uploads only the first one you pick.
+2. **Background material.** **The panel uploads every file as "reference", whatever the question was for.** Reference material is automatically marked as not allowed on the site, and Alice's "put this on the site" operation refuses anything with that mark. So no photo uploaded through the panel could ever be used, even when the question asked for site photos.
+3. **No way to promote it:**
+   - **For you, there is a control, but it's buried.** The Library item's detail pane has a "What it is for" setting in its rights section (REQ-213), and changing it there does make the photo usable. Nothing on the panel or in the chat points you to it, so effectively it isn't there.
+   - **Alice really has nothing.** Her Library tools can list, read and place items, but can't change what an item is for.
+
+The fix covers all three:
+- **Each question says what its uploads are for.** Alice sets it when she writes the question: "for the site" for photos and the logo, "for reference" for price lists and flyers. If she doesn't set it, it stays "reference", so nothing reaches the site unasked.
+- **Several files per question**, which is the default for photo questions.
+- **A visible "Use on the site" action for you**, on the answered question in the panel and in the Library. It uses the existing role-change path.
+- **Alice can change an upload's role**, but only for things you uploaded, never captured sites, and only when you ask or after checking with you. What a file is for is your choice. She tells you in the chat when she's done it.
+
+For Charlie 2 right now, open each photo in the Library and change "What it is for" to the site option. Alice can then place them.
+
+<!-- xgd-turn id="d98766e4-4230-4d17-8197-872ce346b479-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:12:14.486631+00:00" -->
+#### You
+Actually while we are here can I have a way to delete materials too (Alice should have one as well)
+
+<!-- xgd-turn id="d98766e4-4230-4d17-8197-872ce346b479-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:12:42.400313+00:00" -->
+#### Claude
+I've added deletion to BUG-196 rather than filing a separate ticket.
+
+**You already have delete, but it's hard to find.** REQ-281 added a "Delete this from your Library" button to the Library item's detail pane. It removes the item from your Library. A picture already placed on a page stays there, because placing it made the site its own copy. Like "What it is for", you only reach it by opening the item, so the ticket's visibility fix now covers delete too: wherever you see an upload, on the panel's answered question or in the Library list, its actions are visible.
+
+**Alice gets delete as well**, using the same removal path as your button rather than a second mechanism. The rules:
+- **Only when you've asked, in that conversation.** She can suggest deleting duplicates but never decides it herself.
+- **She tells you what happened.** If the item was in use, the page keeps showing it, so to take it off the page she has to edit the page as well.
+- **She can delete only what you can.**
+
+Two tests cover it: deleting an item removes it from Alice's Library list, and deleting an item that's in use leaves it on the page.
+
+<!-- xgd-turn id="390f623f-4903-41b3-bd80-dcdfa133dcad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:14:15.958063+00:00" -->
+#### You
+Yes I do is is weirdly a link - it should be a clear and dangerous looking CTA like a red trash can or similar
+
+<!-- xgd-turn id="390f623f-4903-41b3-bd80-dcdfa133dcad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:14:40.421772+00:00" -->
+#### Claude
+You're right. It's a real `<button>`, but its CSS strips the border and background and leaves small underlined red text, so it reads as a link.
+
+I've added the fix to BUG-196:
+- **A proper danger button**: a trash-can icon with the word **Delete**, in the red danger colour, filled or with a strong outline, normal button size, with hover and focus states.
+- **The same button everywhere delete appears**: the Library detail pane, the Library list, and answered questions on the plan panel.
+- **The confirmation dialog's Delete button uses the same style**, so both steps look dangerous.
+- **Screen readers still hear "Delete this from your Library."**
+
+It's tested by checking that each delete control renders as a danger-styled button with the trash icon, not as a link.
+
+<!-- xgd-turn id="34b33a79-f175-47b6-91c0-2acdd573d444-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:18:22.219262+00:00" -->
+#### You
+I will run Charlie's plumbers again tomorrow - I want to check we have the key fixes lined up:
+1) we are starting with comps - with 378 we have the tools and the prompts (Alice knows what to do)?
+2) Alice can tell me when it is about to go quiet and set my expectations
+3) Alice will remind me (particularly when she is quiet) to fill in the data fields
+
+ooh - could we have at the top of the panel after "Getting to know your business" a progress counter "You have 3 fields still to complete" / "Great all the fields are filled" in etc.
+
+<!-- xgd-turn id="34b33a79-f175-47b6-91c0-2acdd573d444-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:19:15.797305+00:00" -->
+#### Claude
+Short answer: **not yet for any of the three.** The work is in flight but nothing has landed. Here's where each stands.
+
+**1. Starting with comps: in progress, not ready.**
+- **REQ-378**, the comp board plus the priming that tells Alice to open with comps, is being coded (`free_coding`), not landed.
+- **It also needs web search**, lagrange-framework REQ-206, which is still being coded too.
+- **The shared framework install has to be refreshed** once REQ-206 lands, and you run that yourself.
+
+So "Alice knows what to do" depends on 378 landing. If it isn't in by tomorrow, you can steer her by hand with *"before you build anything, let's look at some competitor sites"*. She can capture any URLs you give her, but she can't search.
+
+**2. Telling you before she goes quiet: only a prompt rule today.** The panel instructions now include *"Before you go away to work, say in one line what stage this is, what you are about to do and roughly how long it will take."* That was added after your run, in commit 61fcee5863, so tomorrow is its first real test. It relies on her remembering, which is exactly what failed last time. The guaranteed version, where a status line appears in the chat the moment a builder session starts, is in the new ticket below.
+
+**3. Reminding you to fill in the panel: same situation.** The same rule ends *"…and invite them to answer a few of the panel's questions meanwhile."* It's prompt-only for tomorrow, and the guaranteed version is in the new ticket.
+
+**Your counter: filed as REQ-379**, together with the cadence work I'd held back. It covers:
+- **The progress line** under "Getting to know your business": **"3 questions still to answer"**, or **"All done — thanks, that's everything I need for now"** when nothing's open. Skipped and withdrawn questions don't count, and it updates the moment you answer one. I used "questions" rather than "fields" to match the panel's wording; say if you'd prefer "fields".
+- **A status line shown before a build runs**, with *"Meanwhile, N questions above need you"*, using the same count.
+- **Milestone questions marked as due** for Alice, a flag when the phase is stale, and an opening features question.
+
+**Before tomorrow, run `bin/deploy --env dev`.** Your dev server runs a frozen snapshot, so the new priming and anything else that lands tonight won't be live without it.
+
+<!-- xgd-turn id="092c6717-f057-4d99-898f-8b263d89164f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:22:40.736478+00:00" -->
+#### You
+Right but with 206 and 378 we are ready?
+
+<!-- xgd-turn id="092c6717-f057-4d99-898f-8b263d89164f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:22:53.405904+00:00" -->
+#### Claude
+Yes for comps, with conditions. Not yet for the cadence.
+
+**Comps (1): ready once all four of these happen**
+1. LF REQ-206 lands, so Alice has web search.
+2. You refresh the shared framework install so 1stcontact picks up REQ-206. You run that one yourself.
+3. REQ-378 lands, bringing the comp board, the comp viewer in the preview pane, and the priming that makes comps the opening step.
+4. You run `bin/deploy --env dev`.
+
+**Going quiet and panel reminders (2 and 3): still prompt-only**
+REQ-206 and REQ-378 don't touch these. Tomorrow they depend on the new "before you go away…" priming line, which is the first real test of whether a prompt rule is enough. The guaranteed version, plus your progress counter, is REQ-379, and that isn't started yet.
+
+**One more ticket worth having in**
+BUG-196. Without it, any photos you upload through the panel arrive as reference material, and Alice can't use them. You can work around it by changing "What it is for" in the Library, but it'll interrupt the run.
+
+So with 206 and 378 you're ready for the comps experiment. For the full set you asked about, you'd also want 379 and 196.
 
 <!-- xgd-chat-end -->

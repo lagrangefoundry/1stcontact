@@ -110,9 +110,10 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
     expect(pack.has('plan')).toBe(true)
     expect(pack.has('brief')).toBe(false)
     expect(Object.keys(pack.schema('plan').fields ?? {}).sort()).toEqual(
-      // `asks` is [[REQ-364]]'s extension of the schema: the plan panel's questions.
+      // `asks` is [[REQ-364]]'s extension of the schema: the plan panel's questions;
+      // `milestones` is [[REQ-379]]'s: what the host has seen of the build;
       // `comps` is [[REQ-378]]'s: the comp board.
-      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'phase', 'site_key', 'tasks'].sort(),
+      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'phase', 'site_key', 'tasks'].sort(),
     )
   })
 })
@@ -236,9 +237,10 @@ describe('REQ-356 — the consultant works from the plan', () => {
     ])
     const offered = first[0].tools.map((t) => t.name)
     expect(offered).toEqual(expect.arrayContaining(['read_plan', 'update_brief', 'set_decision', 'set_task', 'answer_check']))
-    // The coordinator's tools are not the consultant's.
+    // The coordinator's tools are not the consultant's — save the milestones,
+    // which [[REQ-379]] gives both roles.
     expect(offered).not.toContain('record_client_answer')
-    expect(offered).not.toContain('record_check_answer')
+    expect(offered).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_phase']))
 
     const plan = (await findPlan(await store(ctx.tenant), ctx.slug)) as Ticket
     expect(fieldsOf(plan).decisions.find((d) => d.id === 'typography')).toMatchObject({

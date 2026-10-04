@@ -97,7 +97,11 @@ describe('REQ-356 — each role holds its own part of the plan', () => {
     // The consultant owns tasks, proposes decisions and answers checks…
     expect(alice).toEqual(expect.arrayContaining(['set_decision', 'set_task', 'answer_check']))
     expect(alice).not.toContain('record_client_answer')
-    expect(alice).not.toContain('record_check_answer')
+    // [[REQ-379]] — the milestones are both roles': with the room off there is no
+    // coordinator to raise a check or move the phase, so the consultant does.
+    for (const names of [alice, bob]) {
+      expect(names).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_phase']))
+    }
     // …the coordinator records the client's answers, asks checks and tracks
     // progress, and has no way to propose or to answer in its own voice.
     expect(bob).toEqual(

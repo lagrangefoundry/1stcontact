@@ -426,6 +426,8 @@ export function productTypePack(): ProductTypePack {
         // [[REQ-378]] — the comp board: which captures are on it, and who wrote
         // their notes last. A plan stored before comps existed reads as having none.
         comps: { type: 'list' },
+        // [[REQ-379]] — what the host has seen of the build. Absent until it has.
+        milestones: { type: 'object' },
       },
       body: { required: true, non_empty: true },
     },

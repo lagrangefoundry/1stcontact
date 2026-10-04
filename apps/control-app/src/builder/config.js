@@ -893,8 +893,10 @@ export const CHAT_OVER_LONG_MESSAGE =
 /**
  * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
  *
- * THE PHASE IN PLAIN WORDS, and progress is always framed by phase — never by how
- * few questions are left, which is what made a rough draft read as "nearly done".
+ * THE PHASE IN PLAIN WORDS. Progress on the BUILD is framed by phase — never by
+ * how few questions are left, which is what made a rough draft read as "nearly
+ * done". [[REQ-379]]'s count under it is a different thing: how much is left for
+ * the CLIENT to fill in, which is the question they actually have of the panel.
  */
 export const PLAN_PHASE_LABELS = {
   intake: 'Getting to know your business',
@@ -904,6 +906,12 @@ export const PLAN_PHASE_LABELS = {
   live: 'Live',
 }
 export const PLAN_PANEL_LABEL = 'The plan'
+/**
+ * [[REQ-379]] — the line under the phase: how many open asks are left for the
+ * client. Withdrawn and skipped asks are not counted.
+ */
+export const PLAN_STILL_TO_ANSWER = (n) => `${n} ${n === 1 ? 'question' : 'questions'} still to answer`
+export const PLAN_ALL_ANSWERED = "All done — thanks, that's everything I need for now."
 export const PLAN_NEEDS_ANSWER = 'Needs your answer'
 export const PLAN_TOLD_US = "What you've told us"
 export const PLAN_SKIP = 'Skip'
@@ -912,6 +920,12 @@ export const PLAN_SKIPPED = 'Skipped'
 export const PLAN_CHANGE = 'Change'
 export const PLAN_UPLOAD = 'Upload a document'
 export const PLAN_DOCUMENT = 'A document you sent'
+/** [[BUG-196]] — an upload ask that takes several files at once. */
+export const PLAN_UPLOAD_SEVERAL = 'Upload files'
+/** [[BUG-196]] — an answer of several files. */
+export const PLAN_DOCUMENTS = (n) => `${n} files you sent`
+/** [[BUG-196]] — a file the answer cited that has since been deleted from the Library. */
+export const PLAN_DOCUMENT_GONE = 'Deleted from your Library'
 export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
 export const PLAN_SAVE_FAILED = (message) => `That answer was not saved: ${message}`
 

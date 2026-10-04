@@ -4,13 +4,13 @@
   "surface_version": 1,
   "title": "The site plan",
   "call_type": "inproc",
-  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**A change answers what it changed, not the plan.** Every write confirms the one thing it wrote — the decision, task or check as it now stands — with long text shortened. Read the plan when you need the rest of it.\n\n**Asks are the questions waiting for the client.** They show on a panel above the chat, where the client answers them whenever they like, without interrupting the conversation. Put a question there only if the client can answer it unaided and the answer stays true: their phone number, opening hours, the towns they cover, whether they have a price list. Questions of judgement — style, which version they prefer, what to lead with — belong in the conversation. The client owns the answer; you own the wording. Their answers reach you at the start of your next turn.",
+  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the phase the build is in; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**A change answers what it changed, not the plan.** Every write confirms the one thing it wrote — the decision, task or check as it now stands — with long text shortened. Read the plan when you need the rest of it.\n\n**Asks are the questions waiting for the client.** They show on a panel above the chat, where the client answers them whenever they like, without interrupting the conversation. Put a question there only if the client can answer it unaided and the answer stays true: their phone number, opening hours, the towns they cover, whether they have a price list. Questions of judgement — style, which version they prefer, what to lead with — belong in the conversation. The client owns the answer; you own the wording. Their answers reach you at the start of your next turn.\n\n**Milestones fall due.** When the host sees a moment of the build happen — the first pass built, a round of revisions finished, Publish opened — the checks that moment triggers fall due, and your per-turn plan entry says so. Raise each one with the client in the conversation, and record that you asked (`ask_check`) and what they said (`record_check_answer`). When the entry says the phase is behind the build, move it on with `set_phase`.",
   "param_types": {},
   "shapes": {
     "plan": {
       "plan": "the plan's structured parts as they now stand: phase, brief, functionality, decisions, checks, tasks, asks, and the comp board",
       "body": "the written part: the client's own words, the decision log, and notes",
-      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, task progress, and the asks still open",
+      "panel": "the same plan projected for a reader: the phase, decisions grouped by state, checks still waiting for an answer, checks that have fallen due and not yet been raised, task progress, and the asks still open",
       "comps": "the comp board with each site's likes and dislikes, when it has any sites"
     },
     "written": {
@@ -202,7 +202,7 @@
       "tool": "record_check_answer",
       "effect": "write",
       "summary": "Record an answer to a check, from the consultant or the client.",
-      "description": "Only the consultant (`alice`) and the client (`user`) answer a check. You record; you never answer.",
+      "description": "Only the consultant (`alice`) and the client (`user`) answer a check. This records what was said: the client's answer as `user`. The consultant's own view goes through `answer_check`, and the coordinator never answers.",
       "params": {
         "check": { "type": "string", "required": true, "description": "The check's id." },
         "by": { "type": "string", "required": true, "enum": ["alice", "user"], "description": "Who answered." },
@@ -242,7 +242,7 @@
       "tool": "set_ask",
       "effect": "write",
       "summary": "Put a question on the client's panel, or reword one.",
-      "description": "Put it there the moment you think of it, rather than holding it for the right moment or asking it in the conversation: a question on the panel costs the client nothing until they choose to answer it. Short prompt, one-line reason — the reason is what makes them bother. Prefer asking for a document over several typed fields: \"upload your business card\" beats four boxes for address, phone, email and licence number, so set `accepts_upload` wherever a document could answer it.\n\nOnly facts the client knows and that stay true go here. If you cannot proceed without the answer, ask it in the conversation instead, as the one question of that message.\n\nEditing an ask changes its wording, input or reason and never the client's answer. An ask that was withdrawn is not asked again unless you pass `reopen`.",
+      "description": "Put it there the moment you think of it, rather than holding it for the right moment or asking it in the conversation: a question on the panel costs the client nothing until they choose to answer it. Short prompt, one-line reason — the reason is what makes them bother. Prefer asking for a document over several typed fields: \"upload your business card\" beats four boxes for address, phone, email and licence number, so set `accepts_upload` wherever a document could answer it. When you ask for files to use on the site, say so with `upload_role: site`; otherwise what arrives is background you can read but never place.\n\nOnly facts the client knows and that stay true go here. If you cannot proceed without the answer, ask it in the conversation instead, as the one question of that message.\n\nEditing an ask changes its wording, input or reason and never the client's answer. An ask that was withdrawn is not asked again unless you pass `reopen`.",
       "params": {
         "ask": { "type": "string", "required": true, "description": "A short id for the ask, e.g. `callout_fee`. A new id adds an ask; an existing one edits it." },
         "prompt": { "type": "string", "description": "The question, short and in the client's words." },
@@ -250,6 +250,8 @@
         "input": { "type": "string", "enum": ["text", "number", "currency", "phone", "email", "url", "date", "single_choice", "multi_choice", "upload"], "description": "The shape of the answer. `upload` asks for a document only." },
         "options": { "type": "array", "description": "For `single_choice` and `multi_choice`: the choices, at least two." },
         "accepts_upload": { "type": "boolean", "description": "True when a document could answer it instead of a typed value." },
+        "upload_role": { "type": "string", "enum": ["site", "reference"], "description": "For an ask that takes uploads: what the files are FOR. `site` for things the client wants on the site — photographs of their work, their logo — which you can then place. `reference` for background you read — price lists, flyers, old brochures — which can never be placed. Default `reference`, so set `site` whenever you are asking for something to put on the site." },
+        "multiple": { "type": "boolean", "description": "For an ask that takes uploads: true when the client may pick several files at once. Defaults to true for a `site` ask and false otherwise." },
         "needed_by": { "type": "string", "enum": ["first_pass", "revision", "prelaunch"], "description": "When the answer is needed. It orders the panel and never hides an ask, so a pre-publish detail can sit there from the start. Default `first_pass`." },
         "blocking": { "type": "boolean", "description": "True when you cannot go on without it." },
         "reopen": { "type": "boolean", "description": "Ask a withdrawn ask again, because it applies again." }
@@ -349,8 +351,8 @@
       "group": "CoordinatePlan",
       "effect": "write",
       "title": "Coordinating the plan",
-      "description": "The coordinator's part: recording the client's answers, asking checks and recording answers, tracking progress and the phase. Nothing here is an opinion of the site.",
-      "operations": ["record_client_answer", "ask_check", "record_check_answer", "set_task_status", "set_phase"]
+      "description": "The coordinator's part: recording the client's answers to decisions and tracking task progress. Nothing here is an opinion of the site.",
+      "operations": ["record_client_answer", "set_task_status"]
     },
     {
       "group": "KeepAsks",
@@ -358,6 +360,13 @@
       "title": "Keeping the client's questions",
       "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, and filling them in from what the client uploaded.",
       "operations": ["set_ask", "withdraw_ask", "fill_ask"]
+    },
+    {
+      "group": "KeepMilestones",
+      "effect": "write",
+      "title": "Keeping the milestones",
+      "description": "The checks raised at the milestones of a build, and the phase the build is in: recording that a check was asked and what the client answered, and moving the phase on when the build has moved past it.",
+      "operations": ["ask_check", "record_check_answer", "set_phase"]
     },
     {
       "group": "KeepComps",

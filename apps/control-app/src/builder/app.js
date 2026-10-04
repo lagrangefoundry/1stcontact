@@ -1068,6 +1068,8 @@ export function mountBuilder(root, options = {}) {
     ...(planTransport ? { transport: planTransport } : {}),
     // [[REQ-378]] — a comp clicked on the board is shown in the preview pane.
     onOpenComp: openComp,
+    // [[BUG-196]] — the delete confirmation an answered upload opens mounts in the shell.
+    getModalHost: () => shell.element,
   })
 
   const chat = createChatPanel({

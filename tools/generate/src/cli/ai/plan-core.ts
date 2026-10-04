@@ -93,6 +93,13 @@ export const CHOICE_INPUTS: readonly string[] = ['single_choice', 'multi_choice'
  */
 export const NEEDED_BY = ['first_pass', 'revision', 'prelaunch'] as const
 export const ASK_STATUSES = ['open', 'answered', 'skipped', 'withdrawn'] as const
+/**
+ * [[BUG-196]] — what an upload ask's files are FOR: the Library's two roles. `site`
+ * is something the client wants on the site (photographs, a logo) and is
+ * republishable as it lands; `reference` is background reading. Absent reads as
+ * `reference`, so nothing lands on the site's side unasked.
+ */
+export const UPLOAD_ROLES = ['site', 'reference'] as const
 /** Who an answer is recorded as coming from: the client, or the agent that filled it. */
 export const CLIENT = 'client'
 export const ASK_ANSWERERS: readonly string[] = [CLIENT, 'consultant', 'coordinator']
@@ -143,6 +150,25 @@ export interface PlanCheck {
   triggers: string[]
   asked_at?: string
   answers: PlanCheckAnswer[]
+  /**
+   * [[REQ-379]] — the host saw one of its triggers happen, and nobody has asked or
+   * answered it since. Cleared by asking or answering it.
+   */
+  due?: { trigger: string; at: string }
+}
+
+/**
+ * [[REQ-379]] — the moments of a build the host can see for itself, recorded so
+ * a milestone falls due once for the moment that caused it and a stale phase can
+ * be told from a current one.
+ */
+export interface PlanMilestones {
+  /** When the first builder session that wrote the site completed. */
+  first_pass_at?: string
+  /** Builder sessions that completed after that one. */
+  revision_rounds?: number
+  /** When Publish was first opened. */
+  publish_opened_at?: string
 }
 
 export interface PlanTask {
@@ -168,14 +194,21 @@ export interface PlanAsk {
   options?: string[]
   /** "Or upload a document instead." */
   accepts_upload?: boolean
+  /** [[BUG-196]] — what its uploads are for. Absent is `reference`. */
+  upload_role?: string
+  /** [[BUG-196]] — whether one pick may carry several files. Absent: only for a `site` ask. */
+  multiple?: boolean
   needed_by: string
   /** The agent cannot proceed without it. */
   blocking: boolean
   status: string
   /** A typed value, or the option(s) picked. */
   answer?: string | string[]
-  /** The material ticket uid of an uploaded file that answers it. */
-  answer_material?: string
+  /**
+   * The material ticket uid of an uploaded file that answers it — or, when one
+   * pick carried several files ([[BUG-196]]), every one of their uids.
+   */
+  answer_material?: string | string[]
   /** `client`, or the agent that filled it in from client material. */
   answered_by?: string
   answered_at?: string
@@ -241,6 +274,8 @@ export interface PlanFields {
   asks: PlanAsk[]
   /** [[REQ-378]] — the comp board: comparable sites, in the order they were added. */
   comps: PlanComp[]
+  /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
+  milestones?: PlanMilestones
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -280,6 +315,126 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 /** A refusal under a code the declaration declares. */
 const refuse = (code: string, message: string): Error => ledgerError(code, message)
 
+/**
+ * [[REQ-379]] — the features a client is offered, in their words. Data, in
+ * `plan-seed.json`, so the list changes without a code change.
+ */
+export const FEATURE_CATALOGUE: readonly string[] = planSeed.feature_catalogue
+
+/** [[REQ-379]] — the seeded ask whose answer is the plan's `functionality`. */
+export const FEATURES_ASK = 'features'
+
+/** The asks a new plan starts with, their `options_from` resolved against the seed. */
+function seedAsks(): PlanAsk[] {
+  const lists: Record<string, readonly string[]> = { feature_catalogue: FEATURE_CATALOGUE }
+  return planSeed.asks.map(({ options_from, ...a }) => ({
+    ...a,
+    ...(options_from ? { options: [...(lists[options_from] ?? [])] } : {}),
+    status: 'open',
+  }))
+}
+
+/**
+ * [[REQ-379]] — the features ask's answer, written through to `functionality`.
+ *
+ * A PICKED FEATURE IS WANTED, and a catalogue feature this answer used to pick and
+ * no longer does is not wanted — so changing the answer moves the list with it. A
+ * feature recorded any other way (`set_feature`, or off the catalogue) is left as
+ * it is: the answer speaks only for what it offered.
+ */
+function featuresAnswered(fields: PlanFields, ask: PlanAsk): void {
+  if (ask.id !== FEATURES_ASK || ask.status !== 'answered' || !Array.isArray(ask.answer)) return
+  const picked = new Set(ask.answer)
+  for (const feature of ask.options ?? []) {
+    const existing = fields.functionality.find((f) => f.feature === feature)
+    if (picked.has(feature)) {
+      if (existing) existing.status = 'wanted'
+      else fields.functionality.push({ feature, status: 'wanted' })
+    } else if (existing?.status === 'wanted') {
+      existing.status = 'not_wanted'
+    }
+  }
+}
+
+/**
+ * [[REQ-379]] — the triggers the host fires itself, because it can see them
+ * happen. The seed's other trigger names (`before_fan_out`, `vague_dissatisfaction`,
+ * …) are judgements, and stay the coordinator's to raise.
+ */
+export const FIRST_PASS_COMPLETE = 'first_pass_complete'
+export const REVISION_ROUND_FINISHED = 'revision_round_finished'
+export const BEFORE_PUBLISH = 'before_publish'
+
+/** Every check `trigger` names falls due at `at`. */
+function fallDue(fields: PlanFields, trigger: string, at: string): void {
+  for (const c of fields.checks) {
+    if (c.triggers.includes(trigger)) c.due = { trigger, at }
+  }
+}
+
+/**
+ * [[REQ-379]] — a builder session finished having written the site.
+ *
+ * THE FIRST IS THE FIRST PASS, and every later one is a revision round: the host
+ * cannot tell a "revision" from any other piece of work, and it does not need to —
+ * what the checks ask about is the site as it now stands, which every completed
+ * session has changed.
+ */
+export function builderSessionCompleted(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  const m = (next.fields.milestones = next.fields.milestones ?? {})
+  if (!m.first_pass_at) {
+    m.first_pass_at = at
+    fallDue(next.fields, FIRST_PASS_COMPLETE, at)
+  } else {
+    m.revision_rounds = (m.revision_rounds ?? 0) + 1
+    fallDue(next.fields, REVISION_ROUND_FINISHED, at)
+  }
+  checkPlan(next.fields)
+  return next
+}
+
+/**
+ * [[REQ-379]] — the client opened Publish.
+ *
+ * ONCE, the first time: the pre-publish checks are about a site going out, and a
+ * site already out that is published again does not need them asked again.
+ */
+export function publishOpened(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  const m = (next.fields.milestones = next.fields.milestones ?? {})
+  if (m.publish_opened_at) return next
+  m.publish_opened_at = at
+  fallDue(next.fields, BEFORE_PUBLISH, at)
+  checkPlan(next.fields)
+  return next
+}
+
+/**
+ * [[REQ-379]] — the phase the build has visibly reached, and what shows it, or
+ * `null` when the plan's own phase is not behind it.
+ */
+export function phaseBehind(fields: PlanFields): { expected: string; because: string } | null {
+  const m = fields.milestones ?? {}
+  const seen: [string, string] | null = m.publish_opened_at
+    ? ['prelaunch', 'Publish has been opened']
+    : (m.revision_rounds ?? 0) > 0
+      ? ['revision', 'the first pass is built and revisions have started']
+      : m.first_pass_at
+        ? ['first_pass', 'pages have been built']
+        : null
+  if (!seen) return null
+  const rank = (phase: string): number => (PHASES as readonly string[]).indexOf(phase)
+  return rank(fields.phase) < rank(seen[0]) ? { expected: seen[0], because: seen[1] } : null
+}
+
+/** Why a check fell due, as the digest says it. */
+const DUE_BECAUSE: Record<string, string> = {
+  [FIRST_PASS_COMPLETE]: 'the first pass is built',
+  [REVISION_ROUND_FINISHED]: 'a round of revisions has finished',
+  [BEFORE_PUBLISH]: 'Publish has been opened',
+}
+
 /** What a new site's plan holds before anybody has said anything. */
 export function seedPlan(siteKey: string): Plan {
   return {
@@ -292,7 +447,7 @@ export function seedPlan(siteKey: string): Plan {
       decisions: planSeed.decisions.map((d) => ({ ...d, state: 'open', compared: false })),
       checks: planSeed.checks.map((c) => ({ ...c, triggers: [...c.triggers], answers: [] })),
       tasks: [],
-      asks: [],
+      asks: seedAsks(),
       comps: [],
     },
     body: SECTIONS.map((name) => `## ${name}`).join('\n\n'),
@@ -398,6 +553,9 @@ export function checkPlan(fields: PlanFields): void {
         bad(`check ${c.id} has unknown verdict ${JSON.stringify(a.verdict)}`)
       }
     }
+    if (c.due !== undefined && !(filled(c.due.trigger) && filled(c.due.at))) {
+      bad(`check ${c.id} is due without saying what made it due and when`)
+    }
   }
   const taskIds = new Set(fields.tasks.map((t) => t.id))
   for (const t of fields.tasks) {
@@ -425,6 +583,19 @@ export function checkPlan(fields: PlanFields): void {
 }
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
+
+/** Every material an ask's answer cites, one or several ([[BUG-196]]). */
+export function askMaterials(a: Pick<PlanAsk, 'answer_material'>): string[] {
+  const m = a.answer_material
+  return (Array.isArray(m) ? m : m === undefined ? [] : [m]).filter(filled)
+}
+
+/** What an upload ask's files are for: its own role, or `reference` ([[BUG-196]]). */
+export const uploadRole = (a: Pick<PlanAsk, 'upload_role'>): string => a.upload_role ?? 'reference'
+
+/** Whether one pick may carry several files: as set, or by default for a `site` ask ([[BUG-196]]). */
+export const takesSeveral = (a: Pick<PlanAsk, 'multiple' | 'upload_role'>): boolean =>
+  a.multiple ?? uploadRole(a) === 'site'
 
 /** The answer an ask holds is one its input can produce. */
 export function answerFits(ask: Pick<PlanAsk, 'input' | 'options'>, answer: unknown): string | null {
@@ -467,13 +638,17 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
       bad(`ask ${a.id} has unknown needed_by ${JSON.stringify(a.needed_by)}`)
     }
     if (typeof a.blocking !== 'boolean') bad(`ask ${a.id} must say whether it is blocking`)
+    if (a.upload_role !== undefined && !(UPLOAD_ROLES as readonly string[]).includes(a.upload_role)) {
+      bad(`ask ${a.id} has unknown upload_role ${JSON.stringify(a.upload_role)}`)
+    }
+    if (a.multiple !== undefined && typeof a.multiple !== 'boolean') bad(`ask ${a.id} must say multiple as true or false`)
     if (!(ASK_STATUSES as readonly string[]).includes(a.status)) bad(`ask ${a.id} has unknown status ${JSON.stringify(a.status)}`)
     if (a.answered_by !== undefined && !ASK_ANSWERERS.includes(a.answered_by)) {
       bad(`ask ${a.id} cannot be answered by ${JSON.stringify(a.answered_by)}`)
     }
     if (a.status === 'answered') {
       if (!a.answered_by || !filled(a.answered_at)) bad(`ask ${a.id} is answered without saying by whom and when`)
-      const hasMaterial = filled(a.answer_material)
+      const hasMaterial = askMaterials(a).length > 0
       if (a.answer === undefined && !hasMaterial) bad(`ask ${a.id} is answered with neither an answer nor a document`)
       if (a.answer !== undefined) {
         const wrong = answerFits(a, a.answer)
@@ -498,6 +673,7 @@ export function planPanel(fields: PlanFields): {
   phase: string
   decisions: Record<string, string[]>
   open_checks: { id: string; question: string; answered_by: string[] }[]
+  due_checks: { id: string; question: string; trigger: string }[]
   tasks: { done: number; total: number; doing: string[]; next: string[] }
   asks: { open: { id: string; prompt: string; needed_by: string; blocking: boolean }[]; answered: string[]; skipped: string[] }
 } {
@@ -518,6 +694,11 @@ export function planPanel(fields: PlanFields): {
     open_checks: fields.checks
       .filter((c) => c.asked_at && !(ANSWERERS.every((by) => c.answers.some((a) => a.by === by))))
       .map((c) => ({ id: c.id, question: c.question, answered_by: c.answers.map((a) => a.by) })),
+    // [[REQ-379]] — FALLEN DUE AND NOT YET RAISED: the host saw the moment, and
+    // nobody has asked or answered since.
+    due_checks: fields.checks
+      .filter((c) => c.due)
+      .map((c) => ({ id: c.id, question: c.question, trigger: c.due!.trigger })),
     tasks: {
       done: done.size,
       total: live.length,
@@ -569,11 +750,21 @@ export interface PanelView {
 export function panelView(fields: PlanFields): PanelView {
   return {
     phase: fields.phase,
+    // [[BUG-196]] — AN UPLOAD ASK'S ROLE AND ITS ONE-OR-SEVERAL ARE RESOLVED HERE,
+    // defaults included, so the panel reads them and never re-derives the rule.
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
-      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) => shown,
+      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) =>
+        shown.accepts_upload || shown.input === 'upload'
+          ? { ...shown, upload_role: uploadRole(shown), multiple: takesSeveral(shown) }
+          : shown,
     ),
     comps: fields.comps ?? [],
   }
+}
+
+/** One or several uploaded documents, counted and named ([[BUG-196]]). */
+export function documentsText(uids: string[]): string {
+  return uids.length === 1 ? `document ${uids[0]}` : `${uids.length} documents (${uids.join(', ')})`
 }
 
 /** An answer as one line of text. */
@@ -600,6 +791,15 @@ export function planReminder(plan: Plan | null): string | null {
   const panel = planPanel(f)
   const list = (items: string[]): string => items.join('; ')
   const lines = ['### The site plan', '', `Phase: ${f.phase}.`]
+  // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
+  // left to itself forgets: the phase it never moved, the milestone it never raised.
+  const behind = phaseBehind(f)
+  if (behind) {
+    lines.push(`The phase is behind the build: it still says ${f.phase}, but ${behind.because}. Move it on to ${behind.expected} with set_phase.`)
+  }
+  for (const c of panel.due_checks) {
+    lines.push(`Due: ask the client "${c.question}" (${c.id}) — ${DUE_BECAUSE[c.trigger] ?? c.trigger}. Record that you asked with ask_check and their answer with record_check_answer.`)
+  }
   const brief = f.brief as Record<string, unknown>
   const briefBits = [
     typeof brief.business === 'string' ? `business: ${brief.business}` : '',
@@ -630,7 +830,7 @@ export function planReminder(plan: Plan | null): string | null {
   const known = (f.asks ?? []).filter((a) => a.status === 'answered')
   if (known.length) {
     lines.push(
-      `Answered: ${list(known.map((a) => `${a.id} = ${a.answer !== undefined ? JSON.stringify(answerText(a.answer)) : `document ${a.answer_material}`}`))}.`,
+      `Answered: ${list(known.map((a) => `${a.id} = ${a.answer !== undefined ? JSON.stringify(answerText(a.answer)) : documentsText(askMaterials(a))}`))}.`,
     )
   }
   if (panel.asks.skipped.length) lines.push(`The client skipped: ${list(panel.asks.skipped)}.`)
@@ -735,7 +935,11 @@ export function clientAnswer(
     delete a.answer
     delete a.answer_material
   } else if (input.action === 'answer') {
-    const material = str(input.answer_material)
+    // ONE FILE OR SEVERAL ([[BUG-196]]): one is kept as a string, as it always was.
+    const several = Array.isArray(input.answer_material)
+      ? input.answer_material.map(str).filter((m): m is string => m !== undefined)
+      : []
+    const material = several.length > 1 ? several : (several[0] ?? str(input.answer_material))
     const typed = Array.isArray(input.answer) ? input.answer.map(String) : str(input.answer)
     if (typed === undefined && material === undefined) {
       throw refuse(PLAN_INVALID, `an answer to ${a.id} needs a value or a document`)
@@ -752,6 +956,7 @@ export function clientAnswer(
   a.answered_at = at
   if (prior !== undefined) a.previous_answer = prior
   else delete a.previous_answer
+  featuresAnswered(next.fields, a)
   checkPlan(next.fields)
   return next
 }
@@ -762,7 +967,8 @@ export interface ClientChange {
   status: string
   answer?: string | string[]
   previous?: string | string[]
-  material?: string
+  /** Every material the answer cites — several when one pick carried several files. */
+  material?: string[]
   at: string
 }
 
@@ -782,7 +988,7 @@ export function clientChangesSince(fields: PlanFields, since: string): ClientCha
       status: a.status,
       ...(a.answer !== undefined ? { answer: a.answer } : {}),
       ...(a.previous_answer !== undefined ? { previous: a.previous_answer } : {}),
-      ...(a.answer_material ? { material: a.answer_material } : {}),
+      ...(askMaterials(a).length ? { material: askMaterials(a) } : {}),
       at: a.answered_at as string,
     }))
     .sort((x, y) => x.at.localeCompare(y.at))
@@ -815,9 +1021,10 @@ export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS
   const render = (c: ClientChange, max: number): string => {
     const v = (x: string | string[] | undefined): string => JSON.stringify(clip(answerText(x), max))
     if (c.status === 'skipped') return `skipped ${c.id}`
-    const doc = c.material ? ` (document ${c.material})` : ''
-    const value = c.answer !== undefined ? v(c.answer) : 'a document'
-    const what = `${value}${c.answer !== undefined ? doc : ` ${c.material}`}`
+    // HOW MANY ARRIVED IS SAID, NEVER CUT ([[BUG-196]]): a pick of six photographs
+    // reads as six, so the agent knows to look at all of them.
+    const doc = c.material ? ` (${documentsText(c.material)})` : ''
+    const what = c.answer !== undefined ? `${v(c.answer)}${doc}` : documentsText(c.material ?? [])
     return c.previous !== undefined ? `changed ${c.id} from ${v(c.previous)} to ${what}` : `answered ${c.id}: ${what}`
   }
   const room = budget - head.length - tail.length
@@ -1093,6 +1300,8 @@ export function planOperations(
         // consultant's, so what it records is the consultant's answer.
         c.answers = c.answers.filter((a) => a.by !== 'alice')
         c.answers.push({ by: 'alice', verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        // [[REQ-379]] — ANSWERED IS RAISED: it is no longer due.
+        delete c.due
         return { check: c }
       }),
 
@@ -1143,6 +1352,7 @@ export function planOperations(
         // since changed.
         c.asked_at = now()
         c.answers = []
+        delete c.due
         return { check: c }
       }),
     record_check_answer: (p) =>
@@ -1151,6 +1361,7 @@ export function planOperations(
         const by = String(p.by)
         c.answers = c.answers.filter((a) => a.by !== by)
         c.answers.push({ by, verdict: String(p.verdict), ...(str(p.note) ? { note: str(p.note) } : {}) })
+        delete c.due
         return { check: c }
       }),
     set_task_status: (p) =>
@@ -1195,6 +1406,8 @@ export function planOperations(
         if (str(p.input)) a.input = str(p.input)!
         if (Array.isArray(p.options)) a.options = p.options.map(String)
         if (typeof p.accepts_upload === 'boolean') a.accepts_upload = p.accepts_upload
+        if (str(p.upload_role)) a.upload_role = str(p.upload_role)!
+        if (typeof p.multiple === 'boolean') a.multiple = p.multiple
         if (str(p.needed_by)) a.needed_by = str(p.needed_by)!
         if (typeof p.blocking === 'boolean') a.blocking = p.blocking
         return { ask: a }
@@ -1228,6 +1441,7 @@ export function planOperations(
         a.answered_by = role
         a.answered_at = now()
         delete a.previous_answer
+        featuresAnswered(plan.fields, a)
         return { ask: a }
       }),
 
@@ -1270,7 +1484,10 @@ export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   const work = role === 'consultant' ? 'PlanWork' : 'CoordinatePlan'
   // [[REQ-364]] — BOTH ROLES KEEP ASKS: either can be the one maintaining the
   // panel, so turning the room on or off changes who keeps it and not how.
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepComps'] } }
+  // [[REQ-379]] — AND BOTH KEEP THE MILESTONES, for the same reason: with the room
+  // off there is no coordinator, and a phase only the coordinator could move never
+  // moved (EPIC-19 Finding 18).
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps'] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()

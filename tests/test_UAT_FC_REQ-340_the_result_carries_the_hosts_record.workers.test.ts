@@ -109,7 +109,7 @@ const REWRITE = {
 
 /** The caller's half: hand over one piece of work, then answer the client. */
 const CALLER: ModelStep[] = [
-  calls(DELEGATE_TOOL, { role: BUILDER_ROLE, goal: 'Rewrite the hero headline.' }),
+  calls(DELEGATE_TOOL, { note: 'Working on it now — a few minutes.', role: BUILDER_ROLE, goal: 'Rewrite the hero headline.' }),
   says('Done — the headline now reads "Built for the trades".'),
 ]
 

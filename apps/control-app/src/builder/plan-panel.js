@@ -25,7 +25,8 @@
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
  */
-import { answerAsk, compAction, fetchPlan, materialFileUrl, uploadMaterial } from './api.js'
+import { answerAsk, compAction, deleteMaterial, fetchPlan, materialFileUrl, saveMaterialRole, uploadMaterial } from './api.js'
+import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import {
   COMPS_ADD_BUTTON,
   COMPS_ADD_LABEL,
@@ -41,6 +42,9 @@ import {
   COMPS_REMOVE,
   PLAN_CHANGE,
   PLAN_DOCUMENT,
+  PLAN_DOCUMENT_GONE,
+  PLAN_DOCUMENTS,
+  PLAN_UPLOAD_SEVERAL,
   PLAN_FILLED_BY_AGENT,
   PLAN_NEEDS_ANSWER,
   PLAN_PANEL_LABEL,
@@ -49,6 +53,8 @@ import {
   PLAN_SKIP,
   PLAN_SKIP_TITLE,
   PLAN_SKIPPED,
+  PLAN_STILL_TO_ANSWER,
+  PLAN_ALL_ANSWERED,
   PLAN_TOLD_US,
   PLAN_UPLOAD,
 } from './config.js'
@@ -81,9 +87,14 @@ const notesOf = (text) =>
     .map((line) => line.trim())
     .filter((line) => line !== '')
 
+/** Every material an answer cites, one or several ([[BUG-196]]). */
+const answerMaterials = (ask) =>
+  Array.isArray(ask.answer_material) ? ask.answer_material : ask.answer_material ? [ask.answer_material] : []
+
 /**
  * @param {object} [options]
- * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, compAction?: Function}} [options.transport]
+ * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, setRole?: Function, remove?: Function, compAction?: Function}} [options.transport]
+ * @param {() => Element|null} [options.getModalHost] where the delete confirmation mounts
  * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
  *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
  */
@@ -93,13 +104,22 @@ export function createPlanPanel(options = {}) {
     answerAsk,
     uploadMaterial,
     compAction,
+    // [[BUG-196]] — the actions on an answered upload: the Library's own calls.
+    setRole: saveMaterialRole,
+    remove: deleteMaterial,
     ...(options.transport ?? {}),
   }
+  const getModalHost = options.getModalHost ?? (() => null)
+  /** The delete dialog an answered upload opened, so a second press opens no other. */
+  let confirming = null
   const onOpenComp = options.onOpenComp ?? null
 
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
   const phase = el('div', 'plan-panel__phase')
+  // [[REQ-379]] — directly under the phase: how much is left for the client.
+  const progress = el('div', 'plan-panel__progress')
+  progress.setAttribute('role', 'status')
   const error = el('div', 'plan-panel__error')
   error.hidden = true
   const openHeading = el('h3', 'plan-panel__heading', PLAN_NEEDS_ANSWER)
@@ -118,7 +138,7 @@ export function createPlanPanel(options = {}) {
   addButton.type = 'submit'
   const addStatus = el('span', 'plan-comps__status')
   addForm.append(el('label', 'plan-comps__add-label', COMPS_ADD_LABEL), addInput, addButton, addStatus)
-  element.append(phase, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
+  element.append(phase, progress, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
 
   let site = null
   let generation = 0
@@ -146,15 +166,80 @@ export function createPlanPanel(options = {}) {
     }
   }
 
-  async function upload(ask, file) {
+  /**
+   * Upload what the client picked and answer the ask with it ([[BUG-196]]).
+   *
+   * WITH THE ASK'S OWN ROLE, NOT A CONSTANT. The consultant said what the files are
+   * for when it wrote the ask — `site` for photographs to use, `reference` for
+   * background — and the view carries it resolved, default included. A `site`
+   * upload is placed as it lands, which is what the upload route does with a site.
+   *
+   * SEVERAL FILES ARE ONE ANSWER: every one is uploaded, then the ask is answered
+   * once, citing all of them.
+   */
+  async function upload(ask, files) {
     const asked = site
     try {
-      const material = await transport.uploadMaterial({ file, role: 'reference', site: asked })
-      if (asked !== site) return
-      await save(ask, { action: 'answer', answerMaterial: material.uid })
+      const uids = []
+      for (const file of files) {
+        const material = await transport.uploadMaterial({ file, role: ask.upload_role ?? 'reference', site: asked })
+        if (asked !== site) return
+        uids.push(material.uid)
+      }
+      await save(ask, { action: 'answer', answerMaterial: uids.length === 1 ? uids[0] : uids })
     } catch (err) {
       fail(err?.message ?? String(err))
     }
+  }
+
+  /** Run an action on an answered upload, then re-read the plan and its rows. */
+  async function act(run) {
+    try {
+      await run()
+      error.hidden = true
+    } catch (err) {
+      fail(err?.message ?? String(err))
+    }
+    await refresh()
+  }
+
+  /**
+   * The files an answer cites, each with what the client can do to it ([[BUG-196]]).
+   *
+   * WHERE THE CLIENT SEES THE UPLOAD, THEY SEE ITS ACTIONS: *Use on the site* for
+   * background reading they meant for the site, and *Delete*. The same controls the
+   * Library mounts, over the same routes. A file deleted since is said to be gone.
+   */
+  function filesOf(ask, materials) {
+    const list = el('ul', 'plan-ask__files')
+    for (const uid of answerMaterials(ask)) {
+      const row = materials[uid]
+      const item = el('li', 'plan-ask__file')
+      item.dataset.material = uid
+      if (!row) {
+        item.append(el('span', 'plan-ask__file-name plan-ask__file-name--gone', PLAN_DOCUMENT_GONE))
+        list.append(item)
+        continue
+      }
+      item.append(el('span', 'plan-ask__file-name', row.label ? `${row.label} ${row.title || row.filename}` : row.title || row.filename))
+      if (canUseOnSite(row)) item.append(useOnSiteButton(() => act(() => transport.setRole(uid, 'site'))))
+      item.append(
+        deleteButton(() => {
+          if (confirming) return
+          confirming = confirmDelete({
+            row,
+            host: getModalHost(),
+            remove: transport.remove,
+            onDeleted: () => void refresh(),
+            onClose: () => {
+              confirming = null
+            },
+          })
+        }),
+      )
+      list.append(item)
+    }
+    return list
   }
 
   /** The control an ask is answered with, saving as the client goes. */
@@ -202,10 +287,13 @@ export function createPlanPanel(options = {}) {
       const file = el('input')
       file.type = 'file'
       file.hidden = true
+      // SEVERAL WHERE THE ASK TAKES SEVERAL ([[BUG-196]]) — by default, a `site` ask.
+      file.multiple = Boolean(ask.multiple)
       file.addEventListener('change', () => {
-        if (file.files?.[0]) void upload(ask, file.files[0])
+        const picked = [...(file.files ?? [])]
+        if (picked.length > 0) void upload(ask, picked)
       })
-      pick.append(document.createTextNode(PLAN_UPLOAD), file)
+      pick.append(document.createTextNode(ask.multiple ? PLAN_UPLOAD_SEVERAL : PLAN_UPLOAD), file)
       box.append(pick)
     }
     const skip = el('button', 'plan-ask__skip', PLAN_SKIP)
@@ -226,7 +314,7 @@ export function createPlanPanel(options = {}) {
   }
 
   /** One answered or skipped ask, compact, which the client can reopen to change. */
-  function doneBlock(ask) {
+  function doneBlock(ask, materials = {}) {
     const block = el('div', 'plan-ask plan-ask--done')
     block.dataset.ask = ask.id
     block.dataset.status = ask.status
@@ -236,7 +324,9 @@ export function createPlanPanel(options = {}) {
         ? PLAN_SKIPPED
         : ask.answer !== undefined
           ? answerText(ask.answer)
-          : PLAN_DOCUMENT
+          : answerMaterials(ask).length > 1
+            ? PLAN_DOCUMENTS(answerMaterials(ask).length)
+            : PLAN_DOCUMENT
     row.append(el('span', 'plan-ask__prompt', ask.prompt), el('span', 'plan-ask__value', value))
     if (ask.status === 'answered' && ask.answered_by && ask.answered_by !== 'client') {
       row.append(el('span', 'plan-ask__source', PLAN_FILLED_BY_AGENT))
@@ -249,6 +339,7 @@ export function createPlanPanel(options = {}) {
     })
     row.append(change)
     block.append(row)
+    if (ask.status === 'answered' && answerMaterials(ask).length > 0) block.append(filesOf(ask, materials))
     if (changing.has(ask.id)) block.append(el('div', 'plan-ask__why', ask.why), editor(ask))
     return block
   }
@@ -332,11 +423,18 @@ export function createPlanPanel(options = {}) {
     const asks = view.asks ?? []
     const open = asks.filter((a) => a.status === 'open')
     const done = asks.filter((a) => a.status === 'answered' || a.status === 'skipped')
+    // NOTHING TO COUNT BEFORE A SITE IS SHOWN: the empty placeholder view has no
+    // phase, and "all done" there would be a claim about a plan nobody has read.
+    progress.hidden = !view.phase
+    progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : PLAN_ALL_ANSWERED
     const active = document.activeElement
     const drawn = new Map()
     const place = (list, items, make) => {
       const nodes = items.map((ask) => {
-        const key = JSON.stringify([ask, changing.has(ask.id), list === openList])
+        // THE ROWS AN ANSWER CITES ARE PART OF WHAT IT SHOWS ([[BUG-196]]), so a
+        // file moved to the site or deleted redraws its block.
+        const cited = answerMaterials(ask).map((uid) => materials[uid] ?? null)
+        const key = JSON.stringify([ask, cited, changing.has(ask.id), list === openList])
         const held = blocks.get(ask.id)
         const inUse = held && active && held.node.contains(active) && held.list === list
         const node = held && (held.key === key || inUse) ? held.node : make(ask)
@@ -345,8 +443,9 @@ export function createPlanPanel(options = {}) {
       })
       list.replaceChildren(...nodes)
     }
+    const materials = view.materials ?? {}
     place(openList, open, openBlock)
-    place(doneList, done, doneBlock)
+    place(doneList, done, (ask) => doneBlock(ask, materials))
     // [[REQ-378]] — the comp board, under the same rule: a block whose content
     // has not changed is kept, and so is the one the client is typing in.
     const comps = view.comps ?? []

@@ -184,6 +184,21 @@ export interface LibraryDeps {
    * translating it into the declared code is {@link libraryOperations}'s job.
    */
   place(name: string, as: string | null): Promise<PlacedItem>
+  /**
+   * Change what an upload is FOR — [[BUG-196]], over [[REQ-213]]'s `reviseRole`.
+   *
+   * THE CLIENT'S OWN CORRECTION, MADE ON THEIR SAY-SO. The gate is the host's and
+   * is the one the Library's role control goes through: uploads only, and never
+   * back to `reference` once the bytes are on a site. The host raises its refusal
+   * under this surface's declared code. It answers the item as it now stands.
+   */
+  setRole(name: string, role: string): Promise<CatalogueItem>
+  /**
+   * Delete an item from the client's Library — [[BUG-196]], over [[REQ-281]]'s
+   * `archiveMaterial`, the same erasure the client's own Delete button makes.
+   * Whatever is already on the site stays: the site holds its own copy.
+   */
+  remove(name: string): Promise<void>
   /** Which site this session is about, for reading `placed_on` as a boolean. */
   slug: string
 }
@@ -211,7 +226,15 @@ export interface PlacedItem {
 export class LibraryRefusedError extends Error {
   readonly name = 'LibraryRefusedError'
   constructor(
-    readonly code: 'NOT_FOUND' | 'DELETED' | 'AMBIGUOUS' | 'NOT_REPUBLISHABLE' | 'NO_SITE',
+    readonly code:
+      | 'NOT_FOUND'
+      | 'DELETED'
+      | 'AMBIGUOUS'
+      | 'NOT_REPUBLISHABLE'
+      | 'NO_SITE'
+      | 'NOT_AN_UPLOAD'
+      | 'ALREADY_ON_SITE'
+      | 'SCHEMA_INVALID',
     message: string,
   ) {
     super(message)
@@ -239,7 +262,10 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
  * makes narrowing it later a configuration change rather than a redesign.
  */
 export function libraryInstanceConfig(): Record<string, unknown> {
-  return { [LIBRARY_SURFACE]: { groups: ['ReadLibrary', 'PlaceOnSite'] } }
+  // [[BUG-196]] — AND KEEPING IT, on the client's say-so: what an upload is for, and
+  // deleting one. Its own group for the same reason placing is: a deployment can
+  // grant looking without changing.
+  return { [LIBRARY_SURFACE]: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary'] } }
 }
 
 /**
@@ -418,6 +444,42 @@ export function libraryOperations(
         // here is what makes that a thing it can do without a second call.
         description: placed.description,
         placed_on: placed.placed_on,
+      }
+    },
+
+    // [[BUG-196]] — THE CLIENT'S TWO CORRECTIONS, MADE FOR THEM. Each is the same
+    // host call the client's own Library control makes, so the consultant and the
+    // client cannot come to disagree about what a role means or what deleting does.
+    set_upload_role: async (p: Params) => {
+      const item = await itemNamed(String(p.item ?? ''), await deps.list(), () => deps.deleted())
+      const role = String(p.role ?? '')
+      if (role !== 'site' && role !== 'reference') {
+        throw new LibraryRefusedError('SCHEMA_INVALID', `a role is 'site' or 'reference', not '${role}'.`)
+      }
+      const now = await deps.setRole(item.name, role)
+      return {
+        item: now.name,
+        label: now.label,
+        role: now.role,
+        republishable: now.republishable,
+        placed_on: now.placed_on,
+      }
+    },
+
+    delete_library_item: async (p: Params) => {
+      const item = await itemNamed(String(p.item ?? ''), await deps.list(), () => deps.deleted())
+      await deps.remove(item.name)
+      const placed = item.placed_on.length > 0
+      return {
+        item: item.name,
+        label: item.label,
+        deleted: true,
+        // THE FACT THE CLIENT MOST LIKELY HAS WRONG, said every time it applies:
+        // placement copied the bytes, so the page still shows the picture.
+        still_on_site: placed ? item.placed_on : [],
+        note: placed
+          ? 'Removed from the Library. It is still on the site: the page keeps its own copy. To take it off the page, edit the page.'
+          : 'Removed from the Library. It was not on the site.',
       }
     },
   }

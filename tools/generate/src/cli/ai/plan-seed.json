@@ -13,9 +13,43 @@
     "",
     "`triggers` name the moments a check fires ([[DOC-64]] §7). Firing them is the",
     "coordinator's runtime and out of scope here; the names are recorded so that",
-    "runtime has something to match on."
+    "runtime has something to match on.",
+    "",
+    "[[REQ-379]] — `feature_catalogue` is the fixed list a site's features are",
+    "chosen from, in the client's words, and `asks` are the panel questions a new",
+    "plan starts with. The one seeded ask is the features ask: its options are the",
+    "catalogue (`options_from`), so the catalogue is stated once. Answering it fills",
+    "the plan's `functionality`, which is what gives \"are we done?\" something to",
+    "be measured against. A feature outside the catalogue can still be recorded",
+    "with `set_feature`; the catalogue is what the client is offered, not a limit."
   ],
   "phase": "intake",
+  "feature_catalogue": [
+    "A contact form",
+    "Click-to-call phone number",
+    "Booking or appointment requests",
+    "Quote requests",
+    "Customer reviews",
+    "Photos of past work",
+    "Areas you cover",
+    "Prices or a price list",
+    "Opening hours",
+    "Frequently asked questions",
+    "Newsletter signup",
+    "Online payments",
+    "News or blog posts"
+  ],
+  "asks": [
+    {
+      "id": "features",
+      "prompt": "Which of these does your site need?",
+      "why": "So we build what you need and can tell when the site is finished.",
+      "input": "multi_choice",
+      "options_from": "feature_catalogue",
+      "needed_by": "first_pass",
+      "blocking": false
+    }
+  ],
   "decisions": [
     { "id": "site_job", "area": "purpose", "tier": "concept", "settle": "ask", "title": "The site's job right now" },
     { "id": "audiences", "area": "purpose", "tier": "concept", "settle": "ask", "title": "Audience(s) and priority" },

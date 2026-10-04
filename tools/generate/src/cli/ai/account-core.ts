@@ -51,6 +51,7 @@ import { canonicalJson, diffOutlines } from '../../store/revision-model'
 import type { SiteOutline } from '../../store/revision-model'
 import type { SiteStore, StoredPage } from '../../store/site-store'
 import { BUDGET_STOP_REASON, TURN_END, budgetStopMeta } from './budget-core'
+import { withClientNote } from './cadence-core'
 
 // ── what a capture is ────────────────────────────────────────────────────────
 
@@ -1144,7 +1145,8 @@ function withHostResultFields(declaration: Untyped): Untyped {
  * field and nothing else.
  */
 export function reportingDelegationToolbox(lib: Untyped, ceiling = 0): Untyped {
-  const declaration = withHostResultFields(lib.DelegationToolbox.DECLARATION)
+  // [[REQ-379]] — and the client's note, which the host shows before the work runs.
+  const declaration = withClientNote(withHostResultFields(lib.DelegationToolbox.DECLARATION))
   return class ReportingDelegationToolbox extends lib.DelegationToolbox {
     constructor(runtime: Untyped, options: Untyped = {}) {
       super(runtime, { ...options, decl: options.decl ?? declaration })

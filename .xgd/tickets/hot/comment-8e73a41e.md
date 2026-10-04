@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-378
 created_by: xgd
 created_at: '2026-10-04T00:31:20.225391+00:00'
-updated_at: '2026-10-04T00:43:30.348315+00:00'
+updated_at: '2026-10-04T02:34:09.573104+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,128 @@ Tell me which option you want and I'll start. If it's option 1, I'll set the tic
 <!-- xgd-chat role="user" ts="2026-10-04T00:43:29.019274+00:00" -->
 #### You
 all good - please go
+
+<!-- xgd-turn id="2790db03-0756-407b-b692-8847bb2099ef-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:03:26.728423+00:00" -->
+#### Claude
+Status: ticket set to `free_coding`, branch `free-REQ-378` cut. I'm now reading the plan surface, the capture/adopt path and the preview pane before writing code.
+
+Still reading: capture bundles hold full-page shots at every width, so the viewer's desktop/phone toggle is just 1280 vs 375. Now checking what capture records about animation.
+
+Design is settled; starting the core. First the plan surface declaration format.
+
+Writing the plan-core changes now (comp entries on the plan, three new plan operations, client-side pure helpers).
+
+Now the edits to plan-core.
+
+Now the surface declaration: three operations, a `KeepComps` group, two error codes.
+
+Reformatting would bloat the diff; redoing the JSON as text insertions in the file's own style.
+
+Plan surface done. Now the host side: storing comps on the plan ticket and notes on the reference ticket. Checking the reference ticket's field schema.
+
+Writing `apps/control-app/src/comps.ts` — the host's reference-ticket half (comp lookup, notes, board projection for the panel).
+
+Now the motion line: derived from the capture's per-element `motion` record at adoption, put in the description and on the reference ticket.
+
+Now the routes. Checking what's in scope in the router's handler (store, tickets, origin).
+
+Routes in. Now the delta for the consultant's next turn (client-written notes).
+
+Server side drafted; type-checking before moving to the UI.
+
+Worktree lacks the generated modules (known); filtering errors to the files I touched.
+
+Server types clean. Now the browser side: API transport, the board on the plan panel, and the viewer mode.
+
+Adding the API call and labels.
+
+Now the board on the plan panel.
+
+Now the comp viewer — a separate module mounted as a transient pane mode.
+
+Wiring the viewer into the builder app.
+
+Now CSS.
+
+UI done. Now the method: consultant priming and DOC-64.
+
+Priming updated. Now DOC-64 — reading §8 and how it reaches the knowledge base.
+
+Implementation drafted. Now the UATs — reading the existing REQ-364 / REQ-166 test patterns to reuse their fixtures.
+
+Still on tests: checking whether the fake browser can drive a full `capture_site` through the route (so the client "add a site" UAT is real end to end).
+
+Adding the `evaluate` hook to the shared fake browser.
+
+Writing the workers UAT (route-level comp board, consultant tools, next-turn notice).
+
+Running the workers UAT.
+
+All four workers UATs pass. Checking whether the "uncaught exception" noise is pre-existing by running the REQ-364 suite.
+
+Each capture logs three workerd "internal error" lines. Checking whether they come from the describer/indexer path rather than my code.
+
+The noise was the default describer reaching the network; stubbing it (as other suites do) silences it. Now the jsdom UAT for the board UI and the viewer.
+
+Writing the jsdom UAT.
+
+Both UI UATs pass (not skipped — the webui symlink is in place). Now the method UAT for the priming.
+
+The grant is already proven end-to-end in the workers suite (the tools offered to the model), so I'll drop the duplicate config-level check.
+
+All three new UAT files pass. Now the regression scope: every suite that touches the plan, priming, capture adoption, the description, the pane/toolbar or the plan panel.
+
+Unrelated to my change (`ManageTextStyles` is another ticket's grant, pre-existing per my notes). Updating the REQ-356 schema pin to include `comps`, as REQ-364 did for `asks`.
+
+REQ-295 fails identically on clean xgd-working, so it's pre-existing. Confirming REQ-356 now passes, then committing on the branch.
+
+Committing the work on `free-REQ-378` (explicit paths, no version bump yet: the bump goes on the tip at merge time).
+
+Committed (`511d2f82`). Now appending the as-built design and the merge-time remainder to the ticket body.
+
+I've built REQ-378 on the `free-REQ-378` branch (commit `511d2f82`) and, as agreed, not merged it, because the consultant still can't search the web. The ticket stays at `free_coding`.
+
+**What works now:**
+- **The list on the plan panel.** "Sites we're comparing" shows each site with a thumbnail of the top of its desktop page, its name, and whether it was suggested or the client added it. Each entry has likes and dislikes boxes and a Remove button.
+- **The client adding a site.** They type an address and the server captures it with the same `capture_site` the consultant uses, so the site becomes a normal reference ticket. An address that can't be captured is refused and nothing is added.
+- **The consultant's tools.** Three new plan operations: `add_comp`, `note_comp` and `remove_comp`. `set_decision` can now link the conventions in `visual_concept` to the comps that shaped them. The plan reminder each turn lists what's on the list.
+- **Likes and dislikes.** They're stored on the reference ticket. When the client edits them, the consultant is told once, on its next turn.
+- **Viewing a comp in the preview pane.** It shows the capture's full-page screenshot, never an iframe and never the site's own HTML. A dark banner holds "Viewing: <site>", "Back to your draft", previous/next, a Desktop/Phone toggle and "Visit the live site". Edit, pages, colours and Publish don't appear in this mode. "Back to your draft" returns to the same frame without reloading it, so the client is on the page they left.
+- **Motion.** At capture time, any animation or hover effects the capture recorded become a one-line note on the site's description, and the viewer shows it.
+- **The consultant's instructions.** They now say the comp review comes before the first build, with the opening question, the mix of sites to suggest, and to take screenshots sparingly.
+
+**Tests:** the eight new tests in three files pass. Across the 60 related suites, the only failure is `test_UAT_FC_REQ-295_delegation_config.test.ts`, which fails the same way on clean xgd-working. Its expected tool list is missing another ticket's text-styles tools. I updated one existing test, REQ-356, to expect the new `comps` field on the plan.
+
+**Decisions I made that you may want to check:**
+- The preview pane had no desktop/phone toggle before, so the viewer has its own, switching between the 1280px and 375px screenshots.
+- The thumbnail is the full-page screenshot cropped by CSS. If those images are too heavy to load as thumbnails, the fix is to crop once at capture time.
+- I haven't edited DOC-64 yet. It's live in the ticket store, and changing it now would describe tools production doesn't have.
+
+**Left for when lagrange-framework REQ-206 lands** (also written in the ticket body):
+1. Grant `web_search` to the consultant and add its test.
+2. Update DOC-64 §8 and add its test.
+3. Merge xgd-working into the branch, bump the version, fast-forward back into xgd-working, then mark the ticket `free_coded`.
+
+To run tests in this worktree, I copied `apps/control-app/src/generated/` and linked `@lagrangefoundry` from the main checkout. Both are gitignored, so they don't appear in the commit.
+
+<!-- xgd-turn id="17294d41-ecd7-44e8-8375-1165a3aea99b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:20:38.001346+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="830cccb1-5dec-4009-aa6b-51693f373626-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T02:34:09.507354+00:00" -->
+#### You
+REQ-206 has landed
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above): Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
