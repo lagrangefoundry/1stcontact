@@ -6,9 +6,9 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-04T00:43:37.633034+00:00'
+updated_at: '2026-10-04T00:46:49.403231+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -51,3 +51,25 @@ The guard (3) and the scope model with enforcement (1–2) come first. They make
 ## Children
 
 To be filed as the design settles. The immediate stop-gap, telling the consultant that builder sessions run one at a time, is a description and prompt change and needs no ticket.
+
+
+## Proposed direction for item 4: a page is a frame plus an ordered list of sections, concatenated at render (2026-10-03)
+
+The operator's suggestion, checked against real data. **Charlie's Plumbing 2's home page already has this shape.** Its L1 root is a `stack` whose 12 direct children are the page's sections, each with a meaningful node `id`: `emergency-bar` (sticky), `header`, `hero-section-outer`, `services-glance`, `kitchens-bathrooms`, `process`, `story`, `emergencies`, `reviews`, `trust-strip`, `quote-form-section`, `footer`. Rendering the root's children in order **is** concatenation, so the change is mostly in storage and addressing, not in what L1 can express.
+
+**The shape:**
+- **The page frame** holds the document-level keys (`widths`, `background`, `textColor`, `resources`/fonts, `column`), the page's `modules` list, SEO metadata, and the **ordered list of section ids**. Exactly one owner at a time. Adding, removing or reordering sections is a frame operation.
+- **Sections** are stored and versioned separately, keyed by the stable section `id`, **never by index**. Addresses inside a section are relative to that section, so writing one section can't renumber another. This removes the "every address on the page is regenerated" hazard.
+- **Render** assembles the frame plus its sections in order into today's single L1 document. The renderer and the validator are unchanged and still run on the assembled document, so caps such as node count and depth, and the rule that keyframe widths are a subset of the declared widths, still hold across the page.
+- **Reads get cheaper too.** A builder working on one section reads just that section, not the whole 29–41KB page. That saves context even when nothing runs in parallel.
+
+**What has to be settled for sections to be truly independent:**
+1. **Root must be a flow stack.** Sections may not position or overlap relative to each other (negative margins into a neighbour, absolute geometry across sections). That's checked when a section is written, not assumed. Capture-derived reproduction pages may not meet this, and they stay single-owner.
+2. **Frame keys are read-only to section owners.** A builder needing a new font or viewport width asks for a frame change, and that change is serialised.
+3. **Modules belong to the section that hosts their slot.** Today `modules` sits at page level, for example `quote_form` in slot `form`. Each module instance needs an owning section, or it stays with the frame.
+4. **Ids that must be unique across sections** (in-page anchors like `#quote-form-section`, node ids) are validated on the assembled page, and a write that creates a collision is refused.
+5. **Shared sections.** `header`, `footer` and `emergency-bar` repeat on every page, so they're natural candidates for site-level shared sections with their own scope (EPIC-24 item 1), rather than per-page copies kept in sync by hand.
+6. **The version guard (item 3) applies per section**, so two builders on two sections never conflict, and two on the same section get a refusal instead of a lost write.
+7. **Migration:** existing pages are split mechanically by root child, and an existing page that isn't a flow stack stays whole.
+
+This makes "different sections of one page" a safe parallel unit, and it should probably replace item 4's "stable addressing" option outright.
