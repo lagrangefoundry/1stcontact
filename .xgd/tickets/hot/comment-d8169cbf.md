@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:22:42.801450+00:00'
+updated_at: '2026-10-04T01:22:55.924011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6801,5 +6801,25 @@ So "Alice knows what to do" depends on 378 landing. If it isn't in by tomorrow, 
 <!-- xgd-chat role="user" ts="2026-10-04T01:22:40.736478+00:00" -->
 #### You
 Right but with 206 and 378 we are ready?
+
+<!-- xgd-turn id="092c6717-f057-4d99-898f-8b263d89164f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T01:22:53.405904+00:00" -->
+#### Claude
+Yes for comps, with conditions. Not yet for the cadence.
+
+**Comps (1): ready once all four of these happen**
+1. LF REQ-206 lands, so Alice has web search.
+2. You refresh the shared framework install so 1stcontact picks up REQ-206. You run that one yourself.
+3. REQ-378 lands, bringing the comp board, the comp viewer in the preview pane, and the priming that makes comps the opening step.
+4. You run `bin/deploy --env dev`.
+
+**Going quiet and panel reminders (2 and 3): still prompt-only**
+REQ-206 and REQ-378 don't touch these. Tomorrow they depend on the new "before you go away…" priming line, which is the first real test of whether a prompt rule is enough. The guaranteed version, plus your progress counter, is REQ-379, and that isn't started yet.
+
+**One more ticket worth having in**
+BUG-196. Without it, any photos you upload through the panel arrive as reference material, and Alice can't use them. You can work around it by changing "What it is for" in the Library, but it'll interrupt the run.
+
+So with 206 and 378 you're ready for the comps experiment. For the full set you asked about, you'd also want 379 and 196.
 
 <!-- xgd-chat-end -->
