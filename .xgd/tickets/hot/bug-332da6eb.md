@@ -5,9 +5,9 @@ type: bug
 title: 'bin/deploy: ships stale builder browser assets beside a fresh Worker'
 created_by: EPIC-19
 created_at: '2026-10-04T17:58:10.800589+00:00'
-updated_at: '2026-10-04T20:57:09.326066+00:00'
+updated_at: '2026-10-04T21:01:09.321513+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -42,3 +42,29 @@ The Worker bundle *is* rebuilt from source, so the server and the browser shippe
 ## Test plan
 
 UAT named `test_UAT_FC_<TICKET-ID>_*`: with a builder source file newer than its `dist-assets` copy, `bin/deploy --env dev` produces a snapshot whose asset matches the source, or exits non-zero naming the stale file. It never succeeds with the stale copy.
+
+
+## What changed (2026-10-04)
+
+`bin/deploy` now builds the browser assets it ships. There's a new hook stage, `bin/deploy.d/assets/`, which runs **first** for every app at every target (local `--env dev` and the cloud upload alike), before `migrate` and `secrets`. Its one hook, `10-control-app-assets`, gates on `control-app` like the other hooks do and runs `1c assets`, the same asset build `bin/build` runs (~1s). So `dist-assets`, and the `src/generated/` modules the Worker imports, come from the same tree as the Worker bundle wrangler then builds. The dev snapshot's existing `commit` field, shown in the `bin/dev up` / `1c dev serve` banner, now truthfully names the commit both halves were built from.
+
+- A failed asset build exits non-zero and stops that app's deploy, before any migration is applied.
+- `--dry-run` builds nothing. It prints `would build apps/control-app/dist-assets (1c assets)`.
+- The hook `cd`s to the repo root itself, so it doesn't depend on the caller's working directory.
+
+## Design decisions
+
+- **Build, don't refuse.** This is the ticket's preferred option: one command, no trap. A staleness check would have needed its own definition of "everything `1c assets` consumes"; building costs about a second and can't drift from that definition.
+- **A hook stage, not a line in `bin/deploy`.** This keeps the script's rule that it knows nothing app-specific, and it makes the build testable without a full control-app deploy.
+- **The stage is named `assets`, not `build`**, because the repo `.gitignore` ignores every `build/` directory.
+- **No `1c kb ensure` before it**, unlike `bin/build`. `1c assets` already refuses a KB whose index is behind its corpus, so a deploy can't ship a stale KB either: it stops and names the command. Bringing the index forward needs a credential and a request, which is a build's job, not a deploy's.
+
+## Test coverage
+
+`tests/test_UAT_FC_BUG-203_deploy_builds_what_it_ships.test.ts`:
+1. `a_stale_builder_asset_is_rebuilt_from_its_source`: a `dist-assets/builder` copy with stale bytes and an older mtime is rebuilt by the hook to match its source byte-for-byte, as is every other builder file, with the hook run from outside the repo.
+2. `the_deploy_builds_before_every_other_hook_at_both_targets`: `bin/deploy --dry-run` at `--env dev` and `--env production` runs the `assets` stage before `migrate`.
+3. `a_failed_build_stops_the_deploy`: a failing `assets` hook fails the deploy, no migrate hook runs, and nothing is reported as deployed.
+4. `a_rehearsal_builds_nothing`: with `DEPLOY_DRY_RUN=1` the stale copy is left alone and the hook says what it would build.
+
+A full `bin/deploy --env dev control-app` isn't run in the suite, because it would apply the control app's migrations to `.wrangler/state` (the only copy of the dev data). The chain is proved in parts instead: (1) the hook makes `dist-assets` match the source, (2)/(3) the deploy runs it before the ship step, and REQ-318 covers the ship step copying `dist-assets` into the snapshot.
