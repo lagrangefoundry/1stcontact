@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T16:13:10.397259+00:00'
+updated_at: '2026-10-04T16:13:54.241854+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6919,5 +6919,23 @@ Which of these does your site need?A contact formChange
 I am the creator of this tool and this is the first test session that we are attempting. We are going to create a new site Charlie's Plumbing it is a fictional Rotor Router and basic domestic plumbing company based in Santa Cruz. I am going to role play the owner and you are going to help me build a site. We may break character to discuss bugs and issues I will prefix messages that break character with bc - can you start by introducing your self and describing your process?
 
 *400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0.thinking: each thinking block must contain thinking"},"request_id":"req_011CfhVUpG9spBhfKnzWRDAs"}*
+
+<!-- xgd-turn id="36f8529f-b1a2-4ad6-b719-9868f1a3f6c7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T16:13:53.454613+00:00" -->
+#### Claude
+This is a framework bug that REQ-206, the web search work, introduced yesterday. I've filed it upstream as **lagrange-framework BUG-81**, at critical severity.
+
+**What breaks:** while Alice works through her tool calls, the framework sends her earlier reasoning back to the API in each request. Since REQ-206, it sends that reasoning back empty, and the API rejects the whole request with the error you saw.
+
+**Why:** to support web search, REQ-206 changed the framework to keep unfamiliar parts of Alice's responses exactly as they arrived, so search results could be sent back intact. Her reasoning goes through that same path. But it arrives empty at first and its text follows in later pieces, which the framework doesn't collect, so the copy it sends back is empty.
+
+**The fix** is to collect those later pieces into the reasoning block before sending it back. The ticket also asks for a test covering reasoning followed by a tool call, and a check for any other content that arrives in pieces the same way.
+
+**This blocks the run.** Almost any turn where Alice uses tools will fail. Two ways to proceed:
+- **Wait for BUG-81**, refresh the shared framework install, then run `bin/deploy --env dev`. That's the clean option.
+- **Turn off adaptive thinking for the consultant in config.** That would sidestep the bug, but it changes how Alice behaves, so it would muddy the experiment. I wouldn't do it.
+
+Separately, your panel shows "A contact form" as the only feature, which is BUG-200's collapse. Tick one, use "Change" to add the rest, or tell her in the chat.
 
 <!-- xgd-chat-end -->
