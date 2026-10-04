@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:55:10.947444+00:00'
+updated_at: '2026-10-04T23:19:05.909930+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7086,5 +7086,19 @@ Good - also not on BUG-202 that Alice did pull a different comp on a second roun
 I've added a correction to BUG-202, and the records back you up. My earlier claim that she never searched only covered the first two turns. Across the whole session the turn records show **one** web search, in the turn that started at 18:30. From it she added **"Bay Area Construction & Plumbing | Full Steam Ahead"** to the board at 18:47, next to your Duncan Plumbing.
 
 So search works and Alice will use it, which is good news for LF REQ-206. What's still wrong is the timing: she searched only once your list turned out thin, and ran one search for one comp. The fix in BUG-202 stands: she should search in the same turn she asks you who you compete with, and aim for the full mix from the start, not treat search as a fallback.
+
+<!-- xgd-turn id="5722a1ad-98c3-4007-b2ad-2d5c64508708-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T23:19:04.371693+00:00" -->
+#### You
+Very good our metrics are getting better - charlie's plumbing 3 was more complete, better outcome, less time and significantly less money that Charlie 2.
+
+Please review the transcript
+
+I think there are a few areas that I want to spend time (you will see this in the trascript)
+
+1. alternate page chooser - proposed design - label (metadata, pagename convention etc) the alternate designs and then make them available via a carosel - I would love an animated swap between pages if that is easy to do.
+2. questions - I do not yet see the reminder - do we support question answer areas for types: dates, prices also multi line answers. I do not yet see the progress indicators on the page (probably need to upgrade)
+3. Alice's busy status and overall progress - busy status right now is just the red button we need some kind of movement - also I would love to see some kind of progress indication that marked off initial data gathering -> style choices -> first draft -> ...-> colors and fonts -> finishing touches -> done this could perhaps sit above the questions? and show a spinner next to the current stage when Alice is working lets discuss
 
 <!-- xgd-chat-end -->
