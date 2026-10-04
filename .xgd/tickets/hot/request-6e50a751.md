@@ -7,10 +7,10 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T15:13:45.147498+00:00'
+updated_at: '2026-10-04T15:18:26.843587+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - fold-wrong
@@ -19,6 +19,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-d2d77144
+  commits:
+  - working_sha: ccbe7932287a86dd96dde0ae6bde57d92cd8a295
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 71cc933195ecaad066cb80ded358936acf5ec94b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.479
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#2` (reproduction console, loop 1, iteration 2).
