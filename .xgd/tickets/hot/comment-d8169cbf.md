@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:43:56.898772+00:00'
+updated_at: '2026-10-04T00:45:49.290963+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6633,5 +6633,11 @@ What the epic sets out to build:
 The order: the guard and scope enforcement first, because they make today's one-at-a-time building safer. Then parallel builder sessions limited to different pages. Same-page sections last, and only if the scope model shows they can be made safe.
 
 Children get filed as the design settles. One stop-gap needs no ticket: change the builder-session tool description to say sessions run one at a time, so Alice stops promising parallel work. Shall I make that change now?
+
+<!-- xgd-turn id="2be70aef-743f-4f11-bc74-ae416627ae17-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:45:49.191465+00:00" -->
+#### You
+One thought - if we could decompose the page into sections that were reassembled (by concatenation) at build time then it would be safe for an agent to work of a section. Could L1 be adapted to allow that?
 
 <!-- xgd-chat-end -->
