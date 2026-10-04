@@ -6,10 +6,10 @@ title: 'capture: a sticky header is measured mid smooth-scroll, so every read of
   oracle puts it somewhere different (and three further residuals)'
 created_by: repro-console:repro-www-hearingzone510-com#2
 created_at: '2026-10-03T23:09:19.474500+00:00'
-updated_at: '2026-10-04T00:40:21.150312+00:00'
+updated_at: '2026-10-04T00:43:05.649909+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - capture-loses-it
