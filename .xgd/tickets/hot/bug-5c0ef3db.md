@@ -6,10 +6,10 @@ title: 'l1-gate/values-diff: a fold-declared backedBy that fails at rest is repo
   as a viewport-motion escape; a chip inset is compared as padding vs min-height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:40.799488+00:00'
-updated_at: '2026-10-04T15:06:10.922184+00:00'
+updated_at: '2026-10-04T15:06:33.994230+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   defect_class:
   - instrument-blind
@@ -18,6 +18,14 @@ fields:
   needs_review: false
   priority: medium
   chat_comment: comment-2aa289a1
+  commits:
+  - working_sha: c0f08f6649c5ea00d87edc1d3fe10299014f7f6e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7febe617ab0afcc3f2590ae3bbb680a98ff5c733
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.478
 ---
 
 Filed by `repro-console:repro-www-bluelotusintegralhealing-com#2` (reproduction console, loop 1, iteration 2). Found while diagnosing REQ-380 (the gap ticket filed this round, `fold-groups-band-rows-by-stream-adjacency-not-by-section`). These are instrument defects, not engine gaps.
