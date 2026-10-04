@@ -5,9 +5,9 @@ type: request
 title: Per-side borders in the page vocabulary (e.g. a left rule on a pull quote)
 created_by: xgd
 created_at: '2026-10-03T19:58:54.769433+00:00'
-updated_at: '2026-10-04T00:46:23.445641+00:00'
+updated_at: '2026-10-04T00:46:25.641906+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: abandoned
 fields:
   auto_merge_back: true
