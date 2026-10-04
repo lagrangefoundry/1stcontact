@@ -6,10 +6,10 @@ title: 'Builder: start with comparable sites — a comp board, viewed in the pre
   pane, with web search'
 created_by: EPIC-19
 created_at: '2026-10-04T00:14:10.660139+00:00'
-updated_at: '2026-10-04T03:00:47.065418+00:00'
+updated_at: '2026-10-04T03:01:26.939379+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-8e73a41e
+  commits:
+  - working_sha: 511d2f824c2dbc60dcfa3b5ee60a70a4c554ee1b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7fcf3e19b79d0d59025515957678c9c4272bc7f3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bfe377f8319c7876f17e12436bf715e3ed846e28
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.476
 ---
 
 ## What changes
