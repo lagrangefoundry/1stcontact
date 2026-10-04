@@ -6,10 +6,10 @@ title: 'Preview width: a width control on the draft, and the consultant is told 
   width the client is viewing'
 created_by: EPIC-19
 created_at: '2026-10-04T20:51:27.988344+00:00'
-updated_at: '2026-10-04T20:51:27.988344+00:00'
+updated_at: '2026-10-04T21:37:32.744065+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
@@ -43,3 +43,15 @@ UATs named `test_UAT_FC_<TICKET-ID>_*`:
 - A chat submission carries the preview width and mode, and the next turn's digest states them.
 - `screenshot` with the client-width option captures at the reported width.
 - The priming names the client-width rule.
+
+
+## Design
+
+- **Where the ladder comes from.** The page listing (`editPageList`, the rows the builder's page selector already holds) carries each page's L1 `widths`. The three fixed choices are the ladder widths nearest the nominal 375 / 768 / 1280 (the same nominals as `screenshot`'s `mobile` / `tablet` / `desktop`), so a site whose ladder is `[320, 375, 768, 1024, 1280, 1440]` renders at 375 / 768 / 1280. No ladder (no pages yet) falls back to the nominals.
+- **The pane.** `panel.setViewport(width | null)` lays every frame out at that width and, when the pane is narrower, scales it down with a CSS transform (never reflowed); when the pane is wider it is centred. `null` is Fit pane. It re-fits when the pane is resized. Both channels' frames follow, so View↔Edit keeps the width.
+- **The control.** A toolbar action `preview-width` beside "Open in new tab" in View and Edit: a segmented group *Desktop · Tablet · Phone · Fit pane*, with the rendered width in its tooltip. The choice persists in the builder's per-user storage under the site tab's `preview-width` key. The comp viewer's Desktop/Phone toggle takes the same segmented-control class.
+- **The wire.** Each chat submission posts `view: {width, mode}` with `/api/ai/prompt` (`mode` ∈ desktop · tablet · phone · fit, `width` the frame's actual layout width in CSS px). The route refuses a malformed `view` with 400; an absent one is ordinary (the `1c` CLI, older clients). It travels `streamPrompt → siteTurn` into the per-turn signal (`TurnSignal.view`).
+- **The digest.** `SiteDigest` gains the site's layout widths (union of every page's ladder). The page digest adds one line when the turn carries a view, e.g. *"The client is viewing the draft at 812px (Fit pane) — between the 768px (tablet) and 1024px layouts."* — naming the ladder widths it sits between (or "the Npx layout" when it is exactly one, or "narrower than"/"wider than" at the ends).
+- **`screenshot` at the client's width.** Picture `viewport` accepts `client`: resolved from the width reported with the current turn; a turn with no reported width refuses by name and says to use `mobile` / `tablet` / `desktop`. The picture's label says "at the client's width (812px)".
+- **Priming.** Both consultant orders gain the rule: when the client comments on how something looks, assume the width they are viewing, look there first (`viewport: "client"`), and say which width any change was made for.
+- Out of scope: the group-chat (room) exchange path does not carry the width yet; solo consultant turns do.
