@@ -696,7 +696,7 @@ export interface ContentRun extends ElementGeometry {
   // ── REQ-63 typography treatment axes (null when the no-op default) ────────
   /** `font-style` when italic/oblique, else null. */
   fontStyle?: string | null
-  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  /** The `text-decoration-line` the run paints (its own, or one an ancestor propagates — REQ-384) when underline/line-through/overline, else null. */
   textDecoration?: string | null
   /** REQ-365 — `text-underline-offset` in px when an underline is painted and it is not `auto`, else null. Absent before capture schema 13. */
   underlineOffsetPx?: number | null

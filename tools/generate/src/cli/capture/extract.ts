@@ -173,7 +173,7 @@ export interface RawRun extends RawGeometry {
   // ── REQ-63 typography treatment axes (raw computed; `null` when the no-op default) ──
   /** `font-style` when italic/oblique, else null. */
   fontStyle: string | null
-  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  /** The `text-decoration-line` the run paints (its own, or one an ancestor propagates — REQ-384) when underline/line-through/overline, else null. */
   textDecoration: string | null
   /** REQ-365 — computed `text-underline-offset` in px when an underline is painted and it is not `auto`, else null. */
   underlineOffsetPx: number | null
@@ -927,7 +927,18 @@ export const EXTRACT_SCRIPT = `(() => {
     var inset = (parseFloat(s.paddingTop) || 0) + (parseFloat(s.borderTopWidth) || 0);
     var contentH = rects[0].height - inset - ((parseFloat(s.paddingBottom) || 0) + (parseFloat(s.borderBottomWidth) || 0));
     if (!(contentH > 0)) return null;
-    var half = (lh - contentH) / 2;
+    // REQ-384 (issue 2) -- the half-leading Chromium places the content area at
+    // is FLOORED to a whole pixel (Blink's CalculateLeadingSpace: the ascent side
+    // takes floor(leading / 2), the descent side the rest). The exact half put
+    // every fractional-leading run's line top above the one the page laid out --
+    // 0.70px at 18px/23.39 Montserrat, 0.5px at 18/27 -- and a reproduction
+    // pinned at that top painted its glyphs high by the same amount, which
+    // baseline snapping turned into a 1px jump on most lines (hearingzone510.com,
+    // 62.8% of the ranked score). The reproduction's own block runs are measured
+    // by their border box, which is the line top the browser used, so both sides
+    // now mean the same thing. The epsilon absorbs float noise in lh, which is a
+    // 1/64px LayoutUnit read back through a double.
+    var half = Math.floor((lh - contentH) / 2 + 1e-3);
     return {
       x: r.left + window.scrollX,
       y: r.top + window.scrollY + inset - half,
@@ -1851,10 +1862,40 @@ export const EXTRACT_SCRIPT = `(() => {
     var line = ('' + (s.textDecorationLine || s.textDecoration || '')).split(' ')[0];
     return (line && line !== 'none') ? line : null;
   }
+  // REQ-384 -- the decoration a run PAINTS, which is not only its own.
+  // text-decoration-line is not inherited, but a decoration propagates to the
+  // in-flow content of the box that declares it (CSS Text Decoration 3 s.2.1):
+  // <u><a style="text-decoration:none">x</a></u> paints the u's underline under
+  // x, and the a's own none cannot cancel it. So the nearest box on the walk up
+  // that declares a line is the one painting it, and its computed style is the
+  // one that says where the line sits. Propagation does not reach into an
+  // atomic inline, a float or an out-of-flow box, so the walk stops at one.
+  // Returns { line, s } -- the line and the declaring style -- or a null line.
+  // A glyph run's s is its pseudo-element's style, and the pseudo-element is a
+  // child of el, so the walk starts AT el rather than above it.
+  function blocksDecoration(cs) {
+    var pos = cs.position;
+    return ('' + (cs.display || '')).indexOf('inline-') === 0 ||
+      (cs.cssFloat || cs.float || 'none') !== 'none' || pos === 'absolute' || pos === 'fixed';
+  }
+  function paintedDecorationOf(el, s, pseudo) {
+    var own = textDecorationOf(s);
+    if (own) return { line: own, s: s };
+    if (blocksDecoration(s)) return { line: null, s: s };
+    for (var node = pseudo ? el : el.parentElement; node; node = node.parentElement) {
+      var cs = getComputedStyle(node);
+      var line = textDecorationOf(cs);
+      if (line) return { line: line, s: cs };
+      if (blocksDecoration(cs)) break;
+    }
+    return { line: null, s: s };
+  }
   // REQ-365 -- where that underline sits: the computed text-underline-offset in
   // px, or null for 'auto' (the engine's own placement) and for a run that paints
   // no underline, where the inherited value places nothing. A percentage computes
   // to itself, not to a length, and reads null rather than as a guess.
+  // REQ-384 -- s is the style of the box that DECLARES the line (see
+  // paintedDecorationOf): a propagated underline sits where its declarer says.
   function underlineOffsetOf(s) {
     if (textDecorationOf(s) !== 'underline') return null;
     var v = '' + (s.textUnderlineOffset || '');
@@ -3020,6 +3061,8 @@ export const EXTRACT_SCRIPT = `(() => {
       // painted), rgbToHex returns null and we fall back to a sentinel — flag it
       // low-confidence so the values-diff won't hold a re-render to a guess.
       var resolvedColor = rgbToHexA(s.color);
+      // REQ-384 -- the line this run paints, its own or one an ancestor propagates.
+      var decoration = paintedDecorationOf(el, s, !!glyphSel);
       // REQ-63 — the run's own painted box border (was fields-only). A card /
       // heading hairline or bottom rule is now a comparable value on text runs.
       var runBorder = boxBorderOf(s);
@@ -3049,8 +3092,8 @@ export const EXTRACT_SCRIPT = `(() => {
         fontWeight: parseInt(s.fontWeight, 10) || 400,
         // REQ-63 typography treatment axes (null when the no-op default).
         fontStyle: paintedOrNull(s.fontStyle),
-        textDecoration: textDecorationOf(s),
-        underlineOffsetPx: underlineOffsetOf(s),
+        textDecoration: decoration.line,
+        underlineOffsetPx: underlineOffsetOf(decoration.s),
         textTransform: paintedOrNull(s.textTransform),
         fontVariant: paintedOrNull(s.fontVariantCaps || s.fontVariant),
         listMarker: listMarkerOf(s),

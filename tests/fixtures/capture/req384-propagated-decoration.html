@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-384 — a decoration an ancestor propagates</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; font-family: Georgia, serif; background: #d6d6d6; color: #001e42; }
+      section { padding: 20px; }
+      p { font-size: 16px; line-height: 24px; }
+      a { color: inherit; text-decoration: none; }
+    </style>
+  </head>
+  <body>
+    <!-- THE CASE — hearingzone510.com: the link cancels its own line, the <u>
+         around it still paints one under it. -->
+    <section>
+      <p class="body"><span style="font-family: Georgia; font-weight: 400;"><u><a href="/about#reviews" style="text-decoration: none;">Discover what our clients think about our service.</a></u></span></p>
+    </section>
+    <!-- A block's decoration reaches its in-flow block descendants. -->
+    <section style="text-decoration: underline">
+      <div><p>Under a block that declares it</p></div>
+    </section>
+    <!-- The line sits where the box that DECLARES it says. -->
+    <section>
+      <p><u style="text-underline-offset: 3px"><a href="/placed">Placed by its declarer</a></u></p>
+    </section>
+    <!-- Any line, not only an underline. -->
+    <section>
+      <p><s><span>Struck through by an ancestor</span></s></p>
+    </section>
+    <!-- CONTROLS — propagation does not reach into an atomic inline or a float,
+         and a run with no decorated ancestor paints nothing. -->
+    <section>
+      <p><u><span style="display: inline-block">Boxed inside the underline</span></u></p>
+      <p style="text-decoration: underline"><span style="float: left">Floated out of the underline</span></p>
+      <p>Plain words</p>
+    </section>
+  </body>
+</html>

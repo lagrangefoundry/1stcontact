@@ -208,8 +208,18 @@ import type { Capture } from './types'
  *   `<label>` win and the placeholder string reached no bundle file. (b) Its
  *   `placeholderColor` composes the pseudo-element's own `opacity`, which fades the
  *   ink as an alpha does; a pre-21 bundle records the opaque declared colour.
+ * - **22** — REQ-384: two things hearingzone510.com showed. (a) A run's
+ *   `textDecoration` is the line it PAINTS, not only the one its own element
+ *   declares. `text-decoration-line` is not inherited, so
+ *   `<u><a style="text-decoration:none">…</a></u>` (four times) recorded `null`
+ *   under an underline the page draws; the decoration an ancestor propagates is
+ *   now read off the nearest declaring ancestor, with its `underlineOffsetPx`.
+ *   (b) An inline run's `box` top is the line top Chromium laid out: the
+ *   half-leading between it and the content area is floored to a whole pixel, as
+ *   the engine does. A pre-22 bundle used the exact half, so every run with an odd
+ *   or fractional leading sits up to 1px above its line (0.70px at 18px/23.39).
  */
-export const CAPTURE_SCHEMA = 21
+export const CAPTURE_SCHEMA = 22
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -663,6 +673,29 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     // A faded and an opaque ink read the same in the record, so the only thing
     // provable is that it cannot matter: a page that paints no placeholder.
     present: (c) => !fields(c).some((f) => typeof f.placeholderColor === 'string'),
+  },
+  {
+    since: 22,
+    axis: 'an underline an ancestor propagates to a run (textDecoration)',
+    where: 'a content run (`sections[].content[]`)',
+    // Unprovable for `zIndex`'s reason: a run under a propagated line and a run
+    // under none both read null in a pre-22 bundle; only the markup tells them apart.
+    present: () => false,
+  },
+  {
+    since: 22,
+    axis: "an inline run's line top, at the engine's floored half-leading (box)",
+    where: 'a content run (`sections[].content[]`)',
+    // The contradiction a pre-22 bundle leaves: an inline run whose glyphs sit a
+    // FRACTION of a pixel below its box top. A bundle with none cannot differ.
+    present: (c) =>
+      !runs(c).some((r) => {
+        const b = r.box as { y?: number } | undefined
+        const g = r.renderedTextBox as { y?: number } | null | undefined
+        if (typeof b?.y !== 'number' || typeof g?.y !== 'number') return false
+        const off = g.y - b.y
+        return Math.abs(off - Math.round(off)) > 0.02
+      }),
   },
 ]
 

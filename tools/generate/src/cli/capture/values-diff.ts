@@ -179,7 +179,7 @@ export interface ValueElement {
   // ── REQ-63 typography treatment axes (null / absent when the no-op default) ──
   /** `font-style` when italic/oblique, else null. Compared exactly (presence + value). */
   fontStyle?: string | null
-  /** `text-decoration-line` when underline/line-through/overline, else null. */
+  /** The `text-decoration-line` the run paints (its own, or one an ancestor propagates — REQ-384) when underline/line-through/overline, else null. */
   textDecoration?: string | null
   /** REQ-365 — `text-underline-offset` in px when not `auto`, else null; absent when the side did not record it. */
   underlineOffsetPx?: number | null

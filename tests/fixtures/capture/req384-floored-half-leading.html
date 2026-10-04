@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>REQ-384 — the line top Chromium lays an inline run out at</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1280px; height: 1200px; position: relative; font-family: Georgia, serif; background: #d6d6d6; color: #001e42; }
+      /* Every paragraph is one line, absolutely placed, with no padding or border:
+         its top IS the top of the line box the browser laid out, whatever the font.
+         The run inside is an inline <span>, so the capture has to derive that line
+         top from the span's content area. Line-heights of both parities (and a
+         fractional one) guarantee at least one odd leading for any font. */
+      p { position: absolute; left: 40px; white-space: nowrap; }
+      .fs18 { font-size: 18px; }
+      .fs72 { font-size: 72px; }
+    </style>
+  </head>
+  <body>
+    <p class="fs18" style="top: 100px; line-height: 1.3"><span>Fractional leading under a unitless line height</span></p>
+    <p class="fs18" style="top: 200px; line-height: 27px"><span>Odd or even leading at twenty seven</span></p>
+    <p class="fs18" style="top: 300px; line-height: 28px"><span>Odd or even leading at twenty eight</span></p>
+    <p class="fs72" style="top: 400px; line-height: 60px"><span>Tall type sixty</span></p>
+    <p class="fs72" style="top: 600px; line-height: 61px"><span>Tall type sixty one</span></p>
+  </body>
+</html>
