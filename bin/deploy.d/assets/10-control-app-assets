@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Build the control app's browser assets before they ship ([[BUG-203]]).
+#
+# WHAT WENT WRONG. `bin/deploy` used to COPY `apps/control-app/dist-assets` and
+# never build it, on the grounds that `bin/build` does. But the Worker bundle IS
+# rebuilt from source on every deploy, so a deploy without a fresh `bin/build`
+# shipped today's server beside yesterday's builder client, and said nothing. The
+# comp board, the panel progress counter and the upload controls were all live on
+# the server and absent from the browser — and the frozen dev snapshot, which
+# exists so the operator knows what they are running, recorded one commit for two
+# different halves.
+#
+# SO THE DEPLOY BUILDS WHAT IT SHIPS. `1c assets` is the one asset build
+# `bin/build` runs too, and it takes about a second, so a deploy can no longer
+# ship browser files older than the source it ships the Worker from. It also
+# writes the `src/generated/` modules the Worker imports, so the bundle wrangler
+# makes next is built against the same tree.
+#
+# A HOOK, NOT A LINE IN `bin/deploy`, for the reason the migrate and secret hooks
+# are hooks: the deploy script knows nothing about which app has which build. It
+# runs before every other hook so a failed build stops the deploy before a
+# migration has been applied for code that never shipped.
+#
+# NOT `1c kb ensure` FIRST, unlike `bin/build`. `1c assets` refuses a knowledge
+# base whose index does not cover its corpus, so a deploy cannot ship a stale KB
+# either — it stops and names the command. Bringing the index forward costs a
+# credential and a request, which is a build's business, not a deploy's.
+set -euo pipefail
+
+[[ "$DEPLOY_APP" == "control-app" ]] || exit 0
+
+if [[ "${DEPLOY_DRY_RUN:-0}" == "1" ]]; then
+  echo "    would build apps/control-app/dist-assets (1c assets)"
+  exit 0
+fi
+
+# From the repo root: `1c` resolves its output paths against the caller's cwd.
+cd "$DEPLOY_REPO_ROOT"
+"$DEPLOY_REPO_ROOT/bin/1c" assets
