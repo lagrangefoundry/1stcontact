@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T18:44:01.138184+00:00'
+updated_at: '2026-10-04T20:49:03.879705+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7025,5 +7025,11 @@ One was a duplicate and one wasn't.
 **REQ-386 isn't a duplicate.** It extends **REQ-379**, which has landed and only gave builder sessions a note to the client before they run. Alice's ticket covers every slow operation: captures, screenshots and image generation. It adds a 20-second threshold, rough estimates (about 1, 5 or 30 minutes) and progress on retries. I've linked it to EPIC-19 and added a note:
 - **Build it on REQ-379's mechanism**, not a second status channel.
 - **Check one of her beliefs.** She thinks text she writes before a tool call doesn't reach you. On our setup that text should stream to you as she writes it, so the real gap may be that she can't tell it arrived, not that it doesn't. Worth confirming from your side: in this run, did you see any of her words before the 20-minute wait ended?
+
+<!-- xgd-turn id="79e5790c-b6f3-4a2e-9304-0ce4981ece34-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T20:49:03.366757+00:00" -->
+#### You
+One thing we need to be careful of with these responsive pages - they (obviously) look different at different widths - is the AI aware of the width that we have set the page to?
 
 <!-- xgd-chat-end -->
