@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:43:00.145022+00:00'
+updated_at: '2026-10-04T00:43:56.898772+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6606,5 +6606,32 @@ I think we need to be quite structured about what can run in parallel and what c
 I think we need to be quite structured about what can run in parallel and what can't - Its probably worth an EPIC - if developers are overwriting each other it will be chaos - they should be able to work on different sections but even that I think would need some thought to be safe
 
 Can you create an EPIC for this please?
+
+<!-- xgd-turn id="53f55181-e83c-44c1-9eaf-40809186e88c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:43:55.316353+00:00" -->
+#### Claude
+I've created **EPIC-24**, *"Builder sessions: what may run in parallel — scopes, a draft-edit guard, and concurrent delegation"*, linked from EPIC-19 as Finding 20.
+
+You're right that this needs structure. While writing it up I found the risk is worse than builders running in parallel, because **draft edits have no protection against overwriting each other even today**:
+- **The last write silently wins.** `set_l1` replaces a whole element from a copy read earlier and sends no version with it. If two writers touch the same part of a page, one loses its work with no error. The client editing by hand and a builder session can already collide this way.
+- **Every write renumbers the page.** After each write, every element address on the page is regenerated; the tool's own description says *"never carry an address across your own edit."* A second builder on the same page would invalidate the first builder's addresses partway through, even if their sections never overlap.
+- **The publish guard doesn't cover drafts.** The `site_revision_claims` table protects publishing only, not draft edits.
+
+So "different sections of one page" isn't safe, even in principle, until the addressing changes. Today the only plausible parallel unit is **different pages**, and even pages share the palette, text styles, fonts, assets, header, footer and navigation.
+
+What the epic sets out to build:
+1. **A model of scopes:** one page, one section, site-wide style, shared parts like the header and footer, and assets. It says which of those can run at the same time.
+2. **Scopes enforced by the tools.** Each builder session is given a scope and its write tools refuse anything outside it. This is useful even without parallelism.
+3. **A draft-edit guard.** A write made from a stale read is refused instead of silently winning.
+4. **Addresses that survive other writes, or one owner per page at a time.** Same-page parallel work is possible only with one of these.
+5. **Concurrent builder sessions in the framework.** They'd be opt-in per tool and capped, with overlapping scopes refused before any work starts. That part is a lagrange-framework child ticket.
+6. **The truth in Alice's tool manual.** It says what can run at once, and the system enforces it.
+7. **Visibility** of what's running, on which scope, and for how long.
+8. **Limits on concurrent spend.**
+
+The order: the guard and scope enforcement first, because they make today's one-at-a-time building safer. Then parallel builder sessions limited to different pages. Same-page sections last, and only if the scope model shows they can be made safe.
+
+Children get filed as the design settles. One stop-gap needs no ticket: change the builder-session tool description to say sessions run one at a time, so Alice stops promising parallel work. Shall I make that change now?
 
 <!-- xgd-chat-end -->
