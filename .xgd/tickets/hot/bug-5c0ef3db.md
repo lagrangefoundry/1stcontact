@@ -6,9 +6,9 @@ title: 'l1-gate/values-diff: a fold-declared backedBy that fails at rest is repo
   as a viewport-motion escape; a chip inset is compared as padding vs min-height'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:40.799488+00:00'
-updated_at: '2026-10-04T14:57:52.555935+00:00'
+updated_at: '2026-10-04T15:06:10.922184+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -53,3 +53,36 @@ The four hero CTA pills ("1. About BQH" etc.):
 **Proposed change.** Compare a run's vertical inset as `renderedTextBox − box` (which both sides measure the same way) rather than raw `padding*` when the reference's padding is 0 and its box is taller than its line block. Resolve the reference's surface walk the way the reproduction's does for a transparent-fill element that draws its own border and radius (it is a chip with no fill, not "no surface"), or compare such a pair on border/radius only. Expected effect: −12 deltas with no loss of a real measurement.
 
 **How to see it.** `CHROMIUM_LAUNCH_ARGS=--single-process bin/1c gate repro-www-bluelotusintegralhealing-com --ref storage/references/www.bluelotusintegralhealing.com/index --sandbox`, then read `values-diff.json` for "1. About BQH". **Wrong:** three LOW deltas per pill. **Right:** none, with the pill geometry still compared.
+
+
+## What changed (free-coded)
+
+### 1. Declared backing is held to the resting states (`tools/generate/src/l1/probes.ts`, `tools/generate/src/cli/gate-core.ts`)
+- `deriveSurfaceBacking` now holds a fold-declared `backedBy` pair to every captured width (at its captured height), the same way the unanimity tier holds an observed pair. A surface hidden at a width is skipped there. The new `resolveSurfaceBacking` returns the backing map plus the declarations it refused (`uncovered`), and `deriveSurfaceBacking` is a thin wrapper over it.
+- A declared pair that fails at a captured width is left out of the backing map, so no probe reports it as `escape`. The **on-sample probe only** reports it as a new finding kind, `declared-backing-uncovered`: once per captured width, at that width's captured height (or at the first sampled height if the captured one isn't sampled). The finding names the run, the declared surface and the overhang, and carries both boxes and the width. The off-sample and content-robustness probes never report it.
+- The unanimity tier no longer lets a declaration stand in for coverage at a width (the old `|| p.declared.has(key)` escape is gone).
+- `escape` is still reported for pairs that hold at rest and fail between samples, under grown content or at an unmeasured height.
+- Gate verdict (`reconcileGates`): `declared-backing-uncovered` still fails the structural gate, but it is named apart from overlaps and escapes. Its diagnosis says the declaration is false at rest and the fold recorded the wrong surface. Its next step says to fix the fold's `backedBy`, not to resize the surface.
+- REQ-278's recovery scoring leaves out `declared-backing-uncovered` along with `escape`, because both candidates inherit the same fold `backedBy`.
+
+### 2. A chip inset is compared as the inset both sides measure (`tools/generate/src/cli/capture/values-diff.ts`)
+- Vertical padding: when top/bottom padding disagrees, and one side has 0/0 padding while its box is taller than its glyph rect, the two sides are compared on `renderedTextBox − box` (top and bottom inset). The tolerance is `positionTol`, the same one the glyph rect's own position uses. A real difference is still reported under `paddingTopPx`/`paddingBottomPx` with `inset N` labels. Otherwise raw padding is compared as before. Left and right padding are unchanged.
+- BUG-190's "invented own plate" `surfaceFill` row is skipped when the reference element is a fill-less chip: it draws its own border (width > 0) and radius (> 0), on a box the same size as our own plate. That pair is still compared on shape/border by the existing own-axis comparisons. The fix is on the diff side, so it works on references that are already captured; the extractor's surface walk is unchanged.
+
+## Verification
+- Real bundle (`1c l1-gate … --sandbox --json`): every on-sample finding is now `declared-backing-uncovered`, one per captured width (29, down from 58 escapes counted per height). Example: "'Contact' declares backedBy section-band-4 but is not covered by it at rest — 173px below its bottom edge". No off-sample escapes. Content-robustness escapes for pairs that hold at rest are unchanged.
+- Real manifests (`1c values-diff --actual iteration-2/diff/actual-manifest.json`): 18 → 5 deltas. All 12 pill rows are gone. So is the systemic `surfaceFill drift ×7` aggregate, because 4 of its 7 were those phantom plate rows; the 3 real `#30499c → #4359a5` colour deltas are still reported individually.
+
+## Test plan
+`tests/test_UAT_FC_BUG-197_declared_backing_and_chip_inset.test.ts` (9 UATs; 6 fail on the pre-fix code):
+- declared pair failing at rest → one `declared-backing-uncovered` at 1280 with run, surface, overhang and boxes
+- the same pair raises no `escape` on any probe, and off-sample never reports the new kind
+- gate diagnosis/nextStep point at `backedBy`, not surface sizing, and the finding is not counted as an overlap
+- a declared pair that holds at rest still reports `escape` between samples (regression guard)
+- same pill sized by min-height vs by padding → no deltas
+- a real 10px vertical-centring difference → `paddingTopPx`/`paddingBottomPx` with `inset` labels
+- fill-less chip → no `surfaceFill` plate row, radius still compared as `shape`
+- borderless run on a band vs our own plate → BUG-190 row still reported (regression guard)
+- glyph-hugging boxes → raw padding still compared (regression guard)
+
+Regression: 155 affected suites pass. `req51-object-grouped-report` image-param case fails the same way on the pre-fix code.
