@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:14:41.413011+00:00'
+updated_at: '2026-10-04T01:18:22.284696+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6760,5 +6760,16 @@ I've added the fix to BUG-196:
 - **Screen readers still hear "Delete this from your Library."**
 
 It's tested by checking that each delete control renders as a danger-styled button with the trash icon, not as a link.
+
+<!-- xgd-turn id="34b33a79-f175-47b6-91c0-2acdd573d444-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T01:18:22.219262+00:00" -->
+#### You
+I will run Charlie's plumbers again tomorrow - I want to check we have the key fixes lined up:
+1) we are starting with comps - with 378 we have the tools and the prompts (Alice knows what to do)?
+2) Alice can tell me when it is about to go quiet and set my expectations
+3) Alice will remind me (particularly when she is quiet) to fill in the data fields
+
+ooh - could we have at the top of the panel after "Getting to know your business" a progress counter "You have 3 fields still to complete" / "Great all the fields are filled" in etc.
 
 <!-- xgd-chat-end -->
