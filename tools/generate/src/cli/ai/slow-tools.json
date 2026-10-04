@@ -1,0 +1,27 @@
+{
+  "about": [
+    "The consultant's tools that keep the client waiting ([[REQ-386]]). Before",
+    "one of these runs, the host shows the client one line: what is happening,",
+    "and roughly how long it takes. The product rule is that the client is told",
+    "first whenever the consultant will be busy for more than about 20 seconds,",
+    "with an order-of-magnitude estimate. So `minutes` is one of 1, 5 or 30, and",
+    "a tool that reliably finishes inside 20 seconds does not belong here.",
+    "",
+    "`doing` is the client's words, not the tool's: it names no framework",
+    "concept. `{param}` is filled from the call's input. When that value is",
+    "missing, `fallback` is shown instead.",
+    "",
+    "The numbers are estimates to tune, not measurements. capture_site loads a",
+    "whole live site in a browser and has been seen to time out; the others",
+    "render or generate one thing."
+  ],
+
+  "tools": [
+    { "tool": "capture_site", "doing": "Capturing {url}", "fallback": "Capturing a site", "minutes": 5 },
+    { "tool": "screenshot", "doing": "Taking a screenshot", "minutes": 1 },
+    { "tool": "compare", "doing": "Comparing two pages", "minutes": 1 },
+    { "tool": "check_fidelity", "doing": "Checking the page against the original", "minutes": 1 },
+    { "tool": "CreateImage", "doing": "Creating an image", "minutes": 1 },
+    { "tool": "EditImage", "doing": "Editing an image", "minutes": 1 }
+  ]
+}
