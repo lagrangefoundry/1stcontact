@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T04:21:29.527195+00:00'
+updated_at: '2026-10-04T04:22:10.994900+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6827,5 +6827,22 @@ So with 206 and 378 you're ready for the comps experiment. For the full set you 
 <!-- xgd-chat role="user" ts="2026-10-04T04:21:28.202032+00:00" -->
 #### You
 PLease read the valuable feedback from Alice in the last turn about the comp sites
+
+<!-- xgd-turn id="9e2618d2-6e55-42f2-93c2-6ad3e65b2305-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T04:22:09.422250+00:00" -->
+#### Claude
+I've read it. Alice's answer is strong, and it backs the plan with evidence from the session itself: your "real plumber sites are FULL" note was the most useful thing said, and it came about twenty turns in. Everything before it was built to a vague "clean" and then had to be rebuilt dense.
+
+She suggested three refinements, and I've added all three to **REQ-378**, which is still being coded, so the implementer picks them up:
+
+1. **Your likes and dislikes are the brief.** REQ-378 already had this, and her answer confirms it.
+2. **Comps set the level, not the template.** A comp fixes how dense the page is and which conventions it follows: prices shown, licence near the top, services as tiles. It must never turn into a copy of a competitor. I took her point one step further, from what she did in the same turn: a convention is only adopted if your real material can fill it. She refused to add star counts or "#1 in Santa Cruz" badges because they'd be fake. That's now an explicit rule.
+3. **Include a bad site.** The mix becomes one big chain, one or two good locals, and **one site the client thinks is bad**, in place of my "outlier". Each comp on the board is marked admired or avoided, so Alice knows which notes are warnings.
+
+The same turn confirms several other open items:
+- **BUG-196.** Your kitchen photo (IMAGE-5) arrived as reference-only, and she couldn't use it.
+- **EPIC-24.** She claimed again that she'd work "in parallel". One builder session also went beyond its brief and dropped four section ids. That's exactly what scope locks would prevent.
+- **Smaller briefs are more reliable.** One section per brief nearly always came back with a proper report. That supports making sections the unit of work.
 
 <!-- xgd-chat-end -->
