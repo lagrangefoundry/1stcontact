@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:12:52.290397+00:00'
+updated_at: '2026-10-04T00:14:31.566127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6529,5 +6529,41 @@ The screenshot won't capture movement and animation though...
 like the board of comps idea - can we keep thumnails of the hero segment as reminders?
 
 There's no search tool. <-- are you completely sure I specifically asked for one - we need to add that its critical. I thought there was an Anthropic API we were using. Def hard requirement if we do not have it
+
+<!-- xgd-turn id="a8ff0e46-adb9-41dc-a02f-eba8ab1c9ab8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:14:30.034133+00:00" -->
+#### Claude
+You were right that you'd asked for it, and I've found the ticket. I'm checking now whether its search half ever landed upstream.
+
+I've filed two tickets and recorded this as Finding 19 on the epic.
+
+## Web search: you asked for it, and only half of it landed
+
+**REQ-207** (2026-09-08) asked for web search using Anthropic's own server-side tool. Only its other half, the image describer, was built. The search half needed a framework change that the ticket itself described as a lagrange-framework ticket still to be filed, and it never was. Meanwhile REQ-207 moved to `ready_to_reconcile`, which reads as complete. The framework has since gained an `http` way to call tools, but still has no way to pass through a tool that the model vendor runs itself, so the consultant can't search today.
+
+**lagrange-framework REQ-206** (high priority, linked to EPIC-19) adds that route:
+- A backend declares which vendor-run tools it offers, the way it already declares vision.
+- A host grants them through configuration, with Anthropic's settings such as the maximum number of searches and allowed domains.
+- The search results stay in the conversation and the transcript.
+- Every search is counted in turn spend.
+
+## REQ-378: start with comparable sites
+
+It covers the four things you raised. It's high priority, 13 points, and blocked on LF REQ-206. Search is a hard requirement: the ticket says it must not ship with comps limited to sites the model remembers.
+
+- **The board.** A "Sites we're comparing" list on the plan panel.
+  - Both Alice and the client can add a site, and every entry is a real capture, so the address is checked.
+  - Each entry keeps a **thumbnail of the site's hero section**, cropped from the capture, as a reminder for the rest of the engagement.
+  - Each entry holds the client's likes and dislikes in his own words.
+  - Alice records the conventions he agreed to as the plan's visual-concept decision, and the first rough cut is built from that.
+- **Viewing a comp.** The preview pane switches to a clearly separate **"Viewing: <site>" mode**.
+  - It shows a banner with the site's name, a **"Back to your draft"** control, previous/next between comps, a "Visit the live site" link, and the desktop/phone toggle.
+  - Editing, the page picker, colours and Publish are hidden, so no one can mistake a competitor's page for the draft.
+  - "Back to your draft" returns to the page you were on, and the chat stays live throughout.
+- **Motion.** The viewer says in one line that a screenshot doesn't show animation; "Visit the live site" is how to see it. Where the capture recorded animations, the comp's description mentions them. A recorded scroll-through is noted as a possible later addition and isn't in this ticket.
+- **The method.** The comp review becomes the step before the first build. Alice opens with *"Who do you lose jobs to? Whose site made you think 'that's what I want'?"* and then proposes a range: a national chain, strong local independents, and one outlier.
+
+Still open from the last turn: I haven't yet filed the cadence and milestone ticket (the status line before a build, milestone questions due on the per-turn digest, a phase that's flagged when stale, the opening features question). Shall I file that one now too?
 
 <!-- xgd-chat-end -->
