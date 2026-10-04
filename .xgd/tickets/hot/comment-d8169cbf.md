@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:54:02.919638+00:00'
+updated_at: '2026-10-04T00:54:26.989215+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6674,5 +6674,21 @@ Well I would try to simplify a little:
 (1) figure out a way that pages can bee decomposed
 (2) provide a system for locks so that only one agent can work on one file at a time
 (3) explain all this to the principal so it can decompose existing pages and build decomposed pages for parallelism
+
+<!-- xgd-turn id="7490c4ba-0731-40a1-803a-7b146948c74b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:54:25.571408+00:00" -->
+#### Claude
+Agreed, that's simpler and better. Locks avoid all the version-merging logic, and the consultant decides how to split a page instead of a mechanical rule. I've added it to EPIC-24 as the plan, explicitly replacing the earlier eight items:
+
+1. **Pages can be decomposed** into a frame plus one file per section, assembled by concatenation at render. The frame holds the page-wide settings, the modules, the SEO metadata and the section order. A page that isn't decomposed keeps working as one file.
+2. **Locks: one agent per file at a time.** A builder session locks each file it will write, whether a section, a frame or a whole undecomposed page, and releases them when it ends. A write to a file it doesn't hold is refused.
+3. **The consultant is taught it all.** She decides how to split existing pages, builds new pages already split, and plans parallel work as one builder session per file. She never promises parallelism she hasn't set up that way.
+
+Two details I added inside your three, both small but necessary:
+- **Locks are leased.** A builder session that dies silently, which we saw four times in Charlie 2, must not hold a file forever.
+- **The client's own edits in the builder respect the same locks.** Otherwise a hand edit and a builder session can still overwrite each other.
+
+Underneath piece 3, the framework still has to run builder sessions concurrently. That becomes a lagrange-framework child ticket once 1 and 2 have a shape.
 
 <!-- xgd-chat-end -->
