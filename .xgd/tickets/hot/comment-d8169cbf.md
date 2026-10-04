@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T01:22:55.924011+00:00'
+updated_at: '2026-10-04T04:21:29.527195+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6821,5 +6821,11 @@ REQ-206 and REQ-378 don't touch these. Tomorrow they depend on the new "before y
 BUG-196. Without it, any photos you upload through the panel arrive as reference material, and Alice can't use them. You can work around it by changing "What it is for" in the Library, but it'll interrupt the run.
 
 So with 206 and 378 you're ready for the comps experiment. For the full set you asked about, you'd also want 379 and 196.
+
+<!-- xgd-turn id="9e2618d2-6e55-42f2-93c2-6ad3e65b2305-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T04:21:28.202032+00:00" -->
+#### You
+PLease read the valuable feedback from Alice in the last turn about the comp sites
 
 <!-- xgd-chat-end -->
