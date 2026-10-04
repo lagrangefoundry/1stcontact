@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T20:51:08.622722+00:00'
+updated_at: '2026-10-04T20:51:35.624643+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7057,5 +7057,20 @@ Shall I file that as one REQ under EPIC-19?
 <!-- xgd-chat role="user" ts="2026-10-04T20:51:07.095241+00:00" -->
 #### You
 Sounds good - ticket please
+
+<!-- xgd-turn id="5b9d2702-c9a1-4524-8584-9b3601f85576-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T20:51:33.287456+00:00" -->
+#### Claude
+I've filed it as **REQ-388**, *"Preview width: a width control on the draft, and the consultant is told which width the client is viewing"*, under EPIC-19 (high priority, 5 points).
+
+It covers:
+1. **A width control on the preview**: Desktop · Tablet · Phone · Fit pane. The fixed widths come from the site's own layout widths, and the page is scaled down to fit the pane instead of reflowing. Fit pane is today's behaviour, and your choice is remembered.
+2. **Every message you send carries the preview's width and which setting is selected.**
+3. **Alice's per-turn digest states it**, for example *"The client is viewing the draft at 812px (between the tablet and desktop layouts)"*.
+4. **A `screenshot` option for the width you're viewing**, so she sees exactly what you see.
+5. **A priming rule.** When you comment on how something looks, she assumes you mean the width you're viewing, checks at that width first, and says which width any change was made for.
+
+The comp viewer's desktop/phone toggle will use the same control styling.
 
 <!-- xgd-chat-end -->
