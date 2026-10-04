@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:46:59.369451+00:00'
+updated_at: '2026-10-04T00:54:02.919638+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6665,5 +6665,14 @@ What has to be true for sections to be safely independent:
 7. **Existing pages split mechanically** by their top-level sections. A page that isn't a simple stack stays whole.
 
 I've added this to EPIC-24 as the proposed direction for same-page parallel work, replacing its vaguer "stable addressing" option. It also changes the epic's order of work: same-page parallelism no longer has to come last, because sections become the natural unit for both the scope model and the guard.
+
+<!-- xgd-turn id="7490c4ba-0731-40a1-803a-7b146948c74b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T00:54:02.466530+00:00" -->
+#### You
+Well I would try to simplify a little:
+(1) figure out a way that pages can bee decomposed
+(2) provide a system for locks so that only one agent can work on one file at a time
+(3) explain all this to the principal so it can decompose existing pages and build decomposed pages for parallelism
 
 <!-- xgd-chat-end -->
