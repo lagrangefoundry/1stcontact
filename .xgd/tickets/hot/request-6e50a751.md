@@ -7,7 +7,7 @@ title: 'fold: band rows are grouped by row-stream adjacency, so two same-fill se
   interior break-spaces collapsed, SVG icon links unrecorded)'
 created_by: repro-console:repro-www-bluelotusintegralhealing-com#2
 created_at: '2026-10-04T12:43:34.428986+00:00'
-updated_at: '2026-10-04T15:05:27.728156+00:00'
+updated_at: '2026-10-04T15:13:45.147498+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -205,3 +205,49 @@ print(sum(c.values()),dict(c))"
 **Wrong (now):** `214 {'section-band-4': 36, 'section-band-11': 24, 'section-band-10': 118, 'section-band-13': 12, 'section-band-5': 18, 'section-band-6': 6}`. **Right:** `0 {}`.
 
 **For the implementer.** Your proposed fix 1 (group by fill + captured section) and fix 2 (defer to a same-fill backdrop that already covers the rows) both close this bundle too. `backdrop-5` and `backdrop-6` are exact. This bundle also contains a 0.5px slice nested *inside* another slice (`section-band-5` under `section-band-6`) and two byte-identical slices (`-8`/`-9`), so add it to the fixture set. `defect_class` for this re-measurement: `fold-wrong`. The capture's two section records are exact, and L1 already expresses them as `backdrop-5`/`-6`.
+
+
+---
+
+## Implementation (free-coded, REQ-380)
+
+Why free-coded: three bounded engine fixes with exact evidence on one bundle, no design phase needed.
+
+### Issue 1 — fold: band rows grouped by section, not stream adjacency (`tools/generate/src/l1/fold.ts`, `buildSolidBands`)
+
+What a user sees: two same-fill sections fold to one surface each, every run's `backedBy` names a surface whose box contains it at rest, and no band paints over the footer logo.
+
+- **Grouping.** Band rows are ordered top-to-bottom at the widest width (page order, not row-stream order) and grouped into maximal runs of the same **fill AND the same captured section** (the `sections[].box` with the greatest vertical overlap at the widest width). A row absent at the widest width has no comparable coordinate, so it keeps the position of the stream row before it. Same-fill content in one section split by a different-fill band still forms separate groups, so a single-wrapper page with white/dark/white bands still tiles correctly.
+- **No duplicate of a captured backdrop.** If a captured backdrop already paints the group's fill (same `surfaceFill`, opaque, no background image) and contains every row's frame at every width, the fold emits **no** `section-band-N` for that group. Those runs get `backedBy` = the backdrop's id, written once `nameCapturedBackdrops` has named it (only if it was named a `backdrop-*`). The check runs *after* tiling, so neighbouring bands keep exactly the geometry they would have had.
+- **Burial (step 3).** No separate guard was added. With section grouping, a band that still exists contains its section's leaves (the logo included) and owns them, and a band a backdrop replaces no longer exists. A UAT pins that no band ever paints over a content leaf under it.
+- **Measured on a copy of the stored bundle** (`1c refold` on a copy, then `1c l1-gate`; the shared reference was not touched): onSample escapes 58 → **0**; offSample 100 → 4 (the 4 left are pre-existing `overlap`s); contentRobustness 600 → 512 (all 88 `section-band-*` findings gone, nothing new). On this bundle every reconstructed band is gone. Ten were the slices; the other three (`section-band-0/2/3`) were duplicates of `backdrop-0/1/2`. Runs in the contact section name `backdrop-3`, footer runs name `backdrop-4`, and the logo (`image-1`) now paints after every surface.
+
+### Issue 2 — capture keeps every preserved space (`tools/generate/src/cli/capture/extract.ts`)
+
+What a user sees: a `break-spaces`/`pre-wrap` run keeps every space it lays out, so "together.  Through" keeps both spaces.
+
+- On the preserving branch the run's `text` (and its `textFlow`) is the text node verbatim. Space runs, tabs and segment breaks are kept, and only CRLF is normalised to LF, as the HTML parser does. Collapsing runs are unchanged. The fold and renderer already carried text through untouched, and the renderer emits `white-space: break-spaces`.
+- **Needs a re-capture** (`1c refold` cannot pick it up).
+
+### Issue 3 — capture records an inline-SVG icon link (`extract.ts`, `pipeline.ts`)
+
+What a user sees: a link (or button) whose only ink is one inline `<svg>` reaches the reproduction as a linked image with its href and accessible name. The four footer social links are the case here.
+
+- The extractor picks a host with `a[href], button, [role=button], [role=link]` above the `<svg>`. The host must hold exactly one `<svg>`, no `<img>`, and no text outside the svg; otherwise the svg is decoration beside copy and stays unrecorded, as before. The `<svg>` is recorded as a **media field**: `objectFit: 'contain'`, `intrinsicAspect` from its box, `alt` from the host's `aria-label`, then `title`, then the svg `<title>`, plus `href`/`newTab` from the existing helpers.
+- The field carries `svgMarkup`: a clone with each node's computed paint (`fill`, `stroke`, opacity and so on) written as presentation attributes, page classes removed, and the root's computed `color`. That way `fill: currentColor` paints correctly with no stylesheet present. `src` = `assets/inline-svg-<fnv1a(markup)>.svg`, so every width that sees the same icon names the same file.
+- The pipeline (`addInlineSvgAssets`) writes each markup into the bundle as an ordinary `image` asset whose origin **is** that path, so `localizeAssets` resolves it like any mirrored image. `svgMarkup` is raw-only: it is never projected into `capture.json` or a manifest. The fold needed no change, because it already turns a media field with an `href` into a linked `image` leaf.
+- Icon links are exempt from the "fields inside the band's repeated-item group are skipped" rule. A row of identical icon links is usually that item group itself, and an item records only text runs, so the icons would otherwise be lost by construction.
+- **Needs a re-capture.** It **adds** comparisons: elements the oracle never held before.
+
+### Capture schema 17 → 18 (`schema.ts`)
+
+Two axes were added: preserved spaces in a preserving run, and the inline-SVG icon field. `test_UAT_FC_REQ-377_a_schema_16_bundle_names_the_scroll_and_sticky_axes_as_missing` no longer pins 17 as current. It now asserts that a 17 bundle names neither scroll nor sticky, the same adjustment BUG-187 made to REQ-370's test.
+
+### Test plan
+
+`tests/test_UAT_FC_REQ-380_bands_by_section_spaces_and_icon_links.test.ts` (12 UATs):
+- Issue 1 (real `foldToL1` over a synthetic ladder shaped like the bundle: two sections, interleaved stream, logo): one band per section covering it and runs backed inside; no band paints over the logo; with same-fill backdrops, no band and every run names a containing `backdrop-*`.
+- Issue 2 (real `EXTRACT_SCRIPT` under jsdom): `break-spaces` keeps the double space; `pre-wrap` keeps its space run and newline; a collapsing run still collapses; the kept spaces survive fold and render; schema ≥ 18.
+- Issue 3 (jsdom, then `runCapturePipeline` with a fake driver, then fold, then `localizeAssets`): each icon link is a media field with href, name, box and a unique asset path; the markup is self-contained; an svg beside its link's own copy stays unrecorded; the bundle carries the asset bytes at the field's path, `capture.json` does not carry the markup, the fold emits a linked image, and the mirror resolves it with nothing unmirrored.
+
+Regression scope: the fold/band suites (bug14, bug19, REQ-271/332/338/350, BUG-112/142/143/153/158/160/161/173/179, reconciliation-l1-*) and the capture suites (capture, bug12/16/27, REQ-211/269/270/275/302/333/338/366/370/377, BUG-187, coverage). `test_UAT_FC_BUG-48_*` (4) and `test_UAT_FC_REQ-349_a_control_matches_a_page_that_names_no_face` also fail on a clean xgd-working, so they predate this work.
