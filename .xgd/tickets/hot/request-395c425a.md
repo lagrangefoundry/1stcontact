@@ -6,9 +6,9 @@ title: 'capture: a carousel''s clip is recorded at the slide, not the swiper tha
   cuts it; fold drops a band''s height response when its bottom is not a section edge'
 created_by: repro-console:repro-joyfulculinarycreations-com#8
 created_at: '2026-10-04T15:03:19.208056+00:00'
-updated_at: '2026-10-04T15:31:07.122196+00:00'
+updated_at: '2026-10-04T15:31:33.261433+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   defect_class:
@@ -26,6 +26,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.481
+  story_points: 3
 ---
 
 # capture: a carousel's clip is recorded at the slide, not at the swiper that cuts it — plus a band whose bottom is not a section edge loses its height response
