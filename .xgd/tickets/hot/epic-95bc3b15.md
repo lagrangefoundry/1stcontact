@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-03T23:16:34.817437+00:00'
+updated_at: '2026-10-04T00:14:19.098771+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2146,3 +2146,10 @@ Run 2 used one consultant (group chat off) with the REQ-364 plan panel. The oper
 **Diagnosis.** The structures DOC-65 designed (phase, the milestone questions and their triggers, functionality) all exist on the plan ticket. Every one of them depends on the consultant remembering to use it, and none was used. This is the same pattern as Finding 13: anything that relies on the model remembering doesn't happen. The parts that did work, the panel asks and the page digest, are ones the host renders or that the consultant had to write to get anything done.
 
 **On the site's quality:** the operator said it reads as a mock plumber site and looks like an HTML class, compared with real plumber sites, which are dense and busy. Nothing in our process calibrates density or conventions to the client's kind of business. The consultant's guidance pushes toward restraint and breathing room, and in turn 6 it added more of both.
+
+
+### Finding 19 — start with comparable sites; web search was never delivered (2026-10-03)
+
+**Comps first.** The engagement opens by looking at real comparable sites in the preview pane, with the client's likes and dislikes recorded per site. The conventions the client agrees with become the plan's `visual_concept` decision, before the first rough cut. Filed as **[[REQ-378]]**. It shows the capture's screenshot in a view-only "Viewing: <site>" mode with "Back to your draft", keeps a hero thumbnail of each comp on the panel as a reminder, and says plainly that screenshots don't show motion.
+
+**Web search: asked for, half-landed, then forgotten.** REQ-207 requested it on 2026-09-08. Only its describer half landed. The search half needed a framework route for provider-executed tools, which REQ-207 named as a ticket still to file, and it never was. The ticket still reads `ready_to_reconcile`, as though the work were complete. Filed upstream as **lagrange-framework REQ-206**. REQ-378 treats it as a hard requirement and is blocked on it. Lesson: a ticket that lands only part of its scope needs the missing part filed somewhere, or it disappears behind the ticket's status.
