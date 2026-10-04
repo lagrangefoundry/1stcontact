@@ -6,9 +6,9 @@ title: 'Comps: two of three competitor sites fail to capture, and the consultant
   search for its own'
 created_by: EPIC-19
 created_at: '2026-10-04T17:57:56.542712+00:00'
-updated_at: '2026-10-04T17:57:56.542712+00:00'
+updated_at: '2026-10-04T18:38:03.711543+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -45,3 +45,16 @@ UATs named `test_UAT_FC_<TICKET-ID>_*`:
 - A page whose network never goes idle (a fixture with a perpetual long-poll) is captured, with screenshots.
 - A page whose fold yields an out-of-range `viewportResponse` still lands as a comp with screenshots and a fold warning, and a fold of that page validates once clamped.
 - The consultant priming and DOC-64 require a search alongside asking the client.
+
+
+## Added 2026-10-04: every comp appears in the chat as a tile that opens the real site (operator)
+
+The operator's view: the client needs to see a competitor's site **for what it really is**, live, with its motion, its scrolling and its clutter, not only as a captured screenshot.
+
+- **When a comp is added to the board** (by the consultant or the client), a tile appears in the conversation: the comp's hero thumbnail, its name and address, and **"Open the real site ↗"**, which opens the live site in a new tab (links in assistant bubbles already open in a new tab, lagrange-framework REQ-170).
+- **The tile survives a reload.** It's composed as markdown by the host, the same way a generated image is shown in the chat (REQ-217's `displayLine` pattern: the tool's result hands the consultant the exact line to include). It isn't a card, because cards aren't replayed from the transcript.
+- **A comp whose capture failed still gets a tile with the link**, marked "couldn't take a snapshot". The client can always see the real site even when our capture can't.
+- **The screenshot viewer stays.** It's for reviewing comps side by side later in the engagement and for attaching notes, while the tile is the first look at the real site.
+- **The priming says when to use it:** show the tile for each comp and invite the client to open it before asking what they like and dislike.
+
+Additional UAT: adding a comp yields a chat line with the thumbnail and a link to the comp's live URL, and a comp whose capture failed yields the link without a thumbnail.
