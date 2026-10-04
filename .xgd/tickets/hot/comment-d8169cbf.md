@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T17:58:42.088931+00:00'
+updated_at: '2026-10-04T18:37:39.019306+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6985,5 +6985,11 @@ I've filed **BUG-203** under EPIC-16: deploy should build the browser files itse
 **3. Alice didn't search at all.** The spend records show zero searches on both turns, although search was available. She followed REQ-378's method literally: ask "who do you lose jobs to?" first. Once you gave her URLs, she treated the list as done. BUG-202 changes her method so she searches for strong local businesses in the same turn as asking you, and offers her own picks alongside yours.
 
 **For this run:** do the build, deploy and restart now, and the board and counter should appear. Captures will keep failing on sites like these two until BUG-202 lands. In the meantime, you can ask Alice directly to search for more Santa Cruz plumbers.
+
+<!-- xgd-turn id="b9603914-f506-4de3-a11f-8c17b90f157b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-04T18:37:38.941438+00:00" -->
+#### You
+I actually think that we should show a tile in the chat with a link that opens the site in a new tab - the user needs to see the site for what it really is.
 
 <!-- xgd-chat-end -->
