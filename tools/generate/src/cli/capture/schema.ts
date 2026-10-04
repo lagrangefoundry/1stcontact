@@ -191,8 +191,13 @@ import type { Capture } from './types'
  *   advance short. (b) An inline `<svg>` that is the only ink of a link is
  *   recorded as a media field (`src` → a mirrored `assets/inline-svg-*.svg`,
  *   `alt` from the link's name, `href`), so the reproduction can draw it at all.
+ * - **19** — REQ-381: a run's `clip` names the overflow ancestor that actually
+ *   CUTS it, not merely the nearest one. A carousel whose every slide is
+ *   `overflow: hidden` inside an `overflow: hidden` swiper recorded each
+ *   off-screen slide's copy against its own slide (which contains it), so the
+ *   fold saw nothing escaping and built no clipping container.
  */
-export const CAPTURE_SCHEMA = 18
+export const CAPTURE_SCHEMA = 19
 
 /**
  * REQ-352 — the schema from which a bundle's content anchor is measured over the
@@ -611,6 +616,14 @@ export const CAPTURE_SCHEMA_AXES: readonly CaptureAxis[] = [
     axis: 'an inline-SVG icon link (src → assets/inline-svg-*.svg)',
     where: 'a media field (`sections[].fields[]`)',
     present: (c) => fields(c).some((f) => typeof f.src === 'string' && f.src.startsWith('assets/inline-svg-')),
+  },
+  {
+    since: 19,
+    axis: 'the overflow ancestor that cuts an element (clip)',
+    where: 'a content run or field (`sections[].content[]`, `sections[].fields[]`)',
+    // Which ancestor was chosen leaves no contradiction in the record, so the only
+    // thing provable is that it cannot matter: a page that records no clip at all.
+    present: (c) => ![...runs(c), ...fields(c)].some((e) => e.clip !== null && typeof e.clip === 'object'),
   },
 ]
 

@@ -2965,16 +2965,21 @@ function buildSolidBands(
       // to serve the whole ladder: a band that grew with the viewport at the two
       // widest widths and not below was described as not growing anywhere. Per
       // keyframe there is nothing to reconcile, so the gate goes with the field.
+      //
+      // REQ-381 (issue 2) — A MEASURED TOP IS NOT DISCARDED WITH AN UNMEASURED
+      // BOTTOM. A band sliced by fill group can close mid-section, where no edge
+      // was probed; it used to get no response at all, so a band whose top
+      // travels 1:1 with the viewport was pinned while every run on it moved
+      // (joyfulculinarycreations.com `section-band-2`: 32 escapes). With only the
+      // top known, the band translates with it and its height is left alone.
       const edges = vh ? edgeResponses.get(w) : undefined
-      if (edges) {
-        const fTop = edges.get(Math.round(top))
-        const fBottom = edges.get(Math.round(bottom))
-        if (fTop !== undefined && fBottom !== undefined) {
-          const r: L1ViewportResponse = {}
-          if (Math.abs(fTop) >= 0.005) r.yFactor = fTop
-          if (Math.abs(fBottom - fTop) >= 0.005) r.heightFactor = fBottom - fTop
-          if (r.yFactor !== undefined || r.heightFactor !== undefined) kf.viewportResponse = r
-        }
+      const fTop = edges?.get(Math.round(top))
+      if (fTop !== undefined) {
+        const fBottom = edges!.get(Math.round(bottom))
+        const r: L1ViewportResponse = {}
+        if (Math.abs(fTop) >= 0.005) r.yFactor = fTop
+        if (fBottom !== undefined && Math.abs(fBottom - fTop) >= 0.005) r.heightFactor = fBottom - fTop
+        if (r.yFactor !== undefined || r.heightFactor !== undefined) kf.viewportResponse = r
       }
       keyframes.push(kf)
       present.push(w)
@@ -3319,8 +3324,10 @@ function groundImagesUnder(
   content: readonly L1Node[],
   level: ReadonlyMap<L1Node, number>,
   widths: readonly number[],
-): Map<L1Box, L1Node[]> {
+): { grounds: Map<L1Box, L1Node[]>; grounded: Set<L1Node> } {
   const grounds = new Map<L1Box, L1Node[]>()
+  /** The content images taken as grounds, as they stood in the content. */
+  const grounded = new Set<L1Node>()
   const widest = Math.max(...widths)
   const rects = foldRectsOf([...backdrops, ...content], new Map())
   const at = (node: L1Node): FoldRect | undefined => rects.get(node)?.get(widest)
@@ -3347,12 +3354,13 @@ function groundImagesUnder(
       }
     }
     if (!best) continue
-    clipGroundTo(node, best)
+    grounded.add(node)
+    const ground = clipGroundTo(node, best)
     const list = grounds.get(best)
-    if (list) list.push(node)
-    else grounds.set(best, [node])
+    if (list) list.push(ground)
+    else grounds.set(best, [ground])
   }
-  return grounds
+  return { grounds, grounded }
 }
 
 /**
@@ -3361,23 +3369,41 @@ function groundImagesUnder(
  * every builder that uses the pattern), and a photograph left overhanging it —
  * 11.56px on hearingzone510.com — would hand the band a content extent the
  * reference never shows.
+ *
+ * REQ-382 (issue 2) — the crop is a CLIP, never a smaller box. Under
+ * `object-fit: cover` the rendered scale of a photograph is a function of its
+ * box, so intersecting the box with the backdrop's (as this used to) repainted
+ * the hero at 1157/1168.56 = 0.990 of the reference's scale — every edge in it
+ * displaced, a quarter of the page's ranked score. The ground keeps its captured
+ * box and is held in a `clip: true` container at the backdrop's box, which is
+ * REQ-332's clipping container: the overhang paints nothing and lays nothing out.
+ * A ground that sits wholly inside its backdrop at every width is returned as is.
  */
-function clipGroundTo(node: L1Node, backdrop: L1Box): void {
-  const geo = foldGeometryOf(node)
-  const frames = new Map((backdrop.geometry?.keyframes ?? []).map((kf) => [kf.at, kf]))
-  for (const kf of geo?.keyframes ?? []) {
+function clipGroundTo(node: L1Node, backdrop: L1Box): L1Node {
+  const backdropGeo = backdrop.geometry
+  if (!backdropGeo) return node
+  const frames = new Map(backdropGeo.keyframes.map((kf) => [kf.at, kf]))
+  const overhangs = (foldGeometryOf(node)?.keyframes ?? []).some((kf) => {
     const b = frames.get(kf.at)
-    if (!b || b.height === undefined || kf.height === undefined) continue
-    const x = Math.max(kf.x, b.x)
-    const y = Math.max(kf.y, b.y)
-    const right = Math.min(kf.x + kf.width, b.x + b.width)
-    const bottom = Math.min(kf.y + kf.height, b.y + b.height)
-    if (right <= x || bottom <= y) continue
-    kf.x = round2(x)
-    kf.y = round2(y)
-    kf.width = round2(right - x)
-    kf.height = round2(bottom - y)
+    if (!b || b.height === undefined || kf.height === undefined) return false
+    return (
+      kf.x < b.x - FOLD_CONTAINS_EPS ||
+      kf.y < b.y - FOLD_CONTAINS_EPS ||
+      kf.x + kf.width > b.x + b.width + FOLD_CONTAINS_EPS ||
+      kf.y + kf.height > b.y + b.height + FOLD_CONTAINS_EPS
+    )
+  })
+  if (!overhangs) return node
+  const geometry: L1Geometry = structuredClone(backdropGeo)
+  const container: L1ContainerNode = {
+    kind: 'container',
+    layout: 'stack',
+    clip: true,
+    geometry,
+    children: [rebaseInto(node, geometry, undefined)],
   }
+  if (backdrop.visibility) container.visibility = structuredClone(backdrop.visibility)
+  return container
 }
 
 /** REQ-332 — one folded leaf and the clip box that cut it off, per width. */
@@ -4304,10 +4330,21 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
       // border box) overlapping the first glyph. `accentBox` is that wrapper's
       // measured rect; it is consulted only when no card-shaped fill was resolved,
       // so a card that paints both keeps its fill rect for both.
+      //
+      // REQ-382 (issue 1) — EXCEPT for a gradient with nothing of the run's own on
+      // it. A gradient never becomes a band fill ({@link buildSolidBands} paints
+      // solid colours only), so declining its band-wide rect left the fallback
+      // below — the RUN's box — as the only geometry it could ever get: a 40px
+      // sticky-bar sweep compressed onto the 352×23px headline standing on it,
+      // with the rest of the bar white (hearingzone510.com, 48% of the page's
+      // ranked score). The accent-rule hazard above is a treatment of the run's
+      // own element, so a row bearing any of those keeps the old rule.
+      const bandWideGradient =
+        Boolean(surfGrad) && !surfBorderLeft && !surfBorder && !surfShadow && !(surfRadius && surfRadius > 0)
       const shapeBoxAt = (el: ValueElement, at: number): NonNullable<ValueElement['box']> | undefined => {
         if (el.surface?.panel) return undefined
         const shape = el.surface?.box
-        return shape && shape.width < at ? shape : undefined
+        return shape && (shape.width < at || bandWideGradient) ? shape : undefined
       }
       const surfFrames = framed
         .map((c) => {
@@ -4910,8 +4947,7 @@ export function foldToL1(multiState: MultiStateCapture, opts: FoldOptions = {}):
   // REQ-370 — a photograph the capture recorded BENEATH a backdrop (a hero image
   // under its own scrim) leaves the content and travels with that backdrop, so it
   // lands in whatever owns the backdrop, immediately before it.
-  const grounds = groundImagesUnder(backdropNodes, body, capturedLevel, widths)
-  const grounded = new Set<L1Node>([...grounds.values()].flat())
+  const { grounds, grounded } = groundImagesUnder(backdropNodes, body, capturedLevel, widths)
   const bodyNodes = grounded.size ? body.filter((n) => !grounded.has(n)) : body
   /** The backdrop layer in paint order: each backdrop preceded by its grounds. */
   const backdropLayer: L1Node[] = backdropNodes.flatMap((b) => [...(grounds.get(b) ?? []), b])
