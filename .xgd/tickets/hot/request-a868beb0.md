@@ -7,9 +7,9 @@ title: 'fold: content is nested under a surface absent at widths where the conte
   plates, escapes cannot-tell)'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:18:58.353036+00:00'
-updated_at: '2026-10-04T17:18:58.353036+00:00'
+updated_at: '2026-10-04T17:19:44.019699+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -128,3 +128,8 @@ These are the whole of the gate's diagnosis: card-3 22, backdrop-2 20, backdrop-
 - Pixel score: regions #1/#2/#4 ((16,320) 640×144 score 21567.59; (672,320) 160×80 score 3495.09; (304,320) 64×48 score 827.18) are 88.1% of the 29384.07 ranked total. They lie under "Dreaming of healthier meals" / "on your dinner table?" on both sides. The CRITICAL position deltas are `(20, 311)` → `(20, 300)` and `(20, 387)` → `(20, 376)`, plus "What people are saying" `(455, 3009)` → `(455, 2963)`. This is REQ-265's half-leading class, unchanged.
 - The `overflow` delta (`≤1280w` vs `1700w`) and the 2 `a11yRole` button → generic deltas belong to REQ-381 (carousel). The 3 icon `size` deltas (40×40 vs 50×40 / 45×40) and 3 icon `position` deltas belong to BUG-190 / REQ-372 issue 2. The testimonial `surfaceFill` deltas (#28542d vs #7a957d) belong to REQ-302 issue 4's class.
 - HEAD only (c5c06e0060, landed 09:44, after this gate ran at 08:43): `backdrop-9` is now nested under `backdrop-8`. The off-sample probe flags it at every off-sample width ≤1195 and at 1920 ("was full-bleed at every captured width and stops 480px short of the viewport's right edge"), which adds 18 escapes the served document did not have. Recorded as a comment on REQ-383.
+
+
+
+---
+Companion bug (instrument side of issue 1 and the recovery readout for issue 3): **BUG-201**. REQ-383 HEAD-regression note: COMMENT on REQ-383 from this round.
