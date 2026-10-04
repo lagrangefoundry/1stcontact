@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T16:11:35.135503+00:00'
+updated_at: '2026-10-04T16:12:09.114591+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6888,5 +6888,22 @@ What I'd watch for, since it's what this run tests:
 I just started a new business to go through the charlie's plumber thing again. I was given a list of functionality in the "Getting to know your business panel" - It looked like a list of checkboxes but as soon as I clicked one is collapsed - that needs to be a multi-select
 
 BUG-200 is freshly created can you put this in there please?
+
+<!-- xgd-turn id="5e59b984-20e9-4f75-ab9b-f5caee69750c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T16:12:07.027229+00:00" -->
+#### Claude
+I've written it into **BUG-200**, *"Plan panel: a multi-select question collapses on the first tick"*. It's high severity, 2 points, under EPIC-19.
+
+**Cause.** The panel treats a multi-select like a single choice: it saves the answer on the first tick. That marks the question answered, and answered questions move to the collapsed list. So you're left with one feature picked.
+
+**Fix:**
+- **The question stays open while you tick and untick.**
+- **A "Done" button** saves the full selection and moves the question to the answered list. There's also **"None of these"** for when nothing applies.
+- **Your ticks survive a reload** before you press Done, saved as a draft. Until then the question still counts as open in the progress counter, and Alice isn't told. She hears once, when you press Done, with the full list.
+- **"Change" on an answered multi-select** reopens it with your ticks in place.
+- **Single choices and typed answers** still save straight away, as now.
+
+Until it's fixed, the workaround for this run is to tick one box, then use "Change" on the answered question to add the rest one at a time. Or just tell Alice the features in the chat.
 
 <!-- xgd-chat-end -->
