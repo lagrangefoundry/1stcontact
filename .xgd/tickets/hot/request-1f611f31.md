@@ -5,15 +5,16 @@ type: request
 title: Builder (delegated worker) cannot read the client's uploaded documents
 created_by: xgd
 created_at: '2026-10-04T20:37:43.834612+00:00'
-updated_at: '2026-10-04T20:54:52.777294+00:00'
+updated_at: '2026-10-04T20:59:36.258146+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-809d2084
+  story_points: 3
 ---
 
 ## What we were trying to do
@@ -54,7 +55,14 @@ Pages are bounded (20,000 characters) so a long brand book cannot flood a worker
 Small, contained change to one surface and one composition site; no design document needed.
 
 ## Test plan
-- `tests/test_UAT_FC_REQ-387_builder_reads_the_library.workers.test.ts` (real route inside workerd, delegation on, scripted model): the worker is offered `list_library`/`get_library_item` and no Library write; a worker's `get_library_item` with `text: true` on an uploaded document returns its verbatim text.
-- `tests/test_UAT_FC_REQ-387_library_document_text.test.ts`: `get_library_item` with `text: true` pages through a long document (`text_from`/`text_next`/`text_total`), returns `text: null` for an item with no text, and is unchanged without the flag.
-- Updated `test_UAT_FC_REQ-355_the_builder_still_has_no_ledger_catalogue_or_delegation` to the narrowed fence (catalogue writes, ledger, Delegate).
-- Regression scope: REQ-228 catalogue suites, REQ-355, REQ-343, REQ-364 coordinator, BUG-129 priming-fits-grant.
+- `tests/test_UAT_FC_REQ-387_builder_reads_the_library.workers.test.ts` (real route inside workerd, delegation on, scripted model, document uploaded through the real `/api/material` route):
+  - `..._the_builder_is_offered_the_librarys_reads_and_none_of_its_writes` — every `effect: read` Library operation is offered to the worker, no write operation is, and no `Delegate`.
+  - `..._the_builder_reads_an_uploaded_documents_words_verbatim` — the worker's `list_library` finds the uploaded reference document and its `get_library_item {text: true}` returns the client's exact words (not the digest), with `text_next: null`.
+- `tests/test_UAT_FC_REQ-387_library_document_text.test.ts` (production operation, doubled host): unchanged answer without the flag; paging reassembles a >2-page document exactly with `text_from`/`text_total`/`text_next`; `text: null` for an item with no text.
+- Updated `test_UAT_FC_REQ-355_the_builder_still_has_no_ledger_catalogue_or_delegation`: fences ledger operations, Library operations whose `effect` is not `read`, and `Delegate`.
+- Regression run: REQ-228 (both), REQ-280, REQ-281, REQ-343 (both), REQ-355 (both), REQ-364, REQ-357, REQ-173, BUG-185, BUG-118, BUG-129 pass. Failing both with and without this change on clean xgd-working (pre-existing): REQ-295 delegation `the_caller_gets_a_result…` / `a_worker_that_never_reported…`, REQ-341 `a_worker_may_manage_pages…`, REQ-122 `the_model_is_primed…`.
+
+## Implementation notes
+- `host-core.ts`: `readOnlyLibrary(lib, deps, slug)` composes the Library with `readOnlyGrant(libraryInstanceConfig(), [LIBRARY_DECLARATION])`; used by both the coordinator and the builder.
+- `library-core.ts`: `LibraryDeps.text(name)`, `LIBRARY_TEXT_PAGE = 20_000`, paging in `get_library_item`. `library-surface.json` → `surface_version` 5, new `text`/`from` params and `catalogue_item` shape fields.
+- `material.ts`: `materialText(store, uid)` — the single read of the `material_text` comment, now also used by `knowledge.ts`'s `materialTextView.get`; `library.ts` implements `text()` with it.
