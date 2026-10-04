@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T00:57:23.793303+00:00'
+updated_at: '2026-10-04T00:58:20.144560+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6699,5 +6699,25 @@ ok so one of Alice's questions was for images...3 issues:
 1) The question asked for images, the uploader only allowed one file to be uploaded
 2) The purpose of the images was to add them to the site but they were classified as background material so Alice can't use them
 3) Both me and Alice should have controls to promote such an image to use it on the site - neither of us do
+
+<!-- xgd-turn id="3f076e1b-d236-493d-a06b-b6a16ea0859d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-04T00:58:19.455369+00:00" -->
+#### Claude
+I've filed **BUG-196** under EPIC-19 (high severity, 3 points). I traced all three of your issues in the code, and two of them have the same cause:
+
+1. **Only one file.** The panel's file picker doesn't allow multiple files and uploads only the first one you pick.
+2. **Background material.** **The panel uploads every file as "reference", whatever the question was for.** Reference material is automatically marked as not allowed on the site, and Alice's "put this on the site" operation refuses anything with that mark. So no photo uploaded through the panel could ever be used, even when the question asked for site photos.
+3. **No way to promote it:**
+   - **For you, there is a control, but it's buried.** The Library item's detail pane has a "What it is for" setting in its rights section (REQ-213), and changing it there does make the photo usable. Nothing on the panel or in the chat points you to it, so effectively it isn't there.
+   - **Alice really has nothing.** Her Library tools can list, read and place items, but can't change what an item is for.
+
+The fix covers all three:
+- **Each question says what its uploads are for.** Alice sets it when she writes the question: "for the site" for photos and the logo, "for reference" for price lists and flyers. If she doesn't set it, it stays "reference", so nothing reaches the site unasked.
+- **Several files per question**, which is the default for photo questions.
+- **A visible "Use on the site" action for you**, on the answered question in the panel and in the Library. It uses the existing role-change path.
+- **Alice can change an upload's role**, but only for things you uploaded, never captured sites, and only when you ask or after checking with you. What a file is for is your choice. She tells you in the chat when she's done it.
+
+For Charlie 2 right now, open each photo in the Library and change "What it is for" to the site option. Alice can then place them.
 
 <!-- xgd-chat-end -->
