@@ -301,7 +301,8 @@ describe('REQ-157 AC2 — one picture source, and every operation takes it', () 
       'url',
       'image',
     ])
-    expect(picture.keys.viewport.enum).toEqual(['mobile', 'tablet', 'desktop'])
+    // [[REQ-388]] — `client` is the width the client is viewing, reported with the turn.
+    expect(picture.keys.viewport.enum).toEqual(['mobile', 'tablet', 'desktop', 'client'])
   })
 
   it('test_UAT_FC_REQ_157_all_five_kinds_resolve_through_the_one_function', async () => {

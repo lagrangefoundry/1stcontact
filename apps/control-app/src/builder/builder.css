@@ -352,6 +352,53 @@ body {
   min-height: 0;
 }
 
+/* --- a segmented control ([[REQ-388]]) ----------------------------------------
+ *
+ * ONE LOOK FOR "PICK ONE OF A FEW WIDTHS", wherever a width is picked: the
+ * preview's Desktop · Tablet · Phone · Fit pane, and the comp viewer's Desktop /
+ * Phone. The pressed segment is the accent, so which width is in force reads at
+ * a glance rather than from a border a shade darker than its neighbours. Colours
+ * follow the surface the group sits on, so the same rule serves the light
+ * toolbar and the comp viewer's dark banner.
+ */
+.builder-segmented {
+  display: inline-flex;
+  border: 1px solid var(--shell-border, #d4d4d8);
+  border-radius: var(--shell-radius, 6px);
+  overflow: hidden;
+}
+
+.builder-segmented button {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  padding: 3px 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.builder-segmented button + button {
+  border-left: 1px solid var(--shell-border, #d4d4d8);
+}
+
+.builder-segmented button[aria-pressed='true'] {
+  background: var(--shell-accent, #7c3aed);
+  color: #fff;
+}
+
+.builder-segmented button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* A fixed preview width leaves the pane's own background either side of the
+   draft; a hairline says where the page ends. */
+.builder-panel--fixed .builder-panel__pane {
+  box-shadow: 0 0 0 1px var(--shell-border, #d4d4d8);
+}
+
 .builder-panel {
   position: relative;
   height: 100%;
@@ -5074,12 +5121,20 @@ body {
   color: #18181b !important;
 }
 
-.comp-viewer__width[aria-pressed='true'] {
-  background: #52525b;
+.comp-viewer__banner .builder-segmented {
+  border-color: #52525b;
 }
 
-.comp-viewer__nav,
-.comp-viewer__widths {
+.comp-viewer__banner .builder-segmented button {
+  border: 0;
+  border-radius: 0;
+}
+
+.comp-viewer__banner .builder-segmented button + button {
+  border-left: 1px solid #52525b;
+}
+
+.comp-viewer__nav {
   display: inline-flex;
   align-items: center;
   gap: 4px;

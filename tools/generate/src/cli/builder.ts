@@ -8,6 +8,7 @@ import type { SiteStore, StoreContext } from '../store'
 import { fsSiteStore } from '../store'
 import type { TenantSiteStore } from '../store/d1r2-store'
 import { aiStatus, openSession, streamPrompt, UnknownSessionError } from './ai/host'
+import { readClientView, type ClientView } from './ai/roles'
 import { cmdList, ctxOf, type GlobalOptions } from './commands'
 import { MANIFEST_REL, readStagedPlatformFont } from '../fonts/mirror'
 import { buildIndex } from '../fonts/index-build'
@@ -350,6 +351,7 @@ async function streamTurn(
   sessionId: string,
   text: string,
   opts: BuilderOptions,
+  view?: ClientView,
 ): Promise<void> {
   let started = false
   const start = (): void => {
@@ -365,7 +367,7 @@ async function streamTurn(
     res.write(`data: ${JSON.stringify(payload)}\n\n`)
   }
   try {
-    for await (const event of streamPrompt(sessionId, text, opts)) {
+    for await (const event of streamPrompt(sessionId, text, opts, view)) {
       emit({ kind: event.kind, content: event.content, meta: event.meta })
     }
   } catch (err) {
@@ -453,7 +455,13 @@ export async function handleBuilderRequest(
         json(res, 400, { error: `${missing.join(' and ')} ${verb} required` })
         return
       }
-      await streamTurn(res, body.sessionId, body.text, aiOpts)
+      // [[REQ-388]] — the client's width, read by the same rule the Worker route uses.
+      const view = readClientView(body.view)
+      if (view === null) {
+        json(res, 400, { error: 'view must be {width, mode} with mode desktop, tablet, phone or fit' })
+        return
+      }
+      await streamTurn(res, body.sessionId, body.text, aiOpts, view)
       return
     }
 

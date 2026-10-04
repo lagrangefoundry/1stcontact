@@ -125,6 +125,12 @@ export interface SiteDigest {
   live: number | null
   /** How many files differ from the live revision. Zero is ordinary. */
   pending: number
+  /**
+   * The site's layout widths — every page's L1 viewport ladder, merged and
+   * ascending ([[REQ-388]]). What the client's reported width is placed against,
+   * so the digest can say which of the site's own layouts they are looking at.
+   */
+  widths: number[]
 }
 
 /**
@@ -180,6 +186,16 @@ function assetsOf(page: Record<string, unknown>, labels: ReadonlyMap<string, str
 function addressOf(page: Record<string, unknown>): string {
   const slug = typeof page.slug === 'string' ? page.slug : String(page.id ?? '')
   return slug === 'home' ? '/' : `/${slug}`
+}
+
+/** Every page's L1 `widths`, merged and ascending ([[REQ-388]]). */
+function ladderOf(pages: ReadonlyArray<Record<string, unknown>>): number[] {
+  const all = new Set<number>()
+  for (const page of pages) {
+    const widths = (page.l1 as { widths?: unknown } | undefined)?.widths
+    if (Array.isArray(widths)) for (const w of widths) if (typeof w === 'number') all.add(w)
+  }
+  return [...all].sort((a, b) => a - b)
 }
 
 /**
@@ -258,6 +274,7 @@ export async function collectSiteDigest(
     counter,
     live: pending.baseRevision,
     pending: pending.added.length + pending.modified.length + pending.removed.length,
+    widths: ladderOf(stored.map(({ page }) => page)),
   }
 }
 

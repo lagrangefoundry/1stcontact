@@ -309,6 +309,8 @@ export const STORAGE_KEYS = {
    */
   planSplit: `${SITE_TAB.id}:plan-split`,
   panel: `${SITE_TAB.id}:panel`,
+  /** [[REQ-388]] — the preview's width setting, remembered like the divider. */
+  previewWidth: `${SITE_TAB.id}:preview-width`,
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
   people: `${PEOPLE_TAB.id}:list`,

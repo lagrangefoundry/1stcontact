@@ -1621,6 +1621,12 @@ export async function editDocumentSet(
  * own key (`ORDER BY name`), so two openings of the control see the same order
  * without this imposing one.
  */
+/** [[REQ-388]] — a page's L1 viewport ladder, or `[]` when it has no L1 document. */
+function ladderOf(page: Record<string, unknown>): number[] {
+  const widths = (page.l1 as { widths?: unknown } | undefined)?.widths
+  return Array.isArray(widths) ? widths.filter((w): w is number => typeof w === 'number') : []
+}
+
 export async function editPageList(slug: string, opts: EditOptions): Promise<EditOutput> {
   const base = await readBase(slug, opts)
   const files = await readPageFiles(slug, opts)
@@ -1640,6 +1646,12 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
      */
     kind: f.page.kind === 'email' ? 'email' : 'web',
     ...(f.page.kind === 'email' ? { email: f.page.email ?? {} } : {}),
+    /*
+     * [[REQ-388]] — THE PAGE'S VIEWPORT LADDER, so the builder's width control
+     * offers the widths this page is actually laid out at rather than widths
+     * the chrome made up. Empty for a page with no L1 document.
+     */
+    widths: ladderOf(f.page),
   }))
   const human =
     pages.length === 0

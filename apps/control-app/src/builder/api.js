@@ -777,10 +777,11 @@ export async function openSettingsSession(fetchImpl = fetch) {
  * rather than in the panel because it is transport, and the panel is deliberately
  * transport-agnostic.
  */
-export async function* streamChatPrompt(sessionId, text, fetchImpl = fetch) {
+export async function* streamChatPrompt(sessionId, text, view = null, fetchImpl = fetch) {
   yield* postEventStream(
     scoped('/api/ai/prompt'),
-    { sessionId, text },
+    // [[REQ-388]] — the width the client is viewing the draft at, when known.
+    { sessionId, text, ...(view ? { view } : {}) },
     'the assistant failed',
     fetchImpl,
   )

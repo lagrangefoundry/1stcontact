@@ -52,9 +52,10 @@
           "enum": [
             "mobile",
             "tablet",
-            "desktop"
+            "desktop",
+            "client"
           ],
-          "description": "Which width to look at. Defaults to `desktop`. A page can be right at one width and wrong at another, so say which one you are judging. It does not apply to an `image`, which is already the size it is."
+          "description": "Which width to look at. Defaults to `desktop`. A page can be right at one width and wrong at another, so say which one you are judging. `client` is the width your client is viewing the draft at right now, as their builder reported it with this turn — the picture is then exactly what they see, and it is where to look first when they tell you how something looks. It does not apply to an `image`, which is already the size it is."
         },
         "after": {
           "type": "array",

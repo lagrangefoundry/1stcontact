@@ -94,8 +94,13 @@ export interface PictureSource {
    * picture is its own original and both answers are the same bytes.
    */
   original?: boolean
-  /** Which viewport preset to render or read at. Default `desktop`. */
-  viewport?: ViewportName
+  /**
+   * Which viewport preset to render or read at. Default `desktop`.
+   *
+   * [[REQ-388]] — or `client`: the width the client is viewing the draft at,
+   * as the builder reported it with this turn. See {@link pictureViewport}.
+   */
+  viewport?: PictureViewportName
   /**
    * REQ-216 — what to do to the page before the shutter opens, in order.
    *
@@ -249,6 +254,58 @@ export interface PictureDeps {
    * about the rest, which is the honest shape and not a degraded one.
    */
   images?: ImageLibrary
+  /**
+   * [[REQ-388]] — the width the client is viewing the draft at, as reported with
+   * the turn in progress, or `null` when this turn carried none.
+   *
+   * READ LATE, a callback and not a value: the surface is built once per
+   * conversation and the client's width moves between turns. Absent is the `1c`
+   * CLI, which has no client and no preview to report one from.
+   */
+  clientView?: () => ClientViewport | null
+}
+
+/** [[REQ-388]] — what `clientView` answers: the layout width, and the visible height. */
+export interface ClientViewport {
+  width: number
+  height?: number
+}
+
+/** A preset name, or `client` — the width the client is looking at ([[REQ-388]]). */
+export type PictureViewportName = ViewportName | 'client'
+
+/**
+ * The visible height a `client` picture is laid out at when the builder did not
+ * report one — the desktop preset's, so a tile is the screen it would have been.
+ */
+const CLIENT_DEFAULT_HEIGHT = 800
+
+/**
+ * Which viewport a picture is taken at, and how its label names it ([[REQ-388]]).
+ *
+ * THE ONE PLACE A NAME BECOMES A WIDTH, so a picture, the value manifest beside
+ * it and the reference it is compared against are all laid out at the same one.
+ * A preset resolves as it always has. `client` resolves to what the builder
+ * reported with this turn — the point of it is that the assistant sees exactly
+ * what the client sees, so a turn that reported nothing is refused by name
+ * rather than quietly answered at some other width.
+ */
+export function pictureViewport(
+  source: PictureSource,
+  deps: Pick<PictureDeps, 'clientView'>,
+): { name: string; viewport: Viewport } {
+  const asked = source.viewport ?? 'desktop'
+  if (asked !== 'client') return { name: asked, viewport: resolveViewport(asked) }
+  const seen = deps.clientView?.() ?? null
+  if (seen === null) {
+    throw new PictureSourceError(
+      `your client's width was not reported with this turn, so there is no 'client' viewport to look at. ` +
+        `Name mobile, tablet or desktop instead.`,
+    )
+  }
+  const width = Math.round(seen.width)
+  const height = Math.round(seen.height ?? CLIENT_DEFAULT_HEIGHT)
+  return { name: `the client's width (${width}px)`, viewport: { width, height } }
 }
 
 /** The field `kind` requires, so a refusal can name it. (Not `require` — that
@@ -291,7 +348,7 @@ async function referenceShot(
   deps: PictureDeps,
   source: PictureSource,
   viewport: Viewport,
-  viewportName: ViewportName,
+  viewportName: string,
 ): Promise<ResolvedPicture> {
   const name = needed(source.bundle, 'reference', 'bundle')
   const bundle = deps.references.bundle(name)
@@ -472,8 +529,7 @@ export async function resolvePicture(
   deps: PictureDeps,
   options: ResolveOptions = {},
 ): Promise<ResolvedPicture> {
-  const viewportName = source.viewport ?? 'desktop'
-  const viewport = resolveViewport(viewportName)
+  const { name: viewportName, viewport } = pictureViewport(source, deps)
   // Read once, before the switch, so a driven ask against a kind that cannot be
   // driven refuses by name whichever kind it was — and before any browser is
   // leased for it.
@@ -578,4 +634,4 @@ export function pictureSteps(source: PictureSource): PageStep[] {
 }
 
 /** Re-exported so the surface's viewport enum is derived, never re-typed. */
-export const VIEWPORT_NAMES = Object.keys(VIEWPORTS) as ViewportName[]
+export const VIEWPORT_NAMES = [...(Object.keys(VIEWPORTS) as ViewportName[]), 'client'] as PictureViewportName[]

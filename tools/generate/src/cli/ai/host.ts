@@ -38,7 +38,7 @@ import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
 import type { EditOptions } from '../edit'
-import { builderKnowledge, registerCorpusProviders } from './roles'
+import { builderKnowledge, registerCorpusProviders, type ClientView } from './roles'
 import {
   aiStatus as aiStatusCore,
   openSession as openSessionCore,
@@ -227,8 +227,10 @@ export async function* streamPrompt(
   sessionId: string,
   text: string,
   opts: GlobalOptions = {},
+  /** [[REQ-388]] — the width the client is viewing the draft at, when a builder reported one. */
+  view?: ClientView | null,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
-  yield* streamPromptCore(sessionId, text, opts, await siteDeps(null, opts))
+  yield* streamPromptCore(sessionId, text, opts, await siteDeps(null, opts), undefined, view)
 }
 
 /** What the assistant is, and whether it can run — the panel's mount-time check. */

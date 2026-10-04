@@ -42,6 +42,8 @@ import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createPageIndex } from './pages.js'
 import { createDisplayPanel } from './panel.js'
+import { createPreviewWidth } from './preview-width.js'
+import { VIEW_LABELS, VIEW_MODES } from './view-width.js'
 import { openFontPopup } from './font-popup.js'
 import { openPalettePopup } from './palette-popup.js'
 import { openPhonePreview } from './phone-preview.js'
@@ -55,6 +57,7 @@ import {
   pagesAction,
   phonePreviewAction,
   panelsAction,
+  previewWidthAction,
   publishAction,
   subjectAction,
 } from './toolbar.js'
@@ -666,7 +669,11 @@ export function mountBuilder(root, options = {}) {
       // control belongs wherever a page is shown — and it sits directly after
       // the toggle in each, so that flipping channel does not move it out from
       // under the pointer that just used it.
-      actions: ['mode-toggle', 'pages', 'colors', 'open-new-tab', 'phone-preview', 'publish'],
+      //
+      // `preview-width` in BOTH, directly before "Open in new tab" ([[REQ-388]]):
+      // the width the draft is looked at is a property of looking, not of one
+      // channel, so it holds across the flip.
+      actions: ['mode-toggle', 'pages', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish'],
     })
     .registerMode({
       id: 'edit',
@@ -701,6 +708,7 @@ export function mountBuilder(root, options = {}) {
         'mark-points',
         'panels',
         'colors',
+        'preview-width',
         'open-new-tab',
         'phone-preview',
         'publish',
@@ -945,6 +953,18 @@ export function mountBuilder(root, options = {}) {
     list: pagesTransport?.list ?? fetchPages,
   })
 
+  /**
+   * Which width the draft is shown at ([[REQ-388]]) — held here, above the
+   * toolbar, for the page index's reason: the strip rebuilds its controls on every
+   * mode and site change, and the choice has to outlive them. The chat reads it on
+   * every submission, so the assistant is told the width the client is viewing.
+   */
+  const previewWidth = createPreviewWidth({
+    panel,
+    pages,
+    storage: shell.storage(STORAGE_KEYS.previewWidth),
+  })
+
   /** The subject write, beside the listing and from the same seam. */
   const writeSubject = pagesTransport?.saveSubject ?? saveSubject
 
@@ -964,6 +984,7 @@ export function mountBuilder(root, options = {}) {
       markPointsAction(points),
       panelsAction(carry),
       colorsAction(openPalette),
+      previewWidthAction(previewWidth, VIEW_LABELS, VIEW_MODES),
       // THE DRAFT RENDER OF WHATEVER PAGE THE PANE IS ON ([[BUG-131]]) — not the
       // URL the pane is showing. The tab is the honest, production view
       // (DOC-28 §10), and the edit channel is deliberately not production: the
@@ -1099,6 +1120,9 @@ export function mountBuilder(root, options = {}) {
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
     expandPrompt: (markdown) => points.expand(markdown),
+    // [[REQ-388]] — the width the client is viewing the draft at, sent with every
+    // prompt so the assistant's digest can state it rather than guess.
+    promptView: () => previewWidth.report(),
     // [[REQ-220]] — the picture in the chat is the picture in the Library, and
     // clicking it opens the one modal. The Library needs no telling: it is
     // subscribed to the material change feed ([[REQ-201]]), so a rename made in
