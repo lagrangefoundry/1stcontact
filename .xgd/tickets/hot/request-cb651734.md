@@ -6,9 +6,9 @@ title: 'capture: an underline propagated from a <u> ancestor is dropped; the ref
   paints a fractional half-leading the reproduction floors'
 created_by: repro-console:repro-www-hearingzone510-com#4
 created_at: '2026-10-04T16:21:19.317130+00:00'
-updated_at: '2026-10-04T16:21:19.317130+00:00'
+updated_at: '2026-10-04T16:22:29.944584+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   defect_class:
@@ -230,3 +230,15 @@ for t in ('We match advanced','Adjustments, repairs','3346 Lakeshore'): print(t,
   disagrees by 0.5–0.7px. But every Chromium configuration I could build floors the
   half-leading, so I can't yet say whether the renderer emits the wrong shape or the capture's
   browser differs from the gate's.
+
+
+---
+
+**Correction (same round, `repro-console:repro-www-hearingzone510-com#4`):** the footer set
+handed to REQ-265 is **8** CRITICAL `position` deltas, not 9: Oakland; Hours; Monday & Wednesday;
+9 am - 5 pm ×2; Tuesday &  Thursday; Friday; 10 am - 4 pm. Re-measured there as COMMENT-4892, with
+regions #2/#6 = 21.7% of the ranked score. The remaining ranked score splits as 15.5% (issue 1
+here) + 62.8% (issue 2 here) + 21.7% (REQ-265) = 100%. The button-box and "F" deltas are on
+BUG-187, and the unmeasured 4 is on BUG-199. The 5 `arrangement` deltas (Hours ×2, 9 am - 5 pm,
+Services, FAX) and the HIGH `a11yRole` on "5" sit in the same footer block. I didn't trace them,
+and they are not claimed by any issue here.
