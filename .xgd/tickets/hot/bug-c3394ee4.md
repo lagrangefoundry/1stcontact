@@ -6,7 +6,7 @@ title: 'Comps: two of three competitor sites fail to capture, and the consultant
   search for its own'
 created_by: EPIC-19
 created_at: '2026-10-04T17:57:56.542712+00:00'
-updated_at: '2026-10-04T18:38:03.711543+00:00'
+updated_at: '2026-10-04T18:43:33.666847+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -58,3 +58,15 @@ The operator's view: the client needs to see a competitor's site **for what it r
 - **The priming says when to use it:** show the tile for each comp and invite the client to open it before asking what they like and dislike.
 
 Additional UAT: adding a comp yields a chat line with the thumbnail and a link to the comp's live URL, and a comp whose capture failed yields the link without a thumbnail.
+
+
+## Folded in 2026-10-04: BUG-204 (filed by the consultant on the same incident)
+
+BUG-204 reports the same Charlie 3 captures and reaches the same `networkidle` diagnosis. Its additional findings belong here:
+- **The wall clock:** the turn ran about 20 minutes (uploads at about 17:05, the successful capture finishing at about 17:26), while each page loads in under 4 seconds in a normal browser. A comp capture should take tens of seconds.
+- **The capture may crawl the whole site.** The one successful capture reported `pages: 12`. A comp needs **the page asked for**, at the viewport ladder, and nothing else. Check whether `capture_site` follows links, and make a comp capture a single-page capture.
+- **Retries are silent and expensive:** 3 × 30 s per URL, with nothing reported between attempts. With fix 1 a timeout should be rare. Bound the total, and report each retry (the user-facing half is REQ-386).
+- **Headless detection:** check whether a missing or headless user agent, or missing headers, makes some hosts stall, and send ordinary browser headers.
+- **`data:` URLs** (300 "refusals" on one site) are inline images. Keep them as they are, don't report them as refused fetches.
+
+BUG-204 is closed as a duplicate of this ticket.

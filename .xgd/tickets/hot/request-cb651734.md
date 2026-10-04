@@ -6,10 +6,10 @@ title: 'capture: an underline propagated from a <u> ancestor is dropped; the ref
   paints a fractional half-leading the reproduction floors'
 created_by: repro-console:repro-www-hearingzone510-com#4
 created_at: '2026-10-04T16:21:19.317130+00:00'
-updated_at: '2026-10-04T17:28:21.959625+00:00'
+updated_at: '2026-10-04T18:43:20.004228+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   defect_class:
   - capture-loses-it

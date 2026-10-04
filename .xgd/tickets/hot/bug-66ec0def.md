@@ -6,10 +6,10 @@ title: 'capture_site is far slower than the page load: navigation timeouts on pa
   that load in under 4 s, retried silently'
 created_by: xgd
 created_at: '2026-10-04T18:31:02.629706+00:00'
-updated_at: '2026-10-04T18:31:02.629706+00:00'
+updated_at: '2026-10-04T18:43:35.119700+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   auto_merge_back: true
   needs_review: false

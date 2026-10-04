@@ -7,10 +7,10 @@ title: 'fold: content is nested under a surface absent at widths where the conte
   plates, escapes cannot-tell)'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:18:58.353036+00:00'
-updated_at: '2026-10-04T17:19:44.019699+00:00'
+updated_at: '2026-10-04T18:41:29.176715+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   defect_class:
   - fold-wrong

@@ -6,9 +6,9 @@ title: 'gate: a failing sample-fidelity probe never reaches gate.json, so a sect
   missing at phone widths is reported as 92 escapes'
 created_by: repro-console:repro-joyfulculinarycreations-com#9
 created_at: '2026-10-04T17:19:22.022816+00:00'
-updated_at: '2026-10-04T18:40:46.810658+00:00'
+updated_at: '2026-10-04T18:47:54.038480+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   defect_class:
@@ -49,3 +49,29 @@ grep -c sampleFidelity storage/tmp/repro-console/repro-joyfulculinarycreations-c
 ```
 - **Wrong (now):** `0`; then `False 23 ['fidelityMaxDeltaPx', 'fidelityResiduals', 'promoted', 'recoveredFindings', 'served', 'servedFindings']`.
 - **Right:** a re-gate (`CHROMIUM_LAUNCH_ARGS=--single-process ./bin/1c gate repro-joyfulculinarycreations-com --ref storage/references/joyfulculinarycreations.com/index --sandbox --out /tmp/g`) whose `gate.json` names the 23 unmatched runs and leads its diagnosis with the 12 at 320/375, and an l1-gate JSON whose `recovery` carries its findings.
+
+
+---
+
+## What changed (free-coded)
+
+**1. gate.json names the sample-fidelity probe.** `reconcileGates` (`tools/generate/src/cli/gate-core.ts`) now reads `l1Gate.sampleFidelity` and:
+- adds two `LayoutCollision` kinds with `probe: "sampleFidelity"` and no paths: `missing-at-width` (one per `unmatched` entry: `at 320px: "What people are saying" is painted by the reference and not drawn`) and `displaced-at-width` (one per residual over tolerance, carrying dx/dy/dw and the tolerance). Both are sorted narrowest width first and placed **first** in `layout.findings`, ahead of overlaps/buried/escapes/uncovered. Run text in a `detail` is whitespace-collapsed and truncated to 80 chars.
+- leads the structural-failure diagnosis with one clause per width — `N run(s) the reference paints at width Wpx are not drawn` — then displaced runs, then the existing collision classes; the next step leads with "Draw each missing run at the width named…".
+- writes the probe itself into the report as a top-level `sampleFidelity` block (pass, tolerancePx, maxDelta, residuals, unmatched, mounted). `ReconcileInput.l1Gate.sampleFidelity` is optional: a hand-built input without it produces no block and no fidelity findings; absent `unmatched`/`residuals` lists read as empty.
+
+**2. The unmeasured set counts runs not drawn.** `unmeasuredOf` (`tools/repro-console/src/unmeasured.ts`) adds `sampleFidelity.unmatched` into the `populations` part, with detail "N are runs the reference paints at a captured width that the page does not draw". Counted only when the report carries a `sampleFidelity` block; an older report keeps the total it always had (same precedent as `unmeasuredProperties`).
+
+**3. `l1-gate --json` recovery carries its lists.** `RecoveryCost` gains `findings` (the recovered document's content-robustness findings as `LayoutCollision`s — the list `recoveredFindings` counts), `residuals` (its sample-fidelity residuals — the list `fidelityResiduals` counts) and `unmatched`. Existing counts unchanged.
+
+**Measured on the real bundle** (`storage/references/joyfulculinarycreations.com/index`, retained l1): `l1-gate --json` → `recovery.findings` 1642 = `recoveredFindings`, `recovery.residuals` 35 = `fidelityResiduals`, `recovery.unmatched` 23. Reconciling that l1 result gives `layout.findings` = 23 missing-at-width + 8 displaced-at-width + 92 escape; the diagnosis opens "6 run(s) the reference paints at width 320px are not drawn; 6 run(s) … at width 375px …"; headline `unmeasured 23` (values half held at zero). The full `1c gate` re-gate was not run (needs Chromium).
+
+## Test plan
+
+`tests/test_UAT_FC_BUG-201_missing_at_width_reaches_gate_json.test.ts` — the served document is folded from a page without a three-run testimonial section and graded (real fold, real `acceptanceGate`, real `reconcileGates`, through a written `gate.json`) against an oracle that paints it at 320/375 only:
+- `unmatched_runs_are_missing_at_width_findings_first` — 6 `missing-at-width` findings, probe `sampleFidelity`, widths 320×3 then 375×3, first in `layout.findings`; `gate.json` carries `sampleFidelity.unmatched` (6).
+- `diagnosis_leads_with_runs_not_drawn_per_width` — diagnosis opens with the per-width sentences; next step opens "Draw each missing run…".
+- `unmatched_runs_count_into_the_unmeasured_population` — populations = 6 with the detail; a report without the block keeps populations 0.
+- `l1_gate_json_recovery_carries_its_findings_and_residuals` — `cmdL1Gate` over an on-disk bundle, JSON round-tripped: `recovery.findings`/`residuals` lengths equal their counts, `recovery.unmatched` = 6.
+
+Regression: all suites referencing `reconcileGates`/`cmdL1Gate`/`unmeasuredOf`/`gate-core` (25 files, 228 tests), all repro-console suites (30 files), REQ-156 workerd fidelity suite; `tsc --noEmit` clean for tools/generate and tools/repro-console.
