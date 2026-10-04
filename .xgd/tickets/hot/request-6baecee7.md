@@ -6,7 +6,7 @@ title: No way to signal work-in-progress to the client, so long build pauses rea
   as the session having died
 created_by: xgd
 created_at: '2026-10-02T16:01:11.787508+00:00'
-updated_at: '2026-10-03T00:24:00.785279+00:00'
+updated_at: '2026-10-04T12:30:02.106737+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -113,3 +113,32 @@ REQ-360 holds only the 1st Contact side, which stays parked at `draft` until EPI
 - grant the generalised `GroupSay` and heartbeat to the consultant role;
 - priming: say it, then carry on;
 - style the heartbeat status line in the builder chat.
+
+
+
+## Unblocked: lagrange-framework REQ-205 landed (2026-10-04)
+
+REQ-205 is at `ready_to_reconcile` upstream and is in the shared `@lagrangefoundry/ai` store (`keep_round_open`, `manager.interim`/`progress`, `PROGRESS_TEMPLATE`). As built upstream:
+- `GroupSay` naming the caller's own conversation mid-round writes an `interim` content record inside the open round. The round's `promptStream` yields an `interim` event when the tool returns, and `manager.watch` yields the record.
+- During a delegated build, `DelegationRuntime` writes a `progress` control record every `progressIntervalMs` (default 60 s): `still working, elapsed N min`. Only `manager.watch` yields it. The round's own `promptStream` is blocked inside the `Delegate` call and yields nothing.
+- `webui-chat` ignores both `interim` and `progress` event kinds.
+
+## What changes in 1st Contact
+
+1. **Grant: 1:1 consultant gets `GroupSay` on its own conversation.** Where the business does not run a group chat, the consultant is composed with a `GroupToolbox` whose runtime names its own session: `speaker` and `sessionId` are both the consultant's session id (`site-<slug>`). `GroupSay` with `group` set to that id records an interim line and the round carries on. Any other `group` is refused (no room is reachable from a 1:1 grant). Group-chat mode is unchanged: the consultant's room runtime has no `sessionId`, so a post to the room already leaves its round running.
+2. **Priming: say it, then carry on.** Where the consultant both delegates and holds `GroupSay`, it is told: before handing over work that will take a while, post one short line saying what is being built and roughly how long, then delegate in the same round. In 1:1 the priming names the `group` value to use; in a room it posts to the room.
+3. **Live heartbeat on the turn's own stream.** `streamPrompt` (site half) polls the session's junction from the turn's start while `promptStream` runs, and interleaves every new `progress` record as a `{kind: 'progress', content, meta: {elapsed_s}}` event. Polling stops when the turn ends. Without this the heartbeat would only reach a reattached client.
+4. **Interim lines reach the panel as prose.** The live `interim` event is forwarded as a `text` event (`\n\n` + line), so it lands in the reply bubble at its position, before the long tool call that follows. `tailSession` projects `interim` records the same way and `progress` records as `progress` events. Transcript turns painted on load run through `readableInterims`, so the stored markers never reach the client.
+5. **Heartbeat styling.** The builder chat panel intercepts `progress` frames and shows one status line between the messages and the composer, with each heartbeat replacing the last. The line clears when the turn's `done` arrives. It is a polite live region (`role="status"`) with a muted pulse.
+
+Out of scope: the split-round display (REQ-201, upstream), group-chat room UI changes.
+
+## Test plan
+
+`tests/test_UAT_FC_REQ-360_*`, scripted provider SDK only:
+- A 1:1 consultant round calls `GroupSay` on its own session id and then a slow tool. The SSE event sequence carries the line as `text` before the slow tool's `tool_activity`, and the round continues to its final prose.
+- `GroupSay` naming any other ref from a 1:1 grant is refused, and nothing is written.
+- A delegated build held past k progress intervals yields k `progress` events on the live `streamPrompt` stream, before the `Delegate` tool's `tool_activity`. A build inside one interval yields none.
+- `tailSession` projects `interim` → `text` and `progress` → `progress`.
+- The consultant's priming carries the "say it, then carry on" line exactly when it delegates.
+- Panel: a `progress` frame shows one status line, a second replaces it, `done` clears it, and `progress` never reaches `webui-chat`.
