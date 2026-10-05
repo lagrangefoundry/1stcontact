@@ -6,10 +6,10 @@ title: 'Plan panel: a stage tracker the consultant ticks off, a live working lin
   and multi-line answers'
 created_by: EPIC-19
 created_at: '2026-10-04T23:28:43.974557+00:00'
-updated_at: '2026-10-05T01:36:07.073069+00:00'
+updated_at: '2026-10-05T01:37:20.953008+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-3e2e914e
+  commits:
+  - working_sha: f3ab4c30ba48a328f1d2768d1532acd14e0893ba
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d5655ffa324df88b5e1e4e539ade2e28aaf924fb
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.495
 ---
-
 
 ## What changes
 
