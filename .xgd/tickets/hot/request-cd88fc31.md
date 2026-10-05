@@ -6,10 +6,10 @@ title: 'Consultant conduct from Charlie 3: no unapproved contact details, finish
   handing back, check every width, no parallel claims'
 created_by: EPIC-19
 created_at: '2026-10-04T23:20:00.726888+00:00'
-updated_at: '2026-10-05T01:31:45.882639+00:00'
+updated_at: '2026-10-05T01:32:27.117074+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-1b250264
+  commits:
+  - working_sha: 5c3b6c64ac726f9170258fd8f9c683eab5e1c4d5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1298430039fe7ab6600ec7cb88b1615058402574
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.494
 ---
 
 ## What changes
