@@ -70,6 +70,10 @@
 const PANE_CLASS = 'builder-panel__pane'
 /** The class the SHOWN frame additionally carries. See the header note. */
 const SHOWN_CLASS = 'builder-panel__frame'
+/** [[REQ-391]] — the two halves of an animated swap, and how long it lasts. */
+const LEAVING_CLASS = 'builder-panel__pane--leaving'
+const ENTERING_CLASS = 'builder-panel__pane--entering'
+const SWAP_MS = 320
 
 export function createDisplayPanel(options = {}) {
   const element = document.createElement('div')
@@ -121,6 +125,8 @@ export function createDisplayPanel(options = {}) {
   const onBeforeNavigate = options.onBeforeNavigate ?? null
 
   let activeId = null
+  /** The timer that ends an animated swap ([[REQ-391]]). */
+  let settle = null
   let site = options.site ?? null
   let currentSrc = ''
   /** The record whose frame is on screen — or was, while a mount mode shows. */
@@ -150,23 +156,42 @@ export function createDisplayPanel(options = {}) {
     return a === b || (b !== '' && href(a) === href(b))
   }
 
-  function makeFrame(id) {
+  /**
+   * [[REQ-391]] — frames held BEHIND a mode's own, with a document already in
+   * them. A carousel preloads the looks either side of the one shown into these,
+   * so moving to one is a swap of frames rather than a navigation, and the swap
+   * can be animated because both documents are there to animate between.
+   * They belong to the mode they were made for, are laid out like every frame,
+   * and never navigate unless asked.
+   */
+  const spares = []
+
+  /**
+   * `register: false` makes a spare — a frame that is no mode's own until
+   * {@link swapDocument} makes it one.
+   */
+  function makeFrame(id, register = true) {
     const el = document.createElement('iframe')
     el.className = PANE_CLASS
     el.setAttribute('title', 'Site preview')
+    const rec = { id, el, src: '', stale: true, loaded: false }
     // Per frame rather than one listener on one element, because there is no
     // longer one element — and the announcement is only true of the frame the
     // operator can see.
     el.addEventListener('load', () => {
-      if (current?.id === id) emit('document', el.contentDocument)
+      rec.loaded = true
+      if (current === rec) emit('document', el.contentDocument)
       prime()
     })
-    const rec = { id, el, src: '', stale: true }
-    frames.set(id, rec)
+    if (register) frames.set(id, rec)
+    else spares.push(rec)
     element.append(el)
     layOut(el)
     return rec
   }
+
+  /** Every frame there is: each mode's own, and the spares. */
+  const allFrames = () => [...frames.values(), ...spares]
 
   /**
    * The width every frame is laid out at, or `null` to fill the pane ([[REQ-388]]).
@@ -213,7 +238,7 @@ export function createDisplayPanel(options = {}) {
   }
 
   function layOutAll() {
-    for (const f of frames.values()) layOut(f.el)
+    for (const f of allFrames()) layOut(f.el)
   }
 
   // The pane is resized by the divider and the window, and a shrunk frame has to
@@ -224,7 +249,7 @@ export function createDisplayPanel(options = {}) {
 
   /** Show this frame and hide every other. `null` hides them all (a mount mode). */
   function display(rec) {
-    for (const f of frames.values()) f.el.classList.toggle(SHOWN_CLASS, f === rec)
+    for (const f of allFrames()) f.el.classList.toggle(SHOWN_CLASS, f === rec)
     if (rec) current = rec
   }
 
@@ -232,6 +257,7 @@ export function createDisplayPanel(options = {}) {
   function navigate(rec, url) {
     rec.src = url
     rec.stale = false
+    rec.loaded = false
     rec.el.setAttribute('src', url)
   }
 
@@ -240,7 +266,7 @@ export function createDisplayPanel(options = {}) {
    * re-renders rather than serving what it happened to be holding.
    */
   function invalidate(except = null) {
-    for (const f of frames.values()) if (f !== except) f.stale = true
+    for (const f of allFrames()) if (f !== except) f.stale = true
   }
 
   /**
@@ -264,7 +290,9 @@ export function createDisplayPanel(options = {}) {
   function prime() {
     if (site === null) return
     for (const [id, mode] of modes) {
-      if (!mode.src || id === current?.id) continue
+      // A transient mode is entered only by the host, which says what it shows
+      // when it enters it ([[REQ-391]]); nobody is about to flip to it.
+      if (!mode.src || mode.transient || id === current?.id) continue
       const rec = frames.get(id)
       if (!rec) continue
       const want = mode.src({ site, mode: id })
@@ -312,7 +340,11 @@ export function createDisplayPanel(options = {}) {
     // point at: the channel the operator has not opened yet is loaded behind the
     // one they are looking at, so the FIRST flip is in place too rather than
     // only every flip after it.
-    if (spec.src) makeFrame(spec.id)
+    //
+    // A TRANSIENT MODE'S FRAME WAITS until the host enters it ([[REQ-391]]):
+    // nobody flips to it, so there is nothing to prime behind the page, and
+    // `show` makes it the first time it is needed.
+    if (spec.src && !spec.transient) makeFrame(spec.id)
     // The first registered mode becomes active, so a host never has to sequence
     // register-then-select for the common single-mode case.
     if (activeId === null) {
@@ -439,6 +471,65 @@ export function createDisplayPanel(options = {}) {
       currentSrc = url
       emit('src', currentSrc)
     },
+    /**
+     * [[REQ-391]] — load `urls` into spare frames behind the displayed one, so
+     * that {@link swapDocument} to any of them is instant. A url the displayed
+     * frame or a spare already holds is not loaded again; a spare holding none
+     * of them is re-used before another is made.
+     */
+    preload(urls) {
+      if (!current) return
+      const owned = spares.filter((r) => r.id === current.id)
+      for (const url of urls) {
+        if (!url || sameUrl(current.src, url)) continue
+        if (owned.some((r) => !r.stale && sameUrl(r.src, url))) continue
+        const free = owned.find((r) => !urls.some((u) => !r.stale && sameUrl(r.src, u)))
+        const rec = free ?? makeFrame(current.id, false)
+        if (!free) owned.push(rec)
+        navigate(rec, url)
+      }
+    },
+    /**
+     * [[REQ-391]] — show `url` in place of the displayed document, ANIMATED: the
+     * outgoing frame leaves and the incoming one arrives (`direction` is
+     * `'next'` or `'previous'`, which side it comes from). A spare already
+     * holding `url` is swapped in, so a preloaded document appears at once; any
+     * other is navigated first. The incoming frame becomes the mode's own and
+     * the outgoing one becomes a spare, still holding its document, so going
+     * back is instant too.
+     *
+     * THE ANIMATION IS CSS'S, and so is honouring reduced motion: the two
+     * classes below declare it, and a reader who asked for less motion gets an
+     * instant swap from the same classes.
+     */
+    swapDocument(url, direction = 'next') {
+      if (!current) return
+      const outgoing = current
+      if (sameUrl(outgoing.src, url) && !outgoing.stale) return
+      onBeforeNavigate?.()
+      let incoming = spares.find((r) => r.id === outgoing.id && !r.stale && sameUrl(r.src, url))
+      if (!incoming) {
+        incoming = spares.find((r) => r.id === outgoing.id) ?? makeFrame(outgoing.id, false)
+        navigate(incoming, url)
+      }
+      spares.splice(spares.indexOf(incoming), 1)
+      spares.push(outgoing)
+      frames.set(outgoing.id, incoming)
+      for (const rec of [outgoing, incoming]) {
+        rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
+        rec.el.dataset.swap = direction
+      }
+      outgoing.el.classList.add(LEAVING_CLASS)
+      incoming.el.classList.add(ENTERING_CLASS)
+      display(incoming)
+      clearTimeout(settle)
+      settle = setTimeout(() => {
+        for (const rec of [outgoing, incoming]) rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
+      }, SWAP_MS)
+      currentSrc = url
+      emit('src', currentSrc)
+      if (incoming.loaded) emit('document', incoming.el.contentDocument)
+    },
     reloadDocument() {
       invalidate(current)
       if (!current) return
@@ -503,6 +594,7 @@ export function createDisplayPanel(options = {}) {
       element.remove()
       modes.clear()
       frames.clear()
+      spares.length = 0
       current = null
       for (const key of Object.keys(listeners)) listeners[key].length = 0
     },

@@ -109,8 +109,12 @@ export interface RenderSiteOptions {
    * these bytes and no path reaches them — and that is untouched here, because
    * publish and `1c render` pass nothing, so the file is still one that was
    * never written rather than one a rule declines to serve.
+   *
+   * [[REQ-391]] — AND THE SITE'S ALTERNATIVE LOOKS, for the same reason. A look
+   * is a page offered for another page and never published, but the client
+   * compares the looks in the builder's preview, so the builder must render them.
    */
-  emailPages?: boolean
+  unpublishedPages?: boolean
 }
 
 /**
@@ -341,7 +345,10 @@ ${body}
  * own message". See {@link renderedPages}.
  */
 function servedPages(site: Site): Page[] {
-  return site.pages.filter((page) => page.kind !== 'email')
+  // [[REQ-391]] — an alternative look is never published either: it is one of
+  // several candidates for a real page, and only the one chosen onto that page
+  // ever reaches the public site.
+  return site.pages.filter((page) => page.kind !== 'email' && !page.alternative)
 }
 
 /**
@@ -358,9 +365,13 @@ function servedPages(site: Site): Page[] {
  * downstream depends on it — but a message is reached by the form that sends it
  * rather than by position, so there is no better place for it to sit.
  */
-function renderedPages(site: Site, emailPages: boolean): Page[] {
-  if (!emailPages) return servedPages(site)
-  return [...servedPages(site), ...site.pages.filter((page) => page.kind === 'email')]
+function renderedPages(site: Site, unpublished: boolean): Page[] {
+  if (!unpublished) return servedPages(site)
+  return [
+    ...servedPages(site),
+    ...site.pages.filter((page) => page.kind !== 'email' && page.alternative),
+    ...site.pages.filter((page) => page.kind === 'email'),
+  ]
 }
 
 /**
@@ -472,7 +483,7 @@ export async function renderSiteFiles(
   const resolveModule = opts.resolveModule ?? getModule
   const pages: string[] = []
 
-  for (const page of renderedPages(site, opts.emailPages === true)) {
+  for (const page of renderedPages(site, opts.unpublishedPages === true)) {
     // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
     // (`assets/x.svg`, not `/assets/x.svg`) so a snapshot is relocatable under any
     // path prefix. That rewrite is only correct while every page sits FLAT at the

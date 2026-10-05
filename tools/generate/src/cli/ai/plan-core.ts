@@ -319,6 +319,13 @@ export interface PlanDeps {
   now?: () => string
   /** [[REQ-378]] — the reference tickets the comp board points at. */
   comps?: CompDeps
+  /**
+   * [[REQ-391]] — put a look onto the page it was offered for, answering what was
+   * chosen and what was set aside. The site write is the host's — this surface
+   * holds no site — so a host that cannot make it leaves this out and
+   * `choose_look` refuses with `NO_LOOKS`.
+   */
+  looks?: { choose(look: string): Promise<LookChoice> }
 }
 
 type Params = Record<string, unknown>
@@ -1233,6 +1240,54 @@ export function removeComp(plan: Plan, reference: string): Plan {
   return next
 }
 
+/** [[REQ-391]] — what choosing a look decided, as the site write reports it. */
+export interface LookChoice {
+  /** The page the looks were for. */
+  page: string
+  set: string
+  /** The chosen look's label. */
+  chosen: string
+  /** The labels of the looks set aside. */
+  rejected: string[]
+}
+
+/**
+ * [[REQ-391]] — the client chose a look: record it as a settled decision.
+ *
+ * ONE DECISION PER SET, `look-<set>`, so choosing again in the same set (putting
+ * the page back, say) updates the decision rather than piling up a second one.
+ * It is `chosen` and `compared` — the client picked it from looks they could see
+ * — and the log entry names the set and the looks set aside, so a later reader
+ * knows what was on the table, not only what won.
+ *
+ * `quote` IS THE CLIENT'S ANSWER, which a chosen decision must carry: their own
+ * words when the consultant chose on their say-so, the sentence describing the
+ * button they pressed when they chose it themselves.
+ */
+export function lookChosen(plan: Plan, choice: LookChoice, quote: string, at: string): Plan {
+  const next = copy(plan)
+  const id = `look-${choice.set}`
+  let d = next.fields.decisions.find((x) => x.id === id)
+  if (!d) {
+    d = { id, title: `The look for ${choice.page}`, area: 'style', tier: 'concept', settle: 'show', state: 'open', compared: true }
+    next.fields.decisions.push(d)
+  }
+  d.state = 'chosen'
+  d.value = choice.chosen
+  d.compared = true
+  d.answer = { quote, at }
+  const index = logEntries(next.body) + 1
+  const entry = [
+    clientEntry(index, d, quote),
+    '',
+    `**Set:** ${choice.set}` + (choice.rejected.length > 0 ? ` · **Not chosen:** ${choice.rejected.join(', ')}` : ''),
+  ].join('\n')
+  next.body = appendToSection(next.body, LOG_SECTION, entry)
+  d.log = index
+  checkPlan(next.fields)
+  return next
+}
+
 /** Text items as a note list: strings, trimmed, empties dropped. */
 export function noteList(value: unknown): string[] | undefined {
   if (value === undefined || value === null) return undefined
@@ -1402,6 +1457,29 @@ export function planOperations(
         if (Array.isArray(p.decisions)) t.decisions = p.decisions.map(String)
         return { task: t }
       }),
+    // [[REQ-391]] — the client chose a look and said so in the conversation: the
+    // look goes onto the page (the host's write), then the choice goes into the
+    // plan in their words. The site first, so the plan never records a choice
+    // the page did not take.
+    choose_look: async (p) => {
+      if (!deps.looks) throw refuse('NO_LOOKS', 'this host cannot put a look on the site from the plan')
+      const quote = str(p.client_said)
+      if (!quote) throw refuse(PLAN_INVALID, "a choice is recorded in the client's words; say what they said")
+      let choice: LookChoice
+      try {
+        choice = await deps.looks.choose(str(p.look) ?? '')
+      } catch (err) {
+        const code = (err as { code?: string }).code
+        if (code === 'NOT_FOUND' || code === 'SCHEMA_INVALID') throw refuse('UNKNOWN_LOOK', (err as Error).message)
+        throw err
+      }
+      return change((plan) => {
+        const next = lookChosen(plan, choice, quote, now())
+        plan.fields = next.fields
+        plan.body = next.body
+        return { choice, decision: plan.fields.decisions.find((d) => d.id === `look-${choice.set}`) }
+      })
+    },
     answer_check: (p) =>
       change((plan) => {
         const c = checkIn(plan.fields, String(p.check))

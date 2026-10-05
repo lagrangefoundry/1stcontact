@@ -127,7 +127,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-248 — the page control', () => {
       ['about', 'About us'],
       // AC-2 — the mark is in the row's own text, because it is the point of the
       // control rather than a decoration on it.
-      ['terms', 'Terms — unreachable'],
+      ['terms', 'Terms — not linked from the site'],
     ])
     // AC-1 — and it is selectable like any other, which is the only way anyone
     // can reach it at all.
@@ -196,7 +196,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-248 — the page control', () => {
     frameOf().dispatchEvent(new Event('load'))
     await settled()
 
-    expect(optionsOf()).toContainEqual(['offer', 'Spring offer — unreachable'])
+    expect(optionsOf()).toContainEqual(['offer', 'Spring offer — not linked from the site'])
     choose('offer')
     expect(frameOf().getAttribute('src')).toBe('/preview/acme/draft/offer')
   })
@@ -219,7 +219,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-248 — the page control', () => {
     mount()
     await settled()
     // AC-8 — an empty row is a row nobody can choose on purpose.
-    expect(optionsOf()).toContainEqual(['thank-you', 'thank-you — unreachable'])
+    expect(optionsOf()).toContainEqual(['thank-you', 'thank-you — not linked from the site'])
   })
 })
 

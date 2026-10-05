@@ -60,6 +60,7 @@
 
 import type { GlobalOptions } from '../options'
 import type { SiteStore } from '../../store/site-store'
+import { editAlternativeChoose } from '../edit'
 import {
   COORDINATOR_ROLE,
   coordinatorRole,
@@ -94,7 +95,14 @@ import {
   type DnsDeps,
 } from './dns-core'
 import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
-import { builderSessionCompleted, planInstanceConfig, planPanel, planSurfaceFor, type PlanDeps } from './plan-core'
+import {
+  builderSessionCompleted,
+  planInstanceConfig,
+  planPanel,
+  planSurfaceFor,
+  type LookChoice,
+  type PlanDeps,
+} from './plan-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
@@ -1966,7 +1974,22 @@ async function build(
         // coordinator's groups are declared beside it and granted wherever that
         // role is composed.
         ...(deps.plan
-          ? [{ surface: await planSurfaceFor(lib, countedPlan(deps, slug)), granted: planInstanceConfig('consultant') }]
+          ? [
+              {
+                // [[REQ-391]] — WITH THE SITE WRITE `choose_look` NEEDS, bound to
+                // this session's site: the plan surface holds no site, so the
+                // host lends it the one call that puts a chosen look on a page.
+                surface: await planSurfaceFor(lib, {
+                  ...countedPlan(deps, slug),
+                  looks: {
+                    choose: async (look: string) =>
+                      (await editAlternativeChoose(slug, look, { ...opts, actor: 'ai', store: deps.store }))
+                        .data as unknown as LookChoice,
+                  },
+                }),
+                granted: planInstanceConfig('consultant'),
+              },
+            ]
           : []),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]), where this deployment holds one.
         // Its grant TRAVELS WITH IT, like the ledger's and the image surface's

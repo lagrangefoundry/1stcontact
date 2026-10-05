@@ -437,6 +437,68 @@ body {
   pointer-events: auto;
 }
 
+/* --- an animated swap between two documents ([[REQ-391]]) --------------------
+ *
+ * The carousel of looks moves between documents that are both already loaded,
+ * so the swap can be seen: the outgoing frame fades and slides out while the
+ * incoming one arrives from the side it is coming from. Both are visible for
+ * the length of the swap, and only the incoming one takes the pointer.
+ *
+ * `translate`, NOT `transform`: a fixed preview width ([[REQ-388]]) scales the
+ * frame with `transform`, and an animation on that property would replace the
+ * scale for its duration. The individual property composes with it instead.
+ */
+.builder-panel__pane.builder-panel__pane--leaving {
+  visibility: visible;
+  pointer-events: none;
+  animation: builder-pane-leave 300ms ease both;
+}
+
+.builder-panel__pane.builder-panel__pane--entering {
+  animation: builder-pane-enter 300ms ease both;
+}
+
+.builder-panel__pane--leaving[data-swap='previous'] {
+  --builder-swap-out: 8%;
+}
+
+.builder-panel__pane--entering[data-swap='previous'] {
+  --builder-swap-in: -8%;
+}
+
+@keyframes builder-pane-leave {
+  from {
+    opacity: 1;
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    translate: var(--builder-swap-out, -8%) 0;
+  }
+}
+
+@keyframes builder-pane-enter {
+  from {
+    opacity: 0;
+    translate: var(--builder-swap-in, 8%) 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .builder-panel__pane.builder-panel__pane--leaving {
+    visibility: hidden;
+    animation: none;
+  }
+
+  .builder-panel__pane.builder-panel__pane--entering {
+    animation: none;
+  }
+}
+
 .builder-panel__host[hidden] {
   display: none;
 }
@@ -5096,6 +5158,9 @@ body {
 
 .comp-viewer__title {
   font-weight: 600;
+}
+
+.comp-viewer__banner .builder-carousel {
   margin-right: auto;
 }
 
@@ -5134,11 +5199,6 @@ body {
   border-left: 1px solid #52525b;
 }
 
-.comp-viewer__nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
 
 .comp-viewer__motion {
   padding: 4px 12px;
@@ -5170,4 +5230,98 @@ body {
 .comp-viewer__empty {
   padding: 24px;
   color: var(--shell-fg-muted, #71717a);
+}
+
+/* --- the carousel ([[REQ-391]]) ------------------------------------------------
+ *
+ * ‹ label · n of N ›, with the one line that says what the shown one is. Shared
+ * by the looks offered for a page and the comparable sites, so it inherits its
+ * colours from wherever it sits: the dark comp banner and the light toolbar.
+ */
+.builder-carousel {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.builder-carousel__nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.builder-carousel .builder-carousel__prev,
+.builder-carousel .builder-carousel__next {
+  min-width: 28px;
+  padding: 1px 8px;
+  border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-radius: var(--shell-radius, 6px);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.builder-carousel .builder-carousel__prev:disabled,
+.builder-carousel .builder-carousel__next:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.builder-carousel__label {
+  font-weight: 600;
+}
+
+.builder-carousel__sep,
+.builder-carousel__count {
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+
+.builder-carousel__description {
+  font-size: 0.85rem;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- the looks bar ([[REQ-391]]) ------------------------------------------------
+ *
+ * The toolbar while a set of looks is shown: back to the draft, the carousel,
+ * and "Choose this one" — the one primary action on the strip, because choosing
+ * is what the client came here to do.
+ */
+.looks-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.looks-bar__choose {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-accent, #2563eb);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.looks-bar__choose:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.looks-bar__error {
+  flex-basis: 100%;
+  color: var(--shell-danger, #b91c1c);
+  font-size: 0.85rem;
 }

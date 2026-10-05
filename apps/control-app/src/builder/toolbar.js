@@ -482,7 +482,10 @@ export function panelsAction(carry) {
  * word this build does not understand.
  */
 const KINDS = {
-  web: { prefix: '', stranded: 'unreachable' },
+  // [[REQ-391]] — NOT "unreachable". The word told a client nothing they could
+  // act on and read as a fault; what is true of such a page is that nothing on
+  // the site links to it yet.
+  web: { prefix: '', stranded: 'not linked from the site' },
   email: { prefix: 'Email: ', stranded: 'no form sends it' },
 }
 
@@ -543,7 +546,10 @@ export function pagesAction(pages) {
       }
 
       const sync = () => {
-        const rows = pages.list()
+        // [[REQ-391]] — A LOOK IS NOT A PAGE OF THE SITE. It is one of several
+        // candidates for a real page, compared in the carousel, so it never sits
+        // in this list beside the pages a reader can visit.
+        const rows = pages.list().filter((row) => !row.alternative)
         const here = pages.current()
         const options = rows.map((row) => new Option(labelOf(row), row.slug))
         if (here !== '' && !rows.some((row) => row.slug === here)) {

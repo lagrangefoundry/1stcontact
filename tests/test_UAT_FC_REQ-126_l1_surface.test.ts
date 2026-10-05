@@ -525,6 +525,8 @@ describe('REQ-126 — the surface documents itself', () => {
       'copy_page',
       'flow_l1',
       'group_l1',
+      // [[REQ-391]] — a set of looks for a page: copies, labelled, never published.
+      'make_alternatives',
       'publish',
       'remove_asset',
       'remove_component',

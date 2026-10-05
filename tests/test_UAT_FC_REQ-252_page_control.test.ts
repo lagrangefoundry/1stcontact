@@ -174,7 +174,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-252 — a message says it is one, and wha
     expect(optionsOf()).toEqual([
       // AC-5 — a web page's label is exactly what it was.
       ['home', 'Home'],
-      ['terms', 'Terms — unreachable'],
+      ['terms', 'Terms — not linked from the site'],
       ['papers-page', 'Your two XGD papers'],
       // AC-4 — the same title, told apart by what the page IS. AC-6 — and the
       // note says what would reach it, which for a message is a form and never
@@ -199,7 +199,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-252 — a message says it is one, and wha
     await settled()
     expect(optionsOf()).toEqual([
       ['home', 'Home'],
-      ['sms', 'Text message — unreachable'],
+      ['sms', 'Text message — not linked from the site'],
     ])
   })
 

@@ -526,6 +526,21 @@ export async function saveSubject(site, page, subject, fetchImpl = fetch) {
 }
 
 /**
+ * "Choose this one" — put a look onto the page it was offered for ([[REQ-391]]).
+ * Answers what was chosen and what was set aside; a refusal arrives as
+ * {@link CopyError}, like every structured edit's.
+ */
+export async function chooseLook(site, look, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/pages/choose'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ site, look }),
+    }),
+  )
+}
+
+/**
  * The plan panel's view of a site's plan ([[REQ-364]]): the phase and the asks it
  * shows, in the order it shows them.
  */

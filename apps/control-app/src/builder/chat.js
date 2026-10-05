@@ -384,6 +384,10 @@ const RECOVERY_CHASES = 3
  *   moment of each submission and sent with it. A seam for the same reason
  *   `expandPrompt` is one: this pane knows nothing about the preview beside it,
  *   only that a turn carries what the host says it carries.
+ * @param {(href: string) => boolean} [options.onLinkClick]
+ *   [[REQ-391]] — the reader clicked a link in the transcript. The host answers
+ *   true when it handled the link itself (a set of looks to open in the
+ *   preview), and the browser does not follow it.
  * @param {(src: string, alt: string) => void} [options.onImageClick]
  *   REQ-220 — the reader clicked a picture in the transcript.
  *
@@ -417,6 +421,7 @@ export function createChatPanel(options = {}) {
     expandPrompt = (markdown) => markdown,
     promptView = () => null,
     onImageClick = null,
+    onLinkClick = null,
     reopen = null,
     wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = options
@@ -457,6 +462,17 @@ export function createChatPanel(options = {}) {
       // hand on an absolute URL for a line that said something relative — which
       // is a difference the caller then has to undo.
       onImageClick(img.getAttribute('src') ?? '', img.getAttribute('alt') ?? '')
+    })
+  }
+
+  // [[REQ-391]] — the same delegation, for a link the host may want to act on
+  // itself rather than follow: it answers true when it has, and the browser's
+  // own navigation is then cancelled.
+  if (onLinkClick) {
+    element.addEventListener('click', (ev) => {
+      const link = ev.target?.closest?.('a[href]')
+      if (!link) return
+      if (onLinkClick(link.getAttribute('href') ?? '')) ev.preventDefault()
     })
   }
 

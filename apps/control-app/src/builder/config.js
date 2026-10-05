@@ -949,13 +949,24 @@ export const COMPS_REMOVE = 'Remove'
 export const COMPS_FAILED = (message) => `That was not saved: ${message}`
 
 /** The comp viewer's words ([[REQ-378]]). */
-export const COMP_VIEWING = (title) => `Viewing: ${title}`
+export const COMP_VIEWING = 'Comparable site'
 export const COMP_BACK = 'Back to your draft'
-export const COMP_PREVIOUS = 'Previous'
-export const COMP_NEXT = 'Next'
 export const COMP_VISIT = 'Visit the live site'
 export const COMP_DESKTOP = 'Desktop'
 export const COMP_PHONE = 'Phone'
 export const COMP_NO_PICTURE = 'There is no picture of this site yet.'
 export const COMP_MOTION_NOTE =
   "This is a picture, so it doesn't show animation or what happens as you scroll. Visit the live site to see that."
+
+/** The carousel's words — looks ([[REQ-391]]) and comps ([[REQ-378]]) alike. */
+export const CAROUSEL_PREVIOUS = 'Previous'
+export const CAROUSEL_NEXT = 'Next'
+export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`
+
+/** Alternative looks for a page ([[REQ-391]]). */
+export const LOOKS_COMPARE = 'Compare looks'
+export const LOOKS_COMPARE_TITLE = (count) => `See the ${count} looks offered for this page and choose one`
+export const LOOKS_BACK = 'Back to your draft'
+export const LOOKS_CHOOSE = 'Choose this one'
+export const LOOKS_CHOOSING = 'Choosing…'
+export const LOOKS_FAILED = (message) => `That look was not chosen: ${message}`

@@ -167,7 +167,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-378 — viewing a comp in the preview pan
     // A clearly separate mode: the banner names the site.
     expect(app.panel.getMode()).toBe('comp')
     const shown = viewer(app)!
-    expect(shown.textContent).toContain('Viewing: Plumber 1')
+    expect(shown.querySelector('.builder-carousel__label')?.textContent).toBe('Plumber 1')
+    expect(shown.querySelector('.builder-carousel__count')?.textContent).toBe('1 of 2')
     expect(shown.querySelector('.comp-viewer__back')?.textContent).toBe('Back to your draft')
     // The capture's screenshot — never an iframe of the site, never its HTML.
     const shot = shown.querySelector('img.comp-viewer__shot') as HTMLImageElement
@@ -188,9 +189,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-378 — viewing a comp in the preview pan
     expect(shown.textContent).toContain('animation (entrance or scroll-in) on 3 elements')
 
     // Previous and next move between comps.
-    expect((shown.querySelector('.comp-viewer__prev') as HTMLButtonElement).disabled).toBe(true)
-    ;(shown.querySelector('.comp-viewer__next') as HTMLButtonElement).click()
-    expect(viewer(app)!.textContent).toContain('Viewing: Plumber 2')
+    expect((shown.querySelector('.builder-carousel__prev') as HTMLButtonElement).disabled).toBe(true)
+    ;(shown.querySelector('.builder-carousel__next') as HTMLButtonElement).click()
+    expect(viewer(app)!.querySelector('.builder-carousel__label')?.textContent).toBe('Plumber 2')
   })
 
   it('test_UAT_FC_REQ-378_the_desktop_phone_toggle_switches_between_the_capture_screenshots', async () => {

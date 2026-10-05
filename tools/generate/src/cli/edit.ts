@@ -525,7 +525,9 @@ function hrefTargetPage(href: string, files: PageFile[], homeId: string | null):
  * reachable for free.
  */
 function homePageId(files: PageFile[]): string | null {
-  const home = files.find((f) => String(f.page.slug) === 'home') ?? files[0]
+  // [[REQ-391]] — never a look, which is never served: the renderer's own rule.
+  const served = files.filter((f) => !(f.page as PageRecord).alternative)
+  const home = served.find((f) => String(f.page.slug) === 'home') ?? served[0]
   return home ? String(home.page.id) : null
 }
 
@@ -1652,6 +1654,12 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
      * the chrome made up. Empty for a page with no L1 document.
      */
     widths: ladderOf(f.page),
+    /*
+     * [[REQ-391]] — WHOSE LOOK THIS PAGE IS, when it is one. The builder's page
+     * dropdown leaves these rows out and its carousel is drawn from them; the
+     * assistant reads the same block, so both agree on which pages are looks.
+     */
+    ...((f.page as PageRecord).alternative ? { alternative: (f.page as PageRecord).alternative } : {}),
   }))
   const human =
     pages.length === 0
@@ -1666,7 +1674,10 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
                * nothing links to a page nobody can visit would send them looking
                * for a link they must never add.
                */
-              (p.reachable
+              (p.alternative
+                ? `\tlook "${p.alternative.label}" for '${p.alternative.of}' in set '${p.alternative.set}'` +
+                  (p.alternative.archived ? ' (archived)' : '')
+                : p.reachable
                 ? ''
                 : p.kind === 'email'
                   ? '\t(unreachable: no form sends it)'
@@ -1973,6 +1984,296 @@ export async function editPageCopy(
       human: `Copied page '${fromPageId}' to '${pageId}' (path: ${pageSlug}).`,
     },
     { op: 'page.copy', page: pageId, label: String(newPage.title) },
+  )
+}
+
+// ── alternative looks ([[REQ-391]]) ──────────────────────────────────────────
+
+/** One look a set offers: what the client calls it, and the line under it. */
+export interface LookSpec {
+  label: string
+  description?: string
+  /**
+   * An existing page to offer as this look, instead of a fresh copy of the
+   * target. How a page built before sets existed — `/workwear`, nobody linking
+   * to it — becomes a look; and, for a page already in this set, how its label
+   * or description is changed.
+   */
+  page?: string
+}
+
+export interface AlternativesOptions extends EditOptions {
+  /** The set to add the looks to. Absent starts a new set for the target page. */
+  set?: string
+  looks: LookSpec[]
+}
+
+/** A look's id word: the label, lower-cased, everything else a dash. */
+function lookWord(label: string): string {
+  return (
+    label
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'look'
+  )
+}
+
+/** `base`, or `base-2`, `base-3`… — the first that `taken` does not hold. */
+function freshName(base: string, taken: (name: string) => boolean): string {
+  if (!taken(base)) return base
+  for (let n = 2; ; n += 1) if (!taken(`${base}-${n}`)) return `${base}-${n}`
+}
+
+function notFound(slug: string, pageId: string): CommandError {
+  return new CommandError({
+    code: 'NOT_FOUND',
+    message: `Page '${pageId}' not found in site '${slug}'.`,
+    path: pageId,
+    hint: `List pages with '1c page list ${slug}'.`,
+  })
+}
+
+/**
+ * [[REQ-391]] — offer several LOOKS for one page, as a labelled set the client
+ * compares in the preview's carousel.
+ *
+ * WHAT IT REPLACES. A look used to be a page the consultant hand-named
+ * (`/workwear`, `/coastal`) and nobody linked to, so the builder could only call
+ * it unreachable and the client could only find it in the page dropdown among
+ * the real pages. Here each look is a copy of the target page — content, page
+ * style and components, exactly as `copy_page` makes one — carrying an
+ * `alternative` block that says whose look it is, which set it is in and what the
+ * client calls it. Everything downstream reads that block: the renderer never
+ * publishes a look, the page dropdown leaves it out, and the carousel shows it.
+ *
+ * ONE WRITE FOR THE WHOLE SET, validated as a whole, so a refusal leaves the
+ * draft exactly as it was — never two looks of three.
+ */
+export async function editAlternativesMake(
+  slug: string,
+  ofPageId: string,
+  opts: AlternativesOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const target = findPageFile(files, ofPageId)
+  if (!target) throw notFound(slug, ofPageId)
+  const lookOf = (target.page as PageRecord).alternative?.of
+  if (lookOf !== undefined) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Page '${ofPageId}' is itself a look for '${lookOf}'.`,
+      path: ofPageId,
+      hint: `Offer looks for '${lookOf}' instead.`,
+    })
+  }
+  if (target.page.kind === 'email') {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Page '${ofPageId}' is an email; a message has no looks to compare in the preview.`,
+      path: ofPageId,
+    })
+  }
+  const looks = opts.looks ?? []
+  if (looks.length === 0) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: 'Name at least one look.',
+      hint: 'Each look needs a label the client will read, like "Workwear".',
+    })
+  }
+
+  // THE SET: the one named, which must be this page's; or a fresh one.
+  const sets = new Map<string, string>()
+  for (const f of files) {
+    const held = (f.page as PageRecord).alternative
+    if (held) sets.set(held.set, held.of)
+  }
+  let set = opts.set
+  if (set !== undefined && sets.has(set) && sets.get(set) !== ofPageId) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `Set '${set}' holds looks for '${sets.get(set)}', not '${ofPageId}'.`,
+      path: set,
+      hint: 'Name a different set, or leave it out to start a new one.',
+    })
+  }
+  set ??= freshName(`${ofPageId}-looks`, (name) => sets.has(name))
+  let order =
+    Math.max(-1, ...files.map((f) => ((f.page as PageRecord).alternative?.set === set ? ((f.page as PageRecord).alternative?.order ?? 0) : -1))) + 1
+
+  const written: PageFile[] = []
+  const ids = new Set(files.map((f) => String(f.page.id)))
+  const slugs = new Set(files.map((f) => String(f.page.slug)))
+  for (const look of looks) {
+    const label = String(look.label ?? '').trim()
+    const alternative = {
+      of: ofPageId,
+      set,
+      label,
+      ...(look.description?.trim() ? { description: look.description.trim() } : {}),
+    }
+    if (look.page !== undefined) {
+      const existing = findPageFile(files, look.page)
+      if (!existing) throw notFound(slug, look.page)
+      if (existing === target) {
+        throw new CommandError({
+          code: 'SCHEMA_INVALID',
+          message: `Page '${look.page}' is the page the looks are for; it cannot be one of them.`,
+          path: look.page,
+        })
+      }
+      const held = (existing.page as PageRecord).alternative
+      // A look already in this set keeps its place; anything else joins the end.
+      const place = held?.set === set && held.order !== undefined ? held.order : order++
+      written.push({ ...existing, page: { ...structuredClone(existing.page), alternative: { ...alternative, order: place } } })
+      continue
+    }
+    const pageId = freshName(`${ofPageId}-${lookWord(label)}`, (name) => ids.has(name) || slugs.has(name))
+    const { name, pageSlug } = claimPageIdentity(slug, files, pageId, undefined)
+    ids.add(pageId)
+    slugs.add(pageSlug)
+    written.push({
+      name,
+      page: {
+        ...(structuredClone(target.page) as Record<string, unknown>),
+        id: pageId,
+        slug: pageSlug,
+        title: `${String(target.page.title)} — ${label}`,
+        alternative: { ...alternative, order: order++ },
+      },
+    } as PageFile)
+  }
+
+  const byName = new Map(written.map((f) => [f.name, f.page]))
+  const pages = [...files.map((f) => byName.get(f.name) ?? f.page), ...written.filter((f) => !files.some((g) => g.name === f.name)).map((f) => f.page)]
+  await validateOrThrow(slug, opts, base, pages)
+
+  await opts.store.write(slug, { pages: written.map((f) => ({ name: f.name, page: f.page })) })
+  const members = pages
+    .filter((p) => (p as PageRecord).alternative?.set === set && !(p as PageRecord).alternative?.archived)
+    .sort((a, b) => ((a as PageRecord).alternative?.order ?? 0) - ((b as PageRecord).alternative?.order ?? 0))
+  return note(
+    slug,
+    opts,
+    {
+      data: {
+        set,
+        of: ofPageId,
+        looks: members.map((p) => ({
+          page: String((p as PageRecord).id),
+          label: String((p as PageRecord).alternative!.label),
+        })),
+      },
+      human:
+        `Set '${set}' offers ${members.length} look${members.length === 1 ? '' : 's'} for page '${ofPageId}': ` +
+        members.map((p) => `${String((p as PageRecord).alternative!.label)} (${String((p as PageRecord).id)})`).join(', ') +
+        '.',
+    },
+    { op: 'alternative.set', page: ofPageId, label: set },
+  )
+}
+
+/** The fields this module reads off a stored page. */
+type PageRecord = {
+  id?: unknown
+  title?: unknown
+  alternative?: { of: string; set: string; label: string; description?: string; order?: number; archived?: boolean }
+}
+
+/**
+ * [[REQ-391]] — the client picked a look: it becomes the page.
+ *
+ * ONE ACTION, NOT A BUILDER SESSION. Choosing used to mean copying the look onto
+ * the real page element by element and deleting the rest by hand. Here the target
+ * page keeps its identity — id, address, title, search metadata — and takes the
+ * chosen look's document and components, which is everything the look changed.
+ *
+ * NOTHING IS LOST, SO IT CAN BE UNDONE. There is no undo on the draft, so the
+ * page's previous content is kept as one more look in the same set, labelled
+ * "Before …", and every look in the set — the chosen one included — is archived
+ * rather than deleted: out of the carousel and the page list, never published,
+ * still in the site. Choosing the "Before" look puts the page back.
+ */
+export async function editAlternativeChoose(
+  slug: string,
+  lookId: string,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const look = findPageFile(files, lookId)
+  if (!look) throw notFound(slug, lookId)
+  const alternative = (look.page as PageRecord).alternative
+  if (!alternative) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Page '${lookId}' is not a look; there is nothing to choose it onto.`,
+      path: lookId,
+    })
+  }
+  const target = findPageFile(files, alternative.of)
+  if (!target) throw notFound(slug, alternative.of)
+
+  const members = files
+    .filter((f) => (f.page as PageRecord).alternative?.set === alternative.set)
+    .sort((a, b) => ((a.page as PageRecord).alternative?.order ?? 0) - ((b.page as PageRecord).alternative?.order ?? 0))
+  const rejected = members
+    .filter((f) => f !== look && !(f.page as PageRecord).alternative?.archived)
+    .map((f) => String((f.page as PageRecord).alternative!.label))
+
+  const taken = (name: string) => files.some((f) => String(f.page.id) === name || String(f.page.slug) === name)
+  const beforeId = freshName(`${alternative.of}-before`, taken)
+  const { name: beforeName, pageSlug: beforeSlug } = claimPageIdentity(slug, files, beforeId, undefined)
+  const before = {
+    ...(structuredClone(target.page) as Record<string, unknown>),
+    id: beforeId,
+    slug: beforeSlug,
+    title: `${String(target.page.title)} — before ${alternative.label}`,
+    alternative: {
+      of: alternative.of,
+      set: alternative.set,
+      order: Math.max(0, ...members.map((f) => ((f.page as PageRecord).alternative?.order ?? 0) + 1)),
+      label: `Before ${alternative.label}`,
+      description: `The page as it was before ${alternative.label} was chosen.`,
+      archived: true,
+    },
+  }
+
+  const chosen = structuredClone(look.page) as Record<string, unknown>
+  const page: Record<string, unknown> = { ...structuredClone(target.page), modules: chosen.modules ?? [] }
+  if (chosen.l1 === undefined) delete page.l1
+  else page.l1 = chosen.l1
+
+  const archived = members.map((f) => ({
+    name: f.name,
+    page: { ...structuredClone(f.page), alternative: { ...(f.page as PageRecord).alternative!, archived: true } },
+  }))
+  const replaced = new Map<string, unknown>([[target.name, page], ...archived.map((a) => [a.name, a.page] as const)])
+  const pages = [...files.map((f) => replaced.get(f.name) ?? f.page), before]
+  await validateOrThrow(slug, opts, base, pages)
+
+  await opts.store.write(slug, {
+    pages: [{ name: target.name, page }, ...archived, { name: beforeName, page: before }],
+  })
+  return note(
+    slug,
+    opts,
+    {
+      data: {
+        page: alternative.of,
+        set: alternative.set,
+        chosen: alternative.label,
+        rejected,
+        before: beforeId,
+      },
+      human:
+        `Chose '${alternative.label}' for page '${alternative.of}' from set '${alternative.set}'` +
+        (rejected.length > 0 ? `; set aside ${rejected.map((l) => `'${l}'`).join(', ')}` : '') +
+        `. The page as it was is kept as '${beforeId}' — choose it to put the page back.`,
+    },
+    { op: 'alternative.choose', page: alternative.of, label: alternative.label },
   )
 }
 

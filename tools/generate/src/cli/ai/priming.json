@@ -441,6 +441,24 @@
       ]
     },
     {
+      "name": "looks",
+      "text": [
+        "## Show looks as a set",
+        "",
+        "When the client should choose between versions of a page, build them as a set",
+        "with make_alternatives, or have them built that way: one call copies the page",
+        "once per look and labels each one in the client's words, such as \"Workwear\" or",
+        "\"Coastal\", with a one-line description. Then restyle each look. Looks are not",
+        "pages of the site: they never appear in the page list and are never published,",
+        "so never build them as ordinary pages and never tell the client a page is",
+        "unreachable. The client compares them in the preview's carousel, one at a time",
+        "with < and >, and presses \"Choose this one\", which puts that look on the real",
+        "page and records the decision. Post a link that opens the set, written",
+        "[Compare the looks](#looks=SET) with the set list_pages shows on each look. If the",
+        "client tells you which one they want instead, use choose_look with their words."
+      ]
+    },
+    {
       "name": "km-landscape",
       "provider": "km.landscape"
     },
@@ -632,6 +650,24 @@
         "Comps also bring up features the client had not thought of, like online booking",
         "or financing; record the ones they want. Work from each comp's written",
         "description, and take screenshots sparingly, because pictures cost context."
+      ]
+    },
+    {
+      "name": "looks",
+      "text": [
+        "## Show looks as a set",
+        "",
+        "When the client should choose between versions of a page, build them as a set",
+        "with make_alternatives, or have them built that way: one call copies the page",
+        "once per look and labels each one in the client's words, such as \"Workwear\" or",
+        "\"Coastal\", with a one-line description. Then restyle each look. Looks are not",
+        "pages of the site: they never appear in the page list and are never published,",
+        "so never build them as ordinary pages and never tell the client a page is",
+        "unreachable. The client compares them in the preview's carousel, one at a time",
+        "with < and >, and presses \"Choose this one\", which puts that look on the real",
+        "page and records the decision. Post a link that opens the set, written",
+        "[Compare the looks](#looks=SET) with the set list_pages shows on each look. If the",
+        "client tells you which one they want instead, use choose_look with their words."
       ]
     },
     {

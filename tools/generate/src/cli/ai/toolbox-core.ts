@@ -36,7 +36,7 @@ import { CommandError } from '../errors'
 import { pageSegments } from '../segments'
 import { auditKey, auditPage } from '../style-audit'
 import { publishSite } from '../../publish/publish'
-import type { EditOptions } from '../edit'
+import type { EditOptions, LookSpec } from '../edit'
 import {
   editAssetAdd,
   editAssetGet,
@@ -57,6 +57,7 @@ import {
   editModuleAdd,
   editModuleConfigure,
   editModuleRm,
+  editAlternativesMake,
   editPageAdd,
   editPageCopy,
   editPageGet,
@@ -230,6 +231,15 @@ export type AiLibrary = Untyped
  * not validate.
  */
 export type Params = Record<string, unknown>
+
+/**
+ * [[REQ-391]] — the chat link that opens a set of looks in the builder's
+ * carousel. A fragment, so it never leaves the builder and means nothing
+ * anywhere else; the builder's chat pane recognises it.
+ */
+export function lookSetLink(set: string): string {
+  return `[Compare the looks](#looks=${encodeURIComponent(set)})`
+}
 export const req = (p: Params, name: string): string => p[name] as string
 export const opt = (p: Params, name: string): string | undefined =>
   p[name] as string | undefined
@@ -793,6 +803,23 @@ export function l1Operations(
         path: opt(p, 'path'),
       })
       return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-391]] — a SET of looks for one page, compared in the preview's
+    // carousel. The answer carries the link that opens the set, so the
+    // consultant can hand it to the client as it is.
+    make_alternatives: async (p) => {
+      const out = await editAlternativesMake(slug, req(p, 'page'), {
+        ...opts,
+        set: opt(p, 'set'),
+        looks: (Array.isArray(p.looks) ? p.looks : []) as LookSpec[],
+      })
+      const set = String((out.data as { set: string }).set)
+      return {
+        changed: { ...(out.data as Record<string, unknown>), open: lookSetLink(set) },
+        message: `${out.human} Post this link so your user can compare them: ${lookSetLink(set)}`,
+        now: out.at,
+      }
     },
 
     update_page: async (p) => {
