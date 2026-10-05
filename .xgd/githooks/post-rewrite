@@ -1,0 +1,40 @@
+#!/bin/sh
+# REQ-853: commit-rewrite ledger capture -- non-interactive rebase and
+# amend/interactive-squash. Git fires this hook with the complete old->new
+# mapping on stdin (one line per rewritten commit, correctly many-to-one
+# for a squash/fixup), so no reconstruction is needed -- use it as given.
+#
+# A dropped commit (interactive "drop", or a commit that becomes empty and
+# is skipped) simply never appears on stdin -- no line, no edge recorded,
+# and per DOC-991 that's correct: a chain that terminates without ever
+# reaching main already answers "not on main" correctly either way.
+set -u
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_lib.sh
+. "$hook_dir/_lib.sh"
+
+# Empirically, HEAD is still detached when this hook fires for a rebase
+# (git re-attaches it to the original branch only after the rewrite -- and
+# therefore this hook -- completes), so `git rev-parse --abbrev-ref HEAD`
+# reports the literal string "HEAD" here, not the branch being rebased.
+# The rebase state directory (present throughout the whole operation, for
+# either backend) still names it, so prefer that when available; amend
+# never detaches HEAD, so the plain rev-parse fallback covers it.
+git_dir="$(git rev-parse --git-dir)"
+head_name_file="$git_dir/rebase-merge/head-name"
+[ -f "$head_name_file" ] || head_name_file="$git_dir/rebase-apply/head-name"
+if [ -f "$head_name_file" ]; then
+    branch="$(cat "$head_name_file")"
+    branch="${branch#refs/heads/}"
+else
+    branch="$(git rev-parse --abbrev-ref HEAD)"
+fi
+
+while read -r old_sha new_sha _extra; do
+    [ -n "$old_sha" ] || continue
+    [ -n "$new_sha" ] || continue
+    ledger_write_note "$old_sha" "$new_sha" "$branch"
+done
+
+exit 0

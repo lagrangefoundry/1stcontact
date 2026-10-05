@@ -1,0 +1,57 @@
+#!/bin/sh
+# REQ-853: commit-rewrite ledger capture -- handles two of the four tracked
+# rewrite shapes:
+#
+#   - Cherry-pick: CHERRY_PICK_HEAD is still present at post-commit time
+#     (confirmed empirically, see DOC-991) and holds the old sha; HEAD is
+#     the new sha.
+#   - Conflicted-merge resolution: `post-merge` does not fire when a merge
+#     stopped for conflicts and the operator/agent finalizes it with a
+#     plain `git commit` -- that commit is ordinary from git's point of
+#     view, so this hook is the only place it's observable. Detected the
+#     same way a clean merge is: HEAD has 2+ parents.
+#
+# A clean merge also has 2+ parents and fires this hook (in addition to
+# post-merge), so the merge branch below relies on ledger_write_note's own
+# dedup to avoid double-recording -- no need to distinguish the two cases
+# here.
+#
+# Empirically discovered (REQ-853): non-interactive `git rebase`'s own
+# sequencer replays each step via the same cherry-pick machinery under the
+# hood, transiently setting CHERRY_PICK_HEAD too -- so this hook also fires
+# *during* an ordinary rebase, not just for a real standalone cherry-pick.
+# That firing must be skipped, not recorded: HEAD is still detached at that
+# point (branch would be misattributed as literal "HEAD"), and
+# `post-rewrite` fires afterward with the authoritative, correctly
+# branch-attributed old->new mapping for the whole rebase anyway --
+# recording here first would win the ledger_write_note dedup race and
+# leave the wrong (detached-HEAD) branch permanently on the note.
+set -u
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_lib.sh
+. "$hook_dir/_lib.sh"
+
+git_dir="$(git rev-parse --git-dir)"
+new_sha="$(git rev-parse HEAD)"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+if [ -f "$git_dir/CHERRY_PICK_HEAD" ]; then
+    if [ -d "$git_dir/rebase-merge" ] || [ -d "$git_dir/rebase-apply" ]; then
+        exit 0
+    fi
+    old_sha="$(cat "$git_dir/CHERRY_PICK_HEAD")"
+    if [ -n "$old_sha" ]; then
+        ledger_write_note "$old_sha" "$new_sha" "$branch"
+    fi
+    exit 0
+fi
+
+parent_count="$(git cat-file -p HEAD | grep -c '^parent ')"
+if [ "$parent_count" -ge 2 ]; then
+    for parent_sha in $(git rev-parse HEAD^@); do
+        ledger_write_note "$parent_sha" "$new_sha" "$branch"
+    done
+fi
+
+exit 0
