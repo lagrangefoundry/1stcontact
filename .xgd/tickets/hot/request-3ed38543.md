@@ -6,10 +6,10 @@ title: 'Alternative looks: labelled sets of a page, browsed in a preview carouse
   with an animated swap and one-click choose'
 created_by: EPIC-19
 created_at: '2026-10-04T23:28:45.706501+00:00'
-updated_at: '2026-10-05T01:47:37.831258+00:00'
+updated_at: '2026-10-05T02:04:30.406994+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 13
