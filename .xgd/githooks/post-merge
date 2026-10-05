@@ -1,0 +1,27 @@
+#!/bin/sh
+# REQ-853: commit-rewrite ledger capture -- clean merge case. `post-merge`
+# fires with HEAD already the finished merge commit; its parent list is
+# permanent, native git data (no reconstruction needed).
+#
+# Guard on parent_count >= 2 so this never misrecords a fast-forward merge
+# or a `git merge --squash` follow-up commit (both single-parent, ordinary
+# commits from git's point of view) as a rewrite edge -- squash is an
+# explicit non-goal (see DOC-991/REQ-853: no git hook or object retains
+# enough information to record it correctly, so this hook must not try).
+set -u
+
+hook_dir="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=_lib.sh
+. "$hook_dir/_lib.sh"
+
+new_sha="$(git rev-parse HEAD)"
+branch="$(git rev-parse --abbrev-ref HEAD)"
+
+parent_count="$(git cat-file -p HEAD | grep -c '^parent ')"
+if [ "$parent_count" -ge 2 ]; then
+    for parent_sha in $(git rev-parse HEAD^@); do
+        ledger_write_note "$parent_sha" "$new_sha" "$branch"
+    done
+fi
+
+exit 0
