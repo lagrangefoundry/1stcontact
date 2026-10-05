@@ -6,10 +6,10 @@ title: 'Alternative looks: labelled sets of a page, browsed in a preview carouse
   with an animated swap and one-click choose'
 created_by: EPIC-19
 created_at: '2026-10-04T23:28:45.706501+00:00'
-updated_at: '2026-10-05T01:46:09.922017+00:00'
+updated_at: '2026-10-05T01:47:37.831258+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5372f631
+  commits:
+  - working_sha: 3036062eb7c5c4ccbb911a0030c9c044addf936d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bd29b63261d84246a9461dc392c9b4e4c58fff24
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.496
 ---
 
 ## What changes
