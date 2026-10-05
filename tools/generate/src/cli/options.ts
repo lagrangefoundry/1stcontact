@@ -53,4 +53,12 @@ export interface GlobalOptions {
    * assistant with no fidelity surface rather than one that fails to start.
    */
   origin?: string
+  /**
+   * [[REQ-389]] — the contact details the client has approved for the site, keyed
+   * by `detailKey` (`ai/plan-core.ts`). PRESENT ONLY FOR THE AI: when set, a write
+   * may not introduce an email address outside it. A person editing their own
+   * site is the owner and needs nobody's approval, so the builder's own routes
+   * and the CLI leave it unset.
+   */
+  publicDetails?: () => Promise<ReadonlySet<string>>
 }

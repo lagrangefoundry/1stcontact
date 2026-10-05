@@ -254,7 +254,8 @@
         "multiple": { "type": "boolean", "description": "For an ask that takes uploads: true when the client may pick several files at once. Defaults to true for a `site` ask and false otherwise." },
         "needed_by": { "type": "string", "enum": ["first_pass", "revision", "prelaunch"], "description": "When the answer is needed. It orders the panel and never hides an ask, so a pre-publish detail can sit there from the start. Default `first_pass`." },
         "blocking": { "type": "boolean", "description": "True when you cannot go on without it." },
-        "reopen": { "type": "boolean", "description": "Ask a withdrawn ask again, because it applies again." }
+        "reopen": { "type": "boolean", "description": "Ask a withdrawn ask again, because it applies again." },
+        "approves": { "type": "string", "description": "A contact detail — an email address, a personal number, a name — you are asking permission to show on the site, e.g. `office@example.com`. The ask becomes a yes-or-no question whose two answers the host words, and the client answering yes approves that detail. Write the prompt so it names the detail and says it would be public." }
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "CONFLICT", "SCHEMA_INVALID"]
@@ -271,6 +272,19 @@
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "approve_detail",
+      "tool": "approve_detail",
+      "effect": "write",
+      "summary": "Record that the client said a contact detail may appear on the site.",
+      "description": "An email address, a personal phone number, a home address or a person's name goes on a page only once the client has said yes to that detail appearing publicly — a letterhead or an uploaded document is not a yes. When they say yes in the conversation, record it here with their own words; an approval ask they answer yes does the same from the panel. A site change that would show an email address nobody approved is refused until one of the two is recorded.",
+      "params": {
+        "detail": { "type": "string", "required": true, "description": "The detail exactly as it will appear, e.g. `office@example.com`." },
+        "quote": { "type": "string", "required": true, "description": "What the client said, word for word." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "fill_ask",
@@ -358,8 +372,8 @@
       "group": "KeepAsks",
       "effect": "write",
       "title": "Keeping the client's questions",
-      "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, and filling them in from what the client uploaded.",
-      "operations": ["set_ask", "withdraw_ask", "fill_ask"]
+      "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, filling them in from what the client uploaded, and recording the client's yes to a contact detail appearing on the site.",
+      "operations": ["set_ask", "withdraw_ask", "fill_ask", "approve_detail"]
     },
     {
       "group": "KeepMilestones",

@@ -221,6 +221,45 @@ export interface PlanAsk {
    */
   draft?: string[]
   withdrawn_reason?: string
+  /**
+   * [[REQ-389]] — the contact detail this ask asks permission to show publicly. Such
+   * an ask is a yes/no question whose options the host sets ({@link APPROVAL_OPTIONS});
+   * the client answering yes is an approval of that detail ({@link approvedDetails}).
+   */
+  approves?: string
+}
+
+/**
+ * [[REQ-389]] — a contact detail the client has said may appear on the site, on the
+ * consultant's word that they said so. `quote` is the client's own words, which is
+ * what makes it an approval rather than the consultant's assumption.
+ */
+export interface PublicDetail {
+  detail: string
+  quote: string
+  by: string
+  at: string
+}
+
+/** [[REQ-389]] — the two answers an approval ask offers; the first is the yes. */
+export const APPROVAL_OPTIONS: readonly string[] = ['Yes, show it on the site', 'No, keep it off the site']
+
+/** How a detail is compared: an email address is the same address in any case. */
+export const detailKey = (detail: string): string => detail.trim().toLowerCase()
+
+/**
+ * [[REQ-389]] — every contact detail the client has approved for the site, keyed by
+ * {@link detailKey}: the ones recorded with `approve_detail`, and the ones whose
+ * approval ask the CLIENT answered yes. An approval ask the agent filled in is not an
+ * approval — only the client gives one — and a client who changes their answer to no
+ * takes it back.
+ */
+export function approvedDetails(fields: { asks?: PlanAsk[]; public_details?: PublicDetail[] }): Set<string> {
+  const approved = new Set((fields.public_details ?? []).map((d) => detailKey(d.detail)))
+  for (const a of fields.asks ?? []) {
+    if (a.approves && answeredByClient(a) && a.answer === APPROVAL_OPTIONS[0]) approved.add(detailKey(a.approves))
+  }
+  return approved
 }
 
 /**
@@ -288,6 +327,8 @@ export interface PlanFields {
   comps: PlanComp[]
   /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
   milestones?: PlanMilestones
+  /** [[REQ-389]] — contact details the client said may appear on the site. */
+  public_details?: PublicDetail[]
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -592,6 +633,10 @@ export function checkPlan(fields: PlanFields): void {
       bad(`comp ${c.reference} has unknown source ${JSON.stringify(c.source)}`)
     }
   }
+  for (const d of fields.public_details ?? []) {
+    if (!filled(d.detail)) bad('an approved contact detail has no detail')
+    if (!filled(d.quote)) bad(`${d.detail} cannot be approved without the client's own words attached`)
+  }
 }
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
@@ -678,6 +723,12 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
       if (wrong) bad(`ask ${a.id}'s draft ${wrong}`)
     }
     if (a.status === 'withdrawn' && !filled(a.withdrawn_reason)) bad(`ask ${a.id} cannot be withdrawn without a reason`)
+    if (a.approves !== undefined) {
+      if (!filled(a.approves)) bad(`ask ${a.id} asks to approve nothing`)
+      if (a.input !== 'single_choice' || JSON.stringify(a.options) !== JSON.stringify(APPROVAL_OPTIONS)) {
+        bad(`ask ${a.id} asks to approve ${a.approves}, so it is a yes or no`)
+      }
+    }
   }
 }
 
@@ -1491,6 +1542,12 @@ export function planOperations(
         const asks = (plan.fields.asks = plan.fields.asks ?? [])
         const id = str(p.ask) ?? ''
         let a = asks.find((x) => x.id === id)
+        // [[REQ-389]] — AN APPROVAL ASK IS A YES OR NO, and the host words the two
+        // answers, so a yes is something it can recognise.
+        const approves = str(p.approves)
+        if (approves) {
+          p = { ...p, input: 'single_choice', options: [...APPROVAL_OPTIONS] }
+        }
         if (!a) {
           // A NEW ASK NEEDS WHAT EVERY ASK HAS, so the panel never shows one it
           // cannot draw or explain.
@@ -1519,7 +1576,25 @@ export function planOperations(
         if (typeof p.multiple === 'boolean') a.multiple = p.multiple
         if (str(p.needed_by)) a.needed_by = str(p.needed_by)!
         if (typeof p.blocking === 'boolean') a.blocking = p.blocking
+        if (approves) a.approves = approves
         return { ask: a }
+      }),
+    // [[REQ-389]] — the consultant records the client's yes, in the client's words.
+    approve_detail: (p) =>
+      change((plan) => {
+        const detail = str(p.detail)
+        const quote = str(p.quote)
+        if (!detail) throw refuse(PLAN_INVALID, 'name the detail the client approved')
+        if (!quote) {
+          throw refuse(PLAN_INVALID, `${detail} is approved only on the client's explicit yes; give their words in quote`)
+        }
+        const details = (plan.fields.public_details = plan.fields.public_details ?? []).filter(
+          (d) => detailKey(d.detail) !== detailKey(detail),
+        )
+        const approved = { detail, quote, by: role, at: now() }
+        details.push(approved)
+        plan.fields.public_details = details
+        return { approved }
       }),
     withdraw_ask: (p) =>
       change((plan) => {
