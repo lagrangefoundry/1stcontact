@@ -84,6 +84,7 @@ export type ErrorCode =
   | 'REFERENTIAL_INTEGRITY'
   | 'CONFLICT'
   | 'ENVIRONMENT'
+  | 'NOT_APPROVED'
   | 'INTERNAL'
 
 /** Stable process exit codes, identical in `--json` and human mode. `0` = success. */
@@ -97,6 +98,9 @@ export const EXIT_CODES: Record<ErrorCode, number> = {
   // and its input were both fine: nothing about the invocation can fix it, so a
   // caller should re-install and retry rather than re-form the request.
   ENVIRONMENT: 6,
+  // [[REQ-389]] — the write would publish a contact detail the client has not
+  // approved. The input is well-formed; what it needs is the client's yes.
+  NOT_APPROVED: 7,
   INTERNAL: 1,
 }
 

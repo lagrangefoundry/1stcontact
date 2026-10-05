@@ -295,6 +295,61 @@ function danglingRefs(page: unknown, assets: readonly string[], base: Record<str
   return found
 }
 
+/** An email address in running text or a `mailto:` link. */
+const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g
+
+/**
+ * Fields that name a file rather than say anything, so an `@` in them is a file
+ * name (`photo@2x.png`), never an address a visitor could read.
+ */
+const NOT_SAID = new Set(['src', 'srcset', 'poster', 'asset', 'handle'])
+
+/**
+ * [[REQ-389]] — every email address a site definition shows, lower-cased (the key
+ * `detailKey` in `ai/plan-core.ts` compares by). Walks every string rather than
+ * the fields known to hold text today, so a field added tomorrow is covered
+ * without anyone remembering this.
+ */
+function emailsIn(value: unknown, found = new Set<string>()): Set<string> {
+  if (typeof value === 'string') {
+    for (const m of value.match(EMAIL) ?? []) found.add(m.toLowerCase())
+  } else if (Array.isArray(value)) {
+    for (const v of value) emailsIn(v, found)
+  } else if (value && typeof value === 'object') {
+    for (const [k, v] of Object.entries(value)) if (!NOT_SAID.has(k)) emailsIn(v, found)
+  }
+  return found
+}
+
+/**
+ * [[REQ-389]] — the AI may not put an email address on the site that the client
+ * has not approved: a published address is a spam magnet, and a letterhead is not
+ * a yes. Stated on the write, as REQ-175 states its rule: an address the site
+ * already showed is inherited, and moving it between pages introduces nothing.
+ */
+async function refuseUnapprovedEmail(
+  opts: EditOptions,
+  before: { base: unknown; pages: unknown[] },
+  base: unknown,
+  pages: unknown[],
+): Promise<void> {
+  if (!opts.publicDetails) return
+  const shown = emailsIn(before.pages, emailsIn(before.base))
+  const added = [...emailsIn(pages, emailsIn(base))].filter((e) => !shown.has(e))
+  if (!added.length) return
+  const approved = await opts.publicDetails()
+  const unapproved = added.filter((e) => !approved.has(e))
+  if (!unapproved.length) return
+  throw new CommandError({
+    code: 'NOT_APPROVED',
+    message: `${unapproved.join(', ')} would appear on the site, and the client has not approved showing it publicly.`,
+    path: unapproved[0],
+    hint:
+      'Ask the client first whether that address may appear on their site. Record their yes in the plan — ' +
+      'approve_detail with their words, or an approval ask they answer — then make the change again.',
+  })
+}
+
 /**
  * The site validates, and this write introduces no dangling reference (REQ-175).
  *
@@ -324,9 +379,11 @@ async function validateOrThrow(
   const assets = (await listSiteAssets(slug, opts)).map((a) => a.src)
   const stored = await readBase(slug, opts)
   const before = new Map<string, Map<string, string>>()
-  for (const file of await readPageFiles(slug, opts)) {
+  const storedFiles = await readPageFiles(slug, opts)
+  for (const file of storedFiles) {
     before.set(String(file.page.id), danglingRefs(file.page, assets, stored))
   }
+  await refuseUnapprovedEmail(opts, { base: stored, pages: storedFiles.map((f) => f.page) }, base, pages)
   for (const page of pages) {
     const id = String((page as { id?: unknown }).id)
     // A page this write is ADDING has no previous version, so everything it

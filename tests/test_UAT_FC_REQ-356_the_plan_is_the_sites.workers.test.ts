@@ -112,8 +112,9 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
     expect(Object.keys(pack.schema('plan').fields ?? {}).sort()).toEqual(
       // `asks` is [[REQ-364]]'s extension of the schema: the plan panel's questions;
       // `milestones` is [[REQ-379]]'s: what the host has seen of the build;
-      // `comps` is [[REQ-378]]'s: the comp board.
-      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'phase', 'site_key', 'tasks'].sort(),
+      // `comps` is [[REQ-378]]'s: the comp board; `public_details` is [[REQ-389]]'s:
+      // the contact details the client approved for the site.
+      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'phase', 'public_details', 'site_key', 'tasks'].sort(),
     )
   })
 })

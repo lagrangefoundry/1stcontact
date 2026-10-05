@@ -94,7 +94,14 @@ import {
   type DnsDeps,
 } from './dns-core'
 import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-core'
-import { builderSessionCompleted, planInstanceConfig, planPanel, planSurfaceFor, type PlanDeps } from './plan-core'
+import {
+  approvedDetails,
+  builderSessionCompleted,
+  planInstanceConfig,
+  planPanel,
+  planSurfaceFor,
+  type PlanDeps,
+} from './plan-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
@@ -1079,6 +1086,23 @@ function countedPlan(deps: HostDeps, slug: string): PlanDeps {
 }
 
 /**
+ * The options every AI write on this site runs under: journalled as the
+ * assistant's (REQ-131), and — where the host keeps plans — held to the contact
+ * details the client has approved ([[REQ-389]]). Read at the write, not at
+ * composition, so an approval recorded mid-turn counts for the very next write.
+ * A host without plans has nothing an approval could be recorded in, and its
+ * writes go unguarded rather than refusing every address.
+ */
+export function aiOptions(opts: GlobalOptions, deps: Pick<HostDeps, 'plan'>, slug: string): GlobalOptions {
+  if (!deps.plan) return { ...opts, actor: 'ai' }
+  return {
+    ...opts,
+    actor: 'ai',
+    publicDetails: async () => approvedDetails((await deps.plan!(slug).read())?.fields ?? {}),
+  }
+}
+
+/**
  * What the consultant's backend reads and writes to keep the client oriented
  * ([[REQ-379]]): the panel's open count, and the milestone a completed builder
  * session is. Through {@link countedPlan}, so the panel hears about the write.
@@ -1564,7 +1588,7 @@ async function build(
   const worker = workerSettings
     ? await l1SurfaceSet(
         slug,
-        { ...opts, actor: 'ai' },
+        aiOptions(opts, deps, slug),
         {
           role: BUILDER_ROLE,
           lib: deps.lib,
@@ -1848,7 +1872,7 @@ async function build(
 
   const box = await createL1Toolbox(
     slug,
-    { ...opts, actor: 'ai' },
+    aiOptions(opts, deps, slug),
     {
       // NARROWED WHERE THIS DEPLOYMENT COMMISSIONS ITS CONSTRUCTION, and `null`
       // — the document's own entry — everywhere else ([[REQ-343]]).
@@ -2314,7 +2338,7 @@ async function composeCoordinator(
 ): Promise<Untyped> {
   const { surfaces, granted } = await l1SurfaceSet(
     slug,
-    { ...opts, actor: 'ai' },
+    aiOptions(opts, deps, slug),
     {
       role: COORDINATOR_ROLE,
       lib: deps.lib,

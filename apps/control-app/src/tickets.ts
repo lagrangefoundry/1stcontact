@@ -428,6 +428,8 @@ export function productTypePack(): ProductTypePack {
         comps: { type: 'list' },
         // [[REQ-379]] — what the host has seen of the build. Absent until it has.
         milestones: { type: 'object' },
+        // [[REQ-389]] — contact details the client said may appear on the site.
+        public_details: { type: 'list' },
       },
       body: { required: true, non_empty: true },
     },

@@ -187,6 +187,9 @@
     "ENVIRONMENT": {
       "message": "the workspace itself is not set up correctly. Nothing you send can fix this — tell the user."
     },
+    "NOT_APPROVED": {
+      "message": "that would put a contact detail on the site that the client has not approved, so nothing was written. Ask the client whether it may appear publicly before you try again, or leave it off."
+    },
     "INTERNAL": {
       "message": "the builder failed for a reason that is not your call. Tell the user; do not retry blindly."
     }
@@ -455,7 +458,8 @@
       },
       "errors": [
         "NOT_FOUND",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -484,7 +488,8 @@
       },
       "errors": [
         "NOT_FOUND",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -510,7 +515,8 @@
       "errors": [
         "NOT_FOUND",
         "SCHEMA_INVALID",
-        "ENVIRONMENT"
+        "ENVIRONMENT",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -619,7 +625,8 @@
       },
       "errors": [
         "CONFLICT",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -654,7 +661,8 @@
       "errors": [
         "NOT_FOUND",
         "CONFLICT",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -702,7 +710,8 @@
       "errors": [
         "NOT_FOUND",
         "CONFLICT",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -744,7 +753,8 @@
       "errors": [
         "NOT_FOUND",
         "CONFLICT",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -773,7 +783,8 @@
       },
       "errors": [
         "NOT_FOUND",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
@@ -840,7 +851,8 @@
       },
       "errors": [
         "NOT_FOUND",
-        "SCHEMA_INVALID"
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
       ]
     },
     {
