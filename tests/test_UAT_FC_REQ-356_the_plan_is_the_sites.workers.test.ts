@@ -113,8 +113,9 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
       // `asks` is [[REQ-364]]'s extension of the schema: the plan panel's questions;
       // `milestones` is [[REQ-379]]'s: what the host has seen of the build;
       // `comps` is [[REQ-378]]'s: the comp board; `public_details` is [[REQ-389]]'s:
-      // the contact details the client approved for the site.
-      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'phase', 'public_details', 'site_key', 'tasks'].sort(),
+      // the contact details the client approved for the site; `stages` is
+      // [[REQ-390]]'s, and replaced `phase`.
+      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'public_details', 'site_key', 'stages', 'tasks'].sort(),
     )
   })
 })
@@ -122,7 +123,7 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
 describe('REQ-356 — exactly one site plan per site', () => {
   it('test_UAT_FC_REQ-356_provisioning_a_business_creates_its_site_plan', async () => {
     // EVERY BUSINESS STARTS WITH A PLAN, before its first conversation: the
-    // starter site's key, `kind: site`, `phase: intake`, and the generic list.
+    // starter site's key, `kind: site`, the first stage in progress, and the generic list.
     const identity: IdentityEnv = {
       DB: env.DB as D1Database,
       SITES: env.SITES as R2Bucket,
@@ -134,7 +135,8 @@ describe('REQ-356 — exactly one site plan per site', () => {
 
     const plan = (await findPlan(await store(business.businessId), business.siteKey)) as Ticket
     expect(plan).not.toBeNull()
-    expect(fieldsOf(plan)).toMatchObject({ kind: 'site', site_key: business.siteKey, phase: 'intake' })
+    expect(fieldsOf(plan)).toMatchObject({ kind: 'site', site_key: business.siteKey })
+    expect(fieldsOf(plan).stages[0]).toEqual({ id: 'getting_to_know_you', state: 'in_progress' })
     expect(fieldsOf(plan).decisions.map((d) => d.id)).toEqual(planSeed.decisions.map((d) => d.id))
     expect(fieldsOf(plan).checks.map((c) => c.id)).toEqual(planSeed.checks.map((c) => c.id))
     expect(plan.body).toBe('## Brief\n\n## Decision log\n\n## Notes')
@@ -241,7 +243,7 @@ describe('REQ-356 — the consultant works from the plan', () => {
     // The coordinator's tools are not the consultant's — save the milestones,
     // which [[REQ-379]] gives both roles.
     expect(offered).not.toContain('record_client_answer')
-    expect(offered).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_phase']))
+    expect(offered).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_stage']))
 
     const plan = (await findPlan(await store(ctx.tenant), ctx.slug)) as Ticket
     expect(fieldsOf(plan).decisions.find((d) => d.id === 'typography')).toMatchObject({

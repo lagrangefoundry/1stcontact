@@ -895,19 +895,25 @@ export const CHAT_OVER_LONG_MESSAGE =
 /**
  * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
  *
- * THE PHASE IN PLAIN WORDS. Progress on the BUILD is framed by phase — never by
- * how few questions are left, which is what made a rough draft read as "nearly
- * done". [[REQ-379]]'s count under it is a different thing: how much is left for
- * the CLIENT to fill in, which is the question they actually have of the panel.
+ * PROGRESS ON THE BUILD IS THE STAGE TRACKER ([[REQ-390]]) — never how few
+ * questions are left, which is what made a rough draft read as "nearly done". The
+ * stages' own words are the plan's (`plan-seed.json`), so the tracker draws what
+ * the consultant marks. [[REQ-379]]'s count under it is a different thing: how
+ * much is left for the CLIENT to fill in.
  */
-export const PLAN_PHASE_LABELS = {
-  intake: 'Getting to know your business',
-  first_pass: 'Rough first version',
-  revision: 'Refining',
-  prelaunch: 'Getting ready to publish',
-  live: 'Live',
-}
 export const PLAN_PANEL_LABEL = 'The plan'
+export const PLAN_STAGES_LABEL = 'Where the build is'
+/** [[REQ-390]] — the tracker's toggle: all the stages, or only the current one. */
+export const PLAN_STAGES_COLLAPSE = 'Show only the current stage'
+export const PLAN_STAGES_EXPAND = 'Show every stage'
+export const PLAN_STAGE_STATE = { not_started: 'not started', in_progress: 'in progress', done: 'done' }
+
+/**
+ * The working line beside the composer ([[REQ-390]]): what it says with no note
+ * from the host, and how the elapsed time is put.
+ */
+export const WORKING_IDLE = 'Working'
+export const WORKING_SO_FAR = (elapsed) => `${elapsed} so far`
 /**
  * [[REQ-379]] — the line under the phase: how many open asks are left for the
  * client. Withdrawn and skipped asks are not counted.

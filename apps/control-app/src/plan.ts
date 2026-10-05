@@ -22,6 +22,7 @@ import {
   checkPlan,
   seedPlan,
   SITE_PLAN,
+  stagesFor,
   type Plan,
   type PlanDeps,
   type PlanFields,
@@ -37,7 +38,7 @@ export const PLAN_TYPE = 'plan'
 const PLAN_KEYS: (keyof PlanFields)[] = [
   'kind',
   'site_key',
-  'phase',
+  'stages',
   'brief',
   'functionality',
   'decisions',
@@ -80,6 +81,9 @@ function toPlan(ticket: Ticket): Plan {
   const fields = (ticket.fields ?? {}) as Record<string, unknown>
   const plan = { ...seedPlan(String(fields.site_key ?? '')).fields } as unknown as Record<string, unknown>
   for (const key of PLAN_KEYS) if (fields[key] !== undefined && fields[key] !== null) plan[key] = fields[key]
+  // [[REQ-390]] — A PLAN STORED BEFORE STAGES IS MIGRATED HERE, on every read, from
+  // the `phase` it still holds; the next write stores the stages beside it.
+  plan.stages = stagesFor(fields.stages, fields.phase)
   return { fields: plan as unknown as PlanFields, body: ticket.body ?? '' }
 }
 
@@ -139,11 +143,11 @@ export async function ensurePlan(tickets: TicketStore, siteKey: string): Promise
  *
  * THE REFUSAL IS THE POINT. A second plan for a site would split its decisions
  * across two records, which is the per-session fragmentation this type exists to
- * end. A later redesign moves the existing plan's phase back instead.
+ * end. A later redesign reopens the existing plan's stages instead.
  */
 export async function createPlan(tickets: TicketStore, siteKey: string): Promise<Ticket> {
   if (await findPlan(tickets, siteKey)) {
-    throw ledgerError('PLAN_EXISTS', `site ${siteKey} already has a site plan; a redesign moves its phase back`)
+    throw ledgerError('PLAN_EXISTS', `site ${siteKey} already has a site plan; a redesign reopens its stages`)
   }
   await insertSeed(tickets, siteKey)
   return settle(tickets, siteKey)

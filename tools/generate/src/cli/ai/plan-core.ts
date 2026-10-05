@@ -41,7 +41,30 @@ export const PLAN_SURFACE = 'plan'
 export const PLAN_KINDS = ['site'] as const
 export const SITE_PLAN = 'site'
 
-export const PHASES = ['intake', 'first_pass', 'revision', 'prelaunch', 'live'] as const
+/**
+ * [[REQ-390]] — the build's stages, as the client's tracker shows them and in that
+ * order. Data, in `plan-seed.json`, so the wording changes without a code change.
+ *
+ * THEY REPLACE THE SINGLE `phase`, which never moved on its own (EPIC-19 Finding
+ * 18). The consultant marks each one, in any order: a stage can be skipped, done
+ * early, or reopened, and none of that is an error.
+ */
+export const STAGES: readonly { id: string; label: string }[] = planSeed.stages
+export const STAGE_IDS: readonly string[] = STAGES.map((s) => s.id)
+export const STAGE_STATES = ['not_started', 'in_progress', 'done'] as const
+export const IN_PROGRESS = 'in_progress'
+export const STAGE_DONE = 'done'
+/**
+ * [[REQ-390]] — where a plan stored with the old `phase` stands among the stages:
+ * the stage that phase meant is in progress and every stage before it is done.
+ * `live` is every stage done.
+ */
+const PHASE_STAGE: Record<string, string> = {
+  intake: 'getting_to_know_you',
+  first_pass: 'first_draft',
+  revision: 'refining',
+  prelaunch: 'finishing_touches',
+}
 export const AREAS = [
   'purpose',
   'messaging',
@@ -75,6 +98,8 @@ export const FEATURE_STATUSES = ['wanted', 'not_wanted', 'later'] as const
  */
 export const ASK_INPUTS = [
   'text',
+  // [[REQ-390]] — a few sentences or a list: a growing box rather than one line.
+  'long_text',
   'number',
   'currency',
   'phone',
@@ -311,11 +336,18 @@ export interface CompDeps {
   snapshot?(reference: string): Promise<string | null>
 }
 
+/** [[REQ-390]] — one stage of the build and how far it has got. */
+export interface PlanStage {
+  id: string
+  state: string
+}
+
 export interface PlanFields {
   kind: string
   /** The store-minted site key ([[DOC-45]] §6) — sites carry no slug. */
   site_key: string
-  phase: string
+  /** [[REQ-390]] — every stage, in {@link STAGES}' order. */
+  stages: PlanStage[]
   brief: Record<string, unknown>
   functionality: { feature: string; status: string }[]
   decisions: PlanDecision[]
@@ -463,22 +495,60 @@ export function publishOpened(plan: Plan, at: string): Plan {
   return next
 }
 
+/** A stage's words, from the seed. */
+export const stageLabel = (id: string): string => STAGES.find((s) => s.id === id)?.label ?? id
+
 /**
- * [[REQ-379]] — the phase the build has visibly reached, and what shows it, or
- * `null` when the plan's own phase is not behind it.
+ * [[REQ-390]] — a plan's stages, whole and in order, from whatever was stored.
+ *
+ * A STORED LIST IS KEPT, with any stage it lacks added as not started — so a stage
+ * added to the seed later reaches existing plans. A plan stored before stages
+ * existed is MIGRATED from its `phase` ({@link PHASE_STAGE}). With neither, the
+ * seed's: the first stage in progress.
  */
-export function phaseBehind(fields: PlanFields): { expected: string; because: string } | null {
+export function stagesFor(stored: unknown, phase?: unknown): PlanStage[] {
+  if (Array.isArray(stored)) {
+    const held = new Map<string, string>()
+    for (const s of stored as Partial<PlanStage>[]) if (s && typeof s.id === 'string') held.set(s.id, String(s.state))
+    const known = STAGE_IDS.map((id) => ({ id, state: held.get(id) ?? 'not_started' }))
+    // AN UNKNOWN STAGE IS KEPT, so `checkPlan` refuses it rather than this
+    // silently dropping it.
+    const unknown = [...held].filter(([id]) => !STAGE_IDS.includes(id)).map(([id, state]) => ({ id, state }))
+    return [...known, ...unknown]
+  }
+  if (phase === 'live') return STAGE_IDS.map((id) => ({ id, state: STAGE_DONE }))
+  const at = STAGE_IDS.indexOf(PHASE_STAGE[String(phase)] ?? STAGE_IDS[0])
+  return STAGE_IDS.map((id, i) => ({ id, state: i < at ? STAGE_DONE : i === at ? IN_PROGRESS : 'not_started' }))
+}
+
+/** [[REQ-390]] — the stage in progress, or `null`. */
+export function currentStage(fields: Pick<PlanFields, 'stages'>): string | null {
+  return (fields.stages ?? []).find((s) => s.state === IN_PROGRESS)?.id ?? null
+}
+
+/**
+ * [[REQ-379]], [[REQ-390]] — the stage the build has visibly reached, and what
+ * shows it, or `null` when the stages are not behind it.
+ *
+ * BEHIND MEANS NOTHING AT OR PAST IT HAS BEEN TOUCHED: no stage that far along is
+ * in progress or done. Stages are marked in any order, so a later one done early
+ * is the consultant's call and is never reported as behind.
+ */
+export function stageBehind(fields: PlanFields): { expected: string; because: string } | null {
   const m = fields.milestones ?? {}
   const seen: [string, string] | null = m.publish_opened_at
-    ? ['prelaunch', 'Publish has been opened']
+    ? ['finishing_touches', 'Publish has been opened']
     : (m.revision_rounds ?? 0) > 0
-      ? ['revision', 'the first pass is built and revisions have started']
+      ? ['refining', 'the first draft is built and revisions have started']
       : m.first_pass_at
-        ? ['first_pass', 'pages have been built']
+        ? ['first_draft', 'pages have been built']
         : null
   if (!seen) return null
-  const rank = (phase: string): number => (PHASES as readonly string[]).indexOf(phase)
-  return rank(fields.phase) < rank(seen[0]) ? { expected: seen[0], because: seen[1] } : null
+  const furthest = Math.max(
+    -1,
+    ...(fields.stages ?? []).filter((s) => s.state !== 'not_started').map((s) => STAGE_IDS.indexOf(s.id)),
+  )
+  return furthest < STAGE_IDS.indexOf(seen[0]) ? { expected: seen[0], because: seen[1] } : null
 }
 
 /** Why a check fell due, as the digest says it. */
@@ -494,7 +564,7 @@ export function seedPlan(siteKey: string): Plan {
     fields: {
       kind: SITE_PLAN,
       site_key: siteKey,
-      phase: planSeed.phase,
+      stages: stagesFor(undefined),
       brief: {},
       functionality: [],
       decisions: planSeed.decisions.map((d) => ({ ...d, state: 'open', compared: false })),
@@ -575,7 +645,18 @@ export function checkPlan(fields: PlanFields): void {
     throw refuse(PLAN_INVALID, message)
   }
   if (!(PLAN_KINDS as readonly string[]).includes(fields.kind)) bad(`unknown plan kind ${JSON.stringify(fields.kind)}`)
-  if (!(PHASES as readonly string[]).includes(fields.phase)) bad(`unknown phase ${JSON.stringify(fields.phase)}`)
+  // [[REQ-390]] — every stage known, each once, and only one in progress.
+  if (!Array.isArray(fields.stages)) bad('the plan has no stages')
+  const stageIds = new Set<string>()
+  for (const s of fields.stages) {
+    if (!STAGE_IDS.includes(s.id)) bad(`unknown stage ${JSON.stringify(s.id)}`)
+    if (stageIds.has(s.id)) bad(`stage ${s.id} is listed twice`)
+    stageIds.add(s.id)
+    if (!(STAGE_STATES as readonly string[]).includes(s.state)) {
+      bad(`stage ${s.id} has unknown state ${JSON.stringify(s.state)}`)
+    }
+  }
+  if (fields.stages.filter((s) => s.state === IN_PROGRESS).length > 1) bad('only one stage can be in progress')
   for (const f of fields.functionality) {
     if (!(FEATURE_STATUSES as readonly string[]).includes(f.status)) {
       bad(`feature ${f.feature} has unknown status ${JSON.stringify(f.status)}`)
@@ -739,7 +820,7 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
  * READ-ONLY AND DERIVED, so it can never disagree with the plan it came from.
  */
 export function planPanel(fields: PlanFields): {
-  phase: string
+  stages: ShownStage[]
   decisions: Record<string, string[]>
   open_checks: { id: string; question: string; answered_by: string[] }[]
   due_checks: { id: string; question: string; trigger: string }[]
@@ -755,7 +836,7 @@ export function planPanel(fields: PlanFields): {
   const live = fields.tasks.filter((t) => t.status !== 'dropped')
   const done = new Set(live.filter((t) => t.status === 'done').map((t) => t.id))
   return {
-    phase: fields.phase,
+    stages: shownStages(fields),
     decisions,
     // ASKED AND NOT YET ANSWERED BY BOTH: a check the client answered and the
     // consultant did not is still open, because the client has not heard the
@@ -801,16 +882,29 @@ export function orderedAsks(asks: PlanAsk[]): PlanAsk[] {
     .map(({ a }) => a)
 }
 
+/** [[REQ-390]] — a stage as a reader sees it: its words with its state. */
+export interface ShownStage {
+  id: string
+  label: string
+  state: string
+}
+
+/** [[REQ-390]] — the stages in the tracker's order, each with its words. */
+export function shownStages(fields: Pick<PlanFields, 'stages'>): ShownStage[] {
+  return (fields.stages ?? []).map((s) => ({ id: s.id, label: stageLabel(s.id), state: s.state }))
+}
+
 /** What the client's plan panel draws ([[REQ-364]]). */
 export interface PanelView {
-  phase: string
+  /** [[REQ-390]] — the stage tracker at the top of the panel. */
+  stages: ShownStage[]
   asks: Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'>[]
   /** [[REQ-378]] — the comp board, as the plan holds it; the host adds the notes. */
   comps: PlanComp[]
 }
 
 /**
- * The plan as the client's panel draws it: the phase, and every ask that has not
+ * The plan as the client's panel draws it: the stages, and every ask that has not
  * been withdrawn, in the order the client sees them.
  *
  * A PROJECTION, so the panel holds no state of its own: it is redrawn from this
@@ -818,7 +912,7 @@ export interface PanelView {
  */
 export function panelView(fields: PlanFields): PanelView {
   return {
-    phase: fields.phase,
+    stages: shownStages(fields),
     // [[BUG-196]] — AN UPLOAD ASK'S ROLE AND ITS ONE-OR-SEVERAL ARE RESOLVED HERE,
     // defaults included, so the panel reads them and never re-derives the rule.
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
@@ -859,12 +953,15 @@ export function planReminder(plan: Plan | null): string | null {
   const f = plan.fields
   const panel = planPanel(f)
   const list = (items: string[]): string => items.join('; ')
-  const lines = ['### The site plan', '', `Phase: ${f.phase}.`]
+  const lines = ['### The site plan', '', stagesLine(f)]
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
-  // left to itself forgets: the phase it never moved, the milestone it never raised.
-  const behind = phaseBehind(f)
+  // left to itself forgets: the stage it never moved, the milestone it never raised.
+  const behind = stageBehind(f)
   if (behind) {
-    lines.push(`The phase is behind the build: it still says ${f.phase}, but ${behind.because}. Move it on to ${behind.expected} with set_phase.`)
+    const current = currentStage(f)
+    lines.push(
+      `The stages are behind the build: ${behind.because}, but ${current ? `"${stageLabel(current)}" is still the stage in progress` : 'no stage that far along has been started'}. Tick the stages that are done and start "${stageLabel(behind.expected)}" (${behind.expected}) with set_stage.`,
+    )
   }
   for (const c of panel.due_checks) {
     lines.push(`Due: ask the client "${c.question}" (${c.id}) — ${DUE_BECAUSE[c.trigger] ?? c.trigger}. Record that you asked with ask_check and their answer with record_check_answer.`)
@@ -919,6 +1016,18 @@ export function planReminder(plan: Plan | null): string | null {
   return text.length <= MAX_PLAN_REMINDER_CHARS
     ? text
     : `${text.slice(0, MAX_PLAN_REMINDER_CHARS - 40).replace(/\s+\S*$/, '')}\n(read_plan for the rest)`
+}
+
+/** [[REQ-390]] — the stages as the digest says them: what is done and what is in progress. */
+function stagesLine(f: PlanFields): string {
+  const named = (state: string): string =>
+    (f.stages ?? [])
+      .filter((s) => s.state === state)
+      .map((s) => `${stageLabel(s.id)} (${s.id})`)
+      .join(', ')
+  const doing = named(IN_PROGRESS)
+  const done = named(STAGE_DONE)
+  return `Stages — in progress: ${doing || 'none'}; done: ${done || 'none'}.`
 }
 
 // ── operations ──────────────────────────────────────────────────────────────
@@ -1530,10 +1639,27 @@ export function planOperations(
         t.status = String(p.status)
         return { task: t }
       }),
-    set_phase: (p) =>
+    // [[REQ-390]] — ONE STAGE IN PROGRESS: starting one moves the marker, and the
+    // stage it moved from goes back to not started unless it was ticked. Any order
+    // and backwards are both fine — a done stage can be reopened.
+    set_stage: (p) =>
       change((plan) => {
-        plan.fields.phase = String(p.phase)
-        return { phase: plan.fields.phase }
+        const id = String(p.stage ?? '')
+        const state = String(p.state ?? '')
+        plan.fields.stages = stagesFor(plan.fields.stages)
+        const stage = plan.fields.stages.find((s) => s.id === id)
+        if (!stage) throw refuse(PLAN_INVALID, `unknown stage ${JSON.stringify(id)}`)
+        let moved: string | undefined
+        if (state === IN_PROGRESS) {
+          for (const other of plan.fields.stages) {
+            if (other !== stage && other.state === IN_PROGRESS) {
+              other.state = 'not_started'
+              moved = other.id
+            }
+          }
+        }
+        stage.state = state
+        return { stage: { ...stage, label: stageLabel(stage.id) }, ...(moved ? { moved_from: moved } : {}) }
       }),
 
     // ── asks: both roles ([[REQ-364]]) ───────────────────────────────────────
@@ -1676,7 +1802,7 @@ export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   // panel, so turning the room on or off changes who keeps it and not how.
   // [[REQ-379]] — AND BOTH KEEP THE MILESTONES, for the same reason: with the room
   // off there is no coordinator, and a phase only the coordinator could move never
-  // moved (EPIC-19 Finding 18).
+  // moved (EPIC-19 Finding 18). [[REQ-390]]'s stages are kept the same way.
   return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps'] } }
 }
 

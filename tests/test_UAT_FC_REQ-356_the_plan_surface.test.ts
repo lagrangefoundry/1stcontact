@@ -98,14 +98,15 @@ describe('REQ-356 — each role holds its own part of the plan', () => {
     expect(alice).toEqual(expect.arrayContaining(['set_decision', 'set_task', 'answer_check']))
     expect(alice).not.toContain('record_client_answer')
     // [[REQ-379]] — the milestones are both roles': with the room off there is no
-    // coordinator to raise a check or move the phase, so the consultant does.
+    // coordinator to raise a check or move the stages ([[REQ-390]]), so the
+    // consultant does.
     for (const names of [alice, bob]) {
-      expect(names).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_phase']))
+      expect(names).toEqual(expect.arrayContaining(['ask_check', 'record_check_answer', 'set_stage']))
     }
     // …the coordinator records the client's answers, asks checks and tracks
     // progress, and has no way to propose or to answer in its own voice.
     expect(bob).toEqual(
-      expect.arrayContaining(['record_client_answer', 'ask_check', 'record_check_answer', 'set_task_status', 'set_phase']),
+      expect.arrayContaining(['record_client_answer', 'ask_check', 'record_check_answer', 'set_task_status', 'set_stage']),
     )
     expect(bob).not.toContain('set_decision')
     expect(bob).not.toContain('answer_check')
@@ -136,7 +137,9 @@ describe('REQ-356 — a new plan starts from the generic list', () => {
 
     const plan = deps.stored() as Plan
     expect(plan.fields).toMatchObject({ kind: 'site', site_key: SLUG })
-    expect(plan.fields.phase).toBe('intake')
+    // [[REQ-390]] — the stages replace the phase: the first in progress, the rest not started.
+    expect(plan.fields.stages[0]).toEqual({ id: 'getting_to_know_you', state: 'in_progress' })
+    expect(plan.fields.stages.slice(1).every((s) => s.state === 'not_started')).toBe(true)
     // EVERY GENERIC DECISION, OPEN, and every standing check, unasked — from the
     // seed data, so the list can change without a code change.
     expect(plan.fields.decisions.map((d) => d.id)).toEqual(planSeed.decisions.map((d) => d.id))
@@ -242,9 +245,10 @@ describe('REQ-356 — the consultant owns the tasks', () => {
     expect(panel.tasks).toMatchObject({ done: 0, total: 2, next: ['Build the home page, rough'] })
 
     await bob.run('set_task_status', { task: 't1', status: 'done' })
-    await bob.run('set_phase', { phase: 'first_pass' })
+    await bob.run('set_stage', { stage: 'first_draft', state: 'in_progress' })
     panel = JSON.parse(unwrap(await bob.run('read_plan', {}))).panel
-    expect(panel).toMatchObject({ phase: 'first_pass', tasks: { done: 1, total: 2, next: ['Build the other pages'] } })
+    expect(panel.stages.find((s: { id: string }) => s.id === 'first_draft').state).toBe('in_progress')
+    expect(panel).toMatchObject({ tasks: { done: 1, total: 2, next: ['Build the other pages'] } })
   })
 })
 
@@ -258,7 +262,7 @@ describe('REQ-356 — the plan is put in front of the session', () => {
 
     const text = planReminder(deps.stored()) as string
     expect(text).toContain('### The site plan')
-    expect(text).toContain('Phase: intake.')
+    expect(text).toContain('Stages — in progress: Getting to know you (getting_to_know_you); done: none.')
     expect(text).toContain('quality bar: premium')
     // A default is named as one, so it is not mistaken for a choice.
     expect(text).toMatch(/Defaulted, never really chosen: Palette\./)

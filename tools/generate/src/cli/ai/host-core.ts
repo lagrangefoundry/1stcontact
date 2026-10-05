@@ -166,7 +166,7 @@ import {
   overBudget,
 } from './budget-core'
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
-import { keepClientOriented, type CadenceHooks } from './cadence-core'
+import { keepClientOriented, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
 
 /**
@@ -260,6 +260,18 @@ export const BUSINESS_CHANGED = 'business_changed'
  * is how many landed since the previous signal.
  */
 export const PLAN_CHANGED = 'plan_changed'
+
+/**
+ * [[REQ-390]] — the site host's event kind for "this is the slow thing under way".
+ *
+ * WHAT THE WORKING LINE BESIDE THE COMPOSER SAYS. The cadence wrapper announces a
+ * slow call in the conversation; this carries the same moment as data, so the
+ * builder can show *"<consultant> is building your home page · about 5 min · 2:14 so far"*
+ * without reading the assistant's prose. `content` is the line's words, the
+ * consultant's name included (from `group-chat.json`, never a constant);
+ * `meta.estimate` is there when the operation has one.
+ */
+export const WORKING = 'working'
 
 /**
  * The settings host's event kind for "we have just changed the client's domain"
@@ -1066,6 +1078,13 @@ const businessWrites = new Map<string, number>()
 const planWrites = new Map<string, number>()
 
 /**
+ * [[REQ-390]] — the latest slow operation each site's consultant announced, and a
+ * sequence number so the turn's stream can tell a new one from one it has passed
+ * on. Keyed by `managerKey`, like {@link planWrites}.
+ */
+const workingNotes = new Map<string, { seq: number; note: WorkingNote }>()
+
+/**
  * A site's plan port that counts the writes that completed ([[REQ-364]]).
  *
  * AT THE PORT, NOT THE TOOL, so every path that writes the plan through this
@@ -1109,8 +1128,14 @@ export function aiOptions(opts: GlobalOptions, deps: Pick<HostDeps, 'plan'>, slu
  * A host without plans has neither, and the status line goes without the count.
  */
 function cadenceHooks(deps: HostDeps, slug: string): CadenceHooks {
-  if (!deps.plan) return {}
+  // [[REQ-390]] — THE WORKING LINE NEEDS NO PLAN: it is about the turn, not the site.
+  const working = (note: WorkingNote): void => {
+    const key = managerKey(slug, deps)
+    workingNotes.set(key, { seq: (workingNotes.get(key)?.seq ?? 0) + 1, note })
+  }
+  if (!deps.plan) return { working }
   return {
+    working,
     openAsks: async () => {
       const plan = await deps.plan!(slug).read()
       return plan ? planPanel(plan.fields).asks.open.length : 0
@@ -3479,6 +3504,8 @@ async function* siteTurn(
   // [[REQ-364]] — the plan's own count, compared the same way.
   const planKey = managerKey(slug, deps)
   let planSeen = planWrites.get(planKey) ?? 0
+  // [[REQ-390]] — and the working note's, so only a note this turn made is passed on.
+  let workingSeen = workingNotes.get(planKey)?.seq ?? 0
   try {
     // [[REQ-296]] — REFUSED BEFORE THE PROVIDER DOES. Read after the prompt is
     // durable and before the model is called: the client's words survive a turn
@@ -3520,6 +3547,17 @@ async function* siteTurn(
         continue
       }
       yield withoutImageData(event)
+      // [[REQ-390]] — RIGHT BEHIND THE ANNOUNCEMENT the wrapper yielded, which is
+      // the event that carried the note here. A Map read, so free on every event.
+      const working = workingNotes.get(planKey)
+      if (working && working.seq > workingSeen) {
+        workingSeen = working.seq
+        yield {
+          kind: WORKING,
+          content: workingText(groupNames().consultant, working.note.doing),
+          meta: working.note.estimate ? { estimate: working.note.estimate } : {},
+        }
+      }
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
@@ -4233,6 +4271,7 @@ export function resetAiHost(): void {
   // all.
   businessWrites.clear()
   planWrites.clear()
+  workingNotes.clear()
   // AND THE CARDS THAT HAVE NOT BEEN DELIVERED ([[REQ-260]]). A queued change
   // that outlived its conversation would be reported into the next one, putting
   // a card about somebody's domain in a turn that did not touch it.

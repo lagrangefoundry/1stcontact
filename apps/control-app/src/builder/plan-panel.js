@@ -26,6 +26,12 @@
  * adds a site by its address — the route captures it — and clicking a thumbnail
  * asks the host to show that comp in the preview pane (`onOpenComp`).
  *
+ * [[REQ-390]] — AND, FIRST OF ALL, WHERE THE BUILD IS: the stage tracker, a compact
+ * row of the plan's stages with the done ones ticked and the current one
+ * emphasised. The consultant marks them; the panel only draws them, in any state
+ * and any order. While a turn is running (`setBusy`) the current stage spins. A
+ * toggle collapses it to the current stage alone, remembered in this browser.
+ *
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
@@ -55,7 +61,10 @@ import {
   PLAN_FILLED_BY_AGENT,
   PLAN_NEEDS_ANSWER,
   PLAN_PANEL_LABEL,
-  PLAN_PHASE_LABELS,
+  PLAN_STAGE_STATE,
+  PLAN_STAGES_COLLAPSE,
+  PLAN_STAGES_EXPAND,
+  PLAN_STAGES_LABEL,
   PLAN_SAVE_FAILED,
   PLAN_SKIP,
   PLAN_SKIP_TITLE,
@@ -75,6 +84,23 @@ const TYPED_INPUTS = {
   email: { type: 'email' },
   url: { type: 'url' },
   date: { type: 'date' },
+}
+
+/** Where the tracker's collapsed-or-not is remembered ([[REQ-390]]). */
+const STAGES_COLLAPSED_KEY = 'plan-stages-collapsed'
+
+const remembered = (storage) => {
+  try {
+    return storage?.getItem(STAGES_COLLAPSED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/** A long answer's box grows with what is in it ([[REQ-390]]). */
+const grow = (area) => {
+  area.style.height = 'auto'
+  area.style.height = `${area.scrollHeight}px`
 }
 
 const el = (tag, className, text) => {
@@ -105,6 +131,7 @@ const answerMaterials = (ask) =>
  * @param {() => Element|null} [options.getModalHost] where the delete confirmation mounts
  * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
  *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
+ * @param {Storage|null} [options.storage] where the tracker's collapse is kept ([[REQ-390]])
  */
 export function createPlanPanel(options = {}) {
   const transport = {
@@ -124,8 +151,34 @@ export function createPlanPanel(options = {}) {
 
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
-  const phase = el('div', 'plan-panel__phase')
-  // [[REQ-379]] — directly under the phase: how much is left for the client.
+  // [[REQ-390]] — the stage tracker, first on the panel.
+  const storage = options.storage === undefined ? globalThis.localStorage ?? null : options.storage
+  const tracker = el('div', 'plan-stages')
+  const stageList = el('ol', 'plan-stages__list')
+  stageList.setAttribute('aria-label', PLAN_STAGES_LABEL)
+  const collapse = el('button', 'plan-stages__toggle')
+  collapse.type = 'button'
+  tracker.append(stageList, collapse)
+  let collapsed = remembered(storage)
+  let busy = false
+  const drawCollapse = () => {
+    tracker.classList.toggle('plan-stages--collapsed', collapsed)
+    collapse.textContent = collapsed ? '▸' : '▾'
+    collapse.title = collapsed ? PLAN_STAGES_EXPAND : PLAN_STAGES_COLLAPSE
+    collapse.setAttribute('aria-label', collapse.title)
+    collapse.setAttribute('aria-expanded', String(!collapsed))
+  }
+  collapse.addEventListener('click', () => {
+    collapsed = !collapsed
+    try {
+      storage?.setItem(STAGES_COLLAPSED_KEY, collapsed ? '1' : '0')
+    } catch {
+      // Remembering it is a nicety.
+    }
+    drawCollapse()
+  })
+  drawCollapse()
+  // [[REQ-379]] — directly under the tracker: how much is left for the client.
   const progress = el('div', 'plan-panel__progress')
   progress.setAttribute('role', 'status')
   const error = el('div', 'plan-panel__error')
@@ -146,7 +199,7 @@ export function createPlanPanel(options = {}) {
   addButton.type = 'submit'
   const addStatus = el('span', 'plan-comps__status')
   addForm.append(el('label', 'plan-comps__add-label', COMPS_ADD_LABEL), addInput, addButton, addStatus)
-  element.append(phase, progress, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
+  element.append(tracker, progress, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
 
   let site = null
   let generation = 0
@@ -325,6 +378,21 @@ export function createPlanPanel(options = {}) {
         group.append(label)
       }
       box.append(group)
+    } else if (ask.input === 'long_text') {
+      // [[REQ-390]] — A FEW SENTENCES OR A LIST: a box that grows as it fills, and
+      // saves when it is left, like every other typed answer.
+      const area = el('textarea', 'plan-ask__input plan-ask__input--long')
+      area.rows = 3
+      area.setAttribute('aria-label', ask.prompt)
+      area.dataset.input = ask.input
+      if (typeof current === 'string') area.value = current
+      area.addEventListener('input', () => grow(area))
+      area.addEventListener('change', () => {
+        if (area.value.trim() === '') return
+        void save(ask, { action: 'answer', answer: area.value.trim() })
+      })
+      box.append(area)
+      queueMicrotask(() => grow(area))
     } else if (ask.input !== 'upload') {
       const input = el('input', 'plan-ask__input')
       const shape = TYPED_INPUTS[ask.input] ?? TYPED_INPUTS.text
@@ -474,16 +542,42 @@ export function createPlanPanel(options = {}) {
 
   let last = null
 
+  /**
+   * The stages as the tracker draws them ([[REQ-390]]): ticked where done, the one
+   * in progress emphasised — and spinning while a turn runs. No stage is drawn as
+   * skipped or out of order: done is ticked wherever it is.
+   */
+  function drawStages(stages) {
+    stageList.replaceChildren(
+      ...stages.map((stage) => {
+        const item = el('li', 'plan-stage')
+        item.dataset.stage = stage.id
+        item.dataset.state = stage.state
+        const current = stage.state === 'in_progress'
+        if (current) item.setAttribute('aria-current', 'step')
+        const mark = el('span', 'plan-stage__mark')
+        mark.setAttribute('aria-hidden', 'true')
+        if (current && busy) mark.classList.add('plan-stage__spinner')
+        else mark.textContent = stage.state === 'done' ? '✓' : current ? '●' : '○'
+        item.append(mark, el('span', 'plan-stage__label', stage.label))
+        item.title = `${stage.label} — ${PLAN_STAGE_STATE[stage.state] ?? stage.state}`
+        return item
+      }),
+    )
+    tracker.hidden = stages.length === 0
+    tracker.dataset.busy = String(busy)
+  }
+
   /** Draw a view, keeping every block that has not changed and the one in use. */
   function render(view) {
     last = view
-    phase.textContent = PLAN_PHASE_LABELS[view.phase] ?? view.phase ?? ''
+    drawStages(view.stages ?? [])
     const asks = view.asks ?? []
     const open = asks.filter((a) => a.status === 'open')
     const done = asks.filter((a) => a.status === 'answered' || a.status === 'skipped')
     // NOTHING TO COUNT BEFORE A SITE IS SHOWN: the empty placeholder view has no
-    // phase, and "all done" there would be a claim about a plan nobody has read.
-    progress.hidden = !view.phase
+    // stages, and "all done" there would be a claim about a plan nobody has read.
+    progress.hidden = !(view.stages ?? []).length
     progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : PLAN_ALL_ANSWERED
     const active = document.activeElement
     const drawn = new Map()
@@ -545,7 +639,7 @@ export function createPlanPanel(options = {}) {
     }
   }
 
-  render({ phase: '', asks: [], comps: [] })
+  render({ stages: [], asks: [], comps: [] })
 
   return {
     element,
@@ -557,10 +651,15 @@ export function createPlanPanel(options = {}) {
       blocks.clear()
       compBlocks.clear()
       error.hidden = true
-      render({ phase: '', asks: [], comps: [] })
+      render({ stages: [], asks: [], comps: [] })
       return refresh()
     },
     refresh,
+    /** [[REQ-390]] — a turn is running, or not: the current stage spins while it is. */
+    setBusy(next) {
+      busy = Boolean(next)
+      drawStages(last?.stages ?? [])
+    },
     /** The comp board as last drawn ([[REQ-378]]). */
     comps: () => last?.comps ?? [],
     destroy() {

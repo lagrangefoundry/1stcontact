@@ -184,10 +184,11 @@ describe('REQ-364 — the client answers in the panel', () => {
 
     // The panel's read draws what was stored, in its order, and nothing more.
     const view = (await (await ask(`${PLAN_PATH}?site=${encodeURIComponent(key)}`)).json()) as {
-      phase: string
+      stages: { id: string; state: string }[]
       asks: PlanAsk[]
     }
-    expect(view.phase).toBe('intake')
+    // [[REQ-390]] — the stages replace the phase: a new plan is getting to know you.
+    expect(view.stages.find((s) => s.state === 'in_progress')?.id).toBe('getting_to_know_you')
     // [[REQ-379]] — a new plan starts with the features ask, first in its order.
     expect(view.asks.map((a) => a.id)).toEqual(['features', 'callout_fee', 'phone', 'towns', 'licence'])
 

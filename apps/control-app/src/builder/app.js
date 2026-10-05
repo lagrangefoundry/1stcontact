@@ -1136,6 +1136,8 @@ export function mountBuilder(root, options = {}) {
     // re-reads, with no reload and no message.
     onPlanChanged: () => void planPanel.refresh(),
     onTurnEnd: () => void planPanel.refresh(),
+    // [[REQ-390]] — while a turn runs, the panel's current stage spins.
+    onBusy: (busy) => planPanel.setBusy(busy),
   })
 
   /**
