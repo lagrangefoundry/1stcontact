@@ -6,7 +6,7 @@
  * THE REAL BUILDER, mounted in jsdom against the installed `webui-*` components,
  * with the origin replaced at the transports it already takes — the chat's and
  * the plan panel's. What is read for evidence is what the client would see (the
- * phase line, each ask's control) and what reached the transport (each answer,
+ * stage tracker, each ask's control) and what reached the transport (each answer,
  * each re-read), never a variable on the way past. The plan views fed in are the
  * shape `/api/plan` answers; the server half is the workers suite's.
  */
@@ -16,7 +16,6 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 type Handle = Record<string, any>
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => Handle
-let PLAN_PHASE_LABELS: Record<string, string>
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-364 panel suites skipped: ${WEBUI_SKIP_REASON}`)
 
@@ -51,8 +50,14 @@ const ask = (id: string, input: string, extra: Record<string, unknown> = {}) => 
   ...extra,
 })
 
+/** [[REQ-390]] — the tracker a view carries: the stages replace the old phase. */
+const STAGES = [
+  { id: 'getting_to_know_you', label: 'Getting to know you', state: 'done' },
+  { id: 'first_draft', label: 'First draft', state: 'in_progress' },
+]
+
 const VIEW = {
-  phase: 'first_pass',
+  stages: STAGES,
   asks: [
     ask('name', 'text', { accepts_upload: true }),
     ask('vans', 'number'),
@@ -108,7 +113,6 @@ function chatTransport(events: Record<string, unknown>[] = []) {
 beforeAll(async () => {
   if (WEBUI_INSTALLED) {
     ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
-    ;({ PLAN_PHASE_LABELS } = await import('../apps/control-app/src/builder/config.js'))
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -138,7 +142,7 @@ const block = (app: Handle, id: string): HTMLElement | null =>
   app.planPanel.element.querySelector(`[data-ask="${id}"]`)
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-364 — the panel draws the plan', () => {
-  it('test_UAT_FC_REQ-364_the_panel_shows_the_phase_and_each_open_ask_with_the_input_its_type_takes', async () => {
+  it('test_UAT_FC_REQ-364_the_panel_shows_the_stages_and_each_open_ask_with_the_input_its_type_takes', async () => {
     const plan = planTransport()
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage(), chatTransport: chatTransport(), planTransport: plan })
     await settle()
@@ -149,8 +153,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-364 — the panel draws the plan', () => 
     expect(app.split.element.contains(app.planSplit.element)).toBe(true)
 
     const text = app.planPanel.element.textContent ?? ''
-    expect(text).toContain(PLAN_PHASE_LABELS.first_pass)
-    expect(text).toContain('Rough first version')
+    // [[REQ-390]] — the stage tracker, where the phase line was.
+    expect(text).toContain('First draft')
     expect(text).toContain('Why fee matters.')
 
     const input = (id: string) => block(app, id)?.querySelector('input.plan-ask__input') as HTMLInputElement | null
@@ -211,7 +215,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-364 — the panel draws the plan', () => 
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-364 — the panel re-reads when the plan may have moved', () => {
   it('test_UAT_FC_REQ-364_the_panel_rereads_when_a_turn_writes_the_plan_and_when_it_ends', async () => {
-    const plan = planTransport({ phase: 'intake', asks: [] })
+    const plan = planTransport({ stages: STAGES, asks: [] })
     let release = (): void => {}
     const held = new Promise<void>((r) => {
       release = r
@@ -224,7 +228,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-364 — the panel re-reads when the plan 
         openSession: async (slug: string) => ({ sessionId: `site-${slug}`, turns: [], ready: true }),
         streamPrompt: async function* () {
           // The agent adds an ask mid-turn…
-          plan.set({ phase: 'intake', asks: [ask('fee', 'currency')] })
+          plan.set({ stages: STAGES, asks: [ask('fee', 'currency')] })
           yield { kind: 'plan_changed', content: '', meta: { at: 1, changes: 1 } }
           yield { kind: 'text', content: 'Working on it.' }
           await held

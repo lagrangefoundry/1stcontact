@@ -21,9 +21,22 @@
     "catalogue (`options_from`), so the catalogue is stated once. Answering it fills",
     "the plan's `functionality`, which is what gives \"are we done?\" something to",
     "be measured against. A feature outside the catalogue can still be recorded",
-    "with `set_feature`; the catalogue is what the client is offered, not a limit."
+    "with `set_feature`; the catalogue is what the client is offered, not a limit.",
+    "",
+    "[[REQ-390]] — `stages` are the build's stages as the client's tracker shows",
+    "them, in the order it shows them (operator-approved wording). The consultant",
+    "marks each not started, in progress or done, in any order. A new plan starts",
+    "with the first in progress."
   ],
-  "phase": "intake",
+  "stages": [
+    { "id": "getting_to_know_you", "label": "Getting to know you" },
+    { "id": "other_sites", "label": "Looking at other sites" },
+    { "id": "first_draft", "label": "First draft" },
+    { "id": "refining", "label": "Refining" },
+    { "id": "colours_and_fonts", "label": "Colours & fonts" },
+    { "id": "finishing_touches", "label": "Finishing touches" },
+    { "id": "ready_to_publish", "label": "Ready to publish" }
+  ],
   "feature_catalogue": [
     "A contact form",
     "Click-to-call phone number",

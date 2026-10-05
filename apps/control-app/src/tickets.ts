@@ -17,7 +17,7 @@ import { UnscopedError, type Scope } from './scope'
 import { ACCEPTANCE_SCHEMA, ACCEPTANCE_TYPE } from './acceptances'
 import { TEMPLATE_SCHEMA, TEMPLATE_TYPE } from './templates'
 import { INBOUND_EMAIL_SCHEMA, INBOUND_EMAIL_TYPE } from './inbound'
-import { PHASES, PLAN_KINDS, SITE_PLAN } from '../../../tools/generate/src/cli/ai/plan-core'
+import { PLAN_KINDS, SITE_PLAN } from '../../../tools/generate/src/cli/ai/plan-core'
 
 /**
  * The product ticket store (REQ-162) — [[DOC-38]] §6, [[DOC-10]] §8.
@@ -414,7 +414,10 @@ export function productTypePack(): ProductTypePack {
         // THE STORE-MINTED SITE KEY ([[DOC-45]] §6): sites carry no slug. One
         // plan per (`kind`, `site_key`), enforced by `plan.ts`.
         site_key: { type: 'string', required: true },
-        phase: { type: 'enum', enum: [...PHASES] },
+        // [[REQ-390]] — the build's stages, each with its state. A plan stored
+        // with the old `phase` keeps it (an undeclared field is legal) and is
+        // migrated onto stages when it is read (`plan.ts`).
+        stages: { type: 'list' },
         brief: { type: 'object' },
         functionality: { type: 'list' },
         decisions: { type: 'list' },

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 /**
- * [[REQ-379]] — **the progress line under the plan panel's phase**: how many
+ * [[REQ-379]] — **the progress line under the plan panel's stage tracker**: how many
  * questions are still for the client to answer, or that they are all done.
  *
  * The harness is REQ-364's panel suite's:
  * THE REAL BUILDER, mounted in jsdom against the installed `webui-*` components,
  * with the origin replaced at the transports it already takes — the chat's and
  * the plan panel's. What is read for evidence is what the client would see (the
- * phase line, each ask's control) and what reached the transport (each answer,
+ * stage tracker, each ask's control) and what reached the transport (each answer,
  * each re-read), never a variable on the way past. The plan views fed in are the
  * shape `/api/plan` answers; the server half is the workers suite's.
  */
@@ -17,7 +17,6 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 type Handle = Record<string, any>
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => Handle
-let PLAN_PHASE_LABELS: Record<string, string>
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-379 panel suites skipped: ${WEBUI_SKIP_REASON}`)
 
@@ -52,8 +51,14 @@ const ask = (id: string, input: string, extra: Record<string, unknown> = {}) => 
   ...extra,
 })
 
+/** [[REQ-390]] — the tracker a view carries: the stages replace the old phase. */
+const STAGES = [
+  { id: 'getting_to_know_you', label: 'Getting to know you', state: 'done' },
+  { id: 'first_draft', label: 'First draft', state: 'in_progress' },
+]
+
 const VIEW = {
-  phase: 'first_pass',
+  stages: STAGES,
   asks: [
     ask('name', 'text', { accepts_upload: true }),
     ask('vans', 'number'),
@@ -109,7 +114,6 @@ function chatTransport(events: Record<string, unknown>[] = []) {
 beforeAll(async () => {
   if (WEBUI_INSTALLED) {
     ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
-    ;({ PLAN_PHASE_LABELS } = await import('../apps/control-app/src/builder/config.js'))
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -145,7 +149,7 @@ const progress = (app: Handle): string =>
 describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for the client', () => {
   it('test_UAT_FC_REQ-379_the_panel_shows_how_many_questions_are_still_to_answer_and_all_done_at_zero', async () => {
     const plan = planTransport({
-      phase: 'intake',
+      stages: STAGES,
       asks: [
         ask('phone', 'phone'),
         ask('hours', 'text'),
@@ -158,15 +162,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage(), chatTransport: chatTransport(), planTransport: plan })
     await settle()
 
-    // DIRECTLY UNDER THE PHASE HEADING.
-    const phase = app.planPanel.element.querySelector('.plan-panel__phase') as HTMLElement
-    expect(phase.textContent).toBe(PLAN_PHASE_LABELS.intake)
-    expect((phase.nextElementSibling as HTMLElement).classList.contains('plan-panel__progress')).toBe(true)
+    // DIRECTLY UNDER THE STAGE TRACKER ([[REQ-390]] replaced the phase heading).
+    const tracker = app.planPanel.element.querySelector('.plan-stages') as HTMLElement
+    expect(tracker).toBe(app.planPanel.element.firstElementChild)
+    expect((tracker.nextElementSibling as HTMLElement).classList.contains('plan-panel__progress')).toBe(true)
     expect(progress(app)).toBe('3 questions still to answer')
 
     // ANSWERING ONE UPDATES IT AS SOON AS THE ANSWER IS SAVED, with no turn run.
     plan.set({
-      phase: 'intake',
+      stages: STAGES,
       asks: [
         ask('phone', 'phone', { status: 'answered', answer: '0117 000', answered_by: 'client' }),
         ask('hours', 'text'),
@@ -181,18 +185,18 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for
     expect(progress(app)).toBe('2 questions still to answer')
 
     // ONE LEFT IS SINGULAR.
-    plan.set({ phase: 'intake', asks: [ask('hours', 'text')] })
+    plan.set({ stages: STAGES, asks: [ask('hours', 'text')] })
     await app.planPanel.refresh()
     expect(progress(app)).toBe('1 question still to answer')
 
     // NONE OPEN IS THE ALL-DONE MESSAGE.
-    plan.set({ phase: 'intake', asks: [ask('hours', 'text', { status: 'skipped', answered_by: 'client' })] })
+    plan.set({ stages: STAGES, asks: [ask('hours', 'text', { status: 'skipped', answered_by: 'client' })] })
     await app.planPanel.refresh()
     expect(progress(app)).toBe("All done — thanks, that's everything I need for now.")
   })
 
   it('test_UAT_FC_REQ-379_the_count_rises_when_the_consultant_adds_an_ask_mid_turn', async () => {
-    const plan = planTransport({ phase: 'intake', asks: [ask('phone', 'phone')] })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone', 'phone')] })
     const app = mountBuilder(root, {
       sites: SITES,
       storage: memoryStorage(),
@@ -200,7 +204,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for
       chatTransport: {
         openSession: async (slug: string) => ({ sessionId: `site-${slug}`, turns: [], ready: true }),
         streamPrompt: async function* () {
-          plan.set({ phase: 'intake', asks: [ask('phone', 'phone'), ask('fee', 'currency')] })
+          plan.set({ stages: STAGES, asks: [ask('phone', 'phone'), ask('fee', 'currency')] })
           yield { kind: 'plan_changed', content: '', meta: { at: 1, changes: 1 } }
           yield { kind: 'done' }
         },

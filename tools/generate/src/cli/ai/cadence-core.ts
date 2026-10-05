@@ -139,11 +139,8 @@ export const SLOW_TOOLS: ReadonlyMap<string, SlowTool> = new Map(
   }),
 )
 
-/**
- * The line the client sees as a slow call starts ([[REQ-386]]). `attempt` above 1
- * says the call is being tried again after an earlier one failed.
- */
-export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt: number, openAsks: number): string {
+/** What a slow call is doing, in the client's words, with its retry said. */
+function slowDoing(slow: SlowTool, input: Record<string, unknown>, attempt: number): string {
   let missing = false
   const filled = slow.doing.replace(/\{(\w+)\}/g, (_, key: string) => {
     const value = capped(flatten(input[key]), VALUE_CAP)
@@ -151,8 +148,45 @@ export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt
     return value
   })
   const doing = missing ? (slow.fallback ?? slow.doing) : filled
-  const again = attempt > 1 ? ` again (attempt ${attempt}; the last try failed)` : ''
-  return announcement(`${doing}${again} — ${ESTIMATES[slow.minutes]}.`, openAsks)
+  return `${doing}${attempt > 1 ? ` again (attempt ${attempt}; the last try failed)` : ''}`
+}
+
+/**
+ * The line the client sees as a slow call starts ([[REQ-386]]). `attempt` above 1
+ * says the call is being tried again after an earlier one failed.
+ */
+export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt: number, openAsks: number): string {
+  return announcement(`${slowDoing(slow, input, attempt)} — ${ESTIMATES[slow.minutes]}.`, openAsks)
+}
+
+/**
+ * [[REQ-390]] — the slow operation under way, as the working line beside the
+ * composer shows it: what is being done, and the estimate when there is one. A
+ * `Delegate` carries no estimate of its own; its note says how long in words.
+ */
+export interface WorkingNote {
+  doing: string
+  estimate?: string
+}
+
+/** The estimates in the working line's short form. */
+const SHORT_ESTIMATES: Record<number, string> = {
+  1: 'about 1 min',
+  5: 'about 5 min',
+  30: 'about 30 min',
+}
+
+/**
+ * [[REQ-390]] — the working line's words: "<consultant> is building your home page".
+ *
+ * A NOTE THAT STARTS WITH WHAT IS BEING DONE ("Building …", "Capturing …") reads
+ * after the name; anything else is quoted after it, because a note is the model's
+ * words and need not be a phrase that follows "is".
+ */
+export function workingText(who: string, doing: string): string {
+  const said = flatten(doing).replace(/[.\s]+$/, '')
+  if (said === '') return who
+  return /^[A-Z][a-z]+ing\b/.test(said) ? `${who} is ${said[0].toLowerCase()}${said.slice(1)}` : `${who}: ${said}`
 }
 
 /** A tool's output that says the call failed — how the Toolbox renders every refusal and host error. */
@@ -171,6 +205,8 @@ export interface CadenceHooks {
   openAsks?: () => Promise<number>
   /** A builder session completed having written the site. */
   builderCompleted?: () => Promise<void>
+  /** [[REQ-390]] — a slow operation was announced; the working line shows it. */
+  working?: (note: WorkingNote) => void
 }
 
 /**
@@ -207,12 +243,27 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
       const name = event.meta?.name as string | undefined
       const input = (event.meta?.input ?? {}) as Record<string, unknown>
       let line: string | null = null
-      if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL && !delegated) {
+      let note: WorkingNote | null = null
+      if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL) {
+        // EVERY DELEGATE MOVES THE WORKING LINE; only the first is announced.
+        const said = flatten(input[DELEGATE_NOTE])
+        note = { doing: said === '' ? FALLBACK_NOTE : capped(said, NOTE_CAP) }
+        if (!delegated) line = statusLine(input[DELEGATE_NOTE], await waiting())
         delegated = true
-        line = statusLine(input[DELEGATE_NOTE], await waiting())
       } else if (event.kind === TOOL_ISSUE && name !== undefined && SLOW_TOOLS.has(name)) {
+        const slow = SLOW_TOOLS.get(name)!
         const attempt = (failures.get(callKey(name, input)) ?? 0) + 1
-        line = slowLine(SLOW_TOOLS.get(name)!, input, attempt, await waiting())
+        line = slowLine(slow, input, attempt, await waiting())
+        note = { doing: slowDoing(slow, input, attempt), estimate: SHORT_ESTIMATES[slow.minutes] }
+      }
+      // [[REQ-390]] — TOLD BEFORE THE LINE IS YIELDED, so the host has the note by
+      // the time the line reaches it and can put it on the stream right behind.
+      if (note && hooks.working) {
+        try {
+          hooks.working(note)
+        } catch {
+          // A working line missed is not a turn lost.
+        }
       }
       if (line !== null) {
         yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${line}\n\n` }

@@ -1190,9 +1190,94 @@ body {
   font-size: 0.9rem;
 }
 
-.plan-panel__phase {
+/*
+ * [[REQ-390]] — the stage tracker: one or two lines at normal width, so it never
+ * pushes the questions out of sight. Collapsed, only the current stage shows.
+ */
+.plan-stages {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.plan-stages__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  flex: 1;
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.plan-stage[data-state='done'] {
+  color: var(--shell-fg, #18181b);
+}
+
+.plan-stage[data-state='done'] .plan-stage__mark {
+  color: var(--shell-success, #15803d);
+}
+
+.plan-stage[data-state='in_progress'] {
   font-weight: 600;
   color: var(--shell-fg, #18181b);
+}
+
+.plan-stages--collapsed .plan-stage:not([data-state='in_progress']) {
+  display: none;
+}
+
+.plan-stage__mark {
+  display: inline-block;
+  width: 0.9em;
+  text-align: center;
+}
+
+.plan-stage__spinner {
+  width: 0.7em;
+  height: 0.7em;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: plan-stage-spin 0.9s linear infinite;
+}
+
+@keyframes plan-stage-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.plan-stages__toggle {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  cursor: pointer;
+  color: var(--shell-fg-muted, #71717a);
+  font-size: 0.8rem;
+}
+
+/* [[REQ-390]] — the working line, immediately above the composer. */
+.builder-chat-working {
+  padding: 2px 12px;
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask__input.plan-ask__input--long {
+  flex-basis: 100%;
+  resize: vertical;
+  overflow: hidden;
+  font: inherit;
 }
 
 .plan-panel__progress {

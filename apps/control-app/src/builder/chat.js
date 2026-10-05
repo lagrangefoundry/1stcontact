@@ -50,7 +50,7 @@
  */
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
-import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE } from './config.js'
+import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE, WORKING_IDLE, WORKING_SO_FAR } from './config.js'
 import { stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
@@ -188,6 +188,63 @@ async function* watchForWrites(events, told) {
     } catch {
       // Deliberately swallowed; see above.
     }
+  }
+}
+
+/**
+ * `host-core.ts`'s `WORKING` ([[REQ-390]]): the slow operation under way, in the
+ * words the working line shows.
+ */
+const WORKING = 'working'
+
+/** The working line's class, for `builder.css` and the tests ([[REQ-390]]). */
+export const WORKING_LINE_CLASS = 'builder-chat-working'
+
+/** An elapsed time as the working line counts it: `0:42`, `12:05`, `1:02:09`. */
+export function elapsedText(ms) {
+  const total = Math.max(0, Math.floor(ms / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = String(total % 60).padStart(2, '0')
+  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
+}
+
+/**
+ * The working line's words ([[REQ-390]]): *"<consultant> is building your home page ·
+ * about 5 min · 2:14 so far"*, or *"Working · 0:42 so far"* with no note.
+ */
+export function workingLineText(note, elapsedMs) {
+  return [note?.content || WORKING_IDLE, note?.meta?.estimate, WORKING_SO_FAR(elapsedText(elapsedMs))]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+/**
+ * Pass a turn through, with the working line up for as long as it runs
+ * ([[REQ-390]]).
+ *
+ * MOVEMENT, NOT JUST A STOP BUTTON. Before this the red stop button was the only
+ * sign the consultant was busy. The line sits beside the composer from the turn's
+ * first moment to its last, counting up, and says what is under way whenever the
+ * host has said so — each `working` frame replacing the last. The frame goes no
+ * further: `webui-chat` has no use for it.
+ *
+ * DOWN WHEN THE TURN ENDS BY ANY ROAD — `done`, a lost stream, a thrown one — for
+ * {@link withProgressLine}'s reason.
+ */
+async function* withWorkingLine(events, line) {
+  line.start()
+  try {
+    for await (const event of events) {
+      if (event?.kind === WORKING) {
+        line.note(event)
+        continue
+      }
+      if (event?.kind === 'done') line.stop()
+      yield event
+    }
+  } finally {
+    line.stop()
   }
 }
 
@@ -365,6 +422,13 @@ const RECOVERY_CHASES = 3
  *   [[REQ-364]] — an agent wrote the site's plan during the turn.
  * @param {() => void} [options.onTurnEnd]
  *   [[REQ-364]] — a turn (or a room's exchange) ended.
+ * @param {(busy: boolean) => void} [options.onBusy]
+ *   [[REQ-390]] — a turn started running, or stopped: the working line went up or
+ *   came down.
+ * @param {() => number} [options.now] the working line's clock ([[REQ-390]]).
+ * @param {(fn: () => void, ms: number) => () => void} [options.every]
+ *   how the working line ticks, answering how to stop it. Seams for tests, as
+ *   `wait` is.
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -414,6 +478,12 @@ export function createChatPanel(options = {}) {
     onRoomActivity = () => {},
     onPlanChanged = () => {},
     onTurnEnd = () => {},
+    onBusy = () => {},
+    now = () => Date.now(),
+    every = (fn, ms) => {
+      const id = setInterval(fn, ms)
+      return () => clearInterval(id)
+    },
     expandPrompt = (markdown) => markdown,
     promptView = () => null,
     onImageClick = null,
@@ -489,6 +559,58 @@ export function createChatPanel(options = {}) {
     clear() {
       this.el?.remove()
       this.el = null
+    },
+  }
+
+  /**
+   * The working line ([[REQ-390]]) — see {@link withWorkingLine}.
+   *
+   * IMMEDIATELY ABOVE THE COMPOSER, which is where the stop button the client is
+   * looking at already is. It ticks once a second off `now`, and tells the host
+   * the conversation is busy (`onBusy`) as it goes up and comes down, which is
+   * what animates the plan panel's current stage.
+   */
+  const workingLine = {
+    el: null,
+    since: 0,
+    current: null,
+    cancel: null,
+    paint() {
+      if (this.el) this.el.textContent = workingLineText(this.current, now() - this.since)
+    },
+    start() {
+      if (this.cancel) return
+      this.since = now()
+      this.current = null
+      this.el = document.createElement('div')
+      this.el.className = WORKING_LINE_CLASS
+      this.el.setAttribute('role', 'status')
+      const bar = element.querySelector('.chat-widget-input-bar')
+      if (bar) bar.before(this.el)
+      else element.append(this.el)
+      this.paint()
+      this.cancel = every(() => this.paint(), 1000)
+      try {
+        onBusy(true)
+      } catch {
+        // The plan panel's spinner is not the turn's business.
+      }
+    },
+    note(event) {
+      this.current = { content: String(event.content ?? ''), meta: event.meta ?? {} }
+      this.paint()
+    },
+    stop() {
+      if (!this.cancel) return
+      this.cancel()
+      this.cancel = null
+      this.el?.remove()
+      this.el = null
+      try {
+        onBusy(false)
+      } catch {
+        // As above.
+      }
     },
   }
 
@@ -813,7 +935,7 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(withProgressLine(transport.streamPrompt(id, wire, promptView()), progressLine), told)
+        return watchForWrites(withWorkingLine(withProgressLine(transport.streamPrompt(id, wire, promptView()), progressLine), workingLine), told)
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
@@ -872,7 +994,7 @@ export function createChatPanel(options = {}) {
     // reloaded page the one place edits happen invisibly, which is the failure
     // that had them reloading in the first place.
     Promise.resolve(
-      chat.resume(watchForWrites(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), told), {
+      chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), workingLine), told), {
         markdown: seed?.markdown ?? '',
         // THE SEEDED TURN IS A TRANSCRIPT TURN TOO ([[BUG-138]]). It is not
         // appended by the loop above — it is handed to `resume` so the half
@@ -1086,7 +1208,7 @@ export function createChatPanel(options = {}) {
           // held by the one that set it up.
           chasing = false
           Promise.resolve(
-            chat.resume(watchForWrites(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), told), {
+            chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), workingLine), told), {
               // THE PANEL'S OWN PARTIAL, not the transcript's. What `resume`
               // continues is the bubble on screen, and the origin's fold stops at
               // the cursor the tail is about to resume FROM — so seeding from the

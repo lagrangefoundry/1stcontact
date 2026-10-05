@@ -195,7 +195,7 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
 })
 
 describe('REQ-379 — milestones fall due as facts', () => {
-  it('test_UAT_FC_REQ-379_a_completed_first_builder_session_makes_layout_happy_due_and_flags_the_stale_phase_until_the_consultant_acts', async () => {
+  it('test_UAT_FC_REQ-379_a_completed_first_builder_session_makes_layout_happy_due_and_flags_the_stale_stages_until_the_consultant_acts', async () => {
     configureDelegation(ENABLED)
     const { site: key, sessionId } = await site()
     await turn(
@@ -206,23 +206,26 @@ describe('REQ-379 — milestones fall due as facts', () => {
 
     const stored = await storedPlan(key)
     expect(stored.milestones?.first_pass_at).toBeTruthy()
-    expect(stored.phase).toBe('intake')
+    expect(stored.stages.find((s) => s.state === 'in_progress')?.id).toBe('getting_to_know_you')
     expect(stored.checks.find((c) => c.id === 'layout_happy')?.due?.trigger).toBe('first_pass_complete')
 
-    // THE NEXT TURN IS TOLD, AS FACTS: the milestone is due and the phase is behind.
+    // THE NEXT TURN IS TOLD, AS FACTS: the milestone is due and the stages are behind ([[REQ-390]]).
     const next = await turn(
       sessionId,
       'What do you think?',
       scriptedClient([
         calls('ask_check', { check: 'layout_happy' }),
         calls('record_check_answer', { check: 'layout_happy', by: 'user', verdict: 'yes', note: 'Looks right to me.' }),
-        calls('set_phase', { phase: 'first_pass' }),
+        calls('set_stage', { stage: 'getting_to_know_you', state: 'done' }),
+        calls('set_stage', { stage: 'first_draft', state: 'in_progress' }),
         says('Noted.'),
       ]),
     )
     const tail = turnTailText(next.seen[0])
     expect(tail).toContain('Due: ask the client "Are we all happy with the layout?" (layout_happy) — the first pass is built.')
-    expect(tail).toContain('The phase is behind the build: it still says intake, but pages have been built. Move it on to first_pass with set_phase.')
+    expect(tail).toContain(
+      'The stages are behind the build: pages have been built, but "Getting to know you" is still the stage in progress. Tick the stages that are done and start "First draft" (first_draft) with set_stage.',
+    )
 
     // THE CONSULTANT CAN ACT ON BOTH, and what it records is in the plan's checks.
     const after = await storedPlan(key)
@@ -230,12 +233,15 @@ describe('REQ-379 — milestones fall due as facts', () => {
     expect(layout.due).toBeUndefined()
     expect(layout.asked_at).toBeTruthy()
     expect(layout.answers).toEqual([{ by: 'user', verdict: 'yes', note: 'Looks right to me.' }])
-    expect(after.phase).toBe('first_pass')
+    expect(after.stages.filter((s) => s.state !== 'not_started')).toEqual([
+      { id: 'getting_to_know_you', state: 'done' },
+      { id: 'first_draft', state: 'in_progress' },
+    ])
 
     const third = await turn(sessionId, 'Thanks.', scriptedClient([says('Any time.')]))
     const quiet = turnTailText(third.seen[0])
     expect(quiet).not.toContain('Are we all happy with the layout?" (layout_happy)')
-    expect(quiet).not.toContain('The phase is behind the build')
+    expect(quiet).not.toContain('The stages are behind the build')
   })
 
   it('test_UAT_FC_REQ-379_a_later_builder_session_is_a_revision_round_and_layout_happy_falls_due_again', async () => {
@@ -289,7 +295,7 @@ describe('REQ-379 — milestones fall due as facts', () => {
     const next = await turn(sessionId, 'Is it ready?', scriptedClient([says('Nearly.')]))
     const tail = turnTailText(next.seen[0])
     expect(tail).toContain('Due: ask the client "Have we looked at it on a phone?" (seen_on_phone) — Publish has been opened.')
-    expect(tail).toContain('Move it on to prelaunch with set_phase.')
+    expect(tail).toContain('start "Finishing touches" (finishing_touches) with set_stage.')
   })
 })
 
