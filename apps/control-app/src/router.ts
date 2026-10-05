@@ -1,4 +1,5 @@
 import {
+  editAlternativeChoose,
   editAssetList,
   editCopyGet,
   editCopySet,
@@ -366,11 +367,13 @@ import {
   CLIENT,
   CLIENT_ACTIONS,
   clientAnswer,
+  lookChosen,
   noteList,
   notedComp,
   panelView,
   publishOpened,
   removeComp,
+  type LookChoice,
   type Plan,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -5663,6 +5666,49 @@ async function routeUncached(
         return json(400, { error: 'site, page and subject are required' })
       }
       return json(200, (await editPageUpdate(site, page, { ...(await edit()), subject })).data)
+    }
+
+    /**
+     * POST /api/pages/choose — "Choose this one" under a look in the carousel
+     * ([[REQ-391]]).
+     *
+     * ONE ACTION, TWO RECORDS. The look goes onto the real page through
+     * `editAlternativeChoose` — the same call the consultant's
+     * `choose_look` makes — and the choice goes into the plan as a settled
+     * decision, with the set and the looks not chosen. The client pressed the
+     * button, so the answer the decision carries is that: their choice, made
+     * with the looks in front of them.
+     *
+     * THE SITE FIRST. A choice the plan recorded and the page never took would be
+     * a decision about a site that does not exist; the other order fails safe. A
+     * refusal from the command arrives as itself, as on `/api/pages/subject`.
+     */
+    if (p === '/api/pages/choose' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      const look = typeof body.look === 'string' ? body.look : ''
+      if (site === '' || look === '') return json(400, { error: 'site and look are required' })
+      const out = await editAlternativeChoose(site, look, await edit())
+      const choice = out.data as unknown as LookChoice
+      // A deployment with no ticket store (the `1c` dev builder) keeps no plan:
+      // the look is chosen and there is nowhere to record it.
+      let tickets: TicketStore
+      try {
+        tickets = await openTickets()
+      } catch (err) {
+        if (err instanceof BlobsNotConfiguredError) return json(200, { choice, at: out.at })
+        throw err
+      }
+      const plan = sitePlan(tickets, site)
+      const quote = `Chose ${choice.chosen} in the preview, from ${[choice.chosen, ...choice.rejected].join(', ')}.`
+      const record = (current: Plan): Plan => lookChosen(current, choice, quote, new Date().toISOString())
+      try {
+        await plan.write(record)
+      } catch (err) {
+        if ((err as { code?: string }).code !== 'CONFLICT') throw err
+        await plan.write(record)
+      }
+      return json(200, { choice, at: out.at })
     }
 
     /**

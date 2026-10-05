@@ -59,6 +59,12 @@
     },
     "NO_COMPS": {
       "message": "this host keeps no comp board, so nothing was written."
+    },
+    "UNKNOWN_LOOK": {
+      "message": "that is not a look on offer — list the pages to see the looks a set holds. Nothing was written, and the site and the plan are exactly as they were."
+    },
+    "NO_LOOKS": {
+      "message": "this host cannot put a look on the site from the plan, so nothing was written."
     }
   },
   "operations": [
@@ -135,6 +141,19 @@
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_DECISION", "UNKNOWN_COMP", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "choose_look",
+      "tool": "choose_look",
+      "effect": "write",
+      "summary": "Put the look your client chose onto the real page, and record their choice — only when they have said which one they want.",
+      "description": "Your client normally does this themselves, with **Choose this one** under the look in the preview's carousel. Use this when they tell you in the conversation instead — never on your own judgement, because it is their decision.\n\nThe page keeps its address, title and search description and takes everything the look changed. The choice is recorded as a settled decision in their words, with the set and the looks not chosen. Every look in the set is set aside, out of the carousel; the page as it was is kept as a look labelled \"Before …\", and choosing that one puts it back.",
+      "params": {
+        "look": { "type": "string", "required": true, "description": "The page id of the look they chose — from list_pages, where each look carries its set and label." },
+        "client_said": { "type": "string", "required": true, "description": "What your client said when they chose it, in their words. It is recorded with the decision." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["UNKNOWN_LOOK", "NO_LOOKS", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "set_task",
@@ -359,8 +378,8 @@
       "group": "PlanWork",
       "effect": "write",
       "title": "Planning the work",
-      "description": "The consultant's part: proposing decisions, owning the tasks, and answering checks.",
-      "operations": ["set_decision", "set_task", "answer_check"]
+      "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, and putting a look the client chose onto their page.",
+      "operations": ["set_decision", "set_task", "answer_check", "choose_look"]
     },
     {
       "group": "CoordinatePlan",

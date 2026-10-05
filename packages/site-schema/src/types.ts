@@ -29,6 +29,7 @@ import type {
   navPatternSchema,
   navTargetSchema,
   pageSchema,
+  pageAlternativeSchema,
   radiusTokensSchema,
   seoMetaSchema,
   shadowTokensSchema,
@@ -89,6 +90,8 @@ export type MotionType = z.infer<typeof motionTypeSchema>
 export type MotionTrigger = z.infer<typeof motionTriggerSchema>
 export type MotionEasing = z.infer<typeof motionEasingSchema>
 export type SeoMeta = z.infer<typeof seoMetaSchema>
+/** [[REQ-391]] — a page offered as one look for another page. */
+export type PageAlternative = z.infer<typeof pageAlternativeSchema>
 export type TextRun = z.infer<typeof textRunSchema>
 export type TextRunGradient = z.infer<typeof textRunGradientSchema>
 

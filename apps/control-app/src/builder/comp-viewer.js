@@ -19,16 +19,18 @@
  *
  * IT HOLDS THE COMPS IT WAS OPENED WITH and which one is shown; everything else is
  * drawn from them. `mount(host)` is the pane mode's `mount`.
+ *
+ * THE SAME CAROUSEL AS THE LOOKS ([[REQ-391]]) — ‹ Duncan Plumbing · 1 of 3 › —
+ * without "Choose this one", because a comp is never chosen onto the site.
  */
 import { materialFileUrl } from './api.js'
+import { carouselNav } from './carousel.js'
 import {
   COMP_BACK,
   COMP_DESKTOP,
   COMP_MOTION_NOTE,
-  COMP_NEXT,
   COMP_NO_PICTURE,
   COMP_PHONE,
-  COMP_PREVIOUS,
   COMP_VIEWING,
   COMP_VISIT,
 } from './config.js'
@@ -80,15 +82,9 @@ export function createCompViewer({ onBack }) {
     const banner = el('div', 'comp-viewer__banner')
     banner.append(
       button('comp-viewer__back', COMP_BACK, () => onBack()),
-      el('span', 'comp-viewer__title', COMP_VIEWING(comp.title)),
+      el('span', 'comp-viewer__title', COMP_VIEWING),
+      carouselNav({ label: comp.title, index, count: comps.length, onMove: show }),
     )
-    const nav = el('span', 'comp-viewer__nav')
-    const prev = button('comp-viewer__prev', COMP_PREVIOUS, () => show(index - 1))
-    const next = button('comp-viewer__next', COMP_NEXT, () => show(index + 1))
-    prev.disabled = index === 0
-    next.disabled = index >= comps.length - 1
-    nav.append(prev, el('span', 'comp-viewer__count', `${index + 1} / ${comps.length}`), next)
-    banner.append(nav)
     // [[REQ-388]] — the same segmented control the preview's width uses.
     const widths = el('span', 'comp-viewer__widths builder-segmented')
     widths.setAttribute('role', 'group')

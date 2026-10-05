@@ -257,7 +257,7 @@ export class PreviewRenderer {
       // surface, it is what the public surface was, and an operator asking what
       // a message said in revision 3 is asking the same question as an operator
       // asking what it says now.
-      emailPages: true,
+      unpublishedPages: true,
     })
     this.cache.set(key, { stamp: snapshot.stamp, rendered })
     return rendered

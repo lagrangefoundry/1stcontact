@@ -3,6 +3,7 @@ import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
 import { createCompViewer } from './comp-viewer.js'
+import { LOOKS_MODE, compareLooksAction, createLooks, lookCarouselAction } from './looks.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
@@ -62,6 +63,7 @@ import {
   subjectAction,
 } from './toolbar.js'
 import {
+  chooseLook,
   fetchFonts,
   fetchMaterialItem,
   fetchPages,
@@ -645,7 +647,16 @@ export function mountBuilder(root, options = {}) {
     site: sites[0]?.site ?? null,
     // The pane is about to re-derive what it shows; take what the outgoing
     // document holds before the URL that replaces it is computed from it.
-    onBeforeNavigate: () => carry.capture(panel.frame?.contentWindow),
+    // [[REQ-391]] — never a look: the draft is where "Back to your draft" goes,
+    // and a look is not a page of it. `shownMode` is the mode the outgoing
+    // document belongs to, which the pane has already moved past by now.
+    onBeforeNavigate: () => {
+      if (shownMode !== LOOKS_MODE) carry.capture(panel.frame?.contentWindow)
+    },
+  })
+  let shownMode = panel.getMode()
+  panel.on('mode', (mode) => {
+    shownMode = mode
   })
 
   /**
@@ -673,7 +684,19 @@ export function mountBuilder(root, options = {}) {
       // `preview-width` in BOTH, directly before "Open in new tab" ([[REQ-388]]):
       // the width the draft is looked at is a property of looking, not of one
       // channel, so it holds across the flip.
-      actions: ['mode-toggle', 'pages', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish'],
+      //
+      // `compare-looks` directly after `pages` in BOTH ([[REQ-391]]): the looks
+      // offered for a page are reached from beside the control that names it.
+      actions: [
+        'mode-toggle',
+        'pages',
+        'compare-looks',
+        'colors',
+        'preview-width',
+        'open-new-tab',
+        'phone-preview',
+        'publish',
+      ],
     })
     .registerMode({
       id: 'edit',
@@ -704,6 +727,7 @@ export function mountBuilder(root, options = {}) {
       actions: [
         'mode-toggle',
         'pages',
+        'compare-looks',
         'subject',
         'mark-points',
         'panels',
@@ -725,6 +749,18 @@ export function mountBuilder(root, options = {}) {
       transient: true,
       mount: (host) => compViewer.mount(host),
       actions: [],
+    })
+    // [[REQ-391]] — A SET OF LOOKS, COMPARED. Entered only from "Compare looks"
+    // or a link in the chat, never offered by the toggle and never remembered.
+    // A document mode — a look is this site's own draft page, shown live — so
+    // the width control and "Open in new tab" work on it unchanged; its own bar
+    // is the carousel, and nothing on the strip edits or publishes.
+    .registerMode({
+      id: LOOKS_MODE,
+      label: 'Looks',
+      transient: true,
+      src: ({ site }) => looks.src(site),
+      actions: ['looks', 'preview-width', 'open-new-tab'],
     })
     .restore()
 
@@ -965,6 +1001,35 @@ export function mountBuilder(root, options = {}) {
     storage: shell.storage(STORAGE_KEYS.previewWidth),
   })
 
+  /** [[REQ-391]] — the looks offered for a page, and the carousel that shows them. */
+  const looks = createLooks({
+    panel,
+    pages,
+    getSite: () => currentSite,
+    choose: pagesTransport?.chooseLook ?? chooseLook,
+  })
+  panel.on('mode', (mode) => {
+    if (mode === LOOKS_MODE) looks.shown()
+  })
+
+  /**
+   * A link in the conversation that names a set of looks — `#looks=<set>`, as
+   * the consultant's `make_alternatives` hands it over — opens that set in the
+   * carousel ([[REQ-391]]). Any other link is the chat's to follow.
+   */
+  const openLink = (href) => {
+    const m = /^#looks=(.+)$/.exec(href ?? '')
+    if (!m) return false
+    let set = m[1]
+    try {
+      set = decodeURIComponent(set)
+    } catch {
+      /* a set name the browser could not decode is looked for as written */
+    }
+    void looks.open(set)
+    return true
+  }
+
   /** The subject write, beside the listing and from the same seam. */
   const writeSubject = pagesTransport?.saveSubject ?? saveSubject
 
@@ -980,6 +1045,8 @@ export function mountBuilder(root, options = {}) {
     actions: [
       modeToggleAction(),
       pagesAction(pages),
+      compareLooksAction(looks, pages),
+      lookCarouselAction(looks),
       subjectAction(pages, writeSubject),
       markPointsAction(points),
       panelsAction(carry),
@@ -1129,6 +1196,8 @@ export function mountBuilder(root, options = {}) {
     // this dialog reaches the row by the route every other write to a material
     // already takes.
     onImageClick: (src, alt) => void openPictureFromChat(src, alt),
+    // [[REQ-391]] — a link that opens a set of looks.
+    onLinkClick: openLink,
     // [[BUG-177]] — a member's round or the room's exchange ended, so the Debug
     // tab's view of each agent's own session has something new to show.
     onRoomActivity: () => void debug.refreshPrivate(),
@@ -1230,7 +1299,8 @@ export function mountBuilder(root, options = {}) {
      * BEFORE the bridge is mounted below, so the segments the editor binds
      * against are the ones actually on screen.
      */
-    carry.adopt(panel.frame?.contentWindow, currentSite)
+    // [[REQ-391]] — a look is not the draft page the carry returns to.
+    if (panel.getMode() !== LOOKS_MODE) carry.adopt(panel.frame?.contentWindow, currentSite)
     // No bridge supplied → no editing. The browser entry always supplies one;
     // a host that does not (a test mounting only the chrome) gets the pane and
     // the toolbar with no edit loop, rather than a module that fails to load.
@@ -1660,6 +1730,8 @@ export function mountBuilder(root, options = {}) {
     void planPanel.setSite(site ?? null)
     // [[REQ-378]] — another site's comps are not this one's: back to the draft.
     if (panel.getMode() === 'comp') panel.setMode(draftMode)
+    // [[REQ-391]] — nor are its looks.
+    if (panel.getMode() === LOOKS_MODE) looks.back()
     if (!site) {
       chat.setSession(null)
       return
@@ -1953,6 +2025,8 @@ export function mountBuilder(root, options = {}) {
     panel,
     toolbar,
     chat,
+    /** [[REQ-391]] — the looks controller, so a suite can read what the carousel holds. */
+    looks,
     /**
      * The shell's scope, and the only way to move it ([[REQ-179]]).
      *

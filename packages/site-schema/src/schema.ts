@@ -599,6 +599,33 @@ export const emailPageSchema = z
  */
 export const pageKindSchema = z.enum(['web', 'email'])
 
+/**
+ * [[REQ-391]] — this page is one LOOK in a set of alternatives for another page.
+ *
+ * METADATA, NOT A NAMING CONVENTION. Before this, a "look" was an ordinary page
+ * the consultant named `/workwear` and nobody linked to, so the builder could
+ * only describe it as unreachable and the client could only find it in the same
+ * dropdown as the real pages. Saying what it is lets every reader treat it as
+ * what it is: the renderer never publishes it, the page list leaves it out, and
+ * the preview shows its set in a carousel.
+ *
+ * `of` names the page the set offers looks for; `set` groups the looks offered
+ * together; `label` is what the client calls this one ("Workwear"), and
+ * `description` the one line under it. `archived` is a look that was set aside
+ * when another in its set was chosen — kept, so the choice can be undone.
+ */
+export const pageAlternativeSchema = z
+  .object({
+    of: z.string().min(1),
+    set: z.string().min(1),
+    label: z.string().trim().min(1, 'an alternative needs a label the client can read'),
+    description: z.string().optional(),
+    /** Where it sits in its set — the carousel's order, which the page store's own order is not. */
+    order: z.number().int().nonnegative().optional(),
+    archived: z.boolean().optional(),
+  })
+  .strict()
+
 export const pageSchema = z
   .object({
     /**
@@ -660,10 +687,26 @@ export const pageSchema = z
     /** [[REQ-247]] — the subject, placeholders and sender. Email pages only. */
     email: emailPageSchema.optional(),
     seoMeta: seoMetaSchema.optional(),
+    /** [[REQ-391]] — set when this page is a look offered for another page. */
+    alternative: pageAlternativeSchema.optional(),
     modules: z.array(moduleInstanceSchema).default([]),
     l1: l1DocumentSchema.optional(),
   })
   .superRefine((page, ctx) => {
+    if (page.alternative && page.kind === 'email') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['alternative'],
+        message: `email page '${page.id}' cannot be an alternative look — a message is never shown in the preview's carousel`,
+      })
+    }
+    if (page.alternative?.of === page.id) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['alternative', 'of'],
+        message: `page '${page.id}' cannot be an alternative of itself`,
+      })
+    }
     // [[REQ-247]] — the four things that make an email page an email page. Each
     // is a refusal rather than a silent ignore: a subject nothing sends, a
     // behaviour nothing runs and a search description nobody can search are all
@@ -1118,6 +1161,41 @@ export const siteSchema = z
      * cannot find, which reads as the builder losing their work. Naming it here
      * says which entry and which page, at the moment the entry is written.
      */
+    /*
+     * [[REQ-391]] — A LOOK IS A LOOK FOR A REAL PAGE. Its `of` must name a page
+     * the site holds, and that page must not itself be a look: a set of looks
+     * for a look is a chain nobody can choose down.
+     */
+    const byId = new Map(site.pages.map((p) => [p.id, p]))
+    site.pages.forEach((p, i) => {
+      if (!p.alternative) return
+      const target = byId.get(p.alternative.of)
+      if (!target) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pages', i, 'alternative', 'of'],
+          message: `'${p.id}' is a look for page '${p.alternative.of}', which the site does not have`,
+        })
+      } else if (target.alternative) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pages', i, 'alternative', 'of'],
+          message: `'${p.id}' is a look for '${target.id}', which is itself a look — offer looks for the real page`,
+        })
+      }
+    })
+    const looks = new Set(site.pages.filter((p) => p.alternative).map((p) => p.id))
+    site.nav.entries.forEach((entry, i) => {
+      const target = entry.target
+      if (target.kind === 'url' || !looks.has(target.pageId)) return
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nav', 'entries', i, 'target', 'pageId'],
+        message:
+          `'${entry.label}' points at '${target.pageId}', which is an alternative look and is never published — ` +
+          'choose it onto the real page instead',
+      })
+    })
     const mailed = new Set(site.pages.filter((p) => p.kind === 'email').map((p) => p.id))
     site.nav.entries.forEach((entry, i) => {
       const target = entry.target
