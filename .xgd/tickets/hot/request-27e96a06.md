@@ -6,10 +6,10 @@ title: 'Plan panel: a stage tracker the consultant ticks off, a live working lin
   and multi-line answers'
 created_by: EPIC-19
 created_at: '2026-10-04T23:28:43.974557+00:00'
-updated_at: '2026-10-04T23:28:43.974557+00:00'
+updated_at: '2026-10-05T01:23:28.710250+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 8
