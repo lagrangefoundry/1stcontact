@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-04T23:28:55.714792+00:00'
+updated_at: '2026-10-07T17:00:14.497457+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7185,5 +7185,13 @@ I've filed two tickets, both high priority under EPIC-19.
 - **The comp viewer uses the same carousel.**
 
 That brings this round's debrief tickets to three, with REQ-389 for Alice's conduct. One thing to do before the next run: deploy, so REQ-379's counter and reminders actually show. Since BUG-203, `bin/deploy --env dev` builds the browser files itself.
+
+<!-- xgd-turn id="b43d73ed-bd11-4b31-810e-d576c9facf85-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:00:14.346385+00:00" -->
+#### You
+Ok so I see the new compare looks two issues:
+1. it introduces a new mode - can't we just put the controls on the existing bar and light them up when there are comparisons available - the current draft should be considered a "comparison"
+2. the comparison pages still appear in the Page selector
 
 <!-- xgd-chat-end -->
