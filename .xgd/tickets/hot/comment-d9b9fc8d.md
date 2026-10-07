@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:13:19.555529+00:00'
+updated_at: '2026-10-07T17:16:42.301142+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5396,5 +5396,11 @@ Neither has an override, and `--force` doesn't reach it. The design says "an esc
 3. **You want a way to move a repro into the dev builder as a supported workflow.** That's code, so I'd file a ticket for it, with the rights question answered in its spec.
 
 Which one? If it's (1), I'll run it now. It will be refused with a 409 if anything has been edited in that faelan.com business since it was created.
+
+<!-- xgd-turn id="ba65a181-1431-4315-905f-11fc9e059c2f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:16:41.552381+00:00" -->
+#### You
+its my site - no need to question me on IP this is my site, Faelna is my sone
 
 <!-- xgd-chat-end -->
