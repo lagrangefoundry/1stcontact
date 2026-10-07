@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T18:00:08.602610+00:00'
+updated_at: '2026-10-07T18:00:57.286552+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7263,5 +7263,31 @@ The comp viewer shares the carousel component, so the ticket requires it to keep
 <!-- xgd-chat role="user" ts="2026-10-07T18:00:08.477118+00:00" -->
 #### You
 BTW please read the latest doc on naming the AIs - I decide that we should back off that unless we actually need two in the room
+
+<!-- xgd-turn id="c5f4c0e9-3399-4767-88aa-078e0cf343f4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T18:00:57.069691+00:00" -->
+#### Claude
+Checking where the builder still shows an AI name, against DOC-66.
+
+First, from last turn: the ticket is filed as **BUG-205**, *"Alternative looks: no separate mode, no choose button, never in the Page selector"*. It's under EPIC-19 at `draft`, 3 points, and covers:
+- the carousel controls on the existing toolbar, lit up only when the page has looks;
+- the current draft as one position in the carousel;
+- removing "Choose this one", so choosing happens in conversation through `choose_look`;
+- the Page selector never listing a look;
+- deleting the leftover `heavy` and `family` pages on Charlie 3, after checking with you.
+
+**On DOC-66.** I've read it. In a one-to-one conversation the AI has no name: it says "I", and on third-person surfaces such as history, notifications and status lines it's "your consultant", with no pronoun where the copy can avoid one. Names only come back if more than one AI is visible in the same conversation again.
+
+I checked the code against it, and one place breaks the rule:
+- **The working line.** REQ-390's line beside the composer reads *"Alice is building your home page · about 5 min · 2:14 so far"*. It takes the name from the group-chat config (`group-chat.json`, `names.consultant`) even in one-to-one mode (`host-core.ts:3574`). Under DOC-66 it should read *"Your consultant is building your home page…"*, or just *"Building your home page…"*.
+
+Everything else is consistent:
+- The `Alice`/`Bob` display names are used only by the group chat, which is off by default and is exactly DOC-66's reopen condition. They can stay there as they are.
+- The priming and DOC-64 already use roles (consultant, coordinator), not names.
+
+**For me:** from here I'll say "the consultant" in tickets and design notes, not "Alice". DOC-62 and several tickets still use the names, but they're internal, and the frozen ones can't be edited anyway.
+
+**The fix** is a one-line change plus a test. REQ-390 is frozen, so the obvious home is BUG-205 as a second builder correction from the same debrief, rather than a separate ticket. Shall I add it there?
 
 <!-- xgd-chat-end -->
