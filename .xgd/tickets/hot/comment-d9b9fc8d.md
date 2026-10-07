@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:04:10.926333+00:00'
+updated_at: '2026-10-07T19:13:41.193178+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5550,5 +5550,15 @@ bin/smoke
 ```
 
 If you'd like the deploy to check secrets you haven't changed, run `set -a; . ~/Documents/secrets/1c.dev.env; set +a` first. Otherwise they're left untested.
+
+<!-- xgd-turn id="25716490-9920-46a1-8229-8a72bc540bd0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:13:40.913597+00:00" -->
+#### You
+does the deploy script access 
+
+~/Documents/secrets/1c.dev.env
+
+or to I explicitly have to add all the secrects?
 
 <!-- xgd-chat-end -->
