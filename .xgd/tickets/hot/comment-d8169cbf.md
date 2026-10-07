@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:10:17.588768+00:00'
+updated_at: '2026-10-07T17:10:58.440811+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7242,5 +7242,20 @@ That fits naturally into the bug from last turn, together with removing the sepa
 <!-- xgd-chat role="user" ts="2026-10-07T17:10:17.453105+00:00" -->
 #### You
 Yes can you file a ticket for all these changes please
+
+<!-- xgd-turn id="6e6c1880-e889-437b-932a-746fa5faff28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:10:58.192325+00:00" -->
+#### Claude
+I've filed **BUG-205**, *"Alternative looks: no separate mode, no choose button, never in the Page selector"*, under EPIC-19. It's at `draft`, high priority, 3 points, and I've linked it from the epic.
+
+It covers everything we discussed:
+1. **No separate mode.** The carousel controls sit on the existing toolbar and light up only when the page in the pane has looks. The pane never changes mode.
+2. **The current draft is one of the looks.** You step through *Current · 1 of 3 → Heavy Duty → Family → back to Current*, with no "back to draft" exit. The animated swap stays.
+3. **No "Choose this one" button.** The carousel is just for looking. You tell Alice which look you want and why, and she uses `choose_look`, which is unchanged. In place of the button, the carousel invites you to tell her.
+4. **Looks never appear in the Page selector.** While a look is showing, the selector shows the real page it belongs to. The fallback that put the current page back into the list was what leaked the looks in.
+5. **The leftover `heavy` and `family` pages on Charlie 3.** These are a one-off data repair through the normal page-removal path, and the ticket says to check with you before deleting them.
+
+The comp viewer shares the carousel component, so the ticket requires it to keep working and REQ-378's tests are part of the regression scope.
 
 <!-- xgd-chat-end -->
