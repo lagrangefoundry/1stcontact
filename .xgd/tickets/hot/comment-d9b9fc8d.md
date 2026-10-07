@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:31:29.093439+00:00'
+updated_at: '2026-10-07T19:32:22.603020+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5726,5 +5726,36 @@ bin/copy-to-cloud --origin http://127.0.0.1:8799 --chats "<Business Name>"    # 
 <!-- xgd-chat role="user" ts="2026-10-07T19:31:28.960259+00:00" -->
 #### You
 Can we use the secrets file again - I want to make this all more streamlined
+
+<!-- xgd-turn id="775a4fd2-2a42-42cd-8902-4b65060f0d66-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:32:22.441709+00:00" -->
+#### Claude
+Yes. `--secrets-file` has already landed for `bin/deploy` and `bin/build` (REQ-393), but only as an explicit flag, and the copy commands don't take it yet. I've added the rest to REQ-393 instead of opening a new ticket, since it's the same piece of work:
+
+1. **`bin/copy-to-cloud` and `bin/copy-from-cloud` take `--secrets-file` too.** Both credential pairs (cloud and local) are read from the file, with the same rules as the deploy: your shell overrides the file, and the output lists names, never values.
+2. **All four commands read your secrets file by default.** That's `~/Documents/secrets/1c.dev.env`, or whatever `ONECONTACT_SECRETS` points to, so you don't need a flag. Each command says which file it loaded. If the default file isn't there it's skipped quietly, and `--no-secrets-file` turns this off. I've recorded the cost you're accepting: every deploy re-checks and re-pushes every secret in the file.
+3. **The copy commands default to access-sim** (`127.0.0.1:8799` with its own credentials), the same default `bin/copy-repro-to-dev` already uses. `--origin` is no longer needed.
+
+After that, the whole flow is:
+
+```bash
+bin/build && bin/deploy
+bin/copy-to-cloud "Lagrange Foundry"
+bin/copy-to-cloud --chats "Lagrange Foundry"
+```
+
+with no exports and no flags.
+
+**Two things for you:**
+- REQ-393 is at `free_coded`, so it needs a session to pick up this extension. Point one at it when you're ready.
+- **Add the cloud credentials to your secrets file**, so the file has everything the copy commands need:
+  ```
+  CF_ACCESS_CLIENT_ID=29edd0e0ede45619455f21128c7b88ce.access
+  CF_ACCESS_CLIENT_SECRET=…
+  ```
+  Make sure the file ends with a newline before you append, or the first new line gets glued onto the previous one (that's what broke the access-sim login last time).
+
+Until it lands, `bin/deploy --secrets-file ~/Documents/secrets/1c.dev.env` works today. For the copy commands, use `set -a; . ~/Documents/secrets/1c.dev.env; set +a` plus `--origin http://127.0.0.1:8799`.
 
 <!-- xgd-chat-end -->
