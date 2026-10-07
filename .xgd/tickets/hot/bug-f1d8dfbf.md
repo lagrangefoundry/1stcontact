@@ -6,9 +6,9 @@ title: 'Builder corrections from Charlie 3: looks without a mode, button or sele
   entry; working line names no one'
 created_by: EPIC-19
 created_at: '2026-10-07T17:10:45.883882+00:00'
-updated_at: '2026-10-07T18:11:24.529041+00:00'
+updated_at: '2026-10-07T18:19:07.740522+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -86,3 +86,32 @@ UATs `test_UAT_FC_<this ticket>_*`, at the builder's browser and route level:
 **Test.** A UAT drives a one-to-one turn that emits a working note and asserts the line contains "Your consultant" and neither of `group-chat.json`'s display names. A second case asserts group-chat mode still shows the configured name.
 
 **Out of scope.** Removing the names from `group-chat.json`, since the group chat is DOC-66's own reopen condition. Rewording internal design docs and frozen tickets.
+
+
+
+## Implementation (as landed)
+
+**Looks on the toolbar (`apps/control-app/src/builder/looks.js`).**
+- `LOOKS_MODE`, the looks pane mode, "Back to your draft" and the "Compare looks" button are gone. One toolbar action, `looks`, sits directly after `pages` in both View and Edit.
+- Its position is derived every time from the page in the pane and the page index: the members are the real page ("Current") followed by its live looks in set order, e.g. ‹ Current · 1 of 3 ›. A page in the pane that is a look is resolved to its real page via `alternative.of`.
+- It is always on the bar. With no looks for the page in the pane it is **dimmed and inert** (both arrows disabled) rather than hidden, so the bar does not shift when a set arrives.
+- Stepping swaps the document in the current mode's own channel (`panel.swapDocument`, animated, neighbours preloaded). The pane mode never changes. Going back to Current returns to the frame the client left.
+- Lit, it shows the look's one-line description and the invitation *"Tell your consultant which look you prefer, and why."*
+- **Edit on a look:** the look is shown in the edit channel but the editor is not mounted on it, the page carry does not adopt it, and the bar says *"This look can't be edited — go back to Current to edit the page."*
+- **A link in the chat** (`#looks=<set>`) shows that set's first look in the pane, in the current mode (leaving the comp viewer first if it was open).
+- **A set chosen from in the conversation:** when the listing next shows the look in the pane as archived, the pane goes back to its real page.
+
+**Choosing is the conversation's.** "Choose this one", its client transport `chooseLook` and the `POST /api/pages/choose` route it alone used are removed. `choose_look` and its plan decision are unchanged. REQ-391's choosing UATs now drive `choose_look` through `/api/ai/prompt`.
+
+**Page selector (`toolbar.js`).** With a look in the pane, the selected value is the real page's slug and the "admit the shown page" fallback can never add the look.
+
+**Working line.** `slow-tools.json` holds `"unnamed": "Your consultant"`, exported as `WORKING_UNNAMED` from `cadence-core.ts`. `host-core.ts`' `siteTurn` takes who the line names: `WORKING_UNNAMED` for a one-to-one turn, or the member's display name for a group-chat round.
+
+**Not done here:** the data repair (Fix 5). It is waiting for the operator's go-ahead.
+
+## UATs
+
+- `tests/test_UAT_FC_BUG-205_looks_on_the_toolbar.test.ts`: lit only with looks, mode unchanged when stepping, Edit note; Current → each look → Current; no "Choose this one" plus the invitation; Page selector names the real page with no look rows; chat link shows the first look, and a chosen-from set returns the pane to its page.
+- `tests/test_UAT_FC_BUG-205_working_line_names_no_one.workers.test.ts`: one-to-one says "Your consultant" with neither AI display name; group chat keeps the configured name.
+- `test_UAT_FC_BUG-205_there_is_no_choose_route_a_look_is_chosen_only_in_the_conversation` (in REQ-391's choosing suite).
+- Adjusted: REQ-391 carousel and choosing suites, REQ-390 wire suite (unnamed line), the toolbar-lifetime declared list.
