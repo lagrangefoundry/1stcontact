@@ -2,12 +2,12 @@
 uid: request-707ba6c2
 id: REQ-392
 type: request
-title: 'Dev tooling: bin/copy-repro-to-dev, with an owned-capture rights record'
+title: 'Dev tooling: bin/copy-repro-to-dev'
 created_by: EPIC-16
 created_at: '2026-10-07T17:55:37.258581+00:00'
-updated_at: '2026-10-07T17:55:37.258581+00:00'
+updated_at: '2026-10-07T18:10:27.143278+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: title
 status: draft
 fields:
   priority: high
@@ -32,13 +32,13 @@ A reproduction exists to become a site you can edit in the builder. Since REQ-29
 - BUG-51's 409 (target holds builder-authored changes) is reported as such, and `--force` is the answer.
 - Prints the business, the pages and asset count that landed.
 
-## The rights question this ticket must answer, not route around
+## The capture-mirror check is skipped — operator decision (2026-10-07)
 
-Every asset `1c repro` puts in a draft is byte-for-byte a capture-mirrored subresource, so BUG-84's gate (`asset-rights.ts`, enforced in `readSitePayload` and in `POST /api/import`) refuses the whole copy. That gate deliberately has NO override: "an escape hatch on a rights gate is the gate not existing".
+Every asset `1c repro` puts in a draft is byte-for-byte a capture-mirrored subresource, so BUG-84's sender-side check (`readSitePayload` → `assertNotCaptureMirrored`) would refuse every reproduction. This command does NOT run that check: it reads the draft directly (as `readSiteDraft` does) and posts it.
 
-But the operator can genuinely own the captured site: faelan.com is the operator's son's site, and reproducing it was the point. The current gate can only say "mirrored → refused"; it has no way to record "the operator holds the rights to this capture".
+The operator's reasoning, recorded so the next reader doesn't reinstate it: this is a single-operator tool that moves a draft into the operator's own dev builder; it publishes nothing, and getting from a dev draft to a published site is a long, deliberate road. No ownership record, flag or prompt is wanted.
 
-The fix must be a *recorded* rights decision, not a flag that skips the check — e.g. the capture bundle (or the reference it came from) carrying an operator-asserted ownership/republishable record that both halves of the gate read. A capture with no such record must still be refused exactly as today. Whatever the mechanism, it must be visible after the fact (who asserted it, when, for which bundle).
+Unchanged: the Worker-side gate in `POST /api/import` (checks the tenant's cloud capture bundles) and BUG-84's check on `bin/copy-to-cloud` / `readSitePayload` for every other caller. This command must not weaken those — it simply does not call the sender-side one.
 
 ## Interim
 
@@ -46,4 +46,4 @@ A stop-gap `storage/tmp/copy-repro-to-dev.mjs` (gitignored, laptop only) does th
 
 ## Test plan
 
-UATs (`test_UAT_FC_<id>_*`): a repro copied into an existing dev business by name and by id lands its pages and assets; a business that does not exist is refused naming what exists; a 409 is reported with `--force` as the answer; a capture-mirrored asset is refused without a rights record and accepted with one; the rights record is readable afterwards.
+UATs (`test_UAT_FC_REQ-392_*`): a repro copied into an existing dev business by name and by id lands its pages and assets; a business name that is not a membership of the signed-in identity still resolves when the operator can import into it; a business that does not exist is refused naming what exists; a 409 is reported with `--force` as the answer; a draft whose assets are capture-mirrored copies successfully.
