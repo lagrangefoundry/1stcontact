@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-393
 created_by: xgd
 created_at: '2026-10-07T19:21:11.758676+00:00'
-updated_at: '2026-10-07T19:36:54.058555+00:00'
+updated_at: '2026-10-07T19:55:35.956312+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -98,5 +98,72 @@ The ticket waits at `free_coded` until you move it to `ready_to_reconcile`.
 <!-- xgd-chat role="user" ts="2026-10-07T19:36:54.010834+00:00" -->
 #### You
 Please check your ticket there's new scope - can you complete it please
+
+<!-- xgd-turn id="39ce66ae-5ec4-4234-b19a-b358e391de3e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:55:35.847855+00:00" -->
+#### Claude
+Wiring the copy pair's local end to `bin/access-sim` — reading how `copy.ts` falls back between the two credential pairs.
+
+Making the code changes: the `copy.ts` default origin and the CLI default local pair.
+
+Pointing `dev-env.ts` at the shared default path.
+
+Now the four scripts: replacing the earlier per-script parsing in `bin/deploy` and `bin/build` with the preamble.
+
+Now the copy pair.
+
+Moving the copy scripts' preamble below the help check, so `--help` stays self-contained.
+
+Next, the tests. Checking how the BUG-134 suite drives the copy commands against a fake server.
+
+The 9 REQ-393 tests pass. Next, a copy-pair UAT for the credentials. Checking whether the CLI lets a test move the cloud end.
+
+Same fresh-worktree gap as before, `apps/control-app/src/generated`. Copying it in.
+
+11 pass and 1 is skipped. Checking why port 8799 reads as busy.
+
+Works through the real simulator. Running the suites that drive these scripts or share the moved code.
+
+Exit 0 with empty output, so I'm reproducing it by hand.
+
+Adding a UAT that pins the symlinked-path case, then re-running everything affected.
+
+All 21 suites pass (1 skipped: the port-8799 test, since your simulator holds the port). Typechecking.
+
+Clean. Fixing the secrets README, which still says there's no default.
+
+Scripts look right. Updating the ticket body: the decision is now "default to the file", plus how it's built now and the full test list. The operator's extension section stays as written.
+
+Body updated. Committing, merging back, and re-gating with all three SHAs.
+
+All three parts of the new scope are done, merged into `xgd-working`, and REQ-393 is back at `free_coded` with four commits, version 0.2.500 and 5 story points. The tests pass, and the one thing I couldn't test automatically I checked by hand against your real simulator.
+
+**What you can now type with no exports and no flags:**
+- `bin/build && bin/deploy`
+- `bin/copy-to-cloud "Lagrange Foundry"`
+- `bin/copy-to-cloud --chats "Lagrange Foundry"`
+
+**The default secrets file:**
+- All four commands now load `$ONECONTACT_SECRETS`, else `~/Documents/secrets/1c.dev.env`, when it exists. They print which file they loaded and the names they took from it, never the values.
+- If the default file is missing, they carry on quietly. If you name a file with `--secrets-file` and it's missing or empty, the command stops before doing anything.
+- `--no-secrets-file` loads nothing.
+- As you accepted, every deploy now checks and re-pushes every secret in that file.
+
+**The copy commands' local end** now defaults to `bin/access-sim` at `http://127.0.0.1:8799`, and sends the simulator's own credentials. You still override it with `--origin` or the `LOCAL_ACCESS_*` names. If you give an explicit `--origin`, the old behaviour stays: with no `LOCAL_ACCESS_*`, the cloud credentials are sent to that end too.
+
+**How it's built:** the flag handling now lives in one place, the loader. Each of the four scripts starts with a three-line hand-off to it, instead of four separate copies of the parsing. The default file path also moved there from `dev-env.ts`, so the dev servers and the scripts can't disagree about which file to read.
+
+**A bug from the first landing, now fixed:** the loader could silently do nothing and exit 0 when reached through a symlinked folder, such as `/tmp` on macOS. Two existing test suites caught it. I fixed it and added a test for that case.
+
+**Tests:**
+- The REQ-393 tests: 12 pass, 1 skipped.
+- The skipped one needs port 8799, which your running `bin/access-sim` holds. I ran the same check by hand against your real simulator: `bin/copy-to-cloud --no-secrets-file --backup … "Lagrange Foundry"` backed it up from 127.0.0.1:8799 with nothing exported. That only reads from your local builder and writes nothing to either one.
+- 20 related suites also pass.
+- I had to edit two existing test setups, the build/deploy smoke suite and one REQ-264 test. Both copy the scripts into a scratch folder, and now also copy the loader the scripts depend on.
+
+**Worth knowing:** existing test suites that pass your full environment to these scripts will now also load your real secrets file. The current file has no copy credentials, and everything stays green, but those suites are no longer fully isolated from it.
+
+The ticket body now records the reversed decision, how it's built, and every test.
 
 <!-- xgd-chat-end -->
