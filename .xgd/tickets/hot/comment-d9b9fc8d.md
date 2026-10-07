@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:53:21.109219+00:00'
+updated_at: '2026-10-07T17:54:03.633387+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5434,5 +5434,32 @@ Both are code changes, so they'd go to a child ticket under EPIC-16. Do you want
 <!-- xgd-chat role="user" ts="2026-10-07T17:53:20.985946+00:00" -->
 #### You
 Can you give me a version of the copy script to do that?
+
+<!-- xgd-turn id="99732011-be3e-4978-a101-7c1d418db964-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:54:03.422914+00:00" -->
+#### Claude
+The script is at **`storage/tmp/copy-repro-to-dev.mjs`**. I tested it and it works: re-running it on faelan just now landed 1 page and 9 assets again.
+
+```bash
+node storage/tmp/copy-repro-to-dev.mjs <repro-slug> <business> [--force] [--origin URL]
+
+node storage/tmp/copy-repro-to-dev.mjs repro-faelan-com biz_c4bf5391fc5c9b329320f2b96a941659
+```
+
+What it does:
+- Reads `storage/sandbox/<repro-slug>/draft`: `site.json`, `pages/*.json` and everything under `assets/`.
+- Sends it to the business's import route through access-sim (8799), using the simulator's own local credentials.
+- `<business>` can be a name or a `biz_…` id.
+- The business must already exist. It copies the draft only; nothing is published.
+- If you've edited the site in the builder since the last copy, it stops with a 409 and tells you to re-run with `--force`.
+
+**Use the id for faelan.com.** Looking a business up by name goes through `/api/businesses`, which lists only the businesses the simulator's signed-in identity (`martin@westhead.me`) is a member of. faelan.com isn't one of them, so the name lookup can't find it. The script says so and prints the command that lists every business id. The import itself still works, because as platform operator you can write to businesses you aren't a member of. If you'd rather use the name, add yourself as a member of faelan.com and it will work.
+
+Two things to know:
+- **It's not in git.** `storage/tmp/` is gitignored, so the script lives only on this laptop. That's deliberate: it's a stop-gap, and shipping it would mean a ticket, tests and a review of how it treats the rights rule.
+- **It skips the capture-mirror check on the laptop side.** That's why it worked for faelan. Only use it on sites you own. The Worker still runs its own check against any captures held in the cloud store for that business.
+
+If you want this as a proper `1c` command, I'll file it as one ticket under EPIC-16, along with a way to mark capture material as yours.
 
 <!-- xgd-chat-end -->
