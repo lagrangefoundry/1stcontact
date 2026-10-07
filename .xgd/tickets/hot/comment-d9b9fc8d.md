@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:18:50.951435+00:00'
+updated_at: '2026-10-07T19:19:22.928152+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5586,5 +5586,33 @@ The same command also sets `CLOUDFLARE_API_TOKEN`, which wrangler needs to uploa
 <!-- xgd-chat role="user" ts="2026-10-07T19:18:49.650801+00:00" -->
 #### You
 can you give me an argument to bin/deploy --secrets-file?
+
+<!-- xgd-turn id="6e0afc00-adfb-4964-bea1-ec6da7d33bba-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:19:22.782138+00:00" -->
+#### Claude
+I've filed **REQ-393**, *"bin/deploy and bin/build: --secrets-file"*, under EPIC-16 at `draft`, ready for its own session.
+
+What it asks for:
+
+- `--secrets-file PATH` loads the file into the deploy's own process, so every secret check and wrangler call sees it. Your shell isn't touched.
+- The file is parsed the same way the dev servers parse it, so it means the same thing to both.
+- Anything already exported in your shell wins over the file, so a one-off override still works.
+- A missing or empty file stops the deploy before it does anything, and names the path.
+- The output lists the names it loaded, never the values.
+- `--dry-run` reads the file too, so a dry run tests exactly what the real run would.
+- **`bin/build` gets the same flag.** Its knowledge-base step needs `CLOUDFLARE_API_TOKEN`, and that's what stopped your build earlier today.
+
+There's one decision I left for you, written into the ticket as an open question: with no flag, should the deploy read `~/Documents/secrets/1c.dev.env` by default, the same file the dev servers use?
+- **For:** one less step to remember.
+- **Against:** every deploy would then re-test and re-push every secret.
+
+Tell me which and I'll put it in the ticket, or let the implementing session decide and record why.
+
+Until it lands, run this in the shell before you deploy:
+
+```bash
+set -a; . ~/Documents/secrets/1c.dev.env; set +a
+```
 
 <!-- xgd-chat-end -->
