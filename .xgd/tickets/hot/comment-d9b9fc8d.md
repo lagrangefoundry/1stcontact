@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:13:41.193178+00:00'
+updated_at: '2026-10-07T19:13:53.546852+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5560,5 +5560,25 @@ does the deploy script access
 ~/Documents/secrets/1c.dev.env
 
 or to I explicitly have to add all the secrects?
+
+<!-- xgd-turn id="25716490-9920-46a1-8229-8a72bc540bd0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:13:53.235953+00:00" -->
+#### Claude
+No, `bin/deploy` doesn't read that file. Only the local dev servers do: `1c dev serve` and `1c builder` pass it to `wrangler dev`. The deploy's secret steps (Anthropic, Resend, OpenAI, Cloudflare DNS) look only at environment variables in the shell you run it from.
+
+You don't need to set them one by one, though. Load the whole file into that shell first:
+
+```bash
+set -a; . ~/Documents/secrets/1c.dev.env; set +a
+bin/deploy
+```
+
+How each secret is treated:
+
+- **If it's set in your shell**, the deploy tests it against its provider and stops before uploading if the provider refuses it. Then it pushes it to Cloudflare.
+- **If it isn't set**, it keeps whatever is already stored in Cloudflare, untested. So the deploy works either way; loading the file just gets you the test.
+
+The same command also sets `CLOUDFLARE_API_TOKEN`, which wrangler needs to upload. It also sets the local Access settings (`ACCESS_TEAM_DOMAIN` pointing at the simulator). Those don't matter to the deploy, because production's Access settings come from `wrangler.toml`. But that shell is now configured for local, so open a fresh one for anything else.
 
 <!-- xgd-chat-end -->
