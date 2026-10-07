@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:55:14.059816+00:00'
+updated_at: '2026-10-07T17:55:45.835951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5467,5 +5467,25 @@ If you want this as a proper `1c` command, I'll file it as one ticket under EPIC
 <!-- xgd-chat role="user" ts="2026-10-07T17:55:13.838234+00:00" -->
 #### You
 Can you put the script into bin/
+
+<!-- xgd-turn id="71a3448d-9ba9-45a6-9117-cb79bb148180-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:55:44.897949+00:00" -->
+#### Claude
+I haven't put it in `bin/` myself. This session is EPIC-16's, so it writes tickets rather than code, and anything committed to `bin/` is a shipped repo tool. I've filed **REQ-392** under EPIC-16 instead: *"Dev tooling: bin/copy-repro-to-dev, with an owned-capture rights record"*. It's at `draft`, ready for its own session to pick up.
+
+It's more than a file move because the script, as written, bypasses the check that refuses assets saved from a capture. That check (BUG-84) was deliberately built with no way round it. Committing a script that goes around it would undo that decision for everyone who runs it. So REQ-392 does it properly:
+
+- **The command:** `bin/copy-repro-to-dev <repro-slug> <business>`. It takes a name or a `biz_…` id, and looks names up across every business you can import into, not just the ones you're a member of. That fixes the faelan.com "not found".
+- **A recorded "I own this capture".** You mark a capture as yours, and the check on both sides (laptop and Worker) honours that. It's written down: who said so, when, and for which capture. A capture with no such record is still refused exactly as today, so a third party's site can't slip through.
+- **Cleanup.** Delete `storage/tmp/copy-repro-to-dev.mjs` when it lands.
+
+Until then, the stop-gap keeps working:
+
+```bash
+node storage/tmp/copy-repro-to-dev.mjs repro-faelan-com biz_c4bf5391fc5c9b329320f2b96a941659
+```
+
+If you'd rather skip the ownership record and just have the script in `bin/` as-is, that's your call. Say so and I'll take that requirement out of REQ-392.
 
 <!-- xgd-chat-end -->
