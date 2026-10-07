@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:26:14.153183+00:00'
+updated_at: '2026-10-07T19:29:51.108000+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5679,5 +5679,11 @@ To make `apex_resolves` pass, these are the go-live steps you haven't done yet:
    With the key, the published-site checks run for the first time: they cover redirects, the HTML index, caching and assets.
 
 Step 4 is just a config change, so I can make it now if you like. It only takes effect once step 3 has published something, and until then it changes nothing visible.
+
+<!-- xgd-turn id="1b3cb452-531a-438d-88d4-8a67edad7d28-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:29:50.981229+00:00" -->
+#### You
+Can you remind me how I copy the contents of my dev account (sites)  to prod?
 
 <!-- xgd-chat-end -->
