@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-02T03:08:55.665746+00:00'
+updated_at: '2026-10-07T16:47:35.984367+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5280,5 +5280,58 @@ Yes, though only when the KB is out of date. I checked the current script.
 **When it does rebuild, it needs credentials in your shell:** `CLOUDFLARE_API_TOKEN` set to `1c_Admin_Token`, plus `NODE_USE_ENV_PROXY=1`. The other two Cloudflare tokens get a 401 from Workers AI.
 
 `bin/kb-release` still exists if you want to force a rebuild when nothing looks stale.
+
+<!-- xgd-turn id="f5fa97b9-3d0b-4e7e-a9ad-3c64adbd394a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T16:47:35.818091+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/build
+
+==> Preflight
+ok    shared/browser  webui-shell
+ok    shared/browser  webui-split
+ok    shared/browser  webui-fields
+ok    shared/browser  webui-chat
+ok    shared/browser  webui-markdown
+ok    shared/browser  webui-list-detail
+ok    shared/browser  webui-scroll
+ok    shared/server  ai
+ok    shared/server  ai-knowledge
+ok    shared/server  auth-passwordless
+ok    shared/server  knowledge
+ok    shared/server  ticketing
+ok    npm            playwright
+
+Preflight passed: 12 shared components, 1 declared packages.
+Index seam: the installed knowledge component takes `indexes`.
+
+==> Knowledge base
+(node:11644) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+A projected reference in this corpus no longer matches the declarations it is rendered from, so this bundle would ship a document that is retrievable, confident and wrong.
+
+The awareness map was not built over this corpus, so every session would be primed with a landscape that leaves documents out.
+
+  OUTDATED projections (2) — rendered from source that has moved since the file was written:
+    REF-behaviors
+    REF-surface
+
+  UNMAPPED (4) — absent from the awareness map, or mapped at another version:
+    DOC-64
+    REF-behaviors
+    REF-l1
+    REF-surface
+
+Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order).
+
+The knowledge index needs Workers AI: set CLOUDFLARE_API_TOKEN (the same credential `pnpm deploy:*` uses). The account is discovered from the token, so CLOUDFLARE_ACCOUNT_ID is only needed to override that. The embedding model is the one the Worker serves, so the index and the search agree by construction.
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+Why do I get this message that says :
+
+Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order). <-- shouldn't build just run this if its needed?
 
 <!-- xgd-chat-end -->
