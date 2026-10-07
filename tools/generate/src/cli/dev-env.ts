@@ -1,6 +1,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+// THE parser of a secrets file, shared with `bin/deploy --secrets-file` and
+// `bin/build --secrets-file` ([[REQ-393]]) so one file means one thing to both.
+import { parseEnvText } from '../../bin/env-file.mjs'
 
 /**
  * THE env-file layering for `wrangler dev` on the control app (BUG-50).
@@ -125,24 +128,6 @@ export interface DevEnvLayering {
   readonly args: readonly string[]
   /** One line per absent, empty or incomplete file, and per incoherent result. */
   readonly warnings: readonly string[]
-}
-
-/**
- * `KEY=value`, and A DELIBERATELY SMALL PARSER rather than a dependency.
- * Optional surrounding quotes, `#` comments and blank lines — which is every
- * line any of these files has ever held, and is the subset dotenv and wrangler
- * agree on. Anything richer would be a second interpretation of a file the
- * Worker reads through somebody else's parser.
- */
-function parseEnvText(text: string): Record<string, string> {
-  const vars: Record<string, string> = {}
-  for (const line of text.split('\n')) {
-    const match = /^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line)
-    if (!match) continue
-    const value = match[2].trim().replace(/\s+#.*$/, '').trim()
-    vars[match[1]] = /^(['"])(.*)\1$/.test(value) ? value.slice(1, -1) : value
-  }
-  return vars
 }
 
 /**
