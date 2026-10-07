@@ -5,9 +5,9 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:23:39.762645+00:00'
+updated_at: '2026-10-07T19:27:45.334915+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -33,9 +33,20 @@ Today the deploy's secrets hooks (`bin/deploy.d/secrets/*`) and wrangler read on
 - `--dry-run` loads the file too, so the dry run probes exactly what the real run would.
 - `bin/build` takes the same flag, for the same reason: its KB stage needs `CLOUDFLARE_API_TOKEN`, and that is the step that failed for want of it on 2026-10-07.
 
-## Open question for the implementing session
+## Decision: no default file
 
-Whether, with no flag, the deploy should default to the same file the dev servers default to (`ONECONTACT_SECRETS`, else `~/Documents/secrets/1c.dev.env`). The operator's stated preference across EPIC-16 is fewer steps to remember, which argues for the default; the counter-argument is that a deploy then pushes and probes every secret on every run. Record the decision and why in this body.
+With no flag, the deploy reads NO file — `--secrets-file` is explicit. Reasons:
+
+- The file is `1c.dev.env`. Read unasked, every production deploy would push (overwrite) every secret it holds — and a dev-scoped key in it would silently replace the production one. Naming the file is the operator's decision to rotate from it.
+- Each `wrangler secret put` creates a new Worker version, so an implicit default makes every deploy several deployments.
+- Forgetting the flag is already visible: the capability report says `stored`/unverified rather than passing.
+
+## How it is built
+
+- One loader, `tools/generate/bin/env-file.mjs` (plain node, no transform). It holds THE parser (`parseEnvText`) — moved there from `dev-env.ts`, which now imports it — so the dev servers and the release scripts cannot disagree about the file.
+- `node env-file.mjs exec <who> <path> -- <cmd...>` overlays the file onto the environment (non-empty values already set win; empty counts as unset), prints `secrets file: <path>`, `took: <names>` and `kept from your environment: <names>`, then runs the command with stdio inherited and forwards its exit code. Values never pass through a pipe or a shell.
+- `bin/deploy` and `bin/build` parse `--secrets-file PATH` (relative paths resolve against the caller's directory, not the repo root) and, before any hook, stage or the `--fonts` target, re-exec themselves under the loader. A marker env var (`DEPLOY_SECRETS_FILE_LOADED` / `BUILD_SECRETS_FILE_LOADED`) stops the second run from loading the file again.
+- `bin/deploy.d/secrets/README.md` and both scripts' `--help` text describe the flag.
 
 ## Boundaries
 
@@ -44,4 +55,13 @@ Whether, with no flag, the deploy should default to the same file the dev server
 
 ## Test plan
 
-UATs (`test_UAT_FC_<id>_*`): a secret present only in the file reaches the secrets hook (probed and pushed path, not the "left alone" path); a shell-exported value overrides the file's; a missing or empty file fails before any hook with the path named; the report names keys and never values; `bin/build --secrets-file` supplies the KB stage its token; loading the file leaves deployed `[vars]` unchanged.
+`tests/test_UAT_FC_REQ-393_secrets_file.test.ts` runs the real `bin/deploy` / `bin/build` with the process boundary stubbed (`npx`, `pnpm`, and `node` for everything except the loader), in an environment built from nothing:
+
+- `a_secret_only_in_the_file_is_probed_and_pushed` — without the flag the deploy stops; with it, `ANTHROPIC_API_KEY` is probed and the file's value is pushed. A `--dry-run` probes too and says "would push".
+- `a_value_exported_in_the_shell_wins_over_the_file` — the shell's value is the one pushed, and the report says it was kept.
+- `a_missing_or_empty_file_stops_before_any_hook` — for both scripts: non-zero exit, path named, no hook, no stage.
+- `the_report_names_keys_and_never_values` — names listed, no value anywhere in the output.
+- `bin_build_supplies_the_kb_stage_its_token` — `1c kb ensure` sees `CLOUDFLARE_API_TOKEN` only with the flag.
+- `loading_the_file_leaves_deployed_vars_unchanged` — the real wrangler, through the real loader, over a copy of control-app's `wrangler.toml`: a file setting `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `SERVICE_TOKEN_IDENTITIES` leaves the binding table byte-identical.
+
+Regression: the dev-env suites (BUG-50, BUG-146, BUG-150) pass against the moved parser.
