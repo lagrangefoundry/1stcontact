@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-393
 created_by: xgd
 created_at: '2026-10-07T19:21:11.758676+00:00'
-updated_at: '2026-10-07T19:28:45.096088+00:00'
+updated_at: '2026-10-07T19:36:54.058555+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -92,5 +92,11 @@ REQ-393 is implemented and merged into `xgd-working`, and the ticket is parked a
 The existing dev-env tests (BUG-50, BUG-146, BUG-150) pass against the moved parser. Four BUG-124 tests failed with port 8790 already in use, which looks like your running dev service holding it; that's unrelated to this change.
 
 The ticket waits at `free_coded` until you move it to `ready_to_reconcile`.
+
+<!-- xgd-turn id="39ce66ae-5ec4-4234-b19a-b358e391de3e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:36:54.010834+00:00" -->
+#### You
+Please check your ticket there's new scope - can you complete it please
 
 <!-- xgd-chat-end -->
