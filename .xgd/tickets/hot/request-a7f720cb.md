@@ -5,10 +5,10 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:19:15.570198+00:00'
+updated_at: '2026-10-07T19:23:39.762645+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: medium
   epic_parent: epic-96d8aca6
