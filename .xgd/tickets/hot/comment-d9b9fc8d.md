@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:29:51.108000+00:00'
+updated_at: '2026-10-07T19:30:11.168588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5685,5 +5685,40 @@ Step 4 is just a config change, so I can make it now if you like. It only takes 
 <!-- xgd-chat role="user" ts="2026-10-07T19:29:50.981229+00:00" -->
 #### You
 Can you remind me how I copy the contents of my dev account (sites)  to prod?
+
+<!-- xgd-turn id="1b3cb452-531a-438d-88d4-8a67edad7d28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:30:10.284801+00:00" -->
+#### Claude
+You copy one business at a time with `bin/copy-to-cloud`. Run it from the repo root, with the dev environment up (`bin/dev up`).
+
+**1. Credentials, once per shell**
+
+```bash
+# cloud end — the Access service token, NOT CLOUDFLARE_API_TOKEN
+export CF_ACCESS_CLIENT_ID='29edd0e0ede45619455f21128c7b88ce.access'
+export CF_ACCESS_CLIENT_SECRET='…'          # from your password manager
+
+# local end — access-sim's own pair (these are fixed, well-known values)
+export LOCAL_ACCESS_CLIENT_ID='local-dev.access'
+export LOCAL_ACCESS_CLIENT_SECRET='local-dev-secret'
+```
+
+If you've lost the secret, `bin/access-token --rotate --name 1stcontact-publish` prints a new one. The client id stays the same.
+
+**2. For each business**
+
+```bash
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --backup storage/backups/<name>.json "<Business Name>"   # optional local backup; touches prod not at all
+bin/copy-to-cloud --origin http://127.0.0.1:8799 "<Business Name>"            # the site
+bin/copy-to-cloud --origin http://127.0.0.1:8799 --chats "<Business Name>"    # its conversations
+```
+
+**Things to know:**
+- **`--origin http://127.0.0.1:8799` is required.** Without it the local end can only reach 1st Contact.
+- **The business must already exist in prod, spelled exactly the same.** Prod has 1st Contact, Lagrange Foundry, XGD and Gigabyte Alchemy. Anything else, such as faelan.com, has to be created in the prod builder first.
+- **A 409 on the site copy** means the prod copy has edits made in the prod builder. Re-run with `--force` if you want to overwrite them, after taking the backup.
+- **`--chats` should work now.** BUG-137 and BUG-159 have both landed, so the 409 that blocked Lagrange Foundry's chats last time should be gone. Re-running it won't duplicate conversations.
+- **This copies drafts only.** Nothing goes live until you publish in the prod builder, and publishing needs the site to have a public address first.
 
 <!-- xgd-chat-end -->
