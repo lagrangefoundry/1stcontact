@@ -5374,39 +5374,37 @@ body {
   white-space: nowrap;
 }
 
-/* --- the looks bar ([[REQ-391]]) ------------------------------------------------
+/* --- the looks carousel ([[REQ-391]], [[BUG-205]]) ----------------------------
  *
- * The toolbar while a set of looks is shown: back to the draft, the carousel,
- * and "Choose this one" — the one primary action on the strip, because choosing
- * is what the client came here to do.
+ * One control on the toolbar, in View and Edit alike: the carousel, the
+ * invitation to tell the consultant which look and why, and — on a look in
+ * Edit — the one line that says it is not edited. Dimmed while the page in the
+ * pane has no looks, and lit when it has.
  */
 .looks-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-  flex: 1 1 auto;
+  gap: 2px 10px;
   min-width: 0;
 }
 
-.looks-bar__choose {
-  padding: 4px 12px;
-  border: 0;
-  border-radius: var(--shell-radius, 6px);
-  background: var(--shell-accent, #2563eb);
-  color: #fff;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
+.looks-bar--unlit {
+  opacity: 0.45;
 }
 
-.looks-bar__choose:disabled {
-  opacity: 0.6;
-  cursor: progress;
+.looks-bar--unlit .builder-carousel__count,
+.looks-bar--unlit .builder-carousel__sep {
+  display: none;
 }
 
-.looks-bar__error {
-  flex-basis: 100%;
-  color: var(--shell-danger, #b91c1c);
+.looks-bar__invite,
+.looks-bar__note {
+  margin: 0;
   font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+.looks-bar__note {
+  flex-basis: 100%;
 }

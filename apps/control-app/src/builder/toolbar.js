@@ -549,8 +549,15 @@ export function pagesAction(pages) {
         // [[REQ-391]] — A LOOK IS NOT A PAGE OF THE SITE. It is one of several
         // candidates for a real page, compared in the carousel, so it never sits
         // in this list beside the pages a reader can visit.
-        const rows = pages.list().filter((row) => !row.alternative)
-        const here = pages.current()
+        const all = pages.list()
+        const rows = all.filter((row) => !row.alternative)
+        // [[BUG-205]] — AND NOT EVEN WHILE ONE IS SHOWN. A look in the pane is
+        // named by the page it is a look at, so the fallback below — which
+        // admits the shown page when the listing does not hold it — can never
+        // put the look back in.
+        let here = pages.current()
+        const of = all.find((row) => row.slug === here)?.alternative?.of
+        if (of !== undefined) here = rows.find((row) => row.id === of)?.slug ?? ''
         const options = rows.map((row) => new Option(labelOf(row), row.slug))
         if (here !== '' && !rows.some((row) => row.slug === here)) {
           options.unshift(new Option(here, here))

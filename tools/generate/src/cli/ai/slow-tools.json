@@ -13,8 +13,14 @@
     "",
     "The numbers are estimates to tune, not measurements. capture_site loads a",
     "whole live site in a browser and has been seen to time out; the others",
-    "render or generate one thing."
+    "render or generate one thing.",
+    "",
+    "`unnamed` is who the working line says is busy in a one-to-one conversation",
+    "([[BUG-205]], DOC-66): with one AI in the conversation it has no personal",
+    "name. The group chat names its members from `group-chat.json` instead."
   ],
+
+  "unnamed": "Your consultant",
 
   "tools": [
     { "tool": "capture_site", "doing": "Capturing {url}", "fallback": "Capturing a site", "minutes": 5 },

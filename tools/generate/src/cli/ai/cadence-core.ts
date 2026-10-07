@@ -122,6 +122,12 @@ const ESTIMATES: Record<number, string> = {
   30: 'about 30 minutes',
 }
 
+/**
+ * [[BUG-205]] — who the working line names in a one-to-one conversation: no one
+ * by name (DOC-66). A room names its member instead.
+ */
+export const WORKING_UNNAMED: string = slowToolsDocument.unnamed
+
 /** The longest an input value is quoted at inside a line. */
 const VALUE_CAP = 120
 

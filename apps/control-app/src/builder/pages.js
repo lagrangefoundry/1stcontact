@@ -123,6 +123,9 @@ export function createPageIndex(options) {
      */
     current: () => pending ?? pageKey(relOf()),
 
+    /** The slug a path within the channel names, as {@link current} reads it. */
+    keyOf: (rel) => pageKey(rel),
+
     /**
      * A document has arrived: whatever it is, it is now the answer. See
      * {@link pending}.

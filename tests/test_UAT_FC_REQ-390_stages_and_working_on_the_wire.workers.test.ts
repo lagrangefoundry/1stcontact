@@ -9,7 +9,7 @@ import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import { seedPlan, type ShownStage } from '../tools/generate/src/cli/ai/plan-core'
-import groupChat from '../tools/generate/src/cli/ai/group-chat.json'
+import { WORKING_UNNAMED } from '../tools/generate/src/cli/ai/cadence-core'
 import { calls, says, scriptedClient, type ModelStep, type ScriptedClient } from './support/scripted-model-client'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
 import { nextSlug } from './support/site-seed'
@@ -23,16 +23,16 @@ import { nextSlug } from './support/site-seed'
  * network.
  *
  * What is proved here: a slow operation puts a `working` frame on the turn's
- * stream, in the consultant's configured name, right behind the line that
- * announces it; and a plan stored with the old `phase` reaches the panel as
+ * stream, naming no one in a one-to-one conversation ([[BUG-205]], DOC-66),
+ * right behind the line that announces it; and a plan stored with the old `phase` reaches the panel as
  * stages.
  */
 
 const BUSINESS = 'req390-business'
 const WORKER_MODEL = backendsDocument.claude_builder.model
 const ENABLED = { ...delegationDocument, enabled: true }
-/** The consultant's display name — configuration, never a constant. */
-const CONSULTANT = groupChat.names.consultant
+/** Who a one-to-one working line names — configuration, never a constant. */
+const CONSULTANT = WORKING_UNNAMED
 
 function routerEnv(): RouterEnv {
   return {
@@ -124,7 +124,7 @@ describe('REQ-390 — the working line is told what is under way', () => {
     configureDelegation(ENABLED)
     const { sessionId } = await site()
 
-    // A DELEGATE: the consultant's note, after its name, with no estimate of its
+    // A DELEGATE: the consultant's note, after "Your consultant", with no estimate of its
     // own — the note says how long in words.
     const built = await turn(
       sessionId,
