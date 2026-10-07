@@ -6,9 +6,9 @@ title: 'Builder corrections from Charlie 3: looks without a mode, button or sele
   entry; working line names no one'
 created_by: EPIC-19
 created_at: '2026-10-07T17:10:45.883882+00:00'
-updated_at: '2026-10-07T18:02:02.411776+00:00'
+updated_at: '2026-10-07T18:02:02.570646+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: draft
 fields:
   severity: medium
@@ -68,3 +68,20 @@ UATs `test_UAT_FC_<this ticket>_*`, at the builder's browser and route level:
 - No "Choose this one" control is rendered anywhere in the carousel.
 - With a look in the pane, the Page selector's options contain no row with an `alternative` block, and the selected value is the look's `alternative.of`.
 - Regression scope: REQ-391's and REQ-378's existing UATs, adjusted only where they assert the removed mode or button.
+
+
+
+## Added: the working line names no one (DOC-66)
+
+**Symptom.** REQ-390's working line beside the composer reads *"Alice is building your home page · about 5 min · 2:14 so far"*. `host-core.ts` (about line 3574) builds it with `workingText(groupNames().consultant, …)`, so it takes the group chat's display name from `group-chat.json` even in one-to-one mode.
+
+**Rule (DOC-66, decided 2026-10-04).** With one AI in the conversation it has no personal name. On third-person surfaces it's "your consultant", and copy is written so no pronoun is needed. Names return only when more than one AI is visible in the same conversation, which is the group chat.
+
+**Fix.**
+- **One-to-one mode:** the working line names no one: *"Your consultant is building your home page · about 5 min · 2:14 so far"*. With no note, it stays *"Working · 0:42 so far"*.
+- **Group-chat mode** keeps the display names from `group-chat.json`, unchanged.
+- **The "your consultant" label is written once**, beside the other builder copy, not inline.
+
+**Test.** A UAT drives a one-to-one turn that emits a working note and asserts the line contains "Your consultant" and neither of `group-chat.json`'s display names. A second case asserts group-chat mode still shows the configured name.
+
+**Out of scope.** Removing the names from `group-chat.json`, since the group chat is DOC-66's own reopen condition. Rewording internal design docs and frozen tickets.
