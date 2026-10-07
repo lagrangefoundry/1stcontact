@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:10:58.440811+00:00'
+updated_at: '2026-10-07T18:00:08.602610+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7257,5 +7257,11 @@ It covers everything we discussed:
 5. **The leftover `heavy` and `family` pages on Charlie 3.** These are a one-off data repair through the normal page-removal path, and the ticket says to check with you before deleting them.
 
 The comp viewer shares the carousel component, so the ticket requires it to keep working and REQ-378's tests are part of the regression scope.
+
+<!-- xgd-turn id="c5f4c0e9-3399-4767-88aa-078e0cf343f4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T18:00:08.477118+00:00" -->
+#### You
+BTW please read the latest doc on naming the AIs - I decide that we should back off that unless we actually need two in the room
 
 <!-- xgd-chat-end -->
