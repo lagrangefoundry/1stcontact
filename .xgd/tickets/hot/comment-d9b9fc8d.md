@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:17:18.909057+00:00'
+updated_at: '2026-10-07T17:53:21.109219+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5428,5 +5428,11 @@ Two gaps came out of this, if you want tickets for them:
 - The rights rule has no way to record "I own this". It only knows "saved from a capture → refused", so your own son's site is treated like a third party's.
 
 Both are code changes, so they'd go to a child ticket under EPIC-16. Do you want me to file them?
+
+<!-- xgd-turn id="99732011-be3e-4978-a101-7c1d418db964-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:53:20.985946+00:00" -->
+#### You
+Can you give me a version of the copy script to do that?
 
 <!-- xgd-chat-end -->
