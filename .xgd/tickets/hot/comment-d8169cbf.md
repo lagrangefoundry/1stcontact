@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:09:14.153698+00:00'
+updated_at: '2026-10-07T17:10:17.588768+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7236,5 +7236,11 @@ You're right that it belongs in the conversation, and I think the button actuall
 So I'd remove the button. The carousel is just for looking: ‹ › to step between the current draft and its looks, lit up on the existing bar when a page has looks. You tell Alice which one you want and she uses `choose_look`.
 
 That fits naturally into the bug from last turn, together with removing the separate mode and fixing the page selector leak. Shall I file it with that scope?
+
+<!-- xgd-turn id="6e6c1880-e889-437b-932a-746fa5faff28-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:10:17.453105+00:00" -->
+#### You
+Yes can you file a ticket for all these changes please
 
 <!-- xgd-chat-end -->
