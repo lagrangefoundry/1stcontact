@@ -5,9 +5,9 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:54:39.468424+00:00'
+updated_at: '2026-10-07T19:55:12.627650+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   priority: medium
@@ -19,10 +19,18 @@ fields:
   - working_sha: b4fa4cbebdd6575f289011b52528c6dada06079a
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: 401f55750c68c967104748710862c6d6a448484b
     reconcile_sha: null
     main_sha: null
-  version: 0.2.499
+    working_sha_history: []
+  - working_sha: 2dabf4c18f8a66467ed917d1e11ca7c8c1724203
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cd47a7ee10ef533dd200b89e4a922e3cd6c4120a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.500
   story_points: 3
 ---
 
