@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:01:23.722283+00:00'
+updated_at: '2026-10-07T17:08:59.834118+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7213,5 +7213,11 @@ Both are real. The second one has two causes, and only one of them is a REQ-391 
 - or I file one small bug under EPIC-19 covering both points, including converting or removing the two leftover pages on that site.
 
 Which would you like?
+
+<!-- xgd-turn id="602e0cf8-3db3-4e9d-ba38-e5bb4cd8f341-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:08:58.620935+00:00" -->
+#### You
+What does "Choose this one" actually do - why do we need a button for that - I see that as part of the conversation with the AI
 
 <!-- xgd-chat-end -->
