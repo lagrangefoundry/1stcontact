@@ -5,9 +5,9 @@ type: request
 title: 'Dev tooling: bin/copy-repro-to-dev'
 created_by: EPIC-16
 created_at: '2026-10-07T17:55:37.258581+00:00'
-updated_at: '2026-10-07T18:17:30.843829+00:00'
+updated_at: '2026-10-07T18:17:35.368504+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.497
+  story_points: 5
 ---
 
 ## What the operator wants
