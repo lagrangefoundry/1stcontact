@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:54:03.633387+00:00'
+updated_at: '2026-10-07T17:55:14.059816+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5461,5 +5461,11 @@ Two things to know:
 - **It skips the capture-mirror check on the laptop side.** That's why it worked for faelan. Only use it on sites you own. The Worker still runs its own check against any captures held in the cloud store for that business.
 
 If you want this as a proper `1c` command, I'll file it as one ticket under EPIC-16, along with a way to mark capture material as yours.
+
+<!-- xgd-turn id="71a3448d-9ba9-45a6-9117-cb79bb148180-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:55:13.838234+00:00" -->
+#### You
+Can you put the script into bin/
 
 <!-- xgd-chat-end -->
