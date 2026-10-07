@@ -153,6 +153,7 @@ export type {
 } from './reference-store'
 export {
   ASSETS_PREFIX,
+  RIGHTS_MEMBER,
   CAPTURE_MEMBER,
   FORMS_MEMBER,
   HINTS_MEMBER,
@@ -177,6 +178,13 @@ export { memoryReferenceBundle, memoryReferenceStore } from './memory-reference-
 // The rights gate on the seed/push door (BUG-84). Worker-safe — it takes the
 // port and hashes with WebCrypto — so a Worker imports `./asset-rights`
 // directly for the same reason it imports `./reference-store` directly.
-export { assertNotCaptureMirrored, MirroredAssetError, sha256Hex } from './asset-rights'
+export {
+  assertNotCaptureMirrored,
+  assertRights,
+  MirroredAssetError,
+  readRightsRecord,
+  sha256Hex,
+  type RightsRecord,
+} from './asset-rights'
 export type { ReferenceStoreEnv } from './r2-reference-store'
 export { r2ReferenceStore } from './r2-reference-store'

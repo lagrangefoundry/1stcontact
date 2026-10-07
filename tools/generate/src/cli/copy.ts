@@ -1,12 +1,19 @@
-import { BUSINESSES_PATH, type BusinessesPayload } from '../../../../apps/control-app/src/router'
+import {
+  ADMIN_SITES_PATH,
+  BUSINESSES_PATH,
+  type BusinessesPayload,
+} from '../../../../apps/control-app/src/router'
+import type { PlatformSite } from '../../../../apps/control-app/src/directory'
 import { businessPath } from '../../../../apps/control-app/src/scope'
 import type { ChatsLanded, ChatsPayload } from '../../../../apps/control-app/src/chat-copy'
+import { fsReferenceStore, fsSiteStore } from '../store'
 import { DEV_SERVE_PORT } from './dev-snapshot'
 import {
   accessAdvice,
   ACCESS_NAMING,
   postPayload,
   postSitePayload,
+  readSitePayload,
   type AccessEnd,
   type AccessServiceToken,
   type PushResult,
@@ -353,7 +360,48 @@ async function getJson(
 }
 
 /**
- * Resolve a business NAME to that side's own id.
+ * Every business `origin`'s platform directory names, or null when this caller
+ * may not read it ([[REQ-392]]).
+ *
+ * `GET /api/admin/sites` (REQ-298) AND NOT A NEW ROUTE. It lists every site on
+ * the platform with the business that owns it, and provisioning mints a site for
+ * every business ([[REQ-236]]) — so it is already the directory of every business
+ * an import can land in. One business with two sites is one entry here.
+ *
+ * ITS REFUSAL IS AN ORDINARY ANSWER. The route 404s anyone who does not own the
+ * platform business, and that caller is exactly the one whose memberships are
+ * the whole of what they may name; so any refusal reads as "no directory" and
+ * the membership list stands alone. The same origin has just answered
+ * `/api/businesses`, so this is not where a credential problem is diagnosed.
+ */
+async function platformDirectory(origin: string, opts: Wire): Promise<BusinessRef[] | null> {
+  let payload: { sites?: PlatformSite[] }
+  try {
+    payload = (await getJson(
+      new URL(ADMIN_SITES_PATH, origin).toString(),
+      `Listing the platform directory at ${origin}`,
+      opts,
+    )) as { sites?: PlatformSite[] }
+  } catch {
+    return null
+  }
+  const seen = new Map<string, BusinessRef>()
+  for (const s of Array.isArray(payload?.sites) ? payload.sites : []) {
+    if (!seen.has(s.business)) seen.set(s.business, { id: s.business, name: s.businessName ?? s.business })
+  }
+  return [...seen.values()]
+}
+
+/** The businesses in `offered` that `wanted` names — by name, or by id. */
+function answering(offered: BusinessRef[], wanted: string): BusinessRef[] {
+  const key = wanted.trim().toLowerCase()
+  const byId = offered.filter((b) => b.id === wanted.trim())
+  if (byId.length > 0) return byId
+  return offered.filter((b) => String(b.name ?? '').trim().toLowerCase() === key)
+}
+
+/**
+ * Resolve a business NAME — or its id — to that side's own id.
  *
  * INDEPENDENTLY ON EACH SIDE, which is the whole reason the command takes a
  * name. A business id is minted by the store that holds it, so the local
@@ -361,11 +409,19 @@ async function getJson(
  * for the thing the operator calls one name. Asking each side what it calls it
  * is the only way the pair of calls can address the same business.
  *
- * THE LIST IS `/api/businesses` — the switcher's own, which reports exactly
- * what this caller may operate and discloses nothing else. So "no such
- * business" and "not yours" arrive as one sentence, which is correct: from out
- * here they are the same fact, and the useful half is the list of what the side
- * DID offer.
+ * AN ID IS ACCEPTED TOO ([[REQ-392]]), matched against the same lists. It means
+ * something on one side only, so a copy between two sides still wants a name;
+ * `copy-repro-to-dev` has one side and either will do.
+ *
+ * THE LIST IS `/api/businesses` FIRST — the switcher's own, which reports what
+ * this caller is a member of, plus the business they have entered — AND THE
+ * PLATFORM DIRECTORY SECOND ([[REQ-392]]). A platform operator may import into
+ * a business they hold no membership on, and asked by name the membership list
+ * said "not found" about a business the same import reached by id. So when the
+ * membership list does not answer, {@link platformDirectory} is asked; a caller
+ * it refuses gets the membership answer alone, and "no such business" and "not
+ * yours" still arrive as one sentence — from out here they are the same fact,
+ * and the useful half is the list of what the side DID offer.
  *
  * TWO BUSINESSES ANSWERING TO ONE NAME IS REFUSED, not resolved by first match
  * — the same refusal `/api/import` makes over two sites, for the same reason.
@@ -382,9 +438,19 @@ export async function resolveBusiness(
     `Listing the businesses at ${origin}`,
     opts,
   )) as BusinessesPayload
-  const offered = Array.isArray(payload?.businesses) ? payload.businesses : []
-  const wanted = name.trim().toLowerCase()
-  const matches = offered.filter((b) => String(b.name ?? '').trim().toLowerCase() === wanted)
+  const offered: BusinessRef[] = (Array.isArray(payload?.businesses) ? payload.businesses : []).map(
+    (b) => ({ id: b.id, name: b.name }),
+  )
+  if (payload?.entered && !offered.some((b) => b.id === payload.entered?.id)) {
+    offered.push({ id: payload.entered.id, name: payload.entered.name })
+  }
+  let matches = answering(offered, name)
+  if (matches.length === 0) {
+    for (const b of (await platformDirectory(origin, opts)) ?? []) {
+      if (!offered.some((o) => o.id === b.id)) offered.push(b)
+    }
+    matches = answering(offered, name)
+  }
   if (matches.length > 1) {
     throw new Error(
       `${origin} offers ${matches.length} businesses called '${name}', so the ` +
@@ -612,6 +678,96 @@ export async function copyChats(business: string, opts: CopyOptions): Promise<Co
     from: read.business,
     to: plan.target,
     read: payload.chats.length,
+    landed,
+  }
+}
+
+/**
+ * `bin/access-sim`'s own front door and service-token pair — the defaults
+ * `copy-repro-to-dev` reaches the local builder through ([[REQ-392]]).
+ *
+ * THE SIMULATOR AND NOT THE BARE BUILDER, because a repro is copied into a
+ * business the operator names, and only the simulator's front door resolves a
+ * business other than `TENANT_ID` (see `bin/access-sim`). The pair is its
+ * well-known default (`SIM_CLIENT_ID` / `SIM_CLIENT_SECRET` there), which buys
+ * nothing anyone does not already have on loopback.
+ */
+export const ACCESS_SIM_ORIGIN = 'http://127.0.0.1:8799'
+export const ACCESS_SIM_PAIR: AccessServiceToken = {
+  clientId: 'local-dev.access',
+  clientSecret: 'local-dev-secret',
+}
+
+export interface CopyReproResult {
+  /** The reproduction's sandbox slug. */
+  repro: string
+  origin: string
+  to: BusinessRef
+  pages: string[]
+  assets: string[]
+  landed: PushResult['landed']
+}
+
+/**
+ * Put a reproduction's draft into an existing business in the local builder
+ * ([[REQ-392]]).
+ *
+ * A REPRODUCTION EXISTS TO BECOME A SITE SOMEBODY CAN EDIT, and since REQ-290
+ * retired `1c push` nothing carried `storage/sandbox/<slug>/draft` into the
+ * builder's store. This is that carry, built from the parts the copy pair is:
+ * {@link resolveBusiness} for the destination (name or id, never created),
+ * `readSitePayload` for the read and the laptop half of BUG-84's gate, and
+ * `postSitePayload` for the wire and its refusals — BUG-51's 409 and `--force`
+ * included. Only the SOURCE differs: the file-backed sandbox tree rather than a
+ * second builder's `/api/export`.
+ *
+ * THE DESTINATION IS RESOLVED BEFORE THE DRAFT IS READ, for {@link copySite}'s
+ * reason: a copy that hashed and encoded a site's worth of assets before
+ * discovering there is nowhere to put them has spent the operator's time.
+ *
+ * THE RIGHTS GATE RUNS, AND A RECORD IS HOW IT PASSES. Every asset `1c repro`
+ * puts in a draft is a mirrored subresource, so this refuses every reproduction
+ * of a page we do not hold the rights to — and passes one whose capture carries
+ * the operator's `rights.json` (`1c rights assert`). There is no flag here that
+ * skips it.
+ *
+ * DRAFT ONLY. The import writes the business's draft; nothing is published.
+ */
+export async function copyReproToDev(
+  repro: string,
+  business: string,
+  opts: {
+    cwd: string
+    origin?: string
+    access?: AccessServiceToken
+    force?: boolean
+    fetch?: typeof fetch
+  },
+): Promise<CopyReproResult> {
+  const origin = opts.origin ?? ACCESS_SIM_ORIGIN
+  const wire: Wire = { end: 'local', access: opts.access ?? ACCESS_SIM_PAIR, fetch: opts.fetch }
+  const to = await resolveBusiness(origin, business, wire)
+
+  const payload = await readSitePayload(
+    fsSiteStore({ cwd: opts.cwd, root: 'sandbox' }),
+    fsReferenceStore(opts.cwd),
+    repro,
+  )
+  if (opts.force === true) payload.force = true
+
+  const landed = await postSitePayload(payload, {
+    url: new URL(businessPath(to.id, CLASS_ROUTES.site.write), origin).toString(),
+    subject: `Copy of '${repro}' into '${to.name}'`,
+    end: 'local',
+    access: wire.access,
+    fetch: opts.fetch,
+  })
+  return {
+    repro,
+    origin,
+    to,
+    pages: payload.pages.map((p) => p.name),
+    assets: payload.assets.map((a) => a.name),
     landed,
   }
 }

@@ -64,6 +64,12 @@ export const FORMS_MEMBER = 'forms.json'
 export const HINTS_MEMBER = 'hints.json'
 /** Every mirrored subresource lives under this prefix. */
 export const ASSETS_PREFIX = 'assets/'
+/**
+ * The operator's recorded rights decision over this capture ([[REQ-392]]) —
+ * absent on every bundle whose subresources we may not republish. See
+ * `asset-rights.ts`.
+ */
+export const RIGHTS_MEMBER = 'rights.json'
 
 /** The per-width reference screenshot's member key (REQ-61). */
 export function ladderMember(width: number): string {

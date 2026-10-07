@@ -11,7 +11,8 @@ import {
   ctxOf,
   type GlobalOptions,
 } from './commands'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
+import { userInfo } from 'node:os'
 import { devEnvLayering, devUrl, devVarsPath, readDevEnv } from './dev-env'
 import { localD1Check } from './d1-migrations'
 import {
@@ -31,18 +32,29 @@ import {
   accessFor,
   assertDataClass,
   copyChats,
+  copyReproToDev,
   copySite,
   endNamesFor,
   endsFor,
   exportChats,
   exportSite,
   serviceToken,
+  ACCESS_SIM_ORIGIN,
   CLOUD_ORIGIN,
   LOCAL_ORIGIN,
   type CopyDirection,
   type DataClass,
 } from './copy'
-import { bundleDir, fsReferenceBundle, fsReferenceStore, fsSiteStore } from '../store'
+import {
+  assertRights,
+  bundleDir,
+  fsReferenceBundle,
+  fsReferenceStore,
+  fsSiteStore,
+  MirroredAssetError,
+  readRightsRecord,
+  type RightsRecord,
+} from '../store'
 import {
   editAssetAdd,
   editAssetGet,
@@ -644,6 +656,33 @@ Copy a business between builders (REQ-289, REQ-294) — what \`bin/copy-to-cloud
                  genuinely serves both, or when the local builder has no gate.
                  \`bin/access-sim --print-token\` prints its pair under the CLOUD
                  names; put those two values in the LOCAL_ ones, do not eval it.
+
+Copy a reproduction into the local builder (REQ-392) — what \`bin/copy-repro-to-dev\` runs:
+  1c copy-repro-to-dev <repro-slug> <business> [--origin URL] [--force]
+                       [--local-client-id ID --local-client-secret SECRET] [--json]
+    Reads storage/sandbox/<repro-slug>/draft (site.json, pages, assets) and writes it
+    into <business>'s DRAFT through POST /b/<id>/api/import. Nothing is published.
+    <business> is the business's name or its biz_… id; a name the caller is not a
+    member of is found through the platform directory (/api/admin/sites) when the
+    caller may read it. The business must ALREADY EXIST: this never creates one.
+    --origin defaults to \`bin/access-sim\` (${ACCESS_SIM_ORIGIN}); the credential is
+    --local-client-id/--local-client-secret, else LOCAL_ACCESS_CLIENT_ID /
+    LOCAL_ACCESS_CLIENT_SECRET, else the simulator's own pair. REFUSED with 409 when
+    the business carries changes made in the BUILDER (BUG-51); --force says you mean it.
+    REFUSED when an asset is byte-for-byte a subresource mirrored from a capture that
+    carries no rights record (BUG-84) — see \`1c rights\`.
+
+The rights record on a capture (REQ-392) — the recorded decision BUG-84's gate reads:
+  1c rights assert <bundle> --basis "<why we hold the right>" [--by WHO] [--json]
+  1c rights show [<bundle>] [--json]
+    <bundle> is a capture's name under storage/references/ (e.g. faelan.com/index).
+    \`assert\` writes the bundle's rights.json — who asserted it (--by, default
+    \`git config user.email\`), when, for which bundle, and why — and from then on
+    the rights gate lets that capture's mirrored subresources onto a site. It is
+    refused for a bundle that does not exist and for one that already carries a
+    record. It is not a flag that skips the check: a capture with no record is
+    refused exactly as before. \`show\` prints one bundle's record, or every
+    bundle's that carries one.
 
 Control-app assets (REQ-145) — the build step behind /builder, /webui and /framework:
   1c assets [--json]
@@ -1256,6 +1295,105 @@ export async function run(argv: string[]): Promise<void> {
               `  assets  ${result.landed.assets}\n` +
               `  site.json ${result.landed.siteJson ? 'yes' : 'no'}`,
         )
+      } catch (err) {
+        fail(err, json)
+      }
+      return
+    }
+
+    /**
+     * `1c copy-repro-to-dev <repro-slug> <business>` ([[REQ-392]]) — a
+     * reproduction's draft, into an existing business in the local builder.
+     * `copyReproToDev` is the whole of it; this reads the flags and prints.
+     */
+    case 'copy-repro-to-dev': {
+      const json = flags.json === true
+      try {
+        const repro = requireArg(rest[0], 'repro-slug')
+        const business = requireArg(rest[1], 'business')
+        // THE LOCAL ROW OF BUG-134's TABLE, and nothing else: there is no cloud
+        // end here, so the cloud pair is not a fallback for it.
+        const access = serviceToken(
+          typeof flags['local-client-id'] === 'string'
+            ? flags['local-client-id']
+            : process.env.LOCAL_ACCESS_CLIENT_ID,
+          typeof flags['local-client-secret'] === 'string'
+            ? flags['local-client-secret']
+            : process.env.LOCAL_ACCESS_CLIENT_SECRET,
+          'local',
+        )
+        const result = await copyReproToDev(repro, business, {
+          cwd: process.cwd(),
+          ...(typeof flags.origin === 'string' ? { origin: flags.origin } : {}),
+          ...(access ? { access } : {}),
+          ...(flags.force === true ? { force: true } : {}),
+        })
+        if (json) {
+          console.log(JSON.stringify({ ok: true, data: result }, null, 2))
+          return
+        }
+        console.log(
+          `copied '${result.repro}' → '${result.to.name}' (${result.to.id}) at ${result.origin}\n` +
+            `  site    ${result.landed.site ?? '(not reported)'}\n` +
+            `  pages   ${result.landed.pages} (${result.pages.join(', ') || 'none'})\n` +
+            `  assets  ${result.landed.assets}\n` +
+            `  draft only — nothing was published`,
+        )
+      } catch (err) {
+        // THE ONE LINE THE GATE'S OWN SENTENCE CANNOT SAY, because the Worker
+        // raises the same error over bundles no laptop command can write: on
+        // this side the capture is on this disk, and recording the decision is
+        // one command. Only ever a way to RECORD it — never a way past it.
+        if (err instanceof MirroredAssetError) {
+          err.message +=
+            `\nIf we hold the rights to that capture, record it: ` +
+            `1c rights assert ${err.bundle} --basis "<why>"`
+        }
+        fail(err, json)
+      }
+      return
+    }
+
+    /**
+     * `1c rights assert|show` ([[REQ-392]]) — the recorded rights decision over a
+     * capture that BUG-84's gate reads. `asset-rights.ts` holds the rule; this
+     * chooses the bundle and says who is asking.
+     */
+    case 'rights': {
+      const json = flags.json === true
+      try {
+        const references = fsReferenceStore(process.cwd())
+        const sub = rest[0]
+        const show = (r: RightsRecord): string =>
+          `${r.bundle}\n  asserted by ${r.assertedBy}\n  at          ${r.assertedAt}\n  basis       ${r.basis}`
+        if (sub === 'assert') {
+          const bundle = references.bundle(requireArg(rest[1], 'bundle'))
+          const basis = typeof flags.basis === 'string' ? flags.basis : ''
+          const record = await assertRights(bundle, {
+            by: typeof flags.by === 'string' ? flags.by : operatorIdentity(),
+            basis,
+          })
+          console.log(json ? JSON.stringify({ ok: true, data: record }, null, 2) : `recorded\n${show(record)}`)
+          return
+        }
+        if (sub === 'show') {
+          const names = rest[1] ? [rest[1]] : await references.list()
+          const records: RightsRecord[] = []
+          for (const name of names) {
+            const record = await readRightsRecord(references.bundle(name))
+            if (record) records.push(record)
+          }
+          if (rest[1] && records.length === 0) {
+            throw new Error(`'${rest[1]}' carries no rights record — its subresources may not go on a site.`)
+          }
+          console.log(
+            json
+              ? JSON.stringify({ ok: true, data: records }, null, 2)
+              : records.map(show).join('\n') || '(no capture carries a rights record)',
+          )
+          return
+        }
+        throw new Error('Usage: 1c rights assert <bundle> --basis "<why>" [--by WHO] | 1c rights show [<bundle>]')
       } catch (err) {
         fail(err, json)
       }
@@ -2775,6 +2913,21 @@ export async function run(argv: string[]): Promise<void> {
       process.exitCode = 1
       return
   }
+}
+
+/**
+ * Who is asserting a rights record when `--by` is not given ([[REQ-392]]): the
+ * git identity this checkout commits as, else the OS user. Never empty — a
+ * record has to name somebody.
+ */
+function operatorIdentity(): string {
+  try {
+    const email = execFileSync('git', ['config', 'user.email'], { encoding: 'utf8' }).trim()
+    if (email) return email
+  } catch {
+    // No git, or no identity configured — fall through to the OS user.
+  }
+  return userInfo().username
 }
 
 /**
