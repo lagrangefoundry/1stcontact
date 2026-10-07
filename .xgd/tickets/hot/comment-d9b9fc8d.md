@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:25:49.486329+00:00'
+updated_at: '2026-10-07T19:26:14.153183+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5647,5 +5647,37 @@ Failed: apex_resolves
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="fe8d92ad-240c-402d-bd37-9a176094bb8a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:26:14.098554+00:00" -->
+#### Claude
+The deploy went through, and smoke is reporting accurately. The one failure is not a fault in the deploy: **nothing has been published in production yet**, so the apex has nothing to serve. Here's production right now:
+
+| Business | Site | Published versions | Public addresses |
+|---|---|---|---|
+| 1st Contact | `site_c4bed79aeb647305a5e3098f70d6dca3` | 0 | 0 |
+| Lagrange Foundry | `site_23c1afb3…` | 0 | 0 |
+| XGD | `site_6caf0a8b…` | 0 | 0 |
+| Gigabyte Alchemy | `site_70772e92…` | 0 | 0 |
+
+`APEX_SITE_KEY` is also still `""`, so `1stcontact.io/` returns 404 by design. Six of the seven skips follow from that. The other one, `control_app_workers_dev_closed`, is skipped because it needs `--workers-dev-origin`. The check that matters most, `control_app_challenges_unauthenticated`, passes: the builder is behind Access.
+
+To make `apex_resolves` pass, these are the go-live steps you haven't done yet:
+
+1. **(Optional) Re-copy 1st Contact** if your local draft has moved on since the Sep 21 copy:
+   `bin/copy-to-cloud --origin http://127.0.0.1:8799 "1st Contact"`
+2. **Give the site a public address.** Publishing is refused until a site has at least one. Add `1stcontact.io` (or a `1stc.site` name) in the builder's domains pane.
+3. **Publish 1st Contact** in the deployed builder at `app.1stcontact.io`. That's the first publish anywhere, so this is where something new could surface.
+4. **Point the apex at it.** In `apps/public-site/wrangler.toml` line 171 (the production block), set:
+   ```toml
+   APEX_SITE_KEY = "site_c4bed79aeb647305a5e3098f70d6dca3"
+   ```
+   That is the production site key, which is different from the one in your local store. Then run `bin/deploy public-site`.
+5. **Run smoke with the key:**
+   `bin/smoke --site-key site_c4bed79aeb647305a5e3098f70d6dca3`
+   With the key, the published-site checks run for the first time: they cover redirects, the HTML index, caching and assets.
+
+Step 4 is just a config change, so I can make it now if you like. It only takes effect once step 3 has published something, and until then it changes nothing visible.
 
 <!-- xgd-chat-end -->
