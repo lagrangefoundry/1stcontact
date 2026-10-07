@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:55:45.835951+00:00'
+updated_at: '2026-10-07T18:10:12.316780+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5487,5 +5487,11 @@ node storage/tmp/copy-repro-to-dev.mjs repro-faelan-com biz_c4bf5391fc5c9b329320
 ```
 
 If you'd rather skip the ownership record and just have the script in `bin/` as-is, that's your call. Say so and I'll take that requirement out of REQ-392.
+
+<!-- xgd-turn id="bb28c2a8-1ce0-408a-bf5e-f6ef7fe8a606-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T18:10:11.226609+00:00" -->
+#### You
+I'm really not worried about the IP issue its a long and complicated road to publish something - I am the only one working on this - I have no fear that it might happen automatically. just skip it.
 
 <!-- xgd-chat-end -->
