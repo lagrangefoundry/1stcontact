@@ -5,9 +5,9 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:28:16.521435+00:00'
+updated_at: '2026-10-07T19:28:20.758782+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: medium
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.499
+  story_points: 3
 ---
 
 ## What the operator wants
