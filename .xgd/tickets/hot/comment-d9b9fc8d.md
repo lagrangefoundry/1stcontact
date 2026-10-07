@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:03:30.674930+00:00'
+updated_at: '2026-10-07T19:03:45.564993+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5514,5 +5514,11 @@ The rest of the ticket is unchanged: name or `biz_…` id, a name lookup that fi
 <!-- xgd-chat role="user" ts="2026-10-07T19:03:30.334224+00:00" -->
 #### You
 To deploy to prod I can just hit bin/dev deploy, yes?
+
+<!-- xgd-turn id="3cd31330-6fbf-4dd7-9ae1-890154e65a41-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:03:45.328681+00:00" -->
+#### Claude
+Let me check what `bin/dev deploy` actually does rather than guess.
 
 <!-- xgd-chat-end -->
