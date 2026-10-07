@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-04T00:43:44.820490+00:00'
+updated_at: '2026-10-07T17:10:52.694874+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2159,3 +2159,7 @@ Run 2 used one consultant (group chat off) with the REQ-364 plan panel. The oper
 ### Finding 20 — builder sessions never run in parallel, and a draft edit has no concurrency guard (2026-10-03)
 
 The consultant promised Charlie it would build two sections in parallel, but the framework's tool loop runs tool calls strictly one after another, and the builder sessions in that turn finished one at a time. Looking into it found something more serious: `set_l1` writes a whole element subtree back from a copy read earlier, with no expected version, so the last write silently wins. Every write also regenerates every address on the page. Same-page parallel work is therefore unsafe by construction. Filed as **[[EPIC-24]]**: a model of scopes enforced by the tools, a draft-edit guard, concurrent builder sessions starting with different pages only, and a tool manual that tells the consultant the truth.
+
+
+
+- **[[BUG-205]]** (2026-10-07): looks review after REQ-391. The carousel lives on the existing toolbar and lights up when a page has looks, with no separate mode. The current draft is one position in the carousel. The 'Choose this one' button is removed, because choosing happens in conversation through the consultant's existing `choose_look`. The Page selector never lists a look. The legacy `heavy`/`family` pages on Charlie 3 get removed.
