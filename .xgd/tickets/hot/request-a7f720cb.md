@@ -5,7 +5,7 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:32:11.582225+00:00'
+updated_at: '2026-10-07T19:54:39.468424+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -42,20 +42,20 @@ Today the deploy's secrets hooks (`bin/deploy.d/secrets/*`) and wrangler read on
 - `--dry-run` loads the file too, so the dry run probes exactly what the real run would.
 - `bin/build` takes the same flag, for the same reason: its KB stage needs `CLOUDFLARE_API_TOKEN`, and that is the step that failed for want of it on 2026-10-07.
 
-## Decision: no default file
+## Decision: default to the file (revised 2026-10-07, see Extension)
 
-With no flag, the deploy reads NO file — `--secrets-file` is explicit. Reasons:
-
-- The file is `1c.dev.env`. Read unasked, every production deploy would push (overwrite) every secret it holds — and a dev-scoped key in it would silently replace the production one. Naming the file is the operator's decision to rotate from it.
-- Each `wrangler secret put` creates a new Worker version, so an implicit default makes every deploy several deployments.
-- Forgetting the flag is already visible: the capability report says `stored`/unverified rather than passing.
+First landed as explicit-only. The operator then decided the open question the other way: with no flag, all four commands load the dev servers' default file — `$ONECONTACT_SECRETS`, else `~/Documents/secrets/1c.dev.env` — when it exists, and say which file they loaded. Reason: fewer steps to remember. Accepted cost: every deploy probes and re-pushes every secret the file holds (each `wrangler secret put` is a new Worker version). An absent DEFAULT file is not an error; an explicitly named missing or empty file is. `--no-secrets-file` loads nothing.
 
 ## How it is built
 
-- One loader, `tools/generate/bin/env-file.mjs` (plain node, no transform). It holds THE parser (`parseEnvText`) — moved there from `dev-env.ts`, which now imports it — so the dev servers and the release scripts cannot disagree about the file.
-- `node env-file.mjs exec <who> <path> -- <cmd...>` overlays the file onto the environment (non-empty values already set win; empty counts as unset), prints `secrets file: <path>`, `took: <names>` and `kept from your environment: <names>`, then runs the command with stdio inherited and forwards its exit code. Values never pass through a pipe or a shell.
-- `bin/deploy` and `bin/build` parse `--secrets-file PATH` (relative paths resolve against the caller's directory, not the repo root) and, before any hook, stage or the `--fonts` target, re-exec themselves under the loader. A marker env var (`DEPLOY_SECRETS_FILE_LOADED` / `BUILD_SECRETS_FILE_LOADED`) stops the second run from loading the file again.
-- `bin/deploy.d/secrets/README.md` and both scripts' `--help` text describe the flag.
+- One loader, `tools/generate/bin/env-file.mjs` (plain node, no transform). It holds THE parser (`parseEnvText`) and THE default path (`defaultSecretsPath`: `ONECONTACT_SECRETS` with `:-` semantics, else `$HOME/Documents/secrets/1c.dev.env`). Both moved there from `dev-env.ts`, which now imports them, so the dev servers and the scripts cannot disagree about which file or what it means.
+- `node env-file.mjs run <who> -- <script> [args...]` is each script's preamble. It takes `--secrets-file PATH` (or `=PATH`) and `--no-secrets-file` OUT of the arguments, loads the selected file (none on `-h`/`--help`), overlays it on the environment (non-empty values already set win; empty counts as unset), reports to STDERR `secrets file: <path>` (marked `(default; --no-secrets-file to skip)` when defaulted), `took: <names>` and `kept from your environment: <names>`, then re-runs `bash <script>` with the remaining args and `ONECONTACT_SECRETS_LOADED_BY=<who>` set so it does not load twice. The script never parses either flag. Values never pass through a pipe or a shell. Stderr keeps a `--json` command's stdout clean.
+- Relative `--secrets-file` paths resolve against the caller's directory (the preamble runs before `bin/deploy`/`bin/build` `cd` to the repo root).
+- The loader detects that it is the entry point by comparing REAL paths. A plain compare of `import.meta.url` with `argv[1]` is false under a symlinked directory (macOS `/tmp`), and the command then silently did nothing and exited 0. That bug was in the first landing and is fixed here.
+- `bin/deploy`, `bin/build`, `bin/copy-to-cloud`, `bin/copy-from-cloud` all carry the preamble. The copy pair runs it after `--help`, so help needs no credential.
+- **Copy pair local end** (`copy.ts` `LOCAL_ORIGIN`) is now `bin/access-sim`, `http://127.0.0.1:8799` (`ACCESS_SIM_ORIGIN` is the same constant). With no `--origin` and no `LOCAL_ACCESS_*`, the CLI sends `ACCESS_SIM_PAIR` to it. With an explicit `--origin` and no `LOCAL_ACCESS_*`, BUG-134's fallback to the cloud pair is unchanged.
+- Help/headers updated: `bin/deploy --help`, `bin/build --help`, both copy scripts' headers (which are their help), `1c` help for the copy verbs, `bin/deploy.d/secrets/README.md`.
+- Two existing scratch-tree fixtures (`reconciliation-platform-build-deploy-smoke`, REQ-264's whole-rehearsal test) now copy `env-file.mjs` beside the drivers, by the rule they already state: shared machinery travels with the driver.
 
 ## Boundaries
 
@@ -64,17 +64,23 @@ With no flag, the deploy reads NO file — `--secrets-file` is explicit. Reasons
 
 ## Test plan
 
-`tests/test_UAT_FC_REQ-393_secrets_file.test.ts` runs the real `bin/deploy` / `bin/build` with the process boundary stubbed (`npx`, `pnpm`, and `node` for everything except the loader), in an environment built from nothing:
+`tests/test_UAT_FC_REQ-393_secrets_file.test.ts` runs the real scripts with the process boundary stubbed (`npx`, `pnpm`, and `node` for everything except the loader), in an environment built from nothing:
 
-- `a_secret_only_in_the_file_is_probed_and_pushed` — without the flag the deploy stops; with it, `ANTHROPIC_API_KEY` is probed and the file's value is pushed. A `--dry-run` probes too and says "would push".
-- `a_value_exported_in_the_shell_wins_over_the_file` — the shell's value is the one pushed, and the report says it was kept.
-- `a_missing_or_empty_file_stops_before_any_hook` — for both scripts: non-zero exit, path named, no hook, no stage.
-- `the_report_names_keys_and_never_values` — names listed, no value anywhere in the output.
-- `bin_build_supplies_the_kb_stage_its_token` — `1c kb ensure` sees `CLOUDFLARE_API_TOKEN` only with the flag.
-- `loading_the_file_leaves_deployed_vars_unchanged` — the real wrangler, through the real loader, over a copy of control-app's `wrangler.toml`: a file setting `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `SERVICE_TOKEN_IDENTITIES` leaves the binding table byte-identical.
+- `a_secret_only_in_the_file_is_probed_and_pushed`: without the file the deploy stops; with it, `ANTHROPIC_API_KEY` is probed and the file's value pushed. `--dry-run` probes too and says "would push".
+- `a_value_exported_in_the_shell_wins_over_the_file`
+- `a_missing_or_empty_file_stops_before_any_hook`: both `bin/deploy` and `bin/build`.
+- `the_report_names_keys_and_never_values`
+- `bin_build_supplies_the_kb_stage_its_token`
+- `loading_the_file_leaves_deployed_vars_unchanged`: real wrangler over a copy of control-app's `wrangler.toml`; the binding table is identical with and without a file setting the Access vars.
+- `the_loader_runs_when_reached_through_a_symlink`
+- `with_no_flag_the_default_file_is_loaded_and_reported`: also that `ONECONTACT_SECRETS` moves the default.
+- `an_absent_default_is_skipped_but_an_explicit_missing_path_fails`
+- `no_secrets_file_loads_nothing`
+- `the_copy_pair_reads_both_credential_pairs_from_the_file`: `copy-from-cloud` is refused for want of the cloud pair without the file; with it the refusal is gone and a gated fake local builder sees only the file's LOCAL pair. `copy-to-cloud --backup` through the same gate succeeds. No secret appears in output.
+- `the_copy_pair_local_end_defaults_to_the_simulator`: `LOCAL_ORIGIN` is `bin/access-sim`'s origin, not the snapshot port.
+- `with_no_origin_the_copy_reaches_the_simulator_with_its_own_pair`: no `--origin`, no exports; a fake simulator on 8799 admitting only `ACCESS_SIM_PAIR` resolves "Not The Tenant" and the backup lands. Skipped when 8799 is taken (the operator's real `bin/access-sim`). Verified by hand against the real simulator on 2026-10-07: `bin/copy-to-cloud --no-secrets-file --backup … "Lagrange Foundry"` backed it up from `http://127.0.0.1:8799` with nothing exported.
 
-Regression: the dev-env suites (BUG-50, BUG-146, BUG-150) pass against the moved parser.
-
+Regression (all green): BUG-134, REQ-289, REQ-294 chats command, BUG-159 (help, force advice), REQ-392, BUG-36, REQ-149, REQ-264, REQ-144, REQ-312, REQ-315, REQ-318, REQ-319, REQ-322, BUG-50, BUG-146, BUG-150, reconciliation build/deploy smoke.
 
 ## Extension (2026-10-07): the copy pair, and the default — "make this all more streamlined"
 
