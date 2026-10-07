@@ -5,9 +5,9 @@ type: request
 title: 'Dev tooling: bin/copy-repro-to-dev'
 created_by: EPIC-16
 created_at: '2026-10-07T17:55:37.258581+00:00'
-updated_at: '2026-10-07T18:17:35.368504+00:00'
+updated_at: '2026-10-07T18:17:49.705219+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -68,3 +68,9 @@ A stop-gap `storage/tmp/copy-repro-to-dev.mjs` (gitignored, laptop only) does th
 ## Test plan
 
 UATs (`test_UAT_FC_REQ-392_*`): a repro copied into an existing dev business by name and by id lands its pages and assets at `/b/<id>/api/import`; a name only the platform directory knows (not a membership) resolves; a business that does not exist is refused naming what exists, with nothing posted; a 409 is reported with `--force` as the answer, and `--force` is sent when given; a capture-mirrored asset is refused without a rights record and accepted with one (both the CLI half and the shared gate the Worker uses); a malformed record or a record naming another bundle does not count; `1c rights assert` writes the record (who, when, which bundle, why) and `1c rights show` reads it back; asserting twice or on a non-existent bundle is refused.
+
+
+
+## Landed (2026-10-07)
+
+Commits 5254790206 (feature) + 1dfcc4d1d7 (version 0.2.497). The stop-gap `storage/tmp/copy-repro-to-dev.mjs` has been deleted. Page names in the payload are the store's own keys (`index.json`), as every other import sends them.
