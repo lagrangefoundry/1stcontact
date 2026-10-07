@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T18:00:57.286552+00:00'
+updated_at: '2026-10-07T18:01:48.191014+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7289,5 +7289,11 @@ Everything else is consistent:
 **For me:** from here I'll say "the consultant" in tickets and design notes, not "Alice". DOC-62 and several tickets still use the names, but they're internal, and the frozen ones can't be edited anyway.
 
 **The fix** is a one-line change plus a test. REQ-390 is frozen, so the obvious home is BUG-205 as a second builder correction from the same debrief, rather than a separate ticket. Shall I add it there?
+
+<!-- xgd-turn id="26ca05cf-4e40-47e4-99a0-39c66b0c378a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T18:01:47.942318+00:00" -->
+#### You
+Sure
 
 <!-- xgd-chat-end -->
