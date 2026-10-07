@@ -91,6 +91,22 @@
 #   bin/deploy --env dev             # the LOCAL dev environment — a snapshot, not an upload
 #   bin/deploy --fonts               # the platform font mirror, to the cloud
 #   bin/deploy --fonts --env dev     # …and to local dev, where the work is done
+#   bin/deploy --secrets-file ~/Documents/secrets/1c.dev.env
+#
+# THE SECRETS FILE ([[REQ-393]]). Hooks and wrangler read credentials from the
+# process environment, and the operator's credentials live in one dotenv file —
+# the one the dev servers already read. `--secrets-file PATH` loads it into THIS
+# deploy's environment (every hook, every wrangler call) and nothing else; the
+# operator's shell is untouched, and a non-empty value already exported wins so a
+# one-off override still works. It is loaded by re-running this script under
+# `tools/generate/bin/env-file.mjs`, which holds the parser `dev-env.ts` uses, so
+# one file means one thing to both readers. A missing or empty file stops the
+# deploy before any hook runs. The report names the keys taken, never a value.
+#
+# THERE IS NO DEFAULT FILE, deliberately. That file is named `.dev.env`; reading
+# it unasked would push and overwrite every production secret it holds on every
+# deploy, and a dev-scoped key would silently replace the production one. Naming
+# the file is the operator's decision to rotate from it.
 #
 # Exit codes: 0 success; 1 anything else (a failed hook, a failed upload).
 
@@ -98,12 +114,16 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
+# Before the `cd`, so a relative `--secrets-file` means what the operator typed.
+caller_dir="$PWD"
 cd "$repo_root"
 
 dry_run=0
 env_name="production"
 fonts=0
+secrets_file=""
 requested=()
+all_args=("$@")
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -123,12 +143,27 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --secrets-file)
+      secrets_file="${2:-}"
+      if [[ -z "$secrets_file" ]]; then
+        echo "bin/deploy: --secrets-file needs a path" >&2
+        exit 1
+      fi
+      [[ "$secrets_file" == /* ]] || secrets_file="$caller_dir/$secrets_file"
+      shift 2
+      ;;
     -h | --help)
       cat <<'EOF'
 bin/deploy — deploy the Workers, and report what moved.
 
   bin/deploy [--dry-run] [--env <name>] [app...]
   bin/deploy --fonts [--dry-run] [--env production|dev] [app...]
+
+  --secrets-file PATH   load PATH's KEY=value lines (dotenv, as the dev servers
+                        read it) into this deploy's environment only. A value
+                        already exported in your shell wins. Names are reported,
+                        never values. There is no default: naming the file is
+                        the decision to push what it holds.
 
 With no app named, every apps/*/ Worker is deployed. `--dry-run` runs the same
 path and uploads nothing.
@@ -187,6 +222,16 @@ EOF
       ;;
   esac
 done
+
+# THE SECRETS FILE IS LOADED BEFORE ANYTHING ELSE RUNS ([[REQ-393]]) — before
+# the font target, before the first hook — by re-running this script with the
+# file's assignments in its environment. The marker stops the second run loading
+# it again; it is this process's own, so an operator cannot set it by accident
+# in a way that matters (the worst case is that their own exports are used).
+if [[ -n "$secrets_file" && "${DEPLOY_SECRETS_FILE_LOADED:-}" != "1" ]]; then
+  DEPLOY_SECRETS_FILE_LOADED=1 exec node "$repo_root/tools/generate/bin/env-file.mjs" \
+    exec bin/deploy "$secrets_file" -- bash "$repo_root/bin/deploy" "${all_args[@]}"
+fi
 
 # Discovered, not listed — same reason as bin/build.
 all_apps=()
