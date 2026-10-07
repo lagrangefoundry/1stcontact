@@ -19,27 +19,29 @@ fields:
   needs_review: false
   commits:
   - working_sha: 54b3e76a84d005134884728dee80bacab93f83c1
-    reconcile_sha: null
+    reconcile_sha: 30abfebebdfcd37472bc43653e0dd7257198e1f7
     main_sha: null
     working_sha_history: []
   - working_sha: 0e390334e49f33f94bc2c948a62a532c03ea84eb
-    reconcile_sha: null
+    reconcile_sha: d01e1e189146fd0829a1bff6807b0949f306dcab
     main_sha: null
     working_sha_history: []
   - working_sha: 932f362e4f60b8797557ba8f4cdd1fddeb1c9068
-    reconcile_sha: null
+    reconcile_sha: 94983a2b611f639a63c4e34a54be6873b74a8469
     main_sha: null
     working_sha_history: []
   - working_sha: 92fc26e7bcc2a941999ba0e55292cda6b092bd26
-    reconcile_sha: null
+    reconcile_sha: 8d2552728e6e5a91a76f078557d82a840c259040
     main_sha: null
     working_sha_history: []
   - working_sha: ec144c856ed1840d23e4f1443dfddf4fb0ef2d67
-    reconcile_sha: null
+    reconcile_sha: c58a2c4ed2f6838da61d40ed9776676adbb6ee16
     main_sha: null
+    working_sha_history: []
   - working_sha: 02bd443784f6a1202cd5b1807a12dc52d012628f
-    reconcile_sha: null
+    reconcile_sha: 07afe0840df7100b6aa0bde0052a3ab433094dbe
     main_sha: null
+    working_sha_history: []
   version: 0.2.9
   bundled_in: bundle-b3b7c399
   chat_comment: comment-98e86f10
