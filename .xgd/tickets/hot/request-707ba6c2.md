@@ -5,10 +5,10 @@ type: request
 title: 'Dev tooling: bin/copy-repro-to-dev'
 created_by: EPIC-16
 created_at: '2026-10-07T17:55:37.258581+00:00'
-updated_at: '2026-10-07T18:17:49.705219+00:00'
+updated_at: '2026-10-07T18:44:01.737478+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
