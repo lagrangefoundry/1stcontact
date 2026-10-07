@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T16:47:35.984367+00:00'
+updated_at: '2026-10-07T16:48:12.873754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5333,5 +5333,36 @@ The knowledge index needs Workers AI: set CLOUDFLARE_API_TOKEN (the same credent
 Why do I get this message that says :
 
 Run `1c kb build` (or `bin/kb-release`, which runs the whole build in order). <-- shouldn't build just run this if its needed?
+
+<!-- xgd-turn id="f5fa97b9-3d0b-4e7e-a9ad-3c64adbd394a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T16:48:11.896566+00:00" -->
+#### Claude
+You're right that `bin/build` should handle this, and it did try. It found the KB out of date and went to rebuild it. Then it stopped because **`CLOUDFLARE_API_TOKEN` isn't set in your shell**, and a rebuild needs Workers AI to make the embeddings. That's the last paragraph of the output.
+
+The message is confusing because it joins two pieces of text from different places:
+
+1. **The staleness report**, ending in "Run `1c kb build` (or `bin/kb-release`…)". This wording was written for the later `1c assets` refusal, where telling you to run another command made sense. `kbEnsure` (`tools/generate/src/cli/kb.ts:1595`) reuses it word for word. So in `bin/build` it tells you to run a command that `bin/build` was already about to run itself.
+2. **The real reason it stopped**: no credential.
+
+Nothing was rewritten. The refusal happens before the corpus is touched, so your existing tree is exactly as it was.
+
+## To get past it
+
+```bash
+export CLOUDFLARE_API_TOKEN='…'     # 1c_Admin_Token — the other two get a 401 from Workers AI
+export NODE_USE_ENV_PROXY=1
+bin/build
+```
+
+`bin/build` will then rebuild the KB itself; you don't need a separate `bin/kb-release`.
+
+## Why it's stale
+
+Two projections no longer match their source: `REF-behaviors` (the behavior catalogue) and `REF-surface` (the declared control surface). Both are generated from code, and that code has changed since they were last built. This is BUG-156's check working as intended: before that fix, this build would have reported "nothing to build". The awareness map also doesn't cover four documents, including `DOC-64`. One rebuild fixes all of it.
+
+## The defect
+
+When `bin/build` runs, a missing credential should be the main message: "the KB is behind and needs rebuilding; set `CLOUDFLARE_API_TOKEN` and re-run `bin/build`". It shouldn't tell you to run a different command. It's a small wording fix in `kbEnsure`'s `build` helper. Should I file a ticket for it under EPIC-16?
 
 <!-- xgd-chat-end -->
