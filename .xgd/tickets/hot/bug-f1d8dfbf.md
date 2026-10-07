@@ -2,17 +2,18 @@
 uid: bug-f1d8dfbf
 id: BUG-205
 type: bug
-title: 'Alternative looks: no separate mode, no choose button, never in the Page selector'
+title: 'Builder corrections from Charlie 3: looks without a mode, button or selector
+  entry; working line names no one'
 created_by: EPIC-19
 created_at: '2026-10-07T17:10:45.883882+00:00'
-updated_at: '2026-10-07T17:10:45.883882+00:00'
+updated_at: '2026-10-07T18:02:02.411776+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: story_points
 status: draft
 fields:
   severity: medium
   priority: high
-  story_points: 3
+  story_points: 4
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
