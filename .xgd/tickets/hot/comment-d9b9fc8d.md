@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T18:10:33.632767+00:00'
+updated_at: '2026-10-07T19:03:30.674930+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5508,5 +5508,11 @@ I've updated REQ-392 to drop the rights part. It's now titled **"Dev tooling: bi
 **What stays as it is:** the Worker's own check in `/api/import` (it only compares against captures held in the cloud store), and the check on `bin/copy-to-cloud`. REQ-392 skips the check for this one command; it doesn't remove it from the paths that can carry a site towards production.
 
 The rest of the ticket is unchanged: name or `biz_…` id, a name lookup that finds faelan.com, a 409 answered by `--force`, and deleting `storage/tmp/copy-repro-to-dev.mjs` when it lands. That stop-gap still works until then.
+
+<!-- xgd-turn id="3cd31330-6fbf-4dd7-9ae1-890154e65a41-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:03:30.334224+00:00" -->
+#### You
+To deploy to prod I can just hit bin/dev deploy, yes?
 
 <!-- xgd-chat-end -->
