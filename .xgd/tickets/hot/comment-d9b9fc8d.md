@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T18:10:12.316780+00:00'
+updated_at: '2026-10-07T18:10:33.632767+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5493,5 +5493,20 @@ If you'd rather skip the ownership record and just have the script in `bin/` as-
 <!-- xgd-chat role="user" ts="2026-10-07T18:10:11.226609+00:00" -->
 #### You
 I'm really not worried about the IP issue its a long and complicated road to publish something - I am the only one working on this - I have no fear that it might happen automatically. just skip it.
+
+<!-- xgd-turn id="bb28c2a8-1ce0-408a-bf5e-f6ef7fe8a606-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T18:10:33.299411+00:00" -->
+#### Claude
+I've updated REQ-392 to drop the rights part. It's now titled **"Dev tooling: bin/copy-repro-to-dev"** and is still at `draft`, ready for its own session.
+
+**What changed in the ticket:**
+- The ownership record is gone. The command skips the laptop-side capture check entirely: no flag, no prompt, nothing to record.
+- I wrote your reasoning into the ticket: one operator, the copy lands in your own dev builder, nothing gets published, and publishing is a long, deliberate road. That way a later session won't read the skipped check as a mistake and put it back.
+- The test plan now includes a reproduction whose assets were all saved from the capture, and it must copy successfully.
+
+**What stays as it is:** the Worker's own check in `/api/import` (it only compares against captures held in the cloud store), and the check on `bin/copy-to-cloud`. REQ-392 skips the check for this one command; it doesn't remove it from the paths that can carry a site towards production.
+
+The rest of the ticket is unchanged: name or `biz_…` id, a name lookup that finds faelan.com, a 409 answered by `--force`, and deleting `storage/tmp/copy-repro-to-dev.mjs` when it lands. That stop-gap still works until then.
 
 <!-- xgd-chat-end -->
