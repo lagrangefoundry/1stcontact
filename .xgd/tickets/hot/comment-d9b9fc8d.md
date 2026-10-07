@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:03:54.033604+00:00'
+updated_at: '2026-10-07T19:04:10.926333+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5526,5 +5526,29 @@ Let me check what `bin/dev deploy` actually does rather than guess.
 <!-- xgd-chat role="user" ts="2026-10-07T19:03:53.865093+00:00" -->
 #### You
 Sorry I meant bin/deploy
+
+<!-- xgd-turn id="ff01c760-4f8b-4cd2-bc22-cd8a2add0954-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T19:04:10.780834+00:00" -->
+#### Claude
+Yes. `bin/deploy` with no arguments deploys both apps to production; it defaults to `--env production`. For each app it does, in order:
+
+1. **Assets**: runs `1c assets` itself (BUG-203), so it ships freshly built code rather than whatever `bin/build` last left in `dist-assets`.
+2. **Migrations**: applies any pending D1 migrations to the cloud database.
+3. **Secrets**: pushes and tests any secret that's set in your shell; anything not set is left as it is in Cloudflare.
+4. **Upload**: `wrangler deploy --env production`, then it prints a report of what the deployed version can and can't do.
+
+**One catch: the knowledge base.** `bin/deploy` doesn't rebuild it. `1c assets` refuses to pack a KB that's out of date, and yours was out of date at your last `bin/build`. Unless you've rebuilt since, the deploy will stop at step 1. So:
+
+```bash
+export CLOUDFLARE_API_TOKEN='…'     # 1c_Admin_Token
+export NODE_USE_ENV_PROXY=1
+bin/build                           # rebuilds the KB because it's out of date
+bin/deploy --dry-run                # optional: same steps, uploads nothing
+bin/deploy
+bin/smoke
+```
+
+If you'd like the deploy to check secrets you haven't changed, run `set -a; . ~/Documents/secrets/1c.dev.env; set +a` first. Otherwise they're left untested.
 
 <!-- xgd-chat-end -->
