@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+#
+# `bin/copy-repro-to-dev` — put a reproduction's draft into an existing business
+# in the LOCAL builder (REQ-392).
+#
+# A REPRODUCTION EXISTS TO BECOME A SITE SOMEBODY CAN EDIT. `1c repro` writes one
+# under `storage/sandbox/<repro-slug>/draft` — site.json, the page documents and
+# the mirrored assets — and since REQ-290 retired `1c push` nothing carried that
+# into the builder's store. This does, the way `bin/copy-to-cloud` moves a
+# business between builders: through the Worker's own `POST /b/<id>/api/import`,
+# so the import lands by the code path an edit lands by.
+#
+# Usage:
+#   bin/copy-repro-to-dev repro-faelan-com faelan.com
+#   bin/copy-repro-to-dev repro-faelan-com biz_0123abcd
+#   bin/copy-repro-to-dev --force repro-faelan-com faelan.com
+#   bin/copy-repro-to-dev --origin http://127.0.0.1:8799 repro-faelan-com faelan.com
+#
+# <business> IS THE BUSINESS'S NAME OR ITS biz_… ID. A name is looked up in what
+# the signed-in identity is a member of and then, when that finds nothing, in
+# the platform directory (`/api/admin/sites`) — so a platform operator can name a
+# business they host without belonging to it.
+#
+# THE BUSINESS MUST ALREADY EXIST. This never creates one; an unknown business
+# is refused, naming what the builder does offer.
+#
+# DRAFT ONLY. Nothing is published.
+#
+# --origin defaults to `bin/access-sim` (http://127.0.0.1:8799), the local front
+# door that can reach a business other than TENANT_ID. The credential is
+# LOCAL_ACCESS_CLIENT_ID + LOCAL_ACCESS_CLIENT_SECRET (or --local-client-id and
+# --local-client-secret), defaulting to the simulator's own pair (BUG-134).
+#
+# --force is BUG-51's answer: the import refuses a business holding changes made
+# in the builder, naming how many; nothing is written without it.
+#
+# THE RIGHTS GATE RUNS (BUG-84). Every asset `1c repro` puts in a draft is a
+# subresource mirrored from a captured page, so the copy is refused unless that
+# capture carries the operator's recorded rights decision:
+#
+#   1c rights assert faelan.com/index --basis "the operator's own site"
+#   1c rights show faelan.com/index
+#
+# That is a record — who, when, which capture, why — and not a flag that skips
+# the check. A capture with no record is refused exactly as before.
+#
+# Exit codes: 0 success; non-zero anything else.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  # The header is the help, read to where it ends (BUG-159's rule).
+  awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
+  exit 0
+fi
+
+# Every flag is forwarded: the refusals live once, in `copy.ts`.
+exec "$repo_root/bin/1c" copy-repro-to-dev "$@"

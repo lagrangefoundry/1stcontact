@@ -41,6 +41,18 @@
  * BUG-51 made it — the operator saying they meant to replace builder changes —
  * and does not reach this.
  *
+ * BUT A RECORD, WHICH IS NOT AN OVERRIDE ([[REQ-392]]). Sometimes the operator
+ * holds the rights to the page they captured — a site of their own, reproduced
+ * so that it can be edited in the builder. "Mirrored → refused" cannot say that,
+ * and a flag that skipped the check would be the escape hatch above. So the
+ * decision is a bundle MEMBER, {@link RIGHTS_MEMBER}: who asserted it, when, for
+ * which bundle, and why. It is written once by `1c rights assert`, read back by
+ * `1c rights show`, and this gate skips a bundle carrying a valid one. Nothing
+ * else changes — a bundle without one is refused exactly as it always was, and
+ * bytes that ALSO appear in a bundle without one are still refused, because the
+ * gate refuses on what it can prove and one owned capture proves nothing about
+ * another.
+ *
  * IT TAKES THE PORT, SO ONE PREDICATE SERVES BOTH HOSTS. The Node-side sender
  * checks against the operator's `storage/references/` tree through the
  * filesystem adapter; `POST /api/import` checks against the tenant's R2 bundles through the
@@ -49,7 +61,13 @@
  * enforced at both and written once.
  */
 
-import { ASSETS_PREFIX, type ReferenceStore } from './reference-store'
+import {
+  ASSETS_PREFIX,
+  CAPTURE_MEMBER,
+  RIGHTS_MEMBER,
+  type ReferenceBundle,
+  type ReferenceStore,
+} from './reference-store'
 
 /**
  * Raised when an asset's bytes are ones we mirrored from a captured page.
@@ -82,6 +100,102 @@ export class MirroredAssetError extends Error {
         `from — use the client's own file in its place.`,
     )
   }
+}
+
+/**
+ * The operator's statement that we may republish this capture's subresources
+ * ([[REQ-392]]).
+ *
+ * EVERY FIELD IS THE AUDIT TRAIL, and none of them is optional. A record that
+ * said only `republishable: true` would be a flag stored in a file — the thing
+ * the gate refuses to have. `bundle` is the bundle's OWN name, so a record copied
+ * into another capture's directory does not carry over; `basis` is why, because
+ * "who said so and when" without "on what grounds" is not a decision anybody can
+ * later check.
+ */
+export interface RightsRecord {
+  republishable: true
+  /** The bundle this decision is about — its name in the store. */
+  bundle: string
+  /** Who asserted it. */
+  assertedBy: string
+  /** When, ISO-8601. */
+  assertedAt: string
+  /** Why we hold the right — e.g. "the operator's own site". */
+  basis: string
+}
+
+/** A string with something in it. */
+function filled(v: unknown): v is string {
+  return typeof v === 'string' && v.trim() !== ''
+}
+
+/**
+ * The bundle's rights record, or null when it holds no VALID one.
+ *
+ * MALFORMED IS ABSENT. A record this cannot read, or one naming another bundle,
+ * is not evidence that we hold the right — so it is treated exactly as no record
+ * at all and the gate scans the bundle as before. The safe direction for doubt on
+ * a rights gate is "refused".
+ */
+export async function readRightsRecord(bundle: ReferenceBundle): Promise<RightsRecord | null> {
+  const bytes = await bundle.read(RIGHTS_MEMBER)
+  if (!bytes) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    return null
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null
+  const r = parsed as Record<string, unknown>
+  if (r.republishable !== true || r.bundle !== bundle.name) return null
+  if (!filled(r.assertedBy) || !filled(r.assertedAt) || !filled(r.basis)) return null
+  return {
+    republishable: true,
+    bundle: r.bundle,
+    assertedBy: r.assertedBy,
+    assertedAt: r.assertedAt,
+    basis: r.basis,
+  }
+}
+
+/**
+ * Record that we hold the right to republish `bundle`'s subresources.
+ *
+ * REFUSED FOR A BUNDLE THAT IS NOT A CAPTURE — a handle is total ({@link
+ * ReferenceStore.bundle}), so a mistyped name would otherwise mint a directory
+ * holding nothing but a rights record. AND REFUSED OVER AN EXISTING RECORD: a
+ * recorded decision is not silently rewritten, so whoever wants to change it has
+ * to remove the old one deliberately.
+ */
+export async function assertRights(
+  bundle: ReferenceBundle,
+  claim: { by: string; basis: string; at?: string },
+): Promise<RightsRecord> {
+  if (!(await bundle.read(CAPTURE_MEMBER))) {
+    throw new Error(`No capture called '${bundle.name}' — it holds no ${CAPTURE_MEMBER}.`)
+  }
+  if (!filled(claim.by)) throw new Error('A rights record has to say who asserted it.')
+  if (!filled(claim.basis)) {
+    throw new Error('A rights record has to say why we hold the right (--basis).')
+  }
+  const existing = await readRightsRecord(bundle)
+  if (existing) {
+    throw new Error(
+      `'${bundle.name}' already carries a rights record (asserted by ` +
+        `${existing.assertedBy} at ${existing.assertedAt}). Nothing was written.`,
+    )
+  }
+  const record: RightsRecord = {
+    republishable: true,
+    bundle: bundle.name,
+    assertedBy: claim.by.trim(),
+    assertedAt: claim.at ?? new Date().toISOString(),
+    basis: claim.basis.trim(),
+  }
+  await bundle.write(RIGHTS_MEMBER, new TextEncoder().encode(`${JSON.stringify(record, null, 2)}\n`))
+  return record
 }
 
 /** The sha256 of `bytes`, lowercase hex. WebCrypto, so it runs on both hosts. */
@@ -117,6 +231,8 @@ export async function assertNotCaptureMirrored(
 
   for (const name of await references.list()) {
     const bundle = references.bundle(name)
+    // THE ONE BUNDLE THIS GATE MAY PASS OVER, and only on a record ([[REQ-392]]).
+    if (await readRightsRecord(bundle)) continue
     for (const member of await bundle.list(ASSETS_PREFIX)) {
       const bytes = await bundle.read(member)
       // A member that lists but will not read is a bundle changing underneath
