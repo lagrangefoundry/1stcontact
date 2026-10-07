@@ -43,11 +43,11 @@
 #   bin/build --skip-preflight
 #   bin/build --secrets-file ~/Documents/secrets/1c.dev.env
 #
-# `--secrets-file` ([[REQ-393]]) is `bin/deploy`'s flag with the same meaning and
-# the same loader: the file's assignments reach this build's stages and nothing
-# else, an exported value wins, and names are reported, never values. The KB
-# stage is why it is here — `1c kb ensure` needs CLOUDFLARE_API_TOKEN whenever the
-# index is behind its corpus.
+# The secrets file ([[REQ-393]]) is `bin/deploy`'s, with the same loader, default
+# and flags (`--secrets-file PATH`, `--no-secrets-file`): its assignments reach
+# this build's stages and nothing else, an exported value wins, and names are
+# reported, never values. The KB stage is why it is here — `1c kb ensure` needs
+# CLOUDFLARE_API_TOKEN whenever the index is behind its corpus.
 #
 # Exit codes: 0 success; 6 environment (preflight); 1 anything else.
 
@@ -55,27 +55,25 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$here/.." && pwd)"
-# Before the `cd`, so a relative `--secrets-file` means what the operator typed.
-caller_dir="$PWD"
+
+# THE SECRETS FILE ([[REQ-393]]), before anything else and before the `cd`, so a
+# relative `--secrets-file` means what the operator typed. The loader takes
+# `--secrets-file PATH` / `--no-secrets-file` out of the arguments, loads the
+# file they select (by default `$ONECONTACT_SECRETS`, else
+# `~/Documents/secrets/1c.dev.env`, when it exists) and re-runs this script with
+# what is left — so nothing below ever sees either flag.
+if [[ "${ONECONTACT_SECRETS_LOADED_BY:-}" != "bin/build" ]]; then
+  exec node "$repo_root/tools/generate/bin/env-file.mjs" run bin/build -- "$here/build" "$@"
+fi
+
 cd "$repo_root"
 
 skip_preflight=0
-secrets_file=""
-all_args=("$@")
 while [[ $# -gt 0 ]]; do
   arg="$1"
   shift
   case "$arg" in
     --skip-preflight) skip_preflight=1 ;;
-    --secrets-file)
-      secrets_file="${1:-}"
-      if [[ -z "$secrets_file" ]]; then
-        echo "bin/build: --secrets-file needs a path" >&2
-        exit 1
-      fi
-      [[ "$secrets_file" == /* ]] || secrets_file="$caller_dir/$secrets_file"
-      shift
-      ;;
     -h | --help)
       cat <<'EOF'
 bin/build — produce every deployable artifact.
@@ -84,7 +82,10 @@ bin/build — produce every deployable artifact.
   bin/build --skip-preflight  skip the shared-store / install check
   bin/build --secrets-file PATH
                              load PATH's KEY=value lines into this build only
-                             (an exported value wins; names reported, never values)
+                             (an exported value wins; names reported, never values).
+                             Without it, $ONECONTACT_SECRETS or
+                             ~/Documents/secrets/1c.dev.env is loaded when it exists.
+  bin/build --no-secrets-file load no file at all
 
 Stages: `1c preflight` (shared component store + declared packages), `1c kb
 ensure` (the system KB index, only if it is behind its corpus — a coherent index
@@ -101,13 +102,6 @@ EOF
       ;;
   esac
 done
-
-# Loaded before any stage runs, by re-running this script with the file's
-# assignments in its environment — the same loader as `bin/deploy` ([[REQ-393]]).
-if [[ -n "$secrets_file" && "${BUILD_SECRETS_FILE_LOADED:-}" != "1" ]]; then
-  BUILD_SECRETS_FILE_LOADED=1 exec node "$repo_root/tools/generate/bin/env-file.mjs" \
-    exec bin/build "$secrets_file" -- bash "$repo_root/bin/build" "${all_args[@]}"
-fi
 
 # The Workers this repo deploys. Discovered from the tree rather than listed, so
 # a new app is built the moment it exists — the failure mode of a hand-kept list

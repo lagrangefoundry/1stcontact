@@ -188,6 +188,14 @@ function makeTree(opts: {
     )
   }
 
+  // AND SO DOES THE SECRETS-FILE LOADER ([[REQ-393]]): both drivers re-run
+  // themselves through it before anything else, so without it neither starts.
+  mkdirSync(path.join(root, 'tools', 'generate', 'bin'), { recursive: true })
+  copyFileSync(
+    path.join(REPO, 'tools', 'generate', 'bin', 'env-file.mjs'),
+    path.join(root, 'tools', 'generate', 'bin', 'env-file.mjs'),
+  )
+
   for (const kind of ['migrate', 'secrets'] as const) {
     const dir = path.join(root, 'bin', 'deploy.d', kind)
     mkdirSync(dir, { recursive: true })

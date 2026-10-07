@@ -14,7 +14,9 @@
  * wrangler, because the claim is about what wrangler uploads.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { spawnSync } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
+import http from 'node:http'
+import { promisify } from 'node:util'
 import {
   chmodSync,
   copyFileSync,
@@ -23,10 +25,13 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { ACCESS_SIM_ORIGIN, ACCESS_SIM_PAIR, LOCAL_ORIGIN } from '../tools/generate/src/cli/copy'
+import { DEV_SERVE_PORT } from '../tools/generate/src/cli/dev-snapshot'
 
 const REPO = path.resolve(import.meta.dirname, '..')
 const DEPLOY = path.join(REPO, 'bin', 'deploy')
@@ -217,26 +222,248 @@ describe('REQ-393 — --secrets-file', () => {
       path.join(app, 'src', 'worker.ts'),
       'export class SessionJunction {}\nexport default { fetch() { return new Response("") } }\n',
     )
+    const wrangler = path.join(REPO, 'node_modules', '.bin', 'wrangler')
+    const script = path.join(app, 'deploy.sh')
+    writeFileSync(script, `exec "${wrangler}" deploy --env production --dry-run\n`)
     const file = secretsFile(
       'access.env',
       'ACCESS_TEAM_DOMAIN=uat-req393.example\nACCESS_AUD=uat-req393-aud\n' +
         'SERVICE_TOKEN_IDENTITIES=uat-req393=nobody@example.test\n',
     )
-    const wrangler = path.join(REPO, 'node_modules', '.bin', 'wrangler')
-    const deploy = ['deploy', '--env', 'production', '--dry-run']
     const bindings = (out: string) => out.split('\n').filter((line) => line.startsWith('env.'))
+    const viaLoader = (flags: string[]) =>
+      spawnSync(process.execPath, [LOADER, 'run', 'uat', '--', script, ...flags], {
+        cwd: app,
+        encoding: 'utf8',
+        env: { ...process.env, HOME: dir },
+      })
 
-    const plain = spawnSync(wrangler, deploy, { cwd: app, encoding: 'utf8', env: process.env })
-    const loaded = spawnSync(process.execPath, [LOADER, 'exec', 'uat', file, '--', wrangler, ...deploy], {
-      cwd: app,
-      encoding: 'utf8',
-      env: process.env,
-    })
+    const plain = viaLoader(['--no-secrets-file'])
+    const loaded = viaLoader(['--secrets-file', file])
     expect(plain.status, plain.stderr).toBe(0)
     expect(loaded.status, loaded.stderr).toBe(0)
-    expect(loaded.stdout).toContain('took:  ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES')
+    expect(loaded.stderr).toContain('took:  ACCESS_TEAM_DOMAIN, ACCESS_AUD, SERVICE_TOKEN_IDENTITIES')
     expect(bindings(plain.stdout).some((line) => line.startsWith('env.ACCESS_AUD'))).toBe(true)
     expect(bindings(loaded.stdout)).toEqual(bindings(plain.stdout))
     expect(loaded.stdout).not.toContain('uat-req393')
   }, 120_000)
+
+  /**
+   * Run through a SYMLINKED path, as every fixture tree under macOS `/tmp` is.
+   * The loader once compared `import.meta.url` (symlinks resolved) with
+   * `argv[1]` (not resolved), did nothing, and exited 0 — a deploy that printed
+   * nothing and reported success.
+   */
+  it('test_UAT_FC_REQ-393_the_loader_runs_when_reached_through_a_symlink', () => {
+    const link = path.join(dir, 'linked-bin')
+    rmSync(link, { force: true })
+    symlinkSync(path.dirname(LOADER), link)
+    const script = path.join(dir, 'echo.sh')
+    writeFileSync(script, 'echo "ran with ${UAT_LINK_NAME:-nothing}"\n')
+    const file = secretsFile('link.env', 'UAT_LINK_NAME=loaded\n')
+    const r = spawnSync(process.execPath, [path.join(link, 'env-file.mjs'), 'run', 'uat', '--', script, '--secrets-file', file], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH ?? '', HOME: dir },
+    })
+    expect(r.status, r.stderr).toBe(0)
+    expect(r.stdout).toContain('ran with loaded')
+  })
+
+  // ---- the default file, and --no-secrets-file -------------------------------
+
+  /** The default file, where the dev servers look for it under this HOME. */
+  function writeDefault(text: string): string {
+    const file = path.join(dir, 'Documents', 'secrets', '1c.dev.env')
+    mkdirSync(path.dirname(file), { recursive: true })
+    writeFileSync(file, text)
+    return file
+  }
+  const removeDefault = () => rmSync(path.join(dir, 'Documents'), { recursive: true, force: true })
+
+  it('test_UAT_FC_REQ-393_with_no_flag_the_default_file_is_loaded_and_reported', () => {
+    const file = writeDefault(`ANTHROPIC_API_KEY=${FILE_KEY}\n`)
+    try {
+      const r = run(DEPLOY, ['--env', 'production', 'control-app'])
+      expect(r.code, r.out).toBe(0)
+      expect(r.out).toContain(`secrets file: ${file} (default`)
+      expect(r.pushed('ANTHROPIC_API_KEY')).toBe(FILE_KEY)
+
+      // ONECONTACT_SECRETS moves the default, as it does for the dev servers.
+      const moved = secretsFile('moved.env', `ANTHROPIC_API_KEY=${FILE_KEY}-moved\n`)
+      const m = run(DEPLOY, ['--env', 'production', 'control-app'], { ONECONTACT_SECRETS: moved })
+      expect(m.code, m.out).toBe(0)
+      expect(m.out).toContain(`secrets file: ${moved} (default`)
+      expect(m.pushed('ANTHROPIC_API_KEY')).toBe(`${FILE_KEY}-moved`)
+    } finally {
+      removeDefault()
+    }
+  }, 240_000)
+
+  it('test_UAT_FC_REQ-393_an_absent_default_is_skipped_but_an_explicit_missing_path_fails', () => {
+    removeDefault()
+    const r = run(BUILD, ['--skip-preflight'])
+    expect(r.code, r.out).toBe(0)
+    expect(r.out).not.toContain('secrets file:')
+    expect(r.out).toContain('==> Knowledge base')
+
+    const missing = path.join(dir, 'Documents', 'secrets', '1c.dev.env')
+    const named = run(BUILD, ['--skip-preflight', '--secrets-file', missing])
+    expect(named.code).not.toBe(0)
+    expect(named.out).toContain(missing)
+    expect(named.out).not.toContain('==>')
+  }, 240_000)
+
+  it('test_UAT_FC_REQ-393_no_secrets_file_loads_nothing', () => {
+    writeDefault(`CLOUDFLARE_API_TOKEN=${FILE_TOKEN}\n`)
+    try {
+      const r = run(BUILD, ['--skip-preflight', '--no-secrets-file'])
+      expect(r.code, r.out).toBe(0)
+      expect(r.out).not.toContain('secrets file:')
+      expect(r.calls.find((c) => c.startsWith('1c.mjs kb ensure'))).toBe('1c.mjs kb ensure token=')
+    } finally {
+      removeDefault()
+    }
+  }, 240_000)
+
+  // ---- the copy pair -----------------------------------------------------------
+
+  const exec = promisify(execFile)
+  const COPY_TO = path.join(REPO, 'bin', 'copy-to-cloud')
+  const COPY_FROM = path.join(REPO, 'bin', 'copy-from-cloud')
+  const CLOUD = { clientId: 'uat-req393-cloud.access', clientSecret: 'uat-req393-cloud-secret' }
+  const LOCAL = { clientId: 'uat-req393-local.access', clientSecret: 'uat-req393-local-secret' }
+  const SITE = { slug: 'site_uat', siteJson: { config: {} }, pages: [], assets: [] }
+
+  /**
+   * A local builder behind a gate that admits exactly one pair, as
+   * `bin/access-sim` does — holding one business that is NOT `TENANT_ID`'s.
+   */
+  async function gatedBuilder(pair: { clientId: string; clientSecret: string }, port = 0) {
+    const seen: { path: string; id: string; secret: string }[] = []
+    const server = http.createServer((req, res) => {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+      const id = String(req.headers['cf-access-client-id'] ?? '')
+      const secret = String(req.headers['cf-access-client-secret'] ?? '')
+      seen.push({ path: url.pathname, id, secret })
+      res.setHeader('content-type', 'application/json')
+      if (id !== pair.clientId || secret !== pair.clientSecret) {
+        res.statusCode = 302
+        res.setHeader('location', 'https://example.cloudflareaccess.com/cdn-cgi/access/login')
+        res.end('')
+      } else if (url.pathname === '/api/businesses') {
+        res.end(JSON.stringify({
+          person: null,
+          businesses: [{ id: 'biz_not_the_tenant', name: 'Not The Tenant', selectable: true, lapse: null }],
+        }))
+      } else if (url.pathname === '/b/biz_not_the_tenant/api/export') {
+        res.end(JSON.stringify(SITE))
+      } else {
+        res.statusCode = 500
+        res.end(JSON.stringify({ error: `no ${url.pathname}` }))
+      }
+    })
+    await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
+    const addr = server.address()
+    return {
+      origin: `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}`,
+      seen,
+      close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    }
+  }
+
+  /** The real script, from an environment built from nothing but PATH and HOME. */
+  async function copy(script: string, args: string[]) {
+    try {
+      const r = await exec(script, args, {
+        cwd: REPO,
+        env: { PATH: process.env.PATH ?? '', HOME: dir, TMPDIR: dir },
+        timeout: 120_000,
+      })
+      return { ok: true, out: `${r.stdout}${r.stderr}` }
+    } catch (err) {
+      const e = err as { stdout?: string; stderr?: string }
+      return { ok: false, out: `${e.stdout ?? ''}${e.stderr ?? ''}` }
+    }
+  }
+
+  const pairsFile = () =>
+    secretsFile(
+      'copy.env',
+      `CF_ACCESS_CLIENT_ID=${CLOUD.clientId}\nCF_ACCESS_CLIENT_SECRET=${CLOUD.clientSecret}\n` +
+        `LOCAL_ACCESS_CLIENT_ID=${LOCAL.clientId}\nLOCAL_ACCESS_CLIENT_SECRET=${LOCAL.clientSecret}\n`,
+    )
+
+  it('test_UAT_FC_REQ-393_the_copy_pair_reads_both_credential_pairs_from_the_file', async () => {
+    const sim = await gatedBuilder(LOCAL)
+    try {
+      const file = pairsFile()
+
+      // copy-from-cloud resolves its DESTINATION — the local end — first. Without
+      // the file it is refused for want of the cloud pair before any request.
+      const bare = await copy(COPY_FROM, ['--no-secrets-file', '--origin', sim.origin, 'Nobody'])
+      expect(bare.ok).toBe(false)
+      expect(bare.out).toContain('is unreachable without a credential')
+      expect(sim.seen).toEqual([])
+
+      // With it, the cloud pair is there (no refusal) and the local end is
+      // reached with the LOCAL pair from the file — and the run stops at the
+      // local end's answer, so nothing is sent to the real cloud.
+      const loaded = await copy(COPY_FROM, ['--secrets-file', file, '--origin', sim.origin, 'Nobody'])
+      expect(loaded.ok).toBe(false)
+      expect(loaded.out).not.toContain('is unreachable without a credential')
+      expect(loaded.out).toContain('took:  CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET, LOCAL_ACCESS_CLIENT_ID, LOCAL_ACCESS_CLIENT_SECRET')
+      expect(sim.seen.length).toBeGreaterThan(0)
+      for (const call of sim.seen) expect([call.id, call.secret]).toEqual([LOCAL.clientId, LOCAL.clientSecret])
+
+      // copy-to-cloud reads the same file: a backup of the local end, through
+      // the gate, with nothing exported.
+      const out = path.join(dir, 'backup.json')
+      const to = await copy(COPY_TO, ['--secrets-file', file, '--origin', sim.origin, '--backup', out, 'Not The Tenant'])
+      expect(to.ok, to.out).toBe(true)
+      expect(JSON.parse(readFileSync(out, 'utf8'))).toEqual(SITE)
+      for (const secret of [CLOUD.clientSecret, LOCAL.clientSecret]) {
+        expect(loaded.out).not.toContain(secret)
+        expect(to.out).not.toContain(secret)
+      }
+    } finally {
+      await sim.close()
+    }
+  }, 240_000)
+
+  it('test_UAT_FC_REQ-393_the_copy_pair_local_end_defaults_to_the_simulator', () => {
+    // The default origin IS bin/access-sim's, and not the bare snapshot's —
+    // which resolves only TENANT_ID's business.
+    expect(LOCAL_ORIGIN).toBe(ACCESS_SIM_ORIGIN)
+    expect(LOCAL_ORIGIN).toBe('http://127.0.0.1:8799')
+    expect(LOCAL_ORIGIN).not.toContain(String(DEV_SERVE_PORT))
+  })
+
+  /**
+   * Through the real script with no `--origin` and no credential exported: the
+   * request goes to the simulator's port carrying the simulator's own pair, and
+   * a business that is not `TENANT_ID`'s resolves. Needs 8799 free — when the
+   * operator's own `bin/access-sim` holds it, this cannot stand in for it.
+   */
+  const simPortBusy =
+    spawnSync(process.execPath, [
+      '-e',
+      "require('net').createServer().once('error',()=>process.exit(1)).listen(8799,'127.0.0.1',function(){this.close()})",
+    ]).status !== 0
+  it.skipIf(simPortBusy)(
+    'test_UAT_FC_REQ-393_with_no_origin_the_copy_reaches_the_simulator_with_its_own_pair',
+    async () => {
+      const sim = await gatedBuilder(ACCESS_SIM_PAIR, 8799)
+      try {
+        const out = path.join(dir, 'default-backup.json')
+        const r = await copy(COPY_TO, ['--no-secrets-file', '--backup', out, 'Not The Tenant'])
+        expect(r.ok, r.out).toBe(true)
+        expect(r.out).toContain("backed up 'Not The Tenant'")
+        expect(sim.seen.map((c) => c.path)).toContain('/b/biz_not_the_tenant/api/export')
+      } finally {
+        await sim.close()
+      }
+    },
+    120_000,
+  )
 })
+

@@ -235,6 +235,12 @@ describe('REQ-264 — a supplied credential is probed before it is pushed', () =
           path.join(root, 'bin', 'deploy.d', 'lib', file),
         )
       }
+      // The secrets-file loader the driver re-runs itself through ([[REQ-393]]).
+      mkdirSync(path.join(root, 'tools', 'generate', 'bin'), { recursive: true })
+      copyFileSync(
+        path.join(REPO, 'tools', 'generate', 'bin', 'env-file.mjs'),
+        path.join(root, 'tools', 'generate', 'bin', 'env-file.mjs'),
+      )
       // A HOOK THAT RECORDS AND NOTHING ELSE. What is being proved is the
       // driver's half — that a row a hook wrote reaches the operator.
       const hook = path.join(root, 'bin', 'deploy.d', 'secrets', '20-fixture')

@@ -7,7 +7,6 @@ import type { PlatformSite } from '../../../../apps/control-app/src/directory'
 import { businessPath } from '../../../../apps/control-app/src/scope'
 import type { ChatsLanded, ChatsPayload } from '../../../../apps/control-app/src/chat-copy'
 import { fsReferenceStore, fsSiteStore } from '../store'
-import { DEV_SERVE_PORT } from './dev-snapshot'
 import {
   accessAdvice,
   ACCESS_NAMING,
@@ -53,14 +52,16 @@ import {
 export const CLOUD_ORIGIN = 'https://app.1stcontact.io'
 
 /**
- * The local dev environment's control app. `--origin` overrides it; see
- * {@link CopyOptions.local}.
+ * The local end of the copy pair: `bin/access-sim`'s front door ([[REQ-393]]).
+ * `--origin` overrides it; see {@link CopyOptions.local}.
  *
- * IT MOVED FROM 8788 WITH THE BUILDER ([[BUG-150]]). That port was `1c builder`,
- * `wrangler dev` over `src/`, and it is deleted; the control app now answers on
- * the deployed-snapshot port, which is the one constant that names it.
+ * THE SIMULATOR AND NOT THE BARE SNAPSHOT. The snapshot on `DEV_SERVE_PORT`
+ * runs dev-open and resolves only `TENANT_ID`'s business, so every real copy
+ * needed `--origin http://127.0.0.1:8799` typed. The simulator is the one local
+ * front door that resolves the business the operator names — the default
+ * `copy-repro-to-dev` already had ([[REQ-392]]).
  */
-export const LOCAL_ORIGIN = `http://localhost:${DEV_SERVE_PORT}`
+export const LOCAL_ORIGIN = 'http://127.0.0.1:8799'
 
 /** Which way the bytes go. It is in the command's name, not in a flag. */
 export type CopyDirection = 'to-cloud' | 'from-cloud'
@@ -692,7 +693,7 @@ export async function copyChats(business: string, opts: CopyOptions): Promise<Co
  * well-known default (`SIM_CLIENT_ID` / `SIM_CLIENT_SECRET` there), which buys
  * nothing anyone does not already have on loopback.
  */
-export const ACCESS_SIM_ORIGIN = 'http://127.0.0.1:8799'
+export const ACCESS_SIM_ORIGIN = LOCAL_ORIGIN
 export const ACCESS_SIM_PAIR: AccessServiceToken = {
   clientId: 'local-dev.access',
   clientSecret: 'local-dev-secret',
