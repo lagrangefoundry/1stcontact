@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:00:14.497457+00:00'
+updated_at: '2026-10-07T17:01:23.722283+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7193,5 +7193,25 @@ That brings this round's debrief tickets to three, with REQ-389 for Alice's cond
 Ok so I see the new compare looks two issues:
 1. it introduces a new mode - can't we just put the controls on the existing bar and light them up when there are comparisons available - the current draft should be considered a "comparison"
 2. the comparison pages still appear in the Page selector
+
+<!-- xgd-turn id="b43d73ed-bd11-4b31-810e-d576c9facf85-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:01:23.572845+00:00" -->
+#### Claude
+Tracing why the looks pages still show in the page selector.
+
+Both are real. The second one has two causes, and only one of them is a REQ-391 bug.
+
+**1. The extra mode.** You're right. The compare-looks control in the existing bar should simply light up when a page has looks, with ‹ › and "Choose this one" right there. The current draft counts as one of the looks, so stepping back to it is just another position in the carousel ("Current · 1 of 3"), not a "Back to your draft" exit. That drops `LOOKS_MODE` from `looks.js` entirely, along with the mode switching it brings: remembering which mode to go back to, and hiding or showing controls. Choosing the current draft means keeping it and archiving the others.
+
+**2. Looks in the page selector.** The page list does filter out looks (`toolbar.js:552`, which drops any page marked as a look of another page). It leaks in two ways:
+- **Pages from before REQ-391.** Your latest Charlie site (`site_2a2833…`) has five pages: `home`, `home-heavy-duty` and `home-family` are proper looks with the look metadata, but **`heavy` and `family` are plain pages with none**. They were Alice's earlier hand-made versions, before REQ-391 landed, so the filter can't recognise them. That's a data problem, not a code one. Those two should be converted into looks or deleted.
+- **A real leak in REQ-391.** If the page currently in the pane isn't in the list, the code adds it back at the top so the dropdown always shows something (`toolbar.js:555`). While you're viewing a look, that puts the look back into the selector. Once item 1 is done there's no separate look-viewing state, so the selector should show the real page the looks belong to, never the look itself.
+
+**Where the fix goes.** REQ-391 is at `ready_to_reconcile`, so its body is frozen. There are two options:
+- move it back to `free_coding` and extend it, which is your call as operator;
+- or I file one small bug under EPIC-19 covering both points, including converting or removing the two leftover pages on that site.
+
+Which would you like?
 
 <!-- xgd-chat-end -->
