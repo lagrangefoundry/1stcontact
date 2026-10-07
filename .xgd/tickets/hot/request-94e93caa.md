@@ -18,9 +18,11 @@ fields:
   - working_sha: 31a4ca7da51ff8ff4dc9116434bd14e6acf8f60f
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: b404103fbde5313babac633855c81df57546bbeb
-    reconcile_sha: null
+    reconcile_sha: 464e489f65540e0d82410966267272f0105234e3
     main_sha: null
+    working_sha_history: []
   version: 0.2.5
   chat_comment: comment-18e5a285
   bundled_in: bundle-b3b7c399
