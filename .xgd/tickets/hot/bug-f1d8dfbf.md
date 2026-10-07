@@ -6,10 +6,10 @@ title: 'Builder corrections from Charlie 3: looks without a mode, button or sele
   entry; working line names no one'
 created_by: EPIC-19
 created_at: '2026-10-07T17:10:45.883882+00:00'
-updated_at: '2026-10-07T18:02:02.570646+00:00'
+updated_at: '2026-10-07T18:11:24.529041+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: medium
   priority: high
