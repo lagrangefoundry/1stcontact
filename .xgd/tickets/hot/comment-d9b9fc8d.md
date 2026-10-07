@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T16:48:12.873754+00:00'
+updated_at: '2026-10-07T17:12:07.960458+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5364,5 +5364,11 @@ Two projections no longer match their source: `REF-behaviors` (the behavior cata
 ## The defect
 
 When `bin/build` runs, a missing credential should be the main message: "the KB is behind and needs rebuilding; set `CLOUDFLARE_API_TOKEN` and re-run `bin/build`". It shouldn't tell you to run a different command. It's a small wording fix in `kbEnsure`'s `build` helper. Should I file a ticket for it under EPIC-16?
+
+<!-- xgd-turn id="a48ed0df-f70a-4a79-83ed-d8dd725eb7e8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T17:12:07.099193+00:00" -->
+#### You
+Can you copy the latest faelan.com reproduction to dev please?
 
 <!-- xgd-chat-end -->
