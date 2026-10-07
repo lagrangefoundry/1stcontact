@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T17:08:59.834118+00:00'
+updated_at: '2026-10-07T17:09:14.153698+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7219,5 +7219,22 @@ Which would you like?
 <!-- xgd-chat role="user" ts="2026-10-07T17:08:58.620935+00:00" -->
 #### You
 What does "Choose this one" actually do - why do we need a button for that - I see that as part of the conversation with the AI
+
+<!-- xgd-turn id="602e0cf8-3db3-4e9d-ba38-e5bb4cd8f341-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:09:13.984648+00:00" -->
+#### Claude
+"Choose this one" makes the chosen look the real page. It copies that look's content onto the actual page (`home`), archives the other looks, and records the choice in the plan as a settled decision. Alice already has the same operation as a tool, `choose_look`, and her priming tells her to use it *"when the client tells you which one they want … with their words."* So the button is a second way into something she can already do.
+
+I proposed it to save the 5–10 minute builder session Alice used to spend copying a look across by hand. But the time saving comes from the operation, not the button. Now that `choose_look` exists, her doing it is one quick tool call too.
+
+You're right that it belongs in the conversation, and I think the button actually gets in the way:
+- **Choices are rarely clean.** In practice it's "B, but with A's header" or "Family, but darker". A button can only take a look as it stands. The conversation is where the "but" gets said.
+- **Alice should hear the reason.** "Heavy Duty, because it looks like a firm that turns up" is design material she can use for the rest of the site. A click records which look won, but not why.
+- **It's an irreversible step with no consultant in the loop.** It replaces the page and archives the others. That's fine when Alice does it after you've talked it over, and abrupt as a bare button.
+
+So I'd remove the button. The carousel is just for looking: ‹ › to step between the current draft and its looks, lit up on the existing bar when a page has looks. You tell Alice which one you want and she uses `choose_look`.
+
+That fits naturally into the bug from last turn, together with removing the separate mode and fixing the page selector leak. Shall I file it with that scope?
 
 <!-- xgd-chat-end -->
