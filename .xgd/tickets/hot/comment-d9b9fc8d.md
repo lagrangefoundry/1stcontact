@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:13:53.546852+00:00'
+updated_at: '2026-10-07T19:18:50.951435+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5580,5 +5580,11 @@ How each secret is treated:
 - **If it isn't set**, it keeps whatever is already stored in Cloudflare, untested. So the deploy works either way; loading the file just gets you the test.
 
 The same command also sets `CLOUDFLARE_API_TOKEN`, which wrangler needs to upload. It also sets the local Access settings (`ACCESS_TEAM_DOMAIN` pointing at the simulator). Those don't matter to the deploy, because production's Access settings come from `wrangler.toml`. But that shell is now configured for local, so open a fresh one for anything else.
+
+<!-- xgd-turn id="6e0afc00-adfb-4964-bea1-ec6da7d33bba-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:18:49.650801+00:00" -->
+#### You
+can you give me an argument to bin/deploy --secrets-file?
 
 <!-- xgd-chat-end -->
