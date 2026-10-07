@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T17:12:07.960458+00:00'
+updated_at: '2026-10-07T17:13:19.555529+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5370,5 +5370,31 @@ When `bin/build` runs, a missing credential should be the main message: "the KB 
 <!-- xgd-chat role="user" ts="2026-10-07T17:12:07.099193+00:00" -->
 #### You
 Can you copy the latest faelan.com reproduction to dev please?
+
+<!-- xgd-turn id="a48ed0df-f70a-4a79-83ed-d8dd725eb7e8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T17:13:19.500193+00:00" -->
+#### Claude
+Found the latest faelan reproduction (`storage/sandbox/repro-faelan-com`, Oct 3). Now checking how to load it into the dev store and which dev business it should go to.
+
+I haven't copied anything yet. The copy hits a rule that blocks it on purpose, and I'm not going to work around that without your say-so.
+
+**What I found:**
+- The latest reproduction is `storage/sandbox/repro-faelan-com`, last changed Oct 3 13:25. That's the draft repro-console iteration 7 rendered from.
+- There's a `faelan.com` business in the dev store, created today at 17:03 with an empty starter site (version 1, no pages of its own, no assets). I assume that's where you want it to go.
+
+**Why it can't simply be copied:** all 9 of the reproduction's assets are byte-for-byte files that `1c repro` saved from the faelan.com capture. That covers the photos, both icons, the stylesheet and the `index` file. BUG-84's rule is that bytes saved from a captured page may never become a site's assets, because that republishes someone else's copyrighted material under a client's domain. Two places enforce it:
+- the sending side (`readSitePayload`, which checks your `storage/references/`)
+- `POST /api/import` in the Worker
+
+Neither has an override, and `--force` doesn't reach it. The design says "an escape hatch on a rights gate is the gate not existing". Also, since REQ-290 retired `1c push`, no command moves a sandbox site into the dev store anyway.
+
+**What I can do, depending on what you want:**
+
+1. **Copy the page and `site.json`, no assets.** You'd get the layout, text, theme and structure in the dev builder, with the images missing. This doesn't break the rule, because no saved bytes are carried. It's a one-off script in `$TMPDIR` that sends the payload through the existing import route on 8789, with nothing shipped in the repo. You'd then add images through the builder's own asset flow.
+2. **Faelan has given you the rights** (for example, they're your client). Then the right route is the builder's material/Library path, where an image gets a rights record (`republishable`) before it can go on a site. Bypassing the import check isn't. I'd need to look at how that path takes in capture material before giving you steps.
+3. **You want a way to move a repro into the dev builder as a supported workflow.** That's code, so I'd file a ticket for it, with the rights question answered in its spec.
+
+Which one? If it's (1), I'll run it now. It will be refused with a 409 if anything has been edited in that faelan.com business since it was created.
 
 <!-- xgd-chat-end -->
