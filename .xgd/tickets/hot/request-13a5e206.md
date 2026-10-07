@@ -16,9 +16,18 @@ fields:
   needs_review: false
   chat_comment: comment-aa271bc5
   commits:
-  - working_sha: null
+  - working_sha: fc117f1d35954aae5db47665181c29ea07f2a086
     reconcile_sha: null
-    main_sha: 4b43dd9a5c0fd50ed053a33ed3defcb63f7ed8cd
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 2284bf4bbd6277afa4d0d22aa9ce6d01f97e9333
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: bc36b2cce9bd85641ebef3bff2bb459f4209b425
+    reconcile_sha: 510d4082382c7cba29890523b815537de666e259
+    main_sha: null
+    working_sha_history: []
   version: 0.2.20
   orphan_commits:
   - old_sha: fe97d3bc344f6b637416ce69b5e6043fe3759e10
