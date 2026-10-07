@@ -5,9 +5,9 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:28:20.758782+00:00'
+updated_at: '2026-10-07T19:32:11.582225+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: medium
@@ -74,3 +74,18 @@ With no flag, the deploy reads NO file — `--secrets-file` is explicit. Reasons
 - `loading_the_file_leaves_deployed_vars_unchanged` — the real wrangler, through the real loader, over a copy of control-app's `wrangler.toml`: a file setting `ACCESS_TEAM_DOMAIN`, `ACCESS_AUD`, `SERVICE_TOKEN_IDENTITIES` leaves the binding table byte-identical.
 
 Regression: the dev-env suites (BUG-50, BUG-146, BUG-150) pass against the moved parser.
+
+
+## Extension (2026-10-07): the copy pair, and the default — "make this all more streamlined"
+
+The flag landed for `bin/deploy` and `bin/build` (explicit only, no default). The operator now wants the same file to drive the content-copy commands, and asked for the whole flow to be streamlined. In scope, on this ticket:
+
+1. **`bin/copy-to-cloud` and `bin/copy-from-cloud` take `--secrets-file PATH`**, with the same meaning, parser, precedence (shell wins) and names-never-values report as `bin/deploy`. The cloud end's `CF_ACCESS_CLIENT_ID` / `CF_ACCESS_CLIENT_SECRET` and the local end's `LOCAL_ACCESS_CLIENT_ID` / `LOCAL_ACCESS_CLIENT_SECRET` are then read from it.
+
+2. **The open question is decided: default to the file.** With no `--secrets-file`, all four commands (`bin/deploy`, `bin/build`, `bin/copy-to-cloud`, `bin/copy-from-cloud`) load the file the dev servers already default to — `ONECONTACT_SECRETS`, else `~/Documents/secrets/1c.dev.env` — when it exists, and say which file they loaded. An absent default file is not an error (it is the explicit flag naming a missing file that fails). `--no-secrets-file` opts out. Reason, in the operator's words: fewer steps to remember. The cost — a deploy probes and re-pushes every secret the file holds on every run — is accepted.
+
+3. **The copy pair's local end defaults to `bin/access-sim`** — origin `http://127.0.0.1:8799` and the simulator's own pair — exactly as `bin/copy-repro-to-dev` already does (`ACCESS_SIM_ORIGIN` / `ACCESS_SIM_PAIR` in `copy.ts`). Today the default origin is the bare snapshot on 8789, which can only ever reach `TENANT_ID`'s business, so every real copy needs `--origin http://127.0.0.1:8799` typed. `--origin` and the `LOCAL_ACCESS_*` names still override.
+
+Target operator experience after this: `bin/copy-to-cloud "Lagrange Foundry"` and `bin/copy-to-cloud --chats "Lagrange Foundry"` with no exports and no flags; `bin/build && bin/deploy` likewise.
+
+Additional UATs: the copy pair reads both credential pairs from the file; with no flag the default file is loaded and reported; an absent default file is silently skipped while an explicit missing path fails; `--no-secrets-file` loads nothing; the copy pair's local end with no `--origin` is the simulator and resolves a business other than `TENANT_ID`'s.
