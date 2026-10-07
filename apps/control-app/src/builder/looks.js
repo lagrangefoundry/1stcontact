@@ -1,41 +1,39 @@
 /**
- * Alternative looks for a page, compared in the preview ([[REQ-391]]).
+ * Alternative looks for a page, compared in the preview ([[REQ-391]], [[BUG-205]]).
  *
  * WHAT IT REPLACES. A "look" used to be an ordinary page the consultant named
  * `/workwear` and nobody linked to, so the client found it — if at all — in the
  * page dropdown among the real pages, marked with a word that told them nothing.
  * A look is now a page carrying an `alternative` block (whose look it is, the
  * set it belongs to, what the client calls it), and this is where the client
- * meets a set: the preview in a mode of its own, **‹ Workwear · 1 of 3 ›** with
- * the look's one-line description, the width control and "Open in new tab" as
- * on the draft, **Choose this one**, and **Back to your draft**.
+ * meets a set: **‹ Current · 1 of 3 ›** on the toolbar beside the page selector.
  *
- * A DOCUMENT MODE, NOT A PICTURE. Unlike a comp, a look is this site's own draft
- * page, so it is shown live, in a frame, at the width the client chose — which
- * is what makes the width control and "Open in new tab" work on the shown look
- * without either knowing looks exist.
+ * NO MODE OF ITS OWN ([[BUG-205]]). The carousel used to switch the pane into a
+ * looks mode with its own strip and a "Back to your draft" exit. It is now one
+ * control on the bar the client already has, lit only while the page in the
+ * pane has looks, and the pane stays in whichever of View and Edit it was in.
  *
- * MOVING IS A SWAP, NOT A NAVIGATION. The looks either side of the shown one are
- * loaded behind it in the panel's spare frames, so ‹ and › trade frames, which
- * is instant and can be animated (the panel's `swapDocument`).
+ * THE DRAFT IS ONE OF THE LOOKS. Position 1 is the real page as it stands —
+ * "Current" — and stepping back to it is just another position, not an exit.
  *
- * THE LISTING IS THE TRUTH. Which looks a set holds is read off the page index
- * every time, never copied, so a look the consultant adds while the carousel is
- * open joins it, and a set that has been chosen from leaves it.
+ * LOOKING ONLY. There is no "Choose this one": the client tells the consultant
+ * which look they prefer and why, and she chooses with `choose_look` and their
+ * words. The carousel says so, which is the invitation the button used to stand
+ * in for.
+ *
+ * MOVING IS A SWAP, NOT A NAVIGATION. The positions either side of the shown one
+ * are loaded behind it in the panel's spare frames, so ‹ and › trade frames,
+ * which is instant and can be animated (the panel's `swapDocument`).
+ *
+ * THE PANE AND THE LISTING ARE THE TRUTH. Where the carousel stands is read off
+ * the page the pane is showing, and which looks a set holds off the page index,
+ * every time — never copied. So a page chosen in the selector, a link followed
+ * in the render or a flip of View/Edit all move the carousel with no telling,
+ * and a set that has been chosen from leaves it.
  */
-import { previewPageUrl, previewUrl } from './api.js'
+import { previewPageUrl, previewRelPath } from './api.js'
 import { carouselNav } from './carousel.js'
-import {
-  LOOKS_BACK,
-  LOOKS_CHOOSE,
-  LOOKS_CHOOSING,
-  LOOKS_COMPARE,
-  LOOKS_COMPARE_TITLE,
-  LOOKS_FAILED,
-} from './config.js'
-
-/** The pane mode a set is shown in. */
-export const LOOKS_MODE = 'looks'
+import { LOOKS_CURRENT, LOOKS_EDIT_REAL_PAGE, LOOKS_NONE, LOOKS_TELL_CONSULTANT } from './config.js'
 
 /**
  * Every set with a look still on offer, in listing order: `set → rows`.
@@ -55,237 +53,180 @@ export function liveSets(rows) {
 }
 
 /**
+ * The real page a row stands for: itself, or — for a look — the page it is a
+ * look at, or `null` when the listing does not hold that page.
+ */
+export function realPageOf(rows, row) {
+  if (!row?.alternative) return row ?? null
+  return (rows ?? []).find((r) => r.id === row.alternative.of && !r.alternative) ?? null
+}
+
+/**
  * @param {object} options
  * @param {object} options.panel the display panel
- * @param {object} options.pages the page index — `list`, `refresh`, `onRefreshed`, `open`
- * @param {() => string | null} options.getSite the site in scope
- * @param {(site: string, look: string) => Promise<object>} options.choose the transport
+ * @param {object} options.pages the page index — `list`, `current`, `keyOf`, `refresh`, `onRefreshed`, `open`
+ * @param {() => string} options.draftPath where in the channel the draft was last shown — the carry's path
  */
-export function createLooks({ panel, pages, getSite, choose }) {
-  let set = null
-  let index = 0
-  /** Which of View and Edit to go back to. */
-  let back = 'view'
-  let busy = false
-  let error = null
-  const listeners = new Set()
+export function createLooks({ panel, pages, draftPath }) {
+  /** The page in the pane as a listing row, or `null`. */
+  const shownRow = () => pages.list().find((row) => row.slug === pages.current()) ?? null
 
-  const members = () => (set === null ? [] : (liveSets(pages.list()).get(set) ?? []))
-  const current = () => members()[index] ?? null
-  const urlOf = (site, row) => previewPageUrl(previewUrl(site, 'draft'), row.slug)
-
-  function notify() {
-    for (const cb of [...listeners]) cb()
+  /**
+   * Where the carousel stands: the real page and its looks (`members`, Current
+   * first), the position of the page in the pane among them, and the look shown
+   * if it is one. `members` is empty when the page has no looks on offer.
+   */
+  function position() {
+    const rows = pages.list()
+    const here = shownRow()
+    const real = realPageOf(rows, here)
+    const look = here?.alternative ? here : null
+    const set = real ? [...liveSets(rows).values()].find((looks) => looks[0].alternative.of === real.id) : null
+    const members = set ? [real, ...set] : []
+    return { members, index: members.indexOf(here), look, real }
   }
 
-  /** Load the looks either side of the shown one behind it. */
+  /**
+   * The address of a member in the pane's own channel. Current is the draft
+   * path the carry holds when that names the real page, so going back is to
+   * the frame the client left — with its scroll and open panels — and not a
+   * second rendering of the same page under another name.
+   */
+  function urlOf(row, real) {
+    const back = draftPath()
+    const rel = row === real && pages.keyOf(back) === real.slug ? back : row.slug
+    return previewPageUrl(panel.getSrc(), rel)
+  }
+
+  /** Load the positions either side of the shown one behind it. */
   function preloadNeighbours() {
-    const site = getSite()
-    if (!site || panel.getMode() !== LOOKS_MODE) return
-    const rows = members()
-    panel.preload([rows[index - 1], rows[index + 1]].filter(Boolean).map((row) => urlOf(site, row)))
+    const { members, index, real } = position()
+    if (index < 0 || members.length < 2 || !panel.getSrc()) return
+    panel.preload([members[index - 1], members[index + 1]].filter(Boolean).map((row) => urlOf(row, real)))
   }
 
-  function leave() {
-    set = null
-    error = null
-    if (panel.getMode() === LOOKS_MODE) panel.setMode(back)
-    notify()
+  /**
+   * The pane is on a look that is no longer on offer — the consultant chose
+   * from its set: back to the page it was a look at, to see the choice there.
+   */
+  function leaveRetiredLook() {
+    const { look, index, real } = position()
+    if (look && index < 0 && real) pages.open(real.slug)
   }
 
-  // A listing that no longer holds the set — it was chosen from, or its looks
-  // were removed — ends the carousel; one that grew or shrank keeps the shown
-  // look in range.
+  panel.on('document', preloadNeighbours)
   pages.onRefreshed(() => {
-    if (set === null) return
-    const rows = members()
-    if (rows.length === 0) return leave()
-    if (index >= rows.length) index = rows.length - 1
-    notify()
+    leaveRetiredLook()
+    preloadNeighbours()
   })
 
   const api = {
-    /** The URL the looks mode shows: the current look, or the draft's front door. */
-    src(site) {
-      const row = current()
-      return row ? urlOf(site, row) : previewUrl(site, 'draft')
-    },
-
-    /** The sets on offer: `{ set, of, count }`, in listing order. */
-    sets() {
-      return [...liveSets(pages.list())].map(([name, rows]) => ({
-        set: name,
-        of: rows[0].alternative.of,
-        count: rows.length,
-      }))
-    },
-
     /** What the bar draws. */
-    state() {
-      return { set, index, members: members(), current: current(), busy, error }
+    state: position,
+
+    /** Told whenever the listing is re-taken. Returns the unsubscribe. */
+    onRefreshed: (cb) => pages.onRefreshed(cb),
+
+    /**
+     * Whether the document in the pane is a look rather than a page of the
+     * draft. The LIVE DOCUMENT FIRST, as the page index reads it, because this
+     * is asked about the document that is about to be replaced.
+     */
+    showingLook() {
+      let rel = null
+      try {
+        rel = previewRelPath(panel.frame?.contentWindow?.location?.pathname ?? '')
+      } catch {
+        /* a document that cannot be reached is answered from the index */
+      }
+      const slug = rel === null ? pages.current() : pages.keyOf(rel)
+      return Boolean(pages.list().find((row) => row.slug === slug)?.alternative)
+    },
+
+    /** Move to the member at `to`, animated from the side it is on. */
+    move(to) {
+      const { members, index, real } = position()
+      if (index < 0 || to === index || to < 0 || to >= members.length) return
+      panel.swapDocument(urlOf(members[to], real), to > index ? 'next' : 'previous')
+      preloadNeighbours()
     },
 
     /**
-     * Show a set in the carousel — from the "Compare looks" control or a link
-     * the consultant posted. `look` picks which one to show first. A set the
-     * listing does not hold yet (the consultant made it a moment ago) is looked
-     * for again once before the call gives up.
+     * Show a set's look — from a link the consultant posted. `look` picks which
+     * one; the set's first otherwise. A set the listing does not hold yet (the
+     * consultant made it a moment ago) is looked for again once before the call
+     * gives up.
      */
-    async open(nextSet, look = null) {
-      if (!liveSets(pages.list()).has(nextSet)) await pages.refresh()
-      const rows = liveSets(pages.list()).get(nextSet)
-      if (!rows) return false
-      if (panel.getMode() !== LOOKS_MODE) back = panel.getMode() ?? 'view'
-      set = nextSet
-      error = null
-      index = Math.max(0, rows.findIndex((row) => row.id === look || row.slug === look))
-      const site = getSite()
-      if (panel.getMode() === LOOKS_MODE) {
-        if (site) panel.swapDocument(urlOf(site, rows[index]), 'next')
+    async open(set, look = null) {
+      if (!liveSets(pages.list()).has(set)) await pages.refresh()
+      const rows = liveSets(pages.list()).get(set)
+      if (!rows || !panel.getSrc()) return false
+      const target = rows.find((row) => row.id === look || row.slug === look) ?? rows[0]
+      const { members, index } = position()
+      const at = members.indexOf(target)
+      if (index >= 0 && at >= 0) {
+        api.move(at)
       } else {
-        panel.setMode(LOOKS_MODE)
+        panel.swapDocument(previewPageUrl(panel.getSrc(), target.slug), 'next')
+        preloadNeighbours()
       }
-      preloadNeighbours()
-      notify()
       return true
     },
-
-    /** Move to the look at `to`, animated from the side it is on. */
-    move(to) {
-      const rows = members()
-      const site = getSite()
-      if (!site || to === index || to < 0 || to >= rows.length) return
-      const direction = to > index ? 'next' : 'previous'
-      index = to
-      error = null
-      panel.swapDocument(urlOf(site, rows[index]), direction)
-      preloadNeighbours()
-      notify()
-    },
-
-    /** "Back to your draft". */
-    back: leave,
-
-    /**
-     * "Choose this one": the shown look goes onto its page, and the client is
-     * taken back to the draft, on that page, to see it there.
-     */
-    async choose() {
-      const row = current()
-      const site = getSite()
-      if (!row || !site || busy) return
-      busy = true
-      error = null
-      notify()
-      try {
-        await choose(site, String(row.id))
-        busy = false
-        const target = pages.list().find((r) => r.id === row.alternative.of)
-        leave()
-        await pages.refresh()
-        if (target) pages.open(target.slug)
-      } catch (err) {
-        busy = false
-        error = LOOKS_FAILED(err?.message ?? String(err))
-        notify()
-      }
-    },
-
-    /** Told whenever what the bar shows may have changed. Returns the unsubscribe. */
-    onChange(cb) {
-      listeners.add(cb)
-      return () => listeners.delete(cb)
-    },
-
-    /** Called once the looks mode is showing, to load the neighbours behind it. */
-    shown: preloadNeighbours,
   }
   return api
 }
 
 /**
- * The toolbar while a set is shown: Back to your draft, the carousel, and
- * Choose this one. The only toolbar actions beside it are the width control and
- * "Open in new tab", which the looks mode lists after it.
+ * The carousel on the toolbar, in View and Edit alike.
+ *
+ * LIT ONLY WHILE THERE IS SOMETHING TO COMPARE. With no looks for the page in
+ * the pane it stays where it is, dimmed and inert, so the bar does not shift
+ * under the client when a set arrives — it lights up instead.
+ *
+ * EDIT IS FOR THE REAL PAGE. A look shown in Edit is shown, not edited, and the
+ * bar says so in one line.
  */
 export function lookCarouselAction(looks) {
   return {
     id: 'looks',
-    create({ cleanup }) {
+    create({ panel, subscribe, cleanup }) {
       const bar = document.createElement('div')
       bar.className = 'looks-bar'
+      const line = (className, text, role) => {
+        const p = document.createElement('p')
+        p.className = className
+        if (role) p.setAttribute('role', role)
+        p.textContent = text
+        return p
+      }
       const draw = () => {
-        const { members, index, current, busy, error } = looks.state()
-        const backButton = document.createElement('button')
-        backButton.type = 'button'
-        backButton.className = 'looks-bar__back'
-        backButton.textContent = LOOKS_BACK
-        backButton.addEventListener('click', () => looks.back())
-        const parts = [backButton]
-        if (current) {
-          parts.push(
-            carouselNav({
-              label: current.alternative.label,
-              index,
-              count: members.length,
-              description: current.alternative.description,
-              onMove: (to) => looks.move(to),
-            }),
-          )
-          const chooseButton = document.createElement('button')
-          chooseButton.type = 'button'
-          chooseButton.className = 'looks-bar__choose'
-          chooseButton.textContent = busy ? LOOKS_CHOOSING : LOOKS_CHOOSE
-          chooseButton.disabled = busy
-          chooseButton.addEventListener('click', () => void looks.choose())
-          parts.push(chooseButton)
+        const { members, index, look } = looks.state()
+        const lit = members.length > 1 && index >= 0
+        bar.classList.toggle('looks-bar--unlit', !lit)
+        if (!lit) {
+          const idle = carouselNav({ label: LOOKS_CURRENT, index: 0, count: 1, onMove: () => {} })
+          idle.title = LOOKS_NONE
+          bar.replaceChildren(idle)
+          return
         }
-        if (error) {
-          const said = document.createElement('p')
-          said.className = 'looks-bar__error'
-          said.setAttribute('role', 'alert')
-          said.textContent = error
-          parts.push(said)
-        }
+        const parts = [
+          carouselNav({
+            label: look ? look.alternative.label : LOOKS_CURRENT,
+            index,
+            count: members.length,
+            description: look?.alternative.description,
+            onMove: (to) => looks.move(to),
+          }),
+          line('looks-bar__invite', LOOKS_TELL_CONSULTANT),
+        ]
+        if (look && panel.getMode() === 'edit') parts.push(line('looks-bar__note', LOOKS_EDIT_REAL_PAGE, 'status'))
         bar.replaceChildren(...parts)
       }
       draw()
-      cleanup(looks.onChange(draw))
+      cleanup(looks.onRefreshed(draw))
+      subscribe('src', draw)
+      subscribe('document', draw)
       return bar
-    },
-  }
-}
-
-/**
- * "Compare looks" — on the draft, while a set is on offer.
- *
- * IT APPEARS ONLY WHILE THERE IS SOMETHING TO COMPARE, so it is never a control
- * the client learns to ignore. With several sets it opens the one for the page
- * on screen, and failing that the first.
- */
-export function compareLooksAction(looks, pages) {
-  return {
-    id: 'compare-looks',
-    create({ subscribe, cleanup }) {
-      const button = document.createElement('button')
-      button.type = 'button'
-      button.className = 'builder-toolbar__looks'
-      button.textContent = LOOKS_COMPARE
-      let target = null
-      const sync = () => {
-        const sets = looks.sets()
-        const here = pages.list().find((row) => row.slug === pages.current())
-        target = sets.find((s) => s.of === here?.id) ?? sets[0] ?? null
-        button.hidden = target === null
-        button.title = target ? LOOKS_COMPARE_TITLE(target.count) : ''
-      }
-      sync()
-      cleanup(pages.onRefreshed(sync))
-      subscribe('src', sync)
-      button.addEventListener('click', () => {
-        if (target) void looks.open(target.set)
-      })
-      return button
     },
   }
 }

@@ -168,7 +168,7 @@ import {
   overBudget,
 } from './budget-core'
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
-import { keepClientOriented, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
+import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
 
 /**
@@ -3418,7 +3418,7 @@ export async function* streamPrompt(
     throw new UnknownSessionError(sessionId)
   }
   const manager = await managerFor(slug, opts, deps, await groupChatOn(deps))
-  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn, view)
+  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn, view, WORKING_UNNAMED)
 }
 
 /**
@@ -3446,6 +3446,9 @@ async function* siteTurn(
   deps: HostDeps,
   turn?: string,
   view?: ClientView | null,
+  // [[BUG-205]] — who the working line names: no one in a one-to-one
+  // conversation (DOC-66), the member by its display name in a room.
+  who: string = WORKING_UNNAMED,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
   await attach(manager, sessionId, role, backend)
 
@@ -3571,7 +3574,7 @@ async function* siteTurn(
         workingSeen = working.seq
         yield {
           kind: WORKING,
-          content: workingText(groupNames().consultant, working.note.doing),
+          content: workingText(who, working.note.doing),
           meta: working.note.estimate ? { estimate: working.note.estimate } : {},
         }
       }
@@ -3984,6 +3987,9 @@ async function* streamExchange(
         backend,
         String(lib.briefText(brief)),
         deps,
+        undefined,
+        null,
+        name,
       )) {
         const meta = { ...(event.meta ?? {}), member: name }
         channel.push(event.kind === DONE ? { kind: MEMBER_DONE, content: '', meta } : { ...event, meta })

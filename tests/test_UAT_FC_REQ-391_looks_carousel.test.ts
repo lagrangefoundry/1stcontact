@@ -1,18 +1,18 @@
 // @vitest-environment jsdom
 /**
  * [[REQ-391]] — **the looks offered for a page, compared in the preview's
- * carousel and chosen with one click.**
+ * carousel** — on the toolbar, with no mode of its own and no "Choose this one"
+ * since [[BUG-205]]: choosing is the consultant's, in the conversation.
  *
  * THE REAL BUILDER, mounted in jsdom against the installed `webui-*` components,
  * with the origin replaced at the transports it already takes: the page listing
- * (rows shaped as `GET /api/pages` answers, `alternative` blocks included), the
- * "Choose this one" write, and the plan panel's reads. What is asserted is what
+ * (rows shaped as `GET /api/pages` answers, `alternative` blocks included) and
+ * the plan panel's reads. What is asserted is what
  * the client sees and what reached the transport — the dropdown's options, the
  * toolbar, the carousel's words, which document each frame was pointed at.
  *
  * jsdom loads no documents, so a frame's `src` is the evidence of where the pane
- * was sent. The server half — the write and the decision in the plan — is the
- * workers suite's.
+ * was sent.
  */
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import * as pageState from '../packages/framework/src/l1/page-state'
@@ -111,7 +111,6 @@ beforeAll(async () => {
 
 let root: HTMLElement
 let listing: ReturnType<typeof ROWS>
-let chosen: { site: string; look: string }[]
 
 beforeEach(() => {
   setBusinessScope(null)
@@ -119,7 +118,6 @@ beforeEach(() => {
   root = document.createElement('div')
   document.body.append(root)
   listing = ROWS()
-  chosen = []
 })
 
 async function mounted(): Promise<Handle> {
@@ -132,12 +130,6 @@ async function mounted(): Promise<Handle> {
     pagesTransport: {
       list: async () => ({ pages: listing }),
       saveSubject: async () => ({}),
-      // The origin's half: the chosen look's set is archived, as the write does.
-      chooseLook: async (site: string, lookId: string) => {
-        chosen.push({ site, look: lookId })
-        for (const row of listing) if ((row as any).alternative) (row as any).alternative.archived = true
-        return { choice: { page: 'home', set: 'home-looks', chosen: 'Coastal', rejected: ['Workwear', 'Trade'] } }
-      },
     },
   })
   await settle()
@@ -147,7 +139,8 @@ async function mounted(): Promise<Handle> {
 const bar = () => root.querySelector('[data-action="looks"]') as HTMLElement
 const label = () => bar().querySelector('.builder-carousel__label')?.textContent
 const count = () => bar().querySelector('.builder-carousel__count')?.textContent
-const compareButton = () => root.querySelector('[data-action="compare-looks"]') as HTMLButtonElement
+const lit = () => !bar().classList.contains('looks-bar--unlit')
+const next = () => bar().querySelector('.builder-carousel__next') as HTMLButtonElement
 const shownSrc = (app: Handle) => (app.panel.frame as HTMLIFrameElement).getAttribute('src') ?? ''
 const allSrcs = () => [...root.querySelectorAll('iframe.builder-panel__pane')].map((f) => f.getAttribute('src') ?? '')
 
@@ -165,46 +158,45 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — looks are not pages of the site',
     expect(select.innerHTML.toLowerCase()).not.toContain('unreachable')
   })
 
-  it('test_UAT_FC_REQ-391_compare_looks_appears_only_while_a_set_is_on_offer', async () => {
+  it('test_UAT_FC_REQ-391_the_carousel_is_lit_only_while_a_set_is_on_offer', async () => {
     await mounted()
-    expect(compareButton().hidden).toBe(false)
-    expect(compareButton().textContent).toBe('Compare looks')
+    expect(lit()).toBe(true)
 
     // The set is chosen from elsewhere; the next document the pane shows re-takes
     // the listing, which leaves nothing to compare.
     for (const row of listing) if ((row as any).alternative) (row as any).alternative.archived = true
     root.querySelector('iframe.builder-panel__frame')!.dispatchEvent(new Event('load'))
     await settle()
-    expect(compareButton().hidden).toBe(true)
+    expect(lit()).toBe(false)
   })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
   it('test_UAT_FC_REQ-391_the_carousel_shows_label_and_n_of_n_and_the_arrows_move_between_looks', async () => {
     const app = await mounted()
-    compareButton().click()
+    expect(label()).toBe('Current')
+    expect(count()).toBe('1 of 4')
+    // The next look is already loaded behind the draft, so the first step is instant.
+    expect(allSrcs().some((s) => s.endsWith('/draft/home-workwear'))).toBe(true)
+    next().click()
     await settle()
 
-    expect(app.panel.getMode()).toBe('looks')
-    // Its own bar, the width control and "Open in new tab" — nothing that edits or publishes.
-    expect(app.toolbar.ids()).toEqual(['looks', 'preview-width', 'open-new-tab'])
+    // The pane stays in View, with its own strip ([[BUG-205]]).
+    expect(app.panel.getMode()).toBe('view')
+    expect(app.toolbar.ids()).toContain('publish')
     // In the set's own order, not the listing's; the archived look is not offered.
     expect(label()).toBe('Workwear')
-    expect(count()).toBe('1 of 3')
+    expect(count()).toBe('2 of 4')
     expect(bar().textContent).toContain('Navy and safety orange, the van up top')
-    expect(bar().querySelector('.looks-bar__choose')?.textContent).toBe('Choose this one')
-    expect(bar().querySelector('.looks-bar__back')?.textContent).toBe('Back to your draft')
     // The look is shown live, from the draft channel.
     expect(shownSrc(app)).toMatch(/\/preview\/charlies\/draft\/home-workwear$/)
-    // The next look is already loaded behind it, so the swap is instant.
     expect(allSrcs().some((s) => s.endsWith('/draft/home-coastal'))).toBe(true)
-    expect((bar().querySelector('.builder-carousel__prev') as HTMLButtonElement).disabled).toBe(true)
 
     const preloaded = [...root.querySelectorAll('iframe')].find((f) => f.getAttribute('src')?.endsWith('/home-coastal'))
-    ;(bar().querySelector('.builder-carousel__next') as HTMLButtonElement).click()
+    next().click()
     await settle()
     expect(label()).toBe('Coastal')
-    expect(count()).toBe('2 of 3')
+    expect(count()).toBe('3 of 4')
     // The swap is to the PRELOADED frame, animated in.
     expect(app.panel.frame).toBe(preloaded)
     expect(preloaded!.classList.contains('builder-panel__pane--entering')).toBe(true)
@@ -213,41 +205,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     const tab = root.querySelector('[data-action="open-new-tab"]') as HTMLAnchorElement
     expect(tab.getAttribute('href')).toMatch(/\/draft\/home-coastal$/)
 
-    ;(bar().querySelector('.builder-carousel__next') as HTMLButtonElement).click()
+    next().click()
     await settle()
     expect(label()).toBe('Trade')
-    expect((bar().querySelector('.builder-carousel__next') as HTMLButtonElement).disabled).toBe(true)
+    expect(next().disabled).toBe(true)
     ;(bar().querySelector('.builder-carousel__prev') as HTMLButtonElement).click()
     await settle()
     expect(label()).toBe('Coastal')
-  })
-
-  it('test_UAT_FC_REQ-391_back_to_your_draft_leaves_the_carousel_for_the_page_you_were_on', async () => {
-    const app = await mounted()
-    const draft = app.panel.frame as HTMLIFrameElement
-    compareButton().click()
-    await settle()
-    ;(bar().querySelector('.looks-bar__back') as HTMLButtonElement).click()
-    await settle()
-    expect(app.panel.getMode()).toBe('view')
-    expect(app.panel.frame).toBe(draft)
-    expect(app.toolbar.ids()).toContain('publish')
-  })
-
-  it('test_UAT_FC_REQ-391_choose_this_one_writes_the_choice_and_returns_to_the_page', async () => {
-    const app = await mounted()
-    compareButton().click()
-    await settle()
-    ;(bar().querySelector('.builder-carousel__next') as HTMLButtonElement).click()
-    await settle()
-    ;(bar().querySelector('.looks-bar__choose') as HTMLButtonElement).click()
-    await settle()
-
-    expect(chosen).toEqual([{ site: 'charlies', look: 'home-coastal' }])
-    expect(app.panel.getMode()).toBe('view')
-    expect(shownSrc(app)).toMatch(/\/draft\/home$/)
-    // The set has been chosen from: nothing left to compare.
-    expect(compareButton().hidden).toBe(true)
   })
 
   it('test_UAT_FC_REQ-391_a_link_in_the_chat_opens_the_set', async () => {
@@ -258,7 +222,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     app.chat.element.append(link)
     link.click()
     await settle()
-    expect(app.panel.getMode()).toBe('looks')
+    expect(app.panel.getMode()).toBe('view')
     expect(label()).toBe('Workwear')
     expect(location.hash).not.toBe('#looks=home-looks')
   })

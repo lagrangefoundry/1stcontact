@@ -14,11 +14,11 @@ import { nextSlug } from './support/site-seed'
 /**
  * [[REQ-391]] — **choosing a look is one action, and it is recorded.**
  *
- * EVERY CASE DRIVES THE WORKER'S OWN ROUTES — `/api/pages/choose` for the
- * client's "Choose this one", and `/api/ai/session` + `/api/ai/prompt` for the
- * consultant's `choose_look` — against a real D1, the real site store and the
- * real ticket store. One double, at a genuinely external boundary: the
- * Anthropic client.
+ * EVERY CASE DRIVES THE WORKER'S OWN ROUTES — `/api/ai/session` +
+ * `/api/ai/prompt` for the consultant's `choose_look`, which is the only way a
+ * look is chosen since [[BUG-205]] took the "Choose this one" button away —
+ * against a real D1, the real site store and the real ticket store. One double,
+ * at a genuinely external boundary: the Anthropic client.
  *
  * THE SET IS SEEDED, not made through a turn: in this deployment construction is
  * commissioned, so `make_alternatives` is the builder worker's, and the set's
@@ -122,17 +122,17 @@ afterEach(() => {
   resetChatHost()
 })
 
-describe('REQ-391 — "Choose this one"', () => {
+/** Open the consultant's conversation and have her choose `look` on `said`. */
+async function chooseInChat(site: string, look: string, said: string): Promise<void> {
+  const opened = await post('/api/ai/session', { site })
+  const { sessionId } = (await opened.json()) as { sessionId: string }
+  await turn(sessionId, said, [calls('choose_look', { look, client_said: said }), says('Done.')])
+}
+
+describe('REQ-391 — choosing a look', () => {
   it('test_UAT_FC_REQ-391_choose_this_one_replaces_the_page_records_the_decision_and_archives_the_rest', async () => {
     const site = await siteWithLooks()
-    const res = await post('/api/pages/choose', { site, look: 'home-coastal' })
-    expect(res.status).toBe(200)
-    expect(((await res.json()) as { choice: unknown }).choice).toMatchObject({
-      page: 'home',
-      set: 'home-looks',
-      chosen: 'Coastal',
-      rejected: ['Workwear', 'Trade'],
-    })
+    await chooseInChat(site, 'home-coastal', 'Coastal, please.')
 
     // The page takes the look's content and keeps its own identity.
     const home = await stored(site, 'home')
@@ -157,16 +157,16 @@ describe('REQ-391 — "Choose this one"', () => {
     const { decisions, body } = await plan(site)
     const decision = decisions.find((d) => d.id === 'look-home-looks')
     expect(decision).toMatchObject({ state: 'chosen', value: 'Coastal', compared: true })
-    expect(decision!.answer!.quote).toContain('Coastal')
+    expect(decision!.answer!.quote).toBe('Coastal, please.')
     expect(body).toContain('**Set:** home-looks · **Not chosen:** Workwear, Trade')
   })
 
   it('test_UAT_FC_REQ-391_choosing_the_before_look_puts_the_page_back', async () => {
     const site = await siteWithLooks()
-    expect((await post('/api/pages/choose', { site, look: 'home-workwear' })).status).toBe(200)
+    await chooseInChat(site, 'home-workwear', 'Go with workwear.')
     expect(JSON.stringify((await stored(site, 'home')).l1)).toContain('Workwear')
 
-    expect((await post('/api/pages/choose', { site, look: 'home-before' })).status).toBe(200)
+    await chooseInChat(site, 'home-before', 'Actually, put it back how it was.')
     expect(JSON.stringify((await stored(site, 'home')).l1)).toContain('The page as it was')
     expect((await plan(site)).decisions.find((d) => d.id === 'look-home-looks')).toMatchObject({
       state: 'chosen',
@@ -176,10 +176,19 @@ describe('REQ-391 — "Choose this one"', () => {
 
   it('test_UAT_FC_REQ-391_only_a_look_can_be_chosen', async () => {
     const site = await siteWithLooks()
-    const res = await post('/api/pages/choose', { site, look: 'home' })
-    expect(res.status).toBe(400)
-    expect(await res.text()).toContain('is not a look')
+    await chooseInChat(site, 'home', 'The home page.')
     expect(JSON.stringify((await stored(site, 'home')).l1)).toContain('The page as it was')
+    expect((await plan(site)).decisions.find((d) => d.id === 'look-home-looks')).toBeUndefined()
+  })
+
+  it('test_UAT_FC_BUG-205_there_is_no_choose_route_a_look_is_chosen_only_in_the_conversation', async () => {
+    const site = await siteWithLooks()
+    // Whatever answers the old address, nothing is chosen through it.
+    const res = await post('/api/pages/choose', { site, look: 'home-coastal' })
+    expect(await res.text()).not.toContain('"choice"')
+    expect(JSON.stringify((await stored(site, 'home')).l1)).toContain('The page as it was')
+    expect((await listing(site)).filter((p) => p.alternative?.archived)).toEqual([])
+    expect((await plan(site)).decisions.find((d) => d.id === 'look-home-looks')).toBeUndefined()
   })
 })
 

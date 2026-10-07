@@ -969,10 +969,12 @@ export const CAROUSEL_PREVIOUS = 'Previous'
 export const CAROUSEL_NEXT = 'Next'
 export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`
 
-/** Alternative looks for a page ([[REQ-391]]). */
-export const LOOKS_COMPARE = 'Compare looks'
-export const LOOKS_COMPARE_TITLE = (count) => `See the ${count} looks offered for this page and choose one`
-export const LOOKS_BACK = 'Back to your draft'
-export const LOOKS_CHOOSE = 'Choose this one'
-export const LOOKS_CHOOSING = 'Choosing…'
-export const LOOKS_FAILED = (message) => `That look was not chosen: ${message}`
+/**
+ * Alternative looks for a page ([[REQ-391]]), on the toolbar's carousel
+ * ([[BUG-205]]). The page as it stands is one of the positions, and choosing is
+ * the conversation's — so the carousel invites the client to say which and why.
+ */
+export const LOOKS_CURRENT = 'Current'
+export const LOOKS_NONE = 'No other looks for this page yet'
+export const LOOKS_TELL_CONSULTANT = 'Tell your consultant which look you prefer, and why.'
+export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'
