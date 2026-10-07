@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:19:22.928152+00:00'
+updated_at: '2026-10-07T19:25:49.486329+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5613,6 +5613,39 @@ Until it lands, run this in the shell before you deploy:
 
 ```bash
 set -a; . ~/Documents/secrets/1c.dev.env; set +a
+```
+
+<!-- xgd-turn id="fe8d92ad-240c-402d-bd37-9a176094bb8a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-07T19:25:49.226106+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % bin/smoke
+  FAIL  apex_resolves
+      GET https://1stcontact.io/ returned 404, expected 200
+  PASS  unknown_site_not_found
+      404
+  skip  unpublished_site_indistinguishable
+      no --site-key given — this check needs a key that EXISTS and has published nothing, and the apex cannot stand in for one: it is published by definition
+  skip  published_root_redirects
+      no --site-key given — this check asserts the /site/<key> → /site/<key>/ grammar, which only a key has an instance of
+  skip  published_index_serves_html
+      no --site-key given, and https://1stcontact.io/ is not a published site index (404 text/plain; charset=utf-8) — APEX_SITE_KEY is empty in apps/public-site/wrangler.toml, so this deployment publishes no apex at all
+  skip  published_cache_policy
+      no --site-key given, and https://1stcontact.io/ is not a published site index (404 text/plain; charset=utf-8) — APEX_SITE_KEY is empty in apps/public-site/wrangler.toml, so this deployment publishes no apex at all
+  skip  published_miss_is_404
+      no --site-key given, and https://1stcontact.io/ is not a published site index (404 text/plain; charset=utf-8) — APEX_SITE_KEY is empty in apps/public-site/wrangler.toml, so this deployment publishes no apex at all
+  skip  published_assets_resolve
+      no --site-key given, and https://1stcontact.io/ is not a published site index (404 text/plain; charset=utf-8) — APEX_SITE_KEY is empty in apps/public-site/wrangler.toml, so this deployment publishes no apex at all
+  PASS  control_app_challenges_unauthenticated
+      302 → https://lagrangefoundry.cloudflareaccess.com/cdn-cgi/access/login/app.1stcontact.io?kid=c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e&meta=eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsImtpZCI6ImFmMjcyMTA4M2Y3OGNlZGJhMTc3ZTAzMTM1MmIwM2E1YjQxZGQ4YWZmN2Q5M2RiMTM0ZTg1ZDlmMTNhMTJmZDAifQ.eyJ0eXBlIjoibWV0YSIsImF1ZCI6ImM4MDJmYTljNGVmYzQ4M2UxM2YxYzI3ZDJkOWE5Y2EzZmY5MzM2ZDU1YTAxNDIwNWJkMWE2MzI1ODI2MGM3NGUiLCJob3N0bmFtZSI6ImFwcC4xc3Rjb250YWN0LmlvIiwicmVkaXJlY3RfdXJsIjoiLyIsInNlcnZpY2VfdG9rZW5fc3RhdHVzIjpmYWxzZSwiaXNfd2FycCI6ZmFsc2UsImlzX2dhdGV3YXkiOmZhbHNlLCJleHAiOjE3OTE0MDE0MzAsIm5iZiI6MTc5MTQwMTEzMCwiaWF0IjoxNzkxNDAxMTMwLCJhdXRoX3N0YXR1cyI6Ik5PTkUiLCJtdGxzX2F1dGgiOnsiY2VydF9pc3N1ZXJfZG4iOiIiLCJjZXJ0X3NlcmlhbCI6IiIsImNlcnRfaXNzdWVyX3NraSI6IiIsImNlcnRfcHJlc2VudGVkIjpmYWxzZSwiY29tbW9uX25hbWUiOiIiLCJhdXRoX3N0YXR1cyI6Ik5PTkUifSwicmVhbF9jb3VudHJ5IjoiVVMiLCJhcHBfc2Vzc2lvbl9oYXNoIjoiOTEwMGYxM2QxZTM2ZWZjYzk4NWJjNTc1OGNiOGU1YWVjZjhhNmY3OGUwMDk3MjM4YTYzNGU4MmEyMTM5NDFmMiJ9.hVQAwLIbp6Tngg2UxgpDCzkwVqxkGz9RkhLSMaJxte-h9swws6Rj_98mO15LwQ0fYwsvrIh9rn8PxXNPRtrNw2O1CDf5Uh0eHPjX31hsAe7PDEjRzNbaCgyFqHme7RiN_wZPnwi6EZLPkug3X-AI_q4kzKC5bIazliQJG5BxjmB0r_YFapEQg5kVCXqlgtSOi6ujpGdlofFLMRePxmBx5HIhJ6Mi6diBqamVeWqRzcWKFClYsOaUZx6dS4KSqI3UbS2f1hIwoUA2C7jTa9LO9HmYGqEOGfWwZpGoFh5XblqNiCpJ4LndrKG0697wVwgYCrdV5RNyHupKwikYZBaSsg&redirect_url=%2F
+  skip  control_app_workers_dev_closed
+      no --workers-dev-origin given, and it cannot be derived: the hostname embeds this account's workers.dev subdomain, which is nowhere in this repository. apps/control-app/wrangler.toml declares workers_dev = false and a static check pins that declaration, but only a request proves the door is shut
+
+Smoke FAILED against https://1stcontact.io: 1 failed, 2 passed, 7 skipped.
+Failed: apex_resolves
+((.venv-working) ) martin@nyx 1stcontact %
+
 ```
 
 <!-- xgd-chat-end -->
