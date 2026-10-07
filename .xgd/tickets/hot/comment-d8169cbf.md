@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T18:01:48.191014+00:00'
+updated_at: '2026-10-07T18:02:07.088527+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7295,5 +7295,19 @@ Everything else is consistent:
 <!-- xgd-chat role="user" ts="2026-10-07T18:01:47.942318+00:00" -->
 #### You
 Sure
+
+<!-- xgd-turn id="26ca05cf-4e40-47e4-99a0-39c66b0c378a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-07T18:02:06.814643+00:00" -->
+#### Claude
+The naming fix is now part of **BUG-205**. It's still at `draft`, now 4 points, and I've retitled it *"Builder corrections from Charlie 3: looks without a mode, button or selector entry; working line names no one"*.
+
+What the added section asks for:
+- **One-to-one mode:** the working line reads *"Your consultant is building your home page · about 5 min · 2:14 so far"*, or *"Working · 0:42 so far"* when there's no note.
+- **Group-chat mode** keeps the names from `group-chat.json`, since that's the case where DOC-66 allows names again.
+- **"Your consultant" is written once**, with the other builder wording, not inline.
+- **Two tests:** in one-to-one mode the line contains "Your consultant" and neither configured name; in group-chat mode it still shows the configured name.
+
+As with the rest of BUG-205, the code gets written in that ticket's own session.
 
 <!-- xgd-chat-end -->
