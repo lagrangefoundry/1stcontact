@@ -33,7 +33,7 @@
 #
 # Usage:
 #   bin/copy-to-cloud "Lagrange Foundry"
-#   bin/copy-to-cloud --origin http://127.0.0.1:8799 "Lagrange Foundry"
+#   bin/copy-to-cloud --secrets-file ~/other.env "Lagrange Foundry"
 #   bin/copy-to-cloud --force "Lagrange Foundry"
 #   bin/copy-to-cloud --backup storage/backups/lagrange-foundry.json "Lagrange Foundry"
 #   bin/copy-to-cloud --chats "Lagrange Foundry"
@@ -42,9 +42,9 @@
 # different id on each side, independently, so the name is the only thing that
 # means the same on both.
 #
-# --origin overrides the LOCAL end (default http://localhost:8788), so the pair
-# works against a dev server on any port — in practice `bin/access-sim`, which is
-# the local front door that can reach a business other than TENANT_ID.
+# --origin overrides the LOCAL end. The default is `bin/access-sim`,
+# http://127.0.0.1:8799 (REQ-393) — the local front door that can reach a
+# business other than TENANT_ID, which the bare snapshot cannot.
 #
 # --force is BUG-51's answer. `/api/import` refuses a target carrying changes
 # authored in the builder, naming the business and the change count; nothing is
@@ -130,9 +130,18 @@
 #     `bin/access-sim`, which accepts ONLY the simulator's own pair and not
 #     Cloudflare's.
 #     LOCAL_ACCESS_CLIENT_ID + LOCAL_ACCESS_CLIENT_SECRET, or --local-client-id
-#     and --local-client-secret. Left unset, the CLOUD pair is sent to this end
-#     too — which is what to do when one credential genuinely serves both, or
-#     when the local builder has no gate at all and ignores the headers.
+#     and --local-client-secret. Left unset at the DEFAULT end, the simulator's
+#     own pair is sent (REQ-393), so no export is needed. Left unset with an
+#     explicit --origin, the CLOUD pair is sent to this end too — which is what to
+#     do when one credential genuinely serves both, or when the local builder has
+#     no gate at all and ignores the headers.
+#
+# THE SECRETS FILE (REQ-393). All of these names are read from the environment,
+# and by default the operator's secrets file is loaded into this command's
+# environment first — `$ONECONTACT_SECRETS`, else ~/Documents/secrets/1c.dev.env,
+# when it exists — so a copy needs no exports. `--secrets-file PATH` names
+# another (missing or empty fails before anything runs); `--no-secrets-file`
+# loads none. A value already exported wins. Names are reported, never values.
 #
 # `bin/access-sim --print-token` PRINTS ITS PAIR UNDER THE CLOUD NAMES. Copy the
 # two values into LOCAL_ACCESS_CLIENT_ID / LOCAL_ACCESS_CLIENT_SECRET rather than
@@ -156,6 +165,13 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   # rather than a number to keep in step with it.
   awk 'NR == 1 { next } /^#/ { sub(/^# ?/, ""); print; next } { exit }' "${BASH_SOURCE[0]}"
   exit 0
+fi
+
+# THE SECRETS FILE ([[REQ-393]]), after the help (which needs no credential): the loader takes
+# `--secrets-file` / `--no-secrets-file` out of the arguments, loads the file and
+# re-runs this script with the rest, so `1c` below never sees either flag.
+if [[ "${ONECONTACT_SECRETS_LOADED_BY:-}" != "bin/copy-to-cloud" ]]; then
+  exec node "$repo_root/tools/generate/bin/env-file.mjs" run bin/copy-to-cloud -- "$here/copy-to-cloud" "$@"
 fi
 
 # EVERY FLAG IS FORWARDED RATHER THAN RE-PARSED HERE. The refusals this command

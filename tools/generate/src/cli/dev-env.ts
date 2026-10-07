@@ -1,9 +1,9 @@
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-// THE parser of a secrets file, shared with `bin/deploy --secrets-file` and
-// `bin/build --secrets-file` ([[REQ-393]]) so one file means one thing to both.
-import { parseEnvText } from '../../bin/env-file.mjs'
+// THE parser of the secrets file and THE spelling of its default path, shared
+// with the release and copy scripts' `--secrets-file` ([[REQ-393]]) so one file
+// means one thing, at one place, to every reader.
+import { defaultSecretsPath, parseEnvText } from '../../bin/env-file.mjs'
 
 /**
  * THE env-file layering for `wrangler dev` on the control app (BUG-50).
@@ -65,12 +65,6 @@ const DEV_VARS_ARG = '.dev.vars'
  * an empty one here, which is precisely the ambiguity that cost the diagnosis.
  */
 const DEV_VARS_LOCAL_ARG = '.dev.vars.local'
-
-/** Where a personal key lives when the operator has not said otherwise. */
-const DEFAULT_SECRETS_REL = ['Documents', 'secrets', '1c.dev.env']
-
-/** The override, named after the product rather than the tool that reads it. */
-const SECRETS_ENV_VAR = 'ONECONTACT_SECRETS'
 
 /**
  * The two vars whose emptiness IS dev-open mode, and which `.dev.vars.local` is
@@ -146,7 +140,7 @@ export interface DevEnvLayering {
  * left the Worker in exactly the state the operator was trying to leave, and the
  * warning said nothing about any of them. They are now three different lines.
  *
- * `env.HOME` rather than {@link os.homedir} FIRST, because the package script
+ * `env.HOME` rather than `os.homedir()` FIRST, because the package script
  * this replaces expanded `$HOME` through a shell and the two can disagree —
  * and because a test can then pin the default path without pinning the machine.
  */
@@ -161,10 +155,8 @@ export function devEnvLayering(opts: {
   const exists = opts.exists ?? ((p: string) => fs.existsSync(p))
   const read = opts.read ?? ((p: string) => fs.readFileSync(p, 'utf8'))
 
-  // `:-` in the script it replaces, so an EMPTY override falls back too: an
-  // exported-but-blank variable is a variable someone meant to set.
-  const home = env.HOME || os.homedir()
-  const secretsArg = env[SECRETS_ENV_VAR] || path.join(home, ...DEFAULT_SECRETS_REL)
+  // `:-` semantics, so an EMPTY override falls back too — see defaultSecretsPath.
+  const secretsArg = defaultSecretsPath(env)
 
   const describe = (arg: string, expects: readonly string[], consequence: string): DevEnvFile => {
     const resolved = path.resolve(opts.appDir, arg)

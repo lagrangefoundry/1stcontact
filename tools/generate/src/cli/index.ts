@@ -40,6 +40,7 @@ import {
   exportSite,
   serviceToken,
   ACCESS_SIM_ORIGIN,
+  ACCESS_SIM_PAIR,
   CLOUD_ORIGIN,
   LOCAL_ORIGIN,
   type CopyDirection,
@@ -621,8 +622,8 @@ Copy a business between builders (REQ-289, REQ-294) — what \`bin/copy-to-cloud
     <business> is the business's NAME as it reads in the builder ("Lagrange Foundry");
     it resolves to a different id on each side, and both calls name their side's id
     explicitly. The target business must ALREADY EXIST on the far side: this never
-    creates one. --origin overrides the non-cloud end (default ${LOCAL_ORIGIN},
-    or point it at \`bin/access-sim\`). REFUSED with 409 when the target
+    creates one. --origin overrides the non-cloud end (default \`bin/access-sim\`,
+    ${LOCAL_ORIGIN} — the local front door that resolves any business). REFUSED with 409 when the target
     carries changes made in the BUILDER (BUG-51); --force says you mean it.
     --backup FILE writes the SOURCE side's export to FILE and touches the destination
     not at all.
@@ -651,9 +652,10 @@ Copy a business between builders (REQ-289, REQ-294) — what \`bin/copy-to-cloud
       LOCAL end  whatever --origin names. Behind a gate only when it is
                  \`bin/access-sim\`, which accepts ONLY its own pair.
                  LOCAL_ACCESS_CLIENT_ID + LOCAL_ACCESS_CLIENT_SECRET, or
-                 --local-client-id and --local-client-secret. Unset, the cloud pair
-                 is used for this end too — which is right when one credential
-                 genuinely serves both, or when the local builder has no gate.
+                 --local-client-id and --local-client-secret. Unset, the default
+                 end (bin/access-sim) gets the simulator's own pair; an explicit
+                 --origin gets the cloud pair — right when one credential
+                 genuinely serves both, or when that builder has no gate.
                  \`bin/access-sim --print-token\` prints its pair under the CLOUD
                  names; put those two values in the LOCAL_ ones, do not eval it.
 
@@ -1157,15 +1159,20 @@ export async function run(argv: string[]): Promise<void> {
             : process.env.CF_ACCESS_CLIENT_SECRET,
           'cloud',
         )
-        const localAccess = serviceToken(
-          typeof flags['local-client-id'] === 'string'
-            ? flags['local-client-id']
-            : process.env.LOCAL_ACCESS_CLIENT_ID,
-          typeof flags['local-client-secret'] === 'string'
-            ? flags['local-client-secret']
-            : process.env.LOCAL_ACCESS_CLIENT_SECRET,
-          'local',
-        )
+        // THE DEFAULT LOCAL END IS `bin/access-sim`, ORIGIN AND PAIR TOGETHER
+        // ([[REQ-393]]): with no `--origin` and no LOCAL_ pair, the simulator's
+        // own pair is sent, because nothing else gets past it. An explicit
+        // `--origin` keeps BUG-134's fallback to the cloud pair.
+        const localAccess =
+          serviceToken(
+            typeof flags['local-client-id'] === 'string'
+              ? flags['local-client-id']
+              : process.env.LOCAL_ACCESS_CLIENT_ID,
+            typeof flags['local-client-secret'] === 'string'
+              ? flags['local-client-secret']
+              : process.env.LOCAL_ACCESS_CLIENT_SECRET,
+            'local',
+          ) ?? (typeof flags.origin === 'string' ? undefined : ACCESS_SIM_PAIR)
         // `--origin` OVERRIDES THE NON-CLOUD END ONLY, as the retired push
         // script allowed, so the pair works against a dev server on any port —
         // which in practice means `bin/access-sim`, the one local front door

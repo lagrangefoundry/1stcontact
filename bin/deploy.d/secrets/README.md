@@ -9,11 +9,12 @@ A secret value lives in exactly two places: Cloudflare's secret store, and where
 operator keeps it (environment, password manager). It is **never** in this repository,
 never in a `wrangler.toml`, never in a file under `bin/`, and never printed.
 
-A hook reads the value from its environment. `bin/deploy --secrets-file PATH` puts a
-dotenv file's assignments there for one deploy ([[REQ-393]]) — typically
-`~/Documents/secrets/1c.dev.env`, the file the dev servers read — and a value already
-exported in the shell wins. There is no default file: naming it is the decision to push
-what it holds.
+A hook reads the value from its environment. `bin/deploy` puts the operator's secrets
+file there for one deploy ([[REQ-393]]) — by default the file the dev servers read,
+`$ONECONTACT_SECRETS` else `~/Documents/secrets/1c.dev.env`, when it exists;
+`--secrets-file PATH` names another and `--no-secrets-file` loads none. A value already
+exported in the shell wins. Every secret the file holds is therefore probed and pushed
+on every deploy — the accepted cost of not having to remember an export.
 
 The push:
 
