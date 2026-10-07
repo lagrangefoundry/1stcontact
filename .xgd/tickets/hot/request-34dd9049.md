@@ -20,12 +20,15 @@ fields:
   - working_sha: 258381e2d49405bd016b3b8828b87653d66ea4e7
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: aa64b3e15b44b425aa1394edd18d0915fdba0324
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: c36373c10b87e81815aa7bff01d786e5e554178f
-    reconcile_sha: null
+    reconcile_sha: 01ac552b9814e94b8fea1cc664d8e25da7948601
     main_sha: null
+    working_sha_history: []
   version: 0.2.2
   chat_comment: comment-c6092b70
   bundled_in: bundle-b3b7c399
