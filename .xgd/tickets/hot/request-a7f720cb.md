@@ -5,16 +5,24 @@ type: request
 title: 'bin/deploy and bin/build: --secrets-file'
 created_by: EPIC-16
 created_at: '2026-10-07T19:19:15.570198+00:00'
-updated_at: '2026-10-07T19:27:45.334915+00:00'
+updated_at: '2026-10-07T19:28:16.521435+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-460e95b9
+  commits:
+  - working_sha: b4fa4cbebdd6575f289011b52528c6dada06079a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 401f55750c68c967104748710862c6d6a448484b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.499
 ---
 
 ## What the operator wants
