@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:18:57.304270+00:00'
+updated_at: '2026-10-10T18:19:31.608434+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6370,5 +6370,23 @@ Then publish again. Two cautions:
 <!-- xgd-chat role="user" ts="2026-10-10T18:18:57.245139+00:00" -->
 #### You
 I am more interested in the systemic fix. PLease file a bug
+
+<!-- xgd-turn id="0368646a-6d21-4a6a-af4e-8cf6e192e672-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:19:30.727484+00:00" -->
+#### Claude
+I've filed **BUG-206**, *"Publish: a full-size camera photo makes the site unpublishable (IMAGES_TRANSFORM_ERROR 9529)"*, under EPIC-16 with high severity, at `draft`.
+
+The goal is for a large photo to **just work**, not merely fail with a clearer message:
+
+1. **Shrink oversized images when they're added.** Every way a picture gets into a site (upload, import, AI placement) scales anything with a long edge over a platform maximum down once, and stores that. The customer never sees a problem. The image path that already converts iPhone HEIC photos does its conversion at this same point, so the ticket says to reuse it rather than add a second.
+2. **Publish never asks Cloudflare for a resize it will refuse.** It checks each image's dimensions first, reading only the file header so the Worker's memory limit stays safe. Anything still too big gets one smaller intermediate, and every size is resized from that.
+3. **Retry when Cloudflare is busy.** Error 9529 also covers "too busy", so publish retries a few times before giving up.
+4. **Any failure that's left names the image** and its dimensions, never a raw Cloudflare code.
+5. **Fix images already stored**, so sites like Faelan's publish without anyone re-uploading.
+
+One thing I deliberately left for the implementing session to measure: Cloudflare's real input limit for the image service as this code calls it. Their published figures may not apply here, and the cap should be set from what's actually measured.
+
+For publishing faelan.com today, the manual workaround (shrink `scorched-earth.jpeg`, copy again, publish) is in my previous message.
 
 <!-- xgd-chat-end -->
