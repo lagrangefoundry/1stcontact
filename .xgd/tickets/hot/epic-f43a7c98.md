@@ -13,6 +13,7 @@ status: draft
 fields:
   priority: high
   epic_parent: epic-95bc3b15
+  chat_comment: comment-876b8c81
 ---
 
 ## Intent
