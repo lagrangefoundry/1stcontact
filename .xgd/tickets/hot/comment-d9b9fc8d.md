@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:48:45.576301+00:00'
+updated_at: '2026-10-10T15:49:16.817956+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6189,5 +6189,21 @@ For the chats copy, the two empty conversations already in prod are for the same
 <!-- xgd-chat role="user" ts="2026-10-10T15:48:45.431071+00:00" -->
 #### You
 ok good - now I am not allowed to choose the public name? ✗ Only an owner or delegate of this business may choose its address.
+
+<!-- xgd-turn id="37e0044e-466c-4d78-a17a-5edcbbbb5ff9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:49:15.766875+00:00" -->
+#### Claude
+The refusal is correct as the code stands. The faelan.com business in production is **owned by `faelanwesthead@gmail.com`** (you set it up that way). You enter it as the platform operator, which gives you no role there. Choosing an address is limited to an owner or delegate, so you're refused.
+
+There are three ways to get the address claimed:
+
+1. **I write the claim directly, as I did for `1stcontact.1stc.site`.** It's the same single row the claim action writes, and it's done in a minute. **Which name do you want: `faelan.1stc.site`?** It can't be changed afterwards, so I'd rather hear it from you. (No `faelan…` address is taken yet.)
+2. **Make yourself a delegate of faelan.com.** That's one membership row, after which you can do this and anything else an owner's helper can, from the builder. It also suits you looking after his site long term.
+3. **Faelan claims it himself.** At the moment he can't: the Access policy on `app.1stcontact.io` admits only `martin-github@westhead.me`, so his sign-in would be refused before the app even sees it. That's the gap noted in §I10: customers you invite meet the Access gate.
+
+I'd do **1** now and **2** if you expect to keep managing his site. Say the name and I'll write it.
+
+There's also a product gap here worth a ticket: an operator who can get into a business can't act on its owner's behalf even for routine setup. You've now hit that twice today (the address name, and earlier the business picker). I'll file it if you want.
 
 <!-- xgd-chat-end -->
