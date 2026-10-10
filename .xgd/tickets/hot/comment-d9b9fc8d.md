@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:18:14.145018+00:00'
+updated_at: '2026-10-10T18:18:57.304270+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6364,5 +6364,11 @@ Then publish again. Two cautions:
 - If you have, replacing the image directly in the prod builder is cleaner. Upload a resized copy in its place, if the builder lets you swap an asset.
 
 **This is also a product bug.** Phone and camera photos are routinely 12–48 MP, so any customer who uploads a straight-off-the-camera photo will hit the same failure. And the error names a Cloudflare code rather than the photo, so they won't know which picture to fix. Publish only checks file **size** (`LADDER_MAX_SOURCE_BYTES`, 32 MB), never pixel dimensions. The fix is to shrink oversized images before the resize step, or failing that, refuse with the image's name. I'll file it under EPIC-16 if you want.
+
+<!-- xgd-turn id="0368646a-6d21-4a6a-af4e-8cf6e192e672-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T18:18:57.245139+00:00" -->
+#### You
+I am more interested in the systemic fix. PLease file a bug
 
 <!-- xgd-chat-end -->
