@@ -6,7 +6,7 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-04T00:54:19.175599+00:00'
+updated_at: '2026-10-10T18:28:00.591584+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -85,3 +85,15 @@ Three pieces, and nothing more until they're proven:
 3. **The principal (the consultant) is taught all of it.** Its manual and priming explain decomposition and locks. It decides how to decompose an existing page, splits it, builds new pages already decomposed, and plans parallel work as one builder session per file. It must never promise parallel work it hasn't set up this way.
 
 Concurrent execution of builder sessions in the framework (lagrange-framework) is still needed underneath piece 3, and is filed there as a child once 1 and 2 have a shape.
+
+
+
+## Children (filed 2026-10-10)
+
+1. **REQ-396: Draft pages: a frame plus separately stored sections, assembled at render.** Piece 1. Independent; can start now.
+2. **REQ-397: Builder sessions: leased locks on draft files, and the consultant taught to plan by file.** Pieces 2 and 3. The lease table, write-path enforcement, client edits honouring locks, and CAS on writes can start now. The Delegate `scope` claim and the parallel-planning priming wait on lagrange-framework REQ-207, and section-level locks wait on REQ-396.
+3. **lagrange-framework REQ-207: components/ai: concurrent tool calls, and a scope claim on Delegate.** Lives in the framework repo. It covers the tool-loop concurrency with a cap and a `claim` hook run before a worker opens. No code lands against this epic.
+
+Split rationale: decomposition and locks are each over the 20-point free-coding cap, and the framework work is a different repository. Fold back if any of these turns out small.
+
+Decisions taken while filing: the scope is **declared by the consultant on Delegate** and claimed before the worker opens (not taken lazily by the builder), leases are renewed by activity and expire after about 5 min idle, header and footer stay per-page sections for now, no bulk migration (pages are split on demand), and the existing `sites.version` / `SiteWrite.expect` CAS is reused on draft writes rather than building a new version guard.
