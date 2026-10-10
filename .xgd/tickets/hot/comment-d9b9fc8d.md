@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T14:55:17.429213+00:00'
+updated_at: '2026-10-10T15:02:16.329326+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6008,5 +6008,11 @@ To check the result:
 - **With `faelan.com` connected:** that address works once its DNS has propagated.
 
 One thing I noticed: REQ-392 shipped a rights record (`1c rights assert`) even though you asked for that to be dropped. It doesn't get in your way here, since the copy commands don't check it. It only matters for `bin/copy-repro-to-dev`, which now needs `1c rights assert faelan.com/index --basis "…"` once before it will copy.
+
+<!-- xgd-turn id="f3987bc2-a3f6-4c11-8e64-c9854f7840d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:02:15.773129+00:00" -->
+#### You
+Is the wildcard in place? 1stcontact.1stc.site is redirecting?
 
 <!-- xgd-chat-end -->
