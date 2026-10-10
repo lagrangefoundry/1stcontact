@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:49:16.817956+00:00'
+updated_at: '2026-10-10T16:00:54.349621+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6205,5 +6205,11 @@ There are three ways to get the address claimed:
 I'd do **1** now and **2** if you expect to keep managing his site. Say the name and I'll write it.
 
 There's also a product gap here worth a ticket: an operator who can get into a business can't act on its owner's behalf even for routine setup. You've now hit that twice today (the address name, and earlier the business picker). I'll file it if you want.
+
+<!-- xgd-turn id="2a6d7aa0-e114-49ad-9e33-db2682cb2bfc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T16:00:52.985460+00:00" -->
+#### You
+I would like the operator to have this privileged please - can you create a ticket?
 
 <!-- xgd-chat-end -->
