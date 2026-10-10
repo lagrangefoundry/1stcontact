@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:02:16.329326+00:00'
+updated_at: '2026-10-10T15:02:46.528381+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6014,5 +6014,25 @@ One thing I noticed: REQ-392 shipped a rights record (`1c rights assert`) even t
 <!-- xgd-chat role="user" ts="2026-10-10T15:02:15.773129+00:00" -->
 #### You
 Is the wildcard in place? 1stcontact.1stc.site is redirecting?
+
+<!-- xgd-turn id="f3987bc2-a3f6-4c11-8e64-c9854f7840d5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:02:46.148421+00:00" -->
+#### Claude
+Yes, both are in place. REQ-394 landed and was deployed to production at 14:35Z. Here's what I could test from here:
+
+| Request | Result |
+|---|---|
+| `https://nobody-claimed-xyz.1stc.site/` | **404**: the wildcard reaches the Worker, and an unclaimed name returns 404 as intended |
+| a request asking the Worker for host `1stcontact.1stc.site` | **301 → `https://1stcontact.io/`** |
+| …with `/about?x=1` | **301 → `https://1stcontact.io/about?x=1`**: path and query are kept |
+
+The one thing I couldn't check is a direct request to `https://1stcontact.1stc.site/` itself. My sandbox's network proxy returns a 502 for that name while letting other `1stc.site` names through. It most likely cached the "name doesn't exist" answer from my test earlier today, before the DNS record existed. That's a fault on my side, not the site's, and the test above sends the same request to the Worker by another route.
+
+To confirm from your machine:
+```bash
+curl -sI https://1stcontact.1stc.site/ | grep -iE '^(HTTP|location)'
+```
+You should see `HTTP/2 301` and `location: https://1stcontact.io/`. If your browser instead says the site can't be found, your Mac may be holding the same stale "doesn't exist" answer. Clear it with `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, or try again in a few minutes.
 
 <!-- xgd-chat-end -->
