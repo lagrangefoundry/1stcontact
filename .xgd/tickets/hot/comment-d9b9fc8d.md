@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:29:26.349248+00:00'
+updated_at: '2026-10-10T15:29:44.001491+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6066,5 +6066,31 @@ Tell me whether `faelan.com` is on Cloudflare and I'll set out step 3 for that c
 <!-- xgd-chat role="user" ts="2026-10-10T15:29:26.218580+00:00" -->
 #### You
 Is it possible for me to impersonate the Faelan account?
+
+<!-- xgd-turn id="e6bb9a57-1267-41a3-aa0c-60e4f840c134-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:29:43.768132+00:00" -->
+#### Claude
+Sort of. You can't sign in **as Faelan**: there's no "act as this user" feature, and Access lets only your own email into the builder anyway. But you can **work inside the Faelan business** as yourself, and that's built in on purpose.
+
+**How it works:** your user has the platform-operator flag. That flag lets you open any business by its address, even one you're not a member of (`admissibleBusiness` in `identity.ts`). You see exactly what the owner sees, including the same "expired account" refusals, so a support call gets the right answer. Two differences:
+- You enter with **no role**: you're hosting the business, not owning it.
+- Anything you do is recorded as **you**, not as Faelan. That's the point of the design: the history stays honest about who did what.
+
+**How to get there:** your business switcher lists only businesses you're a member of, so the faelan.com business won't appear in it. Go to it by URL instead:
+
+```
+https://app.1stcontact.io/b/<faelan business id>/
+```
+
+The id appears when you create the business. You can also get it with:
+```bash
+cd apps/control-app && npx wrangler d1 execute DB --remote --command "select id,name from tenants where name='faelan.com'"
+```
+This is the same mechanism that let `copy-repro-to-dev` write into faelan.com in dev when the name lookup couldn't find it.
+
+**If you'd rather it showed up in your switcher,** make yourself a member: create the business with your own email as the account, as I suggested earlier, or invite yourself afterwards. Then you can pick it by name, and later invite Faelan as owner.
+
+If you'd like operators to see every business in the switcher, without being members, I can file that as a small ticket.
 
 <!-- xgd-chat-end -->
