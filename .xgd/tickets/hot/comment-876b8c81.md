@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-24
 created_by: xgd
 created_at: '2026-10-10T18:20:55.517692+00:00'
-updated_at: '2026-10-10T18:22:36.374418+00:00'
+updated_at: '2026-10-10T18:28:20.905436+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -39,5 +39,34 @@ Please do make implementation decisions and low level UI decisions yourself. It 
 <!-- xgd-chat role="user" ts="2026-10-10T18:22:35.004691+00:00" -->
 #### You
 Wiat this was created as an Epic - please lay out the implementation tickets - DO NOT WRITE CODE
+
+<!-- xgd-turn id="4bc8fc7d-a9c5-4ea6-a100-0834cda4878c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:28:20.548194+00:00" -->
+#### Claude
+Filed lagrange-framework REQ-207, the framework child. Next I'm writing the two 1stcontact children: page decomposition, and draft-file locks with the consultant teaching.
+
+I've filed three implementation tickets for EPIC-24, all at `draft`, and written no code. They follow your simplified plan from 2026-10-03, and the epic body now lists them in a **Children** section.
+
+| Ticket | What it is | Can start? |
+|---|---|---|
+| **REQ-396**: Draft pages: a frame plus separately stored sections, assembled at render | Piece 1 of your plan. A page is stored as a frame plus one row per section, keyed by the section's id. It is reassembled into today's single document before render and validation, so neither changes. The page-editing tools gain an optional `section` argument, and addresses inside a section stop depending on what happens elsewhere on the page. A write that breaks the section rules (layout or duplicate ids, for example) is refused. Pages are split on demand; pages that aren't split keep working as today. | Yes, it depends on nothing else |
+| **REQ-397**: Builder sessions: leased locks on draft files, and the consultant taught to plan by file | Pieces 2 and 3. A new D1 table holds leased locks on the site file, page frames, sections and whole pages. Every draft write checks the caller holds the file. The client's own edits in the builder get a 409 that names the builder holding the file. Also covered: showing who holds what, and the consultant's manual and priming. | Partly. The lock table, write checks, client-edit refusals and safe writes can start now. Declaring files when a builder session is opened waits on REQ-207, and section locks wait on REQ-396. |
+| **lagrange-framework REQ-207**: components/ai: concurrent tool calls, and a scope claim on Delegate | Tools can be declared safe to overlap, and several calls to them in one response then run at once, up to a cap. `Delegate` gains an optional `scope` (the files the builder will write). A host check claims them before the builder session opens and releases them however the session ends. If a file is already held, the request is refused before any spend. | Yes. It lives in the framework repo and cross-references the 1stcontact tickets. |
+
+The checks turned up two things that shaped the tickets:
+- **There is already a working protection against overwrites that nobody uses.** The draft store can refuse a write made from an out-of-date copy (`sites.version` with `SiteWrite.expect`), but neither the builder's `set_l1` tool nor the client's hand edits pass the expected version. REQ-397 switches it on rather than building a new guard.
+- **The consultant's priming already says "Builders run one at a time".** REQ-397 keeps that wording until REQ-207's concurrency is actually installed.
+
+**Why three tickets, not one:** the page work and the lock work are each over the 20-point free-coding cap, and the framework work is in another repository. I've noted on the epic that folding back is preferred if any of them turns out small.
+
+**Decisions I made while filing** (also recorded on the epic; say if you want any changed):
+- The consultant names the files when it opens a builder session, and they are locked before the builder starts. The builder doesn't take them partway through.
+- A lock is renewed whenever its builder does something, and expires after about 5 minutes idle. That way a builder session that dies or aborts silently (BUG-191) can't hold a file forever.
+- At most 3 builder sessions run at once by default; the limit is configurable.
+- Header and footer stay as per-page sections for now, not shared site-wide ones.
+- Existing pages aren't migrated in bulk; they're split when the consultant decides to.
+
+Everything is left at `draft` for the child sessions to pick up.
 
 <!-- xgd-chat-end -->
