@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T16:01:29.297041+00:00'
+updated_at: '2026-10-10T18:06:29.211868+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6228,5 +6228,11 @@ What it asks for:
 I scoped it to everything a delegate can do rather than just choosing the address, because the same refusal guards six other actions and you'd hit them next. If you only want the address, tell me and I'll narrow it.
 
 **For faelan.com right now:** until REQ-395 lands, I can write the address claim directly, as I did for 1st Contact. Is `faelan.1stc.site` the name you want? It can't be changed afterwards.
+
+<!-- xgd-turn id="f307b783-381e-4829-893e-79cb1e9c09c1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T18:06:29.051404+00:00" -->
+#### You
+it has landed...build and deploy, anything else
 
 <!-- xgd-chat-end -->
