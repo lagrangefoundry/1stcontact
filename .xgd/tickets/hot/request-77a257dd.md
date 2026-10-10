@@ -6,9 +6,9 @@ title: '1stc.site: platform hostnames are unreachable in production, and the ape
   site''s should redirect to 1stcontact.io'
 created_by: EPIC-16
 created_at: '2026-10-10T13:58:27.133219+00:00'
-updated_at: '2026-10-10T13:58:27.133219+00:00'
+updated_at: '2026-10-10T14:00:23.593596+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -40,3 +40,9 @@ The route cannot go in `wrangler.toml`: REQ-258 established that any zone route 
 ## Test plan
 
 UATs (`test_UAT_FC_<id>_*`): a request for the APEX_SITE_KEY site's platform hostname is a 301 to the apex preserving path and query; a claimed hostname of another site serves that site; an unclaimed one is a 404; the provisioning step is idempotent and issues no route deletion; `wrangler.toml` still declares only custom-domain routes (REQ-258's static UAT stays green).
+
+
+
+## Update 2026-10-10: the zone exists
+
+The operator confirms `1stc.site` is registered on the 1st Contact Cloudflare account. So the account side of gap 1 is a DNS record and a route, not a registration. The provisioning step should still verify the zone is in the account and on Cloudflare nameservers, and fail naming it if not, because a fresh environment cannot assume it. Recording the zone in the product's `zones` table is NOT wanted for `1stc.site`: `recordZone` and `serving.ts` deliberately refuse the platform apex (REQ-257), and this route is platform infrastructure, not a customer zone.
