@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:29:44.001491+00:00'
+updated_at: '2026-10-10T15:32:30.798053+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6092,5 +6092,11 @@ This is the same mechanism that let `copy-repro-to-dev` write into faelan.com in
 **If you'd rather it showed up in your switcher,** make yourself a member: create the business with your own email as the account, as I suggested earlier, or invite yourself afterwards. Then you can pick it by name, and later invite Faelan as owner.
 
 If you'd like operators to see every business in the switcher, without being members, I can file that as a small ticket.
+
+<!-- xgd-turn id="b023addd-6872-4f3e-a7eb-dfc05cb8ca73-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:32:30.317119+00:00" -->
+#### You
+Ah yes I hae those links in the console
 
 <!-- xgd-chat-end -->
