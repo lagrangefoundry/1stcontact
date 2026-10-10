@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:25:26.230581+00:00'
+updated_at: '2026-10-10T13:26:06.831127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5763,5 +5763,68 @@ Until it lands, `bin/deploy --secrets-file ~/Documents/secrets/1c.dev.env` works
 <!-- xgd-chat role="user" ts="2026-10-10T13:25:26.171150+00:00" -->
 #### You
 I would like to publish the 1stcontact.io site, can you walk me through it please?
+
+<!-- xgd-turn id="78a442a5-9581-45b0-a878-b6d0e531a2d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T13:26:06.649460+00:00" -->
+#### Claude
+I'm checking production's current state and what publishing needs before I write the steps.
+
+Production's 1st Contact site exists but has never been published. The draft dates from the Sep 21 copy, there are 0 published versions and 0 public addresses, and `APEX_SITE_KEY` is still empty. It takes five steps:
+
+## 1. Refresh the draft (if you've edited 1st Contact locally since Sep 21)
+
+```bash
+set -a; . ~/Documents/secrets/1c.dev.env; set +a        # needs CF_ACCESS_CLIENT_ID/SECRET in it
+bin/copy-to-cloud --origin http://127.0.0.1:8799 \
+  --local-client-id local-dev.access --local-client-secret local-dev-secret \
+  "1st Contact"
+```
+
+It will say if anything was edited in the prod builder since; `--force` overwrites.
+
+## 2. Give the site a public address
+
+Publishing is refused (`NO_PUBLIC_ADDRESS`) until the site has at least one address. In the prod builder (`app.1stcontact.io` → 1st Contact), claim a `1stc.site` name, e.g. **`1stcontact.1stc.site`**.
+
+- Don't connect `1stcontact.io` as a custom domain. That domain is already wired to the public-site Worker in `wrangler.toml`, and connecting it would create a second, conflicting route.
+- The `1stc.site` name won't load in a browser yet, because nothing in the config routes `*.1stc.site` to the Worker. That's fine here: it only has to exist to unlock publishing. Visitors will reach the site through `1stcontact.io` via step 4.
+- These names are permanent once claimed, so pick one you're happy to keep.
+
+## 3. Publish
+
+In the same builder, publish the 1st Contact site. This is the first publish ever in production, so if anything surprises us it'll be here. Paste me the error if it fails.
+
+## 4. Point the apex at it
+
+In `apps/public-site/wrangler.toml`, **line 171** (the `[env.production.vars]` block, not line 32 or 230):
+
+```toml
+APEX_SITE_KEY = "site_c4bed79aeb647305a5e3098f70d6dca3"
+```
+
+That's the production site key, which differs from your local one. Then:
+
+```bash
+bin/deploy public-site
+```
+
+## 5. Check it
+
+```bash
+bin/smoke --site-key site_c4bed79aeb647305a5e3098f70d6dca3
+```
+
+`apex_resolves` should pass, and the published-site checks will run for the first time.
+
+**One thing to decide before you go public:** `TURNSTILE_SITEKEY` is empty in production and public-site has no `TURNSTILE_SECRET`. So if the page has a contact form, every submission gets a 503. The fix:
+
+1. Cloudflare dashboard → Turnstile → add a widget for `1stcontact.io`.
+2. Put the site key on line 177.
+3. `printf '%s' '<secret>' | npx wrangler secret put TURNSTILE_SECRET --env production` from `apps/public-site`.
+
+Skip it if the page has no form yet.
+
+Want me to make the line-171 edit now? It's a config change and does nothing visible until step 3 has published.
 
 <!-- xgd-chat-end -->
