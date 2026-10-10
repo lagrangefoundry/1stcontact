@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+#
+# `bin/platform-route` — route every platform hostname (`*.1stc.site`) to
+# `public-site` ([[REQ-394]]).
+#
+# RUN ONCE PER ENVIRONMENT, SAFE TO RUN AGAIN. It checks the `1stc.site` zone is
+# in the account and on Cloudflare's nameservers, adds a proxied wildcard record
+# if the zone has none, and adds the `*.1stc.site/*` route on
+# `1stcontact-public-site` if it is missing. Additive: it never deletes or
+# replaces a record or a route, and refuses — naming the thing — where what is
+# there conflicts with what it would write.
+#
+# NOT A `wrangler.toml` ROUTE, for [[REQ-258]]'s reason: a zone route there
+# makes every deploy delete every customer route attached at runtime. NOT A
+# DEPLOY HOOK either, for `bin/access-token`'s: it changes account
+# configuration, which a code deploy has no business doing on every run.
+#
+# The logic is `apps/control-app/src/platform-route.ts`, over the same
+# Cloudflare client `serving.ts` attaches customer domains with; this is the
+# launcher, and loads the operator's secrets file first ([[REQ-393]]).
+#
+# Usage:
+#   bin/platform-route               # provision (idempotent)
+#   bin/platform-route --dry-run     # report what would be written
+#   bin/platform-route --secrets-file ~/Documents/secrets/1c.dev.env
+#
+# Environment:
+#   CLOUDFLARE_DNS_TOKEN   required — Zone:DNS:Edit and Workers Routes:Edit,
+#                          the scope bin/deploy.d/secrets/40-cloudflare-dns-token
+#                          documents
+#
+# Exit codes: 0 success; non-zero naming what is wrong.
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo_root="$(cd "$here/.." && pwd)"
+
+if [[ "${ONECONTACT_SECRETS_LOADED_BY:-}" != "bin/platform-route" ]]; then
+  exec node "$repo_root/tools/generate/bin/env-file.mjs" run bin/platform-route -- "$here/platform-route" "$@"
+fi
+
+exec node "$repo_root/tools/generate/bin/1c.mjs" platform-route "$@"

@@ -107,7 +107,9 @@ describe('BUG-57 — every smoke check is reachable', () => {
       siteKey: SITE_KEY,
       controlOrigin: 'https://control.example.test',
       workersDevOrigin: 'https://control.example.workers.dev',
+      platformHost: 'alice.1stc.site',
       fetch: publishedOrigin({
+        'https://alice.1stc.site/?smoke=1': () => new Response('<html>', { status: 200 }),
         'https://control.example.test/': () =>
           new Response(null, {
             status: 302,
@@ -135,6 +137,8 @@ describe('BUG-57 — every smoke check is reachable', () => {
       published_assets_resolve: '--site-key',
       control_app_challenges_unauthenticated: '--control-origin',
       control_app_workers_dev_closed: '--workers-dev-origin',
+      platform_host_reaches_its_site: '--platform-host',
+      platform_host_unclaimed_not_found: '--platform-host',
     }
 
     for (const check of report.checks.filter((c) => c.status === 'skip')) {

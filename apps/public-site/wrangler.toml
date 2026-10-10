@@ -11,6 +11,12 @@ workers_dev = true
 # It is empty here because a local `wrangler dev` has no published apex until
 # somebody publishes one — set it in `.dev.vars` to work on the apex locally.
 #
+# `APEX_HOST` ([[REQ-394]]) is the host that site is served at, and so its
+# address: every OTHER host bound to it — its own `<label>.1stc.site` — 301s
+# there — and it is the ONLY unbound host that is the front door, so an
+# unclaimed `<label>.1stc.site` 404s instead of serving the apex. Empty keeps
+# every unbound host on the front door, which is what local dev wants.
+#
 # The two session vars are how this Worker knows which cookie to read and which
 # host it was issued for. Reading it decides WHICH STATE of `account-chrome`
 # renders and nothing else: no page is gated and no published content varies.
@@ -30,6 +36,7 @@ workers_dev = true
 # takes no leads; it does not take unverified ones.
 [vars]
 APEX_SITE_KEY = ""
+APEX_HOST = ""
 SESSION_COOKIE_NAME = ""
 SESSION_COOKIE_DOMAIN = ""
 TURNSTILE_SITEKEY = ""
@@ -169,6 +176,7 @@ routes = [
 # customer's own domain has its own — see `session.ts`.
 [env.production.vars]
 APEX_SITE_KEY = "site_c4bed79aeb647305a5e3098f70d6dca3"
+APEX_HOST = "1stcontact.io"
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = "1stcontact.io"
 # See the top-level block: restated rather than inherited, on purpose
@@ -228,6 +236,7 @@ workers_dev = false
 
 [env.dev.vars]
 APEX_SITE_KEY = ""
+APEX_HOST = ""
 SESSION_COOKIE_NAME = ""
 SESSION_COOKIE_DOMAIN = ""
 TURNSTILE_SITEKEY = ""

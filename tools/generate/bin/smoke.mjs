@@ -132,6 +132,25 @@ function controlOriginFor(origin) {
   return origin === DEFAULT_ORIGIN ? DEFAULT_CONTROL_ORIGIN : undefined
 }
 
+/**
+ * The apex site's own platform hostname ([[REQ-394]]).
+ *
+ * Every `<label>.1stc.site` was unreachable in production for as long as the
+ * product had issued them, and nothing noticed, because nothing asked. This is
+ * the one this deployment's apex site claimed, so the check has a target with
+ * no argument — DERIVED FOR THE DEFAULT APEX AND NOTHING ELSE, on
+ * {@link controlOriginFor}'s reasoning: another origin's platform hostname is
+ * not knowable from here, and guessing would assert against somebody else's.
+ */
+const DEFAULT_PLATFORM_HOST = '1stcontact.1stc.site'
+
+/** A label nothing will ever claim. Fixed, so a failure is reproducible. */
+const ABSENT_PLATFORM_LABEL = 'smoke-absent-host-do-not-claim'
+
+function platformHostFor(origin) {
+  return origin === DEFAULT_ORIGIN ? DEFAULT_PLATFORM_HOST : undefined
+}
+
 class Failed extends Error {}
 
 /**
@@ -258,6 +277,7 @@ export async function runSmoke(options = {}) {
   const strip = (value) => (value ? value.replace(/\/+$/, '') : undefined)
   const controlOrigin = strip(options.controlOrigin) ?? strip(controlOriginFor(origin))
   const workersDevOrigin = strip(options.workersDevOrigin)
+  const platformHost = options.platformHost ?? platformHostFor(origin)
   const checks = []
 
   const get = (url, init) => doFetch(url, { redirect: 'manual', ...init })
@@ -558,6 +578,45 @@ export async function runSmoke(options = {}) {
   // an unconfigured Worker answers 503; a retired workers.dev hostname does not
   // resolve at all. Every one of those is the gate holding. Only a 200 is not.
 
+  // ── platform hostnames ([[REQ-394]]) ──────────────────────────────────────
+  //
+  // A claimed `<label>.1stc.site` must reach its site — served, or 301'd to the
+  // site's address — and an unclaimed one must 404 exactly as an unpublished
+  // site does. A hostname that never reached the Worker throws here, which is
+  // the failure this exists to catch.
+  if (platformHost) {
+    const derived = options.platformHost === undefined
+    await check('platform_host_reaches_its_site', async () => {
+      const res = await get(`https://${platformHost}/?smoke=1`)
+      const location = res.headers.get('location') ?? ''
+      if (derived) {
+        // The default is the APEX site's hostname, whose address is the apex.
+        ensure(
+          res.status === 301 && location === `${origin}/?smoke=1`,
+          `GET https://${platformHost}/ returned ${res.status}${location ? ` → ${location}` : ''}, ` +
+            `expected 301 → ${origin}/?smoke=1`,
+        )
+      } else {
+        ensure(
+          res.status === 200 || (res.status === 301 && location.startsWith('https://')),
+          `GET https://${platformHost}/ returned ${res.status}${location ? ` → ${location}` : ''}, ` +
+            'expected 200, or a 301 to the site\'s address',
+        )
+      }
+      return `${res.status}${location ? ` → ${location}` : ''}`
+    })
+    await check('platform_host_unclaimed_not_found', async () => {
+      const zone = platformHost.split('.').slice(1).join('.')
+      const res = await get(`https://${ABSENT_PLATFORM_LABEL}.${zone}/`)
+      ensure(res.status === 404, `an unclaimed ${zone} hostname returned ${res.status}, expected 404`)
+      return '404'
+    })
+  } else {
+    const why = `no --platform-host given, and ${origin} is not the apex one is known for`
+    skip('platform_host_reaches_its_site', why)
+    skip('platform_host_unclaimed_not_found', why)
+  }
+
   if (controlOrigin) {
     await check('control_app_challenges_unauthenticated', async () => {
       const res = await get(`${controlOrigin}/`)
@@ -626,13 +685,14 @@ export async function runSmoke(options = {}) {
   }
 
   const failed = checks.filter((c) => c.status === 'fail')
-  return { ok: failed.length === 0, origin, siteKey, controlOrigin, workersDevOrigin, checks, failed }
+  return { ok: failed.length === 0, origin, siteKey, controlOrigin, workersDevOrigin, platformHost, checks, failed }
 }
 
 const USAGE = `bin/smoke — prove a deployed origin actually serves.
 
   bin/smoke [--origin <url>] [--site-key <key>] [--max-assets <n>]
             [--control-origin <url>] [--workers-dev-origin <url>]
+            [--platform-host <host>]
 
   --origin              default https://1stcontact.io
   --site-key            a published site's key, the first segment of /site/<key>/.
@@ -644,6 +704,11 @@ const USAGE = `bin/smoke — prove a deployed origin actually serves.
                         https://app.1stcontact.io when --origin is the apex that
                         names it; any other origin must say where its control app
                         is, or the check is skipped rather than guessed at
+  --platform-host       a claimed platform hostname (e.g. alice.1stc.site) — asserts it
+                        reaches its site (200, or 301 to its address) and that an
+                        unclaimed sibling 404s (REQ-394). Defaults to the apex site's
+                        own, 1stcontact.1stc.site, which must 301 to the apex, when
+                        --origin is the default; otherwise skipped unless given
   --workers-dev-origin  the control app's workers.dev hostname — asserts the door an
                         Access policy cannot cover is shut. Not derivable: the
                         hostname embeds the account subdomain, so it is skipped
@@ -673,6 +738,7 @@ function parseArgs(argv) {
         break
       }
       case '--site-key':
+      case '--platform-host':
       case '--control-origin':
       case '--workers-dev-origin': {
         const value = argv[i + 1]
