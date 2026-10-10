@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:32:30.798053+00:00'
+updated_at: '2026-10-10T15:32:37.149646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6098,5 +6098,17 @@ If you'd like operators to see every business in the switcher, without being mem
 <!-- xgd-chat role="user" ts="2026-10-10T15:32:30.317119+00:00" -->
 #### You
 Ah yes I hae those links in the console
+
+<!-- xgd-turn id="b023addd-6872-4f3e-a7eb-dfc05cb8ca73-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:32:36.774386+00:00" -->
+#### Claude
+Good, the console's links are the easiest way in. Open faelan.com from there, and you're working inside it as yourself, with the platform-operator access.
+
+When you're ready to carry on, the Faelan steps are the same:
+1. Create the business in prod, if it isn't there yet.
+2. `bin/copy-to-cloud --force "faelan.com"`, then `--chats`.
+3. Claim `faelan.1stc.site` (that address now works end to end), or connect `faelan.com`.
+4. Publish.
 
 <!-- xgd-chat-end -->
