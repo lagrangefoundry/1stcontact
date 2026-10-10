@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:53:07.388640+00:00'
+updated_at: '2026-10-10T13:53:38.178027+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5878,5 +5878,22 @@ So the useful fix isn't removing a name from the list. It's letting **the platfo
 <!-- xgd-chat role="user" ts="2026-10-10T13:53:06.827189+00:00" -->
 #### You
 ok I hit publish but I don't see anything
+
+<!-- xgd-turn id="f5e3c539-d908-48c5-a41e-49451c4ca05a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T13:53:36.875233+00:00" -->
+#### Claude
+I've changed `APEX_SITE_KEY` on line 171 of `apps/public-site/wrangler.toml` (the production block) to `site_c4bed79aeb647305a5e3098f70d6dca3`. It isn't committed yet. Now run:
+
+```bash
+bin/deploy public-site
+bin/smoke --site-key site_c4bed79aeb647305a5e3098f70d6dca3
+```
+
+After that deploy, `https://1stcontact.io/` should serve the site and `apex_resolves` should pass. The published-site checks (redirects, the HTML index, caching, assets) will also run for the first time. Send me the smoke output if anything fails.
+
+Two loose ends:
+- **Commit the `wrangler.toml` change** once the deploy works, or a later deploy from a clean checkout would put the root back to 404. Say the word and I'll commit just that file. `module-assets.ts` also shows as modified, but `1c assets` rewrites it during builds and it isn't part of this change.
+- **Contact forms:** if the page has a form, submissions get a 503 until Turnstile is set up for production (line 177 plus the `TURNSTILE_SECRET` secret), as I described earlier.
 
 <!-- xgd-chat-end -->
