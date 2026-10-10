@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T14:54:45.522248+00:00'
+updated_at: '2026-10-10T14:55:17.429213+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5977,5 +5977,36 @@ If you'd rather wait and have REQ-394 do it all at once, nothing visitors see de
 Ok so now I want to move faelan.com to prod.
 
 Should I start by creating an account for faelan in production?
+
+<!-- xgd-turn id="a2c8ca11-5fde-4cf7-9f33-a48dda6afe20-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T14:55:17.044934+00:00" -->
+#### Claude
+Yes, start there. `bin/copy-to-cloud` never creates a business, so the business has to exist in production before you copy into it.
+
+**1. Create the business in the prod builder** (`app.1stcontact.io`, using the same "fulfil" action you used for Lagrange Foundry and XGD):
+- Call it **`faelan.com`** exactly. The copy finds the business by name, and that's how it's spelled in dev.
+- For the account email, use **your own** (`martin-github@westhead.me`) for now, unless Faelan should be the owner from day one. You can invite him later, and an owner set now is awkward to change afterwards.
+- This creates an empty starter site, which the copy will overwrite.
+
+**2. Copy the site and its conversations.** Your secrets-file and access-sim defaults (REQ-393) have landed, so as long as `~/Documents/secrets/1c.dev.env` holds `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET`:
+```bash
+bin/copy-to-cloud --force "faelan.com"        # --force: overwrite the starter site created in step 1
+bin/copy-to-cloud --chats "faelan.com"
+```
+The capture check shouldn't block this. The copy commands don't run the laptop-side check, and the production business has no captures stored in the cloud.
+
+**3. Give it an address.** Either way, this unlocks publishing:
+- **Claim `faelan.1stc.site`** in the prod builder. It's not a reserved name, so the builder lets you.
+- **Or connect `faelan.com` itself** in the domains pane. That needs the `faelan.com` zone in your Cloudflare account; the DNS token is already in production. Is `faelan.com` registered on Cloudflare, or somewhere else? If it's elsewhere, its nameservers have to move first.
+
+**4. Publish** in the prod builder.
+
+To check the result:
+- **Before step 3 or without a domain:** the site is at `https://1stcontact.io/site/<site-key>/`. The site key is in the copy's output.
+- **With `faelan.1stc.site`:** that address works only once you've added the wildcard DNS record and route from my last message.
+- **With `faelan.com` connected:** that address works once its DNS has propagated.
+
+One thing I noticed: REQ-392 shipped a rights record (`1c rights assert`) even though you asked for that to be dropped. It doesn't get in your way here, since the copy commands don't check it. It only matters for `bin/copy-repro-to-dev`, which now needs `1c rights assert faelan.com/index --basis "…"` once before it will copy.
 
 <!-- xgd-chat-end -->
