@@ -6,10 +6,10 @@ title: 'Platform operator: act as a delegate in any business it hosts, and claim
   names for the platform'
 created_by: EPIC-16
 created_at: '2026-10-10T16:01:22.706601+00:00'
-updated_at: '2026-10-10T16:14:27.708726+00:00'
+updated_at: '2026-10-10T18:04:23.532991+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   epic_parent: epic-96d8aca6
