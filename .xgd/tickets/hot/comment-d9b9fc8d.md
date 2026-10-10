@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T14:00:30.636939+00:00'
+updated_at: '2026-10-10T14:54:45.522248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5969,5 +5969,13 @@ What you'll get:
 - Names nobody has claimed return 404.
 
 If you'd rather wait and have REQ-394 do it all at once, nothing visitors see depends on it.
+
+<!-- xgd-turn id="a2c8ca11-5fde-4cf7-9f33-a48dda6afe20-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T14:54:45.252747+00:00" -->
+#### You
+Ok so now I want to move faelan.com to prod.
+
+Should I start by creating an account for faelan in production?
 
 <!-- xgd-chat-end -->
