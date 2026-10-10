@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:40:51.027070+00:00'
+updated_at: '2026-10-10T15:48:45.576301+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6183,5 +6183,11 @@ bin/copy-to-cloud --chats "faelan.com"
 The first line of output should now say `took: CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET`. Note that `CF_ACCESS_*` is the Access service token, not `CLOUDFLARE_API_TOKEN`, as the error says.
 
 For the chats copy, the two empty conversations already in prod are for the same site, so they're the case BUG-137's fix has to handle. If the history doesn't appear afterwards, re-run with `--chats --force` to replace them. Tell me what you see either way.
+
+<!-- xgd-turn id="37e0044e-466c-4d78-a17a-5edcbbbb5ff9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:48:45.431071+00:00" -->
+#### You
+ok good - now I am not allowed to choose the public name? ✗ Only an owner or delegate of this business may choose its address.
 
 <!-- xgd-chat-end -->
