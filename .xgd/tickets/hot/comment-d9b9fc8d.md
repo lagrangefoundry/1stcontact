@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:17:24.086761+00:00'
+updated_at: '2026-10-10T18:17:29.599929+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6317,5 +6317,13 @@ If the merge hits conflicts, they'll almost certainly be in `.xgd/tickets/` file
 <!-- xgd-chat role="user" ts="2026-10-10T18:17:23.761280+00:00" -->
 #### You
 disregard wrong content
+
+<!-- xgd-turn id="d95e269f-5a86-4873-ad72-ea7b10a5b82c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:17:29.543474+00:00" -->
+#### Claude
+I'll disregard it. I made no changes in the `xgd` repo: my `git fetch` failed in the sandbox, and everything else I ran there only read history.
+
+Back to Faelan. Once `bin/build` and `bin/deploy control-app` finish, claim `faelan.1stc.site` in the prod builder and publish.
 
 <!-- xgd-chat-end -->
