@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:26:06.831127+00:00'
+updated_at: '2026-10-10T13:47:25.654087+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5826,5 +5826,11 @@ bin/smoke --site-key site_c4bed79aeb647305a5e3098f70d6dca3
 Skip it if the page has no form yet.
 
 Want me to make the line-171 edit now? It's a config change and does nothing visible until step 3 has published.
+
+<!-- xgd-turn id="f6e9e0d4-e225-420b-b333-dd765c66609d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T13:47:25.495715+00:00" -->
+#### You
+I would like to claim 1stcontact.1stc.site but it has been restricted (frustatingly) can you remove the restriction so I can claim it please?
 
 <!-- xgd-chat-end -->
