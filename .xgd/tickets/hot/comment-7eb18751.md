@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-394
 created_by: xgd
 created_at: '2026-10-10T14:02:01.296398+00:00'
-updated_at: '2026-10-10T14:37:32.584268+00:00'
+updated_at: '2026-10-10T14:38:19.791803+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -104,5 +104,35 @@ The ticket body now has an implementation section below your original text, whic
 #### You
 trying to join the mailing list gets this response:
 "This site cannot take messages at the moment."
+
+<!-- xgd-turn id="898dd043-642e-4873-b0ca-e20f23e0bd8c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T14:38:19.626492+00:00" -->
+#### Claude
+That message comes from `apps/public-site/src/lead.ts`, which refuses with this exact sentence for five different reasons. Checking which one production hits:
+
+Production's public-site has **no secrets at all** (`[]`), and `TURNSTILE_SITEKEY` is `""` in `wrangler.toml`. Checking whether deploy has a hook that's supposed to provide the secret:
+
+I haven't changed anything for this yet: the cause is missing Turnstile credentials in production, and the fix needs your go-ahead.
+
+**Cause:** the mailing-list form posts to public-site's lead endpoint, which refuses any submission it can't check with Turnstile. That's deliberate (REQ-223): a deployment without the secret takes no leads rather than unverified ones. In production, both halves are missing:
+- **The secret:** `wrangler secret list --env production` for `1stcontact-public-site` returns `[]`, so there is no `TURNSTILE_SECRET`.
+- **The public key:** `TURNSTILE_SITEKEY = ""` in `apps/public-site/wrangler.toml`, so the page shows no verification widget either.
+- **Nothing in the deploy provides it:** none of the hooks in `bin/deploy.d/secrets/` handles a Turnstile secret, and each of them exits early unless the app is control-app.
+
+Lead intake, the rate limiter and the honeypot check all come before Turnstile in the code. Even if one of those were also broken, the missing secret alone guarantees this refusal on every submission. It affects every form on every published site, not just the mailing list.
+
+**Fix, three parts:**
+1. **Create a Turnstile widget** in the Cloudflare dashboard (Turnstile → Add widget) for `1stcontact.io`, `*.1stc.site`, and later the customers' own domains. It gives a site key and a secret. I can create it through the API instead if you have a token with Turnstile edit permission, but that changes the account, so I'd want your go-ahead first.
+2. **Set the site key** in the production block of `wrangler.toml` (`TURNSTILE_SITEKEY = "<key>"`). It's public by design, so it goes in the file.
+3. **Push the secret.** Either once by hand with `printf '%s' "$SECRET" | npx wrangler secret put TURNSTILE_SECRET --env production` in `apps/public-site`, or with a new deploy hook that pushes it from your secrets file. The hook would follow the pattern of the existing `40-cloudflare-dns-token` hook and fail the deploy if the secret is missing, so this can't silently recur.
+
+Then `bin/deploy public-site`. That also ships REQ-394's `APEX_HOST` change.
+
+Two decisions for you:
+- **Which ticket?** This is a separate problem from REQ-394, which is about platform hostnames. Should I add it to REQ-394 anyway, or will you file a separate ticket? I won't create one unless you ask.
+- **Hook or one-off?** Do you want the deploy hook, or will you just push the secret by hand? Steps 1–2 plus a manual push need no code. The hook needs the full ticket process.
+
+If you send the site key, I'll make the `wrangler.toml` change now.
 
 <!-- xgd-chat-end -->
