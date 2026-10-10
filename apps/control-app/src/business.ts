@@ -397,7 +397,11 @@ async function pagesNaming(
  * "there is no business behind this conversation" is the surface's own declared
  * refusal and it is the surface that should say it.
  */
-export function businessSettings(env: IdentityEnv, businessId: string): SettingsDeps {
+export function businessSettings(
+  env: IdentityEnv,
+  businessId: string,
+  platformBusiness = false,
+): SettingsDeps {
   return {
     read: async () => {
       const record = await businessRecord(env, businessId)
@@ -422,7 +426,9 @@ export function businessSettings(env: IdentityEnv, businessId: string): Settings
       apex: PLATFORM_APEX,
       addresses: await businessAddresses(env, businessId),
     }),
-    check: (label: string) => checkHostname(env, label),
-    claim: (label: string) => claimHostname(env, businessId, label),
+    // WHETHER THIS IS THE PLATFORM'S OWN BUSINESS is the caller's fact
+    // ([[REQ-395]]); which labels follow from it is `hostname.ts`'s rule.
+    check: (label: string) => checkHostname(env, label, platformBusiness),
+    claim: (label: string) => claimHostname(env, businessId, label, platformBusiness),
   }
 }

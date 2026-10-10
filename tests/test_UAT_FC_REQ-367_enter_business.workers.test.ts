@@ -8,7 +8,7 @@ import {
   ADMIN_SITES_PATH,
   BUSINESSES_PATH,
   PEOPLE_PATH,
-  PERSON_ADD_PATH,
+  PERSON_DELEGATE_PATH,
 } from '../apps/control-app/src/router'
 import { OPERATOR_ENTERED } from '../apps/control-app/src/builder/contact-events.js'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -35,8 +35,10 @@ import { applySchema } from './support/d1-site-factory'
  *      contact, naming the business. Opening a business they hold records none.
  *   3. A CUSTOMER CANNOT DO IT. The same link refuses anyone without the
  *      hosting capability, and records nothing.
- *   4. OWNER CONTROLS STAY SHUT in v1: inside, the operator is told they cannot
- *      invite, and adding a contact is refused.
+ *   4. OWNER CONTROLS STAY SHUT: inside, the operator is told they cannot
+ *      manage delegates, and appointing one is refused. ([[REQ-395]] superseded
+ *      the v1 rule that also shut inviting and adding contacts — the operator
+ *      now acts at delegate level inside a business it hosts.)
  *   5. THE CONSOLE STAYS REACHABLE from inside, because its gate reads the
  *      operator's own admission and not the business in scope.
  */
@@ -229,16 +231,16 @@ describe('REQ-367 — the platform operator opens any business', () => {
     const salon = await customer('Salon Four')
 
     const people = (await (await ask(op.email, under(salon.businessId, PEOPLE_PATH))).json()) as {
-      canInvite: boolean
+      canDelegate: boolean
     }
-    expect(people.canInvite).toBe(false)
+    expect(people.canDelegate).toBe(false)
 
-    const add = await ask(op.email, under(salon.businessId, PERSON_ADD_PATH), {
+    const appoint = await ask(op.email, under(salon.businessId, PERSON_DELEGATE_PATH), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email: 'new@example.test', name: 'New Person' }),
+      body: JSON.stringify({ id: 'anyone' }),
     })
-    expect(add.status).toBe(403)
+    expect(appoint.status).toBe(403)
   })
 
   it('test_UAT_FC_REQ-367_the_console_stays_reachable_from_inside', async () => {

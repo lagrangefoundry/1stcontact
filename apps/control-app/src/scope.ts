@@ -99,6 +99,22 @@ export interface Scope {
    * traffic could pollute the record it exists to stay out of.
    */
   runId?: string
+  /**
+   * This business was ENTERED through the hosting bypass rather than held
+   * ([[REQ-367]], [[REQ-395]]).
+   *
+   * SET IN EXACTLY ONE PLACE — {@link resolveScope}'s bypass branch, the moment
+   * the decision is taken — so every reader asks the decision itself rather
+   * than re-deriving it. {@link enteredBusiness} reads it for the chrome and the
+   * audit; `operatesBusiness` reads it to let the platform operator act as a
+   * delegate in a business it hosts.
+   *
+   * OPTIONAL, AND ABSENT MEANS HELD (or nothing). Like {@link includeSynthetic},
+   * default-deny is structural: a scope built by hand anywhere else carries no
+   * hosting capability, because only the branch that read `platform_operator`
+   * writes this.
+   */
+  entered?: true
 }
 
 /**
@@ -395,7 +411,8 @@ export async function resolveScope(
   // holder out — but an operator entering an expired account must see what the
   // customer sees, so the grant is still required, and a deactivated business is
   // still refused. It does not grant platform scope: what comes back is an
-  // ordinary business handle, indistinguishable from the owner's.
+  // ordinary business handle, marked `entered` so the operator acts in it as a
+  // delegate would ([[REQ-395]]) — never as its owner.
   //
   // AND THE REASON IT IS POSSIBLE AT ALL IS HOSTING, not level ([[DOC-42]] §8).
   // 1st Contact holds the others' data, which is why support access into one can
@@ -412,11 +429,14 @@ export async function resolveScope(
   // route on the column read here: a surface that appears "because you are an
   // admin" is exactly [[DOC-40]] §2.1 rule 1's shape, and entering a business you
   // host is not owning it — which is why what comes back carries `role: null`.
+  // What the operator MAY do inside is read off the scope's `entered` mark by
+  // `operatesBusiness` ([[REQ-395]]): delegate-level, decided once, and never
+  // owner-level.
   if (admission.user.platform_operator) {
     const business = await admissibleBusiness(env, requested)
     if (!business) throw new ScopeRefusedError('unknown_business', requested)
     if (!business.selectable) throw new ScopeRefusedError('no_entitlement', requested)
-    return { businessId: business.businessId }
+    return { businessId: business.businessId, entered: true }
   }
 
   throw new ScopeRefusedError('not_a_member', requested)
@@ -445,10 +465,9 @@ function firstAdmissible(businesses: AdmittedBusiness[]): AdmittedBusiness | nul
 /**
  * The business this scope was ENTERED rather than held ([[REQ-367]]) — or null.
  *
- * NON-NULL EXACTLY WHEN {@link resolveScope} TOOK THE HOSTING BYPASS: an admitted
- * caller whose resolved business is not one of their memberships. That is the
- * only route by which the two can differ, so the predicate is "not held" rather
- * than a second read of `platform_operator` — this file stays that column's only
+ * NON-NULL EXACTLY WHEN {@link resolveScope} TOOK THE HOSTING BYPASS, which it
+ * records on the scope as {@link Scope.entered}. Reading that field rather than
+ * a second read of `platform_operator` keeps this file that column's only
  * reader, and the answer cannot drift from the decision that produced the scope.
  *
  * IT CARRIES THE NAME because both of its readers say it: the chrome's banner and
@@ -460,8 +479,7 @@ export async function enteredBusiness(
   admission: Admission | null | undefined,
   scope: Scope | null,
 ): Promise<{ id: string; name: string } | null> {
-  if (!admission?.ok || scope === null) return null
-  if (admission.businesses.some((b) => b.businessId === scope.businessId)) return null
+  if (!admission?.ok || scope === null || scope.entered !== true) return null
   const business = await admissibleBusiness(env, scope.businessId)
   return business ? { id: business.businessId, name: business.name } : null
 }

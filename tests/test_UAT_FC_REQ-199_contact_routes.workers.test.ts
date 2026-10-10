@@ -3,11 +3,10 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { ensurePlatformOperator, type IdentityEnv } from '../apps/control-app/src/identity'
+import { type IdentityEnv } from '../apps/control-app/src/identity'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { peopleOf } from '../apps/control-app/src/people'
 import { PEOPLE_PATH, PERSON_ADD_PATH, PERSON_INVITE_PATH } from '../apps/control-app/src/router'
-import { personByEmail } from './support/person'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
 
@@ -138,15 +137,6 @@ async function anAccount(email: string, name = 'A Business') {
   return seeded
 }
 
-/** An owner of the 1st Contact business, seeded the way production seeds one. */
-async function anOperator(email: string) {
-  await ensurePlatformOperator(identityEnv(), email)
-  const account = await personByEmail(identityEnv(), PLATFORM, email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
-}
-
 beforeAll(async () => {
   await applySchema()
   const params = {
@@ -212,30 +202,6 @@ describe('REQ-199 — POST /api/people/add', () => {
     expect(response.status).toBe(400)
   })
 
-  it('test_UAT_FC_REQ-199_a_caller_who_does_not_own_the_business_may_not_add_to_it', async () => {
-    // THE GATE IS `ownsBusiness` AND NOT `ownsPlatformBusiness`. This caller is
-    // an owner of 1st Contact — so `resolveScope` opens the business for them —
-    // and is refused for the one business they can reach but do not own, which
-    // is the case `ownsBusiness` and nothing upstream of it decides.
-    stubJwks()
-    const operatorEmail = anEmail()
-    await anOperator(operatorEmail)
-    const someoneElse = await anAccount(anEmail(), 'Not Theirs')
-    const contact = anEmail()
-
-    const response = await post(
-      await mint(operatorEmail),
-      PERSON_ADD_PATH,
-      { email: contact },
-      someoneElse.businessId,
-    )
-
-    expect(response.status).toBe(403)
-    expect((await response.json<{ error: string }>()).error).toContain('owner')
-    const listed = await peopleOf(identityEnv(), { businessId: someoneElse.businessId })
-    expect(listed.map((p) => p.email)).not.toContain(contact)
-  })
-
   it('test_UAT_FC_REQ-199_the_loopback_path_may_not_add_people', async () => {
     // The dev-open branch skips Access and `admit` entirely, so there is nobody
     // there to own anything. A door onto creating people that opens only when
@@ -286,16 +252,6 @@ describe('REQ-199 — GET /api/people/invite', () => {
     expect(draft.subject.length).toBeGreaterThan(0)
     expect(draft.body).toContain('{{cta_url}}')
     expect(draft.declared).toContain('cta_url')
-  })
-
-  it('test_UAT_FC_REQ-199_a_caller_who_does_not_own_the_business_may_not_read_its_invite_copy', async () => {
-    stubJwks()
-    const operatorEmail = anEmail()
-    await anOperator(operatorEmail)
-    const someoneElse = await anAccount(anEmail(), 'Not Theirs')
-
-    const response = await get(await mint(operatorEmail), PERSON_INVITE_PATH, someoneElse.businessId)
-    expect(response.status).toBe(403)
   })
 })
 

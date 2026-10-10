@@ -298,6 +298,7 @@ import {
 import {
   requirePlatformTenant,
   findAccount,
+  isPlatformBusiness,
   operatesBusiness,
   ownsBusiness,
   ownsPlatformBusiness,
@@ -845,7 +846,11 @@ function chatHost(
         // write paths.
         {
           businessId: scope.businessId,
-          deps: businessSettings(env as unknown as IdentityEnv, scope.businessId),
+          deps: businessSettings(
+            env as unknown as IdentityEnv,
+            scope.businessId,
+            isPlatformBusiness(env as unknown as IdentityEnv, scope.businessId),
+          ),
         },
         // WHETHER A SITE HAS A PUBLIC ADDRESS ([[REQ-238]]). Assembled here for
         // the reason every wire above it is: the answer is a D1 query and the
@@ -4253,7 +4258,7 @@ async function routeUncached(
         // OWNERS AND DELEGATES BOTH ([[REQ-369]]). Adding and inviting contacts
         // is running the business, which a delegate does; delegation management
         // is the one exception, and it is `canDelegate`.
-        canInvite: operatesBusiness(deps.admission, scope.businessId),
+        canInvite: operatesBusiness(deps.admission, scope),
         canDelegate: ownsBusiness(deps.admission, scope.businessId),
         /**
          * The contacts who are live delegates of this business ([[REQ-369]]),
@@ -4401,7 +4406,7 @@ async function routeUncached(
      */
     if (p === PERSON_INBOUND_PROMOTE_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         return json(403, { error: 'Only an owner or delegate of this business may add contacts to it.' })
       }
       const body = await readJsonBody(request)
@@ -4442,7 +4447,7 @@ async function routeUncached(
       method === 'POST'
     ) {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         return json(403, { error: 'Only an owner or delegate of this business may triage its mail.' })
       }
       const body = await readJsonBody(request)
@@ -4531,7 +4536,7 @@ async function routeUncached(
      */
     if (p === PERSON_RECORD_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         console.warn(
           JSON.stringify({
             event: 'person_record_refused',
@@ -4587,7 +4592,7 @@ async function routeUncached(
      */
     if (p === PERSON_ADD_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         return json(403, { error: 'Only an owner or delegate of this business may add contacts to it.' })
       }
       const body = await readJsonBody(request)
@@ -4622,7 +4627,7 @@ async function routeUncached(
      */
     if (p === PERSON_INVITE_PATH && method === 'GET') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         return json(403, { error: 'Only an owner or delegate of this business may invite people to it.' })
       }
       return json(200, await inviteDraft(await openTickets(), mailFrom(env)))
@@ -4695,7 +4700,7 @@ async function routeUncached(
      */
     if (p === PERSON_INVITE_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         console.warn(
           JSON.stringify({
             event: 'invite_refused',
@@ -4904,7 +4909,7 @@ async function routeUncached(
      */
     if (p === BUSINESS_NAME_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         console.warn(
           JSON.stringify({
             event: 'business_name_refused',
@@ -5065,8 +5070,15 @@ async function routeUncached(
      * error.
      */
     if (p === HOSTNAME_CHECK_PATH && method === 'GET') {
-      requireScope()
-      return json(200, await checkHostname(identityEnv, url.searchParams.get('label') ?? ''))
+      const scope = requireScope()
+      return json(
+        200,
+        await checkHostname(
+          identityEnv,
+          url.searchParams.get('label') ?? '',
+          isPlatformBusiness(identityEnv, scope.businessId),
+        ),
+      )
     }
 
     /**
@@ -5091,7 +5103,7 @@ async function routeUncached(
      */
     if (p === HOSTNAME_CLAIM_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!operatesBusiness(deps.admission, scope.businessId)) {
+      if (!operatesBusiness(deps.admission, scope)) {
         console.warn(
           JSON.stringify({
             event: 'hostname_claim_refused',
@@ -5109,6 +5121,9 @@ async function routeUncached(
             identityEnv,
             scope.businessId,
             typeof body.label === 'string' ? body.label : '',
+            // THE PLATFORM'S OWN BUSINESS MAY WEAR ITS OWN NAME ([[REQ-395]]);
+            // a customer business may not, whoever is acting for it.
+            isPlatformBusiness(identityEnv, scope.businessId),
           ),
         )
       } catch (error) {

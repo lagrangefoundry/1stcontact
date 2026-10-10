@@ -279,6 +279,29 @@ export const RESERVED_LABELS: ReadonlySet<string> = new Set([
   ...RESERVED_PLATFORM_IDENTITY,
 ])
 
+/**
+ * The labels the PLATFORM'S OWN business may not hold either ([[REQ-395]]).
+ *
+ * {@link RESERVED_PLATFORM_IDENTITY} exists to stop a customer wearing this
+ * product's name, and the one business entitled to wear it is the product's
+ * own — `1stcontact.1stc.site` is ours to claim. Infrastructure and protocol
+ * labels are not a question of whose name it is, so they stay refused for
+ * everyone, the platform included.
+ *
+ * DECIDED BY THE BUSINESS AND NOT BY WHO IS ACTING. A customer business may not
+ * hold a platform-identity label whoever claims it for them — the platform
+ * operator included.
+ */
+export const RESERVED_FOR_PLATFORM: ReadonlySet<string> = new Set([
+  ...RESERVED_INFRASTRUCTURE,
+  ...RESERVED_PROTOCOL,
+])
+
+/** Which reserved set applies to a business — the one place the choice is made. */
+function reservedFor(platformBusiness: boolean): ReadonlySet<string> {
+  return platformBusiness ? RESERVED_FOR_PLATFORM : RESERVED_LABELS
+}
+
 /** The longest a DNS label may be. */
 export const MAX_LABEL_LENGTH = 63
 
@@ -327,7 +350,7 @@ export function hostFor(label: string): string {
  * is actionable and the action differs — shorten it, drop the hyphen, pick
  * another word. A boolean would make every one of them "no".
  */
-export function labelRefusal(raw: string): string | null {
+export function labelRefusal(raw: string, platformBusiness = false): string | null {
   const label = normaliseLabel(raw)
   if (label === '') return 'A hostname needs at least one character.'
   if (label.length > MAX_LABEL_LENGTH) {
@@ -349,7 +372,7 @@ export function labelRefusal(raw: string): string | null {
   if (label.startsWith('-') || label.endsWith('-')) {
     return 'A hostname cannot start or end with a hyphen.'
   }
-  if (RESERVED_LABELS.has(label)) {
+  if (reservedFor(platformBusiness).has(label)) {
     return `\`${label}\` is one we keep for the product itself. Pick another word.`
   }
   return null
@@ -398,13 +421,17 @@ export interface HostnameCheck {
  * as free and the claim would then be refused by the unique index — the exact
  * disagreement between the two operations this function exists to prevent.
  */
-export async function checkHostname(env: IdentityEnv, raw: string): Promise<HostnameCheck> {
+export async function checkHostname(
+  env: IdentityEnv,
+  raw: string,
+  platformBusiness = false,
+): Promise<HostnameCheck> {
   const host = hostFor(raw)
-  const refusal = labelRefusal(raw)
+  const refusal = labelRefusal(raw, platformBusiness)
   if (refusal !== null) {
     // THE SAME SPLIT `claimHostname` MAKES, and made once here so the two
     // operations cannot come to disagree about which refusal a label earns.
-    const reason: HostnameRefusal = RESERVED_LABELS.has(normaliseLabel(raw))
+    const reason: HostnameRefusal = reservedFor(platformBusiness).has(normaliseLabel(raw))
       ? 'reserved'
       : 'invalid'
     return { host, available: false, refusal, reason }
@@ -573,10 +600,13 @@ export async function claimHostname(
   env: IdentityEnv,
   businessId: string,
   raw: string,
+  platformBusiness = false,
 ): Promise<SiteAddress> {
-  const refusal = labelRefusal(raw)
+  const refusal = labelRefusal(raw, platformBusiness)
   if (refusal !== null) {
-    if (RESERVED_LABELS.has(normaliseLabel(raw))) throw new ReservedHostnameError(refusal)
+    if (reservedFor(platformBusiness).has(normaliseLabel(raw))) {
+      throw new ReservedHostnameError(refusal)
+    }
     throw new InvalidHostnameError(refusal)
   }
 

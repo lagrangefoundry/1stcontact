@@ -3,12 +3,7 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import {
-  ensurePlatformOperator,
-  PRIMARY_EMAIL_SQL,
-  type IdentityEnv,
-} from '../apps/control-app/src/identity'
-import { personByEmail } from './support/person'
+import { PRIMARY_EMAIL_SQL, type IdentityEnv } from '../apps/control-app/src/identity'
 import { addContact, peopleOf } from '../apps/control-app/src/people'
 import { currentNameOf } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
@@ -109,19 +104,6 @@ async function anAccount(email: string, name = 'A Business') {
   const seeded = await inviteAccount(identityEnv(), { email, accountName: name, endsAt: null })
   await acceptTerms(identityEnv(), seeded.user.id)
   return seeded
-}
-
-/** An owner of the 1st Contact business, seeded the way production seeds one. */
-async function anOperator(email: string) {
-  await ensurePlatformOperator(identityEnv(), email)
-  // THE PERSON, NOT THE ACCOUNT ([[REQ-194]]). `acceptTerms` stamps a `users`
-  // row; `findAccount` answers with the payer now, and stamping an account id
-  // would silently accept nothing and leave every later request on the terms
-  // interstitial.
-  const account = await personByEmail(identityEnv(), PLATFORM, email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
 }
 
 const postRecord = async (
@@ -426,29 +408,6 @@ describe('BUG-54 — who may correct a record', () => {
 
     expect(response.status).toBe(403)
     expect((await rowById(carol.businessId, carol.personId)).email).toBe(before.email)
-  })
-
-  it('test_UAT_FC_BUG-54_someone_who_can_reach_a_business_but_does_not_own_it_is_refused_403', async () => {
-    // The gate, in isolation from the scope resolver. This caller is an owner of
-    // 1st Contact, so `platform_operator` opens a business they hold no
-    // membership on ([[DOC-42]] §8) — and that hosting power must not thereby
-    // make them its OWNER. Correcting somebody's address is the owner's act, so
-    // reaching the business is not enough and this is the case only
-    // `ownsBusiness` decides.
-    stubJwks()
-    const operatorEmail = anEmail()
-    await anOperator(operatorEmail)
-    const theirs = await aBusinessWithSomebodyInIt()
-
-    const response = await postRecord(
-      await mint(operatorEmail),
-      { id: theirs.personId, displayName: 'Reached' },
-      theirs.businessId,
-    )
-
-    expect(response.status).toBe(403)
-    expect((await response.json<{ error: string }>()).error).toContain('owner')
-    expect((await rowById(theirs.businessId, theirs.personId)).displayName).toBe('Bob')
   })
 
   it('test_UAT_FC_BUG-54_an_id_that_names_nobody_here_is_404_and_not_a_500', async () => {
