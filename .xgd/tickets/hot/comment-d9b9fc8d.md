@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:47:57.263067+00:00'
+updated_at: '2026-10-10T13:48:32.640349+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5853,5 +5853,11 @@ Next steps, unchanged from before:
 3. Run `bin/smoke --site-key site_c4bed79aeb647305a5e3098f70d6dca3`.
 
 The `1stc.site` address itself won't load in a browser yet, because nothing routes `*.1stc.site` to the Worker. Visitors will reach the site through `1stcontact.io` once step 2 is done.
+
+<!-- xgd-turn id="c034196b-0263-43b4-9890-e78b480648b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T13:48:32.097052+00:00" -->
+#### You
+Removing `1stcontact` would let any customer take it. <--how could they if i have claimed it?
 
 <!-- xgd-chat-end -->
