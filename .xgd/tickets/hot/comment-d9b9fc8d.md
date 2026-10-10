@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-07T19:32:22.603020+00:00'
+updated_at: '2026-10-10T13:25:26.230581+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5757,5 +5757,11 @@ with no exports and no flags.
   Make sure the file ends with a newline before you append, or the first new line gets glued onto the previous one (that's what broke the access-sim login last time).
 
 Until it lands, `bin/deploy --secrets-file ~/Documents/secrets/1c.dev.env` works today. For the copy commands, use `set -a; . ~/Documents/secrets/1c.dev.env; set +a` plus `--origin http://127.0.0.1:8799`.
+
+<!-- xgd-turn id="78a442a5-9581-45b0-a878-b6d0e531a2d1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T13:25:26.171150+00:00" -->
+#### You
+I would like to publish the 1stcontact.io site, can you walk me through it please?
 
 <!-- xgd-chat-end -->
