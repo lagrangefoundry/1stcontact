@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:06:29.211868+00:00'
+updated_at: '2026-10-10T18:06:43.764184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6234,5 +6234,26 @@ I scoped it to everything a delegate can do rather than just choosing the addres
 <!-- xgd-chat role="user" ts="2026-10-10T18:06:29.051404+00:00" -->
 #### You
 it has landed...build and deploy, anything else
+
+<!-- xgd-turn id="f307b783-381e-4829-893e-79cb1e9c09c1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:06:42.959233+00:00" -->
+#### Claude
+Just build and deploy. REQ-395 changed only control-app code (`identity.ts`, `scope.ts`, `router.ts`, `hostname.ts`, `business.ts`) plus tests. It added no migrations and changed no `wrangler.toml` or public-site files, so nothing else is needed.
+
+```bash
+bin/build
+bin/deploy control-app
+```
+
+`bin/deploy public-site` isn't needed. Your secrets file now loads by default, so `bin/build` has the token it needs if the KB has to be rebuilt.
+
+Then, in `app.1stcontact.io`:
+1. Open faelan.com from the console link.
+2. Claim **`faelan.1stc.site`**. This time it should go through as operator.
+3. Publish.
+4. Check `https://faelan.1stc.site/`, which works now that the wildcard is in place.
+
+If the claim is still refused after the deploy, paste me the message.
 
 <!-- xgd-chat-end -->
