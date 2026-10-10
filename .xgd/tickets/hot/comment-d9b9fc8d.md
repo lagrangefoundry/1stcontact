@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:38:05.840413+00:00'
+updated_at: '2026-10-10T15:38:42.792401+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6116,5 +6116,31 @@ When you're ready to carry on, the Faelan steps are the same:
 <!-- xgd-chat role="user" ts="2026-10-10T15:38:04.506941+00:00" -->
 #### You
 so I ran the copies but when I open faelan.com in the app I see the intro site?
+
+<!-- xgd-turn id="dd7c9de5-9f0a-4e42-8153-d08bb5981dc9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:38:42.734960+00:00" -->
+#### Claude
+The copy didn't land in production. The `faelan.com` business there still holds only its starter site, which is why you see the intro page:
+
+| prod `faelan.com` | |
+|---|---|
+| business created | 15:00 today |
+| site | `site_70bbee9a…`, **version 1, 0 assets**, last changed 15:00:40, the moment it was created |
+| chats | 2, created 15:32 |
+
+The local side is fine: I just exported faelan.com from your dev builder, and it holds 1 page and 9 assets. So the cloud write is the part that failed, or never ran. No other prod business changed today, so it didn't land somewhere else either.
+
+**Can you paste the output of the site copy** (`bin/copy-to-cloud --force "faelan.com"`)? The likely candidates:
+- **It ran before the business existed** and stopped with "No business called 'faelan.com'". You created the business at 15:00, so a run before then would have done exactly this.
+- **It was refused**, and the message scrolled past.
+
+If you'd rather just retry, run the site copy again. It's safe to repeat: with `--force` it overwrites the empty starter site.
+
+```bash
+bin/copy-to-cloud --force "faelan.com"
+```
+
+About the chats: the two at 15:32 are either your imported conversations or the two empty ones the builder creates when you open a site. If the chats copy ran before the site copy landed, check afterwards that the history shows up. BUG-137's fix should match imported conversations to production's site, but this would be its first real run.
 
 <!-- xgd-chat-end -->
