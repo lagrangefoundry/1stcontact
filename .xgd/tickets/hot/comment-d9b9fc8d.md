@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:56:14.522684+00:00'
+updated_at: '2026-10-10T13:57:37.252565+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5915,5 +5915,11 @@ I first committed it with a Claude co-author line, then removed it, because this
 It's a config change, so it doesn't need a ticket. I didn't commit three other things in the working tree because they aren't part of this change: `module-assets.ts`, which `1c assets` rewrites during builds; a ticket file another session is editing; and the `example-businesses/` directory.
 
 So `1stcontact.io` is live and a clean checkout will deploy the same thing. If you'd like the platform business to be able to claim reserved names properly, or Turnstile set up so contact forms work, say which and I'll write it up.
+
+<!-- xgd-turn id="d13b48e1-77ce-4fef-bb99-ab7ae3c8ab67-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T13:57:36.126669+00:00" -->
+#### You
+ok 1stcontact.io works but 1stcontact.1stc.site fails - it should redirect to the former?
 
 <!-- xgd-chat-end -->
