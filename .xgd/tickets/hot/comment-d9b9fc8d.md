@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:22:22.517776+00:00'
+updated_at: '2026-10-10T15:22:30.261460+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6046,5 +6046,19 @@ location: https://1stcontact.io/
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="1f78c0ad-7f88-491d-adc1-bbad190ea9ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T15:22:29.899495+00:00" -->
+#### Claude
+That confirms it: `1stcontact.1stc.site` sends visitors to `https://1stcontact.io/` with a 301, so REQ-394 is working in production. Any other site's claimed `1stc.site` name will now load that site too, which helps with faelan.
+
+Faelan is next. The four steps from before still apply:
+1. Create the `faelan.com` business in the prod builder.
+2. Run `bin/copy-to-cloud --force "faelan.com"`, then `bin/copy-to-cloud --chats "faelan.com"`.
+3. Claim `faelan.1stc.site`, or connect `faelan.com` itself if that domain is on your Cloudflare account.
+4. Publish.
+
+Tell me whether `faelan.com` is on Cloudflare and I'll set out step 3 for that case.
 
 <!-- xgd-chat-end -->
