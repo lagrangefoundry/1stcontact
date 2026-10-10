@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:17:29.599929+00:00'
+updated_at: '2026-10-10T18:17:46.353747+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6325,5 +6325,13 @@ disregard wrong content
 I'll disregard it. I made no changes in the `xgd` repo: my `git fetch` failed in the sandbox, and everything else I ran there only read history.
 
 Back to Faelan. Once `bin/build` and `bin/deploy control-app` finish, claim `faelan.1stc.site` in the prod builder and publish.
+
+<!-- xgd-turn id="32ca3a5a-92f8-445a-9ed7-324ee5f6aa29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T18:17:46.085752+00:00" -->
+#### You
+This site was not published. IMAGES_TRANSFORM_ERROR 9529: The image is too large to process or the service is too busy
+
+That is my problem
 
 <!-- xgd-chat-end -->
