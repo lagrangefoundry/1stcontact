@@ -15,6 +15,7 @@ import { INVITED as PIPELINE_INVITED } from './builder/people-axes.js'
 import { requireFreeBusinessName } from './business'
 import { ensurePlan } from './plan'
 import { ticketStoreFor } from './tickets'
+import type { Scope } from './scope'
 
 /**
  * Identity, accounts and entitlement (REQ-167) — [[DOC-40]].
@@ -1514,8 +1515,9 @@ export const OWNER_ROLE = 'owner'
 export const DELEGATE_ROLE = 'delegate'
 
 /**
- * May this person RUN that business — as its owner or as a delegate
- * ([[REQ-369]])?
+ * May this person RUN that business — as its owner, as a delegate
+ * ([[REQ-369]]), or as the platform operator inside a business it hosts
+ * ([[REQ-395]])?
  *
  * EVERYTHING AN OWNER MAY DO EXCEPT DELEGATION MANAGEMENT, and that exception
  * is why this is a second predicate rather than a widening of
@@ -1523,18 +1525,43 @@ export const DELEGATE_ROLE = 'delegate'
  * one, and so does {@link ownsPlatformBusiness} — a delegate of the 1st Contact
  * business does not get the operator console or fulfilment.
  *
- * AND THE HOSTING BYPASS STILL ANSWERS FALSE. `role: null` is neither role, so
- * entering a business you do not belong to grants this no more than it grants
- * ownership.
+ * THE HOSTING BYPASS ANSWERS TRUE, AT DELEGATE LEVEL ([[REQ-395]]). A business
+ * the operator ENTERED rather than holds carries `role: null` — which still
+ * makes {@link ownsBusiness} false, so delegation management stays the owner's —
+ * and the scope carries `entered`, set only by `resolveScope`'s bypass branch.
+ * Reading that mark here, rather than an operator clause at each route, is what
+ * makes a route added later inherit it. Whatever the operator does this way is
+ * recorded under the operator's own user, because the admission is theirs.
+ *
+ * IT TAKES THE SCOPE AND NOT A BARE ID for exactly that reason: the mark lives
+ * on the scope, and a business id alone cannot say how it was reached.
  */
 export function operatesBusiness(
   admission: Admission | null | undefined,
-  businessId: string,
+  scope: Pick<Scope, 'businessId' | 'entered'>,
 ): boolean {
   if (!admission?.ok) return false
+  if (scope.entered === true) return true
   return admission.businesses.some(
-    (b) => b.businessId === businessId && (b.role === OWNER_ROLE || b.role === DELEGATE_ROLE),
+    (b) =>
+      b.businessId === scope.businessId && (b.role === OWNER_ROLE || b.role === DELEGATE_ROLE),
   )
+}
+
+/**
+ * Is this the platform's own business — the one `TENANT_ID` names ([[REQ-395]])?
+ *
+ * A QUESTION ABOUT THE BUSINESS AND NOT ABOUT WHO IS ASKING. `hostname.ts` asks
+ * it to decide whether a platform-identity label may be held, and the answer is
+ * the same whoever is acting for the business — the operator included.
+ *
+ * FALSE, NOT A THROW, WHERE `TENANT_ID` IS UNSET: a deployment that names no
+ * platform business has none for this business to be. It is asked while the
+ * chat host is composed, and refusing there would refuse every conversation.
+ */
+export function isPlatformBusiness(env: IdentityEnv, businessId: string): boolean {
+  const tenantId = (env.TENANT_ID ?? '').trim()
+  return tenantId !== '' && businessId === tenantId
 }
 
 /**

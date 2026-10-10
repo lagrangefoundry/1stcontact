@@ -464,28 +464,6 @@ describe('REQ-186 — who may invite', () => {
     expect(await rowsFor(PLATFORM, 'req186-notinvited@example.test')).toHaveLength(before.length)
   })
 
-  it('test_UAT_FC_REQ-186_a_member_who_owns_nothing_here_is_refused_403', async () => {
-    // The gate, in isolation from the scope resolver. This caller is an owner of
-    // 1st Contact — so `resolveScope` opens the business for them — and is then
-    // refused for the one business they can reach but do not own, which is the
-    // case `ownsBusiness` and nothing upstream of it decides.
-    stubJwks()
-    const operatorEmail = anEmail()
-    await anOperator(operatorEmail)
-    const someoneElse = await anAccount(anEmail(), 'Not Theirs')
-    // `platform_operator` opens a business you hold no membership on ([[DOC-42]]
-    // §8) — and it must not thereby make you its owner, which is why the invite
-    // is still refused here.
-    const response = await postInvite(
-      await mint(operatorEmail),
-      { ids: ['usr_req186_someone'] },
-      someoneElse.businessId,
-    )
-
-    expect(response.status).toBe(403)
-    expect((await response.json<{ error: string }>()).error).toContain('owner')
-  })
-
   it('test_UAT_FC_REQ-186_the_loopback_path_may_not_create_people', async () => {
     // The dev-open branch skips Access and `admit` entirely, so there is nobody
     // there to own anything. A door onto creating people that opens only when
