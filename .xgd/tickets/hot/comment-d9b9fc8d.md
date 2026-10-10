@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:32:37.149646+00:00'
+updated_at: '2026-10-10T15:38:05.840413+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6110,5 +6110,11 @@ When you're ready to carry on, the Faelan steps are the same:
 2. `bin/copy-to-cloud --force "faelan.com"`, then `--chats`.
 3. Claim `faelan.1stc.site` (that address now works end to end), or connect `faelan.com`.
 4. Publish.
+
+<!-- xgd-turn id="dd7c9de5-9f0a-4e42-8153-d08bb5981dc9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:38:04.506941+00:00" -->
+#### You
+so I ran the copies but when I open faelan.com in the app I see the intro site?
 
 <!-- xgd-chat-end -->
