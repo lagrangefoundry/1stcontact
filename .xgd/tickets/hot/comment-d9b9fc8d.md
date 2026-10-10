@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:16:17.662781+00:00'
+updated_at: '2026-10-10T18:16:46.364430+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6277,5 +6277,39 @@ a243f15a87710baf31ad1b12dc2a4b0ea02fd008
 ((.venv-working) ) martin@nyx xgd %
 
 ```
+
+<!-- xgd-turn id="1877d878-10d8-4fef-be21-2d4e10128dcf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:16:46.127142+00:00" -->
+#### Claude
+This is the `xgd` repo, not 1stcontact. Before suggesting anything I'll check how the two histories diverge, because `xgd-working` gets rewritten by the dispatcher's resync, which changes what the right fix is.
+
+My sandbox can't reach GitHub (no SSH credentials), so I can't see the remote commit itself. I'll work from what your local repo already knows.
+
+Your local branch is fine, and nothing has been rewritten:
+
+- At **18:36 today** you merged `origin/xgd-working` (commit `fdf6c389`), and that was the last time this repo saw the remote.
+- Since then your local branch has gained **10 commits**, almost all `xgd(ticket): update comment …` auto-commits plus two `.gitignore` chores. It has moved on from `a243f15a` to `87a21e62` even while you were looking.
+- **Something else pushed `2d7dbf48` to GitHub after 18:36.** Most likely that's your other machine or a session in another checkout. This repo has never seen that commit.
+
+So the remote moved ahead, and the fix is to merge it in the same way you did at 18:36. But first check that the remote only *added* commits on top of `fdf6c389`, rather than having its history rewritten (`xgd-working` gets rebased by the dispatcher's resync):
+
+```bash
+git fetch origin xgd-working
+git merge-base --is-ancestor fdf6c389fab565970ce02ac7b9eca61e27db6aa6 origin/xgd-working && echo "remote built on fdf6c389 — safe to merge" || echo "remote was REWRITTEN — stop"
+git log --oneline fdf6c389..origin/xgd-working | head -20     # what the other side added
+```
+
+**If it says "safe to merge":**
+```bash
+git merge origin/xgd-working       # a merge, as at 18:36 — not a rebase
+git push origin xgd-working
+```
+
+Use a merge, not `git pull --rebase`. A rebase gives your 10 commits new SHAs, and tickets record commits by SHA in `fields.commits`. A merge leaves every SHA as it is.
+
+**If it says "REWRITTEN", stop and paste me the `git log` output.** That would mean a resync on the other side replaced history. Merging would then combine two copies of the same work, and force-pushing would throw away whatever the other side added. Which of those is right depends on what's there.
+
+If the merge hits conflicts, they'll almost certainly be in `.xgd/tickets/` files that both sides edited. Paste them and I'll help resolve them.
 
 <!-- xgd-chat-end -->
