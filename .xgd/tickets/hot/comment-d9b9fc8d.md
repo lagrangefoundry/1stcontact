@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T14:00:11.900070+00:00'
+updated_at: '2026-10-10T14:00:30.636939+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5949,5 +5949,25 @@ The site is live on `1stcontact.io`, so nothing visitors see depends on this. It
 <!-- xgd-chat role="user" ts="2026-10-10T14:00:11.625446+00:00" -->
 #### You
 I registered it on my cloudflare account
+
+<!-- xgd-turn id="04ce60d1-eba6-4f54-b726-24ce29b37548-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T14:00:30.474319+00:00" -->
+#### Claude
+I've added that to REQ-394: since the zone is in your account, the setup work comes down to a DNS record and a route. The ticket also says `1stc.site` must not go into the product's `zones` table, because the code deliberately refuses to treat it as a customer zone.
+
+If you want `1stc.site` addresses to load before REQ-394 is built, you can do the account side in the Cloudflare dashboard now. It's two additions, and neither removes anything:
+
+1. **DNS** (`1stc.site` → DNS → Add record): type **AAAA**, name **`*`**, IPv6 **`100::`**, **Proxied** (orange cloud). `100::` is a placeholder address. Proxied traffic never goes there; it's only there so Cloudflare answers for the names.
+2. **Route** (`1stc.site` → Workers Routes → Add route): pattern **`*.1stc.site/*`**, Worker **`1stcontact-public-site`**.
+
+A route added in the dashboard survives future deploys. Your `wrangler.toml` only declares custom domains, so deploys never touch zone routes (the REQ-258 rule). Cloudflare's free certificate covers `*.1stc.site`, so HTTPS should work once it has been issued.
+
+What you'll get:
+- `https://1stcontact.1stc.site/` **serves the 1st Contact site** but doesn't redirect yet. As far as the data is concerned it's still the site's main address, so the 301 to `1stcontact.io` needs the code change in REQ-394.
+- Any other site's claimed `1stc.site` address starts working too.
+- Names nobody has claimed return 404.
+
+If you'd rather wait and have REQ-394 do it all at once, nothing visitors see depends on it.
 
 <!-- xgd-chat-end -->
