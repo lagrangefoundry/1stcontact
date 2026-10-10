@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:55:56.362791+00:00'
+updated_at: '2026-10-10T13:56:14.522684+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5901,5 +5901,19 @@ Two loose ends:
 <!-- xgd-chat role="user" ts="2026-10-10T13:55:56.253361+00:00" -->
 #### You
 The deploy works please do the commit
+
+<!-- xgd-turn id="da274e70-f949-4702-a714-2291c317cc28-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T13:56:13.083592+00:00" -->
+#### Claude
+The repo's convention is no Claude attribution in commit messages, so I'm amending the trailer off (the commit is local and not pushed).
+
+The change is committed on `xgd-working` as **`1e55848d32`**: *config(public-site): serve the 1st Contact site at the production apex.* It's only the one-line `APEX_SITE_KEY` change in `apps/public-site/wrangler.toml`.
+
+I first committed it with a Claude co-author line, then removed it, because this repo's commits don't carry that attribution. The commit was local and unpushed when I did that.
+
+It's a config change, so it doesn't need a ticket. I didn't commit three other things in the working tree because they aren't part of this change: `module-assets.ts`, which `1c assets` rewrites during builds; a ticket file another session is editing; and the `example-businesses/` directory.
+
+So `1stcontact.io` is live and a clean checkout will deploy the same thing. If you'd like the platform business to be able to claim reserved names properly, or Turnstile set up so contact forms work, say which and I'll write it up.
 
 <!-- xgd-chat-end -->
