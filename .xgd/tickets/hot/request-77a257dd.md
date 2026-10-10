@@ -6,9 +6,9 @@ title: '1stc.site: platform hostnames are unreachable in production, and the ape
   site''s should redirect to 1stcontact.io'
 created_by: EPIC-16
 created_at: '2026-10-10T13:58:27.133219+00:00'
-updated_at: '2026-10-10T14:04:36.782300+00:00'
+updated_at: '2026-10-10T14:13:48.842100+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -47,3 +47,24 @@ UATs (`test_UAT_FC_<id>_*`): a request for the APEX_SITE_KEY site's platform hos
 ## Update 2026-10-10: the zone exists
 
 The operator confirms `1stc.site` is registered on the 1st Contact Cloudflare account. So the account side of gap 1 is a DNS record and a route, not a registration. The provisioning step should still verify the zone is in the account and on Cloudflare nameservers, and fail naming it if not, because a fresh environment cannot assume it. Recording the zone in the product's `zones` table is NOT wanted for `1stc.site`: `recordZone` and `serving.ts` deliberately refuse the platform apex (REQ-257), and this route is platform infrastructure, not a customer zone.
+
+
+
+## Implementation (2026-10-10, free-coded)
+
+**Apex redirect: configuration, not a row.** New public-site var `APEX_HOST` (`1stcontact.io` in production, empty in top-level/dev). In `rootSite` (`apps/public-site/src/index.ts`), a host bound to the site named by `APEX_SITE_KEY` gets `APEX_HOST` as its address, so `1stcontact.1stc.site/<path>?<query>` 301s to `https://1stcontact.io/<path>?<query>` (an old `/site/<apex-key>/…` link on that host also lands on the apex in one hop). Why not a canonical `site_domains` row for the apex: that would make the apex a bound host, and a bound host serves exactly one site, which would break the `/site/<key>/` grammar the apex still carries for every other site (`bin/smoke`, mailed links).
+
+**Unclaimed platform hostnames 404 (found while building this).** Before this change an unbound host fell back to `APEX_SITE_KEY`, so once `*.1stc.site` is routed every unclaimed `<label>.1stc.site` would have served the front page and every site under `/site/<key>/`. Now, when `APEX_HOST` is set, it is the only unbound host that serves anything: any other host with no `site_domains` row answers the same 404 as an unpublished site. With `APEX_HOST` empty (local dev, tests) behaviour is unchanged.
+
+**Provisioning: `bin/platform-route` (wraps `1c platform-route [--dry-run] [--json]`).** Logic in `apps/control-app/src/platform-route.ts`, over the existing `CloudflareClient` and reusing `serving.ts`'s `servingRecords`, `routePatternFor` and `PUBLIC_SITE_SCRIPT`. Needs `CLOUDFLARE_DNS_TOKEN` (Zone:DNS:Edit + Workers Routes:Edit); the launcher loads the operator's secrets file like `bin/deploy`. Steps: find `1stc.site` among the account's zones and require `status=active`, refusing by name otherwise (the refusal lists the assigned nameservers); if no `*.1stc.site` address record exists, create `serving.ts`'s proxied A/AAAA pair (any existing proxied A/AAAA/CNAME wildcard is left alone); if `*.1stc.site/*` is not routed, create it on `1stcontact-public-site`. Re-running writes nothing. It never deletes or updates. It refuses, rather than replaces, an unproxied wildcard record or the pattern routed to another Worker. Not a deploy hook, for `bin/access-token`'s reason: changing account configuration is not part of a code deploy. Nothing is written to the `zones` table.
+
+**`bin/smoke`** gains `platform_host_reaches_its_site` and `platform_host_unclaimed_not_found`, plus `--platform-host <host>`. For the default origin the host is derived (`1stcontact.1stc.site`) and must 301 to `https://1stcontact.io/?smoke=1`. A given host must answer 200 or a 301 to an https address. Either way, `smoke-absent-host-do-not-claim.<zone>` must 404. For any other origin with no flag, both checks skip and name `--platform-host`.
+
+**Operator steps to take this live:** `bin/platform-route` (or `--dry-run` first), then `bin/deploy public-site` so `APEX_HOST` ships, then `bin/smoke`.
+
+## UATs
+
+- `tests/test_UAT_FC_REQ-394_platform_hostnames.workers.test.ts`: the APEX_SITE_KEY site's platform hostname 301s to the apex, keeping path and query (and the prefixed form); the apex still serves its site and `/site/<other>/`; another site's claimed hostname serves that site; an unclaimed hostname gives the same 404 body as an unknown site.
+- `tests/test_UAT_FC_REQ-394_platform_route_provisioning.test.ts`: on a fresh zone it creates the proxied A/AAAA and the route and leaves existing customer routes alone; it is idempotent and never deletes or updates; dry-run writes nothing; a missing or pending zone is refused by name; an unproxied wildcard or a foreign route is refused rather than replaced; `wrangler.toml` declares only custom-domain routes and no `1stc.site` route.
+- `tests/test_UAT_FC_REQ-394_smoke_platform_host.test.ts`: passes when the derived host 301s to the apex; fails when platform hostnames don't resolve or serve instead of redirect; takes an explicit host; skips when it can't derive one.
+- Existing smoke UATs that pin the exact check list (`reconciliation-platform-build-deploy-smoke`, BUG-57, REQ-144) were extended for the two new checks and their `--platform-host` input.
