@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T16:00:54.349621+00:00'
+updated_at: '2026-10-10T16:01:29.297041+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6211,5 +6211,22 @@ There's also a product gap here worth a ticket: an operator who can get into a b
 <!-- xgd-chat role="user" ts="2026-10-10T16:00:52.985460+00:00" -->
 #### You
 I would like the operator to have this privileged please - can you create a ticket?
+
+<!-- xgd-turn id="2a6d7aa0-e114-49ad-9e33-db2682cb2bfc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T16:01:29.240400+00:00" -->
+#### Claude
+I've filed **REQ-395**, *"Platform operator: act as a delegate in any business it hosts, and claim reserved names for the platform"*, under EPIC-16 at `draft`.
+
+What it asks for:
+- **The operator counts as a delegate in any business it opens by URL.** This covers choosing the address and every other action that currently says "Only an owner or delegate…" (adding contacts, mail, people, invites, renaming). It's decided in one shared check, so a route added later gets it automatically.
+- **Delegate level, not owner level.** Anything reserved to owners alone stays that way, and the ticket asks the implementing session to list which actions those are.
+- **Actions are recorded as you, as operator.** They're never recorded as the owner, so the history stays accurate.
+- **The usual rules still apply to the operator:** an address can't be changed, one per business, and reserved names stay off-limits.
+- **Folded in: the platform business can claim its own reserved names.** That's the `1stcontact.1stc.site` situation from earlier. Customer businesses still can't, even with you acting for them.
+
+I scoped it to everything a delegate can do rather than just choosing the address, because the same refusal guards six other actions and you'd hit them next. If you only want the address, tell me and I'll narrow it.
+
+**For faelan.com right now:** until REQ-395 lands, I can write the address claim directly, as I did for 1st Contact. Is `faelan.1stc.site` the name you want? It can't be changed afterwards.
 
 <!-- xgd-chat-end -->
