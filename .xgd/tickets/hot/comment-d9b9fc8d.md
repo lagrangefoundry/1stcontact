@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:48:32.640349+00:00'
+updated_at: '2026-10-10T13:48:42.179642+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5859,5 +5859,18 @@ The `1stc.site` address itself won't load in a browser yet, because nothing rout
 <!-- xgd-chat role="user" ts="2026-10-10T13:48:32.097052+00:00" -->
 #### You
 Removing `1stcontact` would let any customer take it. <--how could they if i have claimed it?
+
+<!-- xgd-turn id="c034196b-0263-43b4-9890-e78b480648b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T13:48:42.124279+00:00" -->
+#### Claude
+You're right. Hostnames are unique (the claim code reads `site_domains WHERE host = ?`), and now that `1stcontact.1stc.site` belongs to your platform business, nobody else can claim it in production, reserved or not. My sentence was wrong for where things now stand.
+
+Taking `1stcontact` off the list would still matter in two places:
+
+- **Any other store.** Your dev store, a future staging environment, or a production database rebuilt from scratch like the one we wiped on Sep 21 would all start with the name unclaimed. Without the reservation, whoever claims it first there gets it. Today, claiming it first is the only thing protecting it in production.
+- **The rest of the list.** `1stc`, `firstcontact`, `support`, `billing`, `login` and the others are unclaimed, and they're the names a phishing site would want. Those are what the list is really for, and they're not affected by your claim.
+
+So the useful fix isn't removing a name from the list. It's letting **the platform business** claim any reserved name while customers still can't. That covers `1stcontact` in every store, and any other reserved name you want later, such as `support.1stc.site`. Should I file that as a ticket? Otherwise nothing more is needed for go-live.
 
 <!-- xgd-chat-end -->
