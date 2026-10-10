@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T18:17:46.353747+00:00'
+updated_at: '2026-10-10T18:18:14.145018+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6333,5 +6333,36 @@ Back to Faelan. Once `bin/build` and `bin/deploy control-app` finish, claim `fae
 This site was not published. IMAGES_TRANSFORM_ERROR 9529: The image is too large to process or the service is too busy
 
 That is my problem
+
+<!-- xgd-turn id="32ca3a5a-92f8-445a-9ed7-324ee5f6aa29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T18:18:13.728160+00:00" -->
+#### Claude
+The likely culprit is **`scorched-earth.jpeg`**. It's far bigger than anything else on the site:
+
+| image | pixels | file size |
+|---|---|---|
+| **scorched-earth.jpeg** | **5712 × 4284 (24.5 MP)** | **7.8 MB** |
+| faelan-stramash.jpeg | 2693 × 2149 (5.8 MP) | 1.3 MB |
+| the other three | under 0.5 MP each | under 0.4 MB |
+
+When you publish, every image is resized into a set of standard widths using Cloudflare's image service. Error 9529 is Cloudflare refusing one of those resizes as "too large to process", so publish stops. The error also covers "too busy", so **try publishing once more first**. If it fails again it's this image.
+
+**To unblock now:** make the image smaller and copy it up again. It doesn't need to be more than about 2400px wide for a website.
+
+```bash
+cd ~/lagrangefoundry/1stcontact
+sips -Z 2400 storage/sandbox/repro-faelan-com/draft/assets/scorched-earth.jpeg   # shrinks in place, keeps aspect
+
+./bin/1c rights assert faelan.com/index --basis "Faelan's own site"              # once — copy-repro-to-dev now needs it
+bin/copy-repro-to-dev repro-faelan-com "faelan.com" --force                      # into dev
+bin/copy-to-cloud --force "faelan.com"                                           # dev → prod
+```
+
+Then publish again. Two cautions:
+- This overwrites anything you've edited on faelan.com in the dev or prod builder since the last copy.
+- If you have, replacing the image directly in the prod builder is cleaner. Upload a resized copy in its place, if the builder lets you swap an asset.
+
+**This is also a product bug.** Phone and camera photos are routinely 12–48 MP, so any customer who uploads a straight-off-the-camera photo will hit the same failure. And the error names a Cloudflare code rather than the photo, so they won't know which picture to fix. Publish only checks file **size** (`LADDER_MAX_SOURCE_BYTES`, 32 MB), never pixel dimensions. The fix is to shrink oversized images before the resize step, or failing that, refuse with the image's name. I'll file it under EPIC-16 if you want.
 
 <!-- xgd-chat-end -->
