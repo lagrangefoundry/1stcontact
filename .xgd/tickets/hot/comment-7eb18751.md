@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-394
 created_by: xgd
 created_at: '2026-10-10T14:02:01.296398+00:00'
-updated_at: '2026-10-10T14:15:02.362494+00:00'
+updated_at: '2026-10-10T14:37:32.584268+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,12 @@ The ticket body now has an implementation section below your original text, whic
 1. `bin/platform-route --dry-run`, then `bin/platform-route`
 2. `bin/deploy public-site`, so the `APEX_HOST` setting ships
 3. `bin/smoke`
+
+<!-- xgd-turn id="898dd043-642e-4873-b0ca-e20f23e0bd8c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T14:37:31.379548+00:00" -->
+#### You
+trying to join the mailing list gets this response:
+"This site cannot take messages at the moment."
 
 <!-- xgd-chat-end -->
