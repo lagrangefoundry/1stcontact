@@ -6,10 +6,10 @@ title: '1stc.site: platform hostnames are unreachable in production, and the ape
   site''s should redirect to 1stcontact.io'
 created_by: EPIC-16
 created_at: '2026-10-10T13:58:27.133219+00:00'
-updated_at: '2026-10-10T14:00:23.593596+00:00'
+updated_at: '2026-10-10T14:04:36.782300+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-96d8aca6
