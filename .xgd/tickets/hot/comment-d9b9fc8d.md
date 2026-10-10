@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:02:46.528381+00:00'
+updated_at: '2026-10-10T15:22:22.517776+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6034,5 +6034,17 @@ To confirm from your machine:
 curl -sI https://1stcontact.1stc.site/ | grep -iE '^(HTTP|location)'
 ```
 You should see `HTTP/2 301` and `location: https://1stcontact.io/`. If your browser instead says the site can't be found, your Mac may be holding the same stale "doesn't exist" answer. Clear it with `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder`, or try again in a few minutes.
+
+<!-- xgd-turn id="1f78c0ad-7f88-491d-adc1-bbad190ea9ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:22:22.171787+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % curl -sI https://1stcontact.1stc.site/ | grep -iE '^(HTTP|location)'
+HTTP/2 301 
+location: https://1stcontact.io/
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
 
 <!-- xgd-chat-end -->
