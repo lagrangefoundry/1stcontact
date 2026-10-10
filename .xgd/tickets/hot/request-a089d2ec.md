@@ -6,18 +6,25 @@ title: 'Platform operator: act as a delegate in any business it hosts, and claim
   names for the platform'
 created_by: EPIC-16
 created_at: '2026-10-10T16:01:22.706601+00:00'
-updated_at: '2026-10-10T16:13:56.049883+00:00'
+updated_at: '2026-10-10T16:14:23.186759+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-76b30c7f
+  commits:
+  - working_sha: bd339a1b1b37a863811a165adcdba1418e676bf1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d508815c8154b86a33bfaedfa7497db4f41cc9d5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.502
 ---
-
 
 ## What the operator wants
 
