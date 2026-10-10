@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:58:36.252590+00:00'
+updated_at: '2026-10-10T14:00:11.900070+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5943,5 +5943,11 @@ You're right that it should redirect. Right now it can't: requests for that addr
 **One thing to check yourself:** whether `1stc.site` is in your Cloudflare account at all, under Websites in the dashboard. I can't see the account from here. If it isn't, adding it (and moving its nameservers to Cloudflare if it's registered elsewhere) comes before any of this.
 
 The site is live on `1stcontact.io`, so nothing visitors see depends on this. It only affects people who use the `1stc.site` address.
+
+<!-- xgd-turn id="04ce60d1-eba6-4f54-b726-24ce29b37548-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T14:00:11.625446+00:00" -->
+#### You
+I registered it on my cloudflare account
 
 <!-- xgd-chat-end -->
