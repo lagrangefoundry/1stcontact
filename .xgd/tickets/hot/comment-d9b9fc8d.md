@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T15:22:30.261460+00:00'
+updated_at: '2026-10-10T15:29:26.349248+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -6060,5 +6060,11 @@ Faelan is next. The four steps from before still apply:
 4. Publish.
 
 Tell me whether `faelan.com` is on Cloudflare and I'll set out step 3 for that case.
+
+<!-- xgd-turn id="e6bb9a57-1267-41a3-aa0c-60e4f840c134-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T15:29:26.218580+00:00" -->
+#### You
+Is it possible for me to impersonate the Faelan account?
 
 <!-- xgd-chat-end -->
