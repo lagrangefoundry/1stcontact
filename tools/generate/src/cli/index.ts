@@ -877,6 +877,12 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     and Noto split out, then sub-headings of 22 families by usage, because KB chunking is
     heading-anchored and a retrieval should return a slate rather than one family.
     --stdout prints the body instead of writing the document.
+  1c platform-route [--dry-run] [--json]
+    Route every platform hostname (*.1stc.site) to public-site (REQ-394): checks the zone is
+    in the account and active, adds a proxied wildcard record if none exists, and adds the
+    *.1stc.site/* Worker route if missing. Additive and idempotent — re-running changes
+    nothing and it never deletes or replaces a record or route. Needs CLOUDFLARE_DNS_TOKEN.
+    Run it through bin/platform-route, which loads the operator's secrets file.
 
 Structured-edit commands (REQ-11) — operate on draft/; support --json:
   1c status <slug>
@@ -2663,6 +2669,32 @@ export async function run(argv: string[]): Promise<void> {
       const census = cmdColors(slug, global)
       if (flags.json) console.log(JSON.stringify(census, null, 2))
       else console.log(formatCensus(census))
+      return
+    }
+
+    /**
+     * `1c platform-route` — the `*.1stc.site/*` route, out of band ([[REQ-394]]).
+     *
+     * AN OPERATOR COMMAND AND NOT A `wrangler.toml` ROUTE, for [[REQ-258]]'s
+     * reason: a zone route there would make every deploy delete every customer
+     * route attached at runtime. Loaded lazily so no other command pays for the
+     * control app's modules.
+     */
+    case 'platform-route': {
+      const json = flags.json === true
+      try {
+        const { requireCloudflare } = await import('../../../../apps/control-app/src/cloudflare')
+        const { provisionPlatformRoute, formatPlatformRouteReport } = await import(
+          '../../../../apps/control-app/src/platform-route'
+        )
+        const report = await provisionPlatformRoute(requireCloudflare(process.env), {
+          dryRun: flags['dry-run'] === true,
+        })
+        if (json) console.log(JSON.stringify({ ok: true, data: report }, null, 2))
+        else console.log(formatPlatformRouteReport(report))
+      } catch (err) {
+        fail(err, json)
+      }
       return
     }
 

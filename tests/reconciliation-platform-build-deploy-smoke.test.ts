@@ -366,6 +366,12 @@ function correctOrigin(): Map<string, Reply> {
       `${FAKE_WORKERS_DEV_ORIGIN}/`,
       { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
     ],
+    // A claimed platform hostname serves its site; an unclaimed one 404s ([[REQ-394]]).
+    [`https://${FAKE_PLATFORM_HOST}/`, asset(html, 'text/html; charset=utf-8')],
+    [
+      'https://smoke-absent-host-do-not-claim.platform.test/',
+      { status: 404, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: 'Not Found' },
+    ],
   ])
 }
 
@@ -490,8 +496,14 @@ const ORIGIN_ONLY_CHECKS = 2
  */
 const ACCESS_CHECKS = ['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed']
 
+/**
+ * The checks that ask a claimed PLATFORM hostname ([[REQ-394]]) — their own
+ * input (`--platform-host`), so their own skip reason, like the control app's.
+ */
+const PLATFORM_CHECKS = ['platform_host_reaches_its_site', 'platform_host_unclaimed_not_found']
+
 /** Every check the script declares, in the order it reports them. */
-const ALL_CHECKS = [...SITE_CHECKS, ...ACCESS_CHECKS]
+const ALL_CHECKS = [...SITE_CHECKS, ...PLATFORM_CHECKS, ...ACCESS_CHECKS]
 
 /**
  * The control app's two origins, as the smoke run is told about them.
@@ -503,6 +515,8 @@ const ALL_CHECKS = [...SITE_CHECKS, ...ACCESS_CHECKS]
  */
 const FAKE_CONTROL_ORIGIN = 'https://control.example.test'
 const FAKE_WORKERS_DEV_ORIGIN = 'https://control.example.workers.dev'
+/** A claimed platform hostname, and the zone its unclaimed sibling is asked in. */
+const FAKE_PLATFORM_HOST = 'alice.platform.test'
 
 // ═════════════════════════════════════════════════════════════════════════════
 // AC-1330 — the environment preflight
@@ -992,6 +1006,7 @@ describe('story-d5167ced — the smoke check against an origin that serves corre
         '--site-key', SITE_KEY,
         '--control-origin', FAKE_CONTROL_ORIGIN,
         '--workers-dev-origin', FAKE_WORKERS_DEV_ORIGIN,
+        '--platform-host', FAKE_PLATFORM_HOST,
       ],
       correctOrigin(),
     )

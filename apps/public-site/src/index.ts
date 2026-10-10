@@ -99,6 +99,18 @@ export interface Env extends LeadEnv, GateEnv {
    */
   APEX_SITE_KEY?: string
   /**
+   * [[REQ-394]] — the host `APEX_SITE_KEY` is served at, and therefore that
+   * site's address.
+   *
+   * The apex is served through configuration rather than a `site_domains` row,
+   * so the data alone never says it is anybody's canonical host — and the apex
+   * site's own platform hostname (`1stcontact.1stc.site`) would serve a second
+   * copy of it. With this set, every bound host of the apex site 301s here,
+   * and this is the only unbound host that serves anything: an unclaimed
+   * `<label>.1stc.site` 404s. Empty keeps every unbound host on the front door.
+   */
+  APEX_HOST?: string
+  /**
    * [[REQ-200]]/[[REQ-134]] — the name of the session cookie this deployment
    * issues. Absent means it issues none, and every visitor is signed out.
    */
@@ -168,7 +180,7 @@ export default {
     const store = new D1SiteStore(env.DB)
 
     if (request.method === 'POST') {
-      const target = leadTarget(url.pathname, await rootSite(url, store, env.APEX_SITE_KEY))
+      const target = leadTarget(url.pathname, await rootSite(url, store, env))
       if (target) return await handleLead(request, { siteKey: target, env })
     }
     if (request.method !== 'GET' && request.method !== 'HEAD') {
@@ -192,7 +204,7 @@ export default {
      * probe is not an arrival.
      */
     if (isGatePath(url.pathname) && (request.method === 'GET' || request.method === 'HEAD')) {
-      const root = await rootSite(url, store, env.APEX_SITE_KEY)
+      const root = await rootSite(url, store, env)
       // THE ADDRESS RULES APPLY TO A MAILED LINK TOO, AND FIRST ([[REQ-258]]).
       // The link this endpoint answers is the one most likely to be carrying the
       // old `/site/<key>/` shape, because `recipientSiteUrl` has been minting it
@@ -256,7 +268,7 @@ export default {
       : await route(request, {
           store,
           bucket: env.SITES,
-          root: await rootSite(url, store, env.APEX_SITE_KEY),
+          root: await rootSite(url, store, env),
           sessionId,
           sessions: new D1SessionReader(env.DB),
           turnstileSitekey: env.TURNSTILE_SITEKEY,
@@ -344,23 +356,57 @@ function isGatePath(pathname: string): boolean {
  * configuration and every other site is addressable under `/site/<key>/` — the
  * behaviour that existed before this ticket, unchanged, because deleting the
  * prefix grammar is a later cleanup and the platform apex is what it is
- * load-bearing for.
+ * load-bearing for. Once `APEX_HOST` names that front door ([[REQ-394]]), an
+ * unbound host that is not it serves nothing.
  *
  * MEMOISED BY THE STORE, so the three callers in one request share one read.
  */
 async function rootSite(
   url: URL,
   store: SiteStore,
-  apexSiteKey: string | undefined,
+  env: Pick<Env, 'APEX_SITE_KEY' | 'APEX_HOST'>,
 ): Promise<RootSite> {
+  const host = url.hostname.toLowerCase()
   const binding = await store.siteForHost(url.hostname)
-  if (!binding) return { siteKey: apexSiteKey, bound: false }
-  const elsewhere = binding.canonicalHost !== url.hostname.toLowerCase()
+  if (!binding) {
+    // ONLY THE APEX IS THE FRONT DOOR, once it is named ([[REQ-394]]). Every
+    // `<label>.1stc.site` is routed here, claimed or not, and an unclaimed one
+    // must 404 like an unpublished site — not serve the front page and every
+    // site under `/site/<key>/`. Bound with no site is exactly that: no root,
+    // and no prefixed key this host may serve.
+    const apexHost = (env.APEX_HOST ?? '').trim().toLowerCase()
+    if (apexHost && host !== apexHost) return { siteKey: undefined, bound: true }
+    return { siteKey: env.APEX_SITE_KEY, bound: false }
+  }
+  const address = canonicalHostOf(binding, env)
   return {
     siteKey: binding.siteKey,
     bound: true,
-    redirectTo: elsewhere ? binding.canonicalHost : undefined,
+    redirectTo: address !== host ? address : undefined,
   }
+}
+
+/**
+ * The address of a bound host's site ([[REQ-394]]).
+ *
+ * THE APEX SITE'S ADDRESS IS THE APEX, WHATEVER `site_domains` SAYS. Its only
+ * row is usually its platform hostname, which is therefore canonical in the
+ * data — and serving there would put a second copy of the product's front page
+ * at `1stcontact.1stc.site`. So for the site `APEX_SITE_KEY` names, the
+ * configured `APEX_HOST` wins.
+ *
+ * CONFIGURATION AND NOT A ROW, deliberately. Binding the apex as a canonical
+ * `site_domains` row would make it a bound host, and a bound host serves exactly
+ * one site — which would take away the `/site/<key>/` grammar the apex still
+ * carries for every other site (`bin/smoke` and every already-mailed link).
+ */
+function canonicalHostOf(
+  binding: { siteKey: string; canonicalHost: string },
+  env: Pick<Env, 'APEX_SITE_KEY' | 'APEX_HOST'>,
+): string {
+  const apexHost = (env.APEX_HOST ?? '').trim().toLowerCase()
+  if (apexHost && env.APEX_SITE_KEY && binding.siteKey === env.APEX_SITE_KEY) return apexHost
+  return binding.canonicalHost
 }
 
 /** Everything a request needs resolved for it, gathered once per request. */

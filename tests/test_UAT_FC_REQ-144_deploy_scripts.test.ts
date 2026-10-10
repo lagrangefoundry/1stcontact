@@ -355,7 +355,13 @@ bucket_name = "1stcontact-sites"
       report.checks
         .filter((c: { status: string }) => c.status === 'skip')
         .map((c: { name: string }) => c.name),
-    ).toEqual(['control_app_challenges_unauthenticated', 'control_app_workers_dev_closed'])
+    ).toEqual([
+      // [[REQ-394]]'s platform-hostname checks take their own input too.
+      'platform_host_reaches_its_site',
+      'platform_host_unclaimed_not_found',
+      'control_app_challenges_unauthenticated',
+      'control_app_workers_dev_closed',
+    ])
     expect(report.checks.map((c: { name: string }) => c.name)).toContain('published_assets_resolve')
   })
 
