@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:48:42.179642+00:00'
+updated_at: '2026-10-10T13:53:07.388640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5872,5 +5872,11 @@ Taking `1stcontact` off the list would still matter in two places:
 - **The rest of the list.** `1stc`, `firstcontact`, `support`, `billing`, `login` and the others are unclaimed, and they're the names a phishing site would want. Those are what the list is really for, and they're not affected by your claim.
 
 So the useful fix isn't removing a name from the list. It's letting **the platform business** claim any reserved name while customers still can't. That covers `1stcontact` in every store, and any other reserved name you want later, such as `support.1stc.site`. Should I file that as a ticket? Otherwise nothing more is needed for go-live.
+
+<!-- xgd-turn id="f5e3c539-d908-48c5-a41e-49451c4ca05a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-10T13:53:06.827189+00:00" -->
+#### You
+ok I hit publish but I don't see anything
 
 <!-- xgd-chat-end -->
