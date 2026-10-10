@@ -168,7 +168,7 @@ routes = [
 # is what lets `1stcontact.io` and `app.1stcontact.io` share one session while a
 # customer's own domain has its own — see `session.ts`.
 [env.production.vars]
-APEX_SITE_KEY = ""
+APEX_SITE_KEY = "site_c4bed79aeb647305a5e3098f70d6dca3"
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = "1stcontact.io"
 # See the top-level block: restated rather than inherited, on purpose
