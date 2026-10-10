@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-16
 created_by: xgd
 created_at: '2026-09-17T03:34:34.354350+00:00'
-updated_at: '2026-10-10T13:57:37.252565+00:00'
+updated_at: '2026-10-10T13:58:36.252590+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -5921,5 +5921,27 @@ So `1stcontact.io` is live and a clean checkout will deploy the same thing. If y
 <!-- xgd-chat role="user" ts="2026-10-10T13:57:36.126669+00:00" -->
 #### You
 ok 1stcontact.io works but 1stcontact.1stc.site fails - it should redirect to the former?
+
+<!-- xgd-turn id="d13b48e1-77ce-4fef-bb99-ab7ae3c8ab67-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-10T13:58:36.085362+00:00" -->
+#### Claude
+You're right that it should redirect. Right now it can't: requests for that address never reach the Worker at all. I've filed **REQ-394** under EPIC-16 for it.
+
+**Why it fails, in two parts:**
+
+1. **Nothing in production sends `*.1stc.site` to the public-site Worker.** No zone is recorded for it, `wrangler.toml` routes only `1stcontact.io`, and there's no `*.1stc.site/*` route. So every `1stc.site` address the builder hands out goes nowhere today, not just yours. The Worker code that should handle these addresses already exists; it just never gets the traffic.
+   - The route can't simply go in `wrangler.toml`. REQ-258 found that any route of that kind there makes every deploy replace Cloudflare's whole route list, deleting every customer domain attached since. It has to be added the way customer domains are: separately, only ever adding.
+2. **Even once it's routed, it would serve the site instead of redirecting.** As far as the data is concerned, `1stcontact.1stc.site` is the 1st Contact site's main address. `1stcontact.io` reaches the site through the `APEX_SITE_KEY` setting, not through a domain record. REQ-394 asks for the site named in `APEX_SITE_KEY` to treat `1stcontact.io` as its main address, so every other address for it gets a 301 to `https://1stcontact.io/` with the path kept.
+
+**What REQ-394 asks for:**
+- A repeatable, add-only step that sets up the `1stc.site` zone, a wildcard DNS record and the route. Running it twice changes nothing, and it never removes a route.
+- The redirect to the apex.
+- A 404 for any `1stc.site` name nobody has claimed.
+- A smoke check for a claimed `1stc.site` address, so this can't silently break again.
+
+**One thing to check yourself:** whether `1stc.site` is in your Cloudflare account at all, under Websites in the dashboard. I can't see the account from here. If it isn't, adding it (and moving its nameservers to Cloudflare if it's registered elsewhere) comes before any of this.
+
+The site is live on `1stcontact.io`, so nothing visitors see depends on this. It only affects people who use the `1stc.site` address.
 
 <!-- xgd-chat-end -->
