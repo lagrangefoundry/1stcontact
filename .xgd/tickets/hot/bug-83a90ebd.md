@@ -6,10 +6,10 @@ title: 'Publish: a full-size camera photo makes the site unpublishable (IMAGES_T
   9529)'
 created_by: EPIC-16
 created_at: '2026-10-10T18:19:23.451391+00:00'
-updated_at: '2026-10-12T11:31:12.517885+00:00'
+updated_at: '2026-10-12T11:49:28.630028+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   severity: high
