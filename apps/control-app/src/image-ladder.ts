@@ -1,10 +1,15 @@
+import { isLadderedAsset } from '../../../packages/framework/src/l1/delivery'
 import { imageRendererFor, UnrenderableImageError, type ImageEditEnv } from './image-edit'
 import {
+  capSource,
   imageLadder,
   type ImageLadder,
   type ImageSizer,
   type ImageSize,
 } from '../../../tools/generate/src/publish/ladder'
+import { contentTypeOf } from '../../../tools/generate/src/store/content-type'
+import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import type { SiteWrite } from '../../../tools/generate/src/store/site-store'
 
 /**
  * The delivery width ladder, over this deployment's actual platform ([[REQ-222]]).
@@ -126,4 +131,78 @@ export function ladderFor(
   const renderer = imageRendererFor(env, scope.businessId)
   if (renderer === null) return null
   return imageLadder(ladderSizer(renderer))
+}
+
+/**
+ * Pictures capped at the door — every write of picture bytes onto a site
+ * ([[BUG-206]]).
+ *
+ * WHY HERE AND NOT AT EACH CALLER. A picture reaches a site by several roads — a
+ * Library promotion, the assistant placing one, `/api/import` copying a whole
+ * site up — and every one of them ends in `SiteStore.write({ assets })`. A
+ * camera photograph straight off a phone is an ordinary thing to arrive by any of
+ * them, so the cap is applied where they meet rather than remembered at each.
+ *
+ * WHAT IS STORED IS THE CAPPED COPY, in the picture's own format, scaled to fit
+ * `MAX_SOURCE_EDGE` with its aspect kept. The client's experience is that
+ * their photograph simply works. The untouched original is not lost: it is still
+ * wherever it came from — the Library material a promotion read, or the
+ * operator's own disk for an import — so keeping a second copy on the site would
+ * buy nothing a later, larger delivery width could not get from there.
+ *
+ * EVERYTHING ELSE PASSES THROUGH BYTE-IDENTICAL. A picture at or under the cap,
+ * a vector, an animation, a document, a picture the renderer cannot read — none
+ * is re-encoded, because a re-encode that changes nothing still changes the file.
+ *
+ * A CAP THAT FAILS STORES THE ORIGINAL, and that is not a silent loss: the ladder
+ * caps again at publish ([[BUG-206]]) and names the picture there if it still
+ * cannot. Refusing an upload or an import because the image service was busy
+ * for a moment would cost the client their work for the sake of a size the
+ * publish can still fix.
+ *
+ * ONE PICTURE AT A TIME, so what this holds beyond the write it was handed is
+ * one capped copy — never the site.
+ */
+export function cappedSiteStore(store: TenantSiteStore, sizer: ImageSizer): TenantSiteStore {
+  return {
+    ...store,
+    async write(site: string, change: SiteWrite): Promise<void> {
+      if (!change.assets || change.assets.length === 0) return store.write(site, change)
+      const assets = []
+      for (const asset of change.assets) {
+        assets.push({ ...asset, bytes: await cappedPicture(sizer, asset.name, asset.bytes) })
+      }
+      return store.write(site, { ...change, assets })
+    },
+  }
+}
+
+/** One asset's bytes as the door stores them — see {@link cappedSiteStore}. */
+async function cappedPicture(sizer: ImageSizer, name: string, bytes: Uint8Array): Promise<Uint8Array> {
+  if (!isLadderedAsset(name)) return bytes
+  const contentType = contentTypeOf(name)
+  try {
+    const size = await sizer.measure(bytes, contentType)
+    if (size === null) return bytes
+    return (await capSource(sizer, bytes, contentType, size))?.bytes ?? bytes
+  } catch (err) {
+    console.warn(`[BUG-206] ${name} could not be capped at the door; stored as it is.`, err)
+    return bytes
+  }
+}
+
+/**
+ * The site store with its door, for this deployment ([[BUG-206]]).
+ *
+ * THE STORE ITSELF WHERE THERE IS NO RENDERER, which is the same reading every
+ * other image capability here takes of an absent binding: a deployment that
+ * cannot transform stores what it is given, exactly as it always has.
+ */
+export function withPictureDoor(
+  store: TenantSiteStore,
+  env: ImageEditEnv,
+  scope: { businessId: string },
+): TenantSiteStore {
+  const renderer = imageRendererFor(env, scope.businessId)
+  return renderer === null ? store : cappedSiteStore(store, ladderSizer(renderer))
 }

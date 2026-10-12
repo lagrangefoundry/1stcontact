@@ -312,6 +312,108 @@ export class LadderTooHeavyError extends Error {
 }
 
 /**
+ * The longest edge, in pixels, any picture is transformed from ([[BUG-206]]).
+ *
+ * THE LIMIT THIS STANDS FOR IS ON PIXELS, NOT BYTES. A 7.8 MB camera photograph
+ * passes {@link LADDER_MAX_SOURCE_BYTES} with room to spare and was still refused
+ * by the Images service (`9529`) at 5712 × 4284 — 24.5 MP — while a 2693 × 2149
+ * picture (5.8 MP) on the same site laddered cleanly, its full-width WebP rung
+ * included. Those two are the measurement this number is chosen between: 4096
+ * on the long edge is 12.6 MP at a camera's 4:3, roughly the geometric middle of
+ * the size that worked and the size that did not.
+ *
+ * IT IS NOT THE SERVICE'S DOCUMENTED LIMIT, deliberately — a documented number
+ * is not evidence about the binding. If the binding's real ceiling is measured,
+ * this is the one place it changes.
+ *
+ * AND IT IS WELL ABOVE THE WIDEST DELIVERY WIDTH (1920), so a picture capped to
+ * it still has every rung and still fills a high-density screen at full bleed.
+ */
+export const MAX_SOURCE_EDGE = 4096
+
+/** The longer of a picture's two sides. */
+function longEdge(size: ImageSize): number {
+  return Math.max(size.width, size.height)
+}
+
+/**
+ * A picture brought under {@link MAX_SOURCE_EDGE}, or the picture itself when it
+ * already is ([[BUG-206]]).
+ *
+ * ONE IMPLEMENTATION, TWO CALLERS: the door that stores a site's pictures and the
+ * ladder that publishes them. Both ask the same question of the same port, so
+ * there is one definition of "too large" and one way of shrinking.
+ *
+ * THE SAME BYTES COME BACK FOR A PICTURE AT OR UNDER THE CAP — by identity, not
+ * by a re-encode, so the commonest case costs nothing and changes nothing.
+ *
+ * IT RE-MEASURES WHAT IT MADE, AND WILL TAKE A SECOND PASS. The width asked for
+ * is computed from what `measure` reported, and a camera photograph's EXIF
+ * orientation is one place the reported shape and the transformed shape could
+ * disagree: a portrait photograph described as landscape comes back from a
+ * width-only resize with its long edge still over the cap. Measuring the result
+ * is what notices, and a second pass from the (already smaller) intermediate is
+ * what fixes it.
+ *
+ * NULL WHEN THE SIZER COULD NOT — the port's own contract for a picture it cannot
+ * read. A service that throws is left to throw; the caller decides what that
+ * means for its own path.
+ */
+export async function capSource(
+  sizer: ImageSizer,
+  bytes: Uint8Array,
+  contentType: string,
+  size: ImageSize,
+): Promise<{ bytes: Uint8Array; size: ImageSize } | null> {
+  let current = { bytes, size }
+  for (let pass = 0; longEdge(current.size) > MAX_SOURCE_EDGE; pass++) {
+    if (pass === 2) return null
+    const width = Math.max(
+      1,
+      Math.floor((current.size.width * MAX_SOURCE_EDGE) / longEdge(current.size)),
+    )
+    const resized = await sizer.resize(current.bytes, contentType, width)
+    if (resized === null) return null
+    const measured = await sizer.measure(resized, contentType)
+    if (measured === null) return null
+    current = { bytes: resized, size: measured }
+  }
+  return current
+}
+
+/**
+ * Raised when the image service would not process one of a site's pictures
+ * ([[BUG-206]]).
+ *
+ * IT NAMES THE PICTURE, for the reason {@link LadderTooLargeError} names the
+ * site's facts: a client can act on *which photograph, and how big*, and cannot
+ * act on a platform error code. The code is kept on `cause` for a log and never
+ * reaches the sentence.
+ *
+ * THE REMEDY COVERS BOTH THINGS THE SERVICE MEANS. Its refusal is the same code
+ * for "too large" and "too busy", retries have already been spent on the second,
+ * so the sentence offers the one thing that fixes each: publish again later, or
+ * replace the picture with one under the cap.
+ */
+export class LadderPictureError extends Error {
+  readonly name = 'LadderPictureError'
+  constructor(
+    readonly asset: string,
+    readonly size: ImageSize | null,
+    options?: { cause?: unknown },
+  ) {
+    super(
+      `${asset}${size ? ` is ${size.width} × ${size.height} pixels and` : ''} could not be ` +
+        `prepared for publishing — the image service would not process it, even after ` +
+        `retrying. Publishing again in a few minutes may work; if it keeps failing, ` +
+        `replacing ${asset} with a copy no larger than ${MAX_SOURCE_EDGE} pixels on its ` +
+        `longest side will let the site publish.`,
+      options,
+    )
+  }
+}
+
+/**
  * How far through building the ladder a publish is.
  *
  * DETERMINATE, AND THAT IS THE POINT. A spinner is the right affordance for an
@@ -450,6 +552,26 @@ async function pooled<T>(
   await Promise.all(Array.from({ length: Math.min(limit, jobs.length) }, worker))
 }
 
+/**
+ * One picture's calls to the image service, with a failure reported as that
+ * picture ([[BUG-206]]).
+ *
+ * THE SIZE IS READ WHEN IT FAILS, not when it starts, because the first call is
+ * the one that learns it: a picture that could not even be measured is named
+ * without dimensions rather than with ones nobody knows.
+ */
+async function askingAbout<T>(
+  asset: string,
+  sizeOf: () => ImageSize | null,
+  call: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await call()
+  } catch (cause) {
+    throw new LadderPictureError(asset, sizeOf(), { cause })
+  }
+}
+
 /** One rendition the plan decided to ask for. */
 interface RenditionJob {
   width: number
@@ -470,7 +592,15 @@ interface RenditionJob {
 interface PicturePlan {
   asset: AssetRef
   contentType: string
+  /** The stored picture's own dimensions — what the manifest records. */
   size: ImageSize
+  /**
+   * Whether the rungs are derived from a capped intermediate rather than from
+   * the stored bytes ([[BUG-206]]). A flag and not the bytes, for the reason the
+   * plan holds no bytes at all: the render phase makes it again, which through a
+   * cached renderer is a read.
+   */
+  capped: boolean
   /** The source-format rungs, ascending. */
   own: RenditionJob[]
   /** The alternative formats, best first, each with its own rungs ascending. */
@@ -589,10 +719,24 @@ export async function buildImageLadder(
       // cannot be decoded does. Both mean "served at its own width".
       if (bytes === null) return
       const contentType = contentTypeOf(asset.name)
-      const size = await sizer.measure(bytes, contentType)
-      if (size === null) return
+      // [[BUG-206]] — A SERVICE FAILURE ON ONE PICTURE IS REPORTED AS THAT
+      // PICTURE. Measuring and capping are the two calls here that reach the
+      // image service, and what reaches the client if either throws is the
+      // asset's name and size rather than the service's code.
+      let measured: ImageSize | null = null
+      const found = await askingAbout(asset.name, () => measured, async () => {
+        measured = await sizer.measure(bytes, contentType)
+        if (measured === null) return null
+        // NEVER HAND THE SERVICE A PICTURE IT WILL REFUSE. One capped
+        // intermediate is made for a picture over {@link MAX_SOURCE_EDGE} and
+        // every rung below is planned — and later rendered — from it.
+        const capped = await capSource(sizer, bytes, contentType, measured)
+        return capped === null ? null : { size: measured, basis: capped }
+      })
+      if (found === null) return
+      const { size, basis } = found
 
-      const widths = deliveryWidthsFor(size.width)
+      const widths = deliveryWidthsFor(basis.size.width)
       if (widths.length === 0) return
 
       const extension = extensionOfAsset(asset.name)
@@ -613,7 +757,7 @@ export async function buildImageLadder(
         if (altExtension === null) continue
         alternatives.push({
           type,
-          jobs: alternativeDeliveryWidthsFor(size.width).map((width: number) => ({
+          jobs: alternativeDeliveryWidthsFor(basis.size.width).map((width: number) => ({
             width,
             type,
             path: renditionPath(sha, width, altExtension),
@@ -621,7 +765,7 @@ export async function buildImageLadder(
         })
       }
 
-      plans[index] = { asset, contentType, size, own, alternatives }
+      plans[index] = { asset, contentType, size, capped: basis.bytes !== bytes, own, alternatives }
 
       // WHAT IS ALREADY HELD IS NOT WORK, and the difference is the client's
       // whole experience of this: the same plan, reported as a minute's resizing
@@ -632,7 +776,7 @@ export async function buildImageLadder(
       const held = sizer.held.bind(sizer)
       const rungs = [...own, ...alternatives.flatMap((a) => a.jobs)]
       for (const rung of rungs) {
-        if (await held(bytes, contentType, rung.width, rung.type)) free[index] += 1
+        if (await held(basis.bytes, contentType, rung.width, rung.type)) free[index] += 1
       }
     }),
     LADDER_CONCURRENCY,
@@ -676,10 +820,18 @@ export async function buildImageLadder(
   const landed = new Set<string>()
   await pooled(
     planned.map((plan) => async (): Promise<void> => {
-      const bytes = await source.read(plan.asset.name)
-      if (bytes === null) return
+      const stored = await source.read(plan.asset.name)
+      if (stored === null) return
+      const ask = <T>(call: () => Promise<T>) => askingAbout(plan.asset.name, () => plan.size, call)
+      // THE SAME INTERMEDIATE THE PLAN WAS MADE FROM ([[BUG-206]]), made again
+      // rather than kept — a cache hit through the deployed renderer, and a
+      // picture's worth of bytes not held across the gap between phases.
+      const basis = plan.capped
+        ? await ask(() => capSource(sizer, stored, plan.contentType, plan.size))
+        : { bytes: stored }
+      if (basis === null) return
       for (const job of [...plan.own, ...plan.alternatives.flatMap((a) => a.jobs)]) {
-        const rendered = await sizer.resize(bytes, plan.contentType, job.width, job.type)
+        const rendered = await ask(() => sizer.resize(basis.bytes, plan.contentType, job.width, job.type))
         // A rung that would not render is dropped and the rest of the ladder
         // stands: fewer choices for the browser, never a broken candidate.
         if (rendered !== null) {

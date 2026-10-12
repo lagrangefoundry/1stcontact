@@ -50,7 +50,7 @@ import type {
   ImageLadder,
   LadderProgressReporter,
 } from '../../../tools/generate/src/publish/ladder'
-import { ladderFor } from './image-ladder'
+import { ladderFor, withPictureDoor } from './image-ladder'
 import { liveRevisionOf } from '../../../tools/generate/src/store/revision-model'
 import {
   previewFontTarget,
@@ -722,7 +722,7 @@ function chatHost(
   if (!host) {
     host = (async () => {
       const tenantId = scope.businessId
-      const store = await (deps.store ?? storeFor)(env, scope)
+      const store = await openSiteStore(deps, env, scope)
       // THE TICKET STORE IS THE TRANSCRIPT'S HOME NOW ([[REQ-160]]), so it is
       // held for the isolate's life exactly as the site store above is, and for
       // the same reason: `TicketSessionArchive` caches the chat ticket's uid and
@@ -2634,6 +2634,17 @@ async function panelWithMaterial(
 }
 
 /**
+ * This request's site store, with pictures capped at the door ([[BUG-206]]).
+ *
+ * EVERY OPENER IN THIS FILE GOES THROUGH HERE, so a road that writes a picture
+ * onto a site cannot be added that skips the cap — the same reason the scrubber
+ * is hoisted to one declaration. See `withPictureDoor`.
+ */
+async function openSiteStore(deps: RouterDeps, env: RouterEnv, scope: Scope): Promise<TenantSiteStore> {
+  return withPictureDoor(await (deps.store ?? storeFor)(env, scope), env, scope)
+}
+
+/**
  * The site a correction's bytes should go on, when there is exactly one ([[REQ-213]]).
  *
  * ASKED OF THE STORE RATHER THAN OF THE CLIENT, and that is the whole point.
@@ -3000,7 +3011,7 @@ async function routeUncached(
       // registered, so a builder nobody had published to could not be read at
       // all. `storeFor` registers the configured tenant itself now, and there is
       // one opener again.
-      const store = await (deps.store ?? storeFor)(env, requireScope())
+      const store = await openSiteStore(deps, env, requireScope())
       // BUG-51 — AN IMPORT MAY NOT SILENTLY REPLACE WORK DONE IN THE BUILDER.
       //
       // This route replaces `site.json` and every page the payload carries, and
@@ -3177,7 +3188,7 @@ async function routeUncached(
   if (p === '/api/export' && method === 'GET') {
     try {
       const scoped = requireScope()
-      const store = await (deps.store ?? storeFor)(env, scoped)
+      const store = await openSiteStore(deps, env, scoped)
       const held = await store.siteKeys('site')
       if (held.length > 1) {
         return json(409, {
@@ -3318,7 +3329,7 @@ async function routeUncached(
           error: 'A conversation history must carry a `chats` array. Nothing was written.',
         })
       }
-      const sites = await (deps.store ?? storeFor)(env, scoped)
+      const sites = await openSiteStore(deps, env, scoped)
       const held = await sites.siteKeys('site')
       if (held.length > 1) {
         return json(409, {
@@ -3383,7 +3394,7 @@ async function routeUncached(
    */
   let opening: Promise<TenantSiteStore> | null = null
   const openStore = (): Promise<TenantSiteStore> => {
-    opening ??= (deps.store ?? storeFor)(env, requireScope())
+    opening ??= openSiteStore(deps, env, requireScope())
     return opening
   }
   // `actor: 'client'` — REQ-131. A write arriving on these routes is the
@@ -6738,7 +6749,7 @@ async function routeUncached(
       // No identity and no scope: there is no business whose portal this could
       // be, and inventing one would render somebody else's page.
       if (businessId === null) return text(404, 'Not found')
-      const hostStore = await (deps.store ?? storeFor)(env, { businessId })
+      const hostStore = await openSiteStore(deps, env, { businessId })
       // FOUND BY KIND, NOT BY A RESERVED NAME ([[REQ-236]]). It was
       // `hasDraft('portal')` — a magic slug a customer could have collided with
       // by calling their own site `portal`, and one with nowhere to live once

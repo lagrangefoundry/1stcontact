@@ -88,6 +88,41 @@ function streamOf(bytes: Uint8Array): ReadableStream<Uint8Array> {
   return new Blob([bytes as unknown as ArrayBuffer]).stream() as ReadableStream<Uint8Array>
 }
 
+/**
+ * How long to wait before each retry of a transient refusal ([[BUG-206]]).
+ *
+ * TWO RETRIES, AND SHORT ONES. The service answers `9529` both for a picture it
+ * will never process and for a moment it is too busy to, and only the second is
+ * worth waiting on — so the wait is bounded at about a second, which is long
+ * enough for a busy moment to pass and short enough that a picture the service
+ * genuinely refuses costs a publish one second rather than a minute before it is
+ * named.
+ */
+const TRANSIENT_RETRY_DELAYS_MS: readonly number[] = [200, 800]
+
+/** Whether the binding refused with the code that also means "too busy". */
+function isTransient(err: unknown): boolean {
+  return /\b9529\b/.test(err instanceof Error ? err.message : String(err))
+}
+
+/**
+ * One binding call, retried while the service says it is busy ([[BUG-206]]).
+ *
+ * THE ATTEMPT REBUILDS ITS OWN INPUT. A stream is consumed by the call that
+ * reads it, so a retry that reused the first attempt's would hand the service
+ * nothing — which is why this takes a function rather than a promise.
+ */
+async function patiently<T>(attempt: () => Promise<T>): Promise<T> {
+  for (let tried = 0; ; tried++) {
+    try {
+      return await attempt()
+    } catch (err) {
+      if (tried >= TRANSIENT_RETRY_DELAYS_MS.length || !isTransient(err)) throw err
+      await new Promise((resolve) => setTimeout(resolve, TRANSIENT_RETRY_DELAYS_MS[tried]))
+    }
+  }
+}
+
 /** The binding, as the {@link ImageRenderer} port. */
 export function imagesRenderer(images: ImagesBinding): ImageRenderer {
   async function measure(bytes: Uint8Array, mediaType: string): Promise<Dimensions> {
@@ -97,7 +132,7 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
         `a ${mediaType} is stored as itself rather than edited — there is no recipe for it.`,
       )
     }
-    const info = await images.info(streamOf(bytes))
+    const info = await patiently(() => images.info(streamOf(bytes)))
     // THE UNION'S OTHER ARM IS AN SVG, which reports a format and no size at
     // all. Reached through a content type that claimed to be a raster, which is
     // a mislabelled upload rather than a bug — so it refuses in the same
@@ -150,14 +185,19 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
         return { bytes, mediaType, width: source.width, height: source.height }
       }
 
-      let chain = images.input(streamOf(bytes))
-      for (const transform of compiled.transforms) chain = chain.transform(transform)
-      if (deliver) chain = chain.transform({ width: opts!.width!, fit: 'scale-down' })
-      const out = await chain.output({ format })
-      const rendered = new Uint8Array(await new Response(out.image()).arrayBuffer())
+      const { rendered, contentType } = await patiently(async () => {
+        let chain = images.input(streamOf(bytes))
+        for (const transform of compiled.transforms) chain = chain.transform(transform)
+        if (deliver) chain = chain.transform({ width: opts!.width!, fit: 'scale-down' })
+        const out = await chain.output({ format })
+        return {
+          rendered: new Uint8Array(await new Response(out.image()).arrayBuffer()),
+          contentType: out.contentType(),
+        }
+      })
       return {
         bytes: rendered,
-        mediaType: out.contentType(),
+        mediaType: contentType,
         // COMPUTED RATHER THAN RE-MEASURED, which is one fewer pass over the
         // bytes for an answer the compiler already has. It is the platform's
         // arithmetic; the local renderer used in tests pads a two-sided resize
