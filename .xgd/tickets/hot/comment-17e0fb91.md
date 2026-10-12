@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-61
 created_by: xgd
 created_at: '2026-10-12T15:17:25.294012+00:00'
-updated_at: '2026-10-12T15:35:33.052692+00:00'
+updated_at: '2026-10-12T15:36:05.214740+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -105,5 +105,40 @@ The code part needs a scope ticket. Your instructions for this session are not t
 <!-- xgd-chat role="user" ts="2026-10-12T15:35:33.006588+00:00" -->
 #### You
 He is unblocked. I want to discuss the systemic fix - now we have 1c login - do I need cf login too?
+
+<!-- xgd-turn id="31c3d284-6cb2-484e-b815-8e956c572738-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-12T15:36:05.082718+00:00" -->
+#### Claude
+No. People don't need the Cloudflare login any more; your 1c sign-in can be the only human login, which is also what the architecture policy asks for (magic links as the sole login model). Access still does two jobs that sign-in doesn't, so the fix is to shrink it, not delete it.
+
+**What Access gives you today**
+
+| Job | Does 1c sign-in replace it? |
+|---|---|
+| Logging people in | **Yes.** It produces the same verified email, and nothing after that point can tell which one answered (`index.ts`). |
+| Blocking strangers before the Worker | **Yes.** The Worker gate already refuses any request with no session and no valid Access token. `run_worker_first = true` (`wrangler.toml:80`) puts the static assets behind that gate too, so dropping the edge layer opens nothing. |
+| **Service tokens for automation** | **No.** `bin/copy-to-cloud` / `copy-from-cloud` call `/api/import`, `/api/export`, `/api/copy` and `/api/chats/{import,export}` with a `CF-Access-Client-Id`/`Secret` pair. Only the Access edge turns that pair into a token. Without Access, that pair is worthless. |
+| **Break-glass for you** | **No.** If the sign-in path breaks (Resend down, a session bug, mail delivery trouble), Access is your other way in. `ACCESS.md` keeps it for that reason. |
+
+**Recommended shape**
+
+1. **Turn off Access for the whole host.** Delete the blanket app, or switch it to Bypass for Everyone. The Worker gate becomes the only check for human traffic.
+2. **Keep one narrow Access app** on two kinds of path:
+   - the automation API paths above, with a Service Auth policy for `1stcontact-publish`;
+   - one operator path, e.g. `/operator`, with an allow-list holding just your email. It exists only to give you a `CF_Authorization` cookie and redirect you to `/`.
+   
+   The Worker already reads that cookie, not just the header Access adds (`access.ts:354`), so the cookie should keep you in on every other path once you have it. The narrow app has a new AUD tag, so `ACCESS_AUD` changes to it. One app covering both paths keeps it to a single AUD.
+3. **Code change:** a signed-out browser visit should redirect to `/sign-in` instead of the bare 401 text page `guardAccess` returns now. API calls keep the 401. This is the only user-facing code change.
+4. **Docs:** rewrite `ACCESS.md`. Its current premise, that Access guards everything and only the sign-in paths bypass it, is the bug you just hit.
+
+**Two things to check before committing to this**
+
+- I haven't confirmed that Cloudflare's `CF_Authorization` cookie from a path-scoped app is sent back on other paths of the host. If it isn't, break-glass needs another route. One option is a script that writes a session row straight into D1 using your Cloudflare API token. That ties break-glass to your Cloudflare account credentials rather than to Access.
+- What you lose by dropping the edge layer is that unauthenticated traffic now reaches the Worker. It costs a little CPU per request, and the Worker's gate becomes the only control rather than one of two. `run_worker_first` and the `guardAccess` 401 path keep that sound, but it is a real reduction from two layers to one.
+
+**Later option:** replace service tokens with app-issued API tokens and remove Access entirely. That's a bigger change and only worth it if Access starts costing you something; the narrow app is cheap to keep.
+
+If you're happy with this, say "create a new ticket" and I'll write it up: the redirect behaviour, the `ACCESS_AUD` change, the `ACCESS.md` rewrite and the Cloudflare dashboard steps, with this discussion attached.
 
 <!-- xgd-chat-end -->
