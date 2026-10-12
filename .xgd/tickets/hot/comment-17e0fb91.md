@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-61
 created_by: xgd
 created_at: '2026-10-12T15:17:25.294012+00:00'
-updated_at: '2026-10-12T15:32:41.517615+00:00'
+updated_at: '2026-10-12T15:33:24.274302+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -69,5 +69,35 @@ I haven't touched your Cloudflare settings and can't see the Access policies fro
 <!-- xgd-chat role="user" ts="2026-10-12T15:32:40.690045+00:00" -->
 #### You
 The sign in flow works - I have tested it - but I think I had an active Cloudflare token in my browser - my beta tester got thru the 1c sign in but then hit Cloudflare login
+
+<!-- xgd-turn id="3b3dd9a6-b8c0-4e1f-880a-c9e2e161442c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-12T15:33:24.142211+00:00" -->
+#### Claude
+The sign-in itself worked; what stops him is everything after it. Here is why your test passed and his didn't.
+
+**What's happening**
+
+The Access bypass covers only `/sign-in`, `/sign-in/*` and `/sign-out` (`apps/control-app/ACCESS.md`, "The sign-in paths must bypass Access"). Everything else on `app.1stcontact.io` is still behind the main Access policy, which only lets your email through.
+
+1. He redeems the link. That `POST /sign-in/<token>` is bypassed, so the Worker sets the `session` cookie and redirects to `/`.
+2. `/` is not bypassed. Access stops the request at the edge, before the Worker runs, and it never sees his session cookie.
+3. You still had a `CF_Authorization` cookie from your own Access login, so the edge let you through. That's why your test looked fine.
+
+The Worker side is already right: `index.ts` checks the session cookie first and only then falls back to Access. Cloudflare just never lets a session-only request reach that code. As configured, the sign-in flow only works for people who are already on the Access list.
+
+**Unblock him today (no code)**
+
+In Zero Trust → Access → Applications → `app.1stcontact.io` → the allow policy, add his exact email under Include → Emails. He'll get one Cloudflare PIN email per browser for the session length (24 hours), then he's in. He already has a `users` row, since sign-in only issues links to people the database knows, so nothing else is needed. Add a row for him to the "Granted identities" table in `ACCESS.md`.
+
+**The real fix needs a decision from you**
+
+For customers to get in through sign-in alone, Access can't guard the whole hostname. The Worker's own gate already holds without it: with no session and no valid `CF_Authorization` cookie, `guardAccess` returns 401 (`access.ts:407`). It also reads the `CF_Authorization` cookie itself, not just the header Access adds. A rough shape:
+
+- **Cloudflare:** turn the whole-host app into Bypass for Everyone. Keep Access as your break-glass route through a narrow Access app on one operator-only path, whose cookie the Worker already knows how to verify. The narrow app has its own AUD tag, so check whether `ACCESS_AUD` would need to accept two values.
+- **Code:** an unauthenticated browser visit should redirect to `/sign-in` instead of showing a bare 401 text page. Today the edge's Cloudflare redirect hides that 401.
+- **Docs:** rewrite the `ACCESS.md` section, since its premise that only the three paths need a bypass is wrong.
+
+The code part needs a scope ticket. Your instructions for this session are not to create one unless you ask, so say "create a new ticket" and I'll draft it with this diagnosis and the decisions it needs. In the meantime, adding him to the allow list gets your beta test going again.
 
 <!-- xgd-chat-end -->
