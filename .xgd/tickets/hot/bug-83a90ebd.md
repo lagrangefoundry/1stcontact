@@ -6,10 +6,10 @@ title: 'Publish: a full-size camera photo makes the site unpublishable (IMAGES_T
   9529)'
 created_by: EPIC-16
 created_at: '2026-10-10T18:19:23.451391+00:00'
-updated_at: '2026-10-12T11:25:57.022874+00:00'
+updated_at: '2026-10-12T11:31:08.356855+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   severity: high
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-eaa38ee5
+  commits:
+  - working_sha: 7584ed475d1069848af6c816e716f94ac71ef8be
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6d19224bb5d3b5b279d33ff4eeb0157001eb45d4
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.503
 ---
 
 ## Symptom (2026-10-10, production)
