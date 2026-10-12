@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-61
 created_by: xgd
 created_at: '2026-10-12T15:17:25.294012+00:00'
-updated_at: '2026-10-12T15:18:32.516635+00:00'
+updated_at: '2026-10-12T15:32:41.517615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -63,5 +63,11 @@ REQ-202 added `/sign-in`, which runs ahead of Access. It only works if Access ha
 Opening `https://app.1stcontact.io/sign-in` in a private window tells you whether the bypass exists. If you see the 1st Contact address form, it does. If you see the Cloudflare PIN page, it doesn't, and Option 1 is the quickest way in.
 
 I haven't touched your Cloudflare settings and can't see the Access policies from here. If you'd like me to check them through the API, I'll need a `CLOUDFLARE_API_TOKEN` with Access: Apps and Policies read access.
+
+<!-- xgd-turn id="3b3dd9a6-b8c0-4e1f-880a-c9e2e161442c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-12T15:32:40.690045+00:00" -->
+#### You
+The sign in flow works - I have tested it - but I think I had an active Cloudflare token in my browser - my beta tester got thru the 1c sign in but then hit Cloudflare login
 
 <!-- xgd-chat-end -->
