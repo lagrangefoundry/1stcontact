@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-96d8aca6
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-eaa38ee5
 ---
 
 ## Symptom (2026-10-10, production)
