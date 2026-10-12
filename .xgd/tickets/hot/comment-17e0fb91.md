@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-61
 created_by: xgd
 created_at: '2026-10-12T15:17:25.294012+00:00'
-updated_at: '2026-10-12T15:33:24.274302+00:00'
+updated_at: '2026-10-12T15:35:33.052692+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -99,5 +99,11 @@ For customers to get in through sign-in alone, Access can't guard the whole host
 - **Docs:** rewrite the `ACCESS.md` section, since its premise that only the three paths need a bypass is wrong.
 
 The code part needs a scope ticket. Your instructions for this session are not to create one unless you ask, so say "create a new ticket" and I'll draft it with this diagnosis and the decisions it needs. In the meantime, adding him to the allow list gets your beta test going again.
+
+<!-- xgd-turn id="31c3d284-6cb2-484e-b815-8e956c572738-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-12T15:35:33.006588+00:00" -->
+#### You
+He is unblocked. I want to discuss the systemic fix - now we have 1c login - do I need cf login too?
 
 <!-- xgd-chat-end -->
