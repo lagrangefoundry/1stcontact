@@ -6,9 +6,9 @@ title: 'Publish: a full-size camera photo makes the site unpublishable (IMAGES_T
   9529)'
 created_by: EPIC-16
 created_at: '2026-10-10T18:19:23.451391+00:00'
-updated_at: '2026-10-12T11:25:56.826200+00:00'
+updated_at: '2026-10-12T11:25:57.022874+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -50,3 +50,25 @@ The publish-time image ladder (`tools/generate/src/publish/ladder.ts`, driven fr
 ## Test plan
 
 UATs (`test_UAT_FC_<id>_*`): a 24 MP photo uploaded/imported is stored at ≤ the maximum long edge with aspect preserved; a site holding a pre-existing oversized asset publishes, and every rung derives from a capped source; a picture at or under the maximum is stored byte-identical (no needless re-encode); a transient 9529 is retried and the publish succeeds; a persistent failure's message names the asset and its dimensions and contains no raw service code; reading dimensions does not load the image body into memory beyond its header.
+
+
+## Implementation design (BUG-206 session, 2026-10-12)
+
+- **One cap, one implementation.** `MAX_SOURCE_EDGE` (4096 px on the long edge) and `capSource()` live in `tools/generate/src/publish/ladder.ts`. Both the door and the ladder call `capSource()` over the same `ImageSizer` port, so there is one definition of "too big" and one way of shrinking.
+- **Why 4096.** The limit could not be measured from this session: the sandbox cannot reach the deployed Worker, and the local workerd `IMAGES` emulation is not the service. The production evidence brackets it instead: a 5.8 MP picture (2693 × 2149) laddered fine, including a WebP encode at its full width, and a 24.5 MP picture (5712 × 4284) was refused. The likely failing transform is the WebP rung at the source's own width, which is 24.5 MP of output. 4096 on the long edge is 12.6 MP at 4:3, roughly the geometric middle of the known-good and known-bad sizes, and more than twice the widest delivery width (1920). **Open item:** measure the binding's real limit on a deployed environment and adjust the constant if needed.
+- **The door is a site-store write decorator (`cappedSiteStore`, control-app).** The router wraps every site store it opens. Every Worker path that writes picture bytes onto a site goes through `SiteStore.write({ assets })`: Library promotion and AI placement through `editAssetAdd`/`editAssetReplace`, `/api/import`, and the AI's own asset tools. A laddered picture (`isLadderedAsset`) whose long edge is over the cap is replaced with the capped copy before it lands. Its format is kept (the render has no `type`). The capping transform scales down to fit, so aspect is preserved and the Images service's EXIF handling decides orientation. A picture at or under the cap, a non-picture, or a picture the renderer cannot read is stored **byte-identical** (no re-encode). The door uses the same renderer and binding composition as HEIC and editing (`imageRendererFor` → the ladder's sizer adapter); no second binding path is added. If capping fails at the door (the service is busy or refuses), the original is stored and the ladder retries at publish. An upload or import never fails because of this.
+- **Untouched originals.** The site stores only the capped copy. The original stays where it already lives: the Library material for uploads and AI-placed pictures, or the operator's disk for `/api/import`. No new storage.
+- **The ladder caps before it transforms.** For a source over the cap, the ladder plans from one capped intermediate (`capSource`, re-measured through `info`) and derives every rung, `held` checks included, from it. The manifest still names the stored original as the top source-format rung with its real dimensions, so delivery widths and formats are unchanged. Dimensions come from the binding's `info()` (headers only, nothing decoded in the Worker), and only pictures over the cap pay for an intermediate. Through the cached renderer, the intermediate is a cache hit after the first publish.
+- **Existing oversized assets are handled lazily at publish, with no sweep.** `scorched-earth.jpeg` publishes through the ladder's intermediate without rewriting the stored asset. A one-shot sweep would need production access and a write to every affected draft. The lazy path covers the same sites with no migration.
+- **Transient refusals are retried in the renderer** (`imagesRenderer`, so editing benefits too): an error carrying `9529` gets up to two retries with backoff (200 ms, 800 ms), and every attempt rebuilds the input stream.
+- **A remaining failure names the picture.** Any service error from measuring or sizing one picture during publish becomes `LadderPictureError`. It names the asset, gives its pixel dimensions when known, says to publish again later or replace it with a copy no larger than the cap, and contains no raw service code. Unreadable pictures still drop out quietly (unchanged).
+
+## Test plan (as implemented)
+
+`tests/test_UAT_FC_BUG-206_camera_photo_publishes.workers.test.ts`, driven through `route()` with a fake Images binding at the external boundary. The fake refuses any transform whose output is over 16 MP with the real 9529 message:
+- a 24 MP photo imported through `/api/import` is stored with its long edge at or under `MAX_SOURCE_EDGE`, aspect preserved, same format;
+- a picture at or under the cap is stored byte-identical, and no transform is requested for it;
+- a site holding a pre-existing oversized asset (written past the door) publishes, and every rung is derived from the capped intermediate (no transform is ever handed the full-size source);
+- a transient 9529 is retried and the publish succeeds;
+- a persistent 9529 fails the publish with a message naming the asset and its dimensions and containing no `9529`/`IMAGES_TRANSFORM_ERROR`;
+- reading dimensions goes through `info()` only: measuring an at-cap picture issues no `input()` transform.
