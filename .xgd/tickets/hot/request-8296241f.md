@@ -14,6 +14,7 @@ fields:
   epic_parent: epic-f43a7c98
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-dc31c6dc
 ---
 
 ## Status
