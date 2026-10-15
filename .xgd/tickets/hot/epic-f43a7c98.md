@@ -6,10 +6,10 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-10T18:28:00.591584+00:00'
+updated_at: '2026-10-15T16:15:22.414163+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: underway
 fields:
   priority: high
   epic_parent: epic-95bc3b15
