@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:33:26.118155+00:00'
+updated_at: '2026-10-15T16:34:08.440880+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7402,5 +7402,26 @@ Ready for the input area when you are.
 <!-- xgd-chat role="user" ts="2026-10-15T16:33:25.971920+00:00" -->
 #### You
 Please create a REQ ticket
+
+<!-- xgd-turn id="edea2500-ab06-427c-9570-6132f7b6c9c6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:34:07.447441+00:00" -->
+#### Claude
+I've filed **REQ-398**, *"Plan panel: a one-line progress banner — numbered stages, coloured by state, skipped worked out, explained on hover"*. It's under EPIC-19 at `draft`, high priority, 3 points, and linked from the epic.
+
+What it asks for:
+- **One full-width line at the top of the panel** that never wraps and stays put while the questions scroll beneath it.
+- **Layout:** `Progress: 1 | 2 | 3. Refining | 4 | …`. Only the stage in progress shows its name.
+- **Colours:**
+  - grey: not started
+  - green with a ✓: done
+  - blue and expanded: in progress, with the spinner while a turn runs
+  - yellow with a dash: skipped
+- **Skipped is never stored.** It's worked out with your rule: if stage N is done or in progress, every stage from 1 to N−1 that isn't done is skipped. The plan schema doesn't change, and the consultant has nothing extra to maintain.
+- **Hover, focus or tap** shows the stage's name, a one-sentence explanation, and its state in words. The explanations are written once in `plan-seed.json`.
+- **The banner is read-only**, and the collapse toggle goes.
+- **Tests** cover the three skipped cases and check the stored plan never contains a skipped state.
+
+It replaces REQ-390's tracker. The input area is explicitly out of scope, ready for when we talk it through.
 
 <!-- xgd-chat-end -->
