@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:45:17.856994+00:00'
+updated_at: '2026-10-15T16:48:05.984391+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7481,5 +7481,11 @@ This depends on your second point: **the consultant should speak first.** When a
 - **everything a client might reasonably need**, with the unbuilt ones still asked about, so we learn what clients want and the consultant says plainly "that's not something we offer yet"?
 
 I lean towards the second, as long as nothing unbuilt is ever promised, because the answers show us what to build next. Tell me which, and I'll write it up as one ticket covering the new list, the consultant raising the question, and the consultant opening the conversation.
+
+<!-- xgd-turn id="79d136d7-0fe4-4e1e-93ba-01282e0de0b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:48:04.922173+00:00" -->
+#### You
+Lets do the second but add [not yet available] to the description. Can we tidy up the list too I think it should be one item per line or columns if there is enough space - not a single wrapping line.
 
 <!-- xgd-chat-end -->
