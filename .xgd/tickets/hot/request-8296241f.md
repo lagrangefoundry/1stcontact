@@ -5,10 +5,10 @@ type: request
 title: 'Draft pages: a frame plus separately stored sections, assembled at render'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:41.339414+00:00'
-updated_at: '2026-10-15T16:15:21.249747+00:00'
+updated_at: '2026-10-15T16:15:22.253118+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   epic_parent: epic-f43a7c98
