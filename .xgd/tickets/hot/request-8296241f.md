@@ -5,16 +5,24 @@ type: request
 title: 'Draft pages: a frame plus separately stored sections, assembled at render'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:41.339414+00:00'
-updated_at: '2026-10-15T16:36:46.061830+00:00'
+updated_at: '2026-10-15T16:37:27.250653+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-f43a7c98
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-dc31c6dc
+  commits:
+  - working_sha: 663c28be6321f14e442d44d8100076a742a78a87
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: af14d110ef7c4aea09a8ae61eaad93007e02720b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.504
 ---
 
 ## Status
