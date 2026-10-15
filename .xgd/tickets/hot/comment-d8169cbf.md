@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:32:34.172174+00:00'
+updated_at: '2026-10-15T16:32:48.222714+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7386,5 +7386,15 @@ I'm still holding the ticket until we've done the input area.
 <!-- xgd-chat role="user" ts="2026-10-15T16:32:34.029437+00:00" -->
 #### You
 Sure - if stage N is DONE or IN-PROGESS anything from 1-(N-1) that is DONE is SKIPPEED
+
+<!-- xgd-turn id="22f6c8f6-a438-4945-ba68-76a06cc214af-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:32:48.027395+00:00" -->
+#### Claude
+Agreed, reading it as "anything from 1 to N−1 that is **not** done is skipped". Done stages stay green wherever they sit.
+
+So the rule is: **if stage N is done or in progress, every stage from 1 to N−1 that isn't done is shown as skipped.** Using the highest such N is the same rule as "the furthest stage reached".
+
+Ready for the input area when you are.
 
 <!-- xgd-chat-end -->
