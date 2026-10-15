@@ -1253,60 +1253,113 @@ body {
 }
 
 /*
- * [[REQ-390]] — the stage tracker: one or two lines at normal width, so it never
- * pushes the questions out of sight. Collapsed, only the current stage shows.
+ * [[REQ-390]], [[REQ-398]] — the progress banner: one line across the top of the
+ * panel, pinned there while the questions and comps scroll beneath it. It never
+ * wraps: on a narrow panel the separators tighten and only the stage in progress
+ * gives up width, its name ending in an ellipsis. One colour per state, never the
+ * only signal — done carries a ✓, skipped a dash.
  */
 .plan-stages {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
   display: flex;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.plan-stages__list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  flex: 1;
-  font-size: 0.8rem;
-  color: var(--shell-fg-muted, #71717a);
-}
-
-.plan-stage {
-  display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
+  margin: -10px -12px 6px;
+  padding: 6px 12px;
+  background: var(--shell-surface-alt, #f4f4f5);
+  border-bottom: 1px solid var(--shell-border, #e4e4e7);
+  font-size: 0.8rem;
   white-space: nowrap;
+  container-type: inline-size;
 }
 
-.plan-stage[data-state='done'] {
-  color: var(--shell-fg, #18181b);
-}
-
-.plan-stage[data-state='done'] .plan-stage__mark {
-  color: var(--shell-success, #15803d);
-}
-
-.plan-stage[data-state='in_progress'] {
+.plan-stages__title {
+  flex: none;
   font-weight: 600;
   color: var(--shell-fg, #18181b);
 }
 
-.plan-stages--collapsed .plan-stage:not([data-state='in_progress']) {
-  display: none;
+.plan-stages__list {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-stage {
+  --stage-colour: var(--shell-fg-muted, #71717a);
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  color: var(--stage-colour);
+  cursor: default;
+}
+
+.plan-stage + .plan-stage::before {
+  content: '|';
+  margin-inline: 0 6px;
+  color: var(--shell-border-strong, #d4d4d8);
+}
+
+@container (max-width: 360px) {
+  .plan-stages .plan-stage {
+    padding-inline: 2px;
+  }
+
+  .plan-stages .plan-stage + .plan-stage::before {
+    margin-inline-end: 2px;
+  }
+}
+
+.plan-stage:focus-visible {
+  outline: 2px solid var(--stage-colour);
+  outline-offset: 1px;
+}
+
+.plan-stage[data-state='done'] {
+  --stage-colour: var(--shell-success, #15803d);
+}
+
+.plan-stage[data-state='skipped'] {
+  --stage-colour: #a16207;
+}
+
+.plan-stage[data-state='skipped'] .plan-stage__number {
+  text-decoration: line-through;
+}
+
+.plan-stage[data-state='in_progress'] {
+  --stage-colour: #1d4ed8;
+  flex: 0 1 auto;
+  min-width: 0;
+  font-weight: 600;
+  background: color-mix(in srgb, #2563eb 12%, transparent);
+}
+
+.plan-stage__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .plan-stage__mark {
   display: inline-block;
-  width: 0.9em;
-  text-align: center;
 }
 
 .plan-stage__spinner {
+  flex: none;
   width: 0.7em;
   height: 0.7em;
+  margin-inline: 2px;
   border: 2px solid currentColor;
   border-right-color: transparent;
   border-radius: 50%;
@@ -1319,13 +1372,31 @@ body {
   }
 }
 
-.plan-stages__toggle {
-  border: none;
-  background: none;
-  padding: 0 2px;
-  cursor: pointer;
-  color: var(--shell-fg-muted, #71717a);
+.plan-stages__tip {
+  position: absolute;
+  top: 100%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: min(280px, 90%);
+  margin-top: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: 6px;
+  background: var(--shell-surface, #fff);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+  color: var(--shell-fg, #18181b);
   font-size: 0.8rem;
+  white-space: normal;
+}
+
+.plan-stages__tip[hidden] {
+  display: none;
+}
+
+.plan-stages__tip-state {
+  color: var(--shell-fg-muted, #71717a);
 }
 
 /* [[REQ-390]] — the working line, immediately above the composer. */

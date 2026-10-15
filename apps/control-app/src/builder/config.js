@@ -903,10 +903,9 @@ export const CHAT_OVER_LONG_MESSAGE =
  */
 export const PLAN_PANEL_LABEL = 'The plan'
 export const PLAN_STAGES_LABEL = 'Where the build is'
-/** [[REQ-390]] — the tracker's toggle: all the stages, or only the current one. */
-export const PLAN_STAGES_COLLAPSE = 'Show only the current stage'
-export const PLAN_STAGES_EXPAND = 'Show every stage'
-export const PLAN_STAGE_STATE = { not_started: 'not started', in_progress: 'in progress', done: 'done' }
+/** [[REQ-398]] — the progress banner's lead-in, and each state in words on hover. */
+export const PLAN_STAGES_TITLE = 'Progress:'
+export const PLAN_STAGE_STATE = { not_started: 'Not started', in_progress: 'In progress', done: 'Done', skipped: 'Skipped' }
 
 /**
  * The working line beside the composer ([[REQ-390]]): what it says with no note
