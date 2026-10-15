@@ -6,9 +6,9 @@ title: 'Plan panel: a one-line progress banner — numbered stages, coloured by 
   skipped worked out, explained on hover'
 created_by: EPIC-19
 created_at: '2026-10-15T16:33:54.152507+00:00'
-updated_at: '2026-10-15T16:38:00.453595+00:00'
+updated_at: '2026-10-15T16:43:03.614681+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -70,3 +70,23 @@ UATs `test_UAT_FC_<this ticket>_*`, through the plan panel rendered from a plan:
 - Each state gets its colour class and its non-colour marker.
 - Hover/focus text for a stage includes its name, its explanation from `plan-seed.json`, and its state in words.
 - The stored plan never contains a `skipped` stage state.
+
+## Design decisions made during implementation
+
+- **An in-progress stage is never drawn skipped.** If the consultant leaves stage 3 in progress and marks stage 5 done, stage 3 stays blue and named; only stages that are *not started* before the furthest stage reached turn yellow. ("Not done" in requirement 4 is read as "not started" for this reason.)
+- **The explanation is a small tip under the banner**, not the browser's `title`, because `title` doesn't appear on keyboard focus or on a tap. Hover or focus opens it and leaving closes it; a tap opens it and a second tap on the same stage closes it. The tip stays inside the banner at its right-hand end, and it stays open on the same stage across a redraw.
+- **Every stage is focusable** (`tabindex=0`), and its accessible name reads `N. Name — State`, so a screen reader gets the state without relying on colour.
+- **States in words** are capitalised everywhere they're shown: *Not started / In progress / Done / Skipped*.
+- **The explanations are carried to the client's panel only.** `panelView` adds `about` to each stage. The consultant's `read_plan` view is unchanged.
+- **On a narrow panel** (a container query at 360px), the stage padding and separators tighten. Only the stage in progress can shrink, and its name ends in an ellipsis.
+- **Skipped carries a dash and a strike-through** on its number. Done carries a ✓.
+- REQ-390's tracker UAT is updated to the banner's drawing. Its collapse assertions are removed, because this ticket removes the toggle.
+
+## Implementation
+
+- `apps/control-app/src/builder/plan-panel.js` — `shownStates()` holds the skipped rule; `drawStages()` draws the banner and its tip; the collapse toggle and its storage key are deleted.
+- `apps/control-app/src/builder/builder.css` — the sticky one-line banner, one colour per state, and the tip.
+- `apps/control-app/src/builder/config.js` — `PLAN_STAGES_TITLE` (`Progress:`) and the states in words, including Skipped. The collapse/expand strings are removed.
+- `tools/generate/src/cli/ai/plan-seed.json` — an `about` sentence beside each stage's label.
+- `tools/generate/src/cli/ai/plan-core.ts` — the `PanelStage` view carries `about`.
+- UATs: `tests/test_UAT_FC_REQ-398_progress_banner.test.ts` (six tests: pinned single line with no toggle; only the current stage named; the skipped rule, including the in-progress-before-done case; colour per state plus mark; hover/focus/tap text, read-only; seed explanations and no stored `skipped`, which `checkPlan` refuses).
