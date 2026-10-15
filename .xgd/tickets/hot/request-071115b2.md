@@ -6,10 +6,10 @@ title: 'Plan panel: a one-line progress banner — numbered stages, coloured by 
   skipped worked out, explained on hover'
 created_by: EPIC-19
 created_at: '2026-10-15T16:33:54.152507+00:00'
-updated_at: '2026-10-15T16:33:54.152507+00:00'
+updated_at: '2026-10-15T16:38:00.453595+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 3
