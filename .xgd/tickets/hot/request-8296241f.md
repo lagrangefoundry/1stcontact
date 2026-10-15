@@ -5,9 +5,9 @@ type: request
 title: 'Draft pages: a frame plus separately stored sections, assembled at render'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:41.339414+00:00'
-updated_at: '2026-10-15T16:15:22.253118+00:00'
+updated_at: '2026-10-15T16:36:46.061830+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -66,3 +66,38 @@ UATs through the real toolbox / `1c` entry points and the D1 store: decompose Ch
 - **Frame operations:** `add_section` (node, optional `before`), `remove_section`, `move_section` (optional `before`; omitted means last). Frame keys go through the existing `set_page_style`/`use_font`/`update_page`/component tools, which write only the frame.
 - **Decompose / recompose:** `decompose_page` / `recompose_page` ops in the ManagePages group (consultant and builder), plus `1c page decompose|recompose`. `add_page` takes `sections: true` to create a page already decomposed. The CLI also gets `1c section add|rm|move` and `--section` on `1c structure group|flow`.
 - Charlie's Plumbing 2's real home page (local D1 copy) is the UAT fixture.
+
+
+## What landed (2026-10-15)
+
+Built as the "Implementation decisions" above describe, with these details settled during the build:
+
+- **Removing a section removes the components it hosts.** A component belongs to the section whose subtree holds its slot, so `remove_section` takes it with the section. The answer names the components removed.
+- **A section write is checked on its result.** The edited page is split exactly as the store would split it. If any unit other than the named section differs, the write is refused with a message naming what it would have changed: the page's list of sections (so a section's id can't be renamed through a section write), a component the page itself owns, the page's own settings, or `section '<id>'` (for example a write scoped to `story` that reaches the contact form owned by `quote-form-section`).
+- **Every write to a decomposed page** goes through `validateOrThrow`, which re-checks the section conditions. A change that would make the root a non-stack, place a section by geometry, drop a section id or duplicate an id is refused, and the page stays decomposed.
+- **The store refuses a section unit write** to a page that isn't stored as sections, or that names a section the frame doesn't list.
+- **Removing a page removes its section units** (D1 rows, the fs `.sections/` directory). A page later re-added under the same name is stored whole.
+- **The draft snapshot carries no storage form,** so decomposing a page is not an unpublished change. `1c copy-to-cloud` and site import copy page content, and pages land whole on the destination (pages are split on demand there).
+- `describe_page` with `section` maps only that section, with section-relative addresses. Without `section`, a decomposed page also reports its `sections`. `1c page get`/`list` report `sections` too.
+- The surface overview, the `l1_address` type, `describe_page`, `get_l1` and `set_l1` explain sections. `set_l1` now says that without `section` every address is regenerated, and that with `section` only that section's addresses can move. The surface version is now 19.
+
+## UATs
+
+- `tests/test_UAT_FC_REQ-396_page_sections.test.ts` (consultant toolbox and `1c`, fs store, Charlie's Plumbing 2's real home page):
+  - decompose stores 12 section files plus the frame, and the render is byte-identical;
+  - recompose round-trips;
+  - a root that isn't a flow stack, or a section placed by position, is refused and the page keeps working;
+  - `add_page` with `sections: true`;
+  - a write to `story` leaves the frame and every other section file byte-identical, and the hero's previously read addresses still resolve;
+  - a duplicate id is refused;
+  - renaming a section through a section write, or reaching another section's component, is refused, and `set_page_style` writes only the frame;
+  - an unscoped write rewrites only the changed section;
+  - an undecomposed page behaves as before;
+  - add/move/remove section, including removing hosted components.
+- `tests/support/page-sections-contract.ts`, run by `tests/test_UAT_FC_REQ-396_section_storage.test.ts` (memory and fs) and `tests/test_UAT_FC_REQ-396_section_storage.workers.test.ts` (D1):
+  - assembled reads are identical, with no change to the outline or snapshot;
+  - a section write changes that section alone;
+  - a section unit write is refused for an undecomposed page or an unknown section;
+  - a whole-page write keeps the form, recompose joins the page, and a removed page takes its sections.
+  - The D1 suite also checks one row per section, and that a section write rewrites only its row.
+- The pinned write sets in `tests/test_UAT_FC_REQ-126_l1_surface.test.ts` and `tests/reconciliation-assistant-control-surface.test.ts` gain the five new ops.
