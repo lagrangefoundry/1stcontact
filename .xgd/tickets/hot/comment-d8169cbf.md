@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:24:23.863389+00:00'
+updated_at: '2026-10-15T16:24:54.960845+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7327,5 +7327,38 @@ A series of stages colored grey (not yet got to it) green (done) blue and expand
 The user can mouse over a section number or the expanded section to get an explanation of what the task is called and what it is - also the nmouse over should show the state in words - not started | done |in progress | skipped.
 
 This should be a banner that takes a sinle gline across the full width of the tp of the panel and does notscroll away
+
+<!-- xgd-turn id="0dab757e-a7b9-4e77-8e98-ac3639a23558-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:24:54.709520+00:00" -->
+#### Claude
+Your design works, and most of it is a presentation change. Two parts of it need real work:
+
+**Skipped doesn't exist yet.** Stages currently have three states: not started, in progress and done (`STAGE_STATES` in `plan-core.ts`). Adding **skipped** means:
+- a fourth state in the plan's schema;
+- a way for the consultant to mark a stage skipped, on her existing stage operation;
+- a line in her per-turn notice, so a skipped stage isn't nagged about.
+
+It's the right addition. "We didn't need comps for this one" should look different from "not got to it yet".
+
+**Stages have no explanation to show on hover.** Each has only an id and a label in `plan-seed.json` (*"Getting to know you"*). The hover needs a sentence per stage, for example *"Other sites: we look at three or four real businesses like yours and decide what to borrow and what to avoid."* That's seven sentences of copy, written once in the seed.
+
+The banner, as I'd specify it:
+- **One line, full width, pinned to the top of the panel**, so it stays put while the questions scroll beneath it.
+- **Layout:** `Progress: 1 | 2 | 3. Refining | 4 | 5 | 6 | 7`. Every stage is a small numbered block, and only the current one expands to show its name.
+- **Colours:**
+  - grey: not started
+  - green: done
+  - blue and expanded: in progress, with the spinner when the consultant is working
+  - yellow: skipped
+- **Colour is never the only signal**, since red–green colour blindness is common. Done also carries a ✓, skipped is struck through or shows a –, and in progress is expanded anyway.
+- **Hover** on a number or the expanded stage shows its name, its explanation, and its state in words: *Not started / In progress / Done / Skipped*. It works on keyboard focus too, and on tap on a phone, since there's no hover there.
+- **Nothing is clickable.** Only the consultant moves stages; the banner just reports them.
+- **When no stage is in progress**, all seven stay as numbers and nothing expands.
+- **The collapse toggle goes.** A one-line banner doesn't need one.
+
+This replaces REQ-390's tracker. That ticket is frozen, so this needs a new home.
+
+Since you're also going to rework the input area, I'd hold off filing until we've talked that through and then file **one ticket for the whole panel**, unless you'd rather have the progress banner filed now on its own.
 
 <!-- xgd-chat-end -->
