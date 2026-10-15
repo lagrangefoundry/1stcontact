@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:32:48.222714+00:00'
+updated_at: '2026-10-15T16:33:26.118155+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7396,5 +7396,11 @@ Agreed, reading it as "anything from 1 to N−1 that is **not** done is skipped"
 So the rule is: **if stage N is done or in progress, every stage from 1 to N−1 that isn't done is shown as skipped.** Using the highest such N is the same rule as "the furthest stage reached".
 
 Ready for the input area when you are.
+
+<!-- xgd-turn id="edea2500-ab06-427c-9570-6132f7b6c9c6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:33:25.971920+00:00" -->
+#### You
+Please create a REQ ticket
 
 <!-- xgd-chat-end -->
