@@ -5,9 +5,9 @@ type: request
 title: 'Draft pages: a frame plus separately stored sections, assembled at render'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:41.339414+00:00'
-updated_at: '2026-10-10T18:27:41.339414+00:00'
+updated_at: '2026-10-15T16:15:21.249747+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -53,3 +53,16 @@ Locks (sibling ticket). Header and footer as site-wide shared sections: they sta
 ## Test plan
 
 UATs through the real toolbox / `1c` entry points and the D1 store: decompose Charlie-shaped page → assembled render is byte-identical to before; write section B by its id → section A's previously read addresses still resolve to the same nodes; non-flow-stack page refuses decomposition and keeps working; duplicate-id write refused; frame-key change through a section refused; recompose round-trips; an undecomposed page's tool behaviour is unchanged.
+
+
+## Implementation decisions (2026-10-15, free-coding session)
+
+- **Assembly lives in the store.** `SiteStore.readPages` always returns the assembled page, so render, validate, capture, publish, revisions and the builder preview are unchanged. A decomposed page also reports `StoredPage.sections` (its ordered section ids). Revisions freeze assembled pages and carry no storage form.
+- **Stored units and file names.** Undecomposed page: `home.json` (one unit). Decomposed page: the frame `home.json` plus one unit per section, `home.json#<section-id>`. `site.json` is the site file. The frame is the page with `l1.root.children` emptied, a `sections` list of ids, and section-owned module instances replaced by `{id, section}` stubs (so module order survives). A section unit is `{node, modules?}`.
+- **D1:** new table `site_page_sections(site_id, page_name, section_id, unit)` (migration 0028); the frame stays in `site_pages.page`. **fs:** `pages/home.sections/<id>.json`. **memory:** same shape in memory. All three share one pure planner (`store/sections.ts`).
+- **Writes.** A whole-page write keeps the page's current form: a decomposed page is re-split by root child and only the units that changed are written. If the written page no longer splits (only reachable outside the tools, e.g. a checkout of an older revision), it is stored whole. Explicit form changes use `form: 'whole' | 'sections'`. `SiteWrite.sections` writes exactly one section unit and nothing else.
+- **Section conditions**, checked by the edit layer on every write to a decomposed page and on decompose: root is a `container` with `layout: stack` and no non-stack responsive layout; each section has an id of letters, digits, `-` or `_`; no section carries `geometry` (absolute or flow offsets); node ids in the page tree are unique. A module instance belongs to the section whose subtree holds the slot it mounts into, otherwise to the frame.
+- **Section-scoped writes.** `get_l1`/`set_l1`/`group_l1`/`flow_l1` (and `describe_page`) take an optional `section`; `path` is then relative to the section root (`0` = the section). After the edit, the page is re-split. If anything other than that one section's unit changed (frame keys, page settings, the section list, another section, or a module owned elsewhere), the write is refused with a message naming what it would have changed. Otherwise only that unit is written, so every other section's addresses stay valid.
+- **Frame operations:** `add_section` (node, optional `before`), `remove_section`, `move_section` (optional `before`; omitted means last). Frame keys go through the existing `set_page_style`/`use_font`/`update_page`/component tools, which write only the frame.
+- **Decompose / recompose:** `decompose_page` / `recompose_page` ops in the ManagePages group (consultant and builder), plus `1c page decompose|recompose`. `add_page` takes `sections: true` to create a page already decomposed. The CLI also gets `1c section add|rm|move` and `--section` on `1c structure group|flow`.
+- Charlie's Plumbing 2's real home page (local D1 copy) is the UAT fixture.
