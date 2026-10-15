@@ -5,9 +5,9 @@ type: request
 title: 'Draft pages: a frame plus separately stored sections, assembled at render'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:41.339414+00:00'
-updated_at: '2026-10-15T16:37:27.250653+00:00'
+updated_at: '2026-10-15T16:37:48.815327+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.504
+  story_points: 13
 ---
 
 ## Status
