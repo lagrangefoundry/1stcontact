@@ -1,14 +1,14 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 18,
+  "surface_version": 19,
   "title": "The site you look after",
   "call_type": "inproc",
-  "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
+  "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**A page can be stored in sections.** A page whose top level is a stack of named parts — a header, a hero, a band of services, a footer — can be split so that each part is stored on its own (`decompose_page`). Then you can work on one section at a time: give `section` to the tools that map, read and change a page's elements, and addresses start again at `0` for that section, a read returns that section and nothing else, and a change can touch that section and nothing else. Every other section, and every address inside it, stays exactly as it was — so an address read inside one section stays good while another section changes. What belongs to the page as a whole — its style, its fonts, its widths, its title and search description, and which sections it has in what order — is changed without `section`.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
   "param_types": {
     "l1_address": {
       "base": "string",
-      "description": "The address of one place on a page, e.g. `0.2.1` — a position in the page's tree, read from the page map. It is valid only for the version of the page you read it from: every change re-renders the page and regenerates its addresses, so re-read the map rather than reusing an address across an edit."
+      "description": "The address of one place on a page, e.g. `0.2.1` — a position in the page's tree, read from the page map. It is valid only for the version of the page you read it from: every change re-renders the page and regenerates its addresses, so re-read the map rather than reusing an address across an edit. Inside a section (when you also give `section`) it is counted from that section, and it survives changes to every other section."
     },
     "page_id": {
       "base": "string",
@@ -58,6 +58,10 @@
       "base": "array",
       "item_base": "object",
       "description": "A list of looks, each an object: `label` (required), `description`, and optionally `page`."
+    },
+    "section_id": {
+      "base": "string",
+      "description": "The id of one section of a page stored in sections, as `describe_page` lists them under `sections`. Given with an address, the address is counted from that section — `0` is the section itself — and a change can touch that section and nothing else."
     }
   },
   "shapes": {
@@ -233,11 +237,15 @@
       "tool": "describe_page",
       "effect": "read",
       "summary": "Map one page: every element on it, with its address and a short label.",
-      "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.\n\nIt also lists the components already on the page and how each is set up, so this is where you look before changing or removing one.\n\n**It also tells you what looks wrong, before your client does.** Some mistakes are invisible to the person who made them and obvious to everyone else: a form field nobody styled paints in the browser's own typeface with its words jammed against the border; a colour pasted in by hand is one of the palette's own colours written out instead of referenced, or matches nothing else on a page that uses its palette; a row that cannot fit on a phone; words too faint to read against what they sit on. None of these needs taste to spot, and the map spots them for you. An element with a problem carries `attention` — `broken` (never intentional: fix it), `inconsistent` (unlike the rest of the page), or `worth_a_look` — with a few words on what is wrong, and the page's own `attention` counts them. **Read those counts every time you map a page**, and above all after a change: an edit made for an unrelated reason is the usual way one of these appears. Nothing here stops you writing; a page you are still building is allowed to be unfinished.",
+      "description": "Where addresses come from, and the cheap way to see a page's shape. Asking for `page: \"home\"` returns every element on the home page in order — the boxes and rows as well as the words and pictures inside them — each carrying the address that reaches it, and, when it sits inside a component, the `module` and `slot` that address is scoped to. A label is only enough to recognise something by; use `get_l1` to see what an element actually holds. Hand an entry's address straight back rather than composing one yourself.\n\nIt also lists the components already on the page and how each is set up, so this is where you look before changing or removing one.\n\n**It also tells you what looks wrong, before your client does.** Some mistakes are invisible to the person who made them and obvious to everyone else: a form field nobody styled paints in the browser's own typeface with its words jammed against the border; a colour pasted in by hand is one of the palette's own colours written out instead of referenced, or matches nothing else on a page that uses its palette; a row that cannot fit on a phone; words too faint to read against what they sit on. None of these needs taste to spot, and the map spots them for you. An element with a problem carries `attention` — `broken` (never intentional: fix it), `inconsistent` (unlike the rest of the page), or `worth_a_look` — with a few words on what is wrong, and the page's own `attention` counts them. **Read those counts every time you map a page**, and above all after a change: an edit made for an unrelated reason is the usual way one of these appears. Nothing here stops you writing; a page you are still building is allowed to be unfinished.\n\nA page stored in sections lists them, in order, under `sections`. Give `section` to map only one of them: the entries are that section's, and their addresses are counted from it — the addresses to use with the same `section` everywhere else.",
       "params": {
         "page": {
           "type": "page_id",
           "required": true
+        },
+        "section": {
+          "type": "section_id",
+          "description": "Map only this section of a page stored in sections, with every address counted from it."
         }
       },
       "returns": {
@@ -253,7 +261,7 @@
       "tool": "get_l1",
       "effect": "read",
       "summary": "Read one element on a page in full — everything it holds, exactly as stored.",
-      "description": "The page map tells you where things are; this tells you what one of them *is*. Ask for the address of a box and you get that box and everything inside it: its words, its images, how it is laid out, how it looks. Nothing is resolved or tidied on the way out, so what comes back is exactly what you may write back — read an element, change the part you mean, write the whole thing back. Ask for the smallest element that contains everything you intend to change; pages are large, and asking for the whole of one to alter a heading wastes the conversation.",
+      "description": "The page map tells you where things are; this tells you what one of them *is*. Ask for the address of a box and you get that box and everything inside it: its words, its images, how it is laid out, how it looks. Nothing is resolved or tidied on the way out, so what comes back is exactly what you may write back — read an element, change the part you mean, write the whole thing back. Ask for the smallest element that contains everything you intend to change; pages are large, and asking for the whole of one to alter a heading wastes the conversation. On a page stored in sections, give `section` to read inside one of them: the address is counted from it, and `0` returns that whole section and nothing else on the page.",
       "params": {
         "page": {
           "type": "page_id",
@@ -270,6 +278,10 @@
         "slot": {
           "type": "string",
           "description": "The slot within that instance."
+        },
+        "section": {
+          "type": "section_id",
+          "description": "Scope this to one section of a page stored in sections: the address is counted from it, and nothing outside it can change."
         }
       },
       "returns": {
@@ -434,7 +446,7 @@
       "tool": "set_l1",
       "effect": "write",
       "summary": "Replace one element on a page with a new one — its words, its images, its layout, its look.",
-      "description": "Whatever sits at that address is replaced by what you send, and everything inside it goes with it. So read the element first, change the part you mean, and send the whole thing back — anything you leave out is gone.\n\nThis is how everything on a page is changed: rewriting a heading, adding something that was not there, taking something away, rearranging what is there. To add to a group, read the group, put the new element among its children, write the group back. To remove one, write the group back without it.\n\nOne call is one change, and the page re-renders after it — so **every address on the page is regenerated**. Never carry an address across your own edit; read the map again.\n\nWhat you send must be a well-formed element of the page's own vocabulary. If it is not, the whole change is refused, the page is left exactly as it was, and the refusal names the field and what it would have accepted — correct it and send it again.",
+      "description": "Whatever sits at that address is replaced by what you send, and everything inside it goes with it. So read the element first, change the part you mean, and send the whole thing back — anything you leave out is gone.\n\nThis is how everything on a page is changed: rewriting a heading, adding something that was not there, taking something away, rearranging what is there. To add to a group, read the group, put the new element among its children, write the group back. To remove one, write the group back without it.\n\nOne call is one change. Without `section`, the page re-renders after it and **every address on the page is regenerated**: never carry an address across your own edit — read the map again.\n\nOn a page stored in sections, give `section` to change something inside one of them. The address is counted from that section, and only that section's addresses can move: every other section, and every address in it, is left exactly as it was. The change must stay inside the section — if what you send would alter the page's own settings, add or rename a section, or change another one, it is refused and nothing is written. A section's own `id` is its name, so it cannot be changed this way.\n\nWhat you send must be a well-formed element of the page's own vocabulary. If it is not, the whole change is refused, the page is left exactly as it was, and the refusal names the field and what it would have accepted — correct it and send it again.",
       "params": {
         "page": {
           "type": "page_id",
@@ -456,6 +468,10 @@
         "slot": {
           "type": "string",
           "description": "The slot within that instance."
+        },
+        "section": {
+          "type": "section_id",
+          "description": "Scope this to one section of a page stored in sections: the address is counted from it, and nothing outside it can change."
         }
       },
       "returns": {
@@ -486,6 +502,10 @@
         "id": {
           "type": "string",
           "description": "A name for the group — what the section is, e.g. `approach`. Optional, but it is how the group reads on the page map."
+        },
+        "section": {
+          "type": "section_id",
+          "description": "Scope this to one section of a page stored in sections: the addresses are counted from it, and nothing outside it can change."
         }
       },
       "returns": {
@@ -512,6 +532,10 @@
           "type": "l1_address",
           "required": true,
           "description": "The group whose contents to stack — a section, a group you made with `group_l1`, or `0` for the page itself."
+        },
+        "section": {
+          "type": "section_id",
+          "description": "Scope this to one section of a page stored in sections: the address is counted from it, and nothing outside it can change."
         }
       },
       "returns": {
@@ -623,6 +647,10 @@
         "from": {
           "type": "string",
           "description": "The address this message goes out from. Email pages only; leave it out to use the site's own."
+        },
+        "sections": {
+          "type": "boolean",
+          "description": "Create the page already stored in sections (see `decompose_page`), so it can be built one section at a time from the start."
         }
       },
       "returns": {
@@ -863,6 +891,128 @@
       "errors": [
         "NOT_FOUND",
         "REFERENTIAL_INTEGRITY"
+      ]
+    },
+    {
+      "op": "decompose_page",
+      "tool": "decompose_page",
+      "effect": "write",
+      "summary": "Split a page into sections, so each part of it can be read and changed on its own.",
+      "description": "Each element at the top of the page becomes a section, named by its id and stored on its own, in order. **Nothing about the page changes**: it looks exactly as it did, publishes the same and is listed the same. What changes is that `section` can now scope a read or a change to one part of it — a builder working on the hero reads the hero, not the whole page, and a change to the hero cannot disturb the footer.\n\nOnly a page whose top level stacks its parts one below another can be split, and every part needs an id. A page whose parts are placed by position — usually a reproduction of a captured site — is refused, and keeps working as one page. Splitting is never required: a page that is not split does everything a split one does.\n\nOnce split, a page stays split however it is changed. Every section must stay a stacked element with its own id, and every id on the page unique; a change that would break that is refused, naming why. The answer lists the sections and the stored file each one is.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "recompose_page",
+      "tool": "recompose_page",
+      "effect": "write",
+      "summary": "Join a page stored in sections back into one.",
+      "description": "The reverse of `decompose_page`. Nothing about the page changes but how it is stored; afterwards `section` can no longer be given for it.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND"
+      ]
+    },
+    {
+      "op": "add_section",
+      "tool": "add_section",
+      "effect": "write",
+      "summary": "Add a section to a page stored in sections.",
+      "description": "The section is an element with an `id`, in the same form `get_l1` returns — its id is its name, and must be new on the page. It goes in front of `before`, or at the end when you leave that out, and it is stored on its own from the start. Like every section it must stack in place rather than be positioned.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "node": {
+          "type": "object",
+          "required": true,
+          "description": "The new section: an element with an `id`."
+        },
+        "before": {
+          "type": "section_id",
+          "description": "The section it goes in front of. Leave it out to add it at the end."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID",
+        "NOT_APPROVED"
+      ]
+    },
+    {
+      "op": "remove_section",
+      "tool": "remove_section",
+      "effect": "write",
+      "summary": "Remove a section from a page stored in sections, and everything in it.",
+      "description": "Every other section is left exactly as it was. A component mounted in the section — a form whose seam is inside it — is part of the section, and is removed with it.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "section": {
+          "type": "section_id",
+          "required": true
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "move_section",
+      "tool": "move_section",
+      "effect": "write",
+      "summary": "Move a section of a page stored in sections to another place in the page.",
+      "description": "It goes in front of `before`, or to the end when you leave that out. Nothing inside any section changes, and every address inside a section stays good.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true
+        },
+        "section": {
+          "type": "section_id",
+          "required": true
+        },
+        "before": {
+          "type": "section_id",
+          "description": "The section it goes in front of. Leave it out to move it to the end."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
       ]
     },
     {
@@ -1327,15 +1477,20 @@
     {
       "group": "ManagePages",
       "effect": "write",
-      "title": "Adding and removing pages",
+      "title": "Adding and removing pages, and their sections",
       "operations": [
         "add_page",
         "copy_page",
         "make_alternatives",
         "update_page",
-        "remove_page"
+        "remove_page",
+        "decompose_page",
+        "recompose_page",
+        "add_section",
+        "remove_section",
+        "move_section"
       ],
-      "description": "The pages themselves, rather than what is on them — which pages the site has, what each is called, where it sits, and how it describes itself to a search engine. A new page arrives empty; putting something on it is the work of the group above — unless it is a copy, which arrives holding everything the page it was copied from holds."
+      "description": "The pages themselves, rather than what is on them — which pages the site has, what each is called, where it sits, and how it describes itself to a search engine. A new page arrives empty; putting something on it is the work of the group above — unless it is a copy, which arrives holding everything the page it was copied from holds. A page can also be stored in sections, so a part of it can be read and changed without the rest; the sections themselves — which there are, and in what order — are managed here too, and what is inside one is changed with the group above, scoped by `section`."
     },
     {
       "group": "ManageComponents",
@@ -1529,6 +1684,15 @@
         "set_l1"
       ],
       "note": "Make the set in one call, then restyle each look — each holds the same elements as the page it was copied from, but its addresses are its own, so map each one before writing to it. Then post the link `make_alternatives` answered with, so your user can open the set in the carousel and choose."
+    },
+    {
+      "name": "Work on one section of a page",
+      "steps": [
+        "describe_page",
+        "get_l1",
+        "set_l1"
+      ],
+      "note": "On a page stored in sections, map the section you are working on with `describe_page` and `section`, then read and write with the same `section`. Its addresses are counted from the section and are not moved by changes anywhere else on the page."
     }
   ],
   "absences": [

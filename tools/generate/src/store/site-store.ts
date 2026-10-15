@@ -1,5 +1,6 @@
 import type { LoadResult } from './assemble'
 import type { ChangeSlice, JournalRecord } from './journal-model'
+import type { PageForm, SectionUnit } from './sections'
 import type {
   RenditionSink,
   RevisionContent,
@@ -70,6 +71,36 @@ export interface StoredPage {
   name: string
   /** The page definition, exactly as stored — palette refs unresolved. */
   page: Record<string, unknown>
+  /**
+   * [[REQ-396]] — present when the page is stored as a frame plus sections:
+   * the section ids in page order. `page` is still the WHOLE page, assembled,
+   * so a reader that does not care how a page is stored never sees the
+   * difference. Read-only: a write names a form with {@link PageWrite.form}.
+   */
+  sections?: string[]
+}
+
+/** One page to write. See {@link SiteWrite.pages}. */
+export interface PageWrite extends StoredPage {
+  /**
+   * [[REQ-396]] — store the page whole or as sections. Absent keeps the form
+   * the page already has: a decomposed page is re-split by root child and only
+   * the units that changed are written (see `planPageWrite` in `sections.ts`).
+   */
+  form?: PageForm
+}
+
+/**
+ * [[REQ-396]] — one section unit to write, and nothing else on its page. The
+ * page must already be stored as sections and already list `id`; adding,
+ * removing and reordering sections are frame writes, made through
+ * {@link SiteWrite.pages}.
+ */
+export interface SectionWrite {
+  /** The page's store name, e.g. `home.json`. */
+  page: string
+  id: string
+  unit: SectionUnit
 }
 
 /** Bytes to put under the draft's assets, by store name. */
@@ -122,8 +153,13 @@ export interface SiteWrite {
   /** Replace `site.json` in its entirety. */
   siteJson?: Record<string, unknown>
   /** Write these pages, creating or replacing each by name. */
-  pages?: StoredPage[]
-  /** Remove these pages by name. Removing one that is absent is not an error. */
+  pages?: PageWrite[]
+  /** [[REQ-396]] — write these section units, each alone. See {@link SectionWrite}. */
+  sections?: SectionWrite[]
+  /**
+   * Remove these pages by name, sections and all. Removing one that is absent
+   * is not an error.
+   */
   removePages?: string[]
   /** Write these asset bytes, creating or replacing each by name. */
   assets?: StoredAsset[]

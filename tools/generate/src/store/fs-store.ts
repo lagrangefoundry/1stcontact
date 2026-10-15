@@ -18,6 +18,8 @@ import { contentDigest } from './digest'
 import { appendHistory, readHistory } from './history'
 import { appendChange, changesSince, draftCounter } from './journal'
 import { loadSite } from './loadSite'
+import { applyPagePlan, readPageRecord, readPagesDir, removePageFile } from './fs-pages'
+import { planPageWrite, planSectionWrite, type PagePlan } from './sections'
 import type {
   AssetStamp,
   RenditionSink,
@@ -169,9 +171,8 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
   const stamp = (slug: string): string => {
     const dir = draftDir(ctx, slug)
     const rels = ['site.json']
-    if (pathExists(pagesDir(slug))) {
-      for (const name of fs.readdirSync(pagesDir(slug)).sort()) rels.push(path.join('pages', name))
-    }
+    // [[REQ-396]] — recursively, so a section unit's edit moves the stamp too.
+    for (const rel of listFilesRel(pagesDir(slug))) rels.push(path.join('pages', rel))
     return rels
       .map((rel) => {
         const info = fs.statSync(path.join(dir, rel), { throwIfNoEntry: false })
@@ -192,11 +193,7 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
     },
 
     readPages(slug) {
-      const dir = pagesDir(slug)
-      const pages: StoredPage[] = listFilesRel(dir)
-        .filter((rel) => rel.endsWith('.json'))
-        .map((rel) => ({ name: rel, page: readJson<Record<string, unknown>>(path.join(dir, rel)) }))
-      return Promise.resolve(pages)
+      return Promise.resolve(readPagesDir(pagesDir(slug)))
     },
 
     /**
@@ -218,8 +215,21 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       assertWritableAssetNames(change.assets)
       assertWritableAssetNames(change.assetRefs)
       if (change.siteJson !== undefined) writeJson(siteJsonPath(slug), change.siteJson)
-      for (const { name, page } of change.pages ?? []) writeJson(path.join(pagesDir(slug), name), page)
-      for (const name of change.removePages ?? []) removePath(path.join(pagesDir(slug), name))
+      // [[REQ-396]] — every page planned before any is written, so a refused
+      // section write leaves the directory as it was.
+      const dir = pagesDir(slug)
+      const plans: Array<[string, PagePlan]> = [
+        ...(change.pages ?? []).map(({ name, page, form }): [string, PagePlan] => [
+          name,
+          planPageWrite(readPageRecord(dir, name), page, form),
+        ]),
+        ...(change.sections ?? []).map(({ page, id, unit }): [string, PagePlan] => [
+          page,
+          planSectionWrite(page, readPageRecord(dir, page), id, unit),
+        ]),
+      ]
+      for (const [name, plan] of plans) applyPagePlan(dir, name, plan)
+      for (const name of change.removePages ?? []) removePageFile(dir, name)
       if (change.assets?.length) {
         ensureDir(assetsDir(slug))
         for (const { name, bytes } of change.assets) {
@@ -392,12 +402,7 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
       const dir = revisionDir(ctx, slug, id)
       if (!pathExists(dir)) return null
       const siteJsonFile = path.join(dir, 'site.json')
-      const pages: StoredPage[] = listFilesRel(path.join(dir, 'pages'))
-        .filter((rel) => rel.endsWith('.json'))
-        .map((rel) => ({
-          name: rel,
-          page: readJson<Record<string, unknown>>(path.join(dir, 'pages', rel)),
-        }))
+      const pages: StoredPage[] = readPagesDir(path.join(dir, 'pages'))
       /*
        * [[REQ-304]] — THE MANIFEST, OR THE FILES A REVISION FROZEN BEFORE IT
        * LEFT BEHIND. The shape on disk decides, so there is no mode to detect:
@@ -472,12 +477,7 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
         siteJson: pathExists(siteJsonPath(slug))
           ? readJson<Record<string, unknown>>(siteJsonPath(slug))
           : null,
-        pages: listFilesRel(pagesDir(slug))
-          .filter((rel) => rel.endsWith('.json'))
-          .map((rel) => ({
-            name: rel,
-            page: readJson<Record<string, unknown>>(path.join(pagesDir(slug), rel)),
-          })),
+        pages: readPagesDir(pagesDir(slug)).map(({ name, page }) => ({ name, page })),
         assets: listFilesRel(dir).map(
           (rel): AssetStamp => ({
             name: rel,
@@ -496,12 +496,7 @@ export function fsSiteStore(ctx: StoreContext): SiteStore {
         siteJson: pathExists(path.join(dir, 'site.json'))
           ? readJson<Record<string, unknown>>(path.join(dir, 'site.json'))
           : null,
-        pages: listFilesRel(path.join(dir, 'pages'))
-          .filter((rel) => rel.endsWith('.json'))
-          .map((rel) => ({
-            name: rel,
-            page: readJson<Record<string, unknown>>(path.join(dir, 'pages', rel)),
-          })),
+        pages: readPagesDir(path.join(dir, 'pages')),
         assets: listFilesRel(assets).map(
           (rel): AssetStamp => ({
             name: rel,

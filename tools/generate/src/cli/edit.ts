@@ -63,6 +63,7 @@ import type { JournalRecord } from '../store/journal-model'
 import { clip } from '../store/journal-model'
 import type { SiteStore, StoredPage } from '../store/site-store'
 import { upgradeSiteModules } from '../store/upgrade-site'
+import { moduleHost, sectionFileName, sectionProblem, splitPage } from '../store/sections'
 import { contentTypeOf } from '../store/content-type'
 import { sanitizeAssetName } from '../store/asset-name'
 import type { ImageLibrary, StoredImage } from './image-library'
@@ -242,6 +243,129 @@ async function readPageFiles(slug: string, opts: EditOptions): Promise<PageFile[
   return pages.map((file) => ({ ...file, page: liftLegacyHeadings(file.page, stored) }))
 }
 
+/**
+ * [[REQ-396]] — refuse a write that would leave a page stored as sections in a
+ * shape that cannot be stored that way: a root that no longer stacks its
+ * sections, a section placed by position, a section with no usable id, or an
+ * id the page now uses twice. Checked on every write path, because every one
+ * of them can reach the root.
+ */
+function refuseBrokenSections(stored: readonly PageFile[], pages: readonly unknown[]): void {
+  for (const page of pages) {
+    const id = String((page as { id?: unknown }).id)
+    if (!stored.find((f) => String(f.page.id) === id)?.sections) continue
+    const problem = sectionProblem(page as Record<string, unknown>)
+    if (problem === null) continue
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Page '${id}' is stored as sections, and after this change ${problem}. Nothing was written.`,
+      path: id,
+      hint:
+        'Keep every section a stacked element with its own unique id, and every id on the page unique. ' +
+        'If the page really needs this, join it back into one with recompose_page first.',
+    })
+  }
+}
+
+/**
+ * [[REQ-396]] — where a section sits on a page stored as sections, or the
+ * refusal that says why a call cannot be scoped to it.
+ */
+function requireSection(file: PageFile, pageId: string, section: string): number {
+  if (!file.sections) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Page '${pageId}' is not stored as sections, so nothing on it is addressed by section.`,
+      path: pageId,
+      hint: 'Leave out `section`, or split the page into sections with decompose_page first.',
+    })
+  }
+  const index = file.sections.indexOf(section)
+  if (index < 0) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no section '${section}'. Its sections are: ${file.sections.join(', ')}.`,
+      path: `${pageId}#${section}`,
+    })
+  }
+  return index
+}
+
+/** A section-relative address (`0` = the section) as an address on the page. */
+function onPage(path: number[], index: number, raw: string): number[] {
+  if (path[0] !== 0) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `'${raw}' is not an address inside a section: a section's own address is 0.`,
+      path: raw,
+    })
+  }
+  return [0, index, ...path.slice(1)]
+}
+
+/** The page address of something inside a section, back as the section-relative one. */
+function inSection(path: readonly number[]): number[] {
+  return [0, ...path.slice(2)]
+}
+
+/** What a frame change touched, in words a builder can act on. */
+function frameChangeOf(before: Record<string, unknown>, after: Record<string, unknown>): string {
+  if (JSON.stringify(before.sections) !== JSON.stringify(after.sections)) {
+    return "the page's list of sections (add, remove, rename or reorder sections with add_section, remove_section and move_section)"
+  }
+  if (JSON.stringify(before.modules) !== JSON.stringify(after.modules)) {
+    return 'a component the page itself owns'
+  }
+  return "the page's own settings — its style, fonts, widths, title or search description"
+}
+
+/**
+ * Write one changed page — the whole page, or, scoped to a section, that
+ * section's stored unit and nothing else ([[REQ-396]]).
+ *
+ * THE SCOPE IS CHECKED ON THE RESULT, NOT THE REQUEST. The edited page is
+ * split exactly as the store would split it, and every unit is compared with
+ * what was read. Anything beyond the one section — a frame key, the section
+ * list, another section, a component another section owns — is refused by
+ * name. So a scoped write cannot reach outside its section by any route, and
+ * every other section's addresses stay valid across it. Called after
+ * `validateOrThrow`, so the page is known to split.
+ */
+async function writePage(
+  slug: string,
+  opts: EditOptions,
+  file: PageFile,
+  page: Record<string, unknown>,
+  section: string | undefined,
+): Promise<void> {
+  if (section === undefined) {
+    await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+    return
+  }
+  const before = splitPage(file.page)
+  const after = splitPage(page)
+  const held = new Map(before.sections)
+  const outside: string[] = []
+  if (JSON.stringify(before.frame) !== JSON.stringify(after.frame)) outside.push(frameChangeOf(before.frame, after.frame))
+  for (const [id, unit] of after.sections) {
+    if (id !== section && JSON.stringify(held.get(id)) !== JSON.stringify(unit)) outside.push(`section '${id}'`)
+  }
+  const unit = after.sections.find(([id]) => id === section)?.[1]
+  if (outside.length > 0 || unit === undefined) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message:
+        `A change scoped to section '${section}' may change only that section, and this one would also change ` +
+        `${outside.join(' and ')}. Nothing was written.`,
+      path: sectionFileName(file.name, section),
+      hint:
+        "Make page-level changes without `section` (set_page_style, use_font, update_page), and change another " +
+        'section by its own id.',
+    })
+  }
+  await opts.store.write(slug, { sections: [{ page: file.name, id: section, unit }] })
+}
+
 /** Locate the page file whose definition `id` matches `pageId`, or null. */
 function findPageFile(files: PageFile[], pageId: string): PageFile | null {
   return files.find((f) => f.page.id === pageId) ?? null
@@ -384,6 +508,7 @@ async function validateOrThrow(
     before.set(String(file.page.id), danglingRefs(file.page, assets, stored))
   }
   await refuseUnapprovedEmail(opts, { base: stored, pages: storedFiles.map((f) => f.page) }, base, pages)
+  refuseBrokenSections(storedFiles, pages)
   for (const page of pages) {
     const id = String((page as { id?: unknown }).id)
     // A page this write is ADDING has no previous version, so everything it
@@ -730,6 +855,13 @@ export interface CopyTargetOptions extends EditOptions {
   /** The named slot within that instance. */
   slot?: string
   /**
+   * [[REQ-396]] — the section of a page stored as sections that the call is
+   * scoped to. Without `module`, the address is relative to the section's root
+   * (`0` is the section itself); either way, a write may change that section's
+   * stored unit and nothing else.
+   */
+  section?: string
+  /**
    * The platform font corpus a chosen family is resolved against ([[REQ-314]]).
    *
    * A PARAMETER FOR THE REASON `createL1Operations` TAKES ONE: the projection is
@@ -828,6 +960,28 @@ function writeSegmentRoots(
   slots[slot] = Array.isArray(slots[slot]) ? roots : roots[0]
 }
 
+/**
+ * {@link segmentRoots}, or — scoped to a section with no module — the section
+ * alone, so an address is read relative to it ([[REQ-396]]).
+ */
+function scopedRoots(file: PageFile, page: Record<string, unknown>, pageId: string, target: CopyTargetOptions): L1Node[] {
+  if (target.section !== undefined) {
+    const index = requireSection(file, pageId, target.section)
+    if (target.module === undefined) return [(page.l1 as { root: { children: L1Node[] } }).root.children[index]]
+  }
+  return segmentRoots(page, pageId, target)
+}
+
+/** Put {@link scopedRoots}' list back. */
+function writeScopedRoots(file: PageFile, page: Record<string, unknown>, target: CopyTargetOptions, roots: L1Node[]): void {
+  if (target.section !== undefined && target.module === undefined) {
+    const index = (file.sections as string[]).indexOf(target.section)
+    ;(page.l1 as { root: { children: L1Node[] } }).root.children[index] = roots[0]
+    return
+  }
+  writeSegmentRoots(page, target, roots)
+}
+
 /** The page file, the (possibly cloned) page, and the addressed node within it. */
 interface ResolvedSegment {
   file: PageFile
@@ -863,7 +1017,7 @@ async function resolveSegment(
     })
   }
   const page = clone ? structuredClone(file.page) : file.page
-  const node = resolveL1Node(segmentRoots(page, pageId, target), addr)
+  const node = resolveL1Node(scopedRoots(file, page, pageId, target), addr)
   if (!node) {
     throw new CommandError({
       code: 'NOT_FOUND',
@@ -1212,7 +1366,7 @@ export async function editL1Get(
   const { node } = await resolveSegment(slug, pageId, rawPath, opts, false)
   return {
     data: {
-      target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+      target: { pageId, section: opts.section, module: opts.module, slot: opts.slot, path: rawPath },
       node,
     },
     human: JSON.stringify(node, null, 2),
@@ -1269,7 +1423,7 @@ export async function editL1Set(
   }
 
   const page = structuredClone(file.page)
-  const roots = segmentRoots(page, pageId, opts)
+  const roots = scopedRoots(file, page, pageId, opts)
   // What was there, read before it is gone. The address will not survive the
   // next render (DOC-28 §5.2), so this is the only moment the journal can learn
   // what the caller actually replaced (REQ-131).
@@ -1282,26 +1436,27 @@ export async function editL1Set(
       hint: 'Addresses are render-scoped: re-read the page map and use the address it gives.',
     })
   }
-  writeSegmentRoots(page, opts, roots)
+  writeScopedRoots(file, page, opts, roots)
 
   await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
 
-  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+  await writePage(slug, opts, file, page, opts.section)
+  const where = opts.section === undefined ? '' : ` of section '${opts.section}'`
   return note(
     slug,
     opts,
     {
       data: {
-        target: { pageId, module: opts.module, slot: opts.slot, path: rawPath },
+        target: { pageId, section: opts.section, module: opts.module, slot: opts.slot, path: rawPath },
         changed: [rawPath],
         node,
       },
-      human: `Replaced the element at ${rawPath} in page '${pageId}'.`,
+      human: `Replaced the element at ${rawPath}${where} in page '${pageId}'.`,
     },
     {
       op: 'l1.set',
       page: pageId,
-      path: rawPath,
+      path: opts.section === undefined ? rawPath : `${opts.section}:${rawPath}`,
       module: opts.module,
       slot: opts.slot,
       label: previous ? labelOf(previous) : undefined,
@@ -1353,7 +1508,7 @@ export async function editL1Group(
   slug: string,
   pageId: string,
   rawPaths: readonly string[],
-  opts: EditOptions & { id?: string },
+  opts: EditOptions & { id?: string; section?: string },
 ): Promise<EditOutput> {
   const base = await readBase(slug, opts)
   const files = await readPageFiles(slug, opts)
@@ -1378,20 +1533,24 @@ export async function editL1Group(
     }
     return parsed
   })
+  // [[REQ-396]] — section-relative addresses in and out; the grouping itself is
+  // the page's, unchanged.
+  const index = opts.section === undefined ? null : requireSection(file, pageId, opts.section)
+  const onDoc = index === null ? paths : paths.map((p, i) => onPage(p, index, rawPaths[i]))
   const page = structuredClone(file.page)
-  const result = groupL1(pageDocument(page, pageId), paths, { id: opts.id, site: siteContext(base) })
+  const result = groupL1(pageDocument(page, pageId), onDoc, { id: opts.id, site: siteContext(base) })
   if (!result.ok) {
     throw new CommandError({ code: result.code, message: result.message, path: rawPaths.join(','), hint: result.hint })
   }
   page.l1 = result.doc
   await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
-  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
-  const address = formatL1Path(result.path)
+  await writePage(slug, opts, file, page, opts.section)
+  const address = formatL1Path(index === null ? result.path : inSection(result.path))
   return note(
     slug,
     opts,
     {
-      data: { target: { pageId, path: address }, changed: [address], grouped: rawPaths.length },
+      data: { target: { pageId, section: opts.section, path: address }, changed: [address], grouped: rawPaths.length },
       human: `Grouped ${rawPaths.length} element${rawPaths.length === 1 ? '' : 's'} into a container at ${address} in page '${pageId}'.`,
     },
     {
@@ -1423,7 +1582,7 @@ export async function editL1Flow(
   pageId: string,
   rawPath: string,
   measurePage: PageMeasurer | null,
-  opts: EditOptions,
+  opts: EditOptions & { section?: string },
 ): Promise<EditOutput> {
   if (!measurePage) {
     throw new CommandError({
@@ -1454,19 +1613,21 @@ export async function editL1Flow(
   }
   const original = file.page
   const doc = pageDocument(original, pageId)
+  const onDoc = opts.section === undefined ? path : onPage(path, requireSection(file, pageId, opts.section), rawPath)
   const pageSlug = String(original.slug ?? pageId)
   const before = await measurePage(pageSlug, doc.widths)
-  const result = flowL1(doc, path, before, { site: siteContext(base) })
+  const result = flowL1(doc, onDoc, before, { site: siteContext(base) })
   if (!result.ok) {
     throw new CommandError({ code: result.code, message: result.message, path: rawPath, hint: result.hint })
   }
   const page = { ...structuredClone(original), l1: result.doc }
   await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
-  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+  await writePage(slug, opts, file, page, opts.section)
 
   const drift = layoutDrift(before, await measurePage(pageSlug, doc.widths))
   if (drift) {
-    await opts.store.write(slug, { pages: [{ name: file.name, page: original }] })
+    // Put back the way it went in: scoped, the one section's unit as it was.
+    await writePage(slug, opts, { ...file, page }, original, opts.section)
     const by = Number.isFinite(drift.dy)
       ? ` by ${Math.round(Math.hypot(drift.dx, drift.dy) * 10) / 10}px`
       : ' (it did not render at all)'
@@ -1481,7 +1642,7 @@ export async function editL1Flow(
     slug,
     opts,
     {
-      data: { target: { pageId, path: rawPath }, changed: [rawPath] },
+      data: { target: { pageId, section: opts.section, path: rawPath }, changed: [rawPath] },
       human: `Stacked the contents of ${rawPath} in page '${pageId}': each now sits below the one before it, exactly where it was.`,
     },
     { op: 'l1.flow', page: pageId, path: rawPath, label: 'flow' },
@@ -1711,6 +1872,8 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
      * the chrome made up. Empty for a page with no L1 document.
      */
     widths: ladderOf(f.page),
+    // [[REQ-396]] — the page's sections, when it is stored as sections.
+    ...(f.sections ? { sections: f.sections } : {}),
     /*
      * [[REQ-391]] — WHOSE LOOK THIS PAGE IS, when it is one. The builder's page
      * dropdown leaves these rows out and its carousel is drawn from them; the
@@ -1759,7 +1922,11 @@ export async function editPageGet(
       hint: `List pages with '1c page list ${slug}'.`,
     })
   }
-  return { data: { page: file.page }, human: JSON.stringify(file.page, null, 2) }
+  return {
+    // [[REQ-396]] — the assembled page, and how it is stored when that is as sections.
+    data: { page: file.page, ...(file.sections ? { sections: file.sections } : {}) },
+    human: JSON.stringify(file.page, null, 2),
+  }
 }
 
 export interface PageWriteOptions extends EditOptions {
@@ -1793,6 +1960,8 @@ export interface PageWriteOptions extends EditOptions {
   placeholders?: string[]
   /** The address it goes out from. Email pages only; absent is the deployment's. */
   from?: string
+  /** [[REQ-396]] — create the page already stored as sections. `add` only. */
+  sections?: boolean
 }
 
 /**
@@ -1948,13 +2117,14 @@ export async function editPageAdd(
         l1: starterDocument(title),
       }
   await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
+  if (opts.sections) refuseUnsplittable(newPage, pageId)
 
-  await opts.store.write(slug, { pages: [{ name, page: newPage }] })
+  await opts.store.write(slug, { pages: [{ name, page: newPage, ...(opts.sections ? { form: 'sections' as const } : {}) }] })
   return note(
     slug,
     opts,
     {
-      data: { page: newPage },
+      data: { page: newPage, ...(opts.sections ? { sections: sectionIdsOf(newPage) } : {}) },
       human: mailed
         ? `Added email page '${pageId}' — nobody receives it until a form names it.`
         : `Added page '${pageId}' (path: ${pageSlug}) — it carries a heading and nothing else, ready to paint.`,
@@ -2507,6 +2677,208 @@ export async function editPageRm(
 // already addresses inside them through its `module`/`slot` scope. So these
 // commands create, configure and remove an instance, and never write its
 // presentation beyond the moment of creation.
+
+// ── sections ([[REQ-396]]) ───────────────────────────────────────────────────
+//
+// A page stored as a frame plus one unit per section. Splitting and joining
+// change only how the page is STORED: the assembled page — and so its render —
+// is byte-for-byte what it was. Adding, removing and reordering sections are
+// frame writes; what is inside a section is changed with the element tools,
+// scoped by `section`.
+
+/** The ids of a page's sections, in order: its root's children. */
+function sectionIdsOf(page: Record<string, unknown>): string[] {
+  const root = (page.l1 as { root?: { children?: L1Node[] } } | undefined)?.root
+  return (root?.children ?? []).map((child) => String(child.id))
+}
+
+/** Refuse, saying why, a page that cannot be stored as sections. */
+function refuseUnsplittable(page: Record<string, unknown>, pageId: string): void {
+  const problem = sectionProblem(page)
+  if (problem === null) return
+  throw new CommandError({
+    code: 'SCHEMA_INVALID',
+    message: `Page '${pageId}' can't be stored as sections: ${problem}. It stays one page and works exactly as before.`,
+    path: pageId,
+    hint:
+      'A page splits into sections when its root stacks elements that each have their own id and none is placed ' +
+      'by position. A reproduction of a captured page usually does not, and stays whole.',
+  })
+}
+
+/** Every stored unit of a page, by file name: `home.json`, then `home.json#<id>` per section. */
+function fileNamesOf(file: PageFile, sections: readonly string[]): string[] {
+  return [file.name, ...sections.map((id) => sectionFileName(file.name, id))]
+}
+
+/** A page stored as sections, or the refusal saying it is not. */
+function requireSectioned(file: PageFile, pageId: string): string[] {
+  if (file.sections) return file.sections
+  throw new CommandError({
+    code: 'SCHEMA_INVALID',
+    message: `Page '${pageId}' is not stored as sections.`,
+    path: pageId,
+    hint: 'Split it into sections with decompose_page first.',
+  })
+}
+
+/** Split a page into a frame plus one stored unit per root child. */
+export async function editPageDecompose(slug: string, pageId: string, opts: EditOptions): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const file = requirePageFile(await readPageFiles(slug, opts), slug, pageId)
+  if (file.sections) {
+    return {
+      data: { page: pageId, sections: file.sections, files: fileNamesOf(file, file.sections), unchanged: true },
+      human: `Page '${pageId}' is already stored as ${file.sections.length} sections.`,
+    }
+  }
+  refuseUnsplittable(file.page, pageId)
+  await opts.store.write(slug, { pages: [{ name: file.name, page: file.page, form: 'sections' }] })
+  const sections = sectionIdsOf(file.page)
+  return note(
+    slug,
+    opts,
+    {
+      data: { page: pageId, sections, files: fileNamesOf(file, sections) },
+      human: `Split page '${pageId}' into ${sections.length} sections: ${sections.join(', ')}.`,
+    },
+    { op: 'page.decompose', page: pageId, label: `${sections.length} sections` },
+  )
+}
+
+/** Join a page stored as sections back into one stored unit. */
+export async function editPageRecompose(slug: string, pageId: string, opts: EditOptions): Promise<EditOutput> {
+  await requireDraft(slug, opts)
+  const file = requirePageFile(await readPageFiles(slug, opts), slug, pageId)
+  if (!file.sections) {
+    return { data: { page: pageId, files: [file.name], unchanged: true }, human: `Page '${pageId}' is already one page.` }
+  }
+  await opts.store.write(slug, { pages: [{ name: file.name, page: file.page, form: 'whole' }] })
+  return note(
+    slug,
+    opts,
+    { data: { page: pageId, files: [file.name] }, human: `Joined page '${pageId}' back into one page.` },
+    { op: 'page.recompose', page: pageId },
+  )
+}
+
+export interface SectionPlaceOptions extends EditOptions {
+  /** The section it goes in front of. Absent puts it last. */
+  before?: string
+}
+
+/** Where a named section sits, or the end when `id` is absent. */
+function sectionAt(sections: readonly string[], id: string | undefined, pageId: string): number {
+  if (id === undefined) return sections.length
+  const at = sections.indexOf(id)
+  if (at < 0) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no section '${id}'. Its sections are: ${sections.join(', ')}.`,
+      path: `${pageId}#${id}`,
+    })
+  }
+  return at
+}
+
+/** Rewrite a page stored as sections with a new list of sections — a frame change. */
+async function writeSections(
+  slug: string,
+  opts: EditOptions,
+  pageId: string,
+  change: (
+    children: L1Node[],
+    sections: string[],
+    page: Record<string, unknown>,
+  ) => { children: L1Node[]; human: string; op: string; label: string },
+): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const file = requirePageFile(files, slug, pageId)
+  const sections = requireSectioned(file, pageId)
+  const page = structuredClone(file.page)
+  const root = (page.l1 as { root: { children: L1Node[] } }).root
+  const result = change(root.children, sections, page)
+  root.children = result.children
+  await validateOrThrow(slug, opts, base, files.map((f) => (f === file ? page : f.page)))
+  await opts.store.write(slug, { pages: [{ name: file.name, page }] })
+  const now = sectionIdsOf(page)
+  return note(
+    slug,
+    opts,
+    { data: { page: pageId, sections: now, files: fileNamesOf(file, now) }, human: result.human },
+    { op: result.op, page: pageId, label: result.label },
+  )
+}
+
+/** Add a section to a page stored as sections. */
+export async function editSectionAdd(
+  slug: string,
+  pageId: string,
+  node: unknown,
+  opts: SectionPlaceOptions,
+): Promise<EditOutput> {
+  const id = (node as { id?: unknown } | null)?.id
+  if (typeof id !== 'string') {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: 'A new section needs an `id`: it is the name the section is stored and addressed by.',
+      path: 'node.id',
+    })
+  }
+  return writeSections(slug, opts, pageId, (children, sections) => {
+    if (sections.includes(id)) {
+      throw new CommandError({ code: 'CONFLICT', message: `Page '${pageId}' already has a section '${id}'.`, path: `${pageId}#${id}` })
+    }
+    const at = sectionAt(sections, opts.before, pageId)
+    return {
+      children: [...children.slice(0, at), node as L1Node, ...children.slice(at)],
+      human: `Added section '${id}' to page '${pageId}'${opts.before ? ` before '${opts.before}'` : ' at the end'}.`,
+      op: 'section.add',
+      label: id,
+    }
+  })
+}
+
+/** Remove a section from a page stored as sections. */
+export async function editSectionRemove(slug: string, pageId: string, section: string, opts: EditOptions): Promise<EditOutput> {
+  return writeSections(slug, opts, pageId, (children, sections, page) => {
+    const at = sectionAt(sections, section, pageId)
+    // The components a section hosts are part of it, and go with it.
+    const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
+    const gone = modules.filter((m) => moduleHost(page, m) === section)
+    if (gone.length > 0) page.modules = modules.filter((m) => !gone.includes(m))
+    return {
+      children: children.filter((_, i) => i !== at),
+      human:
+        `Removed section '${section}' from page '${pageId}'` +
+        (gone.length > 0 ? `, with the component${gone.length === 1 ? '' : 's'} it held: ${gone.map((m) => String(m.id)).join(', ')}.` : '.'),
+      op: 'section.rm',
+      label: section,
+    }
+  })
+}
+
+/** Move a section of a page stored as sections in front of another, or to the end. */
+export async function editSectionMove(
+  slug: string,
+  pageId: string,
+  section: string,
+  opts: SectionPlaceOptions,
+): Promise<EditOutput> {
+  return writeSections(slug, opts, pageId, (children, sections) => {
+    const moving = children[sectionAt(sections, section, pageId)]
+    sectionAt(sections, opts.before, pageId)
+    const rest = children.filter((child) => child !== moving)
+    const at = opts.before === undefined ? rest.length : rest.findIndex((child) => child.id === opts.before)
+    return {
+      children: [...rest.slice(0, at), moving, ...rest.slice(at)],
+      human: `Moved section '${section}' of page '${pageId}'${opts.before ? ` before '${opts.before}'` : ' to the end'}.`,
+      op: 'section.move',
+      label: section,
+    }
+  })
+}
 
 /** The page file whose definition `id` is `pageId`, or NOT_FOUND. */
 function requirePageFile(files: PageFile[], slug: string, pageId: string): PageFile {

@@ -5,6 +5,7 @@ import { listFilesRel, pathExists, readJson } from './fsutil'
 import { readHistory } from './history'
 import { liveRevisionOf } from './revision-model'
 import { assembleSite } from './assemble'
+import { readPagesDir } from './fs-pages'
 import type { LoadResult } from './assemble'
 
 export type { LoadedSite, LoadResult } from './assemble'
@@ -56,9 +57,8 @@ export function loadSite(ctx: StoreContext, slug: string, source: SiteSource = '
   const base = readJson<Record<string, unknown>>(siteJsonPath)
 
   const pagesDir = path.join(sourceDir, 'pages')
-  const pages = listFilesRel(pagesDir)
-    .filter((rel) => rel.endsWith('.json'))
-    .map((rel) => readJson<unknown>(path.join(pagesDir, rel)))
+  // [[REQ-396]] — assembled, so a page stored as sections loads as one page.
+  const pages = readPagesDir(pagesDir).map((p) => p.page)
 
   return assembleSite({
     slug,

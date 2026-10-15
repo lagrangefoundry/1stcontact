@@ -520,18 +520,26 @@ describe('REQ-126 — the surface documents itself', () => {
       'add_component',
       'add_page',
       'add_palette_color',
+      // [[REQ-396]] — sections: how a page is stored, and the frame's list of
+      // sections. Each reaches nothing an unscoped `set_l1` on the root could
+      // not; what they add is that a section can be written without the page.
+      'add_section',
       'add_text_style',
       'configure_component',
       'copy_page',
+      'decompose_page',
       'flow_l1',
       'group_l1',
       // [[REQ-391]] — a set of looks for a page: copies, labelled, never published.
       'make_alternatives',
+      'move_section',
       'publish',
+      'recompose_page',
       'remove_asset',
       'remove_component',
       'remove_page',
       'remove_palette_color',
+      'remove_section',
       'remove_text_style',
       'rename_palette_color',
       'rename_text_style',

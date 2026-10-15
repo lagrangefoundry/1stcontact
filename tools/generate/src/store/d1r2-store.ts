@@ -36,6 +36,15 @@ import type {
   StoredPage,
 } from './site-store'
 import { MissingContentError, StoreConflictError } from './site-store'
+import {
+  assemblePage,
+  isFrame,
+  planPageWrite,
+  planSectionWrite,
+  type PagePlan,
+  type PageRecord,
+  type SectionUnit,
+} from './sections'
 
 /**
  * {@link SiteStore} over Cloudflare D1 and R2 — REQ-143, DOC-12 §7 phase 2.
@@ -610,17 +619,36 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     return refs
   }
 
-  const readPagesOf = async (siteKey: string): Promise<StoredPage[]> => {
-    const { results } = await DB.prepare(
-      `SELECT name, page FROM site_pages WHERE ${OWNED} ORDER BY name`,
-    )
-      .bind(siteKey, tenantId)
-      .all<{ name: string; page: string }>()
-    return (results ?? []).map((r) => ({
-      name: r.name,
-      page: decode<Record<string, unknown>>(r.page),
-    }))
+  /**
+   * Every page this site holds, as stored: whole, or a frame plus its section
+   * rows ([[REQ-396]]). Two indexed queries whatever the shape.
+   */
+  const recordsOf = async (siteKey: string): Promise<Map<string, PageRecord>> => {
+    const [pages, sections] = await Promise.all([
+      DB.prepare(`SELECT name, page FROM site_pages WHERE ${OWNED} ORDER BY name`)
+        .bind(siteKey, tenantId)
+        .all<{ name: string; page: string }>(),
+      DB.prepare(`SELECT page_name, section_id, unit FROM site_page_sections WHERE ${OWNED}`)
+        .bind(siteKey, tenantId)
+        .all<{ page_name: string; section_id: string; unit: string }>(),
+    ])
+    const records = new Map<string, PageRecord>()
+    for (const r of pages.results ?? []) {
+      records.set(r.name, { stored: decode<Record<string, unknown>>(r.page), sections: new Map() })
+    }
+    for (const r of sections.results ?? []) {
+      records.get(r.page_name)?.sections.set(r.section_id, decode<SectionUnit>(r.unit))
+    }
+    return records
   }
+
+  /** Every page, assembled, in load order. */
+  const readPagesOf = async (siteKey: string): Promise<StoredPage[]> =>
+    [...(await recordsOf(siteKey))].map(([name, record]) => ({
+      name,
+      page: assemblePage(record),
+      ...(isFrame(record.stored) ? { sections: [...(record.stored.sections as string[])] } : {}),
+    }))
 
   return {
     tenantId,
@@ -677,6 +705,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
         DB.prepare('DELETE FROM site_changes WHERE site_id = ?').bind(siteKey),
         DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteKey),
         DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteKey),
+        DB.prepare('DELETE FROM site_page_sections WHERE site_id = ?').bind(siteKey),
         DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteKey),
         // [[REQ-266]] — the reservations go with the revisions they reserved. A
         // claim outliving its site would refuse an id to a site that no longer
@@ -780,17 +809,49 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
           ),
         )
       }
-      for (const { name, page } of change.pages ?? []) {
-        statements.push(
-          DB.prepare(
-            'INSERT INTO site_pages (site_id, name, page) VALUES (?, ?, ?) ' +
-              'ON CONFLICT (site_id, name) DO UPDATE SET page = excluded.page',
-          ).bind(siteId, name, encode(page)),
-        )
+      // [[REQ-396]] — each page planned against what is stored now, so a
+      // decomposed page rewrites only the units that changed and a section
+      // write rewrites its one row. Planned before the batch: a refused plan
+      // throws here, and nothing has been sent.
+      const plans: Array<[string, PagePlan]> = []
+      if ((change.pages?.length ?? 0) > 0 || (change.sections?.length ?? 0) > 0) {
+        const records = await recordsOf(siteId)
+        for (const { name, page, form } of change.pages ?? []) {
+          plans.push([name, planPageWrite(records.get(name) ?? null, page, form)])
+        }
+        for (const { page, id, unit } of change.sections ?? []) {
+          plans.push([page, planSectionWrite(page, records.get(page) ?? null, id, unit)])
+        }
+      }
+      for (const [name, plan] of plans) {
+        if (plan.page !== null) {
+          statements.push(
+            DB.prepare(
+              'INSERT INTO site_pages (site_id, name, page) VALUES (?, ?, ?) ' +
+                'ON CONFLICT (site_id, name) DO UPDATE SET page = excluded.page',
+            ).bind(siteId, name, encode(plan.page)),
+          )
+        }
+        for (const [id, unit] of plan.put) {
+          statements.push(
+            DB.prepare(
+              'INSERT INTO site_page_sections (site_id, page_name, section_id, unit) VALUES (?, ?, ?, ?) ' +
+                'ON CONFLICT (site_id, page_name, section_id) DO UPDATE SET unit = excluded.unit',
+            ).bind(siteId, name, id, encode(unit)),
+          )
+        }
+        for (const id of plan.drop) {
+          statements.push(
+            DB.prepare(
+              'DELETE FROM site_page_sections WHERE site_id = ? AND page_name = ? AND section_id = ?',
+            ).bind(siteId, name, id),
+          )
+        }
       }
       for (const name of change.removePages ?? []) {
         statements.push(
           DB.prepare('DELETE FROM site_pages WHERE site_id = ? AND name = ?').bind(siteId, name),
+          DB.prepare('DELETE FROM site_page_sections WHERE site_id = ? AND page_name = ?').bind(siteId, name),
         )
       }
       for (const { name, digest, size } of written) {
@@ -1274,7 +1335,7 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       const stamps = new Map(objects.map((object) => [object.key, objectStamp(object)]))
       return {
         siteJson: row?.site_json ? decode<Record<string, unknown>>(row.site_json) : null,
-        pages,
+        pages: pages.map(({ name, page }) => ({ name, page })),
         // THE RECORDED DIGEST IS THE STAMP ([[REQ-304]]). The column was written
         // when the asset was, so identity is already in the row this query had to
         // run anyway — and it is the SAME stamp `revisionOutline` reads out of a

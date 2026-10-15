@@ -77,6 +77,11 @@ import {
   editPageGet,
   editPageList,
   editPageRm,
+  editPageDecompose,
+  editPageRecompose,
+  editSectionAdd,
+  editSectionMove,
+  editSectionRemove,
   editPageUpdate,
   editL1Flow,
   editTextStyleAssign,
@@ -893,24 +898,38 @@ Structured-edit commands (REQ-11) — operate on draft/; support --json:
     about who did anything.
   1c page list <slug>
   1c page get <slug> <pageId>
-  1c page add <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
+  1c page add <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>] [--sections]
   1c page copy <slug> <fromPageId> <pageId> [--title <t>] [--path <p>]
     A new page that IS <fromPageId> — its content, its page style, its components and
     their configuration — under a new id, path and title. Images are referenced, not
     copied. --path defaults to <pageId>, --title to the source page's (REQ-301).
   1c page update <slug> <pageId> [--title <t>] [--path <p>] [--seo <json>]
   1c page rm <slug> <pageId> [--force]
+  1c page decompose <slug> <pageId>
+    Store the page as a frame plus one file per section — each element at the top of the
+    page, by its id — assembled into the same page on every read, so it renders exactly as
+    before. Refused unless the root stacks its sections and each has its own id and no
+    position (REQ-396). 'page add --sections' creates a page already decomposed.
+  1c page recompose <slug> <pageId>
+    Join a decomposed page back into one file.
+  1c section add <slug> <pageId> --node <json> [--before <section>]
+  1c section rm <slug> <pageId> <section>
+  1c section move <slug> <pageId> <section> [--before <section>]
+    The sections of a decomposed page: add one (its id names it), remove one with the
+    components it hosts, or reorder. Without --before it goes last.
   1c config get <slug> [<key>]
   1c config set <slug> <key> <value>
     <value> is JSON when it parses as JSON, else the literal string. An object MERGES into
     what is at <key>, so naming one setting leaves its siblings alone (REQ-130).
-  1c structure group <slug> <pageId> <path...> [--id <name>]
+  1c structure group <slug> <pageId> <path...> [--id <name>] [--section <id>]
     Wrap sibling elements in a new container, each rebased onto it, so moving the container
     carries them and the page renders exactly as it did (REQ-350).
-  1c structure flow <slug> <pageId> <path>
+  1c structure flow <slug> <pageId> <path> [--section <id>]
     Stack a container's contents in flow: each keeps its place as a gap below the one before
     it, so making one taller pushes the rest down. Measured in a real browser and checked
     against a second render; refused without Chromium, and undone if anything moved.
+    --section scopes either to one section of a decomposed page: paths count from it (0 is
+    the section) and nothing outside it may change.
   1c type get <slug>
     Every named text style, what it sets, and every element that names it (REQ-350).
   1c type set|add <slug> <name> --style <json> [--default]
@@ -2929,6 +2948,7 @@ export async function run(argv: string[]): Promise<void> {
     }
 
     case 'page':
+    case 'section':
     case 'config':
     case 'palette':
     case 'structure':
@@ -3085,6 +3105,7 @@ async function dispatchEdit(
         ? {}
         : { placeholders: declared.split(',').map((t) => t.trim()).filter((t) => t !== '') }),
       ...(str('from') === undefined ? {} : { from: str('from') }),
+      ...(flags.sections === true ? { sections: true } : {}),
     }
     switch (sub) {
       case 'list':
@@ -3105,8 +3126,37 @@ async function dispatchEdit(
         return editPageUpdate(slug, requireArg(rest[2], 'pageId'), writeOpts)
       case 'rm':
         return editPageRm(slug, requireArg(rest[2], 'pageId'), { ...opts, force })
+      // [[REQ-396]] — how the page is STORED; what it says and renders is unchanged.
+      case 'decompose':
+        return editPageDecompose(slug, requireArg(rest[2], 'pageId'), opts)
+      case 'recompose':
+        return editPageRecompose(slug, requireArg(rest[2], 'pageId'), opts)
       default:
         throw unknownSub('page', sub)
+    }
+  }
+
+  // [[REQ-396]] — the sections of a page stored as sections: the frame
+  // operations the assistant's add_section / remove_section / move_section make.
+  if (command === 'section') {
+    const pageId = requireArg(rest[2], 'pageId')
+    switch (sub) {
+      case 'add':
+        return editSectionAdd(
+          slug,
+          pageId,
+          jsonFlag('node') ??
+            (() => {
+              throw new CommandError({ code: 'SCHEMA_INVALID', message: 'section add requires --node <json>.' })
+            })(),
+          { ...opts, before: str('before') },
+        )
+      case 'rm':
+        return editSectionRemove(slug, pageId, requireArg(rest[3], 'section'), opts)
+      case 'move':
+        return editSectionMove(slug, pageId, requireArg(rest[3], 'section'), { ...opts, before: str('before') })
+      default:
+        throw unknownSub('section', sub)
     }
   }
 
@@ -3117,18 +3167,19 @@ async function dispatchEdit(
       case 'group': {
         const paths = rest.slice(3)
         if (paths.length === 0) requireArg(undefined, 'path')
-        return editL1Group(slug, requireArg(rest[2], 'pageId'), paths, { ...opts, id: str('id') })
+        return editL1Group(slug, requireArg(rest[2], 'pageId'), paths, { ...opts, id: str('id'), section: str('section') })
       }
       // D1 — measured in a real browser over this workspace's own builder, the
       // origin `screenshot` uses on Node. No Chromium, no measurement: refused.
       case 'flow': {
         const pageId = requireArg(rest[2], 'pageId')
         const addr = requireArg(rest[3], 'path')
-        if (!(await engineAvailable('chromium'))) return editL1Flow(slug, pageId, addr, null, opts)
+        const scoped = { ...opts, section: str('section') }
+        if (!(await engineAvailable('chromium'))) return editL1Flow(slug, pageId, addr, null, scoped)
         const builder = await startBuilder({ ...global, port: 0 })
         try {
           const measure = browserPageMeasurer({ slug, origin: builder.url, driverFactory: createPlaywrightDriver })
-          return await editL1Flow(slug, pageId, addr, measure, opts)
+          return await editL1Flow(slug, pageId, addr, measure, scoped)
         } finally {
           await builder.close()
         }

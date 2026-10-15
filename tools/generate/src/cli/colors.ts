@@ -40,7 +40,8 @@
 import path from 'node:path'
 import type { L1Palette, L1PaletteRef } from '@1stcontact/site-schema'
 import { alphaByteHex, resolveL1Palette, shadeHex, validateSite } from '@1stcontact/site-schema'
-import { draftDir, listFilesRel, pathExists, readJson, writeJson, type StoreContext } from '../store'
+import { draftDir, pathExists, readJson, writeJson, type StoreContext } from '../store'
+import { readPagesDir, writePageFile } from '../store/fs-pages'
 import type { GlobalOptions } from './commands'
 import { ctxOf } from './commands'
 import { CommandError } from './errors'
@@ -156,13 +157,13 @@ function readPages(ctx: StoreContext, slug: string): { rel: string; abs: string;
     | L1Palette
     | undefined
   const pagesDir = path.join(dir, 'pages')
-  return listFilesRel(pagesDir)
-    .filter((rel) => rel.endsWith('.json'))
-    .map((rel) => ({
-      rel,
-      abs: path.join(pagesDir, rel),
-      page: resolveL1Palette(readJson<unknown>(path.join(pagesDir, rel)), palette),
-    }))
+  // [[REQ-396]] — assembled, and written back through the same layout below,
+  // so a page stored as sections keeps its form.
+  return readPagesDir(pagesDir).map(({ name, page }) => ({
+    rel: name,
+    abs: pagesDir,
+    page: resolveL1Palette(page, palette),
+  }))
 }
 
 /** Census a site's colours without touching it. */
@@ -699,7 +700,7 @@ export function cmdColorsAssign(
     })
   }
 
-  for (const p of pages) writeJson(p.abs, p.next)
+  for (const p of pages) writePageFile(p.abs, p.rel, p.next as Record<string, unknown>)
   writeJson(siteJsonPath, nextBase)
 
   return {
