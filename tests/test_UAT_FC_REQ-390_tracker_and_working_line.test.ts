@@ -145,31 +145,26 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-390 — the stage tracker', () => {
     expect(tracker.classList.contains('plan-stages')).toBe(true)
     expect(tracker.nextElementSibling?.classList.contains('plan-panel__progress')).toBe(true)
 
-    // ALL SEVEN, IN ORDER: done ones ticked wherever they are, the current one marked.
+    // ALL SEVEN, IN ORDER: done ones ticked wherever they are, the current one
+    // marked and named. [[REQ-398]] — the rest are numbers only, and the stages
+    // passed over on the way to the furthest one reached are drawn skipped.
     expect(drawn(app)).toEqual([
-      { label: 'Getting to know you', state: 'done', mark: '✓', current: false, spinning: false },
-      { label: 'Looking at other sites', state: 'not_started', mark: '○', current: false, spinning: false },
-      { label: 'First draft', state: 'in_progress', mark: '●', current: true, spinning: false },
-      { label: 'Refining', state: 'not_started', mark: '○', current: false, spinning: false },
-      { label: 'Colours & fonts', state: 'done', mark: '✓', current: false, spinning: false },
-      { label: 'Finishing touches', state: 'not_started', mark: '○', current: false, spinning: false },
-      { label: 'Ready to publish', state: 'not_started', mark: '○', current: false, spinning: false },
+      { label: undefined, state: 'done', mark: '✓', current: false, spinning: false },
+      { label: undefined, state: 'skipped', mark: '–', current: false, spinning: false },
+      { label: 'First draft', state: 'in_progress', mark: undefined, current: true, spinning: false },
+      { label: undefined, state: 'skipped', mark: '–', current: false, spinning: false },
+      { label: undefined, state: 'done', mark: '✓', current: false, spinning: false },
+      { label: undefined, state: 'not_started', mark: undefined, current: false, spinning: false },
+      { label: undefined, state: 'not_started', mark: undefined, current: false, spinning: false },
     ])
 
     // REOPENED: a done stage back in progress is un-ticked, and the marker moves.
     plan.set({ stages: stages({ getting_to_know_you: 'in_progress', colours_and_fonts: 'done' }), asks: [] })
     await app.planPanel.refresh()
     const after = drawn(app)
-    expect(after[0]).toMatchObject({ state: 'in_progress', mark: '●', current: true })
-    expect(after[2]).toMatchObject({ state: 'not_started', current: false })
+    expect(after[0]).toMatchObject({ state: 'in_progress', label: 'Getting to know you', current: true })
+    expect(after[2]).toMatchObject({ state: 'skipped', current: false })
     expect(after.filter((s) => s.current)).toHaveLength(1)
-
-    // COLLAPSIBLE TO THE CURRENT STAGE, and remembered.
-    const toggle = tracker.querySelector('.plan-stages__toggle') as HTMLButtonElement
-    toggle.click()
-    expect(tracker.classList.contains('plan-stages--collapsed')).toBe(true)
-    expect(toggle.getAttribute('aria-expanded')).toBe('false')
-    expect(globalThis.localStorage.getItem('plan-stages-collapsed')).toBe('1')
   })
 })
 

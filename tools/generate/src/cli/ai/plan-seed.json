@@ -26,16 +26,19 @@
     "[[REQ-390]] — `stages` are the build's stages as the client's tracker shows",
     "them, in the order it shows them (operator-approved wording). The consultant",
     "marks each not started, in progress or done, in any order. A new plan starts",
-    "with the first in progress."
+    "with the first in progress.",
+    "",
+    "[[REQ-398]] — `about` is each stage's one-sentence explanation, in the",
+    "client's words; the progress banner shows it on hover and writes none itself."
   ],
   "stages": [
-    { "id": "getting_to_know_you", "label": "Getting to know you" },
-    { "id": "other_sites", "label": "Looking at other sites" },
-    { "id": "first_draft", "label": "First draft" },
-    { "id": "refining", "label": "Refining" },
-    { "id": "colours_and_fonts", "label": "Colours & fonts" },
-    { "id": "finishing_touches", "label": "Finishing touches" },
-    { "id": "ready_to_publish", "label": "Ready to publish" }
+    { "id": "getting_to_know_you", "label": "Getting to know you", "about": "We learn about your business, your customers and what you want the site to do." },
+    { "id": "other_sites", "label": "Looking at other sites", "about": "We look at sites you like, and some you don't, to find the style that suits you." },
+    { "id": "first_draft", "label": "First draft", "about": "We build a first version of your site so you have something real to react to." },
+    { "id": "refining", "label": "Refining", "about": "We work through your feedback on the pages, the words and the pictures until they feel right." },
+    { "id": "colours_and_fonts", "label": "Colours & fonts", "about": "We settle the colours and the lettering so the site looks like your business." },
+    { "id": "finishing_touches", "label": "Finishing touches", "about": "We check every page, link and form and tidy up the last details." },
+    { "id": "ready_to_publish", "label": "Ready to publish", "about": "Your site is finished and ready to go live whenever you say." }
   ],
   "feature_catalogue": [
     "A contact form",

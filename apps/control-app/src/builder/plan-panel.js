@@ -26,11 +26,14 @@
  * adds a site by its address — the route captures it — and clicking a thumbnail
  * asks the host to show that comp in the preview pane (`onOpenComp`).
  *
- * [[REQ-390]] — AND, FIRST OF ALL, WHERE THE BUILD IS: the stage tracker, a compact
- * row of the plan's stages with the done ones ticked and the current one
- * emphasised. The consultant marks them; the panel only draws them, in any state
- * and any order. While a turn is running (`setBusy`) the current stage spins. A
- * toggle collapses it to the current stage alone, remembered in this browser.
+ * [[REQ-390]], [[REQ-398]] — AND, FIRST OF ALL, WHERE THE BUILD IS: the progress
+ * banner, one line pinned to the top of the panel — `Progress: 1 | 2 | 3. Refining
+ * | 4 …` — each stage a number coloured by its state, and only the stage in
+ * progress named. The consultant marks the stages; the banner only draws them and
+ * is never clicked to change one. While a turn is running (`setBusy`) the stage in
+ * progress spins. SKIPPED IS DRAWN, NEVER STORED ({@link shownStates}). Hovering,
+ * focusing or tapping a stage explains it: its name, its sentence from the seed,
+ * and its state in words.
  *
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
@@ -62,9 +65,8 @@ import {
   PLAN_NEEDS_ANSWER,
   PLAN_PANEL_LABEL,
   PLAN_STAGE_STATE,
-  PLAN_STAGES_COLLAPSE,
-  PLAN_STAGES_EXPAND,
   PLAN_STAGES_LABEL,
+  PLAN_STAGES_TITLE,
   PLAN_SAVE_FAILED,
   PLAN_SKIP,
   PLAN_SKIP_TITLE,
@@ -86,15 +88,18 @@ const TYPED_INPUTS = {
   date: { type: 'date' },
 }
 
-/** Where the tracker's collapsed-or-not is remembered ([[REQ-390]]). */
-const STAGES_COLLAPSED_KEY = 'plan-stages-collapsed'
-
-const remembered = (storage) => {
-  try {
-    return storage?.getItem(STAGES_COLLAPSED_KEY) === '1'
-  } catch {
-    return false
-  }
+/**
+ * [[REQ-398]] — each stage's state as the banner draws it: the stored one, except
+ * that a stage passed over is SKIPPED. Passed over means not done, not in
+ * progress, and before the furthest stage that is done or in progress. Nothing is
+ * stored: the plan keeps its three states and this is worked out on every draw.
+ */
+export function shownStates(stages) {
+  let furthest = -1
+  stages.forEach((stage, i) => {
+    if (stage.state === 'done' || stage.state === 'in_progress') furthest = i
+  })
+  return stages.map((stage, i) => (i < furthest && stage.state === 'not_started' ? 'skipped' : stage.state))
 }
 
 /** A long answer's box grows with what is in it ([[REQ-390]]). */
@@ -131,7 +136,6 @@ const answerMaterials = (ask) =>
  * @param {() => Element|null} [options.getModalHost] where the delete confirmation mounts
  * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
  *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
- * @param {Storage|null} [options.storage] where the tracker's collapse is kept ([[REQ-390]])
  */
 export function createPlanPanel(options = {}) {
   const transport = {
@@ -151,33 +155,35 @@ export function createPlanPanel(options = {}) {
 
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
-  // [[REQ-390]] — the stage tracker, first on the panel.
-  const storage = options.storage === undefined ? globalThis.localStorage ?? null : options.storage
+  // [[REQ-390]], [[REQ-398]] — the progress banner, first on the panel and pinned
+  // there while the rest scrolls beneath it.
   const tracker = el('div', 'plan-stages')
   const stageList = el('ol', 'plan-stages__list')
   stageList.setAttribute('aria-label', PLAN_STAGES_LABEL)
-  const collapse = el('button', 'plan-stages__toggle')
-  collapse.type = 'button'
-  tracker.append(stageList, collapse)
-  let collapsed = remembered(storage)
+  // ONE TIP FOR THE BANNER, moved to whichever stage is hovered, focused or tapped.
+  const tip = el('div', 'plan-stages__tip')
+  tip.id = `plan-stages-tip-${Math.random().toString(36).slice(2)}`
+  tip.setAttribute('role', 'tooltip')
+  tip.hidden = true
+  tracker.append(el('span', 'plan-stages__title', PLAN_STAGES_TITLE), stageList, tip)
   let busy = false
-  const drawCollapse = () => {
-    tracker.classList.toggle('plan-stages--collapsed', collapsed)
-    collapse.textContent = collapsed ? '▸' : '▾'
-    collapse.title = collapsed ? PLAN_STAGES_EXPAND : PLAN_STAGES_COLLAPSE
-    collapse.setAttribute('aria-label', collapse.title)
-    collapse.setAttribute('aria-expanded', String(!collapsed))
+  /** The stage the tip is explaining, by id, so a redraw keeps it open. */
+  let tipFor = null
+  const showTip = (item) => {
+    tipFor = item.dataset.stage
+    tip.replaceChildren(
+      el('strong', 'plan-stages__tip-name', item.dataset.label),
+      el('span', 'plan-stages__tip-about', item.dataset.about),
+      el('span', 'plan-stages__tip-state', PLAN_STAGE_STATE[item.dataset.state] ?? item.dataset.state),
+    )
+    tip.hidden = false
+    // UNDER THE STAGE, kept inside the banner at its right-hand end.
+    tip.style.left = `${Math.max(0, Math.min(item.offsetLeft, tracker.clientWidth - tip.offsetWidth))}px`
   }
-  collapse.addEventListener('click', () => {
-    collapsed = !collapsed
-    try {
-      storage?.setItem(STAGES_COLLAPSED_KEY, collapsed ? '1' : '0')
-    } catch {
-      // Remembering it is a nicety.
-    }
-    drawCollapse()
-  })
-  drawCollapse()
+  const hideTip = () => {
+    tipFor = null
+    tip.hidden = true
+  }
   // [[REQ-379]] — directly under the tracker: how much is left for the client.
   const progress = el('div', 'plan-panel__progress')
   progress.setAttribute('role', 'status')
@@ -543,27 +549,50 @@ export function createPlanPanel(options = {}) {
   let last = null
 
   /**
-   * The stages as the tracker draws them ([[REQ-390]]): ticked where done, the one
-   * in progress emphasised — and spinning while a turn runs. No stage is drawn as
-   * skipped or out of order: done is ticked wherever it is.
+   * The stages as the banner draws them ([[REQ-398]]): each its number, coloured
+   * by its state (`data-state`), with a mark beside the colour — ✓ done, a dash
+   * skipped — and the one in progress also named, spinning while a turn runs.
    */
   function drawStages(stages) {
+    const states = shownStates(stages)
     stageList.replaceChildren(
-      ...stages.map((stage) => {
+      ...stages.map((stage, i) => {
+        const state = states[i]
         const item = el('li', 'plan-stage')
         item.dataset.stage = stage.id
-        item.dataset.state = stage.state
-        const current = stage.state === 'in_progress'
+        item.dataset.state = state
+        item.dataset.label = stage.label
+        item.dataset.about = stage.about ?? ''
+        item.tabIndex = 0
+        item.setAttribute('aria-describedby', tip.id)
+        item.setAttribute('aria-label', `${i + 1}. ${stage.label} — ${PLAN_STAGE_STATE[state] ?? state}`)
+        const current = state === 'in_progress'
         if (current) item.setAttribute('aria-current', 'step')
-        const mark = el('span', 'plan-stage__mark')
-        mark.setAttribute('aria-hidden', 'true')
-        if (current && busy) mark.classList.add('plan-stage__spinner')
-        else mark.textContent = stage.state === 'done' ? '✓' : current ? '●' : '○'
-        item.append(mark, el('span', 'plan-stage__label', stage.label))
-        item.title = `${stage.label} — ${PLAN_STAGE_STATE[stage.state] ?? stage.state}`
+        item.append(el('span', 'plan-stage__number', current ? `${i + 1}.` : String(i + 1)))
+        if (current) {
+          if (busy) {
+            const spinner = el('span', 'plan-stage__mark plan-stage__spinner')
+            spinner.setAttribute('aria-hidden', 'true')
+            item.append(spinner)
+          }
+          item.append(el('span', 'plan-stage__label', stage.label))
+        } else if (state === 'done' || state === 'skipped') {
+          const mark = el('span', 'plan-stage__mark', state === 'done' ? '✓' : '–')
+          mark.setAttribute('aria-hidden', 'true')
+          item.append(mark)
+        }
+        item.addEventListener('mouseenter', () => showTip(item))
+        item.addEventListener('mouseleave', hideTip)
+        item.addEventListener('focus', () => showTip(item))
+        item.addEventListener('blur', hideTip)
+        // A TAP ON A TOUCH SCREEN opens the explanation; it never moves the stage.
+        item.addEventListener('click', () => (tipFor === stage.id && !tip.hidden ? hideTip() : showTip(item)))
         return item
       }),
     )
+    const held = tipFor && [...stageList.children].find((item) => item.dataset.stage === tipFor)
+    if (held) showTip(held)
+    else hideTip()
     tracker.hidden = stages.length === 0
     tracker.dataset.busy = String(busy)
   }

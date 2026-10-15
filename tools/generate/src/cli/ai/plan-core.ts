@@ -49,7 +49,7 @@ export const SITE_PLAN = 'site'
  * 18). The consultant marks each one, in any order: a stage can be skipped, done
  * early, or reopened, and none of that is an error.
  */
-export const STAGES: readonly { id: string; label: string }[] = planSeed.stages
+export const STAGES: readonly { id: string; label: string; about: string }[] = planSeed.stages
 export const STAGE_IDS: readonly string[] = STAGES.map((s) => s.id)
 export const STAGE_STATES = ['not_started', 'in_progress', 'done'] as const
 export const IN_PROGRESS = 'in_progress'
@@ -901,10 +901,16 @@ export function shownStages(fields: Pick<PlanFields, 'stages'>): ShownStage[] {
   return (fields.stages ?? []).map((s) => ({ id: s.id, label: stageLabel(s.id), state: s.state }))
 }
 
+/** [[REQ-398]] — a stage as the client's progress banner explains it on hover. */
+export interface PanelStage extends ShownStage {
+  /** One sentence on what the stage is, from the seed. */
+  about: string
+}
+
 /** What the client's plan panel draws ([[REQ-364]]). */
 export interface PanelView {
-  /** [[REQ-390]] — the stage tracker at the top of the panel. */
-  stages: ShownStage[]
+  /** [[REQ-390]], [[REQ-398]] — the progress banner at the top of the panel. */
+  stages: PanelStage[]
   asks: Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'>[]
   /** [[REQ-378]] — the comp board, as the plan holds it; the host adds the notes. */
   comps: PlanComp[]
@@ -919,7 +925,7 @@ export interface PanelView {
  */
 export function panelView(fields: PlanFields): PanelView {
   return {
-    stages: shownStages(fields),
+    stages: shownStages(fields).map((s) => ({ ...s, about: STAGES.find((x) => x.id === s.id)?.about ?? '' })),
     // [[BUG-196]] — AN UPLOAD ASK'S ROLE AND ITS ONE-OR-SEVERAL ARE RESOLVED HERE,
     // defaults included, so the panel reads them and never re-derives the rule.
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
