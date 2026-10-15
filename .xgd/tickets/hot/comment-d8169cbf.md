@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:31:21.309808+00:00'
+updated_at: '2026-10-15T16:32:34.172174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7380,5 +7380,11 @@ A consequence worth knowing: if the consultant goes back to an earlier stage, sa
 If you'd rather keep it strictly "before the one in progress", say so. Otherwise I'll write the rule as *"any stage before the furthest stage reached (in progress or done) that isn't done is shown as skipped"*.
 
 I'm still holding the ticket until we've done the input area.
+
+<!-- xgd-turn id="22f6c8f6-a438-4945-ba68-76a06cc214af-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:32:34.029437+00:00" -->
+#### You
+Sure - if stage N is DONE or IN-PROGESS anything from 1-(N-1) that is DONE is SKIPPEED
 
 <!-- xgd-chat-end -->
