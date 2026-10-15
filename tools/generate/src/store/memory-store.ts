@@ -20,6 +20,7 @@ import type {
   StoredPage,
 } from './site-store'
 import { MissingContentError } from './site-store'
+import { assemblePage, isFrame, planPageWrite, planSectionWrite, type PageRecord, type PagePlan } from './sections'
 
 /**
  * {@link SiteStore} with nothing behind it (REQ-142).
@@ -54,8 +55,11 @@ import { MissingContentError } from './site-store'
 
 interface MemorySite {
   siteJson: Record<string, unknown> | null
-  /** Page definitions by store name (`home.json`). Load order is name order. */
-  pages: Map<string, Record<string, unknown>>
+  /**
+   * Pages by store name (`home.json`), each whole or as a frame plus sections
+   * ([[REQ-396]]). Load order is name order.
+   */
+  pages: Map<string, PageRecord>
   /** The draft's assets, by name. */
   assets: Map<string, Uint8Array>
   /**
@@ -177,11 +181,26 @@ export function memorySiteStore(): MemorySiteStore {
 
   const pageNames = (found: MemorySite): string[] => [...found.pages.keys()].sort()
 
+  /** One page, assembled ([[REQ-396]]). */
+  const pageOf = (found: MemorySite, name: string): Record<string, unknown> =>
+    assemblePage(found.pages.get(name)!)
+
+  /** Apply one page's plan: the page value and its section units. */
+  const applyPlan = (found: MemorySite, name: string, plan: PagePlan): void => {
+    const record = found.pages.get(name) ?? { stored: {}, sections: new Map() }
+    if (plan.page !== null) record.stored = copy(plan.page)
+    for (const [id, unit] of plan.put) record.sections.set(id, copy(unit))
+    for (const id of plan.drop) record.sections.delete(id)
+    found.pages.set(name, record)
+  }
+
   return {
     seed(slug, seed) {
       sites.set(slug, {
         siteJson: copy(seed.siteJson),
-        pages: new Map(Object.entries(copy(seed.pages))),
+        pages: new Map(
+          Object.entries(copy(seed.pages)).map(([name, page]) => [name, { stored: page, sections: new Map() }]),
+        ),
         assets: new Map(Object.entries(seed.assets ?? {}).map(([n, b]) => [n, b.slice()])),
         blobs: new Map(),
         journal: emptyJournal(),
@@ -214,10 +233,14 @@ export function memorySiteStore(): MemorySiteStore {
     readPages(slug) {
       const found = site(slug)
       if (!found) return Promise.resolve([])
-      const pages: StoredPage[] = pageNames(found).map((name) => ({
-        name,
-        page: copy(found.pages.get(name)!),
-      }))
+      const pages: StoredPage[] = pageNames(found).map((name) => {
+        const { stored } = found.pages.get(name)!
+        return {
+          name,
+          page: pageOf(found, name),
+          ...(isFrame(stored) ? { sections: [...(stored.sections as string[])] } : {}),
+        }
+      })
       return Promise.resolve(pages)
     },
 
@@ -241,7 +264,19 @@ export function memorySiteStore(): MemorySiteStore {
       assertWritableAssetNames(change.assetRefs)
       const found = require(slug)
       if (change.siteJson !== undefined) found.siteJson = copy(change.siteJson)
-      for (const { name, page } of change.pages ?? []) found.pages.set(name, copy(page))
+      // [[REQ-396]] — planned before anything is applied, so a refused section
+      // write leaves the site exactly as it was.
+      const plans: Array<[string, PagePlan]> = [
+        ...(change.pages ?? []).map(({ name, page, form }): [string, PagePlan] => [
+          name,
+          planPageWrite(found.pages.get(name) ?? null, page, form),
+        ]),
+        ...(change.sections ?? []).map(({ page, id, unit }): [string, PagePlan] => [
+          page,
+          planSectionWrite(page, found.pages.get(page) ?? null, id, unit),
+        ]),
+      ]
+      for (const [name, plan] of plans) applyPlan(found, name, plan)
       for (const name of change.removePages ?? []) found.pages.delete(name)
       for (const { name, bytes } of change.assets ?? []) {
         const held = bytes.slice()
@@ -402,7 +437,7 @@ export function memorySiteStore(): MemorySiteStore {
       if (!found) return Promise.resolve({ siteJson: null, pages: [], assets: [] })
       return Promise.resolve({
         siteJson: found.siteJson ? copy(found.siteJson) : null,
-        pages: pageNames(found).map((name) => ({ name, page: copy(found.pages.get(name)!) })),
+        pages: pageNames(found).map((name) => ({ name, page: pageOf(found, name) })),
         assets: [...found.assets.keys()].sort().map((name) => ({
           name,
           stamp: String(found.assets.get(name)!.byteLength),
@@ -461,7 +496,7 @@ export function memorySiteStore(): MemorySiteStore {
         // Descriptive only — no request-time path reads it (see `LoadedSite`).
         sourceDir: `memory:${slug}/draft`,
         base: found.siteJson ?? {},
-        pages: pageNames(found).map((name) => copy(found.pages.get(name)!)),
+        pages: pageNames(found).map((name) => pageOf(found, name)),
         assetFiles: [...found.assets.keys()].sort(),
       })
       return Promise.resolve({ result, stamp: `memory:${found.revision}` })

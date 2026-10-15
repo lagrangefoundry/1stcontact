@@ -60,7 +60,12 @@ import {
   editAlternativesMake,
   editPageAdd,
   editPageCopy,
+  editPageDecompose,
   editPageGet,
+  editPageRecompose,
+  editSectionAdd,
+  editSectionMove,
+  editSectionRemove,
   editPageList,
   editPageRm,
   editPageUpdate,
@@ -272,7 +277,7 @@ function pageKindOf(p: Params): {
 
 /** The component/slot scope an address is resolved in, read off the arguments. */
 function scopeOf(p: Params, opts: EditOptions): CopyTargetOptions {
-  return { ...opts, module: opt(p, 'module'), slot: opt(p, 'slot') }
+  return { ...opts, module: opt(p, 'module'), slot: opt(p, 'slot'), section: opt(p, 'section') }
 }
 
 /**
@@ -517,9 +522,28 @@ export function l1Operations(
     },
 
     describe_page: async (p) => {
-      const page = (
-        (await editPageGet(slug, req(p, 'page'), opts)).data as { page: Record<string, unknown> }
-      ).page
+      const got = (await editPageGet(slug, req(p, 'page'), opts)).data as {
+        page: Record<string, unknown>
+        sections?: string[]
+      }
+      const page = got.page
+      // [[REQ-396]] — scoped to one section, the map is that section alone, with
+      // addresses relative to it (`0` is the section) — the addresses a
+      // section-scoped `get_l1`/`set_l1` takes.
+      const section = opt(p, 'section')
+      const sectionIndex = section === undefined ? -1 : (got.sections ?? []).indexOf(section)
+      if (section !== undefined && sectionIndex < 0) {
+        throw new CommandError({
+          code: got.sections ? 'NOT_FOUND' : 'SCHEMA_INVALID',
+          message: got.sections
+            ? `Page '${req(p, 'page')}' has no section '${section}'. Its sections are: ${got.sections.join(', ')}.`
+            : `Page '${req(p, 'page')}' is not stored as sections, so nothing on it is addressed by section.`,
+        })
+      }
+      const prefix = `0.${sectionIndex}`
+      const inScope = (segment: { path: string; module?: string }): boolean =>
+        section === undefined ||
+        (segment.module === undefined && (segment.path === prefix || segment.path.startsWith(`${prefix}.`)))
       const modules = Array.isArray(page.modules) ? (page.modules as Record<string, unknown>[]) : []
       // REQ-175 — the page's own document keys, beside its metadata. This is
       // where the blindness was: `editPageGet` has always returned the whole
@@ -576,10 +600,15 @@ export function l1Operations(
           slot: m.slot ?? null,
           config: m.config ?? {},
         })),
-        segments: pageSegments(page).map((segment) => {
-          const found = audit.at.get(auditKey(segment.path, segment.module, segment.slot))
-          return found ? { ...segment, attention: found } : segment
-        }),
+        // [[REQ-396]] — how the page is stored, when that is as sections.
+        ...(got.sections ? { sections: got.sections } : {}),
+        segments: pageSegments(page)
+          .filter(inScope)
+          .map((segment) => {
+            const found = audit.at.get(auditKey(segment.path, segment.module, segment.slot))
+            const scoped = section === undefined ? segment : { ...segment, path: `0${segment.path.slice(prefix.length)}` }
+            return found ? { ...scoped, attention: found } : scoped
+          }),
       }
     },
 
@@ -632,6 +661,7 @@ export function l1Operations(
       const out = await editL1Group(slug, req(p, 'page'), paths as string[], {
         ...opts,
         id: typeof p.id === 'string' ? p.id : undefined,
+        section: opt(p, 'section'),
       })
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
@@ -639,7 +669,10 @@ export function l1Operations(
     // REQ-350 (D1) — measured by a browser, converted, then measured again; a
     // conversion that would move anything is put back and refused.
     flow_l1: async (p) => {
-      const out = await editL1Flow(slug, req(p, 'page'), req(p, 'path'), pageMeasurer, opts)
+      const out = await editL1Flow(slug, req(p, 'page'), req(p, 'path'), pageMeasurer, {
+        ...opts,
+        section: opt(p, 'section'),
+      })
       return { changed: (out.data as { changed: unknown }).changed, message: out.human, now: out.at }
     },
 
@@ -788,6 +821,7 @@ export function l1Operations(
         path: opt(p, 'path'),
         seoMeta: obj(p, 'seo'),
         ...pageKindOf(p),
+        ...(p.sections === true ? { sections: true } : {}),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },
@@ -861,6 +895,33 @@ export function l1Operations(
 
     remove_page: async (p) => {
       const out = await editPageRm(slug, req(p, 'page'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-396]] — how a page is stored: whole, or a frame plus one unit per
+    // section, so a builder can read and write one section without the rest.
+    decompose_page: async (p) => {
+      const out = await editPageDecompose(slug, req(p, 'page'), opts)
+      return { changed: out.data, message: out.human, now: out.at ?? (await opts.store.counter(slug)) }
+    },
+
+    recompose_page: async (p) => {
+      const out = await editPageRecompose(slug, req(p, 'page'), opts)
+      return { changed: out.data, message: out.human, now: out.at ?? (await opts.store.counter(slug)) }
+    },
+
+    add_section: async (p) => {
+      const out = await editSectionAdd(slug, req(p, 'page'), p.node, { ...opts, before: opt(p, 'before') })
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    remove_section: async (p) => {
+      const out = await editSectionRemove(slug, req(p, 'page'), req(p, 'section'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    move_section: async (p) => {
+      const out = await editSectionMove(slug, req(p, 'page'), req(p, 'section'), { ...opts, before: opt(p, 'before') })
       return { changed: out.data, message: out.human, now: out.at }
     },
 

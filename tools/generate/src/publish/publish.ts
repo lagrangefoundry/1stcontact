@@ -164,7 +164,9 @@ export async function readDraftSnapshot(
     store.readPages(slug),
     store.assetManifest(slug),
   ])
-  return { siteJson, pages, assets }
+  // [[REQ-396]] — a revision freezes what a page SAYS, never how the draft
+  // happens to store it, so decomposing a page is not a change to publish.
+  return { siteJson, pages: pages.map(({ name, page }) => ({ name, page })), assets }
 }
 
 /**

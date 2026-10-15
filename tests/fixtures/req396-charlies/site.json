@@ -1,0 +1,146 @@
+{
+  "id": "site_dbfb5f29fe3c8be5912fa5fdf091dda6",
+  "config": {
+    "businessName": "Charlie's Plumbing - 2",
+    "tagline": "Charlie's Plumbing - 2 — built with 1st Contact"
+  },
+  "theme": {
+    "spacing": {
+      "0": "0",
+      "1": "0.25rem",
+      "2": "0.5rem",
+      "3": "0.75rem",
+      "4": "1rem",
+      "6": "1.5rem",
+      "8": "2rem",
+      "12": "3rem",
+      "16": "4rem",
+      "24": "6rem",
+      "32": "8rem",
+      "48": "12rem",
+      "64": "16rem",
+      "80": "20rem"
+    },
+    "radius": {
+      "none": "0",
+      "sm": "0.125rem",
+      "md": "0.375rem",
+      "lg": "0.5rem",
+      "full": "9999px"
+    },
+    "shadow": {
+      "none": "none",
+      "sm": "0 1px 2px rgba(0,0,0,0.05)",
+      "md": "0 4px 6px rgba(0,0,0,0.1)",
+      "lg": "0 10px 15px rgba(0,0,0,0.1)",
+      "xl": "0 15px 50px rgba(0,0,0,0.55), 0 0 30px rgba(255,255,255,0.12)"
+    },
+    "container": {
+      "sm": "24rem",
+      "md": "28rem",
+      "lg": "32rem",
+      "xl": "36rem",
+      "2xl": "42rem",
+      "3xl": "48rem",
+      "4xl": "56rem",
+      "5xl": "64rem",
+      "6xl": "72rem",
+      "7xl": "80rem",
+      "bleed": "100%"
+    },
+    "breakpoints": {
+      "sm": "640px",
+      "md": "768px",
+      "lg": "1024px",
+      "xl": "1280px"
+    }
+  },
+  "textStyles": {
+    "body": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 17,
+      "fontWeight": 400,
+      "lineHeightPx": 27
+    },
+    "heading": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 32,
+      "fontWeight": 600,
+      "lineHeightPx": 40
+    },
+    "heading-3": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 20,
+      "fontWeight": 600,
+      "lineHeightPx": 28
+    },
+    "small": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 14,
+      "fontWeight": 400,
+      "lineHeightPx": 21
+    },
+    "heading-1": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 44,
+      "fontWeight": 600,
+      "lineHeightPx": 52
+    },
+    "heading-2": {
+      "fontFamily": "Barlow, sans-serif",
+      "fontSizePx": 32,
+      "fontWeight": 600,
+      "lineHeightPx": 40
+    }
+  },
+  "textDefault": "body",
+  "nav": {
+    "pattern": "top-tabs",
+    "entries": []
+  },
+  "palette": {
+    "navy": {
+      "value": "#1a3a52"
+    },
+    "blue": {
+      "value": "#0369a1"
+    },
+    "ink": {
+      "value": "#111827"
+    },
+    "slate": {
+      "value": "#4b5563"
+    },
+    "mist": {
+      "value": "#f1f5f9"
+    },
+    "white": {
+      "value": "#ffffff"
+    },
+    "trade-navy": {
+      "value": "#0f1c2e"
+    },
+    "safety-orange": {
+      "value": "#e8681c"
+    },
+    "light-gray": {
+      "value": "#f3f4f6"
+    },
+    "sand": {
+      "value": "#f5efe4"
+    },
+    "sea-teal": {
+      "value": "#1f6f78"
+    },
+    "deep-teal": {
+      "value": "#134a50"
+    },
+    "coral": {
+      "value": "#e07a5f"
+    },
+    "warm-dark": {
+      "value": "#2f2a26"
+    }
+  },
+  "businessName": "Charlie's Plumbing"
+}
