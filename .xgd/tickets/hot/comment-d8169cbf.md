@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:31:04.290009+00:00'
+updated_at: '2026-10-15T16:31:21.309808+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7366,5 +7366,19 @@ Since you're also going to rework the input area, I'd hold off filing until we'v
 <!-- xgd-chat role="user" ts="2026-10-15T16:31:03.945810+00:00" -->
 #### You
 Skipped is automatically determined. If, for example stage 4 is in progress anything before it (1-3) that is not DONE is SKIPPED - that's it
+
+<!-- xgd-turn id="44346fc4-98fe-47f6-8bf4-5e598d84043c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:31:21.254899+00:00" -->
+#### Claude
+That's simpler and better: skipped is computed when the banner is drawn, not stored. So there's no schema change, no new operation for the consultant, and nothing for her to keep up to date. A stage counts as skipped if it isn't done and comes before the stage in progress.
+
+**One edge case.** When **no** stage is in progress, for example between stages after 5 has been ticked done, your rule has nothing to measure from, so stages 1–4 that were never done would go back to grey. I'd measure from the **furthest stage reached**, meaning in progress or done, so they stay yellow.
+
+A consequence worth knowing: if the consultant goes back to an earlier stage, say reopening 2 while 5 is done, then 3 and 4 still sit before something that's been reached and stay yellow. I think that's honest, because they were passed over.
+
+If you'd rather keep it strictly "before the one in progress", say so. Otherwise I'll write the rule as *"any stage before the furthest stage reached (in progress or done) that isn't done is shown as skipped"*.
+
+I'm still holding the ticket until we've done the input area.
 
 <!-- xgd-chat-end -->
