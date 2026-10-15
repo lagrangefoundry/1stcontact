@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:24:54.960845+00:00'
+updated_at: '2026-10-15T16:31:04.290009+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7360,5 +7360,11 @@ The banner, as I'd specify it:
 This replaces REQ-390's tracker. That ticket is frozen, so this needs a new home.
 
 Since you're also going to rework the input area, I'd hold off filing until we've talked that through and then file **one ticket for the whole panel**, unless you'd rather have the progress banner filed now on its own.
+
+<!-- xgd-turn id="44346fc4-98fe-47f6-8bf4-5e598d84043c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:31:03.945810+00:00" -->
+#### You
+Skipped is automatically determined. If, for example stage 4 is in progress anything before it (1-3) that is not DONE is SKIPPED - that's it
 
 <!-- xgd-chat-end -->
