@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-07T18:02:07.088527+00:00'
+updated_at: '2026-10-15T16:24:23.863389+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7309,5 +7309,23 @@ What the added section asks for:
 - **Two tests:** in one-to-one mode the line contains "Your consultant" and neither configured name; in group-chat mode it still shows the configured name.
 
 As with the rest of BUG-205, the code gets written in that ticket's own session.
+
+<!-- xgd-turn id="0dab757e-a7b9-4e77-8e98-ac3639a23558-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:24:23.803053+00:00" -->
+#### You
+We need to talk about the progress and input pannel. Its a but jumbled right now.
+
+Lets work on progress first. Right now we have a list of what look like radio buttons that are in a single wrapping line. It is not obviously a progress indicator. 
+
+I would like to try this:
+
+Progress: 1 | 2 | 3. Refining | 4 | 5 |...
+
+A series of stages colored grey (not yet got to it) green (done) blue and expanded (currently working on - can go green when done), yellow - skipped.
+
+The user can mouse over a section number or the expanded section to get an explanation of what the task is called and what it is - also the nmouse over should show the state in words - not started | done |in progress | skipped.
+
+This should be a banner that takes a sinle gline across the full width of the tp of the panel and does notscroll away
 
 <!-- xgd-chat-end -->
