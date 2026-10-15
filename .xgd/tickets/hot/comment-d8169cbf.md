@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:34:08.440880+00:00'
+updated_at: '2026-10-15T16:44:32.167499+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7423,5 +7423,23 @@ What it asks for:
 - **Tests** cover the three skipped cases and check the stored plan never contains a skipped state.
 
 It replaces REQ-390's tracker. The input area is explicitly out of scope, ready for when we talk it through.
+
+<!-- xgd-turn id="ffe75288-9bfe-4a9c-aef6-6d8564590e94-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:44:32.021582+00:00" -->
+#### You
+Next, lets discuss this: Which of these does your site need?
+
+So we build what you need and can tell when the site is finished.
+
+ A contact form Click-to-call phone number Booking or appointment requests Quote requests Customer reviews Photos of past work Areas you cover Prices or a price list Opening hours Frequently asked questions Newsletter signup Online payments News or blog posts
+
+This is a total mish mash. My intention here had been that we ask about functional modules, now in fairness what we have here is better in some ways, it is closer to what a user might understand but there are several aspects that are troubling:
+
+1) it is very plumber specific right now - we need to refine the list, I suspect that the list should be customised by the AI for the type of site
+
+2) It feels like a lot to ask the user with no context - this pops up at the start before the user or AI has even said anything without any explanation. It should appear as an ask from the AI. - this also relates to our initial user experience - the conversation should be started by the AI not by the user.
+
+3) the options need to be more disciplined I think "News or blog posts" <-- feels like these are very different from a functional point of view - I'm actually now sure what "news" is: email newsletter? a live (and expiring) feed of updates?
 
 <!-- xgd-chat-end -->
