@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-07T17:10:52.694874+00:00'
+updated_at: '2026-10-15T16:34:00.461670+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2163,3 +2163,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[BUG-205]]** (2026-10-07): looks review after REQ-391. The carousel lives on the existing toolbar and lights up when a page has looks, with no separate mode. The current draft is one position in the carousel. The 'Choose this one' button is removed, because choosing happens in conversation through the consultant's existing `choose_look`. The Page selector never lists a look. The legacy `heavy`/`family` pages on Charlie 3 get removed.
+
+
+
+- **[[REQ-398]]** (2026-10-15): the plan panel's stage tracker becomes a one-line progress banner, pinned to the top of the panel. Stages show as numbers coloured grey (not started), green (done), blue and expanded (in progress) and yellow (skipped). Skipped is never stored: if stage N is done or in progress, every stage from 1 to N−1 that isn't done is shown as skipped. Hovering a stage explains it, using one sentence per stage in plan-seed.json. This replaces REQ-390's tracker. The input area is still to be discussed.
