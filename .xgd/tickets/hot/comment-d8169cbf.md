@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:44:32.167499+00:00'
+updated_at: '2026-10-15T16:45:17.856994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7441,5 +7441,45 @@ This is a total mish mash. My intention here had been that we ask about function
 2) It feels like a lot to ask the user with no context - this pops up at the start before the user or AI has even said anything without any explanation. It should appear as an ask from the AI. - this also relates to our initial user experience - the conversation should be started by the AI not by the user.
 
 3) the options need to be more disciplined I think "News or blog posts" <-- feels like these are very different from a functional point of view - I'm actually now sure what "news" is: email newsletter? a live (and expiring) feed of updates?
+
+<!-- xgd-turn id="ffe75288-9bfe-4a9c-aef6-6d8564590e94-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:45:16.663822+00:00" -->
+#### Claude
+I agree on all three. Underneath them is one problem: the list mixes three different kinds of thing.
+
+| Kind | Items | Who should decide |
+|---|---|---|
+| **Things the site does** — machinery we build and run | contact form, quote requests, booking, newsletter signup, online payments, blog | **the client**: only they know what their business needs |
+| **Things the site says** — sections of content | reviews, photos of past work, areas covered, prices, hours, FAQ | **the consultant**, from the comps and the trade: a plumber's site has areas covered and hours as a matter of course |
+| **Not a choice at all** | click-to-call | always yes when there's a phone number |
+
+Only the first kind belongs in this question. It's also the only kind that tells us when the site is finished, because each item is something we build and test. Content sections are just page structure, which the comps conversation already decides.
+
+**1. Making it fit the business.** I'd keep a fixed underlying list and let the consultant tailor how it's presented:
+- **The list stays fixed** because each entry has to map to something the platform can actually build and test. If the AI invented options, we'd offer "a members' area" we don't have, and "finished" would stop meaning anything.
+- **The consultant tailors it**: she leaves out what doesn't apply (no online payments for a solicitor), ticks the likely ones in advance from what she's learned ("Quote requests" for a plumber), and words each option in the client's terms ("Patients can book an appointment").
+- **A "Something else?" line** catches needs we don't cover. Those become a request to us rather than something she promises.
+
+**2. When it appears.** It shouldn't be seeded when the plan is created. The consultant raises it once she has some context, typically after "tell me about the business" and before the comps, with one line in the chat: *"Before I build anything — a few things the site might need to do; I've ticked the ones I'd expect for a plumber, change anything that's wrong."* It then appears on the panel already tailored.
+
+This depends on your second point: **the consultant should speak first.** When a new business is opened, the host should start an opening turn with no client message, so she introduces herself and starts the conversation. It's a small host change, and I'd put it in the same ticket, since the two only work together.
+
+**3. A disciplined list.** Each option is one capability with one behaviour:
+- **Visitors can send you a message** (contact form)
+- **Visitors can ask for a quote**: a form with job details and photos
+- **Visitors can book or request an appointment**
+- **Visitors can pay online**
+- **Visitors can sign up to your email newsletter**
+- **You publish articles over time** (a blog)
+- **You post short notices that expire**, for example *"Closed 24–26 Dec"* or *"Booked up until March"*
+
+"News" splits three ways: the newsletter is email, the blog is lasting articles, and notices are short-lived announcements. For a small business the third is probably the most useful of the three, and it's what most owners mean by "news".
+
+**One decision for you.** Today the framework has a contact form and an account portal, and I'm not sure what else it can build yet. Should the list show:
+- **only what we can build today**, so it's honest about what you'll get; or
+- **everything a client might reasonably need**, with the unbuilt ones still asked about, so we learn what clients want and the consultant says plainly "that's not something we offer yet"?
+
+I lean towards the second, as long as nothing unbuilt is ever promised, because the answers show us what to build next. Tell me which, and I'll write it up as one ticket covering the new list, the consultant raising the question, and the consultant opening the conversation.
 
 <!-- xgd-chat-end -->
