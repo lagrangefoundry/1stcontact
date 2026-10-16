@@ -6,10 +6,10 @@ title: 'Features question: functional capabilities only, tailored and raised by 
   consultant, who opens the conversation'
 created_by: EPIC-19
 created_at: '2026-10-15T16:48:49.453288+00:00'
-updated_at: '2026-10-16T18:43:10.573716+00:00'
+updated_at: '2026-10-16T18:59:08.482154+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
