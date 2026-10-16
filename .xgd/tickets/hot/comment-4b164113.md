@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-164
 created_by: xgd
 created_at: '2026-09-30T23:20:02.122176+00:00'
-updated_at: '2026-09-30T23:20:03.233274+00:00'
+updated_at: '2026-10-16T18:59:22.802497+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -133,5 +133,18 @@ I fixed Item 1 (the `stacked` exemption) and left Items 2 and 3 for later. BUG-1
 - Story points: 3. The body describes the final behaviour, the bundle results and the test plan.
 
 **Not cleaned up:** `xgd branch clean BUG-164` refused because the `xgd-working` merge lock is now held by REQ-349's session. The `free-BUG-164` branch and worktree are fully merged. Run `xgd branch clean BUG-164` once that lock is released.
+
+<!-- xgd-turn id="addca55a-3def-471a-8d87-1d1266c32183-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-16T18:59:22.141008+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-164` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-164`
+- branch HEAD: `52827e75e2ee5335a28072c3a94aea2b0a9d43c1`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
