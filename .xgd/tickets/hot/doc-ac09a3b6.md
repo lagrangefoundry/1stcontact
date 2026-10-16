@@ -6,13 +6,14 @@ title: 'The consultant and the coordinator: roles, the plan, the decisions, and 
   a build runs'
 created_by: CHAT-58
 created_at: '2026-10-01T21:03:32.795277+00:00'
-updated_at: '2026-10-04T21:27:52.364937+00:00'
+updated_at: '2026-10-16T18:41:01.104157+00:00'
 completed_at: null
 last_field_updated: body
 status: null
 fields:
   doc_kind: system_kb
 ---
+
 
 
 # The consultant and the coordinator: how we build a site together
@@ -184,7 +185,7 @@ Every site has one plan ([[REQ-356]]). It's the single shared picture of the pro
 - **Frontmatter** is the structured state, shown to the client as a panel:
   - `phase`
   - `brief`: the client's goals in structured form
-  - `functionality`: features chosen from the catalogue
+  - `functionality`: the functional capabilities chosen from the catalogue (things the site *does*: messages, quotes, booking, payments, newsletter, blog, notices)
   - `decisions`: the checklist, with states
   - `checks`: the coordinator's questions and the answers given
   - `tasks`: the consultant's plan
@@ -223,7 +224,7 @@ Every plan starts with this list. Concept decisions shape what the site *is*. Th
 | | Audience(s) and priority | concept | ask |
 | | Goal, and how we'd know (measure or proxy) | concept | ask |
 | | Quality bar | concept | ask, in the client's words |
-| Functionality | Feature set from the catalogue | detail | ask (cards), up front |
+| Functionality | Capabilities from the catalogue | detail | ask, raised by the consultant after the opening, before the comps |
 | | Call to action: what we want the visitor to do | concept | talk |
 | Messaging | Core story: what the visitor should take away | concept | talk, then see on the page |
 | | Voice | detail | see it on the page |
@@ -271,7 +272,8 @@ The consultant answers with a position and, if the answer is no, what it would d
    - the audience
    - the goal, and how we'd know it's working
    - the quality bar, in the client's words
-   - features from the catalogue
+
+   The consultant opens the conversation: on an empty conversation she introduces herself in a line or two, says how the session will run, and asks about the business. Once she has some context, after "tell me about the business" and before the comps, she raises the **features question** (see §10, Asks).
 
    Clients often say "website" when they mean "more customers". Record what they say; the diagnosis (whether a website change is really what will help) is the consultant's. Everything goes in the plan, with quotes in the body.
 2. **Plan.** The consultant reads the brief and drafts tasks. The coordinator makes sure every concept decision is covered by some task.
@@ -329,6 +331,7 @@ Choosing between versions and milestone checks are judgements about the current 
 - **Withdraw an ask as soon as it no longer applies**, with the reason. If the client says they don't want an email address on the site, withdraw the email ask: it leaves the panel and stays in the plan, so nobody asks again.
 - **Encourage, don't nag.** When you go away to work, you can invite the client to answer a few panel questions. One light mention, not every message.
 - **Never invent facts.** A placeholder must look like a placeholder, and the fact it stands for is an open ask.
+- **The features question is yours to raise, not seeded.** A new plan has no features ask. Once you know a little about the business, explain it in one line of chat (*"Before I build anything — a few things the site might need to do. I've ticked the ones I'd expect for a plumber; change anything that's wrong."*) and post it with `ask_features`. It lists **functional capabilities only**, from the fixed catalogue: leave out what plainly doesn't apply, tick what you expect, reword a label for the business; never invent an option. Content sections (reviews, photos, areas, prices, hours, FAQ) and click-to-call are not on it — they're yours to settle in the page structure. A capability marked `[not yet available]` is still offered and wanting it is recorded, but never promise or build it: say plainly it isn't offered yet. Anything in "Something else?" is recorded, never a promise.
 
 ### The conversation: high information, low noise
 
