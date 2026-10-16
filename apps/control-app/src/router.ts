@@ -85,7 +85,17 @@ import { handleLead, type LeadEnv as LeadRequestEnv } from '../../public-site/sr
 import { captureLead, type LeadEnv as LeadIntakeEnv, type LeadSubmission } from './lead'
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
-import type { SiteStore } from '../../../tools/generate/src/store/site-store'
+import { StoreConflictError, type SiteStore } from '../../../tools/generate/src/store/site-store'
+import { elementLease, leasedStore, leasesOf } from '../../../tools/generate/src/store/leased-store'
+import { d1Leases } from '../../../tools/generate/src/store/d1-leases'
+import {
+  CLIENT_HOLDER,
+  DraftFileRefusal,
+  asWriter,
+  describeHolder,
+  heldSince,
+  type DraftLeases,
+} from '../../../tools/generate/src/store/leases'
 import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-site'
 import {
   openBusinessSession,
@@ -1245,6 +1255,11 @@ export function addressesFor(
 export interface RouterDeps {
   /** The store this request reads and writes through. */
   store?: (env: RouterEnv, scope: Scope) => Promise<TenantSiteStore>
+  /**
+   * [[REQ-397]] — where draft-file leases are kept. Absent is D1, beside the
+   * store; the `1c` builder, which has no D1, passes its process's own table.
+   */
+  leases?: DraftLeases
   /**
    * The delivery width ladder `/api/publish` builds ([[REQ-222]]).
    *
@@ -2641,7 +2656,10 @@ async function panelWithMaterial(
  * is hoisted to one declaration. See `withPictureDoor`.
  */
 async function openSiteStore(deps: RouterDeps, env: RouterEnv, scope: Scope): Promise<TenantSiteStore> {
-  return withPictureDoor(await (deps.store ?? storeFor)(env, scope), env, scope)
+  // [[REQ-397]] — and every draft write leased: refused on a file a builder
+  // holds, and compare-and-set per file. Here for the cap's reason: one opener.
+  const store = leasedStore(await (deps.store ?? storeFor)(env, scope), deps.leases ?? d1Leases(env.DB))
+  return withPictureDoor(store, env, scope)
 }
 
 /**
@@ -2769,7 +2787,13 @@ export async function route(
   deps: RouterDeps = {},
   ctx?: RouteContext,
 ): Promise<Response> {
-  return uncacheable(await routeUncached(request, env, scope, deps, ctx))
+  // [[REQ-397]] — A WRITE ARRIVING ON A ROUTE IS THE CLIENT'S OWN HAND, unless a
+  // session inside it says otherwise (each AI tool call runs as its session).
+  // It takes a brief lease on what it touches and is refused, 409, on a file a
+  // builder holds.
+  return uncacheable(
+    await asWriter({ holder: CLIENT_HOLDER, scope: null }, () => routeUncached(request, env, scope, deps, ctx)),
+  )
 }
 
 async function routeUncached(
@@ -5680,6 +5704,28 @@ async function routeUncached(
      * the box. Nothing is caught here, because catching it would be the second
      * opinion this route exists not to have.
      */
+    /**
+     * GET /api/leases?site= — which draft files are held, by whom, since when
+     * ([[REQ-397]]). The read the operator and the client see running builders
+     * through; the build's status line carries the same facts as it runs.
+     */
+    if (p === '/api/leases' && method === 'GET') {
+      const site = url.searchParams.get('site') ?? ''
+      if (site === '') return json(400, { error: 'site is required' })
+      const store = await openStore()
+      if (!(await store.hasDraft(site))) return json(404, { error: 'no such site' })
+      const held = (await leasesOf(store)?.held(site)) ?? []
+      return json(200, {
+        leases: held.map((lease) => ({
+          file: lease.file,
+          holder: lease.holder,
+          who: describeHolder(lease.holder),
+          since: lease.acquiredAt,
+          expires: lease.expiresAt,
+        })),
+      })
+    }
+
     if (p === '/api/pages/subject' && method === 'POST') {
       const body = await readJsonBody(request)
       const site = typeof body.site === 'string' ? body.site : ''
@@ -6625,7 +6671,13 @@ async function routeUncached(
           ? (got.fields as Array<Record<string, unknown>>).some((f) => f.format === 'image')
           : false
       const pictures = pickable ? await pickerCatalogue(site) : null
-      return json(200, pictures ? { ...got, pictures } : got)
+      // [[REQ-397]] — A SECTION A BUILDER IS WORKING ON SAYS SO before the form
+      // opens, rather than offering a Save the store will refuse.
+      const lease = await elementLease(await openStore(), site, page, addr, Boolean(get('module')))
+      const busy = lease
+        ? { file: lease.file, holder: describeHolder(lease.holder), since: lease.acquiredAt, line: `${describeHolder(lease.holder)} is working on this ${heldSince(lease.acquiredAt)}.` }
+        : null
+      return json(200, { ...got, ...(pictures ? { pictures } : {}), ...(busy ? { busy } : {}) })
       }
 
       if (method === 'POST') {
@@ -7028,6 +7080,20 @@ async function routeUncached(
 
     if (err instanceof CommandError) {
       return json(400, { error: scrub(err.message), ...err.toEnvelope() })
+    }
+    // [[REQ-397]] — A FILE SOMEBODY ELSE HOLDS, OR ONE THAT CHANGED UNDER THE
+    // EDIT, is a conflict with the state of the draft and not a bad request: 409,
+    // carrying who holds it and since when, which is what the editor shows.
+    if (err instanceof DraftFileRefusal) {
+      return json(409, {
+        error: scrub(err.message),
+        code: err.code,
+        file: err.file,
+        ...(err.holder !== null ? { holder: describeHolder(err.holder), since: err.since } : {}),
+      })
+    }
+    if (err instanceof StoreConflictError) {
+      return json(409, { error: scrub(err.message), code: 'STORE_CONFLICT' })
     }
     // A draft that does not validate is the AUTHOR'S error, like a rejected
     // change map — 400, carrying the path-pointed errors so the toolbar can say

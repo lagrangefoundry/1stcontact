@@ -16,6 +16,7 @@ import type { PlatformFontIndex } from './ai/platform-fonts'
 import { devUrl } from './dev-env'
 import { resolveStaticFile } from './static-file'
 import { contentTypeOf } from '../store/content-type'
+import { localLeases } from '../store/leases'
 
 /**
  * The builder's **Node transport** (REQ-145).
@@ -138,6 +139,9 @@ function depsFor(ctx: StoreContext): RouterDeps {
   }
   return {
     store,
+    // [[REQ-397]] — no D1 here, so this workspace's in-process lease table, the
+    // same one the `1c` assistant on this workspace writes through.
+    leases: localLeases(key),
     /**
      * THIS TRANSPORT CANNOT SAY WHERE A SITE IS REACHED, AND SAYS SO
      * ([[REQ-238]]).

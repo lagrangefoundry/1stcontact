@@ -68,6 +68,10 @@ export interface DelegationSettings {
    * {@link DEFAULT_PROGRESS_SECONDS}.
    */
   readonly progressSeconds: number
+  /** [[REQ-397]] — how many builders may run at once, where the framework can. */
+  readonly maxConcurrent: number
+  /** [[REQ-397]] — how long a builder's draft-file leases outlive its last act. */
+  readonly leaseIdleSeconds: number
   readonly workers: Readonly<Record<string, WorkerSettings>>
 }
 
@@ -77,6 +81,12 @@ export interface DelegationSettings {
  * hour says so thirty times rather than leaving the client looking at silence.
  */
 export const DEFAULT_PROGRESS_SECONDS = 60
+
+/** [[REQ-397]] — builders that may run at once when `max_concurrent` is absent. */
+export const DEFAULT_MAX_CONCURRENT = 3
+
+/** [[REQ-397]] — a builder's lease idle period when `lease_idle_seconds` is absent. */
+export const DEFAULT_LEASE_IDLE_SECONDS = 300
 
 /** A delegation document was malformed, or bound a role to a backend nobody declares. */
 export class DelegationConfigError extends Error {
@@ -149,6 +159,25 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
     )
   }
   const progressSeconds = rawProgress ?? DEFAULT_PROGRESS_SECONDS
+  const rawConcurrent = mapping.max_concurrent
+  if (rawConcurrent !== undefined && (!Number.isInteger(rawConcurrent) || (rawConcurrent as number) < 1)) {
+    throw new DelegationConfigError(
+      `delegation 'max_concurrent' must be a whole number of builders, 1 or more, got ` +
+        `${JSON.stringify(rawConcurrent)}`,
+    )
+  }
+  const maxConcurrent = (rawConcurrent as number | undefined) ?? DEFAULT_MAX_CONCURRENT
+  const rawIdle = mapping.lease_idle_seconds
+  if (
+    rawIdle !== undefined &&
+    (typeof rawIdle !== 'number' || !Number.isFinite(rawIdle) || rawIdle <= 0)
+  ) {
+    throw new DelegationConfigError(
+      `delegation 'lease_idle_seconds' must be a number of seconds above 0, got ` +
+        `${JSON.stringify(rawIdle)}`,
+    )
+  }
+  const leaseIdleSeconds = rawIdle ?? DEFAULT_LEASE_IDLE_SECONDS
   const rawWorkers = mapping.workers ?? {}
   if (rawWorkers === null || typeof rawWorkers !== 'object' || Array.isArray(rawWorkers)) {
     throw new DelegationConfigError(
@@ -190,7 +219,14 @@ export function delegationFromMapping(data: unknown): DelegationSettings {
     }
     workers[role] = Object.freeze({ backend })
   }
-  return Object.freeze({ enabled, primaryWrites, progressSeconds, workers: Object.freeze(workers) })
+  return Object.freeze({
+    enabled,
+    primaryWrites,
+    progressSeconds,
+    maxConcurrent,
+    leaseIdleSeconds,
+    workers: Object.freeze(workers),
+  })
 }
 
 /** The consumer's document, once installed. `null` means "the bundled one". */

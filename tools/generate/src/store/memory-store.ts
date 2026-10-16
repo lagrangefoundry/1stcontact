@@ -19,7 +19,7 @@ import type {
   SiteWrite,
   StoredPage,
 } from './site-store'
-import { MissingContentError } from './site-store'
+import { MissingContentError, StoreConflictError } from './site-store'
 import { assemblePage, isFrame, planPageWrite, planSectionWrite, type PageRecord, type PagePlan } from './sections'
 
 /**
@@ -263,6 +263,12 @@ export function memorySiteStore(): MemorySiteStore {
       assertWritableAssetNames(change.assets)
       assertWritableAssetNames(change.assetRefs)
       const found = require(slug)
+      // [[REQ-397]] — THE COMPARE-AND-SET, honoured here because it can be: this
+      // adapter is one process with no await between the check and the first
+      // write below, so nothing can land in between.
+      if (change.expect !== undefined && found.revision !== change.expect) {
+        throw new StoreConflictError(slug, change.expect, found.revision)
+      }
       if (change.siteJson !== undefined) found.siteJson = copy(change.siteJson)
       // [[REQ-396]] — planned before anything is applied, so a refused section
       // write leaves the site exactly as it was.

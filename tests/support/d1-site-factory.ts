@@ -209,8 +209,12 @@ const MIGRATIONS = [
   // [[REQ-396]] — `site_page_sections`, one row per section of a page stored as
   // a frame plus sections. The store reads it on every page read, so a suite
   // that skipped this file would fail on the first `readPages`.
-  // LAST IN THE LIST, which is what `atHead` below asks about.
   () => import('../../db/migrations/0028_page_sections.sql?raw'),
+  // [[REQ-397]] — `draft_leases`, who holds which draft file. Every draft write
+  // through the Worker's store checks it, so a suite that skipped this file
+  // would fail on the first write.
+  // LAST IN THE LIST, which is what `atHead` below asks about.
+  () => import('../../db/migrations/0029_draft_leases.sql?raw'),
 ]
 
 /**
@@ -333,10 +337,10 @@ export async function applySchema(): Promise<void> {
  */
 async function atHead(): Promise<boolean> {
   const { DB } = storeEnv()
-  // `0028` is a `CREATE TABLE`, so the marker is its `sqlite_master` row
-  // ([[REQ-396]]).
-  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?")
-    .bind('site_page_sections')
+  // `0029` ends with a `CREATE INDEX`, so the marker is that index's
+  // `sqlite_master` row ([[REQ-397]]).
+  const row = await DB.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+    .bind('draft_leases_holder')
     .first<{ name: string }>()
   return row !== null
 }

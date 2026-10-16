@@ -255,10 +255,10 @@ describe('REQ-342 — a deployment that commissions nothing is told nothing', ()
       primingDocument.templates['delegation-method'].replace(
         '{framing}',
         primingDocument.templates['delegation-method-commissioning'],
-      ),
+      ).replace('{parallel}', primingDocument.templates['delegation-serial']),
     )
     expect(await bind(true).get(DELEGATION_REMINDER_PROVIDER)({})).toBe(
-      primingDocument.templates['delegation-reminder'],
+      primingDocument.templates['delegation-reminder'].replace('{parallel}', primingDocument.templates['delegation-reminder-serial']),
     )
   })
 

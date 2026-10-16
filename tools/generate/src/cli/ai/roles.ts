@@ -918,6 +918,17 @@ export function registerSiteProviders(
      * the grant come from one decision.
      */
     writing?: boolean
+    /**
+     * [[REQ-397]] — whether builders declare the files they write, and so whether
+     * the consultant is taught files, scopes and decomposition. A value for
+     * {@link delegating}'s reason. Defaults to false: today's prose.
+     */
+    files?: boolean
+    /**
+     * [[REQ-397]] — how many builders may run at once. 1 (the default) says one
+     * at a time; above 1 states the overlap rules with this cap.
+     */
+    parallel?: number
     /** The framework's group-member framing, where this business runs a room ([[REQ-357]]). */
     room?: string | null
   },
@@ -925,14 +936,14 @@ export function registerSiteProviders(
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
   providers.register(GROUP_ROOM_PROVIDER, async () => groupRoomFraming(binding.room ?? null))
   providers.register(DELEGATION_METHOD_PROVIDER, async () =>
-    delegationMethod(binding.delegating === true, binding.writing === true),
+    delegationMethod(binding.delegating === true, binding.writing === true, binding.files === true, binding.parallel ?? 1),
   )
   // [[REQ-342]] — THE SAME FACT, BOUND TWICE, because the method is stated in the
   // cached prefix and repeated in the per-turn tail. One binding site and one
   // flag, so the two entries cannot come to disagree about whether this
   // deployment commissions anything.
   providers.register(DELEGATION_REMINDER_PROVIDER, async () =>
-    delegationReminder(binding.delegating === true, binding.writing === true),
+    delegationReminder(binding.delegating === true, binding.writing === true, binding.files === true, binding.parallel ?? 1),
   )
   providers.register(SITE_LINE_PROVIDER, async () => siteLine(binding.slug))
   providers.register(SITE_CHANGES_PROVIDER, async () => changeSignal(binding.signal()))
@@ -1532,11 +1543,31 @@ export function toolTranscriptNote(): string {
  * missing altogether, the framing that arrives is the shipped one rather than a
  * fourth state nobody deployed.
  */
-export function delegationMethod(delegating: boolean, writing = false): string | null {
+export function delegationMethod(
+  delegating: boolean,
+  writing = false,
+  files = false,
+  parallel = 1,
+): string | null {
   if (!delegating) return null
   return fill(template('delegation-method'), {
     framing: template(writing ? 'delegation-method-choosing' : 'delegation-method-commissioning'),
+    parallel: parallelMethod(files, parallel),
   })
+}
+
+/**
+ * [[REQ-397]] — what may run at once, in the method's words. Serial is today's
+ * paragraph exactly and is all a host without scoped builders says; with scopes
+ * the files and decomposition come first; overlap is stated only where builders
+ * genuinely run together, so the consultant never promises parallel work that
+ * will not happen.
+ */
+function parallelMethod(files: boolean, parallel: number): string {
+  if (!files) return template('delegation-serial')
+  const when =
+    parallel > 1 ? fill(template('delegation-parallel'), { cap: parallel }) : template('delegation-serial')
+  return `${template('delegation-files')}\n\n${when}`
 }
 
 /**
@@ -1550,9 +1581,19 @@ export function delegationMethod(delegating: boolean, writing = false): string |
  * framing that leaves it its hands ([[REQ-343]]). There is no state in which one
  * without the other, or one framing against the other's grant, would be true.
  */
-export function delegationReminder(delegating: boolean, writing = false): string | null {
+export function delegationReminder(
+  delegating: boolean,
+  writing = false,
+  files = false,
+  parallel = 1,
+): string | null {
   if (!delegating) return null
-  return template(writing ? 'delegation-reminder-choosing' : 'delegation-reminder')
+  const when = !files
+    ? template('delegation-reminder-serial')
+    : parallel > 1
+      ? fill(template('delegation-reminder-parallel'), { cap: parallel })
+      : template('delegation-reminder-files')
+  return fill(template(writing ? 'delegation-reminder-choosing' : 'delegation-reminder'), { parallel: when })
 }
 
 /**

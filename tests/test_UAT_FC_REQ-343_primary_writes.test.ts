@@ -245,7 +245,7 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
       templates['delegation-method'].replace(
         '{framing}',
         templates['delegation-method-commissioning'],
-      ),
+      ).replace('{parallel}', templates['delegation-serial']),
     )
     // The framing that would be false is GONE, not merely outweighed: a session
     // holding no write group told that building is one of two ways work can happen
@@ -269,7 +269,7 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
     const rendered = await (await bind(true, true)).get(DELEGATION_METHOD_PROVIDER)({})
     const templates = primingDocument.templates as Record<string, string>
     expect(rendered).toBe(
-      templates['delegation-method'].replace('{framing}', templates['delegation-method-choosing']),
+      templates['delegation-method'].replace('{framing}', templates['delegation-method-choosing']).replace('{parallel}', templates['delegation-serial']),
     )
     expect(rendered).toContain('choosing between them is yours')
     expect(rendered).not.toContain('commissioned here, not performed')
@@ -282,11 +282,11 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
     // flip-back.
     const templates = primingDocument.templates as Record<string, string>
     const shipped = await (await bind(true, false)).get(DELEGATION_REMINDER_PROVIDER)({})
-    expect(shipped).toBe(templates['delegation-reminder'])
+    expect(shipped).toBe(templates['delegation-reminder'].replace('{parallel}', templates['delegation-reminder-serial']))
     expect(shipped).toMatch(/commissioned, not performed/i)
 
     const flipped = await (await bind(true, true)).get(DELEGATION_REMINDER_PROVIDER)({})
-    expect(flipped).toBe(templates['delegation-reminder-choosing'])
+    expect(flipped).toBe(templates['delegation-reminder-choosing'].replace('{parallel}', templates['delegation-reminder-serial']))
     expect(flipped).not.toMatch(/not performed/i)
 
     // And off is still off on both halves, whichever way the second key is set.
@@ -312,9 +312,9 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
       templates['delegation-method'].replace(
         '{framing}',
         templates['delegation-method-commissioning'],
-      ),
+      ).replace('{parallel}', templates['delegation-serial']),
     )
-    expect(delegationReminder(true)).toBe(templates['delegation-reminder'])
+    expect(delegationReminder(true)).toBe(templates['delegation-reminder'].replace('{parallel}', templates['delegation-reminder-serial']))
   })
 
   it('test_UAT_FC_REQ-343_the_two_framings_share_one_body', () => {

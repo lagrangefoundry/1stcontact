@@ -139,6 +139,18 @@ export function mountEditor(doc, options = {}) {
       openModal({ kind: 'error', host, message: err.message, hint: err.hint })
       return
     }
+    // [[REQ-397]] — A BUILDER HOLDS THIS SECTION. Saying so here, instead of
+    // opening a form whose Save the origin would refuse, is the whole of what the
+    // client needs: it is being worked on, by whom, since when.
+    if (loaded.busy) {
+      openModal({
+        kind: 'message',
+        host,
+        title: 'Being worked on',
+        message: `${loaded.busy.line} You can edit it once that work has finished.`,
+      })
+      return
+    }
     if (!loaded.fields.length) {
       openModal({
         kind: 'message',

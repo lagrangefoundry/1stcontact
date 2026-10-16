@@ -34,6 +34,8 @@ import path from 'node:path'
 import type { GlobalOptions } from '../commands'
 import { ctxOf } from '../commands'
 import { fsSiteStore } from '../../store'
+import { leasedStore } from '../../store/leased-store'
+import { localLeases } from '../../store/leases'
 import { sharedModuleUrl } from '../webui'
 import { openKnowledgeRuntime, SYSTEM_KB } from '../kb'
 import { nodeOperations, fileAuditSink } from './toolbox'
@@ -158,7 +160,10 @@ function nodeFidelityDeps(slug: string, opts: GlobalOptions, origin: string): Fi
 
 async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
   const lib = await ai()
-  const store = fsSiteStore(ctxOf(opts))
+  // [[REQ-397]] — leased like the Worker's, against this workspace's
+  // in-process table (shared with the `1c` builder's routes).
+  const ctx = ctxOf(opts)
+  const store = leasedStore(fsSiteStore(ctx), localLeases(`${ctx.cwd} ${ctx.root}`))
   const dir = sessionsDir(opts)
   const knowledge = await openKnowledge()
 

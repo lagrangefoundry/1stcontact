@@ -170,6 +170,7 @@ import {
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
+import { concurrentSupported, draftClaims, scopeSupported, withHeldFiles } from './lease-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -1410,7 +1411,13 @@ function webSearchFor(lib: Untyped): Record<string, unknown> {
   }
 }
 
-function toolSet(lib: Untyped, box: Untyped): Untyped[] {
+function toolSet(
+  lib: Untyped,
+  box: Untyped,
+  // [[REQ-397]] — how each call runs: as which writer of draft files. One store
+  // serves every session on a site, so who is writing is a fact about the call.
+  around: (<T>(run: () => Promise<T>) => Promise<T>) | null = null,
+): Untyped[] {
   const schemas = box.schemas() as Record<
     string,
     { description: string; properties: Record<string, unknown>; required: string[] }
@@ -1421,7 +1428,8 @@ function toolSet(lib: Untyped, box: Untyped): Untyped[] {
         name,
         spec.description,
         { properties: spec.properties, required: spec.required },
-        (input: Record<string, unknown>) => runTool(box, name, input),
+        (input: Record<string, unknown>) =>
+          around ? around(() => runTool(box, name, input)) : runTool(box, name, input),
       ),
   )
 }
@@ -1635,6 +1643,10 @@ async function build(
       )
     : null
 
+  // [[REQ-397]] — ONE AGENT PER DRAFT FILE. Null where the store is not leased,
+  // which leaves every write as it was. See `lease-core.ts`.
+  const claims = draftClaims(deps.store, slug, delegation.leaseIdleSeconds * 1000)
+
   const runtime =
     worker && workerSettings
       ? new lib.DelegationRuntime({
@@ -1656,13 +1668,18 @@ async function build(
             [BUILDER_ROLE]: new lib.WorkerConfig({
               backend: workerSettings.backend,
               surfaces: worker.surfaces,
+              // [[REQ-397]] — THE FILES THE BUILDER DECLARED, LEASED BEFORE IT
+              // OPENS. A file somebody else holds refuses the delegation as
+              // `scope_held`, with no session and no spend; the release runs in
+              // the framework's `finally` whatever ended the run.
+              ...(claims ? { claim: claims.claim } : {}),
               // ONLY THE HOST KNOWS HOW TO BUILD AN ADAPTER, which is why this is
               // a callback at all. The toolbox handed over is the FRAMEWORK'S —
               // composed from the surfaces above plus its own report operation,
               // and granted from the builder role's `tools` — so the worker's
               // authority is settled before this runs and nothing here can widen
               // it.
-              build: ({ toolbox, backend }: { toolbox: Untyped; backend: string }) => {
+              build: ({ toolbox, backend, session }: { toolbox: Untyped; backend: string; session: string }) => {
                 auditWorker(toolbox, deps.audit ?? null)
                 // GUARDED AGAINST ITS OWN WINDOW ([[REQ-296]]). The ceiling is
                 // read off the instance, and the instance reads its settings
@@ -1681,7 +1698,7 @@ async function build(
                   // `claude_builder` entry the thing that decides the model and
                   // the ceiling.
                   name: backend,
-                  tools: toolSet(lib, toolbox),
+                  tools: toolSet(lib, toolbox, claims ? claims.worker(session) : null),
                 }))
               },
             }),
@@ -2089,7 +2106,11 @@ async function build(
               // the environment and an absent key still fails at FIRST USE with the
               // library's own message rather than at construction.
               ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
-              tools: toolSet(lib, box),
+              // [[REQ-397]] — the consultant's writes are implicit leases, refused
+              // on a file a builder holds; and up to `max_concurrent` builders it
+              // commissions in one reply run together where the framework can.
+              tools: toolSet(lib, box, claims ? claims.consultant(sessionIdFor(slug)) : null),
+              ...(runtime ? { maxConcurrentTools: delegation.maxConcurrent } : {}),
               ...webSearchFor(lib),
             }),
             cadenceHooks(deps, slug),
@@ -2148,6 +2169,16 @@ async function build(
     // match: prose weighing handing work over against doing it itself, read by a
     // session that holds no write group, is prose about a tool it has not got.
     writing: consultantGrant === null,
+    // [[REQ-397]] — WHETHER IT IS TAUGHT FILES AND SCOPES, and how many builders
+    // may overlap. Files only where a builder's scope is actually enforced: the
+    // installed Delegate takes one and this store is leased. Overlap only where
+    // the installed framework runs Delegate calls together; otherwise it is told
+    // builders run one at a time, whatever `max_concurrent` says.
+    files: runtime !== null && claims !== null && scopeSupported(lib),
+    parallel:
+      runtime !== null && claims !== null && scopeSupported(lib) && concurrentSupported(lib)
+        ? delegation.maxConcurrent
+        : 1,
     // [[REQ-285]] — THE PAGE ARRIVES WITH THE TURN. Built once per manager and
     // DERIVED AFRESH on every turn it is delivered ([[BUG-128]]): it used to keep
     // the derivation against the draft's write version, which does not move when
@@ -3566,7 +3597,8 @@ async function* siteTurn(
         yield budgetNamed(deps, event)
         continue
       }
-      yield withoutImageData(event)
+      // [[REQ-397]] — a build's status line names the files builders hold.
+      yield withoutImageData(event.kind === PROGRESS ? await withHeldFiles(event, store, slug) : event)
       // [[REQ-390]] — RIGHT BEHIND THE ANNOUNCEMENT the wrapper yielded, which is
       // the event that carried the note here. A Map read, so free on every event.
       const working = workingNotes.get(planKey)
