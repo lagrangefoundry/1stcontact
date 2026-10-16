@@ -120,11 +120,18 @@ afterEach(() => {
 describe('REQ-386 — slow work is announced before it runs, with a rough duration', () => {
   it('test_UAT_FC_REQ-386_each_slow_call_is_announced_with_an_estimate_and_a_failed_one_retried_says_which_attempt', async () => {
     const { site: key, sessionId } = await site()
-    await planOperations(sitePlan(await tickets(), key)).set_ask({
+    const plan = planOperations(sitePlan(await tickets(), key))
+    await plan.set_ask({
       ask: 'phone',
       prompt: 'Your phone number?',
       why: 'Every visitor needs it.',
       input: 'phone',
+    })
+    await plan.set_ask({
+      ask: 'email',
+      prompt: 'Your email address?',
+      why: 'Enquiries are sent there.',
+      input: 'email',
     })
 
     const out = await turn(sessionId, [
@@ -141,8 +148,7 @@ describe('REQ-386 — slow work is announced before it runs, with a rough durati
     expect(String(firstBad.meta?.output)).toMatch(/^Error:/)
 
     // FIRST CALL: announced before it runs, with the 5-minute estimate and the
-    // panel's count — two open asks, the one added here and the features ask
-    // every new plan starts with.
+    // panel's count — the two open asks added here (a new plan has none; REQ-399).
     const first = textAt(out.frames, `Capturing ${BAD_URL} — about 5 minutes.`)
     expect(first).toBeGreaterThan(-1)
     expect(first).toBeLessThan(callAt(out.frames, 'capture_site', 0))

@@ -485,6 +485,15 @@ export function changeSignal(signal?: TurnSignal): string | null {
   })
 }
 
+/**
+ * [[REQ-399]] — what the consultant is told in place of a client message on the
+ * opening turn of a conversation, when she speaks first. The host keeps it out of
+ * the transcript the client sees, because the client never said it.
+ */
+export function openingPrompt(): string {
+  return template('opening-turn')
+}
+
 /** The interrupted-turn advice a session with a site and a camera needs ([[REQ-284]]). */
 export const INTERRUPTED_TEMPLATE = 'interrupted-turn'
 

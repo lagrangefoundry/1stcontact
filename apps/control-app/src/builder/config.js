@@ -928,6 +928,10 @@ export const PLAN_CHANGE = 'Change'
 /** [[BUG-200]] — finishing a multi-select: with something ticked, and with nothing. */
 export const PLAN_DONE = 'Done'
 export const PLAN_NONE_OF_THESE = 'None of these'
+/** [[REQ-399]] — after an option the framework does not build yet. */
+export const PLAN_NOT_YET_AVAILABLE = '[not yet available]'
+/** [[REQ-399]] — the free-text line under a multi-select that takes one. */
+export const PLAN_SOMETHING_ELSE = 'Something else?'
 export const PLAN_UPLOAD = 'Upload a document'
 export const PLAN_DOCUMENT = 'A document you sent'
 /** [[BUG-196]] — an upload ask that takes several files at once. */

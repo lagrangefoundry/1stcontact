@@ -281,6 +281,22 @@
       "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
+      "op": "ask_features",
+      "tool": "ask_features",
+      "effect": "write",
+      "summary": "Put the question of what the site needs to do on the client's panel, tailored from the catalogue.",
+      "description": "Raise it once you know a little about the business — after they have told you about it, before the comps — with one line in the conversation first, e.g. \"Before I build anything — a few things the site might need to do. I've ticked the ones I'd expect for a plumber; change anything that's wrong.\" Then post it here.\n\nThe options are the capability catalogue (`read_plan` answers it as `feature_catalogue`) and nothing else: things the site DOES. Leave out those that plainly don't apply, tick the ones you expect — the client can untick them — and reword a label for the business (\"Patients can book an appointment\"); the id stays the same, so the answer still names the capability. The client can also write something else beneath it.\n\nA capability marked not yet available is still offered, and shown to the client as not yet available. Never promise or build one: if they want it, say plainly that it is not offered yet. Their answer fills the plan's features by capability id.",
+      "params": {
+        "capabilities": { "type": "array", "description": "The catalogue ids to offer, in the order to show them. Omit to offer every one." },
+        "ticked": { "type": "array", "description": "Ids, among those offered, to tick in advance because you expect them." },
+        "labels": { "type": "object", "description": "A rewording for the business, by id, e.g. {\"booking\": \"Patients can book an appointment\"}. Ids you leave out keep the catalogue's words." },
+        "prompt": { "type": "string", "description": "The question, if the catalogue's wording does not suit." },
+        "why": { "type": "string", "description": "One line on why it matters, if the catalogue's does not suit." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
       "op": "withdraw_ask",
       "tool": "withdraw_ask",
       "effect": "write",
@@ -393,7 +409,7 @@
       "effect": "write",
       "title": "Keeping the client's questions",
       "description": "The questions waiting for the client on their panel: adding and rewording them, withdrawing ones that no longer apply, filling them in from what the client uploaded, and recording the client's yes to a contact detail appearing on the site.",
-      "operations": ["set_ask", "withdraw_ask", "fill_ask", "approve_detail"]
+      "operations": ["set_ask", "ask_features", "withdraw_ask", "fill_ask", "approve_detail"]
     },
     {
       "group": "KeepMilestones",

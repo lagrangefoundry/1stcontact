@@ -51,7 +51,7 @@
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
 import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE, WORKING_IDLE, WORKING_SO_FAR } from './config.js'
-import { stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
+import { stopChatExchange, streamChatOpening, streamChatPrompt, streamChatReattach } from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
@@ -474,6 +474,7 @@ export function createChatPanel(options = {}) {
     transport = {
       streamPrompt: streamChatPrompt,
       streamReattach: streamChatReattach,
+      streamOpening: streamChatOpening,
       stopExchange: stopChatExchange,
     },
     onSiteChanged = () => {},
@@ -995,6 +996,18 @@ export function createChatPanel(options = {}) {
     // transcript just painted, and the record the origin is already handing back.
     // A submission either of them accounts for is dropped rather than repeated.
     paintUnsent(sent.reconcile(turns, session.interrupted), sent)
+    // [[REQ-399]] — THE CONSULTANT SPEAKS FIRST. The origin says `opening` only of
+    // a conversation with nothing in it, so this runs once: the opening is in the
+    // transcript by the time anything reloads, and a reload mid-opening rejoins it
+    // as `live` like any other turn. An assistant bubble with no client one.
+    if (!resuming && session.opening === true && session.ready !== false && typeof transport.streamOpening === 'function') {
+      Promise.resolve(
+        chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamOpening(id, promptView()), progressLine), workingLine), told), {
+          markdown: '',
+        }),
+      ).catch(() => {})
+      return
+    }
     if (!resuming) return
 
     // NOT AWAITED, and this function stays synchronous. `resume` runs for as

@@ -78,6 +78,7 @@ import {
   SETTINGS_ROLE,
   settingsRole,
   toolTranscriptNote,
+  openingPrompt,
   type TurnSignal,
   type ClientView,
   type WorkerKnowledge,
@@ -388,6 +389,12 @@ export interface ChatSession {
    * pane that has not been taught about this field renders exactly what it did.
    */
   interrupted?: InterruptedTurn
+  /**
+   * [[REQ-399]] — the conversation has nothing in it yet, so the consultant speaks
+   * first: the panel starts the opening turn (`/api/ai/prompt` with `opening`).
+   * Absent on any conversation that has ever had a turn.
+   */
+  opening?: boolean
 }
 
 /**
@@ -2687,7 +2694,7 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
 async function storedTranscript(
   manager: Untyped,
   sessionId: string,
-): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean } | null> {
+): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean; started: boolean } | null> {
   let read: { session: Untyped; cursor: number; live: boolean }
   try {
     read = await manager.transcript(sessionId)
@@ -2695,7 +2702,11 @@ async function storedTranscript(
     if ((await manager.archive.list()).includes(sessionId)) throw err
     return null
   }
-  const turns = (read.session.turns as { role: string; content: string; ts?: string }[]).map(
+  const recorded = read.session.turns as { role: string; content: string; ts?: string }[]
+  // [[REQ-399]] — THE OPENING TURN'S INSTRUCTION IS NOT THE CLIENT'S, so it is not
+  // shown as theirs. It still counts as the conversation having started.
+  const opening = openingPrompt()
+  const turns = recorded.filter((turn) => !(turn.role === 'user' && turn.content === opening)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
       markdown: turn.content,
@@ -2712,7 +2723,25 @@ async function storedTranscript(
       ...(typeof turn.ts === 'string' && turn.ts !== '' ? { ts: turn.ts } : {}),
     }),
   )
-  return { turns, cursor: read.cursor, live: read.live === true }
+  return { turns, cursor: read.cursor, live: read.live === true, started: recorded.length > 0 }
+}
+
+/**
+ * [[REQ-399]] — what the consultant is told on the opening turn, or `null` when
+ * this conversation cannot have one: it is not a site's own conversation, or it
+ * has already had a turn, or one is running.
+ *
+ * ONCE, BY THE TRANSCRIPT. The opening's own `turn_start` is the record that it
+ * happened, so a reload — mid-opening or after — finds the conversation started.
+ * Two opens racing are the junction lease's to serialise, as for any two turns.
+ */
+export async function openingText(sessionId: string, opts: GlobalOptions = {}, deps: HostDeps): Promise<string | null> {
+  const slug = await siteForSession(sessionId, deps)
+  if (!slug || (await groupChatOn(deps))) return null
+  await prepareJunction(deps, sessionId)
+  const read = await storedTranscript(await managerFor(slug, opts, deps), sessionId)
+  if (read?.started || read?.live) return null
+  return (await previousTurn(deps, sessionId)) === null ? openingPrompt() : null
 }
 
 /**
@@ -3116,6 +3145,8 @@ async function interruptedTurn(
   const pending = await previousTurn(deps, sessionId)
   if (pending === null) return null
   if (live && pending.status === 'open') return null
+  // [[REQ-399]] — an opening that did not finish has no client words to give back.
+  if (pending.text === openingPrompt()) return null
   const asked = turns.filter((turn) => turn.role === 'user').at(-1)
   return {
     text: pending.text,
@@ -3197,7 +3228,9 @@ export async function openSession(
   } catch (err) {
     return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
   }
-  return { sessionId, turns, cursor, live, ready: true, ...lost }
+  // [[REQ-399]] — NOTHING SAID YET, SO SHE SPEAKS FIRST.
+  const fresh = !read?.started && !live && (await previousTurn(deps, sessionId)) === null
+  return { sessionId, turns, cursor, live, ready: true, ...lost, ...(fresh ? { opening: true } : {}) }
 }
 
 /**

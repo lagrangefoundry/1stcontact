@@ -60,6 +60,8 @@ import {
   PLAN_DOCUMENTS,
   PLAN_DONE,
   PLAN_NONE_OF_THESE,
+  PLAN_NOT_YET_AVAILABLE,
+  PLAN_SOMETHING_ELSE,
   PLAN_UPLOAD_SEVERAL,
   PLAN_FILLED_BY_AGENT,
   PLAN_NEEDS_ANSWER,
@@ -115,8 +117,19 @@ const el = (tag, className, text) => {
   return node
 }
 
-const answerText = (answer) =>
-  Array.isArray(answer) ? (answer.length ? answer.join(', ') : PLAN_NONE_OF_THESE) : (answer ?? '')
+/** [[REQ-399]] — an option as the client is shown it: its wording, where it has one. */
+const optionLabel = (ask, option) => ask.labels?.[option] ?? option
+
+/** An answer as one line, each option in its wording, and anything written beside it. */
+const answerText = (ask) => {
+  const { answer } = ask
+  const text = Array.isArray(answer)
+    ? answer.length
+      ? answer.map((option) => optionLabel(ask, option)).join(', ')
+      : PLAN_NONE_OF_THESE
+    : (answer ?? '')
+  return ask.answer_other ? `${Array.isArray(answer) && !answer.length ? '' : `${text}; `}${ask.answer_other}` : text
+}
 
 /** Notes as the box shows them, one per line, and back. */
 const notesText = (items) => (items ?? []).join('\n')
@@ -217,6 +230,8 @@ export function createPlanPanel(options = {}) {
   const changing = new Set()
   /** Ask id → the latest draft sent for it, so an older reply never redraws over it ([[BUG-200]]). */
   const drafting = new Map()
+  /** [[REQ-399]] — "Something else?" text typed and not yet sent, by ask, so a redraw keeps it. */
+  const typedOther = new Map()
 
   function fail(message) {
     error.textContent = PLAN_SAVE_FAILED(message)
@@ -337,7 +352,16 @@ export function createPlanPanel(options = {}) {
       // [[BUG-200]] — TICKS ARE A DRAFT; DONE IS THE ANSWER. The boxes show the
       // draft where there is one, and otherwise what was answered.
       const ticked = ask.draft ?? (Array.isArray(current) ? current : [])
-      const group = el('div', 'plan-ask__choices')
+      // [[REQ-399]] — ONE OPTION PER LINE, IN COLUMNS WHERE EVERY LABEL FITS
+      // UNBROKEN: the column is as wide as the longest label, so the grid falls to
+      // one column before it would wrap one.
+      const group = el('div', 'plan-ask__choices plan-ask__choices--multi')
+      const unavailable = new Set(ask.unavailable ?? [])
+      const widest = Math.max(
+        0,
+        ...(ask.options ?? []).map((o) => optionLabel(ask, o).length + (unavailable.has(o) ? PLAN_NOT_YET_AVAILABLE.length * 0.8 : 0)),
+      )
+      group.style.setProperty('--plan-choice-width', `${Math.ceil(widest) + 3}ch`)
       group.setAttribute('role', 'group')
       group.setAttribute('aria-label', ask.prompt)
       const finish = el('button', 'plan-ask__done')
@@ -357,15 +381,30 @@ export function createPlanPanel(options = {}) {
           label()
           void draft(ask, picked())
         })
-        choice.append(input, document.createTextNode(` ${option}`))
+        choice.append(input, el('span', 'plan-ask__choice-label', optionLabel(ask, option)))
+        if (unavailable.has(option)) choice.append(el('span', 'plan-ask__unavailable', PLAN_NOT_YET_AVAILABLE))
         group.append(choice)
+      }
+      box.append(group)
+      // [[REQ-399]] — "SOMETHING ELSE?" UNDER THE LIST, sent with Done.
+      let other = null
+      if (ask.other) {
+        other = el('input', 'plan-ask__input plan-ask__other')
+        other.type = 'text'
+        other.placeholder = PLAN_SOMETHING_ELSE
+        other.setAttribute('aria-label', PLAN_SOMETHING_ELSE)
+        other.value = typedOther.get(ask.id) ?? ask.answer_other ?? ''
+        other.addEventListener('input', () => typedOther.set(ask.id, other.value))
+        box.append(other)
       }
       label()
       finish.addEventListener('click', () => {
         drafting.delete(ask.id)
-        void save(ask, { action: 'answer', answer: picked() })
+        typedOther.delete(ask.id)
+        const extra = other?.value.trim()
+        void save(ask, { action: 'answer', answer: picked(), ...(extra ? { other: extra } : {}) })
       })
-      box.append(group, finish)
+      box.append(finish)
     } else if (ask.input === 'single_choice') {
       const group = el('div', 'plan-ask__choices')
       group.setAttribute('role', 'radiogroup')
@@ -455,7 +494,7 @@ export function createPlanPanel(options = {}) {
       ask.status === 'skipped'
         ? PLAN_SKIPPED
         : ask.answer !== undefined
-          ? answerText(ask.answer)
+          ? answerText(ask)
           : answerMaterials(ask).length > 1
             ? PLAN_DOCUMENTS(answerMaterials(ask).length)
             : PLAN_DOCUMENT

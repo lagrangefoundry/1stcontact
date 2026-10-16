@@ -100,6 +100,7 @@ import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-si
 import {
   openBusinessSession,
   openSession,
+  openingText,
   privateSessions,
   stopExchange,
   streamPrompt,
@@ -6442,9 +6443,24 @@ async function routeUncached(
 
     if (p === '/api/ai/prompt' && method === 'POST') {
       const body = await readJsonBody(request)
-      const { sessionId, text } = body
+      const { sessionId } = body
+      let { text } = body
       if (typeof sessionId !== 'string' || sessionId === '') {
         return json(400, { error: 'sessionId is required' })
+      }
+      /**
+       * [[REQ-399]] — THE CONSULTANT'S OPENING TURN: no client message, and the
+       * host supplies what she is told. Only on a conversation with nothing in
+       * it, so asking twice — a reload, a second tab — starts nothing the second
+       * time. Everything after this is the ordinary turn path: ledger, pending
+       * record, spend.
+       */
+      let openingHost: Awaited<ReturnType<typeof chatHost>> | null = null
+      if (body.opening === true) {
+        openingHost = await chatHost(env, requireScope(), deps, url.origin)
+        const opening = await openingText(sessionId, {}, openingHost.deps)
+        if (opening === null) return json(409, { error: 'this conversation has already started' })
+        text = opening
       }
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
@@ -6490,7 +6506,7 @@ async function routeUncached(
       if (view === null) {
         return json(400, { error: 'view must be {width, mode} with mode desktop, tablet, phone or fit' })
       }
-      const host = await chatHost(env, requireScope(), deps, url.origin)
+      const host = openingHost ?? (await chatHost(env, requireScope(), deps, url.origin))
       /**
        * THE LEDGER IS OPENED HERE, AND *HERE* IS THE WHOLE OF IT ([[REQ-306]]).
        *
