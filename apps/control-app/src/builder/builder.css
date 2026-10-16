@@ -1476,6 +1476,31 @@ body {
   gap: 4px 12px;
 }
 
+/* [[REQ-399]] — a multi-select: one option per line, in columns as wide as its
+   longest label, so a label is never broken and options never run together. */
+.plan-ask__choices--multi {
+  flex: 1 1 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(var(--plan-choice-width, 16ch), 100%), 1fr));
+  gap: 4px 16px;
+}
+
+.plan-ask__choices--multi .plan-ask__choice {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+
+.plan-ask__unavailable {
+  font-size: 0.85em;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-ask__other {
+  flex: 1 1 100%;
+}
+
 .plan-ask__upload,
 .plan-ask__skip,
 .plan-ask__change {

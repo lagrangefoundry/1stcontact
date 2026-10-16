@@ -217,6 +217,14 @@ export interface PlanAsk {
   why: string
   input: string
   options?: string[]
+  /**
+   * [[REQ-399]] — what the client is shown for an option, where that is not the
+   * option itself. The features ask's options are capability ids, so its answers
+   * map to capabilities however each was worded for the business.
+   */
+  labels?: Record<string, string>
+  /** [[REQ-399]] — a multi-choice ask that also takes a free-text "Something else?". */
+  other?: boolean
   /** "Or upload a document instead." */
   accepts_upload?: boolean
   /** [[BUG-196]] — what its uploads are for. Absent is `reference`. */
@@ -237,6 +245,11 @@ export interface PlanAsk {
   /** `client`, or the agent that filled it in from client material. */
   answered_by?: string
   answered_at?: string
+  /**
+   * [[REQ-399]] — what the client wrote under "Something else?". Recorded with the
+   * answer and never a promise: it fills no feature.
+   */
+  answer_other?: string
   /** What the client's answer replaced, when they changed it. */
   previous_answer?: string | string[]
   /**
@@ -407,23 +420,34 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 /** A refusal under a code the declaration declares. */
 const refuse = (code: string, message: string): Error => ledgerError(code, message)
 
-/**
- * [[REQ-379]] — the features a client is offered, in their words. Data, in
- * `plan-seed.json`, so the list changes without a code change.
- */
-export const FEATURE_CATALOGUE: readonly string[] = planSeed.feature_catalogue
+/** [[REQ-399]] — one thing a site can DO, as the features question offers it. */
+export interface Capability {
+  id: string
+  /** In the client's words. */
+  label: string
+  /** Whether the framework builds it yet. Set here and nowhere else. */
+  available: boolean
+}
 
-/** [[REQ-379]] — the seeded ask whose answer is the plan's `functionality`. */
+/**
+ * [[REQ-379]], [[REQ-399]] — the functional capabilities a client is offered. Data,
+ * in `plan-seed.json`, so the list — and whether each is built yet — changes
+ * without a code change.
+ */
+export const FEATURE_CATALOGUE: readonly Capability[] = planSeed.feature_catalogue
+
+/** [[REQ-379]] — the ask whose answer is the plan's `functionality`. */
 export const FEATURES_ASK = 'features'
 
-/** The asks a new plan starts with, their `options_from` resolved against the seed. */
+/** [[REQ-399]] — what an unavailable capability is marked with, wherever it is offered. */
+export const NOT_YET_AVAILABLE = '[not yet available]'
+
+/** [[REQ-399]] — the catalogue's capabilities the framework does not build yet. */
+export const unavailableCapabilities = (): string[] => FEATURE_CATALOGUE.filter((c) => !c.available).map((c) => c.id)
+
+/** The asks a new plan starts with ([[REQ-399]]: none — the consultant raises them). */
 function seedAsks(): PlanAsk[] {
-  const lists: Record<string, readonly string[]> = { feature_catalogue: FEATURE_CATALOGUE }
-  return planSeed.asks.map(({ options_from, ...a }) => ({
-    ...a,
-    ...(options_from ? { options: [...(lists[options_from] ?? [])] } : {}),
-    status: 'open',
-  }))
+  return (planSeed.asks as Omit<PlanAsk, 'status'>[]).map((a) => ({ ...a, status: 'open' }))
 }
 
 /**
@@ -780,6 +804,18 @@ function checkAsks(asks: PlanAsk[], bad: (message: string) => never): void {
         bad(`ask ${a.id} is a ${a.input} and needs at least two options`)
       }
     }
+    if (a.labels !== undefined) {
+      for (const [option, label] of Object.entries(a.labels)) {
+        if (!(a.options ?? []).includes(option)) bad(`ask ${a.id} words ${JSON.stringify(option)}, which is not one of its options`)
+        if (!filled(label)) bad(`ask ${a.id} words ${option} as nothing`)
+      }
+    }
+    if (a.other !== undefined && (typeof a.other !== 'boolean' || a.input !== 'multi_choice')) {
+      bad(`ask ${a.id} takes "something else" only as a multi-choice, saying true or false`)
+    }
+    if (a.answer_other !== undefined && (!a.other || !filled(a.answer_other))) {
+      bad(`ask ${a.id} records "something else" it does not take`)
+    }
     if (!(NEEDED_BY as readonly string[]).includes(a.needed_by)) {
       bad(`ask ${a.id} has unknown needed_by ${JSON.stringify(a.needed_by)}`)
     }
@@ -911,7 +947,8 @@ export interface PanelStage extends ShownStage {
 export interface PanelView {
   /** [[REQ-390]], [[REQ-398]] — the progress banner at the top of the panel. */
   stages: PanelStage[]
-  asks: Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'>[]
+  /** [[REQ-399]] — `unavailable`: the options the panel marks {@link NOT_YET_AVAILABLE}. */
+  asks: (Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'> & { unavailable?: string[] })[]
   /** [[REQ-378]] — the comp board, as the plan holds it; the host adds the notes. */
   comps: PlanComp[]
 }
@@ -929,10 +966,15 @@ export function panelView(fields: PlanFields): PanelView {
     // [[BUG-196]] — AN UPLOAD ASK'S ROLE AND ITS ONE-OR-SEVERAL ARE RESOLVED HERE,
     // defaults included, so the panel reads them and never re-derives the rule.
     asks: orderedAsks((fields.asks ?? []).filter((a) => a.status !== 'withdrawn')).map(
-      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) =>
-        shown.accepts_upload || shown.input === 'upload'
-          ? { ...shown, upload_role: uploadRole(shown), multiple: takesSeveral(shown) }
-          : shown,
+      ({ withdrawn_reason: _w, previous_answer: _p, ...shown }) => {
+        // [[REQ-399]] — WHAT IS NOT BUILT YET IS READ FROM THE CATALOGUE AT EVERY
+        // DRAW, never stored on the ask, so shipping a module unmarks it everywhere.
+        const unavailable = shown.id === FEATURES_ASK ? unavailableCapabilities().filter((c) => (shown.options ?? []).includes(c)) : []
+        const resolved = unavailable.length ? { ...shown, unavailable } : shown
+        return resolved.accepts_upload || resolved.input === 'upload'
+          ? { ...resolved, upload_role: uploadRole(resolved), multiple: takesSeveral(resolved) }
+          : resolved
+      },
     ),
     comps: fields.comps ?? [],
   }
@@ -1013,6 +1055,8 @@ export function planReminder(plan: Plan | null): string | null {
     )
   }
   if (panel.asks.skipped.length) lines.push(`The client skipped: ${list(panel.asks.skipped)}.`)
+  // [[REQ-399]] — UNTIL SHE RAISES IT, the features question is hers to raise.
+  if (!(f.asks ?? []).some((a) => a.id === FEATURES_ASK)) lines.push(`Not yet asked: what the site needs to do. ${catalogueLine()}`)
   const comps = f.comps ?? []
   if (comps.length) {
     lines.push(
@@ -1029,6 +1073,12 @@ export function planReminder(plan: Plan | null): string | null {
   return text.length <= MAX_PLAN_REMINDER_CHARS
     ? text
     : `${text.slice(0, MAX_PLAN_REMINDER_CHARS - 40).replace(/\s+\S*$/, '')}\n(read_plan for the rest)`
+}
+
+/** [[REQ-399]] — the catalogue as a session is told it: ids, and what is not built yet. */
+export function catalogueLine(): string {
+  const ids = FEATURE_CATALOGUE.map((c) => (c.available ? c.id : `${c.id} ${NOT_YET_AVAILABLE}`))
+  return `Raise it with ask_features once you know a little about the business; the capabilities are ${ids.join(', ')}.`
 }
 
 /** [[REQ-390]] — the stages as the digest says them: what is done and what is in progress. */
@@ -1116,7 +1166,7 @@ export const CLIENT_ACTIONS = ['answer', 'skip', 'draft'] as const
  */
 export function clientAnswer(
   plan: Plan,
-  input: { ask: string; action: string; answer?: unknown; answer_material?: unknown },
+  input: { ask: string; action: string; answer?: unknown; answer_material?: unknown; other?: unknown },
   at: string,
 ): Plan {
   const next = copy(plan)
@@ -1135,6 +1185,7 @@ export function clientAnswer(
   }
   delete a.draft
   const prior = a.status === 'answered' ? a.answer : undefined
+  delete a.answer_other
   if (input.action === 'skip') {
     a.status = 'skipped'
     delete a.answer
@@ -1154,6 +1205,9 @@ export function clientAnswer(
     else delete a.answer
     if (material !== undefined) a.answer_material = material
     else delete a.answer_material
+    // [[REQ-399]] — "SOMETHING ELSE?" RIDES THE ANSWER it was written beside.
+    const other = a.other ? str(input.other) : undefined
+    if (other !== undefined) a.answer_other = other
   } else {
     throw refuse(PLAN_INVALID, `unknown action ${JSON.stringify(input.action)}`)
   }
@@ -1174,6 +1228,8 @@ export interface ClientChange {
   previous?: string | string[]
   /** Every material the answer cites — several when one pick carried several files. */
   material?: string[]
+  /** [[REQ-399]] — what they wrote under "Something else?". */
+  other?: string
   at: string
 }
 
@@ -1194,6 +1250,7 @@ export function clientChangesSince(fields: PlanFields, since: string): ClientCha
       ...(a.answer !== undefined ? { answer: a.answer } : {}),
       ...(a.previous_answer !== undefined ? { previous: a.previous_answer } : {}),
       ...(askMaterials(a).length ? { material: askMaterials(a) } : {}),
+      ...(a.answer_other !== undefined ? { other: a.answer_other } : {}),
       at: a.answered_at as string,
     }))
     .sort((x, y) => x.at.localeCompare(y.at))
@@ -1229,7 +1286,9 @@ export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS
     // HOW MANY ARRIVED IS SAID, NEVER CUT ([[BUG-196]]): a pick of six photographs
     // reads as six, so the agent knows to look at all of them.
     const doc = c.material ? ` (${documentsText(c.material)})` : ''
-    const what = c.answer !== undefined ? `${v(c.answer)}${doc}` : documentsText(c.material ?? [])
+    // [[REQ-399]] — AND WHAT THEY WROTE UNDER "SOMETHING ELSE?", which is a wish, not a feature.
+    const other = c.other !== undefined ? ` (something else: ${v(c.other)})` : ''
+    const what = c.answer !== undefined ? `${v(c.answer)}${doc}${other}` : documentsText(c.material ?? [])
     return c.previous !== undefined ? `changed ${c.id} from ${v(c.previous)} to ${what}` : `answered ${c.id}: ${what}`
   }
   const room = budget - head.length - tail.length
@@ -1466,6 +1525,8 @@ const answer = (plan: Plan): Record<string, unknown> => ({
   plan: plan.fields,
   body: plan.body,
   panel: planPanel(plan.fields),
+  // [[REQ-399]] — what `ask_features` offers from, and what is not built yet.
+  feature_catalogue: FEATURE_CATALOGUE,
 })
 
 /**
@@ -1751,6 +1812,8 @@ export function planOperations(
       change((plan) => {
         const asks = (plan.fields.asks = plan.fields.asks ?? [])
         const id = str(p.ask) ?? ''
+        // [[REQ-399]] — THE FEATURES QUESTION IS OFFERED FROM THE CATALOGUE ONLY.
+        if (id === FEATURES_ASK) throw refuse(PLAN_INVALID, 'the features question is posted with ask_features, from the catalogue')
         let a = asks.find((x) => x.id === id)
         // [[REQ-389]] — AN APPROVAL ASK IS A YES OR NO, and the host words the two
         // answers, so a yes is something it can recognise.
@@ -1788,6 +1851,61 @@ export function planOperations(
         if (typeof p.blocking === 'boolean') a.blocking = p.blocking
         if (approves) a.approves = approves
         return { ask: a }
+      }),
+    /**
+     * [[REQ-399]] — the features question, tailored from the fixed catalogue.
+     *
+     * SHE CHOOSES FROM THE LIST AND NEVER ADDS TO IT: which capabilities to offer
+     * (all, by default), which to tick in advance — a draft the client can untick,
+     * not an answer — and how to word each for the business. The ids are unchanged,
+     * so every answer maps back to a capability however it was worded.
+     */
+    ask_features: (p) =>
+      change((plan) => {
+        const asks = (plan.fields.asks = plan.fields.asks ?? [])
+        const known = new Map(FEATURE_CATALOGUE.map((c) => [c.id, c]))
+        const ids = (value: unknown, what: string): string[] | undefined => {
+          if (value === undefined || value === null) return undefined
+          const list = noteList(value) ?? []
+          const off = list.find((id) => !known.has(id))
+          if (off !== undefined) {
+            throw refuse(PLAN_INVALID, `${what} names ${JSON.stringify(off)}, which is not in the catalogue: ${[...known.keys()].join(', ')}`)
+          }
+          return [...new Set(list)]
+        }
+        const offered = ids(p.capabilities, 'capabilities') ?? [...known.keys()]
+        const ticked = ids(p.ticked, 'ticked') ?? []
+        const notOffered = ticked.find((id) => !offered.includes(id))
+        if (notOffered) throw refuse(PLAN_INVALID, `${notOffered} is ticked but not offered`)
+        const relabel = p.labels && typeof p.labels === 'object' ? (p.labels as Record<string, unknown>) : {}
+        ids(Object.keys(relabel), 'labels')
+        let a = asks.find((x) => x.id === FEATURES_ASK)
+        if (a && answeredByClient(a)) throw refuse('ASK_ANSWERED', `the client has answered ${FEATURES_ASK}; their answer stands`)
+        if (!a) {
+          a = { id: FEATURES_ASK, prompt: '', why: '', input: 'multi_choice', needed_by: '', blocking: false, status: 'open' }
+          asks.push(a)
+        }
+        const seeded = planSeed.features_ask
+        Object.assign(a, {
+          prompt: str(p.prompt) ?? seeded.prompt,
+          why: str(p.why) ?? seeded.why,
+          input: 'multi_choice',
+          options: offered,
+          labels: Object.fromEntries(offered.map((id) => [id, str(relabel[id]) ?? known.get(id)!.label])),
+          other: true,
+          needed_by: seeded.needed_by,
+          blocking: seeded.blocking,
+          status: 'open',
+        })
+        delete a.withdrawn_reason
+        delete a.answer
+        delete a.answered_by
+        delete a.answered_at
+        delete a.answer_material
+        delete a.answer_other
+        if (ticked.length) a.draft = ticked
+        else delete a.draft
+        return { ask: a, ...(offered.some((id) => !known.get(id)!.available) ? { not_yet_available: offered.filter((id) => !known.get(id)!.available) } : {}) }
       }),
     // [[REQ-389]] — the consultant records the client's yes, in the client's words.
     approve_detail: (p) =>

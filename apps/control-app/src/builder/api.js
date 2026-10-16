@@ -565,7 +565,7 @@ export async function compAction({ site, action, url, reference, likes, dislikes
  * answered for a document sent against the ask), or both. It answers with the
  * panel's view as the write left it, so the caller redraws from what was stored.
  */
-export async function answerAsk({ site, ask, action, answer, answerMaterial }, fetchImpl = fetch) {
+export async function answerAsk({ site, ask, action, answer, answerMaterial, other }, fetchImpl = fetch) {
   return copyEnvelope(
     await send(fetchImpl, scoped('/api/plan/ask'), {
       method: 'POST',
@@ -576,6 +576,8 @@ export async function answerAsk({ site, ask, action, answer, answerMaterial }, f
         action,
         ...(answer !== undefined ? { answer } : {}),
         ...(answerMaterial ? { answer_material: answerMaterial } : {}),
+        // [[REQ-399]] — what the client wrote under "Something else?".
+        ...(other !== undefined ? { other } : {}),
       }),
     }),
   )
@@ -782,6 +784,20 @@ export async function* streamChatPrompt(sessionId, text, view = null, fetchImpl 
     scoped('/api/ai/prompt'),
     // [[REQ-388]] — the width the client is viewing the draft at, when known.
     { sessionId, text, ...(view ? { view } : {}) },
+    'the assistant failed',
+    fetchImpl,
+  )
+}
+
+/**
+ * [[REQ-399]] — the consultant's opening turn: a turn with no client message,
+ * which the origin starts only on a conversation that has none yet. Same event
+ * shape as {@link streamChatPrompt}, because it is the same turn path.
+ */
+export async function* streamChatOpening(sessionId, view = null, fetchImpl = fetch) {
+  yield* postEventStream(
+    scoped('/api/ai/prompt'),
+    { sessionId, opening: true, ...(view ? { view } : {}) },
     'the assistant failed',
     fetchImpl,
   )

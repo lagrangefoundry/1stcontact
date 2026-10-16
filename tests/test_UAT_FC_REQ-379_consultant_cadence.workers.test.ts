@@ -158,12 +158,12 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
     expect((delegate.input_schema as { required?: string[] }).required).toContain('note')
 
     // ONE STATUS LINE, ahead of the hand-off it announces, carrying the
-    // consultant's words and the panel's count: three open asks — the two added
-    // here and the features ask every new plan starts with.
+    // consultant's words and the panel's count: the two open asks added here
+    // ([[REQ-399]]: a new plan starts with none).
     const said = out.frames.filter((f) => f.kind === 'text').map((f) => f.content)
     const line = said.find((t) => t.includes(NOTE))
     expect(line).toBeDefined()
-    expect(line).toContain('Meanwhile, 3 questions above need you.')
+    expect(line).toContain('Meanwhile, 2 questions above need you.')
     const lineAt = out.frames.findIndex((f) => f.kind === 'text' && f.content.includes(NOTE))
     const handOffAt = out.frames.findIndex((f) => f.kind === 'tool_activity' && f.meta?.name === 'Delegate')
     expect(handOffAt).toBeGreaterThan(-1)
@@ -180,9 +180,8 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
 
   it('test_UAT_FC_REQ-379_with_no_open_asks_the_line_says_only_what_is_being_built', async () => {
     configureDelegation(ENABLED)
-    const { site: key, sessionId } = await site()
-    const plan = planOperations(sitePlan(await tickets(), key))
-    await plan.withdraw_ask({ ask: 'features', reason: 'They told me in the chat.' })
+    // [[REQ-399]] — a new plan has no asks at all.
+    const { sessionId } = await site()
     const out = await turn(
       sessionId,
       'Build it.',
@@ -300,26 +299,27 @@ describe('REQ-379 — milestones fall due as facts', () => {
 })
 
 describe('REQ-379 — features are captured first', () => {
-  it('test_UAT_FC_REQ-379_a_new_plan_carries_the_features_ask_and_answering_it_fills_functionality', async () => {
+  it('test_UAT_FC_REQ-379_answering_the_features_ask_fills_functionality', async () => {
     const { site: key } = await site()
+    // [[REQ-399]] — the consultant raises it; a new plan does not carry it.
+    await planOperations(sitePlan(await tickets(), key)).ask_features({})
     const view = (await (await ask(`${PLAN_PATH}?site=${encodeURIComponent(key)}`)).json()) as { asks: PlanAsk[] }
     const features = view.asks.find((a) => a.id === 'features')!
     expect(features).toMatchObject({
-      prompt: 'Which of these does your site need?',
       input: 'multi_choice',
       status: 'open',
-      options: [...FEATURE_CATALOGUE],
+      options: FEATURE_CATALOGUE.map((c) => c.id),
     })
 
-    const picked = [FEATURE_CATALOGUE[0], FEATURE_CATALOGUE[1]]
+    const picked = [FEATURE_CATALOGUE[0].id, FEATURE_CATALOGUE[1].id]
     expect((await post(PLAN_ASK_PATH, { site: key, ask: 'features', action: 'answer', answer: picked })).status).toBe(200)
     expect((await storedPlan(key)).functionality).toEqual(picked.map((feature) => ({ feature, status: 'wanted' })))
 
     // CHANGING THE ANSWER MOVES THE LIST WITH IT.
-    await post(PLAN_ASK_PATH, { site: key, ask: 'features', action: 'answer', answer: [FEATURE_CATALOGUE[1]] })
+    await post(PLAN_ASK_PATH, { site: key, ask: 'features', action: 'answer', answer: [FEATURE_CATALOGUE[1].id] })
     expect((await storedPlan(key)).functionality).toEqual([
-      { feature: FEATURE_CATALOGUE[0], status: 'not_wanted' },
-      { feature: FEATURE_CATALOGUE[1], status: 'wanted' },
+      { feature: FEATURE_CATALOGUE[0].id, status: 'not_wanted' },
+      { feature: FEATURE_CATALOGUE[1].id, status: 'wanted' },
     ])
   })
 })
