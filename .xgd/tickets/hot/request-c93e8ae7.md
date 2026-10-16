@@ -6,9 +6,9 @@ title: 'Builder sessions: leased locks on draft files, and the consultant taught
   plan by file'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:47.607769+00:00'
-updated_at: '2026-10-15T16:47:01.465119+00:00'
+updated_at: '2026-10-16T18:41:17.559327+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -20,8 +20,8 @@ fields:
 
 ## Status
 
-Draft. Child of EPIC-24, pieces 2 and 3 of the operator's simplified plan (2026-10-03).
-- **Depends on lagrange-framework REQ-207** for the `scope` claim hook on Delegate, and for actually running builder sessions concurrently.
+Implemented (free-coded, 2026-10-16). Child of EPIC-24, pieces 2 and 3 of the operator's simplified plan (2026-10-03).
+- **Depends on lagrange-framework REQ-207** for the `scope` claim hook on Delegate, and for actually running builder sessions concurrently. **REQ-207 is not yet in the installed framework**, so today: builders aren't scoped, their writes take implicit leases, and the priming still says "one at a time". The text and enforcement switch on by themselves when REQ-207 is installed (detection reads the installed Delegate declaration).
 - **Uses the file names from REQ-396 (page decomposition).** Locks on undecomposed pages and on the site file work without decomposition. Section locks need it.
 
 The priming must keep saying "one at a time" until lagrange-framework REQ-207 is live in the installed framework.
@@ -55,3 +55,53 @@ The priming must keep saying "one at a time" until lagrange-framework REQ-207 is
 ## Test plan
 
 UATs through the real host/toolbox and routes, with a scripted model backend: a second delegation claiming a held file is refused before any worker session exists; a builder writing a file outside its scope is refused; `/api/copy` on a builder-held section returns 409 naming the holder; an expired lease (dead session) is reclaimable; release on worker report, error and stop; a stale write loses the CAS and is refused; priming renders "one at a time" when concurrency is off and the overlap rules when it is on.
+
+
+
+## As built: implementation decisions
+
+- **One enforcement point: a store decorator.** Every draft write in this repo already goes through `SiteStore.write`, so `leasedStore(store, leases)` (`tools/generate/src/store/leased-store.ts`) wraps that verb, on `cappedSiteStore`'s precedent. The Worker leases every store it opens (`openSiteStore` in `router.ts`, D1 table); `1c` (the chat host and the local builder) uses one in-process table per workspace (`localLeases`). No edit function changed.
+- **Who is writing is per call, not per store.** One store serves every session on a site, so the writer comes from an `AsyncLocalStorage` context (`asWriter`): each builder tool call runs as its worker session (scoped), each consultant tool call as `site-<slug>` (implicit), each builder-UI request as `client` (implicit), and anything unattributed as `system` (implicit).
+- **File names** are REQ-396's: `site.json`, a page `home.json` (whole page, or the frame of a decomposed one), a section `home.json#hero`, plus each asset `assets/<name>`. Names compare exactly; holding a frame doesn't hold its sections.
+- **Scoped writers (builders) vs implicit writers.** A builder may write only the files its delegation claimed, plus files it creates (a new section or asset nobody holds), which it then holds. A file in scope whose lease lapsed is taken back on write if nobody else holds it. Every other writer takes a brief lease on exactly the files the write changes, for the duration of the write, and is refused if anyone else holds one.
+- **A page name in `scope` claims the page and every section it has now**, so "build the About page" is one name. Anything that isn't a draft file name is refused with the list of what is.
+- **The compare-and-set is per file.** The store's `expect` is site-wide, and using it raw would make two builders on different files refuse each other. The decorator remembers, per call, each file as the call read it; at write time it re-reads only the touched files, refuses with `FILE_CHANGED` if one changed underneath the call, then writes with `expect` = the version it just checked, and redoes the check (up to 4 times) if an unrelated write lands in between. The memory store now honours `expect` too (the fs store still can't). A write whose content wouldn't change a file doesn't touch it.
+- **Refusals** are one error class, `DraftFileRefusal`, codes `FILE_HELD` / `NOT_IN_SCOPE` / `FILE_CHANGED`. Its code isn't one the L1 surface declares, so the toolbox shows the model the sentence verbatim, e.g. "`home.json#hero` is held by builder worker-builder-… since 14:02 UTC (3 min); nothing was written…" / "`home.json#hero` is not in this session's scope (home.json#story); nothing was written. Report it rather than writing elsewhere."
+- **Leases**: `draft_leases(site_id, file, holder, acquired_at, expires_at)`, migration 0029. Acquire is one D1 batch (all or nothing, guarded with the same re-insert trick as the store's CAS); expired rows are deleted lazily. A builder's leases are renewed on every tool call and expire after `delegation.json` `lease_idle_seconds` (default 300). Implicit leases last 60 s at most and are released when the write ends.
+- **Claims (framework REQ-207).** The builder `WorkerConfig` gets `claim`. It validates and expands the scope, acquires it for the worker's session id, and returns the release handle the framework runs in its `finally`. A held file refuses with "`home.json#story` is held by builder X since 14:02 UTC (3 min), so this builder was not started and nothing was spent…", which the framework returns as `scope_held`. A delegation with no scope is allowed: that builder can create files but write no existing one. Against a framework without REQ-207 the hook is never called, builders aren't scoped, and their writes are implicit leases.
+- **Client hand edits.** Routes run as `client`. A refusal maps to 409 carrying `code`, `file`, `holder` (in words) and `since` (the general handler, so `/api/copy`, `/api/palette` and `/api/pages/subject` all get it). `GET /api/copy` adds `busy` when a builder holds the element's file, and the copy modal then says "builder X is working on this since 14:02 UTC (3 min). You can edit it once that work has finished." instead of opening a form.
+- **Visibility.** `GET /api/leases?site=` lists every held file with holder, who (in words), since and expiry. A build's status line (REQ-360 heartbeat) gets " — builder X on home.json#story since 14:02 UTC" appended, plus `meta.held`.
+- **Concurrency.** `delegation.json` `max_concurrent` (default 3, ≥1) is passed to the consultant's backend as `maxConcurrentTools` (REQ-207's cap). Spend is recorded per session as before.
+- **Priming.** `delegation-method` and both reminders have a `{parallel}` slot:
+  - Today's "Builders run one at a time…" text, unchanged, where the installed Delegate has no `scope`.
+  - Files/scopes/decomposition teaching, still followed by one-at-a-time, where scopes are enforced but Delegate isn't concurrent or `max_concurrent` is 1.
+  - The overlap rules where the framework runs Delegate concurrently and the cap is above 1: "Up to N builders run at once… never two on the same file, a builder on `site.json` always alone… Never tell your client that work runs in parallel unless you commissioned it that way."
+  - Detection reads the installed Delegate declaration (`scope` param, `concurrent: true`), so the text changes when the framework is installed, with no edit here.
+
+## As built: UATs
+
+- `tests/test_UAT_FC_REQ-397_draft_file_leases.test.ts` (node; real L1 operations, real lease decorator, real `claim` hook, memory store, fake clock):
+  - a second claim on a held file is refused, naming the file, the holder and how long, and takes nothing;
+  - a builder writing outside its scope is refused even alone, and writes its own file;
+  - two builders on different sections both write;
+  - the consultant and the client are refused on a builder-held file and write free ones; the implicit lease ends with the write;
+  - acting renews, and a quiet session's lease expires and is reclaimable;
+  - release frees every file;
+  - a page name claims its sections, and a non-file name is refused;
+  - a builder holds a section it creates;
+  - a stale write on its own file is refused `FILE_CHANGED`;
+  - a write to another file in between is not a conflict;
+  - priming says one at a time without scopes, teaches files with scopes, and states the overlap rules and cap with concurrency;
+  - `delegation.json` cap and idle period, and their validation.
+- `tests/test_UAT_FC_REQ-397_draft_file_leases.workers.test.ts` (real routes in workerd, real D1, real session manager and delegation surface, scripted model):
+  - `/api/copy` on a builder-held section is 409 naming the holder, with `busy` on GET, the next section editable, and `/api/leases` listing it;
+  - a delegation naming a held file is refused `scope_held` before any worker request;
+  - a delegated builder writing outside its scope is refused through the real tool loop, its own section is written, and its files are released on report;
+  - a running build's status line names the files it holds;
+  - a builder that fails releases its files;
+  - in D1, an expired lease is reclaimable and acquire is all or nothing;
+  - in D1, a stale write loses the per-file CAS;
+  - the consultant's system prompt carries the overlap rules at cap 3 and one-at-a-time at cap 1.
+- **The workers delegation cases need lagrange-framework REQ-207 installed** (`cd ../lagrange-framework && bin/install --lang js --component all`). Release on *stop* is the framework's guarantee (REQ-207's own UAT (e)). The host's release is the same function whatever ended the run, so it isn't re-tested here.
+- **Gating.** The five workers cases that go through a delegation (held-file refusal, out-of-scope write, status line, release on failure, overlap rules in the prompt) are `skipIf` the installed Delegate lacks `scope` and concurrency, read at collection the same way the host reads it, because nothing in this repo can make them pass before REQ-207 is installed. The route, D1 and compare-and-set cases always run. Verified: 8/8 pass against the framework with REQ-207's commit applied; 15 pass / 5 skip against today's installed framework.
+- **Existing priming UATs updated.** REQ-295, REQ-342 and REQ-343 tests build the expected text from the templates. They now also fill the new `{parallel}` slot with the serial text. The rendered words are byte-identical to before.

@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:45:17.856994+00:00'
+updated_at: '2026-10-15T16:49:03.846994+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7481,5 +7481,34 @@ This depends on your second point: **the consultant should speak first.** When a
 - **everything a client might reasonably need**, with the unbuilt ones still asked about, so we learn what clients want and the consultant says plainly "that's not something we offer yet"?
 
 I lean towards the second, as long as nothing unbuilt is ever promised, because the answers show us what to build next. Tell me which, and I'll write it up as one ticket covering the new list, the consultant raising the question, and the consultant opening the conversation.
+
+<!-- xgd-turn id="79d136d7-0fe4-4e1e-93ba-01282e0de0b0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-15T16:48:04.922173+00:00" -->
+#### You
+Lets do the second but add [not yet available] to the description. Can we tidy up the list too I think it should be one item per line or columns if there is enough space - not a single wrapping line.
+
+<!-- xgd-turn id="79d136d7-0fe4-4e1e-93ba-01282e0de0b0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-15T16:49:03.192141+00:00" -->
+#### Claude
+I've filed **REQ-399**, *"Features question: functional capabilities only, tailored and raised by the consultant, who opens the conversation"*. It's under EPIC-19 at `draft`, high priority, 8 points, and linked from the epic.
+
+What it covers:
+1. **A list of capabilities, not content.** The question now asks only what the site has to do:
+   - a message
+   - a quote
+   - booking
+   - payment
+   - newsletter signup
+   - a blog
+   - expiring notices
+
+   Reviews, photos, areas covered, prices, hours, FAQ and click-to-call come out. Those are page content, which the consultant settles from the comps.
+2. **`[not yet available]`.** Unbuilt capabilities are still offered, with that marker, so you learn what clients want. The consultant must never promise or build them. Each entry's `available` flag lives in one place in the catalogue, so shipping a module is a one-line change. The implementer has to confirm which capabilities really are available today.
+3. **Tailored from a fixed list.** The consultant can leave options out, tick the likely ones in advance, and reword labels for the business, but she can't invent options. A "Something else?" line catches anything the list doesn't cover.
+4. **Raised in context.** The question is no longer seeded when the plan is created. She raises it with a one-line explanation after she's learned about the business, before the comps.
+5. **The consultant speaks first.** When a builder conversation is opened and empty, she gets one opening turn without a client message. It runs exactly once and is never repeated on reload.
+6. **Layout.** Options appear one per line, or in columns when the panel is wide enough, and never as one wrapping line. This applies to every multi-choice question and keeps BUG-200's tick-then-Done behaviour.
 
 <!-- xgd-chat-end -->
