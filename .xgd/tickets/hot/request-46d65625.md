@@ -6,9 +6,9 @@ title: 'Features question: functional capabilities only, tailored and raised by 
   consultant, who opens the conversation'
 created_by: EPIC-19
 created_at: '2026-10-15T16:48:49.453288+00:00'
-updated_at: '2026-10-16T18:42:23.952187+00:00'
+updated_at: '2026-10-16T18:43:10.573716+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -121,3 +121,17 @@ UATs `test_UAT_FC_<this ticket>_*`:
   - the "Something else?" text is stored on the answer;
   - options render one per line or in columns, never as one inline run.
 - **Opening a builder conversation with an empty transcript** produces exactly one assistant turn with no client message before it. Opening it again, or a conversation that already has turns, produces none.
+
+
+
+## As built (2026-10-16)
+
+- **Catalogue** (`plan-seed.json` `feature_catalogue`): the seven capabilities in the table above, each `{id, label, available}`. Only `contact_message` is `available: true`, because `contact-form` is the only functional module the framework builds today. A new plan has no `features` ask. Content sections and click-to-call are gone.
+- **`ask_features`** (plan op, on the consultant's plan surface beside `set_ask`): takes `options` (catalogue ids, any subset), optional `ticked` (pre-ticks) and `labels` (id → business-specific wording), plus prompt/why. It refuses an id not in the catalogue. Answers are stored by capability id, so a relabelled option still maps back. The `features` decision is still settled from the answer.
+- **"Something else?"**: a free-text field under every multi-choice question on the panel. What the client writes is sent as `other` with the answer and stored on it. It is never treated as a promise.
+- **Panel layout** (`plan-panel.js`, `builder.css`): multi-choice options are listed one per line, in CSS columns when the panel is wide enough, and never as one inline run. An unavailable option has a smaller, muted `[not yet available]` marker. BUG-200's tick-then-Done behaviour is unchanged.
+- **The consultant speaks first**: the session read returns `opening: true` only when the site's conversation has no turns, no live turn and no pending turn. The chat pane then calls `/api/ai/prompt` with `opening: true` and no text. The router asks the host for `openingText()`, which returns `null` (→ 409) once the conversation has started. Otherwise the host supplies the instruction (`priming.json` `opening-turn`) and the normal turn path runs: ledger, pending record, spend. The instruction is recorded as the turn's user message but filtered from the displayed transcript, so the client sees only her reply. A pending opening is never given back as the client's words. There is no opening in group-chat mode or on a conversation that isn't a site's own.
+- **Priming and DOC-64** say she raises the features question herself, after the opening and before the comps, with a one-line explanation first. They also say she never promises or builds an unavailable capability.
+- **Existing tests updated to the new intent**: REQ-364 asks-in-the-plan and the-panel-answers, REQ-379 consultant cadence, and REQ-386 (its question count relied on the seeded features ask, so the test now adds two asks of its own).
+
+UATs: `test_UAT_FC_REQ-399_features_question` (catalogue, `ask_features` subset/pre-tick/relabel/refusal, answers by id), `_features_panel` (marker, Something-else stored, one per line/columns), `_consultant_speaks_first.workers` (one opening turn on an empty conversation, none on reopen or on a conversation with turns), `_pane_opens_the_conversation` (the pane starts the opening only when told to).
