@@ -6,7 +6,7 @@ title: 'gate: `stacked: true` switches the overlap probe off, so a reproduction 
   <h1> is completely buried under a photo passes every gate'
 created_by: repro-console:repro-faelan-com#4
 created_at: '2026-09-29T04:03:03.424338+00:00'
-updated_at: '2026-10-16T19:02:53.378271+00:00'
+updated_at: '2026-10-16T19:03:04.874328+00:00'
 completed_at: null
 last_field_updated: status
 status: ready_to_reconcile
