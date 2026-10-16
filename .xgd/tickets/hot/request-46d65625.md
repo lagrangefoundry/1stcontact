@@ -6,10 +6,10 @@ title: 'Features question: functional capabilities only, tailored and raised by 
   consultant, who opens the conversation'
 created_by: EPIC-19
 created_at: '2026-10-15T16:48:49.453288+00:00'
-updated_at: '2026-10-15T17:08:42.999454+00:00'
+updated_at: '2026-10-16T18:42:23.952187+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-03638c10
+  commits:
+  - working_sha: 36ee3c3e22b2c61a9aa060d3a792e4524fbf47b5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1c51c9816e656023edbeee68901c00496678a010
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.507
 ---
 
 ## What changes
