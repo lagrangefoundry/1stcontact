@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-164
 created_by: xgd
 created_at: '2026-09-30T23:20:02.122176+00:00'
-updated_at: '2026-10-16T18:59:22.802497+00:00'
+updated_at: '2026-10-16T19:01:28.297011+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -146,5 +146,30 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="addca55a-3def-471a-8d87-1d1266c32183-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-16T19:01:27.744041+00:00" -->
+#### Claude
+Ticket is `free_coded` and the branch is merged. Only cleanup remains (run bare, per memory).
+
+The worktree directory is gone, but the sandbox stopped deleting `.git/worktrees/free-BUG-164`. I'll try the stale sweep once, since it uses the path this repo's sandbox exclusion is set up for.
+
+BUG-164 is finished apart from one cleanup step the sandbox won't let me do.
+
+**Done:**
+- The fix commit `52827e75e2` is merged into `xgd-working`.
+- The ticket is at `free_coded`, with commits `52827e75e2` and `38afada3c0` (the version bump to 0.2.424), story points 3, and a body that matches what was built.
+- `xgd branch clean BUG-164` deleted the worktree directory.
+
+**Still left:** the cleanup then failed with `Operation not permitted` when it tried to delete the worktree's record inside the repo's `.git` folder (`.git/worktrees/free-BUG-164`). Because that record is still there, git lists the worktree as `prunable` and the `free-BUG-164` branch hasn't been deleted. I also tried `xgd branch clean --stale`, but it crashed on the same permission error for a different ticket's leftover (`free-REQ-397`). Nothing is lost: everything on the branch is already in `xgd-working`.
+
+To finish it, run this from a normal terminal outside the sandbox:
+
+```
+cd /Users/martin/lagrangefoundry/1stcontact && xgd branch clean BUG-164
+```
+
+If you want to clear the other stale branches too, run `xgd branch clean --stale` instead.
 
 <!-- xgd-chat-end -->
