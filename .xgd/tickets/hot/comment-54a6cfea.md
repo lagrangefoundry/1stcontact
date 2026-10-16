@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-397
 created_by: xgd
 created_at: '2026-10-15T16:45:25.667919+00:00'
-updated_at: '2026-10-16T18:35:26.300440+00:00'
+updated_at: '2026-10-16T18:42:27.330167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -160,5 +160,64 @@ Error: API Error: Can't reach the API server — check your internet or DNS (ENO
 <!-- xgd-chat role="user" ts="2026-10-16T18:35:26.063689+00:00" -->
 #### You
 Please continue
+
+<!-- xgd-turn id="161d6e9c-70e9-4666-8abe-c232aadec476-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-16T18:42:27.096965+00:00" -->
+#### Claude
+Picking up where the network cut out: the branch suite has failures in delegation tests (REQ-295/342/343) that the baseline run doesn't. Reading them now.
+
+Priming tests pass now; the one remaining red is the known pre-existing REQ-341 groups case. Now the other failures that weren't in the baseline, in case any read `router.ts` or `editor.js`.
+
+Checking first whether REQ-207 has since been installed in the shared store, which would make the shim unnecessary.
+
+Not installed yet. Pointing the shim at the staged copy and running the workers UATs.
+
+All 8 workers UATs pass against REQ-207. Checking how those tests behave against the framework actually installed today (without REQ-207), since that's what everyone else's runs will see.
+
+Adding the gate, matching `ai.ts`'s import.
+
+Now against the framework actually installed (shim restored): the delegation cases should skip and the rest pass.
+
+15 pass, 5 skip with reason. Now the adjacent workers suites (copy route, palette, subject, delegation, heartbeat, store) against the installed framework.
+
+Too many paths for one filter (known vitest limit); splitting into batches.
+
+REQ-295's delegation workers suite is red in two cases. My memory notes delegation suites fail pre-existing; confirming these exact cases match.
+
+Same pre-existing upstream drift (`by`/`reason` fields). Typechecking, then committing.
+
+xgd-working has moved 11 commits; checking for overlap (a migration numbered 0029, or my files).
+
+Ticket-only commits, no overlap. Reading my notes on this project's version gate before committing.
+
+Committing explicit paths only (no `git add -A`).
+
+Updating the ticket body: keeping the existing scope as written, updating the Status paragraph, and adding the as-built design and UAT list.
+
+Now landing it: lock, bring xgd-working into the branch, fast-forward xgd-working.
+
+Fast-forwarded. Now the gate (no `--version`, so it bumps itself) and story points.
+
+Clean hit the sandbox, likely because I prefixed it with `cd`. Running it bare.
+
+REQ-397 is implemented and merged into xgd-working, and the ticket is at `free_coded`. It records both commits (the feature commit `75394cb` and the version bump to 0.2.506) and has 13 story points.
+
+**What it does now**
+- **The lock table.** Each draft file has a leased lock in D1: the site file, a page, a section, or an asset. Every draft write goes through a single check on the store. A write is refused if the session doesn't hold the file, or if someone else holds it. A write is also refused if the file changed since the session read it, so a lost race fails instead of silently winning.
+- **Lease lifetime.** A builder's leases renew on every tool call it makes and lapse after 5 minutes idle (`lease_idle_seconds`). A dead or aborted session can't hold a file forever.
+- **Client edits.** `/api/copy`, `/api/palette` and `/api/pages/subject` return 409 when a builder holds the file, naming the builder and how long it has held it. The copy editor shows "Being worked on" instead of opening a form whose Save would be refused.
+- **Visibility.** `GET /api/leases` lists every held file, and a running build's status line names the files it holds.
+- **Settings.** `max_concurrent` (default 3) is in `delegation.json`.
+- **The consultant's instructions.** They stay "one at a time" until REQ-207 is installed. After that they teach files, scopes and splitting pages, and give the overlap rules: different files only, `site.json` always alone.
+
+**What waits on REQ-207:** REQ-207 isn't installed in lagrange-framework yet. Until it is, builders don't declare files, and their writes just take a brief lock on what they touch. Builder scoping and running builders in parallel switch on by themselves once it's installed, with no change needed here.
+
+**Tests**
+- **New tests, without REQ-207:** 15 pass. The 5 that need REQ-207 skip and say why; I gated them because nothing in this repo can make them pass before it's installed. All 8 Worker tests pass against a copy of the framework with REQ-207's change applied.
+- **Existing tests:** I had to update the REQ-295, REQ-342 and REQ-343 tests, because they build their expected text from the templates and the templates gained a new slot. The rendered text is unchanged.
+- **Other suites:** 64 nearby Worker test files ran; the only failures were the two known REQ-295 delegation cases, which already fail on a clean xgd-working. The full node suite had about 50 more failures. I checked the ones in areas I touched, and they are either worktree setup problems or already failing on a clean tree.
+
+**One leftover:** the branch cleanup only partly ran. The worktree folder is gone, but the `free-REQ-397` branch and its stale worktree entry remain, because REQ-399 now holds the merge lock. Once that lock is free, `xgd branch clean --stale` will clear them.
 
 <!-- xgd-chat-end -->
