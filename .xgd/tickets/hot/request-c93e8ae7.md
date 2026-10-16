@@ -6,16 +6,24 @@ title: 'Builder sessions: leased locks on draft files, and the consultant taught
   plan by file'
 created_by: EPIC-24
 created_at: '2026-10-10T18:27:47.607769+00:00'
-updated_at: '2026-10-16T18:41:17.559327+00:00'
+updated_at: '2026-10-16T18:41:45.670582+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   epic_parent: epic-f43a7c98
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-54a6cfea
+  commits:
+  - working_sha: 75394cb0494d1aa5245502ac98de29777be2a1aa
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 0a84e76a4a896ca6082155a65629a39b282448ab
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.506
 ---
 
 ## Status
