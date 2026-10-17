@@ -5,16 +5,24 @@ type: bug
 title: 'Plan panel: upload cards need an Uploaded button for files sent another way'
 created_by: martin-github@westhead.me
 created_at: '2026-10-17T22:54:39.394601+00:00'
-updated_at: '2026-10-17T23:01:57.693180+00:00'
+updated_at: '2026-10-17T23:03:42.472793+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-95a52e8b
   severity: medium
+  commits:
+  - working_sha: 9d1a2dbae5fa8f0e1e0ceaabdf9742e470fff69e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1188948d907acd368fabe9c0b1fb369abe99362f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.519
 ---
 
 ## Symptom
