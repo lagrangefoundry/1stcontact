@@ -4,11 +4,14 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
+import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
+import { HOST_SUMMARY_LEAD } from '../tools/generate/src/cli/ai/turn-clock-core'
+import { backendsDocument, projectBackendCeiling } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import {
   calls,
+  metered,
   says,
   scriptedClient,
   type ModelRequest,
@@ -38,6 +41,7 @@ const ENABLED = { ...delegationDocument, enabled: true }
 const WORKER_MODEL = backendsDocument.claude_builder.model
 const DELEGATE_TOOL = 'Delegate'
 const REPORT_TOOL = 'ReportResult'
+const lib = aiLib as unknown as Parameters<typeof projectBackendCeiling>[0]
 
 // Neither is a phrasing the host's record settles, so both reach the worker.
 const LAYOUT = 'the About page has three sections'
@@ -208,5 +212,48 @@ describe('BUG-212 a builder report survives the end of its budget', () => {
     expect(refusal).toContain(`Call ${REPORT_TOOL} again now`)
     // Nothing of the refused call was recorded.
     expect(result.outcome).toBe('silent')
+  })
+
+  it('test_UAT_FC_BUG-212_a_builder_stopped_by_the_context_guard_comes_back_with_a_host_summary', async () => {
+    // The incident's ending: a refused report, and the request that carried it
+    // already over the ceiling, so the guard ends the turn before a retry.
+    const over = 200_000
+    const { result } = await delegateWith('stopped', [
+      metered({ input_tokens: 10_000 }, calls('describe_page', { page: 'home' })),
+      metered({ input_tokens: over }, calls(REPORT_TOOL, { summary: 'Laid out.', failed: [{ name: CROPS }] })),
+      metered({ input_tokens: over + 5_000 }, says('Retrying.')),
+    ])
+
+    expect(result.outcome).toBe('silent')
+    const ceiling = projectBackendCeiling(lib, 'claude_builder')
+    const summary = String(result.summary)
+    expect(summary.startsWith(HOST_SUMMARY_LEAD)).toBe(true)
+    expect(summary).toContain(`reached ${over} tokens against a ceiling of ${ceiling}`)
+    // The last call, and the refusal it got, which is why there was no report.
+    expect(summary).toContain(`It made 2 tool calls; the last was ${REPORT_TOOL}, which was refused:`)
+    expect(summary).toContain('It wrote nothing to the draft.')
+  })
+
+  it('test_UAT_FC_BUG-212_a_builder_that_finished_without_reporting_comes_back_with_a_host_summary', async () => {
+    const { result } = await delegateWith('quiet', [
+      calls('describe_page', { page: 'home' }),
+      says(''),
+      says(''),
+    ])
+
+    expect(result.outcome).toBe('silent')
+    expect(result.summary).toBe(
+      `${HOST_SUMMARY_LEAD} Its turn finished, inside every budget, without calling ${REPORT_TOOL}. ` +
+        'It made 1 tool call; the last was describe_page. It wrote nothing to the draft.',
+    )
+  })
+
+  it('test_UAT_FC_BUG-212_a_builder_that_reported_keeps_its_own_summary', async () => {
+    const { result } = await delegateWith('own', [
+      calls(REPORT_TOOL, { summary: 'Laid out.', passed: [LAYOUT, CROPS] }),
+      says('Done.'),
+    ])
+
+    expect(result.summary).toBe('Laid out.')
   })
 })

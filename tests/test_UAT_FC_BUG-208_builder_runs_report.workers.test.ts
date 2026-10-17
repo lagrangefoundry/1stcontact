@@ -5,6 +5,7 @@ import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
+import { HOST_SUMMARY_LEAD } from '../tools/generate/src/cli/ai/turn-clock-core'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { BUILDER_ROLE, BUILDER_TURN_MAX_BYTES } from '../tools/generate/src/cli/ai/roles'
 import {
@@ -303,7 +304,8 @@ describe('BUG-208 builder runs: the whole brief, no stale site, and a stated end
     const result = delegationResult(caller[caller.length - 1].req)
     expect(result.outcome).toBe('silent')
     expect(result.accepted).toBe(false)
-    expect(result.summary).toBe('')
+    // [[BUG-212]] supersedes an empty summary here: the host writes one, and says so.
+    expect(String(result.summary).startsWith(HOST_SUMMARY_LEAD)).toBe(true)
     expect(result.ended as Ended).toEqual({ status: 'complete', reason: 'no_report' })
     expect((result.activity as { last_words?: string }).last_words).toContain('the contact form is half done')
   })
