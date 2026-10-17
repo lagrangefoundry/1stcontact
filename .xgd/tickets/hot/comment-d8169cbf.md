@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:37:20.985191+00:00'
+updated_at: '2026-10-17T22:38:22.381351+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7859,5 +7859,19 @@ One side effect: if the consultant restyles the page before building (on Bob's S
 **b. A routine screenshot gets announced.** *"Taking a screenshot — about a minute"* appeared three times in the chat. REQ-386 announces every slow operation, and screenshots count. They're routine checking, not something the client needs to wait for. They shouldn't post to the chat at all, only update the "now:" line. <-- I've mixeed feelings about this - there is something to be said for seeing the progression of things happening...
 
 one bug please
+
+<!-- xgd-turn id="f0fa6bbe-5f6a-4c56-af6e-c9851129fbb9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T22:38:14.856814+00:00" -->
+#### Claude
+I've filed **BUG-215**, *"First draft: the starter page is the grey page, and the working line stops mixing a step's estimate with the turn's clock"*. It's under EPIC-19 at `draft`, 3 points, and linked from the epic.
+
+What it covers:
+- **The starter page is the grey page.** It shows *"Your site will appear here as it's created."*, and "Your 1st Contact site" is removed entirely. An upload or a font change before any sections exist no longer brings the starter page back. Publishing stays refused. The grey page turning cream if the consultant restyles it first is recorded as fine, per your call.
+- **The working line has two parts.** The turn line keeps the opening estimate and the turn's clock: *"Building the first draft · about 15 min · 16:34 so far"*. The step line underneath times the current step from when that step started: *"now: fixing the photo on narrow screens · 1:37"*. An estimate is never shown next to a time it doesn't describe.
+- **No plumbing reaches you.** The heartbeat that leaked *"worker-builder-3-3br9qs on home.json#footer… since 22:19 UTC"* can keep the working line alive, but it never posts text.
+- **Screenshots and similar steps stay visible but are demoted**, since you want to see things progressing. They appear as lighter step lines, not consultant messages, and repeats collapse, e.g. *"Taking a screenshot ×3"*. The consultant's own announcements, like *"I'm fixing that now — about 5 minutes"*, stay as ordinary messages.
+
+If the collapsed step lines still feel like too much, or too little, once you see them, the rule is a single line in the ticket and easy to change.
 
 <!-- xgd-chat-end -->
