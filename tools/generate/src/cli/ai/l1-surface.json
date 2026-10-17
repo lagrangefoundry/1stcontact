@@ -630,7 +630,7 @@
         },
         "seo": {
           "type": "object",
-          "description": "How the page describes itself to a search engine or a shared link: `title` and `description`, and optionally `ogImage`. Not the same as the page's own title, and worth offering — nothing else writes it."
+          "description": "How the page describes itself to a search engine or a shared link: `title` and `description`, and optionally `ogImage` — the file name of one of the site's assets, the picture a link to this page previews with instead of the site's share card. Not the same as the page's own title, and worth offering — nothing else writes it."
         },
         "kind": {
           "type": "string",
@@ -749,7 +749,7 @@
         },
         "seo": {
           "type": "object",
-          "description": "`title`, `description`, and optionally `ogImage`. Only what you name changes — leaving out the title does not clear it."
+          "description": "`title`, `description`, and optionally `ogImage` (a site asset's file name: this page's share-card picture). Only what you name changes — leaving out the title does not clear it."
         },
         "kind": {
           "type": "string",
@@ -1020,7 +1020,7 @@
       "tool": "set_config",
       "effect": "write",
       "summary": "Change the site's settings — one of them, or a whole group at once.",
-      "description": "Name the group you are writing in and give an object of the settings to write in it. **Anything you do not name is left exactly as it was**, at every depth — so changing one colour in a palette does not require resending the palette, and cannot silently drop the rest of it.\n\nThat is what lets a whole group be written in one go: a colour palette, the type and spacing settings, the navigation and its entries. Read the group first — `describe_site` returns all of them — so you are amending what is there rather than guessing at its shape.\n\nOmit the group entirely to write at the top level.",
+      "description": "Name the group you are writing in and give an object of the settings to write in it. **Anything you do not name is left exactly as it was**, at every depth — so changing one colour in a palette does not require resending the palette, and cannot silently drop the rest of it.\n\nThat is what lets a whole group be written in one go: a colour palette, the type and spacing settings, the navigation and its entries. Read the group first — `describe_site` returns all of them — so you are amending what is there rather than guessing at its shape.\n\nOmit the group entirely to write at the top level.\n\nThe tab icon and the share card are settings too, under `config`: `favicon` (`icon`, and optionally `appleTouchIcon`, each the file name of one of the site's assets) and `shareCard` (`image`, a site asset's file name; `title` and `description`, which default to the site's name and tagline). To make the icon from a picture the client already has, use `make_favicon` instead.",
       "params": {
         "key": {
           "type": "config_key",
@@ -1039,6 +1039,28 @@
         "NOT_FOUND",
         "SCHEMA_INVALID",
         "NOT_APPROVED"
+      ]
+    },
+    {
+      "op": "make_favicon",
+      "tool": "make_favicon",
+      "effect": "write",
+      "summary": "Make the site's browser-tab icon from a picture the site or the Library already holds.",
+      "description": "Cuts the centred square out of the picture as it currently stands — edits included — at the two sizes a site needs: a small tab icon and the 180px icon a phone puts on its home screen. Both are added to the site's files and the site is set to use them, so nothing has to be uploaded. A logo works best; if the part the client wants is not in the middle, crop the picture first.",
+      "params": {
+        "image": {
+          "type": "string",
+          "required": true,
+          "description": "The picture to make it from: a site file's name, or a Library item's id or name."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID",
+        "ENVIRONMENT"
       ]
     },
     {
@@ -1508,7 +1530,8 @@
       "effect": "write",
       "title": "Changing the site's settings",
       "operations": [
-        "set_config"
+        "set_config",
+        "make_favicon"
       ],
       "description": "The settings that belong to the whole site rather than to any one page — how it identifies itself, and the groups of options the site is built from. Writing is always partial: what you do not name is left exactly as it was."
     },

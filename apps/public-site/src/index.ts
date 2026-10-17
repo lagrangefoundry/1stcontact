@@ -5,6 +5,7 @@ import {
 import {
   applyTurnstileSitekey,
 } from '../../../packages/framework/src/modules/contact-form/turnstile'
+import { absolutizeShareImages } from '../../../packages/framework/src/share-card'
 /**
  * THE ONE EXTENSION-TO-TYPE TABLE ([[REQ-246]]).
  *
@@ -714,7 +715,14 @@ async function serve(
       // chrome's state below, which is about who asked. A page with no form in it
       // is returned untouched and cannot acquire a third-party script by accident.
       const stored = await object.text()
-      const body = applyTurnstileSitekey(stored, serving.turnstileSitekey ?? '')
+      // [[REQ-400]] — AND THE SHARE CARD'S PICTURE, made absolute against the URL
+      // this page was asked for at. A crawler building a link preview does not
+      // resolve a relative `og:image`; see `share-card.ts` for why the snapshot
+      // keeps it relative. A page with no card is untouched.
+      const body = absolutizeShareImages(
+        applyTurnstileSitekey(stored, serving.turnstileSitekey ?? ''),
+        request.url,
+      )
       // THE TRIGGER IS THE MARKER IN THE BYTES, not a column somewhere. A page
       // with no account chrome cannot depend on a session, so it keeps its
       // shared cacheability and the bytes that were published.

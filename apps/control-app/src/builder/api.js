@@ -716,6 +716,30 @@ export async function writePalette(body, fetchImpl = fetch) {
 }
 
 /**
+ * The site's tab icon and share card, with what the card falls back to and the
+ * site's pictures to choose from ([[REQ-400]]).
+ */
+export async function fetchLaunch(site, fetchImpl = fetch) {
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/launch?site=${encodeURIComponent(site)}`)))
+}
+
+/**
+ * Make the tab icon from one of the site's pictures, or replace the share card
+ * ([[REQ-400]]). `body` is `{site, op: 'icon', image}` or `{site, op: 'card',
+ * image, title, description}`; the reply is the re-read state, as
+ * {@link fetchLaunch} answers.
+ */
+export async function saveLaunch(body, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/launch'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+  )
+}
+
+/**
  * Open a site's conversation (REQ-122).
  *
  * Answers with the stored transcript AND whether the assistant can take a turn,

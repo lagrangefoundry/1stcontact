@@ -117,6 +117,9 @@ export { l1PaintsSurface } from './l1/render'
 export { generateThemeCss } from './tokens'
 export { getModuleCss, getModuleClientJs } from './modules/styles'
 export { CALLOUT_CSS } from './modules/callout-css'
+// [[REQ-400]] — the tab icon and share card the page head carries.
+export { shareHeadTags } from './share-card'
+export type { ShareHead } from './share-card'
 export {
   renderL1Document,
   L1_EDIT_MARKER_ATTR,

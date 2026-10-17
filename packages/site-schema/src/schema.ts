@@ -167,12 +167,65 @@ export const textRunSchema = z
   })
   .strict()
 
-/** SEO metadata for a page. */
+/**
+ * [[REQ-400]] — the name of one of the site's own assets (`logo.png`), and
+ * nothing else.
+ *
+ * NOT A URL AND NOT A PATH. The fields that take one — the favicon, the share
+ * card's image, a page's `ogImage` — are written into a page's `<head>`, where a
+ * `javascript:` or an off-site address would be a link the site makes on the
+ * author's behalf to somewhere it does not control. A bare name in the
+ * character set `sanitizeAssetName` mints can only ever be a file under the
+ * site's own `assets/`, so the head is safe by construction (DOC-2 §1) and the
+ * renderer composes the address itself.
+ */
+export const siteAssetNameSchema = z
+  .string()
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/,
+    "must be the file name of one of the site's own assets (e.g. logo.png) — not a URL or a path",
+  )
+
+/**
+ * SEO metadata for a page. [[REQ-400]] — `ogImage` is the page's own share-card
+ * picture, overriding the site's; `title` and `description` fill the card where
+ * the site's card leaves them unset.
+ */
 export const seoMetaSchema = z.object({
   title: z.string(),
   description: z.string(),
-  ogImage: z.string().optional(),
+  ogImage: siteAssetNameSchema.optional(),
 })
+
+/**
+ * [[REQ-400]] — the browser-tab icon.
+ *
+ * TWO FILES BECAUSE TWO SIZES ARE ASKED FOR: a small icon for the tab, and the
+ * 180px square a phone puts on its home screen. `make_favicon` derives both
+ * from a picture the site or the Library already holds; either may also be set
+ * by hand to a file the client supplied ready-made.
+ */
+export const faviconSchema = z
+  .object({
+    icon: siteAssetNameSchema,
+    appleTouchIcon: siteAssetNameSchema.optional(),
+  })
+  .strict()
+
+/**
+ * [[REQ-400]] — what a link to the site previews as, when it is texted or posted.
+ *
+ * EVERY FIELD OPTIONAL. An unset title or description falls back to the page's
+ * own `seoMeta`, then to the site's name and tagline, so a card that names only a
+ * picture is complete. A page names its own picture through `seoMeta.ogImage`.
+ */
+export const shareCardSchema = z
+  .object({
+    image: siteAssetNameSchema.optional(),
+    title: z.string().optional(),
+    description: z.string().optional(),
+  })
+  .strict()
 
 /**
  * A layer painted between a section background and its content, giving text
@@ -1027,6 +1080,10 @@ export const siteConfigSchema = z.object({
     })
     .optional(),
   integrations: z.record(z.string(), z.string()).optional(),
+  /** [[REQ-400]] — the browser-tab icon. See {@link faviconSchema}. */
+  favicon: faviconSchema.optional(),
+  /** [[REQ-400]] — what a shared link previews as. See {@link shareCardSchema}. */
+  shareCard: shareCardSchema.optional(),
   /**
    * REQ-101 — how this site is distributed, which decides how strictly its fonts
    * are gated. `'internal'` (the default when absent) is a site we build and

@@ -1161,7 +1161,12 @@ export function mountBuilder(root, options = {}) {
     //
     // [[BUG-192]] — through `catchUp`, so the draft feed reporting the same
     // write a moment later does not reload the frame again.
-    onSiteChanged: (meta) => catchUp(meta?.at, true),
+    onSiteChanged: (meta) => {
+      catchUp(meta?.at, true)
+      // [[REQ-400]] — the site's assistant can set the icon and card, and the
+      // Settings pane shows them.
+      void settings.launch.refresh()
+    },
     // [[REQ-210]] — the pill's expansion is the assistant's ENTIRE channel for a
     // marked point: `screenshot` renders server-side and the marks live in the
     // reader's own browser overlay, so there is no render in which one appears.
@@ -1442,6 +1447,8 @@ export function mountBuilder(root, options = {}) {
      * customer has just proved they are looking.
      */
     onRenamed: (record) => switcher.rename(record.id, record.name),
+    // [[REQ-400]] — the icon and share card are the open site's.
+    site: () => currentSite,
   })
   const settingsChat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.settingsChat),
@@ -1846,6 +1853,8 @@ export function mountBuilder(root, options = {}) {
   const unbindSite = panel.on('site', (site) => {
     currentSite = site
     void showSite(site)
+    // [[REQ-400]] — the Settings pane's icon and card are this site's.
+    void settings.launch.refresh()
   })
 
   /**

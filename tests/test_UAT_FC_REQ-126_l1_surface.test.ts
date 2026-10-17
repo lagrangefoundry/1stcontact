@@ -532,6 +532,9 @@ describe('REQ-126 — the surface documents itself', () => {
       'group_l1',
       // [[REQ-391]] — a set of looks for a page: copies, labelled, never published.
       'make_alternatives',
+      // [[REQ-400]] — the tab icon, cut from a picture the site already holds.
+      // Writes two asset files and the `favicon` setting, nothing else.
+      'make_favicon',
       'move_section',
       'publish',
       'recompose_page',

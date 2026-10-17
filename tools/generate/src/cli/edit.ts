@@ -67,6 +67,7 @@ import { moduleHost, sectionFileName, sectionProblem, splitPage } from '../store
 import { contentTypeOf } from '../store/content-type'
 import { sanitizeAssetName } from '../store/asset-name'
 import type { ImageLibrary, StoredImage } from './image-library'
+import { IconSourceError } from './favicon'
 import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
@@ -494,13 +495,58 @@ async function refuseUnapprovedEmail(
  * check that half the write paths perform is not a guarantee, and "which writes
  * validate their references" is exactly the kind of distinction that decays.
  */
+/**
+ * [[REQ-400]] — every asset a page head names: the tab icon, the share card's
+ * picture, and each page's own `ogImage`, keyed by name with where it was named.
+ */
+function headAssetRefs(base: Record<string, unknown>, pages: unknown[]): Map<string, string> {
+  const refs = new Map<string, string>()
+  const add = (value: unknown, where: string): void => {
+    if (typeof value === 'string' && !refs.has(value)) refs.set(value, where)
+  }
+  const config = (base.config ?? {}) as Record<string, Record<string, unknown> | undefined>
+  add(config.favicon?.icon, 'config.favicon.icon')
+  add(config.favicon?.appleTouchIcon, 'config.favicon.appleTouchIcon')
+  add(config.shareCard?.image, 'config.shareCard.image')
+  for (const page of pages) {
+    const p = page as { id?: unknown; seoMeta?: { ogImage?: unknown } }
+    add(p.seoMeta?.ogImage, `${String(p.id)}/seoMeta.ogImage`)
+  }
+  return refs
+}
+
+/**
+ * Refuse a write that points a page head at a file the site does not hold
+ * ([[REQ-400]]) — "no broken tags" is decided here, where the author can still
+ * do something about it, rather than as a 404 in somebody's link preview.
+ *
+ * ONLY WHAT THIS WRITE INTRODUCED, on {@link danglingRefs}' reasoning: a
+ * reference the site already carried is not this write's to answer for.
+ */
+function refuseMissingHeadAssets(
+  assets: ReadonlySet<string>,
+  before: ReadonlyMap<string, string>,
+  after: ReadonlyMap<string, string>,
+): void {
+  for (const [name, where] of after) {
+    if (assets.has(name) || before.has(name)) continue
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `${where}: '${name}' is not one of the site's assets.`,
+      path: where,
+      hint: 'Name a file list_assets shows, or make the tab icon with make_favicon.',
+    })
+  }
+}
+
 async function validateOrThrow(
   slug: string,
   opts: EditOptions,
   base: Record<string, unknown>,
   pages: unknown[],
 ): Promise<void> {
-  const assets = (await listSiteAssets(slug, opts)).map((a) => a.src)
+  const listed = await listSiteAssets(slug, opts)
+  const assets = listed.map((a) => a.src)
   const stored = await readBase(slug, opts)
   const before = new Map<string, Map<string, string>>()
   const storedFiles = await readPageFiles(slug, opts)
@@ -509,6 +555,11 @@ async function validateOrThrow(
   }
   await refuseUnapprovedEmail(opts, { base: stored, pages: storedFiles.map((f) => f.page) }, base, pages)
   refuseBrokenSections(storedFiles, pages)
+  refuseMissingHeadAssets(
+    new Set(listed.map((a) => a.id)),
+    headAssetRefs(stored, storedFiles.map((f) => f.page)),
+    headAssetRefs(base, pages),
+  )
   for (const page of pages) {
     const id = String((page as { id?: unknown }).id)
     // A page this write is ADDING has no previous version, so everything it
@@ -3329,6 +3380,121 @@ export async function editConfigSet(
       label: where,
       before: clip(JSON.stringify(scoped ? base : getDotted(base, key)) ?? 'null'),
       after: clip(JSON.stringify(merged) ?? 'null'),
+    },
+  )
+}
+
+// ── tab icon and share card ([[REQ-400]]) ────────────────────────────────────
+
+/**
+ * Make the site's tab icon from a picture it or the Library already holds.
+ *
+ * TWO WRITES, AND THE ORDER IS THE POINT. The icon files land first and the
+ * setting naming them second, so a refused setting leaves at worst two unused
+ * files — never a head linking to an icon that is not there.
+ *
+ * ABSENT A RENDERER IT REFUSES IN A SENTENCE. Cutting the sizes is the
+ * deployment's renderer's job ({@link GlobalOptions.icons}); the CLI has none,
+ * and the honest answer there is to say so and point at `set_config`, which can
+ * still name an icon file the site holds.
+ */
+export async function editFaviconMake(slug: string, image: string, opts: EditOptions): Promise<EditOutput> {
+  if (!opts.icons) {
+    throw new CommandError({
+      code: 'ENVIRONMENT',
+      message: 'This deployment has no image renderer, so an icon cannot be cut from a picture here.',
+      hint: "Name an icon file the site already holds with set_config: key 'config.favicon', { \"icon\": \"…\" }.",
+    })
+  }
+  let made
+  try {
+    made = await opts.icons(image)
+  } catch (error) {
+    if (error instanceof IconSourceError) {
+      throw new CommandError({ code: error.code, message: error.message, path: image })
+    }
+    throw error
+  }
+  const files = [made.icon, ...(made.appleTouchIcon ? [made.appleTouchIcon] : [])]
+  await opts.store.write(slug, { assets: files.map((f) => ({ name: f.name, bytes: f.bytes })) })
+  const favicon = {
+    icon: made.icon.name,
+    ...(made.appleTouchIcon ? { appleTouchIcon: made.appleTouchIcon.name } : {}),
+  }
+  const base = await readBase(slug, opts)
+  const before = (base.config as Record<string, unknown> | undefined)?.favicon
+  const newBase = { ...base, config: { ...(base.config as Record<string, unknown>), favicon } }
+  await validateOrThrow(slug, opts, newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
+  await opts.store.write(slug, { siteJson: newBase })
+  const sizes = made.appleTouchIcon ? 'a tab icon and a home-screen icon' : 'a tab icon'
+  return note(
+    slug,
+    opts,
+    {
+      data: { favicon, source: made.source },
+      human: `Made ${sizes} from '${made.source}'.`,
+    },
+    {
+      op: 'config.favicon',
+      label: made.source,
+      before: clip(JSON.stringify(before) ?? 'null'),
+      after: clip(JSON.stringify(favicon)),
+    },
+  )
+}
+
+/**
+ * The tab icon and share card as the Settings pane shows them: what is set,
+ * what the card falls back to, and the site's pictures to choose from.
+ */
+export async function editShareGet(slug: string, opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const config = (base.config ?? {}) as Record<string, unknown>
+  const data = {
+    favicon: config.favicon ?? null,
+    shareCard: config.shareCard ?? null,
+    defaults: { title: String(config.businessName ?? ''), description: String(config.tagline ?? '') },
+    images: (await listSiteAssets(slug, opts)).filter((a) => a.kind === 'image').map((a) => a.id),
+  }
+  return { data, human: JSON.stringify(data, null, 2) }
+}
+
+/**
+ * Replace the share card whole — the Settings pane's write.
+ *
+ * WHOLE, NOT MERGED, because the pane shows every field and an emptied box
+ * means "use the default": `set_config` merges, and merge cannot remove a key.
+ * An empty or absent field is dropped, and a card with nothing left in it is
+ * removed, so the page head goes back to carrying no card at all.
+ */
+export async function editShareCardSet(
+  slug: string,
+  card: { image?: unknown; title?: unknown; description?: unknown },
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const next: Record<string, string> = {}
+  for (const key of ['image', 'title', 'description'] as const) {
+    const value = typeof card[key] === 'string' ? (card[key] as string).trim() : ''
+    if (value !== '') next[key] = value
+  }
+  const base = await readBase(slug, opts)
+  const { shareCard: before, ...rest } = (base.config ?? {}) as Record<string, unknown>
+  const config = Object.keys(next).length > 0 ? { ...rest, shareCard: next } : rest
+  const newBase = { ...base, config }
+  await validateOrThrow(slug, opts, newBase, (await readPageFiles(slug, opts)).map((f) => f.page))
+  await opts.store.write(slug, { siteJson: newBase })
+  return note(
+    slug,
+    opts,
+    {
+      data: { shareCard: config.shareCard ?? null },
+      human: config.shareCard ? `Set the share card to ${JSON.stringify(next)}.` : 'Removed the share card.',
+    },
+    {
+      op: 'config.share-card',
+      label: 'shareCard',
+      before: clip(JSON.stringify(before) ?? 'null'),
+      after: clip(JSON.stringify(config.shareCard) ?? 'null'),
     },
   )
 }
