@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T15:11:05.759157+00:00'
+updated_at: '2026-10-17T15:17:07.243994+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2183,3 +2183,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[REQ-401]]** (2026-10-17): plan-panel questions fold to one line (triangle, status box for open/skipped/done, start of the prompt cut off with '…') and use the chat's fonts. They sit in two sections, OPEN QUESTIONS and WHAT YOU'VE TOLD US. The comp board becomes one item in the list. Open items start expanded and collapse once when done or skipped, and the client's own fold choices stick. The consultant leads each question with its subject and announces every question she adds.
+
+
+
+- **[[REQ-402]]** (2026-10-17): the look selector moves off the toolbar into a band at the top of the preview, shown only when the page has looks. The band has '‹ name ›' with 'N of M', the full description, and 'Tell the consultant which look you prefer, and why.' That wording is an operator-chosen exception to DOC-66's 'your consultant'. The word stays 'look'.
