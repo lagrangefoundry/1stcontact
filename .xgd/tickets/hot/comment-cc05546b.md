@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-403
 created_by: xgd
 created_at: '2026-10-17T15:33:48.669011+00:00'
-updated_at: '2026-10-17T15:39:27.421617+00:00'
+updated_at: '2026-10-17T15:56:34.967149+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,11 @@ Confirmed `postTurn(..., {role:'assistant'})` folds as a genuine assistant turn.
 4. **"All done…" is deleted everywhere.** With no open asks, the count line is simply hidden. The REQ-379 UAT that asserts "All done" at zero gets rewritten to match.
 
 Once you've chosen a comps option, I'll write these decisions into REQ-403's body, set it to `free_coding`, cut the branch and build it.
+
+<!-- xgd-turn id="2020a3c3-8aa5-4502-a0bb-a15231981e34-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T15:56:34.829802+00:00" -->
+#### You
+The comps board is an "OPEN QUESTION" it should be treated like all the others. It should not appear until triggered by the AI
 
 <!-- xgd-chat-end -->
