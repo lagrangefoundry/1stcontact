@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-10-17T20:25:40.253909+00:00'
+updated_at: '2026-10-17T20:31:48.312925+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -235,5 +235,27 @@ The ticket is at `free_coded` and parked. Promotion to `ready_to_reconcile` is y
 <!-- xgd-chat role="user" ts="2026-10-17T20:25:32.200557+00:00" -->
 #### You
 There is a bug143-baseline worktree in .xgd/tmp/ please clean it up
+
+<!-- xgd-turn id="d300345d-b508-44fe-a0c8-4d3951e28e0a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:31:43.765979+00:00" -->
+#### Claude
+It's a detached-HEAD worktree at `3226f5bab4` with no branch. The only local change is an untracked `storage/` dir. Checking what that holds before I force-remove it:
+
+It's an empty directory, so nothing is lost. Removing:
+
+I removed the worktree directory, but one piece is left that I can't remove.
+
+**Done:** `.xgd/tmp/bug143-baseline/` is gone. It was a detached-HEAD checkout at `3226f5bab4` with no branch, so no branch needed deleting. Its only local change was an empty untracked `storage/` directory, so nothing was lost.
+
+**Left over:** git's bookkeeping entry for that worktree, `.git/worktrees/bug143-baseline/`. The sandbox blocks deleting anything under `.git/worktrees/`, so `git worktree list` still shows the worktree, marked `prunable`. `xgd branch clean --stale` can't clear it either, because it only handles `free-<TICKET>` branches under the standard worktree location. Run this yourself outside the sandbox:
+
+```
+git -C /Users/martin/lagrangefoundry/1stcontact worktree prune -v
+```
+
+That same command will also clear a second dead entry it found, `free-REQ-363`, whose directory is already gone too. If you'd rather keep that cleanup separate, delete only the BUG-143 entry with `rm -rf /Users/martin/lagrangefoundry/1stcontact/.git/worktrees/bug143-baseline`.
+
+The other `bug143-*` scratch files in `.xgd/tmp/` (append drafts, probe scripts, suite logs, the recovery test copy) are still there. I can delete those as well if you want.
 
 <!-- xgd-chat-end -->
