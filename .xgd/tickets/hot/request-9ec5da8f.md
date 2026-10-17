@@ -6,9 +6,9 @@ title: 'Plan panel: questions fold to one line with a status box, in two section
   matching the chat''s type'
 created_by: EPIC-19
 created_at: '2026-10-17T15:11:00.170337+00:00'
-updated_at: '2026-10-17T15:19:32.478091+00:00'
+updated_at: '2026-10-17T15:26:49.057955+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -77,3 +77,19 @@ UATs `test_UAT_FC_<this ticket>_*`, on the rendered plan panel:
 - Expanding it again, then re-rendering or reloading, leaves it expanded. Collapsing an open item, then reloading, leaves it collapsed.
 - The comp board renders as a list item with a status box, not as a separate section, and its status follows the visual-concept decision.
 - The consultant's priming contains both rules: questions lead with their subject, and every added question is announced in the chat.
+
+## Implementation (as landed)
+
+- **The chat's type is one token.** `webui-chat` declares its message and composer size as a literal (13px) with no token to read, so `builder.css` defines `--builder-chat-font-size` once and both sides read it: the chat's message and composer rules (overridden on specificity, not sheet order) and `.plan-panel`. The family needs no token — both inherit the shell's, and every panel control says `font: inherit`.
+- **Items.** Every ask and the comp board is drawn as one item: a line (`role="button"`, focusable, Enter/Space) of triangle, status box (with a visually hidden "Open"/"Skipped"/"Done") and the full prompt, cut off with an ellipsis by CSS while folded and wrapping when unfolded; the reason, answer, Change and editor sit in the body beneath. A click in the body never toggles.
+- **Fold state** is kept through the builder's own namespaced storage (`site:plan-fold`), per site and item, as `{expanded, at}` where `at` is the item's status when the client chose. With no choice, open items are unfolded and done/skipped ones folded. A choice made while the item was open is dropped the first time it is drawn done or skipped — that is the one-time fold on completion; any later choice is kept.
+- **Comp board status** is worked out by the plan (`compsStatus` in `plan-core`, carried on the panel view as `comps_status`): **done** when the `visual_concept` decision is no longer open *and names at least one comp* (the priming tells the consultant to record it "with the comps that shaped it"; a concept defaulted with no comps behind it was not taken from the board); otherwise **skipped** once the client presses Skip on the item; otherwise **open**. Skip is a new `skip` action on `/api/plan/comp`, stored as `comps_skipped_at`; adding a site to the board reopens it (written as `null`, since the host's write is a field patch). The consultant's per-turn plan entry says "The client skipped comparing other sites."
+- The comp item sits last among the open items, first among the settled ones, and only once a site is shown. The progress line ("N questions still to answer") still counts asks only.
+- Section headings are "Open questions" / "What you've told us", set in capitals by the stylesheet.
+- Rules 3 and 7 are in both priming orders' `plan-panel` section and in the plan surface's `set_ask` description (and its `prompt` parameter).
+
+## UATs
+
+`tests/test_UAT_FC_REQ-401_plan_panel_items_fold.test.ts` — type (size read through the same declaration as a real chat message's, family from the same element, and both move together when the token moves); the one-line fold per status; click/Enter/Space toggling; the two sections and hidden empty sections; answering/skipping moves and folds; folds surviving a redraw and a reload; the comp board as an item following open/skipped/done (panel and `plan-core`); the priming and `set_ask` rules.
+
+Note: eight priming/session suites (REQ-182, -239, -283, -284, -285, -295, -388, AC1320) fail identically on an untouched xgd-working checkout with `lib.registerDefaults is not a function` (shared-store drift), so they could not confirm this change either way; the priming cap is 200k chars and this adds ~800.
