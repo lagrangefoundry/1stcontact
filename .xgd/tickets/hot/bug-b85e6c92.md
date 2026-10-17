@@ -6,10 +6,10 @@ title: 'Progress banner: looks like a line of text — boxes not ''|'', no colon
   tint bleeds, not full width'
 created_by: EPIC-19
 created_at: '2026-10-17T14:10:11.145682+00:00'
-updated_at: '2026-10-17T14:16:32.240872+00:00'
+updated_at: '2026-10-17T14:16:54.736231+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: low
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-a3ef0be5
+  commits:
+  - working_sha: 04938d7927e0ecc6a711dd6da05aea485875d532
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7a159f8741e05e4ca524954e6705a5e73b752f0a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.509
 ---
 
 ## Symptom
