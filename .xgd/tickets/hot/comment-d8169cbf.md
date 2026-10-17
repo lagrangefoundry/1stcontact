@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T15:15:03.528537+00:00'
+updated_at: '2026-10-17T15:15:39.135491+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7631,5 +7631,23 @@ Lets do this:
 Selector is not present unless there are versions available
 If there are versions available then we take a band from the top of the page display section
 The band has the < name >  control followed by a section with the text description of the version that can span the panel. Under the text description include the instruction "Tell the consultant..." (not THE consultant not Your consultant)
+
+<!-- xgd-turn id="759f068e-b9df-4bd4-8c7b-ca82d471b14c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T15:15:34.811815+00:00" -->
+#### Claude
+Here's how I'd write it up. BUG-205, which covered the carousel, has already landed and is frozen, so this needs a new ticket. Say the word and I'll file it.
+
+**Version band (replaces BUG-205's toolbar controls):**
+1. **It isn't there unless the page has versions.** For a page without them, nothing at all is shown: no dimmed controls, no empty space.
+2. **When there are versions, a band takes the top of the preview area,** full width, above the page itself, which moves down to make room. It isn't overlaid on the page.
+3. **On the left of the band: `‹ Name ›`**, the version's label between the arrows. The current draft counts as one of the versions, labelled "Current". There's also a small "2 of 3", and the cross-fade between versions stays.
+4. **Next to it, a description area that can take the rest of the band's width,** showing the version's description in full. It wraps over as many lines as it needs; it isn't cut short to fit a toolbar.
+5. **Under the description, the instruction:** *"Tell the consultant which version you prefer, and why."* It's capitalised "Tell the consultant…", not "THE consultant" and not "your consultant", replacing today's "Tell your consultant which look you prefer" (`config.js:982`). That's a deliberate exception to DOC-66's "your consultant" in running copy, and the ticket says so, so nobody "fixes" it back.
+6. **The toolbar's look controls are removed,** because the band replaces them.
+
+Two small questions:
+- **"Version" or "look"?** The code and the consultant say "look". You wrote "version" here. I'd change the visible word to "version" if that's what you prefer, but keep the internals as they are.
+- **The text after "Tell the consultant…"**: is *"which version you prefer, and why"* right, or did you have other wording in mind?
 
 <!-- xgd-chat-end -->
