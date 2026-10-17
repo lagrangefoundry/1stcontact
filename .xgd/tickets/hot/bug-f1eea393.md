@@ -6,10 +6,10 @@ title: Builder worker aborted on context budget with no report and left the brie
   half-done
 created_by: xgd
 created_at: '2026-10-17T22:29:24.149544+00:00'
-updated_at: '2026-10-17T23:11:45.780453+00:00'
+updated_at: '2026-10-17T23:12:43.145240+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
