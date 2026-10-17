@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T17:33:23.310020+00:00'
+updated_at: '2026-10-17T22:38:06.952036+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2194,3 +2194,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[BUG-210]]** (2026-10-17): every builder conversation fails to open with `lib.registerDefaults is not a function`. lagrange-framework BUG-83 (2026-10-10) moved session memory into a framework-owned core configured through the product's `memory:` block, deleted `registerDefaults`, and refuses a host that rebinds a core-owned provider name such as `session.summary`. host-core.ts still calls it twice. Fix: adopt the core, keep REQ-283's ledger and frame, keep the settings gauge (REQ-296). This is also why REQ-403's 'Click here to start' never showed: the session throws before the panel can see an empty conversation. Earlier test notes wrongly cited BUG-63 as tracking this.
+
+
+
+- **BUG-215** — first draft: the starter page becomes the grey placeholder (no 'Your 1st Contact site', no counter dependency); the working line separates the turn's estimate and clock from the current step's; the delegation heartbeat never reaches the client as text; slow-operation notices shown as lighter collapsed step lines rather than hidden (operator wants to see progression).
