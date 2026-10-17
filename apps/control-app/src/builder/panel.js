@@ -253,12 +253,20 @@ export function createDisplayPanel(options = {}) {
     if (rec) current = rec
   }
 
-  /** Point a frame somewhere. The one call that navigates. */
+  /**
+   * Point a frame somewhere. The one call that navigates.
+   *
+   * NOWHERE IS `about:blank`, NEVER AN EMPTY `src` ([[BUG-207]]). A pane with no
+   * site to show — a business with no sites — asks for `''`, and a browser does
+   * not unload a frame for an empty `src`: it keeps the document it held, which
+   * after leaving an entered business is ANOTHER CUSTOMER'S SITE. `rec.src`
+   * still records `''`, so "nothing shown" reads the same to everything else.
+   */
   function navigate(rec, url) {
     rec.src = url
     rec.stale = false
     rec.loaded = false
-    rec.el.setAttribute('src', url)
+    rec.el.setAttribute('src', url === '' ? 'about:blank' : url)
   }
 
   /**
