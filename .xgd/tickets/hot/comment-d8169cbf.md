@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T17:31:19.029469+00:00'
+updated_at: '2026-10-17T17:34:14.740668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7740,5 +7740,24 @@ Shall I file this as a high-severity bug under EPIC-19? It blocks every builder 
 <!-- xgd-chat role="user" ts="2026-10-17T17:30:37.872485+00:00" -->
 #### You
 Please create a bug
+
+<!-- xgd-turn id="07d1d21e-9d7b-4f86-8e6d-cf5914ddde92-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T17:33:32.255483+00:00" -->
+#### Claude
+I've filed **BUG-210**, *"AI host: adopt lagrange-framework BUG-83's session-memory core — registerDefaults removed, every conversation fails to open"*. It's under EPIC-19 at `draft`, with critical severity, high priority and 8 points, and the epic links to it.
+
+The fix it asks for is to adopt the framework's new memory core, not work around it:
+1. **Remove both `registerDefaults` calls**, in the consultant's manager and the settings manager.
+2. **Configure memory through each role's `memory:` block.** Anything a role must not be told is switched off by name. For example, the settings assistant must not be told its turns are addressable by id.
+3. **Resolve the provider-name collisions.** The core refuses a host that registers a name it owns, and we register our own `session.summary` (REQ-283), possibly `session.budget` too. Each one is either removed or moved under the core's configuration.
+4. **Keep REQ-283's memory intact.** The consultant must still read its decisions ledger and its standing note every turn, and nothing already recorded may be lost. If the core can't be pointed at that storage, that gap becomes a lagrange-framework ticket, not a local copy of the core.
+5. **Keep the settings assistant's occupancy gauge** (REQ-296). Builder sessions must still never be given the project knowledge base.
+
+Its tests run against the real installed library, not the old pre-Oct-10 copy that's been hiding the breakage. One of them checks that a new business shows "Click here to start", which also proves REQ-403 is actually working.
+
+Two things are out of scope and noted in the ticket. Pinning the shared framework install to a version is worth doing, but separately. Rolling the framework back is ruled out, because it would also lose web search and the BUG-81 fix.
+
+Until BUG-210 lands, no builder conversation will open on your dev setup.
 
 <!-- xgd-chat-end -->
