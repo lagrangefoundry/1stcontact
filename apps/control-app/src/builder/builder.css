@@ -3861,6 +3861,54 @@ body {
   padding-inline-start: 8px;
 }
 
+/*
+ * THE TAB ICON AND SHARE CARD ([[REQ-400]]). Painted from `--shell-*` like the
+ * sections above it; the previews are drawn at the sizes they are seen at.
+ */
+.builder-launch__body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.builder-launch__row,
+.builder-launch__card {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.builder-launch__card {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.builder-launch__icon-preview {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--shell-radius);
+  border: 1px solid var(--shell-border);
+}
+
+.builder-launch__card-preview {
+  max-width: 16rem;
+  aspect-ratio: 1.91 / 1;
+  object-fit: cover;
+  border-radius: var(--shell-radius);
+  border: 1px solid var(--shell-border);
+}
+
+.builder-launch__select,
+.builder-launch__input {
+  padding: 6px 8px;
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+  background: var(--shell-bg);
+  color: var(--shell-fg);
+  font: inherit;
+}
+
 .builder-settings__empty {
   margin: 0;
   font-size: 0.9em;

@@ -154,6 +154,7 @@ import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
 import { newId } from '../../store/ids'
 import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
+import { iconMaker } from '../favicon'
 import { browserMeasurer, browserPageMeasurer } from './measure-core'
 import type { FidelityDeps } from './fidelity-core'
 import {
@@ -1122,10 +1123,21 @@ function countedPlan(deps: HostDeps, slug: string): PlanDeps {
  * A host without plans has nothing an approval could be recorded in, and its
  * writes go unguarded rather than refusing every address.
  */
-export function aiOptions(opts: GlobalOptions, deps: Pick<HostDeps, 'plan'>, slug: string): GlobalOptions {
-  if (!deps.plan) return { ...opts, actor: 'ai' }
+export function aiOptions(
+  opts: GlobalOptions,
+  deps: Pick<HostDeps, 'plan' | 'pictures'>,
+  slug: string,
+): GlobalOptions {
+  // [[REQ-400]] — the tab icon is cut by the same renderer and named in the same
+  // vocabulary the `image` surface uses, so a picture the assistant can look at
+  // is a picture it can make the icon from. No renderer, no `icons`, and
+  // `make_favicon` says so.
+  const pictures = deps.pictures ? deps.pictures(slug) : null
+  const icons = pictures ? { icons: iconMaker(pictures.images, pictures.renderer) } : {}
+  if (!deps.plan) return { ...opts, ...icons, actor: 'ai' }
   return {
     ...opts,
+    ...icons,
     actor: 'ai',
     publicDetails: async () => approvedDetails((await deps.plan!(slug).read())?.fields ?? {}),
   }

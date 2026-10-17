@@ -47,6 +47,7 @@ import {
   editChanges,
   editConfigGet,
   editConfigSet,
+  editFaviconMake,
   editDocumentGet,
   editDrawingRead,
   editDocumentSet,
@@ -927,6 +928,14 @@ export function l1Operations(
 
     set_config: async (p) => {
       const out = await editConfigSet(slug, opt(p, 'key'), obj(p, 'settings'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-400]] — the tab icon, cut from a picture the client already has. The
+    // renderer is the host's to lend (`opts.icons`); without one this refuses in
+    // a sentence rather than vanishing, like the measuring operations.
+    make_favicon: async (p) => {
+      const out = await editFaviconMake(slug, req(p, 'image'), opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 

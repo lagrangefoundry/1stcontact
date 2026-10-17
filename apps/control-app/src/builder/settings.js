@@ -55,6 +55,7 @@ import { fetchAddresses, fetchBusinessRecord, fetchDomain, saveBusinessName } fr
 import { createHostnameSection } from './hostname.js'
 import { createDomainSection } from './domain.js'
 import { createDnsHistorySection } from './dns-history.js'
+import { createLaunchSection } from './launch.js'
 
 /**
  * The field, and the two sentences around it.
@@ -133,7 +134,7 @@ export function outOfDateNotes(effects) {
  *   product disagreeing with itself on one screen.
  */
 export function createSettingsPanel(options = {}) {
-  const { transport = null, onRenamed = () => {} } = options
+  const { transport = null, onRenamed = () => {}, site = () => null } = options
 
   const element = document.createElement('div')
   element.className = 'builder-settings'
@@ -223,6 +224,18 @@ export function createSettingsPanel(options = {}) {
     },
   })
 
+  /**
+   * The tab icon and share card ([[REQ-400]]) — the SITE's, which is why the
+   * pane is handed which site is open: everything above it is the business's.
+   */
+  const launch = createLaunchSection({
+    site,
+    transport: {
+      ...(transport?.loadLaunch ? { load: transport.loadLaunch } : {}),
+      ...(transport?.saveLaunch ? { save: transport.saveLaunch } : {}),
+    },
+  })
+
   const loadAddresses = transport?.loadAddresses ?? fetchAddresses
   const loadBusiness = transport?.loadBusiness ?? fetchBusinessRecord
   const loadDomain = transport?.loadDomain ?? fetchDomain
@@ -271,17 +284,20 @@ export function createSettingsPanel(options = {}) {
     hostname.clear()
     domain.clear()
     dnsHistory.clear()
+    launch.clear()
     const mine = ++addressGeneration
     if (!business) {
       section.remove()
       hostname.element.remove()
       domain.element.remove()
       dnsHistory.element.remove()
+      launch.element.remove()
       element.append(empty)
       return
     }
     empty.remove()
-    element.append(section, hostname.element, domain.element, dnsHistory.element)
+    element.append(section, hostname.element, domain.element, dnsHistory.element, launch.element)
+    void launch.refresh()
     // THE HISTORY IS READ ON OPEN, like the addresses and the domain above it,
     // and its failure is silent for the same reason: it is a request the customer
     // did not make.
@@ -381,6 +397,8 @@ export function createSettingsPanel(options = {}) {
     // and the card it shows is in the chat, not here — so without this the two
     // halves of one screen disagree about what has been done.
     void dnsHistory.refresh()
+    // AND THE ICON AND CARD ([[REQ-400]]): the site's assistant can set either.
+    void launch.refresh()
     if (!record || record.id !== business.id) return
     const name = record.name ?? ''
     if (name === business.name) return
@@ -406,6 +424,8 @@ export function createSettingsPanel(options = {}) {
     dnsHistory,
     /** The customer's own domain section — for the host and for a suite. */
     domain,
+    /** The tab icon and share card section ([[REQ-400]]). */
+    launch,
     clear: () => setBusiness(null),
     destroy() {
       fields?.destroy()

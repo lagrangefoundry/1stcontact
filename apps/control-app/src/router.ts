@@ -2,6 +2,7 @@ import {
   editAssetList,
   editCopyGet,
   editCopySet,
+  editFaviconMake,
   editPageList,
   editPageUpdate,
   editPaletteAdd,
@@ -9,7 +10,10 @@ import {
   editPaletteRename,
   editPaletteRm,
   editPaletteSet,
+  editShareCardSet,
+  editShareGet,
 } from '../../../tools/generate/src/cli/edit'
+import { iconMaker } from '../../../tools/generate/src/cli/favicon'
 import {
   CommandError,
   InvalidDefinitionError,
@@ -6314,6 +6318,56 @@ async function routeUncached(
         fetch: deps.fetch,
       })
       return json(200, materialEnvelope(ingested))
+    }
+
+    /**
+     * The Settings pane's tab icon and share card ([[REQ-400]]).
+     *
+     * THIN TRANSPORTS OVER `edit.ts`, on `/api/palette`'s rule: the assistant's
+     * `make_favicon` and this route call the same `editFaviconMake`, so the
+     * asset check and the order of the two writes hold for the client's hand
+     * exactly as they hold for the assistant's.
+     *
+     * THE ICON IS CUT BY THE SAME RENDERER, FROM THE SAME MERGED PICTURES, the
+     * assistant's `image` surface uses — so a Library item the client can see in
+     * the Library is one they can make the icon from here. Where this deployment
+     * keeps no Library the site's own files are all there is, and where it has no
+     * renderer the write refuses in the command's own sentence.
+     */
+    if (p === '/api/launch') {
+      if (method === 'GET') {
+        const site = url.searchParams.get('site')
+        if (!site) return json(400, { error: 'site is required' })
+        return json(200, (await editShareGet(site, await edit())).data)
+      }
+      if (method === 'POST') {
+        const body = await readJsonBody(request)
+        const { site, op } = body
+        if (typeof site !== 'string' || (op !== 'icon' && op !== 'card')) {
+          return json(400, { error: "site and op ('icon' or 'card') are required" })
+        }
+        const scope = await edit()
+        if (op === 'card') {
+          await editShareCardSet(site, body, scope)
+        } else {
+          if (typeof body.image !== 'string' || body.image === '') {
+            return json(400, { error: 'image is required' })
+          }
+          const renderer = imageRendererFor(env, requireScope().businessId)
+          const images = await openTickets().then(
+            (tickets) => sessionPictures(scope.store, tickets, renderer)(site),
+            (err) => {
+              if (err instanceof BlobsNotConfiguredError) return siteImageLibrary(site, scope.store)
+              throw err
+            },
+          )
+          await editFaviconMake(site, body.image, {
+            ...scope,
+            ...(renderer ? { icons: iconMaker(images, renderer) } : {}),
+          })
+        }
+        return json(200, (await editShareGet(site, scope)).data)
+      }
     }
 
     /**

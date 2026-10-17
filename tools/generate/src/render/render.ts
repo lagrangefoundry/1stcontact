@@ -22,8 +22,9 @@ import {
   getModule,
   renderL1Document,
   renderL1Email,
+  shareHeadTags,
 } from '@1stcontact/framework/worker'
-import type { BehaviorDefinition, ImageDeliveryManifest } from '@1stcontact/framework/worker'
+import type { BehaviorDefinition, ImageDeliveryManifest, ShareHead } from '@1stcontact/framework/worker'
 import { l1InlinedDrawings, resolveSiteLocale } from '@1stcontact/site-schema'
 import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
@@ -240,6 +241,40 @@ async function pageDrawings(
   return Object.keys(drawings).length > 0 ? drawings : undefined
 }
 
+/**
+ * [[REQ-400]] — what one page's head says about its icon and its card.
+ *
+ * THE ICON IS THE SITE'S. THE CARD IS WHAT THE CLIENT CHOSE, THEN WHAT THE PAGE
+ * SAYS ABOUT ITSELF. A title or description set on the site's card is the one
+ * every shared link shows, because it is the one the client set for exactly that
+ * purpose; where the card leaves one unset, the page's own `seoMeta` — how it
+ * describes itself to a search engine — answers, and then the site's name and
+ * tagline. The picture is the page's `ogImage` where the page names one: that is
+ * the per-page override, and it is the only one a page needs to carry.
+ *
+ * A CARD EXISTS ONLY WHERE ONE WAS ASKED FOR — a site-level `shareCard`, or a
+ * page naming its own picture. A site that has set neither publishes no Open
+ * Graph tags at all, rather than a card assembled from defaults nobody chose.
+ */
+function pageShareHead(site: Site, page: Page): ShareHead {
+  const card = site.config.shareCard
+  const favicon = site.config.favicon
+  const image = page.seoMeta?.ogImage ?? card?.image
+  return {
+    icon: favicon?.icon,
+    appleTouchIcon: favicon?.appleTouchIcon,
+    ...(card || page.seoMeta?.ogImage
+      ? {
+          card: {
+            title: card?.title || page.seoMeta?.title || site.config.businessName,
+            description: card?.description || page.seoMeta?.description || site.config.tagline,
+            image,
+          },
+        }
+      : {}),
+  }
+}
+
 /** Build a complete HTML document for one page. */
 function renderPage(
   site: Site,
@@ -251,7 +286,6 @@ function renderPage(
 ): string {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
-  const ogImage = page.seoMeta?.ogImage
   // The page body is either an L1 document (a folded reproduction — REQ-88) or a
   // behavior-module stack. The L1 render is self-contained (concrete values from
   // the fold); its css rides in a page-level <style> alongside the theme tokens.
@@ -275,7 +309,8 @@ function renderPage(
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     `<title>${escapeHtml(title)}</title>`,
     description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
-    ogImage ? `<meta property="og:image" content="${escapeHtml(ogImage)}" />` : '',
+    // [[REQ-400]] — the tab icon and the share card. See {@link pageShareHead}.
+    ...shareHeadTags(pageShareHead(site, page)),
     // Theme tokens (fonts, spacing, scales) are declared as custom properties in
     // theme.css; the base style below binds the document to them.
     //

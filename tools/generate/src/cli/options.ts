@@ -5,6 +5,7 @@
 // typechecked only because the deleted `*.astro` ambient pulled Astro's `.d.ts`
 // in, and with it `@types/node`, by accident.
 import type { EditActor } from '../store/journal-model'
+import type { IconMaker } from './favicon'
 
 /**
  * Options every command shares (REQ-145).
@@ -61,4 +62,14 @@ export interface GlobalOptions {
    * and the CLI leave it unset.
    */
   publicDetails?: () => Promise<ReadonlySet<string>>
+  /**
+   * [[REQ-400]] — how a tab icon is cut from a picture the client already has,
+   * or absent where this deployment has no image renderer.
+   *
+   * A CAPABILITY THE HOST LENDS, like `publicDetails` beside it: the renderer is
+   * a Worker binding, and `edit.ts` must not learn how to reach one. Absent,
+   * `make_favicon` refuses with a sentence saying so; `set_config` can still
+   * name an icon file the site already holds.
+   */
+  icons?: IconMaker
 }
