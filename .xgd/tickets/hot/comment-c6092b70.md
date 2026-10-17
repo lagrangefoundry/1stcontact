@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-150
 created_by: xgd
 created_at: '2026-08-20T00:47:15.023004+00:00'
-updated_at: '2026-10-17T20:31:47.682595+00:00'
+updated_at: '2026-10-17T20:35:34.384776+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -460,5 +460,24 @@ BRANCH WITHOUT WORKTREE (branch exists, nothing checked out):
 ```
 
 Please clean up the orphaned worktree
+
+<!-- xgd-turn id="b3433720-b7e6-4978-82f8-3192863c5bf6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:35:30.236150+00:00" -->
+#### Claude
+The REQ-150 directory is only leftover Wrangler cache: one file, `cf.json`. No `.git`, no source, and the branch is already gone. It's safe to delete.
+
+Both orphaned entries are now gone from `xgd worktree ls`.
+
+- **`free-REQ-150`**: I deleted it. It wasn't a real worktree any more. There was no `.git`, the branch had already been deleted, and the only file left was `apps/control-app/.wrangler/cache/cf.json`, a Wrangler cache file that a test run wrote after the August teardown. `xgd branch clean --stale` wouldn't have caught it, because git had no record of it at all, so I removed the directory directly.
+- **`free-BUG-189`**: it had already disappeared by the time I looked, so something else removed it between your listing and mine. I didn't touch it.
+
+Other sessions have been active in the meantime, and the listing now shows some new problems I left alone:
+- **`free-REQ-363`** and **`bug143-baseline`**: git still has records for these worktrees, but their directories are gone.
+- **`reconcile-src-BUNDLE-31`**: still listed as a branch with no worktree.
+
+`free-REQ-363` will be cleared by `xgd branch clean --stale` only once its branch is merged into `xgd-working`. `bug143-baseline` is a detached checkout and the sweep only handles `free-*` branches, so `git worktree prune` is what removes it, but that would also clear `free-REQ-363`'s record. I'd check that `free-REQ-363` isn't still in use by another session before running either.
+
+No code changed, so there's nothing to record on REQ-150.
 
 <!-- xgd-chat-end -->
