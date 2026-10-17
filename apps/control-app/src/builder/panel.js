@@ -417,6 +417,14 @@ export function createDisplayPanel(options = {}) {
       return current?.el ?? null
     },
     /**
+     * The shown frame has not yet loaded what it was last pointed at ([[BUG-207]]).
+     * While it is, `frame.contentWindow` is still the document being left, so
+     * nothing read off it describes what the pane is about to show.
+     */
+    get loading() {
+      return current ? !current.loaded : false
+    },
+    /**
      * Re-derive what the pane shows, without the site or the mode having moved
      * ([[REQ-179]]).
      *
@@ -542,6 +550,15 @@ export function createDisplayPanel(options = {}) {
       invalidate(current)
       if (!current) return
       current.stale = false
+      // A FRAME STILL ON ITS WAY SOMEWHERE IS RE-POINTED, NEVER RELOADED
+      // ([[BUG-207]]). Until it has loaded, its window is the document being
+      // LEFT — after a site switch, the previous site — and reloading that
+      // cancels the navigation to the new one, leaving the old site on screen
+      // under a panel that says it moved. What it was asked for is the page.
+      if (!current.loaded) {
+        navigate(current, current.src)
+        return
+      }
       try {
         const win = current.el.contentWindow
         if (typeof win?.location?.reload === 'function') {

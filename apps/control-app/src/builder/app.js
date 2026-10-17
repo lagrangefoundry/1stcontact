@@ -794,6 +794,9 @@ export function mountBuilder(root, options = {}) {
   let draftFeed = { close: () => {} }
   let draftFeedKey = null
   const shownAt = () => {
+    // [[BUG-207]] — mid-navigation the frame's window is the page being left
+    // (after a switch, ANOTHER SITE'S), and its count is not this one's.
+    if (panel.loading) return null
     let stated = null
     try {
       const [entry] = panel.frame?.contentWindow?.performance?.getEntriesByType?.('navigation') ?? []

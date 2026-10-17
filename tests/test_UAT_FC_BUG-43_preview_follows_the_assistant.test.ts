@@ -211,6 +211,9 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-43 — 1c turns the signal into a re-rend
       configurable: true,
       value: { location: { reload: () => void (reloads += 1) } },
     })
+    // The page has arrived, as a browser says with `load` — jsdom never does,
+    // and a frame still mid-navigation is re-pointed rather than reloaded ([[BUG-207]]).
+    app.panel.frame.dispatchEvent(new Event('load'))
 
     await app.chat.getChat().send('Add a services page and a contact page.')
 
@@ -241,6 +244,9 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-43 — 1c turns the signal into a re-rend
       configurable: true,
       value: { location: { reload: () => void (reloads += 1) } },
     })
+    // The page has arrived, as a browser says with `load` — jsdom never does,
+    // and a frame still mid-navigation is re-pointed rather than reloaded ([[BUG-207]]).
+    app.panel.frame.dispatchEvent(new Event('load'))
 
     await app.chat.getChat().send('What pages do I have?')
 

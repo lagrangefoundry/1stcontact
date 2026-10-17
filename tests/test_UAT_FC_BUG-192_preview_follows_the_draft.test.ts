@@ -83,6 +83,10 @@ function stubFrame(app: { panel: { frame: HTMLIFrameElement } }, shownAt: number
     },
   }
   Object.defineProperty(app.panel.frame, 'contentWindow', { configurable: true, value: win })
+  // The page has ARRIVED, as a browser says with `load` — jsdom never does.
+  // A frame still mid-navigation states nothing about the page it is going to
+  // ([[BUG-207]]), so a stand-in for a shown page has to have loaded.
+  app.panel.frame.dispatchEvent(new Event('load'))
   return {
     counts,
     win,
