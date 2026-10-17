@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-217
 created_by: xgd
 created_at: '2026-10-17T22:58:05.820794+00:00'
-updated_at: '2026-10-17T23:13:08.049676+00:00'
+updated_at: '2026-10-17T23:13:49.707012+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -83,5 +83,22 @@ Blocking details:
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="29372015-9976-497c-b755-f7c4620170ea-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T23:13:45.045571+00:00" -->
+#### Claude
+The `cd … &&` prefix defeated the sandbox exclusion. Re-running the command bare:
+
+BUG-217's free-coding is now finished. The `free-BUG-217` branch and its worktree are gone, and the merge lock is released.
+
+The first cleanup attempt was refused with "Operation not permitted". That happened because I ran it as `cd … && xgd branch clean`, and the `cd` prefix stops the sandbox from recognising the command it normally lets through. Running `xgd branch clean BUG-217` on its own worked.
+
+The ticket is ready to hand over:
+- **Status:** `free_coded`, 1 story point, version 0.2.518.
+- **Commits:** both are recorded and on xgd-working — `d99598db` (the fix) and `cb1db1d2` (the version bump).
+- **Description:** describes the final wording and lists all three tests.
+
+Moving it to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
