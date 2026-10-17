@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T13:58:52.994754+00:00'
+updated_at: '2026-10-17T14:09:36.494818+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7550,5 +7550,19 @@ I reviewed the Charlie's plumbing - 3 transcript again. Its last activity is sti
 **One gap I haven't filed: the contact form never tells the owner a new message has arrived.** Messages just wait in the contact list. That's clearly a beta blocker, since a plumber who never hears about enquiries has no reason to keep the site. But it belongs to **EPIC-14 (notifications)**, where form submissions are already the design's first example, and that epic hasn't started. Shall I file its first child, "new contact-form message notifies the owner by email", under EPIC-14?
 
 **Still open from my last debrief:** at 19:32 you wrote "I don't see any questions". I think the reason is that the consultant had already filled every question in from your letterhead, so the panel had nothing left to ask. REQ-399's redesign of when and how questions appear should cover this. Tell me if the panel was actually broken rather than empty.
+
+<!-- xgd-turn id="297ff1c4-c2b9-43f0-8bdc-05a655a3f44e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T14:09:36.013432+00:00" -->
+#### You
+**Still open from my last debrief:** at 19:32 you wrote "I don't see any questions". <-- I have lost context for this we can come back to it if we need to.
+
+Can we tweak the look of the progress bar we have created please? It is semantically correct but looks janky. It currently looks like a line of text, I want it to look like a UI widget.
+1. Title -> "Progress" (no colon)
+2. It literally uses "|" as dividers (I would like boxes
+3. The blue shading that identifies the current state shades the previous "|" divider
+4. It should span the full width of the chat pannel
+
+Please create a ticket for this
 
 <!-- xgd-chat-end -->
