@@ -6,10 +6,10 @@ title: 'Progress banner: looks like a line of text — boxes not ''|'', no colon
   tint bleeds, not full width'
 created_by: EPIC-19
 created_at: '2026-10-17T14:10:11.145682+00:00'
-updated_at: '2026-10-17T14:10:11.145682+00:00'
+updated_at: '2026-10-17T14:14:19.134914+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: low
   priority: high
