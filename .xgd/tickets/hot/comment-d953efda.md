@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-363
 created_by: xgd
 created_at: '2026-10-03T16:34:23.932487+00:00'
-updated_at: '2026-10-03T17:07:29.767893+00:00'
+updated_at: '2026-10-17T20:25:39.212059+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -118,5 +118,11 @@ REQ-363 is implemented, merged into xgd-working and parked at `free_coded` (vers
 **Left over:** `xgd branch clean REQ-363` refused to run because REQ-365's session now holds the merge lock, so the `free-REQ-363` worktree and branch still exist. They are fully merged; `xgd branch clean --stale` will remove them once the lock is free.
 
 Separately, the Gmail, Google Calendar and Google Drive connectors need authorizing in your claude.ai connector settings before they can be used.
+
+<!-- xgd-turn id="177f5e41-a88f-482d-b9fb-9396adc4d5cf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:25:31.305003+00:00" -->
+#### You
+please clean up the branch and worktree for this ticket
 
 <!-- xgd-chat-end -->
