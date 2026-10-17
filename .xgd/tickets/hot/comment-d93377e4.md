@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-17T19:47:02.863978+00:00'
+updated_at: '2026-10-17T19:51:13.283470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -207,5 +207,68 @@ Sources:
 <!-- xgd-chat role="user" ts="2026-10-17T19:46:20.654702+00:00" -->
 #### You
 ok we need a second example business Bob's salon. Located in southern Boston. Bob specializes in long hair for men and women. He also does nails and facials.
+
+<!-- xgd-turn id="dd7caac2-0d5e-4ae2-945d-5e9aa5a79b90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T19:50:59.274929+00:00" -->
+#### Claude
+I'm setting up Bob's Salon the same way as Charlie's. First I'm reading three real South Boston salons to use as competitors.I've read three real competitors. Now I'm writing Bob's Salon files to match Charlie's set.
+
+I've set up Bob's Salon at `example-businesses/bobs-salon/` in the same format as Charlie's. Nothing is committed.
+
+**Name clash:** the builder's coordinator agent is also called Bob, and two Bobs in the room will be confusing. I added a note at the top of the README suggesting you either rename the agents for this run or have the owner go by Robbie.
+
+**What's in the folder**
+- **`README.md`:** your three facts as canon (South Boston, long hair for men and women, nails and facials), then the invented details and paste-ready chat fragments in Bob's voice. The fragments cover:
+  - why he's different
+  - who his clients are: musicians, cooks, firefighters, old Southie ladies, young people in the new condos
+  - what he's best at, which is growing hair out
+  - three jobs from last week
+  - Twee on nails, Aoife on facials, and Marisol
+  - his clueless-but-opinionated answers about the website
+- **`services.md`:** the full price list:
+  - cuts by length: short $55 up to extra long $105
+  - $45 trims for people growing it out, and free cuts for kids donating hair to Wigs for Kids
+  - colour priced by length
+  - hair treatments and styling
+  - nails: manicure $30, gel $45, pedicure $50, with men's at the same price
+  - facials: from $65 express to $110 signature, and a $95 men's facial
+  - packages ("The Grow-Out Plan" and "The Whole Thing") and booking policies
+- **`salon-story.md`:** the backstory as a narrative, then as fragments Bob would say:
+  - In 1994, aged 16, Bob had long hair. A stylist called Dolores told him "long hair is long hair, it doesn't know if you're a boy."
+  - He spent eleven years at downtown and Newbury Street salons and hated the separate men's and women's prices.
+  - He opened in 2012 above a bakery, with his mother on reception.
+  - The free Wigs for Kids cuts started after his niece had leukaemia.
+- **`testimonials.md`:** 10 reviews, including a 4-star complaint about parking and the stairs, a 3-star one about a late arrival, and one from his mum.
+- **`invoice-blank.md`:** a salon receipt with a hair-length checkbox, a staff tick-box, services and retail lines, Massachusetts sales tax on retail only, tip, and notes for next time.
+- **`letterhead.md`:** "Long hair, for everyone. South Boston since 2012".
+- **`competitors.md`:** three real South Boston salons whose sites I read:
+  - [Ochoa Salon & Spa](https://ochoaforhair.com/south-boston-menu/): a chain founded in 1985, men's cut $52+, women's cut $72+.
+  - [House of Ivy](https://www.houseofivysb.com/): a luxury salon with a spa floor for facials but no nails.
+  - [Social Hour Salon](https://www.socialhoursalon.com/): a collective of independent stylists with no prices on the site.
+
+  Every one that lists prices charges men and women differently. None does hair, nails and facials together, and none makes long hair its headline. That gives Bob a clear angle.
+- **`example-businesses/README.md`:** a new index listing both businesses.
+
+**What I made up:** I took "southern Boston" to mean the South Boston (Southie) neighbourhood. These details are mine, so change any before pasting:
+- Bob Kearney, 48, at 461 E Broadway
+- the phone number (617) 555-0142, which uses the 555 fictional range
+- the staff (Marisol, Twee and Aoife)
+- the hours (Tuesday to Saturday) and the prices
+
+The rule of pricing by hair length rather than gender is also my invention, and it's the strongest idea in the set.
+
+There are no images yet. The README lists the logo and photos you'd need: Bob, the chair, and a long-hair before and after.
+
+I couldn't read two other sites from the searches: Elsie by Elsewhere's address doesn't resolve, and Caress Salon's site is a placeholder page.
+
+Sources:
+- [Ochoa Salon & Spa](https://ochoaforhair.com/south-boston-menu/)
+- [House of Ivy](https://www.houseofivysb.com/)
+- [Social Hour Salon](https://www.socialhoursalon.com/)
+- [Fresha, South Boston salons](https://www.fresha.com/lp/en/bt/beauty-salons/in/us-boston/south-boston)
+- [East West Salon Co.](https://www.eastwestsalonco.com/)
+- [Salon De Cheveux](https://www.salondecheveuxboston.com/)
+- [Caress Salon](https://caresssalon.com/)
 
 <!-- xgd-chat-end -->
