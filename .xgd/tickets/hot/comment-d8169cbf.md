@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:26:46.469979+00:00'
+updated_at: '2026-10-17T22:37:20.985191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7849,5 +7849,15 @@ The first line belongs to the turn's opening announcement and keeps its estimate
 **c. Internal plumbing leaks to you.** *"still working, elapsed 5 min — builder worker-builder-3-3br9qs on home.json, home.json#footer… since 22:19 UTC"* is the framework's heartbeat record (REQ-360), passed through word for word. It should never reach the client in that form: no worker ids, file names or UTC times. Its only useful content is "still going", and the timer already shows that, so the heartbeat should update the working line and post nothing.
 
 Shall I file both as one bug under EPIC-19? It's about 3 points; the two halves are small and belong to the same "first draft" experience.
+
+<!-- xgd-turn id="f0fa6bbe-5f6a-4c56-af6e-c9851129fbb9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:37:14.162823+00:00" -->
+#### You
+One side effect: if the consultant restyles the page before building (on Bob's Salon she set the cream background and fonts at 22:10, before adding sections), the grey page may turn cream. <-- I'm ok with that
+
+**b. A routine screenshot gets announced.** *"Taking a screenshot — about a minute"* appeared three times in the chat. REQ-386 announces every slow operation, and screenshots count. They're routine checking, not something the client needs to wait for. They shouldn't post to the chat at all, only update the "now:" line. <-- I've mixeed feelings about this - there is something to be said for seeing the progression of things happening...
+
+one bug please
 
 <!-- xgd-chat-end -->
