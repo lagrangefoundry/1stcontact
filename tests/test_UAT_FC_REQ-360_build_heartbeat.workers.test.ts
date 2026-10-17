@@ -35,7 +35,8 @@ const BUSINESS = 'req360-business'
 const WORKER_MODEL = backendsDocument.claude_builder.model
 /** A heartbeat every 200 ms, so a build held for a second says so several times. */
 const QUICK = { ...delegationDocument, enabled: true, progress_seconds: 0.2 }
-const HEARTBEAT = /^still working, elapsed \d+ min$/
+/** [[BUG-215]] — the heartbeat reaches the client wordless: it keeps the turn alive and shows nothing. */
+const HEARTBEAT = /^$/
 
 function routerEnv(): RouterEnv {
   return {

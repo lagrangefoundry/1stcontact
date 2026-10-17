@@ -27,6 +27,13 @@
  * are the host's here, not the model's, because the model's own context already
  * streams: prose written before a tool call reaches the client as it is written.
  *
+ * [[BUG-215]] — A STEP, NOT A MESSAGE. Each slow call used to be yielded as the
+ * assistant's text, so a turn of routine screenshots read as a stream of
+ * consultant messages. It now reaches the client only as a `working` note scoped
+ * to the step, which the chat draws as a light step line (repeats collapsed) and
+ * as the working line's "now:" half. The first `Delegate`'s line — the
+ * consultant's own announcement of the turn — is still her words in the chat.
+ *
  * AND THE OTHER HALF: a builder session that completed having written the site
  * is a milestone the host can see for itself, so it records it on the plan
  * (`builderSessionCompleted`) and the checks it triggers fall due.
@@ -115,11 +122,14 @@ export interface SlowTool {
   minutes: number
 }
 
-/** The estimates the client is given — orders of magnitude, nothing finer. */
+/**
+ * The estimates the client is given — orders of magnitude, nothing finer — in
+ * the working line's short form.
+ */
 const ESTIMATES: Record<number, string> = {
-  1: 'about a minute',
-  5: 'about 5 minutes',
-  30: 'about 30 minutes',
+  1: 'about 1 min',
+  5: 'about 5 min',
+  30: 'about 30 min',
 }
 
 /**
@@ -158,14 +168,6 @@ function slowDoing(slow: SlowTool, input: Record<string, unknown>, attempt: numb
 }
 
 /**
- * The line the client sees as a slow call starts ([[REQ-386]]). `attempt` above 1
- * says the call is being tried again after an earlier one failed.
- */
-export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt: number, openAsks: number): string {
-  return announcement(`${slowDoing(slow, input, attempt)} — ${ESTIMATES[slow.minutes]}.`, openAsks)
-}
-
-/**
  * [[REQ-390]] — the slow operation under way, as the working line beside the
  * composer shows it: what is being done, and the estimate when there is one. A
  * `Delegate` carries no estimate of its own; its note says how long in words.
@@ -173,13 +175,14 @@ export function slowLine(slow: SlowTool, input: Record<string, unknown>, attempt
 export interface WorkingNote {
   doing: string
   estimate?: string
-}
-
-/** The estimates in the working line's short form. */
-const SHORT_ESTIMATES: Record<number, string> = {
-  1: 'about 1 min',
-  5: 'about 5 min',
-  30: 'about 30 min',
+  /**
+   * [[BUG-215]] — what the note describes: the whole `turn` (the first
+   * `Delegate`, whose announcement opened it) or one `step` within it (every
+   * slow call, and any later `Delegate`). The working line times each against
+   * its own start, so an estimate is never set beside a clock it does not
+   * describe.
+   */
+  scope: 'turn' | 'step'
 }
 
 /**
@@ -222,8 +225,9 @@ export interface CadenceHooks {
  * one in the same turn has already been — the client was told the consultant is
  * away.
  *
- * EVERY SLOW CALL ([[REQ-386]]), because each is more waiting. The panel's count
- * rides on the turn's first line only; repeating it on every line is noise.
+ * EVERY SLOW CALL ([[REQ-386]]), because each is more waiting — as a step note
+ * ([[BUG-215]]), not a line of the consultant's. The panel's count rides on the
+ * turn's announcement only; repeating it on every line is noise.
  *
  * NOTHING HERE FAILS A TURN: a count that cannot be read is a line without the
  * count, and a milestone that cannot be written is a milestone missed.
@@ -253,14 +257,14 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
       if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL) {
         // EVERY DELEGATE MOVES THE WORKING LINE; only the first is announced.
         const said = flatten(input[DELEGATE_NOTE])
-        note = { doing: said === '' ? FALLBACK_NOTE : capped(said, NOTE_CAP) }
+        note = { doing: said === '' ? FALLBACK_NOTE : capped(said, NOTE_CAP), scope: delegated ? 'step' : 'turn' }
         if (!delegated) line = statusLine(input[DELEGATE_NOTE], await waiting())
         delegated = true
       } else if (event.kind === TOOL_ISSUE && name !== undefined && SLOW_TOOLS.has(name)) {
         const slow = SLOW_TOOLS.get(name)!
         const attempt = (failures.get(callKey(name, input)) ?? 0) + 1
-        line = slowLine(slow, input, attempt, await waiting())
-        note = { doing: slowDoing(slow, input, attempt), estimate: SHORT_ESTIMATES[slow.minutes] }
+        // [[BUG-215]] — NO LINE IN THE CONVERSATION: the note is the whole notice.
+        note = { doing: slowDoing(slow, input, attempt), estimate: ESTIMATES[slow.minutes], scope: 'step' }
       }
       // [[REQ-390]] — TOLD BEFORE THE LINE IS YIELDED, so the host has the note by
       // the time the line reaches it and can put it on the stream right behind.
@@ -274,6 +278,12 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
       if (line !== null) {
         yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${line}\n\n` }
         spoke = true
+      } else if (note) {
+        // [[BUG-215]] — A STEP HAS NO LINE, but the host still needs an event to
+        // put its working frame behind BEFORE the call runs: the manager records
+        // the `tool_issue` and never delivers it. An empty delta says nothing and
+        // is delivered at once.
+        yield { kind: TEXT, content: '' }
       }
       if (event.kind === TEXT && event.content) spoke = true
       if (event.kind === TOOL_ACTIVITY && name !== undefined && SLOW_TOOLS.has(name) && failed(event.meta?.output)) {

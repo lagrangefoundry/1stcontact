@@ -55,7 +55,9 @@ import {
   CHAT_OVER_LONG_MESSAGE,
   CHAT_START,
   CHAT_START_FAILED,
+  STEP_REPEATED,
   WORKING_IDLE,
+  WORKING_NOW,
   WORKING_SO_FAR,
 } from './config.js'
 import { openChatConversation, stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
@@ -109,42 +111,13 @@ const DNS_CHANGED = 'dns_changed'
  * The host's event kind for "the build is still going" ([[REQ-360]]). Its meaning
  * is `progress-core.ts`'s `PROGRESS`; this is the same string on the client's side
  * of the wire.
+ *
+ * [[BUG-215]] — IT SHOWS NOTHING. The heartbeat keeps a long build's stream alive
+ * and the working line is already counting; its words were the framework's
+ * plumbing (a worker id, the files it held, a UTC time) and the client never sees
+ * them. It stops at {@link withWorkingLine} and goes no further.
  */
 const PROGRESS = 'progress'
-
-/** The status line's class, for `builder.css` and for nothing else ([[REQ-360]]). */
-export const PROGRESS_LINE_CLASS = 'builder-chat-progress'
-
-/**
- * Pass a turn through, showing its build heartbeat as one status line
- * ([[REQ-360]]).
- *
- * A LINE AND NOT A MESSAGE. A heartbeat says *how long it has been*, and the
- * figure before it is simply out of date — appended to the reply, thirty of them
- * would be the wall of text this exists to prevent. So each one replaces the last
- * in a single line that sits between the conversation and the composer, and is
- * never handed to `webui-chat`, which has no use for the kind.
- *
- * GONE THE MOMENT ANYTHING ELSE ARRIVES, which is when it stops being true: the
- * build has come back and the assistant is talking again. And gone when the
- * stream ends by any road — `done`, a lost stream, a thrown one — because a line
- * claiming work is under way, left over a turn that is not, is a worse lie than
- * the silence it replaced.
- */
-async function* withProgressLine(events, line) {
-  try {
-    for await (const event of events) {
-      if (event?.kind === PROGRESS) {
-        line.show(String(event.content ?? ''))
-        continue
-      }
-      line.clear()
-      yield event
-    }
-  } finally {
-    line.clear()
-  }
-}
 
 /**
  * Pass a turn through, telling the host each time it reports a write (BUG-43,
@@ -207,6 +180,13 @@ const WORKING = 'working'
 /** The working line's class, for `builder.css` and the tests ([[REQ-390]]). */
 export const WORKING_LINE_CLASS = 'builder-chat-working'
 
+/** [[BUG-215]] — the working line's two halves: the turn, and the step under way. */
+export const WORKING_TURN_CLASS = 'builder-chat-working__turn'
+export const WORKING_STEP_CLASS = 'builder-chat-working__step'
+
+/** [[BUG-215]] — a step line in the conversation: lighter than a message. */
+export const STEP_LINE_CLASS = 'builder-chat-step'
+
 /** An elapsed time as the working line counts it: `0:42`, `12:05`, `1:02:09`. */
 export function elapsedText(ms) {
   const total = Math.max(0, Math.floor(ms / 1000))
@@ -217,13 +197,29 @@ export function elapsedText(ms) {
 }
 
 /**
- * The working line's words ([[REQ-390]]): *"<consultant> is building your home page ·
- * about 5 min · 2:14 so far"*, or *"Working · 0:42 so far"* with no note.
+ * The working line's turn half ([[REQ-390]], [[BUG-215]]): *"<consultant> is
+ * building your home page · about 5 min · 2:14 so far"*, or *"Working · 0:42 so far"*
+ * with no announcement. `note` is the TURN's note and `elapsedMs` the turn's
+ * clock — a step's estimate never appears here.
  */
 export function workingLineText(note, elapsedMs) {
   return [note?.content || WORKING_IDLE, note?.meta?.estimate, WORKING_SO_FAR(elapsedText(elapsedMs))]
     .filter(Boolean)
     .join(' · ')
+}
+
+/** A step's words as they read after "now:" — "Taking …" becomes "taking …". */
+function stepWords(note) {
+  const doing = String(note?.meta?.doing || note?.content || '')
+  return /^[A-Z][a-z]+ing\b/.test(doing) ? `${doing[0].toLowerCase()}${doing.slice(1)}` : doing
+}
+
+/**
+ * The working line's step half ([[BUG-215]]): *"now: taking a screenshot · about
+ * 1 min · 0:12"* — the step's own estimate beside the step's own clock.
+ */
+export function stepLineText(note, elapsedMs) {
+  return [WORKING_NOW(stepWords(note)), note?.meta?.estimate, elapsedText(elapsedMs)].filter(Boolean).join(' · ')
 }
 
 /**
@@ -236,8 +232,15 @@ export function workingLineText(note, elapsedMs) {
  * host has said so — each `working` frame replacing the last. The frame goes no
  * further: `webui-chat` has no use for it.
  *
- * DOWN WHEN THE TURN ENDS BY ANY ROAD — `done`, a lost stream, a thrown one — for
- * {@link withProgressLine}'s reason.
+ * [[BUG-215]] — TWO CLOCKS, NOT ONE. The turn half keeps the announcement that
+ * opened the turn, with its estimate, against the turn's clock; a `step` note
+ * replaces only the "now:" half beneath it, timed from when that step began, and
+ * adds a light step line to the conversation (a repeat of the same step bumps its
+ * count instead). So "about 1 min" is never set beside sixteen minutes of turn.
+ *
+ * DOWN WHEN THE TURN ENDS BY ANY ROAD — `done`, a lost stream, a thrown one —
+ * because a line claiming work is under way, left over a turn that is not, is a
+ * worse lie than the silence it replaced.
  */
 async function* withWorkingLine(events, line) {
   line.start()
@@ -247,6 +250,10 @@ async function* withWorkingLine(events, line) {
         line.note(event)
         continue
       }
+      // [[BUG-215]] — the heartbeat keeps the turn alive and shows nothing.
+      if (event?.kind === PROGRESS) continue
+      // The consultant spoke: the next step starts a fresh step line.
+      if (event?.kind === 'text' && event.content) line.spoke()
       if (event?.kind === 'done') line.stop()
       yield event
     }
@@ -580,34 +587,6 @@ export function createChatPanel(options = {}) {
   let sessionKey = null
 
   /**
-   * The build's status line ([[REQ-360]]) — see {@link withProgressLine}.
-   *
-   * PLACED AFTER THE MESSAGES AND BEFORE THE COMPOSER, which is where the reader's
-   * eye already is while they wait. `webui-chat` publishes no slot for it, so it
-   * goes beside the component's message list rather than inside it: inside, the
-   * next message the component appends would land underneath it.
-   */
-  const progressLine = {
-    el: null,
-    show(text) {
-      if (!this.el?.isConnected) {
-        this.el = document.createElement('div')
-        this.el.className = PROGRESS_LINE_CLASS
-        this.el.setAttribute('role', 'status')
-        this.el.setAttribute('aria-live', 'polite')
-        const messages = element.querySelector('.chat-widget-messages')
-        if (messages) messages.after(this.el)
-        else element.append(this.el)
-      }
-      this.el.textContent = text
-    },
-    clear() {
-      this.el?.remove()
-      this.el = null
-    },
-  }
-
-  /**
    * The working line ([[REQ-390]]) — see {@link withWorkingLine}.
    *
    * IMMEDIATELY ABOVE THE COMPOSER, which is where the stop button the client is
@@ -617,19 +596,39 @@ export function createChatPanel(options = {}) {
    */
   const workingLine = {
     el: null,
+    turnEl: null,
+    stepEl: null,
     since: 0,
-    current: null,
+    turn: null,
+    step: null,
+    stepSince: 0,
+    /** The step line last added to the conversation, while a repeat would join it. */
+    logged: null,
     cancel: null,
     paint() {
-      if (this.el) this.el.textContent = workingLineText(this.current, now() - this.since)
+      if (!this.el) return
+      const t = now()
+      this.turnEl.textContent = workingLineText(this.turn, t - this.since)
+      if (!this.step) return
+      if (!this.stepEl) {
+        this.stepEl = document.createElement('div')
+        this.stepEl.className = WORKING_STEP_CLASS
+        this.el.append(this.stepEl)
+      }
+      this.stepEl.textContent = stepLineText(this.step, t - this.stepSince)
     },
     start() {
       if (this.cancel) return
       this.since = now()
-      this.current = null
+      this.turn = null
+      this.step = null
+      this.logged = null
       this.el = document.createElement('div')
       this.el.className = WORKING_LINE_CLASS
       this.el.setAttribute('role', 'status')
+      this.turnEl = document.createElement('div')
+      this.turnEl.className = WORKING_TURN_CLASS
+      this.el.append(this.turnEl)
       const bar = element.querySelector('.chat-widget-input-bar')
       if (bar) bar.before(this.el)
       else element.append(this.el)
@@ -642,8 +641,38 @@ export function createChatPanel(options = {}) {
       }
     },
     note(event) {
-      this.current = { content: String(event.content ?? ''), meta: event.meta ?? {} }
+      const note = { content: String(event.content ?? ''), meta: event.meta ?? {} }
+      if (note.meta.scope === 'step') {
+        this.step = note
+        this.stepSince = now()
+        this.log(String(note.meta.doing || note.content))
+      } else {
+        this.turn = note
+      }
       this.paint()
+    },
+    /**
+     * [[BUG-215]] — a step, as one light line in the conversation; the same step
+     * again, with nothing said between, is the same line with a count.
+     */
+    log(text) {
+      const messages = element.querySelector('.chat-widget-messages')
+      if (!messages || text === '') return
+      const last = this.logged
+      if (last && last.text === text && last.el.isConnected) {
+        last.count += 1
+        last.el.textContent = STEP_REPEATED(text, last.count)
+        return
+      }
+      const el = document.createElement('div')
+      el.className = STEP_LINE_CLASS
+      el.textContent = text
+      messages.append(el)
+      el.scrollIntoView?.({ block: 'nearest' })
+      this.logged = { el, text, count: 1 }
+    },
+    spoke() {
+      this.logged = null
     },
     stop() {
       if (!this.cancel) return
@@ -651,6 +680,9 @@ export function createChatPanel(options = {}) {
       this.cancel = null
       this.el?.remove()
       this.el = null
+      this.turnEl = null
+      this.stepEl = null
+      this.logged = null
       try {
         onBusy(false)
       } catch {
@@ -1056,7 +1088,7 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(withWorkingLine(withProgressLine(transport.streamPrompt(id, wire, promptView()), progressLine), workingLine), told)
+        return watchForWrites(withWorkingLine(transport.streamPrompt(id, wire, promptView()), workingLine), told)
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
@@ -1115,7 +1147,7 @@ export function createChatPanel(options = {}) {
     // reloaded page the one place edits happen invisibly, which is the failure
     // that had them reloading in the first place.
     Promise.resolve(
-      chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), workingLine), told), {
+      chat.resume(watchForWrites(withWorkingLine(transport.streamReattach(id, session.cursor), workingLine), told), {
         markdown: seed?.markdown ?? '',
         // THE SEEDED TURN IS A TRANSCRIPT TURN TOO ([[BUG-138]]). It is not
         // appended by the loop above — it is handed to `resume` so the half
@@ -1329,7 +1361,7 @@ export function createChatPanel(options = {}) {
           // held by the one that set it up.
           chasing = false
           Promise.resolve(
-            chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamReattach(id, session.cursor), progressLine), workingLine), told), {
+            chat.resume(watchForWrites(withWorkingLine(transport.streamReattach(id, session.cursor), workingLine), told), {
               // THE PANEL'S OWN PARTIAL, not the transcript's. What `resume`
               // continues is the bubble on screen, and the origin's fold stops at
               // the cursor the tail is about to resume FROM — so seeding from the

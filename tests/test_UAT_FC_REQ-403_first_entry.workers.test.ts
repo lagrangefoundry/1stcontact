@@ -3,21 +3,20 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
-import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
+import { configureDelegation } from '../tools/generate/src/cli/ai/delegation'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { OPENING_MESSAGE } from '../tools/generate/src/cli/ai/plan-core'
 import { openingCue } from '../tools/generate/src/cli/ai/roles'
-import { STARTER_HEADING, starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
-import { applySchema, seedTenantSite, tenantStore } from './support/d1-site-factory'
+import { says, scriptedClient } from './support/scripted-model-client'
+import { applySchema, seedTenantSite } from './support/d1-site-factory'
 import { nextSlug } from './support/site-seed'
 
 /**
- * [[REQ-403]] — **the first entry explains itself.** A business with nothing built
- * previews as a plain placeholder and cannot publish its starter page; a brand-new
+ * [[REQ-403]] — **the first entry explains itself.** A brand-new
  * conversation opens with the consultant's stock introduction, recorded as her
  * first turn with no model call and no spend, and the client's first message
- * reaches the model with that introduction in its history.
+ * reaches the model with that introduction in its history. (The preview and
+ * publish half is [[BUG-215]]'s now: `test_UAT_FC_BUG-215_starter_is_the_grey_page`.)
  *
  * The one double is the Anthropic client. The router, the host, the session
  * manager, the junction, the archive, the D1 store and the spend ledger are the
@@ -81,20 +80,6 @@ async function prompt(sessionId: string, text: string): Promise<void> {
   await settled()
 }
 
-/**
- * A business's site exactly as provisioning leaves it: the starter page and
- * nothing else — the write `createStarterSite` makes, through the same store.
- */
-async function starterSite(name: string): Promise<string> {
-  const store = await tenantStore(TENANT)
-  const site = await store.createDraft('site')
-  await store.write(site, {
-    siteJson: starterSiteJson(site, name),
-    pages: [{ name: 'home.json', page: starterHomePage(name, STARTER_HEADING) }],
-  })
-  return site
-}
-
 /** A model client that fails the test if anything calls it. */
 function untouchable() {
   const seen: unknown[] = []
@@ -122,43 +107,6 @@ afterEach(() => {
   configureDelegation(null)
   resetAiHost()
   resetChatHost()
-})
-
-describe('REQ-403 — the preview before anything has been built', () => {
-  it('test_UAT_FC_REQ-403_a_new_business_previews_as_the_placeholder_until_a_page_is_built', async () => {
-    const site = await starterSite('Cole’s Bakery')
-
-    // NOTHING BUILT: the grey placeholder, and never the starter's heading.
-    const before = await call(`/preview/${site}/draft/`)
-    expect(before.status).toBe(200)
-    const placeholder = await before.text()
-    expect(placeholder).toContain("Your site will appear here as it's created.")
-    expect(placeholder).toContain('data-preview-placeholder')
-    expect(placeholder).not.toContain(STARTER_HEADING)
-    expect(placeholder).not.toContain('1stcontact')
-
-    // THE CONSULTANT BUILDS A PAGE, through the ordinary turn — and the preview
-    // shows it.
-    configureDelegation({ ...delegationDocument, primary_writes: true })
-    resetAiHost()
-    resetChatHost()
-    const { sessionId } = await open(site)
-    setModelClient(scriptedClient([calls('add_page', { page: 'services', title: 'Services' }), says('Added.')]))
-    await prompt(sessionId, 'Add a services page.')
-
-    const after = await call(`/preview/${site}/draft/services`)
-    expect(after.status).toBe(200)
-    const page = await after.text()
-    expect(page).toContain('<title>Services')
-    expect(page).not.toContain('data-preview-placeholder')
-  })
-
-  it('test_UAT_FC_REQ-403_publishing_a_site_that_holds_only_the_starter_is_refused', async () => {
-    const site = await starterSite('Hart Plumbing')
-    const res = await post('/api/publish', { site })
-    expect(res.status).toBe(409)
-    expect(((await res.json()) as { code: string }).code).toBe('NOTHING_BUILT')
-  })
 })
 
 describe('REQ-403 — the consultant’s stock introduction opens the conversation', () => {

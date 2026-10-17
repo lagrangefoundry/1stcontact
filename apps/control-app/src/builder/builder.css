@@ -1251,48 +1251,27 @@ body {
 }
 
 /*
- * [[REQ-360]] — the build's heartbeat: one quiet line between the conversation
- * and the composer while a delegated build runs, replaced by each new figure and
- * gone when the assistant speaks again. Not a message — it is not something the
- * assistant said — so it carries none of a bubble's look. The dot pulses so a
- * line that has not changed for a minute still reads as alive; it holds still for
- * a reader who has asked for less motion.
+ * [[BUG-215]] — a step in the conversation (a screenshot, a capture): a light
+ * line, not a message — no bubble, small, muted, a dot before it — so routine
+ * steps show the build moving without reading as the consultant speaking.
  */
-.builder-chat-progress {
-  flex: none;
+.builder-chat-step {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  font-style: italic;
-  color: var(--shell-muted, #52525b);
+  gap: 6px;
+  margin: 2px 0 2px 12px;
+  font-size: 0.78rem;
+  color: var(--shell-fg-muted, #71717a);
 }
 
-.builder-chat-progress::before {
+.builder-chat-step::before {
   content: '';
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: currentColor;
-  animation: builder-chat-progress-pulse 1.6s ease-in-out infinite;
-}
-
-@keyframes builder-chat-progress-pulse {
-  0%,
-  100% {
-    opacity: 0.25;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .builder-chat-progress::before {
-    animation: none;
-  }
+  opacity: 0.6;
 }
 
 /*
@@ -1473,6 +1452,12 @@ body {
   padding: 2px 12px;
   font-size: 0.8rem;
   color: var(--shell-fg-muted, #71717a);
+}
+
+/* [[BUG-215]] — the step under way, beneath the turn and lighter than it. */
+.builder-chat-working__step {
+  font-size: 0.75rem;
+  opacity: 0.85;
 }
 
 .plan-ask__input.plan-ask__input--long {

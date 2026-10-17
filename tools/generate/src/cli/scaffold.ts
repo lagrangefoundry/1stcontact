@@ -116,31 +116,97 @@ export function starterDocument(heading: string): Record<string, unknown> {
 }
 
 /**
- * The heading on an account's starter site.
+ * [[BUG-215]] — what an account's starter page says: the line the preview has
+ * always shown before anything is built, now ON the page rather than in place of
+ * it.
  *
  * ONE BLANK PAGE, NOT A TEMPLATE AND NOT AN IMPORT ([[REQ-170]]). The point is
  * that a business opened for the first time has a site to edit rather than an
- * empty tenant. [[REQ-403]] — and the client never sees it: see {@link nothingBuilt}.
+ * empty tenant — and that what the client sees of it is not mistaken for their
+ * site. [[REQ-403]] used to swap the starter for a grey panel while the change
+ * counter stood at zero, and the first upload moved the counter and put the
+ * starter's "Your 1st Contact site" heading in front of the client thirteen
+ * minutes before anything had been built. The starter IS the grey page now, so
+ * there is nothing for a counter to reveal.
  */
-export const STARTER_HEADING = 'Your 1st Contact site'
+export const STARTER_PLACEHOLDER = "Your site will appear here as it's created."
 
 /**
- * [[REQ-403]] — whether a site still holds only the starter page it was seeded
- * with: nothing has been recorded against it, and its one page is the starter.
- *
- * WHAT THE CLIENT IS SHOWN IN ITS PLACE. The preview answers a plain placeholder
- * instead of the starter, and a publish is refused, so the starter is never seen
- * as though it were their site and never goes live.
- *
- * BOTH HALVES, because either alone is wrong somewhere. The change counter moves
- * on every edit — the consultant's and the client's — but the seeding write does
- * not record one, and neither does a site copied in by hand; the starter's own
- * heading is what tells those apart.
+ * [[BUG-215]] — the id of the starter page's one node: how {@link nothingBuilt}
+ * recognises the starter. A fixed marker and not the page's words, so the words
+ * can change without the recognition moving with them.
  */
-export async function nothingBuilt(store: Pick<SiteStore, 'counter' | 'readPages'>, site: string): Promise<boolean> {
-  if ((await store.counter(site)) > 0) return false
+export const STARTER_MARKER = 'starter-placeholder'
+
+/** The grey panel's paint — the colours REQ-403's preview placeholder used. */
+const PLACEHOLDER_BACKGROUND = '#e5e7eb'
+const PLACEHOLDER_TEXT = '#4b5563'
+
+/**
+ * [[BUG-215]] — the document an account's starter page holds: a grey page with
+ * one centred line, {@link STARTER_PLACEHOLDER}. No heading, no navigation —
+ * nothing a client could take for their site. It renders through the ordinary
+ * renderer like any page, so restyling it before building simply restyles it.
+ */
+export function placeholderDocument(): Record<string, unknown> {
+  return {
+    widths: [...STARTER_WIDTHS],
+    background: PLACEHOLDER_BACKGROUND,
+    textColor: PLACEHOLDER_TEXT,
+    root: {
+      kind: 'container',
+      id: 'root',
+      layout: 'stack',
+      align: 'center',
+      distribution: 'center',
+      padding: { topPx: 160, rightPx: 24, bottomPx: 160, leftPx: 24 },
+      children: [
+        {
+          kind: 'text',
+          id: STARTER_MARKER,
+          text: STARTER_PLACEHOLDER,
+          axes: {
+            color: PLACEHOLDER_TEXT,
+            fontSizePx: 16,
+            fontWeight: 400,
+            lineHeightPx: 24,
+            textAlign: 'center',
+          },
+        },
+      ],
+    },
+  }
+}
+
+/**
+ * [[BUG-215]] — the home page an account is provisioned with: {@link starterHomePage}'s
+ * page, holding {@link placeholderDocument}.
+ */
+export function placeholderHomePage(name: string): Record<string, unknown> {
+  return { ...starterHomePage(name), l1: placeholderDocument() }
+}
+
+/** Whether a page is the untouched starter: its root holds the marker and nothing else. */
+function isStarterPage(page: unknown): boolean {
+  const p = page as { modules?: unknown[]; l1?: { root?: { children?: Array<{ id?: unknown }> } } }
+  const children = p?.l1?.root?.children
+  return (p?.modules ?? []).length === 0 && children?.length === 1 && children[0]?.id === STARTER_MARKER
+}
+
+/**
+ * [[REQ-403]], [[BUG-215]] — whether a site still holds only the starter page it
+ * was seeded with: one page, and it is the untouched starter.
+ *
+ * A publish is refused while this holds, so the starter never goes live.
+ *
+ * THE PAGE AND NOTHING ELSE. REQ-403 also asked the change counter, which moves
+ * on an upload, a palette colour or a font — none of which builds anything — so
+ * a business that uploaded a photo first was treated as built. What the page
+ * holds is the only honest answer to "has anything been built".
+ */
+export async function nothingBuilt(store: Pick<SiteStore, 'readPages'>, site: string): Promise<boolean> {
   const pages = await store.readPages(site)
-  return pages.length === 1 && JSON.stringify(pages[0].page).includes(STARTER_HEADING)
+  return pages.length === 1 && isStarterPage(pages[0].page)
 }
 
 /**

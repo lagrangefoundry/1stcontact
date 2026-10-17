@@ -158,29 +158,6 @@ async function delegate(site: string, scope: string[], builder: ModelStep[]): Pr
   return client
 }
 
-type Frame = { kind: string; content: string; meta?: Record<string, unknown> }
-
-/** Frames off a streaming response until `count` heartbeats have arrived. */
-async function heartbeats(response: Response, count: number): Promise<Frame[]> {
-  const body = response.body!.getReader()
-  const decoder = new TextDecoder()
-  const beats: Frame[] = []
-  let buffer = ''
-  while (beats.length < count) {
-    const { value, done } = await body.read()
-    if (done) throw new Error(`the stream ended after ${beats.length} heartbeats`)
-    buffer += decoder.decode(value, { stream: true })
-    for (let end = buffer.indexOf('\n\n'); end >= 0; end = buffer.indexOf('\n\n')) {
-      const line = buffer.slice(0, end).split('\n').find((l) => l.startsWith('data: '))
-      buffer = buffer.slice(end + 2)
-      const frame = line ? (JSON.parse(line.slice('data: '.length)) as Frame) : null
-      if (frame?.kind === 'progress') beats.push(frame)
-    }
-  }
-  void body.cancel()
-  return beats
-}
-
 const caller = (client: ScriptedClient) => client.seen.filter((req) => req.model !== WORKER_MODEL)
 const builderRequests = (client: ScriptedClient) => client.seen.filter((req) => req.model === WORKER_MODEL)
 
@@ -264,31 +241,6 @@ describe('REQ-397 draft-file leases in the Worker', () => {
 
     // The builder reported; the framework's `finally` ran the release.
     expect(await d1Leases(env.DB).held(site)).toEqual([])
-  })
-
-  withScopes('test_UAT_FC_REQ-397_a_running_builds_status_line_names_the_files_it_holds', async () => {
-    configureDelegation({ ...delegationDocument, enabled: true, progress_seconds: 0.2 })
-    const site = await sectionedSite('status')
-    const opened = await request('POST', '/api/ai/session', { site })
-    const { sessionId } = (await opened.json()) as { sessionId: string }
-    // The builder's first request never answers, so the build is running for as
-    // long as the heartbeats are read.
-    const inner = scriptedClient([
-      calls('Delegate', { note: 'On it.', role: BUILDER_ROLE, goal: 'Rewrite the story.', accept: [], scope: ['home.json#story'] }),
-      says('Done.'),
-    ])
-    setModelClient({
-      ...inner,
-      messages: {
-        create: (req: ModelRequest) =>
-          req.model === WORKER_MODEL ? new Promise<never>(() => {}) : inner.messages.create(req),
-      },
-    })
-    const beats = await heartbeats(await request('POST', '/api/ai/prompt', { sessionId, text: 'Rewrite the story.' }), 2)
-    expect(beats[1].content).toMatch(
-      /^still working, elapsed \d+ min — builder worker-builder-\S+ on home\.json#story since \d\d:\d\d UTC$/,
-    )
-    expect((beats[1].meta?.held as Array<{ file: string }>).map((h) => h.file)).toEqual(['home.json#story'])
   })
 
   withScopes('test_UAT_FC_REQ-397_a_builder_that_fails_releases_its_files', async () => {
