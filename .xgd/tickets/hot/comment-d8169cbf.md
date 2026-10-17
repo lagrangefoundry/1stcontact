@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T23:07:04.526683+00:00'
+updated_at: '2026-10-17T23:08:17.898947+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7919,5 +7919,34 @@ The consultant also filed BUG-211, the plan panel's Change and Skip buttons. It 
 In the library we have a simple photo editor. I would like that editor to be available in the Edit mode of the Site tab.
 
 The inital screen is selection alt text and properties. If you click on a photo that is unselected, the photo gets selected. If you click on a photo that is already selected it should open the editor. OKO?
+
+<!-- xgd-turn id="31ef3899-eff8-4a40-b981-93e93a757865-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T23:08:13.033357+00:00" -->
+#### Claude
+I'll check how the Library editor and the Edit-mode image selection work today.
+
+Yes, that works. One decision changes what the editor edits, so I'll ask it before filing.
+
+**What's already there**
+- **The editor is reusable.** The Library's photo editor (`image-editor.js`) already opens from two places, the Library and pictures in the chat. Both hand it a Library item, and it knows nothing about who opened it. Opening it from Edit mode makes a third caller, not a new editor.
+- **A picture on a page is a copy.** Edit mode works on the site's copy of the image, such as `/assets/team-shopfront.png`, not on the Library item itself. Each copy records which Library item it came from, so the editor can find its way back to the original.
+
+**Your click behaviour**
+- **First click on a picture:** it's selected and shows today's panel, with the image chooser, alt text and properties.
+- **Click on the selected picture:** the photo editor opens.
+
+**The decision: whose crop is it?** The BUG-213 fix has landed, so a copy on the site can now carry its own crop, separate from the Library item's. That gives two meanings for "edit this photo":
+
+1. **Edit this copy only.** The crop applies to this one use on the page. The Library original and every other copy are untouched. This is what makes six crops of one montage possible.
+2. **Edit the Library item.** The change carries to every copy that doesn't have its own crop. This is what the Library editor does today.
+
+I'd go with 1. You clicked a picture on a page, so you're framing it for that spot, and changing the same photo elsewhere on the site as a side effect would be a surprise. The Library editor stays the place to change the original everywhere. The editor would say which one you're in, e.g. *"Editing this use of IMAGE-1 — the Library original is unchanged."*
+
+**Two smaller points for the ticket:**
+- **Images with no Library item behind them**, such as pages reproduced from a capture, open no editor. The second click does nothing rather than showing an error.
+- **The editor saves the moment you apply a change**, like the Library's. It doesn't wait for the selection panel's Save.
+
+Shall I file it as one REQ under EPIC-19, with option 1?
 
 <!-- xgd-chat-end -->
