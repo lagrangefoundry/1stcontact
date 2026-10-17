@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-212
 created_by: xgd
 created_at: '2026-10-17T22:50:44.485709+00:00'
-updated_at: '2026-10-17T22:56:07.297527+00:00'
+updated_at: '2026-10-17T22:59:09.828959+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -65,5 +65,11 @@ The ticket also asks for the worker to keep budget in reserve for its report. Th
 - **New lagrange-framework ticket:** fix 1, the item keys, the clearer refusal and possibly the string fallback. Per our cross-repo rule I'd only file the ticket there. Until it lands, I could also spell out the exact `failed` shape in the declaration text this repo already rewrites, as a stopgap.
 
 Do you want this split, and should I file the lagrange-framework ticket?
+
+<!-- xgd-turn id="1861b100-9f5d-408f-8157-e74c45f4ac25-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:59:07.471154+00:00" -->
+#### You
+Sorry I'd l;ike you to do all three please - you can do multiple commits
 
 <!-- xgd-chat-end -->
