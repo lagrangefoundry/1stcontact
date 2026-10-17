@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T13:58:40.230647+00:00'
+updated_at: '2026-10-17T14:10:17.934822+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2175,3 +2175,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **Charlie 3 transcript sweep (2026-10-17).** New: [[BUG-208]] covers builder workers that skip briefed items, run out of steps before their self-check, or end without reporting. [[REQ-400]] covers the favicon and share card, and the consultant's going-live account: she said custom domains 'can't be connected yet', but REQ-258 serves them through the Settings tab. Already covered: REQ-389 (email added to the page unapproved, unfinished hand-backs, call button hidden on desktop, 'side of your van', parallel claims), REQ-386/379 (silence before slow work), BUG-202 (capture timeouts and the Expert Plumbing animation failure), REQ-387 (builder can't read uploads), REQ-391/BUG-205 (looks UI), LF BUG-81 (the duplicated first message). Not filed: the contact form doesn't notify the owner of a new message, which is EPIC-14's first producer; that epic hasn't started, and it's a beta blocker.
+
+
+
+- **[[BUG-209]]** (2026-10-17): the progress banner (REQ-398) is restyled as a segmented bar. The title is 'Progress' with no colon, each stage is its own box with no '|' separators, the current-stage tint stays inside its own box, and the bar spans the chat column's full width. Presentation only.
