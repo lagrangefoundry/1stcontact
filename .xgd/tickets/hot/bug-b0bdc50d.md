@@ -6,9 +6,9 @@ title: place_on_site with `as` returns the existing asset instead of a renamed c
   so one image can't carry several crops
 created_by: xgd
 created_at: '2026-10-17T22:29:35.885091+00:00'
-updated_at: '2026-10-17T22:55:31.779372+00:00'
+updated_at: '2026-10-17T23:04:46.890760+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -69,3 +69,11 @@ This supersedes BUG-126's "a placed site file is edited through its Library item
 - `edit_image` on one placed copy changes only that file's bytes; its dimensions are measured from the Library original; `list_image_edits` reports that copy's recipe.
 - editing the Library item re-renders a following copy and leaves a self-framed copy unchanged.
 - a site file with no origin is still refused `NOT_EDITABLE`.
+
+
+
+## Found while implementing
+
+3a. **Concurrent asset writes to one site no longer fail after landing.** The D1 site store's change journal read the counter and inserted at counter+1, so two placements running at once collided on `(site_id, at)` — after the asset bytes had already been written, so `place_on_site` reported failure for a file that was on the site. A journal append that loses its number to a concurrent one now reads again and takes the next (`tools/generate/src/store/d1r2-store.ts`). Covered by the six-in-a-batch UAT.
+
+Superseded tests updated in place: BUG-126 AC7 (a placed file now answers `list_image_edits` with its own recipe, measured against the Library original) and REQ-219's site-file refusal (now: a site file with no recorded origin has no original to keep a recipe over).
