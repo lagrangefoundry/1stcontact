@@ -6,10 +6,10 @@ title: 'Plan panel: questions fold to one line with a status box, in two section
   matching the chat''s type'
 created_by: EPIC-19
 created_at: '2026-10-17T15:11:00.170337+00:00'
-updated_at: '2026-10-17T15:11:00.170337+00:00'
+updated_at: '2026-10-17T15:19:32.478091+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
