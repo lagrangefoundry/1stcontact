@@ -134,6 +134,24 @@ export function heldSince(at: number, now: number = Date.now()): string {
   return `since ${clockOf(at)} (${Math.max(0, Math.round((now - at) / 60_000))} min)`
 }
 
+/**
+ * [[BUG-217]] — what the site owner reads when a section they clicked is held:
+ * who is on it in their words, and how long ago it started. Never a session id
+ * or a UTC clock — those are for logs and 409 bodies (`describeHolder`).
+ */
+export function busyLine(lease: Lease, now: number = Date.now()): string {
+  const who = lease.holder.split('~')[0]
+  const what =
+    who === CLIENT_HOLDER
+      ? "You're already saving a change to this section"
+      : who === SYSTEM_HOLDER
+        ? 'Another change is being applied to this section'
+        : 'Your AI assistant is updating this section right now'
+  const minutes = Math.max(0, Math.round((now - lease.acquiredAt) / 60_000))
+  const started = minutes < 1 ? 'just now' : `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  return `${what} (started ${started}).`
+}
+
 /** The refusal for a file somebody else holds, as of `now`. */
 export function heldRefusal(lease: Lease, now: number): DraftFileRefusal {
   const held = `\`${lease.file}\` is held by ${describeHolder(lease.holder)} ${heldSince(lease.acquiredAt, now)}`
