@@ -5,9 +5,9 @@ type: bundle
 title: REQ-147 + REQ-143 + REQ-145 + REQ-146 + REQ-148 + 5 more
 created_by: xgd
 created_at: '2026-08-24T02:10:41.035843+00:00'
-updated_at: '2026-08-31T14:22:25.238981+00:00'
+updated_at: '2026-10-17T20:07:36.146944+00:00'
 completed_at: '2026-08-31T14:22:25.238981+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -109,6 +109,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
 ---
 
 # Bundle
