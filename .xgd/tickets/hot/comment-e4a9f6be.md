@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-10-17T20:27:38.302270+00:00'
+updated_at: '2026-10-17T20:27:58.126530+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -245,5 +245,15 @@ BRANCH WITHOUT WORKTREE (branch exists, nothing checked out):
 ```
 
 still showing on xgd worktree ls
+
+<!-- xgd-turn id="cbc019dc-3aef-41bc-9753-ee2a98fa9486-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:27:50.484248+00:00" -->
+#### Claude
+Nothing in that listing belongs to BUG-150. The entry you're probably looking at is **`free-REQ-150`**, which is a different ticket: REQ-150, not BUG-150. BUG-150's branch would be named `free-BUG-150`, and it isn't anywhere in the output: no worktree, no orphaned folder, and no "branch without worktree" entry.
+
+`free-REQ-150` is listed under ORPHANED: its folder is still on disk, but git no longer has it registered as a worktree. Its owner is REQ-150's session, which is why I left it alone.
+
+If you want it removed anyway, I can do it. I'd check that it holds no unmerged or uncommitted work first, then delete it. I can run `xgd branch clean --stale` for `free-BUG-189` the same way. Do you want me to?
 
 <!-- xgd-chat-end -->
