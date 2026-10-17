@@ -207,6 +207,11 @@ const planConflict = (): Error => ledgerError('CONFLICT', 'the plan moved while 
  * again.
  */
 export function conflictOrRethrow(error: unknown, conflict: () => Error): unknown {
+  return isVersionConflict(error) ? conflict() : error
+}
+
+/** Whether a store write failed because the ticket moved since it was read. */
+export function isVersionConflict(error: unknown): boolean {
   const text = `${(error as { code?: string })?.code ?? ''} ${(error as Error)?.message ?? ''}`
-  return /conflict|version|stale|expected_version/i.test(text) ? conflict() : error
+  return /conflict|version|stale|expected_version/i.test(text)
 }

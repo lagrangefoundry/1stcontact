@@ -422,13 +422,14 @@ describe('REQ-219 AC4 — `edit_image`, the assistant’s half', () => {
 
   it('test_UAT_FC_REQ-219_a_site_file_has_nowhere_to_keep_a_recipe', async () => {
     // REQ-218 recorded the reason and this makes it operative. It is a refusal
-    // and not a gap: the picture is perfectly visible, it simply cannot carry a
-    // list of edits, and the sentence says what to do instead.
+    // and not a gap: the picture is perfectly visible, but nothing records which
+    // Library original it came from ([[BUG-213]]), so there is nothing for a
+    // recipe to be a recipe over — and the sentence says what to do instead.
     const error = await surface()
       .edit_image({ image: 'logo.png', edits: [{ op: 'rotate', degrees: 90 }] })
       .catch((e: unknown) => e)
     expect((error as { code?: string }).code).toBe('NOT_EDITABLE')
-    expect((error as Error).message).toMatch(/nowhere to keep a list of edits/)
+    expect((error as Error).message).toMatch(/no original to keep a list of edits over/)
   })
 
   it('test_UAT_FC_REQ-219_a_picture_is_named_the_way_every_other_verb_names_one', async () => {

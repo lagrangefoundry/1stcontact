@@ -46,6 +46,9 @@ import {
   type SectionUnit,
 } from './sections'
 
+/** How many times a journal append that lost its number to a concurrent one tries again. */
+const JOURNAL_APPEND_ATTEMPTS = 8
+
 /**
  * {@link SiteStore} over Cloudflare D1 and R2 — REQ-143, DOC-12 §7 phase 2.
  *
@@ -531,6 +534,39 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
       .bind(siteKey, tenantId)
       .first<{ id: string; site_json: string | null; version: number; counter: number }>()
 
+  /**
+   * One attempt at journalling a write, at the number after the counter as read.
+   * A concurrent append that took that number first fails this one on `(site_id,
+   * at)`, and {@link SiteStore.appendChange} reads again.
+   */
+  const appendOnce = async (
+    siteKey: string,
+    entry: Omit<JournalRecord, 'at' | 'ts'> & { ts?: string },
+  ): Promise<number> => {
+    const row = await siteRow(siteKey)
+    // Journalling never fails a write (see `journal.ts`): a site this store
+    // does not hold reports the counter unmoved rather than throwing.
+    if (!row) return 0
+    const at = row.counter + 1
+    const record: JournalRecord = { ...entry, at, ts: entry.ts ?? new Date().toISOString() }
+    await DB.batch([
+      DB.prepare('INSERT INTO site_changes (site_id, at, record) VALUES (?, ?, ?)').bind(
+        row.id,
+        at,
+        encode(record),
+      ),
+      DB.prepare('UPDATE sites SET counter = ? WHERE id = ?').bind(at, row.id),
+      // The window, enforced by deleting what aged out rather than by
+      // rewriting a bounded blob — the arithmetic is `nextJournal`'s
+      // `slice(-JOURNAL_WINDOW)`, expressed as the rows it would have dropped.
+      DB.prepare('DELETE FROM site_changes WHERE site_id = ? AND at <= ?').bind(
+        row.id,
+        at - JOURNAL_WINDOW,
+      ),
+    ])
+    return at
+  }
+
   /** True when this business owns the site this key names. */
   const owns = async (siteKey: string): Promise<boolean> => {
     const row = await DB.prepare('SELECT id FROM sites WHERE id = ? AND tenant_id = ?')
@@ -961,29 +997,19 @@ function tenantStore(env: SiteStoreEnv, tenantId: string): TenantSiteStore {
     },
 
     async appendChange(site, entry) {
-      const row = await siteRow(site)
-      // Journalling never fails a write (see `journal.ts`): a site this store
-      // does not hold reports the counter unmoved rather than throwing.
-      if (!row) return 0
-      const at = row.counter + 1
-      const record: JournalRecord = { ...entry, at, ts: entry.ts ?? new Date().toISOString() }
-      await DB.batch([
-        DB.prepare('INSERT INTO site_changes (site_id, at, record) VALUES (?, ?, ?)').bind(
-          row.id,
-          at,
-          encode(record),
-        ),
-        DB.prepare('UPDATE sites SET counter = ? WHERE id = ?').bind(at, row.id),
-        // The window, enforced by deleting what aged out rather than by
-        // rewriting a bounded blob — the arithmetic is `nextJournal`'s
-        // `slice(-JOURNAL_WINDOW)`, expressed as the rows it would have dropped.
-        DB.prepare('DELETE FROM site_changes WHERE site_id = ? AND at <= ?').bind(
-          row.id,
-          at - JOURNAL_WINDOW,
-        ),
-      ])
-      return at
+      // TWO WRITES TO ONE SITE AT ONCE READ ONE COUNTER ([[BUG-213]]) — six
+      // placements in one batch — and the second insert collides on `(site_id,
+      // at)` after its asset has already landed. Reading again and taking the
+      // next number is the whole fix: the journal is an order, not a claim.
+      for (let attempt = 1; ; attempt++) {
+        try {
+          return await appendOnce(site, entry)
+        } catch (error) {
+          if (attempt >= JOURNAL_APPEND_ATTEMPTS || !/UNIQUE constraint failed/.test(String(error))) throw error
+        }
+      }
     },
+
 
     async changesSince(site, since): Promise<ChangeSlice> {
       const row = await siteRow(site)
