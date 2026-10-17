@@ -6,9 +6,9 @@ title: 'Site editor: friendly ''section being updated'' message instead of build
   id/UTC'
 created_by: martin-github@westhead.me
 created_at: '2026-10-17T22:56:15.773287+00:00'
-updated_at: '2026-10-17T23:03:13.969144+00:00'
+updated_at: '2026-10-17T23:03:25.003298+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -24,6 +24,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.518
+  story_points: 1
 ---
 
 ## Symptom
@@ -53,6 +54,9 @@ This supersedes the REQ-397 UAT assertion that `busy.line` starts with `builder 
 
 ## Test plan
 
-- `tests/test_UAT_FC_BUG-217_friendly_busy_line.workers.test.ts`: a builder holds a section. `GET /api/copy` returns a `busy.line` that says "Your AI assistant is updating this section", gives a relative start time, and contains no `worker-` id and no `UTC`.
+- `tests/test_UAT_FC_BUG-217_friendly_busy_line.workers.test.ts` drives the real `GET /api/copy` over a real D1 lease table:
+  - A builder lease backdated 3 minutes gives exactly "Your AI assistant is updating this section right now (started 3 minutes ago)." The line contains no `worker-` id and no `UTC`.
+  - A lease taken just now says "(started just now)".
+  - A lease held by the client's own save says "You're already saving a change to this section (started just now)."
 - Update the REQ-397 copy-save UAT's line assertion to match.
-- Regression: the REQ-397 draft-file-leases suite.
+- Regression: the REQ-397 draft-file-leases suite. Both suites pass, 11/11.
