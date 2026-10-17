@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-399
 created_by: xgd
 created_at: '2026-10-15T17:01:29.587000+00:00'
-updated_at: '2026-10-17T20:25:54.300460+00:00'
+updated_at: '2026-10-17T20:31:54.966986+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -144,5 +144,17 @@ The ticket now has an "As built" section, and the commits are `36ee3c3e22` plus 
 <!-- xgd-chat role="user" ts="2026-10-17T20:25:44.225443+00:00" -->
 #### You
 please clean up the branch for this ticket
+
+<!-- xgd-turn id="0391ccce-cfda-4590-8396-c8a4ff72e255-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:31:47.960941+00:00" -->
+#### Claude
+The worktree entry is gone and only the branch is left. It's fully merged, so I'll run the clean.
+
+I've removed the REQ-399 branch. The `free-REQ-399` branch is deleted, its stale worktree entry under `.git/worktrees` is gone, and the merge lock is released. I checked all three after the clean command ran.
+
+Before deleting, I confirmed the branch was fully merged into `xgd-working`, so no work was lost. This time `xgd branch clean REQ-399` ran inside the sandbox without the block it hit last time, so you don't need to run anything yourself.
+
+REQ-399 stays at `free_coded`.
 
 <!-- xgd-chat-end -->
