@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-143
 created_by: xgd
 created_at: '2026-09-25T04:44:37.634512+00:00'
-updated_at: '2026-09-25T20:13:36.014965+00:00'
+updated_at: '2026-10-17T20:25:40.253909+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -229,5 +229,11 @@ Two notes worth your attention:
 - §8.8 records honestly where the measured outcome **differs from §5's exploratory estimate**: off-sample reports 2 escapes at 637px rather than the predicted 14 at 500px, because the landed derivation requires a surface to cover a run at *every* captured width before counting as its backing. And this particular bundle does not fail at an uncaptured height — the height axis is exercised, but the evidence that a wrong height response is *caught* rests on the synthetic `heightBlindPage` UAT, not on the real capture. Both are deliberate decisions, not shortfalls, and are documented as such rather than tuned away.
 
 The ticket is at `free_coded` and parked. Promotion to `ready_to_reconcile` is your call.
+
+<!-- xgd-turn id="d300345d-b508-44fe-a0c8-4d3951e28e0a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:25:32.200557+00:00" -->
+#### You
+There is a bug143-baseline worktree in .xgd/tmp/ please clean it up
 
 <!-- xgd-chat-end -->
