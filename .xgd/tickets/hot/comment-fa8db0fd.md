@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-154
 created_by: xgd
 created_at: '2026-09-26T21:54:07.281569+00:00'
-updated_at: '2026-10-17T20:20:02.380297+00:00'
+updated_at: '2026-10-17T20:25:31.833955+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -91,5 +91,17 @@ The report's closing note about the wider pattern cites a second instance ("a pi
 <!-- xgd-chat role="user" ts="2026-10-17T20:19:59.099801+00:00" -->
 #### You
 please clean up the worktree and branch for this ticket
+
+<!-- xgd-turn id="d046fed4-1ef9-49ca-9a7a-3ebf9cf3de98-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:25:21.325539+00:00" -->
+#### Claude
+BUG-154's branch and worktree are cleaned up.
+
+Most of it was already gone when I looked. The `free-BUG-154` branch no longer exists, and git had no worktree registered for it. The only thing left was the old directory under `~/.xgd/worktrees/.../free-BUG-154/`, which held nothing but a vitest cache file (`node_modules/.vite/vitest/.../results.json`). I deleted that directory and ran `git worktree prune`.
+
+Before deleting it, I checked that both of the ticket's commits (`929a66a`, `6015edd`) are already on `xgd-working`, so no work was thrown away.
+
+The ticket itself wasn't touched. It's now at `ready_to_reconcile`, so it has been promoted since the last session.
 
 <!-- xgd-chat-end -->
