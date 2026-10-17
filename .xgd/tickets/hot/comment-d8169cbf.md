@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T23:10:59.540578+00:00'
+updated_at: '2026-10-17T23:11:55.503759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7960,5 +7960,32 @@ Its clearly 1
 **The editor saves the moment you apply a change**, like the Library's. It doesn't wait for the selection panel's Save. <--ok
 
 Whatever makes sense
+
+<!-- xgd-turn id="8ada9d4e-063b-4712-bf37-220236f1fbff-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T23:11:51.436157+00:00" -->
+#### Claude
+Before filing I'll check which paths can put an image on a site without a Library item.
+
+Found two paths that put images on a site with no Library item: `write_image`, where the consultant composes an SVG straight into the site's assets, and reproducing a page from a capture. Filing.
+
+I've filed **REQ-404** under EPIC-19 at `draft`, high priority, 8 points, and added it to the epic. It covers both parts as one ticket.
+
+**1. The photo editor in Edit mode**
+- **Clicking pictures:** the first click on a picture selects it and opens today's panel with the image chooser, alt text and properties. A click on the picture that's already selected opens the Library's photo editor.
+- **It edits this use only**, as you decided. The crop is saved on this copy of the picture (BUG-213's per-copy recipe), so the Library original and every other copy are untouched. The editor says so: *"Editing this use of IMAGE-1 — the Library original is unchanged."*
+- **It starts from what's on the page.** If the picture is already cropped, the editor opens on that crop.
+- **Saving:** each change saves as soon as you apply it, and the page redraws.
+
+**2. Every image on a site has a Library item behind it**
+- **I found two places that skip the Library today:**
+  - `write_image`, where the consultant composes an SVG straight into the site's assets. Its output will now become a Library item before it's placed.
+  - Pages reproduced from a capture, whose images come in from the captured site.
+
+  The CLI's own add-asset command does the same, but the consultant isn't given it. The ticket asks the implementer to check every place that writes site assets, not just these, and list them in the commit.
+- **Existing sites get a one-off backfill:** a Library item for each orphaned image, with no change to any page.
+- **From then on, a missing item is an error, not a silent gap.** Clicking a selected picture that has no Library item shows *"This picture isn't in your Library — please tell us"* instead of doing nothing.
+
+The code gets written in REQ-404's own session, not this one.
 
 <!-- xgd-chat-end -->
