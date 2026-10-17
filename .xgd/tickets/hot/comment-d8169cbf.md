@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-15T16:49:03.846994+00:00'
+updated_at: '2026-10-17T13:56:21.894216+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7510,5 +7510,11 @@ What it covers:
 4. **Raised in context.** The question is no longer seeded when the plan is created. She raises it with a one-line explanation after she's learned about the business, before the comps.
 5. **The consultant speaks first.** When a builder conversation is opened and empty, she gets one opening turn without a client message. It runs exactly once and is never repeated on reload.
 6. **Layout.** Options appear one per line, or in columns when the panel is wide enough, and never as one wrapping line. This applies to every multi-choice question and keeps BUG-200's tick-then-Done behaviour.
+
+<!-- xgd-turn id="a910c8d5-0045-4ec0-afd1-5e9cf6715f68-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T13:56:20.576176+00:00" -->
+#### You
+Can you review the trraanscript of Charlie's plumbing - 3 and create tickets for all the necessary items please?
 
 <!-- xgd-chat-end -->
