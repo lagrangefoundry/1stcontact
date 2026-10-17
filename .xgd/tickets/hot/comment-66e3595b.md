@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-212
 created_by: xgd
 created_at: '2026-10-17T22:50:44.485709+00:00'
-updated_at: '2026-10-17T22:59:09.828959+00:00'
+updated_at: '2026-10-17T23:12:05.241845+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,110 @@ Do you want this split, and should I file the lagrange-framework ticket?
 <!-- xgd-chat role="user" ts="2026-10-17T22:59:07.471154+00:00" -->
 #### You
 Sorry I'd l;ike you to do all three please - you can do multiple commits
+
+<!-- xgd-turn id="1861b100-9f5d-408f-8157-e74c45f4ac25-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T23:12:01.699896+00:00" -->
+#### Claude
+`toolSet` is where this host builds the worker's tools, both the schemas it sends to the model and the code that runs each call. That gives us a host-side place for fixes 1 and 3.
+
+Before writing anything, I need to know when the adapter records a request's usage relative to running that request's tools. That decides whether a tool handler can read the current occupancy.
+
+Ceiling = 0.9 × (200k − 32k) = 151,200, which matches the incident. Now where model-facing text lives:
+
+Next, how the manager passes `signals` to the backend, so the guard can wrap whatever is already there:
+
+The installed copy matches. Last check before scoping: what `box.run` returns when a call is refused, so the ReportResult wrapper can improve that refusal.
+
+I have what I need to scope it. Next I'll look at the existing UAT harness for aborted workers (BUG-191) so the new tests reuse it.
+
+The BUG-191 harness covers all three cases. Checking the scripted client's request shape (tools, system and messages):
+
+Now I'll scope the ticket. I'm appending the agreed design to the body and keeping the existing content.
+
+Filed lagrange-framework BUG-86. Before coding I'm re-reading my notes on running the workers suite from a fresh worktree:
+
+Copied the gitignored build artifacts in. Next, a baseline run of the BUG-191 suite from the worktree, to confirm the harness works there:
+
+The harness runs in the worktree. Before starting fix 1, checking account-core's imports so the new helpers fit:
+
+Starting fix 1, the report shape.
+
+Fix 1 is wired in, and `toolSet` is the only tool projection in the repo. Now the UAT file. I'm putting all three parts in one file, with tests added per commit, on the BUG-191 harness:
+
+All three pass. To check they're real evidence, I'll run them once against the unfixed host-core:
+
+They fail without the fix and pass with it. Before committing, a typecheck and lint:
+
+Typecheck is clean. Checking this repo's commit-message convention before committing:
+
+Fix 1 is committed. Now fix 2, the host-written summary when a worker ends without reporting.
+
+`HOST_SUMMARY_LEAD` is read inside `HOST_RESULT_FIELDS` at module load, so it has to be declared above it. Moving it up into the report section:
+
+Now the call site in `delegate`:
+
+Adding the fix 2 UATs (a context-budget stop and a turn that finished without reporting) to the same file:
+
+All six pass. Quick check that the two new summary tests depend on the change: I'll swap the call site back to the worker's own summary and run them.
+
+That's the right result. Some older suites may assert an empty `summary` on silent runs, so I'm running the neighbouring delegation suites:
+
+13 failures. My notes say some delegation suites already fail on a clean tree, so first I'll get a baseline: the same suites with both source files at the pre-BUG-212 state.
+
+10 of the 13 fail on the unchanged code too. The 3 new ones are BUG-167 `a_silent_worker_that_only_read…` and two in BUG-208. Looking at their assertions:
+
+Now pointing the new test's import at the moved constant, and updating the two assertions BUG-212 supersedes:
+
+The same 10 tests as the baseline fail, and nothing else does. To make sure those pre-existing failures aren't hiding a `summary` assertion, I'll look at why REQ-295 and REQ-340 fail:
+
+Those failures are about `by` fields and spend records, not the summary, so they're pre-existing drift. BUG-168's turn-clock suite isn't a workers suite, so it runs separately:
+
+Both clean. The BUG-208 consultant-notice test now covers the `workerSummary` fix: it failed before it and passes after. Committing fix 2:
+
+Fix 2 is committed. Now fix 3, the reserve notice, starting with its template in `priming.json`. I'm splicing it in as text because a JSON round-trip churns that file.
+
+Next, the guard in budget-core:
+
+Adding a line to `guardTurn`'s doc comment about the reserve, then wiring it into the builder's backend:
+
+Typecheck is clean. Now the fix 3 UATs: one request below the reserve gets no notice, the next request after crossing it gets one, and the notice is never stored in the dialogue.
+
+All 7 pass. RED check: I'll run them with the reserve removed from the builder's guard.
+
+Now regressions. The guard and `priming.json` are shared, so I'm finding the suites that touch either:
+
+I need baselines for those. I'll run the 4 failing files with every BUG-212 source file put back to its pre-BUG-212 state:
+
+Every one of those fails identically before BUG-212, so they're pre-existing. Committing fix 3:
+
+All three fixes are committed. Now I'll bring the ticket body up to date with what actually landed:
+
+The ticket body is current. Now the merge back to xgd-working: lock first, then merge.
+
+The merge went through without conflicts. Now the ticket overlay check; my notes say the rematerialize path that `lock` prints is missing, so I'm using the `xgd ticket-store` form:
+
+All three fixes are in, as three commits merged into xgd-working. BUG-212 is at `free_coded` (version 0.2.522, branch cleaned up), and its body describes what landed.
+
+**1. A report isn't lost to the shape of `failed`.** This is the host-side version: per our cross-repo rule, the code change in lagrange-framework is a ticket there, not code from here.
+- The builder's `ReportResult` schema now names `check` and `reason` on each `failed` entry, and both are required.
+- A plain string in `failed` is accepted as `{check: <string>, reason: ""}`. The rest of the report is kept, and the check it quotes still comes back `failed`.
+- If a report is still refused, the refusal now ends with the exact shape to send and "Call ReportResult again now".
+- I filed **lagrange-framework BUG-86** to add item keys to the declaration language itself, in both languages. Once that lands, this shim can go.
+
+**2. A worker that ends without reporting gets a summary written by the host.** It opens with "The worker did not report; this summary is the host's, from its own records." It then says:
+- why the run ended (context limit with both numbers, call or time budget, or no `ReportResult` call);
+- how many tool calls it made and which was last, quoting the refusal if there was one;
+- whether it wrote anything to the draft.
+
+A worker's own summary is never replaced. Two side effects:
+- BUG-167 and BUG-208 each had a test expecting an empty summary on a silent run. This change supersedes that, so I updated both tests and recorded it on the ticket.
+- The consultant's "ran out of budget" message would have quoted the host summary as "the worker reported: …". I fixed that, and the existing BUG-208 test now covers it.
+
+**3. A builder is warned before the context limit stops it.** From 80% of the room (the hard stop is at 90%), every further request in that turn tells the builder its token count and the stopping point, and to call `ReportResult` now. The warning rides a per-request channel and is never saved into the conversation, so it doesn't pile up. Only builders get it; the consultant is unchanged.
+
+**Tests:** the 7 new tests in `tests/test_UAT_FC_BUG-212_worker_report_survives_its_budget.workers.test.ts` pass. I checked that each fix's tests fail without that fix. Typecheck is clean. In the related suites, 18 tests fail, and they fail identically with all BUG-212 changes removed. They're in the REQ-340, REQ-354, REQ-295, REQ-379, REQ-342, REQ-285, REQ-341 and AC1320 suites, plus two in BUG-167, and the ones I checked fail on `by` fields, spend and digest assertions. They're listed on the ticket.
+
+I set story points to 5. The ticket is ready for you to promote to `ready_to_reconcile` when you want.
 
 <!-- xgd-chat-end -->
