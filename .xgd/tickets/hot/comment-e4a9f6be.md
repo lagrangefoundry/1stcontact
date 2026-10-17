@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-09-26T20:50:08.963442+00:00'
+updated_at: '2026-10-17T20:20:30.896187+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -191,5 +191,11 @@ BUG-150 is complete and at `free_coded`.
 2. **`concurrently` is still in root `devDependencies`.** The deleted `dev` script was its only caller, but removing it without regenerating `pnpm-lock.yaml` breaks `pnpm install --frozen-lockfile`. Left in place rather than half-done — it's yours to drop with a lockfile regen when convenient.
 
 Branch and worktree cleaned up, lock released. Ticket is parked at `free_coded` (8 story points) awaiting your promotion to `ready_to_reconcile`.
+
+<!-- xgd-turn id="500d530e-36c7-4624-883b-c76f53f42caa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:20:23.524604+00:00" -->
+#### You
+please clean up the worktree and branch for this ticket
 
 <!-- xgd-chat-end -->
