@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-400
 created_by: xgd
 created_at: '2026-10-17T14:03:41.810669+00:00'
-updated_at: '2026-10-17T14:33:33.756475+00:00'
+updated_at: '2026-10-17T14:49:48.797270+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -142,5 +142,11 @@ REQ-400 is built and merged into `xgd-working`, and the ticket is at `free_coded
   - **Image renderer:** the tests use a stand-in for Cloudflare Images, so actual PNG output hasn't been checked.
   - **Settings section:** it was tested in a simulated DOM but not looked at in a browser.
   - **Library pictures:** in the Settings section the picker lists only site pictures; making the icon from a Library item is available through the assistant.
+
+<!-- xgd-turn id="69113063-eeb4-4f74-a936-4065a69b5394-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T14:49:48.086923+00:00" -->
+#### You
+Is this complete?
 
 <!-- xgd-chat-end -->
