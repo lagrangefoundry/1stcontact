@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T17:14:18.049273+00:00'
+updated_at: '2026-10-17T17:31:19.029469+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7734,5 +7734,11 @@ The conversation tests then need to run against the real installed library again
 **The obvious shortcut is a bad trade.** Reinstalling the pre-Oct-10 framework would also roll back things you depend on, including web search (REQ-206) and the empty-reasoning fix (BUG-81).
 
 Shall I file this as a high-severity bug under EPIC-19? It blocks every builder conversation.
+
+<!-- xgd-turn id="07d1d21e-9d7b-4f86-8e6d-cf5914ddde92-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T17:30:37.872485+00:00" -->
+#### You
+Please create a bug
 
 <!-- xgd-chat-end -->
