@@ -34,6 +34,14 @@ export const DELEGATE_TOOL = 'Delegate'
 const SUMMARY_CAP = 400
 
 /**
+ * How the summary the HOST writes for a worker that reported nothing opens
+ * ([[BUG-212]]; `account-core.ts`'s `hostSummary`). Here because this module
+ * must not quote it as the worker's report, and `account-core.ts` already
+ * imports from here.
+ */
+export const HOST_SUMMARY_LEAD = "The worker did not report; this summary is the host's, from its own records."
+
+/**
  * The markers the library's Toolbox wraps third-party text in
  * (`toolbox/provenance.js`). They are not exported from the package, and the
  * manual the model reads defines them, so the spelling is fixed.
@@ -82,6 +90,8 @@ function workerSummary(output: unknown): { text: string; untrusted: boolean } | 
   const { untrusted } = parsed
   const summary = parsed.result.summary
   if (typeof summary !== 'string' || summary.trim() === '') return null
+  // The host's words, not a report: the line says why there was none instead.
+  if (summary.startsWith(HOST_SUMMARY_LEAD)) return null
   const flat = summary.replace(/\s+/g, ' ').trim()
   const text = flat.length > SUMMARY_CAP ? `${flat.slice(0, SUMMARY_CAP - 1)}…` : flat
   return { text, untrusted }

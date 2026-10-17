@@ -53,7 +53,7 @@ import type { SiteStore, StoredPage } from '../../store/site-store'
 import { BUDGET_STOP_REASON, TURN_END, budgetStopMeta } from './budget-core'
 import type { RoundBudgets } from './backends'
 import { withClientNote } from './cadence-core'
-import { DELEGATE_TOOL } from './turn-clock-core'
+import { DELEGATE_TOOL, HOST_SUMMARY_LEAD } from './turn-clock-core'
 
 // ── what a capture is ────────────────────────────────────────────────────────
 
@@ -897,6 +897,79 @@ export function wroteAnything(changed: DraftChanges): boolean {
   return changed.differences.length > 0 || (changed.truncated ?? 0) > 0
 }
 
+// ── the worker's report ([[BUG-212]]) ────────────────────────────────────────
+//
+// WHAT WAS LOST. A builder near its context ceiling called `ReportResult` with
+// its failed checks as plain strings. The parameter check refused the WHOLE
+// call — summary, `changed` and `passed` with it — and the guard stopped the
+// turn before a retry could be built, so the caller got an empty summary.
+//
+// WHY IT GUESSED. `failed` is declared as an array of objects, and the
+// declaration language cannot give array items keys, so the schema the model
+// is sent says `items: {type: "object"}` and nothing else: `check` and `reason`
+// are only in prose. That belongs upstream (lagrange-framework BUG-86); until
+// it lands, this host's tool projection fills the gap three ways — the keys in
+// the schema, a plain string read as the check it quotes, and the shape spelled
+// out on any refusal that still happens.
+
+/** The worker's report operation, as the model calls it. */
+export const REPORT_TOOL = 'ReportResult'
+
+const FAILED = 'failed'
+
+/** One `failed` entry as the wire schema now offers it. */
+const FAILED_ITEM = {
+  type: 'object',
+  properties: {
+    check: { type: 'string', description: 'The check that did not hold, quoted as it was written.' },
+    reason: { type: 'string', description: 'Why it did not hold.' },
+  },
+  required: ['check', 'reason'],
+  additionalProperties: false,
+}
+
+/** What a refused report is told, so one retry can be the right one. */
+export const REPORT_SHAPE_HINT =
+  `A report is recorded whole or not at all, so nothing from this call was kept. ` +
+  `Each 'failed' entry is an object with the check quoted and the reason: ` +
+  `{"check": "<the check, as written>", "reason": "<why it did not hold>"}. ` +
+  `'passed', 'changed' and 'decisions' are lists of strings. Call ${REPORT_TOOL} again now.`
+
+/** `ReportResult`'s wire properties, with `failed`'s entries given their keys. */
+export function reportSchema(properties: Record<string, unknown>): Record<string, unknown> {
+  const failed = properties[FAILED]
+  if (!failed || typeof failed !== 'object') return properties
+  return { ...properties, [FAILED]: { ...(failed as Record<string, unknown>), items: FAILED_ITEM } }
+}
+
+/**
+ * `ReportResult`'s input, with a `failed` entry sent as a plain string read as
+ * `{check: <the string>, reason: ""}`.
+ *
+ * A STRING IS READ AS THE CHECK, because that is what a worker quoting its
+ * failed checks writes, and reconciliation pairs a failure with an asked check
+ * by its normalised text — so a quoted check still comes back `failed`. A
+ * string that quotes nothing pairs with nothing, and the check it meant comes
+ * back `unreported`, which is still better than losing the report. A lone
+ * string rather than a list is one entry. Anything else is passed through for
+ * the declared checks to judge.
+ */
+export function reportInput(input: Record<string, unknown>): Record<string, unknown> {
+  const failed = input?.[FAILED]
+  if (failed === undefined || failed === null) return input
+  const entries = Array.isArray(failed) ? failed : typeof failed === 'string' ? [failed] : null
+  if (entries === null) return input
+  return {
+    ...input,
+    [FAILED]: entries.map((entry) => (typeof entry === 'string' ? { check: entry, reason: '' } : entry)),
+  }
+}
+
+/** Whether `ReportResult`'s rendered output is a refusal rather than its receipt. */
+export function reportRefused(output: unknown): boolean {
+  return typeof output === 'string' && !/"recorded"\s*:\s*true/.test(output)
+}
+
 // ── the hook that takes it ───────────────────────────────────────────────────
 
 /**
@@ -1141,7 +1214,7 @@ const HOST_RESULT_FIELDS = {
     "run. 'status' is how the worker's last turn ended: 'complete', 'aborted' or " +
     "'error'. 'reason' says why. 'calls' or 'time' means the worker ran out of its " +
     "budget of tool calls or of seconds, and 'limit' is that budget's size: whatever " +
-    "it reported (the summary may be empty) was cut short, so ask a new delegation for " +
+    "it reported (the summary may be the host's) was cut short, so ask a new delegation for " +
     "what remains, and trust this over any check reason that names the other budget. " +
     "'no_report' means no limit was reached: the worker finished without ever calling " +
     "its report, even when asked again, so nothing it said reached you except " +
@@ -1152,6 +1225,79 @@ const HOST_RESULT_FIELDS = {
     "what remains as a new, smaller delegation rather than asking it again. Any other " +
     "reason is the one the stop recorded. 'error' is the error the turn ended on, when " +
     'it errored. Tell your client which of these it was, in plain words.',
+  summary:
+    "What the worker did, in its own words — except when it ended without a report and " +
+    `said nothing, when the host writes it from its own records and it begins '${HOST_SUMMARY_LEAD}'. ` +
+    "That summary says what ended the run, the worker's last tool call, and whether it " +
+    "wrote anything, and it is a digest of 'ended', 'activity' and 'account', which hold " +
+    'the detail. Read it as what is known about the run, not as what the worker meant to do.',
+}
+
+/**
+ * The summary the host writes for a worker that ended without one ([[BUG-212]]).
+ *
+ * WHY. Everything here is already on the result — `ended`, `activity`,
+ * `account` — but a caller reads `summary` first, and an empty one read as "the
+ * worker did nothing", which sent the caller back to `describe_page` and
+ * screenshots to find out what landed: the token cost moved back onto the
+ * expensive side. So the one sentence the caller reads first now says what the
+ * rest of the result holds.
+ *
+ * THE HOST'S WORDS, AND IT SAYS SO, because `summary` is otherwise the worker's
+ * claim and this is not one. Built only from the host's own records, so it can
+ * never say more than they do: no `changed` (no account on this host) means no
+ * sentence about writes rather than a guess.
+ */
+export function hostSummary(
+  ended: WorkerEnding | null,
+  activity: WorkerActivity | null,
+  changed: DraftChanges | undefined,
+): string {
+  const parts = [HOST_SUMMARY_LEAD]
+  if (ended) parts.push(endingSentence(ended))
+  if (activity) {
+    const last = activity.last_operation
+    if (activity.operations === 0) parts.push('It made no tool calls.')
+    else if (last) {
+      const calls = `${activity.operations} tool call${activity.operations === 1 ? '' : 's'}`
+      const refused = last.result !== undefined && /^Error\b/.test(last.result.trim())
+      parts.push(
+        `It made ${calls}; the last was ${last.name}` +
+          (refused ? `, which was refused: ${last.result}` : '.'),
+      )
+    }
+  }
+  if (changed !== undefined) {
+    const count = changed.differences.length + (changed.truncated ?? 0)
+    parts.push(
+      count > 0
+        ? `It wrote ${count} change${count === 1 ? '' : 's'} to the draft before it stopped, listed in 'account.changed'.`
+        : 'It wrote nothing to the draft.',
+    )
+  }
+  return parts.join(' ')
+}
+
+function endingSentence(ended: WorkerEnding): string {
+  switch (ended.reason) {
+    case BUDGET_STOP_REASON:
+      return (
+        `The host stopped it between two requests because its context had reached ` +
+        `${ended.occupancy_tokens ?? 'its'} tokens against a ceiling of ${ended.ceiling ?? 'unknown'}.`
+      )
+    case WORKER_RAN_OUT_OF.calls:
+      return `It ran out of its budget of ${ended.limit ? `${ended.limit} ` : ''}tool calls.`
+    case WORKER_RAN_OUT_OF.time:
+      return `It ran out of its budget of ${ended.limit ? `${ended.limit} ` : ''}seconds.`
+    case NO_REPORT:
+      return `Its turn finished, inside every budget, without calling ${REPORT_TOOL}.`
+    default:
+      return (
+        `Its turn ended '${ended.status}'` +
+        (ended.reason ? ` (${ended.reason})` : '') +
+        (ended.error ? `: ${ended.error}` : '.')
+      )
+  }
 }
 
 /** `declaration` with {@link HOST_RESULT_FIELDS} added to its result shape. */
@@ -1253,9 +1399,13 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
       try {
         const [records] = this.runtime.manager.logFor(result.session).readFrom(0)
         const ended = workerEnding(lib, records, ceiling, budgets)
-        return { ...result, activity: workerActivity(lib, records), ...(ended ? { ended } : {}) }
+        const activity = workerActivity(lib, records)
+        // [[BUG-212]] — a worker that said nothing is summarised by the host,
+        // never left as an empty string that reads as "did nothing".
+        const summary = result.summary ? result.summary : hostSummary(ended, activity, changed)
+        return { ...result, summary, activity, ...(ended ? { ended } : {}) }
       } catch {
-        return result
+        return result.summary ? result : { ...result, summary: hostSummary(null, null, changed) }
       }
     }
   }

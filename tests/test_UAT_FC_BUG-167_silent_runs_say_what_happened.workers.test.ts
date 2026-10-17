@@ -5,6 +5,7 @@ import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { backendsDocument } from '../tools/generate/src/cli/ai/backends'
+import { HOST_SUMMARY_LEAD } from '../tools/generate/src/cli/ai/turn-clock-core'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import {
@@ -151,7 +152,8 @@ describe('BUG-167 a silent run says what happened', () => {
     ])
 
     expect(result.outcome).toBe('silent')
-    expect(result.summary).toBe('')
+    // [[BUG-212]] supersedes an empty summary here: the host writes one, and says so.
+    expect(String(result.summary).startsWith(HOST_SUMMARY_LEAD)).toBe(true)
     expect(result.wrote).toBe(false)
     expect((result.account as { changed: { differences: unknown[] } }).changed.differences).toEqual([])
 
