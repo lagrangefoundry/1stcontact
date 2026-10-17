@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T15:17:07.243994+00:00'
+updated_at: '2026-10-17T15:30:07.558264+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2187,3 +2187,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[REQ-402]]** (2026-10-17): the look selector moves off the toolbar into a band at the top of the preview, shown only when the page has looks. The band has '‹ name ›' with 'N of M', the full description, and 'Tell the consultant which look you prefer, and why.' That wording is an operator-chosen exception to DOC-66's 'your consultant'. The word stays 'look'.
+
+
+
+- **[[REQ-403]]** (2026-10-17): first entry. Before anything is built, the preview shows a grey 'Your site will appear here as it's created.' panel in place of the starter heading 'Your 1stcontact site'. The false 'All done' line is removed, and the question sections show only when non-empty. A new conversation shows only a 'Click here to start' button. It releases a stock opening message (who the consultant is, the process, how working together goes), with no model call, recorded as the consultant's first turn. This supersedes REQ-399 §4's model-driven opening turn.
