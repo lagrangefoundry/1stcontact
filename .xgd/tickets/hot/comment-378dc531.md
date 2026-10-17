@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-57
 created_by: xgd
 created_at: '2026-09-29T04:11:58.169946+00:00'
-updated_at: '2026-10-17T20:02:30.217093+00:00'
+updated_at: '2026-10-17T20:05:49.949972+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -93,5 +93,28 @@ Can you look at the AI processes working on BUG-210 it seems to be taking AGES i
 <!-- xgd-chat role="user" ts="2026-10-17T20:02:26.206941+00:00" -->
 #### You
 Can you look at the AI processes working on BUG-210 it seems to be taking AGES is it stuck?
+
+<!-- xgd-turn id="65f2572d-9db8-4fc8-9fbc-5f6bc6abe8d1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:05:47.606568+00:00" -->
+#### Claude
+Checking BUG-210's chat transcript to see what its session last did.
+
+Three "implement" prompts on BUG-210 (12:01, 12:16, 13:02 local) and not a single assistant reply recorded. Checking whether the Claude sessions behind them actually ran.
+
+It wasn't stuck so much as never started. Until about five minutes ago, no AI process had done any work on BUG-210. One is running now.
+
+**What happened**
+- You sent "implement this ticket" to BUG-210's chat three times: 12:01, 12:16 and 13:02 local. Its transcript (`comment-cf58efd9`) holds those three messages and no reply at all.
+- I looked through every Claude session file written today. The first one that touches BUG-210 started at **13:05:00**. Nothing ran for the 12:01 or 12:16 messages.
+- The dashboard restarted at **12:24 and 12:51**, so it was down for the gaps after both of your early messages. Those messages were most likely dropped and never queued. I couldn't see the process table (`ps` is blocked in this sandbox), so this comes from the logs, not from watching the process.
+- The dashboard is also slow to load its ticket index right now: about **19–47 seconds** per load (`index_load_ms` 46934 / 19743 / 18664 in `dashboard_stderr.log`). That probably explains why your 13:02 message took about 2½ minutes to be picked up.
+- This chat had the same problem: you sent this question four times (12:23, 12:24, 12:42, 13:02) before this reply.
+
+**Current state**
+- The BUG-210 session (`d6a22ca8…`) has started properly. It read the ticket, found the two `registerDefaults` call sites, and at 13:05:23 set the ticket to `free_coding` and ran `xgd branch cut BUG-210`.
+- BUG-210 has 8 story points, so expect it to take a while. If it runs past 30 minutes in one turn it could hit the same streaming timeout REQ-338 hit, where the work happens but the summary is lost. If it goes quiet, check for a `free-BUG-210` worktree with changes before assuming it's stuck.
+
+Don't send the prompt again. A fourth message would start a second session on the same ticket. The real problem is the dashboard restarting and dropping chat messages, plus the slow index loads. Want me to file a ticket against the dashboard for that?
 
 <!-- xgd-chat-end -->
