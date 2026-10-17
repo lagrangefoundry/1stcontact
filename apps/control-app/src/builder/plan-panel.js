@@ -85,6 +85,9 @@ import {
   PLAN_STILL_TO_ANSWER,
   PLAN_TOLD_US,
   PLAN_UPLOAD,
+  PLAN_UPLOADED,
+  PLAN_UPLOADED_ANSWER,
+  PLAN_UPLOADED_TITLE,
 } from './config.js'
 
 /** The HTML input each typed ask is drawn with. */
@@ -515,7 +518,14 @@ export function createPlanPanel(options = {}) {
         if (picked.length > 0) void upload(ask, picked)
       })
       pick.append(document.createTextNode(ask.multiple ? PLAN_UPLOAD_SEVERAL : PLAN_UPLOAD), file)
-      box.append(pick)
+      // [[BUG-216]] — THE FILE MAY HAVE GONE IN ANOTHER WAY: dragged onto the chat or
+      // the Library, which never answer a card. This says so, as an answer, so the
+      // client is not left with Skip, which tells the agent the opposite.
+      const uploaded = el('button', 'plan-ask__uploaded', PLAN_UPLOADED)
+      uploaded.type = 'button'
+      uploaded.title = PLAN_UPLOADED_TITLE
+      uploaded.addEventListener('click', () => void save(ask, { action: 'answer', answer: PLAN_UPLOADED_ANSWER }))
+      box.append(pick, uploaded)
     }
     const skip = el('button', 'plan-ask__skip', PLAN_SKIP)
     skip.type = 'button'
