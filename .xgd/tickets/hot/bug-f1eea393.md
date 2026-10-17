@@ -6,9 +6,9 @@ title: Builder worker aborted on context budget with no report and left the brie
   half-done
 created_by: xgd
 created_at: '2026-10-17T22:29:24.149544+00:00'
-updated_at: '2026-10-17T23:01:57.516919+00:00'
+updated_at: '2026-10-17T23:11:05.573880+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -69,3 +69,30 @@ The brief itself (about 10 sections, a component, 6 crops and 7 checks in one) i
 - The worker's `ReportResult` schema names `failed.items` `check`/`reason`; a report whose `failed` entry is a plain string is recorded (outcome `reported`, summary kept, the quoted check `failed`); a still-malformed report's refusal shows the shape.
 - A worker stopped by the context guard comes back with a host summary naming `context_budget`, the numbers and its last operation; a worker that finished without reporting comes back with a host summary saying so.
 - A worker whose request crosses the reserve is sent the report notice on its next request; a worker below the reserve is not.
+
+
+
+## What landed (2026-10-17)
+
+Three commits on `free-BUG-212`, one per part of the fix above. Upstream follow-up: **lagrange-framework BUG-86** (item keys for array params, so `failed`'s shape is declared rather than shimmed here).
+
+1. **Report shape** (`account-core.ts` `reportSchema` / `reportInput` / `reportRefused` / `REPORT_SHAPE_HINT`, applied in `host-core.ts` `toolSet` / `runTool`). The builder's `ReportResult` schema sends `failed.items` with `check` and `reason`, both required strings, `additionalProperties: false`. A `failed` entry that is a plain string, or a lone string instead of a list, is read as `{check: <string>, reason: ""}`. Any `ReportResult` refusal the worker still gets ends with the exact shape and "Call ReportResult again now".
+2. **Host summary** (`account-core.ts` `hostSummary`, used in `reportingDelegationToolbox`). When the outcome is not `reported` and the worker's summary is empty, `summary` opens with "The worker did not report; this summary is the host's, from its own records." It then says why the run ended (context budget with occupancy and ceiling, tool-call or time budget with its limit, finished without calling ReportResult, or the recorded status/error), how many tool calls it made and which was last (quoting the refusal when that call was refused), and how many changes it wrote to the draft (pointing at `account.changed`) or that it wrote nothing. A worker's own summary is never replaced. The `summary` result field's description says this.
+   - **Supersedes** BUG-167's and BUG-208's "a silent run's `summary` is empty". Those two assertions now expect the host summary.
+   - The consultant's out-of-budget paragraph (`turn-clock-core.ts` `workerSummary`) does not quote the host summary as "the worker reported"; it keeps saying why the worker ended without reporting.
+3. **Report reserve** (`budget-core.ts` `REPORT_RESERVE_FRACTION = 0.8`, `guardTurn({reserve})`; notice text is `priming.json` template `report-reserve`, filled by `roles.ts` `reportReserveNotice`). Only the builder's guard has a reserve. Once a request's measured occupancy reaches 80% of the room, with the stop at 90%, every following request of that turn carries "Your context is at N tokens, and the host stops this turn at C. Call ReportResult now …". It rides the per-call `signals` channel, composed after any caller-supplied signal, so it is never stored in the dialogue and each request carries it exactly once. The consultant's guard is unchanged.
+
+## Final test plan
+
+`tests/test_UAT_FC_BUG-212_worker_report_survives_its_budget.workers.test.ts` (7 UATs, real route in workerd, Anthropic client scripted):
+- the builder is sent `failed`'s item keys;
+- a plain-string `failed` entry is recorded with the rest of the report (outcome `reported`, summary and `changed` kept, the quoted check `failed`);
+- a report still refused tells the builder the shape to send;
+- a builder stopped by the context guard after a refused report comes back with a host summary naming the numbers, the refused last call, and that it wrote nothing;
+- a builder that finished without reporting comes back with the exact host summary;
+- a builder that reported keeps its own summary;
+- a builder inside the reserve is told to report on every following request, not before it, and the notice appears once per request.
+
+Updated assertions: `test_UAT_FC_BUG-167_a_silent_worker_that_only_read_…` and `test_UAT_FC_BUG-208_a_worker_that_never_calls_its_report_…` (the host summary instead of `""`). `test_UAT_FC_BUG-208_a_consultant_turn_that_runs_out_…` covers the out-of-budget paragraph.
+
+Pre-existing failures, identical before this change and not touched by it: REQ-340 ×2, REQ-354 ×2, BUG-167 ×2 (`wrote`/`by` fields), REQ-295 ×2, REQ-379 ×2, REQ-342 (method in tail) ×3, REQ-285 ×6, REQ-341 ×1, AC1320 ×1.
