@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-164
 created_by: xgd
 created_at: '2026-09-30T23:20:02.122176+00:00'
-updated_at: '2026-10-17T20:20:52.257662+00:00'
+updated_at: '2026-10-17T20:26:12.014403+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -177,5 +177,15 @@ If you want to clear the other stale branches too, run `xgd branch clean --stale
 <!-- xgd-chat role="user" ts="2026-10-17T20:20:44.310671+00:00" -->
 #### You
 please clean up the branch for this ticket
+
+<!-- xgd-turn id="aa8cbd14-f2df-4035-b2b9-7eb477a1b248-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:26:01.295988+00:00" -->
+#### Claude
+The worktree record is gone now, so only the branch is left. Running the cleanup:
+
+I've cleaned up the BUG-164 branch. `xgd branch clean BUG-164` worked this time: it deleted the `free-BUG-164` branch and released the lock, and the worktree was already gone. Git no longer lists the branch or a worktree for it.
+
+BUG-164 stays at `free_coded`, with commits `52827e75e2` and `38afada3c0` merged into `xgd-working`. Nothing else is left for this ticket.
 
 <!-- xgd-chat-end -->
