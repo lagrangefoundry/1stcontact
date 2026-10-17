@@ -951,6 +951,13 @@ export const PLAN_NOT_YET_AVAILABLE = '[not yet available]'
 /** [[REQ-399]] — the free-text line under a multi-select that takes one. */
 export const PLAN_SOMETHING_ELSE = 'Something else?'
 export const PLAN_UPLOAD = 'Upload a document'
+/**
+ * [[BUG-216]] — telling an upload card the file went in another way (dragged onto
+ * the chat or the Library), and the answer that sends.
+ */
+export const PLAN_UPLOADED = 'Uploaded'
+export const PLAN_UPLOADED_TITLE = "I've already uploaded it another way, such as by dragging it in"
+export const PLAN_UPLOADED_ANSWER = 'Uploaded to the Library'
 export const PLAN_DOCUMENT = 'A document you sent'
 /** [[BUG-196]] — an upload ask that takes several files at once. */
 export const PLAN_UPLOAD_SEVERAL = 'Upload files'

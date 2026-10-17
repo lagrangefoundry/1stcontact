@@ -1576,6 +1576,7 @@ body {
 }
 
 .plan-ask__upload,
+.plan-ask__uploaded,
 .plan-ask__skip,
 .plan-ask__change {
   cursor: pointer;
