@@ -6,10 +6,10 @@ title: 'Plan panel: questions fold to one line with a status box, in two section
   matching the chat''s type'
 created_by: EPIC-19
 created_at: '2026-10-17T15:11:00.170337+00:00'
-updated_at: '2026-10-17T15:26:49.057955+00:00'
+updated_at: '2026-10-17T15:27:21.356786+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-7f767c9a
+  commits:
+  - working_sha: ab405eadf9e4909b1b2093d76fccf720f1232b88
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 03221768c739db0da12efee68b19fd2ed499ed9d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.512
 ---
 
 ## What changes
