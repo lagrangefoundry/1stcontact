@@ -6,9 +6,9 @@ title: 'Looks: a band at the top of the preview with ‹ name ›, the full desc
   and ''Tell the consultant…'' — only when the page has looks'
 created_by: EPIC-19
 created_at: '2026-10-17T15:17:00.556053+00:00'
-updated_at: '2026-10-17T15:36:14.222327+00:00'
+updated_at: '2026-10-17T15:41:19.683273+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -58,3 +58,31 @@ UATs `test_UAT_FC_<this ticket>_*`, on the builder's preview:
 - A long description is shown in full, wrapped, with no ellipsis.
 - The instruction under it reads exactly "Tell the consultant which look you prefer, and why."
 - The preview toolbar contains no look controls.
+
+## What landed
+
+- **The band** is `mountLooksBand` in `apps/control-app/src/builder/looks.js`, a `<section class="looks-band">` mounted in a new preview column (`.builder-preview`, a flex column in `app.js`) that holds the band and then the pane (`panel.element`). The band is **inserted before the pane only while the page in it has looks, and removed otherwise**. It isn't hidden, so a page with no looks has no band element at all. The pane is never re-parented, because moving an iframe reloads it. The band redraws on the listing refresh and on the panel's `src`, `document` and `mode` events. It shows only in View and Edit, never in the comp viewer.
+- **Left:** the shared `carouselNav` (`carousel.js`) with a new `wrap` option. In the band the set is a ring: › from the last look is Current, and ‹ from Current is the last look. A wrapped step also passes its direction, so the cross-fade comes from the side the client stepped (`looks.move(to, direction)`). The comp viewer (REQ-378) uses the same component without `wrap`, so its arrows still stop at the ends.
+- **Right:** `.looks-band__about` takes the rest of the width (`flex: 1 1 0`). It holds the description (`white-space: normal`, `overflow-wrap: anywhere`, no clamp or ellipsis), then the invitation, then, for a look shown in Edit, BUG-205's "This look can’t be edited…" note. Current's description line is `LOOKS_CURRENT_DESCRIPTION`, "Your page as it stands now."
+- **`LOOKS_TELL_CONSULTANT`** now reads "Tell the consultant which look you prefer, and why." A comment beside it records the deliberate exception to DOC-66. `LOOKS_NONE` (the tooltip on the dimmed control) was deleted, because nothing uses it now.
+- **The toolbar:** `lookCarouselAction` and the `looks` id are gone from both View and Edit action lists, and the old `.looks-bar*` CSS was deleted.
+
+## Supersedes (intent conflict, declared)
+
+This ticket deliberately changes behaviour pinned by REQ-391's and BUG-205's UATs, and those tests were updated in this ticket's commit:
+- the carousel is no longer a toolbar action next to `pages`. It is the band (`tests/test_UAT_FC_BUG-205_looks_on_the_toolbar.test.ts`, `tests/test_UAT_FC_REQ-391_looks_carousel.test.ts`, `tests/reconciliation-builder-toolbar-lifetime.test.ts` DECLARED list);
+- on a page with no looks there's no control at all, where there used to be a dimmed, inert one;
+- the arrows wrap instead of stopping at the first and last look;
+- the invitation reads "Tell the consultant…" instead of "Tell your consultant…".
+
+## Tests
+
+`tests/test_UAT_FC_REQ-402_looks_band.test.ts` runs the real builder in jsdom and has six UATs, matching the test plan above:
+- no band for a page with no looks, and the pane is the preview column's only child;
+- the band is the pane's preceding sibling, in a `flex-direction: column` container, not positioned, with the description area flexing over the rest of the width;
+- stepping goes Current → Heavy Duty → Family → Current, then ‹ goes to Family, and the label, count and description update each time;
+- a long description is shown in full, wrapped, with no ellipsis or clamp in the CSS;
+- the exact instruction text sits directly under the description;
+- the toolbar has no look controls in View or Edit, and the band is the only carousel.
+
+Regression scope: all 82 suites that mount the builder or read `builder.css`. With this change applied in the main checkout, the failures are a strict subset of the clean xgd-working baseline. The 9 pre-existing failures are AC1065/1070, AC961/963/977, BUG-52, BUG-53, REQ-127 and REQ-259. BUG-70's toolbar-typography UAT now passes as well.
