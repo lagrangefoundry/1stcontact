@@ -3,7 +3,7 @@ import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
 import { createCompViewer } from './comp-viewer.js'
-import { createLooks, lookCarouselAction } from './looks.js'
+import { createLooks, mountLooksBand } from './looks.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
@@ -682,13 +682,13 @@ export function mountBuilder(root, options = {}) {
       // the width the draft is looked at is a property of looking, not of one
       // channel, so it holds across the flip.
       //
-      // `looks` directly after `pages` in BOTH ([[REQ-391]], [[BUG-205]]): the
-      // looks offered for a page are stepped through beside the control that
-      // names it, in whichever channel the pane is in — there is no looks mode.
+      // NO `looks` HERE ([[REQ-402]]): the looks offered for a page are stepped
+      // through in a band of their own across the top of the preview (see
+      // `mountLooksBand` below), in whichever channel the pane is in — there is
+      // no looks mode and no second place to change looks.
       actions: [
         'mode-toggle',
         'pages',
-        'looks',
         'colors',
         'preview-width',
         'open-new-tab',
@@ -725,7 +725,6 @@ export function mountBuilder(root, options = {}) {
       actions: [
         'mode-toggle',
         'pages',
-        'looks',
         'subject',
         'mark-points',
         'panels',
@@ -987,7 +986,7 @@ export function mountBuilder(root, options = {}) {
     storage: shell.storage(STORAGE_KEYS.previewWidth),
   })
 
-  /** [[REQ-391]] — the looks offered for a page, and the carousel that steps through them. */
+  /** [[REQ-391]] — the looks offered for a page; the band that steps through them is mounted with the split. */
   looks = createLooks({ panel, pages, draftPath: () => carry.pathFor(currentSite) })
 
   /**
@@ -1025,7 +1024,6 @@ export function mountBuilder(root, options = {}) {
     actions: [
       modeToggleAction(),
       pagesAction(pages),
-      lookCarouselAction(looks),
       subjectAction(pages, writeSubject),
       markPointsAction(points),
       panelsAction(carry),
@@ -1631,9 +1629,19 @@ export function mountBuilder(root, options = {}) {
     storage: shell.storage(STORAGE_KEYS.planSplit),
   })
 
+  /**
+   * The preview's column ([[REQ-402]]): the band of looks, when the page in the
+   * pane has any, and the pane under it. The band is inserted beside the pane,
+   * never the pane moved, so the frames are not reloaded when it comes and goes.
+   */
+  const previewArea = document.createElement('div')
+  previewArea.className = 'builder-preview'
+  previewArea.append(panel.element)
+  mountLooksBand({ looks, panel, area: previewArea, modes: ['view', 'edit'] })
+
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,
-    primary: panel.element,
+    primary: previewArea,
     secondary: chatHalf,
     initialSplit: 65,
     collapse: { side: 'secondary', style: 'rail' },
