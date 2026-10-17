@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T15:30:07.558264+00:00'
+updated_at: '2026-10-17T17:33:23.310020+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2191,3 +2191,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[REQ-403]]** (2026-10-17): first entry. Before anything is built, the preview shows a grey 'Your site will appear here as it's created.' panel in place of the starter heading 'Your 1stcontact site'. The false 'All done' line is removed, and the question sections show only when non-empty. A new conversation shows only a 'Click here to start' button. It releases a stock opening message (who the consultant is, the process, how working together goes), with no model call, recorded as the consultant's first turn. This supersedes REQ-399 §4's model-driven opening turn.
+
+
+- **[[BUG-210]]** (2026-10-17): every builder conversation fails to open with `lib.registerDefaults is not a function`. lagrange-framework BUG-83 (2026-10-10) moved session memory into a framework-owned core configured through the product's `memory:` block, deleted `registerDefaults`, and refuses a host that rebinds a core-owned provider name such as `session.summary`. host-core.ts still calls it twice. Fix: adopt the core, keep REQ-283's ledger and frame, keep the settings gauge (REQ-296). This is also why REQ-403's 'Click here to start' never showed: the session throws before the panel can see an empty conversation. Earlier test notes wrongly cited BUG-63 as tracking this.
