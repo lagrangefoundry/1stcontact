@@ -136,10 +136,11 @@ async function mounted(): Promise<Handle> {
   return app
 }
 
-const bar = () => root.querySelector('[data-action="looks"]') as HTMLElement
+// [[REQ-402]] — the carousel is the band above the preview, present only while a set is on offer.
+const bar = () => root.querySelector('.looks-band') as HTMLElement
 const label = () => bar().querySelector('.builder-carousel__label')?.textContent
 const count = () => bar().querySelector('.builder-carousel__count')?.textContent
-const lit = () => !bar().classList.contains('looks-bar--unlit')
+const lit = () => bar() !== null
 const next = () => bar().querySelector('.builder-carousel__next') as HTMLButtonElement
 const shownSrc = (app: Handle) => (app.panel.frame as HTMLIFrameElement).getAttribute('src') ?? ''
 const allSrcs = () => [...root.querySelectorAll('iframe.builder-panel__pane')].map((f) => f.getAttribute('src') ?? '')
@@ -208,7 +209,6 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     next().click()
     await settle()
     expect(label()).toBe('Trade')
-    expect(next().disabled).toBe(true)
     ;(bar().querySelector('.builder-carousel__prev') as HTMLButtonElement).click()
     await settle()
     expect(label()).toBe('Coastal')
@@ -239,7 +239,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — one carousel for looks and comps'
     expect(viewer.querySelector('.builder-carousel__label')?.textContent).toBe('Duncan Plumbing 1')
     expect(viewer.querySelector('.builder-carousel__count')?.textContent).toBe('1 of 3')
     // A comp is never chosen onto the site.
-    expect(root.querySelector('.looks-bar__choose')).toBeNull()
+    expect(root.querySelector('.looks-band__choose')).toBeNull()
     expect(viewer.textContent).not.toContain('Choose this one')
     ;(viewer.querySelector('.builder-carousel__next') as HTMLButtonElement).click()
     expect(root.querySelector('.comp-viewer .builder-carousel__label')?.textContent).toBe('Duncan Plumbing 2')

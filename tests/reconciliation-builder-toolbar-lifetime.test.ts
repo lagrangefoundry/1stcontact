@@ -39,8 +39,8 @@ const SITES = [
  * ([[REQ-376]]) sits beside `open-new-tab` wherever that is offered, because it
  * carries the same address to another device.
  */
-// [[REQ-391]] — `looks` sits after `pages` ([[BUG-205]]); it is in the strip, dimmed while no set is on offer.
-const DECLARED = ['mode-toggle', 'pages', 'looks', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish']
+// [[REQ-402]] — no `looks` in the strip: the looks are stepped through in a band above the preview.
+const DECLARED = ['mode-toggle', 'pages', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish']
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

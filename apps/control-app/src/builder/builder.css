@@ -5643,37 +5643,59 @@ body {
   white-space: nowrap;
 }
 
-/* --- the looks carousel ([[REQ-391]], [[BUG-205]]) ----------------------------
+/* --- the band of looks ([[REQ-391]], [[REQ-402]]) ----------------------------
  *
- * One control on the toolbar, in View and Edit alike: the carousel, the
- * invitation to tell the consultant which look and why, and — on a look in
- * Edit — the one line that says it is not edited. Dimmed while the page in the
- * pane has no looks, and lit when it has.
+ * A band across the full width of the preview, ABOVE the page and not over it:
+ * the preview is a column, and the pane under the band takes what is left. It
+ * is only in the document while the page in the pane has looks, so a page with
+ * none gives the pane the whole height.
+ *
+ * ‹ label · n of N › on the left at its own width; the description takes the
+ * rest of the band, wraps to as many lines as it needs and is never cut.
  */
-.looks-bar {
+.builder-preview {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 10px;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.builder-preview > .builder-panel {
+  flex: 1 1 0;
+  height: auto;
+  min-height: 0;
+}
+
+.looks-band {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--shell-border, #d4d4d8);
+  background: var(--shell-surface, #fff);
+}
+
+.looks-band > .builder-carousel {
+  flex: 0 0 auto;
+}
+
+.looks-band__about {
+  flex: 1 1 0;
   min-width: 0;
 }
 
-.looks-bar--unlit {
-  opacity: 0.45;
-}
-
-.looks-bar--unlit .builder-carousel__count,
-.looks-bar--unlit .builder-carousel__sep {
-  display: none;
-}
-
-.looks-bar__invite,
-.looks-bar__note {
+.looks-band__description,
+.looks-band__invite,
+.looks-band__note {
   margin: 0;
-  font-size: 0.85rem;
-  opacity: 0.8;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
-.looks-bar__note {
-  flex-basis: 100%;
+.looks-band__invite,
+.looks-band__note {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  opacity: 0.75;
 }

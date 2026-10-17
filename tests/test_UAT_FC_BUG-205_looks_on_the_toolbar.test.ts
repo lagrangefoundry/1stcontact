@@ -111,8 +111,10 @@ async function mounted(): Promise<Handle> {
   return app
 }
 
-const bar = () => root.querySelector('[data-action="looks"]') as HTMLElement
-const lit = () => !bar().classList.contains('looks-bar--unlit')
+// [[REQ-402]] — the carousel moved off the toolbar into a band above the preview,
+// which is absent (not dimmed) on a page with no looks, and whose arrows wrap.
+const bar = () => root.querySelector('.looks-band') as HTMLElement
+const lit = () => bar() !== null
 const label = () => bar().querySelector('.builder-carousel__label')?.textContent
 const count = () => bar().querySelector('.builder-carousel__count')?.textContent
 const next = () => bar().querySelector('.builder-carousel__next') as HTMLButtonElement
@@ -137,8 +139,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
     const app = await mounted()
     // On the toolbar of View itself, beside the page selector — no other mode.
     expect(app.panel.getModes().map((m: { id: string }) => m.id)).toEqual(['view', 'edit', 'comp'])
-    expect(app.toolbar.ids()).toContain('looks')
-    expect(app.toolbar.ids().indexOf('looks')).toBe(app.toolbar.ids().indexOf('pages') + 1)
+    expect(app.toolbar.ids()).not.toContain('looks')
     expect(lit()).toBe(true)
     expect(next().disabled).toBe(false)
 
@@ -146,11 +147,9 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
     expect(app.panel.getMode()).toBe('view')
     expect(app.toolbar.ids()).toContain('publish')
 
-    // A page with no looks: present, dimmed, inert.
+    // A page with no looks: no band at all ([[REQ-402]]).
     await choosePage('about')
     expect(lit()).toBe(false)
-    expect(next().disabled).toBe(true)
-    expect(previous().disabled).toBe(true)
 
     // In Edit too — and a look shown there is shown, not edited.
     await choosePage('home')
@@ -161,10 +160,10 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
     expect(app.panel.getMode()).toBe('edit')
     expect(label()).toBe('Heavy Duty')
     expect(shownSrc(app)).toMatch(/\/preview\/charlies\/edit\/home-heavy-duty$/)
-    expect(bar().querySelector('.looks-bar__note')?.textContent).toContain('go back to Current to edit')
+    expect(bar().querySelector('.looks-band__note')?.textContent).toContain('go back to Current to edit')
     await step(previous)
     expect(label()).toBe('Current')
-    expect(bar().querySelector('.looks-bar__note')).toBeNull()
+    expect(bar().querySelector('.looks-band__note')).toBeNull()
   })
 
   it('test_UAT_FC_BUG-205_stepping_goes_current_then_each_look_then_back_to_current', async () => {
@@ -172,7 +171,6 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
     const draft = app.panel.frame as HTMLIFrameElement
     expect(label()).toBe('Current')
     expect(count()).toBe('1 of 3')
-    expect(previous().disabled).toBe(true)
 
     await step(next)
     expect(label()).toBe('Heavy Duty')
@@ -183,7 +181,6 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
     await step(next)
     expect(label()).toBe('Family')
     expect(count()).toBe('3 of 3')
-    expect(next().disabled).toBe(true)
 
     await step(previous)
     await step(previous)
@@ -197,11 +194,11 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
   it('test_UAT_FC_BUG-205_no_choose_this_one_control_and_the_carousel_invites_the_client_to_tell_the_consultant', async () => {
     const app = await mounted()
     for (let at = 0; at < 3; at += 1) {
-      expect(root.querySelector('.looks-bar__choose')).toBeNull()
+      expect(root.querySelector('.looks-band__choose')).toBeNull()
       expect(root.textContent).not.toContain('Choose this one')
       expect([...bar().querySelectorAll('button')].map((b) => b.textContent)).toEqual(['‹', '›'])
-      expect(bar().querySelector('.looks-bar__invite')?.textContent).toBe(
-        'Tell your consultant which look you prefer, and why.',
+      expect(bar().querySelector('.looks-band__invite')?.textContent).toBe(
+        'Tell the consultant which look you prefer, and why.',
       )
       if (at < 2) await step(next)
     }

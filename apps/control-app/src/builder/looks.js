@@ -6,20 +6,27 @@
  * page dropdown among the real pages, marked with a word that told them nothing.
  * A look is now a page carrying an `alternative` block (whose look it is, the
  * set it belongs to, what the client calls it), and this is where the client
- * meets a set: **‹ Current · 1 of 3 ›** on the toolbar beside the page selector.
+ * meets a set: a band across the top of the preview, **‹ Current · 1 of 3 ›**
+ * on its left and what the shown look is, in full, on its right ([[REQ-402]]).
  *
- * NO MODE OF ITS OWN ([[BUG-205]]). The carousel used to switch the pane into a
- * looks mode with its own strip and a "Back to your draft" exit. It is now one
- * control on the bar the client already has, lit only while the page in the
- * pane has looks, and the pane stays in whichever of View and Edit it was in.
+ * A BAND OF ITS OWN, AND ONLY WHEN THERE IS A SET ([[REQ-402]]). The carousel
+ * sat on the toolbar beside the page selector ([[BUG-205]]), where a look's
+ * description had no room and was cut to one line. The band takes the full
+ * width of the pane above the page, the page moves down to make room for it,
+ * and on a page with no looks it is not there at all — no dimmed control, no
+ * reserved height. It comes and goes as the page in the pane changes.
+ *
+ * NO MODE OF ITS OWN ([[BUG-205]]). The pane stays in whichever of View and
+ * Edit it was in, and the band is the one place looks are changed.
  *
  * THE DRAFT IS ONE OF THE LOOKS. Position 1 is the real page as it stands —
  * "Current" — and stepping back to it is just another position, not an exit.
+ * The set is a ring: › from the last look is Current again ([[REQ-402]]).
  *
  * LOOKING ONLY. There is no "Choose this one": the client tells the consultant
  * which look they prefer and why, and she chooses with `choose_look` and their
- * words. The carousel says so, which is the invitation the button used to stand
- * in for.
+ * words. The band says so, which is the invitation the button used to stand in
+ * for.
  *
  * MOVING IS A SWAP, NOT A NAVIGATION. The positions either side of the shown one
  * are loaded behind it in the panel's spare frames, so ‹ and › trade frames,
@@ -33,7 +40,7 @@
  */
 import { previewPageUrl, previewRelPath } from './api.js'
 import { carouselNav } from './carousel.js'
-import { LOOKS_CURRENT, LOOKS_EDIT_REAL_PAGE, LOOKS_NONE, LOOKS_TELL_CONSULTANT } from './config.js'
+import { LOOKS_CURRENT, LOOKS_CURRENT_DESCRIPTION, LOOKS_EDIT_REAL_PAGE, LOOKS_TELL_CONSULTANT } from './config.js'
 
 /**
  * Every set with a look still on offer, in listing order: `set → rows`.
@@ -143,11 +150,14 @@ export function createLooks({ panel, pages, draftPath }) {
       return Boolean(pages.list().find((row) => row.slug === slug)?.alternative)
     },
 
-    /** Move to the member at `to`, animated from the side it is on. */
-    move(to) {
+    /**
+     * Move to the member at `to`, animated from the side it is on — or from
+     * `direction`, which a step round the end of the ring needs.
+     */
+    move(to, direction = null) {
       const { members, index, real } = position()
       if (index < 0 || to === index || to < 0 || to >= members.length) return
-      panel.swapDocument(urlOf(members[to], real), to > index ? 'next' : 'previous')
+      panel.swapDocument(urlOf(members[to], real), direction ?? (to > index ? 'next' : 'previous'))
       preloadNeighbours()
     },
 
@@ -177,56 +187,74 @@ export function createLooks({ panel, pages, draftPath }) {
 }
 
 /**
- * The carousel on the toolbar, in View and Edit alike.
+ * The band across the top of the preview ([[REQ-402]]): `‹ label · n of N ›` on
+ * the left, and on the right — taking the rest of the width — what the shown
+ * position is, in full and wrapped, with the invitation to say which and why.
  *
- * LIT ONLY WHILE THERE IS SOMETHING TO COMPARE. With no looks for the page in
- * the pane it stays where it is, dimmed and inert, so the bar does not shift
- * under the client when a set arrives — it lights up instead.
+ * IT IS PUT IN AND TAKEN OUT, NOT HIDDEN. `area` is the preview's column, and
+ * the band is inserted before the pane only while the page in it has looks, so
+ * a page with none has no band element at all. The pane itself is never moved:
+ * re-parenting an iframe reloads it.
+ *
+ * ONLY WHERE A PAGE OF THE DRAFT IS SHOWN. `modes` names the panel's modes the
+ * band belongs to; another (the comp viewer) has nothing to do with looks.
  *
  * EDIT IS FOR THE REAL PAGE. A look shown in Edit is shown, not edited, and the
- * bar says so in one line.
+ * band says so in one line.
+ *
+ * @param {object} options
+ * @param {ReturnType<typeof createLooks>} options.looks
+ * @param {object} options.panel the display panel
+ * @param {HTMLElement} options.area the element holding `panel.element`
+ * @param {string[]} options.modes the panel modes that show a page of the draft
+ * @returns {{ element: HTMLElement, destroy: () => void }}
  */
-export function lookCarouselAction(looks) {
+export function mountLooksBand({ looks, panel, area, modes }) {
+  const band = document.createElement('section')
+  band.className = 'looks-band'
+  band.setAttribute('aria-label', 'Looks')
+  const line = (className, text, role) => {
+    const p = document.createElement('p')
+    p.className = className
+    if (role) p.setAttribute('role', role)
+    p.textContent = text
+    return p
+  }
+
+  const draw = () => {
+    const { members, index, look } = looks.state()
+    const shown = members.length > 1 && index >= 0 && modes.includes(panel.getMode())
+    if (!shown) {
+      band.remove()
+      return
+    }
+    const about = document.createElement('div')
+    about.className = 'looks-band__about'
+    about.append(
+      line('looks-band__description', look ? (look.alternative.description ?? '') : LOOKS_CURRENT_DESCRIPTION),
+      line('looks-band__invite', LOOKS_TELL_CONSULTANT),
+    )
+    if (look && panel.getMode() === 'edit') about.append(line('looks-band__note', LOOKS_EDIT_REAL_PAGE, 'status'))
+    band.replaceChildren(
+      carouselNav({
+        label: look ? look.alternative.label : LOOKS_CURRENT,
+        index,
+        count: members.length,
+        wrap: true,
+        onMove: (to, direction) => looks.move(to, direction),
+      }),
+      about,
+    )
+    if (band.parentNode !== area) area.insertBefore(band, panel.element)
+  }
+
+  const off = [looks.onRefreshed(draw), ...['src', 'document', 'mode'].map((event) => panel.on(event, draw))]
+  draw()
   return {
-    id: 'looks',
-    create({ panel, subscribe, cleanup }) {
-      const bar = document.createElement('div')
-      bar.className = 'looks-bar'
-      const line = (className, text, role) => {
-        const p = document.createElement('p')
-        p.className = className
-        if (role) p.setAttribute('role', role)
-        p.textContent = text
-        return p
-      }
-      const draw = () => {
-        const { members, index, look } = looks.state()
-        const lit = members.length > 1 && index >= 0
-        bar.classList.toggle('looks-bar--unlit', !lit)
-        if (!lit) {
-          const idle = carouselNav({ label: LOOKS_CURRENT, index: 0, count: 1, onMove: () => {} })
-          idle.title = LOOKS_NONE
-          bar.replaceChildren(idle)
-          return
-        }
-        const parts = [
-          carouselNav({
-            label: look ? look.alternative.label : LOOKS_CURRENT,
-            index,
-            count: members.length,
-            description: look?.alternative.description,
-            onMove: (to) => looks.move(to),
-          }),
-          line('looks-bar__invite', LOOKS_TELL_CONSULTANT),
-        ]
-        if (look && panel.getMode() === 'edit') parts.push(line('looks-bar__note', LOOKS_EDIT_REAL_PAGE, 'status'))
-        bar.replaceChildren(...parts)
-      }
-      draw()
-      cleanup(looks.onRefreshed(draw))
-      subscribe('src', draw)
-      subscribe('document', draw)
-      return bar
+    element: band,
+    destroy() {
+      for (const unsubscribe of off) unsubscribe()
+      band.remove()
     },
   }
 }

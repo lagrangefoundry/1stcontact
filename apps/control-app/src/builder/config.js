@@ -984,11 +984,17 @@ export const CAROUSEL_NEXT = 'Next'
 export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`
 
 /**
- * Alternative looks for a page ([[REQ-391]]), on the toolbar's carousel
- * ([[BUG-205]]). The page as it stands is one of the positions, and choosing is
- * the conversation's — so the carousel invites the client to say which and why.
+ * Alternative looks for a page ([[REQ-391]]), in the band across the top of the
+ * preview ([[REQ-402]]). The page as it stands is one of the positions, and
+ * choosing is the conversation's — so the band invites the client to say which
+ * and why.
  */
 export const LOOKS_CURRENT = 'Current'
-export const LOOKS_NONE = 'No other looks for this page yet'
-export const LOOKS_TELL_CONSULTANT = 'Tell your consultant which look you prefer, and why.'
+export const LOOKS_CURRENT_DESCRIPTION = 'Your page as it stands now.'
+/**
+ * "Tell the consultant" — not "your consultant", and do not "fix" it back. This
+ * is a deliberate exception to DOC-66's "your consultant" for running copy,
+ * decided by the operator for this line ([[REQ-402]]).
+ */
+export const LOOKS_TELL_CONSULTANT = 'Tell the consultant which look you prefer, and why.'
 export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'
