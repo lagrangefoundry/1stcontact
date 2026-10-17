@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-189
 created_by: xgd
 created_at: '2026-10-03T23:28:03.255522+00:00'
-updated_at: '2026-10-17T20:27:14.705561+00:00'
+updated_at: '2026-10-17T20:27:49.205165+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -135,5 +135,15 @@ BRANCH WITHOUT WORKTREE (branch exists, nothing checked out):
 ((.venv-working) ) martin@nyx 1stcontact %
 
 ```
+
+<!-- xgd-turn id="dbf00d5e-0b79-4cc3-83e1-4dfb3e7b1866-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:27:38.366124+00:00" -->
+#### Claude
+I deleted the `free-BUG-189` directory, and it no longer shows up in `xgd worktree ls`.
+
+It was an empty folder. All it held was an empty `.claude/.cc-writes` marker left by Claude Code from the earlier session, with no code or files. Git didn't know about it, which is why `xgd branch clean BUG-189` reported nothing to clean: that command works from the git branch and worktree records, and those had already been removed.
+
+`free-REQ-150` is still listed as orphaned. I left it alone because it belongs to a different ticket. If it turns out to be another empty leftover like this one, it can be removed the same way.
 
 <!-- xgd-chat-end -->
