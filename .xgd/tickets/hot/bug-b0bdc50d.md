@@ -6,10 +6,10 @@ title: place_on_site with `as` returns the existing asset instead of a renamed c
   so one image can't carry several crops
 created_by: xgd
 created_at: '2026-10-17T22:29:35.885091+00:00'
-updated_at: '2026-10-17T23:04:46.890760+00:00'
+updated_at: '2026-10-17T23:05:08.987637+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,14 @@ fields:
   chat_comment: comment-43c5011d
   epic_parent: epic-95bc3b15
   severity: medium
+  commits:
+  - working_sha: a0bab7616b839bec0f7f37f788a2fa9971a98824
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 36153bd8f367ae0a1aad5c7ae5ec616cc0c3615c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.520
 ---
 
 ## What I was doing
