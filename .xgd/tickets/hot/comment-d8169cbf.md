@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T13:56:21.894216+00:00'
+updated_at: '2026-10-17T13:58:52.994754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7516,5 +7516,39 @@ What it covers:
 <!-- xgd-chat role="user" ts="2026-10-17T13:56:20.576176+00:00" -->
 #### You
 Can you review the trraanscript of Charlie's plumbing - 3 and create tickets for all the necessary items please?
+
+<!-- xgd-turn id="a910c8d5-0045-4ec0-afd1-5e9cf6715f68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T13:58:52.739996+00:00" -->
+#### Claude
+Two new tickets are needed, and a third gap is already owned by another epic. Writing them up.
+
+I reviewed the Charlie's plumbing - 3 transcript again. Its last activity is still the 4 Oct session, so this is the same run I debriefed then. Most of what's in it already has a ticket, so I filed two new ones and left one gap for you to decide on.
+
+**New tickets, both under EPIC-19 at `draft`:**
+- **BUG-208** *(high severity, 5 points)*, *"Builder workers: briefed items skipped, steps run out before the self-check, and some end without reporting"*. Three failures, each of which cost a re-run and an extra wait:
+  1. The first rough cut ran out of steps before it could check itself.
+  2. A builder said items 6–8 of its brief were "not requested", which suggests a long brief may be cut short somewhere.
+  3. The Workwear builder ended without any report and left the contact form half-styled.
+
+  The ticket asks for the cause to be found from the 17 builder sessions first. Then:
+  - a brief always arrives whole;
+  - a builder always gets the chance to report before it's cut off, using LF REQ-181's budget warnings, which still need checking in this repo;
+  - "ended without reporting" reaches the consultant as exactly that, never as silence.
+- **REQ-400** *(5 points)*, *"Launch readiness: a favicon and share card, and the consultant tells the truth about going live"*. Two parts:
+  - **Favicon and share card don't exist.** The method expects them and the builder confirmed there's nowhere to set them. The ticket adds them as typed site fields, emitted in each page's head, with the favicon made from an existing image.
+  - **The consultant told Charlie his own domain "can't be connected yet".** That's wrong: REQ-258 serves custom domains through the Settings tab. Her priming will now say where each launch task lives, and that she must not claim something is missing without checking.
+
+**Already covered (no new ticket):**
+- REQ-389: the email added to the page unapproved, hand-backs before the work was finished, the call button hidden on desktop, the "side of your van" question, and the false parallel-build claim.
+- REQ-386 and REQ-379: the silences before slow work.
+- BUG-202: the capture timeouts and the Expert Plumbing failure.
+- REQ-387: builders can't read uploads.
+- REQ-391 and BUG-205: the looks UI.
+- LF BUG-81: the duplicated first message.
+
+**One gap I haven't filed: the contact form never tells the owner a new message has arrived.** Messages just wait in the contact list. That's clearly a beta blocker, since a plumber who never hears about enquiries has no reason to keep the site. But it belongs to **EPIC-14 (notifications)**, where form submissions are already the design's first example, and that epic hasn't started. Shall I file its first child, "new contact-form message notifies the owner by email", under EPIC-14?
+
+**Still open from my last debrief:** at 19:32 you wrote "I don't see any questions". I think the reason is that the consultant had already filled every question in from your letterhead, so the panel had nothing left to ask. REQ-399's redesign of when and how questions appear should cover this. Tell me if the panel was actually broken rather than empty.
 
 <!-- xgd-chat-end -->
