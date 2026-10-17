@@ -87,10 +87,38 @@ function workerSummary(output: unknown): { text: string; untrusted: boolean } | 
   return { text, untrusted }
 }
 
+/**
+ * Why a hand-off ended without a report, in words, or `null` ([[BUG-208]]).
+ *
+ * Read off the host's `ended` field, which says what ended a worker's run whenever
+ * it did not end on a report. Without it the line read "handed off work" — the
+ * same words a hand-off that never ran would get.
+ */
+function endedWithoutReport(output: unknown): string | null {
+  const ended = delegationResult(output)?.result.ended as { status?: unknown; reason?: unknown; limit?: unknown } | undefined
+  if (!ended || typeof ended !== 'object') return null
+  const limit = typeof ended.limit === 'number' ? ended.limit : null
+  switch (ended.reason) {
+    case 'calls':
+      return limit === null ? 'it ran out of tool calls' : `it ran out of its ${limit} tool calls`
+    case 'time':
+      return limit === null ? 'it ran out of time' : `it ran out of its ${limit}-second time limit`
+    case 'no_report':
+      return 'it finished without reporting'
+    case 'context_budget':
+      return 'its context filled up'
+    default:
+      return `its turn ended '${String(ended.status ?? '')}'`
+  }
+}
+
 /** One hand-off, as a line of the account. */
 function handOffLine(output: unknown): string {
   const summary = workerSummary(output)
-  if (!summary) return '- handed off work'
+  if (!summary) {
+    const why = endedWithoutReport(output)
+    return why ? `- handed off work, and the worker ended without reporting: ${why}` : '- handed off work'
+  }
   const quoted = summary.untrusted
     ? `${UNTRUSTED_OPEN} ${summary.text} ${UNTRUSTED_CLOSE}`
     : summary.text

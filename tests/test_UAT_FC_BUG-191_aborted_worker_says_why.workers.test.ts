@@ -177,9 +177,10 @@ describe('BUG-191 a worker whose turn did not finish says why', () => {
     )
   })
 
-  it('test_UAT_FC_BUG-191_a_worker_whose_turn_finished_silently_carries_no_ended', async () => {
-    // A turn that ran to completion and simply reported nothing has no ending to
-    // explain: the field is absent, and a silent run reads exactly as before.
+  it('test_UAT_FC_BUG-191_a_worker_whose_turn_finished_silently_says_it_never_reported', async () => {
+    // A turn that ran to completion and reported nothing was reached by no limit
+    // at all, and since [[BUG-208]] says exactly that — it used to carry no
+    // `ended`, which read as an empty result rather than a stated one.
     const result = await delegateWith('quiet', [
       calls('describe_page', { page: 'home' }),
       says(''),
@@ -187,7 +188,7 @@ describe('BUG-191 a worker whose turn did not finish says why', () => {
     ])
 
     expect(result.outcome).toBe('silent')
-    expect(result).not.toHaveProperty('ended')
+    expect(result.ended).toEqual({ status: 'complete', reason: 'no_report' })
     expect((result.activity as { operations: number }).operations).toBe(1)
   })
 })

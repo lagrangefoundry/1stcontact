@@ -167,15 +167,14 @@ describe("REQ-339 — the worker's reminder tier tells it to act", () => {
     expect(consultantReminders.some((entry) => entry.name === 'no-status-narration')).toBe(false)
   })
 
-  it('test_UAT_FC_REQ-339_the_site_and_the_page_are_still_delivered_to_the_worker', () => {
-    // BEHAVIOUR 4. These are facts about the SITE rather than about the
-    // consultant's conversation, and a worker that had to discover them by
-    // reading would pay more than the record ever cost it. Nothing about the
-    // tier's shape moved: the two providers are still there, still volatile, and
-    // the two additions are static so they cannot spoil a cacheable prefix.
+  it('test_UAT_FC_REQ-339_the_site_is_still_delivered_to_the_worker', () => {
+    // BEHAVIOUR 4. Which site it is on is a fact about the SITE rather than about
+    // the consultant's conversation, so it stays. The page digest does not
+    // ([[BUG-208]]): the tier is assembled once per round and a worker lives one
+    // round, so a digest there contradicted every write the worker made.
     const providers = builderReminders.map((entry) => entry.provider).filter(Boolean)
 
-    expect(providers).toEqual(['site.line', 'site.digest'])
+    expect(providers).toEqual(['site.line'])
   })
 
   it('test_UAT_FC_REQ-339_the_worker_is_still_not_nudged_to_keep_a_record_it_cannot_write', () => {

@@ -145,6 +145,34 @@ export function projectBackendCeiling(lib: AiLibrary, name: string = PROJECT_BAC
   return budgetCeiling(Number(settings?.contextWindow) || 0, Number(settings?.maxTokens) || 0)
 }
 
+/** A round's two budgets as configured: tool calls and seconds ([[BUG-208]]). */
+export interface RoundBudgets {
+  /** `max_iterations`, or absent where the framework's own default applies. */
+  calls?: number
+  /** `turn_timeout`, or absent where the framework's own default applies. */
+  seconds?: number
+}
+
+/**
+ * The budgets a round on `name` runs under, as far as they are configured
+ * ([[BUG-208]]).
+ *
+ * WHAT A DELEGATION THAT RAN OUT REPORTS ITS LIMIT FROM. A round's terminal record
+ * says WHICH budget ended it and not how big that budget was, so the size is read
+ * from the same merged settings the adapter was built with. A budget nobody
+ * configured is absent rather than guessed: the framework's default is not
+ * exported, and a number restated here would drift from it silently.
+ */
+export function projectBackendBudgets(lib: AiLibrary, name: string = PROJECT_BACKEND): RoundBudgets {
+  const settings = lib.backendSettings(name, { family: PROJECT_BACKEND }) as {
+    maxIterations?: number
+    turnTimeout?: number
+  }
+  const calls = Number(settings?.maxIterations) || 0
+  const seconds = Number(settings?.turnTimeout) || 0
+  return { ...(calls > 0 ? { calls } : {}), ...(seconds > 0 ? { seconds } : {}) }
+}
+
 /** The settings this project declares, for anything that needs to assert them. */
 export { backendsDocument }
 
