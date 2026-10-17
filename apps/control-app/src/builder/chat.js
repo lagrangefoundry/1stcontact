@@ -50,8 +50,15 @@
  */
 
 import { mountChat } from '@lagrangefoundry/webui-chat'
-import { CHAT_MAX_SUBMISSION_CHARS, CHAT_OVER_LONG_MESSAGE, WORKING_IDLE, WORKING_SO_FAR } from './config.js'
-import { stopChatExchange, streamChatOpening, streamChatPrompt, streamChatReattach } from './api.js'
+import {
+  CHAT_MAX_SUBMISSION_CHARS,
+  CHAT_OVER_LONG_MESSAGE,
+  CHAT_START,
+  CHAT_START_FAILED,
+  WORKING_IDLE,
+  WORKING_SO_FAR,
+} from './config.js'
+import { openChatConversation, stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
@@ -253,6 +260,27 @@ export const CHAT_ID_PREFIX = 'builder-chat:'
 
 /** Shown before the pane has a conversation to display. */
 const EMPTY_TEXT = 'Ask for a change to your site.'
+
+/** [[REQ-403]] — the start screen of a brand-new conversation, and its button. */
+export const START_CLASS = 'builder-chat-start'
+
+/**
+ * [[REQ-403]] — how the introduction is typed out: this many words at a time,
+ * this many milliseconds apart. Fast enough that a minute's reading appears in a
+ * few seconds; slow enough to read as the consultant writing.
+ */
+const TYPE_WORDS = 3
+const TYPE_MS = 40
+
+/** The introduction as stream frames, a few words at a time ([[REQ-403]]). */
+async function* typedOut(markdown, wait) {
+  const words = String(markdown).split(/(?<=\s)/)
+  for (let i = 0; i < words.length; i += TYPE_WORDS) {
+    yield { kind: 'text', content: words.slice(i, i + TYPE_WORDS).join('') }
+    await wait(TYPE_MS)
+  }
+  yield { kind: 'done', meta: { status: 'complete' } }
+}
 
 /** A group chat with nothing said in it yet ([[REQ-357]]). */
 const ROOM_EMPTY_TEXT = 'Say what you would like — the consultant and the coordinator are both here.'
@@ -474,7 +502,7 @@ export function createChatPanel(options = {}) {
     transport = {
       streamPrompt: streamChatPrompt,
       streamReattach: streamChatReattach,
-      streamOpening: streamChatOpening,
+      openConversation: openChatConversation,
       stopExchange: stopChatExchange,
     },
     onSiteChanged = () => {},
@@ -887,6 +915,77 @@ export function createChatPanel(options = {}) {
   }
 
   /**
+   * A brand-new conversation: one button, and nothing else ([[REQ-403]]).
+   *
+   * NO COMPOSER AND NO TRANSCRIPT, because there is nothing to reply to yet. The
+   * press records the consultant's introduction on the origin — stock text, no
+   * model call — and only then is the conversation mounted, the introduction
+   * typed into it, and the text box shown once it has finished: the client's
+   * first message is a reply to it, and the model sees it that way.
+   *
+   * A REFUSED PRESS RE-READS rather than retrying: 409 means the conversation was
+   * started elsewhere (another tab), and the transcript is the answer. Anything
+   * else puts the button back with a sentence.
+   */
+  function paintStart(session) {
+    const key = sessionKey
+    const box = document.createElement('div')
+    box.className = START_CLASS
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = `${START_CLASS}__button`
+    button.textContent = CHAT_START
+    const status = document.createElement('p')
+    status.className = `${START_CLASS}__status`
+    status.setAttribute('role', 'status')
+    box.append(button, status)
+    element.append(box)
+    button.addEventListener('click', async () => {
+      button.disabled = true
+      status.textContent = ''
+      let turn
+      try {
+        turn = await transport.openConversation(session.sessionId)
+      } catch {
+        if (key !== sessionKey) return
+        const again = reopen ? await reopen().catch(() => null) : null
+        if (key !== sessionKey) return
+        if (again && again.opening !== true) {
+          paint(again)
+          return
+        }
+        button.disabled = false
+        status.textContent = CHAT_START_FAILED
+        return
+      }
+      if (key !== sessionKey) return
+      paint({ ...session, opening: false, turns: [], live: false })
+      void typeIntroduction(turn)
+    })
+  }
+
+  /**
+   * Type the introduction into the freshly-mounted conversation, the text box
+   * hidden until it has finished ([[REQ-403]]).
+   */
+  async function typeIntroduction(turn) {
+    const mounted = chat
+    if (!mounted) return
+    const composer = () => element.querySelector('.chat-widget-input-bar')
+    element.classList.add(`${START_CLASS}--typing`)
+    try {
+      await mounted.resume(typedOut(turn?.markdown ?? '', wait), { markdown: '', meta: at(turn?.ts) })
+    } catch {
+      // A typing failure costs the animation, never the turn: it is on the origin.
+    } finally {
+      if (chat === mounted) {
+        element.classList.remove(`${START_CLASS}--typing`)
+        composer()?.querySelector('textarea, [contenteditable]')?.focus?.()
+      }
+    }
+  }
+
+  /**
    * Draw a conversation into a freshly-mounted panel.
    *
    * SPLIT OUT OF {@link setSession} RATHER THAN COPIED ([[BUG-123]]), because a
@@ -906,9 +1005,14 @@ export function createChatPanel(options = {}) {
     chat?.destroy()
     chat = null
     element.replaceChildren()
+    element.classList.remove(`${START_CLASS}--typing`)
     if (!session) return
     if (session.group) {
       paintRoom(session)
+      return
+    }
+    if (session.opening === true && session.ready !== false && typeof transport.openConversation === 'function') {
+      paintStart(session)
       return
     }
 
@@ -996,18 +1100,6 @@ export function createChatPanel(options = {}) {
     // transcript just painted, and the record the origin is already handing back.
     // A submission either of them accounts for is dropped rather than repeated.
     paintUnsent(sent.reconcile(turns, session.interrupted), sent)
-    // [[REQ-399]] — THE CONSULTANT SPEAKS FIRST. The origin says `opening` only of
-    // a conversation with nothing in it, so this runs once: the opening is in the
-    // transcript by the time anything reloads, and a reload mid-opening rejoins it
-    // as `live` like any other turn. An assistant bubble with no client one.
-    if (!resuming && session.opening === true && session.ready !== false && typeof transport.streamOpening === 'function') {
-      Promise.resolve(
-        chat.resume(watchForWrites(withWorkingLine(withProgressLine(transport.streamOpening(id, promptView()), progressLine), workingLine), told), {
-          markdown: '',
-        }),
-      ).catch(() => {})
-      return
-    }
     if (!resuming) return
 
     // NOT AWAITED, and this function stays synchronous. `resume` runs for as

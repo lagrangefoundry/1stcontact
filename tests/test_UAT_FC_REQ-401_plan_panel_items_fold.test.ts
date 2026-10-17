@@ -202,7 +202,7 @@ function fontOf(el: Element, prop: 'fontSize' | 'fontFamily'): { value: string; 
 
 describe.skipIf(!WEBUI_INSTALLED)("REQ-401 — the panel is set in the chat's type", () => {
   it('test_UAT_FC_REQ-401_question_text_and_inputs_take_the_chats_font_family_and_size', async () => {
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), answered('licence', 'GS-1')], comps: [], comps_status: 'open' })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), answered('licence', 'GS-1')], comps: [], comps_raised: true, comps_status: 'open' })
     const app = await mount(plan)
     // Unfold the answered one, so its answer is on screen.
     line(item(app, 'licence')).click()
@@ -241,7 +241,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — each item folds to one line', () 
       stages: STAGES,
       asks: [ask('phone'), answered('licence'), skipped('hours')],
       comps: [],
-      comps_status: 'open',
+      comps_raised: true, comps_status: 'open',
     })
     const app = await mount(plan)
     const phone = item(app, 'phone')
@@ -276,7 +276,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — each item folds to one line', () 
   })
 
   it('test_UAT_FC_REQ-401_a_click_anywhere_on_the_line_or_enter_or_space_toggles_the_item', async () => {
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone')], comps: [], comps_status: 'open' })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone')], comps: [], comps_raised: true, comps_status: 'open' })
     const app = await mount(plan)
     const phone = item(app, 'phone')
     expect(expanded(phone)).toBe(true)
@@ -306,7 +306,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — two sections', () => {
       stages: STAGES,
       asks: [ask('phone'), ask('towns'), answered('licence'), skipped('hours'), ask('gone', { status: 'withdrawn' })],
       comps: [],
-      comps_status: 'open',
+      comps_raised: true, comps_status: 'open',
     })
     const app = await mount(plan)
     expect(heading('open').textContent).toBe('Open questions')
@@ -326,18 +326,18 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — two sections', () => {
     expect(heading('done').hidden).toBe(false)
 
     // A SECTION WITH NOTHING IN IT IS HIDDEN.
-    plan.set({ stages: STAGES, asks: [answered('licence')], comps: [], comps_status: 'done' })
+    plan.set({ stages: STAGES, asks: [answered('licence')], comps: [], comps_raised: true, comps_status: 'done' })
     await app.planPanel.refresh()
     expect(heading('open').hidden).toBe(true)
     expect((panel(app).querySelector('.plan-panel__list--open') as HTMLElement).hidden).toBe(true)
-    plan.set({ stages: STAGES, asks: [ask('phone')], comps: [], comps_status: 'open' })
+    plan.set({ stages: STAGES, asks: [ask('phone')], comps: [], comps_raised: true, comps_status: 'open' })
     await app.planPanel.refresh()
     expect(heading('done').hidden).toBe(true)
     expect((panel(app).querySelector('.plan-panel__list--done') as HTMLElement).hidden).toBe(true)
   })
 
   it('test_UAT_FC_REQ-401_answering_an_open_item_moves_it_to_what_youve_told_us_and_folds_it', async () => {
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), ask('hours')], comps: [], comps_status: 'open' })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), ask('hours')], comps: [], comps_raised: true, comps_status: 'open' })
     const app = await mount(plan)
     const input = item(app, 'phone').querySelector('input.plan-ask__input') as HTMLInputElement
     input.value = '0117 496 0000'
@@ -359,7 +359,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — two sections', () => {
 describe.skipIf(!WEBUI_INSTALLED)("REQ-401 — the client's folds stick", () => {
   it('test_UAT_FC_REQ-401_a_fold_the_client_chose_survives_a_redraw_and_a_reload', async () => {
     const storage = memoryStorage()
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), ask('towns')], comps: [], comps_status: 'open' })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone'), ask('towns')], comps: [], comps_raised: true, comps_status: 'open' })
     const first = await mount(plan, storage)
     // Answered: it folds once, on its own…
     const input = item(first, 'phone').querySelector('input.plan-ask__input') as HTMLInputElement
@@ -390,7 +390,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — the comp board is an item', () =>
   const COMP = { reference: 'reference-1', title: 'Plumber 1', url: 'https://p1.test/', source: 'consultant', added_at: 't', likes: [], dislikes: [] }
 
   it('test_UAT_FC_REQ-401_sites_were_comparing_is_one_item_whose_status_follows_the_plan', async () => {
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_status: 'open' })
+    const plan = planTransport({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_raised: true, comps_status: 'open' })
     const app = await mount(plan)
     const board = comps(app)
     // AN ITEM, NOT A SECTION: no heading names it; its line does.
@@ -413,7 +413,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — the comp board is an item', () =>
     expect(expanded(comps(app))).toBe(false)
 
     // The consultant records the visual concept from it: done, ✓.
-    plan.set({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_status: 'done' })
+    plan.set({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_raised: true, comps_status: 'done' })
     await app.planPanel.refresh()
     expect(section(comps(app))).toBe('done')
     expect(comps(app).querySelector('.plan-item__mark')!.textContent).toBe('✓')

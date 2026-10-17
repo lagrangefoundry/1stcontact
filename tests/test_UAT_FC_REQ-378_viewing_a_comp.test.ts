@@ -56,6 +56,8 @@ const comp = (n: number, extra: Record<string, unknown> = {}) => ({
 const VIEW = {
   phase: 'intake',
   asks: [],
+  // [[REQ-403]] — the consultant has raised the board.
+  comps_raised: true,
   comps: [
     comp(1, { likes: ['phone number in three places'], motion: 'Motion: uses animation (entrance or scroll-in) on 3 elements, which a screenshot does not show.' }),
     comp(2, { source: 'client' }),

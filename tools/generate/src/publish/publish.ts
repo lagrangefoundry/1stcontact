@@ -1,7 +1,8 @@
 import { contactFormTemplateRefs, emailPageRefusal, emailPagesOf } from '@1stcontact/framework/worker'
 import { renderSiteFiles } from '../render/render'
 import { EMPTY_LADDER, type ImageLadder, type LadderProgressReporter } from './ladder'
-import { InvalidDefinitionError, NoPublicAddressError } from '../cli/errors'
+import { InvalidDefinitionError, NoPublicAddressError, NothingBuiltError } from '../cli/errors'
+import { nothingBuilt } from '../cli/scaffold'
 import type { AssetRef, SiteStore, StoredPage } from '../store/site-store'
 import type { ValidationError } from '@1stcontact/site-schema'
 import type {
@@ -323,6 +324,8 @@ export async function publishSite(
   const snapshot = await store.loadDraft(slug)
   if (snapshot === null) throw new Error(`Site '${slug}' has no draft to publish.`)
   if (!snapshot.result.ok) throw new InvalidDefinitionError(slug, snapshot.result.errors)
+  // [[REQ-403]] — THE STARTER PAGE IS NEVER PUBLISHED: it is not the client's site.
+  if (await nothingBuilt(store, slug)) throw new NothingBuiltError(slug)
 
   // [[REQ-243]] — INSIDE RULE 1's PROMISE, immediately after the schema's own
   // refusal and before anything is read for the diff. A form naming a message

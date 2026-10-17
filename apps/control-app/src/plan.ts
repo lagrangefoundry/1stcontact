@@ -47,6 +47,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'asks',
   'comps',
   'comps_skipped_at',
+  'comps_asked_at',
   'milestones',
   'public_details',
 ]

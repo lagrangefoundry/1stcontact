@@ -898,6 +898,14 @@ export const CHAT_OVER_LONG_MESSAGE =
   "Background information — I'll read it from there, and it stays in your Library."
 
 /**
+ * [[REQ-403]] — a brand-new conversation is this one button and nothing else.
+ * Pressing it shows the consultant's introduction (`plan-seed.json`'s `opening`),
+ * and the text box appears once it has.
+ */
+export const CHAT_START = 'Click here to start'
+export const CHAT_START_FAILED = "That didn't start — please try again."
+
+/**
  * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
  *
  * PROGRESS ON THE BUILD IS THE STAGE TRACKER ([[REQ-390]]) — never how few
@@ -923,7 +931,6 @@ export const WORKING_SO_FAR = (elapsed) => `${elapsed} so far`
  * client. Withdrawn and skipped asks are not counted.
  */
 export const PLAN_STILL_TO_ANSWER = (n) => `${n} ${n === 1 ? 'question' : 'questions'} still to answer`
-export const PLAN_ALL_ANSWERED = "All done — thanks, that's everything I need for now."
 /**
  * [[REQ-401]] — the panel's two sections: the open items, and the done and skipped
  * ones. The headings are set in capitals by the stylesheet, not here.

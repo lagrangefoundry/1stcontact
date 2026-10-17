@@ -509,12 +509,14 @@ export function changeSignal(signal?: TurnSignal): string | null {
 }
 
 /**
- * [[REQ-399]] — what the consultant is told in place of a client message on the
- * opening turn of a conversation, when she speaks first. The host keeps it out of
- * the transcript the client sees, because the client never said it.
+ * [[REQ-403]] — the user turn recorded ahead of the stock opening message, so the
+ * model sees the opening as its reply to something: the history window starts at
+ * a user turn, and an assistant turn with none before it would never be sent. The
+ * host keeps it out of the transcript the client sees, because the client never
+ * said it.
  */
-export function openingPrompt(): string {
-  return template('opening-turn')
+export function openingCue(): string {
+  return template('opening-cue')
 }
 
 /** The interrupted-turn advice a session with a site and a camera needs ([[REQ-284]]). */

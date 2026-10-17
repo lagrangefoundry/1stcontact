@@ -1211,6 +1211,46 @@ body {
 }
 
 /*
+ * [[REQ-403]] — a brand-new conversation is one button in the middle of the pane
+ * and nothing else. While the introduction it releases is typed out, the text box
+ * stays hidden; it appears once the introduction has.
+ */
+.builder-chat-start {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.builder-chat-start__button {
+  font: inherit;
+  font-size: 16px;
+  padding: 12px 28px;
+  border: none;
+  border-radius: var(--shell-radius, 6px);
+  background: var(--shell-accent, #2563eb);
+  color: #fff;
+  cursor: pointer;
+}
+
+.builder-chat-start__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.builder-chat-start__status {
+  margin: 0;
+  color: var(--shell-muted, #666);
+  font-size: 13px;
+}
+
+.builder-chat-start--typing .chat-widget-input-bar {
+  display: none;
+}
+
+/*
  * [[REQ-360]] — the build's heartbeat: one quiet line between the conversation
  * and the composer while a delegated build runs, replaced by each new figure and
  * gone when the assistant speaks again. Not a message — it is not something the
