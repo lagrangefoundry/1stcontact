@@ -6,10 +6,10 @@ title: 'First entry: a placeholder preview, no false ''All done'', and a ''Click
   to start'' that opens with the consultant''s stock introduction'
 created_by: EPIC-19
 created_at: '2026-10-17T15:30:00.060690+00:00'
-updated_at: '2026-10-17T15:30:00.060690+00:00'
+updated_at: '2026-10-17T15:57:34.547035+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
@@ -42,6 +42,8 @@ The first time a client opens the builder for a new business, everything they se
 - **The "All done…" text is removed entirely,** in every state, not just at the start.
 - The **OPEN QUESTIONS** and **WHAT YOU'VE TOLD US** sections (REQ-401) appear **only when they have something in them.** At the start there are none, so neither heading shows.
 - The progress banner (REQ-398, BUG-209) is unchanged.
+- **The comps board ("Sites we're comparing", REQ-378/401) is an open question like any other** (decided with the operator, 2026-10-17). It does not appear until the consultant raises it. She raises it with a new plan operation, **`ask_comps`**, which works like `ask_features`. The board is also shown once a comp is on it or it has been settled (done or skipped). Until then it is hidden, so it doesn't fill OPEN QUESTIONS at the start.
+- With no open questions, the count line under the banner is hidden rather than replaced by other text.
 
 ### 3. The chat before the session starts
 
@@ -68,6 +70,13 @@ The message ends with the consultant's first question about the business. It's w
 
 **This replaces REQ-399 §4** ("the consultant speaks first" via a host-run model turn). Its purpose stays: the consultant opens the conversation. Its mechanism changes from a model call to stock text the client releases with the button. Wherever REQ-399's code already implements §4, it's replaced, not kept alongside.
 
+## Design decisions (2026-10-17, made during implementation)
+
+- **The opening is recorded as two turns.** The upstream history window (`recentTurnPairs`, lagrange-framework) starts at the first *user* turn, so a conversation that begins with an assistant turn would have the opening dropped from what the model sees. Clicking the button therefore records a hidden opening cue as a user turn, then the stock text as the assistant turn. Both use upstream's existing `SessionManager.postTurn`: no model call, no turn ledger, no spend. The client's transcript filters out the cue, as REQ-399's did, so they see exactly one assistant turn. The model always sees the cue and the opening as the exchange before the client's first message. No change in lagrange-framework.
+- **A new route, `POST /api/ai/opening {sessionId}`,** records the opening and answers `{turn: {role, markdown, ts}}`, or 409 when the conversation has already started. It replaces the `opening: true` branch of `/api/ai/prompt` and REQ-399's model-driven opening, which are deleted. `/api/ai/session` still says `opening: true` only for a conversation with nothing in it.
+- **The pane types the opening out itself:** a few words at a time, then the composer appears.
+- **"Nothing built yet" means the site still holds only the untouched starter page.** The starter is still seeded, because a site with no pages at all risks breaking render, publish and the editor. The origin recognises the starter; the preview shows the placeholder, and publishing is refused while only the starter exists.
+
 ## Out of scope
 
 - The wording of everything after the opening message.
@@ -80,7 +89,9 @@ UATs `test_UAT_FC_<this ticket>_*`:
 - **A new business with nothing built:**
   - the preview shows the grey placeholder with "Your site will appear here as it's created." and no starter-page heading;
   - after a page is built, the page is shown.
-- **The question panel of a new plan:** no "All done" text, and no OPEN QUESTIONS or WHAT YOU'VE TOLD US heading. With one open question, only OPEN QUESTIONS shows.
+- **The question panel of a new plan:** no "All done" text, and no OPEN QUESTIONS or WHAT YOU'VE TOLD US heading; the comps board is not shown. With one open question, only OPEN QUESTIONS shows. With every question answered there is still no "All done" text.
+- **The comps board appears once the consultant raises it** with `ask_comps`, and also when a comp is on it or it has been settled.
+- **Publishing a site that holds only the starter page is refused.**
 - **A new conversation renders only the "Click here to start" button,** with no composer.
   - Clicking it appends exactly one assistant turn with the stock text, makes no model request, and records no spend.
   - The composer appears after the message has appeared.
