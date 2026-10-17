@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T15:16:38.067472+00:00'
+updated_at: '2026-10-17T15:17:14.639032+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7655,5 +7655,21 @@ Two small questions:
 <!-- xgd-chat role="user" ts="2026-10-17T15:16:37.792173+00:00" -->
 #### You
 look is fine - the completion is correct
+
+<!-- xgd-turn id="cdb69c10-9deb-444c-8ab3-7a4a43371934-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T15:17:14.351717+00:00" -->
+#### Claude
+I've filed **REQ-402**, *"Looks: a band at the top of the preview with ‹ name ›, the full description and 'Tell the consultant…' — only when the page has looks"*. It's under EPIC-19 at `draft`, high priority, 3 points, and linked from the epic.
+
+What it covers:
+1. **The band only exists when the page has looks.** Otherwise nothing is shown and no space is reserved.
+2. **It sits at the top of the preview, full width,** and pushes the page down rather than covering it.
+3. **`‹ Name ›` with "N of M"** on the left. The current draft counts as one of the looks, labelled "Current", and the cross-fade stays.
+4. **The full description** fills the rest of the band, wrapping onto as many lines as it needs, never cut short.
+5. **Under it: "Tell the consultant which look you prefer, and why."** It's flagged as your deliberate exception to DOC-66, so nobody changes it back to "your consultant".
+6. **The look controls come off the toolbar.** BUG-205's other fixes stay: no separate mode, no choose button, and looks never appear in the Page selector.
+
+The word stays "look", both on screen and in the code.
 
 <!-- xgd-chat-end -->
