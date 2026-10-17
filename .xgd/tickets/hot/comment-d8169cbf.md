@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T14:10:25.287483+00:00'
+updated_at: '2026-10-17T15:10:31.510124+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7584,5 +7584,20 @@ I've filed **BUG-209**, *"Progress banner: looks like a line of text — boxes n
 4. **Full width of the chat panel**, edge to edge and still pinned. The boxes share the width, the in-progress one takes more, and it never wraps.
 
 REQ-398's behaviour doesn't change: the skipped rule, the hover explanations, and the stages being read-only. The tests check that the title is exactly "Progress", that no "|" appears anywhere, that each stage is a separate box with its tint contained, and that the bar is full width at several panel widths.
+
+<!-- xgd-turn id="a9c6b31b-7957-482a-88ca-f2d47c926f1e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T15:10:31.313599+00:00" -->
+#### You
+ok the next thing I want is for the questions in the question pannel to collapse and expand.
+
+1. Questions should be styled with the same fonts and font sizes as the chat - right now they are bigger and it looks odd
+2. Each question or action should fold up to a single line it should start with a expansion/collapse triangle then a symbol that represents Open, Skipped, Done - I think an open white box for open, a open grey box with a "-" for skipped and a box with a check for done. After the status icon the first characters of the question going to "..." - this also implies that each question should lead with content that distinguishes it
+3. "Sites we are comparing" is a question not a section
+4. Two sections "OPEN QUESTIONS" (open questions) and "WHAT YOU HAVE TOLD US" (Done and Skipped questions).
+5. Questions are explicitly added by the AI and it should tell the user that it has added the question and ask for it to be filled in
+6. Open questions default to expanded. Once a question is Done or Skipped it collapses - questions can be expanded or collapsed by the user at any time. They stay expanded or collapsed
+
+Please create a ticket
 
 <!-- xgd-chat-end -->
