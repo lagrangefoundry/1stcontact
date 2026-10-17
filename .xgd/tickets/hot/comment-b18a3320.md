@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-207
 created_by: xgd
 created_at: '2026-10-17T13:53:30.388071+00:00'
-updated_at: '2026-10-17T13:59:47.925207+00:00'
+updated_at: '2026-10-17T21:15:28.348490+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -71,5 +71,13 @@ I've fixed this and merged it into `xgd-working`. BUG-207 is at `free_coded`. It
 **Tests:** the new `tests/test_UAT_FC_BUG-207_leaving_an_entered_business_clears_the_preview.test.ts` covers leaving by the banner and by the switcher. Both cases fail without the fix and pass with it. The nearby builder suites (REQ-367, BUG-79, REQ-391 and four others, 48 tests) also pass.
 
 **Not confirmed:** I couldn't query production to check that your own business really has no sites, because Cloudflare refused the request from the sandbox. The cause is worked out from the code and reproduced in tests, not read from your data. If one of your own businesses does have a site and the old site still shows after you deploy, tell me which business you went back to and I'll keep looking.
+
+<!-- xgd-turn id="e4e0f13c-b997-4de1-9d55-5f94bf3b4a49-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T21:15:18.554644+00:00" -->
+#### You
+The fix doesn't work and it is not specific to impersonation.
+
+I am currently looking at "Charlie's plumbing - 3" but I got there after visiting 1st Contact. I am seeing the 1st Contact site in the preview despite Charlie's plumbing - 3 being selected. If I refresh the browser, I get the correct page.
 
 <!-- xgd-chat-end -->
