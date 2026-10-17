@@ -6,9 +6,9 @@ title: place_on_site with `as` returns the existing asset instead of a renamed c
   so one image can't carry several crops
 created_by: xgd
 created_at: '2026-10-17T22:29:35.885091+00:00'
-updated_at: '2026-10-17T22:47:27.552320+00:00'
+updated_at: '2026-10-17T22:47:53.070758+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -36,3 +36,9 @@ There's no way to get several crops of one upload. An uploaded contact sheet or 
 
 ## Suggestion (the gap, separately from the fix)
 Either honour `as` by making a copy, or let `edit_image` / the picture element hold a per-placement crop, so one source can be framed differently in different places.
+
+
+
+## Note (EPIC-19, 2026-10-17)
+
+Two separate questions: (1) `place_on_site` must honour `as` — a new name gives a new site asset, as its description promises; that is the bug. (2) Whether a crop should belong to the placement (the picture element) rather than to the site asset is a design question; (1) alone is enough to unblock a montage.
