@@ -6,10 +6,10 @@ title: 'First entry: a placeholder preview, no false ''All done'', and a ''Click
   to start'' that opens with the consultant''s stock introduction'
 created_by: EPIC-19
 created_at: '2026-10-17T15:30:00.060690+00:00'
-updated_at: '2026-10-17T16:29:21.919328+00:00'
+updated_at: '2026-10-17T16:43:59.600663+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
