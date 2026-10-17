@@ -6,9 +6,9 @@ title: place_on_site with `as` returns the existing asset instead of a renamed c
   so one image can't carry several crops
 created_by: xgd
 created_at: '2026-10-17T22:29:35.885091+00:00'
-updated_at: '2026-10-17T23:05:08.987637+00:00'
+updated_at: '2026-10-17T23:05:13.877249+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.520
+  story_points: 5
 ---
 
 ## What I was doing
