@@ -5,9 +5,9 @@ type: bundle
 title: BUG-36 + BUG-37 + BUG-38
 created_by: xgd
 created_at: '2026-08-26T17:36:26.915596+00:00'
-updated_at: '2026-08-31T19:19:32.730241+00:00'
+updated_at: '2026-10-17T20:07:35.914256+00:00'
 completed_at: '2026-08-31T19:19:32.730241+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -33,6 +33,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
 ---
 
 # Bundle
