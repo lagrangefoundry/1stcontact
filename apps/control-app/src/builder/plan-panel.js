@@ -83,7 +83,6 @@ import {
   PLAN_SKIP_TITLE,
   PLAN_SKIPPED,
   PLAN_STILL_TO_ANSWER,
-  PLAN_ALL_ANSWERED,
   PLAN_TOLD_US,
   PLAN_UPLOAD,
 } from './config.js'
@@ -762,10 +761,10 @@ export function createPlanPanel(options = {}) {
     const asks = view.asks ?? []
     const open = asks.filter((a) => a.status === 'open')
     const done = asks.filter((a) => a.status === 'answered' || a.status === 'skipped')
-    // NOTHING TO COUNT BEFORE A SITE IS SHOWN: the empty placeholder view has no
-    // stages, and "all done" there would be a claim about a plan nobody has read.
-    progress.hidden = !(view.stages ?? []).length
-    progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : PLAN_ALL_ANSWERED
+    // [[REQ-403]] — A COUNT OR NOTHING. With no open question there is nothing to
+    // say: "all done" was false on a new plan, where nothing had been asked yet.
+    progress.hidden = !(view.stages ?? []).length || open.length === 0
+    progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : ''
     const active = document.activeElement
     const drawn = new Map()
     const place = (list, items, make) => {
@@ -789,7 +788,9 @@ export function createPlanPanel(options = {}) {
     // [[REQ-378]], [[REQ-401]] — the comp board, one item, last of the open ones or
     // first of the settled; never before a site is shown.
     const compsState = view.comps_status ?? 'open'
-    if (site) {
+    // [[REQ-403]] — and, like every other question, not until the consultant has
+    // raised it.
+    if (site && view.comps_raised === true) {
       if (compsState === 'open') openList.append(compsItem.node)
       else doneList.prepend(compsItem.node)
       compsItem.node.dataset.status = compsState

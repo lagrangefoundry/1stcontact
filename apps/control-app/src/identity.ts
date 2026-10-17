@@ -1,6 +1,6 @@
 import { newId } from '../../../tools/generate/src/store/ids'
 import { d1r2SiteStore, type SiteStoreEnv } from '../../../tools/generate/src/store/d1r2-store'
-import { starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
+import { STARTER_HEADING, starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
 // The event kinds and the insert builder, from the two modules that own them
 // ([[REQ-195]]). `events.ts` declares its own narrow env type rather than
 // importing `IdentityEnv` back from here, so this import is one-way.
@@ -752,14 +752,7 @@ export interface BusinessResult {
   siteKey: string
 }
 
-/**
- * The heading on the account's starter site.
- *
- * ONE BLANK PAGE, NOT A TEMPLATE AND NOT AN IMPORT ([[REQ-170]]). The point is
- * that a person logging in for the first time finds something to edit rather
- * than an empty tenant and a create-site flow that does not exist yet.
- */
-export const STARTER_HEADING = 'Your 1stcontact site'
+export { STARTER_HEADING }
 
 /**
  * Add one business to an account that already exists ([[DOC-40]] §4).

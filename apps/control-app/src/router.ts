@@ -18,8 +18,11 @@ import {
   CommandError,
   InvalidDefinitionError,
   NO_PUBLIC_ADDRESS_CODE,
+  NOTHING_BUILT_CODE,
   NoPublicAddressError,
+  NothingBuiltError,
 } from '../../../tools/generate/src/cli/errors'
+import { nothingBuilt } from '../../../tools/generate/src/cli/scaffold'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
 import {
   PORTAL_PATH,
@@ -104,7 +107,7 @@ import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-si
 import {
   openBusinessSession,
   openSession,
-  openingText,
+  openConversation,
   privateSessions,
   stopExchange,
   streamPrompt,
@@ -6502,26 +6505,33 @@ async function routeUncached(
       return json(200, { ...session, failed: await turnFailure(session) })
     }
 
-    if (p === '/api/ai/prompt' && method === 'POST') {
+    /**
+     * POST /api/ai/opening — the client pressed *Click here to start* ([[REQ-403]]).
+     *
+     * Records the consultant's stock introduction as the conversation's first
+     * turn and answers it: `{turn}`. NOT A MODEL TURN — no ledger row, no pending
+     * record, no spend — which is why it is its own route and answers JSON rather
+     * than a stream. Only on a conversation with nothing in it, so a second press
+     * (another tab, a stale page) is refused with 409 and changes nothing.
+     */
+    if (p === '/api/ai/opening' && method === 'POST') {
       const body = await readJsonBody(request)
       const { sessionId } = body
-      let { text } = body
       if (typeof sessionId !== 'string' || sessionId === '') {
         return json(400, { error: 'sessionId is required' })
       }
-      /**
-       * [[REQ-399]] — THE CONSULTANT'S OPENING TURN: no client message, and the
-       * host supplies what she is told. Only on a conversation with nothing in
-       * it, so asking twice — a reload, a second tab — starts nothing the second
-       * time. Everything after this is the ordinary turn path: ledger, pending
-       * record, spend.
-       */
-      let openingHost: Awaited<ReturnType<typeof chatHost>> | null = null
-      if (body.opening === true) {
-        openingHost = await chatHost(env, requireScope(), deps, url.origin)
-        const opening = await openingText(sessionId, {}, openingHost.deps)
-        if (opening === null) return json(409, { error: 'this conversation has already started' })
-        text = opening
+      const host = await chatHost(env, requireScope(), deps, url.origin)
+      const turn = await openConversation(sessionId, {}, host.deps)
+      await host.flush(sessionId)
+      if (turn === null) return json(409, { error: 'this conversation has already started' })
+      return json(200, { turn })
+    }
+
+    if (p === '/api/ai/prompt' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId, text } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
       }
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
@@ -6567,7 +6577,7 @@ async function routeUncached(
       if (view === null) {
         return json(400, { error: 'view must be {width, mode} with mode desktop, tablet, phone or fit' })
       }
-      const host = openingHost ?? (await chatHost(env, requireScope(), deps, url.origin))
+      const host = await chatHost(env, requireScope(), deps, url.origin)
       /**
        * THE LEDGER IS OPENED HERE, AND *HERE* IS THE WHOLE OF IT ([[REQ-306]]).
        *
@@ -7063,6 +7073,9 @@ async function routeUncached(
       // stamp, which costs one redundant reload; the other order could stamp a
       // count the page does not hold, and that change would never be shown.
       const at = await store.counter(site)
+      // [[REQ-403]] — NOTHING BUILT YET: a plain panel, never the starter page.
+      // Stamped like any render, so the first write's reload replaces it.
+      if (at === 0 && (await nothingBuilt(store, site))) return stampDraftAt(previewPlaceholder(), at)
       return stampDraftAt(
         await servePreview(store, site, channel as PreviewChannel, preview[3] ?? '/', platformFonts),
         at,
@@ -7204,6 +7217,10 @@ async function routeUncached(
      */
     if (err instanceof NoPublicAddressError) {
       return json(409, { error: scrub(err.message), code: NO_PUBLIC_ADDRESS_CODE })
+    }
+    // [[REQ-403]] — the starter page is never published.
+    if (err instanceof NothingBuiltError) {
+      return json(409, { error: scrub(err.message), code: NOTHING_BUILT_CODE })
     }
     // [[REQ-163]] — three refusals a client can act on, and each carries the
     // status that says WHOSE problem it is.
@@ -7949,6 +7966,25 @@ function streamDraftChanges(
       'x-content-type-options': 'nosniff',
       'cache-control': 'no-store',
     },
+  })
+}
+
+/** [[REQ-403]] — what the preview shows before anything has been built. */
+export const PREVIEW_PLACEHOLDER = "Your site will appear here as it's created."
+
+/**
+ * [[REQ-403]] — the preview of a site with nothing built yet: a plain grey panel
+ * with one centred line. Deliberately not a web page — no heading, no navigation,
+ * nothing a client could take for their site.
+ */
+function previewPlaceholder(): Response {
+  const body = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Preview</title>
+<body data-preview-placeholder style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#e5e7eb;color:#4b5563;font:16px/1.5 system-ui,sans-serif;text-align:center;padding:2rem;box-sizing:border-box">
+<p style="margin:0">${escapeHtml(PREVIEW_PLACEHOLDER)}</p>
+</body></html>`
+  return new Response(body, {
+    status: 200,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   })
 }
 

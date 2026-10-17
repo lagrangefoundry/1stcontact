@@ -79,7 +79,7 @@ import {
   SETTINGS_ROLE,
   settingsRole,
   toolTranscriptNote,
-  openingPrompt,
+  openingCue,
   type TurnSignal,
   type ClientView,
   type WorkerKnowledge,
@@ -100,6 +100,7 @@ import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-
 import {
   approvedDetails,
   builderSessionCompleted,
+  OPENING_MESSAGE,
   planInstanceConfig,
   planPanel,
   planSurfaceFor,
@@ -393,8 +394,8 @@ export interface ChatSession {
    */
   interrupted?: InterruptedTurn
   /**
-   * [[REQ-399]] — the conversation has nothing in it yet, so the consultant speaks
-   * first: the panel starts the opening turn (`/api/ai/prompt` with `opening`).
+   * [[REQ-403]] — the conversation has nothing in it yet: the panel offers *Click
+   * here to start*, which posts the consultant's introduction (`/api/ai/opening`).
    * Absent on any conversation that has ever had a turn.
    */
   opening?: boolean
@@ -2724,9 +2725,9 @@ async function storedTranscript(
     return null
   }
   const recorded = read.session.turns as { role: string; content: string; ts?: string }[]
-  // [[REQ-399]] — THE OPENING TURN'S INSTRUCTION IS NOT THE CLIENT'S, so it is not
-  // shown as theirs. It still counts as the conversation having started.
-  const opening = openingPrompt()
+  // [[REQ-403]] — THE OPENING'S CUE IS NOT THE CLIENT'S, so it is not shown as
+  // theirs. It still counts as the conversation having started.
+  const opening = openingCue()
   const turns = recorded.filter((turn) => !(turn.role === 'user' && turn.content === opening)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -2748,21 +2749,39 @@ async function storedTranscript(
 }
 
 /**
- * [[REQ-399]] — what the consultant is told on the opening turn, or `null` when
- * this conversation cannot have one: it is not a site's own conversation, or it
- * has already had a turn, or one is running.
+ * [[REQ-403]] — open a conversation with the consultant's stock introduction, and
+ * answer the turn the client sees; `null` when this conversation cannot have one:
+ * it is not a site's own conversation, or it has already had a turn, or one is
+ * running.
  *
- * ONCE, BY THE TRANSCRIPT. The opening's own `turn_start` is the record that it
- * happened, so a reload — mid-opening or after — finds the conversation started.
- * Two opens racing are the junction lease's to serialise, as for any two turns.
+ * NO MODEL CALL AND NO SPEND. Both turns are POSTED — recorded complete, as a room
+ * records a contribution — so nothing opens the turn ledger and nothing is billed.
+ *
+ * TWO TURNS, NOT ONE, because the history window the model is sent starts at a
+ * user turn: an assistant turn with nothing before it would be dropped, and the
+ * consultant would never see her own introduction. The cue is that user turn, and
+ * {@link storedTranscript} keeps it off the client's screen.
+ *
+ * ONCE, BY THE TRANSCRIPT. The posted turns are the record that it happened, so a
+ * reload finds the conversation started and the panel offers no button.
  */
-export async function openingText(sessionId: string, opts: GlobalOptions = {}, deps: HostDeps): Promise<string | null> {
+export async function openConversation(
+  sessionId: string,
+  opts: GlobalOptions = {},
+  deps: HostDeps,
+): Promise<ChatTurn | null> {
   const slug = await siteForSession(sessionId, deps)
   if (!slug || (await groupChatOn(deps))) return null
   await prepareJunction(deps, sessionId)
-  const read = await storedTranscript(await managerFor(slug, opts, deps), sessionId)
+  const manager = await managerFor(slug, opts, deps)
+  const read = await storedTranscript(manager, sessionId)
   if (read?.started || read?.live) return null
-  return (await previousTurn(deps, sessionId)) === null ? openingPrompt() : null
+  if ((await previousTurn(deps, sessionId)) !== null) return null
+  await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
+  await manager.postTurn(sessionId, openingCue(), { role: 'user' })
+  await manager.postTurn(sessionId, OPENING_MESSAGE, { role: 'assistant' })
+  const after = await storedTranscript(manager, sessionId)
+  return after?.turns.at(-1) ?? { role: 'assistant', markdown: OPENING_MESSAGE }
 }
 
 /**
@@ -3166,8 +3185,6 @@ async function interruptedTurn(
   const pending = await previousTurn(deps, sessionId)
   if (pending === null) return null
   if (live && pending.status === 'open') return null
-  // [[REQ-399]] — an opening that did not finish has no client words to give back.
-  if (pending.text === openingPrompt()) return null
   const asked = turns.filter((turn) => turn.role === 'user').at(-1)
   return {
     text: pending.text,
@@ -3249,7 +3266,7 @@ export async function openSession(
   } catch (err) {
     return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
   }
-  // [[REQ-399]] — NOTHING SAID YET, SO SHE SPEAKS FIRST.
+  // [[REQ-403]] — NOTHING SAID YET, SO THE PANEL OFFERS TO START.
   const fresh = !read?.started && !live && (await previousTurn(deps, sessionId)) === null
   return { sessionId, turns, cursor, live, ready: true, ...lost, ...(fresh ? { opening: true } : {}) }
 }

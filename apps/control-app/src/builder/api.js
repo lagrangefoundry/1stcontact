@@ -814,17 +814,19 @@ export async function* streamChatPrompt(sessionId, text, view = null, fetchImpl 
 }
 
 /**
- * [[REQ-399]] — the consultant's opening turn: a turn with no client message,
- * which the origin starts only on a conversation that has none yet. Same event
- * shape as {@link streamChatPrompt}, because it is the same turn path.
+ * [[REQ-403]] — the client pressed *Click here to start*: the origin records the
+ * consultant's stock introduction as the conversation's first turn and answers
+ * it, `{role, markdown, ts?}`. No model turn, so JSON and not a stream. Throws on
+ * refusal — 409 when the conversation has already started.
  */
-export async function* streamChatOpening(sessionId, view = null, fetchImpl = fetch) {
-  yield* postEventStream(
-    scoped('/api/ai/prompt'),
-    { sessionId, opening: true, ...(view ? { view } : {}) },
-    'the assistant failed',
-    fetchImpl,
-  )
+export async function openChatConversation(sessionId, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/opening'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/opening → ${res.status}`)
+  return (await res.json()).turn
 }
 
 /**

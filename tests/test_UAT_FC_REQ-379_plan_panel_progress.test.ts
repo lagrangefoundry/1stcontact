@@ -147,7 +147,7 @@ const progress = (app: Handle): string =>
   (app.planPanel.element.querySelector('.plan-panel__progress') as HTMLElement | null)?.textContent ?? ''
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for the client', () => {
-  it('test_UAT_FC_REQ-379_the_panel_shows_how_many_questions_are_still_to_answer_and_all_done_at_zero', async () => {
+  it('test_UAT_FC_REQ-379_the_panel_shows_how_many_questions_are_still_to_answer_and_nothing_at_zero', async () => {
     const plan = planTransport({
       stages: STAGES,
       asks: [
@@ -189,10 +189,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-379 — the panel counts what is left for
     await app.planPanel.refresh()
     expect(progress(app)).toBe('1 question still to answer')
 
-    // NONE OPEN IS THE ALL-DONE MESSAGE.
+    // NONE OPEN SAYS NOTHING ([[REQ-403]]): the line is hidden, and there is no
+    // "all done" in its place.
     plan.set({ stages: STAGES, asks: [ask('hours', 'text', { status: 'skipped', answered_by: 'client' })] })
     await app.planPanel.refresh()
-    expect(progress(app)).toBe("All done — thanks, that's everything I need for now.")
+    expect(progress(app)).toBe('')
+    expect((app.planPanel.element.querySelector('.plan-panel__progress') as HTMLElement).hidden).toBe(true)
+    expect(app.planPanel.element.textContent).not.toContain('All done')
   })
 
   it('test_UAT_FC_REQ-379_the_count_rises_when_the_consultant_adds_an_ask_mid_turn', async () => {

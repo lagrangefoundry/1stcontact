@@ -51,6 +51,13 @@ export const SITE_PLAN = 'site'
  */
 export const STAGES: readonly { id: string; label: string; about: string }[] = planSeed.stages
 export const STAGE_IDS: readonly string[] = STAGES.map((s) => s.id)
+
+/**
+ * [[REQ-403]] — the consultant's first message in every new conversation: stock
+ * text the client releases with *Click here to start*, never a model turn. Beside
+ * {@link STAGES} in the seed because it walks the client through them.
+ */
+export const OPENING_MESSAGE: string = planSeed.opening.join('\n')
 export const STAGE_STATES = ['not_started', 'in_progress', 'done'] as const
 export const IN_PROGRESS = 'in_progress'
 export const STAGE_DONE = 'done'
@@ -376,6 +383,12 @@ export interface PlanFields {
    * keeps what was stored.
    */
   comps_skipped_at?: string | null
+  /**
+   * [[REQ-403]] — when the consultant put the comp board on the client's panel
+   * (`ask_comps`). Like every other question, the board is not on the panel until
+   * she raises it.
+   */
+  comps_asked_at?: string | null
   /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
@@ -959,6 +972,8 @@ export interface PanelView {
   comps: PlanComp[]
   /** [[REQ-401]] — the comp board as one item on the panel: open, done or skipped. */
   comps_status: CompsStatus
+  /** [[REQ-403]] — whether the comp board is on the panel at all; see {@link compsRaised}. */
+  comps_raised: boolean
 }
 
 /** [[REQ-401]] — where comparing sites stands, as the panel's item shows it. */
@@ -980,6 +995,17 @@ export function compsStatus(fields: Pick<PlanFields, 'decisions' | 'comps_skippe
   const concept = (fields.decisions ?? []).find((d) => d.id === VISUAL_CONCEPT)
   if (concept && concept.state !== 'open' && (concept.comps ?? []).length > 0) return 'done'
   return fields.comps_skipped_at ? 'skipped' : 'open'
+}
+
+/**
+ * [[REQ-403]] — whether the comp board is on the client's panel.
+ *
+ * IT IS A QUESTION LIKE ANY OTHER, so it is not there until the consultant raises
+ * it: with `ask_comps`, or by putting a site on it. A board that has been settled
+ * — done from the visual concept, or skipped — has plainly been raised.
+ */
+export function compsRaised(fields: Pick<PlanFields, 'decisions' | 'comps' | 'comps_skipped_at' | 'comps_asked_at'>): boolean {
+  return Boolean(fields.comps_asked_at) || (fields.comps ?? []).length > 0 || compsStatus(fields) !== 'open'
 }
 
 /**
@@ -1007,6 +1033,7 @@ export function panelView(fields: PlanFields): PanelView {
     ),
     comps: fields.comps ?? [],
     comps_status: compsStatus(fields),
+    comps_raised: compsRaised(fields),
   }
 }
 
@@ -1093,6 +1120,8 @@ export function planReminder(plan: Plan | null): string | null {
       `Sites you are comparing (${comps.length}): ${list(comps.map((c) => `${c.title} [${c.reference}]${c.source === CLIENT ? ' (the client added it)' : ''}`))}.`,
     )
   }
+  // [[REQ-403]] — UNTIL SHE RAISES IT, the comp board is not on the panel either.
+  if (!compsRaised(f)) lines.push('Not yet raised: the comp board. Raise it with ask_comps when you are ready to look at other sites together.')
   // [[REQ-401]] — the client can skip the board from the panel; she should know.
   if (compsStatus(f) === 'skipped') lines.push('The client skipped comparing other sites.')
   if (panel.tasks.total) {
@@ -2000,6 +2029,15 @@ export function planOperations(
       }),
 
     // ── the comp board: both roles ([[REQ-378]]) ────────────────────────────
+    /**
+     * [[REQ-403]] — put the comp board on the client's panel. Raising it twice
+     * changes nothing; it keeps the moment it was first raised.
+     */
+    ask_comps: () =>
+      change((plan) => {
+        plan.fields.comps_asked_at = plan.fields.comps_asked_at || now()
+        return { comps_status: compsStatus(plan.fields) }
+      }),
     add_comp: async (p) => {
       const held = await compRecord(String(p.reference ?? ''))
       const written = await change((plan) => {

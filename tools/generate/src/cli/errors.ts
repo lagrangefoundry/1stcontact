@@ -78,6 +78,19 @@ export class NoPublicAddressError extends Error {
   }
 }
 
+/**
+ * [[REQ-403]] — a publish of a site that holds only its starter page: nothing has
+ * been built yet, so there is nothing of the client's to put live.
+ */
+export const NOTHING_BUILT_CODE = 'NOTHING_BUILT'
+
+export class NothingBuiltError extends Error {
+  constructor(public slug: string) {
+    super(`Nothing has been built for site '${slug}' yet, so there is nothing to publish.`)
+    this.name = 'NothingBuiltError'
+  }
+}
+
 export type ErrorCode =
   | 'SCHEMA_INVALID'
   | 'NOT_FOUND'

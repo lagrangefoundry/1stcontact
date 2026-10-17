@@ -2,6 +2,7 @@
 // the barrel would drag two `.astro` components in for the sake of a token table.
 import { defaultTextStyle, defaultTextStyles, defaultTokens } from '@1stcontact/framework/worker'
 import { RESPONSIVE_VIEWPORTS } from './capture/values-diff'
+import type { SiteStore } from '../store/site-store'
 
 /**
  * Starter content for `1c new`. Since the framework pivot (REQ-79/REQ-84) layout
@@ -112,6 +113,34 @@ export function starterDocument(heading: string): Record<string, unknown> {
       ],
     },
   }
+}
+
+/**
+ * The heading on an account's starter site.
+ *
+ * ONE BLANK PAGE, NOT A TEMPLATE AND NOT AN IMPORT ([[REQ-170]]). The point is
+ * that a business opened for the first time has a site to edit rather than an
+ * empty tenant. [[REQ-403]] — and the client never sees it: see {@link nothingBuilt}.
+ */
+export const STARTER_HEADING = 'Your 1st Contact site'
+
+/**
+ * [[REQ-403]] — whether a site still holds only the starter page it was seeded
+ * with: nothing has been recorded against it, and its one page is the starter.
+ *
+ * WHAT THE CLIENT IS SHOWN IN ITS PLACE. The preview answers a plain placeholder
+ * instead of the starter, and a publish is refused, so the starter is never seen
+ * as though it were their site and never goes live.
+ *
+ * BOTH HALVES, because either alone is wrong somewhere. The change counter moves
+ * on every edit — the consultant's and the client's — but the seeding write does
+ * not record one, and neither does a site copied in by hand; the starter's own
+ * heading is what tells those apart.
+ */
+export async function nothingBuilt(store: Pick<SiteStore, 'counter' | 'readPages'>, site: string): Promise<boolean> {
+  if ((await store.counter(site)) > 0) return false
+  const pages = await store.readPages(site)
+  return pages.length === 1 && JSON.stringify(pages[0].page).includes(STARTER_HEADING)
 }
 
 /**

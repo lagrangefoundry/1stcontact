@@ -337,6 +337,16 @@
       "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
+      "op": "ask_comps",
+      "tool": "ask_comps",
+      "effect": "write",
+      "summary": "Put the comp board — \"Sites we're comparing\" — on the client's panel.",
+      "description": "The board is a question like any other: it is not on the client's panel until you raise it. Raise it when you are ready to look at other sites together — after the features question, before the first build — with one line in the conversation first, e.g. \"Next, let's look at a few sites in your trade — add any you like, or don't, and I'll find some too.\" Putting a site on it with `add_comp` raises it as well. Raising it again changes nothing.",
+      "params": {},
+      "returns": { "shape": "written" },
+      "errors": ["CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
       "op": "add_comp",
       "tool": "add_comp",
       "effect": "write",
@@ -423,7 +433,7 @@
       "effect": "write",
       "title": "Keeping the comp board",
       "description": "The comparable sites you and the client look at before the first build, and what the client likes and dislikes about each.",
-      "operations": ["add_comp", "note_comp", "remove_comp"]
+      "operations": ["ask_comps", "add_comp", "note_comp", "remove_comp"]
     }
   ],
   "sequences": [],
