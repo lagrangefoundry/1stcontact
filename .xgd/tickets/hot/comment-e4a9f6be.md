@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-150
 created_by: xgd
 created_at: '2026-09-26T19:43:28.632232+00:00'
-updated_at: '2026-10-17T20:25:43.802229+00:00'
+updated_at: '2026-10-17T20:27:38.302270+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -211,5 +211,39 @@ There was nothing left to clean up. The BUG-150 branch and worktree were already
 One thing to watch for: the worktree folder has a directory called `free-REQ-150`. That belongs to a different ticket, REQ-150, so I didn't touch it.
 
 BUG-150 is still parked at `free_coded`, waiting for you to promote it to `ready_to_reconcile`.
+
+<!-- xgd-turn id="cbc019dc-3aef-41bc-9753-ee2a98fa9486-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:27:31.469209+00:00" -->
+#### You
+```
+((.venv-working) ) martin@nyx 1stcontact % xgd worktree ls
+▶ xgd 0.17.196 2026-10-17 13:26:12
+WORKTREE                PATH
+--------------------------------------------------------------------------------
+* working from main    /Users/martin/lagrangefoundry/1stcontact
+  free-BUG-210         /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-210
+  free-REQ-363         /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-363
+  main                 /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/main
+  reconcile-BUNDLE-31  /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-31
+  regression-e421074e  /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/regression-e421074e
+  resync-3b66ec69      /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/resync-3b66ec69
+  bug143-baseline      /Users/martin/lagrangefoundry/1stcontact/.xgd/tmp/bug143-baseline
+
+ORPHANED (not registered with git — investigate before removing):
+! free-BUG-189         /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-189  (run: xgd branch clean --stale)
+! free-REQ-150         /Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-REQ-150  (run: xgd branch clean --stale)
+
+BRANCH WITHOUT WORKTREE (branch exists, nothing checked out):
+! free-REQ-378
+! free-REQ-397
+! free-REQ-399
+! reconcile-src-BUNDLE-31
+◀ xgd 0.17.196 2026-10-17 13:26:12
+((.venv-working) ) martin@nyx 1stcontact %
+
+```
+
+still showing on xgd worktree ls
 
 <!-- xgd-chat-end -->
