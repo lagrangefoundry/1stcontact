@@ -219,6 +219,9 @@ export function chatLibrary(
       // the gate, and re-using this one instead would mean holding a ticket
       // across the write and checking the gate against a stale copy.
       const item = await readMaterial(tickets, name)
+      // A NAME ASKED FOR IS A FILE ASKED FOR ([[BUG-213]]): one of this item's
+      // own files under it is re-placed, any other is a new file beside them.
+      const asked = as && as.trim() !== '' ? as.trim() : null
       try {
         const placed = await promoteToSiteAsset(
           tickets,
@@ -231,7 +234,8 @@ export function chatLibrary(
             // is already called on the site. A picture placed by the assistant
             // and the same picture placed by the client should not land under
             // two different names.
-            name: as && as.trim() !== '' ? as.trim() : item.filename,
+            name: asked ?? item.filename,
+            copy: asked !== null,
           },
           { renderer },
         )

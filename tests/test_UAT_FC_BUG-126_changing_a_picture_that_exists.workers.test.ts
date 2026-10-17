@@ -9,6 +9,7 @@ import {
   generatedMaterialStore,
 } from '../apps/control-app/src/imagegen'
 import { listMaterial, promoteToSiteAsset } from '../apps/control-app/src/material'
+import { encodePng } from '../tools/generate/src/cli/png'
 import { storeFor } from '../apps/control-app/src/store'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
@@ -217,7 +218,7 @@ const EDITS_TOOL = 'list_image_edits'
 /** One picture in the client's Library, created the way ingestion creates one. */
 async function libraryPicture(
   tickets: TicketStore,
-  opts: { filename?: string; label?: string; title?: string } = {},
+  opts: { filename?: string; label?: string; title?: string; bytes?: Uint8Array } = {},
 ): Promise<{ material: string; picture: string }> {
   const filename = opts.filename ?? 'shopfront.png'
   const { ticket } = await tickets.create({
@@ -238,7 +239,7 @@ async function libraryPicture(
   })
   const { attachment } = await tickets.attach({
     uid: ticket.uid,
-    bytes: pngBytes(),
+    bytes: opts.bytes ?? pngBytes(),
     filename,
     content_type: 'image/png',
   })
@@ -439,18 +440,20 @@ describe('BUG-126 — changing a picture that already exists', () => {
   })
 
   it('test_UAT_FC_BUG-126_an_adjustment_to_a_placed_picture_has_somewhere_to_land', async () => {
-    // AC7. The second half. A site file still cannot carry a recipe — that is
-    // correct and unchanged — but the bytes on the page are a COPY of a Library
-    // item, and the refusal used to stop at "there is nowhere to keep edits for
-    // it". The client is looking at the page, so the consultant is holding the
-    // site file's name and nothing else; working out which Library item those
-    // bytes came from is a search this surface can do and they cannot.
+    // AC7. The second half. The client is looking at the page, so the
+    // consultant is holding the site file's name and nothing else. The bytes on
+    // the page are a COPY of a Library item, and since [[BUG-213]] that copy
+    // carries a recipe of its own over the Library original — so asking about
+    // the file on the page reaches the file on the page.
     const id = 'bug126-placed'
     const { scope, slug } = await business(id)
     const tickets = await ticketsFor(id)
     const { material } = await libraryPicture(tickets, {
       filename: 'founder-portrait.png',
       title: 'The founder, in sanguine chalk',
+      // A PICTURE THE RENDERER CAN MEASURE, because the answer is now a
+      // measurement of the Library original rather than a refusal.
+      bytes: await encodePng({ data: new Uint8Array(4 * 2 * 3).fill(120), width: 4, height: 2, channels: 3 }),
     })
 
     const sites = await storeFor(routerEnv(), scopeOf(id))
@@ -469,22 +472,21 @@ describe('BUG-126 — changing a picture that already exists', () => {
       slug,
       [
         calls(EDITS_TOOL, { image: placed.name }),
-        says('I will change the Library picture instead.'),
+        says('That file carries no edits of its own yet.'),
       ],
       {},
     )
 
     const [result] = toolResults(client)
-    // THE REFUSAL STILL REFUSES — the recipe has not moved to the site.
-    expect(result).toContain('nowhere to keep a list of edits')
-    // AND IT NAMES THE PICTURE TO EDIT INSTEAD, by the name that always means
-    // exactly one picture, with the title a person would recognise.
-    expect(result).toContain(material)
-    expect(result).toContain('The founder, in sanguine chalk')
-    // AND IT SAYS WHY THAT IS THE ANSWER AND NOT A DETOUR: the edit is published
-    // back over the file on the page, which is what `republishingRecipes`
-    // already does — so the path the sentence describes is one that works.
-    expect(result).toContain('published back over the file on the page')
+    // [[BUG-213]] SUPERSEDES THE REFUSAL. A placed file carries its own recipe,
+    // so the adjustment lands ON the file the client is looking at — reported
+    // under that file's name, with nothing done to it yet...
+    let answer: unknown = JSON.parse(String(result))
+    if (typeof answer === 'string') answer = JSON.parse(answer)
+    expect(answer).toMatchObject({ image: placed.name, edits: [] })
+    // ...and measured against the Library original it was placed from, which
+    // is the one copy that is never altered.
+    expect(answer).toMatchObject({ original: { width: 4, height: 2 } })
     // The model was told, rather than left to infer it from an absence.
     expect(systemText(client.seen[0])).toContain(EDITS_TOOL)
   })

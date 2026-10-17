@@ -108,19 +108,17 @@ export interface ImageEditDeps {
   /** The renderer, for the one thing this surface asks of it: real dimensions. */
   renderer: ImageRenderer
   /**
-   * The picture a file in a namespace that cannot carry a recipe was COPIED
-   * from, where that is recorded ([[BUG-126]]).
+   * The Library picture a site file was COPIED from, where that is recorded
+   * ([[BUG-126]], [[BUG-213]]).
    *
-   * WHAT MAKES THE REFUSAL ACTIONABLE. Without it, *"this one is a site file and
-   * has nowhere to keep edits"* is a true sentence with nothing after it — the
-   * consultant is holding the name the client just pointed at, and the only
-   * remedy is to go and find which Library item those bytes came from, which is
-   * a search this surface can do and they cannot. With it the refusal names the
-   * picture to edit instead, and editing it republishes to the page.
+   * WHAT A SITE FILE'S RECIPE IS MEASURED AGAINST. The copy's own bytes are
+   * already a render, so its recipe is over the original it was placed from; a
+   * site file with no recorded origin has no original and is refused. Where the
+   * host keeps no site recipes at all, the origin is what the refusal names
+   * instead.
    *
-   * OPTIONAL, AND ABSENT IS THE OLD SENTENCE. A deployment with one namespace
-   * has nothing to point at, and a picture the host has no record of copying
-   * answers `null` — both of which are *"no origin"*, not a degraded mode.
+   * OPTIONAL, AND ABSENT MEANS NO SITE FILE IS EDITABLE — a deployment with one
+   * namespace has nothing to point at.
    */
   originOf?: (image: StoredImage) => Promise<StoredImage | null>
 }
@@ -152,21 +150,30 @@ function pictureNamed(name: string, images: readonly StoredImage[]): StoredImage
 }
 
 /**
- * The recipe store for a picture's namespace, or the refusal for having none.
+ * Where a picture's recipe is kept and what it is a recipe OVER, or the refusal
+ * for having neither.
  *
- * THE REFUSAL CARRIES THE WAY OUT WHERE THERE IS ONE ([[BUG-126]]). A site file
- * still cannot hold a recipe — that has not changed and is not a gap — but the
- * bytes on the page are a COPY of something, and where the host can say what,
- * naming it turns a dead end into one more call. The alternative considered and
- * rejected was to silently redirect the edit onto the original: it would change
- * a picture the caller did not name, and a report about a different picture from
- * the one asked for is how an assistant comes to tell a client it did something
- * it did not do.
+ * **A SITE FILE'S RECIPE IS OVER THE PICTURE IT WAS PLACED FROM** ([[BUG-213]]).
+ * A placed file is a copy of a Library item, so its own bytes are already a
+ * render — measuring them would make every crop a crop of the last one. Its
+ * recipe is kept for that file alone and is measured against the Library
+ * original, which is never altered. A site file nothing records the origin of
+ * (drawn, imported) has no original to measure against, and is refused.
+ *
+ * WHERE THE HOST KEEPS NO SITE RECIPES, the refusal names the Library item to
+ * edit instead ([[BUG-126]]) — a change to it is published back over the file.
  */
-async function recipesFor(image: StoredImage, deps: ImageEditDeps): Promise<RecipeStore> {
+async function recipesFor(
+  image: StoredImage,
+  deps: ImageEditDeps,
+): Promise<{ store: RecipeStore; source: StoredImage }> {
   const store = deps.recipes[image.where]
-  if (store) return store
+  if (image.where !== 'site') {
+    if (store) return { store, source: image }
+    throw new PictureNameError('NOT_EDITABLE', `'${image.name}' has nowhere to keep a list of edits.`)
+  }
   const origin = deps.originOf ? await deps.originOf(image) : null
+  if (store && origin) return { store, source: origin }
   throw new PictureNameError(
     'NOT_EDITABLE',
     origin
@@ -174,10 +181,9 @@ async function recipesFor(image: StoredImage, deps: ImageEditDeps): Promise<Reci
         `is nowhere to keep a list of edits for it. It was placed from ` +
         `'${origin.name}'${origin.title ? ` ("${origin.title}")` : ''}, which does carry one — ` +
         `edit that one instead, and the change is published back over the file on the page.`
-      : `'${image.name}' is a file on the site rather than an item in the Library, so there ` +
-        `is nowhere to keep a list of edits for it, and nothing records which picture it was ` +
-        `copied from. Draw a replacement, or put a Library picture on the page in its place: ` +
-        `a placed picture stays adjustable through the Library item it came from.`,
+      : `'${image.name}' is a file on the site that was not placed from the Library, so there ` +
+        `is no original to keep a list of edits over. Draw a replacement, or put a Library ` +
+        `picture on the page in its place: a placed picture can be framed on its own.`,
   )
 }
 
@@ -220,21 +226,23 @@ function report(
 export function imageOperations(
   deps: ImageEditDeps,
 ): Record<string, (p: Params) => Promise<Untyped>> {
-  async function locate(p: Params): Promise<{ image: StoredImage; store: RecipeStore }> {
+  async function locate(
+    p: Params,
+  ): Promise<{ image: StoredImage; store: RecipeStore; source: StoredImage }> {
     const image = pictureNamed(String(p.image ?? ''), await deps.images.list())
-    return { image, store: await recipesFor(image, deps) }
+    return { image, ...(await recipesFor(image, deps)) }
   }
 
   return {
     list_image_edits: async (p: Params) => {
-      const { image, store } = await locate(p)
-      const [recipe, original] = await Promise.all([store.read(image.name), measured(image, deps)])
+      const { image, store, source } = await locate(p)
+      const [recipe, original] = await Promise.all([store.read(image.name), measured(source, deps)])
       return report(image, recipe, original)
     },
 
     edit_image: async (p: Params) => {
-      const { image, store } = await locate(p)
-      const original = await measured(image, deps)
+      const { image, store, source } = await locate(p)
+      const original = await measured(source, deps)
       // PARSED, THEN COMPILED, THEN WRITTEN, IN THAT ORDER. The parse catches
       // what is wrong with the recipe on its own; the compile catches what is
       // wrong with it *for this picture*; and the write happens after both,

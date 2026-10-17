@@ -55,6 +55,7 @@ import {
   type EditOp,
   parseRecipe,
   type ImageRenderer,
+  type RecipeStore,
 } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import { sanitizeAssetName } from '../../../tools/generate/src/store/asset-name'
@@ -67,6 +68,7 @@ import {
 } from './describe'
 import { guardedFetch, tooBig } from './fetch-guard'
 import { type ConvertHeic, isHeic, MAX_CONVERTIBLE_BYTES } from './heic'
+import { isVersionConflict } from './plan'
 import type { ChangeEvent, Ticket, TicketStore, TicketSubscription } from './tickets'
 import { isEditablePicture } from './builder/picture-kind.js'
 
@@ -841,7 +843,14 @@ export class NotRepublishableError extends Error {
 export async function promoteToSiteAsset(
   tickets: TicketStore,
   sites: TenantSiteStore,
-  args: { uid: string; slug: string; name: string },
+  /**
+   * `copy` — the name was ASKED FOR rather than defaulted ([[BUG-213]]). A name
+   * the caller chose is a request for that file: one of this material's own
+   * files on the site under that name is re-placed, and any other name is a new
+   * file beside the ones already there. Without it the name is only a default,
+   * and the material's first file on the site is the one re-placed.
+   */
+  args: { uid: string; slug: string; name: string; copy?: boolean },
   /**
    * The renderer, where this deployment has one ([[REQ-219]]).
    *
@@ -874,16 +883,26 @@ export async function promoteToSiteAsset(
   // question is *what is this picture now*, which is a fact about the record's
   // own state, and a recipe threaded through the call would be the caller's idea
   // of it with two things that could disagree.
+  // WHICH DOOR: THE RECORD DECIDES ([[REQ-229]]). A name this material already
+  // occupies on this site is a name its pages already reference, so the bytes
+  // belong AT it; anything else is a first placement.
+  //
+  // A NAME THAT WAS ASKED FOR CHOOSES AMONG THEM ([[BUG-213]]). One material may
+  // be on a site as several files — a montage cropped six ways — so a requested
+  // name that is none of them is a new file, not the first one renamed. Matched
+  // as asked and as sanitised, because the recorded name is the sanitised one.
+  const here = placedAs(ticket.fields).filter((placed) => placed.slug === args.slug)
+  const recorded = args.copy
+    ? here.find((placed) => placed.name === args.name || placed.name === sanitizeAssetName(args.name))
+    : here[0]
+  // A FILE WITH ITS OWN FRAMING KEEPS IT ([[BUG-213]]); every other file is the
+  // material's own recipe applied.
   const bytes = await renderedBytes(
     stored,
     String(attachment.fields.content_type ?? 'application/octet-stream'),
-    safeRecipe(ticket.fields.edits),
+    recorded?.edits ?? safeRecipe(ticket.fields.edits),
     deps.renderer,
   )
-  // WHICH DOOR: THE RECORD DECIDES, NOT AN ARGUMENT ([[REQ-229]]). A name this
-  // material already occupies on this site is a name its pages already
-  // reference, so the bytes belong AT it; anything else is a first placement.
-  const recorded = placedAs(ticket.fields).find((placed) => placed.slug === args.slug)
   // A FREE NAME, NEVER THE REQUESTED ONE BLIND. `write` puts bytes at a name and
   // says nothing about what was already there, so promoting a second `logo.png`
   // would REPLACE the first — silently changing a picture that is live on the
@@ -935,7 +954,7 @@ export async function promoteToSiteAsset(
   // filter are all trying to state. Recording it anywhere earlier would restate
   // the upload's context instead — which is the bug — and recording it before
   // this line would badge a promotion that threw identically to one that landed.
-  await recordPlacement(tickets, ticket, args.slug, name)
+  await recordPlacement(tickets, args.uid, args.slug, name)
   return { name, size: bytes.byteLength, sha256 }
 }
 
@@ -970,6 +989,12 @@ async function renderedBytes(
 export interface Placement {
   slug: string
   name: string
+  /**
+   * This file's own framing, where it has one ([[BUG-213]]) — a recipe over the
+   * material's ORIGINAL, exactly like `fields.edits`. Absent, the file is the
+   * material's own recipe applied and follows every edit made to it.
+   */
+  edits?: EditOp[]
 }
 
 /** What a re-promotion did at one of those placements. */
@@ -1031,7 +1056,10 @@ export async function republishMaterial(
     deps.renderer,
   )
   const done: Republication[] = []
-  for (const placement of placements) {
+  // A FILE FRAMED ON ITS OWN IS NOT THIS EDIT'S TO CHANGE ([[BUG-213]]). Its
+  // recipe is its own, so the material's says nothing about it.
+  for (const { edits, ...placement } of placements) {
+    if (edits) continue
     try {
       await editAssetReplace(placement.slug, placement.name, bytes, {
         store: sites,
@@ -1072,23 +1100,26 @@ export async function republishMaterial(
  * the name, and a record left holding a stale one would send the next edit's
  * bytes to a name nothing references.
  *
- * READ OFF THE TICKET WE ALREADY HOLD, not re-fetched: `promoteToSiteAsset` got
- * it to check `republishable`, and a second read would be a window in which the
- * two could disagree.
+ * **ONE ENTRY PER FILE, NOT PER SITE** ([[BUG-213]]). A material may be on one
+ * site as several files, so a placement is ADDED beside the others and never
+ * replaces one. Every entry already there keeps its own framing.
+ *
+ * **COMPARE-AND-SET, AND RETRIED.** Six placements of one material in one batch
+ * are six read-modify-writes of one list; written blind, each would carry back
+ * the list it read and drop the others'. Demanding the version read and reading
+ * again on a clash is what makes all six land.
  */
 async function recordPlacement(
   tickets: TicketStore,
-  ticket: Ticket,
+  uid: string,
   slug: string,
   name: string,
 ): Promise<void> {
-  const named = placedAs(ticket.fields)
-  const slugs = placedOn(ticket.fields)
-  if (slugs.includes(slug) && named.some((e) => e.slug === slug && e.name === name)) return
-  await tickets.update({
-    uid: ticket.uid,
-    patch: {
-      fields: {
+  await updateCompareAndSet(tickets, uid, (fields) => {
+    const named = placedAs(fields)
+    const slugs = placedOn(fields)
+    if (slugs.includes(slug) && named.some((e) => e.slug === slug && e.name === name)) return null
+    return {
         // `placed_on` IS UNIONED AND NOT DERIVED FROM `placed_as`, which matters
         // for exactly one case and matters completely: material placed BEFORE
         // this ticket has slugs and no names, and deriving the list would erase
@@ -1096,11 +1127,38 @@ async function recordPlacement(
         // another site. Such a material is in the state the design already has a
         // reading for — placed, under no recorded name — and its next promotion
         // to that site records one.
-        placed_on: slugs.includes(slug) ? slugs : [...slugs, slug],
-        placed_as: [...named.filter((entry) => entry.slug !== slug), { slug, name }],
-      },
-    },
+      placed_on: slugs.includes(slug) ? slugs : [...slugs, slug],
+      placed_as: [...named, { slug, name }],
+    }
   })
+}
+
+/** How many times a clashing write is read and attempted again before it gives up. */
+const COMPARE_AND_SET_ATTEMPTS = 8
+
+/**
+ * Patch a ticket's fields from what it holds NOW, demanding the version read
+ * ([[BUG-213]]).
+ *
+ * `change` answers the patch, or `null` for nothing to write. A version clash
+ * reads again and re-decides; anything else is thrown as itself.
+ */
+async function updateCompareAndSet(
+  tickets: TicketStore,
+  uid: string,
+  change: (fields: Record<string, unknown>) => Record<string, unknown> | null,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    const { ticket } = await tickets.get({ uid })
+    const fields = change(ticket.fields)
+    if (fields === null) return
+    try {
+      await tickets.update({ uid, patch: { fields }, expected_version: ticket.version })
+      return
+    } catch (error) {
+      if (!isVersionConflict(error) || attempt >= COMPARE_AND_SET_ATTEMPTS) throw error
+    }
+  }
 }
 
 /**
@@ -1122,10 +1180,12 @@ function placedAs(fields: Record<string, unknown>): Placement[] {
   if (!Array.isArray(raw)) return []
   return raw.flatMap((entry) => {
     if (typeof entry !== 'object' || entry === null) return []
-    const { slug, name } = entry as Record<string, unknown>
+    const { slug, name, edits } = entry as Record<string, unknown>
     if (typeof slug !== 'string' || slug === '') return []
     if (typeof name !== 'string' || name === '') return []
-    return [{ slug, name }]
+    // A FRAMING THAT DOES NOT PARSE IS THE EMPTY ONE, the reading `edits` takes
+    // on the record itself; an absent one is the material's.
+    return [edits === undefined ? { slug, name } : { slug, name, edits: safeRecipe(edits) }]
   })
 }
 
@@ -1829,38 +1889,22 @@ export function materialImageLibrary(store: TicketStore, renderer?: ImageRendere
 
 /**
  * The Library picture a file on the site was placed from, where one is recorded
- * ([[BUG-126]]).
+ * ([[BUG-126]], [[BUG-213]]).
  *
- * **THE SECOND HALF OF "CHANGE A PICTURE THAT ALREADY EXISTS."** A recipe lives
- * on a Library record and a site asset is bytes with nowhere to carry one, so
- * `list_image_edits` and the recipe `edit_image` refuse a site file — coherently,
- * and the refusal is right. But `promoteToSiteAsset` COPIES the bytes, so the
- * moment a picture is on a page the only adjustable copy is the Library
- * original, and the client is looking at the page. *"Make this one a bit
- * warmer"* about the thing on screen had no path at all: one operation crashed
- * and the other declined, and both are the same request from the client's side.
+ * **WHAT A SITE FILE'S RECIPE IS A RECIPE OVER.** A placed file is a copy, and
+ * cropping the copy's own bytes would compound every crop on the last one. The
+ * original is the Library item's, kept forever, so that is what a placed file's
+ * recipe is measured against — and a site file with no recorded origin (drawn,
+ * imported) has no original to measure against and stays uneditable.
  *
- * **A PATH, NOT A SECOND RECIPE STORE.** The bytes on the site are a copy, and
- * giving the copy its own recipe would be two editable versions of one picture
- * drifting apart — with the next republish overwriting whichever one the client
- * last worked on. What the copy needs is not a place to keep edits; it is a way
- * to say where the edits GO. That place already exists and already works:
- * `republishingRecipes` carries a Library edit back out to every placement, so
- * editing the original is not a detour, it is the mechanism.
+ * **READ OFF `placed_as`, WHICH IS ALREADY THE ANSWER** ([[REQ-282]]). It says
+ * what a material is CALLED on each site; this is that record read in the other
+ * direction. Material placed before the names were recorded has no origin to
+ * report, which reads correctly as *"we do not know where these bytes came
+ * from"*.
  *
- * **READ OFF `placed_as`, WHICH IS ALREADY THE ANSWER** ([[REQ-282]]).
- * `placed_on` says a material reached a site; `placed_as` says what it is CALLED
- * there, recorded by `promoteToSiteAsset` in the same patch precisely so a
- * change can be carried back to the right file. This is that record read in the
- * other direction. No new field, no migration: material placed before the names
- * were recorded simply has no origin to report, which reads correctly as *"we do
- * not know where these bytes came from"*.
- *
- * **A FULL LISTING, ON THE REFUSAL PATH ONLY.** It is one scan of the client's
- * material to answer a question asked when an operation has already failed —
- * against an index on the site file's name, which nothing else would ever use,
- * kept in step forever. A listing that is already how every other consumer reads
- * placements is the cheaper thing to maintain.
+ * **A FULL LISTING.** One scan of the client's material, against an index on the
+ * site file's name that nothing else would ever use, kept in step forever.
  */
 export function placedOriginOf(
   store: TicketStore,
@@ -1873,6 +1917,53 @@ export function placedOriginOf(
       row.placed_as.some((entry) => entry.slug === slug && entry.name === image.name),
     )
     return from ? storedImageOf(from) : null
+  }
+}
+
+/**
+ * The recipes of a site's placed files, each its own ([[BUG-213]]).
+ *
+ * **ONE PICTURE, SEVERAL FRAMINGS.** A montage cropped six ways is one Library
+ * item on the site as six files, and a crop of one of them must not reach the
+ * other five. So a placed file's recipe is kept on ITS entry in `placed_as` and
+ * applied to the material's original; the material's own recipe is what a file
+ * with none of its own shows, and goes on reaching it.
+ *
+ * **A WRITE RE-RENDERS THAT FILE AND NO OTHER**, through `editAssetReplace` — the
+ * same draft write, journal note and stale-name refusal a Library edit's
+ * republication goes through.
+ */
+export function placementRecipes(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  slug: string,
+  deps: { renderer?: ImageRenderer } = {},
+): RecipeStore {
+  async function placement(name: string): Promise<{ row: MaterialRow; at: Placement }> {
+    for (const row of await listMaterial(tickets)) {
+      const at = row.placed_as.find((entry) => entry.slug === slug && entry.name === name)
+      if (at) return { row, at }
+    }
+    throw new MaterialRejectedError(
+      `'${name}' was not placed on this site from a Library item, so there is no original to keep a recipe over.`,
+    )
+  }
+  return {
+    async read(name: string): Promise<EditOp[]> {
+      const { row, at } = await placement(name)
+      return at.edits ?? row.edits
+    },
+    async write(name: string, recipe: readonly EditOp[]): Promise<void> {
+      const { row } = await placement(name)
+      await updateCompareAndSet(tickets, row.uid, (fields) => ({
+        placed_as: placedAs(fields).map((entry) =>
+          entry.slug === slug && entry.name === name ? { ...entry, edits: [...recipe] } : entry,
+        ),
+      }))
+      const file = await materialFile(tickets, row.uid)
+      const bytes = await renderedBytes(file.bytes, file.contentType, recipe, deps.renderer)
+      await editAssetReplace(slug, name, bytes, { store: sites, actor: 'client' })
+    },
   }
 }
 
