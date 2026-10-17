@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-213
 created_by: xgd
 created_at: '2026-10-17T22:47:10.033443+00:00'
-updated_at: '2026-10-17T22:51:56.883497+00:00'
+updated_at: '2026-10-17T22:54:22.208796+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,13 @@ The only way 6 crops come out of the fix to (1) alone is a fragile sequence: cro
 My recommendation is **B**, with A's behaviour as part of it: `as` gives a new copy, and that copy carries its own crop. A on its own closes the ticket but leaves the montage blocked, which is what the reporter actually hit. B is still one intent, "one Library item, several framed placements", so it can stay on BUG-213 (about 5 points). Point 3 needs fixing either way: write the placement as one atomic append, or retry when it conflicts.
 
 How do you want to scope it: A only, or B?
+
+<!-- xgd-turn id="6f2181d1-91cd-405c-bd26-574b23ca31fe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:54:15.950371+00:00" -->
+#### You
+**A site copy can't be cropped on its own.** `edit_image` can only store a crop on a Library item. For a site file it refuses with `NOT_EDITABLE` and says to edit the Library item instead (`image-core.ts:166-182`). <-- that's nonsense of course we need to edit site files!
+
+Go with your recommendation
 
 <!-- xgd-chat-end -->
