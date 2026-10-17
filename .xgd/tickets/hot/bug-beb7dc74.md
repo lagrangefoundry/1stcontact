@@ -5,15 +5,16 @@ type: bug
 title: 'Plan panel: Change and Skip on question cards don''t act until a later redraw'
 created_by: martin-github@westhead.me
 created_at: '2026-10-17T21:16:19.893854+00:00'
-updated_at: '2026-10-17T22:18:22.162824+00:00'
+updated_at: '2026-10-17T22:18:23.658419+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-f0eaf370
+  severity: medium
 ---
 
 ## Symptom
