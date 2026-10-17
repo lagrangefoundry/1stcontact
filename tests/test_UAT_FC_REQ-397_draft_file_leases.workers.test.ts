@@ -207,7 +207,7 @@ describe('REQ-397 draft-file leases in the Worker', () => {
     expect(got.status).toBe(200)
     const busy = ((await got.json()) as { busy?: { file: string; holder: string; line: string } }).busy
     expect(busy?.file).toBe('home.json#hero')
-    expect(busy?.line).toMatch(new RegExp(`^builder ${HOLDER} is working on this since \\d\\d:\\d\\d UTC`))
+    expect(busy?.line).toMatch(/^Your AI assistant is updating this section right now \(started /)
 
     // ...and a Save is refused, 409, naming who holds it. Nothing is written.
     const saved = await request('POST', '/api/copy', { site, page: 'home', path: '0.0', values: { text: 'Client words' } })

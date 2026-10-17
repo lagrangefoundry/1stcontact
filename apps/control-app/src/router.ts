@@ -99,8 +99,8 @@ import {
   CLIENT_HOLDER,
   DraftFileRefusal,
   asWriter,
+  busyLine,
   describeHolder,
-  heldSince,
   type DraftLeases,
 } from '../../../tools/generate/src/store/leases'
 import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-site'
@@ -6762,7 +6762,7 @@ async function routeUncached(
       // opens, rather than offering a Save the store will refuse.
       const lease = await elementLease(await openStore(), site, page, addr, Boolean(get('module')))
       const busy = lease
-        ? { file: lease.file, holder: describeHolder(lease.holder), since: lease.acquiredAt, line: `${describeHolder(lease.holder)} is working on this ${heldSince(lease.acquiredAt)}.` }
+        ? { file: lease.file, holder: describeHolder(lease.holder), since: lease.acquiredAt, line: busyLine(lease) }
         : null
       return json(200, { ...got, ...(pictures ? { pictures } : {}), ...(busy ? { busy } : {}) })
       }

@@ -141,13 +141,14 @@ export function mountEditor(doc, options = {}) {
     }
     // [[REQ-397]] — A BUILDER HOLDS THIS SECTION. Saying so here, instead of
     // opening a form whose Save the origin would refuse, is the whole of what the
-    // client needs: it is being worked on, by whom, since when.
+    // client needs: it is being worked on, by whom, since when — in the client's
+    // words, never a session id or a UTC clock ([[BUG-217]]).
     if (loaded.busy) {
       openModal({
         kind: 'message',
         host,
-        title: 'Being worked on',
-        message: `${loaded.busy.line} You can edit it once that work has finished.`,
+        title: 'This section is being updated',
+        message: `${loaded.busy.line} You'll be able to edit it as soon as it's finished — try again in a minute or two.`,
       })
       return
     }
