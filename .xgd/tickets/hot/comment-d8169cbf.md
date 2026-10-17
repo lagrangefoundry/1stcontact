@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:26:07.040296+00:00'
+updated_at: '2026-10-17T22:26:46.469979+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7821,5 +7821,33 @@ I can see a problem at your screen width: the main photo is wider than the scree
 Your consultant is taking a screenshot · about 1 min · 16:34 so far
 
 I'm not exactly sure what the right fix is but the output is confusing to me right now
+
+<!-- xgd-turn id="d6ac25b0-51c8-4792-acce-6466443a5165-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T22:26:37.704841+00:00" -->
+#### Claude
+Both are clear enough to fix. Here's what I found and what I'd do.
+
+## 1. The starter page
+
+Agreed, and your version is simpler than mine. **The starter page itself becomes the grey page** reading *"Your site will appear here as it's created."* Then nothing depends on the change count or a "nothing built yet" test: whatever state the site is in, before the consultant builds real sections all there is to see is the grey page. "Your 1st Contact site" disappears completely. The heading is only used to recognise the starter page, so a fixed marker on the page replaces it. Publishing stays refused while the starter is the only page.
+
+One side effect: if the consultant restyles the page before building (on Bob's Salon she set the cream background and fonts at 22:10, before adding sections), the grey page may turn cream. I'd fix that by keeping the starter's grey on the starter section, so a background change doesn't reach it.
+
+## 2. Time accounting: three separate faults
+
+**a. The estimate and the timer measure different things.** The working line takes its estimate from the *latest* note ("about 5 min", "about 1 min") but counts its timer from the *start of the turn* (`chat.js` `workingLineText`). So "about 1 min · 16:34 so far" compares a one-minute step with a sixteen-minute turn, and looks broken.
+
+Fix: the line shows the step and the turn separately:
+> *Building the first draft · about 15 min · 16:34 so far*
+> *now: fixing the photo on narrow screens · 1:37*
+
+The first line belongs to the turn's opening announcement and keeps its estimate for the whole turn. The second line is the current step, timed from when that step started.
+
+**b. A routine screenshot gets announced.** *"Taking a screenshot — about a minute"* appeared three times in the chat. REQ-386 announces every slow operation, and screenshots count. They're routine checking, not something the client needs to wait for. They shouldn't post to the chat at all, only update the "now:" line.
+
+**c. Internal plumbing leaks to you.** *"still working, elapsed 5 min — builder worker-builder-3-3br9qs on home.json, home.json#footer… since 22:19 UTC"* is the framework's heartbeat record (REQ-360), passed through word for word. It should never reach the client in that form: no worker ids, file names or UTC times. Its only useful content is "still going", and the timer already shows that, so the heartbeat should update the working line and post nothing.
+
+Shall I file both as one bug under EPIC-19? It's about 3 points; the two halves are small and belong to the same "first draft" experience.
 
 <!-- xgd-chat-end -->
