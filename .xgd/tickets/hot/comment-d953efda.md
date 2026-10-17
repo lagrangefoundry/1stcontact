@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-363
 created_by: xgd
 created_at: '2026-10-03T16:34:23.932487+00:00'
-updated_at: '2026-10-17T20:25:39.212059+00:00'
+updated_at: '2026-10-17T20:31:42.123129+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -124,5 +124,34 @@ Separately, the Gmail, Google Calendar and Google Drive connectors need authoriz
 <!-- xgd-chat role="user" ts="2026-10-17T20:25:31.305003+00:00" -->
 #### You
 please clean up the branch and worktree for this ticket
+
+<!-- xgd-turn id="177f5e41-a88f-482d-b9fb-9396adc4d5cf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:31:38.023873+00:00" -->
+#### Claude
+Memory says run `xgd branch clean` bare.
+
+I couldn't finish the cleanup because the sandbox wouldn't let me. Here is where it stands:
+
+- **Worktree folder:** already gone from disk.
+- **Branch `free-REQ-363`:** still exists, and it is fully merged into xgd-working, so deleting it loses nothing.
+- **What blocked me:** git still has a small record of the worktree under `.git/worktrees/free-REQ-363`. Both `xgd branch clean REQ-363` and `git worktree prune` failed with "Operation not permitted" when they tried to delete it. Git won't delete the branch while that record exists, so the branch couldn't go either.
+
+Run these from your own terminal, outside the sandbox, to finish it:
+
+```
+cd /Users/martin/lagrangefoundry/1stcontact
+xgd branch clean REQ-363
+```
+
+If `xgd` refuses, this does the same thing by hand:
+
+```
+git worktree prune && git branch -d free-REQ-363
+```
+
+The prune will also remove a leftover `bug143-baseline` worktree record, which hit the same block.
+
+The ticket is still at `free_coded` and nothing else about it changed.
 
 <!-- xgd-chat-end -->
