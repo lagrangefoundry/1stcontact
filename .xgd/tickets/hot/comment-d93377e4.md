@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-17T20:03:55.103168+00:00'
+updated_at: '2026-10-17T20:04:24.985785+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -278,5 +278,19 @@ Sources:
 We dropped the coordinating agent for now
 
 Please commit
+
+<!-- xgd-turn id="5517eee3-e3ff-412f-814d-c0762c73ba50-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T20:04:21.014124+00:00" -->
+#### Claude
+Both example businesses are committed to `xgd-working` as `fef08edb56`: 21 files across the two business folders and the index. It's content only, so it doesn't need a ticket.
+
+Two changes went in with it:
+- Since the coordinating agent is gone, I removed the "two Bobs" warning from Bob's Salon's README.
+- You'd added four more photos of Charlie's install work, so they're now listed in Charlie's README and included in the commit.
+
+Charlie's README still says "Bob is the coordinator". I left that as it is because it's accurate for that first run.
+
+I only committed `example-businesses/`. Two other files were already modified before I started and I left them out: `.xgd/tickets/hot/request-2dabea8f.md` and `packages/framework/src/modules/module-assets.ts`.
 
 <!-- xgd-chat-end -->
