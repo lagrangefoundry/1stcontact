@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T15:10:31.510124+00:00'
+updated_at: '2026-10-17T15:11:13.533955+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7599,5 +7599,26 @@ ok the next thing I want is for the questions in the question pannel to collapse
 6. Open questions default to expanded. Once a question is Done or Skipped it collapses - questions can be expanded or collapsed by the user at any time. They stay expanded or collapsed
 
 Please create a ticket
+
+<!-- xgd-turn id="a9c6b31b-7957-482a-88ca-f2d47c926f1e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T15:11:12.138933+00:00" -->
+#### Claude
+I've filed **REQ-401**, *"Plan panel: questions fold to one line with a status box, in two sections, matching the chat's type"*. It's under EPIC-19 at `draft`, high priority, 5 points, and linked from the epic.
+
+Your six points, as they appear in the ticket:
+1. **Same fonts and sizes as the chat.** They're taken from the chat's own styles, not copied, so the two can't drift apart.
+2. **One line per item:** a ▸/▾ triangle, a status box (empty white for open, grey with "–" for skipped, ✓ for done), then the start of the question ending in "…". The status also has a screen-reader label.
+3. **"Sites we're comparing" becomes an item.** It's open while you're comparing, done once the consultant records the look decision from it, and skipped if you skip it.
+4. **Two sections:** OPEN QUESTIONS and WHAT YOU'VE TOLD US. An empty section is hidden.
+5. **The consultant announces every question she adds**, in one line in the chat, asking you to fill it in. She never adds one silently.
+6. **Folding:**
+   - open items start expanded;
+   - an item collapses once, at the moment it's done or skipped;
+   - your own expand or collapse choices stick, through re-renders and reloads.
+
+Two things I added:
+- **Questions must lead with their subject**, e.g. *"Phone number for the site — …"*, because a collapsed line only shows the first few words. This was implied by your point 2, and it's now a rule for the consultant.
+- **The automatic collapse never overrides you.** If you reopen a finished question, it stays open.
 
 <!-- xgd-chat-end -->
