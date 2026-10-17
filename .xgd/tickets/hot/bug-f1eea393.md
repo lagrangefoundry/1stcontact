@@ -6,10 +6,10 @@ title: Builder worker aborted on context budget with no report and left the brie
   half-done
 created_by: xgd
 created_at: '2026-10-17T22:29:24.149544+00:00'
-updated_at: '2026-10-17T23:11:05.573880+00:00'
+updated_at: '2026-10-17T23:11:39.952871+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,20 @@ fields:
   epic_parent: epic-95bc3b15
   severity: high
   chat_comment: comment-66e3595b
+  commits:
+  - working_sha: cf77980434b490511926abfd864919cb0c4ed768
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bda54fd4ccbc6303c4eb7a44ea74c980714d0957
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e1cf1fc099c16525fec25692a6029c652c44092c
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c3377ad7559b74cd48a1eabfc185ced076c63272
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.522
 ---
 
 ## What happened
