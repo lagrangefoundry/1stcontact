@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-401
 created_by: xgd
 created_at: '2026-10-17T15:15:40.701947+00:00'
-updated_at: '2026-10-17T15:27:43.376703+00:00'
+updated_at: '2026-10-17T15:29:01.164075+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,11 @@ REQ-401 is built, merged into xgd-working and parked at `free_coded`. That's com
 Eight other suites that test the consultant's instructions and session setup (REQ-182, -239, -283, -284, -285, -295, -388, AC1320) can't confirm this change. They fail the same way on an untouched checkout (`lib.registerDefaults is not a function`), so the failures predate this work. Their size-limit check didn't run as a result, but the limit is 200,000 characters and this adds about 800.
 
 The ticket body now records all of the above, and the ticket is ready for you to promote when you're happy.
+
+<!-- xgd-turn id="f86cf0ca-c6e2-4c67-909e-d8e2b64b1be3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T15:29:01.051362+00:00" -->
+#### You
+Is this complete?
 
 <!-- xgd-chat-end -->
