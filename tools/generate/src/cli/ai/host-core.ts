@@ -65,6 +65,7 @@ import {
   COORDINATOR_ROLE,
   coordinatorRole,
   BUILDER_ROLE,
+  BUILDER_TURN_MAX_BYTES,
   builderRole,
   CONSULTANT_ROLE,
   consultantRole,
@@ -146,6 +147,7 @@ import { draftAccount, reportingDelegationToolbox } from './account-core'
 import {
   configureProjectBackends,
   PROJECT_BACKEND,
+  projectBackendBudgets,
   projectBackendCeiling,
   projectBackendModel,
   projectBackendWindow,
@@ -1979,11 +1981,18 @@ async function build(
                 // `wrote`, `activity` and `ended` beside the framework's result
                 // ([[BUG-167]], [[BUG-191]]); the account itself is the runtime's
                 // hook ([[REQ-354]]) — see {@link reportingDelegationToolbox}. The
-                // ceiling is the WORKER'S, by the name its guard was built under,
-                // so `ended` names a budget stop on the same line the guard drew.
+                // ceiling and the round budgets are the WORKER'S, by the name its
+                // adapter was built under, so `ended` names a budget stop on the
+                // same line the guard drew and the size of a budget that ran out;
+                // and a brief longer than the builder's turn ceiling is refused
+                // rather than cut ([[BUG-208]]).
                 surface: new (reportingDelegationToolbox(
                   lib,
                   projectBackendCeiling(lib as Untyped, workerSettings?.backend),
+                  {
+                    budgets: projectBackendBudgets(lib as Untyped, workerSettings?.backend),
+                    briefMaxBytes: BUILDER_TURN_MAX_BYTES,
+                  },
                 ))(runtime),
                 granted: lib.delegationInstanceConfig(runtime.roleNames()),
               },

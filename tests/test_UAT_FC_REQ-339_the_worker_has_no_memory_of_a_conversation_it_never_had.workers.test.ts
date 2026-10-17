@@ -49,7 +49,7 @@ import {
  *   1. a worker is handed no standing note and no recorded decisions;
  *   2. its per-turn reminders tell it to act rather than narrate;
  *   3. the consultant's own delivery is untouched — on the very turn it delegates;
- *   4. it still gets the facts about the SITE: the site line and the page digest.
+ *   4. it still gets the site it is on (the page digest went with [[BUG-208]]).
  */
 
 const ENABLED = { ...delegationDocument, enabled: true }
@@ -322,12 +322,12 @@ describe('REQ-339 — a worker is told to act rather than narrate', () => {
     expect(read).toContain(builderLine('no-status-narration'))
   })
 
-  it('test_UAT_FC_REQ-339_a_worker_still_gets_the_facts_about_the_site', async () => {
-    // BEHAVIOUR 4. The site line and the page digest are facts about the SITE and
-    // not about the consultant's conversation, and a worker made to discover them
-    // by reading would pay back more than the record ever cost it. This is the
-    // regression the fix could most easily have caused: all three entries were
-    // arriving by the same route.
+  it('test_UAT_FC_REQ-339_a_worker_still_gets_the_site_it_is_on', async () => {
+    // BEHAVIOUR 4. The site line is a fact about the SITE and not about the
+    // consultant's conversation. This is the regression the fix could most easily
+    // have caused: all three entries were arriving by the same route. The page
+    // digest is no longer among them ([[BUG-208]]): taken once per round, it was
+    // stale for the whole of a worker's one-round job.
     configureDelegation(ENABLED)
     resetAiHost()
     resetChatHost()
@@ -336,6 +336,6 @@ describe('REQ-339 — a worker is told to act rather than narrate', () => {
     const read = told(worker[0])
 
     expect(read).toContain(`You are working on the site "${slug}"`)
-    expect(read).toContain('The site as it stands')
+    expect(read).not.toContain('The site as it stands')
   })
 })

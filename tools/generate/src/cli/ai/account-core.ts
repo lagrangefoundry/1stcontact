@@ -51,7 +51,9 @@ import { canonicalJson, diffOutlines } from '../../store/revision-model'
 import type { SiteOutline } from '../../store/revision-model'
 import type { SiteStore, StoredPage } from '../../store/site-store'
 import { BUDGET_STOP_REASON, TURN_END, budgetStopMeta } from './budget-core'
+import type { RoundBudgets } from './backends'
 import { withClientNote } from './cadence-core'
+import { DELEGATE_TOOL } from './turn-clock-core'
 
 // ── what a capture is ────────────────────────────────────────────────────────
 
@@ -787,21 +789,33 @@ export function workerActivity(lib: Untyped, records: readonly Untyped[]): Worke
 }
 
 /**
- * How a worker's turn ended, when it did not finish ([[BUG-191]]).
+ * How a worker's run ended, whenever it did not end on a report ([[BUG-191]],
+ * [[BUG-208]]).
  *
  * WHY IT EXISTS. A worker turn that closed `aborted` used to reach the caller as
  * `outcome: silent` and a `nudge_skipped` telling it to read the worker's session
  * record — which the caller has no operation for. The record does say why, and
  * this is that, read by the host and put where the caller already looks.
+ *
+ * AND A RUN THAT FINISHED IS EXPLAINED TOO ([[BUG-208]]). A worker that ran out of
+ * a budget, or that finished its turn without ever calling its report, used to
+ * come back with nothing here at all — so "ended without reporting" read as an
+ * empty result, and the one fact the caller needed, which limit ended the run,
+ * was in a record it cannot read. The framework's own reason on each check says
+ * "ran out of tool calls" whichever budget it was; this says which.
  */
 export interface WorkerEnding {
-  /** The turn's own status — `aborted` or `error`. Never `complete`. */
+  /** The deciding turn's own status — `complete`, `aborted` or `error`. */
   status: string
   /**
-   * Why it was stopped, when anything says: {@link BUDGET_STOP_REASON} for this
-   * host's context-budget guard, otherwise the reason the stop itself recorded.
+   * Why: {@link WORKER_RAN_OUT_OF} a budget (`calls` or `time`),
+   * {@link NO_REPORT} when no limit was reached and the worker simply never
+   * reported, {@link BUDGET_STOP_REASON} for this host's context-budget guard, or
+   * the reason a stop itself recorded.
    */
   reason?: string
+  /** The size of the budget that ran out — tool calls or seconds — when configured. */
+  limit?: number
   /** What the worker's last request carried, on a budget stop. */
   occupancy_tokens?: number
   /** The most one worker request may carry, on a budget stop. */
@@ -810,46 +824,67 @@ export interface WorkerEnding {
   error?: string
 }
 
+/** The budgets a worker turn can run out of, by the name its record gives them. */
+export const WORKER_RAN_OUT_OF = { calls: 'calls', time: 'time' } as const
+
+/** A worker whose turns finished, inside every budget, without a report ([[BUG-208]]). */
+export const NO_REPORT = 'no_report'
+
 /**
- * {@link WorkerEnding} from a worker's junction records, or `null` when its last
- * turn completed ([[BUG-191]]).
+ * {@link WorkerEnding} from a worker's junction records, or `null` when it ran no
+ * turn at all ([[BUG-191]], [[BUG-208]]).
  *
- * THE LAST `turn_end` IS THE ONE THAT DECIDED THE OUTCOME. A nudge that ran is a
- * second turn, and how that one ended is what left the delegation unreported; a
- * nudge that was skipped leaves the first turn last.
+ * Read only for a delegation whose outcome is not `reported`, so a turn that
+ * finished here is one that finished without a usable report. Three cases, in
+ * the order they decide:
  *
- * THE BUDGET STOP IS DERIVED, NOT READ. The guard names `context_budget` on the
- * adapter's terminal event and the manager does not forward it — but the
- * `turn_end` record carries the status and the per-request usage the guard fired
- * on, which is exactly what {@link budgetStopMeta} re-derives the consultant's own
- * stop from. `ceiling` is the WORKER'S, because its guard is held to its own
- * window; `0` means no budget stop can be named, and nothing else changes.
+ *   1. THE LAST TURN DID NOT FINISH — `aborted` or `error`. That turn decided the
+ *      outcome: a nudge that ran is a second turn, and how that one ended is what
+ *      left the delegation unreported; a nudge that was skipped leaves the first
+ *      turn last. A budget stop is DERIVED, not read: the guard names
+ *      `context_budget` on the adapter's terminal event and the manager does not
+ *      forward it, but the `turn_end` record carries the status and the
+ *      per-request usage the guard fired on, which is exactly what
+ *      {@link budgetStopMeta} re-derives the consultant's own stop from. `ceiling`
+ *      is the WORKER'S, because its guard is held to its own window; `0` means no
+ *      budget stop can be named.
+ *   2. ANY TURN RAN OUT OF A BUDGET. The framework reports that as `exhausted`
+ *      whether or not a report arrived, and `turn_end` records which budget it was
+ *      (`exhausted_by`). `budgets` supplies its size where it is configured.
+ *   3. OTHERWISE NO LIMIT WAS REACHED: every turn finished and none reported.
  */
 export function workerEnding(
   lib: Untyped,
   records: readonly Untyped[],
   ceiling: number,
+  budgets: RoundBudgets = {},
 ): WorkerEnding | null {
-  for (let at = records.length - 1; at >= 0; at -= 1) {
-    const record = records[at]
-    if (record?.kind !== TURN_END) continue
-    const status = String(record.status ?? '')
-    if (status === '' || status === 'complete') return null
+  const ends = records.filter((record) => record?.kind === TURN_END)
+  const last = ends[ends.length - 1]
+  if (last === undefined) return null
+  const status = String(last.status ?? '') || 'complete'
+  if (status !== 'complete') {
     const ending: WorkerEnding = { status }
-    const budget = budgetStopMeta(lib, record, ceiling)
+    const budget = budgetStopMeta(lib, last, ceiling)
     if (budget) {
       ending.reason = BUDGET_STOP_REASON
       ending.occupancy_tokens = Number(budget.occupancy_tokens)
       ending.ceiling = ceiling
-    } else if (typeof record.reason === 'string' && record.reason !== '') {
-      ending.reason = record.reason
+    } else if (typeof last.reason === 'string' && last.reason !== '') {
+      ending.reason = last.reason
     }
-    if (typeof record.error === 'string' && record.error !== '') {
-      ending.error = clip(record.error, ACTIVITY_CLIP)
+    if (typeof last.error === 'string' && last.error !== '') {
+      ending.error = clip(last.error, ACTIVITY_CLIP)
     }
     return ending
   }
-  return null
+  const exhausted = ends.find((record) => record.exhausted === true)
+  if (exhausted !== undefined) {
+    const by = exhausted.exhausted_by === WORKER_RAN_OUT_OF.time ? WORKER_RAN_OUT_OF.time : WORKER_RAN_OUT_OF.calls
+    const limit = by === WORKER_RAN_OUT_OF.time ? budgets.seconds : budgets.calls
+    return { status, reason: by, ...(limit ? { limit } : {}) }
+  }
+  return { status, reason: NO_REPORT }
 }
 
 /**
@@ -1100,15 +1135,23 @@ const HOST_RESULT_FIELDS = {
     'last thing the worker said, when it said anything. Long values are clipped and say ' +
     "so; the worker's own session, named by 'session', holds them in full.",
   ended:
-    "Present only when the worker's turn did not finish — it was stopped or it failed — " +
-    "and read by the host from the worker's session record, so you never need to read " +
-    "that record yourself. 'status' is how the turn ended ('aborted' or 'error'). " +
-    "'reason' says why when anything recorded it. 'context_budget' means the host " +
+    "Present whenever 'outcome' is not 'reported' — that is, whenever the worker ended " +
+    'without a finished report — and read by the host from the worker\'s session ' +
+    "record, so you never need to read that record yourself. It says what ended the " +
+    "run. 'status' is how the worker's last turn ended: 'complete', 'aborted' or " +
+    "'error'. 'reason' says why. 'calls' or 'time' means the worker ran out of its " +
+    "budget of tool calls or of seconds, and 'limit' is that budget's size: whatever " +
+    "it reported (the summary may be empty) was cut short, so ask a new delegation for " +
+    "what remains, and trust this over any check reason that names the other budget. " +
+    "'no_report' means no limit was reached: the worker finished without ever calling " +
+    "its report, even when asked again, so nothing it said reached you except " +
+    "'activity.last_words'. 'context_budget' means the host " +
     "stopped the worker between two requests because its context had reached " +
     "'occupancy_tokens' of the 'ceiling' one request may carry: everything it wrote " +
     "before that landed and is in 'account', and that worker has no room left, so send " +
-    "what remains as a new, smaller delegation rather than asking it again. 'error' is " +
-    'the error the turn ended on, when it errored.',
+    "what remains as a new, smaller delegation rather than asking it again. Any other " +
+    "reason is the one the stop recorded. 'error' is the error the turn ended on, when " +
+    'it errored. Tell your client which of these it was, in plain words.',
 }
 
 /** `declaration` with {@link HOST_RESULT_FIELDS} added to its result shape. */
@@ -1120,9 +1163,41 @@ function withHostResultFields(declaration: Untyped): Untyped {
   }
 }
 
+/** The refusal for a brief a builder could not be handed whole ([[BUG-208]]). */
+export const BRIEF_TOO_LONG = 'brief_too_long'
+
+const BRIEF_TOO_LONG_ERROR = {
+  message:
+    'The brief is longer than a builder can be handed in one piece, so nothing was ' +
+    'delegated and nothing ran. A brief is delivered whole or not at all: a cut one ' +
+    'would reach the builder without its last items and its checks. Split the work ' +
+    'into smaller delegations, each with its own checks, or shorten this one.',
+  host_detail: true,
+}
+
+/** `declaration` with {@link BRIEF_TOO_LONG} declared, and declared on the delegate operation. */
+function withBriefRefusal(declaration: Untyped): Untyped {
+  return {
+    ...declaration,
+    errors: { ...(declaration.errors ?? {}), [BRIEF_TOO_LONG]: BRIEF_TOO_LONG_ERROR },
+    operations: (declaration.operations ?? []).map((op: Untyped) =>
+      op.tool === DELEGATE_TOOL ? { ...op, errors: [...(op.errors ?? []), BRIEF_TOO_LONG] } : op,
+    ),
+  }
+}
+
+/** How a builder is bounded, beyond its context ceiling ([[BUG-208]]). */
+export interface WorkerLimits {
+  /** Its round budgets, so `ended` can give the size of the one that ran out. */
+  budgets?: RoundBudgets
+  /** The most one of its turns may carry; a brief over it is refused. `0` is no check. */
+  briefMaxBytes?: number
+}
+
 /**
  * `DelegationToolbox`, with `wrote`, `activity` and `ended` added to its result
- * ([[BUG-167]], [[BUG-191]]).
+ * ([[BUG-167]], [[BUG-191]]), and a brief too long to arrive whole refused
+ * ([[BUG-208]]).
  *
  * THE ACCOUNT IS NO LONGER TAKEN HERE ([[REQ-354]]). The bracket, the record
  * and the host-settled checks are {@link draftAccount}, on the framework's own
@@ -1139,27 +1214,45 @@ function withHostResultFields(declaration: Untyped): Untyped {
  *
  * `ceiling` is the worker's budget ceiling ([[REQ-296]]), which is what lets
  * `ended` name a budget stop; `0` leaves the stop unnamed and nothing else
- * changes.
+ * changes. `limits` are the worker's round budgets and its turn ceiling
+ * ([[BUG-208]]).
  *
- * NOTHING HERE EVER FAILS THE DELEGATION: a log read that throws costs its
+ * THE BRIEF IS MEASURED AS THE WORKER WILL RECEIVE IT — the framework's own
+ * `brief`, with every check the caller asked for. That over-counts by any check
+ * the host goes on to settle itself, which only ever refuses a brief that would
+ * have fitted by a few lines; the opposite error would cut one.
+ *
+ * NOTHING ELSE HERE EVER FAILS THE DELEGATION: a log read that throws costs its
  * field and nothing else.
  */
-export function reportingDelegationToolbox(lib: Untyped, ceiling = 0): Untyped {
+export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: WorkerLimits = {}): Untyped {
+  const budgets = limits.budgets ?? {}
+  const briefMaxBytes = limits.briefMaxBytes ?? 0
   // [[REQ-379]] — and the client's note, which the host shows before the work runs.
-  const declaration = withClientNote(withHostResultFields(lib.DelegationToolbox.DECLARATION))
+  const declaration = withBriefRefusal(withClientNote(withHostResultFields(lib.DelegationToolbox.DECLARATION)))
   return class ReportingDelegationToolbox extends lib.DelegationToolbox {
     constructor(runtime: Untyped, options: Untyped = {}) {
       super(runtime, { ...options, decl: options.decl ?? declaration })
     }
 
     async delegate(input: Untyped): Promise<Untyped> {
+      if (briefMaxBytes > 0) {
+        const checks = Array.isArray(input?.accept) ? input.accept : []
+        const bytes = new TextEncoder().encode(lib.delegationBrief(input?.goal, checks)).length
+        if (bytes > briefMaxBytes) {
+          throw new lib.DelegationError(
+            BRIEF_TOO_LONG,
+            `this brief is ${bytes} bytes with its checks; a builder takes at most ${briefMaxBytes}`,
+          )
+        }
+      }
       let result = await super.delegate(input)
       const changed = result.account?.changed as DraftChanges | undefined
       if (changed !== undefined) result = { ...result, wrote: wroteAnything(changed) }
       if (result.outcome === lib.DELEGATION_REPORTED) return result
       try {
         const [records] = this.runtime.manager.logFor(result.session).readFrom(0)
-        const ended = workerEnding(lib, records, ceiling)
+        const ended = workerEnding(lib, records, ceiling, budgets)
         return { ...result, activity: workerActivity(lib, records), ...(ended ? { ended } : {}) }
       } catch {
         return result

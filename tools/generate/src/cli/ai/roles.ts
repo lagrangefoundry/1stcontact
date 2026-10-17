@@ -341,10 +341,15 @@ export function settingsPrimingConfig(): Record<string, unknown> {
  *
  * WHAT IS IN EACH TIER. The stable prefix is the role's prose and its own
  * projected manual, so every worker this deployment opens sends an IDENTICAL
- * cacheable prefix. Which site it is on and what is currently on that site are
- * volatile and ride the reminder tier — a worker lives one turn, so nothing is
- * lost by delivering them there, and putting them in the prefix would give every
- * delegation a prefix of its own.
+ * cacheable prefix. Which site it is on is volatile and rides the reminder tier,
+ * because putting it in the prefix would give every delegation a prefix of its own.
+ *
+ * WHAT IS ON THAT SITE IS NOT DELIVERED AT ALL ([[BUG-208]]). The reminder tier
+ * is assembled once, when a round opens, and re-sent after every tool result — and
+ * a worker lives one round. So the page digest told a worker, after every write it
+ * made, that the site still stood where it stood at the brief, and to trust that
+ * over what it saw: one builder replaced a whole page nine times believing its
+ * writes had not landed. A worker's own tool results are its account of the site.
  */
 /** The coordinator's priming and reminders, as the role mapping takes them ([[REQ-357]]). */
 export function coordinatorPrimingConfig(): Record<string, unknown> {
@@ -353,6 +358,23 @@ export function coordinatorPrimingConfig(): Record<string, unknown> {
     reminders: (primingDocument.coordinator_reminders as RawEntry[]).map(normalise),
   }
 }
+
+/**
+ * The most one builder turn may carry, in UTF-8 bytes ([[BUG-208]]).
+ *
+ * A WORKER'S BRIEF IS ITS FIRST USER TURN, and the framework bounds a user turn at
+ * 4000 bytes by default — a bound sized for a client's paste, cut with a marker
+ * saying the rest can be read back by id. A worker has nothing to read it back
+ * with, so a longer brief simply stopped: in Charlie's plumbing - 3 a 7,075-character
+ * brief reached its builder cut inside item 5 of 8, with every check it was meant
+ * to answer gone, and the builder reported items 6 to 8 as "not requested".
+ *
+ * 32,000 is four times the longest brief that engagement wrote (about 8,000 bytes
+ * with its checks), and a few thousand tokens in a 200k window. A brief over it is
+ * refused before the worker opens — `reportingDelegationToolbox` — so a brief is
+ * either delivered whole or not delivered, never shortened.
+ */
+export const BUILDER_TURN_MAX_BYTES = 32_000
 
 export function builderPrimingConfig(
   tools: Record<string, unknown>,
@@ -369,6 +391,7 @@ export function builderPrimingConfig(
     priming: (priming as RawEntry[]).map(normalise),
     reminders: (primingDocument.builder_reminders as RawEntry[]).map(normalise),
     tools,
+    session: { turn_max_bytes: BUILDER_TURN_MAX_BYTES },
   }
 }
 
@@ -1451,10 +1474,10 @@ export function registerSettingsProviders(
  * its page vocabulary ([[BUG-182]]).
  *
  * ONLY THOSE, because everything else a worker is told it shares with the consultant
- * and reads under the consultant's own names: `site.line` says which site, and
- * `site.digest` says what is currently on it. Those are facts about the SITE, and
- * both roles are on the same one in the same manager — a second binding would be
- * a second answer to a question that has one.
+ * and reads under the consultant's own names: `site.line` says which site. That is a
+ * fact about the SITE, and both roles are on the same one in the same manager — a
+ * second binding would be a second answer to a question that has one. (`site.digest`
+ * is the consultant's alone: see {@link builderPrimingConfig}.)
  *
  * REGISTERED ONLY WHERE THERE IS A WORKER TO REGISTER IT FOR. The builder role is
  * loaded only when this deployment composes the delegation surface, and

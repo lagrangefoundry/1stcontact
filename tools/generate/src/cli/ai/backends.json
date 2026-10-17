@@ -75,10 +75,22 @@
     "follows the next change of `model` rather than outliving it.",
     "",
     "OPUS 5.5 DEFAULTS TO EFFORT medium WHERE OPUS 5 DEFAULTED TO high. This entry",
-    "should declare `effort: high`, and `claude_builder` `max_iterations: 100`",
-    "(3 of 8 builder runs exhausted the 50-call limit) — both wait on",
-    "lagrange-framework REQ-203: `configureBackends` rejects a key it does not",
-    "declare, so naming either today would stop the host starting."
+    "should declare `effort: high`. That was waiting on lagrange-framework REQ-203,",
+    "which has since added the key, and is a decision about the consultant that no",
+    "ticket has taken yet.",
+    "",
+    "THE BUILDER'S STEP BUDGET IS 100 CALLS AND 600 SECONDS ([[BUG-208]]). Both are",
+    "keys since lagrange-framework REQ-203; before it every builder ran at the",
+    "framework's 50 calls and 600 s. The measurement: 3 of 8 earlier builder runs",
+    "exhausted the 50-call cap, and in Charlie's plumbing - 3 (17 runs, 2026-10-04)",
+    "requests per run were 8 to 45, median 23, with one run at 45 of 50. So calls go",
+    "to 100. The time stays at 600, now stated rather than inherited: the one run",
+    "that ran out of time (28 requests, ~607 s) spent most of it replacing a whole",
+    "page nine times because a stale page digest said its writes had not landed. That",
+    "cause is removed, and without it a first page needs a few writes. Stating both",
+    "numbers also lets a delegation that runs out name the budget it ran out of,",
+    "with its size (`ended.limit`). The builder's priming is the other half: it",
+    "checks each piece as it finishes it rather than all at the end."
   ],
 
   "claude": {
@@ -89,7 +101,9 @@
 
   "claude_builder": {
     "model": "claude-haiku-4-5",
-    "max_tokens": 32000
+    "max_tokens": 32000,
+    "max_iterations": 100,
+    "turn_timeout": 600
   },
 
   "claude_coordinator": {

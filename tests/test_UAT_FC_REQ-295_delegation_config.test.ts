@@ -327,11 +327,12 @@ describe('REQ-295 — the builder reads its own words, never the consultants', (
   })
 
   it('test_UAT_FC_REQ-295_every_worker_this_deployment_opens_sends_the_same_cacheable_prefix', () => {
-    // WHAT VARIES PER DELEGATION IS IN THE REMINDER TIER. A worker lives one
-    // turn, so nothing is lost by delivering which site it is on and what is
-    // currently on that site there — and putting either in the prefix would give
-    // every delegation a prefix of its own, which for a feature whose entire
-    // justification is cost is the wrong way round.
+    // WHAT VARIES PER DELEGATION IS IN THE REMINDER TIER. Which site a worker is
+    // on is delivered there — putting it in the prefix would give every
+    // delegation a prefix of its own, which for a feature whose entire
+    // justification is cost is the wrong way round. What is on that site is not
+    // delivered at all ([[BUG-208]]): the tier is assembled once per round and a
+    // worker lives one round, so a digest there was stale from its first write.
     const priming = primingDocument.builder_priming as { provider?: string }[]
     const reminders = primingDocument.builder_reminders as { provider?: string }[]
     // The PROVIDER entries alone: since [[REQ-339]] the tier also carries two
@@ -341,7 +342,7 @@ describe('REQ-295 — the builder reads its own words, never the consultants', (
     const volatile = reminders.map((entry) => entry.provider).filter(Boolean)
 
     expect(volatile).toContain('site.line')
-    expect(volatile).toContain('site.digest')
+    expect(volatile).not.toContain('site.digest')
     for (const name of volatile) expect(priming.map((e) => e.provider)).not.toContain(name)
   })
 
