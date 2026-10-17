@@ -6,9 +6,9 @@ title: Builder worker aborted on context budget with no report and left the brie
   half-done
 created_by: xgd
 created_at: '2026-10-17T22:29:24.149544+00:00'
-updated_at: '2026-10-17T22:47:29.435120+00:00'
+updated_at: '2026-10-17T22:47:51.652538+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -35,3 +35,14 @@ The caller has to rebuild the picture itself from `describe_page` and screenshot
 
 ## Repro
 Delegate to `builder` a goal with roughly 10 sections of rich copy, plus a component, plus multiple asset derivations, in one brief with 7 accept checks.
+
+
+
+## Relation to BUG-208 (EPIC-19, 2026-10-17)
+
+Not a duplicate. BUG-208 covered workers ending on the call or time budget, and a report written as prose. This one is the `context_budget` abort, where the worker **did** call `ReportResult`, with a wrong-shaped `failed` entry, and had no budget left to retry. Two fixes:
+
+1. **`ReportResult` accepts a plain string** in `failed` (coerced to an item) instead of refusing. A refusal at the last step of a budget-limited turn is a lost report. If the shape lives upstream, this half is a lagrange-framework ticket.
+2. **On a `context_budget` abort the host writes a partial report from the account** — what was written, what wasn't — instead of an empty summary.
+
+The brief itself (about 10 sections, a component, 6 crops and 7 checks in one) is the kind DOC-63 says to split. EPIC-24's per-section scopes make smaller briefs the natural unit.
