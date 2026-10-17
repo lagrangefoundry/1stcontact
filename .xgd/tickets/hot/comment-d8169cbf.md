@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T16:55:17.595716+00:00'
+updated_at: '2026-10-17T17:14:18.049273+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7708,5 +7708,31 @@ This **replaces part of REQ-399**, which had the consultant open the conversatio
 <!-- xgd-chat role="user" ts="2026-10-17T16:55:05.175613+00:00" -->
 #### You
 The chat window on a new business is still showing a text entry area and is displaying this message: *lib4.registerDefaults is not a function*
+
+<!-- xgd-turn id="19275907-a74b-48ac-84a0-c877045992fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T17:13:59.387865+00:00" -->
+#### Claude
+Tracing it: the installed framework removed `registerDefaults` on Oct 10 (LF BUG-83), and our host still calls it. Checking whether any 1stcontact ticket actually owns the migration.
+
+This isn't REQ-403. It's an upstream framework change that our AI host was never updated for, and right now it breaks every conversation, not just new businesses.
+
+**Cause.** On Oct 10, lagrange-framework BUG-83 (`5a2f3f1906`) rebuilt session memory. The memory layers (summary, transcript pointer, budget gauge, memory reminder) moved into a core that the framework now adds around every host itself. As part of that it deleted `registerDefaults`. Our host still calls it twice, in `host-core.ts` around lines 1821 (consultant) and 2645 (settings assistant). The shared `@lagrangefoundry` install isn't pinned to a version, so it picked up the change on its next refresh. Building the session then throws, and the chat shows the error.
+
+**Why you still see the text box.** REQ-403 is in your dev snapshot: it was built at 09:51, after REQ-403 landed at 09:23, and "Click here to start" is in the bundle. My best guess is that the conversation fails to open before the panel gets to decide the conversation is empty. The error path then falls back to the ordinary composer, so the start button never gets a chance to show. I expect it to appear once the throw is fixed, but I haven't confirmed that.
+
+**Nobody owns the fix.** Earlier sessions cited bug-d672f592 as tracking this, and that was wrong. That ticket is BUG-63, the September `KnowledgeDocs` migration. I've corrected my notes. Meanwhile, test runs have been working around the problem with a pre-BUG-83 copy of the library, which hides it.
+
+**Deleting the two calls won't be enough.** The new core also **refuses a host that registers a provider name it now owns**, and REQ-283 registered our own `session.summary`, built on the ledger and `fields.frame`. So the fix is a real migration:
+- drop the `registerDefaults` calls;
+- move our memory settings into the product's `memory:` block;
+- decide how our ledger-backed summary maps onto the framework's summary store, which it now derives from the archive;
+- remove any provider names that collide with the core.
+
+The conversation tests then need to run against the real installed library again, not the old copy.
+
+**The obvious shortcut is a bad trade.** Reinstalling the pre-Oct-10 framework would also roll back things you depend on, including web search (REQ-206) and the empty-reasoning fix (BUG-81).
+
+Shall I file this as a high-severity bug under EPIC-19? It blocks every builder conversation.
 
 <!-- xgd-chat-end -->
