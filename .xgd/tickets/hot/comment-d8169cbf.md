@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T15:11:13.533955+00:00'
+updated_at: '2026-10-17T15:15:03.528537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7620,5 +7620,16 @@ Your six points, as they appear in the ticket:
 Two things I added:
 - **Questions must lead with their subject**, e.g. *"Phone number for the site — …"*, because a collapsed line only shows the first few words. This was implied by your point 2, and it's now a rule for the consultant.
 - **The automatic collapse never overrides you.** If you reopen a finished question, it stays open.
+
+<!-- xgd-turn id="759f068e-b9df-4bd4-8c7b-ca82d471b14c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T15:15:03.472883+00:00" -->
+#### You
+The "version" selector needs more space - I like the descriptions that are given but its broken in its current setting.
+
+Lets do this:
+Selector is not present unless there are versions available
+If there are versions available then we take a band from the top of the page display section
+The band has the < name >  control followed by a section with the text description of the version that can span the panel. Under the text description include the instruction "Tell the consultant..." (not THE consultant not Your consultant)
 
 <!-- xgd-chat-end -->
