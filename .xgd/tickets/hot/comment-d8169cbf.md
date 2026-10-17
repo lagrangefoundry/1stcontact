@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:11:30.217046+00:00'
+updated_at: '2026-10-17T22:15:44.040358+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7767,5 +7767,31 @@ Until BUG-210 lands, no builder conversation will open on your dev setup.
 I'm working on Bob's Salon
 
 The preview page started with the gray message and the text we agreed but it is now showing the Your 1st Contact Site - I think we should drop that - grey text -> draft site please
+
+<!-- xgd-turn id="546c3aa0-b77a-4a7d-8680-40d707836839-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T22:15:37.486688+00:00" -->
+#### Claude
+Checking what changed on Bob's Salon to flip the preview back to the starter page.
+
+The starter page came back because of **your upload**, not because anything was built.
+
+**What happened on Bob's Salon** (from the site's change log):
+
+| time | change | preview showed |
+|---|---|---|
+| 22:01:08 | you uploaded `Bob-s-Salon…png` (change #1) | **starter page** — the placeholder gave way here |
+| 22:10 | consultant set fonts, palette and text styles on the starter page | starter page, now restyled |
+| 22:12–22:14 | consultant removed the starter section and built the real ones (hero, prices, team, visit…) | Bob's Salon draft |
+
+**Cause.** REQ-403's test for "nothing built yet" (`nothingBuilt` in `scaffold.ts`) has two parts: the site's change count is still 0, *and* the only page is the starter. An upload, a palette colour or a font change all bump the count, so the very first thing anyone does, even something that adds nothing to a page, makes the starter visible. That's the 13-minute window you saw.
+
+**Fix.** Drop the change-count half. Show the grey placeholder for as long as the only page is still the untouched starter, and switch to the real draft the moment the consultant puts actual sections on it. Publishing stays refused by the same test. The original reason for the count check doesn't hold up: a client can't edit a starter they never see, and a hand-copied site never carries the starter heading anyway.
+
+Your site is fine now. All ten sections are real and none mentions "1st Contact", so a reload should show the draft.
+
+One check on wording: I've read "grey text → draft site" as *keep the grey panel until there's a draft site to show*. If you actually meant the grey panel should say something different, such as "Draft site", tell me the words.
+
+REQ-403 is frozen at `ready_to_reconcile`, so this needs its own small bug under EPIC-19, about 1 point. Shall I file it?
 
 <!-- xgd-chat-end -->
