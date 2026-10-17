@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T14:10:17.934822+00:00'
+updated_at: '2026-10-17T15:11:05.759157+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2179,3 +2179,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **[[BUG-209]]** (2026-10-17): the progress banner (REQ-398) is restyled as a segmented bar. The title is 'Progress' with no colon, each stage is its own box with no '|' separators, the current-stage tint stays inside its own box, and the bar spans the chat column's full width. Presentation only.
+
+
+
+- **[[REQ-401]]** (2026-10-17): plan-panel questions fold to one line (triangle, status box for open/skipped/done, start of the prompt cut off with '…') and use the chat's fonts. They sit in two sections, OPEN QUESTIONS and WHAT YOU'VE TOLD US. The comp board becomes one item in the list. Open items start expanded and collapse once when done or skipped, and the client's own fold choices stick. The consultant leads each question with its subject and announces every question she adds.
