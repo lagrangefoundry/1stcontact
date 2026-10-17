@@ -387,6 +387,7 @@ import {
   panelView,
   publishOpened,
   removeComp,
+  skipComps,
   type Plan,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -2269,10 +2270,13 @@ export const OVER_LONG_PROMPT_MESSAGE =
 /** The plan panel's read and its answer write ([[REQ-364]]). */
 export const PLAN_PATH = '/api/plan'
 export const PLAN_ASK_PATH = '/api/plan/ask'
-/** The client's half of the comp board ([[REQ-378]]): add a site, note it, remove it. */
+/**
+ * The client's half of the comp board ([[REQ-378]]): add a site, note it, remove
+ * it — or skip comparing sites altogether ([[REQ-401]]).
+ */
 export const PLAN_COMP_PATH = '/api/plan/comp'
 /** What the client may do on the comp board. */
-export const COMP_ACTIONS = ['add', 'note', 'remove'] as const
+export const COMP_ACTIONS = ['add', 'note', 'remove', 'skip'] as const
 
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
@@ -5827,7 +5831,8 @@ async function routeUncached(
      * `note` writes the client's likes and dislikes onto that reference ticket and
      * marks the plan entry as noted by the client, which is what the consultant's
      * next turn is told from. `remove` takes a site off the board; its capture
-     * stays in the Library.
+     * stays in the Library. `skip` ([[REQ-401]]) records that the client does not
+     * want to compare sites, which the next turn is told; adding one reopens it.
      *
      * Answers the plan panel's view, like the ask route, so the panel redraws from
      * what is stored. It never starts a turn.
@@ -5867,6 +5872,8 @@ async function routeUncached(
           const record = await plan.comps!.get(captured.reference.uid)
           if (!record) return json(502, { error: 'the capture could not be read back' })
           written = await writeIt((current) => addComp(current, record, CLIENT, at).plan)
+        } else if (action === 'skip') {
+          written = await writeIt((current) => skipComps(current, at))
         } else {
           const reference = typeof body.reference === 'string' ? body.reference : ''
           if (reference === '') return json(400, { error: 'reference is required' })

@@ -35,6 +35,14 @@
  * focusing or tapping a stage explains it: its name, its sentence from the seed,
  * and its state in words.
  *
+ * [[REQ-401]] — EVERY QUESTION, AND THE COMP BOARD, IS ONE FOLDABLE ITEM: a line
+ * of a disclosure triangle, a status box (open, skipped, done) and the start of
+ * the question, which unfolds to the rest. The items sit in two sections — OPEN
+ * QUESTIONS, and WHAT YOU'VE TOLD US for the done and skipped ones — and move
+ * between them as their status changes. An open item starts unfolded; it folds
+ * once, at the moment it becomes done or skipped; and whatever the client folds
+ * or unfolds stays that way, per item, in this browser ({@link isExpanded}).
+ *
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
@@ -55,6 +63,7 @@ import {
   COMPS_OPEN,
   COMPS_REMOVE,
   PLAN_CHANGE,
+  PLAN_ITEM_STATUS,
   PLAN_DOCUMENT,
   PLAN_DOCUMENT_GONE,
   PLAN_DOCUMENTS,
@@ -64,7 +73,7 @@ import {
   PLAN_SOMETHING_ELSE,
   PLAN_UPLOAD_SEVERAL,
   PLAN_FILLED_BY_AGENT,
-  PLAN_NEEDS_ANSWER,
+  PLAN_OPEN_QUESTIONS,
   PLAN_PANEL_LABEL,
   PLAN_STAGE_STATE,
   PLAN_STAGES_LABEL,
@@ -143,12 +152,41 @@ const notesOf = (text) =>
 const answerMaterials = (ask) =>
   Array.isArray(ask.answer_material) ? ask.answer_material : ask.answer_material ? [ask.answer_material] : []
 
+/** [[REQ-401]] — an ask's status as its item shows it. */
+const itemState = (status) => (status === 'answered' ? 'done' : status)
+
+/** The marks in an item's status box ([[REQ-401]]): empty, a dash, a tick. */
+const ITEM_MARK = { open: '', skipped: '–', done: '✓' }
+
+/** [[REQ-401]] — draw an item folded or unfolded, with its status box. */
+function showFold(node, expanded) {
+  const state = node.dataset.state
+  node.dataset.expanded = String(expanded)
+  const line = node.querySelector(':scope > .plan-item__line')
+  line.setAttribute('aria-expanded', String(expanded))
+  line.querySelector('.plan-item__twisty').textContent = expanded ? '▾' : '▸'
+  line.querySelector('.plan-item__mark').textContent = ITEM_MARK[state] ?? ''
+  line.querySelector('.plan-item__status').textContent = PLAN_ITEM_STATUS[state] ?? state
+  node.querySelector(':scope > .plan-item__body').hidden = !expanded
+}
+
+/** Folds kept for the page's life, where the host gave no storage. */
+function memoryFolds() {
+  const map = new Map()
+  return {
+    getItem: (key) => map.get(key) ?? null,
+    setItem: (key, value) => void map.set(key, String(value)),
+    removeItem: (key) => void map.delete(key),
+  }
+}
+
 /**
  * @param {object} [options]
  * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, setRole?: Function, remove?: Function, compAction?: Function}} [options.transport]
  * @param {() => Element|null} [options.getModalHost] where the delete confirmation mounts
  * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
  *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
+ * @param {Storage} [options.storage] where the client's folds are remembered ([[REQ-401]])
  */
 export function createPlanPanel(options = {}) {
   const transport = {
@@ -202,13 +240,16 @@ export function createPlanPanel(options = {}) {
   progress.setAttribute('role', 'status')
   const error = el('div', 'plan-panel__error')
   error.hidden = true
-  const openHeading = el('h3', 'plan-panel__heading', PLAN_NEEDS_ANSWER)
+  const openHeading = el('h3', 'plan-panel__heading', PLAN_OPEN_QUESTIONS)
   const openList = el('div', 'plan-panel__list plan-panel__list--open')
   const doneHeading = el('h3', 'plan-panel__heading', PLAN_TOLD_US)
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
-  // [[REQ-378]] — the comp board, between what is waiting and what is settled.
-  const compsHeading = el('h3', 'plan-panel__heading', COMPS_HEADING)
-  const compsList = el('div', 'plan-panel__list plan-comps')
+  // [[REQ-378]], [[REQ-401]] — the comp board, ONE ITEM in whichever section its
+  // status puts it, drawn once and moved, so a note being typed is never lost.
+  const compsItem = itemShell(COMPS_HEADING)
+  compsItem.node.classList.add('plan-comps-item')
+  compsItem.node.dataset.comps = ''
+  const compsList = el('div', 'plan-comps')
   const addForm = el('form', 'plan-comps__add')
   const addInput = el('input', 'plan-comps__url')
   addInput.type = 'url'
@@ -218,7 +259,11 @@ export function createPlanPanel(options = {}) {
   addButton.type = 'submit'
   const addStatus = el('span', 'plan-comps__status')
   addForm.append(el('label', 'plan-comps__add-label', COMPS_ADD_LABEL), addInput, addButton, addStatus)
-  element.append(tracker, progress, error, openHeading, openList, compsHeading, compsList, addForm, doneHeading, doneList)
+  const compsSkip = el('button', 'plan-ask__skip plan-comps__skip', PLAN_SKIP)
+  compsSkip.type = 'button'
+  compsSkip.addEventListener('click', () => void comp({ action: 'skip' }))
+  compsItem.body.append(compsList, addForm, compsSkip)
+  element.append(tracker, progress, error, openHeading, openList, doneHeading, doneList)
 
   let site = null
   let generation = 0
@@ -226,6 +271,12 @@ export function createPlanPanel(options = {}) {
   const compBlocks = new Map()
   /** Ask id → its drawn block and what it was drawn from. */
   const blocks = new Map()
+  /**
+   * [[REQ-401]] — the client's folds, by site and item: `{expanded, at}`, where
+   * `at` is the item's status when they chose. Absent storage keeps them for the
+   * page's life only.
+   */
+  const folds = options.storage ?? memoryFolds()
   /** Answered or skipped asks the client has opened to change. */
   const changing = new Set()
   /** Ask id → the latest draft sent for it, so an older reply never redraws over it ([[BUG-200]]). */
@@ -475,18 +526,19 @@ export function createPlanPanel(options = {}) {
     return box
   }
 
-  /** One open ask: its prompt, its reason, and its control. */
+  /** One open ask: its line, and under it its reason and its control. */
   function openBlock(ask) {
-    const block = el('div', 'plan-ask')
-    block.dataset.ask = ask.id
-    block.dataset.status = ask.status
-    block.append(el('div', 'plan-ask__prompt', ask.prompt), el('div', 'plan-ask__why', ask.why), editor(ask))
-    return block
+    const { node, body } = itemShell(ask.prompt)
+    node.dataset.ask = ask.id
+    node.dataset.status = ask.status
+    body.append(el('div', 'plan-ask__why', ask.why), editor(ask))
+    return node
   }
 
-  /** One answered or skipped ask, compact, which the client can reopen to change. */
+  /** One answered or skipped ask: its line, and under it the answer, which the client can reopen to change. */
   function doneBlock(ask, materials = {}) {
-    const block = el('div', 'plan-ask plan-ask--done')
+    const { node: block, body } = itemShell(ask.prompt)
+    block.classList.add('plan-ask--done')
     block.dataset.ask = ask.id
     block.dataset.status = ask.status
     const row = el('div', 'plan-ask__row')
@@ -498,7 +550,7 @@ export function createPlanPanel(options = {}) {
           : answerMaterials(ask).length > 1
             ? PLAN_DOCUMENTS(answerMaterials(ask).length)
             : PLAN_DOCUMENT
-    row.append(el('span', 'plan-ask__prompt', ask.prompt), el('span', 'plan-ask__value', value))
+    row.append(el('span', 'plan-ask__value', value))
     if (ask.status === 'answered' && ask.answered_by && ask.answered_by !== 'client') {
       row.append(el('span', 'plan-ask__source', PLAN_FILLED_BY_AGENT))
     }
@@ -509,10 +561,77 @@ export function createPlanPanel(options = {}) {
       if (last) render(last)
     })
     row.append(change)
-    block.append(row)
-    if (ask.status === 'answered' && answerMaterials(ask).length > 0) block.append(filesOf(ask, materials))
-    if (changing.has(ask.id)) block.append(el('div', 'plan-ask__why', ask.why), editor(ask))
+    body.append(row)
+    if (ask.status === 'answered' && answerMaterials(ask).length > 0) body.append(filesOf(ask, materials))
+    if (changing.has(ask.id)) body.append(el('div', 'plan-ask__why', ask.why), editor(ask))
     return block
+  }
+
+  /**
+   * [[REQ-401]] — whether an item is unfolded.
+   *
+   * THE CLIENT'S CHOICE STICKS: what they last folded or unfolded is kept, per
+   * site and item. Without one, an open item is unfolded and a done or skipped
+   * one folded. THE FOLD ON COMPLETION HAPPENS ONCE: a choice made while the item
+   * was open is dropped the first time it is drawn done or skipped, so it folds
+   * then, and any choice made after that is kept.
+   */
+  function isExpanded(id, state) {
+    const key = `${site}:${id}`
+    let saved = null
+    try {
+      saved = JSON.parse(folds.getItem(key) ?? 'null')
+    } catch {
+      saved = null
+    }
+    if (saved && saved.at === 'open' && state !== 'open') {
+      folds.removeItem(key)
+      saved = null
+    }
+    return saved ? Boolean(saved.expanded) : state === 'open'
+  }
+
+  /** Draw an item folded or unfolded, as its status and the client's folds say. */
+  function fold(node, id, state) {
+    node.dataset.item = id
+    node.dataset.state = state
+    showFold(node, isExpanded(id, state))
+  }
+
+  /** The client folded or unfolded an item: draw it, and remember the choice. */
+  function toggle(node) {
+    const next = node.dataset.expanded !== 'true'
+    folds.setItem(`${site}:${node.dataset.item}`, JSON.stringify({ expanded: next, at: node.dataset.state }))
+    showFold(node, next)
+  }
+
+  /**
+   * [[REQ-401]] — an item's frame: the one line (triangle, status box, the start
+   * of the question) that folds and unfolds it, and the body it hides.
+   */
+  function itemShell(title) {
+    const node = el('div', 'plan-ask plan-item')
+    const line = el('div', 'plan-item__line')
+    line.setAttribute('role', 'button')
+    line.tabIndex = 0
+    const twisty = el('span', 'plan-item__twisty')
+    twisty.setAttribute('aria-hidden', 'true')
+    const box = el('span', 'plan-item__box')
+    const mark = el('span', 'plan-item__mark')
+    mark.setAttribute('aria-hidden', 'true')
+    box.append(mark, el('span', 'plan-item__status'))
+    line.append(twisty, box, el('span', 'plan-ask__prompt plan-item__title', title))
+    // ANYWHERE ON THE LINE, by pointer or by Enter/Space; never from the body,
+    // where the client is answering.
+    line.addEventListener('click', () => toggle(node))
+    line.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      toggle(node)
+    })
+    const body = el('div', 'plan-item__body')
+    node.append(line, body)
+    return { node, body }
   }
 
   /** A comp-board write; redraws from what was stored ([[REQ-378]]). */
@@ -666,8 +785,19 @@ export function createPlanPanel(options = {}) {
     const materials = view.materials ?? {}
     place(openList, open, openBlock)
     place(doneList, done, (ask) => doneBlock(ask, materials))
-    // [[REQ-378]] — the comp board, under the same rule: a block whose content
-    // has not changed is kept, and so is the one the client is typing in.
+    for (const ask of [...open, ...done]) fold(drawn.get(ask.id).node, `ask:${ask.id}`, itemState(ask.status))
+    // [[REQ-378]], [[REQ-401]] — the comp board, one item, last of the open ones or
+    // first of the settled; never before a site is shown.
+    const compsState = view.comps_status ?? 'open'
+    if (site) {
+      if (compsState === 'open') openList.append(compsItem.node)
+      else doneList.prepend(compsItem.node)
+      compsItem.node.dataset.status = compsState
+      fold(compsItem.node, 'comps', compsState)
+    } else compsItem.node.remove()
+    compsSkip.hidden = compsState !== 'open'
+    // The board's own entries, under the panel's rule: a block whose content has
+    // not changed is kept, and so is the one the client is typing in.
     const comps = view.comps ?? []
     const keptComps = new Map()
     compsList.replaceChildren(
@@ -682,15 +812,12 @@ export function createPlanPanel(options = {}) {
     )
     compBlocks.clear()
     for (const [ref, held] of keptComps) compBlocks.set(ref, held)
-    compsHeading.hidden = !site
     compsList.hidden = comps.length === 0
-    addForm.hidden = !site
     blocks.clear()
     for (const [id, held] of drawn) blocks.set(id, held)
-    openHeading.hidden = open.length === 0
-    openList.hidden = open.length === 0
-    doneHeading.hidden = done.length === 0
-    doneList.hidden = done.length === 0
+    // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
+    openHeading.hidden = openList.hidden = openList.childElementCount === 0
+    doneHeading.hidden = doneList.hidden = doneList.childElementCount === 0
   }
 
   /** Re-read the plan and redraw. A failure leaves what was drawn. */

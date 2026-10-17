@@ -308,6 +308,11 @@ export const STORAGE_KEYS = {
    * collapsed. The site tab's own, beside its `:split`.
    */
   planSplit: `${SITE_TAB.id}:plan-split`,
+  /**
+   * [[REQ-401]] — which of the plan panel's items the client has folded or
+   * unfolded, per site and item, so the choice survives a reload.
+   */
+  planFold: `${SITE_TAB.id}:plan-fold`,
   panel: `${SITE_TAB.id}:panel`,
   /** [[REQ-388]] — the preview's width setting, remembered like the divider. */
   previewWidth: `${SITE_TAB.id}:preview-width`,
@@ -919,8 +924,14 @@ export const WORKING_SO_FAR = (elapsed) => `${elapsed} so far`
  */
 export const PLAN_STILL_TO_ANSWER = (n) => `${n} ${n === 1 ? 'question' : 'questions'} still to answer`
 export const PLAN_ALL_ANSWERED = "All done — thanks, that's everything I need for now."
-export const PLAN_NEEDS_ANSWER = 'Needs your answer'
+/**
+ * [[REQ-401]] — the panel's two sections: the open items, and the done and skipped
+ * ones. The headings are set in capitals by the stylesheet, not here.
+ */
+export const PLAN_OPEN_QUESTIONS = 'Open questions'
 export const PLAN_TOLD_US = "What you've told us"
+/** [[REQ-401]] — each item's status box, in words, for a screen reader. */
+export const PLAN_ITEM_STATUS = { open: 'Open', skipped: 'Skipped', done: 'Done' }
 export const PLAN_SKIP = 'Skip'
 export const PLAN_SKIP_TITLE = "I don't know, or it doesn't apply"
 export const PLAN_SKIPPED = 'Skipped'

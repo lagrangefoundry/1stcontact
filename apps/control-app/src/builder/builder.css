@@ -126,6 +126,30 @@
 }
 
 /*
+ * [[REQ-401]] — THE CHAT'S TYPE, ONE TOKEN READ BY THE CHAT AND THE PLAN PANEL.
+ *
+ * The plan panel sits directly above the conversation and asks the same person
+ * questions in the same voice, so its questions, answers and inputs are set in
+ * the chat's type. `webui-chat` declares its message and composer size as a
+ * literal with no token to read, so the size is defined HERE and both sides take
+ * it from here: the chat's message and composer rules below, and `.plan-panel`.
+ * Neither can move without the other. The family needs no token: both inherit the
+ * shell's, and every control on the panel says `font: inherit`.
+ *
+ * Two classes plus the component's own, so the chat rules win on specificity and
+ * not on the order the sheets happen to load in.
+ */
+:root {
+  --builder-chat-font-size: 13px;
+}
+
+.builder-chat .chat-message.user,
+.builder-chat .chat-message.assistant,
+.builder-chat .chat-input-wrapper .chat-widget-input {
+  font-size: var(--builder-chat-font-size);
+}
+
+/*
  * THE HEIGHT CHAIN. The preview frame is sized by the WINDOW, not by its
  * content, and that only holds if every box from the viewport down to the frame
  * has a definite height. One `height: auto` anywhere in the chain and the frame
@@ -1249,7 +1273,8 @@ body {
   padding: 10px 12px;
   box-sizing: border-box;
   background: var(--shell-surface-alt, #f4f4f5);
-  font-size: 0.9rem;
+  /* [[REQ-401]] — the chat's size (see `--builder-chat-font-size`). */
+  font-size: var(--builder-chat-font-size);
 }
 
 /*
@@ -1442,6 +1467,11 @@ body {
   gap: 8px;
 }
 
+.plan-panel__list[hidden],
+.plan-comps[hidden] {
+  display: none;
+}
+
 .plan-ask {
   padding: 8px 10px;
   border: 1px solid var(--shell-border, #e4e4e7);
@@ -1586,6 +1616,97 @@ body {
 .plan-ask__file-name--gone {
   color: var(--shell-fg-muted, #71717a);
   font-style: italic;
+}
+
+/*
+ * [[REQ-401]] — an item folded to ONE LINE: the disclosure triangle, the status
+ * box, and the start of the question cut off with an ellipsis. Unfolded, the
+ * question wraps in full and the body shows beneath it, indented to the text.
+ * The status is never colour alone: the box is empty, carries a dash, or a tick,
+ * and says which in words to a screen reader.
+ */
+.plan-item__line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.plan-item__line:focus-visible {
+  outline: 2px solid var(--shell-accent, #7c3aed);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.plan-item__twisty {
+  flex: none;
+  width: 1em;
+  text-align: center;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-item__box {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--shell-fg-muted, #a1a1aa);
+  border-radius: 3px;
+  background: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.plan-item[data-state='skipped'] .plan-item__box {
+  border-color: var(--shell-border, #d4d4d8);
+  background: var(--shell-border, #e4e4e7);
+  color: var(--shell-fg-muted, #71717a);
+}
+
+.plan-item[data-state='done'] .plan-item__box {
+  border-color: var(--shell-accent, #7c3aed);
+  color: var(--shell-accent, #7c3aed);
+}
+
+/* The status in words, for a screen reader only. */
+.plan-item__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.plan-item__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-item[data-expanded='true'] .plan-item__title {
+  white-space: normal;
+}
+
+.plan-item__body {
+  margin-top: 4px;
+  padding-inline-start: calc(1em + 14px + 12px);
+}
+
+.plan-item__body[hidden] {
+  display: none;
+}
+
+.plan-comps__skip {
+  margin-top: 6px;
 }
 
 /*
