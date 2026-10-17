@@ -2,19 +2,18 @@ import { leasesOf } from '../../store/leased-store'
 import {
   asWriter,
   DraftFileRefusal,
-  heldLine,
   isDraftFileName,
   type DraftLeases,
   type Writer,
 } from '../../store/leases'
 import { sectionFileName } from '../../store/sections'
 import type { SiteStore } from '../../store/site-store'
-import { PROGRESS } from './progress-core'
 
 /**
  * [[REQ-397]] — the host's half of draft-file leases: a builder's declared files
- * claimed before it opens, every session's tool calls run as a known writer, and
- * the build's status line saying what is held.
+ * claimed before it opens, and every session's tool calls run as a known writer.
+ * ([[BUG-215]] withdrew the build's status line naming what is held: worker ids
+ * and file names are plumbing the client never sees.)
  *
  * THE FRAMEWORK'S HALF IS lagrange-framework REQ-207: Delegate takes an opaque
  * `scope`, a worker config's `claim` hook runs before the worker session exists,
@@ -116,31 +115,5 @@ export function draftClaims(store: SiteStore, slug: string, idleMs: number): Dra
     worker: (sid) =>
       around(leases, slug, () => ({ holder: sid, scope: scopes.get(sid) ?? null, idleMs })),
     consultant: (sid) => around(leases, slug, () => ({ holder: sid, scope: null })),
-  }
-}
-
-/**
- * A build's status line, with what builders hold named on it. The line is the
- * one the client already watches while a build runs (REQ-360), so "what is
- * being worked on" arrives where "something is being worked on" already does.
- */
-export async function withHeldFiles<E extends { kind: string; content?: string; meta?: Record<string, unknown> }>(
-  event: E,
-  store: SiteStore,
-  slug: string,
-): Promise<E> {
-  const leases = leasesOf(store)
-  if (event.kind !== PROGRESS || !leases) return event
-  try {
-    const held = await leases.held(slug)
-    const line = heldLine(held)
-    if (!line) return event
-    return {
-      ...event,
-      content: `${event.content ?? ''} — ${line}`,
-      meta: { ...(event.meta ?? {}), held: held.map(({ file, holder, acquiredAt }) => ({ file, holder, since: acquiredAt })) },
-    }
-  } catch {
-    return event
   }
 }

@@ -6,7 +6,7 @@ import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   admit,
   ensurePlatformOperator,
-  STARTER_HEADING,
+  STARTER_MARKER,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { addContact, markInvited } from '../apps/control-app/src/people'
@@ -314,7 +314,7 @@ describe('REQ-203 — signing up is what gives somebody a business', () => {
     expect(await store.hasDraft(slug)).toBe(true)
     const pages = await store.readPages(slug)
     expect(pages.map((p) => p.name)).toEqual(['home.json'])
-    expect(JSON.stringify(pages[0])).toContain(STARTER_HEADING)
+    expect(JSON.stringify(pages[0])).toContain(STARTER_MARKER)
   })
 
   it('test_UAT_FC_REQ-203_accepting_a_second_time_provisions_nothing_further', async () => {

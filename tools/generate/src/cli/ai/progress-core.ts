@@ -37,11 +37,18 @@ export interface ProgressLog {
   readFrom(cursor: number): [Array<Record<string, unknown>>, number]
 }
 
-/** A junction `progress` record as the event the panel reads. */
+/**
+ * A junction `progress` record as the event the panel reads.
+ *
+ * [[BUG-215]] — WITHOUT ITS WORDS. The framework's text is plumbing — `still
+ * working, elapsed N min`, and whatever a host adds to it — and the client's
+ * panel already has a working line counting the turn. The event keeps the
+ * stream alive and says how long; it carries nothing to show.
+ */
 export function progressEvent(record: Record<string, unknown>): StreamEvent {
   return {
     kind: PROGRESS,
-    content: String(record.content ?? ''),
+    content: '',
     meta: { elapsed_s: Number(record.elapsed_s ?? 0) },
   }
 }

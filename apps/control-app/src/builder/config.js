@@ -927,6 +927,12 @@ export const PLAN_STAGE_STATE = { not_started: 'Not started', in_progress: 'In p
 export const WORKING_IDLE = 'Working'
 export const WORKING_SO_FAR = (elapsed) => `${elapsed} so far`
 /**
+ * [[BUG-215]] — the working line's step half, and a step line in the conversation
+ * that has happened `n` times running.
+ */
+export const WORKING_NOW = (doing) => `now: ${doing}`
+export const STEP_REPEATED = (doing, n) => `${doing} ×${n}`
+/**
  * [[REQ-379]] — the line under the phase: how many open asks are left for the
  * client. Withdrawn and skipped asks are not counted.
  */

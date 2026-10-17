@@ -119,11 +119,6 @@ export function describeHolder(holder: string): string {
   return who
 }
 
-/** True when the holder is a builder session. */
-export function isBuilderHolder(holder: string): boolean {
-  return holder.startsWith('worker-')
-}
-
 /** `14:02 UTC` — when a lease was taken, as a person reads it. */
 export function clockOf(at: number): string {
   return `${new Date(at).toISOString().slice(11, 16)} UTC`
@@ -145,22 +140,6 @@ export function heldRefusal(lease: Lease, now: number): DraftFileRefusal {
     lease.acquiredAt,
     held,
   )
-}
-
-/** One line naming what builders hold, for the build's status line, or null. */
-export function heldLine(leases: readonly Lease[]): string | null {
-  const byHolder = new Map<string, Lease[]>()
-  for (const lease of leases) {
-    if (!isBuilderHolder(lease.holder)) continue
-    byHolder.set(lease.holder, [...(byHolder.get(lease.holder) ?? []), lease])
-  }
-  if (byHolder.size === 0) return null
-  return [...byHolder]
-    .map(([holder, held]) => {
-      const since = Math.min(...held.map((l) => l.acquiredAt))
-      return `${describeHolder(holder)} on ${held.map((l) => l.file).join(', ')} since ${clockOf(since)}`
-    })
-    .join('; ')
 }
 
 /** The implicit holder for the client's own edits in the builder. */

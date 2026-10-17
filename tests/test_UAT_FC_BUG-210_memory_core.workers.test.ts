@@ -10,7 +10,7 @@ import {
   sessionIdFor,
   setModelClient,
 } from '../tools/generate/src/cli/ai/host-core'
-import { STARTER_HEADING, starterHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
+import { placeholderHomePage, starterSiteJson } from '../tools/generate/src/cli/scaffold'
 import { applySchema, ensureTenant, tenantStore } from './support/d1-site-factory'
 import {
   calls,
@@ -72,7 +72,7 @@ async function newBusiness(): Promise<{ scope: Scope; site: string }> {
   const site = await store.createDraft('site')
   await store.write(site, {
     siteJson: starterSiteJson(site, 'Cole’s Bakery'),
-    pages: [{ name: 'home.json', page: starterHomePage('Cole’s Bakery', STARTER_HEADING) }],
+    pages: [{ name: 'home.json', page: placeholderHomePage('Cole’s Bakery') }],
   })
   return { scope: { businessId: id }, site }
 }

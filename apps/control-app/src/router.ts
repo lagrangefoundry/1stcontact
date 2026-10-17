@@ -22,7 +22,6 @@ import {
   NoPublicAddressError,
   NothingBuiltError,
 } from '../../../tools/generate/src/cli/errors'
-import { nothingBuilt } from '../../../tools/generate/src/cli/scaffold'
 import { PreviewRenderer, type PreviewChannel } from '../../../tools/generate/src/cli/preview'
 import {
   PORTAL_PATH,
@@ -7073,9 +7072,9 @@ async function routeUncached(
       // stamp, which costs one redundant reload; the other order could stamp a
       // count the page does not hold, and that change would never be shown.
       const at = await store.counter(site)
-      // [[REQ-403]] — NOTHING BUILT YET: a plain panel, never the starter page.
-      // Stamped like any render, so the first write's reload replaces it.
-      if (at === 0 && (await nothingBuilt(store, site))) return stampDraftAt(previewPlaceholder(), at)
+      // [[BUG-215]] — NO SPECIAL CASE FOR "NOTHING BUILT YET": the starter page
+      // itself is the grey placeholder (`placeholderDocument`), so it renders
+      // like any page and the first section the consultant adds simply replaces it.
       return stampDraftAt(
         await servePreview(store, site, channel as PreviewChannel, preview[3] ?? '/', platformFonts),
         at,
@@ -7966,25 +7965,6 @@ function streamDraftChanges(
       'x-content-type-options': 'nosniff',
       'cache-control': 'no-store',
     },
-  })
-}
-
-/** [[REQ-403]] — what the preview shows before anything has been built. */
-export const PREVIEW_PLACEHOLDER = "Your site will appear here as it's created."
-
-/**
- * [[REQ-403]] — the preview of a site with nothing built yet: a plain grey panel
- * with one centred line. Deliberately not a web page — no heading, no navigation,
- * nothing a client could take for their site.
- */
-function previewPlaceholder(): Response {
-  const body = `<!doctype html><html lang="en"><meta charset="utf-8"><title>Preview</title>
-<body data-preview-placeholder style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#e5e7eb;color:#4b5563;font:16px/1.5 system-ui,sans-serif;text-align:center;padding:2rem;box-sizing:border-box">
-<p style="margin:0">${escapeHtml(PREVIEW_PLACEHOLDER)}</p>
-</body></html>`
-  return new Response(body, {
-    status: 200,
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   })
 }
 

@@ -144,7 +144,13 @@ describe('REQ-390 — the working line is told what is under way', () => {
     // A SLOW TOOL: its own words and its estimate in the short form.
     const captured = await turn(sessionId, 'Look at this site.', scriptedClient([calls('capture_site', { url: BAD_URL }), says('That one is private.')]))
     const slow = captured.filter((f) => f.kind === 'working')
-    expect(slow).toEqual([{ kind: 'working', content: `${CONSULTANT} is capturing ${BAD_URL}`, meta: { estimate: 'about 5 min' } }])
+    expect(slow).toEqual([
+      {
+        kind: 'working',
+        content: `${CONSULTANT} is capturing ${BAD_URL}`,
+        meta: { scope: 'step', doing: `Capturing ${BAD_URL}`, estimate: 'about 5 min' },
+      },
+    ])
     // AND NOTHING FROM AN EARLIER TURN IS REPEATED: one frame per announcement.
     expect(captured.some((f) => f.kind === 'working' && f.content.includes('home page'))).toBe(false)
   })

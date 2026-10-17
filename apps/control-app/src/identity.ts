@@ -1,6 +1,6 @@
 import { newId } from '../../../tools/generate/src/store/ids'
 import { d1r2SiteStore, type SiteStoreEnv } from '../../../tools/generate/src/store/d1r2-store'
-import { STARTER_HEADING, starterHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
+import { placeholderHomePage, starterSiteJson } from '../../../tools/generate/src/cli/scaffold'
 // The event kinds and the insert builder, from the two modules that own them
 // ([[REQ-195]]). `events.ts` declares its own narrow env type rather than
 // importing `IdentityEnv` back from here, so this import is one-way.
@@ -752,7 +752,7 @@ export interface BusinessResult {
   siteKey: string
 }
 
-export { STARTER_HEADING }
+export { STARTER_MARKER } from '../../../tools/generate/src/cli/scaffold'
 
 /**
  * Add one business to an account that already exists ([[DOC-40]] §4).
@@ -929,12 +929,12 @@ async function createStarterSite(
     // can see it — and `config.businessName` is prose that reaches a rendered
     // `<title>`. `Gigabyte Alchemy` is what belongs there.
     siteJson: starterSiteJson(siteKey, businessName),
-    // NAMED FOR THE PAGE'S SEO PROSE, NOT FOR ADDRESSING. `starterHomePage`'s
-    // first argument reaches `seoMeta.title` and `seoMeta.description` — the
+    // NAMED FOR THE PAGE'S SEO PROSE, NOT FOR ADDRESSING. `placeholderHomePage`'s
+    // argument reaches `seoMeta.title` and `seoMeta.description` — the
     // words a search result and a pasted link show — so it takes the business's
     // name. Handing it the key would put `site_9f3a…` in front of the first
     // person who shared the page.
-    pages: [{ name: 'home.json', page: starterHomePage(businessName, STARTER_HEADING) }],
+    pages: [{ name: 'home.json', page: placeholderHomePage(businessName) }],
   })
   return siteKey
 }

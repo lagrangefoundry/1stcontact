@@ -175,7 +175,7 @@ import {
 import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
-import { concurrentSupported, draftClaims, scopeSupported, withHeldFiles } from './lease-core'
+import { concurrentSupported, draftClaims, scopeSupported } from './lease-core'
 
 /**
  * The AI library — and everything it constructs — is untyped JavaScript loaded at
@@ -277,7 +277,9 @@ export const PLAN_CHANGED = 'plan_changed'
  * builder can show *"<consultant> is building your home page · about 5 min · 2:14 so far"*
  * without reading the assistant's prose. `content` is the line's words, the
  * consultant's name included (from `group-chat.json`, never a constant);
- * `meta.estimate` is there when the operation has one.
+ * `meta.estimate` is there when the operation has one. [[BUG-215]] — `meta.scope`
+ * says whether the note is the turn's (`turn`) or one step's (`step`), and
+ * `meta.doing` is the note's own words without the name.
  */
 export const WORKING = 'working'
 
@@ -3632,17 +3634,19 @@ async function* siteTurn(
         yield budgetNamed(deps, event)
         continue
       }
-      // [[REQ-397]] — a build's status line names the files builders hold.
-      yield withoutImageData(event.kind === PROGRESS ? await withHeldFiles(event, store, slug) : event)
+      yield withoutImageData(event)
       // [[REQ-390]] — RIGHT BEHIND THE ANNOUNCEMENT the wrapper yielded, which is
       // the event that carried the note here. A Map read, so free on every event.
       const working = workingNotes.get(planKey)
       if (working && working.seq > workingSeen) {
         workingSeen = working.seq
+        // [[BUG-215]] — SCOPED, so the working line times the turn and the step
+        // separately; `doing` is the step's own words for the chat's step line.
+        const { doing, estimate, scope } = working.note
         yield {
           kind: WORKING,
-          content: workingText(who, working.note.doing),
-          meta: working.note.estimate ? { estimate: working.note.estimate } : {},
+          content: workingText(who, doing),
+          meta: { scope, doing, ...(estimate ? { estimate } : {}) },
         }
       }
       // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can

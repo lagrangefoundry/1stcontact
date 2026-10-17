@@ -10,7 +10,7 @@ import {
   newId,
   PRIMARY_EMAIL_SQL,
   provisionBusiness,
-  STARTER_HEADING,
+  STARTER_MARKER,
   USER_ID_BY_EMAIL_SQL,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
@@ -290,7 +290,7 @@ describe('REQ-167 — the invite and the business it is composed with', () => {
     )
       .bind(result.businessId, result.siteKey, 'home.json')
       .first<{ page: string }>()
-    expect(page?.page).toContain(STARTER_HEADING)
+    expect(page?.page).toContain(STARTER_MARKER)
 
     // AND THE ADDRESS SAYS NOTHING ABOUT THE BUSINESS ([[REQ-236]]). [[REQ-190]]
     // gave every starter site one fixed word, `unnamed`; [[BUG-90]] replaced that
