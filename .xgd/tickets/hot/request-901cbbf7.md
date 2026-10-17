@@ -6,10 +6,10 @@ title: 'Launch readiness: a favicon and share card, and the consultant tells the
   about going live'
 created_by: EPIC-19
 created_at: '2026-10-17T13:58:32.149055+00:00'
-updated_at: '2026-10-17T14:31:41.206775+00:00'
+updated_at: '2026-10-17T14:32:42.469948+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-2a3678ce
+  commits:
+  - working_sha: 2e12e33b076a52ac523485e224edbba5f41778b3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cca1d94557ec892a04bfab3ad71eb2a659b63a84
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.511
 ---
-
 
 ## What changes
 
