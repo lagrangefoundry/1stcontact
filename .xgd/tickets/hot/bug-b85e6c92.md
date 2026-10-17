@@ -6,9 +6,9 @@ title: 'Progress banner: looks like a line of text — boxes not ''|'', no colon
   tint bleeds, not full width'
 created_by: EPIC-19
 created_at: '2026-10-17T14:10:11.145682+00:00'
-updated_at: '2026-10-17T14:14:19.134914+00:00'
+updated_at: '2026-10-17T14:16:32.240872+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: low
@@ -61,4 +61,29 @@ UATs `test_UAT_FC_<this ticket>_*`, on the rendered plan panel:
 - No "|" character appears in the banner's text or in any generated content of its stage elements.
 - Each stage renders as its own box element. The in-progress stage's background is confined to its own box: no divider or sibling element is inside it.
 - The bar's width equals the chat panel's content width at more than one panel width. It stays on one line at a narrow width.
-- REQ-398's existing UATs pass unchanged.
+- REQ-398's existing UATs pass. The one exception is its title assertion, which this ticket explicitly supersedes: `'Progress:'` becomes `'Progress'`.
+
+## What changed
+
+- `PLAN_STAGES_TITLE` is now `'Progress'`.
+- The builder stylesheet's progress-banner block is rewritten as a segmented bar:
+  - The list is a flex row with a 4px gap.
+  - Each `.plan-stage` is a box: `flex: 1 1 0`, a minimum width of about one number, a 1px solid border tinted from `--stage-colour`, a 6px radius, and its content centred.
+  - The fill comes from a per-state `--stage-fill`: transparent for not started, light green for done, light yellow for skipped, light blue for in progress.
+  - The in-progress box is `flex: 3 1 auto` with `min-width: 0` and a full-strength blue border. Its label still ellipsises.
+- The `.plan-stage + .plan-stage::before { content: '|' }` rule and its container-query tweak are **deleted**. The banner's existing negative margins already cancel the panel's padding, so the bar runs edge to edge across the panel. The boxes now grow to fill it.
+- The DOM, text, `data-state`, the ✓ and – marks, the spinner, the tip and the aria attributes are unchanged. This is presentation only. The stage text (`'3.First draft'`, `'1✓'`) is kept so REQ-390 and REQ-398 still hold.
+
+## Design decisions made during implementation
+
+- **The border is written as longhands** (`border-width` / `border-style` / `border-color`), not the `border` shorthand. jsdom cannot expand a shorthand that contains `color-mix()`, and the longhands are equivalent in browsers.
+- **"Full width" is asserted through the CSS rules that produce it,** since jsdom does no layout:
+  - the banner's margins equal minus the panel's padding;
+  - the list has `flex-grow: 1`;
+  - every box has a non-zero grow;
+  - the current box grows more, with `flex-basis: auto` and `min-width: 0`;
+  - the list has `nowrap` and `overflow: hidden`.
+
+  Because those rules hold at any width, they cover "more than one panel width" without measuring.
+
+UAT file: `tests/test_UAT_FC_BUG-209_progress_bar_boxes.test.ts`. It has four tests: the title, no "|" in text or generated content, box-per-stage with state confined to its own box, and full width on one line with the current box larger.
