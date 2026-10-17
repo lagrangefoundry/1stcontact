@@ -33,30 +33,28 @@
     "assembly cadence unchanged: a tier whose marker is at its end declares nothing",
     "volatile, so the landscape is still read once per session rather than once per turn.",
     "",
-    "THE PRODUCT TIER IS THE FRAMEWORK'S, ADOPTED WHOLE ([[REQ-283]]). This file used to",
-    "record that the tier was declined, on three reasons that have all expired or been",
-    "answered. `session.summary` waited on lagrange-framework BUG-45, which is fixed in",
-    "the installed code. `session.transcript_pointer` had no reader, and now has one:",
-    "the `agent` surface's InspectContext lets a session read its own past turns by id.",
-    "`session.tool_transcript_note` had none either, and was declined ON ITS OWN MERITS",
-    "by binding no reader. [[REQ-296]] gives it one: `read_work_log` on the ledger",
-    "surface reads the persisted TOOL record stream by turn, so the pointer now names",
-    "an instrument this session actually has, and `templates.tool-transcript-note`",
-    "carries our words in place of the framework's for that reason.",
+    "THE PRODUCT TIER IS THIS FILE'S, AND THE FRAMEWORK'S MEMORY CORE IS COMPOSED",
+    "AROUND IT ([[BUG-210]]). lagrange-framework BUG-83 deleted the shipped product tier",
+    "and `registerDefaults`, and moved the session-memory layers into a core every",
+    "manager composes around the host's product, configured by its `memory:` block, and",
+    "refusing any host provider bound under a name the core owns. So `product_priming`",
+    "is this host's four entries under this host's own `memory.*` names, in the order",
+    "the old tier had: the transcript pointer and the work-log note before the cache",
+    "boundary, the record and the occupancy gauge after it, so the two that change",
+    "every turn are re-assembled WITHOUT invalidating the cached prefix in front of them.",
     "",
-    "WHAT IS WORTH ADOPTING IS THE ORDER, not only the words. The tier's cache boundary",
-    "sits before its last entry, so the seed a session rewrites as it works is",
-    "re-assembled every turn WITHOUT invalidating the cached prefix in front of it. That",
-    "is the one placement this file could not express on its own: our own boundary is at",
-    "the end of the role tier, which declares nothing volatile.",
-    "",
-    "AND ONE OF ITS PROVIDER NAMES IS REBOUND. `session.summary` renders the framework's",
-    "two zones \u2014 a bounded standing note and an append-only log \u2014 and THIS HOST ALREADY",
-    "HAS THE LOG: [[REQ-171]]'s ledger, in the chat ticket's BODY, where the knowledge",
-    "component can index it. A comment body is not indexed, so adopting the store's log",
-    "as well would either duplicate the record or move it out of the client's own",
-    "knowledge base. So the note is the framework's and the log is the ledger, and the",
-    "entry is bound to a provider of ours that renders both.",
+    "THE `memory` BLOCK KEEPS THE CHARTER AND TURNS FOUR LAYERS OFF, EACH BY NAME AND",
+    "EACH FOR A REASON. `summary`: the core reads a `chat_summary` comment, and this",
+    "host's record is [[REQ-283]]'s \u2014 the standing note in the chat ticket's",
+    "`fields.frame`, the decisions in its BODY, [[REQ-171]]'s ledger, where the",
+    "knowledge component can index it. `transcript`: on the Claude API adapter it would",
+    "also grant a second agent toolbox whose summary verbs write that comment, beside",
+    "the `agent` surface and `read_work_log` this host already grants. `reminder`: it",
+    "names those verbs; `memory-trigger` names ours. `budget`: the framework does not",
+    "restore occupancy on resume, so on the Worker its gauge is always blank \u2014",
+    "[[REQ-296]]'s gauge reads the durable figure. The charter's window line is",
+    "overridden to drop its claim that older exchanges are in \"your summary and your",
+    "transcript\": a worker and the settings assistant have neither.",
     "",
     "A THIRD VOLATILE ENTRY IS THE PAGE ITSELF ([[REQ-285]]). `site.line` names the site",
     "and `site.changes` says how many changes landed; `site.digest` says what the site now",
@@ -234,20 +232,20 @@
     "",
     "AND THE WORKER IS TOLD NONE OF THE CONSULTANT'S RECORD ([[REQ-339]]). That is",
     "not visible in this file, because neither role DECLARES that entry \u2014 the",
-    "framework's product tier declares it once, for every role assembled against",
-    "this registry \u2014 but it is the other half of the same decision, and it is where",
+    "product tier declares it once, for every role assembled against this",
+    "registry \u2014 but it is the other half of the same decision, and it is where",
     "the re-narration came from: the worker was handed the consultant's standing",
-    "note and read it as a resumption. `session.summary` is bound to render only",
+    "note and read it as a resumption. `memory.record` is bound to render only",
     "for the role that KEEPS the record, which is the role granted the verbs that",
     "write it. See `roles.ts`.",
     "",
     "[[REQ-296]] \u2014 WHERE THE OCCUPANCY GAUGE IS, AND WHY IT IS NOT DECLARED HERE",
-    "TWICE. The consultant and the builder read it from the framework's product tier,",
+    "TWICE. The consultant and the builder read it from the product tier,",
     "which names `session-budget` after its own cache boundary \u2014 so it is re-assembled",
     "every turn and rides the per-turn tail, past the message history, which is",
     "exactly where a figure that changes every turn belongs ([[REQ-144]]). Declaring",
     "it in `reminders` as well would deliver two gauges. The settings role has no",
-    "product tier \u2014 its manager is built with a registry and no product \u2014 so its own",
+    "product entries \u2014 its product is the `memory` block alone \u2014 so its own",
     "tail names the same provider once: one gauge per role, from whichever tier that",
     "role has.",
     "",
@@ -271,6 +269,7 @@
     "session-memory": "## Your record of this engagement\n\nWhat you have kept about this conversation, and what you and your client have settled. It is your own record \u2014 not a transcript, and not someone else's summary of you. Read it before you conclude you have lost the thread, and before you go looking at the site to work out what you already did.",
     "session-memory-note": "### Your standing note\n\nAs it stood when this turn began. Complete, and yours to rewrite whenever the shape of the work changes. It is a snapshot and does not move as you work \u2014 a rewrite you make during this turn is kept, and is the note you are given when the next turn begins, so its absence here is not a failed write.",
     "session-memory-decisions": "### What you have recorded\n\n{entries} decision{plural} in this engagement's ledger when this turn began; the last {shown} follow. Earlier ones are in the ledger itself, which is this engagement's own record and is searchable \u2014 they are not lost, and re-deciding something already there in front of the same client is worse than looking it up.",
+    "transcript-pointer": "## Reaching the rest of this conversation\n\nEverything said in this session is stored, and addressable. Each exchange has a turn id; reading one by its id returns it in full, including any turn shown to you elided. Exchanges outside the recent window above are reachable that way rather than lost.\n\nWhat the transcript holds is the prose \u2014 what you and the user said. It does not hold tool results: those are recorded separately, as a work log.",
     "memory-trigger": "Keep your record current as you work. Rewrite your standing note when the shape of the work changes \u2014 what you are doing, what is settled, what is out of scope, and what was rejected and why; it is bounded, it is delivered to you whole on every turn, and it is what survives when the recent exchanges do not, so anything you would need after losing them belongs in it. Record a decision the moment it is settled rather than saving them up, and record what lost as well as what won.",
     "page-digest": "## The site as it stands\n\nRead off the site as this turn began, not remembered: use it instead of looking, and quote its numbers rather than any you have in mind. It is a snapshot and does not move as you work \u2014 anything you or your client change during this turn is not in it, and list_changes is what shows you that. What it leaves out \u2014 the words on a page, how anything is laid out, how anything is painted \u2014 is what get_l1 is for, one element at a time.",
     "page-digest-state": "The draft stands at change {at}. That is where it stood when this turn began \u2014 list_changes since {at} is exactly what has happened after it, your client's edits and your own both. {publication}",
@@ -300,6 +299,36 @@
     "delegation-reminder-parallel": "Name the files each builder will write in `scope`; up to {cap} run at once, only on different files, and one on `site.json` always alone.",
     "tool-transcript-note": "Your tool calls in this session are recorded for you, separately from the conversation, as a work log: one entry per call, holding what you called, what you called it on, and what came back. Each entry names the turn it belongs to. You never write it and you cannot change it.\n\nRead it with read_work_log \u2014 no turn named for an index of every call, a turn named for that turn's calls in full. Reach for it when you need to recover what you already did rather than doing it again: re-reading a page you read eight turns ago costs many times what asking for the record of it does. Large inputs and results are stored shortened, each marked with how much was kept of how much there was \u2014 treat a marked entry as a pointer to work you did, not as the full text of it.",
     "builder-vocabulary": "## The page vocabulary\n\nThis is the whole of what a page can be written in, generated from the schemas\nthe validator enforces: every kind of element, the fields each accepts, and\nthe shape of every field. You already have it \u2014 do not spend your tools\nlooking it up before you write. A type that is not a plain value (`text axes`,\n`geometry`) is one of the shapes listed last. What a field is for is not said\nhere; when its name does not tell you, read an element that already uses it.\n\n{vocabulary}"
+  },
+  "product_priming": [
+    {
+      "name": "transcript-pointer",
+      "provider": "memory.transcript_pointer"
+    },
+    {
+      "name": "tool-transcript-note",
+      "provider": "memory.work_log_note"
+    },
+    {
+      "cache_boundary": true
+    },
+    {
+      "name": "session-summary",
+      "provider": "memory.record"
+    },
+    {
+      "name": "session-budget",
+      "provider": "memory.budget"
+    }
+  ],
+  "memory": {
+    "summary": { "enabled": false },
+    "transcript": { "enabled": false },
+    "reminder": { "enabled": false },
+    "budget": { "enabled": false },
+    "prose": {
+      "memory_charter_window": "- **Recent exchanges.** When this conversation is reopened, its most recent\n  exchanges are given back to you verbatim, under \"Earlier in this\n  conversation\"."
+    }
   },
   "priming": [
     {
@@ -1018,7 +1047,7 @@
     },
     {
       "name": "session-budget",
-      "provider": "session.budget"
+      "provider": "memory.budget"
     },
     {
       "name": "turn-interrupted",
