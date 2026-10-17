@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T22:38:06.952036+00:00'
+updated_at: '2026-10-17T22:48:04.687772+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2198,3 +2198,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **BUG-215** — first draft: the starter page becomes the grey placeholder (no 'Your 1st Contact site', no counter dependency); the working line separates the turn's estimate and clock from the current step's; the delegation heartbeat never reaches the client as text; slow-operation notices shown as lighter collapsed step lines rather than hidden (operator wants to see progression).
+
+
+
+- Consultant-filed from Bob's Salon (2026-10-17), linked here: **BUG-212** worker aborted on context budget after a mis-shaped ReportResult (distinct from BUG-208); **BUG-213** place_on_site ignores `as` for an already-placed item, so one upload can't carry several crops; **BUG-214** image describer refuses every image because `describerSession` registers its backend without capabilities (cause found in `ai.ts:285`).
