@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:15:44.040358+00:00'
+updated_at: '2026-10-17T22:26:07.040296+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7793,5 +7793,33 @@ Your site is fine now. All ten sections are real and none mentions "1st Contact"
 One check on wording: I've read "grey text → draft site" as *keep the grey panel until there's a draft site to show*. If you actually meant the grey panel should say something different, such as "Draft site", tell me the words.
 
 REQ-403 is frozen at `ready_to_reconcile`, so this needs its own small bug under EPIC-19, about 1 point. Shall I file it?
+
+<!-- xgd-turn id="d6ac25b0-51c8-4792-acce-6466443a5165-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:26:02.512923+00:00" -->
+#### You
+The words we have are fine - I just don't want to see the "Your 1st Contact Site" its confusing - why don't you make the starter page be a gray page with our current text "Your site will appear here..." or whatever it was we have.
+
+Also there is a problem with the time accounting currently it says:
+
+still working, elapsed 5 min — builder worker-builder-3-3br9qs on home.json, home.json#footer, home.json#header, home.json#hero, home.json#prices, home.json#promises, home.json#story, home.json#team, home.json#the-hair, home.json#visit, home.json#wigs-for-kids since 22:19 UTC
+
+Your consultant is fixing the top photo and headline overflowing on narrower screens, about 5 minutes · 15:37 so far
+
+The thing is this 5 mins is a stage in the initial draft that it originally said would take about 15 mins. Now it says:
+
+*Building the first draft of Bob's Salon's home page — about 15 minutes.*
+
+*Taking a screenshot — about a minute.*
+
+I can see a problem at your screen width: the main photo is wider than the screen, so the big headline is cut off on the left. I'm fixing that now. It will take about 5 minutes.
+
+*Taking a screenshot — about a minute.*
+
+*Taking a screenshot — about a minute.*
+
+Your consultant is taking a screenshot · about 1 min · 16:34 so far
+
+I'm not exactly sure what the right fix is but the output is confusing to me right now
 
 <!-- xgd-chat-end -->
