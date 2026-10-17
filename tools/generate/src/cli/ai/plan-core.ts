@@ -370,6 +370,12 @@ export interface PlanFields {
   asks: PlanAsk[]
   /** [[REQ-378]] — the comp board: comparable sites, in the order they were added. */
   comps: PlanComp[]
+  /**
+   * [[REQ-401]] — when the client skipped comparing sites. Adding a site reopens
+   * it, by writing `null`: the host's write is a field patch, where a key left out
+   * keeps what was stored.
+   */
+  comps_skipped_at?: string | null
   /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
@@ -951,6 +957,29 @@ export interface PanelView {
   asks: (Omit<PlanAsk, 'withdrawn_reason' | 'previous_answer'> & { unavailable?: string[] })[]
   /** [[REQ-378]] — the comp board, as the plan holds it; the host adds the notes. */
   comps: PlanComp[]
+  /** [[REQ-401]] — the comp board as one item on the panel: open, done or skipped. */
+  comps_status: CompsStatus
+}
+
+/** [[REQ-401]] — where comparing sites stands, as the panel's item shows it. */
+export type CompsStatus = 'open' | 'done' | 'skipped'
+
+/** The decision a comparison of sites ends in ([[REQ-378]]). */
+export const VISUAL_CONCEPT = 'visual_concept'
+
+/**
+ * [[REQ-401]] — the comp board's status.
+ *
+ * DONE ONCE THE CONSULTANT HAS RECORDED THE VISUAL CONCEPT FROM IT: the decision
+ * is no longer open and names the comps that shaped it, which is how the priming
+ * tells her to record it. A concept defaulted with no comps behind it was not
+ * taken from the board, so it leaves the board open. Otherwise SKIPPED once the
+ * client has skipped it, and OPEN until then.
+ */
+export function compsStatus(fields: Pick<PlanFields, 'decisions' | 'comps_skipped_at'>): CompsStatus {
+  const concept = (fields.decisions ?? []).find((d) => d.id === VISUAL_CONCEPT)
+  if (concept && concept.state !== 'open' && (concept.comps ?? []).length > 0) return 'done'
+  return fields.comps_skipped_at ? 'skipped' : 'open'
 }
 
 /**
@@ -977,6 +1006,7 @@ export function panelView(fields: PlanFields): PanelView {
       },
     ),
     comps: fields.comps ?? [],
+    comps_status: compsStatus(fields),
   }
 }
 
@@ -1063,6 +1093,8 @@ export function planReminder(plan: Plan | null): string | null {
       `Sites you are comparing (${comps.length}): ${list(comps.map((c) => `${c.title} [${c.reference}]${c.source === CLIENT ? ' (the client added it)' : ''}`))}.`,
     )
   }
+  // [[REQ-401]] — the client can skip the board from the panel; she should know.
+  if (compsStatus(f) === 'skipped') lines.push('The client skipped comparing other sites.')
   if (panel.tasks.total) {
     const bits = [`${panel.tasks.done} of ${panel.tasks.total} done`]
     if (panel.tasks.doing.length) bits.push(`doing: ${list(panel.tasks.doing)}`)
@@ -1444,8 +1476,17 @@ export function addComp(
   if (held) return { plan: next, comp: held }
   const entry: PlanComp = { reference: comp.reference, title: comp.title, url: comp.url, source, added_at: at }
   comps.push(entry)
+  // [[REQ-401]] — A NEW SITE ON THE BOARD REOPENS A SKIPPED COMPARISON.
+  if (next.fields.comps_skipped_at) next.fields.comps_skipped_at = null
   checkPlan(next.fields)
   return { plan: next, comp: entry }
+}
+
+/** [[REQ-401]] — the client skipped comparing sites, from the panel. */
+export function skipComps(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  next.fields.comps_skipped_at = at
+  return next
 }
 
 /** Record who wrote a comp's notes, and when ([[REQ-378]]). */

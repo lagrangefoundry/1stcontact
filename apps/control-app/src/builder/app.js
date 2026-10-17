@@ -1137,6 +1137,8 @@ export function mountBuilder(root, options = {}) {
     onOpenComp: openComp,
     // [[BUG-196]] — the delete confirmation an answered upload opens mounts in the shell.
     getModalHost: () => shell.element,
+    // [[REQ-401]] — the client's folds, remembered like the divider.
+    storage: shell.storage(STORAGE_KEYS.planFold),
   })
 
   const chat = createChatPanel({
