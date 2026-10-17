@@ -6,10 +6,10 @@ title: 'First entry: a placeholder preview, no false ''All done'', and a ''Click
   to start'' that opens with the consultant''s stock introduction'
 created_by: EPIC-19
 created_at: '2026-10-17T15:30:00.060690+00:00'
-updated_at: '2026-10-17T16:24:17.072844+00:00'
+updated_at: '2026-10-17T16:29:05.024688+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-cc05546b
+  commits:
+  - working_sha: 4e61f1b8f6018d0206a31085b71bee347919a01e
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c2e0a8ddc5b50fd8f5cef9211e4a031a9a093410
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.514
 ---
 
 ## What changes
