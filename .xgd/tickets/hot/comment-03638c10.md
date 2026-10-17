@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-399
 created_by: xgd
 created_at: '2026-10-15T17:01:29.587000+00:00'
-updated_at: '2026-10-16T18:43:25.314039+00:00'
+updated_at: '2026-10-17T20:25:54.300460+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -138,5 +138,11 @@ REQ-399 is built, merged into `xgd-working` and parked at `free_coded`. I haven'
 The ticket now has an "As built" section, and the commits are `36ee3c3e22` plus the gate's version bump, `1c51c9816e` (0.2.507).
 
 **One thing for you:** `xgd branch clean REQ-399` merged and removed the worktree folder, but the sandbox wouldn't let it delete `.git/worktrees/free-REQ-399`. So the `free-REQ-399` branch and a stale worktree entry are still there. Run `xgd branch clean --stale` outside the sandbox to clear them.
+
+<!-- xgd-turn id="0391ccce-cfda-4590-8396-c8a4ff72e255-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:25:44.225443+00:00" -->
+#### You
+please clean up the branch for this ticket
 
 <!-- xgd-chat-end -->
