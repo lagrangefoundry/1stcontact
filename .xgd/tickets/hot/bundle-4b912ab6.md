@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-16T19:31:12.012249+00:00'
-updated_at: '2026-10-17T13:06:00.510468+00:00'
+updated_at: '2026-10-17T20:07:18.334188+00:00'
 completed_at: null
-last_field_updated: pid
+last_field_updated: bundle_type
 status: reconciling
 fields:
   commits:
@@ -49,6 +49,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
 ---
 
 # Bundle
