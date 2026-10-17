@@ -790,24 +790,18 @@ export const DELEGATION_METHOD_PROVIDER = 'delegation.method'
 export const DELEGATION_REMINDER_PROVIDER = 'delegation.reminder'
 
 /**
- * The seed entry in the framework's product tier, rebound to this host's record
- * ([[REQ-283]]).
+ * The seed entry in this host's product tier: the record ([[REQ-283]]).
  *
- * UPSTREAM'S NAME, NOT ONE OF OURS, and that is deliberate. The shipped product
- * mapping (`defaults/product.json`) names this entry, and the entry's PLACE —
- * after the cache boundary, so rewriting it every turn cannot invalidate the
- * cached prefix in front of it — is the part of that mapping worth adopting. What
- * it is bound to is the host's decision, and here neither zone is where the
- * framework puts it: the standing note is a field on the chat ticket and the log
- * is that ticket's body, [[REQ-171]]'s ledger. The default binding reads a
- * `SummaryStore` this host does not have, so it would render nothing at all.
- *
- * Registering over it is the ordinary use of `register`, which is documented as
- * "replacing any previous binding"; the alternative — a second entry under a
- * second name — would put two seeds in the tier, only one of which is after the
- * boundary.
+ * THIS HOST'S NAME, NOT THE FRAMEWORK'S `session.summary` ([[BUG-210]]). Since
+ * lagrange-framework BUG-83 that name belongs to the session-memory core, which
+ * refuses a host registry binding it, and whose summary reads a `chat_summary`
+ * comment this host never writes. The record here is the standing note in the chat
+ * ticket's `fields.frame` and [[REQ-171]]'s ledger in its body, so the core's
+ * summary layer is switched off in `priming.json`'s `memory` block and this entry
+ * takes its place — after the product tier's cache boundary, so rewriting it every
+ * turn cannot invalidate the cached prefix in front of it.
  */
-export const SESSION_MEMORY_PROVIDER = 'session.summary'
+export const SESSION_MEMORY_PROVIDER = 'memory.record'
 
 /**
  * The name the per-turn nudge to keep the record current is reached under
@@ -827,31 +821,38 @@ export const SESSION_MEMORY_PROVIDER = 'session.summary'
 export const MEMORY_TRIGGER_PROVIDER = 'memory.trigger'
 
 /**
- * The product tier's pointer at the rest of the conversation, rebound to a
- * host-level condition ([[REQ-283]]).
+ * The product tier's pointer at the rest of the conversation ([[REQ-283]]).
  *
- * UPSTREAM'S NAME AGAIN, for {@link SESSION_MEMORY_PROVIDER}'s reason. What is
- * rebound is the CONDITION and not the words. The framework's binding renders
- * only when `ctx.chatTicketUid` is set, which is conservative and right for a host
- * that cannot know — but that field is stamped by the archive on the first DRAIN,
- * and the priming is assembled once, before it. This entry sits BEFORE the cache
- * boundary, so it is assembled once and re-delivered: a session would therefore
- * never be told where its transcript is until it was resumed in a fresh isolate,
- * which is the one case that does not need telling.
- *
- * The question it is really asking is whether this host homes sessions on tickets
- * at all, and that is answered once, here, by whether there is a record to keep.
+ * THE WORDS ARE OURS SINCE [[BUG-210]]: BUG-83 deleted the framework's
+ * `transcript_pointer` prose with its default tier, and its replacement — the
+ * memory charter's transcript line — comes with the core's transcript layer, which
+ * this host keeps off (see `priming.json`'s `about`). So `templates.transcript-pointer`
+ * carries the sentence, and the condition stays the host's: rendered wherever there
+ * is a record to keep, which is wherever the `agent` surface that reads past turns
+ * by id is composed.
  */
-export const TRANSCRIPT_POINTER_PROVIDER = 'session.transcript_pointer'
+export const TRANSCRIPT_POINTER_PROVIDER = 'memory.transcript_pointer'
 
 /**
- * The product tier's occupancy gauge ([[REQ-296]]; [[REQ-169]] upstream).
+ * The product tier's pointer at the session's tool work log ([[REQ-296]]).
  *
- * UPSTREAM'S NAME, SPELLED HERE, for {@link SESSION_MEMORY_PROVIDER}'s reason —
- * and spelled as a literal because the framework does not export it. Every
- * provider name this project names lives in this file, whoever coined it.
+ * This host's name for what the core calls `session.tool_transcript_note`
+ * ([[BUG-210]]): the core's version comes with its transcript layer, which stays
+ * off, and names no instrument; this one names `read_work_log`. Rendered only once
+ * the session has recorded a call, and only where the ledger surface is composed.
  */
-export const SESSION_BUDGET_PROVIDER = 'session.budget'
+export const WORK_LOG_NOTE_PROVIDER = 'memory.work_log_note'
+
+/**
+ * The occupancy gauge ([[REQ-296]]; [[REQ-169]] upstream).
+ *
+ * THIS HOST'S NAME SINCE [[BUG-210]]: `session.budget` is the session-memory core's
+ * now, and its gauge reads only the manager's in-memory occupancy, which the
+ * framework deliberately does not restore on resume — so on the Worker, where the
+ * manager is rebuilt per request, it would never render. The core's budget layer is
+ * off and {@link registerBudgetProvider} binds this name instead.
+ */
+export const SESSION_BUDGET_PROVIDER = 'memory.budget'
 
 /**
  * Bind every provider name this project's configuration may use (REQ-182).
@@ -1287,10 +1288,12 @@ export interface SessionMemorySource {
     /** Every recorded decision, whole and oldest first. Empty is ordinary. */
     decisions: string[]
   }>
+  /** Whether this session has recorded a tool call yet ([[REQ-296]]). */
+  hasWorkLog(sessionId: string): Promise<boolean>
 }
 
 /**
- * Bind the two names this host's session memory is reached under ([[REQ-283]]).
+ * Bind the names this host's session memory is reached under ([[REQ-283]]).
  *
  * THE SAME BARGAIN {@link registerSiteProviders} KEEPS — the file that names a
  * provider and the function that says what the name reaches sit together — and
@@ -1310,45 +1313,36 @@ export interface SessionMemorySource {
  * not to claim a record rather than a reason to refuse the client an answer.
  */
 /**
- * The occupancy gauge in the framework's product tier, rebound to a figure that
- * survives this host's turn boundary ([[REQ-296]]).
+ * The occupancy gauge, from a figure that survives this host's turn boundary
+ * ([[REQ-296]]).
  *
- * UPSTREAM'S NAME AND UPSTREAM'S PROVIDER, for {@link SESSION_MEMORY_PROVIDER}'s
- * reason and one further one. The shipped product mapping names this entry and
- * puts it AFTER the cache boundary, which is the part worth adopting: entries past
- * the marker are re-assembled every turn and ride the per-turn tail, past the
- * message history, so a figure that changes on every turn cannot invalidate the
- * cached prefix in front of it ([[REQ-144]]). Writing our own gauge into the
- * reminder would have put the same number in the same place and forked the prose;
- * writing it into `system` would have cost more than the overflow does.
+ * THE FRAMEWORK'S WORDS, A DURABLE INPUT. The prose is the framework's own
+ * (`DEFAULT_PROSE.budget` / `budget_no_window`, passed in because this module knows
+ * no AI library), and the three outcomes are the framework's: no measurement →
+ * `null`; occupancy without a window → the figure and no invented proportion; both →
+ * figure, window, percent and room left. What differs is the input. The manager's
+ * `ctx.occupancyTokens` lives on its in-memory session and is not restored on
+ * resume, and on a Worker the manager is rebuilt per request, so it is zero on
+ * every turn there. The host keeps the figure durably (`session-occupancy.ts`).
  *
- * WHAT IS REBOUND IS THE INPUT, NOT THE WORDS. The provider itself — its three
- * outcomes, its rounding, every sentence it renders — is the framework's, taken
- * out of the registry and called with one field replaced. The framework's
- * `ctx.occupancyTokens` is a field on the manager's in-memory session, and on a
- * Worker the manager is rebuilt per request and the session resumed from the
- * archive, so it is zero on every turn and the gauge renders nothing at all. The
- * host keeps the figure durably instead (`session-occupancy.ts`).
+ * RENDERED HERE SINCE [[BUG-210]], not by rebinding the framework's provider: BUG-83
+ * moved that provider into the session-memory core, which neither exports it nor
+ * accepts an occupancy source. The digit grouping and half-up rounding match the
+ * framework's (`groupDigits`, `percentOf`) so the figure reads the same either way.
  *
- * `ctx` FIRST, THE DURABLE FIGURE SECOND, and that order is deliberate: where the
- * manager DOES live across turns — the `1c` CLI, one process — the framework's own
- * measurement is the most recent thing there is, and the stored figure is at best
- * equal to it.
- *
- * `registerDefaults` MUST HAVE RUN. This reads the shipped binding out of the
- * registry rather than reimplementing it, so a caller that has not loaded the
- * framework's defaults gets `PrimingConfigError` naming the provider — which is
- * the right failure and is raised at start-up.
+ * `ctx` FIRST, THE DURABLE FIGURE SECOND: where the manager does live across turns
+ * — the `1c` CLI, one process — its own measurement is the most recent there is.
  *
  * @param measured the durable figure for a session, or `0` where this host keeps
  *   none. A failed read is silence: the gauge renders nothing rather than failing
  *   the turn it was assembled for.
+ * @param prose the framework's `DEFAULT_PROSE`.
  */
 export function registerBudgetProvider(
   providers: Untyped,
   measured: (sessionId: string) => Promise<number>,
+  prose: { budget: string; budget_no_window: string },
 ): void {
-  const shipped = providers.get(SESSION_BUDGET_PROVIDER) as (ctx: Untyped) => Promise<string | null>
   providers.register(SESSION_BUDGET_PROVIDER, async (ctx: Untyped) => {
     let occupancy = Math.trunc(Number(ctx?.occupancyTokens) || 0)
     if (occupancy <= 0) {
@@ -1358,8 +1352,23 @@ export function registerBudgetProvider(
         occupancy = 0
       }
     }
-    return shipped({ ...ctx, occupancyTokens: occupancy })
+    if (occupancy <= 0) return null
+    const window = Math.trunc(Number(ctx?.contextWindow) || 0)
+    if (window <= 0) {
+      return fill(prose.budget_no_window.trim(), { occupancy: groupDigits(occupancy) })
+    }
+    return fill(prose.budget.trim(), {
+      occupancy: groupDigits(occupancy),
+      window: groupDigits(window),
+      percent: Math.floor((occupancy / window) * 100 + 0.5),
+      remaining: groupDigits(Math.max(0, window - occupancy)),
+    })
   })
+}
+
+/** `342118` as `"342,118"`, the framework's grouping rule rather than a locale's. */
+function groupDigits(value: number): string {
+  return String(Math.trunc(Math.abs(value))).replace(/\B(?=(\d{3})+(?!\d))/g, ',')
 }
 
 /**
@@ -1397,15 +1406,20 @@ const RECORD_KEEPING_ROLES: ReadonlySet<string> = new Set<string>([
 export function registerMemoryProviders(
   providers: Untyped,
   source: SessionMemorySource | null,
-  transcriptPointer: string | null = null,
 ): void {
-  // THE WORDS ARE THE FRAMEWORK'S AND THE CONDITION IS OURS — see
-  // {@link TRANSCRIPT_POINTER_PROVIDER}. Passed in rather than read here because
-  // this module knows no AI library; it is the same shape every other template in
-  // this file has, with the data file one rung further out.
   providers.register(TRANSCRIPT_POINTER_PROVIDER, async () =>
-    source !== null && transcriptPointer ? transcriptPointer : null,
+    source !== null ? template('transcript-pointer') : null,
   )
+  // A FAILED READ IS SILENCE: an unreadable archive is a reason not to advertise
+  // a log, never a reason to lose the turn being assembled.
+  providers.register(WORK_LOG_NOTE_PROVIDER, async (ctx: Untyped) => {
+    if (source === null) return null
+    try {
+      return (await source.hasWorkLog(String(ctx?.sessionId ?? ''))) ? toolTranscriptNote() : null
+    } catch {
+      return null
+    }
+  })
   providers.register(SESSION_MEMORY_PROVIDER, async (ctx: Untyped) => {
     if (source === null) return null
     // A WORKER IS TOLD NONE OF IT ([[REQ-339]]), by the same mechanism a host
@@ -1529,9 +1543,8 @@ export function registerBuilderProviders(providers: Untyped, binding: { box: Unt
 /**
  * How this host's session reaches its own tool records ([[REQ-296]]).
  *
- * THE FRAMEWORK'S ENTRY, THIS HOST'S WORDS. `registerDefaults` takes an override
- * for the shipped prose precisely for a host whose artifact is reachable
- * differently, and this one is: upstream's sentence says to *"search or read it"*
+ * THE FRAMEWORK'S IDEA, THIS HOST'S WORDS, under {@link WORK_LOG_NOTE_PROVIDER}.
+ * Upstream's sentence says to *"search or read it"*
  * without naming an instrument, because upstream cannot know there is one. Here
  * there is — `read_work_log` on the ledger surface — and the one rule this file
  * keeps is that a session is never told about a capability it was not granted, in
@@ -1662,6 +1675,30 @@ export function consultantRole(lib: Untyped, providers: Untyped, withCorpus: boo
  * names two providers that did not exist until this ticket, so the loader's
  * complaint at start-up, naming the entry, is exactly the failure worth buying.
  */
+/**
+ * This host's product tier, with the session-memory core configured ([[BUG-210]]).
+ *
+ * BOTH MANAGERS TAKE THE SAME `memory` BLOCK, because the core is configured per
+ * manager, not per role: the consultant, the coordinator and the delegated builder
+ * share one manager, the settings assistant has its own. What the block keeps and
+ * why is in `priming.json`'s `about`. Unknown keys in it are refused by the
+ * framework at load, so a misspelt layer is a start-up error, not a setting that
+ * does nothing.
+ *
+ * @param entries `false` for the settings manager, whose product is the memory
+ *   block alone: it has no record, no transcript surface and no work log, and its
+ *   gauge is named by its own reminder tier.
+ */
+export function productConfig(lib: Untyped, providers: Untyped, entries = true): Untyped {
+  return lib.productFromMapping(
+    {
+      priming: entries ? (primingDocument.product_priming as RawEntry[]).map(normalise) : [],
+      memory: primingDocument.memory,
+    },
+    { providers },
+  )
+}
+
 export function settingsRole(lib: Untyped, providers: Untyped): Untyped {
   const roles = lib.rolesFromMapping(
     { roles: { [SETTINGS_ROLE]: settingsPrimingConfig() } },

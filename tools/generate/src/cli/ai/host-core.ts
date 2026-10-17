@@ -78,7 +78,7 @@ import {
   registerSiteProviders,
   SETTINGS_ROLE,
   settingsRole,
-  toolTranscriptNote,
+  productConfig,
   openingCue,
   type TurnSignal,
   type ClientView,
@@ -1786,60 +1786,27 @@ async function build(
   // and there is no configuration in which this host has half a memory.
   const ledger = deps.ledger ? deps.ledger(slug) : null
 
-  // -- the product tier, adopted ([[REQ-283]]) -------------------------------
+  // -- the product tier and the session-memory core ([[BUG-210]]) -----------
   //
-  // THIS HOST USED TO DECLINE IT, and the reason it gave has expired. The note
-  // said `session.transcript_pointer` and `session.tool_transcript_note` name
-  // readers this host does not grant and that `session.summary` waited on
-  // lagrange-framework BUG-45. BUG-45 is fixed in the installed code
-  // (`PrimingAssembly.offsets` filters volatile sections before computing), and
-  // the agent surface below IS the reader the transcript pointer wanted.
+  // lagrange-framework BUG-83 deleted `registerDefaults` and the shipped product
+  // tier, and composes a session-memory core around whatever product a host
+  // passes, configured by its `memory:` block and refusing a host registry bound
+  // under a name it owns. So the product tier is this host's own
+  // (`productConfig`, `priming.json`'s `product_priming`), every entry under a
+  // `memory.*` name, and the core keeps its charter — which names the chat ticket
+  // — with the layers this host already provides switched off by name. Why each
+  // is off is recorded with the block itself, in `priming.json`.
   //
-  // ADOPTED WHOLE AND GATED BY THE PROVIDERS, not by a branch here. Every entry
-  // in the shipped mapping renders `null` — dropping the entry and its separator
-  // — when the fact it states is not true of this session: the pointer when the
-  // session has no home ticket, the seed when there is no record, and the tool
-  // transcript when no reader was bound. So the tier loads identically on both
-  // hosts and the CLI is told none of it, which is what "a session is never told
-  // about a capability it was not granted" has to mean once the claim ships
-  // upstream.
+  // EVERY ENTRY IS GATED BY ITS PROVIDER, not by a branch here: each renders
+  // `null` — dropping the entry and its separator — when what it states is not
+  // true of this session. The `1c` CLI has no ledger, so it is told none of it.
   //
-  // `tool-transcript-note` WAS DECLINED ON ITS OWN MERITS and is now bound
-  // ([[REQ-296]]). The reason it was declined was real: the agent surface reads
-  // the CONVERSATION, nothing here read the persisted TOOL record stream, and
-  // pointing a session at an artifact it cannot open is a hand-written claim
-  // about a tool it does not have. `read_work_log` on the ledger surface is that
-  // reader, so the claim is now true — and it is bound on the SAME condition the
-  // surface is composed on, which is what keeps the two from disagreeing.
-  //
-  // THE READER IS THE ARCHIVE'S OWN, which is also what the operation answers
-  // from. `toolTranscript` is `''` for a session that has recorded no call, so
-  // the entry renders only once there is something to point at; a failed read is
-  // silence rather than a failed turn, because an unreadable archive is a reason
-  // not to advertise a log and never a reason to lose the turn that was being
-  // assembled.
-  lib.registerDefaults(providers, {
-    ...(ledger
-      ? {
-          toolTranscriptNote: toolTranscriptNote(),
-          hasToolTranscript: async (ctx: Untyped) => {
-            try {
-              return Boolean(await deps.archive.toolTranscript(String(ctx?.sessionId ?? '')))
-            } catch {
-              return false
-            }
-          },
-        }
-      : {}),
-  })
-
-  // AND THE GAUGE, REBOUND TO A FIGURE THAT SURVIVES A TURN ([[REQ-296]]). The
-  // shipped product tier already declares the entry in the right place — after
-  // its cache boundary, so it rides the per-turn tail past the message history —
-  // and what it is bound to is this host's decision, exactly as the seed above is.
-  // See `roles.ts` for why `ctx.occupancyTokens` cannot be the only source here.
-  registerBudgetProvider(providers, (sessionId: string) =>
-    deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0),
+  // THE OCCUPANCY GAUGE READS A FIGURE THAT SURVIVES A TURN ([[REQ-296]]). See
+  // `roles.ts` for why `ctx.occupancyTokens` cannot be the only source here.
+  registerBudgetProvider(
+    providers,
+    (sessionId: string) => (deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0)),
+    lib.DEFAULT_PROSE,
   )
 
   // -- the memory is ONE OBJECT ([[REQ-283]]) --------------------------------
@@ -1872,11 +1839,9 @@ async function build(
   // replaced by the one registered here.
   //
   // THE SEED IS THIS HOST'S, which is the whole of what that choice costs. The
-  // shipped `session.summary` provider renders a frame plus a tail of the STORE's
-  // log; ours renders the standing note plus a tail of the LEDGER. Registered
-  // over the framework's binding rather than beside it, so the shipped product
-  // mapping still names exactly one provider for that entry and there is no
-  // second seed to fall out of step.
+  // core's summary layer renders a frame plus a tail of the STORE's log; ours
+  // renders the standing note plus a tail of the LEDGER, under this host's own
+  // name. The core's layer is off ([[BUG-210]]), so there is exactly one seed.
   //
   // DELIVERY IS THE POINT. Until this, `record_decision` was write-only: the
   // consultant recorded a decision and could not see it on the next turn, so it
@@ -1893,15 +1858,13 @@ async function build(
             const record = await ledger.read()
             return { note: record.note, decisions: ledgerEntries(record.body) }
           },
+          // THE READER IS THE ARCHIVE'S OWN, which is also what `read_work_log`
+          // answers from: `''` for a session that has recorded no call.
+          hasWorkLog: async (sessionId: string) => Boolean(await deps.archive.toolTranscript(sessionId)),
         }
       : null,
-    // THE SHIPPED PROSE, BOUND TO THIS HOST'S CONDITION ([[REQ-283]]). It names
-    // where the rest of the conversation is and how to reach it — which is true
-    // here exactly when the agent surface below is composed, and the two are
-    // composed on the same question.
-    String(lib.DEFAULT_PROSE.transcript_pointer).trim(),
   )
-  const product = lib.defaultProduct(providers)
+  const product = productConfig(lib, providers)
 
   // The agent surface's runtime: long-term storage and the live junction, which
   // between them are the whole of what a session's own turns are recorded on. It
@@ -2344,8 +2307,8 @@ async function build(
     // the product tier *together*, because a product mapping names providers and
     // a registry without them could not load it — so a host passing only one is
     // taken to mean it, and the other is left empty. This host passes both: the
-    // registry it bound every one of its own names in, and the framework's
-    // shipped product tier loaded against it ([[REQ-283]]).
+    // registry it bound every one of its own names in, and its own product tier
+    // loaded against it, the memory core configured in it ([[BUG-210]]).
     providers,
     product,
     // NO `summary` OPTION, and the omission is deliberate ([[REQ-283]]). The
@@ -2635,16 +2598,16 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
   )
 
   const providers = new lib.PrimingProviders()
-  // THE FRAMEWORK'S DEFAULTS, FOR ONE NAME ([[REQ-296]]). This manager is built
-  // with a registry and NO product tier — deliberately: the shipped tier would
-  // tell a settings session its turns are addressable by id, which is true of the
-  // consultant, which has the `agent` surface, and not of this one. But the
-  // occupancy gauge is upstream's provider, so the registry has to hold it before
-  // the configuration can name it, and `registerDefaults` is how it is bound. The
-  // three names it registers beside it are named by no tier this role loads.
-  lib.registerDefaults(providers, {})
-  registerBudgetProvider(providers, (sessionId: string) =>
-    deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0),
+  // NO PRODUCT ENTRIES, AND THE SAME MEMORY BLOCK ([[REQ-296]], [[BUG-210]]). The
+  // consultant's tier would tell a settings session its turns are addressable by
+  // id, which is true of the consultant, which has the `agent` surface, and not of
+  // this one — so this manager's product is the `memory` block alone, with the
+  // core's transcript layer off. Its occupancy gauge is named by its own reminder
+  // tier, under this host's name.
+  registerBudgetProvider(
+    providers,
+    (sessionId: string) => (deps.occupancy ? deps.occupancy.read(sessionId) : Promise.resolve(0)),
+    lib.DEFAULT_PROSE,
   )
   // THE NAME IS READ PER TURN AND NOT CAPTURED. It is the thing this session
   // exists to change, so a framing line rendered once would spend the rest of the
@@ -2660,6 +2623,7 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
   return new lib.SessionManager({ [SETTINGS_ROLE]: settingsRole(lib, providers) }, deps.archive, {
     ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
     providers,
+    product: productConfig(lib, providers, false),
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
 }

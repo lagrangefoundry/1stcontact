@@ -83,6 +83,7 @@ function registryWithARecord(): {
         decisions: ['The accent colour across the site is oxblood.'],
       }
     },
+    hasWorkLog: async () => false,
   })
   const seed = bound.get(SESSION_MEMORY_PROVIDER)!
   return {
