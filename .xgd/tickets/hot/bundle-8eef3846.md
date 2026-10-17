@@ -5,9 +5,9 @@ type: bundle
 title: BUG-39 + REQ-154
 created_by: xgd
 created_at: '2026-08-31T05:05:09.213055+00:00'
-updated_at: '2026-08-31T23:59:50.420544+00:00'
+updated_at: '2026-10-17T20:07:35.727510+00:00'
 completed_at: '2026-08-31T23:59:50.420544+00:00'
-last_field_updated: status
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -21,6 +21,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  bundle_type: reconcile
 ---
 
 # Bundle
