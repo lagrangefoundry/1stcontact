@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-217
 created_by: xgd
 created_at: '2026-10-17T22:58:05.820794+00:00'
-updated_at: '2026-10-17T23:03:38.462189+00:00'
+updated_at: '2026-10-17T23:13:08.049676+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,18 @@ The builder's internal id and the UTC clock time are gone. Two less common cases
 **Loose end:** `xgd branch clean BUG-217` refused because BUG-216 now holds the merge lock. The fix is already merged, but the `free-BUG-217` branch and its worktree are still there. Once that lock is released, `xgd branch clean --stale` will remove them.
 
 **To see it on dev:** dev serves a frozen snapshot, so the new message won't appear there until you run `bin/deploy --env dev`.
+
+<!-- xgd-turn id="29372015-9976-497c-b755-f7c4620170ea-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T23:13:02.536581+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-217` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-217`
+- branch HEAD: `d99598dbca92ea3236dcf65e363abf60b7e3d098`
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
 
 <!-- xgd-chat-end -->
