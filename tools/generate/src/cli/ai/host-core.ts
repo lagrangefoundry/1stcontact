@@ -144,7 +144,15 @@ import {
   type L1Operations,
 } from './toolbox-core'
 import { siteDigestSource } from './digest-core'
-import { draftAccount, reportingDelegationToolbox } from './account-core'
+import {
+  REPORT_SHAPE_HINT,
+  REPORT_TOOL,
+  draftAccount,
+  reportInput,
+  reportRefused,
+  reportSchema,
+  reportingDelegationToolbox,
+} from './account-core'
 import {
   configureProjectBackends,
   PROJECT_BACKEND,
@@ -1387,6 +1395,13 @@ function managerForBusiness(businessId: string, deps: HostDeps): Promise<Untyped
  * the same defect for the same reason.
  */
 async function runTool(box: Untyped, name: string, input: Record<string, unknown>): Promise<unknown> {
+  if (name === REPORT_TOOL) {
+    // [[BUG-212]] — a string read as the check it quotes, and a refusal that
+    // still happens spelled out, so the one retry a worker may have left is
+    // the right one. See {@link reportInput}.
+    const output = await box.run(name, reportInput(input))
+    return reportRefused(output) ? `${output}\n\n${REPORT_SHAPE_HINT}` : output
+  }
   const payload = await box.run(name, input)
   return contentBlocksFrom(payload) ?? payload
 }
@@ -1449,7 +1464,9 @@ function toolSet(
       new lib.Tool(
         name,
         spec.description,
-        { properties: spec.properties, required: spec.required },
+        // [[BUG-212]] — `failed`'s entries offered with their keys, which the
+        // declaration cannot yet say (lagrange-framework BUG-86).
+        { properties: name === REPORT_TOOL ? reportSchema(spec.properties) : spec.properties, required: spec.required },
         (input: Record<string, unknown>) =>
           around ? around(() => runTool(box, name, input)) : runTool(box, name, input),
       ),

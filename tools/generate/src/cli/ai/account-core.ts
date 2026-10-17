@@ -897,6 +897,79 @@ export function wroteAnything(changed: DraftChanges): boolean {
   return changed.differences.length > 0 || (changed.truncated ?? 0) > 0
 }
 
+// ── the worker's report ([[BUG-212]]) ────────────────────────────────────────
+//
+// WHAT WAS LOST. A builder near its context ceiling called `ReportResult` with
+// its failed checks as plain strings. The parameter check refused the WHOLE
+// call — summary, `changed` and `passed` with it — and the guard stopped the
+// turn before a retry could be built, so the caller got an empty summary.
+//
+// WHY IT GUESSED. `failed` is declared as an array of objects, and the
+// declaration language cannot give array items keys, so the schema the model
+// is sent says `items: {type: "object"}` and nothing else: `check` and `reason`
+// are only in prose. That belongs upstream (lagrange-framework BUG-86); until
+// it lands, this host's tool projection fills the gap three ways — the keys in
+// the schema, a plain string read as the check it quotes, and the shape spelled
+// out on any refusal that still happens.
+
+/** The worker's report operation, as the model calls it. */
+export const REPORT_TOOL = 'ReportResult'
+
+const FAILED = 'failed'
+
+/** One `failed` entry as the wire schema now offers it. */
+const FAILED_ITEM = {
+  type: 'object',
+  properties: {
+    check: { type: 'string', description: 'The check that did not hold, quoted as it was written.' },
+    reason: { type: 'string', description: 'Why it did not hold.' },
+  },
+  required: ['check', 'reason'],
+  additionalProperties: false,
+}
+
+/** What a refused report is told, so one retry can be the right one. */
+export const REPORT_SHAPE_HINT =
+  `A report is recorded whole or not at all, so nothing from this call was kept. ` +
+  `Each 'failed' entry is an object with the check quoted and the reason: ` +
+  `{"check": "<the check, as written>", "reason": "<why it did not hold>"}. ` +
+  `'passed', 'changed' and 'decisions' are lists of strings. Call ${REPORT_TOOL} again now.`
+
+/** `ReportResult`'s wire properties, with `failed`'s entries given their keys. */
+export function reportSchema(properties: Record<string, unknown>): Record<string, unknown> {
+  const failed = properties[FAILED]
+  if (!failed || typeof failed !== 'object') return properties
+  return { ...properties, [FAILED]: { ...(failed as Record<string, unknown>), items: FAILED_ITEM } }
+}
+
+/**
+ * `ReportResult`'s input, with a `failed` entry sent as a plain string read as
+ * `{check: <the string>, reason: ""}`.
+ *
+ * A STRING IS READ AS THE CHECK, because that is what a worker quoting its
+ * failed checks writes, and reconciliation pairs a failure with an asked check
+ * by its normalised text — so a quoted check still comes back `failed`. A
+ * string that quotes nothing pairs with nothing, and the check it meant comes
+ * back `unreported`, which is still better than losing the report. A lone
+ * string rather than a list is one entry. Anything else is passed through for
+ * the declared checks to judge.
+ */
+export function reportInput(input: Record<string, unknown>): Record<string, unknown> {
+  const failed = input?.[FAILED]
+  if (failed === undefined || failed === null) return input
+  const entries = Array.isArray(failed) ? failed : typeof failed === 'string' ? [failed] : null
+  if (entries === null) return input
+  return {
+    ...input,
+    [FAILED]: entries.map((entry) => (typeof entry === 'string' ? { check: entry, reason: '' } : entry)),
+  }
+}
+
+/** Whether `ReportResult`'s rendered output is a refusal rather than its receipt. */
+export function reportRefused(output: unknown): boolean {
+  return typeof output === 'string' && !/"recorded"\s*:\s*true/.test(output)
+}
+
 // ── the hook that takes it ───────────────────────────────────────────────────
 
 /**
