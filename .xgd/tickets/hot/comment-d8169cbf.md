@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T15:30:18.841973+00:00'
+updated_at: '2026-10-17T16:55:17.595716+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7702,5 +7702,11 @@ I've filed **REQ-403**, *"First entry: a placeholder preview, no false 'All done
    - After that the text box appears. The button only ever shows on a conversation with no turns.
 
 This **replaces part of REQ-399**, which had the consultant open the conversation with a real model turn. The goal is the same, and the ticket says the earlier implementation is replaced rather than kept alongside. REQ-399 itself is frozen, so I recorded that on REQ-403 and on the epic.
+
+<!-- xgd-turn id="19275907-a74b-48ac-84a0-c877045992fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T16:55:05.175613+00:00" -->
+#### You
+The chat window on a new business is still showing a text entry area and is displaying this message: *lib4.registerDefaults is not a function*
 
 <!-- xgd-chat-end -->
