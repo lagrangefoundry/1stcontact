@@ -6,9 +6,9 @@ title: 'First entry: a placeholder preview, no false ''All done'', and a ''Click
   to start'' that opens with the consultant''s stock introduction'
 created_by: EPIC-19
 created_at: '2026-10-17T15:30:00.060690+00:00'
-updated_at: '2026-10-17T15:57:34.547035+00:00'
+updated_at: '2026-10-17T16:24:17.072844+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -75,7 +75,19 @@ The message ends with the consultant's first question about the business. It's w
 - **The opening is recorded as two turns.** The upstream history window (`recentTurnPairs`, lagrange-framework) starts at the first *user* turn, so a conversation that begins with an assistant turn would have the opening dropped from what the model sees. Clicking the button therefore records a hidden opening cue as a user turn, then the stock text as the assistant turn. Both use upstream's existing `SessionManager.postTurn`: no model call, no turn ledger, no spend. The client's transcript filters out the cue, as REQ-399's did, so they see exactly one assistant turn. The model always sees the cue and the opening as the exchange before the client's first message. No change in lagrange-framework.
 - **A new route, `POST /api/ai/opening {sessionId}`,** records the opening and answers `{turn: {role, markdown, ts}}`, or 409 when the conversation has already started. It replaces the `opening: true` branch of `/api/ai/prompt` and REQ-399's model-driven opening, which are deleted. `/api/ai/session` still says `opening: true` only for a conversation with nothing in it.
 - **The pane types the opening out itself:** a few words at a time, then the composer appears.
-- **"Nothing built yet" means the site still holds only the untouched starter page.** The starter is still seeded, because a site with no pages at all risks breaking render, publish and the editor. The origin recognises the starter; the preview shows the placeholder, and publishing is refused while only the starter exists.
+- **"Nothing built yet" means the site still holds only the untouched starter page.** The starter is still seeded, because a site with no pages at all risks breaking render, publish and the editor. The origin recognises it with `nothingBuilt(store, site)` in `scaffold.ts`: the site's change counter is 0 (the seeding write records no change; every edit by the consultant or the client does), and its one page carries `STARTER_HEADING`.
+  - While that holds, the draft preview route answers a plain grey page: centred text, no heading, marked `data-preview-placeholder`. It's stamped with the change count like any render, so the first write's `site_changed` reload replaces it with the real page.
+  - `publishSite` refuses with `NothingBuiltError`, which the router maps to 409 `code: NOTHING_BUILT`. This covers the toolbar, the CLI and the consultant's publish tool alike.
+  - `STARTER_HEADING` moves beside `starterHomePage` in `scaffold.ts` (`identity.ts` re-exports it) and becomes **"Your 1st Contact site"**.
+- **The opening's wording lives in `plan-seed.json` as `opening`, beside `stages`**: one markdown line per entry, about 200 words. The hidden cue the model sees before it is the `opening-cue` template in `priming.json`, which replaces REQ-399's `opening-turn`.
+- **The comps trigger:** `ask_comps` is a new KeepComps operation with no parameters. It sets `fields.comps_asked_at` once; raising it again keeps the first time. `panelView` adds `comps_raised`, which is true when `comps_asked_at` is set, a comp is on the board, or the board is done or skipped. The consultant's per-turn plan reminder says "Not yet raised: the comp board. Raise it with ask_comps…" until then, and both priming variants say the board isn't on the panel until she raises it.
+- **The start button:** it is disabled while the request runs. A refused press (409, started in another tab) re-reads the conversation and shows its transcript; any other failure puts the button back with "That didn't start — please try again." The text is typed three words every 40 ms, and the composer is hidden by CSS until typing finishes.
+
+## Existing tests changed by this ticket
+
+- `test_UAT_FC_REQ-399_consultant_speaks_first.workers.test.ts` and `test_UAT_FC_REQ-399_pane_opens_the_conversation.test.ts` are **deleted**: the behaviour they pinned (REQ-399 §4) is replaced, and this ticket's UATs cover its successor.
+- `test_UAT_FC_REQ-379_..._all_done_at_zero` is renamed `..._nothing_at_zero`. It now asserts the count line is hidden and empty, with no "All done".
+- REQ-378's and REQ-401's panel suites give their hand-built views `comps_raised: true`, since the board is now only drawn once raised.
 
 ## Out of scope
 
@@ -84,7 +96,7 @@ The message ends with the consultant's first question about the business. It's w
 
 ## Test plan
 
-UATs `test_UAT_FC_<this ticket>_*`:
+UATs `test_UAT_FC_REQ-403_*`, in three files: `first_entry.workers` (the routes), `first_entry_panes` (jsdom: panel and chat pane) and `comps_board_waits_for_the_consultant` (node: `ask_comps` through the real Toolbox):
 
 - **A new business with nothing built:**
   - the preview shows the grey placeholder with "Your site will appear here as it's created." and no starter-page heading;
@@ -97,4 +109,5 @@ UATs `test_UAT_FC_<this ticket>_*`:
   - The composer appears after the message has appeared.
   - On reload the transcript is shown with the opening message and there's no button.
   - A conversation that already has turns never shows the button.
-- **The client's first message reaches the model with the opening message in its history** as the preceding assistant turn.
+- **The client's first message reaches the model with the opening message in its history** as the preceding assistant turn, itself preceded by the cue as a user turn.
+- **While the opening is being typed, the composer exists but is hidden,** and the bubble holds only part of the text.
