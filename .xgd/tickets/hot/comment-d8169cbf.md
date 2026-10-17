@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:48:22.336931+00:00'
+updated_at: '2026-10-17T23:07:04.526683+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7911,5 +7911,13 @@ I've read the three bugs the consultant filed during the Bob's Salon run. None o
 **BUG-213: `place_on_site` ignores `as` for an image that's already on the site.** Asking for a copy under a new name hands back the existing asset, so one uploaded montage can't be cropped six different ways. The bug is just that `as` isn't honoured, and fixing it unblocks montages. Whether a crop should belong to each place an image is used, rather than to the stored copy, is a separate design question, and I've noted it as one.
 
 The consultant also filed BUG-211, the plan panel's Change and Skip buttons. It has already been fixed and is at `ready_to_reconcile`.
+
+<!-- xgd-turn id="31ef3899-eff8-4a40-b981-93e93a757865-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T23:07:00.693777+00:00" -->
+#### You
+In the library we have a simple photo editor. I would like that editor to be available in the Edit mode of the Site tab.
+
+The inital screen is selection alt text and properties. If you click on a photo that is unselected, the photo gets selected. If you click on a photo that is already selected it should open the editor. OKO?
 
 <!-- xgd-chat-end -->
