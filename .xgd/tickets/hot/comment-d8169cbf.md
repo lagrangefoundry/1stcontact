@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T14:09:36.494818+00:00'
+updated_at: '2026-10-17T14:10:25.287483+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7564,5 +7564,25 @@ Can we tweak the look of the progress bar we have created please? It is semantic
 4. It should span the full width of the chat pannel
 
 Please create a ticket for this
+
+<!-- xgd-turn id="297ff1c4-c2b9-43f0-8bdc-05a655a3f44e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T14:10:25.130216+00:00" -->
+#### Claude
+I've filed **BUG-209**, *"Progress banner: looks like a line of text — boxes not '|', no colon, current-stage tint bleeds, not full width"*. It's under EPIC-19 at `draft`, high priority, 2 points. REQ-398 is frozen, so this needed its own ticket.
+
+**Why points 2 and 3 happen.** The "|" is CSS-generated content attached to the start of each stage (`.plan-stage + .plan-stage::before { content: '|' }`). So the blue background of the stage in progress also covers the divider in front of it. Switching to boxes fixes both at once.
+
+**What the ticket asks for:**
+1. **The title reads "Progress"**, with no colon, as a label that's part of the control.
+2. **Each stage is its own box:** bordered and rounded, with the number centred and a small gap between boxes. The "|" separators are deleted.
+3. **State colour stays inside each box:**
+   - grey outline: not started
+   - green with a ✓: done
+   - blue and expanded with the stage name, plus the spinner: in progress
+   - yellow with a dash: skipped
+4. **Full width of the chat panel**, edge to edge and still pinned. The boxes share the width, the in-progress one takes more, and it never wraps.
+
+REQ-398's behaviour doesn't change: the skipped rule, the hover explanations, and the stages being read-only. The tests check that the title is exactly "Progress", that no "|" appears anywhere, that each stage is a separate box with its tint contained, and that the bar is full width at several panel widths.
 
 <!-- xgd-chat-end -->
