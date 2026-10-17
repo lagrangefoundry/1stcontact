@@ -6,10 +6,10 @@ title: 'Launch readiness: a favicon and share card, and the consultant tells the
   about going live'
 created_by: EPIC-19
 created_at: '2026-10-17T13:58:32.149055+00:00'
-updated_at: '2026-10-17T13:58:32.149055+00:00'
+updated_at: '2026-10-17T14:13:26.412380+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
