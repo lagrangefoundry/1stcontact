@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-400
 created_by: xgd
 created_at: '2026-10-17T14:03:41.810669+00:00'
-updated_at: '2026-10-17T14:49:48.797270+00:00'
+updated_at: '2026-10-17T14:50:38.729465+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -148,5 +148,22 @@ REQ-400 is built and merged into `xgd-working`, and the ticket is at `free_coded
 <!-- xgd-chat role="user" ts="2026-10-17T14:49:48.086923+00:00" -->
 #### You
 Is this complete?
+
+<!-- xgd-turn id="69113063-eeb4-4f74-a936-4065a69b5394-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T14:50:38.528815+00:00" -->
+#### Claude
+Yes, the ticket is done as a free-coded change. Each of its six requirements is built, and both commits are merged into `xgd-working`. The ticket is at `free_coded` (version 0.2.511, 8 story points), its body describes what was built, and the branch and worktree have been removed. The only step left is promoting it to `ready_to_reconcile`, which is your call.
+
+Some parts are tested only against stand-ins, and one is narrower than the ticket asks:
+
+- **Real icon output not checked.** The tests use a fake in place of Cloudflare Images, so actual 32px and 180px PNGs haven't been produced on a deployment yet.
+- **Not looked at in a browser.** The Settings-tab section was tested in a simulated page only. The dev site doesn't have this change yet: only `bin/deploy --env dev` updates it, and I haven't run that.
+- **The Settings tab picker covers site pictures only.** The ticket says the icon can come from a Library or site image. The assistant's `make_favicon` handles both, but the "Make tab icon" picker on the Settings tab lists only the site's own pictures.
+- **Six wider-suite failures are unrelated.** Four fail the same way on a clean checkout. The other two are the known-red REQ-295 delegation tests, which I didn't re-check.
+
+One choice is still open for you to confirm: a title or description the client sets on the share card wins on every page, ahead of that page's own SEO text. The ticket body explains why.
+
+If you want any of these closed before reconciling, I'd start by adding Library pictures to the Settings picker and deploying to dev to check the real icon output and the section in a browser.
 
 <!-- xgd-chat-end -->
