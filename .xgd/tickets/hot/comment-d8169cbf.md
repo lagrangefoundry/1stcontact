@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T23:08:17.898947+00:00'
+updated_at: '2026-10-17T23:10:59.540578+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7948,5 +7948,17 @@ I'd go with 1. You clicked a picture on a page, so you're framing it for that sp
 - **The editor saves the moment you apply a change**, like the Library's. It doesn't wait for the selection panel's Save.
 
 Shall I file it as one REQ under EPIC-19, with option 1?
+
+<!-- xgd-turn id="8ada9d4e-063b-4712-bf37-220236f1fbff-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T23:10:56.181155+00:00" -->
+#### You
+Its clearly 1
+
+**Two smaller points for the ticket:** - **Images with no Library item behind them**, such as pages reproduced from a capture, open no editor. The second click does nothing rather than showing an error. <-- All images must have a Library item behind them IMO. if they do not its a bug. Can we fix that?
+
+**The editor saves the moment you apply a change**, like the Library's. It doesn't wait for the selection panel's Save. <--ok
+
+Whatever makes sense
 
 <!-- xgd-chat-end -->
