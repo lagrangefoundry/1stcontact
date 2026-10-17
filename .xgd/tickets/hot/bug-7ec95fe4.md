@@ -6,10 +6,10 @@ title: 'Builder workers: briefed items skipped, steps run out before the self-ch
   and some end without reporting'
 created_by: EPIC-19
 created_at: '2026-10-17T13:58:30.805527+00:00'
-updated_at: '2026-10-17T14:24:19.103746+00:00'
+updated_at: '2026-10-17T14:49:52.468113+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
