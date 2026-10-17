@@ -765,7 +765,9 @@ export function createPlanPanel(options = {}) {
     // say: "all done" was false on a new plan, where nothing had been asked yet.
     progress.hidden = !(view.stages ?? []).length || open.length === 0
     progress.textContent = open.length ? PLAN_STILL_TO_ANSWER(open.length) : ''
-    const active = document.activeElement
+    // [[BUG-211]] — IN USE MEANS BEING TYPED IN OR TICKED. A clicked button takes
+    // focus too, and holding its block would drop the redraw the click asked for.
+    const active = document.activeElement?.matches?.('input, textarea, select') ? document.activeElement : null
     const drawn = new Map()
     const place = (list, items, make) => {
       const nodes = items.map((ask) => {
