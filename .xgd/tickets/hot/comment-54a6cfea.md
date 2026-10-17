@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-397
 created_by: xgd
 created_at: '2026-10-15T16:45:25.667919+00:00'
-updated_at: '2026-10-16T18:42:27.330167+00:00'
+updated_at: '2026-10-17T20:26:17.335487+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,11 @@ REQ-397 is implemented and merged into xgd-working, and the ticket is at `free_c
 - **Other suites:** 64 nearby Worker test files ran; the only failures were the two known REQ-295 delegation cases, which already fail on a clean xgd-working. The full node suite had about 50 more failures. I checked the ones in areas I touched, and they are either worktree setup problems or already failing on a clean tree.
 
 **One leftover:** the branch cleanup only partly ran. The worktree folder is gone, but the `free-REQ-397` branch and its stale worktree entry remain, because REQ-399 now holds the merge lock. Once that lock is free, `xgd branch clean --stale` will clear them.
+
+<!-- xgd-turn id="6d9f77a2-48c0-442b-87c5-b10278551863-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:26:06.412183+00:00" -->
+#### You
+please clean up the branch for this ticket
 
 <!-- xgd-chat-end -->
