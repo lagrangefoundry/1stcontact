@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-16T19:31:12.012249+00:00'
-updated_at: '2026-10-16T19:35:03.317192+00:00'
+updated_at: '2026-10-17T13:06:00.510468+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: pid
 status: reconciling
 fields:
   commits:
