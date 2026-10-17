@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:38:22.381351+00:00'
+updated_at: '2026-10-17T22:42:21.599867+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7873,5 +7873,11 @@ What it covers:
 - **Screenshots and similar steps stay visible but are demoted**, since you want to see things progressing. They appear as lighter step lines, not consultant messages, and repeats collapse, e.g. *"Taking a screenshot ×3"*. The consultant's own announcements, like *"I'm fixing that now — about 5 minutes"*, stay as ordinary messages.
 
 If the collapsed step lines still feel like too much, or too little, once you see them, the rule is a single line in the ticket and easy to change.
+
+<!-- xgd-turn id="4ee63f70-11f7-48c6-9f63-60bc50ddf5ac-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:42:15.382099+00:00" -->
+#### You
+Also see the bugs created by the consultant FYR
 
 <!-- xgd-chat-end -->
