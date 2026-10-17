@@ -6,16 +6,24 @@ title: 'Site editor: friendly ''section being updated'' message instead of build
   id/UTC'
 created_by: martin-github@westhead.me
 created_at: '2026-10-17T22:56:15.773287+00:00'
-updated_at: '2026-10-17T23:01:05.106664+00:00'
+updated_at: '2026-10-17T23:03:13.969144+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-42aa792b
   severity: low
+  commits:
+  - working_sha: d99598dbca92ea3236dcf65e363abf60b7e3d098
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cb1db1d21170d9b8de72f4a2af55f0fccff94327
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.518
 ---
 
 ## Symptom
