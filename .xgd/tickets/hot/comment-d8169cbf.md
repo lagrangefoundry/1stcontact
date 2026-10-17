@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T17:34:14.740668+00:00'
+updated_at: '2026-10-17T22:11:30.217046+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7759,5 +7759,13 @@ Its tests run against the real installed library, not the old pre-Oct-10 copy th
 Two things are out of scope and noted in the ticket. Pinning the shared framework install to a version is worth doing, but separately. Rolling the framework back is ruled out, because it would also lose web search and the BUG-81 fix.
 
 Until BUG-210 lands, no builder conversation will open on your dev setup.
+
+<!-- xgd-turn id="546c3aa0-b77a-4a7d-8680-40d707836839-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T22:11:24.390778+00:00" -->
+#### You
+I'm working on Bob's Salon
+
+The preview page started with the gray message and the text we agreed but it is now showing the Your 1st Contact Site - I think we should drop that - grey text -> draft site please
 
 <!-- xgd-chat-end -->
