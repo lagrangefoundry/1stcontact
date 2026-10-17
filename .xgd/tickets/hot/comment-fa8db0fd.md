@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-154
 created_by: xgd
 created_at: '2026-09-26T21:54:07.281569+00:00'
-updated_at: '2026-09-26T22:09:13.279489+00:00'
+updated_at: '2026-10-17T20:20:02.380297+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,11 @@ One pre-existing failure in `test_UAT_FC_BUG-48_the_reference_covers_its_source.
 ## Not done
 
 The report's closing note about the wider pattern cites a second instance ("a picture height set to track its row"). I left that alone — it's a different field and a different report, and folding it in here would have made one ticket cover two intents. Worth filing separately if you want it chased.
+
+<!-- xgd-turn id="d046fed4-1ef9-49ca-9a7a-3ebf9cf3de98-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:19:59.099801+00:00" -->
+#### You
+please clean up the worktree and branch for this ticket
 
 <!-- xgd-chat-end -->
