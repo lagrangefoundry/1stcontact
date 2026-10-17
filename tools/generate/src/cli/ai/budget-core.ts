@@ -269,6 +269,50 @@ export function budgetDoneEvent(
 }
 
 /**
+ * How much of the room a builder may fill before it is told to report
+ * ([[BUG-212]]).
+ *
+ * BELOW {@link TURN_BUDGET_FRACTION}, AND THE GAP IS THE POINT. The guard's stop
+ * is a hard one: the worker cannot see it coming, and a worker stopped before it
+ * reports reaches its caller with nothing it said. The tenth of the room between
+ * the two is what a report costs — the request that carries the call and the
+ * receipt it gets back — with room for one call it was already making. On a
+ * 200k builder that is ~17k tokens.
+ */
+export const REPORT_RESERVE_FRACTION = 0.8
+
+/** A guard's warning ahead of its stop ([[BUG-212]]). */
+export interface ReportReserve {
+  /** The fraction of the room at which the warning starts. */
+  fraction: number
+  /** What the session is told, given the measured occupancy and the stopping point. */
+  notice: (occupancy: number, ceiling: number) => string
+}
+
+/**
+ * The per-call `signals` source a reserved turn is sent: whatever the caller
+ * passed, and the reserve's notice after it once it applies ([[BUG-212]]).
+ *
+ * THE SIGNAL CHANNEL, NOT THE DIALOGUE. Upstream reads `signals` before every
+ * request of the round and never writes it back, so the notice costs its own
+ * length on each request that carries it and nothing after — a reminder pushed
+ * into the conversation would be re-sent on every request until the end.
+ * Synchronous, as the channel requires: the reading is the adapter's in-memory
+ * ledger. A caller's source that throws is quiet, on upstream's own rule.
+ */
+function reserveSignals(inner: unknown, notice: () => string): () => string {
+  return () => {
+    let own = ''
+    try {
+      own = typeof inner === 'function' ? String(inner() ?? '') : inner ? String(inner) : ''
+    } catch {
+      own = ''
+    }
+    return [own, notice()].filter(Boolean).join('\n\n')
+  }
+}
+
+/**
  * The same backend, with its tool loop held to {@link backendCeiling}.
  *
  * WHERE THE CHECK GOES, AND WHY THERE. A tool-activity event is the one moment
@@ -305,11 +349,17 @@ export function budgetDoneEvent(
  * manager reaches its backend only through `promptStream`, so both the
  * consultant's streamed turns and a delegated worker's whole-turn call arrive
  * here. The adapter's own `prompt` is the one door past it, and nothing calls it.
+ *
+ * A `reserve` WARNS BEFORE IT STOPS ([[BUG-212]]). Given one, every request
+ * built once the measured occupancy has reached the reserve's fraction carries
+ * its notice on the per-call signal — see {@link reserveSignals}. Only a builder
+ * is given one: its report is the whole of what its caller receives, and the
+ * consultant has no report to make.
  */
 export function guardTurn(
   lib: Untyped,
   backend: Untyped,
-  { fraction = TURN_BUDGET_FRACTION }: { fraction?: number } = {},
+  { fraction = TURN_BUDGET_FRACTION, reserve = null }: { fraction?: number; reserve?: ReportReserve | null } = {},
 ): Untyped {
   async function* guarded(
     ref: string,
@@ -322,7 +372,18 @@ export function guardTurn(
     // long conversation by a figure from a turn that has already ended, and the
     // spend on the terminal event would claim the whole segment.
     const before = ceiling > 0 ? backend.usage(ref).length : 0
-    const events = backend.promptStream(ref, content, opts) as AsyncGenerator<StreamEvent>
+    const warnAt = reserve && ceiling > 0 ? backendCeiling(backend, reserve.fraction) : 0
+    const sent =
+      warnAt > 0
+        ? {
+            ...opts,
+            signals: reserveSignals(opts.signals, () => {
+              const occupancy = lastOccupancy(lib, backend.usage(ref).slice(before))
+              return occupancy >= warnAt ? reserve!.notice(occupancy, ceiling) : ''
+            }),
+          }
+        : opts
+    const events = backend.promptStream(ref, content, sent) as AsyncGenerator<StreamEvent>
     if (ceiling <= 0) {
       yield* events
       return

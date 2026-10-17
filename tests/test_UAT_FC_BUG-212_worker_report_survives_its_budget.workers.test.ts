@@ -6,6 +6,7 @@ import { resetChatHost } from '../apps/control-app/src/router'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import * as aiLib from '../apps/control-app/src/generated/ai-workers.js'
 import { HOST_SUMMARY_LEAD } from '../tools/generate/src/cli/ai/turn-clock-core'
+import { REPORT_RESERVE_FRACTION, TURN_BUDGET_FRACTION } from '../tools/generate/src/cli/ai/budget-core'
 import { backendsDocument, projectBackendCeiling } from '../tools/generate/src/cli/ai/backends'
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
@@ -14,6 +15,7 @@ import {
   metered,
   says,
   scriptedClient,
+  turnTailText,
   type ModelRequest,
   type ModelStep,
   type ScriptedClient,
@@ -255,5 +257,32 @@ describe('BUG-212 a builder report survives the end of its budget', () => {
     ])
 
     expect(result.summary).toBe('Laid out.')
+  })
+
+  it('test_UAT_FC_BUG-212_a_builder_inside_its_report_reserve_is_told_to_report_on_every_request', async () => {
+    const ceiling = projectBackendCeiling(lib, 'claude_builder')
+    // Read once the host has started, so measured against the worker's own window.
+    // Inside the reserve and short of the stop: the run that still has room to report.
+    const near = ceiling - 2_000
+    expect(near).toBeGreaterThan(Math.ceil((ceiling * REPORT_RESERVE_FRACTION) / TURN_BUDGET_FRACTION))
+    const { sent, result } = await delegateWith('reserve', [
+      metered({ input_tokens: 10_000 }, calls('describe_page', { page: 'home' })),
+      metered({ input_tokens: near }, calls('describe_page', { page: 'home' })),
+      metered({ input_tokens: near + 1_000 }, calls(REPORT_TOOL, { summary: 'Laid out.', passed: [LAYOUT, CROPS] })),
+      metered({ input_tokens: near + 1_500 }, says('Done.')),
+    ])
+
+    const notice = `Your context is at ${near} tokens, and the host stops this turn at ${ceiling}.`
+    // Below the reserve the builder is not told anything.
+    expect(turnTailText(sent[1])).not.toContain('Call ReportResult now')
+    // Past it, the next request carries the notice, with both numbers.
+    expect(turnTailText(sent[2])).toContain(notice)
+    expect(turnTailText(sent[2])).toContain(`Call ${REPORT_TOOL} now`)
+    // On every request that follows, and never stored: each carries it once.
+    for (const req of sent.slice(2)) {
+      expect(JSON.stringify(req.messages).split('Call ReportResult now').length - 1).toBe(1)
+    }
+    // And it reported, which is what the notice is for.
+    expect(result.outcome).toBe('reported')
   })
 })

@@ -80,6 +80,7 @@ import {
   settingsRole,
   productConfig,
   openingCue,
+  reportReserveNotice,
   type TurnSignal,
   type ClientView,
   type WorkerKnowledge,
@@ -171,6 +172,7 @@ import type { FidelityDeps } from './fidelity-core'
 import {
   BUDGET_STOP_REASON,
   DONE,
+  REPORT_RESERVE_FRACTION,
   TEXT,
   TOOL_ACTIVITY,
   TURN_END,
@@ -1738,7 +1740,10 @@ async function build(
                   // the ceiling.
                   name: backend,
                   tools: toolSet(lib, toolbox, claims ? claims.worker(session) : null),
-                }))
+                }), {
+                  // [[BUG-212]] — told to report while it still has the room to.
+                  reserve: { fraction: REPORT_RESERVE_FRACTION, notice: reportReserveNotice },
+                })
               },
             }),
           },

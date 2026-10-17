@@ -509,6 +509,17 @@ export function changeSignal(signal?: TurnSignal): string | null {
 }
 
 /**
+ * [[BUG-212]] — a builder told, while it can still act on it, that its turn is
+ * about to be stopped for want of room: its context is at `occupancy` and the
+ * host's guard stops it at `ceiling`. A builder stopped before it reports
+ * reaches the consultant with nothing it said, so the one useful move left is
+ * the report. Rides the per-call signal, so it is never stored in the dialogue.
+ */
+export function reportReserveNotice(occupancy: number, ceiling: number): string {
+  return fill(template('report-reserve'), { occupancy, ceiling })
+}
+
+/**
  * [[REQ-403]] — the user turn recorded ahead of the stock opening message, so the
  * model sees the opening as its reply to something: the history window starts at
  * a user turn, and an assistant turn with none before it would never be sent. The
