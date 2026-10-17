@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-61
 created_by: xgd
 created_at: '2026-10-12T15:17:25.294012+00:00'
-updated_at: '2026-10-12T15:36:05.214740+00:00'
+updated_at: '2026-10-17T14:55:23.407427+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -17,8 +17,8 @@ fields:
 <!-- xgd-session
 {
   "id": "b71bc2af-b567-4206-96fa-b68914783c1b",
-  "role": "chat",
-  "backend": "claude_code",
+  "role": "chat2",
+  "backend": "claude_code+km",
   "filter_tool_use": false,
   "backend_ref": ""
 }
