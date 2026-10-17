@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T22:42:21.599867+00:00'
+updated_at: '2026-10-17T22:48:22.336931+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7879,5 +7879,37 @@ If the collapsed step lines still feel like too much, or too little, once you se
 <!-- xgd-chat role="user" ts="2026-10-17T22:42:15.382099+00:00" -->
 #### You
 Also see the bugs created by the consultant FYR
+
+<!-- xgd-turn id="4ee63f70-11f7-48c6-9f63-60bc50ddf5ac-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-17T22:48:16.935740+00:00" -->
+#### Claude
+Reading the consultant's three new bugs (BUG-212, 213, 214) and checking them against existing tickets; one more check on the image describer.
+
+Found the image-describer cause; confirming how the chat host registers its backend, then I'll annotate the three tickets.
+
+Three consultant bugs; none are duplicates. Adding my findings to each, linking them to EPIC-19.
+
+Draft tickets, so I'll append to their bodies instead of commenting.
+
+I've read the three bugs the consultant filed during the Bob's Salon run. None of them duplicates an existing ticket. I've linked all three to EPIC-19 and added my findings to each body.
+
+**BUG-214: the image describer refuses every image.** This is the most important of the three, and the cause is in our code, not the framework's.
+- `describerSession` (`apps/control-app/src/ai.ts:285`) registers its backend without passing the backend's capabilities.
+- The framework then records that backend as having no capabilities at all. It checks a turn's content against that record, not against the backend itself, which does declare vision.
+- So every image gets refused, while text documents go through because they contain no image.
+- The fix is to pass the capabilities when registering both describers, then re-describe the images already stuck at `failed`.
+- Until it lands, the consultant has to take an expensive screenshot of every image before she can place it or write its alt text.
+- I've raised it to high severity.
+
+**BUG-212: a builder ran out of context partway through a big brief and came back with no report.** This is a different failure from BUG-208, which has already landed:
+- The builder did try to report, but formatted one entry of its report wrongly. The report was refused, and it had no budget left to try again.
+- The fix has two parts. Accept the simpler entry format instead of refusing it. And when a builder runs out of context, the host should write a partial report from what the builder actually changed.
+- If the report format is defined in the framework, that first part needs a lagrange-framework ticket.
+- The brief was also too big for one builder: ten sections, a component, six crops and seven checks. EPIC-24's per-section scopes would naturally make briefs smaller.
+
+**BUG-213: `place_on_site` ignores `as` for an image that's already on the site.** Asking for a copy under a new name hands back the existing asset, so one uploaded montage can't be cropped six different ways. The bug is just that `as` isn't honoured, and fixing it unblocks montages. Whether a crop should belong to each place an image is used, rather than to the stored copy, is a separate design question, and I've noted it as one.
+
+The consultant also filed BUG-211, the plan panel's Change and Skip buttons. It has already been fixed and is at `ready_to_reconcile`.
 
 <!-- xgd-chat-end -->
