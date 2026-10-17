@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * [[REQ-398]] — **the progress banner: `Progress: 1 | 2 | 3. Refining | 4 …`**, one
+ * [[REQ-398]] — **the progress banner: `Progress 1 2 3. Refining 4 …`**, one
  * line pinned to the top of the plan panel, each stage a number coloured by its
  * state, only the stage in progress named, skipped worked out when it is drawn,
  * and every stage explained on hover, focus or tap.
@@ -132,8 +132,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-398 — the progress banner', () => {
     expect(panel.firstElementChild).toBe(bar)
     expect(bar.hidden).toBe(false)
 
-    // `Progress:` leads, and no toggle — nor its stored setting — is left.
-    expect(bar.querySelector('.plan-stages__title')?.textContent).toBe('Progress:')
+    // `Progress` leads ([[BUG-209]] dropped the colon), and no toggle — nor its stored setting — is left.
+    expect(bar.querySelector('.plan-stages__title')?.textContent).toBe('Progress')
     expect(bar.querySelector('button')).toBeNull()
     expect(globalThis.localStorage.getItem('plan-stages-collapsed')).toBeNull()
   })

@@ -26,10 +26,10 @@
  * adds a site by its address — the route captures it — and clicking a thumbnail
  * asks the host to show that comp in the preview pane (`onOpenComp`).
  *
- * [[REQ-390]], [[REQ-398]] — AND, FIRST OF ALL, WHERE THE BUILD IS: the progress
- * banner, one line pinned to the top of the panel — `Progress: 1 | 2 | 3. Refining
- * | 4 …` — each stage a number coloured by its state, and only the stage in
- * progress named. The consultant marks the stages; the banner only draws them and
+ * [[REQ-390]], [[REQ-398]], [[BUG-209]] — AND, FIRST OF ALL, WHERE THE BUILD IS:
+ * the progress banner, a segmented bar pinned across the top of the panel —
+ * `Progress [1✓][2✓][3. Refining   ][4]…` — each stage a box coloured by its
+ * state, and only the stage in progress named. The consultant marks the stages; the banner only draws them and
  * is never clicked to change one. While a turn is running (`setBusy`) the stage in
  * progress spins. SKIPPED IS DRAWN, NEVER STORED ({@link shownStates}). Hovering,
  * focusing or tapping a stage explains it: its name, its sentence from the seed,

@@ -1253,10 +1253,12 @@ body {
 }
 
 /*
- * [[REQ-390]], [[REQ-398]] — the progress banner: one line across the top of the
- * panel, pinned there while the questions and comps scroll beneath it. It never
- * wraps: on a narrow panel the separators tighten and only the stage in progress
- * gives up width, its name ending in an ellipsis. One colour per state, never the
+ * [[REQ-390]], [[REQ-398]], [[BUG-209]] — the progress banner: a segmented bar
+ * across the full width of the panel, pinned there while the questions and comps
+ * scroll beneath it. One box per stage, sharing the width so the bar always
+ * reaches the right-hand edge; the box in progress takes more of it, for its name.
+ * It never wraps: on a narrow panel the boxes shrink to their numbers and the name
+ * ends in an ellipsis. The state colours the box and nothing outside it, never the
  * only signal — done carries a ✓, skipped a dash.
  */
 .plan-stages {
@@ -1265,7 +1267,7 @@ body {
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin: -10px -12px 6px;
   padding: 6px 12px;
   background: var(--shell-surface-alt, #f4f4f5);
@@ -1283,8 +1285,9 @@ body {
 
 .plan-stages__list {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   flex: 1;
+  gap: 4px;
   min-width: 0;
   overflow: hidden;
   margin: 0;
@@ -1294,29 +1297,27 @@ body {
 
 .plan-stage {
   --stage-colour: var(--shell-fg-muted, #71717a);
-  display: inline-flex;
+  --stage-fill: transparent;
+  display: flex;
   align-items: center;
-  flex: none;
-  gap: 2px;
-  padding: 1px 4px;
-  border-radius: 999px;
+  justify-content: center;
+  flex: 1 1 0;
+  min-width: 1.8em;
+  gap: 3px;
+  padding: 2px 6px;
+  box-sizing: border-box;
+  border-width: 1px;
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--stage-colour) 45%, transparent);
+  border-radius: 6px;
+  background: var(--stage-fill);
   color: var(--stage-colour);
   cursor: default;
-}
-
-.plan-stage + .plan-stage::before {
-  content: '|';
-  margin-inline: 0 6px;
-  color: var(--shell-border-strong, #d4d4d8);
 }
 
 @container (max-width: 360px) {
   .plan-stages .plan-stage {
     padding-inline: 2px;
-  }
-
-  .plan-stages .plan-stage + .plan-stage::before {
-    margin-inline-end: 2px;
   }
 }
 
@@ -1327,10 +1328,12 @@ body {
 
 .plan-stage[data-state='done'] {
   --stage-colour: var(--shell-success, #15803d);
+  --stage-fill: color-mix(in srgb, #16a34a 16%, transparent);
 }
 
 .plan-stage[data-state='skipped'] {
   --stage-colour: #a16207;
+  --stage-fill: color-mix(in srgb, #eab308 16%, transparent);
 }
 
 .plan-stage[data-state='skipped'] .plan-stage__number {
@@ -1339,10 +1342,11 @@ body {
 
 .plan-stage[data-state='in_progress'] {
   --stage-colour: #1d4ed8;
-  flex: 0 1 auto;
+  --stage-fill: color-mix(in srgb, #2563eb 14%, transparent);
+  flex: 3 1 auto;
   min-width: 0;
   font-weight: 600;
-  background: color-mix(in srgb, #2563eb 12%, transparent);
+  border-color: var(--stage-colour);
 }
 
 .plan-stage__label {
