@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-378
 created_by: xgd
 created_at: '2026-10-04T00:31:20.225391+00:00'
-updated_at: '2026-10-04T03:02:28.757502+00:00'
+updated_at: '2026-10-17T20:21:22.279938+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -315,5 +315,11 @@ xgd branch clean REQ-378
 ```
 
 **Before anyone uses this on a real deployment:** migration 0027 needs applying, the knowledge base needs rebuilding so the published copy picks up the new DOC-64 step, and the app needs redeploying.
+
+<!-- xgd-turn id="bda968db-8883-46bb-b0f7-4bbc4d07e34e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-17T20:21:10.395650+00:00" -->
+#### You
+please clean up the branch for this ticket
 
 <!-- xgd-chat-end -->
