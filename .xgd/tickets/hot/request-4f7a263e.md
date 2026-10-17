@@ -6,10 +6,10 @@ title: 'Looks: a band at the top of the preview with ‹ name ›, the full desc
   and ''Tell the consultant…'' — only when the page has looks'
 created_by: EPIC-19
 created_at: '2026-10-17T15:17:00.556053+00:00'
-updated_at: '2026-10-17T15:41:19.683273+00:00'
+updated_at: '2026-10-17T15:41:56.405691+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-703576d6
+  commits:
+  - working_sha: ea2b181f7f19da61b0cb1ae5854166fdad9080fd
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 31c13171be849ec2ba62619785bf0127c707baa0
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.513
 ---
 
 ## What changes
