@@ -86,6 +86,7 @@ import {
 } from './session-knowledge'
 import { planAnswersDelta, turnDelta } from './session-delta'
 import { pendingTurns } from './session-pending'
+import { sessionInbox } from './session-inbox'
 import { sessionOccupancy } from './session-occupancy'
 import type { DevelopmentSurface } from './development'
 import {
@@ -906,6 +907,10 @@ export function workerHost(
       // thing this Worker always has is a ticket store — the transcript itself
       // lives there.
       pending: pendingTurns(tickets),
+      // WHAT THE CLIENT WROTE WHILE A TURN RAN ([[BUG-224]]), on the same ticket
+      // and for the same reason: every isolate shares it, and the one running
+      // the turn is rarely the one the message arrived at.
+      inbox: sessionInbox(tickets),
       // HOW FULL THE CONVERSATION IS ([[REQ-296]]). Unconditional, like the
       // pending record it sits beside and for the same reason: it depends on a
       // ticket store and on nothing else. It is what makes the occupancy gauge

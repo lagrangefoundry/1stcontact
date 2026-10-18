@@ -15,9 +15,9 @@
  * origin got to start. It cannot cover a turn the origin never heard of — a
  * request that failed in the network, was refused, or died before that write —
  * and it keeps ONE record per session, so a later turn replaces an unaccounted
- * one. It also cannot see a message the panel QUEUED: this builder passes no
- * queue transport, so a message submitted while the assistant is streaming is
- * echoed as pending and goes nowhere at all.
+ * one. It also cannot see a message the panel QUEUED: the panel holds that in
+ * the page until the turn ends, so a reload before then loses it. (A message
+ * INTERPOSED during a turn is kept by the origin instead — [[BUG-224]].)
  *
  * SO THE BROWSER KEEPS ITS OWN COPY, from submit until a transcript shows the
  * words landed. It is deliberately NOT a second transcript: it holds only what

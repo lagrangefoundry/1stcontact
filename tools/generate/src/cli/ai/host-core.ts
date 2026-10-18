@@ -407,6 +407,12 @@ export interface ChatSession {
    */
   interrupted?: InterruptedTurn
   /**
+   * Messages the client sent mid-turn that no turn has taken yet ([[BUG-224]]).
+   * Absent when there are none. The panel shows them as waiting rather than
+   * offering them back as unsent.
+   */
+  waiting?: WaitingMessage[]
+  /**
    * [[REQ-403]] — the conversation has nothing in it yet: the panel offers *Click
    * here to start*, which posts the consultant's introduction (`/api/ai/opening`).
    * Absent on any conversation that has ever had a turn.
@@ -498,6 +504,55 @@ export interface PendingPrompts {
   close(sessionId: string, outcome: 'complete' | 'aborted' | 'error'): Promise<void>
   /** What this session remembers, or `null`. A pure read. */
   read(sessionId: string): Promise<PendingPrompt | null>
+}
+
+/**
+ * A message the client sent while a turn was running, not yet handed to the
+ * model ([[BUG-224]]).
+ */
+export interface WaitingMessage {
+  id: string
+  text: string
+  at: string
+}
+
+/**
+ * Where a message sent mid-turn waits for the turn to reach it ([[BUG-224]]).
+ *
+ * NOT THE JUNCTION. On the Worker a junction is mirrored per isolate, so a write
+ * from the request carrying the message would land in an isolate that is not
+ * running the turn and never be seen by the one that is. The inbox is a store
+ * every isolate shares; the isolate running the turn takes from it after each
+ * tool call and interposes locally, so the junction keeps its one writer.
+ */
+export interface ClientInbox {
+  /** Keep `text` for this session; answers what was kept. */
+  post(sessionId: string, text: string): Promise<WaitingMessage>
+  /** Remove and return the messages named, or every message when `ids` is absent. */
+  take(sessionId: string, ids?: readonly string[]): Promise<WaitingMessage[]>
+  /** What is waiting, oldest first. A pure read. */
+  read(sessionId: string): Promise<WaitingMessage[]>
+}
+
+/** An inbox in this process's memory — for a host with one process (the `1c` CLI). */
+export function memoryInbox(now: () => string = () => new Date().toISOString()): ClientInbox {
+  const held = new Map<string, WaitingMessage[]>()
+  return {
+    async post(sessionId, text) {
+      const message = { id: newId('msg'), text, at: now() }
+      held.set(sessionId, [...(held.get(sessionId) ?? []), message])
+      return message
+    },
+    async take(sessionId, ids) {
+      const all = held.get(sessionId) ?? []
+      const taken = ids ? all.filter((m) => ids.includes(m.id)) : all
+      held.set(sessionId, all.filter((m) => !taken.includes(m)))
+      return taken
+    },
+    async read(sessionId) {
+      return [...(held.get(sessionId) ?? [])]
+    },
+  }
 }
 
 /**
@@ -765,6 +820,12 @@ export interface HostDeps {
    * `library` already have.
    */
   pending?: PendingPrompts | null
+
+  /**
+   * Messages the client sent while a turn was running ([[BUG-224]]). Absent, the
+   * interpose route refuses and the panel falls back to queueing in the page.
+   */
+  inbox?: ClientInbox | null
 
   /**
    * How full this conversation's context was when its last turn ended
@@ -2140,6 +2201,8 @@ async function build(
           ),
         ),
       ),
+    // [[BUG-224]] — so what the client writes mid-turn reaches the next call.
+    betweenCalls(lib),
   )
 
   // -- priming, as configuration (REQ-182; DOC-22) ---------------------------
@@ -2626,6 +2689,8 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
           }),
         ),
       ),
+    // [[BUG-224]] — as the consultant's.
+    betweenCalls(lib),
   )
 
   const providers = new lib.PrimingProviders()
@@ -3263,7 +3328,16 @@ export async function openSession(
   }
   // [[REQ-403]] — NOTHING SAID YET, SO THE PANEL OFFERS TO START.
   const fresh = !read?.started && !live && (await previousTurn(deps, sessionId)) === null
-  return { sessionId, turns, cursor, live, ready: true, ...lost, ...(fresh ? { opening: true } : {}) }
+  return {
+    sessionId,
+    turns,
+    cursor,
+    live,
+    ready: true,
+    ...lost,
+    ...(await waitingFor(deps, sessionId)),
+    ...(fresh ? { opening: true } : {}),
+  }
 }
 
 /**
@@ -3324,7 +3398,95 @@ export async function openBusinessSession(
   } catch (err) {
     return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
   }
-  return { sessionId, turns, cursor, live, ready: true, ...lost }
+  return { sessionId, turns, cursor, live, ready: true, ...lost, ...(await waitingFor(deps, sessionId)) }
+}
+
+/**
+ * The capabilities this host registers its conversation backends with
+ * ([[BUG-224]]): a round can be reached between its calls, and nothing else.
+ *
+ * A backend registered under a host's own name declares nothing unless told, and
+ * the manager only hands a round the messages interposed into it when the
+ * backend declares this. Every other capability stays off — they change what
+ * the manager sends, and declaring them is a separate decision from this one.
+ */
+function betweenCalls(lib: Untyped): Untyped {
+  const none = Object.fromEntries(Object.keys(lib.ClaudeAPIBackend.capabilities).map((k) => [k, false]))
+  return Object.freeze({ ...none, injectBetweenCalls: true })
+}
+
+/**
+ * Keep a message the client sent while a turn may be running ([[BUG-224]]).
+ *
+ * Refused for a session this host does not know, exactly as a prompt is, and for
+ * a host with no inbox — the caller then has nothing durable to hand the message
+ * to, and saying so lets the panel keep it rather than believe it was taken.
+ */
+export async function interposeMessage(
+  sessionId: string,
+  text: string,
+  deps: HostDeps,
+): Promise<WaitingMessage> {
+  if (!deps.inbox) throw new Error('this host cannot take a message while a turn is running')
+  const known = businessForSession(sessionId, deps) ?? (await siteForSession(sessionId, deps))
+  if (!known) throw new UnknownSessionError(sessionId)
+  return deps.inbox.post(sessionId, text)
+}
+
+/** What is waiting for this session, or nothing. Never throws: it rides an open. */
+async function waitingFor(deps: HostDeps, sessionId: string): Promise<{ waiting?: WaitingMessage[] }> {
+  try {
+    const waiting = (await deps.inbox?.read(sessionId)) ?? []
+    return waiting.length > 0 ? { waiting } : {}
+  } catch {
+    return {}
+  }
+}
+
+/**
+ * Hand everything waiting to the running round ([[BUG-224]]).
+ *
+ * Called after each tool event, which is where a round reaches its next call:
+ * the tool loop reads interpositions when it builds the next request, and this
+ * generator is pulled before that happens. So a message taken here is in the
+ * very next request the model sees. Never throws: a store that cannot answer
+ * leaves the messages waiting, and they are taken at the next tool event or by
+ * the next turn.
+ */
+async function deliverWaiting(manager: Untyped, sessionId: string, deps: HostDeps): Promise<void> {
+  if (!deps.inbox) return
+  let taken: WaitingMessage[]
+  try {
+    taken = await deps.inbox.take(sessionId)
+  } catch {
+    return
+  }
+  for (const message of taken) manager.interpose(sessionId, message.text)
+}
+
+/**
+ * Retire the waiting messages this prompt carries ([[BUG-224]]): the ones it
+ * names, and any whose text it is. A message that missed every call of the turn
+ * it was sent into comes back as the next prompt, and must not then be delivered
+ * a second time into that prompt's own round.
+ */
+async function settleWaiting(
+  deps: HostDeps,
+  sessionId: string,
+  text: string,
+  named: readonly string[],
+): Promise<void> {
+  if (!deps.inbox) return
+  try {
+    const said = text.trim()
+    const ids = (await deps.inbox.read(sessionId))
+      .filter((m) => named.includes(m.id) || m.text.trim() === said)
+      .map((m) => m.id)
+    if (ids.length > 0) await deps.inbox.take(sessionId, ids)
+  } catch {
+    // Left waiting, it is delivered into this turn at its first tool call — a
+    // repeat, which is better than a loss.
+  }
 }
 
 /**
@@ -3369,7 +3531,13 @@ export async function* streamPrompt(
    * this prompt. Absent is ordinary: the `1c` CLI has no preview to report from.
    */
   view?: ClientView | null,
+  /**
+   * [[BUG-224]] — the waiting messages this prompt is the delivery of, retired
+   * before the turn so they are not delivered into it a second time.
+   */
+  fromMessages: readonly string[] = [],
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  await settleWaiting(deps, sessionId, text, fromMessages)
   /**
    * A SETTINGS TURN IS A SHORTER FUNCTION, NOT A BRANCHED ONE ([[REQ-239]]).
    *
@@ -3449,6 +3617,8 @@ export async function* streamPrompt(
         // write — and a Map read rather than the site half's store round trip, so
         // a turn that only answers a question costs nothing at all.
         if (event.kind !== TOOL_ACTIVITY) continue
+        // [[BUG-224]] — what the customer wrote meanwhile goes into the next call.
+        await deliverWaiting(settingsManager, sessionId, deps)
         /**
          * THE CARDS FIRST ([[REQ-260]]), and the order is deliberate: the change to
          * the client's DNS has already landed, so the notice about it belongs in
@@ -3682,6 +3852,8 @@ async function* siteTurn(
       // write. A turn that answers a question makes no extra read at all, and a
       // turn that writes makes one primary-key lookup per call it made.
       if (event.kind !== TOOL_ACTIVITY) continue
+      // [[BUG-224]] — what the client wrote meanwhile goes into the next call.
+      await deliverWaiting(manager, sessionId, deps)
       // [[REQ-364]] — THE PLAN FIRST, and a Map read: it costs nothing on a turn
       // that never touched the plan.
       const planned = planWrites.get(planKey) ?? 0

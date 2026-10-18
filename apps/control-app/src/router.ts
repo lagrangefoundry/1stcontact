@@ -106,6 +106,7 @@ import { upgradeSiteModules } from '../../../tools/generate/src/store/upgrade-si
 import {
   openBusinessSession,
   openSession,
+  interposeMessage,
   openConversation,
   privateSessions,
   stopExchange,
@@ -6719,7 +6720,44 @@ async function routeUncached(
        * as this route did before the ledger existed.
        */
       const ledger = await openTurn(env.DB ? env : null, requireScope().businessId, sessionId)
-      return streamTurn(host, sessionId, text, scrub, ctx, ledger, view)
+      // [[BUG-224]] — the waiting messages this prompt delivers, when it is one
+      // that missed the turn it was sent into. Optional; anything else is ignored.
+      const fromMessages = Array.isArray(body.fromMessages)
+        ? body.fromMessages.filter((id: unknown): id is string => typeof id === 'string' && id !== '')
+        : []
+      return streamTurn(host, sessionId, text, scrub, ctx, ledger, view, fromMessages)
+    }
+
+    /**
+     * POST /api/ai/interpose — a message the client sent while a turn was running
+     * ([[BUG-224]]).
+     *
+     * KEPT, NOT RUN. It goes to the session's inbox, which the isolate running the
+     * turn takes from after each tool call and hands to the model with its next
+     * request. A message that misses every call comes back from the panel as the
+     * next prompt, naming its id. Answers the id, which the panel matches the
+     * delivery by.
+     */
+    if (p === '/api/ai/interpose' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId, text } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      if (typeof text !== 'string' || text.trim() === '') {
+        return json(400, { error: 'text is required' })
+      }
+      if (text.length > MAX_PROMPT_CHARS) {
+        return json(400, { error: OVER_LONG_PROMPT_MESSAGE })
+      }
+      const host = await chatHost(env, requireScope(), deps, url.origin)
+      try {
+        const kept = await interposeMessage(sessionId, text, host.deps)
+        return json(200, { messageId: kept.id })
+      } catch (err) {
+        if (err instanceof UnknownSessionError) return json(404, { error: err.message })
+        throw err
+      }
     }
 
     /**
@@ -7477,6 +7515,7 @@ function streamTurn(
   ctx?: RouteContext,
   ledger?: OpenTurn | null,
   view?: ClientView,
+  fromMessages: readonly string[] = [],
 ): Response {
   const encoder = new TextEncoder()
   const frame = (event: unknown): Uint8Array =>
@@ -7538,7 +7577,7 @@ function streamTurn(
          * did: a deployment with no database, or an open that failed, must leave
          * the turn behaving exactly as it did before either record existed.
          */
-        for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id, view)) {
+        for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id, view, fromMessages)) {
           if (event.kind === 'done') {
             const status = typeof event.meta?.status === 'string' ? event.meta.status : ''
             outcome = status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : 'complete'

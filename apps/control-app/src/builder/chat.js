@@ -60,7 +60,13 @@ import {
   WORKING_NOW,
   WORKING_SO_FAR,
 } from './config.js'
-import { openChatConversation, stopChatExchange, streamChatPrompt, streamChatReattach } from './api.js'
+import {
+  interposeChatMessage,
+  openChatConversation,
+  stopChatExchange,
+  streamChatPrompt,
+  streamChatReattach,
+} from './api.js'
 import { sentPrompts } from './sent-prompts.js'
 // FOR THE SIDE EFFECT: importing this module starts the markdown engines loading
 // (BUG-42), so a pane mounted on its own still gets them. WAITING for them is
@@ -511,6 +517,7 @@ export function createChatPanel(options = {}) {
       streamReattach: streamChatReattach,
       openConversation: openChatConversation,
       stopExchange: stopChatExchange,
+      interpose: interposeChatMessage,
     },
     onSiteChanged = () => {},
     onBusinessChanged = () => {},
@@ -843,8 +850,8 @@ export function createChatPanel(options = {}) {
    * before the model is called, so it covers every turn the origin got to start;
    * what is left over is a submission it never heard of — a request that failed
    * in the network or was refused, a turn whose record a later turn replaced, or
-   * a message the panel QUEUED, which this builder has no transport for and
-   * therefore drops. In all of them the composer has already deleted the draft,
+   * a message the panel QUEUED and held in a page that was then reloaded. In
+   * all of them the composer has already deleted the draft,
    * so the only surviving copy is the one {@link sentPrompts} kept.
    *
    * THE SAME TWO MOVES, FOR THE SAME REASON. The words go on screen, as the
@@ -1054,6 +1061,16 @@ export function createChatPanel(options = {}) {
     // not the wire id, so a submission that never landed comes back under the
     // business it was written for.
     const sent = sentPrompts(storage, next)
+    // WHAT THE ORIGIN IS HOLDING FOR THIS CONVERSATION ([[BUG-224]]): messages
+    // sent while a turn ran that no turn has taken yet — this page's own, from
+    // before a reload or a repaint, or another tab's. They are already kept, so
+    // they are handed back to the panel ADOPTED: `onInterpose` answers their id
+    // instead of posting them again.
+    const waiting = session.waiting ?? []
+    const adopted = new Map(waiting.map((m) => [m.text.trim(), m.id]))
+    // The waiting ids the next prompt delivers, when it is run to deliver them.
+    let delivering = []
+    const interposes = typeof transport.interpose === 'function'
     chat = mountChat(element, {
       // KEYED ON THE CONVERSATION, NOT THE WIRE ID. This is also the composer's
       // draft key, so a half-typed message stays with the business it was typed
@@ -1076,8 +1093,16 @@ export function createChatPanel(options = {}) {
       maxSubmissionChars: CHAT_MAX_SUBMISSION_CHARS,
       overLongText: CHAT_OVER_LONG_MESSAGE,
       ...(storage ? { storage } : {}),
-      sendPrompt: (text) => {
+      // [[BUG-224]] — WHILE A TURN RUNS, ▶ AND ENTER INTERPOSE: the message goes
+      // to the origin and reaches the consultant at her next tool call. Queue
+      // stays on the hold menu.
+      ...(interposes ? { turnModes: { interpose: true } } : {}),
+      sendPrompt: (text, opts) => {
         const wire = expandPrompt(text)
+        // A MESSAGE THAT MISSED ITS TURN comes back here naming its id, and the
+        // origin retires it so it is not delivered into this turn a second time.
+        const fromMessages =
+          opts && 'fromMessage' in opts ? [opts.fromMessage].filter(Boolean) : delivering.splice(0)
         // BEFORE THE REQUEST EXISTS ([[BUG-122]]). The composer deleted its draft
         // a moment ago, on submit; this is the copy that outlives a fetch which
         // never resolves, and it has to be written before anything can fail.
@@ -1088,21 +1113,36 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(withWorkingLine(transport.streamPrompt(id, wire, promptView()), workingLine), told)
+        return watchForWrites(
+          withWorkingLine(transport.streamPrompt(id, wire, promptView(), fromMessages), workingLine),
+          told,
+        )
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
       // from where it stands the turn's fate is UNKNOWN. This pane is the half
       // that can find out — it has an origin to ask.
       onTurnLost: (lost) => void chaseLostTurn(lost),
-      // THE OTHER TWO SUBMIT INTENTS ([[BUG-122]]). `webui-chat` routes a submit
-      // made WHILE THE ASSISTANT IS STREAMING to its queue, and this pane passes
-      // no queue transport — so that text is echoed as pending and then dropped,
-      // with the draft already gone. Remembering it is the whole of what this
-      // pane can honestly do about that today: the words are recoverable on the
-      // next load even though the turn never ran.
+      // QUEUED TEXT IS HELD BY THE PANEL, which runs it when the turn ends
+      // (lagrange-framework BUG-64) — in this page's memory only, so it is
+      // remembered here too ([[BUG-122]]) and survives a reload as unsent.
       onQueue: (text) => sent.remember(text, expandPrompt(text)),
-      onInterject: (text) => sent.remember(text, expandPrompt(text)),
+      // [[BUG-224]] — INTERPOSED TEXT IS KEPT BY THE ORIGIN, not by this page:
+      // the answer is its id, which the delivery is matched by. A refusal leaves
+      // the panel holding it, and it runs as the next turn through `sendPrompt`,
+      // which remembers it then.
+      ...(interposes
+        ? {
+            onInterpose: (text) => {
+              const held = adopted.get(text.trim())
+              if (held !== undefined) {
+                adopted.delete(text.trim())
+                return held
+              }
+              return transport.interpose(id, expandPrompt(text))
+            },
+          }
+        : {}),
     })
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
@@ -1131,8 +1171,18 @@ export function createChatPanel(options = {}) {
     // AFTER IT, AND RECONCILED AGAINST THE SAME TWO THINGS ([[BUG-122]]): the
     // transcript just painted, and the record the origin is already handing back.
     // A submission either of them accounts for is dropped rather than repeated.
-    paintUnsent(sent.reconcile(turns, session.interrupted), sent)
-    if (!resuming) return
+    // A WAITING MESSAGE IS ACCOUNTED FOR ([[BUG-224]]): the origin has it.
+    const held = waiting.map((m) => ({ role: 'user', markdown: m.text }))
+    paintUnsent(sent.reconcile([...turns, ...held], session.interrupted), sent)
+    if (!resuming) {
+      // NO TURN RUNNING, SO NOTHING WILL TAKE THEM: they run now, as one turn,
+      // the way the panel runs what was queued during a turn.
+      if (waiting.length > 0 && session.ready !== false) {
+        delivering = waiting.map((m) => m.id)
+        void chat.send(waiting.map((m) => m.text).join('\n\n'))
+      }
+      return
+    }
 
     // NOT AWAITED, and this function stays synchronous. `resume` runs for as
     // long as the turn does, and the argument in this file's header — that a
@@ -1170,6 +1220,10 @@ export function createChatPanel(options = {}) {
       // is now only for a `streamReattach` that rejects before yielding
       // anything, which the widget never sees and therefore never reports.
     })
+    // [[BUG-224]] — BACK ON SCREEN AS WAITING, adopted rather than re-sent. The
+    // running turn takes them at its next tool call; one that misses it runs
+    // next, as any interposed message does.
+    for (const m of waiting) chat.interpose(m.text)
   }
 
   /**
