@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T23:07:24.259809+00:00'
+updated_at: '2026-10-18T23:10:05.956002+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8962,5 +8962,28 @@ If that's what's happening, much of what we've judged in dev ("she goes quiet fo
 yes please create a bug for the streaming issue - that's ugly
 
 This message is occurring at the end of every turn from the AI
+
+<!-- xgd-turn id="6fc5e994-7279-49c4-912c-fc3ddafd5fbf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T23:10:03.903706+00:00" -->
+#### Claude
+At the end of every turn is a strong clue: it's whatever the builder does when a turn finishes. Checking which requests follow the end of a turn in the log.
+
+I'll file the streaming bug, then tell you where I've got to on the JSON error.
+
+The epic lookup matched several files, so the create didn't run. Finding EPIC-16's uid properly.
+
+Filed as **BUG-228**. One more place to check for the end-of-turn error: the server's turn log.
+
+I filed the streaming bug as **BUG-228**, under EPIC-16 (`draft`, high, 1 point). The fix is for access-sim to pass each response through as it arrives instead of holding it to the end. Its test proves the first event of a stream reaches the browser before the second has been sent.
+
+**The JSON error is real and server-side, but I haven't found its source yet.** What I've established:
+
+- **The server records it as the turn's failure.** In the turn log, the last three turns on Bob's salon 2 (22:07, 22:27 and 22:53 UTC) all ended `error`, each with exactly this text. The turn before them, 21:16 to 21:23 UTC, completed normally. So it isn't just display noise: every turn since 15:07 your time has ended as a failure.
+- **The code didn't change, the data did.** The dev server runs the snapshot deployed at 09:57 this morning, and nothing has been deployed since. Something stored between 14:23 and 15:07 your time is now being parsed at the end of every turn.
+- **The bad value is identical every time, but it's computed, not stored.** `guWid6rN1D` appears nowhere in the database, the Durable Objects or R2, neither as text nor as the bytes it would decode to. So something is building a string, probably an encoding of binary data or a response from a service, and passing it to `JSON.parse`.
+- **The last good turn is the lead.** Whatever the 21:16 turn wrote or uploaded is the likely trigger. You were working on fonts around then, and BUG-227's font fix landed in that window, though not in the snapshot you're running.
+
+This blocks every turn on that business, so I'd file it as a critical bug now, with these findings and the reproduction, and let its own session trace it. That means reading the 21:16 turn's tool calls and checking what runs at the end of a turn. Shall I?
 
 <!-- xgd-chat-end -->
