@@ -1256,6 +1256,9 @@ export function mountBuilder(root, options = {}) {
    * rather than by us remembering to check (DOC-28 §7.1).
    */
   let editor = null
+  // [[REQ-404]] — the selected picture, outliving each mount: a save reloads the
+  // frame, and the click after it must still be a click on the selected picture.
+  const pictureSelection = { key: null }
   const rebind = () => {
     editor?.destroy()
     editor = null
@@ -1340,6 +1343,7 @@ export function mountBuilder(root, options = {}) {
       // resolves, so the frame only has to reload — and reloading fires `load`,
       // which re-binds against the new document.
       onSaved: () => panel.reloadDocument(),
+      selection: pictureSelection,
     })
   }
   const unbindDocument = panel.on('document', rebind)

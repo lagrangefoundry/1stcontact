@@ -42,6 +42,7 @@
 import { MAX_BLOB_BYTES } from './generated/ticketing'
 import {
   assetHandle,
+  assetKind,
   editAssetAdd,
   editAssetReplace,
   listSiteAssets,
@@ -58,6 +59,7 @@ import {
   type RecipeStore,
 } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import type { SiteWrite, StoredAsset } from '../../../tools/generate/src/store/site-store'
 import { sanitizeAssetName } from '../../../tools/generate/src/store/asset-name'
 import {
   describe,
@@ -69,7 +71,7 @@ import {
 import { guardedFetch, tooBig } from './fetch-guard'
 import { type ConvertHeic, isHeic, MAX_CONVERTIBLE_BYTES } from './heic'
 import { isVersionConflict } from './plan'
-import type { ChangeEvent, Ticket, TicketStore, TicketSubscription } from './tickets'
+import { BlobsNotConfiguredError, type ChangeEvent, type Ticket, type TicketStore, type TicketSubscription } from './tickets'
 import { isEditablePicture } from './builder/picture-kind.js'
 
 /**
@@ -84,7 +86,7 @@ import { isEditablePicture } from './builder/picture-kind.js'
 export const MAX_MATERIAL_BYTES: number = MAX_BLOB_BYTES
 
 /** Where a piece of material came from — the input to every rights decision. */
-export type Provenance = 'uploaded' | 'fetched'
+export type Provenance = 'uploaded' | 'fetched' | 'generated' | 'site'
 
 /**
  * What the client said the material is FOR ([[REQ-161]], [[DOC-38]] §4.2).
@@ -943,18 +945,29 @@ export async function promoteToSiteAsset(
   // deleted it, a push overwrote the site — and re-adding the picture would put
   // back something somebody removed. The refusal travels out as it is; both
   // callers of this function already report a promotion that did not land.
-  if (recorded) {
-    await editAssetReplace(args.slug, name, bytes, { store: sites, actor: 'client' })
-  } else {
-    await editAssetAdd(args.slug, name, bytes, { store: sites, actor: 'client' })
-  }
   // PLACEMENT IS RECORDED HERE, AND ONLY HERE (BUG-47). This is the one function
   // that puts a material's bytes on a site, so it is the only thing that knows
   // the fact the Library's pill, its `Used on` field and its "used on this site"
-  // filter are all trying to state. Recording it anywhere earlier would restate
-  // the upload's context instead — which is the bug — and recording it before
-  // this line would badge a promotion that threw identically to one that landed.
-  await recordPlacement(tickets, args.uid, args.slug, name)
+  // filter are all trying to state.
+  //
+  // A FIRST PLACEMENT IS RECORDED JUST BEFORE ITS WRITE, AND TAKEN BACK IF THE
+  // WRITE THROWS ([[REQ-404]]). The site store's Library door gives every picture
+  // written onto a site a Library item unless one already accounts for it — so a
+  // write that landed before its record would be catalogued a second time, as a
+  // stranger. Withdrawing the record on a refusal keeps BUG-47's promise: a
+  // promotion that threw is not badged as one that landed.
+  if (recorded) {
+    await editAssetReplace(args.slug, name, bytes, { store: sites, actor: 'client' })
+    await recordPlacement(tickets, args.uid, args.slug, name)
+  } else {
+    const undo = await recordPlacement(tickets, args.uid, args.slug, name)
+    try {
+      await editAssetAdd(args.slug, name, bytes, { store: sites, actor: 'client' })
+    } catch (error) {
+      await undo()
+      throw error
+    }
+  }
   return { name, size: bytes.byteLength, sha256 }
 }
 
@@ -1114,11 +1127,17 @@ async function recordPlacement(
   uid: string,
   slug: string,
   name: string,
-): Promise<void> {
+): Promise<() => Promise<void>> {
+  // WHAT THIS CALL ADDED, so the undo takes back exactly that and nothing a
+  // concurrent placement wrote beside it.
+  let addedEntry = false
+  let addedSlug = false
   await updateCompareAndSet(tickets, uid, (fields) => {
     const named = placedAs(fields)
     const slugs = placedOn(fields)
-    if (slugs.includes(slug) && named.some((e) => e.slug === slug && e.name === name)) return null
+    addedEntry = !named.some((e) => e.slug === slug && e.name === name)
+    addedSlug = !slugs.includes(slug)
+    if (!addedEntry && !addedSlug) return null
     return {
         // `placed_on` IS UNIONED AND NOT DERIVED FROM `placed_as`, which matters
         // for exactly one case and matters completely: material placed BEFORE
@@ -1128,9 +1147,18 @@ async function recordPlacement(
         // reading for — placed, under no recorded name — and its next promotion
         // to that site records one.
       placed_on: slugs.includes(slug) ? slugs : [...slugs, slug],
-      placed_as: [...named, { slug, name }],
+      placed_as: addedEntry ? [...named, { slug, name }] : named,
     }
   })
+  return async () => {
+    if (!addedEntry && !addedSlug) return
+    await updateCompareAndSet(tickets, uid, (fields) => ({
+      placed_on: addedSlug ? placedOn(fields).filter((s) => s !== slug) : placedOn(fields),
+      placed_as: addedEntry
+        ? placedAs(fields).filter((e) => !(e.slug === slug && e.name === name))
+        : placedAs(fields),
+    }))
+  }
 }
 
 /** How many times a clashing write is read and attempted again before it gives up. */
@@ -1965,6 +1993,263 @@ export function placementRecipes(
       await editAssetReplace(slug, name, bytes, { store: sites, actor: 'client' })
     },
   }
+}
+
+// --- one use of a picture, from the Site tab ([[REQ-404]]) --------------------
+
+/**
+ * Raised where a picture on a site has no Library item behind it ([[REQ-404]]).
+ *
+ * **A FAULT, NOT A STATE.** The operator's rule is that the Library is the
+ * catalogue of everything the client has and the site's assets are copies of
+ * entries in it — so an image with nothing behind it is a bug somewhere upstream
+ * (a write path that skipped the door, a record deleted from under a placement),
+ * and it is reported as one, naming the asset, rather than quietly treated as
+ * *not editable*.
+ */
+export class NotInLibraryError extends Error {
+  readonly name = 'NotInLibraryError'
+  constructor(
+    readonly slug: string,
+    readonly asset: string,
+  ) {
+    super(`The picture '${asset}' on site '${slug}' has no Library item behind it.`)
+  }
+}
+
+/** One use of a Library picture on a site, as the Site tab's editor opens it. */
+export interface SitePicture {
+  /** The Library item the file is a copy of. */
+  uid: string
+  /** What the client and the consultant call it — `IMAGE-1` ([[REQ-280]]). */
+  label: string | null
+  title: string
+  filename: string
+  /** The file on the site this use is. */
+  asset: string
+  /**
+   * The recipe this use shows: its own where it has one ([[BUG-213]]), the
+   * material's otherwise — so an editor opened on an already-cropped photograph
+   * shows it as it appears on the page.
+   */
+  edits: EditOp[]
+  /** Whether those edits are this use's own, rather than the material's. */
+  own: boolean
+  /** Whether the photo editor applies — not a drawing, not a capture. */
+  editable: boolean
+}
+
+/** The Library row and the placement entry behind one site file. */
+async function placementOf(
+  tickets: TicketStore,
+  slug: string,
+  name: string,
+): Promise<{ row: MaterialRow; at: Placement } | null> {
+  for (const row of await listMaterial(tickets)) {
+    const at = row.placed_as.find((entry) => entry.slug === slug && entry.name === name)
+    if (at) return { row, at }
+  }
+  return null
+}
+
+/**
+ * The Library item behind one picture on a site, and the recipe that use shows
+ * ([[REQ-404]]).
+ *
+ * READ OFF `placed_as`, the same record {@link placementRecipes} writes, so the
+ * editor opens on exactly the recipe the next write replaces.
+ */
+export async function sitePicture(tickets: TicketStore, slug: string, name: string): Promise<SitePicture> {
+  const found = await placementOf(tickets, slug, name)
+  if (!found) throw new NotInLibraryError(slug, name)
+  const { row, at } = found
+  return {
+    uid: row.uid,
+    label: row.label,
+    title: row.title,
+    filename: row.filename,
+    asset: name,
+    edits: at.edits ?? row.edits,
+    own: at.edits !== undefined,
+    editable: isEditablePicture({ kind: row.kind, content_type: row.content_type }),
+  }
+}
+
+/**
+ * Write the recipe of ONE use of a picture, and re-render that file alone
+ * ([[REQ-404]]).
+ *
+ * **THE SAME THREE STEPS {@link reviseRecipe} TAKES** — parse, compile against
+ * the real pixels, then write — so a refusal leaves the placement exactly as it
+ * was. The compile is against the material's ORIGINAL, because that is what a
+ * placement's recipe is over ([[BUG-213]]).
+ *
+ * **THE WRITE IS {@link placementRecipes}'**, the port the assistant's
+ * `edit_image` writes a site file's framing through, so the Site tab and the
+ * chat are two producers of one fact. The Library item's own recipe and every
+ * other copy are untouched by construction: nothing here names them.
+ */
+export async function revisePlacementRecipe(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  args: { slug: string; name: string; recipe: unknown },
+  deps: { renderer?: ImageRenderer } = {},
+): Promise<SitePicture & { rendered: boolean }> {
+  const picture = await sitePicture(tickets, args.slug, args.name)
+  if (!picture.editable) {
+    throw new NotAPictureError(
+      picture.uid,
+      'That is a drawing, so it is changed by redrawing it rather than by cropping it.',
+    )
+  }
+  const recipe = parseRecipe(args.recipe)
+  let rendered = false
+  if (deps.renderer) {
+    const file = await materialFile(tickets, picture.uid)
+    compileRecipe(recipe, await deps.renderer.measure(file.bytes, file.contentType))
+    rendered = true
+  }
+  await placementRecipes(tickets, sites, args.slug, deps).write(args.name, recipe)
+  return { ...(await sitePicture(tickets, args.slug, args.name)), rendered }
+}
+
+// --- the Library door: every picture on a site has an item ([[REQ-404]]) ------
+
+/** One Library item the door or the backfill created. */
+export interface Catalogued {
+  slug: string
+  asset: string
+  uid: string
+  label: string | null
+}
+
+/** Whether a site file is a picture the Library should hold — by its name. */
+function isSitePicture(name: string): boolean {
+  return assetKind(name) === 'image'
+}
+
+/**
+ * Give each picture in `assets` a Library item where none accounts for it
+ * ([[REQ-404]]).
+ *
+ * **ACCOUNTED FOR MEANS `placed_as` NAMES IT** — the record every Library-side
+ * placement writes. A file named there already has its item, so this writes
+ * nothing for it: a promotion, a republication and a placement's own re-render
+ * all pass through untouched.
+ *
+ * **WHAT IT CREATES IS AN ORDINARY ITEM**, through the same `ingest` an upload
+ * takes — described, labelled, indexed — with `origin` saying how it arrived:
+ * `generated` for a drawing a caller composed ({@link StoredAsset.generated}),
+ * `site` for every other file that reached the site without the Library. The
+ * placement is recorded in the same pass, so the item is on the site from its
+ * first listing.
+ */
+export async function catalogueSiteImages(
+  tickets: TicketStore,
+  slug: string,
+  assets: readonly StoredAsset[],
+  deps: IngestDeps = {},
+): Promise<Catalogued[]> {
+  const pictures = assets.filter((a) => isSitePicture(a.name))
+  if (pictures.length === 0) return []
+  const rows = await listMaterial(tickets)
+  const accounted = new Set(
+    rows.flatMap((row) => row.placed_as.filter((p) => p.slug === slug).map((p) => p.name)),
+  )
+  const created: Catalogued[] = []
+  for (const asset of pictures) {
+    if (accounted.has(asset.name)) continue
+    accounted.add(asset.name)
+    const filename = asset.name.split('/').pop() || asset.name
+    const { ticket } = await ingest(
+      tickets,
+      {
+        bytes: asset.bytes,
+        filename,
+        contentType: resolveContentType('', filename),
+        origin: asset.generated ? 'generated' : 'site',
+        role: 'site',
+      },
+      deps,
+    )
+    await recordPlacement(tickets, ticket.uid, slug, asset.name)
+    created.push({
+      slug,
+      asset: asset.name,
+      uid: ticket.uid,
+      label: typeof ticket.fields.label === 'string' ? ticket.fields.label : null,
+    })
+  }
+  return created
+}
+
+/**
+ * The site store with the Library door on it ([[REQ-404]]).
+ *
+ * **ONE DOOR, NOT ONE FIX PER CALLER**, on `cappedSiteStore`'s reasoning: a
+ * picture reaches a site by several roads — the assistant's `write_image`, an
+ * import, a page reproduced from a capture, a tab icon cut from a picture — and
+ * every one of them ends in `SiteStore.write({ assets })`. Catalogued where they
+ * meet, a road added later cannot skip it.
+ *
+ * **AFTER THE WRITE**, so an item is never created for bytes that did not land.
+ *
+ * **A DEPLOYMENT WITH NO LIBRARY HAS NOTHING TO CATALOGUE INTO.** The `1c` dev
+ * builder is a site store with no ticket store, and says so with
+ * {@link BlobsNotConfiguredError}; that one refusal is absorbed. Any other
+ * failure is LOGGED LOUDLY, naming the asset, and not thrown: the bytes are on
+ * the site already, and turning a landed write into a refusal would tell the
+ * writer their picture did not arrive when it did. The backfill closes the gap.
+ */
+export function libraryDoor(
+  store: TenantSiteStore,
+  openTickets: () => Promise<TicketStore>,
+  deps: () => Promise<IngestDeps> = async () => ({}),
+): TenantSiteStore {
+  return {
+    ...store,
+    async write(site: string, change: SiteWrite): Promise<void> {
+      await store.write(site, change)
+      const pictures = (change.assets ?? []).filter((a) => isSitePicture(a.name))
+      if (pictures.length === 0) return
+      try {
+        await catalogueSiteImages(await openTickets(), site, pictures, await deps())
+      } catch (error) {
+        if (error instanceof BlobsNotConfiguredError) return
+        console.error(
+          `[REQ-404] picture(s) ${pictures.map((p) => `'${p.name}'`).join(', ')} written to site ` +
+            `'${site}' with no Library item behind them:`,
+          error,
+        )
+      }
+    },
+  }
+}
+
+/**
+ * Give every picture already on this business's sites a Library item, where
+ * none accounts for it ([[REQ-404]]).
+ *
+ * **THE ONE-OFF PASS FOR WHAT PREDATES THE DOOR.** It reads each site's own
+ * files and catalogues them exactly as the door would have; it writes nothing to
+ * any site, so no page changes. What it created is the answer.
+ */
+export async function backfillSiteImages(
+  tickets: TicketStore,
+  sites: TenantSiteStore,
+  deps: IngestDeps = {},
+): Promise<Catalogued[]> {
+  const created: Catalogued[] = []
+  for (const slug of await sites.siteKeys()) {
+    const assets: StoredAsset[] = []
+    for (const name of await sites.listAssets(slug)) {
+      if (!isSitePicture(name)) continue
+      const bytes = await sites.readAsset(slug, name)
+      if (bytes) assets.push({ name, bytes })
+    }
+    created.push(...(await catalogueSiteImages(tickets, slug, assets, deps)))
+  }
+  return created
 }
 
 // --- the change feed the Library subscribes to (REQ-201, DOC-24) -------------

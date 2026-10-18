@@ -3919,6 +3919,17 @@ body {
   display: none;
 }
 
+/* [[REQ-404]] — which picture this is: one use of a Library item on the page,
+   not the item. Above the picture, where the name field sits in the Library. */
+.builder-imaged__banner {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 0.9em;
+  background: var(--shell-surface-alt, #f4f4f5);
+  color: var(--shell-fg);
+}
+
 /* THE PICTURE'S OWN BUTTON ([[REQ-220]]). The button carries the words and the
    photograph sits inside it, so opening the editor is reachable from a keyboard
    — and it must look like the picture did, not like a button with a picture on

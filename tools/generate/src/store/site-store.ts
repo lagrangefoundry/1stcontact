@@ -108,6 +108,15 @@ export interface StoredAsset {
   /** The asset's name under `assets/`, e.g. `wordmark.svg`. */
   name: string
   bytes: Uint8Array
+  /**
+   * Bytes a caller COMPOSED rather than a file somebody had ([[REQ-404]]) —
+   * `editAssetWrite`'s drawings (REQ-130).
+   *
+   * A FACT ABOUT THE BYTES, CARRIED WITH THEM, for the one reader that needs it:
+   * the host's Library door, which gives every picture written onto a site a
+   * Library item and has to say where it came from. No adapter stores it.
+   */
+  generated?: boolean
 }
 
 /**

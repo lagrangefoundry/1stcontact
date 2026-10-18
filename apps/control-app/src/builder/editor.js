@@ -1,8 +1,9 @@
 import { mountFields } from '@lagrangefoundry/webui-fields'
-import { fetchCopy, saveCopy } from './api.js'
+import { assetUrl, fetchCopy, fetchSitePicture, saveCopy, saveSitePictureRecipe } from './api.js'
 import { colorHex, colorLabel, isColorField, mountColorField } from './color-field.js'
 import { createModalShell, modalButton, modalFooter } from './modal.js'
 import { isFontField, mountFontField } from './font-field.js'
+import { mountImageEditor } from './image-editor.js'
 import { isImagePicker, mountImagePicker } from './image-picker.js'
 import { copyFontFaces, previewScale, previewVarFor, readPageStyle } from './page-style.js'
 
@@ -98,9 +99,31 @@ export function mountEditor(doc, options = {}) {
      * load.
      */
     openFont = null,
+    /**
+     * [[REQ-404]] — which picture is selected, as `{ key }`.
+     *
+     * HELD BY THE CALLER, NOT BY THIS MOUNT, because a save re-renders the page
+     * and the frame reloads: the editor is mounted again over a new document,
+     * and a selection that died with the old mount would make the second click
+     * — the one that opens the photo editor — a first click again. Absent, the
+     * selection lives as long as this mount, which is what a suite driving one
+     * document needs.
+     */
+    selection = { key: null },
   } = options
-  const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR } = api
+  const { mountL1EditBridge, formatL1Path, L1_EDIT_PAGE_ATTR, resolveEditTarget } = api
   const pageId = pageIdOf(doc, L1_EDIT_PAGE_ATTR)
+
+  // THE SELECTED PICTURE IS MARKED AGAIN ON EVERY DOCUMENT, so the client can
+  // see which picture a second click would open.
+  if (selection.key && resolveEditTarget) {
+    for (const element of doc.body?.querySelectorAll('*') ?? []) {
+      const hit = resolveEditTarget(element)
+      if (hit?.element !== element || hit.kind !== 'image') continue
+      const target = { site, page: pageId, path: formatL1Path(hit.target.path), ...scopeOf(hit) }
+      if (selectionKey(target) === selection.key) markSelected(doc, element)
+    }
+  }
 
   const bridge = mountL1EditBridge(doc, (hit) => {
     // A segment with no exposed fields is a legitimate answer, not an error (a
@@ -112,8 +135,73 @@ export function mountEditor(doc, options = {}) {
     // by hand keeps one definition of what an address looks like — a bare
     // `String(path)` produces `0,0,0,0`, which the parser correctly refuses.
     const target = { site, page: pageId, path: formatL1Path(hit.target.path), ...scopeOf(hit) }
-    void openSegment(target, hit)
+    // [[REQ-404]] — FIRST CLICK SELECTS, A CLICK ON THE SELECTED PICTURE OPENS
+    // THE PHOTO EDITOR. The first click is today's gesture, unchanged: the
+    // selection panel opens. Only a picture is selectable; any other segment
+    // clears the selection, so "the selected picture" is never stale.
+    const key = hit.kind === 'image' ? selectionKey(target) : null
+    const again = key !== null && selection.key === key
+    selection.key = key
+    markSelected(doc, key === null ? null : hit.element)
+    if (again) void openPicture(target, hit)
+    else void openSegment(target, hit)
   })
+
+  /**
+   * Open the photo editor over THIS USE of the picture ([[REQ-404]]).
+   *
+   * THE SAME `image-editor.js` the Library and the chat open, given a transport
+   * that writes the placement's own recipe (`placed_as[].edits`, [[BUG-213]]):
+   * the Library original and every other copy are untouched, and the banner says
+   * so. Each applied change is saved at once and the page re-renders.
+   *
+   * THE FILE COMES OFF THE SEGMENT'S OWN `src`, read through `/api/copy` like
+   * every other value this editor shows — the bridge knows an address, not a
+   * picture. A picture that is not one of the site's own files has no Library
+   * item to edit a use of, and opens the selection panel as before.
+   */
+  async function openPicture(target, hit) {
+    let loaded
+    try {
+      loaded = await fetchCopy(target)
+    } catch (err) {
+      openModal({ kind: 'error', host, message: err.message, hint: err.hint })
+      return
+    }
+    const name = siteAssetName(loaded?.values?.src)
+    if (loaded.busy || !name) {
+      void openSegment(target, hit)
+      return
+    }
+    let picture
+    try {
+      picture = await fetchSitePicture(site, name)
+    } catch (err) {
+      if (err.code === 'NOT_IN_LIBRARY') {
+        // LOUD, NAMING THE ASSET. The operator's rule makes this a bug, and the
+        // client is told so rather than shown nothing.
+        console.error(`[REQ-404] the picture '${name}' on site '${site}' has no Library item behind it`)
+        openModal({ kind: 'error', host, message: NOT_IN_LIBRARY })
+        return
+      }
+      openModal({ kind: 'error', host, message: err.message, hint: err.hint })
+      return
+    }
+    if (!picture.editable) {
+      openModal({ kind: 'message', host, title: 'Edit picture', message: A_DRAWING })
+      return
+    }
+    mountImageEditor({
+      uid: picture.uid,
+      href: assetUrl(site, `/assets/${name}`),
+      name: picture.title,
+      recipe: picture.edits,
+      host,
+      banner: thisUseBanner(picture),
+      transport: { saveRecipe: (_uid, recipe) => saveSitePictureRecipe(site, name, recipe) },
+      onSaved: (row) => onSaved(row),
+    })
+  }
 
   async function openSegment(target, hit) {
     // An address is only half a coordinate: without the page id there is nothing
@@ -224,6 +312,45 @@ export function mountEditor(doc, options = {}) {
  * wrong is silent — an instance-rooted address resolved against the document
  * root can still land on *a* node, just the wrong one.
  */
+/** What the client is told about a picture with no Library item behind it. */
+export const NOT_IN_LIBRARY = "This picture isn't in your Library — please tell us."
+
+/** A drawing is redrawn, not cropped — the Library route's own sentence. */
+const A_DRAWING = 'That is a drawing, so it is changed by redrawing it rather than by cropping it.'
+
+/** The photo editor's banner over one use of a picture ([[REQ-404]]). */
+export function thisUseBanner(picture) {
+  return `Editing this use of ${picture.label || picture.title} — the Library original is unchanged.`
+}
+
+/** One segment's identity across reloads: the site, the page and the address. */
+function selectionKey(target) {
+  return JSON.stringify([target.site, target.page, target.module ?? '', target.slot ?? '', target.path])
+}
+
+/** The site file a handle names, or `null` for one that is not the site's own. */
+function siteAssetName(src) {
+  const handle = String(src ?? '').split(/[?#]/)[0]
+  if (!handle.startsWith('/assets/')) return null
+  const name = handle.slice('/assets/'.length)
+  return name === '' || name.endsWith('/') ? null : name
+}
+
+/** The selection mark — the hover outline, held. Editor chrome, never page CSS. */
+const SELECTED_ATTR = 'data-builder-selected'
+
+function markSelected(doc, element) {
+  for (const previous of doc.querySelectorAll(`[${SELECTED_ATTR}]`)) {
+    previous.removeAttribute(SELECTED_ATTR)
+    previous.style.removeProperty('outline')
+    previous.style.removeProperty('outline-offset')
+  }
+  if (!element) return
+  element.setAttribute(SELECTED_ATTR, '')
+  element.style.setProperty('outline', '2px solid rgba(99, 102, 241, 0.9)')
+  element.style.setProperty('outline-offset', '3px')
+}
+
 function scopeOf(hit) {
   const scope = {}
   if (hit.target.moduleId) scope.module = hit.target.moduleId
