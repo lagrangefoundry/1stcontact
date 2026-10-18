@@ -6,10 +6,10 @@ title: Builder worker composes ReportResult as plain text instead of a tool call
   so its result comes back "silent"
 created_by: xgd
 created_at: '2026-10-17T23:09:10.418660+00:00'
-updated_at: '2026-10-18T00:35:52.976430+00:00'
+updated_at: '2026-10-18T00:42:00.942439+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: abandoned
 fields:
   auto_merge_back: true
   needs_review: false
