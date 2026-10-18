@@ -538,6 +538,7 @@ export async function sessionFidelity(
   // recipes existed, and still the right one for a deployment that cannot apply
   // them.
   const renderer = imageRendererFor(env, scope.businessId)
+  const fonts = platformFontsFor(env, deps)
 
   // THE CLIENT'S OWN PRIVATE BUCKET, bound to THIS business by `forTenant`, so
   // one business never sees another's references. That barrier is a property of
@@ -607,7 +608,23 @@ export async function sessionFidelity(
       // nothing here copies a byte across it, and each half still reads only its
       // own store.
       sessionPictures(store, tickets, renderer)(site),
+      // [[BUG-227]] — the reader the `/preview` route answers `_fonts/…` from,
+      // so the browser this surface drives paints the faces the operator sees.
+      fonts,
     )
+}
+
+/**
+ * The platform font mirror this deployment previews against ([[REQ-312]]).
+ *
+ * ONE RESOLUTION FOR EVERY SURFACE THAT SERVES A PREVIEW — the `/preview` route
+ * and the in-process origin a screenshot browser is answered from — because the
+ * two disagreeing is how a page looked right to the operator and wrong in every
+ * picture ([[BUG-227]]). `null` from `deps` is the deliberate *"this deployment
+ * has no mirror"*, so it is tested for presence and not truthiness.
+ */
+function platformFontsFor(env: RouterEnv, deps: RouterDeps): PlatformFontReader | null {
+  return deps.platformFonts ? deps.platformFonts(env) : r2PlatformFonts(env.SITES)
 }
 
 /**
@@ -2868,9 +2885,7 @@ async function routeUncached(
    * from a deps entry is the deliberate *"this deployment has no mirror"* and a
    * falsy test would hand it the binding instead.
    */
-  const platformFonts = deps.platformFonts
-    ? deps.platformFonts(env)
-    : r2PlatformFonts(env.SITES)
+  const platformFonts = platformFontsFor(env, deps)
 
   /**
    * The corpus the editor's font control browses and a chosen family is

@@ -330,10 +330,18 @@ export function sfntToWoff2(bytes: Buffer, quality: number = BROTLI_QUALITY): Bu
   })
 
   const totalSfntSize = tables.reduce((n, t) => n + round4(t.data.length), 12 + tables.length * 16)
+  // [[BUG-227]] — THE FILE ENDS ON A 4-BYTE BOUNDARY, padding included in
+  // `length`. The decoder every browser ships (Google's, behind OTS) checks
+  // `Round4(compressedOffset + compressedLength) <= length` and rejects the font
+  // outright when it fails — so an unpadded file that is otherwise perfect is
+  // "Invalid font data" in Chrome and Firefox, and three in four of the corpus
+  // painted a fallback face for exactly that reason.
+  const unpadded = HEADER_SIZE + directory.length + compressed.length
+  const padding = Buffer.alloc(round4(unpadded) - unpadded)
   const header = Buffer.alloc(HEADER_SIZE)
   header.writeUInt32BE(WOFF2_SIGNATURE, 0)
   header.writeUInt32BE(font.flavor, 4)
-  header.writeUInt32BE(HEADER_SIZE + directory.length + compressed.length, 8)
+  header.writeUInt32BE(unpadded + padding.length, 8)
   header.writeUInt16BE(tables.length, 12)
   header.writeUInt16BE(0, 14) // reserved
   header.writeUInt32BE(totalSfntSize, 16)
@@ -341,11 +349,27 @@ export function sfntToWoff2(bytes: Buffer, quality: number = BROTLI_QUALITY): Bu
   header.writeUInt16BE(1, 24) // majorVersion
   header.writeUInt16BE(0, 26) // minorVersion
   // metaOffset/metaLength/metaOrigLength/privOffset/privLength — all absent, and
-  // absent is spelled zero. With no metadata block the compressed data is the
-  // last block, so it takes no trailing padding (WOFF2 §6).
+  // absent is spelled zero.
   header.fill(0, 28, HEADER_SIZE)
 
-  return Buffer.concat([header, directory, compressed])
+  return Buffer.concat([header, directory, compressed, padding])
+}
+
+/**
+ * Why a browser would refuse this file's framing, or `null` when it would not.
+ *
+ * The two checks a browser's decoder makes before it reads a table: the header's
+ * `length` is the file's, and the compressed block ends on a 4-byte boundary
+ * inside it ([[BUG-227]]). Asked by the decoder below, so the mirror's round-trip
+ * assertion refuses what a browser would, and by the mirror before it carries a
+ * staged file forward, so a file written before this check existed is redone.
+ */
+export function woff2FramingProblem(bytes: Buffer): string | null {
+  if (bytes.length < HEADER_SIZE || bytes.readUInt32BE(0) !== WOFF2_SIGNATURE) return 'not a WOFF2 file'
+  const length = bytes.readUInt32BE(8)
+  if (length !== bytes.length) return `header says ${length} bytes, file is ${bytes.length}`
+  if (length % 4 !== 0) return `${length} bytes is not a multiple of 4: the compressed block is unpadded`
+  return null
 }
 
 // ── Decoding ─────────────────────────────────────────────────────────────────
@@ -363,6 +387,8 @@ export function sfntToWoff2(bytes: Buffer, quality: number = BROTLI_QUALITY): Bu
 export function woff2ToSfnt(bytes: Buffer): Buffer {
   if (bytes.length < HEADER_SIZE) throw new FontFormatError('Not a WOFF2 file: too short.')
   if (bytes.readUInt32BE(0) !== WOFF2_SIGNATURE) throw new FontFormatError("Not a WOFF2 file: bad signature.")
+  const framing = woff2FramingProblem(bytes)
+  if (framing) throw new FontFormatError(`Misframed WOFF2 (${framing}); a browser refuses it.`)
   const flavor = bytes.readUInt32BE(4)
   const numTables = bytes.readUInt16BE(12)
   const totalCompressedSize = bytes.readUInt32BE(20)

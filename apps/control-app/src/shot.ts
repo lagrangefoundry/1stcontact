@@ -39,7 +39,7 @@ import {
   type ViewportName,
 } from '../../../tools/generate/src/cli/capture/screenshot'
 import { PreviewRenderer, previewOriginResolver } from '../../../tools/generate/src/cli/preview'
-import type { PreviewChannel } from '../../../tools/generate/src/cli/preview'
+import type { PreviewChannel, PreviewFontReader } from '../../../tools/generate/src/cli/preview'
 import { leasedDriverFactory } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { ReferenceStore } from '../../../tools/generate/src/store/reference-store'
 import type { FidelityDeps } from '../../../tools/generate/src/cli/ai/fidelity-core'
@@ -105,6 +105,8 @@ export interface PreviewShotOptions {
   viewport?: ViewportName
   /** This deployment's own origin, e.g. `https://app.1stcontact.io`. */
   origin: string
+  /** The platform font mirror the page's `_fonts/…` is answered from ([[BUG-227]]). */
+  fonts?: PreviewFontReader | null
 }
 
 /**
@@ -132,7 +134,7 @@ export async function shotPreview(
     `/preview/${encodeURIComponent(opts.slug)}/${channel}${rel.startsWith('/') ? rel : `/${rel}`}`,
     base,
   ).toString()
-  const resolver = previewOriginResolver(renderer, base.host)
+  const resolver = previewOriginResolver(renderer, base.host, opts.fonts)
   return withBrowserSession(
     deps.launch ?? bindingLauncher(env),
     async (session) => screenshotUrl(url, size, session.driverFactory({ origin: resolver })),
@@ -199,6 +201,12 @@ export function fidelityDeps(
    * passing a library with one half in it rather than a flag saying so.
    */
   images?: ImageLibrary,
+  /**
+   * [[BUG-227]] — the platform font mirror, so a picture of our own page is in
+   * the faces the page names. The same reader the `/preview` route answers
+   * `_fonts/…` from; absent, every platform face is a 404 and a fallback.
+   */
+  fonts?: PreviewFontReader | null,
 ): FidelityDeps {
   // Named `launcher`, not `launch`: this module's top-level `launch` is
   // `@cloudflare/puppeteer`'s, and shadowing it here would read as a call to it.
@@ -206,7 +214,7 @@ export function fidelityDeps(
   // ONE LAUNCHER, SHARED BY BOTH FACTORIES, and nothing counts what goes through
   // it ([[REQ-286]]).
   const launcher = deps.launch ?? bindingLauncher(env)
-  const resolver = previewOriginResolver(renderer, new URL(origin).host)
+  const resolver = previewOriginResolver(renderer, new URL(origin).host, fonts)
   return {
     slug,
     references,
