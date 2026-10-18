@@ -6,9 +6,9 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T19:27:40.433590+00:00'
+updated_at: '2026-10-18T19:27:41.725921+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -39,3 +39,19 @@ Looks are meant to differ in style, not content. At least one of:
 
 ## Impact
 The client saw their team's portraits replaced by wrong images and their words changed immediately after choosing a look. Recovery needed two more delegations: restore the content from the before-copy, then restore the styling that the content restore had reverted.
+
+
+
+## Notes (EPIC-19, 2026-10-18)
+
+Confirmed: `choose_look` (`plan-core.ts:1802`) copies the look onto the page after recording the client's words, and nothing compares the look's content with the page it was made from. Note the "Choose this one" button no longer exists (BUG-205); choosing is `choose_look` only.
+
+**Why scopes don't catch this:** a builder restyling a look is legitimately scoped to that look's file, so the lease allows any change on it, words and pictures included. Scope separates files, not content from style.
+
+**Recommended fix, in this order:**
+1. **Record the content baseline at `make_alternatives`:** for each look, the text, image `src` and `alt` it started with, keyed by element id (the look starts as a copy of the page, so the page's content is the baseline).
+2. **`choose_look` compares the look's content with that baseline** and, if anything differs, refuses with the list of differences (*"the look changed 2 pictures and 3 pieces of text: …"*) unless called again with an explicit confirmation that the client has seen them. The consultant then either restores the content or tells the client. Pure styling differences never trigger it.
+3. **A look whose builder ended without finishing** (aborted, exhausted, or no report) is marked incomplete, and `choose_look` refuses it until it is finished or re-made.
+4. **Builder priming for looks:** a look changes how the page looks, never what it says; the words and pictures come from the page. (The briefs said this; making it standing guidance for any brief on a look page is cheap.)
+
+The aborted builder at the root of this is BUG-212's case (context budget, no report).
