@@ -6,9 +6,9 @@ title: 'Builder parallelism: host Tool closures carry their operation''s concurr
   (follow-up to REQ-410, after lagrange-framework REQ-208)'
 created_by: EPIC-19
 created_at: '2026-10-18T22:09:52.340245+00:00'
-updated_at: '2026-10-18T22:16:45.732208+00:00'
+updated_at: '2026-10-18T22:20:22.116880+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -42,3 +42,21 @@ UATs (`test_UAT_FC_<ID>_*`), through the real Worker host with only the model sc
 - The consultant's priming carries the parallel paragraph with the configured cap when the installed `Tool` supports `concurrent`, and the serial paragraph when it does not.
 
 Regression: REQ-410, REQ-397 (both suites), REQ-389.
+
+## What landed
+
+1. **Closures carry their operation's concurrency.** `toolSet` (`host-core.ts`) registers every `lib.Tool` with `{ concurrent: box.concurrent(name) }`. `Delegate` is declared `concurrent: true`, so up to `max_concurrent` builders commissioned in one consultant reply run together. Every other tool is declared non-concurrent: it waits for all calls in flight, runs alone, and is reported before the next call starts. No code names `Delegate`; the same pass-through applies to builder, settings and coordinator tool sets.
+2. **Leases are per call. No change was needed.** `around` calls `asWriter`, which is `AsyncLocalStorage.run` per call, so each concurrent call gets its own writer context. Each builder's tool calls run as that builder (`claims.worker(sid)`, nested inside the consultant's context; the innermost writer wins). A builder's write to a section another builder holds is refused by the lease.
+3. **The consultant is told the truth.** `concurrentSupported(lib)` (`lease-core.ts`) now requires both that `Delegate` is declared concurrent and that the installed `lib.Tool` accepts the option (`new lib.Tool('probe', '', {}, () => null, { concurrent: true }).concurrent === true`). If either is missing, `parallel` is 1 and the consultant gets the serial paragraph.
+4. **REQ-410's parallel-builder UAT.** The uncommitted file was not found in any checkout, so the parallel cases were rewritten here. They are in `tests/test_UAT_FC_REQ-411_concurrent_builder_closures.workers.test.ts`.
+
+## UATs (as landed)
+
+`tests/test_UAT_FC_REQ-411_concurrent_builder_closures.workers.test.ts`. These run through the real Worker routes, real session manager, delegation surface, `claim` hook and real D1 leases. Only the model client is scripted, and its builder side waits at a timed barrier.
+- `..._two_delegations_on_different_sections_run_concurrently_and_each_writes_only_its_own`: both builders open before either finishes. The hero builder's write to `story` is refused, and each section ends with its own builder's text.
+- `..._two_delegations_on_the_same_file_the_second_is_refused_at_claim`: one builder opens. The other gets `scope_held` with "so this builder was not started and nothing was spent".
+- `..._a_non_concurrent_tool_in_the_same_reply_still_runs_alone`: given `Delegate, list_pages, Delegate`, the second builder opens only after the first has finished.
+- `..._the_consultant_is_told_the_configured_cap_where_closures_can_overlap`: with `max_concurrent: 2`, the system prompt says "Up to 2 builders run at once." and not "Builders run one at a time."
+- `..._a_framework_whose_Tool_cannot_be_concurrent_is_not_offered_parallel_builders`: `concurrentSupported` is true for the installed framework. It is false for one whose `Tool` ignores the option even though `Delegate` is declared concurrent. That false value is what makes the host pass `parallel: 1`, so the consultant gets the serial paragraph.
+
+Without the flag pass-through, the overlap and same-file UATs fail. Regression: REQ-410, REQ-397 (both suites) and REQ-389 all pass (40/40).
