@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T18:59:06.675978+00:00'
+updated_at: '2026-10-18T19:01:42.776184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8632,5 +8632,68 @@ Shall I make that change? It's a priming edit, so it needs no ticket, and your n
 <!-- xgd-chat role="user" ts="2026-10-18T18:59:06.354349+00:00" -->
 #### You
 When we designed this we discussed the need for "composite" pages created in sections each with its own file. That way the builders could have clear, non-overlapping scope. Are we doing that?
+
+<!-- xgd-turn id="6f012595-dfe0-4850-b534-56f2e69a862a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:01:42.475947+00:00" -->
+#### Claude
+I'll check how REQ-396 decides when a page is stored as sections, then look at what Bob's Salon's pages actually are on disk.
+
+Yes, pages are being stored as sections. Checking what scope each builder was given, since that decides whether two could run at once.
+
+The pages are composite, but the builders aren't being scoped to sections. Each `Delegate` call in Bob's salon 2, with the time it finished:
+
+| finished | scope | job |
+|---|---|---|
+| 17:56 | none | first draft |
+| 17:59 | none | repair the first draft |
+| 18:04 | none | further fixes |
+| 18:08 | `home.json`, `prices.json` | the header at 1280px |
+| 18:10 | none | prices-page fix |
+| 18:30 | none | layout pass |
+| 18:36 | `home.json`, `prices.json` | two fixes |
+| 18:43 | none | make three looks |
+| 18:47 | `home-bold-alive.json` | finish one look |
+| 18:52 | `home-bright-people-first.json` | finish one look |
+| 18:57 | `home-warm-classic.json` | finish one look |
+| 18:59 | `home-bright-people-first.json` | fix that look |
+
+**What's working:** pages really are stored as a frame plus sections. Bob's salon 2's `home` page has 10 section files and `prices` has 11, and the same is true in the first Bob's Salon run. REQ-396 is doing its job.
+
+**What isn't:**
+1. **No builder was ever scoped to a section.** Scopes are whole pages, or nothing at all, in 7 of 12 calls. A whole-page scope locks every section of that page, so two builders on one page can never overlap even though the sections exist. The composite pages only get used as one big file.
+2. **The clearest chance to work in parallel was missed.** Finishing the three looks meant three different files, each properly scoped, about 4–5 minutes each. That's exactly what the design allows to run together. They ran one after another and took about 14 minutes where 5 would have done. That's the conduct rule from last turn ("never several at once") overriding everything.
+3. **Unscoped builders are probably also the cause of BUG-222.** The host records "the site was written" only from the record of files a scoped builder changed, and an unscoped builder has no such record. So 7 of today's 12 builders could never have triggered the milestone questions. I've noted this as the leading suspect on BUG-222.
+
+**So the fix has three parts, all prompt changes:**
+- Replace the "one thing at a time" conduct rule (from last turn).
+- **Scoping a builder becomes required, not optional:** every builder names the files it will write.
+- **Section scopes are taught as the normal unit**, e.g. `home.json#hero`. Work on separate sections of one page is commissioned in the same reply, so those builders run together, up to three. Site-wide style (`site.json`) always runs alone.
+
+There's a fourth part that's a code change: the host refuses a `Delegate` call with no scope, so a builder can't be started without one. That one needs a ticket. It would also settle BUG-222's root cause, so it fits naturally inside BUG-222.
+
+Shall I make the three prompt changes now and add the required-scope refusal to BUG-222?
+
+BUG-222 has already been fixed and moved to `ready_to_reconcile`, so its body is frozen. Checking what the fix found.
+
+I need to correct two things from my last answer.
+
+**BUG-222 is already fixed, and it wasn't the product.** It's at `ready_to_reconcile`. The milestone code worked. The test's scripted builder had no scope, so its write to the home page was refused under REQ-397's rule, and it correctly recorded "wrote nothing". The fixture now passes a scope. So my note about unscoped builders being "the leading suspect" was wrong, and I didn't add it, since the ticket's body is frozen anyway.
+
+**Unscoped builders weren't refused wholesale either.** The rule as BUG-222 describes it is that a builder with no scope may only create new files. But in Bob's salon 2, the unscoped "repair the draft" and "layout pass" builders each made 39–78 calls without a single scope refusal. Across all 12 builders there were only 12 refusals. So the rule is being applied less strictly than the ticket says, and I can't fully explain the difference without reading the lease code. It's worth a look, but it doesn't change the answer to your question.
+
+**So, to your question: are we building composite pages? Half.**
+- **Storage, yes.** Every real page is a frame plus section files (home 10, prices 11, in both Bob's Salon runs).
+- **Use, no.** No builder has ever been scoped to a section like `home.json#hero`. Scopes are whole pages or nothing, so the sections never become separate units of work.
+- **Parallelism, no.** Even the three looks, three different files with correct scopes, ran one after another, because of the leftover "never several at once" conduct rule.
+
+The fix is the three prompt changes from my last message:
+1. Replace the "one thing at a time" rule.
+2. Every builder names the files it will write.
+3. Section scopes are the normal unit, with independent sections commissioned in the same reply.
+
+The optional code change, refusing an unscoped `Delegate`, would need its own ticket now that BUG-222 is closed.
+
+Shall I make the prompt changes?
 
 <!-- xgd-chat-end -->
