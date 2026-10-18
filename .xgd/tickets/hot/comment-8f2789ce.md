@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:47:32.857833+00:00'
+updated_at: '2026-10-18T12:47:55.102782+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -176,5 +176,19 @@ I'd delete it, since the stage guidance now does that job. Which would you like?
 <!-- xgd-chat role="user" ts="2026-10-18T12:47:32.705238+00:00" -->
 #### You
 I think it should be connected to the finishing touches stage - your suggestion works for me
+
+<!-- xgd-turn id="0bf11133-d61c-40d3-9885-51c0b584aee0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T12:47:52.316001+00:00" -->
+#### Claude
+Tying it to Finishing touches is the right moment, but it isn't quite what my suggestion would do, so I want to check before I build anything.
+
+**My suggestion** ("a round of changes has finished") fires after the first round of changes, which is usually during **Refining**, two stages early. That would put the motion question in front of Bob before the layout and colours are settled.
+
+**Tying it to Finishing touches** needs a small code change. At the moment, starting a stage doesn't make any check due. I'd add one rule: when the consultant starts a stage, any check that names that stage becomes due. Then `motion_offer` names `finishing_touches`. When she starts Finishing touches, her reminder says *"Due: ask the client 'Would some motion help here?' — the Finishing touches stage has started."* That would back up the new stage guidance at the right moment.
+
+The rule works for any stage, so other checks could later be tied to stages the same way with a data edit. That's about 10 lines in `plan-core.ts`, the seed edit, and one test. Because it's code, it goes through the full free-coded cycle on this ticket: a separate branch, a test, the version bump, then `free_coded`.
+
+Shall I go ahead with the Finishing touches version?
 
 <!-- xgd-chat-end -->
