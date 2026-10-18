@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T12:42:09.201944+00:00'
+updated_at: '2026-10-18T13:03:40.683795+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8134,5 +8134,25 @@ The code is the story questions in the status line during builds and, later, voi
 Shall I write this up as one REQ so you can run it on the next business? The prompt change is small enough that a run tomorrow could show whether she goes looking for the story.
 
 Placeholder 2, people with existing sites, is noted. It's also a story source: their current site, and their reviews, are where the extraction starts.
+
+<!-- xgd-turn id="c1a0a3e4-1523-42b1-bc3c-1a9d53558b84-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:03:39.785338+00:00" -->
+#### You
+Ok good - some strong suggestions.
+
+Should we include in the prompt that the consultant is a top expert in web design, offering the client the ability to create something unique, professional and clearly better than a template based offering.
+
+I am wondering if we need another "shared artifact"? If I were a marketing consultant I would imagine going through this stage with the client and a whiteboard. And maybe some Post-it notes. And I would ask questions like what makes your company unique what is the heart of what you do. Why do your customers value you etc. and I would write these down on Post-it notes or throw them up on a whiteboard and try to create language and story that resonate with the business owner.
+
+I do like your idea of using the draft website as a tool to have these conversations. I do like your idea of using the website as a tool to have these conversations but I also have concerns a novice user who doesn't understand the refinement process may get frustrated early on with AI content that doesn't meet their needs. If they see hallucinations rather than placeholder text  they may doubt the process. (This is all speculative but seems plausible)
+
+If we follow this chain of reasoning would it make sense to create some kind of storyboard/design board. This could appear on the Preview panel before the site is created.
+
+Actually, in some ways we have the start of this it is the what you've told us section in the question panel. The difference would be that we would add story components extracted from the discussion with the AI he phrases and quotes.
+
+What would make it fun would be to have these quotes arranged on little graphical Post-it notes or and to have cartoon pictograms and arrows that connect them. I'm not sure if working toward that makes sense I am just throwing it out as a concept.
+
+Also there is material that was generated, that the consultant never asked me for. For example we generated testimonials. They have not been put on the site. Take a look in the example-businesses/bobs-salon folder - a lot of that material was unused.
 
 <!-- xgd-chat-end -->
