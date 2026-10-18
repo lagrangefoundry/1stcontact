@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:26:33.701515+00:00'
+updated_at: '2026-10-18T19:28:00.593740+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8767,5 +8767,40 @@ In priority order I'd take BUG-224, then REQ-410, then BUG-225. Together those c
 <!-- xgd-chat role="user" ts="2026-10-18T19:26:32.138836+00:00" -->
 #### You
 Check BUG-226
+
+<!-- xgd-turn id="5d9b6d0a-be0a-4e86-8f91-be8d2c0f7fdd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:27:59.795030+00:00" -->
+#### Claude
+REQ-410's session found two things that change what I told you yesterday, and one needs your decision. First, BUG-226.
+
+**BUG-226 is real and needs fixing.** I've linked it to EPIC-19 at high severity and added my notes. Choosing a look copies it onto the real page, and nothing compares its words and pictures with the page it was made from.
+
+Here's what happened. A builder restyling the looks ran out of context partway through and stopped. Before it did, it had swapped team portraits and reworded text on the look pages. Later builders took those altered pages as their starting point. When the client chose a look, the wrong portraits and changed wording went straight onto `home`.
+
+**Why the file locks didn't catch it:** a builder restyling a look is legitimately scoped to that look's file, so it may change anything on it. Scopes separate files from each other, not words and pictures from styling.
+
+**Recommended fix:**
+1. When looks are made, record each one's starting words, image sources and alt text. A look starts as a copy of the page, so that's the baseline.
+2. When a look is chosen, compare it with that baseline. If any words or pictures differ, refuse and list the differences unless the consultant confirms the client has seen them. Styling differences never trigger it.
+3. A look whose builder stopped without finishing is marked incomplete and can't be chosen until it's finished or remade.
+4. Standing builder guidance: a look changes how the page looks, never what it says.
+
+The builder that stopped mid-run is BUG-212's case: it ran out of context and sent no report.
+
+---
+
+**A correction, and a decision for you, from REQ-410** (now `free_coded`):
+
+- **I was wrong that 7 of 12 builders had no scope. All 12 had one.** The record of the consultant's tool calls cuts long inputs short, and the scope sits at the end of each builder's brief, so it went missing. The file locks had no gap either. The other finding still holds: no builder was ever scoped to a single section.
+- **The real reason builders never overlap is in our host, not in the prompt.** We give the consultant `Delegate` as a wrapped function (a `lib.Tool` closure), so that each call runs inside the file-lock context. The framework only runs calls at the same time when the tool's declaration says it may, and a wrapped function never says so. The `max_concurrent: 3` setting is passed along but has no effect. So builders can't run together here whatever the prompt says. The prompt fix and the conduct-rule change were necessary but not enough on their own.
+
+REQ-410 offers two fixes and leaves the choice to you:
+- **(a) A framework change** so a wrapped function can declare itself concurrent, or so the framework checks the declaration it wraps. That's a lagrange-framework ticket.
+- **(b) A host refactor** that gives the consultant `Delegate` as a declared surface rather than a wrapped function, while still running each call inside its file locks.
+
+I'd lean towards **(a)**: it's small, it's the framework's gap, and every product that wraps a tool for context would hit it. (b) changes how our host builds the consultant's whole tool list. Its test for two builders running at once is written but not committed, because it can't pass until one of these lands.
+
+I've recorded both on EPIC-19. Which way do you want to go?
 
 <!-- xgd-chat-end -->
