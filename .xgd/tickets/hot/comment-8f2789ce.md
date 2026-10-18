@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:20:25.930747+00:00'
+updated_at: '2026-10-18T12:42:06.221911+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -143,5 +143,11 @@ I've given each build stage a "finish line" in the consultant's instructions, so
 **Not changed**: the `motion_offer` check can still never come up, because nothing fires its `revision_once` trigger. The new Finishing touches guidance covers what it was meant to do, so I left it; if you'd rather not keep a check that can never fire, it's a one-line deletion from the seed.
 
 The live builder will only pick this up after the next `bin/deploy --env dev`.
+
+<!-- xgd-turn id="73f44f3d-7fb2-4b91-a812-46323839c49a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T12:42:05.763518+00:00" -->
+#### You
+the `motion_offer` check can still never come up, because nothing fires its `revision_once` trigger. <-- I don't really understand what this means?
 
 <!-- xgd-chat-end -->
