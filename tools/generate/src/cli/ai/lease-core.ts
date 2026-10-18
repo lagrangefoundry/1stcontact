@@ -39,9 +39,15 @@ export function scopeSupported(lib: Untyped): boolean {
   return params !== null && typeof params === 'object' && 'scope' in (params as object)
 }
 
-/** Whether the installed framework runs Delegate calls concurrently (REQ-207). */
+/**
+ * Whether the installed framework runs Delegate calls concurrently in this host:
+ * the operation is declared `concurrent` (REQ-207) AND a registered `Tool` can
+ * say so ([[REQ-411]], lagrange-framework REQ-208). The host hands Delegate to
+ * the backend as a closure, and a closure without the flag always runs alone.
+ */
 export function concurrentSupported(lib: Untyped): boolean {
-  return delegateOperation(lib)?.concurrent === true
+  if (delegateOperation(lib)?.concurrent !== true || typeof lib?.Tool !== 'function') return false
+  return new lib.Tool('probe', '', {}, () => null, { concurrent: true }).concurrent === true
 }
 
 /**

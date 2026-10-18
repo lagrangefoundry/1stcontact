@@ -1535,6 +1535,10 @@ function toolSet(
         { properties: name === REPORT_TOOL ? reportSchema(spec.properties) : spec.properties, required: spec.required },
         (input: Record<string, unknown>) =>
           around ? around(() => runTool(box, name, input)) : runTool(box, name, input),
+        // [[REQ-411]] — a closure runs beside other calls exactly when the
+        // operation it wraps is declared `concurrent` (lagrange-framework
+        // REQ-208): today `Delegate`. Each call is its own writer in `around`.
+        { concurrent: box.concurrent(name) },
       ),
   )
 }
@@ -2258,8 +2262,9 @@ async function build(
     // [[REQ-397]] — WHETHER IT IS TAUGHT FILES AND SCOPES, and how many builders
     // may overlap. Files only where a builder's scope is actually enforced: the
     // installed Delegate takes one and this store is leased. Overlap only where
-    // the installed framework runs Delegate calls together; otherwise it is told
-    // builders run one at a time, whatever `max_concurrent` says.
+    // the installed framework runs Delegate calls together — declared AND, since
+    // the host hands Delegate over as a closure, registered (REQ-411); otherwise
+    // it is told builders run one at a time, whatever `max_concurrent` says.
     files: runtime !== null && claims !== null && scopeSupported(lib),
     parallel:
       runtime !== null && claims !== null && scopeSupported(lib) && concurrentSupported(lib)
