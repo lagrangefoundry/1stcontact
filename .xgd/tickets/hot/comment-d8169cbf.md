@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:41:43.623304+00:00'
+updated_at: '2026-10-18T13:42:14.685535+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8346,5 +8346,42 @@ Before its populated it has gray shadow text: The headline...why you?
 We don't expect the client to populate it, but I think we need to allow the client to edit it
 
 The UI needs to accommodate a selection so that the AI can populate alternatives. If there are alternatives it needs to be clear and interacting lets us switch between them and bring up a selection UI to choose one. Lets talk through this UX.
+
+<!-- xgd-turn id="f5608d11-1f31-46b0-be54-9f8f2f90df14-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:42:12.073638+00:00" -->
+#### Claude
+Here's how I'd lay the headline out, by state. It's one slot at the top of the board, always in the same place, so the client learns where it lives.
+
+## The four states
+
+**1. Empty.** Grey shadow text, *"The headline… why you?"*, the way a text box shows a hint. Clicking it lets the client type. We don't expect them to, but nothing stops them.
+
+**2. Options offered.** This is the one that needs care. The slot shows the consultant's recommended option in full, in headline type, with a small strip under it:
+
+> **Long hair, cut by people who'll keep it long.**
+> ‹ 1 of 3 › · *my pick* · **Choose…**
+
+- **‹ ›** steps through the options in place, so the client reads each at full size where it will sit. That's the same control as the looks band, so they already know it.
+- ***my pick*** marks the one she recommends, so the client gets an opinion, not just a menu.
+- **Choose…** opens a small selection panel with all the options stacked one above the other. Each has a "Use this" button, and **"Write my own"** is at the bottom. Seeing them side by side makes comparing easier than stepping through, and stepping is better for judging how each one reads alone. You need both, and they're one click apart.
+
+While options are showing, the slot is visibly *undecided*: a dashed outline, and the strip present. Nobody should mistake an offer for a decision.
+
+**3. Chosen.** The strip goes, and the line stands alone in headline type with a solid outline. Clicking it edits it in place. The unchosen options are kept in the plan as "offered, not chosen", so she doesn't offer them again.
+
+**4. Edited by the client.** It looks the same as chosen, with a small *your words* mark. From then on it's the client's: she may suggest a change in the chat, but never overwrite it.
+
+## Two rules that keep it honest
+
+- **A new offer never replaces a choice.** If she has better options after the client has chosen, the chosen line stays, and the strip comes back as *"2 new options"*. The client opens them only if they want to.
+- **Typing over an offer is a choice.** If the client starts editing while options are showing, their text becomes the headline and the options are dismissed.
+
+She hears about a choice or an edit on her next turn, like a reaction. When she offers options, she says one line in the chat: *"I've put three headline options at the top of the story board — pick one, or write your own."*
+
+## Two questions
+
+1. **Does choosing a headline change the site straight away?** I'd say no. It's a decision on the board, and the consultant puts it into the hero on her next turn, where she can also fix the line underneath it. That keeps one rule: the client changes the board, and the consultant changes the site from it. The other option is immediate, which feels more magical but means a board edit silently rewrites the live draft.
+2. **How should the headline look before the site has its fonts?** Before "Colours & fonts" there's no headline style yet. I'd use one neutral display face on the board, then switch to the site's own headline style once it exists. That way it previews how the line will actually look.
 
 <!-- xgd-chat-end -->
