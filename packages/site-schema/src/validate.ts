@@ -1,6 +1,7 @@
 import { siteSchema } from './schema'
 import { projectIssues } from './issues'
 import type { Site } from './types'
+import type { L1Document, L1Node } from './l1/types'
 import { checkPaletteRefs, checkTextStyleRefs, validateL1 } from './l1/validate'
 import { emailCopyErrors, emailTargetErrors } from './l1/email'
 
@@ -10,6 +11,34 @@ export interface ValidationError {
   path: string
   /** Human-readable explanation. */
   message: string
+}
+
+/**
+ * [[BUG-220]] — what a `control` in a page's own L1 tree is refused with.
+ *
+ * A control paints an element its component declares, and only a component's
+ * own slots are rendered with those elements in scope: in the page's tree it
+ * emits nothing, whatever it names. It validated and was written, and the call
+ * to action it stood for was simply absent from the page. This is a property of
+ * the PAGE rather than of an L1 tree, which is why it is checked here and not in
+ * `validateL1` — that envelope is also what a component's slot subtree is held
+ * to, and a control is exactly what belongs there.
+ */
+const PAGE_CONTROL_OUTSIDE_COMPONENT =
+  "a `control` node is only valid inside a component's slot; for a page-level button use a `text` node with a `link` and its own fill and padding"
+
+/** Every `control` node in a page's own L1 tree, as an error at its path. */
+function pageControlErrors(doc: L1Document): ValidationError[] {
+  const errors: ValidationError[] = []
+  const walk = (node: L1Node, path: string): void => {
+    if (node.kind === 'control') {
+      errors.push({ path, message: `${PAGE_CONTROL_OUTSIDE_COMPONENT} (control '${node.control}' renders nothing here)` })
+    }
+    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
+    kids.forEach((c, i) => walk(c, `${path}/children/${i}`))
+  }
+  walk(doc.root, '/root')
+  return errors
 }
 
 /** Discriminated-union result: success carries the typed value, failure the errors. */
@@ -63,6 +92,9 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
         for (const error of envelope.errors) {
           errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
         }
+      }
+      for (const error of pageControlErrors(page.l1)) {
+        errors.push({ path: `/pages/${i}/l1${error.path}`, message: error.message })
       }
       // [[REQ-247]] — an email page says only what the email target can emit,
       // and still says what it promised to say. Both run HERE rather than inside

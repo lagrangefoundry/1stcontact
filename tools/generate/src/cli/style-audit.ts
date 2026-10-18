@@ -273,6 +273,8 @@ export function auditPage(page: Record<string, unknown>, palette: L1Palette | un
   const visits: Visit[] = []
   const slotContext = new Map<string, Context>()
   const controlsOf = new Map<string, Controls>()
+  /** Each component instance's declared control names; absent when its declaration is unknown. */
+  const declaredOf = new Map<string, Set<string>>()
   /** What each identified node leaves painted behind whatever sits on it. */
   const surfaces = new Map<string, Rgba | null>()
 
@@ -296,6 +298,8 @@ export function auditPage(page: Record<string, unknown>, palette: L1Palette | un
     const id = typeof instance.id === 'string' ? instance.id : undefined
     if (!id) continue
     controlsOf.set(id, controlResolver(instance))
+    const meta = metaOf(instance)
+    if (meta) declaredOf.set(id, new Set(resolveControlNames(meta, instance as never).keys()))
     const mount = typeof instance.slot === 'string' ? slotContext.get(instance.slot) : undefined
     const ctx: Context = mount ?? { backdrop: top.backdrop, avail: widths.map(() => undefined), parentMode: widths.map(() => 'box') }
     for (const [slot, raw] of Object.entries((instance.slots ?? {}) as Record<string, unknown>)) {
@@ -310,6 +314,7 @@ export function auditPage(page: Record<string, unknown>, palette: L1Palette | un
   // is being inconsistent with. A page that names none anywhere is uniformly in
   // the browser's face, and its controls match it.
   const pageNamesFace = visits.some((v) => v.node.kind === 'text' && axesOf(v.node).fontFamily !== undefined)
+  checkControlBindings(visits, declaredOf, flag)
   checkControls(visits, controlInfo, { pageHasInk: l1.textColor !== undefined, pageNamesFace }, flag)
   checkGeometry(visits, widths, controlInfo, flag)
   checkContrast(visits, pageInk, color, surfaces, flag)
@@ -365,12 +370,18 @@ function surfaceOf(node: L1Node, ctx: Context, color: (c: unknown) => Rgba | und
   return innerContext(bare, ctx, [], color).backdrop
 }
 
-/** Which element each control name of one component instance is. */
-function controlResolver(instance: Record<string, unknown>): Controls {
+/** The component declaration an instance names — its exact version, else the latest. */
+function metaOf(instance: Record<string, unknown>): BehaviorMeta | undefined {
   const type = String(instance.type ?? '')
-  const meta: BehaviorMeta | undefined =
+  return (
     catalog.get(`${type}@${instance.version}`) ??
     [...catalog.values()].filter((m) => m.id === type).sort((a, b) => b.version - a.version)[0]
+  )
+}
+
+/** Which element each control name of one component instance is. */
+function controlResolver(instance: Record<string, unknown>): Controls {
+  const meta = metaOf(instance)
   if (!meta) return () => undefined
   const names = resolveControlNames(meta, instance as never)
   return (name) => {
@@ -391,6 +402,36 @@ function controlResolver(instance: Record<string, unknown>): Controls {
 }
 
 type Flag = (v: Visit, tier: AttentionTier, say: string) => void
+
+/* ── rule: controls that paint nothing ([[BUG-220]]) ────────────────────── */
+
+/**
+ * A `control` paints an element its component declares, and only a component's
+ * own slots are rendered with those elements in scope. In the page's own tree,
+ * or naming an element its component does not declare, it renders NOTHING — so
+ * however carefully it is styled, it is not on the page. The validator refuses
+ * both on write; this finds the ones already stored.
+ *
+ * A component whose declaration is unknown here says nothing either way, so its
+ * controls are left alone rather than guessed at.
+ */
+function checkControlBindings(visits: Visit[], declaredOf: Map<string, Set<string>>, flag: Flag): void {
+  for (const v of visits) {
+    if (v.node.kind !== 'control') continue
+    if (!v.module) {
+      flag(
+        v,
+        'broken',
+        'control outside any component paints nothing; for a call to action use a text node with a link and its own fill and padding',
+      )
+      continue
+    }
+    const declared = declaredOf.get(v.module)
+    if (declared && !declared.has(v.node.control)) {
+      flag(v, 'broken', `control '${v.node.control}' is not one this component declares, so it paints nothing`)
+    }
+  }
+}
 
 /* ── rule: unstyled controls, and siblings styled unlike each other ─────── */
 

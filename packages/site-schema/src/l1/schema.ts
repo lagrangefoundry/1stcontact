@@ -2622,7 +2622,15 @@ export const l1ControlSchema = z
   .object({
     kind: z.literal('control'),
     id: z.string().optional(),
-    /** The module-declared element this node paints (a field name, `submit`, …). */
+    /**
+     * The element this node paints, as its component declares it (a field name,
+     * `submit`, …) — valid only inside that component's slot.
+     *
+     * The node has no text of its own (a button's label comes from the
+     * component), and in a page's own tree it paints nothing, so it is refused
+     * there (BUG-220). A page-level button or call to action is a `text` node
+     * carrying a `link`, with its own `surfaceFill` and padding.
+     */
     control: z.string().min(1),
     /**
      * Paint axes, identical to a text run's, plus `placeholderColor` — the one
