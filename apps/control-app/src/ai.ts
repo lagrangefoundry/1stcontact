@@ -282,7 +282,12 @@ function describerSession(
     tools: [],
     ...(client ? { client } : {}),
   })
-  lib.registerBackend(name, () => backend)
+  // THE CAPABILITIES ARE NOT OPTIONAL (BUG-214). The session manager admits a
+  // turn's content against what the REGISTRY says this name can take, not
+  // against the adapter instance — a name registered without capabilities is
+  // recorded as having none, and every image is refused at the gate. Declared
+  // from the class, as the library registers its own backends.
+  lib.registerBackend(name, () => backend, lib.ClaudeAPIBackend.capabilities)
 
   const role = new lib.Role({
     name,
