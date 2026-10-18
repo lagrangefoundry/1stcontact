@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:07:29.896720+00:00'
+updated_at: '2026-10-18T19:10:07.471749+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8701,5 +8701,33 @@ Shall I make the prompt changes?
 <!-- xgd-chat role="user" ts="2026-10-18T19:07:29.639553+00:00" -->
 #### You
 ok please make the prompt changes and create a new ticket for the code changes
+
+<!-- xgd-turn id="21e267b1-bbce-4369-b9da-3c7c5f7b9895-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:10:04.715371+00:00" -->
+#### Claude
+Reading the delegation templates I'll be changing.
+
+I'll keep every pinned phrase intact, including the line break in "Never tell your⏎client…".
+
+Committed as `1c44ce9957`. Now the ticket for the code changes.
+
+The prompt change is committed as `1c44ce9957`, and I've filed the code ticket as **REQ-410**. One of the three prompt changes had to go into the ticket instead.
+
+**In the prompt now:**
+- **The parallel-delegation paragraph** tells the consultant that commissioning independent work in one reply is the main way to shorten the client's wait. That means sections of one page, separate pages, or the versions in a set of looks. It also tells her to scope a builder to the sections it changes, such as `home.json#hero`, not to the whole page.
+- **The files paragraph** adds: never commission a builder without a scope.
+- **The parallel reminder** says to scope by section where she can, and to commission independent pieces in the same reply.
+
+The 6 delegation and priming test files (69 tests) pass.
+
+**Moved to REQ-410: the conduct rule.** "Building work runs one piece at a time, never several at once" is pinned word for word by a REQ-389 test, and changing a test needs a ticket. So it's still in her priming, contradicting the new paragraph. **Until REQ-410 lands, I expect her to keep building one piece at a time.** It's the first item in the ticket and a small change.
+
+**REQ-410** (EPIC-19, `draft`, high, 3 points; also listed on EPIC-24):
+1. **Replace the conduct rule** with one that's true whether or not builders can overlap: *never tell your client work is running at the same time unless you started it that way, and when you estimate, add up what runs one after another.* What can actually overlap is left to the delegation paragraph. The REQ-389 test and the stale note in the priming are updated to match.
+2. **Refuse a builder with no scope.** The refusal happens before the builder starts, costs nothing, and says how to name its files.
+3. **Find out what an unscoped builder could actually do.** BUG-222 says it can only create new files, but in Bob's salon 2 unscoped builders made dozens of edits to existing pages without being refused. If the file lock had a gap there, the ticket says to state it. Item 2 closes it either way.
+
+Its tests include two builders on separate sections, commissioned in one reply, both running at once. That's the proof the feature works end to end.
 
 <!-- xgd-chat-end -->
