@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:48:17.228947+00:00'
+updated_at: '2026-10-18T13:52:22.230462+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8428,5 +8428,11 @@ That covers the design end to end:
 - The board's finish line becomes part of "Getting to know you".
 
 Shall I file it as the story-board REQ under EPIC-19, and make the prompt-only changes we discussed earlier?
+
+<!-- xgd-turn id="304af6cd-c1cf-451d-8234-937c29f32ed5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:52:16.058022+00:00" -->
+#### You
+Yes please - also in the ticket - we need to make sure the new board is explkained to the consultant
 
 <!-- xgd-chat-end -->
