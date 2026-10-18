@@ -6,10 +6,10 @@ title: 'Consultant guidance: offer motion unprompted, and tell the client to use
   in a tab" to see it'
 created_by: xgd
 created_at: '2026-10-18T00:32:51.422686+00:00'
-updated_at: '2026-10-18T13:05:13.760630+00:00'
+updated_at: '2026-10-18T13:23:30.919898+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: legacy_done
 fields:
   auto_merge_back: true
   needs_review: false
