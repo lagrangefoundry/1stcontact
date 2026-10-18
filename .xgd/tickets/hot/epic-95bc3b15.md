@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-17T23:11:43.723764+00:00'
+updated_at: '2026-10-18T00:15:31.925164+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2205,3 +2205,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **REQ-404** — Site tab Edit mode: a click on a selected picture opens the photo editor for that use only (placement recipe, BUG-213); every site image must have a Library item (write_image, capture reproductions and the CLI path fixed, existing sites backfilled).
+
+
+- Consultant-filed from Bob's Salon (2026-10-17, second batch), linked here: **BUG-218** builder wrote ReportResult as text again (second sighting after BUG-208; recovery belongs upstream); **BUG-219** builder changed the page background outside its brief and the account omitted it (scope half belongs to EPIC-24); **BUG-220** a control node outside a module validates but renders nothing.
