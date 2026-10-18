@@ -6,9 +6,9 @@ title: 'A `control: "button"` node outside a component renders nothing, but vali
   and raises no attention'
 created_by: xgd
 created_at: '2026-10-17T23:09:17.687277+00:00'
-updated_at: '2026-10-18T11:32:12.115624+00:00'
+updated_at: '2026-10-18T11:47:15.696153+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -50,20 +50,24 @@ This breaks Security/Robustness policy's 'validated by construction' promise: a 
 - **Builder guidance**: the vocabulary is generated from the schema's doc comments, and the `control` field never said it only works inside a component's slot or how to make a page-level button.
 
 ## Fix
-1. **The validator refuses a `control` node anywhere in a page's own L1 tree** (`validateL1`), with a message that a control paints a component's element and only works inside that component's slot, and that a call to action is a `text` node with a `link` plus its own fill and padding. No component lookup is needed: such a node can never render. Controls inside a component's slots are unaffected (still checked by `validateBehaviorControls`).
+1. **Site validation refuses a `control` node anywhere in a page's own L1 tree** (`validateSite`, so every write — `set_l1` included — is refused whole). The message says a control is only valid inside a component's slot and that a page-level button is a `text` node with a `link` and its own fill and padding, at the node's exact path. No component lookup is needed: such a node can never render. Controls inside a component's slots are unaffected (still checked by `validateBehaviorControls`).
 2. **`describe_page` marks as `broken`**:
    - any `control` in the page's own tree ("outside any component, paints nothing");
    - any `control` in a component's slot whose name that component does not declare (pages stored before a component changed).
-3. **The builder's vocabulary says it**: the `control` field's doc comment (which the builder priming and REF-l1 are generated from) states that a control is only valid inside a component's slot and gives the page-level button recipe.
+3. **The L1 reference says it**: the `control` field's definition, which REF-l1 is generated from, now reads "The element this node paints, as its component declares it (a field name, `submit`, …) — valid only inside that component's slot." The page-level button recipe is in the refusal message itself.
 
 ## Decisions
 - **Existing stored pages are not migrated.** Once (1) lands, a stored site with a page-level control refuses every write until that node is removed; the refusal names the node's exact path. Accepted because the node renders nothing, so removing it changes nothing visible.
 - **No first-class button primitive** — separate question, not needed here.
+- **The rule lives in `validateSite`, not `validateL1`.** It was first written into `validateL1`, but that envelope is also how a component's slot subtree (e.g. the contact-form L2 preset) is checked, wrapped as `{ widths, root }`. Refusing controls there broke REQ-96/REQ-223/REQ-265/REQ-308/REQ-99/AC-802/AC-811. Whether a tree is a page's own tree is a property of the page, which is exactly where REQ-247's email-page rules are checked too. For the same reason it is not an `L1_STRUCTURAL_RULES` entry (BUG-48 requires each of those to be provokable through `validateL1`).
+- **A component whose declaration is unknown to the catalog is not flagged** by the audit's undeclared-name rule: nothing can be said about its names either way.
 
 ## Test plan
-`tests/test_UAT_FC_BUG-220_*`:
-- a page whose own tree contains a `control` node is refused by validation, with a message pointing at a `text` node with a `link`;
+`tests/test_UAT_FC_BUG-220_control_outside_a_component.test.ts`:
+- `set_l1` adding a `control` to a page's own tree is refused at the node's path, with the text-node-with-a-link message, and the stored page is unchanged;
+- `validateSite` refuses a `control` nested deeper in a page's own tree, at its path;
 - a `control` inside a component's slot still validates;
-- `describe_page`'s audit marks a page-level control `broken`, and marks an undeclared control inside a component's slot `broken`;
-- the builder vocabulary text for `control` says it only works inside a component's slot.
+- `describe_page` marks a stored page-level control `broken` ("control outside any component paints nothing");
+- `describe_page` marks a slot control the component does not declare `broken`, and leaves declared ones alone;
+- the generated L1 reference states that a control is valid only inside its component's slot.
 Regression scope: existing REQ-96 / REQ-349 / capture-fold UATs.
