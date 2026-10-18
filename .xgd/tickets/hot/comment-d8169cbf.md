@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:22:25.705822+00:00'
+updated_at: '2026-10-18T13:22:59.850062+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8244,5 +8244,45 @@ I'll make the prompt changes first, then file the story-board REQ. Starting with
 <!-- xgd-chat role="user" ts="2026-10-18T13:22:22.885429+00:00" -->
 #### You
 Wait this is still a discussion - I want to talk through the UX
+
+<!-- xgd-turn id="68980ae8-0ddd-4001-9878-233121b3aed1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:22:58.223272+00:00" -->
+#### Claude
+Understood, still discussing. I haven't changed anything; I'd only been reading the files.
+
+Here's your design as I understand it, with my suggestions and questions alongside.
+
+**Mode.** The preview pane gets a third mode alongside View and Edit: **Story**. Before the first draft exists it should open in Story, since there's nothing else to show. After that, the client switches to it.
+
+**Notes.**
+- **The consultant pulls key quotes from the conversation and pins them on the board.** One emoji on each note characterises it.
+- **She may reword a quote** to change the person or tense, or trim words, so it reads as a note. I'd add one rule: she may tighten their words but never add a claim or an adjective. And hovering over a note shows the original sentence, so the client can always see it came from them. That keeps the board trustworthy, because nothing on it is invented.
+- **A note the client writes is shown exactly as typed.** The consultant doesn't rewrite it.
+
+**Themes.**
+- She organises the notes into themes. Each theme's name is written on the board, with its notes clustered around it in that theme's colour.
+- The theme name is also what identifies it, so the colour isn't the only signal.
+- No arrows for now.
+
+**Reactions: heart, thumbs up, thumbs down, delete.** The four need distinct meanings, or the consultant can't act on them. My suggestion:
+- ❤️ **"That's us."** The heart of the business: the strongest candidates for headlines and the home page.
+- 👍 **True, keep it.** Usable copy.
+- 👎 **Not right, or not how I'd say it.** The note stays on the board, marked, and the consultant asks about it or offers a better wording.
+- 🗑 **Delete: it doesn't belong.** It's removed from the board.
+
+I'd make reactions exclusive, one per note, and clicking the same one again clears it. The consultant hears about reactions on her next turn, the same way she hears about panel answers. A reaction never starts a turn by itself.
+
+**Adding a note.** Clicking a theme lets the client type a note straight into it.
+
+**Prompting the client.** After each batch of notes, the consultant says one line in the chat, e.g. *"I've put four of your sayings on the story board — heart the ones that are most you, and thumbs-down anything that's off."*
+
+**The finish line.** "Getting to know you" is done when every theme has at least one reaction and at least one note has a heart. That makes REQ-405's missing story criterion something you can see.
+
+Questions:
+1. **How many themes?** You wrote "1–N, where N ≥ 6". Do you mean at most about six? More than six clusters probably stops reading as a board.
+2. **A central statement?** Earlier I suggested one card in the middle: her draft of what makes them different. You didn't include it. Do the hearted notes do that job, or do you want the card?
+3. **Moving notes and themes.** Can the client move a note to another theme, or rename or add a theme? Or does that happen by asking the consultant in the chat? I'd start with the chat, and add dragging later if people try to do it.
+4. **Notes the client has reacted to.** May the consultant reword a note that already has a 👍 or ❤️? I'd say no: once the client has endorsed a wording, it's theirs.
 
 <!-- xgd-chat-end -->
