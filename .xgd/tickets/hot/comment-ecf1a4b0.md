@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-214
 created_by: xgd
 created_at: '2026-10-17T22:47:27.553272+00:00'
-updated_at: '2026-10-17T22:53:16.349367+00:00'
+updated_at: '2026-10-18T00:12:51.441284+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -66,5 +66,11 @@ The diagnosis already in the ticket is right, and I've confirmed it against the 
 I'd go with (a) and track (b) separately or under the epic. Rows left at `failed` still show and can still be placed; they just have no description.
 
 **Separately:** the unpinned shared library let this upstream change land without notice. That's a broader risk worth considering, but outside this ticket.
+
+<!-- xgd-turn id="b39eff0d-9581-44ea-9340-f1706d071126-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T00:12:48.353763+00:00" -->
+#### You
+Lets just do image descriptions manually there can't be that many
 
 <!-- xgd-chat-end -->
