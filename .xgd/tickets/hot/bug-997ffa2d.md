@@ -6,9 +6,9 @@ title: Builder delegations report checks "passed" that are false, and rewrite co
   outside the brief
 created_by: xgd
 created_at: '2026-10-18T18:25:15.501272+00:00'
-updated_at: '2026-10-18T19:13:48.849700+00:00'
+updated_at: '2026-10-18T19:13:50.158952+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -36,3 +36,15 @@ Across a chain of `Delegate` calls (role: builder) on one site, I saw these fail
 
 ## Impact
 The consultant cannot trust worker verdicts and has to re-inspect, which defeats the cost model of delegation. Invented copy reaching a client's draft is a trust and accuracy risk.
+
+
+
+## Notes (EPIC-19, 2026-10-18)
+
+Three separate defects; two are ours and confirmable, one is partly fixed already.
+
+1. **False pass on text content.** A check like "the hero headline reads exactly …" is answered by the builder from belief. The record of what changed could settle it instead: add a host-settled check form, e.g. *"page home contains the text '…'"*, answered from the assembled page after the run, beside the existing containment forms. Teach it in `delegation-method`.
+2. **Rewriting copy outside the brief.** In Bob's salon 2 the 18:36 builder was scoped to `["home.json","prices.json"]`, whole pages, so every section of both was in scope and the lease could not refuse the rewrites. Section scopes (`home.json#header`), now taught in the prompt (`1c44ce9957`) and made mandatory by REQ-410, would have refused them. Separately, a near-canonical containment phrasing ("only elements inside the header section changed") should be recognised as section containment and settled by the host, or refused as unsettleable, never passed to the builder.
+3. **The client's own edit counted against the builder.** The account diff compares the site before and after, so a client edit during the run lands in the builder's account and fails its checks. `list_changes` already knows the actor. The account should exclude, or label as the client's, any change whose actor is not the builder, and account-settled checks should judge only the builder's changes.
+
+Related: BUG-218 (report written as text) is abandoned; the false-pass pattern here is the reason delegation's cost model fails, so this ticket carries it.
