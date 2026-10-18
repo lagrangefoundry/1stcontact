@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-219
 created_by: xgd
 created_at: '2026-10-18T00:15:13.276891+00:00'
-updated_at: '2026-10-18T00:19:41.983145+00:00'
+updated_at: '2026-10-18T00:39:55.759308+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -82,5 +82,11 @@ In other words, the host's check doesn't just stay silent — it confirms contai
 1. Is "Gap 1 fix, the `inElementTree` correction and the UATs" the right scope?
 2. Should Gap 3's guidance go in this session too?
 3. Are you happy to drop Gap 2 in favour of EPIC-24?
+
+<!-- xgd-turn id="5e09ee3b-aa61-4920-846a-3aeb3b65e3e5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T00:39:50.679087+00:00" -->
+#### You
+okj go gap 1 and 3 fixes here please
 
 <!-- xgd-chat-end -->
