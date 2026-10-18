@@ -153,7 +153,7 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
     const client = twoSided(
       [
         calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE, scope: HOME }),
-        calls('Delegate', { role: BUILDER_ROLE, goal: 'Tidy the footer.', note: 'Tidying the footer.' }),
+        calls('Delegate', { scope: ['site.json', 'home.json'], role: BUILDER_ROLE, goal: 'Tidy the footer.', note: 'Tidying the footer.' }),
         says('The home page is built.'),
       ],
       BUILDS,
@@ -280,7 +280,7 @@ describe('REQ-379 — milestones fall due as facts', () => {
       sessionId,
       'Have a look.',
       twoSided(
-        [calls('Delegate', { role: BUILDER_ROLE, goal: 'Look at the page.', note: 'Having a look.' }), says('Looked.')],
+        [calls('Delegate', { scope: ['site.json', 'home.json'], role: BUILDER_ROLE, goal: 'Look at the page.', note: 'Having a look.' }), says('Looked.')],
         [calls('ReportResult', { summary: 'Nothing to change.', changed: [] }), says('Reported.')],
       ),
     )

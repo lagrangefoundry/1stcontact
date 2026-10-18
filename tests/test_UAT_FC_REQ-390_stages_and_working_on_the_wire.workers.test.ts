@@ -129,7 +129,7 @@ describe('REQ-390 — the working line is told what is under way', () => {
     const built = await turn(
       sessionId,
       'Build my site.',
-      twoSided([calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }), says('Built.')], BUILDS),
+      twoSided([calls('Delegate', { scope: ['site.json', 'home.json'], role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }), says('Built.')], BUILDS),
     )
     const working = built.filter((f) => f.kind === 'working')
     expect(working).toHaveLength(1)

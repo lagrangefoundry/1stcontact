@@ -197,7 +197,7 @@ describe('BUG-145 — a delegation outlives the turn that caused it', () => {
         // convenient one. The turn's `{usage, requests}` arrives on the terminal
         // `done` event and nowhere else, so a turn that never reaches one has
         // measured nothing whatever its requests actually cost.
-        calls(DELEGATE_TOOL, {
+        calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
           note: 'Working on it now — a few minutes.',
           role: BUILDER_ROLE,
           goal: 'Lay out the About page as three sections: intro, team, contact.',

@@ -120,7 +120,7 @@ const WORKER_CHECK = 'The count of elements on page home whose text contains ITE
 function delegatesOnce(goal: string, accept: string[] = [HOST_CHECK]): Side {
   return (_req, seen) =>
     seen.length === 1
-      ? calls(DELEGATE_TOOL, {
+      ? calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
           note: 'Working on it now — a few minutes.',
           role: BUILDER_ROLE,
           goal,
@@ -318,7 +318,7 @@ describe('BUG-208 builder runs: the whole brief, no stale site, and a stated end
       const silentWorker: Side = (req, seen) => (seen.length === 1 ? calls('list_pages', {})(req) : says('')(req))
       const busyCaller: Side = (req, seen) =>
         seen.length === 1
-          ? calls(DELEGATE_TOOL, {
+          ? calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
               note: 'Working on it now.',
               role: BUILDER_ROLE,
               goal: 'Style the page.',
