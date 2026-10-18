@@ -1706,7 +1706,7 @@
         "set_page_style",
         "set_l1"
       ],
-      "note": "Make the set in one call, then restyle each look — each holds the same elements as the page it was copied from, but its addresses are its own, so map each one before writing to it. Then post the link `make_alternatives` answered with, so your user can open the set in the carousel and choose."
+      "note": "Make the set in one call, then restyle each look — each holds the same elements as the page it was copied from, but its addresses are its own, so map each one before writing to it. A look changes how the page looks, never what it says: keep every word and every picture (its source and description) exactly as the page has them, whatever the brief, because choosing a look whose words or pictures differ from the page's is refused until your user has been told. Then post the link `make_alternatives` answered with, so your user can open the set in the carousel and choose."
     },
     {
       "name": "Work on one section of a page",

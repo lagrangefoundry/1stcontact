@@ -126,7 +126,9 @@ afterEach(() => {
 async function chooseInChat(site: string, look: string, said: string): Promise<void> {
   const opened = await post('/api/ai/session', { site })
   const { sessionId } = (await opened.json()) as { sessionId: string }
-  await turn(sessionId, said, [calls('choose_look', { look, client_said: said }), says('Done.')])
+  // [[BUG-226]] — these looks are told apart by their headline, so each differs
+  // from the page in what it SAYS; the client has seen that and chooses anyway.
+  await turn(sessionId, said, [calls('choose_look', { look, client_said: said, content_changes_seen: true }), says('Done.')])
 }
 
 describe('REQ-391 — choosing a look', () => {
@@ -198,7 +200,7 @@ describe('REQ-391 — the consultant chooses on the client’s say-so', () => {
     const opened = await post('/api/ai/session', { site })
     const { sessionId } = (await opened.json()) as { sessionId: string }
     await turn(sessionId, 'Go with workwear.', [
-      calls('choose_look', { look: 'home-workwear', client_said: 'Go with workwear.' }),
+      calls('choose_look', { look: 'home-workwear', client_said: 'Go with workwear.', content_changes_seen: true }),
       says('Done — Workwear is now your home page.'),
     ])
 

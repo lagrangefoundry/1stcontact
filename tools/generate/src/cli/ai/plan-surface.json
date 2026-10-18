@@ -70,6 +70,9 @@
     "UNKNOWN_LOOK": {
       "message": "that is not a look on offer — list the pages to see the looks a set holds. Nothing was written, and the site and the plan are exactly as they were."
     },
+    "CONTENT_CHANGED": {
+      "message": "the look says something different from the page — its words or pictures changed, not only its styling. Nothing was written, and the site and the plan are exactly as they were."
+    },
     "UNKNOWN_NOTE": {
       "message": "the story board has no note by that id. Read the plan to see the notes it holds."
     },
@@ -163,13 +166,14 @@
       "tool": "choose_look",
       "effect": "write",
       "summary": "Put the look your client chose onto the real page, and record their choice — only when they have said which one they want.",
-      "description": "Your client normally does this themselves, with **Choose this one** under the look in the preview's carousel. Use this when they tell you in the conversation instead — never on your own judgement, because it is their decision.\n\nThe page keeps its address, title and search description and takes everything the look changed. The choice is recorded as a settled decision in their words, with the set and the looks not chosen. Every look in the set is set aside, out of the carousel; the page as it was is kept as a look labelled \"Before …\", and choosing that one puts it back.",
+      "description": "Your client normally does this themselves, with **Choose this one** under the look in the preview's carousel. Use this when they tell you in the conversation instead — never on your own judgement, because it is their decision.\n\nThe page keeps its address, title and search description and takes everything the look changed. The choice is recorded as a settled decision in their words, with the set and the looks not chosen. Every look in the set is set aside, out of the carousel; the page as it was is kept as a look labelled \"Before …\", and choosing that one puts it back.\n\nA look changes how the page looks, never what it says. If the look's words or pictures differ from the page's, this refuses with `CONTENT_CHANGED` and lists what would change. Then either have the look's content put back to the page's, or tell your client exactly what would change and, if they still want it, call again with `content_changes_seen`.",
       "params": {
         "look": { "type": "string", "required": true, "description": "The page id of the look they chose — from list_pages, where each look carries its set and label." },
-        "client_said": { "type": "string", "required": true, "description": "What your client said when they chose it, in their words. It is recorded with the decision." }
+        "client_said": { "type": "string", "required": true, "description": "What your client said when they chose it, in their words. It is recorded with the decision." },
+        "content_changes_seen": { "type": "boolean", "description": "Only after a CONTENT_CHANGED refusal: true when your client has been told what the look changes in the page's words and pictures and still wants it." }
       },
       "returns": { "shape": "written" },
-      "errors": ["UNKNOWN_LOOK", "NO_LOOKS", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["UNKNOWN_LOOK", "NO_LOOKS", "CONTENT_CHANGED", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "set_task",
