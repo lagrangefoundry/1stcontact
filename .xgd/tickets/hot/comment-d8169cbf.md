@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T00:14:18.241483+00:00'
+updated_at: '2026-10-18T00:15:48.377847+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7993,5 +7993,30 @@ The code gets written in REQ-404's own session, not this one.
 <!-- xgd-chat role="user" ts="2026-10-18T00:14:12.908920+00:00" -->
 #### You
 Three more bugs from the consultant
+
+<!-- xgd-turn id="0f80c64f-155e-41d1-a433-e918d0cfc9b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T00:15:41.434833+00:00" -->
+#### Claude
+BUG-216 and BUG-217 came from your other sessions and have already landed. The consultant's three are BUG-218, 219 and 220. I'll check each against what exists.
+
+The consultant's three new bugs are BUG-218, 219 and 220. The other two new ones, BUG-216 (the "Uploaded" button on upload questions) and BUG-217 (a friendly "section being updated" message), came from your own sessions and are already fixed. I've linked all three to EPIC-19, added notes to each, and listed them on the epic.
+
+**BUG-218: a builder wrote its report as text instead of sending it.** This is the second time. BUG-208 saw a builder do exactly this, and its fix only made the failure visible and told builders in their instructions that text is never delivered. That instruction didn't hold, so it's a pattern rather than a one-off. My notes on the ticket:
+- **Recover the report.** When a builder's last words are a well-formed `<ReportResult>` block, read it as the report instead of dropping it. That code is in lagrange-framework, so this half needs a ticket there.
+- **Find why Haiku builders write the call as text at all**, rather than only patching the symptom.
+- **The wrong alt text** (a woman described as "man with long curly hair") is BUG-214's fault. The builder had to guess from the pictures because the image describer refuses every image.
+
+**BUG-219: a builder changed the whole page's background to make one section dark.**
+- **The real bug is ours:** the report a builder hands back must include page-wide style changes. Here it left out the one change that broke the page.
+- **The lasting fix is EPIC-24's scopes.** A builder scoped to sections shouldn't be able to change the page-wide settings at all.
+- **Also needed:** an instruction for builders to colour a section's own box, never the page background.
+
+**BUG-220: a button placed outside a form passes every check but doesn't appear.** That breaks the security policy's promise that whatever passes validation renders what it says.
+- **Validation** should refuse that kind of button, telling the builder to use a text node with a link instead.
+- **The page summary builders read** (`describe_page`) should flag ones already on a page as broken.
+- **Builders' instructions** should say how to make a call-to-action button. I've raised it to high severity, because a call to action the client can't see is a lost enquiry.
+
+Shall I file the lagrange-framework ticket for recovering reports written as text (BUG-218's first half)?
 
 <!-- xgd-chat-end -->
