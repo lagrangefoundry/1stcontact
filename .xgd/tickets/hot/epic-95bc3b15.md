@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T19:09:47.324692+00:00'
+updated_at: '2026-10-18T19:14:01.997403+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2218,3 +2218,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **REQ-410** — builder parallelism: replace REQ-389's 'never several at once' conduct rule (it contradicts delegation-parallel and kept 23 Bob's Salon builders strictly serial) and refuse a Delegate with no scope. Prompt half landed as `1c44ce9957` (commission independent pieces in one reply, scoped by section). Also relevant to EPIC-24.
+
+
+- Consultant-filed from Bob's salon 2 (2026-10-18), linked here: **BUG-224** messages typed during a turn are dropped (no queue transport, known since BUG-122; fix: queue transport, then delivery between tool calls via LF REQ-180); **BUG-225** builder checks pass when false, a whole-page scope let a fix rewrite other copy, and client edits are counted against the builder; **REQ-409** first draft needed four repair passes (narrowed: mostly BUG-225/REQ-410/BUG-215; residual is a capped self-continuation for a first draft).
