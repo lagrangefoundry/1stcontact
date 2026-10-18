@@ -5,9 +5,9 @@ type: request
 title: 'Builder toolbar: Open in new tab is a button like Publish'
 created_by: martin-github@westhead.me
 created_at: '2026-10-18T00:46:47.552943+00:00'
-updated_at: '2026-10-18T00:54:16.758069+00:00'
+updated_at: '2026-10-18T00:54:21.171348+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -22,6 +22,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.525
+  story_points: 2
 ---
 
 ## What changes
