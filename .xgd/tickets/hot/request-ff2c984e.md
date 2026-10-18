@@ -6,9 +6,9 @@ title: 'Site tab Edit mode: click a selected picture to open the photo editor fo
   that use; every site image has a Library item'
 created_by: EPIC-19
 created_at: '2026-10-17T23:11:37.210282+00:00'
-updated_at: '2026-10-18T00:29:41.238065+00:00'
+updated_at: '2026-10-18T00:41:41.626786+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -58,3 +58,45 @@ UATs (`test_UAT_FC_<ID>_*`):
 - A site image with no Library item reports an error on the second click rather than doing nothing.
 
 Regression scope: REQ-220, REQ-229, BUG-213, REQ-282, REQ-130 UATs.
+
+
+## As implemented (2026-10-17)
+
+### The gesture (Site tab, Edit mode)
+- **Selection** is a picture segment the client clicked. It is drawn with the hover outline, held (`data-builder-selected`, inline editor chrome — no framework CSS change). The selection lives in `app.js` (`pictureSelection`), so it outlives the frame reload a save triggers. Clicking any non-picture segment clears it.
+- **First click** opens the selection panel, unchanged. **A click on the selected picture** reads the segment's `src` through `/api/copy`, then `GET /api/site/picture?site=&name=`, and opens `image-editor.js` with:
+  - a `banner`: *"Editing this use of IMAGE-1 — the Library original is unchanged."*
+  - no name field (`transport.saveName` absent ⇒ none — the name is the item's);
+  - a transport whose `saveRecipe` posts `POST /api/site/picture/recipe {site, name, recipe}`;
+  - the stage showing the site file itself (the placement's current render).
+  Each applied change saves at once, and `onSaved` reloads the page.
+- A picture whose `src` is not one of the site's own files (`/assets/…`) opens the selection panel as before. A drawing (SVG) gets a message saying it is redrawn, not cropped.
+- **No Library item** ⇒ the route answers 404 `code: NOT_IN_LIBRARY` naming the asset and logs `console.error` server-side. The builder also logs, naming the asset, and shows *"This picture isn't in your Library — please tell us."*
+
+### The routes
+- `GET /api/site/picture` → `sitePicture()`: `{uid, label, title, filename, asset, edits, own, editable}`. `edits` is the placement's own recipe, or the material's where it has none.
+- `POST /api/site/picture/recipe` → `revisePlacementRecipe()`: parse, compile against the material ORIGINAL's real pixels, then write through the existing `placementRecipes().write` (BUG-213). That records `placed_as[].edits` and re-renders that file alone via `editAssetReplace`. Refusals use the existing codes: a drawing is 403, a recipe the picture can't take is 409.
+
+### Every site image has a Library item: one door, not per-caller fixes
+- `libraryDoor()` (material.ts) wraps the site store in `openSiteStore` (router.ts), outermost of the three layers: lease, then picture cap, then the Library door. After any `write({assets})` it catalogues each image no `placed_as` entry accounts for. It goes through the ordinary `ingest` (described, labelled `IMAGE-n`, indexed), then records the placement.
+  - `origin: 'generated'` when the asset is marked `StoredAsset.generated`. `editAssetWrite` (write_image / `1c asset write`) now sets that marker.
+  - `origin: 'site'` for every other road onto a site (import/push, pages reproduced from a capture, tab icons).
+  - `Provenance` widened to `uploaded | fetched | generated | site`. Classification is the upload branch: owned, republishable, role site.
+  - No Library on the deployment (`BlobsNotConfiguredError`, the `1c` dev builder) ⇒ silently nothing. Any other failure is logged loudly naming the asset and not thrown, because the bytes already landed.
+- `promoteToSiteAsset` now records a FIRST placement *before* its write and takes it back if the write throws. Without that, the door would see an unaccounted file and catalogue the Library's own placement a second time. `recordPlacement` returns that undo.
+- **Backfill**: `POST /api/library/backfill` → `backfillSiteImages()`. For every site the business holds, it catalogues each image no item accounts for and returns `{created: [{slug, asset, uid, label}]}`. It writes nothing to any site. A second run creates nothing. It has to be run once per business.
+
+### Every path that writes `assets/` (audited)
+| Path | Covered by |
+|---|---|
+| `promoteToSiteAsset` (upload onto site, picker Save, `place_on_site`, role → site) | names its own item (unchanged), records first |
+| `republishMaterial`, `placementRecipes.write` (recipe edits) | already accounted (replace at recorded name) |
+| `editAssetWrite` — consultant `write_image` (Worker) | door, origin generated |
+| `/api/import` (`payloadToWrite`) — push / copy-to-cloud, incl. `1c repro` capture folds | door, origin site |
+| `editFaviconMake` (REQ-400 tab icons) | door, origin site |
+| `editAssetAdd` via `1c asset add` / Node toolbox `add_asset`; `1c asset write` | Node filesystem store has **no Library** — reaches the Worker only via `/api/import`, where the door catalogues it |
+| checkout / revision restore (`assetRefs`) | not catalogued — restores files that were on the site, not new pictures |
+
+### Known gaps (not in scope)
+- Deleting a Library item (REQ-281) deliberately leaves the site's copy. Such a picture then reads as NOT_IN_LIBRARY, which is the loud fault this ticket asks for.
+- A non-Library rewrite of an already-catalogued file (e.g. `write_image` with `replace` on an existing drawing) changes the site bytes, but the item keeps its first bytes.
