@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:32:29.811608+00:00'
+updated_at: '2026-10-18T13:33:05.611246+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8294,5 +8294,45 @@ agree with your take on 1, 3 and 4 - on 3 if the client can add a note, they sho
 lets talk about 2. I think we need to refine what the central statement is and what we would actually do with it. Its powerful, but may be hard. I have done executive strategy sessions and spent hours refining an 8 word business statement. I don't think that is the experience that our novices really want. On the other hand finding a clear simple distillation of the heart of the business could be very powerful.
 
 How will we use it? How much effort is it worth? What question is it really answering?
+
+<!-- xgd-turn id="20da762a-e19b-47dd-87a3-c365822a3f26-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:33:03.207352+00:00" -->
+#### Claude
+I think the trap is the word "statement". What you spent hours on in strategy sessions is a different object from what we need, and the difference is what makes ours cheap.
+
+## What question it answers
+
+**A strategy statement answers "what is this business?"** It's written for the owners and the staff. It has to cover everything the business does, for every audience, for years, and that's why it takes hours: every word has to carry the whole company.
+
+**Ours answers a much smaller question: "why would the right customer pick you over the alternative they'd otherwise choose?"** It's read by a stranger in the first few seconds on the home page. It doesn't have to be complete or permanent. It only has to make the right visitor think "that's for me." For Bob it's not "Bob's Salon provides inclusive hair and beauty services to the South Boston community." It's *"Long hair, cut by people who'll keep it long."*
+
+## What it's for
+
+1. **The home page's opening line.** It's the hero headline or the line under it. That alone justifies having it.
+2. **The yardstick for everything else.** Each section either supports it or is padding. This is the rubric's "one thing only this business could say", made concrete: the consultant checks the draft against a sentence the client chose, not against her own taste.
+3. **The brief for every builder.** A single line tells a Haiku builder what the page is about better than a paragraph of instructions.
+4. **The short copy elsewhere:** the share card's description, a Google Business profile, the line under the logo.
+
+## How much effort it's worth
+
+**One exchange, not a workshop.** The evidence for that is Bob's Salon itself. Once you'd pasted the background, the consultant produced *"Long hair, cut by people who'll keep it long"* in one turn, from your own sentences. When the material is there, it's cheap. It's hard only when the material isn't there, and then working on the wording won't fix it: the empty board is telling you there's no story yet. DOC-33's honest fallback then applies: say so, and make the site's job to be the most trustworthy and easiest to contact.
+
+So the rules I'd set:
+- **It's never written from nothing.** It only appears once the board has hearted notes, and it's built from them. Often it's nearly a client quote already: *"price by the hair, not the person"* is Bob's own phrase.
+- **She offers two or three candidates and the client picks.** The client never drafts it, which is the same lesson as building looks rather than describing them. Picking is cheap, and choosing between real options is what novices are good at.
+- **The client can edit their pick,** like any note.
+- **It isn't locked.** It's the best line so far. It goes into the first draft, and if the client reads the hero and winces, it changes. The site is the test.
+- **If nothing lands after one round, she skips it.** The headline gets settled in the draft instead, and nothing blocks.
+
+## On the board
+
+I'd make it a distinct card above the themes, not a central note. It's of a different kind from the notes: written by the consultant from them, not taken from the conversation. While she's offering candidates, the two or three appear there side by side, and the client hearts one. Once chosen, it's shown in the same type as the site's headline so it reads like the opening line it's going to be.
+
+Two questions:
+1. **What to call it.** "Statement" brings the strategy-session baggage. *"Why you"*, *"Your one line"* and *"The headline"* are all plain words. I lean to **"Why you"**, because it names the question rather than the format.
+2. **Should a chosen "Why you" be part of the finish line for "Getting to know you"?** I'd say yes, with the skip counting: either the client picked a line, or she tried once and moved on. Either way the stage doesn't stall on it.
+
+On your point 3: agreed. If the client can add notes they can edit them too, including the ones she pinned. An edited note becomes the client's wording, so the consultant no longer rewords it.
 
 <!-- xgd-chat-end -->
