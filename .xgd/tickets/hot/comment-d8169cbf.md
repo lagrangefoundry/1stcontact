@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:56:59.394701+00:00'
+updated_at: '2026-10-18T14:33:10.062162+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8497,5 +8497,11 @@ I've filed the story board as REQ-408 and committed the prompt changes. One piec
 **Something you should know:** two other REQ-379 cadence tests already fail on xgd-working without my change. They check that "are we happy with the layout?" falls due after the first and later builder sessions. I've noted that on REQ-408, but nothing owns the fix yet.
 
 The prompt change reaches your dev server on the next `bin/deploy --env dev`, so it can be tried on your next business. REQ-408 itself gets built in its own session.
+
+<!-- xgd-turn id="65ff9c22-8f0c-4608-b200-cbc23d6ccf40-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T14:33:07.833219+00:00" -->
+#### You
+Can you create a bug to fix the tests please?
 
 <!-- xgd-chat-end -->
