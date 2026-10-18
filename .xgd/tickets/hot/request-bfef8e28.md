@@ -6,10 +6,10 @@ title: 'Builder parallelism: host Tool closures carry their operation''s concurr
   (follow-up to REQ-410, after lagrange-framework REQ-208)'
 created_by: EPIC-19
 created_at: '2026-10-18T22:09:52.340245+00:00'
-updated_at: '2026-10-18T22:20:54.094212+00:00'
+updated_at: '2026-10-18T23:21:04.188027+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 2
