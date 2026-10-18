@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-17T23:11:55.503759+00:00'
+updated_at: '2026-10-18T00:14:18.241483+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -7987,5 +7987,11 @@ I've filed **REQ-404** under EPIC-19 at `draft`, high priority, 8 points, and ad
 - **From then on, a missing item is an error, not a silent gap.** Clicking a selected picture that has no Library item shows *"This picture isn't in your Library — please tell us"* instead of doing nothing.
 
 The code gets written in REQ-404's own session, not this one.
+
+<!-- xgd-turn id="0f80c64f-155e-41d1-a433-e918d0cfc9b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T00:14:12.908920+00:00" -->
+#### You
+Three more bugs from the consultant
 
 <!-- xgd-chat-end -->
