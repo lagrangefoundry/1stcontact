@@ -151,7 +151,7 @@ function heldBuild(caller: ModelStep[], builder: ModelStep[]): ScriptedClient & 
 
 const BUILDS: ModelStep[] = [calls('ReportResult', { summary: 'Built the home page.', changed: [] }), says('Reported.')]
 const DELEGATES: ModelStep[] = [
-  calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: 'Building your home page now.' }),
+  calls('Delegate', { scope: ['site.json', 'home.json'], role: BUILDER_ROLE, goal: 'Build the home page.', note: 'Building your home page now.' }),
   says('The home page is built.'),
 ]
 

@@ -137,7 +137,7 @@ function toolResults(req: ModelRequest): string[] {
   return out
 }
 
-const delegates = calls(DELEGATE_TOOL, {
+const delegates = calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
   note: 'Building the testimonials section now.',
   role: BUILDER_ROLE,
   goal: 'Add a testimonials section to the home page, quoting the client document verbatim.',

@@ -199,7 +199,7 @@ async function delegatedAfterRecording(): Promise<{
 
   const second = twoSided(
     [
-      calls(DELEGATE_TOOL, {
+      calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
         note: 'Working on it now — a few minutes.',
         role: BUILDER_ROLE,
         goal: 'Lay out the About page as three sections: intro, team, contact.',

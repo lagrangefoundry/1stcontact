@@ -1715,8 +1715,10 @@ async function build(
               // [[REQ-397]] — THE FILES THE BUILDER DECLARED, LEASED BEFORE IT
               // OPENS. A file somebody else holds refuses the delegation as
               // `scope_held`, with no session and no spend; the release runs in
-              // the framework's `finally` whatever ended the run.
-              ...(claims ? { claim: claims.claim } : {}),
+              // the framework's `finally` whatever ended the run. [[REQ-410]] — a
+              // delegation naming no files is refused here too; only where the
+              // installed Delegate takes a `scope`, so elsewhere nothing changes.
+              ...(claims && scopeSupported(lib) ? { claim: claims.claim } : {}),
               // ONLY THE HOST KNOWS HOW TO BUILD AN ADAPTER, which is why this is
               // a callback at all. The toolbox handed over is the FRAMEWORK'S —
               // composed from the surfaces above plus its own report operation,

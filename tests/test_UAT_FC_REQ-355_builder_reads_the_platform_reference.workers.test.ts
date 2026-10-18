@@ -192,7 +192,7 @@ function toolResults(req: ModelRequest): string[] {
   return out
 }
 
-const delegates = calls(DELEGATE_TOOL, {
+const delegates = calls(DELEGATE_TOOL, { scope: ['site.json', 'home.json'],
   note: 'Working on it now — a few minutes.',
   role: BUILDER_ROLE,
   goal: 'Give the hero container a single-column layout on narrow screens.',

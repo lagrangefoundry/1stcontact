@@ -51,9 +51,12 @@ describe('REQ-389 — the consultant is told the five rules, in both priming ord
       expect(priming).toMatch(/real situation/i)
       expect(priming).toMatch(/comparable sites, versions you have drawn up/i)
       expect(priming).toMatch(/never ask a question as a metaphor/i)
-      // 4. One at a time; estimates add up rather than overlap.
-      expect(priming).toMatch(/one piece at a time, never several at once/i)
-      expect(priming).toMatch(/add the pieces' times together/i)
+      // 4. No claim of parallel work that was not started that way; estimates add
+      // what runs in sequence. [[REQ-410]] — no longer "one piece at a time":
+      // what may overlap is the delegation paragraph's to say.
+      expect(priming).toMatch(/never tell your client that work is running at the same time unless you started it that way/i)
+      expect(priming).toMatch(/add up whatever runs one after another, and count work that overlaps once/i)
+      expect(priming).not.toMatch(/never several at once/i)
     })
   }
 

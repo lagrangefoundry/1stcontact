@@ -84,6 +84,12 @@ function around(leases: DraftLeases, slug: string, writer: () => Writer) {
   }
 }
 
+/** [[REQ-410]] — the refusal for a delegation that names no files. */
+export const NO_SCOPE =
+  'This builder names no files in `scope`, so it was not started and nothing was spent. Name the files it ' +
+  "will write: a section (`home.json#hero`), a page (`home.json`), a page's style (`home.json#style`), " +
+  '`site.json`, or a picture (`assets/logo.svg`).'
+
 /** What a site's host needs to lease draft files, or null when its store is not leased. */
 export interface DraftClaims {
   /** The worker config's `claim` hook (REQ-207). */
@@ -101,6 +107,10 @@ export function draftClaims(store: SiteStore, slug: string, idleMs: number): Dra
   return {
     async claim(scope, { workerSid }) {
       const files = await scopeFiles(store, slug, scope)
+      // [[REQ-410]] — a builder that names no files holds none, so nothing can
+      // run beside it and every existing file it touches is refused. Refused
+      // here, before it opens, rather than after it has spent its run finding out.
+      if (files.length === 0) throw new Error(NO_SCOPE)
       try {
         await leases.acquire(slug, files, workerSid, idleMs)
       } catch (err) {
