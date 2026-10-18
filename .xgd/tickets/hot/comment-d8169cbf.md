@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:10:08.745747+00:00'
+updated_at: '2026-10-18T22:17:13.999108+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8882,5 +8882,11 @@ Its tests run through the real host with only the model scripted:
 - the priming states whichever rule is true.
 
 Once it lands, your next run with looks or a multi-section page should show builders overlapping.
+
+<!-- xgd-turn id="120b3656-52cb-4477-bd3f-43d6943f04c0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T22:17:10.781528+00:00" -->
+#### You
+Help me with where we should go with REQ-409?
 
 <!-- xgd-chat-end -->
