@@ -229,6 +229,7 @@ body {
 .builder-toolbar__colors,
 .builder-toolbar__publish,
 .builder-toolbar__phone,
+.builder-toolbar__open,
 .builder-toolbar__points,
 .builder-toolbar__panels,
 .builder-toolbar__panels select,
@@ -327,7 +328,6 @@ body {
 
 .builder-toolbar__open {
   margin-left: auto;
-  color: var(--shell-accent, #7c3aed);
 }
 
 /* View on your phone ([[REQ-376]]) — the code is drawn on white whatever the

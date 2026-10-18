@@ -305,8 +305,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-179 — one act re-scopes every tab', () 
 
     // The `open in new tab` link points at exactly what the frame loads, so the
     // prefix reaches the surface an operator can copy out of the browser.
-    const link = app.toolbar.get('open-new-tab') as HTMLAnchorElement
-    expect(link.getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    const link = app.toolbar.get('open-new-tab') as HTMLButtonElement
+    expect(link.getAttribute('data-href')).toBe(app.panel.frame.getAttribute('src'))
   })
 
   it('test_UAT_FC_REQ-179_the_frame_reloads_when_only_the_business_changed', async () => {

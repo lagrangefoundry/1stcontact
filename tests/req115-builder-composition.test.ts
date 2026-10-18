@@ -205,7 +205,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
     // both `mode` and `site`, so a captured handle is a detached survivor whose
     // subscription has been disposed — it is not what an operator clicks, and
     // asserting on it would prove nothing about the link that is on screen.
-    const link = () => app.toolbar.get('open-new-tab') as HTMLAnchorElement
+    const link = () => app.toolbar.get('open-new-tab') as HTMLButtonElement
 
     // AC 8 — "the identical URL", as REQ-115 wrote it when there was one render
     // channel to be identical to. [[REQ-116]] added a second and [[BUG-131]]
@@ -214,15 +214,24 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-115 toolbar', () => {
     // is deliberately showing a non-functional render, so the tab is the draft
     // render of that same page. It tracks the pane either way, which is the part
     // of AC 8 that was never about the channel.
-    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
+    expect(link().getAttribute('data-href')).toBe(app.panel.frame.getAttribute('src'))
     app.panel.setMode('edit')
     expect(app.panel.frame.getAttribute('src')).toBe('/preview/alpha/edit/')
-    expect(link().getAttribute('href')).toBe('/preview/alpha/draft/')
+    expect(link().getAttribute('data-href')).toBe('/preview/alpha/draft/')
     app.panel.setSite('beta')
-    expect(link().getAttribute('href')).toBe('/preview/beta/draft/')
+    expect(link().getAttribute('data-href')).toBe('/preview/beta/draft/')
     app.panel.setMode('view')
-    expect(link().getAttribute('href')).toBe(app.panel.frame.getAttribute('src'))
-    expect(link().target).toBe('_blank')
+    expect(link().getAttribute('data-href')).toBe(app.panel.frame.getAttribute('src'))
+    // A button now ([[REQ-407]]): the new tab is what the click asks for.
+    const calls: unknown[][] = []
+    const open = window.open
+    window.open = ((...args: unknown[]) => (calls.push(args), null)) as typeof window.open
+    try {
+      link().click()
+    } finally {
+      window.open = open
+    }
+    expect(calls).toEqual([[app.panel.frame.getAttribute('src'), '_blank', 'noopener']])
   })
 
   it('test_UAT_FC_REQ-115_the_displayed_site_comes_from_the_store_listing', () => {

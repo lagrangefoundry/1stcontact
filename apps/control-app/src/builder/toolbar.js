@@ -213,9 +213,14 @@ export function modeToggleAction() {
  * channel name in a module that otherwise knows only about strips and buttons,
  * and `app.js` is already the one place that composes channel URLs.
  *
- * THE HREF STILL TRACKS NAVIGATION. It is re-derived on the pane's `src` event,
- * so moving between pages — in either channel — re-points the link at that
- * page's draft render rather than freezing it on the first one.
+ * THE ADDRESS STILL TRACKS NAVIGATION. It is re-derived on the pane's `src`
+ * event into `data-href` (and the tooltip), so moving between pages — in either
+ * channel — re-points the button at that page's draft render rather than
+ * freezing it on the first one. The click opens exactly that address.
+ *
+ * A BUTTON, NOT A LINK ([[REQ-407]]). It sits in a strip of buttons — View on
+ * your phone, Colors, Publish — and as the one accent-coloured link among them
+ * it read as a different kind of thing. Same control, same look.
  *
  * @param {(src: string) => string} honestUrl the production render of this URL
  */
@@ -223,17 +228,23 @@ export function openInNewTabAction(honestUrl) {
   return {
     id: 'open-new-tab',
     create({ panel, subscribe }) {
-      const link = document.createElement('a')
-      link.className = 'builder-toolbar__open'
-      link.target = '_blank'
-      link.rel = 'noopener'
-      link.textContent = 'Open in new tab'
-      const sync = () => link.setAttribute('href', honestUrl(panel.getSrc()))
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__open'
+      btn.textContent = 'Open in new tab'
+      const sync = () => {
+        const url = honestUrl(panel.getSrc())
+        btn.dataset.href = url
+        btn.title = url
+      }
       sync()
       // Through the toolbar, so the subscription dies with this element rather
       // than outliving it on the panel — see `actionCleanups`.
       subscribe('src', sync)
-      return link
+      btn.addEventListener('click', () => {
+        window.open(btn.dataset.href, '_blank', 'noopener')
+      })
+      return btn
     },
   }
 }
