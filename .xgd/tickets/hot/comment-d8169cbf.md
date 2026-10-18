@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T18:44:31.051533+00:00'
+updated_at: '2026-10-18T18:46:44.006976+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8583,5 +8583,48 @@ Shall I file it under EPIC-19?
 <!-- xgd-chat role="user" ts="2026-10-18T18:44:30.496626+00:00" -->
 #### You
 Is the parallelism we introduced for builders working?
+
+<!-- xgd-turn id="ce807425-52ed-4727-9ffa-66f8bd0b5409-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T18:46:43.346802+00:00" -->
+#### Claude
+I'll check what landed under EPIC-24, then look at whether builders actually ran at the same time in the recent runs.
+
+Configured for up to 3 builders at once. Now the evidence: whether builder sessions actually overlapped in recent runs.
+
+Builder turns aren't in the spend table on their own; they're charged to the consultant. Looking at the `Delegate` calls in the consultant's tool record instead.
+
+Each builder session has its own record. I'll take each one's first and last tool call as its running time and check for overlap.
+
+No overlap at all: 23 builder sessions across the two Bob's Salon runs, every one starting after the previous finished. Checking why: is it the framework, the switch, or the consultant?
+
+The framework installed here supports concurrent `Delegate` calls. Two more things to check: whether the host recognises that, and what the consultant's conduct rules tell her.
+
+No. In the two Bob's Salon runs, 23 builder sessions ran strictly one after another, with no two overlapping:
+
+| run | builders | overlapping |
+|---|---|---|
+| Bob's Salon (Oct 17) | 15 | 0 |
+| Bob's salon 2 (today) | 8 | 0 |
+
+The gaps between them are 25–45 seconds, which is the consultant reading one builder's report before starting the next. So she starts one builder per reply and never several at once.
+
+**The plumbing is all in place.** I checked each piece:
+- **The framework:** the installed lagrange-framework runs `Delegate` calls at the same time (LF REQ-207 marks `Delegate` as safe to run concurrently).
+- **Our configuration:** delegation is on, with `max_concurrent: 3`.
+- **Scopes and file locks** (REQ-397) are enforced, and pages can be stored as separate sections (REQ-396).
+- **The host** checks all of that and gives the consultant the "up to 3 builders run at once" paragraph.
+
+**What stops it is a rule that should have been removed and wasn't.** REQ-389 added this to her conduct priming after Charlie 3, where she had falsely claimed parallel builds:
+
+> *"Building work runs one piece at a time, never several at once. Never tell your client that several versions are being built at the same time…"*
+
+Its own note says it *"holds until builder sessions can overlap."* They now can, and nobody removed it. So the consultant has two instructions that contradict each other, and she follows the plainer one. It's a hard prohibition, unconditional, in her standing rules.
+
+**There's a second limit even once that's fixed.** Two builders can only overlap on different files. Bob's Salon is essentially one long home page, so parallel work there needs the page stored as separate sections, which REQ-396 made possible but the consultant has to choose to do. She has been taught it, but with "never several at once" in her conduct, she has no reason to split a page up.
+
+**The fix is prompt-only.** Replace "One thing at a time" with a rule that's true in both modes: *never claim that work is running at the same time unless you started it that way, and when you estimate, add up whatever runs one after another.* The delegation paragraph then says on its own what may overlap. I'd also correct the stale note beside it.
+
+Shall I make that change? It's a priming edit, so it needs no ticket, and your next run would show whether she starts using parallel builders.
 
 <!-- xgd-chat-end -->
