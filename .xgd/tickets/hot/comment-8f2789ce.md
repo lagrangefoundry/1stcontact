@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T00:51:33.166670+00:00'
+updated_at: '2026-10-18T12:16:35.188058+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -73,5 +73,17 @@ On process: the seed and priming edits (1, 2, 4) are data/prompt/doc-only and ne
 
 - Which trigger for `motion_offer`: `revision_round_finished`, `first_pass_complete`, or both?
 - Do you want item 3 (the code change), or should the priming text carry it alone?
+
+<!-- xgd-turn id="92c5a653-726b-42c5-bfec-6d0681044cc4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T12:16:34.376901+00:00" -->
+#### You
+I think you are over complicating this, lets take a step back for a second. I think the fix here is a small prompt change.
+
+Each stage in our flow should have corresponding guidance to the consultant so we are aligned on the expectations for that section...right?
+
+The Finishing Touches section is important. It is a place where our process can differentiate itself. This is where the consultant can get creative - if that is appropriate. Motion is kind of "expected" on a modern site so I don't consider that to be particularly differentiating. But the point is Bob doesn't really know all this. He doesn't know to ask for "motion" he just knows that his site looks flat and unfinished. The consultant needs to prompt him for that.
+
+Another way to say this - the consultant needs to have an idea for each stage what DONE looks like, and work with the client to get to DONE. A discussion of motion and other possible "special effects" should be part of getting to DONE for Finishing Touches
 
 <!-- xgd-chat-end -->
