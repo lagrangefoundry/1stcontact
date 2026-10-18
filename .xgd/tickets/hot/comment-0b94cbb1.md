@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-408
 created_by: xgd
 created_at: '2026-10-18T14:32:03.571643+00:00'
-updated_at: '2026-10-18T14:57:42.450321+00:00'
+updated_at: '2026-10-18T15:43:48.477202+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -153,5 +153,11 @@ REQ-408 is built, merged into xgd-working and parked at `free_coded`. Its commit
 **Something I found that isn't in this ticket:** a tool parameter declared as a plain list only accepts text. `update_brief`'s `audiences` asks the consultant for objects, so it is probably refusing every audience she records, and the refusal comes back as text rather than an error, so it's easy to miss. I hit this with `pin_notes` and fixed it there, and saved it to memory. Say if you want a ticket for `audiences`.
 
 The ticket stays at `free_coded`; moving it to `ready_to_reconcile` is your call.
+
+<!-- xgd-turn id="a1d155b3-e7b4-464c-a773-ca287491d215-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T15:43:47.645655+00:00" -->
+#### You
+Please create a ticket for the audiences issue
 
 <!-- xgd-chat-end -->
