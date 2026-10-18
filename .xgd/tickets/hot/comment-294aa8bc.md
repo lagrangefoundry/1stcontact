@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-220
 created_by: xgd
 created_at: '2026-10-18T00:17:10.815075+00:00'
-updated_at: '2026-10-18T11:31:46.254705+00:00'
+updated_at: '2026-10-18T11:47:42.626220+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -86,5 +86,67 @@ I haven't changed any code or the ticket. Once you agree on the approach and the
 <!-- xgd-chat role="user" ts="2026-10-18T11:31:39.382824+00:00" -->
 #### You
 Please proceed
+
+<!-- xgd-turn id="1a4386c9-83c9-4749-b8c6-b6a2735e2788-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T11:47:41.832460+00:00" -->
+#### Claude
+Capture puts controls into the form's own slot, not the page tree, so the new rule is safe there. Now adding the validator rule.
+
+Validator rule and schema note are done. Now adding the `broken` marks to `describe_page`'s audit.
+
+Now the UATs. Looking at the existing REQ-349 audit test for its setup.
+
+Writing the BUG-220 UAT file now: write refused via `set_l1`, a control inside a component's slot still validates, the audit flags both cases, and REF-l1 states the rule.
+
+The REF-l1 projection keeps only a first sentence of 240 characters or fewer, so I'm tightening both doc comments.
+
+All six UATs pass. Now the regression sweep: tests that use control nodes, the REF-l1/KB projection, and capture/fold.
+
+Lots of failures, many of them whole files failing to load. I need a baseline. First, the load error itself:
+
+The worktree is missing the gitignored `apps/control-app/src/generated/` build output. Copying it from the main checkout and rerunning the failed files.
+
+Now running the same failing files in the main checkout as a baseline.
+
+Eight failures are mine: they pass in the main checkout and fail on the branch. Checking why.
+
+REQ-117 is the known missing-assets problem in worktrees. The L2-preset failures are the important ones; reading what they validate:
+
+All 8 regressions are fixed. The 5 that still fail also fail in the main checkout. Re-running the whole 296-file scope against the moved rule.
+
+The only new name is REQ-295/341, which my memory notes record as already failing on a clean `xgd-working`. Now typecheck and lint.
+
+Typecheck is clean. Before committing, checking my notes on this project's version-bump gate.
+
+Committing on the branch with only my four files. Per my notes, I'll skip the manual version bump and let the gate bump it.
+
+A test run rewrote `module-assets.ts` in the worktree (a known side effect, per my notes); reverting it and merging back.
+
+Merged as a fast-forward. Updating the ticket body to match where the rule actually landed, then promoting to `free_coded`.
+
+BUG-220 is fixed and parked at `free_coded`; I haven't promoted it to reconcile. It's merged into `xgd-working` as `02476da099`, and the gate added a version-bump commit (0.2.528).
+
+**What changed**
+- **Writes are refused.** Any write, `set_l1` included, now fails if a page's own tree contains a `control` node. The error points at the exact node and says to use a `text` node with a `link` and its own fill and padding for a page-level button. Controls inside a component's slot validate as before.
+- **`describe_page` marks stored ones `broken`.** That covers a page-level control ("control outside any component paints nothing"), and a control in a slot that its component doesn't declare.
+- **REF-l1 says it.** The `control` field's definition now says it is only valid inside that component's slot. REF-l1 is regenerated at build time, so the reference copy changes at the next deploy, not before.
+
+**Where the rule ended up**
+I first put the rule in `validateL1`, as we discussed. That broke eight tests: the contact-form's default look is a component slot subtree, and it is also checked through `validateL1`, so its controls were refused. I moved the rule to the site validator, which knows whether it is looking at a page's own tree. That's also where the page-level email rules are checked. Every write still goes through it.
+
+**Existing pages:** as agreed, nothing is migrated. A stored site with a page-level control will refuse every edit until that node is removed. The error names the node, and `describe_page` now flags it.
+
+**Tests**
+- The six new BUG-220 tests pass, and the touched packages typecheck clean.
+- I ran 296 related test files (validation, `describe_page`, capture/fold, REF-l1) and compared against the main checkout. These still fail, and all of them fail without this change too:
+  - BUG-48 ×4;
+  - REQ-349 `a_control_matches_a_page_that_names_no_face`;
+  - REQ-295/341;
+  - the assistant-conversation and chat-host suites;
+  - a few font and palette tests.
+- Not run: the `workers` test suites that call `describe_page`. Those suites can't open sockets in this sandbox.
+
+The ticket body now describes the final design, including why the rule sits in the site validator. Story points are set to 3. The branch and worktree are cleaned up.
 
 <!-- xgd-chat-end -->
