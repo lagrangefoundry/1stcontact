@@ -6,9 +6,9 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T22:16:20.103490+00:00'
+updated_at: '2026-10-18T22:16:21.493871+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -25,6 +25,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.537
+  story_points: 3
 ---
 
 ## What happened
