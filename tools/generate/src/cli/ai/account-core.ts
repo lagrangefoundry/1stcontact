@@ -289,9 +289,16 @@ function pageIdOf(name: string, page: Record<string, unknown> | undefined): stri
 /**
  * The two halves of a page definition, compared each in its own vocabulary.
  *
- * `l1` and `modules` hold element trees and are walked as trees, so a
+ * `l1.root` and `modules` hold element trees and are walked as trees, so a
  * difference inside one carries the address a write takes. Everything else is
  * the page's own definition and is compared as a plain structure.
+ *
+ * THE PAGE STYLE IS PART OF THE PAGE'S OWN DEFINITION ([[BUG-219]]). The rest
+ * of the L1 document — background, text colour, widths, fonts, resources: what
+ * `set_page_style` and `use_font` write — sits beside `root` under `l1`, and is
+ * reported as `l1.<key>` with no address. Walking only the root left a builder's
+ * repaint of a whole page out of the record, and with it out of every
+ * containment check the record settles.
  */
 function diffPage(
   name: string,
@@ -311,6 +318,12 @@ function diffPage(
     diffValue(before[key], after[key], key, { page }, emit)
   }
 
+  const beforeStyle = documentStyle(before)
+  const afterStyle = documentStyle(after)
+  for (const key of unionKeys(beforeStyle, afterStyle)) {
+    diffValue(beforeStyle[key], afterStyle[key], `l1.${key}`, { page }, emit)
+  }
+
   const beforeRoot = rootOf(before)
   const afterRoot = rootOf(after)
   if (beforeRoot !== null && afterRoot !== null) {
@@ -325,6 +338,15 @@ function diffPage(
   }
 
   diffModules(before, after, page, emit)
+}
+
+/** A page's L1 document without its element tree: the page style. */
+function documentStyle(page: Record<string, unknown>): Record<string, unknown> {
+  const l1 = page.l1
+  if (!isPlainObject(l1)) return {}
+  const style: Record<string, unknown> = { ...l1 }
+  delete style.root
+  return style
 }
 
 /** A page's own L1 root, or null when it holds none. */
@@ -1126,8 +1148,8 @@ export interface Settlement {
  *   - fields: every difference inside an element tree. One with an address is
  *     inside containment when its field is a named field or nested under one;
  *     an element added or removed whole (field `''`) or one with no address to
- *     read is outside it. A page's own fields, `site.json` and assets are not
- *     elements and are not counted.
+ *     read is outside it. A page's own fields — its page style (`l1.<key>`)
+ *     among them — `site.json` and assets are not elements and are not counted.
  *   - addresses: every difference at all, since "only these changed" says
  *     nothing else did. Inside containment is an element on the page's own tree
  *     at a named address or beneath one, on the named page when one is given.
@@ -1165,7 +1187,9 @@ export function settleContainment(check: ContainmentCheck, changed: DraftChanges
 function inElementTree(d: DraftDifference): boolean {
   if (d.address !== undefined || d.slot !== undefined) return true
   if (d.module !== undefined) return d.field === ''
-  return d.page !== undefined && (d.field === 'l1' || d.field.startsWith('l1.'))
+  // `l1` alone is the whole tree created or removed; any other `l1.<key>` is
+  // the page style, which is the page's own definition (BUG-219).
+  return d.page !== undefined && d.field === 'l1'
 }
 
 /** One difference as a phrase naming where it is and what moved. */
