@@ -6,16 +6,24 @@ title: 'Builder scopes: page style is claimed only when named, so a page-scoped 
   can''t repaint the page'
 created_by: EPIC-24
 created_at: '2026-10-18T00:44:30.660563+00:00'
-updated_at: '2026-10-18T00:56:44.172523+00:00'
+updated_at: '2026-10-18T00:57:30.036593+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   epic_parent: epic-f43a7c98
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-0ebd3665
+  commits:
+  - working_sha: b7bbfd69bfdffdf8fb1bd05d6d1f74c29885aeb3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c2139c94252c86b3b242676eafb79414f7f9333d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.526
 ---
 
 ## Intent
