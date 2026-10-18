@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:47:53.971595+00:00'
+updated_at: '2026-10-18T13:48:17.228947+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8391,5 +8391,42 @@ She hears about a choice or an edit on her next turn, like a reaction. When she 
 **Does choosing a headline change the site straight away?** I'd say no. <-- agree this exercise is creating and organising "background material" for the consultant to use
 
 **How should the headline look before the site has its fonts?** I don't think the story board should adopt any styling from the site. To do so would confuse its purpose - its about messaging not about styling. It needs to have its own style which promotes the right kind of engagement - visually interesting but not overwhelming. Visuals should be "useful" not just "cool"
+
+<!-- xgd-turn id="1579af54-2872-4123-9a56-4296e1ee61fc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:48:15.924199+00:00" -->
+#### Claude
+Agreed on both. The board is background material, and its look should come from its job, not from the site.
+
+Here's a starting visual language where each visual choice carries meaning:
+
+- **Colour means theme.** Each theme gets one note colour from a fixed, muted palette of six (yellow, blue, green, pink, orange, lilac), and the theme name is written on its cluster. Colour helps you spot a group at a glance, and the written name means it never relies on colour alone.
+- **Emoji means what the note is about.** One per note, chosen by the consultant: 💇 for the work, 👪 for people, 💬 for something a customer said, 📍 for the place. It's how you'd scan a whiteboard for "where are the customer quotes?"
+- **Size and weight mean the client's reaction:**
+  - ❤️ notes are slightly larger and lifted, so the heart of the business stands out.
+  - 👍 notes stay as they are.
+  - 👎 notes go pale with the reaction badge showing, so they read as "to fix", not as gone.
+  - Deleted notes leave the board.
+
+  A glance at the board then shows what the client has said about it.
+- **A handwritten feel, but legible.** The notes use a rounded informal face, not a scrawl, at a size you can read without zooming. A slight random tilt is the one purely decorative touch, and it's what keeps it from looking like a form.
+- **The headline is written like marker on the board**: bigger, darker and plain, so it reads as the title of the whole thing, not as another note.
+- **A calm background**: an off-white board with nothing on it but the notes, so the content is the only thing that draws the eye.
+- **Very little motion.** A note fades in when the consultant pins it, and that's all. It's useful because it shows what just arrived, and it's switched off under reduced motion.
+
+The rule I'd write into the ticket is the one you gave: a visual element earns its place by telling the client something, or by making the board easier to read. Nothing is decorative beyond the paper feel. The style is fixed, the same for every business, and never takes on the site's colours or fonts.
+
+That covers the design end to end:
+- Story as a third mode beside View and Edit, opening by default before the first draft.
+- Quotes pulled from the conversation, lightly reworded, with the original on hover.
+- Up to about six themes, each a colour.
+- An emoji per note.
+- Reactions: heart, thumbs up, thumbs down and delete, one at a time per note.
+- The client can add and edit notes.
+- The headline slot, with options, ‹ › stepping, a selection panel and "write my own".
+- The board feeds the consultant, never the site directly.
+- The board's finish line becomes part of "Getting to know you".
+
+Shall I file it as the story-board REQ under EPIC-19, and make the prompt-only changes we discussed earlier?
 
 <!-- xgd-chat-end -->
