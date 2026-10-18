@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:42:14.685535+00:00'
+updated_at: '2026-10-18T13:47:53.971595+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8383,5 +8383,13 @@ She hears about a choice or an edit on her next turn, like a reaction. When she 
 
 1. **Does choosing a headline change the site straight away?** I'd say no. It's a decision on the board, and the consultant puts it into the hero on her next turn, where she can also fix the line underneath it. That keeps one rule: the client changes the board, and the consultant changes the site from it. The other option is immediate, which feels more magical but means a board edit silently rewrites the live draft.
 2. **How should the headline look before the site has its fonts?** Before "Colours & fonts" there's no headline style yet. I'd use one neutral display face on the board, then switch to the site's own headline style once it exists. That way it previews how the line will actually look.
+
+<!-- xgd-turn id="1579af54-2872-4123-9a56-4296e1ee61fc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:47:52.959528+00:00" -->
+#### You
+**Does choosing a headline change the site straight away?** I'd say no. <-- agree this exercise is creating and organising "background material" for the consultant to use
+
+**How should the headline look before the site has its fonts?** I don't think the story board should adopt any styling from the site. To do so would confuse its purpose - its about messaging not about styling. It needs to have its own style which promotes the right kind of engagement - visually interesting but not overwhelming. Visuals should be "useful" not just "cool"
 
 <!-- xgd-chat-end -->
