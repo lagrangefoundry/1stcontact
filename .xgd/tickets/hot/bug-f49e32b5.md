@@ -6,10 +6,10 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T22:16:33.470058+00:00'
+updated_at: '2026-10-18T22:27:28.653368+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
