@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-408
 created_by: xgd
 created_at: '2026-10-18T14:32:03.571643+00:00'
-updated_at: '2026-10-18T15:43:48.477202+00:00'
+updated_at: '2026-10-18T15:44:28.913615+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -159,5 +159,17 @@ The ticket stays at `free_coded`; moving it to `ready_to_reconcile` is your call
 <!-- xgd-chat role="user" ts="2026-10-18T15:43:47.645655+00:00" -->
 #### You
 Please create a ticket for the audiences issue
+
+<!-- xgd-turn id="a1d155b3-e7b4-464c-a773-ca287491d215-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T15:44:27.833626+00:00" -->
+#### Claude
+I've filed the audiences problem as **BUG-223** (`bug-7b4972f5`), in `draft`, under the same epic as REQ-408.
+
+- **Problem:** in the plan tools' description file, `update_brief.audiences` is declared as a plain list, which only accepts text. Its description tells the consultant to send items like `{"who": …, "priority": 1}`, so a call that follows it is refused. That refusal rejects the whole call, so anything else sent with it — other brief fields, the client's quote — is lost too. It comes back as the tool's reply text rather than an error, so she may not notice.
+- **Fix:** declare an `item_base: "object"` list type and use it for `audiences`, the same way `pin_notes` was fixed in REQ-408. No change to the plan logic should be needed.
+- **Test:** call `update_brief` through the real tool runner and check the audiences are actually stored. Checking only that the reply has no error text isn't enough, because the refusal arrives as text.
+
+I checked that the declaration reads as described but didn't reproduce the refusal itself on `audiences`; it's inferred from the identical `pin_notes` failure. No code changed. The fix belongs in BUG-223's own session.
 
 <!-- xgd-chat-end -->
