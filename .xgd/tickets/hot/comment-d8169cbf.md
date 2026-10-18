@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:35:46.688987+00:00'
+updated_at: '2026-10-18T19:36:49.930076+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8808,5 +8808,24 @@ I've recorded both on EPIC-19. Which way do you want to go?
 <!-- xgd-chat role="user" ts="2026-10-18T19:35:43.404547+00:00" -->
 #### You
 Sure lets do a - want to create an lf ticket?
+
+<!-- xgd-turn id="dab098da-bafd-46d4-9992-f7bfd08bc237-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:36:48.812386+00:00" -->
+#### Claude
+I'll read the framework code the ticket will name, so it points at the right place.
+
+I've filed it as **lagrange-framework REQ-208**, *"Tool loop: a registered Tool closure can declare itself concurrent"* (`draft`, high, 2 points).
+
+What it asks for:
+- **An opt-in on `Tool`:** `new Tool(name, description, schema, handler, { concurrent: true })`. Leaving it out keeps today's behaviour, so no existing tool changes.
+- **The framework's concurrency check honours that flag for wrapped tools.** For declared operations it still asks the declaration, as now.
+- **Calls that opt in still share the existing cap** (`max_concurrent_tools`). Calls that don't still run alone and in order.
+- **The option's documentation says what the host is promising:** that the handler is safe to run alongside others. That keeps the framework's principle that a wrapped function never claims this by itself; the host that wraps it has to say so explicitly.
+- **The Python version matches**, and the parity test is extended.
+
+I recorded the alternative I rejected: having the framework work it out from the declaration being wrapped. A wrapped function has no link back to a declaration, so that would be a bigger change for the same result.
+
+I've linked it from EPIC-19. I also added a note to REQ-410: once REQ-208 lands and the shared framework install is refreshed, REQ-410's follow-up marks our `Delegate` as safe to run alongside others and commits its test of two builders running at once. Refreshing the install is your step, as usual.
 
 <!-- xgd-chat-end -->
