@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T22:09:58.951921+00:00'
+updated_at: '2026-10-18T23:20:14.850851+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2231,3 +2231,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **REQ-411** — follow-up to REQ-410 now that lagrange-framework REQ-208 has landed: host Tool closures carry their operation's concurrency (`box.concurrent(name)`), the lease context is per call, the parallel priming is offered only where closures can really overlap, and REQ-410's parallel-builder UAT is committed.
+
+
+- **BUG-228** (under EPIC-16) — access-sim buffers every response whole, so in dev the chat stream reaches the browser only when a turn ends; every dev judgement of 'she goes quiet' was measured through it.
+- **BUG-229** (critical) — every turn on Bob's salon 2 since 22:07 UTC ends 'Unexpected token "guWid6rN1D"… is not valid JSON' (server-side, turn_log); the archive stopped saving at 20:50 UTC, silently for two turns first. Data-triggered (snapshot unchanged since 09:57). Unsaved records may be only in the junction DO — don't clear dev state.
