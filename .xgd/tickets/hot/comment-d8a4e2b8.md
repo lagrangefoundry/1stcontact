@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-218
 created_by: xgd
 created_at: '2026-10-18T00:15:05.631669+00:00'
-updated_at: '2026-10-18T00:34:58.880203+00:00'
+updated_at: '2026-10-18T00:36:14.164467+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -79,5 +79,23 @@ My recommendation is fix 1 as a lagrange-framework ticket, plus fix 2 here under
 <!-- xgd-chat role="user" ts="2026-10-18T00:34:56.417382+00:00" -->
 #### You
 Lets do 1 please create an lf ticket
+
+<!-- xgd-turn id="8cf7a5e3-4977-4079-80c3-7ca818164991-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T00:36:12.852219+00:00" -->
+#### Claude
+I've filed the ticket in lagrange-framework as **BUG-87** (`bug-f671b02a`), at `draft`: "Delegation nudge: force the ReportResult tool call so a worker cannot answer it with text".
+
+**What it asks for:**
+- **Force the call on the nudge turn only.** The follow-up request makes the model call the report tool (`tool_choice: {type: "tool", name: <the report op's tool name>}`), so it can't answer in text. The worker's first turn is unchanged.
+- **Release it once used.** After the forced call, later requests in that turn go back to normal so the turn can finish.
+- **Never make things worse elsewhere.** Backends that can't force a tool (the `chatgpt` and `claude_code*` adapters may not be able to) say so, and nudge exactly as they do today. If extended thinking is on, the adapter either turns it off for that request or reports that it can't force, because the API rejects a forced tool call with thinking enabled.
+- **Same rules as a normal report.** The forced call still goes through the usual report checks, and there is still only one nudge.
+- **Both languages.** The JS and Python versions behave the same, and the conformance fixtures are updated.
+- **Recovering the report from the text is explicitly ruled out**, for the reasons we discussed.
+
+The body also has the evidence from workers 4 and 10, the causes ruled out, acceptance criteria, and a test plan.
+
+**BUG-218:** I added the investigation findings and the decision, pointing to lagrange-framework BUG-87, without touching the existing text. That covers correcting "no second ask was made": the nudge did run. It stays at `draft`, and no code lands in 1stcontact for this. The fix that would show in the result that the nudge ran (fix 2) isn't in scope, so tell me if you want it added here later.
 
 <!-- xgd-chat-end -->
