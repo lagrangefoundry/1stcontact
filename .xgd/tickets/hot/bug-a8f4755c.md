@@ -6,10 +6,10 @@ title: 'Plan cadence: a builder session that wrote the site no longer records th
   first-pass or revision-round milestone'
 created_by: EPIC-19
 created_at: '2026-10-18T14:34:56.728286+00:00'
-updated_at: '2026-10-18T16:52:59.198921+00:00'
+updated_at: '2026-10-18T16:55:36.125678+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
