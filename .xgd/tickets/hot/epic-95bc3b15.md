@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T00:15:31.925164+00:00'
+updated_at: '2026-10-18T13:56:39.686962+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2208,3 +2208,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - Consultant-filed from Bob's Salon (2026-10-17, second batch), linked here: **BUG-218** builder wrote ReportResult as text again (second sighting after BUG-208; recovery belongs upstream); **BUG-219** builder changed the page background outside its brief and the account omitted it (scope half belongs to EPIC-24); **BUG-220** a control node outside a module validates but renders nothing.
+
+
+- **REQ-408** — Story board: a third preview mode (View · Edit · Story) where the client's own words become themed sticky notes with emoji, reactions (❤️ 👍 👎 🗑), client-added/edited notes, and a headline slot ("why you?") with consultant options; background material for the consultant, never changes the site; own fixed style; explained to the consultant (priming, manual, per-turn notice, finish line); plus the host-due `weakest_point` self-review check.
+- Prompt-only change `5ea02ca365` (2026-10-18): expert framing; 'Getting to know you' finish line includes the story; 'Getting the story' interview guidance and material inventory; DOC-48 distinctiveness rubric in conduct.
