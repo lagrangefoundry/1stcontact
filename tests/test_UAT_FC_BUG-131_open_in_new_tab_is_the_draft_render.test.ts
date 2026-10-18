@@ -87,8 +87,8 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-131 — the tab is the production render'
   const frameOf = () =>
     root.querySelector('.builder-panel__frame') as HTMLIFrameElement
   const linkOf = () =>
-    root.querySelector('.builder-toolbar__open') as HTMLAnchorElement | null
-  const hrefOf = () => linkOf()!.getAttribute('href')
+    root.querySelector('.builder-toolbar__open') as HTMLButtonElement | null
+  const hrefOf = () => linkOf()!.getAttribute('data-href')
   const modeButton = (id: string) =>
     root.querySelector(`.builder-toolbar__modes button[data-mode="${id}"]`) as HTMLButtonElement
 

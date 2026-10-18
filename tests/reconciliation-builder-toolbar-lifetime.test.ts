@@ -135,27 +135,27 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
 
     // The probe is the control that keeps itself current: its target follows
     // the displayed document, so "did it react?" is directly observable.
-    const captured = app.toolbar.get('open-new-tab') as HTMLAnchorElement
+    const captured = app.toolbar.get('open-new-tab') as HTMLButtonElement
     expect(captured).toBeTruthy()
 
     // ── the replaced control is frozen at the moment it was replaced ────────
     // One change, so the strip is re-derived and `captured` is replaced.
     app.panel.setMode('edit')
-    const frozen = captured.getAttribute('href')
+    const frozen = captured.getAttribute('data-href')
     expect(app.toolbar.get('open-new-tab')).not.toBe(captured)
 
     // A second change: the replaced control must not follow it.
     app.panel.setSite('beta')
-    const live = app.toolbar.get('open-new-tab') as HTMLAnchorElement
+    const live = app.toolbar.get('open-new-tab') as HTMLButtonElement
 
-    expect(captured.getAttribute('href')).toBe(frozen)
+    expect(captured.getAttribute('data-href')).toBe(frozen)
     // THE DRAFT RENDER OF WHAT THE PANE IS SHOWING, not the pane's own URL
     // ([[BUG-131]]) — the probe here is a control that keeps itself current, and
     // this control's "current" is the production render of the page on screen.
     // Edit shows a deliberately non-functional render, so in that channel the
     // two legitimately differ; what is being asserted is that the live control
     // reacted at all, which either expression answers.
-    expect(live.getAttribute('href')).toBe('/preview/beta/draft/')
+    expect(live.getAttribute('data-href')).toBe('/preview/beta/draft/')
     // Not vacuous: the displayed document genuinely moved between the two.
     expect(app.panel.getSrc()).not.toBe(frozen)
 
@@ -168,9 +168,9 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     // subscribed to nothing at all could not pass this by staying at zero.
     expect(afterOne).toBeGreaterThan(0)
 
-    const detached: HTMLAnchorElement[] = []
+    const detached: HTMLButtonElement[] = []
     for (let i = 0; i < 20; i += 1) {
-      detached.push(app.toolbar.get('open-new-tab') as HTMLAnchorElement)
+      detached.push(app.toolbar.get('open-new-tab') as HTMLButtonElement)
       app.panel.setMode(i % 2 === 0 ? 'edit' : 'view')
     }
 
@@ -181,16 +181,16 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
 
     // And every one of those replaced controls is inert — a change after the
     // fact moves the control on screen and none of the survivors.
-    const frozenHrefs = detached.map((el) => el.getAttribute('href'))
+    const frozenHrefs = detached.map((el) => el.getAttribute('data-href'))
     app.panel.setSite('alpha')
-    expect(detached.map((el) => el.getAttribute('href'))).toEqual(frozenHrefs)
-    expect((app.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href')).toBe(
+    expect(detached.map((el) => el.getAttribute('data-href'))).toEqual(frozenHrefs)
+    expect((app.toolbar.get('open-new-tab') as HTMLButtonElement).getAttribute('data-href')).toBe(
       app.panel.getSrc(),
     )
 
     // ── tearing the chrome down releases the strip the same way ─────────────
-    const lastLive = app.toolbar.get('open-new-tab') as HTMLAnchorElement
-    const hrefAtTeardown = lastLive.getAttribute('href')
+    const lastLive = app.toolbar.get('open-new-tab') as HTMLButtonElement
+    const hrefAtTeardown = lastLive.getAttribute('data-href')
     app.toolbar.destroy()
 
     // Nothing the strip held is still registered on the panel.
@@ -201,7 +201,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     // the panel having stopped emitting.
     app.panel.setSite('beta')
     expect(app.panel.getSrc()).not.toBe(hrefAtTeardown)
-    expect(lastLive.getAttribute('href')).toBe(hrefAtTeardown)
+    expect(lastLive.getAttribute('data-href')).toBe(hrefAtTeardown)
     // The destroyed strip did not re-derive either.
     expect(app.toolbar.ids()).toEqual([])
 
@@ -212,11 +212,11 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     const remounted = mountBuilder(secondRoot, { sites: SITES, storage: memoryStorage() })
 
     remounted.panel.setMode('edit')
-    const remountedLink = remounted.toolbar.get('open-new-tab') as HTMLAnchorElement
+    const remountedLink = remounted.toolbar.get('open-new-tab') as HTMLButtonElement
     // The production render of the page the new pane is on ([[BUG-131]]) — the
     // claim being made is that THIS strip reacted and the released one did not.
-    expect(remountedLink.getAttribute('href')).toBe('/preview/alpha/draft/')
-    expect(lastLive.getAttribute('href')).toBe(hrefAtTeardown)
+    expect(remountedLink.getAttribute('data-href')).toBe('/preview/alpha/draft/')
+    expect(lastLive.getAttribute('data-href')).toBe(hrefAtTeardown)
   })
 
   it('test_UAT_AC970_a_site_change_re_derives_the_whole_strip_against_the_current_site', () => {
@@ -252,7 +252,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
     // the property this criterion is about — a site change re-derives the whole
     // strip against the state current at that moment — is unchanged and is now
     // read off a control that is still here.
-    expect((app.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href')).toContain(
+    expect((app.toolbar.get('open-new-tab') as HTMLButtonElement).getAttribute('data-href')).toContain(
       'beta',
     )
     expect(app.panel.getSite()).toBe('beta')
@@ -267,7 +267,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar re-derivation and cont
 
     expect(restored.panel.getSite()).toBe('beta')
     expect(
-      (restored.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href'),
+      (restored.toolbar.get('open-new-tab') as HTMLButtonElement).getAttribute('data-href'),
     ).toContain('beta')
 
     // ── asking for what is already displayed re-derives nothing ─────────────

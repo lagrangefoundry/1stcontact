@@ -203,8 +203,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     expect(preloaded!.classList.contains('builder-panel__pane--entering')).toBe(true)
     expect(allSrcs().some((s) => s.endsWith('/draft/home-trade'))).toBe(true)
     // "Open in new tab" follows the shown look.
-    const tab = root.querySelector('[data-action="open-new-tab"]') as HTMLAnchorElement
-    expect(tab.getAttribute('href')).toMatch(/\/draft\/home-coastal$/)
+    const tab = root.querySelector('[data-action="open-new-tab"]') as HTMLButtonElement
+    expect(tab.getAttribute('data-href')).toMatch(/\/draft\/home-coastal$/)
 
     next().click()
     await settle()

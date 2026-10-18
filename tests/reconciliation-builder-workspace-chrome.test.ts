@@ -384,7 +384,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
     const app = mountBuilder(root, { sites: SITES, storage: memoryStorage() })
     const displayed = () => app.panel.frame.getAttribute('src')
     const target = () =>
-      (app.toolbar.get('open-new-tab') as HTMLAnchorElement).getAttribute('href')
+      (app.toolbar.get('open-new-tab') as HTMLButtonElement).getAttribute('data-href')
 
     // In View the two coincide, and are compared DIRECTLY rather than against a
     // reconstructed expectation, so a shared formatting mistake cannot make this
@@ -406,7 +406,16 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a toolbar', () => {
 
     // Not vacuous: the value actually moved as the pane changed.
     expect(displayed()).toBe('/preview/beta/draft/')
-    expect((app.toolbar.get('open-new-tab') as HTMLAnchorElement).target).toBe('_blank')
+    // …and it opens in a NEW tab ([[REQ-407]]: a button now, so the click is the target).
+    const calls: unknown[][] = []
+    const open = window.open
+    window.open = ((...args: unknown[]) => (calls.push(args), null)) as typeof window.open
+    try {
+      ;(app.toolbar.get('open-new-tab') as HTMLButtonElement).click()
+    } finally {
+      window.open = open
+    }
+    expect(calls.map((c) => c[1])).toEqual(['_blank'])
   })
 
   // AC-967 lives in the MOUNTED suite: its subject is the store→origin→selector

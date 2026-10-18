@@ -255,7 +255,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-376 — View on your phone', () => {
   const modeButton = (id: string) =>
     root.querySelector(`.builder-toolbar__modes button[data-mode="${id}"]`) as HTMLButtonElement
   const phoneButton = () => root.querySelector('[data-action="phone-preview"]') as HTMLButtonElement | null
-  const tabHref = () => (root.querySelector('.builder-toolbar__open') as HTMLAnchorElement).getAttribute('href')!
+  const tabHref = () => (root.querySelector('.builder-toolbar__open') as HTMLButtonElement).getAttribute('data-href')!
   const dialog = () => document.querySelector('.builder-phone') as HTMLElement | null
   const decoded = () => decodeSvg(dialog()!.querySelector('.builder-phone__code svg') as SVGElement).text
   const absolute = (href: string) => new URL(href, document.baseURI).href
