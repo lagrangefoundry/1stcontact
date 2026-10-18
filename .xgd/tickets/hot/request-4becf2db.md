@@ -5,15 +5,23 @@ type: request
 title: 'Builder toolbar: Open in new tab is a button like Publish'
 created_by: martin-github@westhead.me
 created_at: '2026-10-18T00:46:47.552943+00:00'
-updated_at: '2026-10-18T00:53:56.941681+00:00'
+updated_at: '2026-10-18T00:54:16.758069+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-c36940d0
+  commits:
+  - working_sha: 78aab32f12aeb4270b30cb40b42657d5c00c5189
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 5b5cd6110e7f235276939333f89b519c5230187c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.525
 ---
 
 ## What changes
