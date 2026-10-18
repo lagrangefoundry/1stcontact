@@ -6,9 +6,9 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T22:16:21.493871+00:00'
+updated_at: '2026-10-18T22:16:33.470058+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   auto_merge_back: true
@@ -85,3 +85,6 @@ The aborted builder at the root of this is BUG-212's case (context budget, no re
 - a look with a swapped picture `src` and reworded text is refused with `CONTENT_CHANGED`, names the picture and the text, and leaves the page unchanged;
 - the same look with `content_changes_seen: true` is chosen and its content lands on the page.
 Regression scope: the REQ-391 alternative-looks suites.
+
+
+**Existing UATs changed (supersedes part of REQ-391's choose behaviour).** In `tests/test_UAT_FC_REQ-391_choosing_a_look.workers.test.ts`, the seeded looks are told apart by their headline, so each one differs from the page in what it says. Under this fix those looks need the client's confirmation, so the REQ-391 choose calls now pass `content_changes_seen: true`. Choosing a look whose content differs from the page's is no longer unconditional.
