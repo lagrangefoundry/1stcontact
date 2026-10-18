@@ -6,10 +6,10 @@ title: Client messages sent while a delegated builder is running never reach the
   session
 created_by: xgd
 created_at: '2026-10-18T18:25:08.681855+00:00'
-updated_at: '2026-10-18T19:44:45.886812+00:00'
+updated_at: '2026-10-18T19:45:15.727879+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,14 @@ fields:
   epic_parent: epic-95bc3b15
   severity: high
   chat_comment: comment-8f59f165
+  commits:
+  - working_sha: 8c67a88d6fee9b8cf30296dce3cc3555ff28a7cf
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 4cb8d51d791e97b7d527ff243707f74f11607a2a
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.536
 ---
 
 ## What happened
