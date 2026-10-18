@@ -6,9 +6,9 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-15T16:15:22.414163+00:00'
+updated_at: '2026-10-18T00:44:44.637038+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: underway
 fields:
   priority: high
@@ -97,3 +97,7 @@ Concurrent execution of builder sessions in the framework (lagrange-framework) i
 Split rationale: decomposition and locks are each over the 20-point free-coding cap, and the framework work is a different repository. Fold back if any of these turns out small.
 
 Decisions taken while filing: the scope is **declared by the consultant on Delegate** and claimed before the worker opens (not taken lazily by the builder), leases are renewed by activity and expire after about 5 min idle, header and footer stay per-page sections for now, no bulk migration (pages are split on demand), and the existing `sites.version` / `SiteWrite.expect` CAS is reused on draft writes rather than building a new version guard.
+
+
+
+4. **REQ-406: Builder scopes: page style is claimed only when named** (filed 2026-10-17). This is gap 2 of BUG-219. A builder scoped to a whole page (`home.json`) still holds the page style under REQ-397, so it can repaint the page to fix one section. REQ-406 makes the page style its own scope unit (`home.json#style`), which naming the page doesn't claim, and refuses `set_page_style`/`use_font` without it. It depends on REQ-397 and lagrange-framework REQ-207.
