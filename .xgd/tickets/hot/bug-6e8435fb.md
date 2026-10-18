@@ -6,10 +6,10 @@ title: Client messages sent while a delegated builder is running never reach the
   session
 created_by: xgd
 created_at: '2026-10-18T18:25:08.681855+00:00'
-updated_at: '2026-10-18T19:45:21.122005+00:00'
+updated_at: '2026-10-18T20:19:53.894455+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
