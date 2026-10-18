@@ -6,7 +6,7 @@ title: 'Builder sessions: what may run in parallel — scopes, a draft-edit guar
   concurrent delegation'
 created_by: EPIC-19
 created_at: '2026-10-04T00:43:37.633034+00:00'
-updated_at: '2026-10-18T00:44:44.637038+00:00'
+updated_at: '2026-10-18T19:09:48.707168+00:00'
 completed_at: null
 last_field_updated: body
 status: underway
@@ -101,3 +101,6 @@ Decisions taken while filing: the scope is **declared by the consultant on Deleg
 
 
 4. **REQ-406: Builder scopes: page style is claimed only when named** (filed 2026-10-17). This is gap 2 of BUG-219. A builder scoped to a whole page (`home.json`) still holds the page style under REQ-397, so it can repaint the page to fix one section. REQ-406 makes the page style its own scope unit (`home.json#style`), which naming the page doesn't claim, and refuses `set_page_style`/`use_font` without it. It depends on REQ-397 and lagrange-framework REQ-207.
+
+
+- **REQ-410** (filed under EPIC-19, 2026-10-18) — the parallelism EPIC-24 built is unused: 23 Bob's Salon builders, none overlapping, none scoped to a section. Causes: REQ-389's leftover one-at-a-time conduct rule, and unscoped Delegate calls. Prompt half `1c44ce9957`.
