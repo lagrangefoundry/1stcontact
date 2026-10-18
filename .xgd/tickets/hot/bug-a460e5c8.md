@@ -6,10 +6,10 @@ title: 'A `control: "button"` node outside a component renders nothing, but vali
   and raises no attention'
 created_by: xgd
 created_at: '2026-10-17T23:09:17.687277+00:00'
-updated_at: '2026-10-18T11:47:27.961964+00:00'
+updated_at: '2026-10-18T12:07:36.374773+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
