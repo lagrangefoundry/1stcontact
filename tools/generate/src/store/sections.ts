@@ -60,6 +60,19 @@ export function sectionFileName(pageName: string, id: string): string {
   return `${pageName}#${id}`
 }
 
+/**
+ * [[REQ-406]] — the name of a page's STYLE unit, `home.json#style`: the page's
+ * L1 document keys other than `root` (background, text colour, widths, fonts,
+ * column). It is a file of its own for leases on every page, decomposed or not,
+ * so a section of that name would collide with it — no section may be called it.
+ */
+export const STYLE_UNIT = 'style'
+
+/** The file name of a page's style: `home.json#style`. */
+export function styleFileName(pageName: string): string {
+  return sectionFileName(pageName, STYLE_UNIT)
+}
+
 /** True when a stored page value is a frame rather than a whole page. */
 export function isFrame(stored: Record<string, unknown>): boolean {
   return Array.isArray(stored.sections)
@@ -110,6 +123,9 @@ export function sectionProblem(page: Record<string, unknown>): string | null {
     const id = child.id
     if (typeof id !== 'string' || !SECTION_ID.test(id)) {
       return `element 0.${i} at the top of the page has no id a section can be named by (letters, digits, - and _)`
+    }
+    if (id === STYLE_UNIT) {
+      return `section '${id}' would share its name with the page's style (\`#${STYLE_UNIT}\`); give it another id`
     }
     if (ids.has(id)) return `two sections are both called '${id}'`
     ids.add(id)
