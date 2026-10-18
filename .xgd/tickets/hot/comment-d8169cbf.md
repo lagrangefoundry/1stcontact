@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T23:19:20.172852+00:00'
+updated_at: '2026-10-18T23:20:25.497297+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8991,5 +8991,33 @@ This blocks every turn on that business, so I'd file it as a critical bug now, w
 <!-- xgd-chat role="user" ts="2026-10-18T23:19:20.047497+00:00" -->
 #### You
 Yes - FWIW I have the network console open but I mostly see image gets. all successful
+
+<!-- xgd-turn id="6e9a0418-5169-4d4f-8177-81df8b4998df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T23:20:24.342939+00:00" -->
+#### Claude
+That fits: the error happens on the server, so in the Network tab it would only show inside the chat request's own stream, near its end, not as a failed request. Let me pull the 21:16 turn's tool calls for the ticket, then file it.
+
+I've filed it as **BUG-229** (critical, under EPIC-19) and listed it on the epic together with BUG-228.
+
+**The worse finding: Bob's salon 2 hasn't saved anything since 20:50 UTC (13:50 your time).** The stored chat transcript and the tool record were both last written then. The turns at 21:04 and 21:16 are logged as complete but never reached storage. The three turns since then ended in this error. So the end-of-turn save broke at around 13:50. It failed silently for two turns, and then the error started showing.
+
+What's in the ticket:
+- **The established facts:**
+  - the error is recorded on the server as each turn's failure;
+  - the deployed code hasn't changed since 09:57, so something in the stored data triggered it;
+  - the bad value is computed, not stored;
+  - the stored records are well under the size limit, so it's not the earlier size-limit failure.
+- **Where to look:** whatever runs at the end of a turn. The turn at 21:04 is the one to reproduce from, since it was the first to fail.
+- **The fix has three parts:**
+  - fix the cause;
+  - **recover what's unsaved**, by writing the conversation records since 13:50 from the Durable Object into storage;
+  - make a failed end-of-turn save visible: logged, and the client told the reply may not have been saved.
+
+**Two things for you:**
+- **Don't clear the dev server's stored state,** such as the Durable Object files under `.wrangler/state`. That's probably the only copy of the last two hours of the Bob's salon 2 conversation.
+- **The Network tab won't show this one.** The error arrives inside the chat request's own stream, so nothing appears as a failed request. That fits what you saw.
+
+I'd hold further Bob's salon 2 testing until BUG-229 lands. Each turn there adds to what has to be recovered.
 
 <!-- xgd-chat-end -->
