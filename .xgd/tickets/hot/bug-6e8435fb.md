@@ -16,6 +16,7 @@ fields:
   priority: high
   epic_parent: epic-95bc3b15
   severity: high
+  chat_comment: comment-8f59f165
 ---
 
 ## What happened
