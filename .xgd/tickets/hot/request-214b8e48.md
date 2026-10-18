@@ -6,9 +6,9 @@ title: 'Story board: a third preview mode where the client''s own words become t
   sticky notes and a headline'
 created_by: EPIC-19
 created_at: '2026-10-18T13:53:14.087264+00:00'
-updated_at: '2026-10-18T14:37:59.317165+00:00'
+updated_at: '2026-10-18T14:55:22.464058+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -100,3 +100,41 @@ The consultant's priming now carries a distinctiveness rubric (swap test, headli
 - A new plan check `weakest_point` — *"Honestly, the weakest part of the site right now is [weakest point]. Shall I [what you would do about it]?"* — on the existing triggers `first_pass_complete` and `before_publish`. Asking it requires her to judge the draft against the rubric.
 - It was taken out of the prompt-only commit because `test_UAT_FC_REQ-379_opening_publish_makes_the_pre_publish_checks_due` pins the exact pre-publish check list; that assertion is updated here.
 - Note: two other REQ-379 cadence UATs (`…first_builder_session_makes_layout_happy_due…`, `…later_builder_session_is_a_revision_round…`) already fail on xgd-working without any change; not caused by this ticket.
+
+
+
+## As built (2026-10-18)
+
+### Where it lives
+- **Board data** is `plan.fields.board` (`themes`, `notes`, `headline`), with its shape, rules, client actions, consultant operations, notice, reminder and builder-brief text in `tools/generate/src/cli/ai/story-core.ts`. `checkPlan` runs the board's rules on every plan write; `panelView` (GET `/api/plan`) carries `board` and `drafted`.
+- **The client** acts through `POST /api/plan/board` with an action: `react` (`heart` / `up` / `down`; the same one again, or none, clears it), `delete`, `add` (theme + text), `edit` (note + text), `choose` (an option on offer), `write` (the headline's text). Compare-and-set, retried once on a clash; a note or theme the board doesn't hold is a 404. It never starts a turn.
+- **The Story pane** (`apps/control-app/src/builder/story-board.js`) is a mount mode beside View and Edit. It draws from the same plan view the plan panel reads (no second fetch), and its toolbar has only the mode toggle.
+
+### Rules the consultant's operations enforce (group `KeepStoryBoard`, granted to both roles like the asks)
+- `pin_notes` pins one or more notes. Each needs its text, **the sentence it came from** (`quote`, shown on hover), **exactly one emoji**, and a theme. Naming a theme the board doesn't have yet starts it.
+- **At most six themes**: the palette has six muted colours and each theme gets the first free one.
+- `reword_note` and `remove_note` refuse (`CLIENTS_WORDS`) a note the client wrote, edited, ❤️'d or 👍'd. Changing only the emoji is allowed on any note. Rewording a 👎 note clears the 👎, because the client hasn't seen the new words yet.
+- `move_note` and `set_theme` re-theme, add and rename themes.
+- `offer_headlines` takes 2–3 options, a `pick`, and `from`: hearted note ids. It's refused with no hearted notes behind it ("never from nothing") and refused for a line already offered and passed over. Before a choice the offer is the options; after a choice it's stored as `new_options` and never replaces the chosen line.
+- Choosing an option, or typing a line (including typing over an offer), settles the headline. Every other option is kept as `passed`. A typed line is marked `yours` ("your words").
+
+### The consultant is told
+- **Per-turn notice:** on the plan-answers cursor, one line — "Your client worked on the story board since your last turn (N changes): gave n1 "…" ❤️; added "…" under Family; reworded…; deleted…; took back their reaction…; chose the headline "…" / wrote their own headline "…"". It ends "Ask about each 👎, or offer a better wording." when there's a new 👎. Her own pins are never reported back to her.
+- **Per-turn plan entry:** a `Story board:` line (counts, themes, reactions, headline state). It also says what's still missing for "Getting to know you" to finish: a reaction on every theme, a heart, a headline offered. An empty board tells her to start pinning.
+- **Priming** (both variants): a "## The story board" section, plus the board's line in the "Getting to know you" finish line. **Tool manual:** an overview paragraph and the six operations. **Opening message:** a bullet naming the story board.
+- **Builder briefs:** every delegated brief gets a short story block appended once the board has a chosen headline or hearted notes: the headline verbatim, then the hearted notes verbatim. It's appended to every brief, not only to briefs that concern copy, because judging "concerns copy" would be a guess and the block is small (≤1,500 characters, counted against the brief ceiling).
+
+### The preview
+- While the plan has no `milestones.first_pass_at` (no first draft), opening a site switches the pane to Story **without remembering it** as the client's mode. If the first draft lands while the host is still showing Story, the pane goes to View so the client sees it. After that, Story is theirs to switch to, and a mode they pick is remembered as before.
+- The board's style is literal values only (no custom properties), in the builder's own document, never the preview frame. So the site's palette and fonts can't reach it. Note tilt is deterministic per note id, so notes don't wobble on redraw. A note fades in when first pinned, with no fade under reduced motion. A redraw waits while the client is typing on the board.
+
+### weakest_point
+- Added to `plan-seed.json`'s checks on `first_pass_complete` and `before_publish`. A seed check missing from a stored plan is appended on read (`plan.ts`), so existing sites get it too. Priming's rubric paragraph names it.
+- `test_UAT_FC_REQ-379_opening_publish_makes_the_pre_publish_checks_due` now expects `weakest_point` in the pre-publish list.
+- `test_UAT_FC_BUG-205_…stepping_never_changes_the_mode` pinned the exact mode list to prove there is no looks mode. It now expects `['view', 'edit', 'story', 'comp']`: Story is a deliberate addition (this ticket), not a looks mode.
+
+### UATs
+- `tests/test_UAT_FC_REQ-408_story_board.test.ts`: the consultant's operations through the real Toolbox, client actions, notice, reminder, builder brief, priming/manual, weakest_point.
+- `tests/test_UAT_FC_REQ-408_story_pane.test.ts`: the real builder in jsdom — third mode, opens first before a draft, notes/colours/hover, reactions and delete, add/edit, headline steps / Choose… / typing over / new options, style independent of the site palette and fonts.
+- `tests/test_UAT_FC_REQ-408_story_board_on_the_wire.workers.test.ts`: real routes in workerd — consultant pins in a turn, client acts via `/api/plan/board` with no turn started, the next turn hears it, headline offered and chosen.
+- Pre-existing failures, unchanged by this ticket (identical on the main checkout): REQ-379's two builder-session cadence UATs, the delegation suites (REQ-295/340/342/354, BUG-167), and a set of node chat-host/assistant suites. Because the delegation suites are red, the brief-appending path is covered at the `storyBrief` level only.
