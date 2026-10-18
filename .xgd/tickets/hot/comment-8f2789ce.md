@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T13:23:19.523779+00:00'
+updated_at: '2026-10-18T13:23:37.573166+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -219,5 +219,16 @@ As before, the live builder picks this up only after the next `bin/deploy --env 
 <!-- xgd-chat role="user" ts="2026-10-18T13:23:18.345793+00:00" -->
 #### You
 Can you complete the ticket? If there is no code changes you should move it to legacy_done if its finished
+
+<!-- xgd-turn id="8c1b84d0-3c36-4b94-a679-e461be81f9ef-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:23:35.521623+00:00" -->
+#### Claude
+REQ-405 is now `legacy_done`. Nothing in it needed the code process: both commits change the consultant's instructions and the seed data only.
+
+- `533cdd9fe8`: each stage now has a finish line in the consultant's instructions, and Finishing touches tells her to raise motion herself and how the client can see it.
+- `7763c25e1c`: the "Would some motion help here?" check now comes up after the first round of changes.
+
+The ticket body records the reframed scope and both commits; its title is unchanged. I didn't fill in the ticket's `commits` field, because that field is what triggers the automated reconcile run. Neither change reaches the live builder until the next `bin/deploy --env dev`.
 
 <!-- xgd-chat-end -->
