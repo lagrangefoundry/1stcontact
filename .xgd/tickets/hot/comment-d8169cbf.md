@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T18:46:44.006976+00:00'
+updated_at: '2026-10-18T18:59:06.675978+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8626,5 +8626,11 @@ Its own note says it *"holds until builder sessions can overlap."* They now can,
 **The fix is prompt-only.** Replace "One thing at a time" with a rule that's true in both modes: *never claim that work is running at the same time unless you started it that way, and when you estimate, add up whatever runs one after another.* The delegation paragraph then says on its own what may overlap. I'd also correct the stale note beside it.
 
 Shall I make that change? It's a priming edit, so it needs no ticket, and your next run would show whether she starts using parallel builders.
+
+<!-- xgd-turn id="6f012595-dfe0-4850-b534-56f2e69a862a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T18:59:06.354349+00:00" -->
+#### You
+When we designed this we discussed the need for "composite" pages created in sections each with its own file. That way the builders could have clear, non-overlapping scope. Are we doing that?
 
 <!-- xgd-chat-end -->
