@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-214
 created_by: xgd
 created_at: '2026-10-17T22:47:27.553272+00:00'
-updated_at: '2026-10-18T00:12:51.441284+00:00'
+updated_at: '2026-10-18T00:18:00.615534+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -72,5 +72,31 @@ I'd go with (a) and track (b) separately or under the epic. Rows left at `failed
 <!-- xgd-chat role="user" ts="2026-10-18T00:12:48.353763+00:00" -->
 #### You
 Lets just do image descriptions manually there can't be that many
+
+<!-- xgd-turn id="b39eff0d-9581-44ea-9340-f1706d071126-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T00:17:56.580745+00:00" -->
+#### Claude
+I'll go with option (a): the one-line registration fix in this ticket, and you redescribe the existing `failed` images by hand. First, reading the ticket.
+
+The fix and a new test are in. The worktree is missing the control-app's generated library files (a known fresh-worktree gap), so I'm reading the note on how to provide them before running the tests.
+
+All 36 tests pass. Next I'm checking that the new test fails without the fix, so it actually proves something.
+
+Without the fix it fails with `expected 'failed' to be 'ok'`, so the test catches the bug. Now committing; version bump convention here is package.json.
+
+The gate bumps the version itself, so I'll commit without a bump, merge, and move the ticket to free_coded.
+
+I've fixed the image describer: newly uploaded images and `capture_site` captures now get described instead of ending at `failed`. Images already stuck at `failed` are still yours to redescribe by hand, as agreed.
+
+**The fix:** `describerSession` in `apps/control-app/src/ai.ts` now registers its backend with `lib.ClaudeAPIBackend.capabilities` as the third argument. Before, it registered the backend without stating it can read images, so the shared library refused every one. The change covers both the image and text describers.
+
+**Tests:**
+- I added one new test, `tests/test_UAT_FC_BUG-214_image_describer_vision_capability.test.ts`. It sends a PNG through the real describer with only the Anthropic client faked, and checks the result is `ok` and that the model was sent an image block.
+- With the fix removed, the new test fails with `expected 'failed' to be 'ok'`, so it does catch this bug.
+- The 8 REQ-207 image describer tests that were failing now pass, and the REQ-173 text describer tests still pass: 36/36 across those 6 files.
+- I ran these in the branch worktree using a copy of `apps/control-app/src/generated/` from the main checkout. A freshly cut worktree doesn't have those files, and the folder is gitignored, so the copy wasn't committed.
+
+**Ticket:** BUG-214 is at `free_coded` with commit `2cc1f4eb`, merged into xgd-working and the branch cleaned up. The ticket body records the decision that redescribing images is manual and adds no redescribe pass. The gate added its own version-bump commit, which is why it reported 2 commits. Promoting to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
