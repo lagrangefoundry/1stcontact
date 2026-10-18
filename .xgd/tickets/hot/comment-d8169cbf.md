@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:01:42.776184+00:00'
+updated_at: '2026-10-18T19:07:29.896720+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8695,5 +8695,11 @@ The fix is the three prompt changes from my last message:
 The optional code change, refusing an unscoped `Delegate`, would need its own ticket now that BUG-222 is closed.
 
 Shall I make the prompt changes?
+
+<!-- xgd-turn id="21e267b1-bbce-4369-b9da-3c7c5f7b9895-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T19:07:29.639553+00:00" -->
+#### You
+ok please make the prompt changes and create a new ticket for the code changes
 
 <!-- xgd-chat-end -->
