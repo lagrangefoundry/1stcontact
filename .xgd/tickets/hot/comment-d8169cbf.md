@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:39:57.873427+00:00'
+updated_at: '2026-10-18T19:40:23.641993+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8833,5 +8833,19 @@ I've linked it from EPIC-19. I also added a note to REQ-410: once REQ-208 lands 
 <!-- xgd-chat role="user" ts="2026-10-18T19:39:56.307879+00:00" -->
 #### You
 410 just finished - do I need to reopen it?
+
+<!-- xgd-turn id="78c08f1e-8394-4a5d-a913-42e7d2112553-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:40:21.263081+00:00" -->
+#### Claude
+No, I wouldn't reopen it. REQ-410 is at `ready_to_reconcile`, and the follow-up depends on LF REQ-208, which is still at `draft`, not started.
+
+**What REQ-410 contains** is finished and stands on its own: the conduct rule is replaced, a builder with no scope is refused, and it records its findings, including the correction to my scope counts. My note naming REQ-208 as the follow-up went in before it moved on, so the next step is written down on the ticket.
+
+**Reopening it would hold up finished work** for as long as REQ-208 takes. You'd have to move it back to `free_coded` and keep it out of reconciliation until the framework change lands and you refresh the shared install. That's the one case where your fold-don't-split rule shouldn't apply: the second part is blocked on another repo.
+
+**So I'd let REQ-410 reconcile as it is.** When REQ-208 lands, do the follow-up as one small ticket: register our `Delegate` as safe to run alongside others, and commit the two-builders-at-once test that REQ-410's session wrote but couldn't commit. It's about a point of work.
+
+I can file that ticket now as a `draft`, blocked on LF REQ-208, so it's ready when the framework change lands. Shall I?
 
 <!-- xgd-chat-end -->
