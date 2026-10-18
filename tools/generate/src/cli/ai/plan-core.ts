@@ -441,7 +441,7 @@ export interface PlanDeps {
    * holds no site — so a host that cannot make it leaves this out and
    * `choose_look` refuses with `NO_LOOKS`.
    */
-  looks?: { choose(look: string): Promise<LookChoice> }
+  looks?: { choose(look: string, opts?: { contentChangesSeen?: boolean }): Promise<LookChoice> }
 }
 
 type Params = Record<string, unknown>
@@ -1805,10 +1805,19 @@ export function planOperations(
       if (!quote) throw refuse(PLAN_INVALID, "a choice is recorded in the client's words; say what they said")
       let choice: LookChoice
       try {
-        choice = await deps.looks.choose(str(p.look) ?? '')
+        choice = await deps.looks.choose(str(p.look) ?? '', { contentChangesSeen: p.content_changes_seen === true })
       } catch (err) {
         const code = (err as { code?: string }).code
         if (code === 'NOT_FOUND' || code === 'SCHEMA_INVALID') throw refuse('UNKNOWN_LOOK', (err as Error).message)
+        // [[BUG-226]] — the look would change what the page SAYS. Refused until
+        // the client has been told, so a drifted look never lands silently.
+        if (code === 'NOT_APPROVED') {
+          throw refuse(
+            'CONTENT_CHANGED',
+            `${(err as Error).message} Either have the look's words and pictures put back to the page's, ` +
+              'or tell your client exactly what would change; if they still want this look, call choose_look again with content_changes_seen: true.',
+          )
+        }
         throw err
       }
       return change((plan) => {

@@ -2461,6 +2461,82 @@ type PageRecord = {
 }
 
 /**
+ * [[BUG-226]] — what a page SAYS: every text element's words and every picture's
+ * `src` and `alt`, in document order.
+ *
+ * COLLECTIONS, NOT POSITIONS. A look restyles the page, and restyling may wrap,
+ * re-nest or reorder elements — none of which changes a word. Comparing what the
+ * two documents hold, rather than what sits where, is what lets styling through
+ * and stops only content.
+ */
+function pageContent(l1: unknown): { text: string[]; pictures: string[] } {
+  const text: string[] = []
+  const pictures: string[] = []
+  const walk = (node: L1Node): void => {
+    if (node.kind === 'text') {
+      const words = l1PlainText(node.text).replace(/\s+/g, ' ').trim()
+      if (words !== '') text.push(words)
+    }
+    if (node.kind === 'image') pictures.push(`${node.src} ("${node.alt}")`)
+    if (node.kind === 'container' || node.kind === 'box') (node.children ?? []).forEach(walk)
+  }
+  const root = (l1 as { root?: L1Node } | undefined)?.root
+  if (root) walk(root)
+  return { text, pictures }
+}
+
+/** What `held` has that `other` does not, counting repeats. */
+function notIn(held: readonly string[], other: readonly string[]): string[] {
+  const left = [...other]
+  return held.filter((item) => {
+    const at = left.indexOf(item)
+    if (at < 0) return true
+    left.splice(at, 1)
+    return false
+  })
+}
+
+/** "1 picture", "3 pieces of text". */
+const counted = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`
+
+/**
+ * [[BUG-226]] — the sentence saying what choosing a look would change in what
+ * the page says, or `null` when it would change only how the page looks.
+ */
+function contentChanges(pageL1: unknown, lookL1: unknown, lookLabel: string, pageId: string): string | null {
+  const page = pageContent(pageL1)
+  const look = pageContent(lookL1)
+  const lost = { text: notIn(page.text, look.text), pictures: notIn(page.pictures, look.pictures) }
+  const added = { text: notIn(look.text, page.text), pictures: notIn(look.pictures, page.pictures) }
+  const pictures = Math.max(lost.pictures.length, added.pictures.length)
+  const text = Math.max(lost.text.length, added.text.length)
+  if (pictures === 0 && text === 0) return null
+  const what = [
+    ...(pictures > 0 ? [counted(pictures, 'picture', 'pictures')] : []),
+    ...(text > 0 ? [counted(text, 'piece of text', 'pieces of text')] : []),
+  ].join(' and ')
+  const list = (items: string[]): string => items.map((item) => `"${clip(item)}"`).join('; ')
+  const gone = [...lost.pictures, ...lost.text]
+  const arrives = [...added.pictures, ...added.text]
+  return (
+    `Choosing '${lookLabel}' would change what page '${pageId}' says, not only how it looks: ${what}.` +
+    (gone.length > 0 ? ` On the page now, gone after choosing: ${list(gone)}.` : '') +
+    (arrives.length > 0 ? ` In the look instead: ${list(arrives)}.` : '') +
+    ' Nothing was changed.'
+  )
+}
+
+export interface ChooseLookOptions extends EditOptions {
+  /**
+   * [[BUG-226]] — the client has been told what the look changes in the page's
+   * words and pictures, and wants it anyway. Absent, a look whose content differs
+   * from the page's is refused `NOT_APPROVED` — the request is well-formed, and
+   * what it needs is the client's yes.
+   */
+  contentChangesSeen?: boolean
+}
+
+/**
  * [[REQ-391]] — the client picked a look: it becomes the page.
  *
  * ONE ACTION, NOT A BUILDER SESSION. Choosing used to mean copying the look onto
@@ -2477,7 +2553,7 @@ type PageRecord = {
 export async function editAlternativeChoose(
   slug: string,
   lookId: string,
-  opts: EditOptions,
+  opts: ChooseLookOptions,
 ): Promise<EditOutput> {
   const base = await readBase(slug, opts)
   const files = await readPageFiles(slug, opts)
@@ -2493,6 +2569,23 @@ export async function editAlternativeChoose(
   }
   const target = findPageFile(files, alternative.of)
   if (!target) throw notFound(slug, alternative.of)
+
+  // [[BUG-226]] — A LOOK CHANGES HOW THE PAGE LOOKS, NOT WHAT IT SAYS. A builder
+  // restyling a look may legitimately rewrite anything on it, and one cut off
+  // mid-run can leave its words and pictures drifted; choosing would carry that
+  // onto the real page. The page as it is now is the baseline — the look began as
+  // a copy of it, and anything since is what choosing would overwrite.
+  if (!opts.contentChangesSeen) {
+    const changed = contentChanges((target.page as { l1?: unknown }).l1, (look.page as { l1?: unknown }).l1, alternative.label, alternative.of)
+    if (changed !== null) {
+      throw new CommandError({
+        code: 'NOT_APPROVED',
+        message: changed,
+        path: lookId,
+        hint: "Restore the look's words and pictures from the page, or tell the client what would change and choose again once they agree.",
+      })
+    }
+  }
 
   const members = files
     .filter((f) => (f.page as PageRecord).alternative?.set === alternative.set)

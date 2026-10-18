@@ -2126,8 +2126,8 @@ async function build(
                 surface: await planSurfaceFor(lib, {
                   ...countedPlan(deps, slug),
                   looks: {
-                    choose: async (look: string) =>
-                      (await editAlternativeChoose(slug, look, { ...opts, actor: 'ai', store: deps.store }))
+                    choose: async (look: string, choice?: { contentChangesSeen?: boolean }) =>
+                      (await editAlternativeChoose(slug, look, { ...opts, ...choice, actor: 'ai', store: deps.store }))
                         .data as unknown as LookChoice,
                   },
                 }),
