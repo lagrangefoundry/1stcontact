@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:52:22.230462+00:00'
+updated_at: '2026-10-18T13:56:59.394701+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8434,5 +8434,68 @@ Shall I file it as the story-board REQ under EPIC-19, and make the prompt-only c
 <!-- xgd-chat role="user" ts="2026-10-18T13:52:16.058022+00:00" -->
 #### You
 Yes please - also in the ticket - we need to make sure the new board is explkained to the consultant
+
+<!-- xgd-turn id="304af6cd-c1cf-451d-8234-937c29f32ed5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:56:58.652976+00:00" -->
+#### Claude
+Filing the REQ first, then the prompt changes. Let me read the parts of the priming I'll touch.
+
+Filing the story-board REQ.
+
+Filed as REQ-408. Now the prompt changes. Checking the end of the `conduct` entry, where the rubric fits.
+
+Writing the prompt and seed changes.
+
+Priming applied cleanly. The seed anchor matched the stage too; using the check's own line.
+
+The third failure pins the exact list of due checks, so my new check breaks it. Checking whether the other two are mine as well.
+
+Now committing the priming change on its own.
+
+I've filed the story board as REQ-408 and committed the prompt changes. One piece, the self-review check, had to move into REQ-408 instead.
+
+**REQ-408 — Story board** (EPIC-19, `draft`, high, 13 points) covers everything we agreed:
+- **Story mode:** a third preview mode beside View and Edit. A new business opens in it before the first draft exists.
+- **Notes:**
+  - The consultant pins the client's own words, lightly reworded but never adding a claim or adjective. Hovering a note shows the sentence it came from.
+  - Each note gets one emoji.
+  - Notes are grouped into up to about six themes, each a colour and labelled with its name. No arrows yet.
+- **Reactions:** ❤️ "that's us", 👍 keep, 👎 not right (the note stays, shown pale), 🗑 delete. One reaction per note.
+- **Client edits:** the client can add a note to a theme and edit any note. The consultant never rewords a note the client wrote, edited, liked or hearted.
+- **The headline slot:**
+  - empty, with the shadow text *"The headline… why you?"*;
+  - options offered, with ‹ 1 of 3 ›, "my pick", and "Choose…" opening a panel with "Write my own";
+  - chosen;
+  - client-edited.
+
+  A new offer never replaces a choice, and typing over an offer makes it the choice.
+- **Never touches the site:** the board is material for the consultant.
+- **Its own fixed style,** never the site's colours or fonts, and nothing on it is only decoration.
+- **Explaining it to the consultant,** as you asked:
+  - her priming covers what the board is for, the wording rule, reactions and the headline;
+  - her tool manual covers the operations;
+  - her per-turn notice reports what the client did on the board, without starting a turn;
+  - she announces board changes in one line;
+  - "Getting to know you" is finished once the board meets its finish line;
+  - builder briefs that touch the words carry the headline and the hearted notes.
+
+**Prompt change, committed as `5ea02ca365`:**
+- **The consultant's role:** she's an expert offering what a template can't. "Professional" is the minimum, not the goal. She asks more than she tells: she says what she needs and why, never what the client doesn't know.
+- **The "Getting to know you" finish line** now includes what's true of the business that isn't true of its competitors, in the client's own words, and that the client recognises it. The honest fallback is kept: if there's nothing, she says so and the site aims to be the most trustworthy and easiest to contact.
+- **New "Getting the story" guidance:**
+  - ask for stories, not adjectives, one at a time;
+  - explain why she's asking;
+  - use the comparison sites to make the point;
+  - ask early what material they already have, such as reviews, photos, a logo, an old site or flyers;
+  - look up their reviews herself.
+- **The rubric from DOC-48:** the swap test, the headline test, one thing only they could say, real proof, the main action in the first screen, and restraint. She applies it after the first draft and before publishing.
+- **Tests:** the 11 priming and plan test files (90 tests) pass.
+
+**Moved to REQ-408:** the plan check that forces the self-review: *"Honestly, the weakest part of the site right now is …. Shall I …?"*, due at the first draft and before publishing. A REQ-379 test pins the exact list of checks due before publishing, and changing a test needs a ticket, so it couldn't go in the prompt-only commit. Until REQ-408 lands, the rubric is advice only, which Finding 13 says won't reliably happen.
+
+**Something you should know:** two other REQ-379 cadence tests already fail on xgd-working without my change. They check that "are we happy with the layout?" falls due after the first and later builder sessions. I've noted that on REQ-408, but nothing owns the fix yet.
+
+The prompt change reaches your dev server on the next `bin/deploy --env dev`, so it can be tried on your next business. REQ-408 itself gets built in its own session.
 
 <!-- xgd-chat-end -->
