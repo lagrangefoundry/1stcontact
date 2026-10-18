@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:16:35.188058+00:00'
+updated_at: '2026-10-18T12:17:09.391970+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -85,5 +85,33 @@ Each stage in our flow should have corresponding guidance to the consultant so w
 The Finishing Touches section is important. It is a place where our process can differentiate itself. This is where the consultant can get creative - if that is appropriate. Motion is kind of "expected" on a modern site so I don't consider that to be particularly differentiating. But the point is Bob doesn't really know all this. He doesn't know to ask for "motion" he just knows that his site looks flat and unfinished. The consultant needs to prompt him for that.
 
 Another way to say this - the consultant needs to have an idea for each stage what DONE looks like, and work with the client to get to DONE. A discussion of motion and other possible "special effects" should be part of getting to DONE for Finishing Touches
+
+<!-- xgd-turn id="92c5a653-726b-42c5-bfec-6d0681044cc4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T12:17:08.407427+00:00" -->
+#### Claude
+Yes, agreed. I was treating this as one missing check when it's really a missing idea: the consultant has no picture of what "done" means for each stage.
+
+**What exists today.** Each stage in `plan-seed.json` has a label and a one-sentence `about`, but that sentence is written for the client and shown on the progress banner. The consultant's priming (the `plan-panel` paragraph in `priming.json`) only says to start a stage with `set_stage` and "tick it done when the client agrees it is". Nothing tells her what "done" should contain, so she waits for Bob to ask. Bob can't ask for something he doesn't know exists; he just feels the site is flat.
+
+**Proposed fix: prompt text only.** Add a short paragraph to the consultant priming, after `plan-panel`, giving her the definition of done for each stage and her job of steering the client there:
+
+> Each stage has a finish line, and getting the client to it is your job. They can't ask for what they don't know exists.
+> - **Getting to know you**: you can say in two sentences what the business does, who it's for, what the site must do and what "good" means to them, and they agree.
+> - **Looking at other sites**: they've reacted to real sites in their trade, likes and dislikes, and you can name the direction they chose.
+> - **First draft**: a real first version is in the preview and they've looked at it.
+> - **Refining**: they're happy with the pages, the words and the pictures, and nothing still "feels off".
+> - **Colours & fonts**: they chose the colours and lettering from options they saw; nothing is left as a default.
+> - **Finishing touches**: this is where the site goes from correct to finished, and where we stand out. Bring up what a novice won't think to ask for: motion first (gentle fade-ins as they scroll, a slight lift on buttons; the top banner stays still, nothing slides or spins), then anything else that would lift this particular site, if it suits it. They should see each one and say yes or no. To see motion, tell them to use **"Open in new tab"** beside the preview. **"View on your phone"** shows the scroll fade-ins but not the hover effects. Then check every page, link and form, plus the favicon and share card.
+> - **Ready to publish**: they say go.
+
+**What this means for the earlier findings:**
+- The `revision_once` trigger is still dead data, so `motion_offer` never falls due. With this guidance in place it doesn't matter much. I'd leave it alone, or delete that one seed line if you'd rather not keep a check that can't fire.
+- No code changes and no UAT, because this is prompt text. One edit to `priming.json`, made in both the `priming` and `priming_without_corpus` variants, which duplicate the stage text.
+- The stage list and the "done" lines are side by side in `plan-seed.json`, but the "done" text lives in `priming.json`. A comment in each file would say they change together.
+
+Two questions before I touch anything:
+1. Is the wording roughly right, especially Finishing touches? Do you want her more or less adventurous on "anything else that would lift this particular site"?
+2. Should I update the REQ-405 ticket body to this "each stage has a finish line" scope? Its title is narrower (motion and "Open in a tab"); I'd keep the title unless you want it changed.
 
 <!-- xgd-chat-end -->
