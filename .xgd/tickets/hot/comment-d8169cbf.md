@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:17:13.999108+00:00'
+updated_at: '2026-10-18T22:17:48.369578+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8888,5 +8888,37 @@ Once it lands, your next run with looks or a multi-section page should show buil
 <!-- xgd-chat role="user" ts="2026-10-18T22:17:10.781528+00:00" -->
 #### You
 Help me with where we should go with REQ-409?
+
+<!-- xgd-turn id="120b3656-52cb-4477-bd3f-43d6943f04c0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T22:17:46.826922+00:00" -->
+#### Claude
+I'll check where REQ-409 and the tickets it depends on stand now.
+
+My recommendation: **don't build REQ-409 yet. Run one more business first, and let the numbers decide.** Almost everything it was a symptom of has now been fixed:
+
+| what REQ-409 asked for | fixed by | status |
+|---|---|---|
+| messages you type mid-run reach her | BUG-224 | landed |
+| plain-language progress while she works | BUG-215 | landed |
+| checks that pass when they're false; fixes rewriting other copy | BUG-225 | landed |
+| a builder ending with no report | BUG-212 | landed |
+| builders running one at a time | REQ-410 landed; **REQ-411 in progress** | — |
+
+The four repair passes that prompted REQ-409 came mostly from builders reporting false passes, which forced her to re-check, and from builders queueing behind each other. A "first-draft mode" built now would be designed around problems that may no longer exist.
+
+**What I'd measure on the next run**, once REQ-411 has landed and you've run `bin/deploy --env dev`:
+1. **Repair passes:** how many builders run after the first draft before she hands it to the client.
+2. **Length of the first-draft turn**, and whether it ran out of its time or call budget.
+3. **Overlap:** whether builders on separate sections actually ran at once.
+4. **Mid-run messages:** whether something you type during the build reaches her before she finishes.
+5. **Progress:** whether what you see while you wait reads as quality control rather than something going wrong.
+
+**Then decide:**
+- **If the first draft finishes in one turn with at most one repair pass**, close REQ-409 as covered.
+- **If it still needs several passes or hits its budget**, build the narrow version: she may continue a first draft into one follow-up turn of her own, only to pass her own checks, never for a taste decision, with a fixed cap and you told why she's carrying on.
+- **If progress still reads as things going wrong**, add a step count ("step 2 of about 4") to BUG-215's working line. That's small enough to be a prompt-and-UI tweak under REQ-409 instead.
+
+Shall I write this measure-then-decide plan into REQ-409, so it stays parked at `draft` with clear criteria?
 
 <!-- xgd-chat-end -->
