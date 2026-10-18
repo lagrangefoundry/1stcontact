@@ -6,7 +6,7 @@ title: 'Consultant guidance: offer motion unprompted, and tell the client to use
   in a tab" to see it'
 created_by: xgd
 created_at: '2026-10-18T00:32:51.422686+00:00'
-updated_at: '2026-10-18T12:20:16.900268+00:00'
+updated_at: '2026-10-18T13:05:13.760630+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -40,3 +40,6 @@ Reframed: the real gap is that the consultant had no idea what DONE looks like f
 - Not changed: the motion_offer check's trigger revision_once is never fired by the host, so it never falls due. Left alone, because the stage guidance now covers it.
 
 Commit: 533cdd9fe854d9d3a5f2f86c482c7d156dac025a. Priming and plan UATs pass (11 files, 75 tests).
+
+
+- Follow-up: the motion_offer check's trigger is now revision_round_finished, not revision_once, in plan-seed.json (commit 7763c25e1c16451cf818555b69cea0ddc7607bb9). It falls due after the first round of changes, usually in Refining. That is earlier than Finishing touches; the operator chose it to see how it plays out in practice. Tying checks to a stage starting would need a small host change and wasn't done. This seed edit applies only to plans created from now on.
