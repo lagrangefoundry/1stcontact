@@ -114,6 +114,13 @@ const REWRITE = {
   path: '0.0',
   node: { kind: 'text', text: 'Built for the trades', axes: { fontSizePx: 56 } },
 }
+/**
+ * What a builder that writes the home page is commissioned with ([[REQ-397]]):
+ * a builder may overwrite an existing draft file only if its Delegate call names
+ * it, so without this its `set_l1` is refused and it honestly reports writing
+ * nothing ([[BUG-222]]).
+ */
+const HOME = ['home.json']
 /** A builder that writes the site and reports. */
 const BUILDS: ModelStep[] = [
   calls('set_l1', REWRITE),
@@ -145,7 +152,7 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
 
     const client = twoSided(
       [
-        calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }),
+        calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE, scope: HOME }),
         calls('Delegate', { role: BUILDER_ROLE, goal: 'Tidy the footer.', note: 'Tidying the footer.' }),
         says('The home page is built.'),
       ],
@@ -185,7 +192,7 @@ describe('REQ-379 — the consultant says so before it goes quiet', () => {
     const out = await turn(
       sessionId,
       'Build it.',
-      twoSided([calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }), says('Built.')], BUILDS),
+      twoSided([calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE, scope: HOME }), says('Built.')], BUILDS),
     )
     const said = out.frames.filter((f) => f.kind === 'text').map((f) => f.content).join('')
     expect(said).toContain(NOTE)
@@ -200,7 +207,7 @@ describe('REQ-379 — milestones fall due as facts', () => {
     await turn(
       sessionId,
       'Build my site.',
-      twoSided([calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }), says('Built.')], BUILDS),
+      twoSided([calls('Delegate', { role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE, scope: HOME }), says('Built.')], BUILDS),
     )
 
     const stored = await storedPlan(key)
@@ -249,7 +256,7 @@ describe('REQ-379 — milestones fall due as facts', () => {
     // Each session writes something new, so each is a session that wrote the site.
     const build = (text: string): ScriptedClient =>
       twoSided(
-        [calls('Delegate', { role: BUILDER_ROLE, goal: 'Change the page.', note: NOTE }), says('Done.')],
+        [calls('Delegate', { role: BUILDER_ROLE, goal: 'Change the page.', note: NOTE, scope: HOME }), says('Done.')],
         [
           calls('set_l1', { ...REWRITE, node: { ...REWRITE.node, text } }),
           calls('ReportResult', { summary: 'Changed the headline.', changed: ['home'] }),
