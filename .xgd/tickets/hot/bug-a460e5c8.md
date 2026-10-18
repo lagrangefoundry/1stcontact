@@ -6,10 +6,10 @@ title: 'A `control: "button"` node outside a component renders nothing, but vali
   and raises no attention'
 created_by: xgd
 created_at: '2026-10-17T23:09:17.687277+00:00'
-updated_at: '2026-10-18T11:47:15.696153+00:00'
+updated_at: '2026-10-18T11:47:23.223938+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,14 @@ fields:
   epic_parent: epic-95bc3b15
   severity: high
   chat_comment: comment-294aa8bc
+  commits:
+  - working_sha: 02476da0996387f8d64976789ee0782dbd2509f3
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1739e5c75474fb67e539462a8facf07070d33b18
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.528
 ---
 
 ## What happened
