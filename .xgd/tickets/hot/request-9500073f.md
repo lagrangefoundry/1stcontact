@@ -6,9 +6,9 @@ title: 'Builder scopes: page style is claimed only when named, so a page-scoped 
   can''t repaint the page'
 created_by: EPIC-24
 created_at: '2026-10-18T00:44:30.660563+00:00'
-updated_at: '2026-10-18T00:51:35.817454+00:00'
+updated_at: '2026-10-18T00:56:44.172523+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: medium
@@ -47,3 +47,30 @@ A builder session may change a page's **style** only if its scope names the styl
 - `home.json#style` held by one builder → a second delegation naming it is refused `scope_held`, and one naming only `home.json` is allowed;
 - a client page-style edit while a builder holds `home.json#style` → 409 naming the holder.
 Regression: REQ-396 and REQ-397 UATs, BUG-219 UAT.
+
+
+
+## As built: implementation decisions
+
+- **Name: `home.json#style`**, as proposed. It cannot collide with a section, because `style` is now a reserved section id: `sectionProblem` refuses a page with a top-level element called `style` ("would share its name with the page's style"). So such a page can't be decomposed, and no write can add a section with that id.
+- **One enforcement point, REQ-397's store decorator.** `leased-store.ts` splits every stored page value (whole page or frame) into two units. The **body** (`home.json`) is everything except the L1 document keys other than `root`. The **style** (`home.json#style`) is exactly those keys: `widths`, `background`, `textColor`, `resources`, `column`, and any key added to the document later. A write touches the style file only if it changes a style key. So `set_page_style`, `use_font`, and any whole-page/frame write with a changed style key are all covered without changing any edit function. Since the per-file compare-and-set uses the same units, the style is compare-and-set like every other file.
+- **Scopes.** `scopeFiles` is unchanged in behaviour: a page name expands to the page and its sections, and never adds `#style`. `home.json#style` is already a valid draft file name and is claimed only when named. The "not a draft file name" message now lists it.
+- **Refusal.** `NOT_IN_SCOPE`, `file` = `home.json#style`. The message is: "This changes the page style of `home.json` (`background`), and `home.json#style` is not in this session's scope (…); nothing was written. To colour one section, fill that section's own box. Ask for `home.json#style` only when the brief changes the page itself." It lists every changed key.
+- **Implicit writers** (consultant, client, system) lease `#style` only when their write changes the style. So a client page-style edit is refused `FILE_HELD`, naming the holder, while a builder holds `#style`, and is free while a builder holds only the page body. The router's existing `DraftFileRefusal` handler turns that into a 409. No client route writes page style today: `/api/palette` writes `site.json`. Any future one gets this for free.
+- **Priming.** The `delegation-files` text (shown wherever scopes are enforced) lists the style file and adds: "Naming a page claims the page and every section it has now, but not its style: name `home.json#style` only when the brief asks for a change to the whole page, never to colour one section."
+- **Gating** is REQ-397's. Builders are scoped only when the installed Delegate has `scope` (lagrange-framework REQ-207). Until then a builder write is implicit, so this refusal doesn't fire, and BUG-219's containment record is the protection.
+
+## As built: UATs
+
+`tests/test_UAT_FC_REQ-406_page_style_scope.test.ts` (node; real L1 operations, real lease decorator, real `claim` hook, memory store). These cases call the claim hook directly, as REQ-397's node cases do, so they always run and need no `skipIf`:
+- a builder scoped to `home.json` (undecomposed) is refused `NOT_IN_SCOPE` on `set_page_style` and on `use_font`, the message names the key(s) and the guidance, and the stored draft is byte-identical;
+- the same builder colours its header by filling the section's own box via `set_l1`; the page background is untouched;
+- a whole-page write that changes `textColor` and `widths` is refused, naming both, and writes nothing;
+- on a decomposed page, `home.json` claims the frame and its sections but not `#style`, and `set_page_style` is refused;
+- a builder scoped to `home.json` + `home.json#style` repaints the page;
+- a section can't be called `style`;
+- a held `#style` refuses a second claim on it, while a claim naming only `home.json` succeeds (holding one doesn't hold the other);
+- a client page-style edit is refused `FILE_HELD`, naming the builder that holds `#style`, and is allowed while a builder holds only the page body;
+- priming names the style file and when to commission it.
+
+Regression run: REQ-396 (node + workers), REQ-397 (node + workers), BUG-217, BUG-219, REQ-175, REQ-313, REQ-342, REQ-343, all green. REQ-295's `test_UAT_FC_REQ-341_a_worker_may_manage_pages…` fails the same way on a clean xgd-working checkout, so it isn't caused by this change.
