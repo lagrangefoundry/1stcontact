@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:47:55.102782+00:00'
+updated_at: '2026-10-18T13:04:55.018543+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -190,5 +190,11 @@ Tying it to Finishing touches is the right moment, but it isn't quite what my su
 The rule works for any stage, so other checks could later be tied to stages the same way with a data edit. That's about 10 lines in `plan-core.ts`, the seed edit, and one test. Because it's code, it goes through the full free-coded cycle on this ticket: a separate branch, a test, the version bump, then `free_coded`.
 
 Shall I go ahead with the Finishing touches version?
+
+<!-- xgd-turn id="ee7679dc-88d1-4f19-a299-956ad38f0060-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:04:54.372961+00:00" -->
+#### You
+Lets go with your suggestion and see how it falls out in practice
 
 <!-- xgd-chat-end -->
