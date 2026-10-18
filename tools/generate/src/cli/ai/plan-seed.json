@@ -116,7 +116,7 @@
     { "id": "settled_before_fan_out", "question": "Before we build the other pages: are voice and layout settled?", "triggers": ["before_fan_out"] },
     { "id": "seen_on_phone", "question": "Have we looked at it on a phone?", "triggers": ["before_publish", "mobile_audience"] },
     { "id": "scroll_feel", "question": "How does it feel to scroll through?", "triggers": ["before_publish"] },
-    { "id": "motion_offer", "question": "Would some motion help here?", "triggers": ["revision_once"] },
+    { "id": "motion_offer", "question": "Would some motion help here?", "triggers": ["revision_round_finished"] },
     { "id": "ready_to_publish", "question": "Ready to publish? Links, contact routing, share card, favicon", "triggers": ["before_publish"] }
   ]
 }
