@@ -6,10 +6,10 @@ title: 'Site tab Edit mode: click a selected picture to open the photo editor fo
   that use; every site image has a Library item'
 created_by: EPIC-19
 created_at: '2026-10-17T23:11:37.210282+00:00'
-updated_at: '2026-10-18T00:41:41.626786+00:00'
+updated_at: '2026-10-18T01:05:26.998703+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5a27fef3
+  commits:
+  - working_sha: 5ea367833b3c585a0b1273e6b0075ca5cc2621f4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3bf4bba511e748d9d67560936ecfc3d02e10210c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.527
 ---
 
 ## What changes
