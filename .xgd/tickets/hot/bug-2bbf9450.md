@@ -6,17 +6,16 @@ title: 'Plan stages: starting a later stage resets an unticked earlier one, and 
   panel then shows it as "skipped"'
 created_by: xgd
 created_at: '2026-10-18T00:29:54.871057+00:00'
-updated_at: '2026-10-18T14:37:18.334435+00:00'
+updated_at: '2026-10-18T14:37:19.599857+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-97a3fe1f
 ---
-
 
 ## What happened
 The consultant called `set_stage(getting_to_know_you, in_progress)` at the start of intake. Later it called `set_stage(other_sites, in_progress)` without first ticking `getting_to_know_you` as `done`. As documented, `set_stage` put the earlier stage back to `not_started` (the result said `"moved_from": "getting_to_know_you"`). The following stages were then ticked `done` in order.
