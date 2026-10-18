@@ -6039,3 +6039,16 @@ body {
     transition: none;
   }
 }
+
+/*
+ * [[BUG-224]] — A MESSAGE SENT WHILE A TURN RUNS SAYS WHAT IS HAPPENING TO IT.
+ * The panel marks it pending until the consultant has it (delivered at her next
+ * step, or run as the next turn); pale on its own reads as "not sent".
+ */
+.builder-chat .chat-message.user.is-pending::after {
+  content: 'Sent — I’ll see this when I finish the current step';
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-style: italic;
+}

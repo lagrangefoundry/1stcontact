@@ -819,14 +819,31 @@ export async function openSettingsSession(fetchImpl = fetch) {
  * rather than in the panel because it is transport, and the panel is deliberately
  * transport-agnostic.
  */
-export async function* streamChatPrompt(sessionId, text, view = null, fetchImpl = fetch) {
+export async function* streamChatPrompt(sessionId, text, view = null, fromMessages = [], fetchImpl = fetch) {
   yield* postEventStream(
     scoped('/api/ai/prompt'),
     // [[REQ-388]] — the width the client is viewing the draft at, when known.
-    { sessionId, text, ...(view ? { view } : {}) },
+    // [[BUG-224]] — the waiting messages this prompt delivers, when it is one.
+    { sessionId, text, ...(view ? { view } : {}), ...(fromMessages.length > 0 ? { fromMessages } : {}) },
     'the assistant failed',
     fetchImpl,
   )
+}
+
+/**
+ * [[BUG-224]] — the client wrote while a turn was running. The origin keeps the
+ * message and the running turn takes it at its next tool call; answers the id
+ * the delivery is matched by. Throws on refusal, which leaves the panel holding
+ * the message to run as the next turn.
+ */
+export async function interposeChatMessage(sessionId, text, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/interpose'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId, text }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/interpose → ${res.status}`)
+  return (await res.json()).messageId
 }
 
 /**
