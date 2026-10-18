@@ -1,3 +1,4 @@
+import { platformFontTarget } from '@1stcontact/site-schema'
 import { renderSiteFiles, type RenderedSite } from '../render/render'
 import { assembleSite, type LoadResult } from '../store/assemble'
 import type { SiteStore } from '../store/site-store'
@@ -264,6 +265,12 @@ export class PreviewRenderer {
   }
 }
 
+/** Where the platform font mirror is read from — the shape the `/preview` route's reader has. */
+export interface PreviewFontReader {
+  /** The mirrored bytes at a mirror-relative path, or `null` when absent. */
+  read(path: string): Promise<Uint8Array | null>
+}
+
 /** A definition to render, its cache stamp, and its own asset lookup. */
 interface PreviewSource {
   result: LoadResult
@@ -300,8 +307,19 @@ interface PreviewSource {
  * `published` shot is not served here on purpose: published bytes live on
  * public-site's own host, which no Access policy covers, so the browser simply
  * fetches them.
+ *
+ * `fonts` IS THIS ORIGIN ANSWERING FOR `_fonts/…` ([[BUG-227]]). A page's font
+ * `src` resolves against its own directory, so the browser asks this host for
+ * `/preview/<slug>/<channel>/_fonts/…` — and the renderer holds no such file,
+ * so without the mirror every platform face 404'd and every picture of our own
+ * page was in a fallback. It is the reader the `/preview` route serves from, so
+ * a screenshot and the operator's browser are answered from the same bytes.
  */
-export function previewOriginResolver(renderer: PreviewRenderer, host: string): OriginResolver {
+export function previewOriginResolver(
+  renderer: PreviewRenderer,
+  host: string,
+  fonts?: PreviewFontReader | null,
+): OriginResolver {
   return {
     host,
     async file(pathname: string): Promise<OriginFile | null> {
@@ -314,6 +332,11 @@ export function previewOriginResolver(renderer: PreviewRenderer, host: string): 
       // process cannot be answered by an Access challenge, and shooting one
       // against a public URL would only work after it had been published live.
       if (channel !== 'draft' && channel !== 'edit' && revisionIdOf(channel) === null) return null
+      const fontPath = fonts ? platformFontTarget((match[3] ?? '/').replace(/^\/+/, '')) : null
+      if (fonts && fontPath) {
+        const bytes = await fonts.read(fontPath)
+        return bytes ? { status: 200, contentType: contentTypeOf(fontPath), body: bytes } : null
+      }
       const file = await renderer.file(slug, channel as PreviewChannel, match[3] ?? '/')
       if (file === null) return null
       return { status: 200, contentType: file.contentType, body: file.body }

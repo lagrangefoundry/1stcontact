@@ -52,7 +52,7 @@ import {
   upstreamFamilyExists,
   UpstreamError,
 } from './upstream'
-import { roundTripDifferences, sfntToWoff2 } from './woff2'
+import { roundTripDifferences, sfntToWoff2, woff2FramingProblem } from './woff2'
 
 /** Where the generated platform tier lives, relative to the repo root. */
 export const MANIFEST_REL = path.join('fonts', 'platform.json')
@@ -349,10 +349,13 @@ function mirrorFamily(options: MirrorFamilyOptions): PlatformFontFamily {
     // upstream bytes are the ones this manifest was built from AND the staged file
     // is still exactly what the manifest says it is. Either half failing means the
     // work has to be redone — a half-written `woff2` from an interrupted run is the
-    // case the second half exists for.
+    // case the second half exists for. A file a browser would refuse is not
+    // intact however well its digest matches ([[BUG-227]]): one staged by the
+    // encoder before it padded its output is redone here, not carried forever.
     const carried = previousByPath.get(relPath)
     if (carried && carried.upstream_sha256 === upstreamDigest && pathExists(target)) {
-      if (sha256(readFileSync(target)) === carried.sha256) {
+      const staged = readFileSync(target)
+      if (sha256(staged) === carried.sha256 && woff2FramingProblem(staged) === null) {
         files.push(carried)
         options.onUnchanged()
         continue
