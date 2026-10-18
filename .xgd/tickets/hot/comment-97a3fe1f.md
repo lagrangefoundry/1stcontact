@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-221
 created_by: xgd
 created_at: '2026-10-18T12:17:51.924343+00:00'
-updated_at: '2026-10-18T12:20:05.754622+00:00'
+updated_at: '2026-10-18T14:36:48.777185+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -55,5 +55,11 @@ The panel isn't really the problem. It works from what `set_stage` left behind, 
 **Scope:** auto-tick plus the nudge is a small change in `plan-core.ts` and `plan-surface.json`. Tests would cover the original repro (stage 1 ends up `done`, so the panel no longer says skipped), moving backward still resetting, and the nudge appearing when a stage was passed over. Nothing is needed in the panel. Plans already stuck in this state can't be told apart from real skips. For this client, the consultant can just call `set_stage(getting_to_know_you, done)`.
 
 If you agree, I'll write this into the BUG-221 body (keeping what's there) and start coding. Or tell me if you'd rather the forward move ask first instead of ticking automatically.
+
+<!-- xgd-turn id="70917e82-2482-4e51-bf7e-459685c1a4bc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T14:36:48.194211+00:00" -->
+#### You
+Agreed
 
 <!-- xgd-chat-end -->
