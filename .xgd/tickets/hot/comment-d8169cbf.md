@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T17:05:21.152838+00:00'
+updated_at: '2026-10-18T18:44:31.051533+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8577,5 +8577,11 @@ All of those are configuration faults that wouldn't clear on a retry, so none of
 2. **The chat should cope with a transient failure.** When opening the conversation fails with a 503, the builder retries once after a short delay before showing an error, and says *"Reconnecting…"* rather than showing an error code. If the cold-start hypothesis is right, users will hit this after every deploy.
 
 Shall I file it under EPIC-19?
+
+<!-- xgd-turn id="ce807425-52ed-4727-9ffa-66f8bd0b5409-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T18:44:30.496626+00:00" -->
+#### You
+Is the parallelism we introduced for builders working?
 
 <!-- xgd-chat-end -->
