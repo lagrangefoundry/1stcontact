@@ -6,10 +6,10 @@ title: 'Site editor: friendly ''section being updated'' message instead of build
   id/UTC'
 created_by: martin-github@westhead.me
 created_at: '2026-10-17T22:56:15.773287+00:00'
-updated_at: '2026-10-17T23:03:25.003298+00:00'
+updated_at: '2026-10-18T00:09:54.946149+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
