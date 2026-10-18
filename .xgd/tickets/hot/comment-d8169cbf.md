@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T14:33:10.062162+00:00'
+updated_at: '2026-10-18T14:35:16.857240+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8503,5 +8503,26 @@ The prompt change reaches your dev server on the next `bin/deploy --env dev`, so
 <!-- xgd-chat role="user" ts="2026-10-18T14:33:07.833219+00:00" -->
 #### You
 Can you create a bug to fix the tests please?
+
+<!-- xgd-turn id="65ff9c22-8f0c-4608-b200-cbc23d6ccf40-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T14:35:14.888301+00:00" -->
+#### Claude
+I'll get the failure details first so the bug says what's actually wrong.
+
+Both fail because the host never records a completed builder session. Finding where that's detected.
+
+Still tracing it. The milestone only fires when a builder's result carries `wrote: true`, a flag our account code adds. I'm filing the bug with that lead now.
+
+I've filed **BUG-222**, *"Plan cadence: a builder session that wrote the site no longer records the first-pass or revision-round milestone"*. It's under EPIC-19 at `draft`, high severity, 2 points, and I've added it to the epic.
+
+This is probably more than a broken test. The two failing tests check that a finished builder session records "first draft done" and then "a revision round", and those records are what make the consultant's milestone questions come due: "are we all happy with the layout?", "does this meet your quality bar?", "would some motion help?". If the product behaves like the test, those questions have quietly stopped appearing. That's exactly the kind of prompt we've learned only happens when the system forces it.
+
+**What I found:** the milestone fires only when a builder's result is marked as having written to the site. That mark isn't the framework's; our own code adds it after a builder session, and only when the session has a record of what it changed. The ticket gives three likely causes, in order:
+1. Our marking code no longer runs before the code that records the milestone looks at the result.
+2. The builder session's result no longer includes what it changed. The framework changed its delegation code on Oct 15, which would be the obvious suspect.
+3. The test feeds in a result in an outdated shape, and the product itself is fine.
+
+The ticket asks for the real cause to be found and fixed, not for the tests to be loosened. The fix gets written in BUG-222's own session.
 
 <!-- xgd-chat-end -->
