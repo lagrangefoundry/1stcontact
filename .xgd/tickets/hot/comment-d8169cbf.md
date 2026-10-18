@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:03:40.683795+00:00'
+updated_at: '2026-10-18T13:05:27.148264+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8154,5 +8154,64 @@ Actually, in some ways we have the start of this it is the what you've told us s
 What would make it fun would be to have these quotes arranged on little graphical Post-it notes or and to have cartoon pictograms and arrows that connect them. I'm not sure if working toward that makes sense I am just throwing it out as a concept.
 
 Also there is material that was generated, that the consultant never asked me for. For example we generated testimonials. They have not been put on the site. Take a look in the example-businesses/bobs-salon folder - a lot of that material was unused.
+
+<!-- xgd-turn id="c1a0a3e4-1523-42b1-bc3c-1a9d53558b84-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:05:24.409152+00:00" -->
+#### Claude
+I'll look at what's in the Bob's Salon folder and what actually reached the site.
+
+Now checking which of this reached the Library and the site.
+
+Your role-play files explain a lot. Of the ten reviews in `testimonials.md`, none reached the site, because the consultant never asked whether Bob had any. That points at the same gap as your whiteboard idea.
+
+## What went unused
+
+- **Reviews.** Ten specific ones: Danny's half inch, the firefighter's cut that works under a helmet, the Wigs for Kids daughter, and Eileen, who is Bob's mother. None of them reached the conversation. The consultant even told Bob *"none of your competitors show proof from real clients… your Wigs for Kids wall alone beats all of them on that"*, then never asked whether he had reviews of his own. Every real small business has some on Google or Yelp.
+- **The best story lines.** "Growing it out, I'll plan it with you a year ahead", "What I did last week", and *"When they get up, they're not scared anymore. That's the job."* She never asked anything they would answer.
+- **What did arrive** got there because you pasted it unprompted: the canon facts, the menu, and Dolores, mixed into your reaction to the comp sites.
+
+To be fair to her, your README says material only counts once Bob says it in character, so she couldn't know about files nobody mentioned. But that's exactly the real situation. **She has no checklist of what a business usually already has** (reviews, photos of the work, the team, a logo, an old site, social pages, flyers, a price list), so she never asks for any of it. It's a cheap fix: one early question about what material the business has, plus searching the web for their reviews, which she can now do.
+
+## The expert framing
+
+Yes, with two adjustments.
+
+- **State the bar, not just the title.** "You're a top web designer" on its own mostly makes a model more confident, not better. Pair it with the job: *"a site that could only be this business, which a template cannot do."*
+- **"Professional" is the floor, not the aim.** Every template site already looks professional, and aiming there is the corporate trap you described. It's fine for her to tell a client their site will look professional, but she shouldn't make it the goal.
+
+One risk: an "expert" persona will make the condescension you noticed worse. So the same paragraph should say that **experts ask more than they tell**.
+
+## The story board: I think you're right
+
+It's a better idea than my draft-as-interview, and it answers your concern about it.
+
+- **Nothing on it can be made up.** A note is the client's own words, quoted and pinned, while a draft has invented copy. A novice looks at their own sentences and sees they were heard, instead of seeing AI text that's wrong about them. That's the property that makes it safe early.
+- **It's the listening, made visible.** That addresses "I'm talking to an AI, why would I tell it my story?" Each answer appears as a note on the board, which is the reward for telling it. The board filling up is progress the client can see in the stage that currently shows them nothing.
+- **It goes in the empty preview.** Before a draft exists the preview is a grey panel saying the site will appear there. That's the right space at exactly the right time. After the first draft, the board stays one click away. It's the record the copy is written from, not something you use once and lose.
+- **It's separate from "What you've told us".** That section holds facts (phone, hours, prices). The board holds the story, with three kinds of note:
+  - **quotes**, word for word, such as *"Long hair is long hair, it doesn't know if you're a boy"*;
+  - **proof**, such as a review or the Wigs for Kids wall;
+  - **people**: Bob, his mother, Marisol, Twee and Aoife.
+- **The consultant groups them into themes**, such as "Long hair, kept long", "Priced by the hair, not the person" and "The neighbourhood". At the centre goes one card: her draft of what makes them different.
+- **The client reacts to the notes**: a star for "that's us", a cross for "not that". A starred centre card is the finish line for "Getting to know you" that REQ-405 lacked: the client recognising themselves, which is DOC-33's Stage 2 gate, now visible.
+- **It feeds the build.** Copy is written from starred notes, and the rubric's "one thing only this business could say" test is checked against the centre card.
+
+**On making it fun:** Post-its are cheap and worth it. That means a yellow paper colour, a handwriting font, slight random tilts, and a small icon on each note for its kind (quote, proof, person). Arrows from each note to its theme and from each theme to the centre are a simple drawing job. What I'd keep out of the first version is a free canvas where notes can be dragged anywhere: that's a big UI build for little gain. Clusters around a centre give you the whiteboard feel without it. Hand-drawn pictograms per theme could come later from image generation, but icons are enough to begin with.
+
+## How I'd split it
+
+- **Prompt and seed changes, no code:**
+  - the expert framing and its bar;
+  - the new finish line for "Getting to know you";
+  - asking for stories, not adjectives;
+  - the "what have you already got?" question, plus searching for reviews;
+  - the rubric, with the host-triggered review at first draft and before publishing;
+  - the register rule.
+
+  These could go into your next run straight away.
+- **One REQ for the story board:** where it's stored in the plan, the consultant's operation for pinning and grouping notes, the board in the preview, and starring and crossing out.
+
+Do you want me to make the prompt changes directly so the next run uses them, and file the story-board REQ under EPIC-19?
 
 <!-- xgd-chat-end -->
