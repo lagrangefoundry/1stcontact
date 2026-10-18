@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:22:08.701846+00:00'
+updated_at: '2026-10-18T13:22:25.705822+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8238,5 +8238,11 @@ If they click on a theme they can also add a note to it directly.
 <!-- xgd-chat role="assistant" ts="2026-10-18T13:22:07.368363+00:00" -->
 #### Claude
 I'll make the prompt changes first, then file the story-board REQ. Starting with how the priming and plan seed are laid out.
+
+<!-- xgd-turn id="68980ae8-0ddd-4001-9878-233121b3aed1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:22:22.885429+00:00" -->
+#### You
+Wait this is still a discussion - I want to talk through the UX
 
 <!-- xgd-chat-end -->
