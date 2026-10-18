@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-24
 created_by: xgd
 created_at: '2026-10-10T18:20:55.517692+00:00'
-updated_at: '2026-10-18T00:40:58.745358+00:00'
+updated_at: '2026-10-18T00:44:56.305655+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -74,5 +74,27 @@ Everything is left at `draft` for the child sessions to pick up.
 <!-- xgd-chat role="user" ts="2026-10-18T00:40:56.051498+00:00" -->
 #### You
 Please read BUG-219 and its transcript there is an expectation that your scope should cover Gap 2 can you create a ticket for that if it is not covered already
+
+<!-- xgd-turn id="98f8aed7-d97f-494e-a794-4dd6b15e31e5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T00:44:54.753684+00:00" -->
+#### Claude
+Gap 2 isn't covered yet: REQ-397 still lets a builder scoped to a whole page change its style. I'm filing a ticket for it now.
+
+Now I'm adding REQ-406 to the epic's Children list, and fixing the placeholder test filename in the ticket.
+
+Gap 2 wasn't covered, so I've filed **REQ-406: Builder scopes: page style is claimed only when named, so a page-scoped builder can't repaint the page**. It's at `draft`, under EPIC-24, and listed in the epic's Children section. No code has been written.
+
+**Why the existing tickets don't cover it:** in BUG-219, the builder's scope was the whole home page, `home.json`. Under REQ-397, naming a page in the scope gives the builder that page, all its sections and its page-wide settings (its frame). So the builder holds the file the page style lives in, and the same "repaint the whole page to get one section right" change would still be allowed. Only a builder scoped to individual sections of a split page is refused today. REQ-396 and REQ-397 are both at `ready_to_reconcile`, so their bodies can no longer be changed, which is why this is a new ticket.
+
+**What REQ-406 sets out:**
+- **A separate scope unit for page style.** The page style (background, text colour, widths, fonts, column) becomes its own unit, provisionally `home.json#style`, on both split and unsplit pages. Naming the page doesn't include it; the consultant has to name it on purpose.
+- **Refusal before writing.** Without that unit, `set_page_style`, `use_font` and any `set_l1` that would change a page-style setting are refused before anything is written. The message tells the builder to fill its section's own box instead.
+- **Locking.** The style unit is locked like any other file. The consultant's own edits and the client's hand edits take it automatically.
+- **Consultant guidance.** The consultant's manual and priming tell it to ask for the style unit only when the brief changes the whole page.
+- **When it takes effect.** Like REQ-397's scope checks, it only applies once lagrange-framework REQ-207 is installed. Until then, BUG-219's fixes protect against this: page-style changes now show up in the host's record and fail containment checks, and builders are told to fill a section's own box.
+- **Tests.** The plan covers the refusal, the allowed section fill, the allowed path when the style unit is named, a second builder being refused a held style unit, and a client edit getting a 409.
+
+I left out the "page style is unchanged" check wording, as agreed on BUG-219.
 
 <!-- xgd-chat-end -->
