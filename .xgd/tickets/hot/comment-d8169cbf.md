@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:14:20.696755+00:00'
+updated_at: '2026-10-18T19:26:33.701515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8761,5 +8761,11 @@ The consultant's three tickets are BUG-224, BUG-225 and REQ-409. All three are r
 - **Its first item, a budget for self-correction:** the four repair passes are mainly the other defects showing. Builders passed checks they had failed, a whole-page scope let a fix wander, and builders ran one after another. My recommendation is to fix BUG-225 and REQ-410 first and measure again. If a first draft still can't finish in one turn, what remains is narrow. She may continue a first draft into a follow-up turn of her own, only for her own acceptance checks and never for taste decisions, with a fixed cap, and the client is told.
 
 In priority order I'd take BUG-224, then REQ-410, then BUG-225. Together those cover most of what made this run feel slow and unresponsive.
+
+<!-- xgd-turn id="5d9b6d0a-be0a-4e86-8f91-be8d2c0f7fdd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T19:26:32.138836+00:00" -->
+#### You
+Check BUG-226
 
 <!-- xgd-chat-end -->
