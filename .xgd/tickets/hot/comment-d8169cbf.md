@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:05:27.148264+00:00'
+updated_at: '2026-10-18T13:21:54.202729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8213,5 +8213,24 @@ It's a better idea than my draft-as-interview, and it answers your concern about
 - **One REQ for the story board:** where it's stored in the plan, the consultant's operation for pinning and grouping notes, the board in the preview, and starring and crossing out.
 
 Do you want me to make the prompt changes directly so the next run uses them, and file the story-board REQ under EPIC-19?
+
+<!-- xgd-turn id="40c4b4f7-5d9e-4db3-aca8-04428c2e873d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:21:53.868898+00:00" -->
+#### You
+Yes, lets try it, it sounds fun. Its another mode for the view pane, we have view, edit this is storyboard.
+
+Lets talk about the interaction then I think I heard:
+
+Ai pulls key quotes out of the conversation and drops them on the board
+AI organizes the board into 1-N themes (where N >=6, say). 
+Theme is written on the board posit-notes cluster around the theme - use different colored notes for each theme
+Post-its are given emojis to help characterize them
+I think probably drop the arrows for now
+The notes must be user-entered text, but lets let the AI make grammar shifts to make the quotes make sense (change the person, tense drop unnecessary text etc)
+
+User interaction - users are prompted to interact with the postits:
+Lets say they can heart, thumbs up, thumbs down or delete a note
+If they click on a theme they can also add a note to it directly.
 
 <!-- xgd-chat-end -->
