@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T12:39:06.715056+00:00'
+updated_at: '2026-10-18T12:42:09.201944+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8044,5 +8044,95 @@ How do we square this circle? I'm not sure I'm interested in talking around the 
 A related point here is: is the AI assessing its own work sufficiently? Do we have a rubric for what is a "good" website? What makes a website distinctive? Unique? Effective? We did do some research in this area and have some documents that try to talk to some of these questions but are these ideas baked into what the consultant delivers? Is it reassessing the website as it goes against these criteria to ensure that it is creating a distinctive/unique and effective website for the customer. And if it is not do we know how to circle back and fix?
 
 (Lets focus on this first but I want to drop 2 in as a placeholder 2. People with existing sites - new flow needed)
+
+<!-- xgd-turn id="66bed737-6420-4479-abfb-629b5811b279-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T12:42:08.314707+00:00" -->
+#### Claude
+I'll read REQ-405 and its transcript, then check what the consultant is actually given about story and quality.
+
+Now checking what the consultant is given about story, distinctiveness and judging its own work.
+
+The material is there; the question is whether it reaches the consultant. Checking whether DOC-48 and DOC-33 were actually read in the recent runs.
+
+DOC-48, the document with the "is this generic?" diagnostic, was never opened in either run. Let me see how "getting to know you" actually went on Bob's Salon.
+
+I've read REQ-405 and its transcript, and checked the evidence from your two latest runs. The short version: the guidance on story and quality exists, but none of it reaches the consultant at the moment it matters, and REQ-405's finish line for "Getting to know you" leaves the story out.
+
+## REQ-405
+
+The reframe was right. A finish line for each stage is a better fix than one more check that falls due, and "Bob can't ask for what he doesn't know exists" is the principle behind it.
+
+**My main comment is that the finish line for "Getting to know you" is the wrong one.** As written, the consultant is done once she can say in two sentences what the business does, who it's for, what the site must do and what good means to the client. All four are facts. A Bob's Salon site and a Supercuts site could both meet them. What's missing is the one thing your question is about: **what's true of this business that isn't true of the one down the street.**
+
+That used to be its own stage. DOC-33's Stage 2, "Positioning & differentiation", has the gate *"the client recognises themselves in it"*. Its instruction is plain: *"The AI's job here is interrogation, not generation… do not manufacture a differentiator."* When we collapsed DOC-33's stages into the seven on the progress bar, Stage 2 was dropped and nothing replaced it. Finding 13 had already shown it never ran in LF either.
+
+I'd add a fifth line to the finish line: **you can name, in the client's own words, what's true of them that isn't true of their competitors, and they recognise it.** DOC-33's honest way out should stay too. If there genuinely isn't anything, say so, agree that the site's job is to be the most trustworthy and easiest to contact in the area, and record that as a decision. That's a finish line as well; skipping the question isn't.
+
+One smaller thing: the `motion_offer` check still has a trigger that nothing ever fires. REQ-405 left it in place deliberately, but the data is now dead. It should either get a real trigger or be removed.
+
+## Getting the story out
+
+**What Bob's Salon shows.** The consultant asked one good question, *"Tell me about a typical week at the salon"*. Then you pasted 4,000 characters of background and it went straight to building. The best material, Dolores on Broadway and your mother doing reception, arrived only because you volunteered it, mixed in with your reaction to the competitor sites. When it did arrive, she recognised it at once (*"You've got a real story here"*) and wrote the site around it. So she can work with a story. She just won't go looking for one. A real Bob would have typed "we do cuts and colour, prices are on the board", and she would have moved on.
+
+**So how do we square the circle?** I don't think it's a trade between time spent and quality. Six ideas, roughly in order of cost:
+
+1. **Ask for stories, not adjectives.** "What makes you different?" gets "quality, friendly service", which is the professional-and-corporate answer you're worried about. Questions about a specific episode get stories:
+   - *Why did you start?*
+   - *Who came in last week and left happy?*
+   - *What do you refuse to do that other salons do?*
+   - *What do your customers tell their friends about you?*
+
+   Ask them one at a time, which is already the rule. That's how a journalist interviews, and it costs nothing.
+2. **Use the comps to make the case.** That stage is the natural place to have the conversation. *"All four of these say 'professional, friendly service'. So what's true of you that isn't true of them?"* It shows the client why we're asking, and it answers their pull towards looking corporate with evidence instead of an opinion. That also folds the old Stage 2 into the comps stage rather than adding a stage.
+3. **Explain why she's asking, honestly.** *"I can't walk into your shop, so I need you to tell me what I'd notice if I did."* That helps with the not-talking-to-a-human problem: it gives the client a reason to tell her things.
+4. **Let the draft do the asking.** People react far more easily than they come up with things, which was CHAT-21's point about plausible-but-wrong real English. A first draft carrying a guessed story line, clearly marked as a guess and never published unapproved (REQ-389's guard), gets corrected: *"no, I opened in 2009 after…"*. The draft can come early because it becomes the interview.
+5. **Ask during the waits.** The ten-to-fifteen-minute builds are dead time. Put two or three story questions on the panel as optional free-text answers (REQ-390 added multi-line), and point to them in the status line before a build. That's the parallelism you described: the story gets gathered while the site gets built.
+6. **Read what other people have said.** She has web search now. A real business's Google, Yelp or Facebook reviews are its customers telling its story in their own words, with no typing from the client. She can also suggest voice dictation, since talking is far easier than typing for a story. A microphone button on the composer would be a later product change.
+
+**On her telling Bob what he knows and doesn't know: you're right.** It reads as condescending. The register rule should be to say what she needs and why, never what the client lacks.
+
+## Does she judge her own work?
+
+**No, and the reason is the same one again.** The thinking exists, and it's good. DOC-48 has the diagnostic:
+
+> *"Strip out the copy. Swap the photographs for someone else's. Is the architecture still generic — could this be any business in any industry?"*
+
+It also lists the tells that read as expensive and the ones that read as a template, and it has §12.3, *"A content vacuum, which no amount of design will fill"*, which is your story point exactly.
+
+What happened in practice:
+- **DOC-48 was never opened**, in Bob's Salon or in Charlie 3.
+- **In Bob's Salon she didn't open any document at all.**
+- **Her priming contains none of** *distinct*, *generic*, *unique*, *critique* or *assess*, and "story" appears once.
+
+It's Finding 13 again: guidance that sits in a document she has to go and look up doesn't get used.
+
+What I'd do:
+- **A short rubric in the priming**, six lines distilled from DOC-48:
+  - **The swap test:** take the copy and photos out; could this be any business in any industry?
+  - **The headline test:** would it work for a different trade?
+  - **One thing only this business could say,** visible on the home page.
+  - **Real proof:** photos, names, reviews.
+  - **The client's main action** in the first screen, at every width.
+  - **Restraint:** a held palette and a type system, not defaults.
+- **The host makes her use it.** A review check falls due when the first draft finishes and again before publishing, both triggers that already fire. It asks her to review against the rubric and tell the client the weakest point and what she'd do about it. That turns the "is this really premium?" question you keep having to ask into something the system asks. It's the interrogator role from the Bob discussion, done by the host at fixed points rather than by a second agent.
+- **She acts on what she finds.** If the story test fails, she reopens "Getting to know you". REQ-390 already allows going back a stage, so circling back is a normal move rather than a failure.
+
+A separate critic, such as a cheap second model reading the draft against the rubric, is a possible later step if self-review proves too lenient. I'd start with the self-review the host forces, and measure it first.
+
+## Next step
+
+Almost all of this is prompt and seed data, needing no code:
+- the new finish line;
+- the story-interview guidance, and asking for stories during the comps;
+- the rubric;
+- two review checks on triggers that already fire;
+- the register rule.
+
+The code is the story questions in the status line during builds and, later, voice input.
+
+Shall I write this up as one REQ so you can run it on the next business? The prompt change is small enough that a run tomorrow could show whether she goes looking for the story.
+
+Placeholder 2, people with existing sites, is noted. It's also a story source: their current site, and their reviews, are where the extraction starts.
 
 <!-- xgd-chat-end -->
