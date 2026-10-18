@@ -6,7 +6,7 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T19:27:41.725921+00:00'
+updated_at: '2026-10-18T22:12:26.170952+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -56,3 +56,23 @@ Confirmed: `choose_look` (`plan-core.ts:1802`) copies the look onto the page aft
 4. **Builder priming for looks:** a look changes how the page looks, never what it says; the words and pictures come from the page. (The briefs said this; making it standing guidance for any brief on a look page is cheap.)
 
 The aborted builder at the root of this is BUG-212's case (context budget, no report).
+
+
+## Fix (free-coded)
+
+**What the user sees.** Choosing a look no longer silently changes what the page says. `choose_look` compares the look's words and pictures with the page it would replace. If they differ, it refuses with `CONTENT_CHANGED` and lists the differences, for example: *"Choosing 'Workwear' would change what page 'home' says: 1 picture and 2 pieces of text. On the page now, gone after choosing: …; In the look instead: …"*. The consultant then either has the look's content restored, or tells the client and calls `choose_look` again with `content_changes_seen: true`, which goes ahead. Pure styling differences never trigger the refusal. The same rule applies to every look, including a "Before …" look: if the page was changed after choosing, putting it back reports those changes too.
+
+**What counts as content.** Every text element's words (runs joined, whitespace collapsed) and every picture's `src` and `alt`. These are compared as collections, not by position or element id, so restyling that re-nests, wraps or reorders elements is never reported. A changed `src` or `alt` counts as one changed picture, and so does a picture that was removed or added. Component configuration is not compared.
+
+**Design decisions.**
+- **The page is the baseline.** The ticket's notes suggested recording a baseline at `make_alternatives`. The comparison uses the page's current content at choose time instead. A look starts as a copy of the page, so the two are the same unless the page changed afterwards. If the page did change (the client's wording was edited after the looks were made), choosing the look would overwrite that edit too, and that is exactly the loss being guarded against. No new stored state is needed.
+- **Refuse, then confirm.** Refusing until the consultant passes `content_changes_seen: true` keeps the client in the loop without blocking a look whose different content the client really wants (for example an existing page adopted as a look).
+- **Not done here:** marking a look "incomplete" when its builder was aborted (the third option under Expected). The content check covers the harm this bug caused. A half-styled look remains visible to the client in the carousel.
+- **Builder guidance:** the builder's note on alternatives now says a look changes how the page looks, never what it says, and that words and pictures come from the page.
+
+## Test plan
+`tests/test_UAT_FC_BUG-226_choose_look_content_guard.test.ts`, run through the plan toolbox's `choose_look` against a real site store with looks made by `make_alternatives`:
+- a look that only changed styling is chosen with no refusal;
+- a look with a swapped picture `src` and reworded text is refused with `CONTENT_CHANGED`, names the picture and the text, and leaves the page unchanged;
+- the same look with `content_changes_seen: true` is chosen and its content lands on the page.
+Regression scope: the REQ-391 alternative-looks suites.
