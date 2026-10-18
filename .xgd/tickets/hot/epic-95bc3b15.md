@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T19:36:28.407701+00:00'
+updated_at: '2026-10-18T22:09:58.951921+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2228,3 +2228,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **lagrange-framework REQ-208** (2026-10-18) — a registered `Tool` closure can declare itself `concurrent`; option (a) chosen by the operator for REQ-410's finding. Once it lands, 1stcontact registers its `Delegate` closure concurrent and REQ-410's parallel-builder UAT can be committed.
+
+
+- **REQ-411** — follow-up to REQ-410 now that lagrange-framework REQ-208 has landed: host Tool closures carry their operation's concurrency (`box.concurrent(name)`), the lease context is per call, the parallel priming is offered only where closures can really overlap, and REQ-410's parallel-builder UAT is committed.
