@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T13:05:23.311184+00:00'
+updated_at: '2026-10-18T13:23:19.523779+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -213,5 +213,11 @@ The motion reminder now comes up after the first round of changes finishes. It's
 If it turns out to come up too early, the alternative is tying checks to a stage starting, as discussed. That needs a small code change and isn't done.
 
 As before, the live builder picks this up only after the next `bin/deploy --env dev`.
+
+<!-- xgd-turn id="8c1b84d0-3c36-4b94-a679-e461be81f9ef-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:23:18.345793+00:00" -->
+#### You
+Can you complete the ticket? If there is no code changes you should move it to legacy_done if its finished
 
 <!-- xgd-chat-end -->
