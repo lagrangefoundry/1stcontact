@@ -601,6 +601,20 @@ export function stageBehind(fields: PlanFields): { expected: string; because: st
   return furthest < STAGE_IDS.indexOf(seen[0]) ? { expected: seen[0], because: seen[1] } : null
 }
 
+/**
+ * [[BUG-221]] — the stages the client's panel shows as SKIPPED: not started, and
+ * before the furthest stage that is in progress or done. The same rule as the
+ * panel's `shownStates`, so the consultant hears what the client sees.
+ */
+export function stagesPassedOver(fields: Pick<PlanFields, 'stages'>): string[] {
+  const stages = fields.stages ?? []
+  let furthest = -1
+  stages.forEach((s, i) => {
+    if (s.state !== 'not_started') furthest = i
+  })
+  return stages.filter((s, i) => i < furthest && s.state === 'not_started').map((s) => s.id)
+}
+
 /** Why a check fell due, as the digest says it. */
 const DUE_BECAUSE: Record<string, string> = {
   [FIRST_PASS_COMPLETE]: 'the first pass is built',
@@ -1073,6 +1087,13 @@ export function planReminder(plan: Plan | null): string | null {
     const current = currentStage(f)
     lines.push(
       `The stages are behind the build: ${behind.because}, but ${current ? `"${stageLabel(current)}" is still the stage in progress` : 'no stage that far along has been started'}. Tick the stages that are done and start "${stageLabel(behind.expected)}" (${behind.expected}) with set_stage.`,
+    )
+  }
+  // [[BUG-221]] — A PASSED-OVER STAGE reads to the client as work left undone.
+  const passed = stagesPassedOver(f)
+  if (passed.length) {
+    lines.push(
+      `Passed over: ${list(passed.map((id) => `"${stageLabel(id)}" (${id})`))} — the client sees ${passed.length > 1 ? 'these' : 'it'} as skipped. If ${passed.length > 1 ? 'they were' : 'it was'} covered, tick ${passed.length > 1 ? 'them' : 'it'} done with set_stage.`,
     )
   }
   for (const c of panel.due_checks) {
@@ -1854,9 +1875,11 @@ export function planOperations(
         t.status = String(p.status)
         return { task: t }
       }),
-    // [[REQ-390]] — ONE STAGE IN PROGRESS: starting one moves the marker, and the
-    // stage it moved from goes back to not started unless it was ticked. Any order
+    // [[REQ-390]] — ONE STAGE IN PROGRESS: starting one moves the marker. Any order
     // and backwards are both fine — a done stage can be reopened.
+    // [[BUG-221]] — MOVING FORWARD TICKS the stage moved off: starting a later stage
+    // means the earlier one is finished, and resetting it made the panel call it
+    // skipped. Moving backward puts the later stage back to not started.
     set_stage: (p) =>
       change((plan) => {
         const id = String(p.stage ?? '')
@@ -1864,17 +1887,17 @@ export function planOperations(
         plan.fields.stages = stagesFor(plan.fields.stages)
         const stage = plan.fields.stages.find((s) => s.id === id)
         if (!stage) throw refuse(PLAN_INVALID, `unknown stage ${JSON.stringify(id)}`)
-        let moved: string | undefined
+        let moved: { moved_from: string; marked: string } | undefined
         if (state === IN_PROGRESS) {
           for (const other of plan.fields.stages) {
             if (other !== stage && other.state === IN_PROGRESS) {
-              other.state = 'not_started'
-              moved = other.id
+              other.state = STAGE_IDS.indexOf(other.id) < STAGE_IDS.indexOf(stage.id) ? STAGE_DONE : 'not_started'
+              moved = { moved_from: other.id, marked: other.state }
             }
           }
         }
         stage.state = state
-        return { stage: { ...stage, label: stageLabel(stage.id) }, ...(moved ? { moved_from: moved } : {}) }
+        return { stage: { ...stage, label: stageLabel(stage.id) }, ...moved }
       }),
 
     // ── asks: both roles ([[REQ-364]]) ───────────────────────────────────────
