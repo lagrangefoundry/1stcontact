@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:42:17.106189+00:00'
+updated_at: '2026-10-18T12:47:32.857833+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -170,5 +170,11 @@ You don't need to do anything about it now. The new Finishing touches guidance t
 - **connect it** to "a round of changes has finished", so the reminder also appears after the first round of changes. This is a one-word data change, no code.
 
 I'd delete it, since the stage guidance now does that job. Which would you like?
+
+<!-- xgd-turn id="0bf11133-d61c-40d3-9885-51c0b584aee0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T12:47:32.705238+00:00" -->
+#### You
+I think it should be connected to the finishing touches stage - your suggestion works for me
 
 <!-- xgd-chat-end -->
