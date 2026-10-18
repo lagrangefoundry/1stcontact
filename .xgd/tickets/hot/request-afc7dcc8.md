@@ -6,9 +6,9 @@ title: 'Builder parallelism: drop the ''never several at once'' conduct rule, an
   refuse a builder with no scope'
 created_by: EPIC-19
 created_at: '2026-10-18T19:09:31.496633+00:00'
-updated_at: '2026-10-18T19:26:01.623020+00:00'
+updated_at: '2026-10-18T19:36:38.638027+00:00'
 completed_at: null
-last_field_updated: story_points
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -94,3 +94,8 @@ Updated: `test_UAT_FC_REQ-389_questions_in_the_clients_terms_and_no_parallel_cla
 Not committed: the concurrency UAT (see the third cause above).
 
 Regression run: all 26 workers suites that delegate, plus REQ-389, REQ-397 (both suites), REQ-406, BUG-168 and REQ-379 cadence (BUG-222's suite). 182 pass. 2 fail, both pre-existing and unrelated: REQ-295 `the_caller_gets_a_result…` and `a_worker_that_never_reported…` fail identically without this change, on a verdict-shape mismatch.
+
+
+
+## Follow-up chosen (operator, 2026-10-18)
+Option (a): lagrange-framework **REQ-208** lets a registered `Tool` closure declare itself `concurrent`. When it lands and the shared store is refreshed, this ticket's follow-up commit registers the host's `Delegate` closure with `concurrent: true` and commits the parallel-builder UAT.
