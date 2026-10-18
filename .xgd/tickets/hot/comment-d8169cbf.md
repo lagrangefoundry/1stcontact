@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:17:48.369578+00:00'
+updated_at: '2026-10-18T22:53:10.280586+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8920,5 +8920,11 @@ The four repair passes that prompted REQ-409 came mostly from builders reporting
 - **If progress still reads as things going wrong**, add a step count ("step 2 of about 4") to BUG-215's working line. That's small enough to be a prompt-and-UI tweak under REQ-409 instead.
 
 Shall I write this measure-then-decide plan into REQ-409, so it stays parked at `draft` with clear criteria?
+
+<!-- xgd-turn id="f42d11a9-cf7d-4183-9663-d507f57f7d0d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T22:53:10.120813+00:00" -->
+#### You
+I'm seeing this in the chat feed: *Unexpected token 'g', "guWid6rN1D"... is not valid JSON a couple of times now*
 
 <!-- xgd-chat-end -->
