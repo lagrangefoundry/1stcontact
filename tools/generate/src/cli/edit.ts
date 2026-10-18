@@ -4103,7 +4103,7 @@ export type SiteAssetKind = 'image' | 'font' | 'other'
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'avif'])
 const FONT_EXTENSIONS = new Set(['woff2', 'woff', 'ttf', 'otf'])
 
-function assetKind(name: string): SiteAssetKind {
+export function assetKind(name: string): SiteAssetKind {
   const ext = name.split(/[?#]/)[0].split('.').pop()?.toLowerCase() ?? ''
   if (IMAGE_EXTENSIONS.has(ext)) return 'image'
   if (FONT_EXTENSIONS.has(ext)) return 'font'
@@ -4500,7 +4500,7 @@ export async function editAssetWrite(
   // `TextEncoder` rather than `Buffer`: the byte count is part of the answer and
   // has to be computable wherever this runs, not only under Node.
   const bytes = new TextEncoder().encode(content)
-  await opts.store.write(slug, { assets: [{ name: filename, bytes }] })
+  await opts.store.write(slug, { assets: [{ name: filename, bytes, generated: true }] })
   const asset: SiteAsset = {
     id: filename,
     src: assetHandle(filename),

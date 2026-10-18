@@ -352,12 +352,15 @@ import {
   archiveMaterial,
   ingestFetch,
   ingestUpload,
+  backfillSiteImages,
+  libraryDoor,
   listMaterial,
   MATERIAL_CHANGE_POLL_MS,
   materialFile,
   materialImageLibrary,
   MaterialRejectedError,
   NotAPictureError,
+  NotInLibraryError,
   NotMaterialError,
   NotRepublishableError,
   pictureChoices,
@@ -371,7 +374,9 @@ import {
   reviseRole,
   reviseName,
   reviseRecipe,
+  revisePlacementRecipe,
   RoleNotChosenError,
+  sitePicture,
   watchMaterial,
   type IndexMaterial,
   type MaterialChange,
@@ -2672,7 +2677,19 @@ async function openSiteStore(deps: RouterDeps, env: RouterEnv, scope: Scope): Pr
   // [[REQ-397]] — and every draft write leased: refused on a file a builder
   // holds, and compare-and-set per file. Here for the cap's reason: one opener.
   const store = leasedStore(await (deps.store ?? storeFor)(env, scope), deps.leases ?? d1Leases(env.DB))
-  return withPictureDoor(store, env, scope)
+  // [[REQ-404]] — and every picture written gets a Library item, where none
+  // accounts for it. Outermost, so it catalogues the bytes as they were handed
+  // over rather than the capped copy the site keeps.
+  let tickets: Promise<TicketStore> | null = null
+  return libraryDoor(
+    withPictureDoor(store, env, scope),
+    () => (tickets ??= (deps.tickets ?? ticketStoreFor)(env, scope)),
+    async () => ({
+      index: deps.index ? await deps.index(env, scope) : await defaultIndexer(env, scope),
+      describeImage: deps.describeImage ?? defaultDescriber(env),
+      describeText: deps.describeText ?? defaultTextDescriber(env),
+    }),
+  )
 }
 
 /**
@@ -6202,6 +6219,64 @@ async function routeUncached(
       )
     }
 
+    /**
+     * One use of a picture on a site, as the Site tab's photo editor opens it
+     * ([[REQ-404]]).
+     *
+     * `site` + `name` ADDRESS THE FILE THE PAGE POINTS AT, which is what the
+     * client clicked. The answer is the Library item behind it and the recipe
+     * that use shows — its own, or the item's where it has none.
+     *
+     * A FILE WITH NO ITEM BEHIND IT IS A 404 AND A LOUD LOG, naming the asset.
+     * The operator's rule makes it a bug, not a state; the editor says so to the
+     * client in its own words.
+     */
+    if (p === '/api/site/picture' && method === 'GET') {
+      const site = url.searchParams.get('site')
+      const name = url.searchParams.get('name')
+      if (!site || !name) return json(400, { error: 'site and name are required' })
+      return json(200, await sitePicture(await openTickets(), site, name))
+    }
+
+    /**
+     * Write the recipe of that one use ([[REQ-404]]) — the placement's own
+     * (`placed_as[].edits`, [[BUG-213]]). The Library item's recipe and every
+     * other copy are untouched; the file is re-rendered from the original and
+     * replaced on the draft, so the page re-renders with the new framing.
+     *
+     * Refusals are the Library route's: a drawing is 403, a recipe the picture
+     * cannot take is 409, in `image-recipe.ts`'s own words.
+     */
+    if (p === '/api/site/picture/recipe' && method === 'POST') {
+      const body = await readJsonBody(request)
+      if (typeof body.site !== 'string' || body.site === '' || typeof body.name !== 'string' || body.name === '') {
+        return json(400, { error: 'site and name are required' })
+      }
+      if (!Array.isArray(body.recipe)) {
+        return json(400, { error: 'recipe must be a list of operations' })
+      }
+      const renderer = imageRendererFor(env, requireScope().businessId)
+      return json(
+        200,
+        await revisePlacementRecipe(
+          await openTickets(),
+          await openStore(),
+          { slug: body.site, name: body.name, recipe: body.recipe },
+          renderer ? { renderer } : {},
+        ),
+      )
+    }
+
+    /**
+     * The one-off pass: every picture already on this business's sites gets a
+     * Library item where none accounts for it ([[REQ-404]]). Nothing on any page
+     * changes; the answer lists what was created.
+     */
+    if (p === '/api/library/backfill' && method === 'POST') {
+      const created = await backfillSiteImages(await openTickets(), await openStore(), await ingestDeps())
+      return json(200, { created })
+    }
+
     if (p === '/api/material/role' && method === 'POST') {
       const body = await readJsonBody(request)
       if (typeof body.uid !== 'string' || body.uid === '') {
@@ -7284,6 +7359,13 @@ async function routeUncached(
     // Library's read routes into an oracle for which uids exist in the tenant.
     if (err instanceof NotMaterialError) {
       return json(404, { error: scrub(err.message), uid: err.uid })
+    }
+    // [[REQ-404]] — a picture on a site with no Library item behind it. A bug
+    // upstream, so it is logged as one, naming the asset; the client is told in
+    // the editor's own words.
+    if (err instanceof NotInLibraryError) {
+      console.error(`[REQ-404] ${err.message}`)
+      return json(404, { error: scrub(err.message), code: 'NOT_IN_LIBRARY', site: err.slug, asset: err.asset })
     }
     const message = err instanceof Error ? err.message : String(err)
     return json(500, { error: scrub(message) })

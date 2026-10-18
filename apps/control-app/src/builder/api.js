@@ -1292,6 +1292,35 @@ export async function saveMaterialRecipe(uid, recipe, fetchImpl = fetch) {
 }
 
 /**
+ * The Library item behind one picture on a site, and the recipe that use shows
+ * ([[REQ-404]]).
+ *
+ * ADDRESSED BY THE FILE THE PAGE POINTS AT — the site and the asset name — which
+ * is all the Site tab knows about a picture it was clicked on. A file with no
+ * item behind it is refused with `code: 'NOT_IN_LIBRARY'`, which the editor turns
+ * into a sentence for the client.
+ */
+export async function fetchSitePicture(site, name, fetchImpl = fetch) {
+  const q = new URLSearchParams({ site, name })
+  return copyEnvelope(await send(fetchImpl, scoped(`/api/site/picture?${q}`)))
+}
+
+/**
+ * Write how ONE USE of a picture is edited ([[REQ-404]]) — the placement's own
+ * recipe, never the Library item's. Like {@link saveMaterialRecipe} it sends a
+ * recipe and never bytes.
+ */
+export async function saveSitePictureRecipe(site, name, recipe, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/site/picture/recipe'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ site, name, recipe }),
+    }),
+  )
+}
+
+/**
  * The material a file URL names, or `null` for a URL that names none.
  *
  * **THE INVERSE OF `materialFileUrl`, AND IT LIVES BESIDE IT.** The chat shows a

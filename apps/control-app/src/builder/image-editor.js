@@ -19,6 +19,13 @@
  * same place. Both callers hand it the same material uid and it knows nothing
  * about which of them opened it.
  *
+ * **AND FROM THE SITE TAB, OVER ONE USE OF IT** ([[REQ-404]]). A click on a
+ * picture already selected in Edit mode opens this same editor with a transport
+ * that writes the PLACEMENT's own recipe rather than the item's, and a `banner`
+ * saying so. The editor itself is unchanged: it composes a recipe and hands it to
+ * whatever `saveRecipe` it was given. With no `saveName` there is no name field —
+ * the name is the Library item's, and this is not where it is changed.
+ *
  * **INTERACTION IS LOCAL; TRUTH IS RENDERED.** What the stage shows is
  * `/api/material/file`, which serves the picture AS IT CURRENTLY STANDS — the
  * stored bytes with the committed recipe applied by the one renderer ([[REQ-219]]).
@@ -106,7 +113,10 @@ function button(label, className, onClick) {
  * @param {string} spec.name       what the Library calls it now
  * @param {Array}  [spec.recipe]   the operations already on the record
  * @param {Element} [spec.host]    where the dialog is appended (`modal.js`)
- * @param {object} spec.transport  `{saveName, saveRecipe}`
+ * @param {object} spec.transport  `{saveName, saveRecipe}` — `saveName` absent
+ *   means no name field ([[REQ-404]])
+ * @param {string} [spec.banner]   a sentence above the picture saying what is
+ *   being edited — the Site tab's *"Editing this use of IMAGE-1 …"*
  * @param {(row: object) => void} [spec.onSaved]
  * @param {() => {width:number,height:number}} [spec.measure] the stage's size —
  *   injected by suites, where layout does not happen
@@ -122,6 +132,7 @@ export function mountImageEditor(spec) {
     transport,
     onSaved = () => {},
     measure = null,
+    banner = null,
   } = spec
 
   /**
@@ -159,16 +170,19 @@ export function mountImageEditor(spec) {
   // FIRST, ABOVE THE PICTURE. It is the one field in here that is about the item
   // rather than about the pixels, and it is the reason a client with a generated
   // image opens this modal at all.
+  if (banner) box.append(el('p', 'builder-imaged__banner', banner))
   const nameHost = el('div', 'builder-imaged__name')
-  const nameField = mountMaterialName(nameHost, {
-    name,
-    save: (next) => transport.saveName(uid, next),
-    onSaved: (row) => {
-      shell.element.setAttribute('aria-label', row?.title || 'Picture')
-      onSaved(row)
-    },
-  })
-  box.append(nameHost)
+  const nameField = transport.saveName
+    ? mountMaterialName(nameHost, {
+        name,
+        save: (next) => transport.saveName(uid, next),
+        onSaved: (row) => {
+          shell.element.setAttribute('aria-label', row?.title || 'Picture')
+          onSaved(row)
+        },
+      })
+    : null
+  if (nameField) box.append(nameHost)
 
   // --- the picture --------------------------------------------------------------
   const stage = el('div', 'builder-imaged__stage')
@@ -497,7 +511,7 @@ export function mountImageEditor(spec) {
     close: shell.close,
     /** Told from the pane behind, so the two names never come apart. */
     setName(next) {
-      nameField.setName(next)
+      nameField?.setName(next)
       img.alt = next || ''
       shell.element.setAttribute('aria-label', next || 'Picture')
     },
