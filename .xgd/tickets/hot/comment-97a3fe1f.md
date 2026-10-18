@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-221
 created_by: xgd
 created_at: '2026-10-18T12:17:51.924343+00:00'
-updated_at: '2026-10-18T14:36:48.777185+00:00'
+updated_at: '2026-10-18T14:40:14.702836+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -61,5 +61,39 @@ If you agree, I'll write this into the BUG-221 body (keeping what's there) and s
 <!-- xgd-chat role="user" ts="2026-10-18T14:36:48.194211+00:00" -->
 #### You
 Agreed
+
+<!-- xgd-turn id="70917e82-2482-4e51-bf7e-459685c1a4bc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T14:40:13.871168+00:00" -->
+#### Claude
+Updating the ticket body with the agreed design, then cutting the branch.
+
+Now the code changes.
+
+I'll import `shownStates` dynamically in the test so a failed import shows up as a test failure.
+
+Passing. Next I'm widening the run to every suite that touches `set_stage`, `moved_from` or the plan entry, plus lint.
+
+Those assertions use `toContain`, so the new line doesn't break them. The typecheck errors are in unrelated files I didn't change. Trying the workers suites:
+
+Done. Starting a later stage now ticks the stage the consultant leaves as done, so the panel no longer shows it as "skipped". The fix is merged into `xgd-working` and BUG-221 is at `free_coded`.
+
+**What changed**
+- **Moving forward:** `set_stage(B, in_progress)` marks the stage being left `done` when it comes before B. The result says so, e.g. `moved_from: "getting_to_know_you", marked: "done"`, so the consultant can undo it if that was wrong.
+- **Moving backward:** reopening an earlier stage puts the later one back to `not_started`, as before. The result shows `marked: "not_started"`.
+- **The nudge:** if a stage before the furthest one is still `not_started`, the per-turn plan entry now says: *Passed over: "Looking at other sites" (other_sites) — the client sees it as skipped. If it was covered, tick it done with set_stage.* It uses the same rule as the panel, so the consultant is told exactly what the client sees.
+- **Panel unchanged:** "Skipped" now only appears when a stage really was never started.
+- The `set_stage` tool description and the plan overview in `plan-surface.json` now describe this behaviour.
+
+**Tests**
+- The three new tests in `tests/test_UAT_FC_BUG-221_stage_moved_off_is_ticked.test.ts` pass. They cover the original repro, the backward move, and the nudge appearing and then going away once the stage is ticked.
+- Ten existing suites that use stages or the plan entry (68 tests, including REQ-390 and REQ-398) all pass.
+- **Not run:** three workers-pool suites (REQ-379, REQ-390 wire, REQ-356). They can't load in a fresh worktree because generated control-app files are missing, so they never reached this code. I read their assertions and they use `toContain`, so the extra line shouldn't break them, but that's unconfirmed.
+
+The ticket body now has the root cause, the agreed design and the test plan, and the original report is kept. It has two commits: the fix (`2b251d8c`) and the version bump to 0.2.529 that the free-coded step added.
+
+For the client who already saw "skipped": plans in that state can't be told apart from real skips, so the consultant needs to call `set_stage(getting_to_know_you, done)` once.
+
+Moving the ticket to `ready_to_reconcile` is your call.
 
 <!-- xgd-chat-end -->
