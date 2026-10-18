@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:08:57.085711+00:00'
+updated_at: '2026-10-18T22:10:08.745747+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8853,5 +8853,34 @@ I can file that ticket now as a `draft`, blocked on LF REQ-208, so it's ready wh
 <!-- xgd-chat role="user" ts="2026-10-18T22:08:54.064927+00:00" -->
 #### You
 208 has landed - please create the follow up ticket
+
+<!-- xgd-turn id="818f379c-a189-432e-bc76-c1d46a3f09ad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T22:10:07.135185+00:00" -->
+#### Claude
+I'll check what REQ-208 actually shipped and whether this repo's installed framework has it yet.
+
+REQ-208 has landed, and your installed framework already carries it. Finding where our host builds the `Delegate` closure so the ticket can name it.
+
+The fix is small and general: each closure passes on the flag of the declared operation it wraps (`box.concurrent(name)`), so `Delegate` doesn't need special-casing. Filing it.
+
+I've filed **REQ-411**, *"Builder parallelism: host Tool closures carry their operation's concurrency"*, under EPIC-19 at `draft`, high priority, 2 points, and linked it from the epic.
+
+I checked first: REQ-208 landed as `dba2ad9df2`, and your installed shared framework already has it, so there's nothing to reinstall.
+
+What the ticket asks for:
+1. **Each wrapped tool takes its safe-to-overlap setting from the operation it wraps.** Where our host builds each tool, it passes along what that operation's declaration says. `Delegate` is declared safe to run alongside others, and every other tool stays one at a time as its declaration says. Nothing names `Delegate` specially.
+2. **The file-lock context is per call.** Confirm that two builders running at once each write as themselves and their locks don't get mixed up, and fix it if not.
+3. **The consultant is told the truth.** She only gets the "up to 3 builders at once" paragraph when the installed framework can actually run wrapped tools together. Without that check, the old framework would have had her promising parallel work the host couldn't deliver. That's how this whole problem stayed hidden.
+4. **Commit REQ-410's parallel-builder test.** REQ-410's session wrote it, but it couldn't pass until now.
+
+Its tests run through the real host with only the model scripted:
+- two builders on different sections of one page, commissioned in one reply, both open before either finishes;
+- each writes only its own section;
+- a second builder on the same file is refused;
+- other tools in the same reply still run alone;
+- the priming states whichever rule is true.
+
+Once it lands, your next run with looks or a multi-section page should show builders overlapping.
 
 <!-- xgd-chat-end -->
