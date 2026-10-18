@@ -6,10 +6,10 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T22:12:27.542695+00:00'
+updated_at: '2026-10-18T22:16:20.103490+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -17,6 +17,14 @@ fields:
   epic_parent: epic-95bc3b15
   severity: high
   chat_comment: comment-2d692a23
+  commits:
+  - working_sha: 33a588387141a5d2b6f2e208893efc37eae3b745
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1bca1fb90526aeca2cde0a03f243c7742ac13cd3
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.537
 ---
 
 ## What happened
