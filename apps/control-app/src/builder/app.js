@@ -3,6 +3,7 @@ import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
 import { createCompViewer } from './comp-viewer.js'
+import { createStoryBoard } from './story-board.js'
 import { createLooks, mountLooksBand } from './looks.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
@@ -18,6 +19,7 @@ import {
   SETTINGS_TAB,
   SITE_TAB,
   STORAGE_KEYS,
+  STORY_MODE_LABEL,
   TABS,
 } from './config.js'
 import {
@@ -641,6 +643,37 @@ export function mountBuilder(root, options = {}) {
     panel.setMode('comp')
   }
 
+  /**
+   * [[REQ-408]] — the story board, the pane's third mode. It draws the board the
+   * plan panel reads (`onView` below), so the two never fetch the plan twice.
+   */
+  const storyBoard = createStoryBoard({
+    ...(planTransport?.boardAction ? { transport: { boardAction: planTransport.boardAction } } : {}),
+  })
+  /**
+   * [[REQ-408]] — BEFORE THE FIRST DRAFT, THE PREVIEW OPENS IN STORY, instead of
+   * the grey page: the board is what there is to look at, and every note on it is
+   * the client's own words. Decided once per site opened, from the plan's
+   * `drafted`, and NOT REMEMBERED as the client's choice; when the first draft
+   * lands while the host is still showing Story, the pane goes to View so the
+   * client sees it. Afterwards Story is theirs to switch to.
+   */
+  let storyDecidedFor = null
+  let storyByHost = false
+  function storyFirst(view) {
+    if (typeof view?.drafted !== 'boolean' || !currentSite) return
+    if (!view.drafted && storyDecidedFor !== currentSite) {
+      storyDecidedFor = currentSite
+      if (panel.getMode() !== 'story' && panel.getMode() !== 'comp') {
+        panel.setMode('story', { remember: false })
+        storyByHost = true
+      }
+    } else if (view.drafted && storyByHost && panel.getMode() === 'story') {
+      storyByHost = false
+      panel.setMode('view')
+    }
+  }
+
   /** [[REQ-391]] — the looks controller, made once the page index exists (below). */
   let looks = null
   const panel = createDisplayPanel({
@@ -734,6 +767,15 @@ export function mountBuilder(root, options = {}) {
         'phone-preview',
         'publish',
       ],
+    })
+    // [[REQ-408]] — THE STORY BOARD: the client's own words, pinned as notes. A
+    // mount of the builder's own, never a frame, so it never takes the site's
+    // colours or fonts. Only the toggle: nothing on the toolbar acts on the board.
+    .registerMode({
+      id: 'story',
+      label: STORY_MODE_LABEL,
+      mount: (host) => storyBoard.mount(host),
+      actions: ['mode-toggle'],
     })
     // [[REQ-378]] — A COMPARABLE SITE, VIEWED. Entered only from the comp board,
     // never offered by the toggle and never remembered. It names NO toolbar
@@ -1140,6 +1182,15 @@ export function mountBuilder(root, options = {}) {
     getModalHost: () => shell.element,
     // [[REQ-401]] — the client's folds, remembered like the divider.
     storage: shell.storage(STORAGE_KEYS.planFold),
+    // [[REQ-408]] — the story board is drawn from the same view.
+    onView: (view) => {
+      storyBoard.render(view)
+      storyFirst(view)
+    },
+  })
+  // [[REQ-408]] — a mode the client picked is theirs, whatever the host chose before.
+  panel.on('mode', (mode) => {
+    if (mode !== 'story') storyByHost = false
   })
 
   const chat = createChatPanel({
@@ -1733,6 +1784,9 @@ export function mountBuilder(root, options = {}) {
     const scope = currentBusiness
     // [[REQ-364]] — the plan panel follows the site too, and needs no model: a
     // deployment that cannot reach one still shows the client its questions.
+    // [[REQ-408]] — and the story board, decided afresh for the site opened.
+    storyBoard.setSite(site ?? null)
+    storyDecidedFor = null
     void planPanel.setSite(site ?? null)
     // [[REQ-378]] — another site's comps are not this one's: back to the draft.
     if (panel.getMode() === 'comp') panel.setMode(draftMode)
@@ -2077,6 +2131,8 @@ export function mountBuilder(root, options = {}) {
     debug,
     /** The plan panel above the chat ([[REQ-364]]), and the divider it sits behind. */
     planPanel,
+    /** [[REQ-408]] — the story board, the pane's Story mode. */
+    storyBoard,
     planSplit,
     upload,
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */

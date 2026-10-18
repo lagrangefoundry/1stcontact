@@ -24,6 +24,7 @@ import {
   SITE_PLAN,
   stagesFor,
   type Plan,
+  type PlanCheck,
   type PlanDeps,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -50,6 +51,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'comps_asked_at',
   'milestones',
   'public_details',
+  'board',
 ]
 
 /**
@@ -86,6 +88,10 @@ function toPlan(ticket: Ticket): Plan {
   // [[REQ-390]] — A PLAN STORED BEFORE STAGES IS MIGRATED HERE, on every read, from
   // the `phase` it still holds; the next write stores the stages beside it.
   plan.stages = stagesFor(fields.stages, fields.phase)
+  // [[REQ-408]] — AND A CHECK ADDED TO THE SEED LATER REACHES EXISTING PLANS, the
+  // way a stage does: appended unasked, so it can fall due like any other.
+  const held = plan.checks as PlanCheck[]
+  plan.checks = [...held, ...seedPlan('').fields.checks.filter((c) => !held.some((h) => h.id === c.id))]
   return { fields: plan as unknown as PlanFields, body: ticket.body ?? '' }
 }
 

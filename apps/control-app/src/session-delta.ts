@@ -15,6 +15,7 @@ import {
   type CompRecord,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
+import { boardChangesLine, boardChangesSince } from '../../../tools/generate/src/cli/ai/story-core'
 
 /**
  * The session cursor and the per-turn delta ([[REQ-160]]; [[DOC-39]] §5.1, §6.4).
@@ -362,8 +363,11 @@ export async function planAnswersDelta(
   // as a tile in its reply: the client added it on the panel, and the tile is how
   // it reaches the conversation, where it survives a reload.
   const compAdds = clientCompAddsSince(fields, since)
-  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0) return null
-  const newest = [...changes, ...compChanges, ...compAdds].map((c) => c.at).sort().pop() as string
+  // [[REQ-408]] — AND WHAT THE CLIENT DID ON THE STORY BOARD, on the same cursor:
+  // reactions, notes added, edited or deleted, a headline chosen or written.
+  const board = boardChangesSince(fields, since)
+  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0 && board.length === 0) return null
+  const newest = [...changes, ...compChanges, ...compAdds, ...board].map((c) => c.at).sort().pop() as string
   await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
   const comps = compDeps(store, memberUrl)
   const noted = (await Promise.all(compChanges.map((c) => comps.get(c.reference)))).filter(
@@ -373,7 +377,9 @@ export async function planAnswersDelta(
     compAdds.map(async (c) => compTile(c, (await comps.snapshot?.(c.reference)) ?? null)),
   )
   return (
-    [clientChangesLine(changes), clientCompNotesLine(noted), clientCompAddsLine(tiles)].filter(Boolean).join('\n') ||
+    [clientChangesLine(changes), clientCompNotesLine(noted), clientCompAddsLine(tiles), boardChangesLine(board)]
+      .filter(Boolean)
+      .join('\n') ||
     null
   )
 }

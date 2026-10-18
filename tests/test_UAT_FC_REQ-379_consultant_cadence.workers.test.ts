@@ -289,7 +289,7 @@ describe('REQ-379 — milestones fall due as facts', () => {
     const stored = await storedPlan(key)
     expect(stored.milestones?.publish_opened_at).toBeTruthy()
     const due = stored.checks.filter((c) => c.due?.trigger === 'before_publish').map((c) => c.id).sort()
-    expect(due).toEqual(['quality_bar_met', 'ready_to_publish', 'scroll_feel', 'seen_on_phone'])
+    expect(due).toEqual(['quality_bar_met', 'ready_to_publish', 'scroll_feel', 'seen_on_phone', 'weakest_point'])
 
     const next = await turn(sessionId, 'Is it ready?', scriptedClient([says('Nearly.')]))
     const tail = turnTailText(next.seen[0])

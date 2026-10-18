@@ -988,6 +988,36 @@ export const COMPS_OPEN = (title) => `Look at ${title}`
 export const COMPS_REMOVE = 'Remove'
 export const COMPS_FAILED = (message) => `That was not saved: ${message}`
 
+/**
+ * The story board's words ([[REQ-408]]). The board is the client's own words
+ * about their business; every label here is chrome around them.
+ */
+export const STORY_MODE_LABEL = 'Story'
+export const STORY_BOARD_LABEL = 'Your story board'
+export const STORY_EMPTY =
+  "As we talk, I'll pin the things you say about your business here. Heart the ones that are most you."
+export const STORY_HEADLINE_LABEL = 'The headline'
+export const STORY_HEADLINE_PLACEHOLDER = 'The headline… why you?'
+export const STORY_HEADLINE_YOURS = 'your words'
+export const STORY_HEADLINE_MY_PICK = 'my pick'
+export const STORY_HEADLINE_CHOOSE = 'Choose…'
+export const STORY_HEADLINE_USE = 'Use this'
+export const STORY_HEADLINE_WRITE_OWN = 'Write my own'
+export const STORY_HEADLINE_NEW = (n) => `${n} new option${n === 1 ? '' : 's'}`
+export const STORY_HEADLINE_COUNT = (n, total) => `${n} of ${total}`
+export const STORY_ADD_NOTE = (theme) => `Add a note to ${theme}`
+export const STORY_NOTE_PLACEHOLDER = 'In your own words…'
+export const STORY_FROM = (quote) => `From what you said: “${quote}”`
+export const STORY_YOUR_NOTE = 'Your note'
+/** The four reactions, in the order the note shows them, with what each means. */
+export const STORY_REACTIONS = [
+  { id: 'heart', emoji: '❤️', label: "That's us" },
+  { id: 'up', emoji: '👍', label: 'True, keep it' },
+  { id: 'down', emoji: '👎', label: "Not right, or not how I'd say it" },
+]
+export const STORY_DELETE = { emoji: '🗑', label: "Delete — it doesn't belong" }
+export const STORY_SAVE_FAILED = (message) => `That was not saved: ${message}`
+
 /** The comp viewer's words ([[REQ-378]]). */
 export const COMP_VIEWING = 'Comparable site'
 export const COMP_BACK = 'Back to your draft'

@@ -1362,6 +1362,11 @@ export interface WorkerLimits {
   budgets?: RoundBudgets
   /** The most one of its turns may carry; a brief over it is refused. `0` is no check. */
   briefMaxBytes?: number
+  /**
+   * [[REQ-408]] — the story block every brief carries: the client's chosen headline
+   * and the notes they hearted, or `null` while the board holds neither.
+   */
+  story?: () => Promise<string | null>
 }
 
 /**
@@ -1406,6 +1411,13 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
     }
 
     async delegate(input: Untyped): Promise<Untyped> {
+      // [[REQ-408]] — BUILDERS ARE BRIEFED FROM THE STORY BOARD. Appended by the
+      // host rather than left to the consultant to copy, and to every brief rather
+      // than to the ones a guess says concern copy: it is short, and a builder
+      // writing any words at all writes them from it. Counted against the ceiling
+      // with the rest of the brief.
+      const story = limits.story ? await limits.story().catch(() => null) : null
+      if (story && typeof input?.goal === 'string') input = { ...input, goal: `${input.goal}\n\n${story}` }
       if (briefMaxBytes > 0) {
         const checks = Array.isArray(input?.accept) ? input.accept : []
         const bytes = new TextEncoder().encode(lib.delegationBrief(input?.goal, checks)).length
