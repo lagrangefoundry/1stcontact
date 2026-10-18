@@ -6,9 +6,9 @@ title: 'Builder scopes: page style is claimed only when named, so a page-scoped 
   can''t repaint the page'
 created_by: EPIC-24
 created_at: '2026-10-18T00:44:30.660563+00:00'
-updated_at: '2026-10-18T00:44:30.660563+00:00'
+updated_at: '2026-10-18T00:44:43.093982+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: medium
@@ -38,7 +38,7 @@ A builder session may change a page's **style** only if its scope names the styl
 
 ## Test plan
 
-`tests/test_UAT_FC_<this-ticket>_*` through the real toolbox / host with a scripted model backend, `skipIf` the installed Delegate lacks `scope`, the same way as REQ-397's delegation cases:
+`tests/test_UAT_FC_REQ-406_*` through the real toolbox / host with a scripted model backend, `skipIf` the installed Delegate lacks `scope`, the same way as REQ-397's delegation cases:
 - builder scoped to `home.json` (undecomposed) calls `set_page_style` with a new background → refused `NOT_IN_SCOPE` naming the key, and the stored page is byte-identical;
 - the same builder fills its header section's own box via `set_l1` → succeeds;
 - a `set_l1` whose result changes a document key (not `root`) is refused the same way;
