@@ -6,10 +6,10 @@ title: 'Plan stages: starting a later stage resets an unticked earlier one, and 
   panel then shows it as "skipped"'
 created_by: xgd
 created_at: '2026-10-18T00:29:54.871057+00:00'
-updated_at: '2026-10-18T14:39:56.279761+00:00'
+updated_at: '2026-10-18T16:55:30.100517+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   auto_merge_back: true
   needs_review: false
