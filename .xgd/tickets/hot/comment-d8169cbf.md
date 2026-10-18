@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:55:59.255973+00:00'
+updated_at: '2026-10-18T23:07:24.259809+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8954,5 +8954,13 @@ To pin it down I need one of these from you:
 If that's what's happening, much of what we've judged in dev ("she goes quiet for 15 minutes", "nothing tells me she's working") has been measured through a proxy that hides exactly those things. Production doesn't have this problem, because the real Cloudflare Access streams.
 
 **The fix is small:** access-sim passes the response body through as it arrives instead of buffering it, at least for `text/event-stream`. Shall I file it as a bug under EPIC-16, which owns the dev environment? I'd put it ahead of the next test run. Until it's fixed, every run will look worse on feedback while she works than the product really is.
+
+<!-- xgd-turn id="6fc5e994-7279-49c4-912c-fc3ddafd5fbf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T23:07:19.375970+00:00" -->
+#### You
+yes please create a bug for the streaming issue - that's ugly
+
+This message is occurring at the end of every turn from the AI
 
 <!-- xgd-chat-end -->
