@@ -558,6 +558,22 @@ export async function compAction({ site, action, url, reference, likes, dislikes
 }
 
 /**
+ * The client's half of the story board ([[REQ-408]]): `react` (with `reaction`,
+ * or none to clear), `delete`, `add` (a `theme` and `text`), `edit` (a `note` and
+ * `text`), `choose` (an `option` on offer) or `write` (the headline's `text`).
+ * Answers the panel's view as the write left it, like {@link answerAsk}.
+ */
+export async function boardAction({ site, ...action }, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/plan/board'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ site, ...action }),
+    }),
+  )
+}
+
+/**
  * Answer or skip one ask on the plan panel ([[REQ-364]]).
  *
  * `action` is `answer` or `skip`. An answer is `answer` (a string, or the options

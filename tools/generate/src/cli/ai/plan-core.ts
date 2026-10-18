@@ -26,6 +26,15 @@
 import planSeed from './plan-seed.json'
 import planSurface from './plan-surface.json'
 import { ledgerError } from './ledger-core'
+import {
+  boardClientAction,
+  boardOperations,
+  boardReminderLine,
+  boardView,
+  checkBoard,
+  type BoardView,
+  type StoryBoard,
+} from './story-core'
 
 /** The declaration, imported as data for the reason `toolbox-core.ts` gives. */
 export const PLAN_DECLARATION = planSurface as unknown as Record<string, unknown>
@@ -393,6 +402,8 @@ export interface PlanFields {
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
   public_details?: PublicDetail[]
+  /** [[REQ-408]] — the story board. Absent until anything is pinned. */
+  board?: StoryBoard
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -768,6 +779,7 @@ export function checkPlan(fields: PlanFields): void {
     if (!filled(d.detail)) bad('an approved contact detail has no detail')
     if (!filled(d.quote)) bad(`${d.detail} cannot be approved without the client's own words attached`)
   }
+  checkBoard(fields.board, bad)
 }
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
@@ -974,6 +986,10 @@ export interface PanelView {
   comps_status: CompsStatus
   /** [[REQ-403]] — whether the comp board is on the panel at all; see {@link compsRaised}. */
   comps_raised: boolean
+  /** [[REQ-408]] — the story board, as the Story pane draws it. */
+  board: BoardView
+  /** [[REQ-408]] — whether the first draft has been built: until it has, the preview opens in Story. */
+  drafted: boolean
 }
 
 /** [[REQ-401]] — where comparing sites stands, as the panel's item shows it. */
@@ -1034,6 +1050,8 @@ export function panelView(fields: PlanFields): PanelView {
     comps: fields.comps ?? [],
     comps_status: compsStatus(fields),
     comps_raised: compsRaised(fields),
+    board: boardView(fields),
+    drafted: Boolean(fields.milestones?.first_pass_at),
   }
 }
 
@@ -1085,6 +1103,8 @@ export function planReminder(plan: Plan | null): string | null {
     typeof brief.quality_bar === 'string' ? `quality bar: ${brief.quality_bar}` : '',
   ].filter(Boolean)
   if (briefBits.length) lines.push(`Brief — ${briefBits.join('; ')}.`)
+  // [[REQ-408]] — the story board, and what "Getting to know you" still needs from it.
+  lines.push(boardReminderLine(f))
   const order: [string, string][] = [
     ['open', 'Not yet decided'],
     ['defaulted', 'Defaulted, never really chosen'],
@@ -2073,7 +2093,22 @@ export function planOperations(
         plan.fields.comps = removeComp(plan, reference).fields.comps
         return { removed: reference }
       }),
+
+    // ── the story board: both roles ([[REQ-408]]) ───────────────────────────
+    ...boardOperations((edit) => change((plan) => edit(plan.fields)), now),
   }
+}
+
+/**
+ * [[REQ-408]] — the client acting on the story board from the Story pane: a
+ * reaction, a delete, a note added or edited, a headline chosen or written.
+ * Pure, like {@link clientAnswer}: a refused action leaves the plan as it was.
+ */
+export function clientBoardAction(plan: Plan, input: Record<string, unknown>, at: string): Plan {
+  const next = copy(plan)
+  boardClientAction(next.fields, input, at)
+  checkPlan(next.fields)
+  return next
 }
 
 /** The groups each role is granted ([[DOC-64]] §5's "who writes what"). */
@@ -2084,7 +2119,8 @@ export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
   // [[REQ-379]] — AND BOTH KEEP THE MILESTONES, for the same reason: with the room
   // off there is no coordinator, and a phase only the coordinator could move never
   // moved (EPIC-19 Finding 18). [[REQ-390]]'s stages are kept the same way.
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps'] } }
+  // [[REQ-408]] — and the story board, for the same reason.
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps', 'KeepStoryBoard'] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()

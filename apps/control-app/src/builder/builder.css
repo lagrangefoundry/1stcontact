@@ -5736,3 +5736,306 @@ body {
   font-size: 0.85rem;
   opacity: 0.75;
 }
+
+/* --- the story board ([[REQ-408]]) ---------------------------------------------
+ *
+ * ITS OWN FIXED STYLE, THE SAME FOR EVERY BUSINESS, and LITERAL VALUES ONLY: no
+ * custom property, so nothing the site or the builder's theme sets can reach it.
+ * The board is about messaging, not styling, and never takes the site's colours or
+ * fonts. Every element tells the client something or makes the board easier to
+ * read — the theme colour beside the written theme name, the emoji, the reaction
+ * buttons, the pale 👎 and the lifted ❤️ — save the slight tilt of each note, the
+ * one decorative touch, and the one motion, a fade-in when a note is pinned.
+ */
+.story-board {
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 28px 32px 48px;
+  background: #faf8f3;
+  color: #2b2b2b;
+  font-family: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Varela Round', 'Trebuchet MS', sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.story-board__empty {
+  max-width: 34em;
+  margin: 24px auto;
+  color: #8a8578;
+  text-align: center;
+}
+
+.story-board__error {
+  margin: 0 0 16px;
+  color: #a1281f;
+}
+
+/* The headline: marker-like — bigger, darker, plain. Dashed while undecided. */
+.story-headline {
+  position: relative;
+  max-width: 46em;
+  margin: 0 auto 28px;
+  padding: 12px 16px;
+  border: 2px solid transparent;
+  border-radius: 10px;
+}
+
+.story-headline[data-state='offered'] {
+  border: 2px dashed #9a9384;
+}
+
+.story-headline[data-state='chosen'] {
+  border: 2px solid #2b2b2b;
+}
+
+.story-headline__label {
+  display: block;
+  margin-bottom: 4px;
+  color: #8a8578;
+  font-size: 13px;
+}
+
+.story-headline__line {
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1a1a1a;
+  font-family: 'Marker Felt', 'Chalkboard SE', ui-rounded, 'Trebuchet MS', sans-serif;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.25;
+  resize: none;
+  field-sizing: content;
+}
+
+.story-headline__line::placeholder {
+  color: #c4bfb3;
+}
+
+.story-headline__line:focus {
+  outline: none;
+}
+
+.story-headline__yours {
+  display: inline-block;
+  margin-top: 4px;
+  color: #6f6a5e;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.story-headline__strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: #6f6a5e;
+  font-size: 14px;
+}
+
+.story-headline__strip button,
+.story-headline__use {
+  padding: 2px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3b3a36;
+  font: inherit;
+  cursor: pointer;
+}
+
+.story-headline__strip button:hover,
+.story-headline__use:hover {
+  background: #ece7dc;
+}
+
+.story-headline__step:disabled {
+  color: #c4bfb3;
+  cursor: default;
+}
+
+.story-headline__choices {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-headline__choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid #e4dfd4;
+}
+
+.story-headline__option {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.story-headline__use {
+  flex: none;
+  border: 1px solid #c9c2b3;
+}
+
+/* The themes: each a cluster under its written name. */
+.story-board__themes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 28px 24px;
+}
+
+.story-theme__name {
+  display: block;
+  margin: 0 0 10px;
+  padding: 2px 4px;
+  border: 0;
+  border-bottom: 3px solid currentColor;
+  background: transparent;
+  color: #3b3a36;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.story-theme__name::after {
+  content: ' +';
+  color: #9a9384;
+  font-weight: 400;
+}
+
+.story-theme__notes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A note: the theme's muted colour, a slight tilt. */
+.story-note {
+  position: relative;
+  padding: 12px 12px 8px;
+  border-radius: 3px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
+  transform: rotate(var(--tilt, 0deg));
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.story-note--c0, .story-theme--c0 .story-theme__name { border-color: #d9c46a; }
+.story-note--c1, .story-theme--c1 .story-theme__name { border-color: #d99b84; }
+.story-note--c2, .story-theme--c2 .story-theme__name { border-color: #97b886; }
+.story-note--c3, .story-theme--c3 .story-theme__name { border-color: #8fb0d3; }
+.story-note--c4, .story-theme--c4 .story-theme__name { border-color: #b59ccc; }
+.story-note--c5, .story-theme--c5 .story-theme__name { border-color: #cfa96a; }
+.story-note--c0 { background: #f6e9a8; }
+.story-note--c1 { background: #f5cfbf; }
+.story-note--c2 { background: #d4e6c9; }
+.story-note--c3 { background: #cfe0f1; }
+.story-note--c4 { background: #e6d8f0; }
+.story-note--c5 { background: #f1ddba; }
+
+/* ❤️ "That's us": slightly larger and lifted. */
+.story-note[data-reaction='heart'] {
+  transform: rotate(var(--tilt, 0deg)) scale(1.06);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18), 0 10px 20px rgba(0, 0, 0, 0.08);
+  z-index: 1;
+}
+
+/* 👎 stays on the board, pale, with its badge pressed. */
+.story-note[data-reaction='down'] {
+  opacity: 0.55;
+}
+
+.story-note__emoji {
+  float: left;
+  margin: 0 8px 0 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.story-note__text {
+  display: block;
+  width: 100%;
+  min-height: 1.4em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  text-align: left;
+  cursor: text;
+}
+
+.story-note__box {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 17px;
+  resize: none;
+  field-sizing: content;
+}
+
+.story-note__box:focus {
+  outline: none;
+}
+
+.story-note__reactions {
+  clear: both;
+  display: flex;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-top: 6px;
+}
+
+.story-note__react {
+  padding: 1px 4px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.2;
+  opacity: 0.45;
+  cursor: pointer;
+}
+
+.story-note__react:hover,
+.story-note__react[aria-pressed='true'] {
+  opacity: 1;
+}
+
+.story-note__react[aria-pressed='true'] {
+  border-color: rgba(0, 0, 0, 0.25);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.story-note--new {
+  animation: story-note-in 420ms ease-out;
+}
+
+@keyframes story-note-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-note--new {
+    animation: none;
+  }
+
+  .story-note {
+    transition: none;
+  }
+}

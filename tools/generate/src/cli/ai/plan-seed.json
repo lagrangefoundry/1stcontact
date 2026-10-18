@@ -44,7 +44,13 @@
     "[[REQ-403]] — `opening` is the consultant's first message in every new",
     "conversation, one markdown line per entry. It is stock text, not a model turn:",
     "the client releases it with Click here to start, and it walks through the",
-    "stages above, so the two are kept side by side and change together."
+    "stages above, so the two are kept side by side and change together.",
+    "",
+    "[[REQ-408]] — the `weakest_point` check falls due after the first draft and when",
+    "Publish opens. Asking it needs a judgement of the draft against the",
+    "distinctiveness rubric in `priming.json`'s conduct paragraph, so the rubric is",
+    "applied when it is due rather than whenever the prompt is remembered. A check",
+    "added here reaches existing plans on their next read (`plan.ts`)."
   ],
   "stages": [
     { "id": "getting_to_know_you", "label": "Getting to know you", "about": "We learn about your business, your customers and what you want the site to do." },
@@ -63,6 +69,7 @@
     "**How we'll work together:**",
     "",
     "- **The questions panel** above this chat collects simple facts, like your phone number and opening hours. Fill them in whenever suits you.",
+    "- **The story board** (Story, beside the preview) is where I pin the things you tell me about your business, in your own words. Heart the ones that are most you.",
     "- **The preview** shows your site as it's built. **View on your phone** shows it the way most of your customers will see it.",
     "- **Before a long piece of work,** I'll tell you, and roughly how long it will take.",
     "- **When I show you several looks,** tell me which you prefer.",
@@ -117,6 +124,7 @@
     { "id": "seen_on_phone", "question": "Have we looked at it on a phone?", "triggers": ["before_publish", "mobile_audience"] },
     { "id": "scroll_feel", "question": "How does it feel to scroll through?", "triggers": ["before_publish"] },
     { "id": "motion_offer", "question": "Would some motion help here?", "triggers": ["revision_round_finished"] },
-    { "id": "ready_to_publish", "question": "Ready to publish? Links, contact routing, share card, favicon", "triggers": ["before_publish"] }
+    { "id": "ready_to_publish", "question": "Ready to publish? Links, contact routing, share card, favicon", "triggers": ["before_publish"] },
+    { "id": "weakest_point", "question": "Honestly, the weakest part of the site right now is [weakest point]. Shall I [what you would do about it]?", "triggers": ["first_pass_complete", "before_publish"] }
   ]
 }

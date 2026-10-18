@@ -108,6 +108,7 @@ import {
   type LookChoice,
   type PlanDeps,
 } from './plan-core'
+import { storyBrief } from './story-core'
 import type { LedgerDeps } from './ledger-core'
 import { libraryInstanceConfig, librarySurfaceFor } from './library-core'
 import LIBRARY_DECLARATION from './library-surface.json'
@@ -1992,6 +1993,10 @@ async function build(
                   {
                     budgets: projectBackendBudgets(lib as Untyped, workerSettings?.backend),
                     briefMaxBytes: BUILDER_TURN_MAX_BYTES,
+                    // [[REQ-408]] — the chosen headline and the hearted notes.
+                    ...(deps.plan
+                      ? { story: async () => storyBrief((await deps.plan!(slug).read())?.fields ?? {}) }
+                      : {}),
                   },
                 ))(runtime),
                 granted: lib.delegationInstanceConfig(runtime.roleNames()),

@@ -363,11 +363,13 @@ export function createDisplayPanel(options = {}) {
     return api
   }
 
-  function setMode(id) {
+  function setMode(id, { remember = true } = {}) {
     if (!modes.has(id)) throw new Error(`setMode: unknown mode "${id}"`)
     if (id === activeId) return
     activeId = id
-    if (!modes.get(id).transient) storage?.setItem('mode', id)
+    // [[REQ-408]] — `remember: false` is a mode the HOST chose (Story, before the
+    // first draft), which the next visit should not reopen as the client's own.
+    if (remember && !modes.get(id).transient) storage?.setItem('mode', id)
     // NOTHING IS INVALIDATED HERE. That omission is the whole of [[BUG-79]]:
     // moving between channels does not make either one's document any less
     // current, so neither is re-fetched and the one being left keeps its layout

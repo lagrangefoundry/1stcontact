@@ -189,6 +189,7 @@ function memoryFolds() {
  * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
  *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
  * @param {Storage} [options.storage] where the client's folds are remembered ([[REQ-401]])
+ * @param {(view: object) => void} [options.onView] every plan view drawn ([[REQ-408]])
  */
 export function createPlanPanel(options = {}) {
   const transport = {
@@ -205,6 +206,8 @@ export function createPlanPanel(options = {}) {
   /** The delete dialog an answered upload opened, so a second press opens no other. */
   let confirming = null
   const onOpenComp = options.onOpenComp ?? null
+  /** [[REQ-408]] — every view drawn, handed on: the Story pane draws its board from it. */
+  const onView = options.onView ?? null
 
   const element = el('section', 'plan-panel')
   element.setAttribute('aria-label', PLAN_PANEL_LABEL)
@@ -831,6 +834,7 @@ export function createPlanPanel(options = {}) {
     // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
     openHeading.hidden = openList.hidden = openList.childElementCount === 0
     doneHeading.hidden = doneList.hidden = doneList.childElementCount === 0
+    onView?.(view)
   }
 
   /** Re-read the plan and redraw. A failure leaves what was drawn. */

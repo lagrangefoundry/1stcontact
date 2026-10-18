@@ -390,6 +390,7 @@ import {
   CLIENT,
   CLIENT_ACTIONS,
   clientAnswer,
+  clientBoardAction,
   noteList,
   notedComp,
   panelView,
@@ -401,6 +402,7 @@ import {
 } from '../../../tools/generate/src/cli/ai/plan-core'
 import { fidelityOperations } from '../../../tools/generate/src/cli/ai/fidelity-core'
 import { compBoard, type BoardComp } from './comps'
+import { BOARD_ACTIONS } from '../../../tools/generate/src/cli/ai/story-core'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -2286,6 +2288,11 @@ export const PLAN_ASK_PATH = '/api/plan/ask'
 export const PLAN_COMP_PATH = '/api/plan/comp'
 /** What the client may do on the comp board. */
 export const COMP_ACTIONS = ['add', 'note', 'remove', 'skip'] as const
+/**
+ * [[REQ-408]] — the client's half of the story board: react to a note, delete,
+ * add or edit one, choose or write the headline.
+ */
+export const PLAN_BOARD_PATH = '/api/plan/board'
 
 export const GRANTS_PATH = '/api/grants'
 export const GRANT_REVOKE_PATH = '/api/grants/revoke'
@@ -5923,6 +5930,46 @@ async function routeUncached(
         const status = { UNKNOWN_COMP: 404, CONFLICT: 409, PLAN_INVALID: 400 }[code]
         if (status === undefined) throw err
         return json(status, { error: scrub(message), code })
+      }
+    }
+
+    /**
+     * The client's half of the story board ([[REQ-408]]).
+     *
+     * ONE ROUTE FOR EVERY BOARD ACTION, like the comp board's: the action names
+     * what the client did, `clientBoardAction` applies it to the plan under the
+     * plan's own rules, and the write is compare-and-set through REQ-356's port,
+     * re-applied once on a clash for the ask route's reason. Answers the plan
+     * panel's view, so the Story pane redraws from what is stored.
+     *
+     * IT NEVER STARTS A TURN. The consultant hears what the client did on her
+     * next one, from the notes' own stamps.
+     */
+    if (p === PLAN_BOARD_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      const action = typeof body.action === 'string' ? body.action : ''
+      if (site === '' || !(BOARD_ACTIONS as readonly string[]).includes(action)) {
+        return json(400, { error: `site and an action (${BOARD_ACTIONS.join(', ')}) are required` })
+      }
+      if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
+      const tickets = await openTickets()
+      const plan = sitePlan(tickets, site)
+      const actIt = (current: Plan): Plan => clientBoardAction(current, { ...body, action }, new Date().toISOString())
+      try {
+        let written: Plan
+        try {
+          written = await plan.write(actIt)
+        } catch (err) {
+          if ((err as { code?: string }).code !== 'CONFLICT') throw err
+          written = await plan.write(actIt)
+        }
+        return json(200, await panelWithMaterial(tickets, written.fields))
+      } catch (err) {
+        const code = (err as { code?: string }).code ?? ''
+        const status = { UNKNOWN_NOTE: 404, UNKNOWN_THEME: 404, CONFLICT: 409, PLAN_INVALID: 400 }[code]
+        if (status === undefined) throw err
+        return json(status, { error: scrub((err as Error).message), code })
       }
     }
 
