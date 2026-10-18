@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:33:05.611246+00:00'
+updated_at: '2026-10-18T13:41:43.623304+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8334,5 +8334,17 @@ Two questions:
 2. **Should a chosen "Why you" be part of the finish line for "Getting to know you"?** I'd say yes, with the skip counting: either the client picked a line, or she tried once and moved on. Either way the stage doesn't stall on it.
 
 On your point 3: agreed. If the client can add notes they can edit them too, including the ones she pinned. An edited note becomes the client's wording, so the consultant no longer rewords it.
+
+<!-- xgd-turn id="f5608d11-1f31-46b0-be54-9f8f2f90df14-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:41:41.370391+00:00" -->
+#### You
+Perhaps we make it the headline on the board: a space at the top for a "title"
+
+Before its populated it has gray shadow text: The headline...why you?
+
+We don't expect the client to populate it, but I think we need to allow the client to edit it
+
+The UI needs to accommodate a selection so that the AI can populate alternatives. If there are alternatives it needs to be clear and interacting lets us switch between them and bring up a selection UI to choose one. Lets talk through this UX.
 
 <!-- xgd-chat-end -->
