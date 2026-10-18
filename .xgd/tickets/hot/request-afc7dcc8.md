@@ -6,10 +6,10 @@ title: 'Builder parallelism: drop the ''never several at once'' conduct rule, an
   refuse a builder with no scope'
 created_by: EPIC-19
 created_at: '2026-10-18T19:09:31.496633+00:00'
-updated_at: '2026-10-18T19:09:31.496633+00:00'
+updated_at: '2026-10-18T19:15:41.154774+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 3
