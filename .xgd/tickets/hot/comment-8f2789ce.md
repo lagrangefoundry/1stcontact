@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:19:19.286320+00:00'
+updated_at: '2026-10-18T12:20:25.930747+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -119,5 +119,29 @@ Two questions before I touch anything:
 <!-- xgd-chat role="user" ts="2026-10-18T12:19:18.908637+00:00" -->
 #### You
 Sure that's a good start, please go ahead.
+
+<!-- xgd-turn id="e07a4994-396a-4586-bf30-289c672e85ed-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T12:20:24.578346+00:00" -->
+#### Claude
+Prompt-only change, so it goes straight onto xgd-working without a code cycle. Applying the identical text splice to both priming variants:
+
+Text renders cleanly. Now the plan-seed note pairing stages with their finish lines, then the priming-related tests.
+
+Tests pass. Committing just my two files, leaving the other uncommitted changes in the tree alone:
+
+Now recording the outcome on the ticket. I'm appending, so the original body stays as it is:
+
+I've given each build stage a "finish line" in the consultant's instructions, so she now brings up motion and other finishing touches herself instead of waiting for the client to ask. It's committed on xgd-working as `533cdd9fe8`. The 11 test files covering the instructions and the plan panel pass (75 tests).
+
+**What changed**
+- **`priming.json`**: the consultant's plan-panel instructions now give a finish line for each of the seven stages, and say it's her job to get the client there, because they can't ask for what they don't know exists. The text is the draft you approved, with small tidy-ups. Finishing touches has her bring up motion first: gentle fade-ins as you scroll, a slight lift on buttons, the top banner stays still, nothing slides or spins. Then she suggests anything else that would lift this particular site, and the client says yes or no to each. She tells them to use **"Open in new tab"** to see motion, and that **"View on your phone"** shows the scroll fade-ins but not the hover effects. The same text went into both versions of the instructions, with and without the knowledge base, since they repeat each other.
+- **`plan-seed.json`**: a note that each stage's finish line lives in `priming.json`, so changing a stage here means changing it there too.
+
+**Ticket**: I added a "Resolution" section to REQ-405 recording the reframed scope and the commit. The original text and title are unchanged, and the status is still `draft`. Because this is instruction text only, there's no free-coded step to go through.
+
+**Not changed**: the `motion_offer` check can still never come up, because nothing fires its `revision_once` trigger. The new Finishing touches guidance covers what it was meant to do, so I left it; if you'd rather not keep a check that can never fire, it's a one-line deletion from the seed.
+
+The live builder will only pick this up after the next `bin/deploy --env dev`.
 
 <!-- xgd-chat-end -->
