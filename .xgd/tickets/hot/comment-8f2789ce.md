@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T13:04:55.018543+00:00'
+updated_at: '2026-10-18T13:05:23.311184+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -196,5 +196,22 @@ Shall I go ahead with the Finishing touches version?
 <!-- xgd-chat role="user" ts="2026-10-18T13:04:54.372961+00:00" -->
 #### You
 Lets go with your suggestion and see how it falls out in practice
+
+<!-- xgd-turn id="ee7679dc-88d1-4f19-a299-956ad38f0060-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:05:19.506789+00:00" -->
+#### Claude
+That's the data-only change: `motion_offer` becomes due when a round of changes finishes.
+
+The motion reminder now comes up after the first round of changes finishes. It's committed on xgd-working as `7763c25e1c`, and the three plan test files I ran pass (13 tests).
+
+- **What changed:** one word in `plan-seed.json`. The `motion_offer` check now waits for the "round of changes finished" event, which actually happens, instead of `revision_once`, which nothing ever triggers.
+- **When it will show:** after the second build finishes, the consultant's reminder will tell her to ask "Would some motion help here?". That's usually during Refining, earlier than Finishing touches. The new Finishing touches guidance still covers motion later on.
+- **Existing sites won't see it.** A site's plan copies the seed once, when the site is created, so only sites started after this change get the new trigger. Existing sites keep the old, never-firing one. Bob's site is affected only if it's started fresh.
+- **Ticket:** I added a note to REQ-405 recording this change and that it's the version you chose to try in practice.
+
+If it turns out to come up too early, the alternative is tying checks to a stage starting, as discussed. That needs a small code change and isn't done.
+
+As before, the live builder picks this up only after the next `bin/deploy --env dev`.
 
 <!-- xgd-chat-end -->
