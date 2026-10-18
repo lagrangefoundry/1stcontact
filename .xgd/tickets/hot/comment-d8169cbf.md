@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T14:35:16.857240+00:00'
+updated_at: '2026-10-18T17:02:38.565331+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8524,5 +8524,11 @@ This is probably more than a broken test. The two failing tests check that a fin
 3. The test feeds in a result in an outdated shape, and the product itself is fine.
 
 The ticket asks for the real cause to be found and fixed, not for the tests to be loosened. The fix gets written in BUG-222's own session.
+
+<!-- xgd-turn id="0cbe6ae4-4884-4f1c-80c6-bcc51b81de64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T17:02:37.237158+00:00" -->
+#### You
+I got a transient 503 error in the chat window - I can't reproduce it but there might be something in the logs (this is the dev server)
 
 <!-- xgd-chat-end -->
