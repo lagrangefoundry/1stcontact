@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:12:05.754329+00:00'
+updated_at: '2026-10-18T19:14:20.696755+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8735,5 +8735,31 @@ Its tests include two builders on separate sections, commissioned in one reply, 
 <!-- xgd-chat role="user" ts="2026-10-18T19:12:02.365142+00:00" -->
 #### You
 Good - can you also check the 3 tickets filed by the consultant
+
+<!-- xgd-turn id="4714edf0-8bae-4d55-ac50-56ed444e288e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T19:14:19.800907+00:00" -->
+#### Claude
+Three from the consultant at 11:25: BUG-224, REQ-409 and BUG-225. Reading them.
+
+Checking these against existing work: the queue for messages sent mid-turn first.
+
+The consultant's three tickets are BUG-224, BUG-225 and REQ-409. All three are real and none duplicates an open ticket, though REQ-409 mostly overlaps work that's already filed. I've linked them to EPIC-19, added my findings to each, and listed them on the epic.
+
+**BUG-224: messages typed while she's working are dropped.** Raised to high, and I'd put it first. It's confirmed in the code and isn't new: the chat pane says outright (`chat.js:1098`) that it gives the chat no way to queue a message. So a message sent mid-turn shows as pending, then disappears. BUG-122 only made it recoverable as a draft on reload, and REQ-345, which would have delivered it, was abandoned in favour of the group room. **On the one-to-one path, every message sent while she works is lost.** That's the "abandoned" feeling the consultant describes. The fix has two steps, both ours:
+1. **Wire up the queue,** so those messages become her next turn and are never dropped. The chat component already batches them correctly.
+2. **Deliver them between her tool calls,** using the framework's per-request signals channel (LF REQ-180), which has already landed. She's told the client has written and can read it mid-run. Meanwhile the client sees *"Sent — I'll see this when I finish the current step."*
+
+**BUG-225: builders report checks as passed when they're false, and rewrite copy.** Raised to high. It's three separate defects:
+1. **Checks about exact text are answered from the builder's belief.** The system should settle them itself from the page, the way it already settles "only these elements changed".
+2. **A layout fix rewrote about 15 pieces of copy in other sections.** That builder was scoped to two whole pages, so every section was fair game and the file locks couldn't stop it. Section scopes, now in the prompt and made required by REQ-410, would have refused those writes.
+3. **Your logo edit counted against the builder.** The builder's record of changes compares the site before and after, so a client edit made during its run lands in its record and fails its checks. The change log already records who made each change; the builder's record should exclude edits that weren't its own.
+
+**REQ-409: a first draft that runs build → check → fix to completion.** Mostly covered elsewhere, so I've narrowed it rather than closing it:
+- **Its third item** is BUG-224.
+- **Its second item, plain-language progress,** is largely BUG-215, which has landed and is awaiting reconciliation.
+- **Its first item, a budget for self-correction:** the four repair passes are mainly the other defects showing. Builders passed checks they had failed, a whole-page scope let a fix wander, and builders ran one after another. My recommendation is to fix BUG-225 and REQ-410 first and measure again. If a first draft still can't finish in one turn, what remains is narrow. She may continue a first draft into a follow-up turn of her own, only for her own acceptance checks and never for taste decisions, with a fixed cap, and the client is told.
+
+In priority order I'd take BUG-224, then REQ-410, then BUG-225. Together those cover most of what made this run feel slow and unresponsive.
 
 <!-- xgd-chat-end -->
