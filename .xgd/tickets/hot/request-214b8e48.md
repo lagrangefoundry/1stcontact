@@ -6,9 +6,9 @@ title: 'Story board: a third preview mode where the client''s own words become t
   sticky notes and a headline'
 created_by: EPIC-19
 created_at: '2026-10-18T13:53:14.087264+00:00'
-updated_at: '2026-10-18T13:53:14.087264+00:00'
+updated_at: '2026-10-18T13:56:18.413622+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -91,3 +91,11 @@ UATs (`test_UAT_FC_<ID>_*`):
 - The consultant's priming and manual describe the board, its reactions and the headline.
 
 Regression scope: plan-panel and preview-mode UATs (REQ-364, REQ-390, REQ-398, REQ-401, REQ-402, REQ-403, BUG-215).
+
+
+
+### Also in this ticket: a self-review that falls due (operator, 2026-10-18)
+The consultant's priming now carries a distinctiveness rubric (swap test, headline test, one thing only they could say, real proof, main action in the first screen, restraint), to be applied after the first draft and before publishing. Prompt advice alone is the Finding 13 failure, so the host makes it fall due:
+- A new plan check `weakest_point` — *"Honestly, the weakest part of the site right now is [weakest point]. Shall I [what you would do about it]?"* — on the existing triggers `first_pass_complete` and `before_publish`. Asking it requires her to judge the draft against the rubric.
+- It was taken out of the prompt-only commit because `test_UAT_FC_REQ-379_opening_publish_makes_the_pre_publish_checks_due` pins the exact pre-publish check list; that assertion is updated here.
+- Note: two other REQ-379 cadence UATs (`…first_builder_session_makes_layout_happy_due…`, `…later_builder_session_is_a_revision_round…`) already fail on xgd-working without any change; not caused by this ticket.
