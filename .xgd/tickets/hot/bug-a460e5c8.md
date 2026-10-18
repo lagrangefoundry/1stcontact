@@ -6,9 +6,9 @@ title: 'A `control: "button"` node outside a component renders nothing, but vali
   and raises no attention'
 created_by: xgd
 created_at: '2026-10-17T23:09:17.687277+00:00'
-updated_at: '2026-10-18T00:15:29.185051+00:00'
+updated_at: '2026-10-18T00:15:30.544740+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -33,3 +33,12 @@ One of:
 
 ## Impact
 An invisible call to action that passes every check. It was found only by a screenshot, and only after several rounds of builders reported the page as fine.
+
+
+
+## Notes (EPIC-19, 2026-10-17)
+
+This breaks Security/Robustness policy's 'validated by construction' promise: a document that validates should render what it says. Recommended fix:
+1. **The validator refuses a `control` node outside a module slot**, or one naming a control no module on the page declares, with a message saying to use a `text` node with a `link` for a call to action. This is the fix; it makes the invisible state unwritable.
+2. **`describe_page` marks any such node `broken`** on existing pages, so ones already written are found.
+3. **The builder's manual says how to make a page-level button**: a `text` node with a `link` and its own fill and padding. Whether L1 should gain a first-class button primitive is a separate question, not needed for this fix.
