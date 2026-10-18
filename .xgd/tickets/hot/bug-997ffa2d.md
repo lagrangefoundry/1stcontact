@@ -6,7 +6,7 @@ title: Builder delegations report checks "passed" that are false, and rewrite co
   outside the brief
 created_by: xgd
 created_at: '2026-10-18T18:25:15.501272+00:00'
-updated_at: '2026-10-18T19:38:05.965365+00:00'
+updated_at: '2026-10-18T20:49:31.801915+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coded
@@ -93,3 +93,19 @@ Regression scope: the REQ-354, BUG-219, REQ-340/361 account suites and the deleg
 Landed as `1a9ffc20b0` (plus the gate's version bump `ba3d1a5523`), merged into xgd-working. Both BUG-225 UAT files pass: 5 host-hook cases and 2 cases through the real route inside workerd. The regression scope is 31 files and 206 tests: everything passes except 6 tests in `REQ-295_delegation.workers`, `REQ-342_the_method_rides_every_turn.workers` and `REQ-295_delegation_config`. All 6 fail the same way with this change's two source files reverted to xgd-working `5cb1a3b543`, so they are pre-existing and not caused by this change.
 
 Known limit: a journal address is the one each write was made at, so a client edit to an element the builder later moved, or to one the builder also wrote, stays in the builder's account. Attribution only ever narrows the builder's share.
+
+## Likely root cause, and a much stronger reproduction
+
+The copy rewriting is systematic. In one session, **six separate builder delegations** rewrote body copy they were not asked to touch. Each brief was narrowly scoped, for example:
+- "change ONLY that element's axes: objectFit and objectPosition";
+- "set fixed sizing on both image elements… change nothing else".
+
+Each time, the account shows the worker also replaced text elements across other sections with lines taken from the client's story board (hearted notes and the chosen headline). The workers' own summaries describe it as "updated copy… using the client's own words from their story board", "replaced with four key points from client's story".
+
+The consultant priming says builders "are given [the hearted notes and the chosen headline] with every brief". That attachment appears to override the brief's explicit "do not change any wording": the worker treats the story board as copy it is meant to apply to whatever page it touches.
+
+What works as a workaround: a brief that states exact target strings per address, explicitly says to ignore the story board, and is paired with host-settled containment checks ("only the elements at … changed", "no element changed any field other than text").
+
+## Suggested fixes
+- Attach the story board only to briefs that write copy (new pages and sections), or label it "reference: do not apply unless the brief asks for copy changes".
+- Treat containment checks as constraints the host enforces at write time (refuse writes outside the declared elements or fields), not only as post-hoc verdicts.
