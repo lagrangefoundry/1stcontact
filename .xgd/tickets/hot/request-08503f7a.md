@@ -6,9 +6,9 @@ title: 'Consultant guidance: offer motion unprompted, and tell the client to use
   in a tab" to see it'
 created_by: xgd
 created_at: '2026-10-18T00:32:51.422686+00:00'
-updated_at: '2026-10-18T00:32:51.422686+00:00'
+updated_at: '2026-10-18T12:20:16.900268+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -29,3 +29,14 @@ During a first-time site build, the client (a novice) had to ask "What about som
 - Optionally, make the `motion_offer` check fall due when the layout is approved, rather than only after a revision round, so the per-turn plan entry prompts the consultant.
 
 This is a documentation and guidance gap, not a defect in the motion features themselves. The scroll-reveal, hover and transition fields worked as expected.
+
+
+
+## Resolution (agreed with operator, 2026-10-18)
+Reframed: the real gap is that the consultant had no idea what DONE looks like for each stage, so she waited to be asked for things a novice cannot know exist. Fixed with a prompt change only, no code and no UAT.
+
+- tools/generate/src/cli/ai/priming.json: the plan-panel paragraph (in both the priming and priming_without_corpus variants) now gives each of the seven stages a finish line, and says getting the client there is the consultant's job. Finishing touches is framed as where the site goes from correct to finished and where we stand out. She raises motion herself (gentle scroll fade-ins and a slight lift on buttons; the top banner stays still; nothing slides or spins), then anything else that would lift this particular site, and the client says yes or no to each. She tells the client to use "Open in new tab" beside the preview (the real button label, not "Open in a tab") and that "View on your phone" shows the scroll fade-ins but not the hover effects.
+- tools/generate/src/cli/ai/plan-seed.json: an about note pairing the stage list with those finish lines.
+- Not changed: the motion_offer check's trigger revision_once is never fired by the host, so it never falls due. Left alone, because the stage guidance now covers it.
+
+Commit: 533cdd9fe854d9d3a5f2f86c482c7d156dac025a. Priming and plan UATs pass (11 files, 75 tests).
