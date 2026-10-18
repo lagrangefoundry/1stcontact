@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-218
 created_by: xgd
 created_at: '2026-10-18T00:15:05.631669+00:00'
-updated_at: '2026-10-18T00:41:38.473580+00:00'
+updated_at: '2026-10-18T00:42:13.336039+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -103,5 +103,17 @@ The body also has the evidence from workers 4 and 10, the causes ruled out, acce
 <!-- xgd-chat role="user" ts="2026-10-18T00:41:35.386792+00:00" -->
 #### You
 If there is no work in this project please close the ticket as abandoned and explain why in the body
+
+<!-- xgd-turn id="ba1e8b22-18be-4c0d-b42f-9f0ae7ca4433-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T00:42:08.314794+00:00" -->
+#### Claude
+BUG-218 is now closed as `abandoned`. I added a closing note to the body and left the existing text as it was.
+
+The note says why there's nothing to do in this project:
+- **The fix is upstream.** The only fix we agreed on, forcing the `ReportResult` call on the nudge turn, is entirely in lagrange-framework. It's tracked there as BUG-87, and 1stcontact will pick it up through the shared framework package with no change here.
+- **The other options were dropped.** Pulling the report out of the worker's text, rewording the nudge on our side, and adding a "nudged" marker to our account of the run were all considered and declined.
+- **The wrong alt text is BUG-214's.**
+- **Nothing was committed** against BUG-218.
 
 <!-- xgd-chat-end -->
