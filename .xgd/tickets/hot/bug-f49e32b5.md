@@ -6,14 +6,16 @@ title: choose_look copies a look's drifted content onto the real page without ch
   it against the source page
 created_by: xgd
 created_at: '2026-10-18T19:22:53.080967+00:00'
-updated_at: '2026-10-18T19:22:53.080967+00:00'
+updated_at: '2026-10-18T19:27:40.433590+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: epic_parent
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
-  priority: medium
+  priority: high
+  epic_parent: epic-95bc3b15
+  severity: high
 ---
 
 ## What happened
