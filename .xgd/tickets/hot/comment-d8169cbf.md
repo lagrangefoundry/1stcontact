@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T00:15:48.377847+00:00'
+updated_at: '2026-10-18T12:39:06.715056+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8018,5 +8018,31 @@ The consultant's three new bugs are BUG-218, 219 and 220. The other two new ones
 - **Builders' instructions** should say how to make a call-to-action button. I've raised it to high severity, because a call to action the client can't see is a lost enquiry.
 
 Shall I file the lagrange-framework ticket for recovering reports written as text (BUG-218's first half)?
+
+<!-- xgd-turn id="66bed737-6420-4479-abfb-629b5811b279-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T12:39:05.602182+00:00" -->
+#### You
+Please read REQ-405 and its transcript. I think its an important addition to our story.
+
+I'm interested in any comments of suggestions on that you might have.
+
+But I also have two directions I want to take our conversation on top of that:
+
+1. Getting to know you... Having run through this and created a couple of sites now I am starting to see the importance of this conversation. Making a site unique particularly these kinds of sites is not about coming up with some original formatting or color scheme. It is about telling a unique story. Most small businesses will have a unique story. There may be a challenge in getting them to tell it. A lot of small businesses will be focused on the idea of trying to look "professional" and/or "corporate". Their distinctiveness actually comes from a different place it is ironically not those things. I probably shouldn't talk in generalities different business owners will have different perspectives. I already see our prompting is getting the consultant to tell Bob what it thinks Bob knows and what it thinks Bob may not know. Bob may not appreciate this.
+
+In order to do these role-plays I set up a bunch of backstory so that it was easy to cut and paste information in. I did not feel that this information was being extracted from me and I think the consultant would have happily moved on without getting enough of an idea of what is unique about my business.
+
+That is a very real tension here. It is important that we get to a first draft relatively early in the process. If we insist on making the customer talk for an hour about their business before we show them any kind of website they may not get to the website part. The other problem is that they are not talking to a human being. They know they are not talking to a human being and so the kind of conversation that might naturally have them tell the story could be harder to get to.
+
+This is relevant to  REQ-405 in its simplest sense what I am talking about here is the question of "done" for the getting to know you stage.
+
+So, to recap this content is critically important to creating a good site. 1. It is difficult to extract because most clients will not be looking to chitchat with an AI and unless we frame it correctly getting to the story about how the business was started or who shows up every week is something it may be difficult for them to talk about. 2. Whilst we may think of this as a important criteria for done for getting to know you, there is also attention in that we don't want this section to take too long or require the user to do too much typing.
+
+How do we square this circle? I'm not sure I'm interested in talking around the problem a little bit. One approach which we should probably start with is to get the AI to really lean in on this conversation first. I think when we get that working maybe we look at ways that we can spread out the sections a little more in parallel so that we can get to our website early....?
+
+A related point here is: is the AI assessing its own work sufficiently? Do we have a rubric for what is a "good" website? What makes a website distinctive? Unique? Effective? We did do some research in this area and have some documents that try to talk to some of these questions but are these ideas baked into what the consultant delivers? Is it reassessing the website as it goes against these criteria to ensure that it is creating a distinctive/unique and effective website for the customer. And if it is not do we know how to circle back and fix?
+
+(Lets focus on this first but I want to drop 2 in as a placeholder 2. People with existing sites - new flow needed)
 
 <!-- xgd-chat-end -->
