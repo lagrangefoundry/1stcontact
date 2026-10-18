@@ -6,9 +6,9 @@ title: 'Site tab Edit mode: click a selected picture to open the photo editor fo
   that use; every site image has a Library item'
 created_by: EPIC-19
 created_at: '2026-10-17T23:11:37.210282+00:00'
-updated_at: '2026-10-18T01:05:26.998703+00:00'
+updated_at: '2026-10-18T01:05:33.874832+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
