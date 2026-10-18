@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T23:10:05.956002+00:00'
+updated_at: '2026-10-18T23:19:20.172852+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8985,5 +8985,11 @@ I filed the streaming bug as **BUG-228**, under EPIC-16 (`draft`, high, 1 point)
 - **The last good turn is the lead.** Whatever the 21:16 turn wrote or uploaded is the likely trigger. You were working on fonts around then, and BUG-227's font fix landed in that window, though not in the snapshot you're running.
 
 This blocks every turn on that business, so I'd file it as a critical bug now, with these findings and the reproduction, and let its own session trace it. That means reading the 21:16 turn's tool calls and checking what runs at the end of a turn. Shall I?
+
+<!-- xgd-turn id="6e9a0418-5169-4d4f-8177-81df8b4998df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T23:19:20.047497+00:00" -->
+#### You
+Yes - FWIW I have the network console open but I mostly see image gets. all successful
 
 <!-- xgd-chat-end -->
