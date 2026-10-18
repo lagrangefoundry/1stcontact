@@ -6,14 +6,16 @@ title: Builder delegations report checks "passed" that are false, and rewrite co
   outside the brief
 created_by: xgd
 created_at: '2026-10-18T18:25:15.501272+00:00'
-updated_at: '2026-10-18T18:25:15.501272+00:00'
+updated_at: '2026-10-18T19:13:48.849700+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: epic_parent
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
-  priority: medium
+  priority: high
+  epic_parent: epic-95bc3b15
+  severity: high
 ---
 
 ## What happened
