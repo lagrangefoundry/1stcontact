@@ -23,12 +23,15 @@
  * words. Comparing two states has neither failure: an address is read off the
  * tree it belongs to, and a difference is a difference whatever it is in.
  *
- * IT SPEAKS FOR A WINDOW AND ATTRIBUTES NOTHING. Anything that writes to the
- * draft between the two captures appears here, whoever wrote it. The delegating
- * session is blocked awaiting its worker, so the only other writer is a second
- * session or the page editor — rare, and stated rather than hidden, because a
- * reader who mistook this for an attribution would be reading a claim it never
- * makes. The surface prose says the same thing where the field is described.
+ * IT SPEAKS FOR A WINDOW, AND SETS APART WHAT THE JOURNAL PLACES ELSEWHERE
+ * ([[BUG-225]]). Anything that writes to the draft between the two captures
+ * appears in the comparison, whoever wrote it. The delegating session is blocked
+ * awaiting its worker, so the other writer is the client in the page editor —
+ * and an account that counted the client's own edit as the builder's failed the
+ * builder's checks for it. The journal records who made each write, so the
+ * difference a client write explains is moved to `others` with its actor. The
+ * journal only ever narrows the builder's share: a difference it cannot place
+ * stays with the builder. See {@link setApart}.
  *
  * WHAT IT COSTS. Both captures and the comparison are host-side and add no
  * tokens; only the difference list enters the conversation, and it is a list of
@@ -45,10 +48,12 @@
  * the page when it needs the tree; a field that changed still carries both values.
  */
 
-import { formatL1Path } from '@1stcontact/site-schema'
-import type { L1Node } from '@1stcontact/site-schema'
+import { formatL1Path, l1PlainText } from '@1stcontact/site-schema'
+import type { L1Node, L1TextContent } from '@1stcontact/site-schema'
+import type { EditActor, JournalRecord } from '../../store/journal-model'
 import { canonicalJson, diffOutlines } from '../../store/revision-model'
 import type { SiteOutline } from '../../store/revision-model'
+import { moduleHost } from '../../store/sections'
 import type { SiteStore, StoredPage } from '../../store/site-store'
 import { BUDGET_STOP_REASON, TURN_END, budgetStopMeta } from './budget-core'
 import type { RoundBudgets } from './backends'
@@ -185,7 +190,16 @@ export interface DraftChanges {
    * a false statement about the site.
    */
   truncated?: number
+  /**
+   * [[BUG-225]] — differences the journal shows somebody other than the builder
+   * made during the window, each with who. Absent when there were none. Nothing
+   * here counts as written by the builder or is judged by a host-settled check.
+   */
+  others?: OtherDifference[]
 }
+
+/** A difference made by another actor than the builder ([[BUG-225]]). */
+export type OtherDifference = DraftDifference & { actor: EditActor }
 
 /**
  * How much of the conversation a difference list may take, in serialised
@@ -1014,17 +1028,33 @@ export function reportRefused(output: unknown): boolean {
  */
 export function draftAccount(store: SiteStore, site: string): Untyped {
   const marks = new WeakMap<object, DraftCapture[]>()
-  const comparisons = new WeakMap<object, DraftChanges>()
+  const comparisons = new WeakMap<object, Promise<DraftChanges>>()
 
-  /** The difference between the first and the last capture under `ctx`, once. */
-  const comparison = (ctx: object, from: unknown, to: unknown): DraftChanges | null => {
+  /** The two captures under `ctx` that `from` and `to` name, or null. */
+  const pair = (ctx: object, from: unknown, to: unknown): [DraftCapture, DraftCapture] | null => {
     const taken = marks.get(ctx) ?? []
     const first = taken[0]
     const last = taken[taken.length - 1]
     if (taken.length < 2 || first.at !== from || last.at !== to) return null
+    return [first, last]
+  }
+
+  /**
+   * The difference between the first and the last capture under `ctx`, once,
+   * with what the journal places on another actor set apart ([[BUG-225]]). A
+   * journal that cannot be read sets nothing apart.
+   */
+  const comparison = (ctx: object, from: unknown, to: unknown): Promise<DraftChanges> | null => {
+    const captures = pair(ctx, from, to)
+    if (captures === null) return null
     let changed = comparisons.get(ctx)
     if (changed === undefined) {
-      changed = draftChanges(first, last)
+      const [first, last] = captures
+      changed = store
+        .changesSince(site, first.at)
+        .then((slice) => (slice.truncated ? null : slice.changes.filter((r) => r.at <= last.at)))
+        .catch(() => null)
+        .then((records) => setApart(draftChanges(first, last), records))
       comparisons.set(ctx, changed)
     }
     return changed
@@ -1036,21 +1066,97 @@ export function draftAccount(store: SiteStore, site: string): Untyped {
       marks.set(ctx, [...(marks.get(ctx) ?? []), capture])
       return capture.at
     },
-    changes(ctx: object, from: unknown, to: unknown): DraftChanges | null {
-      return comparison(ctx, from, to)
+    async changes(ctx: object, from: unknown, to: unknown): Promise<DraftChanges | null> {
+      return (await comparison(ctx, from, to)) ?? null
     },
     claims(_ctx: object, check: string): boolean {
       return containmentCheck(check) !== null
     },
-    settle(ctx: object, check: string, from: unknown, to: unknown): Settlement | null {
+    async settle(ctx: object, check: string, from: unknown, to: unknown): Promise<Settlement | null> {
       const claim = containmentCheck(check)
-      const changed = comparison(ctx, from, to)
+      const captures = pair(ctx, from, to)
+      const changed = await comparison(ctx, from, to)
       // Not having the captures is not having looked, and that is unsettled —
       // never passed (behaviour 3).
-      if (claim === null || changed === null) return null
-      return settleContainment(claim, changed)
+      if (claim === null || captures === null || changed === null) return null
+      const pages = { before: pagesById(captures[0]), after: pagesById(captures[1]) }
+      return claim.kind === 'text' ? settleText(claim, pages.after) : settleContainment(claim, changed, pages)
     },
   }
+}
+
+/** A capture's pages by the id an address is scoped to. */
+function pagesById(capture: DraftCapture): Map<string, Record<string, unknown>> {
+  return new Map(capture.outline.pages.map(({ name, page }) => [pageIdOf(name, page), page]))
+}
+
+// ── who else wrote ([[BUG-225]]) ─────────────────────────────────────────────
+
+/** The actor every builder (and consultant) write is journalled as. */
+const BUILDER_ACTOR: EditActor = 'ai'
+
+/**
+ * `changed` with every difference the journal places on another actor moved to
+ * `others` ([[BUG-225]]).
+ *
+ * WHY. A client who edited the logo while a builder worked had that edit land in
+ * the builder's account, and an account-settled check failed against the builder
+ * for it. `list_changes` already said `actor: client`.
+ *
+ * THE JOURNAL ONLY EVER NARROWS THE BUILDER'S SHARE. Its addresses are the ones
+ * each write was made at, which a later write can move, so a difference is
+ * placed elsewhere only where the journal is unambiguous:
+ *
+ *   - its page (or, for `site.json` and assets, the site) was written by other
+ *     actors and never by the builder in the window; or
+ *   - both wrote that page, the difference has an address, another actor's
+ *     record names that element or one above it, and no builder record names an
+ *     element above, at or below it, nor writes the page without an address.
+ *
+ * Anything else stays the builder's, as it was before this. `records` null — a
+ * truncated or unreadable journal — sets nothing apart.
+ */
+export function setApart(changed: DraftChanges, records: readonly JournalRecord[] | null): DraftChanges {
+  if (records === null || records.length === 0) return changed
+  const byPage = new Map<string, JournalRecord[]>()
+  for (const record of records) {
+    const key = record.page ?? ''
+    byPage.set(key, [...(byPage.get(key) ?? []), record])
+  }
+  const builder: DraftDifference[] = []
+  const others: OtherDifference[] = []
+  for (const d of changed.differences) {
+    const actor = otherActor(d, byPage.get(d.page ?? '') ?? [])
+    if (actor === null) builder.push(d)
+    else others.push({ ...d, actor })
+  }
+  if (others.length === 0) return changed
+  return { ...changed, differences: builder, others }
+}
+
+/** The other actor a difference belongs to, or null when it stays the builder's. */
+function otherActor(d: DraftDifference, records: readonly JournalRecord[]): EditActor | null {
+  const theirs = records.filter((r) => r.actor !== BUILDER_ACTOR)
+  if (theirs.length === 0) return null
+  const mine = records.filter((r) => r.actor === BUILDER_ACTOR)
+  if (mine.length === 0) return theirs[theirs.length - 1].actor
+  if (d.address === undefined) return null
+  const at = d.address
+  const scoped = (r: JournalRecord): string | null =>
+    r.module === d.module && r.slot === d.slot && ADDRESS.test(r.path ?? '') ? r.path! : null
+  const above = (a: string, b: string): boolean => a === b || b.startsWith(`${a}.`)
+  const blocked = mine.some((r) => {
+    const path = ADDRESS.test(r.path ?? '') ? r.path! : null
+    if (path === null) return r.module === undefined || r.module === d.module
+    const p = scoped(r)
+    return p !== null && (above(p, at) || above(at, p))
+  })
+  if (blocked) return null
+  const named = [...theirs].reverse().find((r) => {
+    const p = scoped(r)
+    return p !== null && above(p, at)
+  })
+  return named?.actor ?? null
 }
 
 // ── the checks the host settles ──────────────────────────────────────────────
@@ -1073,11 +1179,27 @@ export function draftAccount(store: SiteStore, site: string): Untyped {
  * backticks, or joining the last item with "and". Every name has to be one
  * token of the shape its vocabulary takes — a page id, a dotted field path, a
  * dotted address — so a list that does not split cleanly is not claimed.
+ *
+ * AND TWO MORE, WITH THEIR NEAR PHRASINGS ([[BUG-225]]):
+ *
+ *   - `only the elements in section <S> [on page <P>] changed` — also claimed
+ *     as `[page <P>:] only elements inside the <S> section changed` and
+ *     `only the <S> section changed`, because a check written that way was
+ *     handed to the builder and passed while it rewrote other sections.
+ *   - `[section <S> on] page <P> contains the text '<T>'`, and `does not
+ *     contain` — a builder once passed "the hero headline reads exactly …" on a
+ *     page that held no hero and no such words. The quotes are required.
+ *
+ * Wording that reads like either kind and is still none of these is refused by
+ * the delegation before anything runs — see {@link unsettledChecks} — rather
+ * than handed to the builder to certify about itself.
  */
 export type ContainmentCheck =
   | { kind: 'page'; page: string }
   | { kind: 'fields'; fields: string[] }
   | { kind: 'addresses'; addresses: string[]; page?: string }
+  | { kind: 'section'; section: string; page?: string }
+  | { kind: 'text'; text: string; present: boolean; page: string; section?: string }
 
 const PAGE_ID = /^[A-Za-z0-9_-]+$/
 const FIELD_PATH = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)*$/
@@ -1086,14 +1208,39 @@ const ADDRESS = /^\d+(\.\d+)*$/
 const PAGE_CHECK = /^page (\S+) has no changes$/i
 const FIELDS_CHECK = /^no element changed any field other than (.+)$/i
 const ADDRESSES_CHECK = /^only the elements at (.+?)(?: on page (\S+))? changed$/i
+const SECTION_CHECK =
+  /^(?:(?:on )?page (\S+?)\s*[:,]\s*)?only (?:(?:the )?elements (?:inside|in|within) )?(?:the )?(?:section (\S+)|(\S+) section)(?: on page (\S+))? (?:has |have )?(?:been )?changed$/i
+const TEXT_CHECK = /^(?:section (\S+) on )?page (\S+) (contains|does not contain) the text (.+)$/i
 
-/** The check as one of the three, or `null` when it is anything else. */
+/** Opening and closing quotes a quoted text may be written between. */
+const QUOTES: Record<string, string> = { "'": "'", '"': '"', '`': '`', '‘': '’', '“': '”' }
+
+/** The check as one of the host's, or `null` when it is anything else. */
 export function containmentCheck(check: string): ContainmentCheck | null {
   const text = String(check ?? '')
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\.$/, '')
-  let m = PAGE_CHECK.exec(text)
+  let m = TEXT_CHECK.exec(text)
+  if (m) {
+    const page = unquote(m[2])
+    const section = m[1] === undefined ? undefined : unquote(m[1])
+    const quoted = m[4]
+    const close = QUOTES[quoted[0]]
+    if (close === undefined || quoted.length < 3 || !quoted.endsWith(close)) return null
+    const words = normaliseText(quoted.slice(1, -1))
+    if (words === '' || !PAGE_ID.test(page) || (section !== undefined && !PAGE_ID.test(section))) return null
+    const present = m[3].toLowerCase() === 'contains'
+    return { kind: 'text', text: words, present, page, ...(section === undefined ? {} : { section }) }
+  }
+  m = SECTION_CHECK.exec(text)
+  if (m) {
+    const section = unquote(m[2] ?? m[3])
+    const pages = [m[1], m[4]].filter((p): p is string => p !== undefined).map(unquote)
+    if (!PAGE_ID.test(section) || pages.some((p) => !PAGE_ID.test(p) || p !== pages[0])) return null
+    return pages.length === 0 ? { kind: 'section', section } : { kind: 'section', section, page: pages[0] }
+  }
+  m = PAGE_CHECK.exec(text)
   if (m) {
     const page = unquote(m[1])
     return PAGE_ID.test(page) ? { kind: 'page', page } : null
@@ -1156,9 +1303,20 @@ export interface Settlement {
  *     An element inside a component instance is outside it, because an address
  *     there is scoped to the instance and the named ones are not.
  */
-export function settleContainment(check: ContainmentCheck, changed: DraftChanges): Settlement | null {
+export function settleContainment(
+  check: ContainmentCheck,
+  changed: DraftChanges,
+  pages: CapturedPages = { before: new Map(), after: new Map() },
+): Settlement | null {
+  if (check.kind === 'text') return settleText(check, pages.after)
+  if (check.kind === 'section') {
+    const missing = missingSection(check, pages)
+    if (missing !== null) return { settled: false, reason: missing }
+  }
   const outside = (d: DraftDifference): boolean => {
     switch (check.kind) {
+      case 'section':
+        return !inSection(d, check, pages)
       case 'page':
         return d.page === check.page
       case 'fields':
@@ -1181,6 +1339,178 @@ export function settleContainment(check: ContainmentCheck, changed: DraftChanges
   if (breach !== undefined) return { settled: false, reason: `the host's record shows ${describe(breach)}` }
   if ((changed.truncated ?? 0) > 0) return null
   return { settled: true, reason: `the host's record shows no change outside it` }
+}
+
+/** Both captures' pages by id, which a section or a text check is read against. */
+export interface CapturedPages {
+  before: Map<string, Record<string, unknown>>
+  after: Map<string, Record<string, unknown>>
+}
+
+/** The ids of a page's sections: its root's children, in order. */
+function sectionIds(page: Record<string, unknown> | undefined): string[] {
+  const root = page === undefined ? null : rootOf(page)
+  return root === null ? [] : childrenOf(root as unknown as Record<string, unknown>).map((c) => String((c as { id?: unknown }).id ?? ''))
+}
+
+/**
+ * Why a section check names a section that is not there, or null ([[BUG-225]]).
+ * Missing from both captures is a check about nothing, and failing it with the
+ * sections the page does have is the one answer the caller can act on.
+ */
+function missingSection(check: { section: string; page?: string }, pages: CapturedPages): string | null {
+  const has = (id: string): boolean =>
+    sectionIds(pages.before.get(id)).includes(check.section) || sectionIds(pages.after.get(id)).includes(check.section)
+  if (check.page !== undefined) {
+    if (has(check.page)) return null
+    const ids = sectionIds(pages.after.get(check.page) ?? pages.before.get(check.page)).filter((id) => id !== '')
+    return (
+      `the host's record shows no section '${check.section}' on page ${check.page}` +
+      (ids.length > 0 ? `; its sections are ${ids.join(', ')}` : '')
+    )
+  }
+  const all = new Set([...pages.before.keys(), ...pages.after.keys()])
+  return [...all].some(has) ? null : `the host's record shows no page with a section '${check.section}'`
+}
+
+/**
+ * Whether a difference is inside the named section ([[BUG-225]]): an element at
+ * the section's address or beneath it, or anything in a component whose slot
+ * that section hosts. Read against the tree the difference's address belongs
+ * to — the before-capture for an element that was removed. A page's own fields
+ * and its style are never inside a section.
+ */
+function inSection(d: DraftDifference, check: { section: string; page?: string }, pages: CapturedPages): boolean {
+  if (d.page === undefined || (check.page !== undefined && d.page !== check.page)) return false
+  const page = (d.op === 'removed' ? pages.before : pages.after).get(d.page)
+  if (page === undefined) return false
+  if (d.module !== undefined) {
+    const instance = modulesById(page).get(d.module)
+    return instance !== undefined && moduleHost(page, instance) === check.section
+  }
+  if (d.address === undefined) return false
+  const index = sectionIds(page).indexOf(check.section)
+  if (index < 0) return false
+  const at = formatL1Path([0, index])
+  return d.address === at || d.address.startsWith(`${at}.`)
+}
+
+/** Text as a check compares it: whitespace collapsed, curly quotes read as straight. */
+function normaliseText(text: string): string {
+  return text
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** The words of every text node under `nodes`. */
+function textsUnder(nodes: readonly unknown[], out: string[] = []): string[] {
+  for (const node of nodes) {
+    if (!isPlainObject(node)) continue
+    if (node.kind === 'text' && node.text !== undefined) out.push(normaliseText(l1PlainText(node.text as L1TextContent)))
+    textsUnder(childrenOf(node), out)
+  }
+  return out
+}
+
+/** The words a page holds — or one of its sections — across its tree and its components' slots. */
+function pageTexts(page: Record<string, unknown>, section?: string): string[] {
+  const root = rootOf(page)
+  const sections = root === null ? [] : childrenOf(root as unknown as Record<string, unknown>)
+  const trees = section === undefined ? (root === null ? [] : [root]) : sections.filter((s) => (s as { id?: unknown }).id === section)
+  const out = textsUnder(trees)
+  for (const instance of modulesById(page).values()) {
+    if (section !== undefined && moduleHost(page, instance) !== section) continue
+    for (const slot of Object.values((instance.slots ?? {}) as Record<string, unknown>)) textsUnder(slotRoots(slot), out)
+  }
+  return out
+}
+
+/** A text, cut for a reason. */
+function quoted(text: string): string {
+  return `'${text.length > 80 ? `${text.slice(0, 79)}…` : text}'`
+}
+
+/**
+ * A text check answered from the page as it stands after the run ([[BUG-225]]).
+ *
+ * WITHIN ONE TEXT NODE. A headline is one node, and matching across nodes would
+ * pass a phrase whose halves sit in two different places. Case matters; spacing
+ * and the shape of quote marks do not.
+ *
+ * A FAILURE SAYS WHAT IS THERE: where an unwanted text appears, or — for a text
+ * that is missing — the first few texts the page or section does hold, so the
+ * caller can see the builder wrote something else without opening the page.
+ */
+export function settleText(
+  check: Extract<ContainmentCheck, { kind: 'text' }>,
+  after: Map<string, Record<string, unknown>>,
+): Settlement {
+  const page = after.get(check.page)
+  const where = `${check.section === undefined ? '' : `section ${check.section} on `}page ${check.page}`
+  if (page === undefined) return { settled: false, reason: `the host's record shows no page ${check.page}` }
+  if (check.section !== undefined && !sectionIds(page).includes(check.section)) {
+    const ids = sectionIds(page).filter((id) => id !== '')
+    return {
+      settled: false,
+      reason: `the host's record shows no section '${check.section}' on page ${check.page}` + (ids.length > 0 ? `; its sections are ${ids.join(', ')}` : ''),
+    }
+  }
+  const texts = pageTexts(page, check.section)
+  const found = texts.find((t) => t.includes(check.text))
+  if (check.present) {
+    if (found !== undefined) return { settled: true, reason: `the host's record shows it on ${where}` }
+    const held = texts.filter((t) => t !== '').slice(0, 3).map(quoted)
+    return {
+      settled: false,
+      reason: `the host's record shows no text holding it on ${where}` + (held.length > 0 ? `; it holds ${held.join(', ')}` : ', which holds no text'),
+    }
+  }
+  if (found !== undefined) return { settled: false, reason: `the host's record shows it on ${where}, in ${quoted(found)}` }
+  return { settled: true, reason: `the host's record shows it nowhere on ${where}` }
+}
+
+// ── the checks the host refuses ([[BUG-225]]) ────────────────────────────────
+
+/** The refusal for a check worded like one the host settles, but not in its words. */
+export const UNSETTLED_CHECK = 'unsettled_check'
+
+/** Says that some things only changed, or that nothing did: containment. */
+const CONTAINMENT_LIKE = /\bonly\b.*\bchang|\bunchanged\b|\buntouched\b/i
+/** Quotes some words — not an apostrophe — between a pair of quote marks. */
+const QUOTES_WORDS = /(?:^|[\s:(])(['"`‘“])[^'"`‘’“”]{2,}(['"`’”])(?=$|[\s.,;:!?)])/
+/** And talks about what text there is. */
+const TEXT_LIKE = /\b(reads?|says?|contains?|text|wording|words|headline|heading|title|copy|label)\b/i
+
+/**
+ * The checks a builder would be left to certify about itself that the host's
+ * record answers, but which are not in a form the host claims ([[BUG-225]]).
+ *
+ * A builder briefed "only elements inside the header section changed" passed it
+ * while it rewrote fifteen texts in other sections: the check went to the party
+ * being checked. Such a check is refused with the forms to use — before a builder
+ * is opened, so a wrongly worded check costs nothing — rather than settled by a
+ * guess at what it meant, because a host that claimed a check it misread would
+ * answer a question nobody asked.
+ */
+export function unsettledChecks(checks: readonly unknown[]): string[] {
+  return checks
+    .filter((c): c is string => typeof c === 'string')
+    .filter((c) => containmentCheck(c) === null)
+    .filter((c) => CONTAINMENT_LIKE.test(c) || (QUOTES_WORDS.test(c) && TEXT_LIKE.test(c)))
+}
+
+const UNSETTLED_CHECK_ERROR = {
+  message:
+    'A check asks what the record of the site answers, but is not worded in a form the host settles, ' +
+    'so nothing was delegated and nothing ran. A builder is never asked to certify which parts it ' +
+    'changed or which words the page holds. Rewrite each one named in exactly one of these forms: ' +
+    '"page home has no changes"; "no element changed any field other than text"; ' +
+    '"only the elements at 0.1 on page home changed"; "only the elements in section header on page home changed"; ' +
+    '"page home contains the text \'Book a cut\'" (or "does not contain the text"; or "section hero on page home ' +
+    'contains the text \'…\'"). Any other check — one the builder can judge by looking — goes to the builder as usual.',
+  host_detail: true,
 }
 
 /** Whether a difference is inside an element tree rather than a page's own definition. */
@@ -1217,7 +1547,10 @@ function describe(d: DraftDifference): string {
 const HOST_RESULT_FIELDS = {
   wrote:
     "Present whenever 'account' carries 'changed'. True when the host's record shows this delegation " +
-    "wrote anything to the site, false when it wrote nothing at all. It is the host's " +
+    "wrote anything to the site, false when it wrote nothing at all. 'account.changed' lists only what " +
+    "the builder wrote: a change the host's journal shows somebody else made while it worked — your " +
+    "client in the page editor — is listed apart under 'account.changed.others', each with its 'actor', " +
+    "and neither this field nor any check the record settles counts it against the builder. It is the host's " +
     "fact, not the worker's claim, and it is the first thing to read on a 'silent' " +
     'result: a silent worker that wrote nothing and one that wrote a great deal return ' +
     "the same empty summary, and this is what tells them apart. When it is true, " +
@@ -1345,13 +1678,20 @@ const BRIEF_TOO_LONG_ERROR = {
   host_detail: true,
 }
 
-/** `declaration` with {@link BRIEF_TOO_LONG} declared, and declared on the delegate operation. */
+/**
+ * `declaration` with {@link BRIEF_TOO_LONG} and {@link UNSETTLED_CHECK} declared,
+ * and declared on the delegate operation.
+ */
 function withBriefRefusal(declaration: Untyped): Untyped {
   return {
     ...declaration,
-    errors: { ...(declaration.errors ?? {}), [BRIEF_TOO_LONG]: BRIEF_TOO_LONG_ERROR },
+    errors: {
+      ...(declaration.errors ?? {}),
+      [BRIEF_TOO_LONG]: BRIEF_TOO_LONG_ERROR,
+      [UNSETTLED_CHECK]: UNSETTLED_CHECK_ERROR,
+    },
     operations: (declaration.operations ?? []).map((op: Untyped) =>
-      op.tool === DELEGATE_TOOL ? { ...op, errors: [...(op.errors ?? []), BRIEF_TOO_LONG] } : op,
+      op.tool === DELEGATE_TOOL ? { ...op, errors: [...(op.errors ?? []), BRIEF_TOO_LONG, UNSETTLED_CHECK] } : op,
     ),
   }
 }
@@ -1416,6 +1756,12 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
       // than to the ones a guess says concern copy: it is short, and a builder
       // writing any words at all writes them from it. Counted against the ceiling
       // with the rest of the brief.
+      // [[BUG-225]] — a check the record answers, worded so the host cannot claim
+      // it, is refused before anything runs rather than left to the builder.
+      const unsettled = unsettledChecks(Array.isArray(input?.accept) ? input.accept : [])
+      if (unsettled.length > 0) {
+        throw new lib.DelegationError(UNSETTLED_CHECK, unsettled.map((c) => JSON.stringify(c)).join('; '))
+      }
       const story = limits.story ? await limits.story().catch(() => null) : null
       if (story && typeof input?.goal === 'string') input = { ...input, goal: `${input.goal}\n\n${story}` }
       if (briefMaxBytes > 0) {
