@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T14:35:02.933069+00:00'
+updated_at: '2026-10-18T19:09:47.324692+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2215,3 +2215,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **BUG-222** — plan cadence: a builder session that wrote the site no longer records the first-pass / revision-round milestone, so layout_happy and friends never fall due (two REQ-379 cadence UATs fail on clean xgd-working).
+
+
+- **REQ-410** — builder parallelism: replace REQ-389's 'never several at once' conduct rule (it contradicts delegation-parallel and kept 23 Bob's Salon builders strictly serial) and refuse a Delegate with no scope. Prompt half landed as `1c44ce9957` (commission independent pieces in one reply, scoped by section). Also relevant to EPIC-24.
