@@ -6,10 +6,10 @@ title: 'Plan cadence: a builder session that wrote the site no longer records th
   first-pass or revision-round milestone'
 created_by: EPIC-19
 created_at: '2026-10-18T14:34:56.728286+00:00'
-updated_at: '2026-10-18T16:52:34.178228+00:00'
+updated_at: '2026-10-18T16:52:59.198921+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-35ab6e59
+  commits:
+  - working_sha: 190709946c9025a773c0ecd258f9a7469e5dded9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7c00dbfdfe7a4764236f07b62cebabd6c4bf1422
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.533
 ---
 
 ## Symptom
