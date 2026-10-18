@@ -6,9 +6,9 @@ title: 'Plan cadence: a builder session that wrote the site no longer records th
   first-pass or revision-round milestone'
 created_by: EPIC-19
 created_at: '2026-10-18T14:34:56.728286+00:00'
-updated_at: '2026-10-18T16:51:06.613301+00:00'
+updated_at: '2026-10-18T16:52:34.178228+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -52,7 +52,7 @@ Since REQ-397, a builder may overwrite an existing draft file only if the commis
 ## Fix
 
 - A builder session that reported and wrote the site records `first_pass_at` the first time and increments `revision_rounds` after, as REQ-379 specifies, on the real host path. **No host change is needed. This already holds.**
-- The REQ-379 cadence fixtures now commission builders the way REQ-397 requires: each `Delegate` call whose builder writes the home page names `scope: ['home']`. The fixture's builder therefore writes the site for real, through the real Delegate toolbox, the leased store, the account annotation and the cadence wrapper. Only the model is scripted. That run is the confirmation against the real delegation output.
+- The REQ-379 cadence fixtures now commission builders the way REQ-397 requires: each `Delegate` call whose builder writes the home page names `scope: ['home.json']` (scope entries are draft file names; a bare page name is refused with `scope_held` … "'home' is not a draft file name"). The fixture's builder therefore writes the site for real, through the real Delegate toolbox, the leased store, the account annotation and the cadence wrapper. Only the model is scripted. That run is the confirmation against the real delegation output.
 - The assertions are unchanged.
 
 ## Test plan
