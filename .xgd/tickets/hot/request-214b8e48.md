@@ -6,10 +6,10 @@ title: 'Story board: a third preview mode where the client''s own words become t
   sticky notes and a headline'
 created_by: EPIC-19
 created_at: '2026-10-18T13:53:14.087264+00:00'
-updated_at: '2026-10-18T14:56:49.982413+00:00'
+updated_at: '2026-10-18T15:33:15.897416+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 13
