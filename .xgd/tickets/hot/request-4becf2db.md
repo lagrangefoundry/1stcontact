@@ -5,10 +5,10 @@ type: request
 title: 'Builder toolbar: Open in new tab is a button like Publish'
 created_by: martin-github@westhead.me
 created_at: '2026-10-18T00:46:47.552943+00:00'
-updated_at: '2026-10-18T00:50:59.139039+00:00'
+updated_at: '2026-10-18T00:51:00.410572+00:00'
 completed_at: null
-last_field_updated: title
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   auto_merge_back: true
   needs_review: false
