@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-24
 created_by: xgd
 created_at: '2026-10-10T18:20:55.517692+00:00'
-updated_at: '2026-10-10T18:28:20.905436+00:00'
+updated_at: '2026-10-18T00:40:58.745358+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -68,5 +68,11 @@ The checks turned up two things that shaped the tickets:
 - Existing pages aren't migrated in bulk; they're split when the consultant decides to.
 
 Everything is left at `draft` for the child sessions to pick up.
+
+<!-- xgd-turn id="98f8aed7-d97f-494e-a794-4dd6b15e31e5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T00:40:56.051498+00:00" -->
+#### You
+Please read BUG-219 and its transcript there is an expectation that your scope should cover Gap 2 can you create a ticket for that if it is not covered already
 
 <!-- xgd-chat-end -->
