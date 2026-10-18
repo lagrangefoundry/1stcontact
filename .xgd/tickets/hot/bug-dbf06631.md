@@ -6,7 +6,7 @@ title: Builder worker composes ReportResult as plain text instead of a tool call
   so its result comes back "silent"
 created_by: xgd
 created_at: '2026-10-17T23:09:10.418660+00:00'
-updated_at: '2026-10-18T00:15:25.211505+00:00'
+updated_at: '2026-10-18T00:35:52.976430+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -47,3 +47,16 @@ The caller has to rebuild what happened from the account and pay for screenshots
 2. **Find why the builder model emits markup instead of a call.** Two sightings on Haiku builders suggest a cause, not chance: the tool missing from the turn's tool list at that point, the turn ending on a budget warning, or the priming's own examples showing the call as text. Fix the cause, not only the symptom.
 
 **The wrong alt text is BUG-214, not this bug.** The worker was asked to name photos by looking because their descriptions had failed, and the descriptions failed because the image describer refuses every image. Fixing BUG-214 removes the situation. Separately, a builder should be told that alt text written from guesswork is worse than none.
+
+
+
+## Investigation (2026-10-17)
+
+- **The nudge did run.** `worker-builder-4-1r8vqq`'s session record (`chat-52ceb009`) shows turn 1 ending on a text `<ReportResult>…</invoke>` block after 41 calls, with no budget line and status `complete`. The nudge was delivered at 22:34:42 and the worker answered it with the same markup as text. The result hid this because `last_words` is the last turn that said something and nothing marks that a nudge ran.
+- **Third sighting.** `worker-builder-10-m70cj9` (`chat-b0d99959`, 23:12–23:16) did the same on both turns. That is 2 of 11 `claude_builder` (Haiku 4.5) workers in the session; the other 9 called `ReportResult` normally.
+- **Ruled out:** the tool missing from the request (it is sent on every request), a budget stop, screenshots in the context (worker 10 took none), and the priming showing the call as text.
+- **Cause:** a Haiku failure mode. Once the text pseudo-call is in the history, a nudge that only asks gets imitated.
+
+## Decision
+
+Fix 1 only: force the report tool on the nudge turn (`tool_choice`). Filed as **lagrange-framework BUG-87** (bug-f671b02a). No code lands in 1stcontact for it. We will not recover a report from the text: the dialects are inconsistent, and the recovered verdicts would be unvalidated.
