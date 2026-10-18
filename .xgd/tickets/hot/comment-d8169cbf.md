@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:22:59.850062+00:00'
+updated_at: '2026-10-18T13:32:29.811608+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8284,5 +8284,15 @@ Questions:
 2. **A central statement?** Earlier I suggested one card in the middle: her draft of what makes them different. You didn't include it. Do the hearted notes do that job, or do you want the card?
 3. **Moving notes and themes.** Can the client move a note to another theme, or rename or add a theme? Or does that happen by asking the consultant in the chat? I'd start with the chat, and add dragging later if people try to do it.
 4. **Notes the client has reacted to.** May the consultant reword a note that already has a 👍 or ❤️? I'd say no: once the client has endorsed a wording, it's theirs.
+
+<!-- xgd-turn id="20da762a-e19b-47dd-87a3-c365822a3f26-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T13:32:29.568444+00:00" -->
+#### You
+agree with your take on 1, 3 and 4 - on 3 if the client can add a note, they should probably be able to edit notes too - I think that's important.
+
+lets talk about 2. I think we need to refine what the central statement is and what we would actually do with it. Its powerful, but may be hard. I have done executive strategy sessions and spent hours refining an 8 word business statement. I don't think that is the experience that our novices really want. On the other hand finding a clear simple distillation of the heart of the business could be very powerful.
+
+How will we use it? How much effort is it worth? What question is it really answering?
 
 <!-- xgd-chat-end -->
