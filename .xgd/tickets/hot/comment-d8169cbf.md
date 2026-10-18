@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T17:02:38.565331+00:00'
+updated_at: '2026-10-18T17:05:21.152838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8530,5 +8530,52 @@ The ticket asks for the real cause to be found and fixed, not for the tests to b
 <!-- xgd-chat role="user" ts="2026-10-18T17:02:37.237158+00:00" -->
 #### You
 I got a transient 503 error in the chat window - I can't reproduce it but there might be something in the logs (this is the dev server)
+
+<!-- xgd-turn id="0cbe6ae4-4884-4f1c-80c6-bcc51b81de64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T17:05:20.210309+00:00" -->
+#### Claude
+Looking for the dev server's logs.
+
+Found it, at line 29229: `POST /api/ai/session` answered 503 in 10ms. Reading what was logged around it.
+
+It happened as you switched from 1st Contact to Bob's Salon. Looking for the app's own record of that request.
+
+No 503 is returned directly there, so it came from an error thrown and mapped by the outer handler. Reading that mapping.
+
+The outer handler re-throws two store-opening errors, which `index.ts` turns into a 503. Checking whether either was logged.
+
+The 503 has no request record from the app, though every request around it does. So it either came from a path that skips the request log or from outside our code. Reading `index.ts`'s 503 branch.
+
+The wrapper promises one log record per request, including exits through this 503. Checking whether that record exists under a different shape.
+
+No record from the app at all, and the app logs every request in a `finally`, even ones that throw. That points below our code. Checking for runtime errors from workerd around that moment.
+
+I found the 503, but the logs can't tell us what caused it, and that missing record is itself a defect.
+
+**What the log shows** (`storage/tmp/dev/dev.log`, line 29229):
+
+```
+POST /b/biz_0def24…/api/ai/session 503 Service Unavailable (10ms)
+```
+
+- **It was the request that opens Bob's Salon's conversation**, sent as you switched from 1st Contact. The 1st Contact conversation had opened normally five seconds earlier.
+- **Everything else in that switch succeeded**: sites, plan, Library, people, the preview. The conversation opened fine on the next try, which matches you not being able to reproduce it.
+- **It came about 90 seconds after `bin/dev up` restarted the server.** So this was very likely the first time Bob's Salon's conversation was opened after the restart. That conversation's live state lives in a Durable Object, and starting one cold is the obvious suspect.
+
+**What the log doesn't show is why.** The app writes one record for every request, and does so in a `finally`, so even requests that throw are logged. Every request around this one has its record, but this one has none, and there's no error or warning anywhere near it. So either it never ran through our code, which would make the 503 the runtime's own answer, or our record of it was lost. Either way we can't diagnose it, and that's a defect in its own right: the logging is meant to cover exactly the paths that fail.
+
+The code paths in our app that answer 503 are:
+- a store that couldn't be opened, or an unknown business (`index.ts`'s outer handler);
+- the AI not being configured;
+- mail or sign-in sessions not being configured.
+
+All of those are configuration faults that wouldn't clear on a retry, so none of them fits something transient. That supports the runtime explanation.
+
+**What I'd do: one bug covering two things.**
+1. **The missing record.** Find why a request that answered 503 left no app record. Then make sure any request that fails before or outside our handler still gets logged, with its route and the reason.
+2. **The chat should cope with a transient failure.** When opening the conversation fails with a 503, the builder retries once after a short delay before showing an error, and says *"Reconnecting…"* rather than showing an error code. If the cold-start hypothesis is right, users will hit this after every deploy.
+
+Shall I file it under EPIC-19?
 
 <!-- xgd-chat-end -->
