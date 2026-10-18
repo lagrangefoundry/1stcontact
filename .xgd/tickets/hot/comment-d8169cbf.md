@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:36:49.930076+00:00'
+updated_at: '2026-10-18T19:39:57.873427+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8827,5 +8827,11 @@ What it asks for:
 I recorded the alternative I rejected: having the framework work it out from the declaration being wrapped. A wrapped function has no link back to a declaration, so that would be a bigger change for the same result.
 
 I've linked it from EPIC-19. I also added a note to REQ-410: once REQ-208 lands and the shared framework install is refreshed, REQ-410's follow-up marks our `Delegate` as safe to run alongside others and commits its test of two builders running at once. Refreshing the install is your step, as usual.
+
+<!-- xgd-turn id="78c08f1e-8394-4a5d-a913-42e7d2112553-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T19:39:56.307879+00:00" -->
+#### You
+410 just finished - do I need to reopen it?
 
 <!-- xgd-chat-end -->
