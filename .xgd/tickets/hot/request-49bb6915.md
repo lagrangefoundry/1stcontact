@@ -15,6 +15,7 @@ fields:
   needs_review: false
   priority: medium
   epic_parent: epic-95bc3b15
+  chat_comment: comment-0bb9ad56
 ---
 
 ## What I was trying to achieve
