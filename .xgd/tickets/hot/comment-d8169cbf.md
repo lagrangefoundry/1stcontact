@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T22:53:10.280586+00:00'
+updated_at: '2026-10-18T22:55:59.255973+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8926,5 +8926,33 @@ Shall I write this measure-then-decide plan into REQ-409, so it stays parked at 
 <!-- xgd-chat role="user" ts="2026-10-18T22:53:10.120813+00:00" -->
 #### You
 I'm seeing this in the chat feed: *Unexpected token 'g', "guWid6rN1D"... is not valid JSON a couple of times now*
+
+<!-- xgd-turn id="f42d11a9-cf7d-4183-9663-d507f57f7d0d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T22:55:59.123118+00:00" -->
+#### Claude
+That string looks like base64 being parsed as JSON. Searching the logs and the stored conversation for it.
+
+No client code parses tool output, so the message most likely came from the server: something there threw, and the turn's error was shown in the chat. Searching stored turn records and fields for it.
+
+Two of today's turns on Bob's salon 2 ended in error, at 22:07 and 22:27 UTC. Checking the structured log records for those turns.
+
+The structured log stops before the failures. Checking `dev.log` around 22:07 and 22:27 UTC instead.
+
+Not in the server log either. The remaining place is the consultant's own records for those two turns: the last tool calls before each failure.
+
+I couldn't find where that error comes from yet, but the search turned up something that matters more.
+
+**The JSON error.** It isn't in the server log, the structured log records, any stored transcript or any turn record. So it's almost certainly raised in your browser. Its exact shape, `Unexpected token 'g', "guWid6rN1D"... is not valid JSON`, is what the browser reports when code tries to parse a response as JSON and the body is something else. The text starts with ten random-looking characters, which would fit an id, a token or base64 data. Two turns on Bob's salon 2 did end in error, at 15:07 and 15:27 your time, but neither left a message I can find.
+
+To pin it down I need one of these from you:
+- **The browser's Network tab** the next time it appears: the request that failed and its response. That would settle it in one look.
+- **Or roughly when, and what you'd just done.** Sent a message, uploaded something, opened a look, switched business? I can then match the time against the request log.
+
+**What I found while looking: `access-sim` holds back every response until it's complete.** That includes the chat stream. It's the proxy in front of the dev server, at 127.0.0.1:8799, which you browse through. It reads each response to the end before sending any of it on (`bin/access-sim:504`, `Buffer.from(await upstream.arrayBuffer())`). Fine for ordinary requests, wrong for a stream: none of a turn's live events can reach the browser until the turn is over. That covers the text as it's written, the working line, step lines, milestone posts and announcements before a build.
+
+If that's what's happening, much of what we've judged in dev ("she goes quiet for 15 minutes", "nothing tells me she's working") has been measured through a proxy that hides exactly those things. Production doesn't have this problem, because the real Cloudflare Access streams.
+
+**The fix is small:** access-sim passes the response body through as it arrives instead of buffering it, at least for `text/event-stream`. Shall I file it as a bug under EPIC-16, which owns the dev environment? I'd put it ahead of the next test run. Until it's fixed, every run will look worse on feedback while she works than the product really is.
 
 <!-- xgd-chat-end -->
