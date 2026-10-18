@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-218
 created_by: xgd
 created_at: '2026-10-18T00:15:05.631669+00:00'
-updated_at: '2026-10-18T00:36:14.164467+00:00'
+updated_at: '2026-10-18T00:41:38.473580+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -97,5 +97,11 @@ I've filed the ticket in lagrange-framework as **BUG-87** (`bug-f671b02a`), at `
 The body also has the evidence from workers 4 and 10, the causes ruled out, acceptance criteria, and a test plan.
 
 **BUG-218:** I added the investigation findings and the decision, pointing to lagrange-framework BUG-87, without touching the existing text. That covers correcting "no second ask was made": the nudge did run. It stays at `draft`, and no code lands in 1stcontact for this. The fix that would show in the result that the nudge ran (fix 2) isn't in scope, so tell me if you want it added here later.
+
+<!-- xgd-turn id="ba1e8b22-18be-4c0d-b42f-9f0ae7ca4433-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T00:41:35.386792+00:00" -->
+#### You
+If there is no work in this project please close the ticket as abandoned and explain why in the body
 
 <!-- xgd-chat-end -->
