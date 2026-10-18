@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:10:07.471749+00:00'
+updated_at: '2026-10-18T19:12:05.754329+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8729,5 +8729,11 @@ The 6 delegation and priming test files (69 tests) pass.
 3. **Find out what an unscoped builder could actually do.** BUG-222 says it can only create new files, but in Bob's salon 2 unscoped builders made dozens of edits to existing pages without being refused. If the file lock had a gap there, the ticket says to state it. Item 2 closes it either way.
 
 Its tests include two builders on separate sections, commissioned in one reply, both running at once. That's the proof the feature works end to end.
+
+<!-- xgd-turn id="4714edf0-8bae-4d55-ac50-56ed444e288e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T19:12:02.365142+00:00" -->
+#### You
+Good - can you also check the 3 tickets filed by the consultant
 
 <!-- xgd-chat-end -->
