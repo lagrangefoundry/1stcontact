@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T13:21:54.202729+00:00'
+updated_at: '2026-10-18T13:22:08.701846+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8232,5 +8232,11 @@ The notes must be user-entered text, but lets let the AI make grammar shifts to 
 User interaction - users are prompted to interact with the postits:
 Lets say they can heart, thumbs up, thumbs down or delete a note
 If they click on a theme they can also add a note to it directly.
+
+<!-- xgd-turn id="40c4b4f7-5d9e-4db3-aca8-04428c2e873d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T13:22:07.368363+00:00" -->
+#### Claude
+I'll make the prompt changes first, then file the story-board REQ. Starting with how the priming and plan seed are laid out.
 
 <!-- xgd-chat-end -->
