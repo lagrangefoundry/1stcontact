@@ -6,9 +6,9 @@ title: Client messages sent while a delegated builder is running never reach the
   session
 created_by: xgd
 created_at: '2026-10-18T18:25:08.681855+00:00'
-updated_at: '2026-10-18T19:13:46.210353+00:00'
+updated_at: '2026-10-18T19:13:47.530379+00:00'
 completed_at: null
-last_field_updated: epic_parent
+last_field_updated: body
 status: draft
 fields:
   auto_merge_back: true
@@ -35,3 +35,15 @@ They should never be dropped silently. If input is refused while a turn is runni
 
 ## Impact
 High. The client feels ignored ("abandoned"), and design input given mid-build is lost. In this case it was reactions to a comparison site that changed the visual direction.
+
+
+
+## Confirmed in the code (EPIC-19, 2026-10-18)
+
+This is a known gap, not a regression. `apps/control-app/src/builder/chat.js:1098` says so: `webui-chat` routes a submit made while the consultant is working to its queue, and **this pane passes no queue transport**, so the text is shown as pending and then dropped. BUG-122 only made it recoverable as a draft on the next load. REQ-345, which would have delivered it, was abandoned in favour of the group room, and the client is not in the room on the one-to-one path. So on today's path a mid-turn message is lost every time.
+
+**Fix, in two steps, both ours:**
+1. **Queue transport (the floor).** Pass `webui-chat` a queue transport so queued messages run as the next turn once the current one ends. `webui-chat` already coalesces everything queued during a turn into one submission and keeps later arrivals for the round after. Nothing is ever dropped, and the pending bubble stays visible until delivered.
+2. **Between tool calls (the goal).** lagrange-framework REQ-180's per-request signals channel has landed. Use it to tell the consultant, on her next tool call, that the client has written (a count and a cursor), and give her a way to read it, so she can acknowledge it mid-run. During a single long `Delegate` the message waits until that builder returns; that is acceptable.
+
+The UI must say which happened: *"Sent — I'll see this when I finish the current step"* while it waits.
