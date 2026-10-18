@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-405
 created_by: xgd
 created_at: '2026-10-18T00:48:23.049911+00:00'
-updated_at: '2026-10-18T12:42:06.221911+00:00'
+updated_at: '2026-10-18T12:42:17.106189+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -149,5 +149,26 @@ The live builder will only pick this up after the next `bin/deploy --env dev`.
 <!-- xgd-chat role="user" ts="2026-10-18T12:42:05.763518+00:00" -->
 #### You
 the `motion_offer` check can still never come up, because nothing fires its `revision_once` trigger. <-- I don't really understand what this means?
+
+<!-- xgd-turn id="73f44f3d-7fb2-4b91-a812-46323839c49a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-18T12:42:16.017016+00:00" -->
+#### Claude
+The site plan has a list of "checks", which are questions the consultant should ask the client at the right moment. Examples are "Are we all happy with the layout?", "Have we looked at it on a phone?" and "Would some motion help here?". That last one is `motion_offer`.
+
+A check stays quiet until a particular event happens. When it does, the check becomes "due", and the consultant's per-turn reminder gets a line like *"Due: ask the client 'Would some motion help here?'"*.
+
+The system watches for only three events:
+- the first draft finishes building
+- a later round of changes finishes building
+- the client opens Publish
+
+Each check names the events that make it due. "Are we all happy with the layout?" names the first two, so it comes up as intended. "Would some motion help here?" names an event called `revision_once`, which the system never watches for. Nothing ever sets it off, so that motion reminder never reaches the consultant. Someone wrote down a name for the moment it should happen but never connected it to anything. That's part of why the consultant didn't bring up motion in your session.
+
+You don't need to do anything about it now. The new Finishing touches guidance tells her to raise motion herself, so she no longer depends on that reminder. The broken check is just a dead entry. I can either:
+- **delete it**, so nobody is misled into thinking motion is covered by a reminder; or
+- **connect it** to "a round of changes has finished", so the reminder also appears after the first round of changes. This is a one-word data change, no code.
+
+I'd delete it, since the stage guidance now does that job. Which would you like?
 
 <!-- xgd-chat-end -->
