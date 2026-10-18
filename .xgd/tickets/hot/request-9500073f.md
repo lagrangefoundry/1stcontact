@@ -15,6 +15,7 @@ fields:
   epic_parent: epic-f43a7c98
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-0ebd3665
 ---
 
 ## Intent
