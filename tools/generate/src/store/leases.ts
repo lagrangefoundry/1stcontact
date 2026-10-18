@@ -12,8 +12,10 @@ import { SECTION_ID } from './sections'
  * THE FILES ARE THE STORE'S OWN UNITS ([[REQ-396]]): the site file `site.json`
  * (palette, text styles, fonts, nav, config), each page as its store name
  * (`home.json` — the whole page, or the frame of a decomposed one), each section
- * of a decomposed page (`home.json#hero`), and each asset (`assets/logo.svg`).
- * Names are compared exactly; holding a frame does not hold its sections.
+ * of a decomposed page (`home.json#hero`), each page's style (`home.json#style`
+ * — its L1 document keys other than `root`, [[REQ-406]]), and each asset
+ * (`assets/logo.svg`). Names are compared exactly; holding a frame does not hold
+ * its sections, and holding a page does not hold its style, nor the reverse.
  *
  * TWO KINDS OF WRITER. A SCOPED writer — a builder session, whose files were
  * declared up front on the delegation and claimed before it opened — may write

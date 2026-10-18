@@ -47,8 +47,11 @@ export function concurrentSupported(lib: Untyped): boolean {
 /**
  * The files a delegation's `scope` names, validated and expanded. A page name
  * claims the page and, where the page is stored as sections, every section it
- * has now — so "build the About page" is one name. Anything that is not a
- * draft file name is refused with the list of what is.
+ * has now — so "build the About page" is one name. It does NOT claim the page's
+ * style (`home.json#style`, [[REQ-406]]): a builder briefed on a page must not
+ * repaint the whole of it to fix one part, so the style is claimed only when
+ * named. Anything that is not a draft file name is refused with the list of
+ * what is.
  */
 export async function scopeFiles(store: SiteStore, slug: string, scope: unknown): Promise<string[]> {
   if (scope === undefined || scope === null) return []
@@ -59,7 +62,8 @@ export async function scopeFiles(store: SiteStore, slug: string, scope: unknown)
   if (bad.length) {
     throw new Error(
       `${bad.map((f) => `'${f}'`).join(', ')} ${bad.length === 1 ? 'is not a draft file name' : 'are not draft file names'}. ` +
-        'Files are site.json, a page (home.json), a section (home.json#hero) or an asset (assets/logo.svg).',
+        'Files are site.json, a page (home.json), a section (home.json#hero), a page\'s style (home.json#style) ' +
+          'or an asset (assets/logo.svg).',
     )
   }
   const files = new Set(scope as string[])

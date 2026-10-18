@@ -1,5 +1,5 @@
 import { canonicalJson } from './revision-model'
-import { planPageWrite, sectionFileName, splitPage, type PageRecord } from './sections'
+import { planPageWrite, sectionFileName, splitPage, styleFileName, type PageRecord } from './sections'
 import { StoreConflictError, type SiteStore, type SiteWrite, type StoredPage } from './site-store'
 import {
   assetFileName,
@@ -48,18 +48,50 @@ export function leasesOf(store: SiteStore): DraftLeases | null {
   return ((store as unknown as Record<symbol, DraftLeases | undefined>)[LEASES]) ?? null
 }
 
+/**
+ * [[REQ-406]] — a stored page value (a whole page or a frame) as its BODY and
+ * its STYLE. The style is the L1 document's keys other than `root`; the body is
+ * everything else. They are two files, `home.json` and `home.json#style`, so
+ * naming a page does not hand a builder the right to repaint it.
+ */
+function styleSplit(value: Record<string, unknown>): { body: Record<string, unknown>; style: Record<string, unknown> } {
+  const l1 = value.l1
+  if (l1 === null || typeof l1 !== 'object') return { body: value, style: {} }
+  const { root, ...style } = l1 as Record<string, unknown>
+  return { body: { ...value, l1: root === undefined ? {} : { root } }, style }
+}
+
+/** One stored value under a page's name, as its body and style files. */
+function pageUnits(name: string, value: Record<string, unknown>): Array<[string, unknown]> {
+  const { body, style } = styleSplit(value)
+  return [
+    [name, body],
+    [styleFileName(name), style],
+  ]
+}
+
 /** A stored page as the units a lock is taken on: file name → canonical content. */
 function unitsOf(stored: StoredPage): Array<[string, unknown]> {
-  if (!stored.sections) return [[stored.name, stored.page]]
+  if (!stored.sections) return pageUnits(stored.name, stored.page)
   try {
     const { frame, sections } = splitPage(stored.page)
-    return [[stored.name, frame], ...sections.map(([id, unit]): [string, unknown] => [sectionFileName(stored.name, id), unit])]
+    return [
+      ...pageUnits(stored.name, frame),
+      ...sections.map(([id, unit]): [string, unknown] => [sectionFileName(stored.name, id), unit]),
+    ]
   } catch {
     // Never reachable through the tools, which refuse a write that breaks a
     // section condition; if it happens anyway, the page counts as one file
     // rather than making every read of the site throw.
-    return [[stored.name, stored.page]]
+    return pageUnits(stored.name, stored.page)
   }
+}
+
+/** The style keys whose value differs between two styles, in order. */
+function changedKeys(before: Record<string, unknown>, after: Record<string, unknown>): string[] {
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter((key) => canonicalJson(before[key] ?? null) !== canonicalJson(after[key] ?? null))
+    .sort()
 }
 
 /** What the store holds for one page, in the planner's terms. */
@@ -80,12 +112,19 @@ interface Current {
   files: Map<string, string>
 }
 
+/** What a write would touch: the files, and for each page style file, which keys it changes. */
+interface Touched {
+  files: string[]
+  styleKeys: Map<string, string[]>
+}
+
 /**
  * The files `change` would touch, judged against what the store holds now.
  * A file whose content would not change is not touched.
  */
-function touched(change: SiteWrite, pages: Map<string, StoredPage>, current: Current, assets: Set<string>): string[] {
+function touched(change: SiteWrite, pages: Map<string, StoredPage>, current: Current, assets: Set<string>): Touched {
   const files = new Set<string>()
+  const styleKeys = new Map<string, string[]>()
   if (change.siteJson !== undefined && current.files.get(SITE_FILE) !== canonicalJson(change.siteJson)) {
     files.add(SITE_FILE)
   }
@@ -99,7 +138,16 @@ function touched(change: SiteWrite, pages: Map<string, StoredPage>, current: Cur
       files.add(name)
       continue
     }
-    if (plan.page !== null) files.add(name)
+    if (plan.page !== null) {
+      const { body, style } = styleSplit(plan.page)
+      if (current.files.get(name) !== canonicalJson(body)) files.add(name)
+      const styleFile = styleFileName(name)
+      if (current.files.get(styleFile) !== canonicalJson(style)) {
+        files.add(styleFile)
+        const was = pages.get(name)
+        styleKeys.set(styleFile, changedKeys(was ? styleSplit(was.page).style : {}, style))
+      }
+    }
     for (const [id] of plan.put) files.add(sectionFileName(name, id))
     for (const id of plan.drop) files.add(sectionFileName(name, id))
   }
@@ -116,7 +164,25 @@ function touched(change: SiteWrite, pages: Map<string, StoredPage>, current: Cur
   for (const name of change.removeAssets ?? []) {
     if (assets.has(name)) files.add(assetFileName(name))
   }
-  return [...files].sort()
+  return { files: [...files].sort(), styleKeys }
+}
+
+/**
+ * [[REQ-406]] — a builder changing a page's style without having been given it.
+ * The commonest way to get here is repainting the whole page to colour one part
+ * of it, so the sentence says what to do instead.
+ */
+function styleRefusal(file: string, keys: string[], writer: Writer): DraftFileRefusal {
+  const page = file.slice(0, file.lastIndexOf('#'))
+  const what = keys.length ? keys.map((k) => `\`${k}\``).join(', ') : 'its style'
+  return new DraftFileRefusal(
+    'NOT_IN_SCOPE',
+    file,
+    `This changes the page style of \`${page}\` (${what}), and \`${file}\` is not in this session's scope ` +
+      `(${writer.scope?.join(', ') || 'none declared'}); nothing was written. To colour one section, fill that ` +
+      `section's own box. Ask for \`${file}\` only when the brief changes the page itself.`,
+    writer.holder,
+  )
 }
 
 /** Wrap `store` so every draft write is leased and compare-and-set per file. Idempotent. */
@@ -154,7 +220,12 @@ export function leasedStore<S extends SiteStore>(store: S, leases: DraftLeases):
   }
 
   /** Take the leases this write needs; returns what to release afterwards. */
-  const lease = async (site: string, writer: Writer, files: string[], exists: (file: string) => boolean) => {
+  const lease = async (
+    site: string,
+    writer: Writer,
+    { files, styleKeys }: Touched,
+    exists: (file: string) => boolean,
+  ) => {
     if (writer.scope === null) {
       const holder = `${writer.holder}~${Math.random().toString(36).slice(2, 10)}`
       await leases.acquire(site, files, holder, IMPLICIT_LEASE_MS)
@@ -165,6 +236,8 @@ export function leasedStore<S extends SiteStore>(store: S, leases: DraftLeases):
       const lease = held.get(file)
       if (lease && lease.holder !== writer.holder) continue // acquire below names the holder
       if (!writer.scope.includes(file) && exists(file) && lease?.holder !== writer.holder) {
+        const keys = styleKeys.get(file)
+        if (keys) throw styleRefusal(file, keys, writer)
         throw new DraftFileRefusal(
           'NOT_IN_SCOPE',
           file,
@@ -187,8 +260,9 @@ export function leasedStore<S extends SiteStore>(store: S, leases: DraftLeases):
       const { current, pages, assets } = await now(site, change)
       // No such site: the store's own refusal says so better than a lease could.
       if (current.version === null) return store.write(site, change)
-      const files = touched(change, pages, current, assets)
-      const release = await lease(site, writer, files, (file) => current.files.has(file))
+      const touches = touched(change, pages, current, assets)
+      const files = touches.files
+      const release = await lease(site, writer, touches, (file) => current.files.has(file))
       try {
         const read = ctx?.read.get(site)
         for (const file of files) {
