@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-18T19:27:43.035216+00:00'
+updated_at: '2026-10-18T19:36:28.407701+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2225,3 +2225,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 - Consultant-filed (2026-10-18): **BUG-226** choose_look copies a look's drifted content (swapped portraits, reworded text) onto the real page without checking; fix: content baseline at make_alternatives, choose_look refuses on content differences without confirmation, incomplete looks not choosable.
 - **Correction (2026-10-18):** REQ-410's implementing session found my Bob's salon 2 reading wrong — all 12 builders were scoped (long Delegate inputs are elided in the tool record, cutting off `scope`), and the lease guard had no hole. The real reason builders never overlap: the host hands the consultant `Delegate` as a `lib.Tool` closure, and the framework never runs closures concurrently. Fixing it needs an operator decision: upstream (a Tool can declare itself concurrent) or a host refactor (Delegate as a declared surface).
+
+
+- **lagrange-framework REQ-208** (2026-10-18) — a registered `Tool` closure can declare itself `concurrent`; option (a) chosen by the operator for REQ-410's finding. Once it lands, 1stcontact registers its `Delegate` closure concurrent and REQ-410's parallel-builder UAT can be committed.
