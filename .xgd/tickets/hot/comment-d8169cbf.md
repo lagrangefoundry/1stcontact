@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T19:40:23.641993+00:00'
+updated_at: '2026-10-18T22:08:57.085711+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -8847,5 +8847,11 @@ No, I wouldn't reopen it. REQ-410 is at `ready_to_reconcile`, and the follow-up 
 **So I'd let REQ-410 reconcile as it is.** When REQ-208 lands, do the follow-up as one small ticket: register our `Delegate` as safe to run alongside others, and commit the two-builders-at-once test that REQ-410's session wrote but couldn't commit. It's about a point of work.
 
 I can file that ticket now as a `draft`, blocked on LF REQ-208, so it's ready when the framework change lands. Shall I?
+
+<!-- xgd-turn id="818f379c-a189-432e-bc76-c1d46a3f09ad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-18T22:08:54.064927+00:00" -->
+#### You
+208 has landed - please create the follow up ticket
 
 <!-- xgd-chat-end -->
