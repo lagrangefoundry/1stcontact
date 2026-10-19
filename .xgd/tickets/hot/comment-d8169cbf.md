@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:22:01.501733+00:00'
+updated_at: '2026-10-19T21:23:11.389769+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9726,5 +9726,42 @@ So (1) the consultant did kind if discuss web addresses but did not make it suff
 The consultant should offer a link that opens the settings page...
 
 Lets discuss
+
+<!-- xgd-turn id="aa632908-e350-458b-91bb-7d0d9805e9df-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T21:23:11.269200+00:00" -->
+#### Claude
+I traced it. Your point 2 was already designed and built, and a bug stopped it from working.
+
+## What should have happened
+
+REQ-250 decided this exact case. Publish stays clickable, and when the site has no address the builder shows **a dialog** instead of the yellow failure banner. The dialog says what's missing and has a button that opens the web-address section in Settings. The reasoning in `publish-address.js`: someone who reaches this point "is by definition the one who does not know what a web address is", so a refusal has to come with the way out.
+
+## Why you got the banner instead
+
+The builder publishes in streaming mode, so it can show progress while pictures are resized. In that mode the server sends "OK" immediately and only checks the address after the stream has started. The refusal then comes back as the stream's last message, which carries the error text but drops the `NO_PUBLIC_ADDRESS` code (`router.ts` around line 8238). Without the code, the builder doesn't know it's the no-address case, so it falls back to the generic banner and shows the server's raw sentence, site id included. The comments in `api.js` assume the address is checked before the stream starts, but it isn't.
+
+## Your three points
+
+**1. The consultant didn't make it clear.** Agreed. Choosing a web address should be an explicit step in "Ready to publish", and asked before the consultant tells you to press Publish, not discovered afterwards. Two changes:
+- **Prompt:** in Finishing touches, the consultant checks whether the site has a web address. If it doesn't, it explains in one line what a free `….1stc.site` address is versus your own domain, and gives you a link to the Settings web-address section, not a description of where to find it.
+- **The link itself** is a natural extra target for REQ-413, which is still a draft: Settings, web-address section. I'd add it there rather than file a new ticket.
+- **The consultant needs the fact.** Prompting alone won't make it remember. The notice it gets each turn should state "public address: none" once the site is near publishing, which is the same lesson as Finding 13.
+
+**2. Disabled button or a popup.** I'd keep REQ-250's choice: a popup that says what to do, with the button straight to Settings. A greyed-out Publish gives a novice no reason and nothing to click. The dialog also stays correct when the rule changes, because it's driven by the server's answer. If you want a hint *before* the click, the safe version is a small "Needs a web address" next to Publish, based on the same check the server makes, not a second copy of the rule in the browser.
+
+**3. Friendlier errors.** The banner shows whatever sentence the server produced, which is how a site id reached you. I'd set a rule: **an error the client can see never contains an id, a code or our internal terms.** Each refusal the client can act on has its own wording and an action. Anything unexpected gets a plain line, something like *"Something went wrong publishing your site. Try again in a minute, and tell us if it keeps happening."*, with the technical details behind a "Details" toggle for us. The publish banner is where to start, and it's worth checking the builder's other failure banners against the same rule.
+
+## What I'd file
+
+- **One bug:**
+  - check the address *before* the publish stream starts, so it comes back as the proper refusal and the dialog appears, and send the code in the stream's last message too as a fallback;
+  - give the publish banner the friendly wording, with details hidden;
+  - add a test that publishing through the streaming path with no address opens the dialog.
+- **Add the Settings web-address target to REQ-413.**
+- **Prompt change, no ticket:** the web-address step before Publish.
+- **Code to follow later:** the "no public address" fact in the consultant's per-turn notice, together with the novice-checklist facts from Finding 21, since they're the same kind of change.
+
+Shall I go ahead?
 
 <!-- xgd-chat-end -->
