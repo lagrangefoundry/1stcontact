@@ -10,9 +10,14 @@
  * the site yet" described a copy failure as a publish failure.
  *
  * WHAT THIS FILE PROVES, through the real builder and the real chat pane: a
- * successful copy says the item "is ready to use on your site" (by label, or by
- * filename where there is none), a failed copy says it is in the Library but
- * not ready yet, and no upload note claims anything is on the site.
+ * site upload says it is "ready to use on your site" (by label, or by filename
+ * where there is none), a failed copy says it is in the Library but not ready
+ * yet, and nothing claims a file is on the site.
+ *
+ * [[REQ-414]] MOVED THE WORDING, not the claim. A chat drop is now a chip in the
+ * composer, and the picture is placed when the message carrying it is sent — so
+ * "ready to use" is on the chip, and a failed copy is said in the attachment line
+ * that message carries (and in the chip drawn from it in the client's bubble).
  *
  * ONLY THE HTTP CALLS ARE INJECTED — they are the network.
  */
@@ -74,14 +79,21 @@ beforeEach(() => {
   document.body.append(host)
 })
 
-/** Mount the real builder, drop one file on the site area, return the note. */
-async function noteFor(answer: Record<string, unknown>, file: File): Promise<string> {
+type Mounted = {
+  chat: { element: HTMLElement; getChat: () => { getMessages: () => Array<{ markdown: string }> } }
+  attachments: { element: HTMLElement }
+}
+
+/** Mount the real builder, drop one file on the conversation; answers the chip and what was sent. */
+async function attach(answer: Record<string, unknown>, file: File, placed: Record<string, unknown> = {}) {
+  const prompts: string[] = []
   const app = mountBuilder(host, {
     sites: [{ site: 'alpha', latest: 1 }],
     storage: memoryStorage(),
     chatTransport: {
       openSession: async (slug: string) => ({ sessionId: `session-${slug}`, turns: [], ready: true }),
-      streamPrompt: async function* () {
+      streamPrompt: async function* (_id: string, text: string) {
+        prompts.push(text)
         yield { kind: 'done' }
       },
     },
@@ -91,75 +103,75 @@ async function noteFor(answer: Record<string, unknown>, file: File): Promise<str
       save: async () => ({}),
       fileUrl: (uid: string) => `/api/material/file?uid=${uid}`,
       upload: async () => answer,
+      setRole: async (uid: string, role: string) => ({ uid, role, ...placed }),
     },
-  }) as unknown as {
-    chat: { element: HTMLElement; getChat: () => { getMessages: () => Array<{ markdown: string }> } }
-    upload: { element: HTMLElement }
+  }) as unknown as Mounted
+  await settle()
+  app.chat.element.dispatchEvent(fileDrag('drop', [file]))
+  await settle()
+  await settle()
+  const chip = app.attachments.element.querySelector('.builder-attach__chip') as HTMLElement
+  const status = () => String(chip.querySelector('.builder-attach__status')?.textContent)
+  const name = () => String(chip.querySelector('.builder-attach__name')?.textContent)
+  async function send(): Promise<string> {
+    ;(app.chat.element.querySelector('.chat-widget-send-btn') as HTMLButtonElement).click()
+    for (let i = 0; i < 6; i++) await settle()
+    return prompts.at(-1) ?? ''
   }
-  await settle()
-  app.chat.element.dispatchEvent(fileDrag('dragenter'))
-  ;(app.upload.element.querySelector('[data-role="site"]') as HTMLElement).dispatchEvent(
-    fileDrag('drop', [file]),
-  )
-  await settle()
-  return String(app.chat.getChat().getMessages()[0].markdown)
+  return { app, status, name, send }
 }
 
-/** Nothing in an upload note may claim the item is on (or put on) the site. */
-function expectNoPlacementClaim(note: string) {
-  expect(note).not.toContain('on your site as')
-  expect(note).not.toContain("it's on your site")
-  expect(note).not.toContain('put it on the site')
+/** Nothing about an upload may claim the item is on (or put on) the site. */
+function expectNoPlacementClaim(text: string) {
+  expect(text).not.toContain('on your site as')
+  expect(text).not.toContain("it's on your site")
+  expect(text).not.toContain('put it on the site')
 }
 
 const png = (name: string) => new File(['b'], name, { type: 'image/png' })
 
-describe.skipIf(!WEBUI_INSTALLED)('BUG-181 — the upload note says ready to use, never on the site', () => {
+describe.skipIf(!WEBUI_INSTALLED)('BUG-181 — an upload says ready to use, never on the site', () => {
   it('test_UAT_FC_BUG-181_a_labelled_site_upload_is_ready_to_use_on_your_site', async () => {
-    const note = await noteFor(
-      { uid: 'material-1', label: 'IMAGE-3', role: 'site', site_asset: 'a1b2.png', indexed: true },
+    const { name, status } = await attach(
+      { uid: 'material-1', label: 'IMAGE-3', kind: 'image', role: 'reference', indexed: true },
       png('a1b2.png'),
     )
-    expect(note).toContain('Added — **IMAGE-3** is ready to use on your site.')
-    expectNoPlacementClaim(note)
+    expect(name()).toBe('IMAGE-3')
+    expect(status()).toContain('ready to use on your site')
+    expectNoPlacementClaim(status())
   })
 
   it('test_UAT_FC_BUG-181_an_unlabelled_site_upload_names_its_filename_and_is_ready_to_use', async () => {
-    const note = await noteFor(
-      { uid: 'material-2', label: null, role: 'site', site_asset: 'logo.png', indexed: true },
+    const { name, status } = await attach(
+      { uid: 'material-2', label: null, role: 'reference', indexed: true },
       png('logo.png'),
     )
-    expect(note).toContain('Added — `logo.png` is ready to use on your site.')
-    expectNoPlacementClaim(note)
+    expect(name()).toBe('logo.png')
+    expect(status()).toContain('ready to use on your site')
+    expectNoPlacementClaim(status())
   })
 
   it('test_UAT_FC_BUG-181_a_failed_site_copy_says_it_is_in_the_library_but_not_ready', async () => {
-    const note = await noteFor(
-      {
-        uid: 'material-3',
-        label: 'IMAGE-4',
-        role: 'site',
-        site_asset: null,
-        site_asset_error: 'the image could not be copied',
-        indexed: true,
-      },
+    const { send } = await attach(
+      { uid: 'material-3', label: 'IMAGE-4', kind: 'image', role: 'reference', indexed: true },
       png('hero.png'),
+      { site_asset: null, site_asset_error: 'the image could not be copied' },
     )
-    expect(note).toContain(
+    const sent = await send()
+    expect(sent).toContain(
       "It's in your Library, but isn't ready to use on the site yet: the image could not be copied",
     )
     // NOT ALSO "READY". A failed copy is the one case the success sentence would lie.
-    expect(note).not.toContain('is ready to use')
-    expectNoPlacementClaim(note)
+    expect(sent).not.toContain('is ready to use')
+    expectNoPlacementClaim(sent)
   })
 
-  it('test_UAT_FC_BUG-181_the_reference_line_and_the_first_line_are_unchanged', async () => {
-    const note = await noteFor(
-      { uid: 'material-4', label: 'DOC-5', role: 'reference', site_asset: null, indexed: true },
+  it('test_UAT_FC_BUG-181_the_reference_wording_is_unchanged', async () => {
+    const { status } = await attach(
+      { uid: 'material-4', label: 'DOC-5', role: 'reference', indexed: true },
       new File(['b'], 'brand-book.pdf', { type: 'application/pdf' }),
     )
-    expect(note.split('\n')[0]).toBe('📎 **brand-book.pdf**')
-    expect(note).toContain("Added. I'll read it — it won't appear on your site.")
-    expectNoPlacementClaim(note)
+    expect(status()).toContain("I'll read it — it won't appear on your site")
+    expectNoPlacementClaim(status())
   })
 })

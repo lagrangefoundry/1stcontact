@@ -52,6 +52,7 @@ import { openFontPopup } from './font-popup.js'
 import { openPalettePopup } from './palette-popup.js'
 import { openPhonePreview } from './phone-preview.js'
 import { createUploadOverlay } from './upload.js'
+import { createAttachmentTray } from './attachments.js'
 import {
   colorsAction,
   createToolbar,
@@ -67,6 +68,7 @@ import {
 } from './toolbar.js'
 import {
   fetchFonts,
+  fetchMaterial,
   fetchMaterialItem,
   fetchPages,
   fetchPalette,
@@ -80,6 +82,7 @@ import {
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
+  saveMaterialRole,
   saveSubject,
   setBusinessScope,
   subscribeDraft,
@@ -1286,8 +1289,33 @@ export function mountBuilder(root, options = {}) {
     if (mode !== 'story') storyByHost = false
   })
 
+  /**
+   * The composer's attachments ([[REQ-414]]) — a file dropped on the conversation,
+   * or picked beside the text box, waits there as a chip and goes with the next
+   * message. See `attachments.js` for why it is uploaded as reference and only
+   * placed on the site when it is sent.
+   *
+   * THE LIBRARY'S OWN TRANSPORT, so an injected one (a suite) serves both, and a
+   * label in a reloaded transcript is resolved against the same list the Library
+   * draws — read once, the first time a bubble names a file this page did not
+   * upload.
+   */
+  let materialList = null
+  const attachments = createAttachmentTray({
+    upload: (file, role) => sendUpload({ file, role, site: currentSite ?? undefined }),
+    setRole: (uid, role) => (libraryTransport?.setRole ?? saveMaterialRole)(uid, role),
+    fileUrl: (uid) => (libraryTransport?.fileUrl ?? materialFileUrl)(uid),
+    findMaterial: async (label) => {
+      materialList ??= (libraryTransport?.list ?? fetchMaterial)().then((r) => r?.material ?? [])
+      return (await materialList).find((row) => row.label === label) ?? null
+    },
+    isBlocked: () => blocked,
+    onUploaded: () => void library.refresh().catch(() => {}),
+  })
+
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
+    attachments,
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
     // WHAT BECAME OF A TURN WHOSE STREAM DIED ([[BUG-123]]). The pane notices the
     // loss; only this module can ask, because the question is "re-open the
@@ -1688,11 +1716,11 @@ export function mountBuilder(root, options = {}) {
   shell.getPanel(DEBUG_TAB.id).append(debug.element)
 
   /**
-   * The upload overlay, watching BOTH entry points (REQ-161, DOC-8 open item #4).
+   * The upload overlay, on the Library (REQ-161, DOC-8 open item #4).
    *
-   * ONE INSTANCE, TWO WATCHERS, and that is the ticket's answer to "drag into
-   * chat, or a dedicated panel?" — both, because they serve different moments,
-   * and the same interaction because the decision they lead to is identical.
+   * THE LIBRARY ONLY, SINCE [[REQ-414]]. It used to watch the conversation too;
+   * a file dropped there is now an attachment to the client's next message, and
+   * what it is for is asked on its chip instead of on this sheet.
    *
    * It mounts into `shell.element` for the reason every other builder surface
    * does: the `--shell-*` tokens and the app font are declared on `.shell`, and
@@ -1700,30 +1728,28 @@ export function mountBuilder(root, options = {}) {
    */
   const upload = createUploadOverlay({
     host: shell.element,
-    onUpload: (files, role, source) => void receiveFiles(files, role, source),
+    onUpload: (files, role) => void receiveFiles(files, role),
   })
-  const unwatchChat = upload.watch(chat.element, 'chat')
-  const unwatchLibrary = upload.watch(library.element, 'library')
+  const unwatchLibrary = upload.watch(library.element)
+  // [[REQ-414]] — A FILE DROPPED ON THE CONVERSATION IS AN ATTACHMENT, not an
+  // overlay question: it becomes a chip in the composer, what it is for is chosen
+  // on the chip, and it reaches the consultant with the client's next message.
+  const unwatchChat = attachments.watch(chat.element)
 
   const sendUpload = libraryTransport?.upload ?? uploadMaterial
 
   /**
-   * What happens after the drop.
+   * What happens after a drop on the Library.
    *
    * SEQUENTIALLY, and deliberately not in parallel. Each upload is described and
    * indexed on the origin before it answers, so firing five at once buys latency
-   * back by making five model calls compete — and the client watching the
-   * conversation would see the confirmations arrive in an order unrelated to the
-   * one they dropped them in.
+   * back by making five model calls compete.
    *
-   * A CHAT-ROUTE DROP APPEARS IN THE CONVERSATION. That is the ticket's own
-   * acceptance, and it is two different things at once: the client can see what
-   * they sent, and the assistant has it — the second half through the origin's
-   * index refresh and the next turn's delta (DOC-39 §6.4), not through this
-   * message. A Library-route drop reaches the assistant by exactly the same path;
-   * what it does not do is put a line in a conversation it was not part of.
+   * IT PUTS NOTHING IN THE CONVERSATION. The file reaches the assistant through
+   * the origin's index refresh and the next turn's delta (DOC-39 §6.4); a file
+   * the client wants to talk about is attached in the chat instead ([[REQ-414]]).
    */
-  async function receiveFiles(files, role, source) {
+  async function receiveFiles(files, role) {
     // BELT AND BRACES BESIDE `inert` (REQ-173). The shell being inert stops a
     // click, and a drag onto an inert subtree is not something the attribute is
     // specified to refuse — so the one action with a real origin behind it says
@@ -1736,32 +1762,19 @@ export function mountBuilder(root, options = {}) {
     library.refused('')
     const refusals = []
     for (const file of files) {
-      let result = null
-      let failure = null
       try {
-        result = await sendUpload({ file, role, site: currentSite ?? undefined })
+        const result = await sendUpload({ file, role, site: currentSite ?? undefined })
+        if (!result) refusals.push(`${file.name} — ${refusalReason(null)}`)
       } catch (err) {
-        failure = err
-      }
-      if (failure || !result) refusals.push(`${file.name} — ${refusalReason(failure)}`)
-      if (source === 'chat') {
-        chat.getChat()?.appendMessage('user', uploadNote(file, result, failure))
+        refusals.push(`${file.name} — ${refusalReason(err)}`)
       }
     }
     /**
-     * A REFUSAL REACHES THE CLIENT FROM BOTH DROP AREAS ([[REQ-221]]).
-     *
-     * The conversation already reported one; the Library reported nothing at
-     * all, so a file dropped there that the origin refused simply never appeared
-     * and the client was left to conclude the product had ignored them. That is
-     * the same experience as dropping a photograph into silence, arrived at
-     * differently — and it is the experience this change exists to end, so it
-     * cannot be the experience the change itself delivers.
-     *
-     * ONLY FOR THE NON-CHAT ROUTE, because a chat drop has already said it and
-     * saying it twice in two surfaces would read as two separate failures.
+     * A REFUSAL REACHES THE CLIENT ([[REQ-221]]). A file dropped here that the
+     * origin refused would otherwise simply never appear, and the client would be
+     * left to conclude the product had ignored them.
      */
-    if (source !== 'chat' && refusals.length) library.refused(refusals.join(' '))
+    if (refusals.length) library.refused(refusals.join(' '))
     // ALWAYS, and from the origin rather than from what the uploads returned: the
     // list carries `description_status` and the site placement, both of which are
     // decided after the bytes leave here.
@@ -2235,6 +2248,8 @@ export function mountBuilder(root, options = {}) {
     storyBoard,
     planSplit,
     upload,
+    // [[REQ-414]] — the composer's attachment tray.
+    attachments,
     /** The REQ-173 banner, or `null` on a deployment that can reach a model. */
     banner,
     /**
@@ -2509,18 +2524,6 @@ function blockTabs(shell, message) {
 }
 
 /**
- * What a chat-route drop says in the conversation (REQ-161).
- *
- * IN THE CLIENT'S VOICE AND AS THE CLIENT'S TURN, because that is what it is:
- * they handed us a file, and the transcript should read as though they did.
- *
- * IT REPORTS WHAT ACTUALLY HAPPENED, including the parts that went wrong. An
- * upload that stored the bytes but could not index them is the failure DOC-39 §4
- * calls INVISIBILITY rather than staleness — search will never return it — and a
- * confirmation that said "added" and nothing else would make that state
- * indistinguishable from a working one to the only person who could tell us.
- */
-/**
  * Why an upload was refused, in the origin's own words ([[REQ-221]]).
  *
  * THE ORIGIN'S SENTENCE AND NOT A SUBSTITUTE FOR IT. `CopyError` carries the
@@ -2533,56 +2536,10 @@ function blockTabs(shell, message) {
  * that answered non-JSON. Those have no client-facing sentence anywhere, so this
  * is the only place one can come from.
  *
- * IT DOES NOT NAME THE FILE, because both callers do — the chat note prefixes it
- * and the Library's notice lists it — and the origin's own messages deliberately
- * leave the naming to them.
+ * IT DOES NOT NAME THE FILE, because the Library's notice lists it, and the
+ * origin's own messages deliberately leave the naming to the caller.
  */
 function refusalReason(failure) {
   return failure?.message ?? 'the upload failed'
 }
 
-/**
- * What to call the material in the sentence that follows ([[REQ-287]]).
- *
- * THE LABEL IF THERE IS ONE. `IMAGE-25` is the name the client and the
- * consultant share — the Library shows it and the assistant answers to it — so
- * it is the one name here that is usable in the client's *next* sentence. The
- * filename is not: it addresses the bytes under `site_assets`, and for anything
- * off a phone or a design tool it is a uuid nobody can transcribe.
- *
- * THE FILENAME WHERE THERE IS NONE. Material ingested before [[REQ-280]] has no
- * label, and that is a gap in an old Library rather than a defect. The filename
- * is then the honest name for a thing that has no other one, and it stays in
- * backticks because that is what it is — a storage key, not a name.
- */
-function placedName(result) {
-  return result.label ? `**${result.label}**` : `\`${result.site_asset}\``
-}
-
-function uploadNote(file, result, failure) {
-  if (failure || !result) {
-    return `📎 **${file.name}** — that didn't upload: ${refusalReason(failure)}`
-  }
-  const lines = [`📎 **${file.name}**`]
-  // THE FILENAME IS STILL THE FIRST LINE, and deliberately: it is the thing the
-  // client just dropped and the only name they already know. This sentence
-  // answers a different question — what to call it from here on — and the two
-  // names belong in the note together.
-  //
-  // READY TO USE, NOT ON THE SITE ([[BUG-181]]). `site_asset` records only that
-  // the bytes were copied into the site's asset store. No page uses the image,
-  // the draft is unchanged and nothing is published, so the note says it is
-  // available to place. It never says it is "on your site": a client reads that
-  // as live and goes looking for it.
-  if (result.site_asset) lines.push(`Added — ${placedName(result)} is ready to use on your site.`)
-  else if (result.role === 'reference') {
-    lines.push("Added. I'll read it — it won't appear on your site.")
-  } else lines.push('Added.')
-  if (result.site_asset_error) {
-    lines.push(`It's in your Library, but isn't ready to use on the site yet: ${result.site_asset_error}`)
-  }
-  if (result.indexed === false) {
-    lines.push("I've stored it, but I can't search it yet.")
-  }
-  return lines.join('\n\n')
-}

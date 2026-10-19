@@ -646,6 +646,29 @@ export const UPLOAD_AREAS = [
 ]
 
 /**
+ * The composer's attachments ([[REQ-414]]) — a file dropped on the conversation
+ * waits as a chip beside the text box and goes with the next message.
+ *
+ * THE TWO ROLES ARE [[BUG-196]]'s words, the ones the chip's select offers and the
+ * ones the attachment line in the message carries — so the client and the
+ * consultant read the same phrase for the same choice.
+ */
+export const ATTACH_ROLE_WORDS = { site: 'For the site', reference: 'For reference' }
+export const ATTACH_BUTTON = 'Attach files'
+export const ATTACH_REMOVE = 'Remove'
+/**
+ * What a chip says under its name. [[BUG-181]]'s wording, moved off the chat:
+ * "ready to use", never "on your site" — and only once sent, because a picture is
+ * placed with the message it is attached to, not before.
+ */
+export const ATTACH_STATUS = {
+  uploading: 'Uploading…',
+  site: 'ready to use on your site once sent',
+  reference: "I'll read it — it won't appear on your site",
+  unsearchable: "stored, but I can't search it yet",
+}
+
+/**
  * The window the console asks for when nobody has said otherwise ([[REQ-297]]).
  *
  * THIRTY DAYS, AND IT LIVES HERE RATHER THAN ON THE ROUTE. `/api/admin/spend`'s

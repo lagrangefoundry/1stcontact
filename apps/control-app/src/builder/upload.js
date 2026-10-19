@@ -3,11 +3,10 @@
  *
  * WHAT IT IS FOR. Until this existed there was no way to put a byte into the
  * system at all — the image picker (REQ-132) chooses among assets a site already
- * has, which is a field editor and not a way in. This is the way in, and it is
- * the same overlay from both entry points: dragging onto the conversation (the
- * AI asks *"do you have a logo?"* and the answer is to drop one into the chat)
- * and dragging onto the Library (the deliberate path, for material that is not
- * part of the current conversation). Two moments, one interaction.
+ * has, which is a field editor and not a way in. This is the way in from the
+ * Library — the deliberate path, for material that is not part of the current
+ * conversation. A file dropped on the conversation is an attachment to the next
+ * message instead, and asks its question on its chip ([[REQ-414]]).
  *
  * THE AREAS ARE ROLES, NOT FILE TYPES, and that is the ticket's central claim.
  * Sorting by type would ask the client to tell us something we already read off
@@ -103,8 +102,6 @@ export function createUploadOverlay({
    * the upload. `UPLOAD_ACCEPT` is the list; `config.js` records why it names
    * HEIC and why it does not say `image/*`.
    */
-  let source = null
-
   const input = document.createElement('input')
   input.type = 'file'
   input.multiple = true
@@ -184,19 +181,11 @@ export function createUploadOverlay({
     take(chosen, role)
   })
 
-  /**
-   * Commit a set of files to a role, and get out of the way.
-   *
-   * THE SOURCE TRAVELS WITH THEM. One overlay serves both entry points, so the
-   * host cannot tell from the files alone whether this was the conversational
-   * path or the deliberate one — and it has to, because a chat-route drop is
-   * supposed to appear in the transcript and a Library-route one is not.
-   */
+  /** Commit a set of files to a role, and get out of the way. */
   function take(files, role) {
     if (!files.length || !role) return
-    const from = source
     close()
-    onUpload(files, role, from)
+    onUpload(files, role)
   }
 
   /**
@@ -222,8 +211,7 @@ export function createUploadOverlay({
   }
   document.addEventListener('keydown', onKey)
 
-  function open(from = null) {
-    source = from
+  function open() {
     if (!element.hidden) return
     note.textContent = ''
     for (const el of areaEls) el.classList.remove('is-asking', 'is-over')
@@ -242,13 +230,13 @@ export function createUploadOverlay({
    * the moment the pointer passes from a panel onto a button inside it. The
    * overlay only closes on a real leave (`dragend`), a drop, Escape or Cancel.
    */
-  function watch(target, from = null) {
+  function watch(target) {
     let depth = 0
     const enter = (ev) => {
       if (!isFileDrag(ev)) return
       ev.preventDefault()
       depth++
-      open(from)
+      open()
     }
     const over = (ev) => {
       if (isFileDrag(ev)) ev.preventDefault()
