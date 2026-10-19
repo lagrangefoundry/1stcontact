@@ -5,9 +5,9 @@ type: request
 title: 'Execution budgets: deliver an outcome, never stop half-done to ask permission'
 created_by: xgd
 created_at: '2026-10-18T18:25:12.050358+00:00'
-updated_at: '2026-10-19T01:03:54.439400+00:00'
+updated_at: '2026-10-19T01:03:59.159752+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   auto_merge_back: true
@@ -15,7 +15,7 @@ fields:
   priority: high
   epic_parent: epic-95bc3b15
   chat_comment: comment-0bb9ad56
-  story_points: 5
+  story_points: 8
   commits:
   - working_sha: 697440416594c469e32e96d761a4fcf092ad23d4
     reconcile_sha: null
