@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:18:30.484032+00:00'
+updated_at: '2026-10-19T20:20:41.621982+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9418,5 +9418,29 @@ Also good news: Bob's salon 2's latest turn completed normally and was saved, so
 <!-- xgd-chat role="user" ts="2026-10-19T20:18:28.326200+00:00" -->
 #### You
 can we make the standard deployment deploy fonts if they have changed....ticket for this please?
+
+<!-- xgd-turn id="36b5e5b5-5537-4927-bb1e-9a2e69022c29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T20:20:36.685014+00:00" -->
+#### Claude
+I've filed **REQ-412**, *"bin/deploy: deploy the platform fonts automatically when the mirror has changed"*. It's at `draft` under EPIC-19, high priority, 3 points, and the epic links to it.
+
+**Why this is now cheap.** Fonts were kept out of normal deploys on purpose (REQ-315), because checking 1.35 GB of fonts for changes could add an hour to every deploy. But the font list, `fonts/platform.json`, already stores a fingerprint (sha256) for every one of its 7,132 font files. So deciding whether the fonts changed means comparing one small file, not re-reading every font.
+
+**What the ticket asks for:**
+1. **Each environment remembers which fonts it last received.** Ideally that record sits in the font store itself, so it can't disagree with what's really there.
+2. **Every `bin/deploy` checks that record first.**
+   - If nothing changed, the output says `platform fonts: unchanged` and the deploy carries on.
+   - If something changed, or there's no record yet, the existing font upload runs. It already sends only the files that differ.
+3. **A half-prepared font set stops the deploy** before anything ships, and the error says which command fixes it.
+4. **Fonts upload before the apps**, so a new version is never serving pages whose fonts haven't arrived yet.
+5. **The flags:**
+   - `--dry-run` shows what would happen with the fonts and changes nothing.
+   - `--fonts` still deploys fonts only.
+   - A new `--no-fonts` skips the check, and warns if the fonts were actually out of date.
+
+**One thing stays manual:** re-encoding the fonts with `1c fonts mirror` isn't part of the deploy, because it needs the google-fonts checkout. After an encoder fix like BUG-227 you still run that yourself. From then on, a normal deploy ships the result to whichever environment you deploy to.
+
+Your working tree has the re-encoded `fonts/platform.json` uncommitted, from this morning's font re-encode. Commit it before production, so the production deploy, and REQ-412's check once it's built, work from the corrected font list.
 
 <!-- xgd-chat-end -->
