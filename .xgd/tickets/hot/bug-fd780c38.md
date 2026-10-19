@@ -6,9 +6,9 @@ title: 'Builder banners: error banners can''t be dismissed — give every action
   banner a dismiss ×'
 created_by: EPIC-19
 created_at: '2026-10-19T23:31:13.561400+00:00'
-updated_at: '2026-10-19T23:43:33.979395+00:00'
+updated_at: '2026-10-19T23:47:51.221512+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -44,3 +44,14 @@ UATs `test_UAT_FC_<id>_*`, in the builder (jsdom):
 - Escape inside the banner dismisses it;
 - the not-configured, no-business and publishing banners have no Dismiss button;
 - every banner the shared helper produces as dismissible has exactly one Dismiss button, with the accessible name "Dismiss".
+
+
+## What landed
+
+- New `apps/control-app/src/builder/banner.js` — `createBanner({ className, role, content, dismissible })` is the one way builder banners are drawn. `dismissible: true` appends a `<button type="button" class="builder-banner__dismiss" aria-label="Dismiss">` as the banner's last child (top right) and binds Escape on the banner; both just remove the element. The rule about which banners may be dismissed is written in that module's header.
+- Converted: `builder-banner--publish-failed` (dismissible); `builder-operator-banner` in `business.js` (dismissible, its "back" button kept and still the first button, × after it); `builder-banner` not-configured, `builder-banner--no-business`, `builder-banner--publishing` (all not dismissible). The session notice (BUG-52, `session.js`) is the same kind of lock-explaining fact and stays non-dismissible; it was not converted.
+- Look: the × glyph is CSS `::before` content (so the banner's `textContent` stays exactly its sentence), muted with no box like the chip remove control, full opacity on hover/focus, and a 44×44px minimum under `@media (pointer: coarse)`. The builder has no modal close glyph, so the chip remove is the reference.
+
+## UATs
+
+`tests/test_UAT_FC_BUG-231_dismissible_banners.test.ts` — failed-publish banner dismisses and a second identical failure shows a fresh one; Escape inside dismisses; not-configured / no-business / publishing banners have no Dismiss; every dismissible banner from the helper (plain, operator with and without back) has exactly one Dismiss as its last child, and the CSS draws the glyph and the 44px coarse-pointer target.
