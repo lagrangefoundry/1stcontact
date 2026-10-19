@@ -5,10 +5,10 @@ type: request
 title: 'Execution budgets: deliver an outcome, never stop half-done to ask permission'
 created_by: xgd
 created_at: '2026-10-18T18:25:12.050358+00:00'
-updated_at: '2026-10-19T01:03:16.706035+00:00'
+updated_at: '2026-10-19T01:03:54.439400+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
@@ -16,8 +16,15 @@ fields:
   epic_parent: epic-95bc3b15
   chat_comment: comment-0bb9ad56
   story_points: 5
+  commits:
+  - working_sha: 697440416594c469e32e96d761a4fcf092ad23d4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: e789bfe776abc94c2813cd102b61b997f634ca9c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.541
 ---
-
 
 ## What I was trying to achieve
 Hand the client a first draft I would defend. In practice the first builder's output had structural gaps: a missing hero section, page colours not using the palette, broken form styling, and a floating header. Fixing them took four more delegations inside one consultant turn. All of these were my own mistakes to fix, not decisions for the client.
