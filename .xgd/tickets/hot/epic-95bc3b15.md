@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-19T22:45:11.866028+00:00'
+updated_at: '2026-10-19T23:31:22.853745+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2269,3 +2269,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-230]] — Publish with no web address showed the raw server error banner (site id included) instead of REQ-250's dialog: the streaming publish drops the NO_PUBLIC_ADDRESS code. Also: friendlier failure banners, a show_client web_address target, and a no-address fact in the plan notice. Priming 1c6a268d7e: the consultant checks for a web address before suggesting Publish.
+
+
+- [[BUG-231]] — error and notice banners get a dismiss ×; banners explaining a locked builder stay.
