@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T11:58:20.339640+00:00'
+updated_at: '2026-10-19T11:58:34.602211+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9345,5 +9345,20 @@ Recovery then happens through this code on the next `prepare`, with no SQLite ed
 I recommend (a), with low meaning a 768 px longest edge at about quality 75, for Library images and draft tiles alike.
 
 Once you've answered these, I'll set the ticket to `free_coding`, cut the `free-BUG-229` branch and start.
+
+<!-- xgd-turn id="bf944aea-a19b-4d16-a3e6-1adb7561111e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T11:58:32.454950+00:00" -->
+#### Claude
+Yes, I can see that. These are the same three questions I answered. That message came *before* my answers, and the session hasn't run since, so there's nothing new. It's waiting to be told the answers exist.
+
+My answers are in BUG-229 under **"Answers to the pre-coding check"**:
+1. **No offset map.** Swap images for Library references (or placeholders for draft-page screenshots) when a record is written, before it reaches either copy, so both hold identical bytes and offsets. First confirm that nothing live reads images back from the junction.
+2. **Agreed with the session:** snap to the end of the last record the archive holds (19,592,232), not the previous newline. If that can't be found, fold nothing, log it, and tell the client. Recovery happens through the code, with no database edit.
+3. **Neither encoder.** Use the existing image renderer (REQ-219, the `IMAGES` binding) with a resize-to-768 px, JPEG-at-quality-75 recipe. Fall back to `jpeg-js` only if that binding can't output JPEG in local dev.
+
+You can paste this into that session:
+
+> The three pre-coding questions are answered in BUG-229 under "Answers to the pre-coding check" — please reread that section. In short: (1) no offset map; transform images to references/placeholders at append time so mirror and DO are identical — confirm nothing live reads images back from the junction first; (2) your snap-to-archived-boundary guard is agreed; (3) use the existing image renderer (`IMAGES` binding) for low detail, JPEG ~q75 at 768 px, `jpeg-js` only as a fallback. If you're ready, go ahead.
 
 <!-- xgd-chat-end -->
