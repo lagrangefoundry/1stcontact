@@ -2,13 +2,12 @@
 uid: request-49bb6915
 id: REQ-409
 type: request
-title: Let the first draft run build→check→fix to completion, with client-readable
-  progress and mid-run client input
+title: 'Execution budgets: deliver an outcome, never stop half-done to ask permission'
 created_by: xgd
 created_at: '2026-10-18T18:25:12.050358+00:00'
-updated_at: '2026-10-18T19:13:52.853684+00:00'
+updated_at: '2026-10-19T00:14:57.217802+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: draft
 fields:
   auto_merge_back: true
