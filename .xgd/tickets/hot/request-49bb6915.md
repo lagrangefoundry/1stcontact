@@ -5,9 +5,9 @@ type: request
 title: 'Execution budgets: deliver an outcome, never stop half-done to ask permission'
 created_by: xgd
 created_at: '2026-10-18T18:25:12.050358+00:00'
-updated_at: '2026-10-19T00:49:44.319612+00:00'
+updated_at: '2026-10-19T01:03:16.706035+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -17,6 +17,7 @@ fields:
   chat_comment: comment-0bb9ad56
   story_points: 5
 ---
+
 
 ## What I was trying to achieve
 Hand the client a first draft I would defend. In practice the first builder's output had structural gaps: a missing hero section, page colours not using the palette, broken form styling, and a floating header. Fixing them took four more delegations inside one consultant turn. All of these were my own mistakes to fix, not decisions for the client.
@@ -82,3 +83,43 @@ UATs (`test_UAT_FC_REQ-409_*`), real host, only the model scripted:
 - A builder that ends on its context budget is replaced by a fresh builder whose brief carries the host's account and the remaining items; the consultant gets one result.
 - The $10 ceiling ends the work cleanly once crossed, counting builders' spend.
 - `backends.json` and `turn-clock.json` carry the new limits, and both backends are constructed with them.
+
+
+## What landed (REQ-409, 2026-10-18)
+
+The operator's decision above, as built. Every behaviour below has a UAT in `tests/test_UAT_FC_REQ-409_an_outcome_not_a_question.test.ts`, through the real host with only the model scripted.
+
+### 1. Budgets raised
+- `backends.json`: `claude.max_iterations: 200` (the consultant had never set it and ran at the framework's 50); `claude_builder.max_iterations: 200`, `claude_builder.turn_timeout: 1200`. The builder stays on `claude-haiku-4-5`; its window is not raised.
+- `turn-clock.json`: `turn_timeout_seconds: 3600`, plus three new keys: `max_continuations: 2`, `max_builder_replacements: 2`, `spend_ceiling_usd: 10`. All three are configuration, read by `turn-clock-core.ts`.
+
+### 2. A consultant turn that runs out of calls or time is continued by the host
+- When a consultant turn ends `exhausted` (calls or time) with work in progress, the host starts a continuation turn itself, with no client message, up to `max_continuations` per client message, while the message is under its spend ceiling (`continuedTurn` in `host-core.ts`).
+- Instead of a question, the turn's closing paragraph says *"Still working on it: <the current step's own words>…"*, followed by the list of what the turn did, which the continuation reads back. Only the last reply, once the continuations are used, says it stopped: *"That is as far as I can take this in one go. Send me any message and I will continue from here."* No reply asks permission to go on.
+- The continuation is started by a fixed host cue recorded as the user turn (`continuation-cue` in `priming.json`). It tells the consultant to carry on with her own checks, not to ask whether to continue, and to stop only for a decision that is the client's (taste, content, approval). Like the opening cue, it is hidden from the transcript the client sees.
+- The client's stream carries one terminal `done`, the last turn's. Each continuation is still a whole turn with its own pending record, spend row (turn id `<id>-continued-N`) and clock.
+- **Design decision:** a turn stopped by the **context** guard is not continued. That conversation is full, and the next turn would be refused before it started (the existing "start a new conversation" path). The ticket's "(calls, time or context)" therefore applies to builders (item 3) but not to the consultant, whose window is 1M.
+
+### 3. A builder that runs out is replaced by a fresh one
+- When a delegation's builder ends on its calls, its time or its context (`ended.reason` of `calls`, `time` or `context_budget`), the host recommissions a fresh builder session, up to `max_builder_replacements` per delegation and only while under the spend ceiling (`reportingDelegationToolbox` in `account-core.ts`).
+- The fresh builder's brief is the original goal (with the story block and the original checks), plus *"A builder before you started this brief and stopped before finishing: <why>."*, plus the host's record of what was already written (the account's differences, capped at 40 lines), or *"The host's record shows it wrote nothing to the draft."* It is never the previous builder's summary. It claims the same scope, which the previous run's `finally` has released.
+- The consultant receives one result: the last run's summary, checks and outcome, plus `replaced: N`, `sessions: [...]`, and `account.changed` / `usage` merged across all runs. If the work is still unfinished after the replacements, `ended` is still present, and the result field descriptions tell her to tell the client what is left and why.
+
+### 4. The per-message spend ceiling
+- `SpendMeter` (`spend-core.ts`) is charged per request, priced from `prices.json`, by the guard on every backend serving the message: the consultant's turns, the continuations, and every builder (`guardTurn`'s new `charge` hook). It resets on each client message.
+- Once the ceiling is crossed:
+  - the consultant is told on every following request (`spend-ceiling` template, on the per-call signal) to start no new work, commission no builder, and tell the client what is done and what is left, without mentioning cost;
+  - a new `Delegate` call is refused with `spend_ceiling` before anything runs;
+  - no builder is replaced and no continuation starts.
+- The operator sees it as a `console.warn` naming the session and the micros spent, which is the Worker's log. The client never hears of cost.
+
+### Superseded behaviour (existing UATs updated)
+- BUG-168: the clock is 60 minutes. A turn that runs out of time is continued until the continuations are used. The old "Ask me to carry on" line is gone.
+- BUG-191, BUG-212, REQ-296: a builder stopped by its context budget is now replaced twice. Those cases now script every builder to go over, so their result (the last run's) still shows what they pin.
+
+### Test plan (as run)
+- `test_UAT_FC_REQ-409_the_budgets_are_raised_and_both_backends_are_built_with_them`
+- `test_UAT_FC_REQ-409_a_turn_out_of_tool_calls_is_continued_by_the_host_and_finishes`: the continuation needs no client message, the client sees no permission question, and the cue is hidden from the transcript.
+- `test_UAT_FC_REQ-409_a_third_continuation_never_starts`
+- `test_UAT_FC_REQ-409_a_builder_out_of_context_is_replaced_by_a_fresh_one_briefed_from_the_host_record`: the consultant gets one result.
+- `test_UAT_FC_REQ-409_the_spend_ceiling_ends_the_work_cleanly_counting_the_builders_spend`
