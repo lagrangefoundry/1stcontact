@@ -79,12 +79,32 @@ export interface JunctionSlice {
 
 const ENCODER = new TextEncoder()
 
-/** `size`, `epoch` and `present` live here; the stream lives in `chunk`. */
+/**
+ * The most bytes one `chunk` row carries ([[BUG-229]]).
+ *
+ * A Durable Object's SQLite refuses a value over about 2 MB with
+ * `SQLITE_TOOBIG`, and it used to refuse a whole RECORD that size: one 2.4 MB
+ * screenshot was dropped from the middle of a session's stream while every
+ * record after it landed, and the hole moved every later offset by the record's
+ * length. So a write is split across rows instead of refused. Half the ceiling,
+ * so no encoding detail of the binding can put a row over it.
+ */
+export const ROW_MAX_BYTES = 1_000_000
+
+/**
+ * `size`, `epoch` and `present` live here; the stream lives in `chunk`.
+ *
+ * `cont` IS 1 ON EVERY ROW AFTER THE FIRST OF ONE WRITE ([[BUG-229]]). A row's
+ * key is its byte offset and a write's first row is the only one a reader may
+ * splice at, so "was this stream ever cut here" is `start = ? AND cont = 0` —
+ * the split never manufactures a boundary.
+ */
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS chunk (
   start INTEGER PRIMARY KEY,
   len   INTEGER NOT NULL,
-  bytes BLOB NOT NULL
+  bytes BLOB NOT NULL,
+  cont  INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS state (
   k TEXT PRIMARY KEY,
@@ -105,6 +125,27 @@ export class SessionJunction extends DurableObject<unknown> {
     // store, no bucket, no credential and no way to acquire one.
     super(ctx, env)
     this.ctx.storage.sql.exec(SCHEMA)
+    // AN OBJECT CREATED BEFORE `cont` EXISTED has the table without it, and
+    // `CREATE TABLE IF NOT EXISTS` leaves that table as it is. Every row it
+    // holds was one whole write, so the default is the truth about all of them.
+    const columns = this.ctx.storage.sql.exec('PRAGMA table_info(chunk)').toArray()
+    if (!columns.some((column) => column.name === 'cont')) {
+      this.ctx.storage.sql.exec('ALTER TABLE chunk ADD COLUMN cont INTEGER NOT NULL DEFAULT 0')
+    }
+  }
+
+  /** One write's bytes at `start`, in as many rows as {@link ROW_MAX_BYTES} needs. */
+  private insert(start: number, bytes: Uint8Array): void {
+    for (let at = 0; at < bytes.length; at += ROW_MAX_BYTES) {
+      const row = bytes.slice(at, at + ROW_MAX_BYTES)
+      this.ctx.storage.sql.exec(
+        'INSERT INTO chunk (start, len, bytes, cont) VALUES (?, ?, ?, ?)',
+        start + at,
+        row.length,
+        row,
+        at === 0 ? 0 : 1,
+      )
+    }
   }
 
   private num(key: string, fallback: number): number {
@@ -152,7 +193,9 @@ export class SessionJunction extends DurableObject<unknown> {
       from > 0 &&
       from <= size &&
       (from === size ||
-        this.ctx.storage.sql.exec('SELECT 1 FROM chunk WHERE start = ?', from).toArray().length > 0)
+        this.ctx.storage.sql
+          .exec('SELECT 1 FROM chunk WHERE start = ? AND cont = 0', from)
+          .toArray().length > 0)
     const cursor = spliceable ? from : 0
     const rows = this.ctx.storage.sql
       .exec<{ start: number; len: number; bytes: ArrayBuffer }>(
@@ -181,7 +224,10 @@ export class SessionJunction extends DurableObject<unknown> {
    * Append in ONE write, at the end — the port's O(delta) guarantee.
    *
    * The row's key IS its byte offset, so nothing has to be renumbered and the
-   * boundary check above is a primary-key lookup.
+   * boundary check above is a primary-key lookup. A write over
+   * {@link ROW_MAX_BYTES} is several rows of one transaction rather than a
+   * refusal ([[BUG-229]]): a record that cannot be stored must never leave a
+   * hole, because every offset after a hole is wrong.
    */
   append(text: string): number {
     const bytes = ENCODER.encode(text)
@@ -190,14 +236,7 @@ export class SessionJunction extends DurableObject<unknown> {
     // key is its offset, so two empty writes at the same offset would collide.
     // The port still counts it — `exists()` goes true on any append, including
     // one carrying nothing — so `present` moves and the stream does not.
-    if (bytes.length > 0) {
-      this.ctx.storage.sql.exec(
-        'INSERT INTO chunk (start, len, bytes) VALUES (?, ?, ?)',
-        size,
-        bytes.length,
-        bytes,
-      )
-    }
+    if (bytes.length > 0) this.insert(size, bytes)
     const grown = size + bytes.length
     this.put('size', String(grown))
     this.put('present', '1')
@@ -214,13 +253,7 @@ export class SessionJunction extends DurableObject<unknown> {
   replace(text: string): number {
     const bytes = ENCODER.encode(text)
     this.ctx.storage.sql.exec('DELETE FROM chunk')
-    if (bytes.length > 0) {
-      this.ctx.storage.sql.exec(
-        'INSERT INTO chunk (start, len, bytes) VALUES (0, ?, ?)',
-        bytes.length,
-        bytes,
-      )
-    }
+    if (bytes.length > 0) this.insert(0, bytes)
     this.put('size', String(bytes.length))
     this.put('present', '1')
     this.put('epoch', String(this.num('epoch', 0) + 1))

@@ -81,6 +81,94 @@ const lib = aiLib as unknown as Untyped
 
 const DECODER = new TextDecoder()
 
+/**
+ * The junction's copy of a stream: every image's bytes replaced by a pointer
+ * ([[BUG-229]]).
+ *
+ * WHY THE BYTES DO NOT BELONG HERE. A screenshot's base64 made one record
+ * 2.4 MB, the object refused it, and the hole that left in the middle of the
+ * object's stream moved every later offset — so the archive watermark, counted
+ * in the mirror, pointed 2.46 MB past where the object's archived boundary was.
+ * Nothing reads an image back out of the junction: the model's conversation is
+ * the backend's own state, a user's pictures are already redacted in their
+ * records, and the archive's tool transcript renders text. So the junction keeps
+ * what a picture WAS, in the framework's own pointer (`imagePointer`, the string
+ * an image ages into), and never its bytes.
+ *
+ * A LIBRARY PICTURE IS NAMED BY ITS LIBRARY REFERENCE, which is what `screenshot`
+ * was asked for (`of: {kind: 'image', image}`), so the record still says which
+ * stored picture was looked at. Anything else — a render of a draft page, a
+ * comparison — is named by the text block the surface put in front of it, which
+ * already says what was looked at; it was a picture of a moment and is not kept.
+ *
+ * TEXT IN, TEXT OUT, LINE BY LINE, and a line with no base64 in it is returned
+ * untouched without being parsed — which is every token delta of every turn.
+ */
+export function withoutImageBytes(text: string): string {
+  if (!text.includes('"base64"')) return text
+  return text
+    .split('\n')
+    .map((line) => (line.includes('"base64"') ? pointedLine(line) : line))
+    .join('\n')
+}
+
+/** One record line with its images replaced, or the line itself if it holds none. */
+function pointedLine(line: string): string {
+  let record: Untyped
+  try {
+    record = JSON.parse(line)
+  } catch {
+    // NOT A RECORD — a torn write or a caller's own text. Not ours to rewrite.
+    return line
+  }
+  const of = record?.meta?.input?.of
+  const library = of?.kind === 'image' && typeof of.image === 'string' ? `Library image ${of.image}` : null
+  let changed = false
+  const visit = (value: Untyped): Untyped => {
+    if (Array.isArray(value)) {
+      // THE NOTE IN FRONT OF AN IMAGE says what it is a picture of — the surface
+      // writes one per image for exactly the transcript this produces.
+      let note: string | null = null
+      return value.map((item: Untyped) => {
+        if (item?.type === 'text' && typeof item.text === 'string') note = item.text
+        const image = imageOf(item)
+        if (image === null) return visit(item)
+        changed = true
+        return { type: 'text', text: lib.imagePointer({ ...image, label: library ?? labelOf(note) }) }
+      })
+    }
+    if (value === null || typeof value !== 'object') return value
+    const out: Record<string, Untyped> = {}
+    for (const [key, inner] of Object.entries(value)) out[key] = visit(inner)
+    return out
+  }
+  const pointed = visit(record)
+  return changed ? JSON.stringify(pointed) : line
+}
+
+/** An image block's bytes and type, in either the wire's shape or the framework's. */
+function imageOf(block: Untyped): { mediaType: string; data: string } | null {
+  if (block?.type !== 'image') return null
+  const source = block.source
+  if (source?.type === 'base64' && typeof source.data === 'string') {
+    return { mediaType: String(source.media_type ?? 'image'), data: source.data }
+  }
+  if (typeof block.data === 'string' && typeof block.mediaType === 'string') {
+    return { mediaType: block.mediaType, data: block.data }
+  }
+  return null
+}
+
+/**
+ * A surface's note, cut to what it names: the first clause, without the brackets
+ * that would end the pointer early.
+ */
+function labelOf(note: string | null): string | null {
+  if (note === null) return null
+  const named = note.split(';')[0].replace(/\[/g, '(').replace(/\]/g, ')').trim()
+  return named === '' ? null : named.slice(0, 200)
+}
+
 /** What this adapter needs of the namespace — one stub, addressed by name. */
 export interface JunctionNamespace {
   idFromName(name: string): DurableObjectId
@@ -169,11 +257,24 @@ class DurableJunctionStorage {
 
   // -- the port's writes: mirror now, object shortly after ------------------
 
+  /**
+   * BOTH COPIES TAKE THE SAME BYTES ([[BUG-229]]): the image bytes come out
+   * before either sees the record, so the mirror and the object count every
+   * offset identically by construction. See {@link withoutImageBytes}.
+   */
   append(text: string): void {
-    this.mirror.append(text)
-    this.queue((stub) => stub.append(text))
+    const stored = withoutImageBytes(text)
+    this.mirror.append(stored)
+    this.queue((stub) => stub.append(stored))
   }
 
+  /**
+   * NOT REWRITTEN, deliberately. `replace` is `seed`, which writes its watermark
+   * from the length of the text it hands over BEFORE handing it over — so a
+   * shorter stored copy would put that watermark past the end, which is this
+   * bug again. Nothing is lost by it: a seed replays the archive, and the
+   * archive holds no image bytes.
+   */
   replace(text: string): void {
     this.mirror.replace(text)
     this.queue((stub) => stub.replace(text))

@@ -244,7 +244,7 @@ import { platformSites } from './directory'
 import { siteImageLibrary } from '../../../tools/generate/src/cli/edit'
 import { mergeImageLibraries } from '../../../tools/generate/src/cli/image-library'
 import type { ImageLibrary } from '../../../tools/generate/src/cli/image-library'
-import { imageRendererFor, materialRecipes, republishingRecipes } from './image-edit'
+import { imageRendererFor, lowDetailEncoder, materialRecipes, republishingRecipes } from './image-edit'
 import {
   RecipeRefusedError,
   type ImageRenderer,
@@ -584,8 +584,10 @@ export async function sessionFidelity(
     return { uid: adopted.ticket.uid, created: adopted.created }
   }
 
-  return (site: string) =>
-    fidelityDeps(
+  // [[BUG-229]] — low detail through the same renderer, uncached; see `lowDetailEncoder`.
+  const lowDetail = lowDetailEncoder(env)
+  return (site: string) => ({
+    ...fidelityDeps(
       env,
       // THE SAME RENDERER THE `/preview/*` ROUTE USES, memoised per store. A
       // second instance would render the draft a second time and could answer
@@ -611,7 +613,9 @@ export async function sessionFidelity(
       // [[BUG-227]] — the reader the `/preview` route answers `_fonts/…` from,
       // so the browser this surface drives paints the faces the operator sees.
       fonts,
-    )
+    ),
+    ...(lowDetail ? { lowDetail } : {}),
+  })
 }
 
 /**

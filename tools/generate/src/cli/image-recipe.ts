@@ -507,6 +507,11 @@ export interface RenderOptions {
    * visitor whose browser said it can read one.
    */
   type?: string
+  /**
+   * The lossy encoder's quality, 1–100 ([[BUG-229]]). Absent is the platform's
+   * own default. A delivery choice like the other two, and never a recipe one.
+   */
+  quality?: number
 }
 
 /** What a render produced. */

@@ -2944,6 +2944,128 @@ export async function openConversation(
  */
 async function prepareJunction(deps: HostDeps, sessionId: string): Promise<void> {
   await deps.junctions?.prepare?.(sessionId)
+  await repairWatermark(deps, sessionId)
+}
+
+/** The NDJSON record separator — a record ends where a byte equal to this does. */
+const NEWLINE_BYTE = 0x0a
+
+/**
+ * Whether `mark` is somewhere the archive could have stopped: the start, the
+ * end, or just past a record's newline ([[BUG-229]]).
+ *
+ * Every watermark the archive writes is one of those, because it is the end
+ * offset of the last record it folded. One that is none of them was not written
+ * against these bytes.
+ */
+function atRecordBoundary(log: Untyped, mark: number): boolean {
+  const size = Number(log.size())
+  if (mark === 0 || mark === size) return true
+  if (!Number.isInteger(mark) || mark < 0 || mark > size) return false
+  return log.storage.read(mark - 1, 1)[0] === NEWLINE_BYTE
+}
+
+/**
+ * Where the archive actually stopped: the end of the `turn_end` of the last turn
+ * it holds, `0` where it holds nothing, or `null` where that cannot be told
+ * ([[BUG-229]]).
+ *
+ * THE ARCHIVE'S OWN WORD AND NOT THE STREAM'S. A watermark too far by a whole
+ * record is mid-record in the next one, and "the previous newline" would then
+ * skip every turn between where the archive stopped and where the watermark
+ * says it did — on the session this was found on, two whole turns. The
+ * archived transcript names each turn it holds (`xgd-turn`), and that name is on
+ * the junction's records, so the boundary is read off both rather than guessed
+ * from either.
+ */
+async function archivedBoundary(deps: HostDeps, log: Untyped, sessionId: string): Promise<number | null> {
+  // NOTHING ARCHIVED IS AN ANSWER: a session with no home has folded nothing.
+  if (String((await deps.archive.homeRef(sessionId)) ?? '') === '') return 0
+  const turns = ((await deps.archive.load(sessionId)).turns ?? []) as { turn_id?: string }[]
+  const last = [...turns].reverse().find((turn) => turn.turn_id)?.turn_id
+  if (!last) return null
+  const [records, ends] = log.readSpans(0) as [{ kind: string; turn_id?: string }[], number[]]
+  let boundary: number | null = null
+  records.forEach((record, i) => {
+    if (record.kind === TURN_END && record.turn_id === last) boundary = ends[i]
+  })
+  return boundary
+}
+
+/**
+ * Put back a watermark that is not where the archive stopped ([[BUG-229]]).
+ *
+ * WHAT IT REPAIRS. A Durable Object once refused one oversized record and kept
+ * every one after it, so the mirror and the object counted offsets differently
+ * and the archive's watermark — counted in the mirror — landed 2.46 MB past
+ * where the object's archived boundary was. Two turns then "saved" by reading
+ * nothing (the stream was still shorter than the mark), and every turn after
+ * that failed parsing half an image. The adapter can no longer produce that, but
+ * a session that already carries one has to be brought back, and this is how:
+ * the next entry point moves the mark to the archive's own boundary and the next
+ * sync folds everything since.
+ *
+ * WHERE IT CANNOT TELL, IT MOVES NOTHING, and says so: a guess in either
+ * direction is either a duplicate or a loss, and the turn that follows fails
+ * loudly on its own rather than saving silently.
+ *
+ * NEVER THROWS, like {@link prepareJunction}: a repair that could cost the
+ * conversation would be worse than the fault.
+ */
+async function repairWatermark(deps: HostDeps, sessionId: string): Promise<void> {
+  if (typeof deps.junctions?.open !== 'function') return
+  try {
+    const log = deps.junctions.open(sessionId)
+    if (!log.exists()) return
+    const mark = log.watermark()
+    if (atRecordBoundary(log, mark)) return
+    const boundary = await archivedBoundary(deps, log, sessionId)
+    if (boundary === null) {
+      console.error(
+        `junction ${sessionId}: watermark ${mark} is not a record boundary of this ` +
+          `${log.size()}-byte stream, and the archive does not say where it stopped — left as it is`,
+      )
+      return
+    }
+    log.setWatermark(boundary)
+    console.error(
+      `junction ${sessionId}: watermark ${mark} is not a record boundary of this ` +
+        `${log.size()}-byte stream — moved to ${boundary}, the end of the last turn the archive holds`,
+    )
+  } catch (err) {
+    console.error(`junction ${sessionId}: watermark could not be checked — ${String(err)}`)
+  }
+}
+
+/**
+ * Whether the turn that just closed reached the archive ([[BUG-229]]).
+ *
+ * A SAVE CAN FAIL WITHOUT THROWING, and that is the failure this exists for: a
+ * watermark past the end of the stream reads nothing, folds nothing and returns
+ * success. So the question is asked of the result rather than of the call — a
+ * `turn_end` the archive has not taken is still past the watermark after the
+ * turn's own sync. A turn that was not saved is logged naming the artifacts, and
+ * the caller keeps its pending record so the client is told ([[BUG-121]]).
+ *
+ * A NON-DURABLE ARCHIVE never advances the watermark (REQ-159), so it is not
+ * asked.
+ */
+function reachedArchive(manager: Untyped, sessionId: string): boolean {
+  if (manager.archive?.durable === false) return true
+  try {
+    const log = manager.logFor(sessionId)
+    const mark = log.watermark()
+    const [records] = atRecordBoundary(log, mark) ? log.readSpans(mark) : [[{ kind: TURN_END }]]
+    if (!(records as { kind: string }[]).some((record) => record.kind === TURN_END)) return true
+    console.error(
+      `archive ${sessionId}: a turn closed and did not reach the chat_transcript or ` +
+        `tool_transcript — watermark ${mark} of ${log.size()} bytes`,
+    )
+    return false
+  } catch (err) {
+    console.error(`archive ${sessionId}: could not tell whether the turn was saved — ${String(err)}`)
+    return false
+  }
 }
 
 async function attach(
@@ -3727,7 +3849,12 @@ export async function* streamPrompt(
       // IN A `finally`, so the one exit that matters reaches it: a consumer that
       // walks away mid-turn returns the generator, which runs this and never
       // `catch`. That is the interruption this ticket is about ([[BUG-121]]).
-      await closePending(deps, sessionId, outcome)
+      // And a complete turn that was not saved is told as one ([[BUG-229]]).
+      const saved =
+        outcome !== 'complete' ||
+        spendMeta?.queued === true ||
+        reachedArchive(settingsManager, sessionId)
+      await closePending(deps, sessionId, saved ? outcome : 'error')
       // AND WHAT IT COST ([[REQ-292]]). A settings turn spends exactly as a site
       // turn does, so it is metered by the same call with the same shape — the
       // role is the only thing that differs, and it is a column. See the site
@@ -4015,7 +4142,14 @@ async function* siteTurn(
     // mid-turn returns this generator, which runs this block and never reaches
     // `catch` — so this is the one place that can tell an interruption from a
     // conversation.
-    await closePending(deps, sessionId, outcome)
+    //
+    // [[BUG-229]] — A COMPLETE TURN THAT WAS NOT SAVED IS NOT COMPLETE TO THE
+    // CLIENT. Its pending record is kept as an error, which is what tells them,
+    // on the next load, that this reply may not have been kept.
+    // A QUEUED TURN CLOSED NOTHING, so there is nothing of it to have saved.
+    const saved =
+      outcome !== 'complete' || spendMeta?.queued === true || reachedArchive(manager, sessionId)
+    await closePending(deps, sessionId, saved ? outcome : 'error')
     // AND WHAT THE TURN COST, in the same block and for the same reason
     // ([[REQ-292]]). A turn the client walked away from reaches here and nowhere
     // else, and on the Worker `ctx.waitUntil` holds the isolate open for it — so

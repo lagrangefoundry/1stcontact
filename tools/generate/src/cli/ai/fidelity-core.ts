@@ -99,8 +99,32 @@ export const MAX_IMAGE_EDGE = 1024
  */
 export const MAX_IMAGE_BYTES = 3 * 1024 * 1024
 
-/** The media type every picture this surface returns is encoded as. */
+/** The media type every picture this surface returns is encoded as, at every detail but low. */
 export const IMAGE_MEDIA_TYPE = 'image/png'
+
+/**
+ * How a picture asked for at low detail is encoded ([[BUG-229]]).
+ *
+ * LOW EXISTS TO MAKE LOOKING CHEAP, and a PNG is the wrong codec for that: one
+ * low-detail look at a 1024×1024 photograph was 2.4 MB, paid for in context on
+ * every turn it rode along in. So low is a lossy encode, by the same renderer the
+ * Library's own edits go through — handed the PNG this surface already made,
+ * answering the bytes it became. The geometry stays here, with every other
+ * reduction this surface makes; the encoder only changes the codec.
+ *
+ * OPTIONAL, AND ITS ABSENCE IS THE NODE HOST, which has no renderer: low there is
+ * the same reduction sent as a PNG.
+ */
+export type LowDetailEncoder = (png: Uint8Array) => Promise<{ bytes: Uint8Array; mediaType: string }>
+
+/** A reduced raster as the bytes the model is sent, and what they are. */
+async function encodeSent(
+  raster: Raster,
+  lowDetail: LowDetailEncoder | undefined,
+): Promise<{ bytes: Uint8Array; mediaType: string }> {
+  const png = await encodePng(raster)
+  return lowDetail ? lowDetail(png) : { bytes: png, mediaType: IMAGE_MEDIA_TYPE }
+}
 
 // ── the content blocks a tool result may carry ───────────────────────────────
 
@@ -212,15 +236,22 @@ function bytesToBase64(bytes: Uint8Array): string {
  * Re-encoded rather than passed through whenever the reduction did anything, so
  * the bytes the model receives are the bytes the dimensions describe.
  */
-async function imageBlocks(picture: ResolvedPicture): Promise<{
+async function imageBlocks(
+  picture: ResolvedPicture,
+  // [[BUG-229]] — a low-detail look is a smaller edge and its own encoder.
+  low?: { maxEdge: number; encode?: LowDetailEncoder },
+): Promise<{
   blocks: ContentBlock[]
   width: number
   height: number
   reduced: boolean
 }> {
   const raster = await decodePng(picture.bytes, picture.label)
-  const reduced = downsampleRaster(raster, MAX_IMAGE_EDGE)
-  const bytes = reduced === raster ? picture.bytes : await encodePng(reduced)
+  const reduced = downsampleRaster(raster, low?.maxEdge ?? MAX_IMAGE_EDGE)
+  const { bytes, mediaType } =
+    reduced === raster && !low?.encode
+      ? { bytes: picture.bytes, mediaType: IMAGE_MEDIA_TYPE }
+      : await encodeSent(reduced, low?.encode)
   if (bytes.length > MAX_IMAGE_BYTES) {
     throw new PictureSourceError(
       `that picture is ${bytes.length} bytes after reduction, over the ${MAX_IMAGE_BYTES}-byte ` +
@@ -240,7 +271,7 @@ async function imageBlocks(picture: ResolvedPicture): Promise<{
       { type: 'text', text: note },
       {
         type: 'image',
-        source: { type: 'base64', media_type: IMAGE_MEDIA_TYPE, data: bytesToBase64(bytes) },
+        source: { type: 'base64', media_type: mediaType, data: bytesToBase64(bytes) },
       },
     ],
     width: reduced.width,
@@ -265,6 +296,7 @@ async function tileBlocks(
   ask: TileAsk,
   detail: Detail,
   settings: TileSettings,
+  lowDetail?: LowDetailEncoder,
 ): Promise<ContentBlock[]> {
   const raster = await decodePng(picture.bytes, picture.label)
   const plan = planTiles(raster.width, raster.height, picture.viewport, picture.sections, ask, settings)
@@ -277,7 +309,7 @@ async function tileBlocks(
       h: tile.rasterHeight,
     }).raster
     const sent = scaleRaster(cut, tileScale(cut.width, cut.height, detail, settings))
-    const bytes = await encodePng(sent)
+    const { bytes, mediaType } = await encodeSent(sent, detail === 'low' ? lowDetail : undefined)
     if (bytes.length > MAX_IMAGE_BYTES) {
       throw new PictureSourceError(
         `tile ${tile.index} is ${bytes.length} bytes, over the ${MAX_IMAGE_BYTES}-byte ceiling. ` +
@@ -291,7 +323,7 @@ async function tileBlocks(
       { type: 'text', text },
       {
         type: 'image',
-        source: { type: 'base64', media_type: IMAGE_MEDIA_TYPE, data: bytesToBase64(bytes) },
+        source: { type: 'base64', media_type: mediaType, data: bytesToBase64(bytes) },
       },
     )
   }
@@ -343,6 +375,9 @@ export interface FidelityDeps extends PictureDeps {
    * settings without editing that file.
    */
   tiles?: TileSettings
+
+  /** [[BUG-229]] — how a low-detail picture is encoded; see {@link LowDetailEncoder}. */
+  lowDetail?: LowDetailEncoder
 }
 
 /**
@@ -603,14 +638,19 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
       // THE BLOCKS ARE THE RETURN VALUE. Not a wrapper carrying them — the
       // wire adapter puts exactly this array on the `tool_result`, so anything
       // around it would be a shape the model never sees.
+      const detail = detailOf(ask, settings)
       if (source?.kind === 'image') {
         // A stored picture is the size it is and has no screens ([[REQ-363]]
         // leaves it exactly as it was): the whole image, longest edge capped.
-        return (await imageBlocks(await resolvePicture(source, deps))).blocks
+        // [[BUG-229]] — EXCEPT AT LOW DETAIL, which this branch used to ignore
+        // and so sent a 1024×1024 PNG to a call that asked for a cheap look. Low
+        // is the same reduction a low tile gets, through the low encoder.
+        const low =
+          detail === 'low' ? { maxEdge: settings.detailWidths.low, encode: deps.lowDetail } : undefined
+        return (await imageBlocks(await resolvePicture(source, deps), low)).blocks
       }
-      const detail = detailOf(ask, settings)
       const picture = await resolvePicture(source, deps, { sections: true })
-      return tileBlocks(picture, ask, detail, settings)
+      return tileBlocks(picture, ask, detail, settings, deps.lowDetail)
     },
 
     compare: async (p) => {

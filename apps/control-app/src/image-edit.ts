@@ -36,6 +36,7 @@ import {
   type RenderOptions,
 } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
+import type { LowDetailEncoder } from '../../../tools/generate/src/cli/ai/fidelity-core'
 import type { ImagesLike } from './heic'
 import { republishMaterial } from './material'
 import type { TicketStore } from './tickets'
@@ -176,7 +177,8 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
       // cannot recover from: a `<source type="image/webp">` whose bytes are a
       // JPEG is a picture that does not paint at all, for every visitor whose
       // browser reads WebP, which is nearly all of them.
-      const recode = format !== OUTPUT_FORMATS[mediaType.toLowerCase()]
+      const recode =
+        format !== OUTPUT_FORMATS[mediaType.toLowerCase()] || opts?.quality !== undefined
 
       // NOTHING IS RENDERED FOR AN UNEDITED PICTURE. Every picture in the
       // Library is in that state today; none of them should start paying a
@@ -189,7 +191,9 @@ export function imagesRenderer(images: ImagesBinding): ImageRenderer {
         let chain = images.input(streamOf(bytes))
         for (const transform of compiled.transforms) chain = chain.transform(transform)
         if (deliver) chain = chain.transform({ width: opts!.width!, fit: 'scale-down' })
-        const out = await chain.output({ format })
+        const out = await chain.output(
+          opts?.quality === undefined ? { format } : { format, quality: opts.quality },
+        )
         return {
           rendered: new Uint8Array(await new Response(out.image()).arrayBuffer()),
           contentType: out.contentType(),
@@ -315,7 +319,8 @@ export function cachedRenderer(renderer: ImageRenderer, cache: RenditionCache): 
   ): Promise<string> =>
     sha256(
       new TextEncoder().encode(
-        `${await sha256(bytes)}\n${JSON.stringify(recipe)}\n${opts?.width ?? ''}\n${opts?.type ?? ''}`,
+        `${await sha256(bytes)}\n${JSON.stringify(recipe)}\n${opts?.width ?? ''}\n${opts?.type ?? ''}` +
+          (opts?.quality === undefined ? '' : `\n${opts.quality}`),
       ),
     )
 
@@ -450,4 +455,29 @@ export function imageRendererFor(env: ImageEditEnv, tenantId: string): ImageRend
   if (!env.IMAGES || !canRender(env.IMAGES)) return null
   const renderer = imagesRenderer(env.IMAGES)
   return env.BLOBS ? cachedRenderer(renderer, r2Renditions(env.BLOBS, tenantId)) : renderer
+}
+
+/** The JPEG quality a low-detail look is encoded at ([[BUG-229]]). */
+export const LOW_DETAIL_QUALITY = 75
+
+/**
+ * How `screenshot` encodes a low-detail picture here: this renderer, PNG in,
+ * JPEG out ([[BUG-229]]). `undefined` where there is no binding that can render,
+ * which leaves low a PNG — see `LowDetailEncoder`.
+ *
+ * UNCACHED ON PURPOSE. A rendition cache keeps a picture's delivery widths so a
+ * second visitor costs nothing; a low-detail look is a render of one moment of a
+ * draft, nobody asks for those bytes twice, and keeping them would fill the
+ * business's bucket with screenshots.
+ */
+export function lowDetailEncoder(env: ImageEditEnv): LowDetailEncoder | undefined {
+  if (!env.IMAGES || !canRender(env.IMAGES)) return undefined
+  const renderer = imagesRenderer(env.IMAGES)
+  return async (png) => {
+    const out = await renderer.render(png, 'image/png', [], {
+      type: 'image/jpeg',
+      quality: LOW_DETAIL_QUALITY,
+    })
+    return { bytes: out.bytes, mediaType: out.mediaType }
+  }
 }
