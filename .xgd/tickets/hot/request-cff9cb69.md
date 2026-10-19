@@ -6,10 +6,10 @@ title: 'Chat: uploads become attachments in the composer and go with the next me
   instead of a note the consultant never sees'
 created_by: EPIC-19
 created_at: '2026-10-19T21:10:06.195763+00:00'
-updated_at: '2026-10-19T21:10:06.195763+00:00'
+updated_at: '2026-10-19T22:49:18.820517+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
