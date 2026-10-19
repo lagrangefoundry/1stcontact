@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:43:38.760710+00:00'
+updated_at: '2026-10-19T20:59:45.616086+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9563,5 +9563,29 @@ None of the substance changes. The three questions from that reply still stand:
 1. Should I add the three behaviour changes to the consultant's instructions before your next Bob's Salon pass?
 2. Should I file the ticket for steering what's on screen?
 3. Should I record this as a finding on EPIC-19?
+
+<!-- xgd-turn id="fd4ea694-7b1b-4fe2-bf75-909f673c6491-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T20:59:45.286561+00:00" -->
+#### You
+**The consultant can steer what's on screen.** <-- yes - I think this is important - two ways (I think we need both to play with) 1) Consultant actively changes the viewing mode (2) Consultant provides a link that changes the view mode when the user chooses
+
+1) Yes
+2) see above
+3) sure
+
+This is still a discussion don't do anything yet I want to keep talking some thoughts:
+
+1) we need to make sure that the consultant is not ending turns because it is running out of tokens and in doing so leaving things unfinished. The turns that ended with "and here's what I'd like to do is it ok if I do them" were the least satisfying/most frustrating. We don't want to try to finish the site in one go, but the consultant needs to present defensible stages
+2) We have an EPIC (EPIC-7 IIRC) in the framework to allow interposition - adding chat comments while the AI is working but I have a new idea, what if we actually fork the agent like this:
+ - the existing behavior persists 
+ - but the user is no longer blocked, while the agent is working, the user can converse - same historical context separate set of API calls - lets call them the worker and the talker.
+ - the worker goes off and builds the site
+ - the talker can continue the discovery conversation - continue to add questions discuss progress - it is not allowed to make any tool calls that change the site but it can add content
+ - if the user doesn't like the site the talker can interupt the worker
+ - when the worker is interrupted or completes, the context is merged and the dichotomy removed we are now back to one agent
+ - the worker's updates would need to be managed in this, but that feels like a detail.
+
+3) Reacting to uploads and edits - the way we display uploads is weird - they appear immediately in the chat but the AI does not notice them until we add a message. They should either appear as "attachments" in the text entry box (this is what Chat gpt does) or they should trigger short turns themselves - I think the former.
 
 <!-- xgd-chat-end -->
