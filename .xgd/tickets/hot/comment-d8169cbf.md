@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:58:11.514764+00:00'
+updated_at: '2026-10-19T00:59:04.424861+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9223,5 +9223,28 @@ The tests change to match: an oversized screenshot of a Library image leaves a f
 <!-- xgd-chat role="user" ts="2026-10-19T00:58:10.456822+00:00" -->
 #### You
 please help answer the4 bug 229 questions
+
+<!-- xgd-turn id="44e0ff6a-d99d-40db-90f4-5d87ccfcd1f7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:59:02.644168+00:00" -->
+#### Claude
+The session asked three questions. My answers, with one where I'd push back on its plan:
+
+**1. Translating offsets between the in-memory copy and the Durable Object: no.** I'd rather the two never differ. An offset map is exactly the kind of bookkeeping that went wrong this time, and it would make every future junction bug harder to see. Instead, **swap images for references (or placeholders) when a record is written, before it reaches either copy.** The in-memory copy and the Durable Object then hold identical bytes and identical offsets by construction, so no map is needed. That should cost nothing:
+- the live model call doesn't read images back from the junction, because the backend keeps the current conversation, real images included, in its own message state;
+- a rebuilt conversation already starts from placeholders, because the framework redacts images in what it saves;
+- tool records never show images in your chat.
+
+The session should confirm the first point before coding. If something live does read images from the junction, that's the place to resolve the reference, not an offset map.
+
+**2. Where to snap a bad save marker: the session is right, and I was wrong.** "The previous newline" would permanently skip the 21:04 and 21:16 turns. It should snap to the end of the last record the archive actually holds, which is 19,592,232 here. If that can't be found, fold nothing, log it, and tell the client. Recovery then happens through this code, with no database edit.
+
+**3. Making low detail genuinely small: neither option. Use the image renderer we already have.** The repo already has one way of transforming images, the recipe renderer behind the Library editor's crop and resize (REQ-219, through the `IMAGES` binding). That binding can resize and output JPEG or WebP. So low detail should just be a recipe: longest edge 768 px, JPEG at about quality 75, applied the same way to Library images and draft tiles. That avoids a new dependency or a hand-written encoder, and keeps one image pipeline instead of two. Only if that binding can't produce JPEG in local dev should it fall back to the `jpeg-js` package, with you running the install.
+
+Posting these to BUG-229.
+
+I've posted the three answers to BUG-229, so its session can start once it has confirmed the one point in answer 1.
+
+If you'd rather keep its offset-map plan for answer 1, or use `jpeg-js` straight away for answer 3, tell me and I'll correct the ticket.
 
 <!-- xgd-chat-end -->
