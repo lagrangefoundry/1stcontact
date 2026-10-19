@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-19T23:29:45.508277+00:00'
+updated_at: '2026-10-19T23:33:00.165033+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3676,5 +3676,57 @@ That brings the open tickets from this review to REQ-361, REQ-362 and REQ-363 he
 <!-- xgd-chat role="user" ts="2026-10-19T23:29:45.110381+00:00" -->
 #### You
 Can you check the costs - Bob's Salon 2 cost twice Bob's Salon how did that happen?
+
+<!-- xgd-turn id="5bf1b942-5f4d-4704-a596-da818502e67d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T23:32:56.939836+00:00" -->
+#### Claude
+I'll pull both businesses' spend records from the dev database.
+
+Now the per-turn breakdown for both, including delegated spend.
+
+Delegated cost came back blank, so I'll check the shape of those entries, and why five turns errored with zero counters.
+
+Attributed entries carry no price, so I'll price them from the repo's own rate table.
+
+Got the rate table; pricing the delegated work now.
+
+Salon 2 ran three times as many delegations, and seven of its turns failed on the same error. Checking how much site work each produced, and what that error is.
+
+Salon 2 made 696 site changes against Salon 1's 216, so it did about three times the work. One last check on the repeated error.
+
+I'll record the finding on EPIC-20.
+
+Mostly, Bob's Salon 2 was a bigger build. It made about three times as many site changes, and each change cost less than in the first one. On top of that, a run of turns failed on the same error and wasted about $2–3.
+
+These figures are from the dev database's spend records. Builder costs are priced from the repo's rate table, because the records don't store a price for delegated work.
+
+| | Bob's Salon | Bob's Salon 2 |
+|---|---|---|
+| Consultant turns (Opus 5.5) | 18 turns, **$9.09** | 33 turns, **$15.83** + 5 failed turns not metered |
+| Builder runs (Haiku 4.5) | 15 runs, **$7.04** | 49 runs, **$16.45** |
+| **Total** | **$16.13** | **$32.28+** |
+| Site changes | 216 | 696 |
+| Pages | 5 | 9 |
+
+## Why it doubled
+
+- **More work.** Nine pages against five, and 696 changes against 216. Cost per change fell from about 7.5¢ to about 4.6¢. An average consultant turn cost about the same in both (around 50¢).
+- **More delegation.** 49 builder runs against 15. Each run was a little cheaper (34¢ against 47¢), but there were three times as many. One turn alone (Oct 18, 1:36pm) sent out 10 builders.
+- **It ran across two days.** Salon 2 had one long session on Oct 18 and a short one on Oct 19. Restarting cold has a cost: the first request of a new session pays to load the whole context fresh.
+
+## The failures
+
+Seven turns failed with the same error, between 3:07pm and 5:14pm on Oct 18:
+
+> `Unexpected token 'g', "guWid6rN1D"... is not valid JSON`
+
+- Five of those turns ran for 1–9 minutes each and sent out 7 builders, which cost $2.36.
+- The consultant's own spend on those five turns wasn't recorded at all: they show zero tokens. That's the same kind of gap as framework BUG-73, a turn that ends in an error drops its spend, and here it's still happening. So the real total is somewhat above $32.28.
+- The last two failed instantly. That looks like the session was stuck and you were retrying.
+
+I haven't found what causes that error yet. It looks like some text being read as JSON when it isn't. The string appears nowhere in the database except the error itself, so the bad value isn't stored there.
+
+I've added this comparison to EPIC-20. Do you want a bug filed for the JSON error? It's the one real defect here.
 
 <!-- xgd-chat-end -->
