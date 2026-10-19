@@ -17,6 +17,7 @@ import {
   LIBRARY_TAB,
   PEOPLE_TAB,
   SETTINGS_TAB,
+  SHOW_GONE,
   SITE_TAB,
   STORAGE_KEYS,
   STORY_MODE_LABEL,
@@ -1035,23 +1036,115 @@ export function mountBuilder(root, options = {}) {
   looks = createLooks({ panel, pages, draftPath: () => carry.pathFor(currentSite) })
 
   /**
-   * A link in the conversation that names a set of looks — `#looks=<set>`, as
-   * the consultant's `make_alternatives` hands it over — shows that set's first
-   * look in the pane ([[REQ-391]]). Any other link is the chat's to follow.
+   * [[REQ-413]] — what a link in the conversation asks to show, or `null` for a
+   * link that is the chat's to follow. `#show=<target>&…` is the consultant's
+   * `show_client` link; `#looks=<set>` is the one `make_alternatives` hands over
+   * ([[REQ-391]]) and means the same as `#show=looks&set=<set>`.
    */
-  const openLink = (href) => {
+  function showQuery(href) {
     const m = /^#looks=(.+)$/.exec(href ?? '')
-    if (!m) return false
-    let set = m[1]
-    try {
-      set = decodeURIComponent(set)
-    } catch {
-      /* a set name the browser could not decode is looked for as written */
+    if (m) {
+      let set = m[1]
+      try {
+        set = decodeURIComponent(set)
+      } catch {
+        /* a set name the browser could not decode is looked for as written */
+      }
+      return new URLSearchParams({ show: 'looks', set })
     }
-    // A comp is shown in a mode of its own; the look is shown in the draft's.
-    if (panel.getMode() === 'comp') panel.setMode(draftMode)
-    void looks.open(set)
+    return href?.startsWith('#show=') ? new URLSearchParams(href.slice(1)) : null
+  }
+
+  /** The pane back on a page of the draft, in View unless the client was editing. */
+  function toDraft() {
+    const mode = panel.getMode()
+    if (mode === 'comp') panel.setMode(draftMode)
+    else if (mode !== 'view' && mode !== 'edit') panel.setMode('view')
+  }
+
+  /**
+   * [[REQ-413]] — put a target in front of the client: a page of the draft, the
+   * story board, a look, a comparison site, a question on the panel. Answers
+   * whether it was there to show. The client's own controls are untouched, so
+   * whatever this did they undo it the way they always would.
+   */
+  async function showTarget(q) {
+    const target = q.get('show')
+    if (target === 'story') {
+      panel.setMode('story')
+      return true
+    }
+    if (target === 'draft') {
+      const id = q.get('page')
+      const find = () => pages.list().find((row) => row.id === id && !row.alternative)
+      if (id && !find()) await pages.refresh()
+      const row = id ? find() : null
+      if (id && !row) return false
+      toDraft()
+      if (row && row.slug !== pages.current()) pages.open(row.slug)
+      return true
+    }
+    if (target === 'looks') {
+      toDraft()
+      return looks.open(q.get('set'), q.get('look'))
+    }
+    if (target === 'comp') {
+      const comps = planPanel.comps()
+      const reference = q.get('comp')
+      if (!comps.some((c) => c.reference === reference)) return false
+      openComp(reference, comps)
+      return true
+    }
+    if (target === 'ask') return planPanel.showAsk(q.get('ask'))
+    return false
+  }
+
+  /** [[REQ-413]] — said beside a link whose target has gone, for a moment. */
+  function sayGone(link) {
+    if (!link?.parentNode || link.nextElementSibling?.classList.contains('builder-chat-gone')) return
+    const note = document.createElement('span')
+    note.className = 'builder-chat-gone'
+    note.setAttribute('role', 'status')
+    note.textContent = SHOW_GONE
+    link.after(note)
+    setTimeout(() => note.remove(), 4000)
+  }
+
+  /**
+   * A link in the conversation that shows something in the builder — a set of
+   * looks ([[REQ-391]]) or any `show_client` target ([[REQ-413]]) — is followed
+   * in place, never in a tab. Any other link is the chat's to follow.
+   */
+  const openLink = (href, link) => {
+    const q = showQuery(href)
+    if (!q) return false
+    void showTarget(q).then(
+      (shown) => shown || sayGone(link),
+      () => sayGone(link),
+    )
     return true
+  }
+
+  /**
+   * [[REQ-413]] — what the client is in the middle of, if anything: the image
+   * editor open, an edit open on the page, or an answer typed on the panel and
+   * not yet saved. Sent with each message, so the consultant knows not to
+   * switch, and asked again when a switch arrives.
+   */
+  function clientBusy() {
+    if (document.querySelector('.builder-modal .builder-modal__imaged')) return 'image'
+    if (panel.getMode() === 'edit' && document.querySelector('.builder-modal')) return 'editing'
+    const active = document.activeElement
+    if (active && planPanel.element.contains(active) && active.matches?.('input, textarea') && active.value.trim() !== '') {
+      return 'answering'
+    }
+    return null
+  }
+
+  /** [[REQ-413]] — the consultant switched the client's view; done unless they are busy. */
+  function onShow(meta) {
+    const q = showQuery(meta?.href)
+    if (q && !clientBusy()) void showTarget(q)
   }
 
   /** The subject write, beside the listing and from the same seam. */
@@ -1227,7 +1320,12 @@ export function mountBuilder(root, options = {}) {
     expandPrompt: (markdown) => points.expand(markdown),
     // [[REQ-388]] — the width the client is viewing the draft at, sent with every
     // prompt so the assistant's digest can state it rather than guess.
-    promptView: () => previewWidth.report(),
+    // [[REQ-413]] — with what they are in the middle of, so a switch never lands on it.
+    promptView: () => {
+      const view = previewWidth.report()
+      const busy = clientBusy()
+      return view && busy ? { ...view, busy } : view
+    },
     // [[REQ-220]] — the picture in the chat is the picture in the Library, and
     // clicking it opens the one modal. The Library needs no telling: it is
     // subscribed to the material change feed ([[REQ-201]]), so a rename made in
@@ -1236,6 +1334,8 @@ export function mountBuilder(root, options = {}) {
     onImageClick: (src, alt) => void openPictureFromChat(src, alt),
     // [[REQ-391]] — a link that opens a set of looks.
     onLinkClick: openLink,
+    // [[REQ-413]] — the consultant put something in front of the client.
+    onShow,
     // [[BUG-177]] — a member's round or the room's exchange ended, so the Debug
     // tab's view of each agent's own session has something new to show.
     onRoomActivity: () => void debug.refreshPrivate(),

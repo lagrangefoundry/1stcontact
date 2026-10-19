@@ -35,6 +35,7 @@ import {
   type BoardView,
   type StoryBoard,
 } from './story-core'
+import { showOperations, type ShowDeps } from './show-core'
 
 /** The declaration, imported as data for the reason `toolbox-core.ts` gives. */
 export const PLAN_DECLARATION = planSurface as unknown as Record<string, unknown>
@@ -442,6 +443,13 @@ export interface PlanDeps {
    * `choose_look` refuses with `NO_LOOKS`.
    */
   looks?: { choose(look: string, opts?: { contentChangesSeen?: boolean }): Promise<LookChoice> }
+  /**
+   * [[REQ-413]] — what `show_client` needs of the host: the draft's pages, to
+   * know a page or a look is there, and whether the client's view may be
+   * changed right now. Absent, a page or look cannot be shown and every switch
+   * is a link.
+   */
+  show?: ShowDeps
 }
 
 type Params = Record<string, unknown>
@@ -2128,6 +2136,12 @@ export function planOperations(
 
     // ── the story board: both roles ([[REQ-408]]) ───────────────────────────
     ...boardOperations((edit) => change((plan) => edit(plan.fields)), now),
+
+    // ── bringing a view to the client: the consultant's ([[REQ-413]]) ───────
+    ...showOperations(async () => {
+      const fields = (await deps.read())?.fields
+      return { asks: fields?.asks ?? [], comps: fields?.comps ?? [] }
+    }, deps.show),
   }
 }
 

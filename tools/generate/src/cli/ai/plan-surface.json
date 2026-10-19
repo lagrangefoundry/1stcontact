@@ -31,6 +31,13 @@
       "note": "the story-board note as it now stands",
       "theme": "the story-board theme as it now stands, with its colour",
       "headline": "the story board's headline as it now stands: the chosen line, the options still on offer, and the ones offered and passed over"
+    },
+    "shown": {
+      "how": "`switch` when the client's view was changed, `link` when it was not",
+      "shown": "what was put in front of the client, in their words, when it was switched",
+      "link": "the markdown line to paste into your reply, exactly as given, when it is a link",
+      "not_switched": "why a switch you asked for became a link, when it did — say it in your reply with the link",
+      "say_in_room": "in a group chat only: the line to include in what you say to the room, so the client can go back to what you showed them"
     }
   },
   "errors": {
@@ -84,6 +91,12 @@
     },
     "NO_LOOKS": {
       "message": "this host cannot put a look on the site from the plan, so nothing was written."
+    },
+    "UNKNOWN_PAGE": {
+      "message": "the draft has no page by that id. List the pages to see the ones it holds; nothing was shown."
+    },
+    "NO_VIEW": {
+      "message": "this host cannot show the client a page, so nothing was shown."
     }
   },
   "operations": [
@@ -174,6 +187,24 @@
       },
       "returns": { "shape": "written" },
       "errors": ["UNKNOWN_LOOK", "NO_LOOKS", "CONTENT_CHANGED", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "show_client",
+      "tool": "show_client",
+      "effect": "write",
+      "summary": "Bring one part of the builder in front of your client: a page of their draft, the story board, a set of looks, a comparison site, or a question on their panel.",
+      "description": "The builder shows a lot at once — the preview in View, Edit or Story, the looks band, comparison sites, the progress bar and the questions panel — and your client will not know where to look. You do. Bring a part forward when there is something new on it, or something your client needs to do there, and say in your reply where they are looking and what to do.\n\n**`switch` changes their view as your message arrives.** Use it right after you have made something to look at: \"The three looks are ready — I've put them in front of you.\" It happens once; the conversation keeps a line saying what you showed, which the client can click to go back to it.\n\n**`link` answers a line to paste into your reply**, exactly as given, for \"when you have a minute\": `[Open the story board](…)`. The client follows it when they choose, and it keeps working after a reload. Write `label` as the words of the link.\n\n**A switch never lands under someone who is working.** If your client is editing a page, has the image editor open, or is part-way through answering a question, or you have already switched their view since they last did anything, the switch becomes a link: the result says so in `not_switched` and carries the `link`. Paste the link and say why you did not just show it.\n\nTargets: `draft` with `page` (a page id from list_pages; none is the draft as they left it), `story`, `looks` with `look` (the look's page id) or `page` (the page whose looks to open), `comp` with `comp` (its reference on the comp board), and `ask` with `ask` (the question's id) — the question is unfolded, scrolled to and briefly highlighted.",
+      "params": {
+        "target": { "type": "string", "required": true, "enum": ["draft", "story", "looks", "comp", "ask"], "description": "What to bring forward." },
+        "how": { "type": "string", "required": true, "enum": ["switch", "link"], "description": "`switch` to change their view now, `link` to give them a line to follow when they choose." },
+        "page": { "type": "string", "description": "For `draft`: the page to show. For `looks`: the page whose looks to open, when you do not name the look." },
+        "look": { "type": "string", "description": "For `looks`: the page id of the look to show first." },
+        "comp": { "type": "string", "description": "For `comp`: the site's reference on the comp board." },
+        "ask": { "type": "string", "description": "For `ask`: the question's id on the panel." },
+        "label": { "type": "string", "description": "For a link: its words, such as \"Open the story board\". Without it the link says what it opens." }
+      },
+      "returns": { "shape": "shown" },
+      "errors": ["UNKNOWN_PAGE", "UNKNOWN_LOOK", "UNKNOWN_COMP", "UNKNOWN_ASK", "ASK_WITHDRAWN", "NO_VIEW", "PLAN_INVALID", "SCHEMA_INVALID"]
     },
     {
       "op": "set_task",
@@ -502,8 +533,8 @@
       "group": "PlanWork",
       "effect": "write",
       "title": "Planning the work",
-      "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, and putting a look the client chose onto their page.",
-      "operations": ["set_decision", "set_task", "answer_check", "choose_look"]
+      "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, putting a look the client chose onto their page, and bringing the part of the builder that matters in front of the client.",
+      "operations": ["set_decision", "set_task", "answer_check", "choose_look", "show_client"]
     },
     {
       "group": "CoordinatePlan",

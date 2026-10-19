@@ -194,6 +194,7 @@ import {
   narrateExhaustion,
 } from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
+import { ALREADY_SWITCHED, busyReason, type ShowDeps, type ShowPage } from './show-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
 import { concurrentSupported, draftClaims, scopeSupported } from './lease-core'
 
@@ -1180,6 +1181,41 @@ const planWrites = new Map<string, number>()
  * on. Keyed by `managerKey`, like {@link planWrites}.
  */
 const workingNotes = new Map<string, { seq: number; note: WorkingNote }>()
+
+/**
+ * [[REQ-413]] — what each site's client was doing when they sent the message
+ * being answered, and whether the consultant has switched their view since.
+ * Set per CLIENT MESSAGE, not per turn: a continuation or a room's later rounds
+ * answer the same message, so a second switch in any of them is still a second
+ * switch with nothing done in between. Keyed by `managerKey`, like
+ * {@link workingNotes}, so a room's members share it.
+ */
+const clientShows = new Map<string, { busy: string | null; switched: boolean }>()
+
+/** [[REQ-413]] — a client message arrived: what they were doing, and no switch yet. */
+function clientMessage(slug: string, deps: HostDeps, view: ClientView | null | undefined): void {
+  clientShows.set(managerKey(slug, deps), { busy: view?.busy ?? null, switched: false })
+}
+
+/**
+ * [[REQ-413]] — the host's side of `show_client` for one site: the draft's pages
+ * off the store, and the guard. A switch is allowed once per client message, and
+ * never while they are working; the browser checks again when it arrives.
+ */
+function showDeps(slug: string, deps: HostDeps, grouped: boolean): ShowDeps {
+  return {
+    pages: async () => (await deps.store.readPages(slug)).map((p) => p.page as unknown as ShowPage),
+    present: () => {
+      const key = managerKey(slug, deps)
+      const state = clientShows.get(key) ?? { busy: null, switched: false }
+      const busy = busyReason(state.busy)
+      if (busy) return { ok: false, reason: busy }
+      if (state.switched) return { ok: false, reason: ALREADY_SWITCHED }
+      clientShows.set(key, { ...state, switched: true })
+      return { ok: true, room: grouped }
+    },
+  }
+}
 
 /**
  * [[REQ-409]] — what each site's current client message has spent so far, across
@@ -2180,6 +2216,8 @@ async function build(
                 // host lends it the one call that puts a chosen look on a page.
                 surface: await planSurfaceFor(lib, {
                   ...countedPlan(deps, slug),
+                  // [[REQ-413]] — and the pages and guard `show_client` needs.
+                  show: showDeps(slug, deps, grouped),
                   looks: {
                     choose: async (look: string, choice?: { contentChangesSeen?: boolean }) =>
                       (await editAlternativeChoose(slug, look, { ...opts, ...choice, actor: 'ai', store: deps.store }))
@@ -3880,12 +3918,14 @@ export async function* streamPrompt(
     // {@link siteForSession} makes for a conversation.
     const room = siteOfRoom(sessionId)
     if (room && (await groupChatOn(deps)) && (await deps.store.hasDraft(room))) {
+      clientMessage(room, deps, view)
       yield* streamExchange(room, text, opts, deps)
       return
     }
     throw new UnknownSessionError(sessionId)
   }
   const manager = await managerFor(slug, opts, deps, await groupChatOn(deps))
+  clientMessage(slug, deps, view)
   yield* continuedTurn(manager, slug, sessionId, text, deps, turn, view)
 }
 
@@ -4836,6 +4876,7 @@ export function resetAiHost(): void {
   businessWrites.clear()
   planWrites.clear()
   workingNotes.clear()
+  clientShows.clear()
   spendMeters.clear()
   continuationsLeft.clear()
   promisedContinuation.clear()

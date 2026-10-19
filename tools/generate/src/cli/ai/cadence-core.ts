@@ -34,6 +34,13 @@
  * as the working line's "now:" half. The first `Delegate`'s line — the
  * consultant's own announcement of the turn — is still her words in the chat.
  *
+ * [[REQ-413]] — AND A VIEW THE CONSULTANT SWITCHED. A `show_client` call that
+ * changed the client's view is recorded here as a line of the reply — a link to
+ * what was shown, so a reload says so and the client can go back to it — and
+ * delivered as a `show_client` event the builder acts on once. The manager
+ * records the text and delivers the event without recording it, which is exactly
+ * the split: the line replays, the switch does not.
+ *
  * AND THE OTHER HALF: a builder session that completed having written the site
  * is a milestone the host can see for itself, so it records it on the plan
  * (`builderSessionCompleted`) and the checks it triggers fall due.
@@ -45,6 +52,7 @@
 import { TEXT, TOOL_ACTIVITY, type StreamEvent } from './budget-core'
 import { DELEGATE_TOOL, delegationResult } from './turn-clock-core'
 import slowToolsDocument from './slow-tools.json'
+import { SHOW_CLIENT, SHOW_TOOL, shownLine, switchedBy } from './show-core'
 
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -301,6 +309,14 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
         }
       }
       yield event
+      // [[REQ-413]] — AFTER the call's own activity, so the line and the switch
+      // land where the consultant's message is: right before what it says next.
+      const shown = event.kind === TOOL_ACTIVITY && name === SHOW_TOOL ? switchedBy(event.meta?.output, delegationResult) : null
+      if (shown) {
+        yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${shownLine(shown)}\n\n` }
+        spoke = true
+        yield { kind: SHOW_CLIENT, content: '', meta: { href: shown.href, label: shown.label } }
+      }
     }
   }
 

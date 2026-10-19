@@ -87,6 +87,13 @@ const SITE_CHANGED = 'site_changed'
 const PLAN_CHANGED = 'plan_changed'
 
 /**
+ * `show-core.ts`'s `SHOW_CLIENT` ([[REQ-413]]): the consultant switched the
+ * client's view. `meta.href` is the target's `#show=…` link. Delivered live and
+ * never recorded, so a reloaded transcript shows the line and does not switch.
+ */
+const SHOW_CLIENT = 'show_client'
+
+/**
  * Not a wire kind: the key {@link watchForWrites} tells when a turn's `done` frame
  * passes ([[REQ-364]]). The frame itself still goes on to the component.
  */
@@ -463,6 +470,8 @@ const RECOVERY_CHASES = 3
  *   [[REQ-364]] — an agent wrote the site's plan during the turn.
  * @param {() => void} [options.onTurnEnd]
  *   [[REQ-364]] — a turn (or a room's exchange) ended.
+ * @param {(meta: {href: string, label: string}) => void} [options.onShow]
+ *   [[REQ-413]] — the consultant switched the client's view during the turn.
  * @param {(busy: boolean) => void} [options.onBusy]
  *   [[REQ-390]] — a turn started running, or stopped: the working line went up or
  *   came down.
@@ -489,10 +498,11 @@ const RECOVERY_CHASES = 3
  *   moment of each submission and sent with it. A seam for the same reason
  *   `expandPrompt` is one: this pane knows nothing about the preview beside it,
  *   only that a turn carries what the host says it carries.
- * @param {(href: string) => boolean} [options.onLinkClick]
+ * @param {(href: string, link: HTMLAnchorElement) => boolean} [options.onLinkClick]
  *   [[REQ-391]] — the reader clicked a link in the transcript. The host answers
  *   true when it handled the link itself (a set of looks to open in the
- *   preview), and the browser does not follow it.
+ *   preview), and the browser does not follow it. [[REQ-413]] — given the link
+ *   too, so the host can say beside it when what it names is no longer there.
  * @param {(src: string, alt: string) => void} [options.onImageClick]
  *   REQ-220 — the reader clicked a picture in the transcript.
  *
@@ -525,6 +535,7 @@ export function createChatPanel(options = {}) {
     onRoomActivity = () => {},
     onPlanChanged = () => {},
     onTurnEnd = () => {},
+    onShow = () => {},
     onBusy = () => {},
     now = () => Date.now(),
     every = (fn, ms) => {
@@ -558,6 +569,8 @@ export function createChatPanel(options = {}) {
     // turn ended.
     [PLAN_CHANGED, onPlanChanged],
     [TURN_ENDED, onTurnEnd],
+    // [[REQ-413]] — the consultant put something in front of the client.
+    [SHOW_CLIENT, onShow],
   ])
 
   const element = document.createElement('div')
@@ -585,7 +598,7 @@ export function createChatPanel(options = {}) {
     element.addEventListener('click', (ev) => {
       const link = ev.target?.closest?.('a[href]')
       if (!link) return
-      if (onLinkClick(link.getAttribute('href') ?? '')) ev.preventDefault()
+      if (onLinkClick(link.getAttribute('href') ?? '', link)) ev.preventDefault()
     })
   }
 
