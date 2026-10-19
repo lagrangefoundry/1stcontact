@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:26:15.730383+00:00'
+updated_at: '2026-10-19T00:27:06.193387+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9144,5 +9144,28 @@ I've written it into **BUG-229** (still `draft`):
 <!-- xgd-chat role="user" ts="2026-10-19T00:26:14.610772+00:00" -->
 #### You
 please read the question from BUG-229 - I don't think images should appear literally in the chat feed?
+
+<!-- xgd-turn id="96b85434-e96b-4e15-b253-5361aac66d29-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:27:03.844640+00:00" -->
+#### Claude
+I've read it. That session has found the full cause, and you're right that a picture shouldn't be anywhere near this path, although it isn't in the chat you see either.
+
+**Where the image actually is:** not in your chat feed. When the consultant takes a screenshot, the result is an image handed to the *model*, so it can see the page. The framework records every tool result in the session's junction, its live record in a Durable Object, so the conversation can be replayed to the model. That record held the raw PNG as base64: 2.46 MB for one screenshot. The Durable Object refused to store a value that large, which left a hole in the record and threw every later position off by 2.46 MB. That's the whole of BUG-229.
+
+**Answering its question 3:** no, a `detail: "low"` screenshot shouldn't return a full 1024×1024 PNG. "Low" exists to make looking cheap. It should be scaled down and compressed, say a JPEG of a few hundred KB at most. A 2.4 MB image also costs a lot of tokens every time the model is sent it.
+
+I'd go further: **raw image bytes shouldn't be in the junction at all.**
+1. **Now, in BUG-229:** make low detail genuinely low. That removes this trigger and reduces token cost.
+2. **Keep the root fix anyway:** the Durable Object accepts records of any size by splitting them across rows. Other tool results can be large too, and a record that won't store must never leave a hole.
+3. **Later, as its own ticket:** store images in the junction *by reference* (the material or screenshot id, with the bytes in R2) and have the adapter fetch them when sending to the model. Junction records then stay small, and REQ-168's image ageing becomes simply dropping a reference.
+
+On the recovery that session is asking you about: I'd say yes. Nothing is lost. Every record since 13:50 is in the Durable Object, and resetting that one watermark lets the next save fold the missing turns into the archive. It's live dev state, though, so it's your call.
+
+I'll put the answer to question 3 on the ticket so that session sees it.
+
+I've added that answer to BUG-229, so its session will pick it up: low detail really means low, the root fix stays, and image references are left for a later ticket.
+
+The one thing that session is waiting on is your go-ahead for the recovery. It would stop dev, back up the Durable Object file, and reset the one watermark so the missing turns get saved.
 
 <!-- xgd-chat-end -->
