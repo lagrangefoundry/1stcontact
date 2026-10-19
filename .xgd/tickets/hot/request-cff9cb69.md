@@ -6,10 +6,10 @@ title: 'Chat: uploads become attachments in the composer and go with the next me
   instead of a note the consultant never sees'
 created_by: EPIC-19
 created_at: '2026-10-19T21:10:06.195763+00:00'
-updated_at: '2026-10-19T23:05:15.168540+00:00'
+updated_at: '2026-10-19T23:05:48.079161+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9b186146
+  commits:
+  - working_sha: f05f875ad00b450cc98e335db0487df85cbba6a9
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 11454f43a7c0f86a26f672faa49ed3bacb5e24e2
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.545
 ---
-
 
 ## What's wrong today
 
