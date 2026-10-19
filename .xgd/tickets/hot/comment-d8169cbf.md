@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:00:39.237722+00:00'
+updated_at: '2026-10-19T21:07:07.073127+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9656,5 +9656,15 @@ Agreed, the composer is the right place. Today a dropped file shows up in the ch
 5. **A finding on EPIC-19** covering the Bob's salon 2 evidence and these decisions.
 
 Is REQ-409's automatic continuation the right home for the budget half of point 1, or do you want it handled differently?
+
+<!-- xgd-turn id="304032d1-4257-44f3-b013-df026a795ed0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T21:07:06.836154+00:00" -->
+#### You
+Talker turns are extra spend <-- only if they are waisted turns, otherwise they are making the clients time more efficient
+
+Is there a document in LF that you can add the worker/talker design to? That way EPIC-7 can pick up the details
+
+Please go ahead with the other changes
 
 <!-- xgd-chat-end -->
