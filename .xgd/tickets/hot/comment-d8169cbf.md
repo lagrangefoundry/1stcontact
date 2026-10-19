@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T01:17:38.689643+00:00'
+updated_at: '2026-10-19T11:54:02.821754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9264,5 +9264,11 @@ I can't find any new questions on BUG-229. The last change to the ticket was my 
 So either the session's new questions haven't been saved to the ticket yet, or you're reading the earlier set. A dashboard chat is only written to the ticket when its turn ends, so a reply that's still being written won't be there yet.
 
 If you paste the new questions here, I'll answer them. Or wait until that session's turn finishes, then tell me and I'll read them from the ticket.
+
+<!-- xgd-turn id="e25113c0-4d42-4c36-83f3-72b2af343ab1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T11:54:02.415969+00:00" -->
+#### You
+Sorry I'm a little back and forth here - you answered the questions in the ticket? I told it the questions were answered there - it seems to have asked more after investigation - can you check again?
 
 <!-- xgd-chat-end -->
