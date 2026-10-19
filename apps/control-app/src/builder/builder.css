@@ -3749,6 +3749,54 @@ body {
   border-radius: 0.25rem;
 }
 
+/* ── the dismiss × ([[BUG-231]]) ───────────────────────────────────────────────
+   One control, drawn by `banner.js` on every banner the client can put away and
+   on none of the banners that explain a lock. It wears the chip remove's voice —
+   a muted glyph, no box — so the builder has one look for "close this". The
+   glyph is CSS content, so the banner's text is exactly its sentence. */
+.builder-banner--dismissible {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.builder-banner__dismiss {
+  flex: none;
+  margin: -0.25rem -0.5rem -0.25rem auto;
+  padding: 0.25rem 0.5rem;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  line-height: 1;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+/* A banner with its own control pushed right already: the × sits beside it. */
+.builder-operator-banner__back + .builder-banner__dismiss {
+  margin-left: 0;
+}
+
+.builder-banner__dismiss::before {
+  content: '×';
+  font-size: 1.25em;
+}
+
+.builder-banner__dismiss:hover,
+.builder-banner__dismiss:focus-visible {
+  opacity: 1;
+}
+
+/* On a phone the glyph is a fingertip's target, not a cursor's. */
+@media (pointer: coarse) {
+  .builder-banner__dismiss {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 .builder-signed-out {
   display: flex;
   gap: 0.75rem;

@@ -4,6 +4,7 @@ import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
 import { createCompViewer } from './comp-viewer.js'
 import { createStoryBoard } from './story-board.js'
+import { createBanner } from './banner.js'
 import { createLooks, mountLooksBand } from './looks.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
@@ -43,7 +44,7 @@ import { createPeoplePanel } from './people.js'
 import { createSettingsPanel } from './settings.js'
 import { createDebugPanel } from './debug.js'
 import { NO_PUBLIC_ADDRESS, openNoAddressModal } from './publish-address.js'
-import { fillFailure } from './failure-notice.js'
+import { failureContent } from './failure-notice.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createPageIndex } from './pages.js'
@@ -2338,12 +2339,13 @@ export function mountBuilder(root, options = {}) {
  * @returns the banner element, so the caller can take it away again.
  */
 function blockEverything(root, shell, message) {
-  const banner = document.createElement('div')
-  banner.className = 'builder-banner'
   // `alert` rather than `status`: this is not progress, it is the reason nothing
   // below responds, and a screen reader should reach it without being asked.
-  banner.setAttribute('role', 'alert')
-  banner.textContent = message ?? 'This builder is not configured, so nothing here can run.'
+  // NOT DISMISSIBLE ([[BUG-231]]): it is why the builder is locked.
+  const banner = createBanner({
+    className: 'builder-banner',
+    content: message ?? 'This builder is not configured, so nothing here can run.',
+  })
   root.prepend(banner)
   shell.element.setAttribute('inert', '')
   shell.element.classList.add('builder-shell--blocked')
@@ -2428,12 +2430,9 @@ function blockForPublish(shell) {
      */
     planned(total) {
       if (total <= 0 || banner !== null) return
-      banner = document.createElement('div')
-      banner.className = 'builder-banner builder-banner--publishing'
       // `status` AND NOT `alert`. This is progress, which is the precise thing
       // `alert` is wrong for — a screen reader should be able to reach it without
       // having the client's work interrupted to announce that it is going well.
-      banner.setAttribute('role', 'status')
       const text = document.createElement('span')
       text.textContent = PUBLISH_RESIZING_MESSAGE
       // DETERMINATE, NOT A SPINNER. A spinner is the right affordance for an
@@ -2444,7 +2443,12 @@ function blockForPublish(shell) {
       bar = document.createElement('progress')
       bar.max = total
       bar.value = 0
-      banner.append(text, bar)
+      // NOT DISMISSIBLE ([[BUG-231]]): it is why the builder is locked.
+      banner = createBanner({
+        className: 'builder-banner builder-banner--publishing',
+        role: 'status',
+        content: [text, bar],
+      })
       // OUTSIDE THE INERT SUBTREE, on REQ-173's reasoning: a message whose text
       // cannot be selected is a message that cannot be pasted into a support
       // request. In the content area above the panels, which is where a person
@@ -2469,18 +2473,21 @@ function blockForPublish(shell) {
      * asked. It is the same distinction [[REQ-173]]'s banner draws, arrived at
      * from the other direction.
      *
-     * IT SURVIVES THE RELEASE, until the next publish replaces it. A message that
-     * vanished with the lock would be a failure the client saw for one frame.
+     * IT SURVIVES THE RELEASE, until the next publish replaces it or the client
+     * dismisses it ([[BUG-231]]). A message that vanished with the lock would be
+     * a failure the client saw for one frame; one that could not be put away
+     * keeps an alarm on screen after it has been read.
      */
     fail(message) {
       this.release()
-      banner = document.createElement('div')
-      banner.className = 'builder-banner builder-banner--publish-failed'
-      banner.setAttribute('role', 'alert')
       // [[BUG-230]] — PLAIN WORDS, AND THE SERVER'S SENTENCE BEHIND DETAILS. The
       // server writes for us: its sentence can carry a site id or an internal
       // term, which tells a client nothing they can use.
-      fillFailure(banner, PUBLISH_FAILED_MESSAGE, message)
+      banner = createBanner({
+        className: 'builder-banner builder-banner--publish-failed',
+        content: failureContent(PUBLISH_FAILED_MESSAGE, message),
+        dismissible: true,
+      })
       if (content && panels) content.insertBefore(banner, panels)
       else (content ?? shell.element).prepend(banner)
     },
@@ -2519,12 +2526,10 @@ function blockTabs(shell, message) {
   const panels = shell.element.querySelector('.shell-panels')
   const content = shell.element.querySelector('.shell-content')
 
-  const banner = document.createElement('div')
-  banner.className = 'builder-banner builder-banner--no-business'
   // `alert` rather than `status`, for {@link blockEverything}'s reason: this is
-  // not progress, it is why nothing below it responds.
-  banner.setAttribute('role', 'alert')
-  banner.textContent = message
+  // not progress, it is why nothing below it responds. NOT DISMISSIBLE
+  // ([[BUG-231]]) for the same reason.
+  const banner = createBanner({ className: 'builder-banner builder-banner--no-business', content: message })
   if (content && panels) content.insertBefore(banner, panels)
   else (content ?? shell.element).prepend(banner)
 

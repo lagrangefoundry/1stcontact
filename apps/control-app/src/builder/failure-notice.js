@@ -20,20 +20,20 @@
 export const FAILURE_DETAILS_LABEL = 'Details'
 
 /**
- * Fill `element` with `line` and, when there is one, `detail` behind the toggle.
- * Replaces whatever the element held, so a second failure is not appended to the
- * first.
+ * The nodes of a failure: `line`, and, when there is one, `detail` behind the
+ * toggle. Nodes rather than a filled element, so a banner can put them beside its
+ * own controls (`banner.js`'s dismiss) and a plain line can `replaceChildren`
+ * with them.
  *
- * @param {HTMLElement} element
  * @param {string} line what the client reads
  * @param {string} [detail] what the server said
+ * @returns {Node[]}
  */
-export function fillFailure(element, line, detail) {
+export function failureContent(line, detail) {
   const text = document.createElement('span')
   text.className = 'builder-failure__line'
   text.textContent = line
-  element.replaceChildren(text)
-  if (!detail) return
+  if (!detail) return [text]
   const details = document.createElement('details')
   details.className = 'builder-failure__details'
   const summary = document.createElement('summary')
@@ -41,5 +41,5 @@ export function fillFailure(element, line, detail) {
   const said = document.createElement('pre')
   said.textContent = detail
   details.append(summary, said)
-  element.append(details)
+  return [text, details]
 }

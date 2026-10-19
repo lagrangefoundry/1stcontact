@@ -15,6 +15,7 @@
  * that knows all of them — the same layering the chat session already follows.
  */
 
+import { createBanner } from './banner.js'
 import {
   ACCOUNT_INITIAL_FALLBACK,
   ACCOUNT_LABEL,
@@ -364,14 +365,10 @@ export function createBusinessSwitcher({
  * the same one the switcher calls, so the banner cannot leave the scope half-moved.
  */
 export function createOperatorBanner({ name, back = null } = {}) {
-  const element = document.createElement('div')
-  element.className = 'builder-operator-banner'
-  element.setAttribute('role', 'status')
-
   const text = document.createElement('span')
   text.className = 'builder-operator-banner__text'
   text.textContent = OPERATOR_BANNER(name)
-  element.append(text)
+  const content = [text]
 
   if (back) {
     const button = document.createElement('button')
@@ -379,8 +376,17 @@ export function createOperatorBanner({ name, back = null } = {}) {
     button.className = 'builder-operator-banner__back'
     button.textContent = OPERATOR_BANNER_BACK(back.name)
     button.addEventListener('click', () => back.onBack())
-    element.append(button)
+    content.push(button)
   }
+
+  // DISMISSIBLE ([[BUG-231]]): the operator has taken it in, and nothing is
+  // locked — the switcher still says where they are.
+  const element = createBanner({
+    className: 'builder-operator-banner',
+    role: 'status',
+    content,
+    dismissible: true,
+  })
 
   return {
     element,
