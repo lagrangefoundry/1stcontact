@@ -91,6 +91,7 @@ import http from 'node:http'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
+import { Readable, pipeline } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 
 const arg = (name, fallback) => {
@@ -485,6 +486,13 @@ async function forward(req, res, url) {
   if (complete) headers['cf-access-jwt-assertion'] = mint({ commonName: SERVICE_NAME })
 
   const body = await readBody(req)
+  // A CALLER WHO LEAVES TAKES THE UPSTREAM WITH THEM (BUG-228). A chat turn is
+  // a stream that can run for minutes; a closed tab must not hold the builder's
+  // connection open until the turn ends on its own.
+  const abort = new AbortController()
+  res.on('close', () => {
+    if (!res.writableFinished) abort.abort()
+  })
   let upstream
   try {
     upstream = await fetch(new URL(url.pathname + url.search, BUILDER), {
@@ -495,20 +503,19 @@ async function forward(req, res, url) {
       // them here would answer with a body fetched from a URL the caller never
       // sees.
       redirect: 'manual',
+      signal: abort.signal,
     })
   } catch (err) {
     res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8' })
     return res.end(`access-sim: the builder at ${BUILDER} did not answer (${err.message}).\n`)
   }
 
-  const out = Buffer.from(await upstream.arrayBuffer())
   const outHeaders = {}
   for (const [name, value] of upstream.headers) {
-    // `fetch` has already decoded the body and read it to the end, so every
-    // header describing HOW it arrived now describes bytes that are not there:
-    // a copied `transfer-encoding: chunked` alongside the `content-length`
-    // restated below is a response no client will parse. The framing is this
-    // hop's to state, not the previous hop's to repeat.
+    // `fetch` decodes the body as it reads it, so every header describing HOW
+    // it arrived describes bytes this hop does not send on. The framing is this
+    // hop's to state, not the previous hop's to repeat — and with no
+    // `content-length`, Node states it as chunked.
     if (name === 'content-encoding' || name === 'content-length') continue
     if (name === 'transfer-encoding' || name === 'connection') continue
     if (name === 'set-cookie') continue
@@ -516,9 +523,14 @@ async function forward(req, res, url) {
   }
   const cookies = upstream.headers.getSetCookie?.() ?? []
   if (cookies.length > 0) outHeaders['set-cookie'] = cookies
-  outHeaders['content-length'] = String(out.length)
   res.writeHead(upstream.status, outHeaders)
-  res.end(out)
+  if (!upstream.body) return res.end()
+  // PASSED THROUGH AS IT ARRIVES, NEVER READ WHOLE (BUG-228). The chat's
+  // `text/event-stream` carries the consultant's words, the working line and
+  // every step as events inside one response; buffering it here held all of
+  // them back until the turn was over, which is exactly what production's
+  // edge does not do.
+  pipeline(Readable.fromWeb(upstream.body), res, () => {})
 }
 
 /** The request body, whole. Site payloads carry base64 assets and are not huge. */
