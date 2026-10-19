@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:39:43.318014+00:00'
+updated_at: '2026-10-19T00:43:39.287570+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9192,5 +9192,11 @@ What it asks for:
 New tests: a turn with a screenshot over 2 MB stores a record of a few hundred bytes plus one image in R2. A freshly started server sends the model the real image. A missing image shows up as the placeholder.
 
 The recovery of the unsaved Bob's salon 2 turns still needs your go-ahead in that session.
+
+<!-- xgd-turn id="9df991f3-fe64-4dfa-8977-45d09a619d38-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:43:31.279195+00:00" -->
+#### You
+New tests: a turn with a screenshot over 2 MB stores a record of a few hundred bytes plus one image in R2. <-- all the images should already be getting stored in the library - there should be no need for new storage or new references
 
 <!-- xgd-chat-end -->
