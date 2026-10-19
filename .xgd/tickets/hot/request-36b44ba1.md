@@ -6,10 +6,10 @@ title: 'Builder: the consultant brings the right view to the client — switch t
   itself, or give a link the client follows'
 created_by: EPIC-19
 created_at: '2026-10-19T21:10:05.006619+00:00'
-updated_at: '2026-10-19T22:38:32.732430+00:00'
+updated_at: '2026-10-19T22:41:58.191526+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
