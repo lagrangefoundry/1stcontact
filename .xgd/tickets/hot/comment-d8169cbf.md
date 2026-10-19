@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:43:39.287570+00:00'
+updated_at: '2026-10-19T00:44:38.148326+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9198,5 +9198,24 @@ The recovery of the unsaved Bob's salon 2 turns still needs your go-ahead in tha
 <!-- xgd-chat role="user" ts="2026-10-19T00:43:31.279195+00:00" -->
 #### You
 New tests: a turn with a screenshot over 2 MB stores a record of a few hundred bytes plus one image in R2. <-- all the images should already be getting stored in the library - there should be no need for new storage or new references
+
+<!-- xgd-turn id="9df991f3-fe64-4dfa-8977-45d09a619d38-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:44:31.655326+00:00" -->
+#### Claude
+You're right: the trigger was a screenshot of a Library image, and that picture already exists as a Library item. So the reference is simply its Library id, with no new storage. Two cases need handling:
+
+- **A Library image** (a `screenshot` of IMAGE-n, an image placed in the chat): the junction stores the Library id, e.g. `IMAGE-9`, and fills the bytes back in from the Library when needed. REQ-168 already gives image blocks a label of this form.
+- **A screenshot of a draft page** isn't a Library item; it's a render of the page at that moment. It doesn't need storing at all: REQ-168 already ages images out of the model's view after two turns, and a rebuilt conversation starts from records where images are already placeholders. So its durable copy is just the placeholder, e.g. `[image: screenshot of home at 1280px]`.
+
+Correcting the ticket.
+
+I've corrected BUG-229 and quoted your line, so the session working on it drops the R2 design.
+
+Now there's no new storage and no new kind of reference:
+- **Library images are stored as their Library reference.** That covers a screenshot of IMAGE-9, a picture in the chat, or anything REQ-168 already labels. When a conversation is reopened, the image is filled back in from the Library through the path the Library and `screenshot` already use. If the item has been deleted, the placeholder appears instead.
+- **Screenshots of draft pages aren't stored at all.** They aren't Library items, just renders of the page at that moment. The stored copy holds only the placeholder, such as `[image: screenshot of home at 1280px]`. That loses nothing she still uses: REQ-168 already hides images after two turns, and a rebuilt conversation starts from placeholders anyway. While the server stays up, the in-memory copy keeps the real image, so the turn that took the screenshot and the next two still see it.
+
+The tests change to match: an oversized screenshot of a Library image leaves a few-hundred-byte record naming that item, a freshly started server sends the model the real image, a page screenshot leaves only its placeholder, and a deleted item becomes the placeholder.
 
 <!-- xgd-chat-end -->
