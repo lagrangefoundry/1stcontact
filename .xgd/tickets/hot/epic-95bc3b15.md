@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-19T20:20:24.668502+00:00'
+updated_at: '2026-10-19T21:10:29.412280+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2241,3 +2241,28 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-412]] — bin/deploy ships the platform fonts automatically when the mirror's manifest has changed (BUG-227 fix never reached Bob's salon 2 because code deploys never touch fonts).
+
+
+## Finding 21 — Bob's salon 2: the consultant follows and reacts, but doesn't lead or dig (2026-10-19)
+
+**Evidence** (Bob's salon 2 transcript, 62 turns, 17:01 to 20:35 the next day):
+- **The story interview lasted 19 minutes and never came back.** Five good questions between 17:01 and 17:20 (how it started, a happy customer, Marisol, whether names can be used, what the site is for), then none about the business for the remaining ~50 turns. "Wigs" never appears in the transcript, though it's in the letterhead, the services list, the story file and a testimonial.
+- **Questions went wide, not deep.** Each answer got praise, a note on the board, then a new topic. Only once (Marisol) was a follow-up asked about what the client had just said.
+- **Turns handed the decision back.** After the first draft, nearly every reply ends with "does it feel right?" or asks permission for the obvious next step. The operator called those the most frustrating endings. The ideas that moved the site on mostly came from the operator: a layout pass with the new photos, "do we have the right fonts? (Bob wouldn't know to ask)", the logo being too small (on every site), "let's step back", leading with the group shot.
+- **The screen is busy:** View/Edit/Story, the looks band, comps shown in the preview, the progress bar, the questions panel. A novice won't know where to look, or whether answering a question does anything.
+
+**Decisions (operator, 2026-10-19):**
+- The consultant drives; the client can't be expected to. It finishes a stage that stands on its own, then states the next step and does it, asking only when there's a real choice.
+- It listens like an interviewer: picks up a specific detail, reflects it, asks about it, and keeps track of the usual parts of a small-business story.
+- It steers what the client sees, in two ways to try: switching the view itself, and giving a link the client follows.
+- Uploads become attachments in the composer.
+- Talker spend is only extra if it's wasted; otherwise it turns the client's waiting time into discovery time.
+
+**Landed / filed:**
+- Priming `57a266d5e5`: "Leading the build" (finish a stage, state and do the next step, the novice checklist, say what each answer or upload was used for) and interview-style listening plus the story's parts in "Getting the story".
+- [[REQ-413]]: the consultant brings the right view to the client (switch, or link).
+- [[REQ-414]]: uploads become attachments in the composer.
+- lagrange-framework EPIC-7 §18: **the worker and the talker**. A 1:1 round is forked so the client can keep talking while the consultant builds: same role and model, a narrowed grant, the talker's content reaching the worker as interpositions, stopping only on the client's request, and a merge when the round ends. Proposal, not yet decided.
+- The budget half (turns that run out mid-stage) stays with [[REQ-409]].
+
+**Still to build, by code:** story-part coverage and the novice checklist as facts on the per-turn notice, so the new priming doesn't rely on memory alone (Finding 13).
