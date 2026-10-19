@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:07:07.073127+00:00'
+updated_at: '2026-10-19T21:07:18.268498+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9666,5 +9666,15 @@ Talker turns are extra spend <-- only if they are waisted turns, otherwise they 
 Is there a document in LF that you can add the worker/talker design to? That way EPIC-7 can pick up the details
 
 Please go ahead with the other changes
+
+<!-- xgd-turn id="8349a941-65c2-4ce1-9d5f-9a53b8551358-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T21:07:17.602206+00:00" -->
+#### You
+Talker turns are extra spend <-- only if they are waisted turns, otherwise they are making the clients time more efficient
+
+Is there a document in LF that you can add the worker/talker design to? That way EPIC-7 can pick up the details
+
+Please go ahead with the other tickets
 
 <!-- xgd-chat-end -->
