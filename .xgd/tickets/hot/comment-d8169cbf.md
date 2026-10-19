@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T11:54:27.294227+00:00'
+updated_at: '2026-10-19T11:58:20.339640+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9288,5 +9288,62 @@ But I can't see any questions from that session after that. I checked everywhere
 So the follow-up questions you're seeing exist only in that session's chat window and haven't been saved to the ticket. That usually means its turn is still running, or its reply hasn't been written back yet.
 
 The quickest fix is to paste its latest message here and I'll answer it straight away.
+
+<!-- xgd-turn id="bf944aea-a19b-4d16-a3e6-1adb7561111e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T11:58:19.579339+00:00" -->
+#### You
+Are you seeing this? This is the end of the transcript in my view:
+
+Your ticket has been updated to answer the questions that you asked. Please reread it and determine if you are ready to code - there were some corrections made
+
+---
+
+I'm checking whether the corrected design can actually be built: the framework's `SessionLog` computes offsets from whatever the mirror returns, so I need to see how it reads before saying "ready".
+
+Still tracing upstream `SessionLog`'s offset arithmetic. That's the one thing left to check before I can say whether the design works.
+
+Confirmed: `SessionLog` takes every offset from the bytes the mirror returns. Now checking how a screenshot's image block names its Library item, and where `detail:"low"` is handled.
+
+Looking for where the `screenshot` tool turns `detail:"low"` into an image. It isn't in 1stcontact, so I'm checking upstream and the 1stcontact surface declarations.
+
+The earlier copy is gone, so I'm taking a fresh read-only copy of the DO's SQLite file to look at one screenshot record.
+
+I have what I need. I'll record the open points on the ticket, then report.
+
+Almost. The corrected scope can be built, but I need you to confirm three points first, one of which is a correction to EPIC-19's recovery plan. I've added all three to BUG-229 under "Pre-coding check". No code has changed.
+
+**The scope as I read it now:**
+
+- **Library images by reference:** in the Durable Object, a screenshot of a Library image is stored as its Library reference. The next `prepare` resolves it from the Library, or uses the `[image: …]` placeholder if the item is gone.
+- **Draft screenshots:** a screenshot of a draft page is stored as the placeholder only. The live isolate keeps the real bytes.
+- **Split large appends:** kept as a safety net.
+- **Loud failures:** a bad watermark is caught and a save failure shows BUG-121's notice.
+- **Low detail:** `detail:"low"` returns a genuinely small image.
+
+This works with the stored records. Each screenshot record names its source in its tool-call input (for example `of: {kind:"draft", …}`), so the adapter can tell a Library image from a draft render.
+
+**1. Offsets have to be translated in our adapter.** The framework's `SessionLog` takes every byte offset from what the mirror returns. If the mirror keeps the real image bytes and the Durable Object stores references, their offsets will differ. My plan is for `junctions.ts` to keep a map from mirror offsets to stored offsets:
+
+- the watermark is converted to stored offsets on its way to the Durable Object, and back after `prepare` resolves the references;
+- the delta read is asked in stored offsets.
+
+The Durable Object's watermark is then always a record boundary in its own stream, and nothing upstream changes. Is that acceptable?
+
+**2. "Snap back to the previous newline" would lose two turns.** The bad watermark is 2.46 MB too far, not slightly inside a record. The previous newline (21,901,477) would skip everything from 19,592,232 to there: the 21:04 and 21:16 turns and the start of 22:07, lost for good. The correct point is 19,592,232. I propose this guard instead:
+
+- **Normal case:** a watermark that isn't a record boundary, or is past the end of the stream, snaps to the end of the last record (by seq) the archive already holds.
+- **If that can't be found:** nothing is folded; the failure is logged and the client is told.
+
+Recovery then happens through this code on the next `prepare`, with no SQLite edit.
+
+**3. Low detail needs a JPEG encoder.** The `of.kind === 'image'` branch in `tools/generate/src/cli/ai/fidelity-core.ts:604` ignores `detail` completely, which is how the 2.4 MB PNG got through. Draft tiles at low are 768-wide PNGs of 200–670 KB each; the 22:07 call asked for three tiles and got 1.43 MB. The repo has only a PNG codec. Two options:
+
+- **(a) Add the **`jpeg-js`** package.** It's pure JavaScript and runs in workerd. You'd run the install.
+- **(b) Write a small baseline JPEG encoder in the repo.** It's more code to own.
+
+I recommend (a), with low meaning a 768 px longest edge at about quality 75, for Library images and draft tiles alike.
+
+Once you've answered these, I'll set the ticket to `free_coding`, cut the `free-BUG-229` branch and start.
 
 <!-- xgd-chat-end -->
