@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:39:16.245847+00:00'
+updated_at: '2026-10-19T20:40:37.337598+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9466,5 +9466,77 @@ So I think all of this is manageable but it needs to be managed by the consultan
 I will take another pass and create the site again. But the consultant has to realize that its driving Bob cannot be expected to. If Bob does, that's cool, but the consultant is still responsible for filling the gaps.
 
 One thing that never got discussed the wigs for kids story - its one of the best pieces but the consultant never asked any questions that I felt that was relevant to - now Bob could obviously bring it up. But I'm not convinsed that the consultant is asking enough questions. It would be great if they could really get Bob to tell his story and talk about his business - they would do that by showing they understand what Bob is saying and giving positive feedback about the material and asking follow on questions.
+
+<!-- xgd-turn id="51ddc95c-1090-4bdd-8f3e-c482dbd89712-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T20:40:34.735081+00:00" -->
+#### Claude
+I re-read the Bob's salon 2 transcript before answering: 62 turns, 17:01 to 20:35. It backs up both of your concerns, and it suggests a cause I'd target first.
+
+## What the run shows
+
+**The story interview lasted 19 minutes and never came back.** The consultant asked five good questions between 17:01 and 17:20: how the salon started, a customer who left happy, Marisol, whether names can be used, and what the site is for. Then she moved to the comparison sites, and for the remaining 50-odd turns she didn't ask a single question about the business. "Wigs" appears nowhere in the transcript. It's in your letterhead, the services list, the story file and a testimonial, but nothing she asked would have led Bob to it.
+
+**Her questions went wide, not deep.** Each answer got the same treatment: praise ("that's a great story"), pin it on the board, then a new topic. Only once, with Marisol, did she ask a follow-up about something Bob had just said. A good interviewer works the other way: she picks up a specific detail, says why it matters, and asks the next question about that detail. "You said a guy walks in with hair past his shoulders and they want to take it all off. Who's the customer you're proudest of keeping long?" is the kind of question that leads to a Wigs for Kids story.
+
+**Every turn handed the decision back to you.** Almost every reply after the first draft ends with a question about what she just did: "does it feel like your salon?", "does the order feel right?", "are you happy with the layout now?". None ends with what she'd do next and why. A novice answers "looks good", and then there's nothing for either of them to do. That's the moment you're describing as waiting for Bob to decide. The ideas that moved the site forward mostly came from you:
+- doing another layout pass with the new photos;
+- "do you think we have the right fonts? (Bob wouldn't know to ask this)";
+- the logo being too small, which you've raised on every site;
+- "let's step back";
+- leading with the group shot.
+
+So she reacts well, but she isn't working through a list of the things a novice wouldn't think to raise.
+
+## The busy screen
+
+I agree it's manageable, but only if the consultant manages it. Right now each surface (Story, the looks band, the comparison sites, the questions) is something the client has to find. The rule I'd set: **a surface should show up because the consultant brought it there**, saying where to look and what to do. Two things would make that possible:
+
+1. **The consultant can steer what's on screen.** Give her a tool to switch the preview to the story board, a comparison site, the looks or the draft, and to highlight a question on the panel. Then she says *"I've put the board in front of you; heart the two that sound most like you"*, and the client doesn't need to know the modes exist. This is the most direct answer to "where do I look?", and it's a code change.
+2. **She visibly uses the answers.** Whether answering a question does anything is a matter of trust. If she says *"Thanks for the hours. They're in the footer now"*, the client learns that answering matters. She currently gets told about each answer, but seldom mentions it.
+
+## The consultant leading
+
+You're right that she can't rely on the client to steer. Three changes to her behaviour:
+
+1. **She ends each turn by leading.** If there's a decision only the client can make, she asks it. Otherwise she proposes the next step and says why: *"Next I'd make the logo larger. It's getting lost, and owners always notice that once it's live. Shall I, or is something else bothering you first?"*. Asking "does it look right?" on its own doesn't count.
+2. **She keeps a list of what a novice won't raise:**
+   - logo and name size
+   - fonts
+   - the site on a phone
+   - address and directions
+   - real photos instead of placeholders
+   - the story so far
+   - the rubric checks
+
+   She raises the next unchecked item herself. REQ-408's self-review is part of this, but this goes further.
+3. **She listens actively** when gathering the story:
+   - repeat back a specific detail;
+   - say what it will do on the site;
+   - ask about that detail before moving on.
+
+   She should also check a short list of areas a small-business story covers:
+   - how it started
+   - the signature craft
+   - the people
+   - the customers
+   - **what they do for the neighbourhood**, which is where Wigs for Kids lives
+   - what they refuse to do
+   - a moment they're proud of
+
+   An area with no notes on the board means she reopens the conversation, including during the long builds.
+
+## How I'd make it stick
+
+Instructions alone haven't held up: the earlier evidence was guidance followed in 2 of 102 turns. So the new rules should be backed by facts the system shows her, not just advice:
+- **Story coverage on her per-turn notice.** Something like *"Story board: nothing yet on the neighbourhood or a proud moment"* is a fact the system can work out from the board.
+- **The novice checklist on the plan,** with each item marked done as it's handled, so "what next" is always something she can look up rather than remember.
+- **A plain reminder that turns should end by leading.** This is the one piece that can't be enforced.
+
+## Questions for you
+
+1. Should I add these three behaviours (end turns by leading, the novice checklist, active listening with the story areas) to her instructions **before your second Bob's Salon pass**, so it tests them? It's a prompt change with no ticket. The checklist and the story-coverage notice would need code, which could follow after the run.
+2. Should I file the **"consultant can steer what's on screen" tool** now? It's the main fix for the busy screen, and I'd file it whatever the run shows.
+3. Should I record this as a finding on EPIC-19? The evidence is "the story interview ended after 19 minutes and Wigs for Kids was never reached", plus the list of turns you had to drive.
 
 <!-- xgd-chat-end -->
