@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-19T00:15:07.439816+00:00'
+updated_at: '2026-10-19T20:20:24.668502+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2238,3 +2238,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - **REQ-409 re-scoped** (operator, 2026-10-18): execution budgets deliver an outcome, never stop half-done to ask permission. Consultant 200 calls / 60 min; builder 200 calls / 20 min; automatic continuation turns (max 2); a builder that runs out is replaced by a fresh Haiku with the host's account and the rest of the brief (max 2); $10 per-turn spend ceiling as the real backstop.
+
+
+- [[REQ-412]] — bin/deploy ships the platform fonts automatically when the mirror's manifest has changed (BUG-227 fix never reached Bob's salon 2 because code deploys never touch fonts).
