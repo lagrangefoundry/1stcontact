@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:17:40.624746+00:00'
+updated_at: '2026-10-19T00:19:42.028028+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9108,5 +9108,35 @@ One caution on order: build this **after BUG-229**. Every turn on Bob's salon 2 
 ok 409 ready to go.
 
 I built and deployed the latest code to dev and now I get nothing out of the AI chat except: *Unexpected token 'g', "guWid6rN1D"... is not valid JSON*
+
+<!-- xgd-turn id="e6d48979-eb68-4b18-b7fe-7b5915137f44-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:19:39.717572+00:00" -->
+#### Claude
+Now it fails before anything else happens, which should be easier to catch. Checking the latest turns and the dev log.
+
+Same directory I searched. I'll read each junction Durable Object written today and check every record line parses as JSON.
+
+The drain marker doesn't land on a record boundary. Reading from it gives a fragment, not a whole record. Checking what's at that offset.
+
+Found it, and it's not the new code. It's Bob's salon 2's stored state, which is why the deploy made no difference.
+
+**Cause:** every conversation has a junction, its live record kept in a Durable Object, plus a marker for how much of that record has been saved into the archive. For Bob's salon 2:
+- the junction holds about 26.3 MB, and every record in it is intact;
+- the marker says 22,053,011 bytes have been saved, but that offset is **151 KB into the middle of a single record**, an image stored as base64;
+- reading from there gives `guWid6rN1D0qFYNb…`, which is exactly the fragment in the error.
+
+So each turn tries to save from the wrong place, fails on half an image, and the turn ends in error. Everything since about 13:50 your time, roughly 4 MB, sits unsaved in the junction. It is still intact.
+
+I've written it into **BUG-229** (still `draft`):
+- **The exact evidence:** file, offsets, and the boundary where the broken record really starts (byte 21,901,477).
+- **Two questions for the fix:** how a marker that isn't on a record boundary got written, and why the reading code trusted it. The Durable Object's own read already falls back when asked for a bad offset, so some other reader is using the stored marker directly.
+- **Recovery:** save from that true boundary, which brings back everything since 13:50, done by code with the server stopped, not by editing the database by hand.
+- **A guard regardless of cause:** a marker that isn't on a record boundary is snapped back to the previous record and logged, never parsed.
+
+**For you now:**
+- **Other businesses should work.** Only this conversation's junction is affected. A quick test on another business would confirm it's contained.
+- **Don't delete or reset Bob's salon 2's junction.** It's the only copy of the last few hours.
+- **BUG-229 should go before REQ-409.** It's small now that the cause is pinned down, and REQ-409's longer, self-continuing turns write more into exactly the path that's broken. REQ-409 itself is ready whenever you want it.
 
 <!-- xgd-chat-end -->
