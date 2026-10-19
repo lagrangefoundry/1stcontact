@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-19T21:10:29.412280+00:00'
+updated_at: '2026-10-19T22:45:11.866028+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2266,3 +2266,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 - The budget half (turns that run out mid-stage) stays with [[REQ-409]].
 
 **Still to build, by code:** story-part coverage and the novice checklist as facts on the per-turn notice, so the new priming doesn't rely on memory alone (Finding 13).
+
+
+- [[BUG-230]] — Publish with no web address showed the raw server error banner (site id included) instead of REQ-250's dialog: the streaming publish drops the NO_PUBLIC_ADDRESS code. Also: friendlier failure banners, a show_client web_address target, and a no-address fact in the plan notice. Priming 1c6a268d7e: the consultant checks for a web address before suggesting Publish.
