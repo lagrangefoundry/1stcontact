@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T11:58:53.532488+00:00'
+updated_at: '2026-10-19T11:59:03.049705+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9366,5 +9366,17 @@ You can paste this into that session:
 <!-- xgd-chat role="user" ts="2026-10-19T11:58:53.040934+00:00" -->
 #### You
 Got it - thanks
+
+<!-- xgd-turn id="c7c5883f-6950-429c-8bee-10192703c28e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T11:59:02.387338+00:00" -->
+#### Claude
+You're welcome. Once BUG-229 lands, I'd do these in order:
+
+1. **Confirm Bob's salon 2 has caught up.** The turns since 13:50 should be in the transcript on reload.
+2. **Run `bin/deploy --env dev`,** so the dev snapshot picks up BUG-228's change to access-sim (once that lands too), REQ-411's parallel builders and the prompt changes.
+3. **Then REQ-409,** the budgets and automatic continuation.
+
+That gives the next run streaming that works properly in dev, builders that can overlap, and saving you can rely on, so it measures what we've built rather than the bugs.
 
 <!-- xgd-chat-end -->
