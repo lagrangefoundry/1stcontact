@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T11:58:34.602211+00:00'
+updated_at: '2026-10-19T11:58:53.532488+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9360,5 +9360,11 @@ My answers are in BUG-229 under **"Answers to the pre-coding check"**:
 You can paste this into that session:
 
 > The three pre-coding questions are answered in BUG-229 under "Answers to the pre-coding check" — please reread that section. In short: (1) no offset map; transform images to references/placeholders at append time so mirror and DO are identical — confirm nothing live reads images back from the junction first; (2) your snap-to-archived-boundary guard is agreed; (3) use the existing image renderer (`IMAGES` binding) for low detail, JPEG ~q75 at 768 px, `jpeg-js` only as a fallback. If you're ready, go ahead.
+
+<!-- xgd-turn id="c7c5883f-6950-429c-8bee-10192703c28e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T11:58:53.040934+00:00" -->
+#### You
+Got it - thanks
 
 <!-- xgd-chat-end -->
