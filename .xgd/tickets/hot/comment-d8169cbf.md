@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:42:57.367096+00:00'
+updated_at: '2026-10-19T20:43:38.760710+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9544,5 +9544,24 @@ Instructions alone haven't held up: the earlier evidence was guidance followed i
 <!-- xgd-chat role="user" ts="2026-10-19T20:42:56.772547+00:00" -->
 #### You
 Sorry detail here but please read the document on AI naming and pronouns
+
+<!-- xgd-turn id="35c0e602-9316-4dc5-ad38-a95b954c202b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T20:43:34.879322+00:00" -->
+#### Claude
+You're right, I got that wrong. DOC-66 says the AI has no name and isn't "she". In third-person writing it's "the consultant", ideally as the subject of the sentence, and "it" only where a pronoun can't be avoided. My last reply used "she" throughout. I've saved this to memory so I check for it in future sessions.
+
+Here are the parts of that reply that leaned on the pronoun, reworded:
+
+- **Asking wide, not deep:** each answer got praise, a note on the board, then a new topic. The consultant asked a follow-up about something Bob had just said only once, about Marisol.
+- **Ending each turn:** after the first draft, the consultant's replies end by asking whether the last change looks right. They should end by proposing the next step and saying why.
+- **The novice checklist:** the consultant raises the next unchecked item itself, such as the logo size, the fonts, or how the site looks on a phone.
+- **Steering the screen:** the consultant gets a tool to bring the story board, a comparison site, the looks or a question in front of the client, so the client never has to hunt for them.
+- **Using answers visibly:** the consultant should say what each answer was used for ("Thanks for the hours. They're in the footer now").
+
+None of the substance changes. The three questions from that reply still stand:
+1. Should I add the three behaviour changes to the consultant's instructions before your next Bob's Salon pass?
+2. Should I file the ticket for steering what's on screen?
+3. Should I record this as a finding on EPIC-19?
 
 <!-- xgd-chat-end -->
