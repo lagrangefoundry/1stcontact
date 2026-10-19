@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-6acbc860
 ---
 
 ## What the client experiences
