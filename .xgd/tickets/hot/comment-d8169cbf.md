@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-18T23:20:25.497297+00:00'
+updated_at: '2026-10-19T00:11:35.624332+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9019,5 +9019,11 @@ What's in the ticket:
 - **The Network tab won't show this one.** The error arrives inside the chat request's own stream, so nothing appears as a failed request. That fits what you saw.
 
 I'd hold further Bob's salon 2 testing until BUG-229 lands. Each turn there adds to what has to be recovered.
+
+<!-- xgd-turn id="217df8f7-1197-4a9f-be51-c25e5a65eedd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:11:33.300823+00:00" -->
+#### You
+I am definitely thinking that we should increase the execution budgets though - it is a poor user experience when the AI ends with a half finished piece of work and has to ask permission to continue. This user is not paying the token bill, I am - we need to give them an outcome not confusion.
 
 <!-- xgd-chat-end -->
