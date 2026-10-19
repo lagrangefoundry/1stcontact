@@ -106,9 +106,12 @@ import { browserPageMeasurer } from './ai/measure-core'
 import { cmdFontsCheck, formatFontsReport } from './fonts'
 import { cmdFontsCatalogue, formatCatalogueReport } from './font-catalogue'
 import {
+  cmdFontsDeploy,
   cmdFontsMirror,
   cmdFontsPublish,
   cmdFontsSeed,
+  fontsCapabilityRow,
+  formatFontsDeployReport,
   formatMirrorReport,
   formatPublishReport,
   seedAfterMirror,
@@ -187,7 +190,7 @@ import {
   clusterDefects,
   formatClusterReport,
 } from './fidelity'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { cmdDiff, cmdCrop, formatDiffReport, type DiffTuning, type RegionBox } from './perceptual'
 import { cmdAlignedCrops } from './aligned-crops'
@@ -875,6 +878,13 @@ Fonts (REQ-101) — licence provenance for every font file in the project:
     bucket is seeded by default and the report names which stores answer; --app narrows it.
     Digest-checked per object, so a re-seed of an unchanged mirror moves nothing. Run at the
     tail of 1c fonts mirror already — this verb is for re-seeding.
+  1c fonts deploy --target cloud|local [--app <name,…>] [--dry-run] [--check] [--json]
+    The step every bin/deploy runs before its apps (REQ-412): compare fonts/platform.json's
+    object set with the deploy record the target holds (one object beside the fonts, written
+    by publish/seed after a whole delivery) and run publish (cloud) or seed (local) only when
+    they differ. Reads no font bytes to decide, so an unchanged mirror costs one request. A
+    changed mirror that is not fully staged fails before anything ships. --check reports and
+    never delivers (bin/deploy --no-fonts); --dry-run reports what would move.
   1c fonts doc [--json] [--stdout]
     Project DOC-56's body from fonts/catalogue.json and write it into the system-KB document
     that declares fonts/catalogue.json as its source. Only OFL 1.1 and Apache 2.0 families
@@ -2807,6 +2817,42 @@ export async function run(argv: string[]): Promise<void> {
         }
         return
       }
+      // [[REQ-412]] — the fonts as a step of every app deploy: deliver only when
+      // the manifest differs from what the target last received. `bin/deploy`
+      // is the caller; it passes its own target row rather than an environment
+      // name, so the two cannot disagree about where "dev" is.
+      if (sub === 'deploy') {
+        try {
+          const target = flags.target
+          if (target !== 'cloud' && target !== 'local') {
+            throw new CommandError({
+              code: 'SCHEMA_INVALID',
+              message: '`1c fonts deploy` needs --target cloud|local.',
+              hint: '`bin/deploy` passes its own target; to deploy the fonts by hand use `bin/deploy --fonts`.',
+            })
+          }
+          const report = await cmdFontsDeploy({
+            cwd: process.cwd(),
+            target,
+            dryRun: flags['dry-run'] === true,
+            check: flags.check === true,
+            apps:
+              typeof flags.app === 'string'
+                ? flags.app.split(',').map((s) => s.trim()).filter((s) => s !== '')
+                : undefined,
+            onProgress: json ? undefined : (line) => console.error(line),
+          })
+          const capabilityReport = process.env.DEPLOY_CAPABILITY_REPORT
+          if (capabilityReport) appendFileSync(capabilityReport, `${JSON.stringify(fontsCapabilityRow(report))}\n`)
+          const blocked = report.outcome === 'blocked' && report.mode === 'deliver'
+          if (json) console.log(JSON.stringify({ ok: !blocked, data: report }, null, 2))
+          else console.log(formatFontsDeployReport(report))
+          if (blocked) process.exitCode = 1
+        } catch (err) {
+          fail(err, json)
+        }
+        return
+      }
       // [[REQ-315]] — the other delivery. `publish` writes the cloud bucket over
       // the R2 REST API; `seed` writes the miniflare store `wrangler dev` reads,
       // so the environment the work is done in serves the same bytes through the
@@ -2846,7 +2892,7 @@ export async function run(argv: string[]): Promise<void> {
       }
       if (sub !== 'check') {
         console.error(
-          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, index, publish, seed.\n\n` + USAGE,
+          `Unknown fonts subcommand '${sub ?? ''}'. Expected: check, catalogue, doc, mirror, index, publish, seed, deploy.\n\n` + USAGE,
         )
         process.exitCode = 1
         return

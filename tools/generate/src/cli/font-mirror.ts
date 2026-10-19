@@ -13,9 +13,10 @@ import path from 'node:path'
 import { pathExists } from '../store/fsutil'
 import { CommandError } from './errors'
 import { cmdFontsIndex } from '../fonts/index-build'
-import { runMirror, MANIFEST_REL, MIRROR_DIR_REL, type MirrorReport } from '../fonts/mirror'
-import { runPublish, type PublishReport } from '../fonts/publish'
-import { localStores, runSeed } from '../fonts/seed'
+import { loadPlatformManifest, runMirror, MANIFEST_REL, MIRROR_DIR_REL, type MirrorReport } from '../fonts/mirror'
+import { platformObjects, readCloudRecord, runPublish, PLATFORM_BUCKET, type PublishReport } from '../fonts/publish'
+import { localStores, readLocalRecord, runSeed } from '../fonts/seed'
+import { digestOf, mirrorDigests, objectsToMove, type DeployedRecord } from '../fonts/deployed'
 
 export interface MirrorCommandOptions {
   cwd?: string
@@ -199,6 +200,281 @@ export async function seedAfterMirror(
     onProgress(`  local dev stores not seeded: ${(err as Error).message}`)
     onProgress('  run `1c fonts seed` to retry — the mirror itself is complete.')
     return null
+  }
+}
+
+/**
+ * [[REQ-412]] — one destination's answer to "is the mirror deployed here?".
+ *
+ * `unreadable` is its own state and not a kind of `absent`: a bucket that could
+ * not be asked has not been shown to be stale, and a deploy that cannot ask
+ * must say so rather than guess either way.
+ */
+export interface FontsDeployDestination {
+  /** `1stcontact-sites (cloud)`, or the app whose local store this is. */
+  name: string
+  /** The app, for a local store — what a seed is narrowed to. */
+  app?: string
+  state: 'current' | 'stale' | 'absent' | 'unreadable'
+  /** Objects a delivery would send, by the record's account. */
+  moves: number
+  /** Why it could not be read, for `unreadable`. */
+  reason?: string
+  deployedAt?: string
+}
+
+/**
+ * What a change-detected font deploy decided.
+ *
+ *   unchanged     every destination already holds this manifest — nothing sent
+ *   deployed      at least one did not, and the existing delivery ran
+ *   would-deploy  a rehearsal that found something to send
+ *   stale         `--check` (bin/deploy --no-fonts) found something it did not send
+ *   blocked       something is stale and the mirror is not fully staged
+ *   unstaged      at the local target, something is stale and NOTHING is staged —
+ *                 a fresh checkout or worktree; the deploy proceeds, warned
+ *   unknown       a destination could not be read, under a rehearsal or a check
+ *   no-mirror     there is no manifest, so there is nothing to deploy
+ *   no-store      at the local target, no app in this deploy serves platform fonts
+ */
+export type FontsDeployOutcome =
+  | 'unchanged'
+  | 'deployed'
+  | 'would-deploy'
+  | 'stale'
+  | 'blocked'
+  | 'unstaged'
+  | 'unknown'
+  | 'no-mirror'
+  | 'no-store'
+
+export interface FontsDeployReport {
+  target: 'cloud' | 'local'
+  mode: 'deliver' | 'dry-run' | 'check'
+  outcome: FontsDeployOutcome
+  /** Objects the manifest names. */
+  objects: number
+  /** Objects the manifest names that are not staged — reported whether or not they would block. */
+  missing: string[]
+  destinations: FontsDeployDestination[]
+  /** The delivery's own report, when one ran. */
+  delivery?: PublishReport
+}
+
+export interface FontsDeployOptions {
+  cwd?: string
+  target: 'cloud' | 'local'
+  /** At the local target, the apps being deployed; their stores are the ones checked. */
+  apps?: string[]
+  dryRun?: boolean
+  /** Report only — never deliver, never fail on staleness (`bin/deploy --no-fonts`). */
+  check?: boolean
+  env?: NodeJS.ProcessEnv
+  onProgress?: (line: string) => void
+}
+
+/**
+ * [[REQ-412]] — deploy the platform fonts IF, AND ONLY IF, the mirror has
+ * changed since the last font deploy to this target.
+ *
+ * NOT A THIRD DELIVERY. Deciding is the only new thing here: what runs when a
+ * destination is stale is `runPublish` / `runSeed`, unchanged, which digest-check
+ * every object and write the record this reads. So `bin/deploy --fonts` and an
+ * ordinary `bin/deploy` deliver identically and leave identical evidence.
+ *
+ * THE MIRROR NEED BE STAGED ONLY WHEN SOMETHING WILL MOVE. The comparison is
+ * of the manifest against the destination's record and reads no font bytes, so
+ * a machine without the mirror can deploy code to a bucket that is current. A
+ * stale destination with an incomplete mirror is BLOCKED rather than partially
+ * delivered: a new Worker shipped against half the fonts it binds is the failure
+ * this exists to prevent. Under a rehearsal that is reported, not raised — a
+ * rehearsal's job is to say everything a real run would meet.
+ *
+ * EXCEPT A LOCAL TARGET WITH NOTHING STAGED AT ALL. A fresh checkout or a
+ * branch worktree holds no mirror (it is gitignored and 1.35 GB) and its dev
+ * stores are its own and disposable; that is not a half-staged mirror, and
+ * refusing it would make every local deploy outside the main checkout fail.
+ * It proceeds with a warning. The cloud is never excused: there the stale
+ * bucket is what the public is served.
+ */
+export async function cmdFontsDeploy(options: FontsDeployOptions): Promise<FontsDeployReport> {
+  const cwd = options.cwd ?? process.cwd()
+  const env = options.env ?? process.env
+  const mode = options.check ? 'check' : options.dryRun ? 'dry-run' : 'deliver'
+  const base = { target: options.target, mode } as const
+
+  const manifest = loadPlatformManifest(cwd)
+  if (!manifest) return { ...base, outcome: 'no-mirror', objects: 0, missing: [], destinations: [] }
+  const current = mirrorDigests(manifest)
+  const missing = platformObjects(cwd, manifest)
+    .filter((o) => !pathExists(o.file))
+    .map((o) => o.path)
+  const objects = Object.keys(current).length
+  const digest = digestOf(current)
+
+  const judge = (name: string, record: DeployedRecord | null, app?: string): FontsDeployDestination => ({
+    name,
+    ...(app ? { app } : {}),
+    state: record === null ? 'absent' : record.digest === digest ? 'current' : 'stale',
+    moves: record?.digest === digest ? 0 : objectsToMove(current, record),
+    ...(record ? { deployedAt: record.deployedAt } : {}),
+  })
+  const unreadable = (name: string, err: unknown, app?: string): FontsDeployDestination => ({
+    name,
+    ...(app ? { app } : {}),
+    state: 'unreadable',
+    moves: objects,
+    reason: (err as Error).message,
+  })
+
+  const destinations: FontsDeployDestination[] = []
+  if (options.target === 'cloud') {
+    const name = `${PLATFORM_BUCKET} (cloud)`
+    try {
+      destinations.push(judge(name, await readCloudRecord(env)))
+    } catch (err) {
+      destinations.push(unreadable(name, err))
+    }
+  } else {
+    // The apps being deployed that serve fonts; an app that does not is not an
+    // error here, as it is to `1c fonts seed --app` — it simply has no store.
+    const wanted = options.apps && options.apps.length > 0 ? new Set(options.apps) : null
+    const stores = localStores(cwd).filter((store) => wanted === null || wanted.has(store.app))
+    if (stores.length === 0) return { ...base, outcome: 'no-store', objects, missing, destinations }
+    for (const store of stores) {
+      try {
+        destinations.push(judge(store.app, await readLocalRecord(cwd, store), store.app))
+      } catch (err) {
+        destinations.push(unreadable(store.app, err, store.app))
+      }
+    }
+  }
+
+  const behind = destinations.filter((d) => d.state !== 'current')
+  if (behind.length === 0) return { ...base, outcome: 'unchanged', objects, missing, destinations }
+
+  const report = { ...base, objects, missing, destinations }
+  const incomplete: FontsDeployOutcome =
+    options.target === 'local' && missing.length === objects ? 'unstaged' : 'blocked'
+  if (mode !== 'deliver') {
+    if (behind.some((d) => d.state === 'unreadable')) return { ...report, outcome: 'unknown' }
+    return { ...report, outcome: mode === 'check' ? 'stale' : missing.length > 0 ? incomplete : 'would-deploy' }
+  }
+  const cannotAsk = behind.find((d) => d.state === 'unreadable')
+  if (cannotAsk) {
+    throw new CommandError({
+      code: 'ENVIRONMENT',
+      message: `Cannot tell whether the platform fonts are deployed to ${cannotAsk.name}: ${cannotAsk.reason}`,
+      hint:
+        'A code deploy now ships the fonts first when they have changed, and that needs the deploy ' +
+        'record. Fix the credential, or pass --no-fonts for an emergency code-only deploy.',
+    })
+  }
+  if (missing.length > 0) return { ...report, outcome: incomplete }
+
+  const delivery =
+    options.target === 'cloud'
+      ? await runPublish({ cwd, env, onProgress: options.onProgress })
+      : await runSeed({ cwd, apps: behind.map((d) => d.app!), onProgress: options.onProgress })
+  return { ...report, outcome: 'deployed', delivery }
+}
+
+/** The fix for an incomplete mirror, naming the families it would restage. */
+function restageHint(missing: string[]): string {
+  const slugs = [...new Set(missing.map((m) => m.split('/')[0]).filter((s) => !s.includes('.')))]
+  const only = slugs.length > 0 && slugs.length <= 20 ? ` --only ${slugs.join(',')}` : ''
+  return `1c fonts mirror --repo <google/fonts>${only}`
+}
+
+/**
+ * [[REQ-412]] — the decision in one line, and the reason under it.
+ *
+ * ONE LINE FIRST, ALWAYS, because "fonts were not deployed" is the fact an
+ * operator most needs and least expects to have to look for: the deploy says
+ * `platform fonts: unchanged` as readily as it says what it sent.
+ */
+export function formatFontsDeployReport(report: FontsDeployReport): string {
+  const since = (d: FontsDeployDestination): string =>
+    d.state === 'absent'
+      ? 'never deployed here'
+      : d.state === 'unreadable'
+        ? `could not be read — ${d.reason}`
+        : `${d.moves} object(s) changed since ${d.deployedAt || 'the last font deploy'}`
+  const lines: string[] = []
+  switch (report.outcome) {
+    case 'no-mirror':
+      return 'platform fonts: no fonts/platform.json — nothing to deploy'
+    case 'no-store':
+      return 'platform fonts: no app in this deploy serves them locally — nothing to deploy'
+    case 'unchanged':
+      lines.push(`platform fonts: unchanged (${report.objects} objects, as last deployed)`)
+      break
+    case 'deployed':
+      lines.push('platform fonts: deployed — the target did not hold this mirror')
+      break
+    case 'would-deploy':
+      lines.push('platform fonts: would deploy — the target does not hold this mirror')
+      break
+    case 'stale':
+      lines.push('platform fonts: STALE and NOT deployed (--no-fonts) — this deploy serves the old fonts')
+      break
+    case 'blocked':
+      lines.push(
+        `platform fonts: BLOCKED — the target does not hold this mirror, and ${report.missing.length} object(s) the manifest ` +
+          `names are not staged${report.mode === 'dry-run' ? ', so a real deploy would stop here' : ''}`,
+      )
+      break
+    case 'unstaged':
+      lines.push(
+        'platform fonts: NOT deployed — no mirror is staged in this checkout, so local dev serves no ' +
+          'platform fonts. Stage it with `1c fonts mirror --repo <google/fonts> --quality 9`.',
+      )
+      break
+    case 'unknown':
+      lines.push('platform fonts: unknown — the deploy record could not be read')
+      break
+  }
+  for (const d of report.destinations) {
+    lines.push(`  ${d.name.padEnd(28)} ${d.state === 'current' ? 'current' : since(d)}`)
+  }
+  if (report.outcome === 'blocked') {
+    for (const m of report.missing.slice(0, 5)) lines.push(`  not staged: ${m}`)
+    if (report.missing.length > 5) lines.push(`  …and ${report.missing.length - 5} more`)
+    lines.push(`  Stage them first: ${restageHint(report.missing)}`)
+  }
+  if (report.delivery) lines.push(formatPublishReport(report.delivery))
+  return lines.join('\n')
+}
+
+/**
+ * [[REQ-412]] — the decision as a capability-report row, in the shape
+ * `bin/deploy.d/lib/probe.mjs` prints, so the fonts appear in the ONE place an
+ * operator reads what this deployment can and cannot do.
+ */
+export function fontsCapabilityRow(report: FontsDeployReport): Record<string, unknown> {
+  const fresh = ['unchanged', 'deployed', 'no-mirror', 'no-store'].includes(report.outcome)
+  const verdict: Record<FontsDeployOutcome, string> = {
+    unchanged: 'capable',
+    deployed: 'capable',
+    'would-deploy': 'would deploy',
+    stale: 'STALE',
+    blocked: 'BLOCKED',
+    unstaged: 'absent',
+    unknown: 'unproven',
+    'no-mirror': 'absent',
+    'no-store': 'absent',
+  }
+  return {
+    credential: 'platform fonts',
+    verdict: verdict[report.outcome],
+    can: fresh && report.objects > 0 ? [`serve the ${report.objects} mirrored objects in fonts/platform.json`] : [],
+    cannot: fresh
+      ? []
+      : [formatFontsDeployReport({ ...report, delivery: undefined }).split('\n')[0].replace(/^platform fonts: /, '')],
+    expiry: 'n/a — a font mirror does not expire; it is compared with the manifest on every deploy',
+    effect: fresh
+      ? ''
+      : 'pages may render fallback faces for any font the manifest changed since the last font deploy',
   }
 }
 

@@ -66,18 +66,33 @@
 # is safe to look at. A secret hook script therefore contains the name and the
 # push, never the value; see bin/deploy.d/secrets/README.md.
 #
-# THE FONT MIRROR IS A TARGET, NOT A HOOK ([[REQ-315]]). Two apps serve
-# `_fonts/…` but there is ONE bucket and the mirror is not per-app, so running it
-# as a hook would re-read and re-hash 1.35GB once per app to transfer nothing the
-# second time. `--fonts` is therefore its own invocation and deploys the mirror
-# and NOTHING ELSE: a font corpus and a Worker have completely different costs
-# and cadences, and naming what you want moved is cheaper than a flag that
-# silently adds an hour to a code deploy. `bin/deploy` with no flag still means
-# the apps.
+# THE FONT MIRROR SHIPS WITH EVERY DEPLOY, WHEN IT HAS CHANGED ([[REQ-412]]).
+# Before the first app, `1c fonts deploy` compares `fonts/platform.json`'s object
+# set (the sha256 the mirror recorded for every font) with the record the target
+# holds of its last font deploy — one object in the bucket beside the fonts — and
+# delivers only when they differ. Same → one line, `platform fonts: unchanged`,
+# and nothing else; no font byte is read to decide. Different, or no record →
+# the existing delivery (`1c fonts publish` to the cloud, `1c fonts seed` to the
+# dev stores of the apps being deployed), which sends only objects whose digest
+# differs and writes the record last. FONTS GO FIRST, so a new Worker never
+# serves a page whose fonts have not arrived; and a changed mirror that is not
+# fully staged STOPS the deploy before anything ships, naming `1c fonts mirror`.
+# The decision is printed and appears in the capability report.
 #
-#   --fonts --env production   `1c fonts publish` — the cloud bucket, over the R2
-#                              REST API, with the CLOUDFLARE_API_TOKEN the rest
-#                              of the release toolset already uses.
+# This replaces [[REQ-315]]'s "naming what you want moved": that was about not
+# re-hashing 1.35GB on every code deploy, and change is now detected from the
+# manifest instead of the bytes — so nobody has to remember the fonts after a
+# font fix (EPIC-19, 2026-10-19: a fixed encoder sat undeployed behind a code
+# deploy that never touched the dev stores). Staging the mirror (`1c fonts
+# mirror`) is still the operator's step; deploy ships only what is staged.
+#
+#   --no-fonts                 skip the delivery for an emergency code-only
+#                              deploy. The check still runs, and warns when the
+#                              fonts are in fact stale.
+#   --fonts --env production   the fonts and NOTHING ELSE: `1c fonts publish` —
+#                              the cloud bucket, over the R2 REST API, with the
+#                              CLOUDFLARE_API_TOKEN the rest of the release
+#                              toolset already uses.
 #   --fonts --env dev          `1c fonts seed` — the miniflare store `wrangler
 #                              dev` reads, on this machine. The same prefix and
 #                              the same key function, so `r2PlatformFonts(
@@ -89,7 +104,8 @@
 #   bin/deploy --dry-run             # rehearse everything
 #   bin/deploy --env staging control-app
 #   bin/deploy --env dev             # the LOCAL dev environment — a snapshot, not an upload
-#   bin/deploy --fonts               # the platform font mirror, to the cloud
+#   bin/deploy --no-fonts            # an emergency code-only deploy (warns if fonts are stale)
+#   bin/deploy --fonts               # the platform font mirror only, to the cloud
 #   bin/deploy --fonts --env dev     # …and to local dev, where the work is done
 #   bin/deploy --secrets-file ~/Documents/secrets/1c.dev.env
 #
@@ -128,6 +144,7 @@ cd "$repo_root"
 dry_run=0
 env_name="production"
 fonts=0
+no_fonts=0
 requested=()
 
 while [[ $# -gt 0 ]]; do
@@ -138,6 +155,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --fonts)
       fonts=1
+      shift
+      ;;
+    --no-fonts)
+      no_fonts=1
       shift
       ;;
     --env)
@@ -152,7 +173,7 @@ while [[ $# -gt 0 ]]; do
       cat <<'EOF'
 bin/deploy — deploy the Workers, and report what moved.
 
-  bin/deploy [--dry-run] [--env <name>] [app...]
+  bin/deploy [--dry-run] [--no-fonts] [--env <name>] [app...]
   bin/deploy --fonts [--dry-run] [--env production|dev] [app...]
 
   --secrets-file PATH   load PATH's KEY=value lines (dotenv, as the dev servers
@@ -182,8 +203,18 @@ Environments select a TARGET — how to ship, not just what to configure:
 The hooks, their order, DEPLOY_ENV and the capability report are identical
 whichever target is selected; only the last step differs.
 
-`--fonts` deploys the staged platform font mirror AND NOTHING ELSE — a 1.35GB
-corpus and a Worker move on different schedules, so each is named. At
+Every deploy ships the platform font mirror FIRST, when — and only when — it has
+changed since the last font deploy to that target. fonts/platform.json is
+compared with the record the bucket (or dev store) holds of its last font
+deploy; no font byte is read to decide, so an unchanged mirror costs one request
+and prints `platform fonts: unchanged`. A changed mirror is delivered before any
+app (`1c fonts publish` to the cloud, `1c fonts seed` to the dev stores of the
+apps being deployed), and one that is not fully staged stops the deploy before
+anything ships. `--dry-run` says whether the fonts would move, and how many
+objects. `--no-fonts` skips the delivery for an emergency code-only deploy, and
+warns when the fonts were in fact stale.
+
+`--fonts` deploys the staged platform font mirror AND NOTHING ELSE. At
 `--env production` that is the cloud R2 bucket; at `--env dev` it is the
 miniflare store `wrangler dev` reads on this machine, under the same prefix and
 the same key function, so local dev serves the same bytes through the same code.
@@ -292,6 +323,10 @@ deploy_fonts() {
 # BEFORE THE CAPABILITY REPORT IS EVEN CREATED, because no hook runs on this
 # path and a report with no rows is not a report — it is an empty section that
 # reads as a clean bill of health for probes that never happened.
+if [[ $fonts -eq 1 && $no_fonts -eq 1 ]]; then
+  echo "bin/deploy: --fonts deploys only the fonts and --no-fonts skips them — pick one." >&2
+  exit 1
+fi
 if [[ $fonts -eq 1 ]]; then
   if [[ $dry_run -eq 1 ]]; then
     echo "DRY RUN — what would move is reported, and nothing is written."
@@ -495,6 +530,24 @@ if [[ $dry_run -eq 1 ]]; then
   echo "DRY RUN — hooks are told not to change anything, and nothing is uploaded."
   echo "Capability probes are reads, so they run anyway and report as usual."
 fi
+
+# THE FONTS, ONCE, BEFORE THE FIRST APP ([[REQ-412]]). Once and not per app
+# because the cloud bucket is one bucket; at the local target the apps being
+# deployed are passed so only their stores are checked. After the workerd guard,
+# because a seed opens `.wrangler/state`. A changed mirror that is not fully
+# staged exits non-zero here, under `set -e`, before any hook or upload.
+step "platform fonts"
+fonts_cmd=("$repo_root/bin/1c" fonts deploy --target "$target")
+if [[ "$target" == "local" ]]; then
+  fonts_cmd+=(--app "$(IFS=,; echo "${targets[*]}")")
+fi
+if [[ $no_fonts -eq 1 ]]; then
+  fonts_cmd+=(--check)
+  echo "  --no-fonts: checking only — nothing is delivered"
+elif [[ $dry_run -eq 1 ]]; then
+  fonts_cmd+=(--dry-run)
+fi
+DEPLOY_CAPABILITY_REPORT="$capability_report" "${fonts_cmd[@]}"
 
 deployed=()
 for app in "${targets[@]}"; do

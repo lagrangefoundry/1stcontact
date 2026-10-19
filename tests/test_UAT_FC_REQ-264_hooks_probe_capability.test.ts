@@ -262,6 +262,10 @@ describe('REQ-264 — a supplied credential is probed before it is pushed', () =
       mkdirSync(path.join(root, 'stub'), { recursive: true })
       writeFileSync(path.join(root, 'stub', 'npx'), '#!/usr/bin/env bash\nexit 0\n')
       chmodSync(path.join(root, 'stub', 'npx'), 0o755)
+      // The font step ([[REQ-412]]) is `bin/1c fonts deploy`, another
+      // collaborator this fixture does not prove — stubbed beside `npx`.
+      writeFileSync(path.join(root, 'bin', '1c'), '#!/usr/bin/env bash\nexit 0\n')
+      chmodSync(path.join(root, 'bin', '1c'), 0o755)
 
       const run = spawnSync('bash', [path.join(root, 'bin', 'deploy'), '--dry-run'], {
         encoding: 'utf8',
