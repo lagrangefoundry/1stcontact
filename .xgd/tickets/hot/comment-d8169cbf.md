@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:19:42.028028+00:00'
+updated_at: '2026-10-19T00:26:15.730383+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9138,5 +9138,11 @@ I've written it into **BUG-229** (still `draft`):
 - **Other businesses should work.** Only this conversation's junction is affected. A quick test on another business would confirm it's contained.
 - **Don't delete or reset Bob's salon 2's junction.** It's the only copy of the last few hours.
 - **BUG-229 should go before REQ-409.** It's small now that the cause is pinned down, and REQ-409's longer, self-continuing turns write more into exactly the path that's broken. REQ-409 itself is ready whenever you want it.
+
+<!-- xgd-turn id="96b85434-e96b-4e15-b253-5361aac66d29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:26:14.610772+00:00" -->
+#### You
+please read the question from BUG-229 - I don't think images should appear literally in the chat feed?
 
 <!-- xgd-chat-end -->
