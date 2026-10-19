@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:15:17.961234+00:00'
+updated_at: '2026-10-19T00:17:40.624746+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9100,5 +9100,13 @@ It has four parts:
 The tests cover each part: an automatic continuation with no permission question, a third continuation that doesn't start, a builder replaced with the right hand-over, and the spend ceiling ending the work cleanly.
 
 One caution on order: build this **after BUG-229**. Every turn on Bob's salon 2 is failing to save at the moment, and longer self-continuing turns would add more unsaved work on top.
+
+<!-- xgd-turn id="e6d48979-eb68-4b18-b7fe-7b5915137f44-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:17:39.569225+00:00" -->
+#### You
+ok 409 ready to go.
+
+I built and deployed the latest code to dev and now I get nothing out of the AI chat except: *Unexpected token 'g', "guWid6rN1D"... is not valid JSON*
 
 <!-- xgd-chat-end -->
