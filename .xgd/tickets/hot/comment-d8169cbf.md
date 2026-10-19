@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:27:06.193387+00:00'
+updated_at: '2026-10-19T00:39:02.495427+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9167,5 +9167,11 @@ I'll put the answer to question 3 on the ticket so that session sees it.
 I've added that answer to BUG-229, so its session will pick it up: low detail really means low, the root fix stays, and image references are left for a later ticket.
 
 The one thing that session is waiting on is your go-ahead for the recovery. It would stop dev, back up the Durable Object file, and reset the one watermark so the missing turns get saved.
+
+<!-- xgd-turn id="d0e4d17f-2dc8-4bd0-8b45-dc79df169cb4-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:38:50.146004+00:00" -->
+#### You
+**Later, as its own ticket:** store images in the junction *by reference <-- No lets just fix this now please*
 
 <!-- xgd-chat-end -->
