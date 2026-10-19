@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T17:44:02.994977+00:00'
+updated_at: '2026-10-19T20:18:30.484032+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9412,5 +9412,11 @@ Then hard-refresh the browser (Cmd+Shift+R), because it may have cached the bad 
 **Before you publish,** the same reseed is needed for production: `bin/deploy --fonts --env production`, with the same mirror step first. Otherwise live sites keep the broken files.
 
 Also good news: Bob's salon 2's latest turn completed normally and was saved, so BUG-229's fix looks to be working.
+
+<!-- xgd-turn id="36b5e5b5-5537-4927-bb1e-9a2e69022c29-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T20:18:28.326200+00:00" -->
+#### You
+can we make the standard deployment deploy fonts if they have changed....ticket for this please?
 
 <!-- xgd-chat-end -->
