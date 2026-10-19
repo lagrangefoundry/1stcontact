@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T01:16:48.443601+00:00'
+updated_at: '2026-10-19T01:17:38.689643+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9252,5 +9252,17 @@ If you'd rather keep its offset-map plan for answer 1, or use `jpeg-js` straight
 <!-- xgd-chat role="user" ts="2026-10-19T01:16:44.866447+00:00" -->
 #### You
 BUG-229 has more questions - your thoughts?
+
+<!-- xgd-turn id="a1399219-4fd8-4403-915a-e0b24502bb04-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T01:17:37.532696+00:00" -->
+#### Claude
+The transcript still ends at the three questions I answered. Checking the ticket body for anything newer.
+
+I can't find any new questions on BUG-229. The last change to the ticket was my answers at 17:58. Its transcript was last saved at 17:56, and it ends on the three questions I answered: the offset map, where to snap a bad save marker, and the JPEG encoder.
+
+So either the session's new questions haven't been saved to the ticket yet, or you're reading the earlier set. A dashboard chat is only written to the ticket when its turn ends, so a reply that's still being written won't be there yet.
+
+If you paste the new questions here, I'll answer them. Or wait until that session's turn finishes, then tell me and I'll read them from the ticket.
 
 <!-- xgd-chat-end -->
