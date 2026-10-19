@@ -5,10 +5,10 @@ type: request
 title: 'bin/deploy: deploy the platform fonts automatically when the mirror has changed'
 created_by: EPIC-19
 created_at: '2026-10-19T20:20:09.663139+00:00'
-updated_at: '2026-10-19T20:47:04.269951+00:00'
+updated_at: '2026-10-19T21:00:11.408057+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 3
