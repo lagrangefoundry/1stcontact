@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:23:11.389769+00:00'
+updated_at: '2026-10-19T22:43:41.679138+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9763,5 +9763,11 @@ The builder publishes in streaming mode, so it can show progress while pictures 
 - **Code to follow later:** the "no public address" fact in the consultant's per-turn notice, together with the novice-checklist facts from Finding 21, since they're the same kind of change.
 
 Shall I go ahead?
+
+<!-- xgd-turn id="15336ff8-bc44-4012-ab64-5670721cd8b1-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T22:43:38.204359+00:00" -->
+#### You
+yes please
 
 <!-- xgd-chat-end -->
