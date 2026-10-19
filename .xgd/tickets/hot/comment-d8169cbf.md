@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:11:35.624332+00:00'
+updated_at: '2026-10-19T00:13:04.645022+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9025,5 +9025,41 @@ I'd hold further Bob's salon 2 testing until BUG-229 lands. Each turn there adds
 <!-- xgd-chat role="user" ts="2026-10-19T00:11:33.300823+00:00" -->
 #### You
 I am definitely thinking that we should increase the execution budgets though - it is a poor user experience when the AI ends with a half finished piece of work and has to ask permission to continue. This user is not paying the token bill, I am - we need to give them an outcome not confusion.
+
+<!-- xgd-turn id="217df8f7-1197-4a9f-be51-c25e5a65eedd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:13:03.234051+00:00" -->
+#### Claude
+Agreed. The person in the chat isn't the one paying, so stopping halfway to save tokens just hands them the cost in confusion. Let me find what the budgets are set to now.
+
+Before proposing numbers, I'll check which limits actually fired in the recent runs.
+
+Agreed, and I'd turn that into a product rule: **a budget is a safety net against runaway, not a way to ration the client's work.** When a turn runs out, the system should carry on by itself, not ask the client whether it may.
+
+## What the budgets are now
+
+| | model | calls per turn | time per turn | context |
+|---|---|---|---|---|
+| **Consultant** | Opus 5.5 | 50 (framework default; we never set it) | 30 min (`turn-clock.json`) | 1M window |
+| **Builder** | Haiku 4.5 | 100 | 10 min | 200k window, stopped at about 150–168k |
+
+The one that has actually been cutting work short is the **builder's context**. It fired three times in the recent runs, BUG-212's half-finished brief among them. That limit comes from the Haiku 4.5 model itself, so raising our setting can't fix it. The consultant's 50 calls is also low for a first draft that commissions, checks and screenshots.
+
+## What I'd change
+
+1. **The consultant gets 200 calls per turn, and 60 minutes.** On the Worker, time isn't the real constraint while the browser stays connected; CPU is, and `wrangler.toml` already raises that. The durable junction (REQ-307) now protects a long turn's records.
+2. **The builder gets 200 calls and 20 minutes.** That doesn't touch the context limit, which needs one of these:
+   - **smaller jobs.** REQ-411's section scopes turn one huge brief into several small builders that can run together, and that's already landing;
+   - **a builder model with a larger window,** such as Haiku 5.5 or Sonnet 5 at 1M. I'd check Haiku 5.5's window and price before choosing. Sonnet costs a good deal more per token, and the builder is where most of the tokens go.
+3. **The behaviour change, which matters more than the numbers: never stop to ask permission.**
+   - When a turn hits a budget mid-task, the host starts a continuation turn by itself, carrying the work in progress, up to a cap of two continuations.
+   - The client sees *"Still working on the first draft…"*, not a question.
+   - She stops and waits only for a decision that's the client's to make: taste, content or approval.
+   - A builder that runs out is recommissioned with what's left, the same way.
+4. **The real backstop is spend, not calls.** A per-turn ceiling in dollars, say $10, is the actual protection against a runaway loop. It's visible to you, never to the client. When it's reached, she finishes cleanly and says what's left.
+
+This is REQ-409's remaining question, now settled by your decision that the outcome matters more than the token bill. So I'd fold it all into **REQ-409**, which is still at `draft`, rather than file a new ticket.
+
+Two numbers to confirm: **$10 per turn** as the spend ceiling, and **two automatic continuations** before she has to stop. And do you want the builder-model question (Haiku 4.5 vs a larger-window model) settled in that ticket, or kept separate since it's mainly a cost decision?
 
 <!-- xgd-chat-end -->
