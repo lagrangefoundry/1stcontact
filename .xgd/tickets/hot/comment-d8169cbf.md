@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T17:43:05.018349+00:00'
+updated_at: '2026-10-19T17:44:02.994977+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9384,5 +9384,33 @@ That gives the next run streaming that works properly in dev, builders that can 
 <!-- xgd-chat role="user" ts="2026-10-19T17:43:04.132719+00:00" -->
 #### You
 ok I am still having problems with font display can you take a look BUG-227 was supposed to fix it. It is implemented, I rebuilt and deployed and restarted the system - the screenshot tool seems to show the same thing so I think its a fundamental display problem - see the last turn in the Bob'sSalon 2 sitte
+
+<!-- xgd-turn id="4faee68c-5257-4771-b14c-b4d178064e51-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T17:43:59.504549+00:00" -->
+#### Claude
+I'll read BUG-227 and the last turn of Bob's salon 2.
+
+It's not a display problem: **the fix hasn't reached the font files yet.** BUG-227 fixed the code that *writes* font files, but the files your dev server serves are the broken ones from 24 September. In your dev store, BebasNeue-Regular is 24,717 bytes and unpadded, exactly the file BUG-227 showed browsers reject. Only 892 of 3,572 platform fonts there are well-formed. The ticket says the existing files have to be regenerated and reseeded by hand, and a normal build and deploy does neither.
+
+Run these from `1stcontact`, with the dev server up or down, either works:
+
+```
+node tools/generate/bin/1c.mjs fonts mirror --repo ../google-fonts --quality 9
+bin/deploy --fonts --env dev
+bin/dev restart dev
+```
+
+1. **The mirror** re-encodes only the malformed files. `--quality 9` is the fast setting `bin/deploy` recommends for a dev seed.
+2. **The fonts deploy** copies them into the dev server's local store.
+3. **The restart** makes sure nothing serves a cached copy.
+
+Then hard-refresh the browser (Cmd+Shift+R), because it may have cached the bad files too.
+
+**To check it worked:** the Gig poster look's headlines should be tall and narrow (Bebas Neue), Shop window chunky with slab serifs (Alfa Slab One), and Gold sign elegant (DM Serif Display). The consultant's screenshots should match now too, because BUG-227's other half, serving fonts to the screenshot browser, is already in the code you deployed.
+
+**Before you publish,** the same reseed is needed for production: `bin/deploy --fonts --env production`, with the same mirror step first. Otherwise live sites keep the broken files.
+
+Also good news: Bob's salon 2's latest turn completed normally and was saved, so BUG-229's fix looks to be working.
 
 <!-- xgd-chat-end -->
