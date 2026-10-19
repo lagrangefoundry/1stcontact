@@ -5,16 +5,17 @@ type: request
 title: 'Execution budgets: deliver an outcome, never stop half-done to ask permission'
 created_by: xgd
 created_at: '2026-10-18T18:25:12.050358+00:00'
-updated_at: '2026-10-19T00:14:57.474329+00:00'
+updated_at: '2026-10-19T00:14:58.829131+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: priority
 status: draft
 fields:
   auto_merge_back: true
   needs_review: false
-  priority: medium
+  priority: high
   epic_parent: epic-95bc3b15
   chat_comment: comment-0bb9ad56
+  story_points: 5
 ---
 
 ## What I was trying to achieve
