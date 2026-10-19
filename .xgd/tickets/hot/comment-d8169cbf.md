@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:59:45.616086+00:00'
+updated_at: '2026-10-19T21:00:39.237722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9587,5 +9587,74 @@ This is still a discussion don't do anything yet I want to keep talking some tho
  - the worker's updates would need to be managed in this, but that feels like a detail.
 
 3) Reacting to uploads and edits - the way we display uploads is weird - they appear immediately in the chat but the AI does not notice them until we add a message. They should either appear as "attachments" in the text entry box (this is what Chat gpt does) or they should trigger short turns themselves - I think the former.
+
+<!-- xgd-turn id="fd4ea694-7b1b-4fe2-bf75-909f673c6491-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T21:00:35.269937+00:00" -->
+#### Claude
+Agreed on steering, and having both is right: they're the same "show the client this" action, used two ways. Notes on your three ideas below.
+
+## Steering: both ways
+
+- **Switching the view itself** is the consultant's move when it has just made something to look at: *"The three looks are ready. I've put them in front of you."*
+- **A link in the chat** is for when the client should choose the moment: *"[Open the story board](…) when you have a minute"*. In the transcript, links are better because they keep working after a reload. An automatic switch only happens once.
+- **One guard on switching:** if the client is in Edit mode with unsaved changes, or is reading a comparison site, the consultant offers a link instead of switching. Changing the view under someone mid-edit is the quickest way to lose their trust.
+
+## 1. Turns that end half-finished
+
+Two different causes produce those frustrating endings, and they need different fixes.
+
+- **Running out of budget.** REQ-409 covers this: higher limits, and a turn that runs out continues by itself instead of asking. When I checked that ticket on the 19th it was ready to build but not yet built.
+- **Asking permission for the obvious next step.** "Here's what I'd like to do, is that OK?" is the consultant passing the decision back when there's nothing to decide. My earlier "end each turn by proposing the next step" was incomplete. The rule should be:
+  - **Finish a stage you can stand behind**: something whole the client can react to, like a draft, a set of looks, or a fixed problem. Not half a pass.
+  - **Then say what's next and do it**, unless there's a real choice. *"Next I'm making the logo bigger, which owners always want once it's live. Tell me if you'd rather I did something else first."* The client can redirect, but doesn't have to approve.
+  - **Ask only when the answer can change what gets built**, such as which look, which order, or what's true about the business.
+
+  That keeps the size of each stage reasonable without finishing the site in one go.
+
+## 2. The worker and the talker
+
+I think this is the best version of the two-agent idea so far. It keeps what the coordinator design was trying to get (the client isn't blocked, and the conversation keeps going during a build), and drops what went wrong with it: a second personality, a second voice and register, a cheaper model holding the conversation, and the naming problem. To the client it's one consultant that keeps listening while it builds. That also fits DOC-66.
+
+How I see it working:
+
+- **The fork.** When a turn starts building, the running turn becomes the worker. A message from the client then goes to a talker session started from the same history. Most of that history is already cached, so the talker's first reply is fairly cheap.
+- **What the talker can do.** It can hold the discovery conversation, add questions to the panel, add notes to the story board, record decisions, and show the client a view or a link. It can't write to the site, start builders, or change anything the worker has locked. EPIC-24's locks already enforce that last part.
+- **Information flows both ways while they run in parallel.**
+  - **Talker to worker:** what the talker heard reaches the worker between its tool calls, through the per-request signals channel LF REQ-180 already built: *"While you've been building, the client said they'd rather lead with the group shot."* The worker decides whether to act on it now or after it finishes.
+  - **Worker to talker:** the talker can see the worker's progress notes and milestones, so *"how's it going?"* gets a real answer, not a guess.
+- **Interrupting.** The talker can stop the worker, but only when the client asks it to, as with the stop button. A client saying "I don't like this direction" should get *"Shall I stop the build and rethink?"*, not an automatic stop.
+- **Merging.** When the worker finishes or is stopped, the two sets of messages are combined into one transcript in time order, and the next turn starts from it as a single agent again. The worker's live context can't be changed after the fact, but it doesn't have to be. It has already received the talker's points as signals, and the next turn starts from the combined transcript.
+
+Three risks to design for:
+
+1. **The talker promising things.** It could say *"Sure, I'll make it blue"* while the worker is building it green. The rule: the talker records and passes requests on (*"I've passed that on, and it'll be in the next pass"*). It never promises a change to the site during a build. Only the worker, or the merged agent afterwards, does that.
+2. **Two voices that don't match.** If it's the same model with the same priming and the same history, it should sound the same. I'd keep the talker on the same model to start with. A cheaper talker is something to tune later, not part of the design.
+3. **Cost.** Talker turns are extra spend. But each one replaces a client sitting idle for 15 minutes, and that's the cost your decision about turn budgets says matters.
+
+Where it belongs: it's a framework capability, because it's about how a session is run, so it would be a lagrange-framework epic. It overlaps heavily with EPIC-7 (getting messages into a running turn) and with the two-speed room from EPIC-2, and could replace parts of both. The talker-to-worker signals and the stop control are already built. The new parts are the fork, the talker's restricted tools, and the merge.
+
+## 3. Uploads as attachments
+
+Agreed, the composer is the right place. Today a dropped file shows up in the chat as if it were a message, but the consultant doesn't see it until the client sends the next message, so it looks ignored. As attachments:
+
+- **The file appears as a chip in the composer**: *IMAGE-12 · for the site*. Choosing whether it's for the site or for reference happens right there, which also covers what BUG-196 did on the panel.
+- **It goes out with the next message**, so the consultant sees the file and the words together: *"here's the shopfront, can we use this at the top?"*.
+- **Sending files with no text is allowed**, and gets a short reply: *"Got it, four portraits. Want them in the team section?"*.
+- **Uploads answering a panel question** stay as they are. They're answers, and they reach the consultant through the notice it gets each turn.
+- **The client's own edits in Edit mode** don't need a reply of their own either. The consultant already hears about them at the start of each turn.
+
+## Once you say go
+
+1. **Prompt changes, no ticket:**
+   - finish a stage you can stand behind, then state the next step and start it, asking only when there's a real choice;
+   - keep a checklist of what a novice won't think to raise;
+   - listen actively and cover the main parts of the business's story.
+2. **One 1stcontact REQ for steering:** the consultant switches the view, with the editing guard, plus view links in the chat.
+3. **One 1stcontact REQ for attachments in the composer.**
+4. **A lagrange-framework epic for the worker and the talker**, written as a design to discuss first, and cross-linked with EPIC-7.
+5. **A finding on EPIC-19** covering the Bob's salon 2 evidence and these decisions.
+
+Is REQ-409's automatic continuation the right home for the budget half of point 1, or do you want it handled differently?
 
 <!-- xgd-chat-end -->
