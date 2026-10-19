@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:14:29.723429+00:00'
+updated_at: '2026-10-19T00:15:17.961234+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9067,5 +9067,38 @@ Two numbers to confirm: **$10 per turn** as the spend ceiling, and **two automat
 <!-- xgd-chat role="user" ts="2026-10-19T00:14:29.591773+00:00" -->
 #### You
 Lets try it - can we not just call Haiku again?
+
+<!-- xgd-turn id="b273a234-f17d-4e43-a368-61e287addfbe-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:15:16.362306+00:00" -->
+#### Claude
+Yes, and that's the cheaper answer. A new Haiku session starts with an empty 200k window, so "ran out of context" simply means "hand the rest to a fresh builder". No model change and no extra cost per token. All the hand-over needs is:
+
+- **what's already done,** taken from the host's own record of what changed, not the tired builder's summary. That keeps the next builder from redoing or undoing work;
+- **what's left of the brief,** with the original checks;
+- **the same file scope,** passed on as the first builder releases it.
+
+The host can do this by itself, so neither the consultant nor the client sees a pause. Writing it all into REQ-409 now.
+
+Done. I've rewritten **REQ-409** around your decision and retitled it *"Execution budgets: deliver an outcome, never stop half-done to ask permission"*. It's still `draft`, now high priority and 5 points, and it's noted on the epic. Your quote heads the new section, and it replaces the measure-first plan.
+
+It has four parts:
+1. **Higher budgets:**
+
+   | | now | new |
+   |---|---|---|
+   | consultant, calls per turn | 50 | 200 |
+   | consultant, time per turn | 30 min | 60 min |
+   | builder, calls per run | 100 | 200 |
+   | builder, time per run | 10 min | 20 min |
+
+   The builder stays on Haiku 4.5.
+2. **A turn that runs out carries on by itself.** The host starts a continuation turn with no client message, up to twice per client message. The client sees *"Still working on…"*, never a question. She stops only for decisions that are the client's to make.
+3. **A builder that runs out is replaced by a fresh Haiku,** which is your suggestion. The new session has a clean window and is given the host's own record of what's already done, the rest of the brief with its checks, and the same scope. That can happen up to twice, and the consultant gets one combined result. She only hears "not finished" if it still isn't done after that.
+4. **A $10 per-turn spend ceiling is the real backstop.** It counts her continuations and every builder she starts. It's visible to you, not the client, and it's a setting, not a constant.
+
+The tests cover each part: an automatic continuation with no permission question, a third continuation that doesn't start, a builder replaced with the right hand-over, and the spend ceiling ending the work cleanly.
+
+One caution on order: build this **after BUG-229**. Every turn on Bob's salon 2 is failing to save at the moment, and longer self-continuing turns would add more unsaved work on top.
 
 <!-- xgd-chat-end -->
