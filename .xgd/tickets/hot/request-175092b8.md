@@ -5,10 +5,10 @@ type: request
 title: 'bin/deploy: deploy the platform fonts automatically when the mirror has changed'
 created_by: EPIC-19
 created_at: '2026-10-19T20:20:09.663139+00:00'
-updated_at: '2026-10-19T20:46:28.157080+00:00'
+updated_at: '2026-10-19T20:46:58.352695+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 3
@@ -16,6 +16,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-256a33ab
+  commits:
+  - working_sha: e4d251b9875a3d10404771ce422e79d6236dd0ac
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c98639bc64f08d3375c7f2f40cf3753d89b1054b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.543
 ---
 
 ## What the operator sees
