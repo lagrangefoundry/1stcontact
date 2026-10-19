@@ -28,6 +28,7 @@ import { CLOUDFLARE_API, resolveAccountId } from '../cli/cloudflare-account'
 import { CommandError, type ErrorCode } from '../cli/errors'
 import { LICENCE_INDEX_FILE, loadPlatformManifest, mirrorDir } from './mirror'
 import { sha256 } from './upstream'
+import { DEPLOYED_RECORD_KEY, deployedRecord, mirrorDigests, parseDeployedRecord, type DeployedRecord } from './deployed'
 
 /** One object the mirror owes the origin. */
 export interface PlatformObject {
@@ -162,18 +163,7 @@ export async function runPublish(options: PublishOptions): Promise<PublishReport
     }
   }
 
-  const apiToken = env.CLOUDFLARE_API_TOKEN
-  if (!apiToken) {
-    throw new PublishError(
-      'Publishing the font mirror needs R2: set CLOUDFLARE_API_TOKEN (the same credential ' +
-        '`pnpm deploy:*` and `1c kb build` use). The account is discovered from the token, so ' +
-        'CLOUDFLARE_ACCOUNT_ID is only needed to override that.',
-      'ENVIRONMENT',
-    )
-  }
-  const accountId = await resolveAccountId(apiToken, env)
-  const base = `${CLOUDFLARE_API}/accounts/${accountId}/r2/buckets/${PLATFORM_BUCKET}/objects`
-  const auth = { Authorization: `Bearer ${apiToken}` }
+  const cloud = await cloudBucket(env)
 
   let uploaded = 0
   let unchanged = 0
@@ -183,14 +173,14 @@ export async function runPublish(options: PublishOptions): Promise<PublishReport
     const body = readFileSync(object.file)
     bytes += body.length
     const key = platformFontKey(object.path)
-    const url = `${base}/${encodeURIComponent(key)}`
+    const url = cloud.url(key)
 
     // The digest is carried as object metadata on the way up and read back on the
     // way in, so "is this object already the right bytes" is one HEAD rather than a
     // download — which is what makes a resumed publish cheap instead of a second
     // full transfer.
     const digest = sha256(body)
-    const head = await fetch(url, { method: 'HEAD', headers: auth })
+    const head = await fetch(url, { method: 'HEAD', headers: cloud.auth })
     if (head.ok && head.headers.get('x-amz-meta-sha256') === digest) {
       unchanged += 1
       continue
@@ -199,7 +189,7 @@ export async function runPublish(options: PublishOptions): Promise<PublishReport
     const put = await fetch(url, {
       method: 'PUT',
       headers: {
-        ...auth,
+        ...cloud.auth,
         'content-type': object.contentType,
         'x-amz-meta-sha256': digest,
       },
@@ -215,7 +205,61 @@ export async function runPublish(options: PublishOptions): Promise<PublishReport
     progress(`  ↑ ${object.path}`)
   }
 
+  // [[REQ-412]] — THE RECORD, LAST, and only for a whole mirror: it is what lets
+  // the next `bin/deploy` skip the fonts, so it must never describe a half.
+  if (missing.length === 0) {
+    const put = await fetch(cloud.url(DEPLOYED_RECORD_KEY), {
+      method: 'PUT',
+      headers: { ...cloud.auth, 'content-type': 'application/json' },
+      body: JSON.stringify(deployedRecord(mirrorDigests(manifest))),
+    })
+    if (!put.ok) {
+      throw new PublishError(
+        `Every font landed, but the deploy record could not be written (HTTP ${put.status}). ` +
+          'The next deploy will re-check every object rather than skip; re-running fixes it.',
+      )
+    }
+  }
+
   return { bucket: PLATFORM_BUCKET, uploaded, unchanged, missing, bytes, dryRun: false }
+}
+
+/** The platform bucket over the R2 REST API: an object URL and the header that authorises it. */
+interface CloudBucket {
+  url(key: string): string
+  auth: Record<string, string>
+}
+
+/**
+ * Open the cloud bucket — the one credential and the one account discovery both
+ * the publish and [[REQ-412]]'s deploy check use.
+ */
+async function cloudBucket(env: NodeJS.ProcessEnv): Promise<CloudBucket> {
+  const apiToken = env.CLOUDFLARE_API_TOKEN
+  if (!apiToken) {
+    throw new PublishError(
+      'Publishing the font mirror needs R2: set CLOUDFLARE_API_TOKEN (the same credential ' +
+        '`pnpm deploy:*` and `1c kb build` use). The account is discovered from the token, so ' +
+        'CLOUDFLARE_ACCOUNT_ID is only needed to override that.',
+      'ENVIRONMENT',
+    )
+  }
+  const accountId = await resolveAccountId(apiToken, env)
+  const base = `${CLOUDFLARE_API}/accounts/${accountId}/r2/buckets/${PLATFORM_BUCKET}/objects`
+  return { url: (key) => `${base}/${encodeURIComponent(key)}`, auth: { Authorization: `Bearer ${apiToken}` } }
+}
+
+/**
+ * [[REQ-412]] — the record the cloud bucket holds of its last full publish, or
+ * `null` when it holds none. A failed read throws rather than answering `null`:
+ * "could not ask" is not "never published".
+ */
+export async function readCloudRecord(env: NodeJS.ProcessEnv = process.env): Promise<DeployedRecord | null> {
+  const cloud = await cloudBucket(env)
+  const got = await fetch(cloud.url(DEPLOYED_RECORD_KEY), { headers: cloud.auth })
+  if (got.status === 404) return null
+  if (!got.ok) throw new PublishError(`Could not read the font deploy record (HTTP ${got.status}).`, 'ENVIRONMENT')
+  return parseDeployedRecord(await got.text())
 }
 
 /** The licence index's mirror-relative name, as the serving origin spells it. */

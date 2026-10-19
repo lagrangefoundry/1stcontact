@@ -70,6 +70,7 @@ import { listDirs, pathExists } from '../store/fsutil'
 import { loadPlatformManifest } from './mirror'
 import { platformObjects, PLATFORM_BUCKET, PublishError, type LocalStore, type PublishReport } from './publish'
 import { sha256 } from './upstream'
+import { DEPLOYED_RECORD_KEY, deployedRecord, mirrorDigests, parseDeployedRecord, type DeployedRecord } from './deployed'
 
 /**
  * Where `wrangler dev` keeps a miniflare R2 bucket, under an app directory.
@@ -183,16 +184,7 @@ export async function runSeed(options: SeedOptions): Promise<PublishReport> {
 
   for (const store of stores) {
     progress(`  seeding ${store.app} (${store.persist})`)
-    const mf = new Miniflare({
-      modules: true,
-      // A Worker is required to open a store and is never called: this reaches
-      // past the fetch handler to the binding, which is the whole object here.
-      script: 'export default { fetch() { return new Response(null, { status: 404 }) } }',
-      r2Buckets: { [SEED_BINDING]: PLATFORM_BUCKET },
-      r2Persist: path.resolve(cwd, store.persist),
-    })
-    try {
-      const bucket = await mf.getR2Bucket(SEED_BINDING)
+    await withLocalBucket(cwd, store, async (bucket) => {
       for (const object of present) {
         const body = readFileSync(object.file)
         const digest = sha256(body)
@@ -210,12 +202,49 @@ export async function runSeed(options: SeedOptions): Promise<PublishReport> {
         })
         uploaded += 1
       }
-    } finally {
-      await mf.dispose()
-    }
+      // [[REQ-412]] — the record, last, and only for a whole mirror: the same
+      // rule `runPublish` keeps, in the store the record describes.
+      if (missing.length === 0) {
+        await bucket.put(DEPLOYED_RECORD_KEY, JSON.stringify(deployedRecord(mirrorDigests(manifest))), {
+          httpMetadata: { contentType: 'application/json' },
+        })
+      }
+    })
   }
 
   return { bucket: PLATFORM_BUCKET, uploaded, unchanged, missing, bytes, dryRun: false, stores }
+}
+
+type LocalBucket = Awaited<ReturnType<Miniflare['getR2Bucket']>>
+
+/** Open one app's local store the way `wrangler dev` does, for the length of `fn`. */
+async function withLocalBucket<T>(cwd: string, store: LocalStore, fn: (bucket: LocalBucket) => Promise<T>): Promise<T> {
+  const mf = new Miniflare({
+    modules: true,
+    // A Worker is required to open a store and is never called: this reaches
+    // past the fetch handler to the binding, which is the whole object here.
+    script: 'export default { fetch() { return new Response(null, { status: 404 }) } }',
+    r2Buckets: { [SEED_BINDING]: PLATFORM_BUCKET },
+    r2Persist: path.resolve(cwd, store.persist),
+  })
+  try {
+    return await fn(await mf.getR2Bucket(SEED_BINDING))
+  } finally {
+    await mf.dispose()
+  }
+}
+
+/**
+ * [[REQ-412]] — the record one local store holds of its last full seed, or
+ * `null`. A store that has never been created holds none, and is NOT opened to
+ * find that out: opening it would create it, which a check must not do.
+ */
+export async function readLocalRecord(cwd: string, store: LocalStore): Promise<DeployedRecord | null> {
+  if (!pathExists(path.resolve(cwd, store.persist))) return null
+  return withLocalBucket(cwd, store, async (bucket) => {
+    const object = await bucket.get(DEPLOYED_RECORD_KEY)
+    return parseDeployedRecord(object ? await object.text() : null)
+  })
 }
 
 /**
