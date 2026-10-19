@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T11:59:03.049705+00:00'
+updated_at: '2026-10-19T17:43:05.018349+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9378,5 +9378,11 @@ You're welcome. Once BUG-229 lands, I'd do these in order:
 3. **Then REQ-409,** the budgets and automatic continuation.
 
 That gives the next run streaming that works properly in dev, builders that can overlap, and saving you can rely on, so it measures what we've built rather than the bugs.
+
+<!-- xgd-turn id="4faee68c-5257-4771-b14c-b4d178064e51-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T17:43:04.132719+00:00" -->
+#### You
+ok I am still having problems with font display can you take a look BUG-227 was supposed to fix it. It is implemented, I rebuilt and deployed and restarted the system - the screenshot tool seems to show the same thing so I think its a fundamental display problem - see the last turn in the Bob'sSalon 2 sitte
 
 <!-- xgd-chat-end -->
