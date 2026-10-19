@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T23:30:43.930138+00:00'
+updated_at: '2026-10-19T23:31:30.025211+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9794,5 +9794,20 @@ Until BUG-230 lands, the consultant can describe where to go but can't give you 
 <!-- xgd-chat role="user" ts="2026-10-19T23:30:42.805631+00:00" -->
 #### You
 Can you create a bug - there is no way to dismiss the ugly yellow error banner - any error banners should have a dismiss x
+
+<!-- xgd-turn id="0e23fca8-fcb5-4038-8d90-656b1767e0e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T23:31:28.920565+00:00" -->
+#### Claude
+I've filed **BUG-231**, *"Builder banners: error banners can't be dismissed — give every actionable banner a dismiss ×"*. It's under EPIC-19 at `draft`, medium severity, 2 points, and listed on the epic.
+
+What it asks for:
+- **A dismiss × on every error or notice banner you can act on.** It's a real button that works from the keyboard, and Escape also dismisses the banner when focus is inside it.
+- **Dismissing only hides the message.** A failed publish is still unpublished, and the next failure shows a fresh banner.
+- **One shared helper adds the ×**, so no banner can end up without it.
+
+One exception I added: **banners that explain why the builder is locked stay put.** That's "this builder is not configured", the no-business banner, and the one shown while a publish is running. Each describes something that's still true and the reason you can't use the screen, so hiding it would leave a locked builder with no explanation. The ticket also says to write this rule next to the banner code, so future banners follow it.
+
+The wording of the publish failure banner itself is BUG-230's job; this ticket only adds the ×.
 
 <!-- xgd-chat-end -->
