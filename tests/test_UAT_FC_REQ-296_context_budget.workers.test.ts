@@ -599,7 +599,6 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     expect(overWorker).toBeLessThan(callerCeiling)
 
     const sessionId = await openSession('worker')
-    const nudgeRequest = overWorker + 5_000
     const client = twoSided(
       [
         metered(
@@ -613,21 +612,10 @@ describe('REQ-296 — a turn does not overflow its context', () => {
         ),
         says('The builder ran out of room; I will finish this myself.'),
       ],
-      [
-        metered({ input_tokens: overWorker }, calls('describe_page', { page: 'home' })),
-        // THE NUDGE'S TURN ([[BUG-163]]), and it ends in a TOOL CALL rather than
-        // in plain text on purpose. The guard fires on tool activity — the one
-        // moment the host knows a request has completed and another is about to be
-        // sent — so a step that only spoke would run to completion and this case
-        // could not tell a nudge that was answered from one that could only be cut
-        // off. Measured over the worker's ceiling because it is: the nudge opens a
-        // fresh turn on the same conversation, so its very first request carries
-        // the same history the first turn was stopped for.
-        metered({ input_tokens: nudgeRequest }, calls('describe_page', { page: 'home' })),
-        // A third request is what this case is about NOT happening: reaching it
-        // would mean the nudge's turn had carried on past the guard.
-        metered({ input_tokens: nudgeRequest + 5_000 }, says('Built it.')),
-      ],
+      // [[REQ-409]] — a builder stopped this way is replaced by a fresh one, up to
+      // twice, so every builder here goes over its own window on its first
+      // request. Each is a new session, so a nudge would be the only second request.
+      [metered({ input_tokens: overWorker }, calls('describe_page', { page: 'home' }))],
     )
     setModelClient(client)
 
@@ -651,7 +639,9 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     // worker sent exactly the one request of its own work, and the script's
     // second and third steps — waiting to prove a nudge had gone out — are never
     // reached.
-    expect(asked).toHaveLength(1)
+    // [[REQ-409]] — one request per builder: the first and its two replacements.
+    expect(asked).toHaveLength(3)
+    for (const req of asked) expect(turnTailText(req)).toContain('Lay out the About page as three sections.')
     expect(asked.map(turnTailText).join('\n')).not.toContain(nudgeText([WORKER_CHECK]))
 
     // AND THE CALLER WAS NOT. It carried on, was handed the delegation's result,
@@ -671,7 +661,7 @@ describe('REQ-296 — a turn does not overflow its context', () => {
     const attributed = JSON.parse((await meter(sessionId))[0].attributed!) as {
       usage: Record<string, number>
     }[]
-    expect(attributed).toHaveLength(1)
-    expect(attributed[0].usage.input_tokens).toBe(overWorker)
+    expect(attributed).toHaveLength(3)
+    for (const run of attributed) expect(run.usage.input_tokens).toBe(overWorker)
   })
 })

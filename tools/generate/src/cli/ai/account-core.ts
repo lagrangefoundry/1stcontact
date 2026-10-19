@@ -1571,8 +1571,9 @@ const HOST_RESULT_FIELDS = {
     "run. 'status' is how the worker's last turn ended: 'complete', 'aborted' or " +
     "'error'. 'reason' says why. 'calls' or 'time' means the worker ran out of its " +
     "budget of tool calls or of seconds, and 'limit' is that budget's size: whatever " +
-    "it reported (the summary may be the host's) was cut short, so ask a new delegation for " +
-    "what remains, and trust this over any check reason that names the other budget. " +
+    "it reported (the summary may be the host's) was cut short. The host has already " +
+    "handed what remained to fresh workers as far as it can ('replaced'), so this is " +
+    "work still left after that; trust this over any check reason that names the other budget. " +
     "'no_report' means no limit was reached: the worker finished without ever calling " +
     "its report, even when asked again, so nothing it said reached you except " +
     "'activity.last_words'. 'context_budget' means the host " +
@@ -1582,6 +1583,14 @@ const HOST_RESULT_FIELDS = {
     "what remains as a new, smaller delegation rather than asking it again. Any other " +
     "reason is the one the stop recorded. 'error' is the error the turn ended on, when " +
     'it errored. Tell your client which of these it was, in plain words.',
+  replaced:
+    "Present when the first worker ran out of its tool calls, its time or its context " +
+    "and the host handed what was left to a fresh worker, this many times. The host " +
+    "briefs each fresh worker from its own record of what was already written, never " +
+    "from the last worker's word. Everything else in this result is the LAST worker's, " +
+    "except 'account' and 'usage', which cover every run. If 'ended' is still present, " +
+    "the work was not finished even so: tell your client what is left and why.",
+  sessions: "With 'replaced': every worker session that ran, in order.",
   summary:
     "What the worker did, in its own words — except when it ended without a report and " +
     `said nothing, when the host writes it from its own records and it begins '${HOST_SUMMARY_LEAD}'. ` +
@@ -1689,9 +1698,12 @@ function withBriefRefusal(declaration: Untyped): Untyped {
       ...(declaration.errors ?? {}),
       [BRIEF_TOO_LONG]: BRIEF_TOO_LONG_ERROR,
       [UNSETTLED_CHECK]: UNSETTLED_CHECK_ERROR,
+      [SPEND_CEILING]: SPEND_CEILING_ERROR,
     },
     operations: (declaration.operations ?? []).map((op: Untyped) =>
-      op.tool === DELEGATE_TOOL ? { ...op, errors: [...(op.errors ?? []), BRIEF_TOO_LONG, UNSETTLED_CHECK] } : op,
+      op.tool === DELEGATE_TOOL
+        ? { ...op, errors: [...(op.errors ?? []), BRIEF_TOO_LONG, UNSETTLED_CHECK, SPEND_CEILING] }
+        : op,
     ),
   }
 }
@@ -1707,6 +1719,119 @@ export interface WorkerLimits {
    * and the notes they hearted, or `null` while the board holds neither.
    */
   story?: () => Promise<string | null>
+  /**
+   * [[REQ-409]] — how many fresh builders may replace one that ran out of its
+   * calls, its time or its context, per delegation. `0` replaces none.
+   */
+  replacements?: number
+  /**
+   * [[REQ-409]] — whether the message's spend ceiling has been reached. Once it
+   * has, no builder is commissioned or replaced.
+   */
+  spendOver?: () => boolean
+}
+
+/** [[REQ-409]] — the refusal for a delegation asked for after the spend ceiling. */
+export const SPEND_CEILING = 'spend_ceiling'
+
+const SPEND_CEILING_ERROR = {
+  message:
+    'This request has used everything it may spend, so no builder was commissioned ' +
+    'and nothing ran. Start no new work: finish your reply by telling the client ' +
+    'what is done and what is still to do, in plain words, without mentioning cost.',
+  host_detail: true,
+}
+
+/** The budgets a fresh builder can be given back ([[REQ-409]]). */
+const REPLACEABLE: ReadonlySet<string> = new Set([
+  WORKER_RAN_OUT_OF.calls,
+  WORKER_RAN_OUT_OF.time,
+  BUDGET_STOP_REASON,
+])
+
+/** How many of the host's differences a replacement brief lists. */
+const REPLACEMENT_LIST_CAP = 40
+
+/**
+ * The brief a fresh builder is handed when the one before it ran out
+ * ([[REQ-409]]).
+ *
+ * WHAT IS DONE COMES FROM THE HOST'S RECORD, NEVER THE PREVIOUS BUILDER'S
+ * SUMMARY: the builder that ran out is the party least placed to say what it
+ * finished, and the record cannot be mistaken about what was written. What is
+ * left is the original brief, whole, with its checks, which the framework adds.
+ */
+export function replacementGoal(goal: string, why: string, changed: readonly DraftDifference[]): string {
+  const listed = changed.slice(0, REPLACEMENT_LIST_CAP).map((d) => `- ${describe(d)}`)
+  const more = changed.length > listed.length ? [`- and ${changed.length - listed.length} more`] : []
+  const done =
+    listed.length > 0
+      ? ['The host\'s record of what it already wrote to the draft:', ...listed, ...more]
+      : ['The host\'s record shows it wrote nothing to the draft.']
+  return [
+    goal,
+    '',
+    `A builder before you started this brief and stopped before finishing: ${why}.`,
+    ...done,
+    'Do not redo that work. Look at what is there, finish what is left of the brief, ' +
+      'and check it against every check below.',
+  ].join('\n')
+}
+
+/** Why a run ended, in the words a replacement brief gives. */
+function stoppedBecause(ended: WorkerEnding): string {
+  switch (ended.reason) {
+    case WORKER_RAN_OUT_OF.calls:
+      return 'it ran out of tool calls'
+    case WORKER_RAN_OUT_OF.time:
+      return 'it ran out of time'
+    default:
+      return 'its context filled up'
+  }
+}
+
+/**
+ * Several runs' differences as one list ([[REQ-409]]): a place more than one run
+ * changed appears once, with the first run's `before` and the last run's `after`.
+ */
+function mergedChanges(lists: readonly (DraftChanges | undefined)[]): DraftChanges | undefined {
+  const present = lists.filter((c): c is DraftChanges => c !== undefined)
+  if (present.length === 0) return undefined
+  const byPlace = new Map<string, DraftDifference>()
+  const others: OtherDifference[] = []
+  let truncated = 0
+  for (const changes of present) {
+    for (const d of changes.differences) {
+      const place = JSON.stringify([d.page, d.asset, d.module, d.slot, d.address, d.field])
+      const earlier = byPlace.get(place)
+      if (earlier === undefined) byPlace.set(place, d)
+      else {
+        const merged: DraftDifference = { ...d }
+        if ('before' in earlier) merged.before = earlier.before
+        else delete merged.before
+        byPlace.set(place, merged)
+      }
+    }
+    others.push(...(changes.others ?? []))
+    truncated += changes.truncated ?? 0
+  }
+  return {
+    differences: [...byPlace.values()],
+    ...(truncated > 0 ? { truncated } : {}),
+    ...(others.length > 0 ? { others } : {}),
+  }
+}
+
+/** Two runs' `usage` counters, summed. */
+function summedUsage(a: unknown, b: unknown): unknown {
+  if (!a || typeof a !== 'object') return b
+  if (!b || typeof b !== 'object') return a
+  const out: Record<string, unknown> = { ...(a as Record<string, unknown>) }
+  for (const [key, value] of Object.entries(b as Record<string, unknown>)) {
+    const prior = out[key]
+    out[key] = typeof value === 'number' && typeof prior === 'number' ? prior + value : value
+  }
+  return out
 }
 
 /**
@@ -1751,6 +1876,10 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
     }
 
     async delegate(input: Untyped): Promise<Untyped> {
+      // [[REQ-409]] — past the message's spend ceiling, nothing new is commissioned.
+      if (limits.spendOver?.()) {
+        throw new lib.DelegationError(SPEND_CEILING, 'the spend ceiling for this request has been reached')
+      }
       // [[REQ-408]] — BUILDERS ARE BRIEFED FROM THE STORY BOARD. Appended by the
       // host rather than left to the consultant to copy, and to every brief rather
       // than to the ones a guess says concern copy: it is short, and a builder
@@ -1774,6 +1903,44 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
           )
         }
       }
+      // [[REQ-409]] — A BUILDER THAT RUNS OUT IS REPLACED, not reported back
+      // half-done. The fresh one is a new session, so a new window and new
+      // budgets; the scope it claims is the one the last run's `finally` has just
+      // released. The consultant hears once, about all of them.
+      const goal = typeof input?.goal === 'string' ? input.goal : ''
+      const runs: Untyped[] = []
+      let result = await this.delegateOnce(input)
+      runs.push(result)
+      while (
+        runs.length <= (limits.replacements ?? 0) &&
+        result.ended &&
+        REPLACEABLE.has(String(result.ended.reason)) &&
+        !limits.spendOver?.()
+      ) {
+        const done = mergedChanges(runs.map((r) => r.account?.changed as DraftChanges | undefined))
+        result = await this.delegateOnce({
+          ...input,
+          goal: replacementGoal(goal, stoppedBecause(result.ended), done?.differences ?? []),
+        })
+        runs.push(result)
+      }
+      if (runs.length === 1) return result
+      const changed = mergedChanges(runs.map((r) => r.account?.changed as DraftChanges | undefined))
+      return {
+        ...result,
+        replaced: runs.length - 1,
+        sessions: runs.map((r) => r.session),
+        ...(result.usage || runs[0].usage
+          ? { usage: runs.reduce((sum: unknown, r) => summedUsage(sum, r.usage), undefined) }
+          : {}),
+        ...(changed !== undefined
+          ? { account: { ...(result.account ?? {}), changed }, wrote: wroteAnything(changed) }
+          : {}),
+      }
+    }
+
+    /** One builder run, with this host's fields added to its result. */
+    async delegateOnce(input: Untyped): Promise<Untyped> {
       let result = await super.delegate(input)
       const changed = result.account?.changed as DraftChanges | undefined
       if (changed !== undefined) result = { ...result, wrote: wroteAnything(changed) }

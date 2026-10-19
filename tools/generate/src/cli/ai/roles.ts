@@ -530,6 +530,21 @@ export function openingCue(): string {
   return template('opening-cue')
 }
 
+/**
+ * [[REQ-409]] — the user turn the host records to start a continuation: a reply
+ * that ran out of calls or time while the work was in progress is carried on
+ * without a client message. Like {@link openingCue}, the client never said it,
+ * so the host keeps it out of the transcript the client sees.
+ */
+export function continuationCue(): string {
+  return template('continuation-cue')
+}
+
+/** [[REQ-409]] — what the consultant is told once the message's spend ceiling is reached. */
+export function spendCeilingNotice(): string {
+  return template('spend-ceiling')
+}
+
 /** The interrupted-turn advice a session with a site and a camera needs ([[REQ-284]]). */
 export const INTERRUPTED_TEMPLATE = 'interrupted-turn'
 

@@ -151,10 +151,10 @@ describe('BUG-191 a worker whose turn did not finish says why', () => {
     // Over the WORKER'S window and under the consultant's million, so only a guard
     // held to the worker's own ceiling can fire here.
     const over = 200_000
+    // [[REQ-409]] — a builder stopped this way is replaced by a fresh one, so
+    // every builder here goes over the same way, and the result is the last one's.
     const result = await delegateWith('budget', [
       metered({ input_tokens: over }, calls('describe_page', { page: 'home' })),
-      metered({ input_tokens: over + 5_000 }, calls('describe_page', { page: 'home' })),
-      metered({ input_tokens: over + 10_000 }, says('Built it.')),
     ])
 
     expect(result.outcome).toBe('silent')

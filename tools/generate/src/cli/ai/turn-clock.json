@@ -28,8 +28,26 @@
     "A CEILING CAN STILL BE REACHED, so reaching it is narrated rather than",
     "silent: see `turn-clock-core.ts`. Raising this number treats the symptom.",
     "The structural fix is a delegation the caller does not wait inside, and",
-    "that change belongs upstream."
+    "that change belongs upstream.",
+    "",
+    "WHY 3600, AND THE THREE KEYS BELOW IT ([[REQ-409]]). The operator's call:",
+    "a client is not paying the token bill, so a reply that stops half-done and",
+    "asks permission to go on is a poor outcome bought to save money nobody",
+    "asked us to save. A budget is a safety net against a runaway, never a way",
+    "to ration the client's work. So the turn gets an hour, and a turn that",
+    "still reaches a limit with work in progress is CONTINUED by the host, up to",
+    "`max_continuations` times per client message, with no client message and",
+    "no question. A builder that runs out is replaced by a fresh one, up to",
+    "`max_builder_replacements` times per delegation. The real backstop is",
+    "`spend_ceiling_usd`: what one client message may cost across the",
+    "consultant's turn, its continuations and every builder they commission.",
+    "The operator sees it; the client never does. Reaching it ends the work",
+    "cleanly: no new builders, no continuation, and the consultant says what is",
+    "left. See `turn-clock-core.ts`."
   ],
 
-  "turn_timeout_seconds": 1800
+  "turn_timeout_seconds": 3600,
+  "max_continuations": 2,
+  "max_builder_replacements": 2,
+  "spend_ceiling_usd": 10
 }

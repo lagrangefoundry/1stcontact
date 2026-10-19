@@ -27,6 +27,31 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 /** The wall clock one consultant or settings turn is given, in seconds. */
 export const TURN_TIMEOUT_SECONDS: number = turnClockDocument.turn_timeout_seconds
 
+/**
+ * [[REQ-409]] — how many times the host continues a consultant turn that ended on
+ * a budget with work in progress, per client message.
+ */
+export const MAX_CONTINUATIONS: number = turnClockDocument.max_continuations
+
+/** [[REQ-409]] — how many fresh builders replace one that ran out, per delegation. */
+export const MAX_BUILDER_REPLACEMENTS: number = turnClockDocument.max_builder_replacements
+
+/**
+ * [[REQ-409]] — what one client message may cost, in micros, across the
+ * consultant's turn, its continuations and every builder they commission.
+ */
+export const SPEND_CEILING_MICROS: number = Math.round(turnClockDocument.spend_ceiling_usd * 1_000_000)
+
+/**
+ * Whether a turn's terminal meta says it ran out of calls or time ([[REQ-409]]) —
+ * the two budgets a continuation can give back. A context stop is not one: the
+ * conversation it stopped is full, and the next turn would be refused before it
+ * started.
+ */
+export function endedOnBudget(meta: Record<string, unknown> | undefined): boolean {
+  return meta?.exhausted === true && meta.status !== 'error'
+}
+
 /** The delegation surface's tool, as the model calls it. */
 export const DELEGATE_TOOL = 'Delegate'
 
@@ -155,13 +180,20 @@ export function exhaustionNotice(
   by: string,
   timeoutSeconds: number,
   activity: readonly { name: string; output: unknown }[],
+  // [[REQ-409]] — set when the host will continue this turn by itself: what the
+  // work is, in the step's own words, or `''` where no step was named.
+  continuing: string | null = null,
 ): string {
   const limit =
     by === 'time'
       ? `its ${Math.round(timeoutSeconds / 60)}-minute time limit`
       : 'its limit on tool calls'
+  // [[REQ-409]] — A TURN THE HOST CONTINUES ASKS NOTHING. The list stays, because
+  // the continuation reads this paragraph back to learn what it already did.
   const lines = [
-    `_This reply reached ${limit} before I could finish it. What I did is saved._`,
+    continuing === null
+      ? `_This reply reached ${limit} before I could finish it. What I did is saved._`
+      : `_Still working on it${continuing ? `: ${lowerFirst(continuing)}` : ''}…_`,
   ]
   const handOffs = activity.filter((a) => a.name === DELEGATE_TOOL)
   const others = new Map<string, number>()
@@ -176,8 +208,18 @@ export function exhaustionNotice(
       lines.push(`- also ran ${counted.join(', ')}`)
     }
   }
-  lines.push('', 'Ask me to carry on and I will pick up from here.')
+  lines.push(
+    '',
+    continuing === null
+      ? 'That is as far as I can take this in one go. Send me any message and I will continue from here.'
+      : 'Carrying on from here.',
+  )
   return lines.join('\n')
+}
+
+function lowerFirst(text: string): string {
+  const flat = text.replace(/\s+/g, ' ').trim().replace(/[.…]+$/, '')
+  return flat.charAt(0).toLowerCase() + flat.slice(1)
 }
 
 /**
@@ -197,7 +239,12 @@ export function exhaustionNotice(
  * port is wider than one method. It is the INNER wrapper, so `guardTurn`'s own
  * stop (which the adapter never reports as exhausted) passes through untouched.
  */
-export function narrateExhaustion(backend: Untyped): Untyped {
+export function narrateExhaustion(
+  backend: Untyped,
+  // [[REQ-409]] — asked at the moment a turn runs out: what the work is, when the
+  // host will continue it, or `null` when it will not.
+  continuing: () => string | null = () => null,
+): Untyped {
   async function* narrated(
     ref: string,
     content: unknown,
@@ -211,7 +258,8 @@ export function narrateExhaustion(backend: Untyped): Untyped {
       if (event.kind === DONE && event.meta?.exhausted === true) {
         const timeout = Number(opts.timeout) || TURN_TIMEOUT_SECONDS
         const by = String(event.meta.exhausted_by ?? '')
-        yield { kind: TEXT, content: `\n\n${exhaustionNotice(by, timeout, activity)}` }
+        const next = endedOnBudget(event.meta) ? continuing() : null
+        yield { kind: TEXT, content: `\n\n${exhaustionNotice(by, timeout, activity, next)}` }
       }
       yield event
     }

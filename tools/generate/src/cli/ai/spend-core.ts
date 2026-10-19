@@ -420,3 +420,37 @@ export function attributedSpend(raw: unknown): AttributedSpend[] {
   }
   return out
 }
+
+/**
+ * [[REQ-409]] — what one client message has cost SO FAR, live, against a ceiling.
+ *
+ * THE BACKSTOP THE BUDGETS ARE NOT. Calls and time are counted per turn, so a
+ * message the host continues, and the builders every turn commissions, each start
+ * a fresh count. This one runs across all of them: it is charged per request, by
+ * the guard on every backend that serves the message (`budget-core.ts`'s
+ * `guardTurn`), and reset when the next client message arrives.
+ *
+ * PRICED HERE, WITH THE SAME TABLE AS THE STORED ROW, so the ceiling and the
+ * meter's record can never disagree about what a request cost. A request on an
+ * unpriced pair adds nothing: the ceiling cannot stop on a number nobody has.
+ */
+export class SpendMeter {
+  micros = 0
+
+  constructor(readonly ceilingMicros: number) {}
+
+  /** Add `records` — one `usage` block per request — sent on backend `name`. */
+  charge(name: string, records: readonly unknown[]): void {
+    const model = modelOfBackend(name)
+    for (const record of records) this.micros += costMicros(countersOf(record), name, model) ?? 0
+  }
+
+  /** Whether the ceiling has been reached. A ceiling of 0 is none. */
+  over(): boolean {
+    return this.ceilingMicros > 0 && this.micros >= this.ceilingMicros
+  }
+
+  reset(): void {
+    this.micros = 0
+  }
+}

@@ -90,20 +90,28 @@
     "cause is removed, and without it a first page needs a few writes. Stating both",
     "numbers also lets a delegation that runs out name the budget it ran out of,",
     "with its size (`ended.limit`). The builder's priming is the other half: it",
-    "checks each piece as it finishes it rather than all at the end."
+    "checks each piece as it finishes it rather than all at the end.",
+    "",
+    "[[REQ-409]] RAISED BOTH SIDES TO 200 CALLS, AND THE BUILDER TO 1200 SECONDS.",
+    "The consultant had never set `max_iterations` and ran at the framework's 50.",
+    "The operator's call: a budget is a safety net against a runaway, never a way",
+    "to ration the client's work, and the real backstop is the per-message spend",
+    "ceiling in `turn-clock.json`. The builder stays on Haiku 4.5 and its window",
+    "is not raised: a builder that fills it is replaced by a fresh one instead."
   ],
 
   "claude": {
     "model": "claude-opus-5-5",
     "max_tokens": 64000,
-    "context_window": 1000000
+    "context_window": 1000000,
+    "max_iterations": 200
   },
 
   "claude_builder": {
     "model": "claude-haiku-4-5",
     "max_tokens": 32000,
-    "max_iterations": 100,
-    "turn_timeout": 600
+    "max_iterations": 200,
+    "turn_timeout": 1200
   },
 
   "claude_coordinator": {
