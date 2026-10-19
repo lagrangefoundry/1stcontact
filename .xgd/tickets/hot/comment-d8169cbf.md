@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:07:18.268498+00:00'
+updated_at: '2026-10-19T21:10:44.345470+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9676,5 +9676,42 @@ Talker turns are extra spend <-- only if they are waisted turns, otherwise they 
 Is there a document in LF that you can add the worker/talker design to? That way EPIC-7 can pick up the details
 
 Please go ahead with the other tickets
+
+<!-- xgd-turn id="8349a941-65c2-4ce1-9d5f-9a53b8551358-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T21:10:43.154612+00:00" -->
+#### Claude
+Added §18 to EPIC-7. Now the consultant's priming changes in 1stcontact.
+
+Tests pass. Committing the priming change on its own.
+
+Both filed. Now recording the finding on EPIC-19.
+
+Everything you asked for is done.
+
+**Talker cost:** agreed. A talker turn only costs extra if it's wasted; otherwise it turns the client's waiting time into progress. I've written that into the design as your decision.
+
+**The worker and the talker are in lagrange-framework EPIC-7, as §18.** I didn't find a separate design document covering the room or interposition (LF's docs cover the junction, priming, the toolbox and similar). EPIC-7's own body is the design record, at about 42,000 characters, and it already holds a section added from 1stcontact (§17), so this follows that precedent. §18 covers:
+- the problem, and why it's better than having a second agent;
+- the fork, the talker's restricted tools, information flowing both ways, interrupting only on the client's request, and the merge;
+- four rules that keep the two branches consistent, the main one being that the talker passes requests on and never promises changes to the site;
+- what already exists and what's new;
+- how it relates to stage 1 of EPIC-7 and the two-speed room.
+
+It's marked as a proposal, not a decision.
+
+**The consultant's instructions are committed as `57a266d5e5`.** Two additions:
+- **"Leading the build":** finish a stage that stands on its own, then say what's next and do it, asking only when there's a real choice. Never end by asking permission for the obvious next step, or with only "does it look right?". Raise the items a novice won't think of from a checklist, and say what each answer or upload was used for.
+- **In "Getting the story":** listen like an interviewer. Pick up one detail, say back what it means for the site, and ask about it before changing subject. Keep track of the parts of the business's story (including what it does for the neighbourhood, which is where Wigs for Kids would have come up) and come back to the missing ones while builds run.
+
+The priming and conduct tests pass, including the ones checking the priming still fits within its size limit and the scope and parallel-builder rules. The change reaches your dev server on the next `bin/deploy --env dev`.
+
+**Tickets filed under EPIC-19, both `draft` and high priority:**
+- **REQ-413**, 8 points: the consultant brings the right view to the client. One action covers the draft, Story mode, the looks, a comparison site or a panel question. It works two ways: **switching the view itself**, or **a link** you click that still works after a reload. It never switches the view while you're editing; it gives you the link instead.
+- **REQ-414**, 5 points: uploads become attachments. A file you drop shows as a chip in the message box, where you choose whether it's for the site or for reference. It goes out with your next message, and a message with only attachments is allowed. It no longer appears as a fake message in the chat.
+
+**Finding 21 on EPIC-19** records the Bob's salon 2 evidence: the story interview ended after 19 minutes, Wigs for Kids never came up, the turns handed decisions back to you, and you drove the key changes yourself. It also records your decisions and links everything above. Turns that end because they run out of budget stay with REQ-409.
+
+**Still to build in code:** showing the consultant, each turn, which parts of the story and which checklist items are still open. The new instructions rely on the consultant remembering, and earlier evidence (Finding 13) says that isn't reliable. I'll leave that until your next Bob's Salon run shows how far the instructions alone get.
 
 <!-- xgd-chat-end -->
