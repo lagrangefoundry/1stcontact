@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-02T19:02:16.860163+00:00'
+updated_at: '2026-10-19T23:29:45.508277+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3670,5 +3670,11 @@ Filed under EPIC-20 as you described, as a draft.
 Pictures of an uploaded or generated image keep today's handling, shrunk on the longest edge.
 
 That brings the open tickets from this review to REQ-361, REQ-362 and REQ-363 here, and REQ-203 and BUG-80 in lagrange-framework.
+
+<!-- xgd-turn id="5bf1b942-5f4d-4704-a596-da818502e67d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T23:29:45.110381+00:00" -->
+#### You
+Can you check the costs - Bob's Salon 2 cost twice Bob's Salon how did that happen?
 
 <!-- xgd-chat-end -->
