@@ -6,9 +6,9 @@ title: 'Builder: the consultant brings the right view to the client — switch t
   itself, or give a link the client follows'
 created_by: EPIC-19
 created_at: '2026-10-19T21:10:05.006619+00:00'
-updated_at: '2026-10-19T22:20:11.120287+00:00'
+updated_at: '2026-10-19T22:37:51.236889+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -18,6 +18,7 @@ fields:
   needs_review: false
   chat_comment: comment-6acbc860
 ---
+
 
 ## What the client experiences
 
@@ -54,3 +55,50 @@ UATs `test_UAT_FC_<id>_*`, through the real builder with only the model scripted
 - a `link` to a deleted look: the "no longer there" note appears;
 - `switch` to a panel question: it's expanded and highlighted;
 - a reload after a `switch` doesn't switch again.
+
+## What landed (free-coded)
+
+**The operation.** `show_client` is on the plan surface, in the consultant-only `PlanWork` group beside `choose_look`. That group isn't narrowed in the workers deployment, so the consultant can call it everywhere. Its parameters are `target` (`draft`, `story`, `looks`, `comp` or `ask`) and `how` (`switch` or `link`). Optional parameters are `page`, `look`, `comp`, `ask`, and `label` (the link's words). It checks the target exists before answering:
+- a page of the draft that is gone → `UNKNOWN_PAGE`;
+- a look that was set aside, or a page with no looks on offer → `UNKNOWN_LOOK`;
+- a site not on the comp board → `UNKNOWN_COMP`;
+- a question that isn't on the panel → `UNKNOWN_ASK`, or `ASK_WITHDRAWN` for one that was withdrawn.
+
+A question raised earlier in the same turn (`set_ask`) can be shown. The logic is in `tools/generate/src/cli/ai/show-core.ts`.
+
+**The link** is a fragment, `#show=<target>&…` (for example `#show=looks&set=home-looks&look=home-coastal`), the same way `#looks=<set>` was (REQ-391). That older form is still accepted and means `#show=looks&set=<set>`. `link` answers `{how: 'link', link: '[Open the Coastal look](#show=…)'}` for the consultant to paste. The builder's chat panel follows it in place: it never opens a tab or navigates. When the target is gone, a short "That's no longer there." note appears beside the link and nothing else changes. That covers a set-aside look, a withdrawn question, a removed page and a comp no longer on the board.
+
+**The switch** is guarded by the host. Each client message reports what the client is in the middle of, as `view.busy`: `editing` (an edit open on the page in Edit mode), `image` (the image editor open) or `answering` (text typed in a panel answer and not yet saved). While busy, `switch` comes back as a link with `not_switched` saying why. **A second switch in answer to the same client message also comes back as a link**, which enforces requirement 6's "never twice in a row". The client's next message resets that, and so do a room's later rounds and the host's continuations, because they answer the same message.
+
+**How a switch is delivered and recorded.** The cadence wrapper on the consultant's backend (`cadence-core.ts`) does both:
+1. After a `show_client` call that switched, it yields a line of the reply, `[Showing you the story board](#show=story)`. The manager records that line, so it is in the transcript, a reload shows it, and clicking it goes back to the view.
+2. It then yields a `show_client` event. The manager delivers that without recording it, so the browser acts on it once and a reload never switches again.
+
+The browser checks `busy` again when the event arrives, because a turn can outlast what it was told at the start. If the client has become busy, the view isn't changed and the line stays as a link.
+
+**Group chat.** A room's record is what members post, not their private replies. So in a group chat the switch result carries `say_in_room`, the same line for the consultant to put in what it says to the room. The live `show_client` event reaches the client through the room's stream like any other host signal.
+
+**The client is never stuck.** A switch calls the same entry points the client's own controls use: `panel.setMode`, `pages.open`, `looks.open`, `openComp` (which has "Back to your draft"), and the panel's fold. A question is shown by unfolding it (remembered like the client's own unfold), scrolling it into view, and highlighting it for about 2.4 s (`plan-item--shown`, with a static ring under reduced motion).
+
+**The consultant's instructions** are in `priming.json` as a new `showing` entry in both priming lists. The `looks` entry now says to bring the set forward with `show_client` instead of hand-writing `#looks=SET`. The op's description in `plan-surface.json` carries the switch/link guidance too.
+
+## Test plan (as built)
+
+The UATs are split the way the repo's other builder work is. No existing harness drives a browser together with a scripted model, so: the real Worker with only the model scripted (`tests/test_UAT_FC_REQ-413_show_the_client.workers.test.ts`), plus the real builder mounted in jsdom with the transports faked to carry exactly what the host sends (`tests/test_UAT_FC_REQ-413_show_in_the_builder.test.ts`).
+
+Workers:
+- a `switch` to Story streams one `show_client` frame and records the line before the consultant's next words; a reopened conversation holds the line and no frame;
+- a `switch` while `busy: editing` streams no frame, and the result is a link with `not_switched`;
+- a second `switch` in the same message becomes a link; the next message switches again;
+- a `link` to a look answers the exact line and streams no frame;
+- a question raised this turn can be linked, and a set-aside look is refused as `UNKNOWN_LOOK`;
+- in a group chat, the consultant's switch reaches the client's stream and the result carries `say_in_room`.
+
+Builder (jsdom):
+- a `switch` to Story from View → Story, and the View button still works;
+- with an edit open, the message reports `busy: editing`, an arriving switch doesn't change the view, and the reply's link works once followed;
+- a `switch` to a panel question unfolds, scrolls to and highlights it;
+- a `switch` to a comp opens it ("Back to your draft" is there), and a link to a draft page comes back to View on that page;
+- a reload after a switch doesn't switch again, and still shows the line;
+- a link to a look shows it in the carousel, and still works after a reload;
+- a link to a set-aside look, or to a question no longer on the panel, shows "That's no longer there."
