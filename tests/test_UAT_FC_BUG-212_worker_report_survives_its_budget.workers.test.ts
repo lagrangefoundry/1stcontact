@@ -220,10 +220,13 @@ describe('BUG-212 a builder report survives the end of its budget', () => {
     // The incident's ending: a refused report, and the request that carried it
     // already over the ceiling, so the guard ends the turn before a retry.
     const over = 200_000
+    // [[REQ-409]] — a builder stopped this way is replaced by a fresh one, so
+    // every builder here ends the same way, and the result is the last one's.
     const { result } = await delegateWith('stopped', [
-      metered({ input_tokens: 10_000 }, calls('describe_page', { page: 'home' })),
-      metered({ input_tokens: over }, calls(REPORT_TOOL, { summary: 'Laid out.', failed: [{ name: CROPS }] })),
-      metered({ input_tokens: over + 5_000 }, says('Retrying.')),
+      (req) =>
+        req.messages.length === 1
+          ? metered({ input_tokens: 10_000 }, calls('describe_page', { page: 'home' }))(req)
+          : metered({ input_tokens: over }, calls(REPORT_TOOL, { summary: 'Laid out.', failed: [{ name: CROPS }] }))(req),
     ])
 
     expect(result.outcome).toBe('silent')

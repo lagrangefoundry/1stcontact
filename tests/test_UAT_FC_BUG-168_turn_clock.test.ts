@@ -120,7 +120,8 @@ describe('BUG-168 — the turn clock', () => {
     // THE VALUE IS THIS PROJECT'S, AND IT IS STATED WITH ITS REASON. A number
     // with no reason is the "default nobody set" this ticket was filed about,
     // just moved into a file.
-    expect(turnClockDocument.turn_timeout_seconds).toBe(1800)
+    // [[REQ-409]] raised it from 1800 to an hour.
+    expect(turnClockDocument.turn_timeout_seconds).toBe(3600)
     const reason = turnClockDocument.about.join(' ')
     expect(reason).toContain('600')
     expect(reason).toContain('CPU')
@@ -144,10 +145,12 @@ describe('BUG-168 — the turn clock', () => {
 
   it('test_UAT_FC_BUG-168_a_turn_out_of_time_says_what_it_did_and_the_next_turn_reads_it', async () => {
     // THE OBSERVED SHAPE: the consultant delegates, keeps working, and the
-    // clock runs out between two of its calls.
+    // clock runs out between two of its calls. [[REQ-409]] — the host now
+    // continues such a turn itself, so this one keeps running out until the
+    // continuations are spent, and the last reply is the one that stops.
     startClock()
     const client = clocked(
-      1000,
+      2000,
       [
         calls('Delegate', { scope: ['site.json', 'home.json'],
           note: 'Working on it now — a few minutes.',
@@ -156,7 +159,6 @@ describe('BUG-168 — the turn clock', () => {
           accept: [],
         }),
         calls('list_pages', {}),
-        says('This line is never reached.'),
       ],
       [calls('ReportResult', { summary: WORKER_SUMMARY, changed: ['about'] }), says('Reported.')],
     )
@@ -169,10 +171,9 @@ describe('BUG-168 — the turn clock', () => {
     expect(done?.exhausted).toBe(true)
     expect(done?.exhausted_by).toBe('time')
     expect(done?.status).not.toBe('error')
-    expect(prose).not.toContain('This line is never reached.')
     // ... and now the reply says so, names the limit, and says what the turn
     // did. The worker's report is the part nothing else would have relayed.
-    expect(prose).toContain('30-minute time limit')
+    expect(prose).toContain('60-minute time limit')
     expect(prose).toContain('What I did is saved')
     // STILL FENCED. The Toolbox marked the delegation result as third-party
     // data, and recording it as the assistant's prose must not remove that
@@ -182,9 +183,9 @@ describe('BUG-168 — the turn clock', () => {
 
     // RECORDED AS THE ASSISTANT'S OWN WORDS, so it survives a reload ...
     const reopened = await openSession(SLUG, { cwd }, host)
-    const last = reopened.turns.at(-1) as { role: string; markdown: string }
-    expect(last.role).toBe('assistant')
-    expect(last.markdown).toContain(WORKER_SUMMARY)
+    // [[REQ-409]] — on the reply that ran out first; the continuations follow it.
+    const told = reopened.turns.find((t) => (t as { markdown: string }).markdown.includes(WORKER_SUMMARY))
+    expect((told as { role: string } | undefined)?.role).toBe('assistant')
 
     // ... and the next turn is sent it, so it does not have to re-read the
     // record to find out what its own previous turn did. The manager is rebuilt

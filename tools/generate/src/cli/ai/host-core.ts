@@ -80,6 +80,8 @@ import {
   settingsRole,
   productConfig,
   openingCue,
+  continuationCue,
+  spendCeilingNotice,
   reportReserveNotice,
   type TurnSignal,
   type ClientView,
@@ -163,7 +165,7 @@ import {
   projectBackendModel,
   projectBackendWindow,
 } from './backends'
-import { turnSpendRecord, type RecordTurnSpend } from './spend-core'
+import { SpendMeter, turnSpendRecord, type RecordTurnSpend } from './spend-core'
 import { newId } from '../../store/ids'
 import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
@@ -183,7 +185,14 @@ import {
   lastOccupancy,
   overBudget,
 } from './budget-core'
-import { TURN_TIMEOUT_SECONDS, narrateExhaustion } from './turn-clock-core'
+import {
+  MAX_BUILDER_REPLACEMENTS,
+  MAX_CONTINUATIONS,
+  SPEND_CEILING_MICROS,
+  TURN_TIMEOUT_SECONDS,
+  endedOnBudget,
+  narrateExhaustion,
+} from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { PROGRESS, progressEvent, withProgress } from './progress-core'
 import { concurrentSupported, draftClaims, scopeSupported } from './lease-core'
@@ -1173,6 +1182,42 @@ const planWrites = new Map<string, number>()
 const workingNotes = new Map<string, { seq: number; note: WorkingNote }>()
 
 /**
+ * [[REQ-409]] — what each site's current client message has spent so far, across
+ * the consultant's turns and every builder they commission. Reset when the next
+ * client message arrives; read by the guards, the delegation surface and the
+ * continuation loop in {@link streamPrompt}.
+ */
+const spendMeters = new Map<string, SpendMeter>()
+
+/** [[REQ-409]] — how many continuations each site's current message has left. */
+const continuationsLeft = new Map<string, number>()
+
+/**
+ * [[REQ-409]] — whether the turn that just ran out told the client "still working",
+ * so the continuation loop keeps the promise the narration made rather than
+ * judging again on a meter that has moved since.
+ */
+const promisedContinuation = new Map<string, boolean>()
+
+function spendMeterFor(key: string): SpendMeter {
+  let meter = spendMeters.get(key)
+  if (meter === undefined) {
+    meter = new SpendMeter(SPEND_CEILING_MICROS)
+    spendMeters.set(key, meter)
+  }
+  return meter
+}
+
+/**
+ * [[REQ-409]] — whether a consultant turn that runs out of calls or time now is
+ * continued by the host: a continuation is left and the spend ceiling is not
+ * reached.
+ */
+function willContinue(key: string): boolean {
+  return (continuationsLeft.get(key) ?? 0) > 0 && !spendMeterFor(key).over()
+}
+
+/**
  * A site's plan port that counts the writes that completed ([[REQ-364]]).
  *
  * AT THE PORT, NOT THE TOOL, so every path that writes the plan through this
@@ -1813,6 +1858,8 @@ async function build(
                 }), {
                   // [[BUG-212]] — told to report while it still has the room to.
                   reserve: { fraction: REPORT_RESERVE_FRACTION, notice: reportReserveNotice },
+                  // [[REQ-409]] — a builder's requests count against its caller's message.
+                  charge: (records) => spendMeterFor(managerKey(slug, deps)).charge(backend, records),
                 })
               },
             }),
@@ -2060,6 +2107,10 @@ async function build(
                   {
                     budgets: projectBackendBudgets(lib as Untyped, workerSettings?.backend),
                     briefMaxBytes: BUILDER_TURN_MAX_BYTES,
+                    // [[REQ-409]] — a builder that runs out is replaced, while the
+                    // message's spend allows.
+                    replacements: MAX_BUILDER_REPLACEMENTS,
+                    spendOver: () => spendMeterFor(managerKey(slug, deps)).over(),
                     // [[REQ-408]] — the chosen headline and the hearted notes.
                     ...(deps.plan
                       ? { story: async () => storyBrief((await deps.plan!(slug).read())?.fields ?? {}) }
@@ -2184,6 +2235,8 @@ async function build(
         lib,
         // [[BUG-168]] — a turn that runs out of budget says what it did. Inside
         // the guard, so the guard's own stop is not mistaken for one.
+        // [[REQ-409]] — and, where the host will continue it, says so instead of
+        // asking the client whether to go on.
         narrateExhaustion(
           // [[REQ-379]] — and one that goes quiet says so first.
           keepClientOriented(
@@ -2203,7 +2256,19 @@ async function build(
             }),
             cadenceHooks(deps, slug),
           ),
+          () => {
+            const key = managerKey(slug, deps)
+            const promised = willContinue(key)
+            promisedContinuation.set(key, promised)
+            return promised ? (workingNotes.get(key)?.note.doing ?? '') : null
+          },
         ),
+        {
+          // [[REQ-409]] — the consultant's requests count against the message, and
+          // once it has spent its ceiling she is told to finish.
+          charge: (records) => spendMeterFor(managerKey(slug, deps)).charge(PROJECT_BACKEND, records),
+          notice: () => (spendMeterFor(managerKey(slug, deps)).over() ? spendCeilingNotice() : ''),
+        },
       ),
     // [[BUG-224]] — so what the client writes mid-turn reaches the next call.
     betweenCalls(lib),
@@ -2793,7 +2858,11 @@ async function storedTranscript(
   // [[REQ-403]] — THE OPENING'S CUE IS NOT THE CLIENT'S, so it is not shown as
   // theirs. It still counts as the conversation having started.
   const opening = openingCue()
-  const turns = recorded.filter((turn) => !(turn.role === 'user' && turn.content === opening)).map(
+  // [[REQ-409]] — nor is the host's cue for a continuation.
+  const continuation = continuationCue()
+  const hidden = (turn: { role: string; content: string }): boolean =>
+    turn.role === 'user' && (turn.content === opening || turn.content === continuation)
+  const turns = recorded.filter((turn) => !hidden(turn)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
       markdown: turn.content,
@@ -3690,7 +3759,68 @@ export async function* streamPrompt(
     throw new UnknownSessionError(sessionId)
   }
   const manager = await managerFor(slug, opts, deps, await groupChatOn(deps))
-  yield* siteTurn(manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), text, deps, turn, view, WORKING_UNNAMED)
+  yield* continuedTurn(manager, slug, sessionId, text, deps, turn, view)
+}
+
+/**
+ * [[REQ-409]] — the consultant's turn on one client message, CONTINUED BY THE
+ * HOST when it runs out of calls or time with the work in progress.
+ *
+ * WHY. A reply that stops half-done and asks permission to go on hands the client
+ * confusion instead of an outcome, to save a token bill the client is not paying.
+ * So the host starts a continuation itself, with no client message, up to
+ * {@link MAX_CONTINUATIONS} times per message and only while the message is under
+ * its spend ceiling. The consultant still stops for a decision that is the
+ * client's; that is a reply that ends normally, and nothing here continues it.
+ *
+ * ONE STREAM, ONE TERMINAL EVENT. Each continuation is a whole turn — its own
+ * pending record, its own spend row, its own clock — but the client is holding one
+ * request, so only the last turn's `done` reaches it. The narrated exhaustion
+ * paragraph is what the client reads in between: "Still working on it…".
+ *
+ * THE CUE IS RECORDED AS A USER TURN, because the history window starts at one,
+ * and kept off the client's screen like the opening cue ({@link storedTranscript}).
+ */
+async function* continuedTurn(
+  manager: Untyped,
+  slug: string,
+  sessionId: string,
+  text: string,
+  deps: HostDeps,
+  turn?: string,
+  view?: ClientView | null,
+): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
+  const key = managerKey(slug, deps)
+  const meter = spendMeterFor(key)
+  meter.reset()
+  continuationsLeft.set(key, MAX_CONTINUATIONS)
+  let prompt = text
+  let turnId = turn
+  for (let round = 0; ; round++) {
+    let done: { kind: string; content: string; meta?: Record<string, unknown> } | null = null
+    promisedContinuation.delete(key)
+    for await (const event of siteTurn(
+      manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), prompt, deps, turnId, view, WORKING_UNNAMED,
+    )) {
+      if (event.kind === DONE) done = event
+      else yield event
+    }
+    const again = done !== null && endedOnBudget(done.meta) && promisedContinuation.get(key) === true
+    if (!again) {
+      if (meter.over()) {
+        // VISIBLE TO THE OPERATOR, NEVER TO THE CLIENT: the Worker's log.
+        console.warn(
+          `[REQ-409] spend ceiling reached: session ${sessionId}, ${meter.micros} of ${meter.ceilingMicros} micros`,
+        )
+      }
+      if (done) yield done
+      return
+    }
+    continuationsLeft.set(key, (continuationsLeft.get(key) ?? 0) - 1)
+    prompt = continuationCue()
+    // Each turn its own spend row; the caller's ledger id keys the first.
+    turnId = turn ? `${turn}-continued-${round + 1}` : undefined
+  }
 }
 
 /**
@@ -4572,6 +4702,9 @@ export function resetAiHost(): void {
   businessWrites.clear()
   planWrites.clear()
   workingNotes.clear()
+  spendMeters.clear()
+  continuationsLeft.clear()
+  promisedContinuation.clear()
   // AND THE CARDS THAT HAVE NOT BEEN DELIVERED ([[REQ-260]]). A queued change
   // that outlived its conversation would be reported into the next one, putting
   // a card about somebody's domain in a turn that did not touch it.

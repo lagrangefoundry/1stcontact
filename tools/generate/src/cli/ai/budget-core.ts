@@ -359,7 +359,22 @@ function reserveSignals(inner: unknown, notice: () => string): () => string {
 export function guardTurn(
   lib: Untyped,
   backend: Untyped,
-  { fraction = TURN_BUDGET_FRACTION, reserve = null }: { fraction?: number; reserve?: ReportReserve | null } = {},
+  {
+    fraction = TURN_BUDGET_FRACTION,
+    reserve = null,
+    charge = null,
+    notice = null,
+  }: {
+    fraction?: number
+    reserve?: ReportReserve | null
+    /**
+     * [[REQ-409]] — handed each request's `usage` once, as it completes, so a
+     * spend meter can run across turns and sessions.
+     */
+    charge?: ((records: readonly unknown[]) => void) | null
+    /** [[REQ-409]] — a further per-call signal, read before every request. */
+    notice?: (() => string) | null
+  } = {},
 ): Untyped {
   async function* guarded(
     ref: string,
@@ -371,37 +386,47 @@ export function guardTurn(
     // share is what arrives after this mark. Without it the guard would judge a
     // long conversation by a figure from a turn that has already ended, and the
     // spend on the terminal event would claim the whole segment.
-    const before = ceiling > 0 ? backend.usage(ref).length : 0
+    const before = ceiling > 0 || charge ? backend.usage(ref).length : 0
+    let charged = before
+    const chargeNew = (): void => {
+      if (!charge) return
+      const all = backend.usage(ref)
+      if (all.length > charged) charge(all.slice(charged))
+      charged = all.length
+    }
     const warnAt = reserve && ceiling > 0 ? backendCeiling(backend, reserve.fraction) : 0
     const sent =
-      warnAt > 0
+      warnAt > 0 || notice
         ? {
             ...opts,
             signals: reserveSignals(opts.signals, () => {
-              const occupancy = lastOccupancy(lib, backend.usage(ref).slice(before))
-              return occupancy >= warnAt ? reserve!.notice(occupancy, ceiling) : ''
+              const occupancy = warnAt > 0 ? lastOccupancy(lib, backend.usage(ref).slice(before)) : 0
+              const reserved = warnAt > 0 && occupancy >= warnAt ? reserve!.notice(occupancy, ceiling) : ''
+              return [reserved, notice ? notice() : ''].filter(Boolean).join('\n\n')
             }),
           }
         : opts
     const events = backend.promptStream(ref, content, sent) as AsyncGenerator<StreamEvent>
-    if (ceiling <= 0) {
-      yield* events
-      return
-    }
-    for await (const event of events) {
-      yield event
-      if (event.kind !== TOOL_ACTIVITY) continue
-      const mine = backend.usage(ref).slice(before)
-      const occupancy = lastOccupancy(lib, mine)
-      if (!overBudget(occupancy, ceiling)) continue
-      // The sentence first, so the client is told why the reply stops where it
-      // does; the terminal event second, carrying what the turn spent getting
-      // there. Then the inner loop is finalised, which is what guarantees the
-      // next request is never built.
-      yield { kind: TEXT, content: `\n\n${budgetStopNotice(occupancy, backend.contextWindow)}` }
-      yield budgetDoneEvent(lib, mine, occupancy)
-      await events.return(undefined as never)
-      return
+    try {
+      for await (const event of events) {
+        chargeNew()
+        yield event
+        if (ceiling <= 0 || event.kind !== TOOL_ACTIVITY) continue
+        const mine = backend.usage(ref).slice(before)
+        const occupancy = lastOccupancy(lib, mine)
+        if (!overBudget(occupancy, ceiling)) continue
+        // The sentence first, so the client is told why the reply stops where it
+        // does; the terminal event second, carrying what the turn spent getting
+        // there. Then the inner loop is finalised, which is what guarantees the
+        // next request is never built.
+        yield { kind: TEXT, content: `\n\n${budgetStopNotice(occupancy, backend.contextWindow)}` }
+        yield budgetDoneEvent(lib, mine, occupancy)
+        await events.return(undefined as never)
+        return
+      }
+    } finally {
+      // Whatever ended the turn, nothing it sent goes uncharged.
+      chargeNew()
     }
   }
 
