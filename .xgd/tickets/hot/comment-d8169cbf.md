@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:20:41.621982+00:00'
+updated_at: '2026-10-19T20:39:16.245847+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9442,5 +9442,29 @@ I've filed **REQ-412**, *"bin/deploy: deploy the platform fonts automatically wh
 **One thing stays manual:** re-encoding the fonts with `1c fonts mirror` isn't part of the deploy, because it needs the google-fonts checkout. After an encoder fix like BUG-227 you still run that yourself. From then on, a normal deploy ships the result to whichever environment you deploy to.
 
 Your working tree has the re-encoded `fonts/platform.json` uncommitted, from this morning's font re-encode. Commit it before production, so the production deploy, and REQ-412's check once it's built, work from the corrected font list.
+
+<!-- xgd-turn id="51ddc95c-1090-4bdd-8f3e-c482dbd89712-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T20:39:15.151188+00:00" -->
+#### You
+OK I'd like to have a strategic discussion please. Once we have these fonts finished we will complete the second pass at Bob's salon. We added some interesting innovations yesterday, the storyboard is cool, and the changes we have recently made to the progress bar and the question panel have improved the clarity of presentation.
+
+However, I am a little concerned that a novice user really may not know where to look there's a lot going on now.
+
+We have the Preview window which can be in view edit or story mode.
+
+We have the multiple selections of different presentations of the main page.
+
+The Preview panel doubles as a place to present the screenshots of the comparison content.
+
+The progress bar is now tidy that piece I like
+
+The questions are a little confusing is it clear to a user when to answer them? Will they be ignored?
+
+So I think all of this is manageable but it needs to be managed by the consultant. My concern about the consultant remains these tools provide supporting infrastructure but I am still facing moments when the consultant stops and we're waiting for Bob to decide what to do next.
+
+I will take another pass and create the site again. But the consultant has to realize that its driving Bob cannot be expected to. If Bob does, that's cool, but the consultant is still responsible for filling the gaps.
+
+One thing that never got discussed the wigs for kids story - its one of the best pieces but the consultant never asked any questions that I felt that was relevant to - now Bob could obviously bring it up. But I'm not convinsed that the consultant is asking enough questions. It would be great if they could really get Bob to tell his story and talk about his business - they would do that by showing they understand what Bob is saying and giving positive feedback about the material and asking follow on questions.
 
 <!-- xgd-chat-end -->
