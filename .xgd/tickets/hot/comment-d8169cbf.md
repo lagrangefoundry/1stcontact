@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:39:02.495427+00:00'
+updated_at: '2026-10-19T00:39:43.318014+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9173,5 +9173,24 @@ The one thing that session is waiting on is your go-ahead for the recovery. It w
 <!-- xgd-chat role="user" ts="2026-10-19T00:38:50.146004+00:00" -->
 #### You
 **Later, as its own ticket:** store images in the junction *by reference <-- No lets just fix this now please*
+
+<!-- xgd-turn id="d0e4d17f-2dc8-4bd0-8b45-dc79df169cb4-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T00:39:38.923088+00:00" -->
+#### Claude
+Folding it into BUG-229 now rather than a separate ticket, since it's the same path and the same session.
+
+Done. Storing images by reference is now part of **BUG-229**, which is up to 5 points. I added it as a "Change of scope" section with your words, so the session working on it reads it as overriding the earlier "later ticket" note.
+
+What it asks for:
+- **The images leave the junction's stored copy.** When a record is saved to the Durable Object, our junction code swaps each image for a reference: a content hash plus type and size. The image itself goes to R2, stored once. Identical screenshots share one copy.
+- **Nothing upstream changes.** When a conversation is reopened, the references are filled back in from R2, so the framework still reads complete records exactly as it does today.
+- **Positions are counted on what's actually stored,** so the in-memory copy and the Durable Object can't disagree about where a record starts again. The save marker is always a record boundary.
+- **A missing image never fails a turn.** If R2 can't supply one, it's shown as the framework's existing `[image: …]` placeholder.
+- **The other two fixes stay:** low-detail screenshots are genuinely small, and the Durable Object can still split an oversized record as a safety net. Neither is the normal path any more.
+
+New tests: a turn with a screenshot over 2 MB stores a record of a few hundred bytes plus one image in R2. A freshly started server sends the model the real image. A missing image shows up as the placeholder.
+
+The recovery of the unsaved Bob's salon 2 turns still needs your go-ahead in that session.
 
 <!-- xgd-chat-end -->
