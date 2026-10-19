@@ -12,6 +12,7 @@ status: open
 fields:
   session_id: b72a77ae-677e-432f-ad5e-7bfca01ad3fd
   backend: claude_code+km
+  chat_comment: comment-47b5fb7c
 ---
 
 <!-- xgd-chat-end -->
