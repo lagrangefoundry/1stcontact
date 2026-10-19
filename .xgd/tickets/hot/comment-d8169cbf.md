@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T21:10:44.345470+00:00'
+updated_at: '2026-10-19T21:22:01.501733+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9713,5 +9713,18 @@ The priming and conduct tests pass, including the ones checking the priming stil
 **Finding 21 on EPIC-19** records the Bob's salon 2 evidence: the story interview ended after 19 minutes, Wigs for Kids never came up, the turns handed decisions back to you, and you drove the key changes yourself. It also records your decisions and links everything above. Turns that end because they run out of budget stay with REQ-409.
 
 **Still to build in code:** showing the consultant, each turn, which parts of the story and which checklist items are still open. The new instructions rely on the consultant remembering, and earlier evidence (Finding 13) says that isn't reliable. I'll leave that until your next Bob's Salon run shows how far the instructions alone get.
+
+<!-- xgd-turn id="aa632908-e350-458b-91bb-7d0d9805e9df-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T21:21:58.060025+00:00" -->
+#### You
+Another little one: I just hit "Publish" on the consultants instruction and got an ugly yellow error banner:
+This site was not published. Site 'site_c78b12e50dde030a34e9becfabb6815d' has no public address, so publishing it would put it somewhere nobody can reach. Choose a 1stc.site hostname, or connect a domain you own — either one is enough.
+
+So (1) the consultant did kind if discuss web addresses but did not make it sufficiently clear that I need to choose one before I can publish (2) I think the pubish button should be inactive until a site name has been chosen - or perhapos more helpfully we should have a popup telling the uer what to do. (3) If users are goping to see error messages they need to be friendlier.
+
+The consultant should offer a link that opens the settings page...
+
+Lets discuss
 
 <!-- xgd-chat-end -->
