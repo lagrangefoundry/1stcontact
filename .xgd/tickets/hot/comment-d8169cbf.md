@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T22:45:22.210646+00:00'
+updated_at: '2026-10-19T23:30:43.930138+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9788,5 +9788,11 @@ I've filed the bug and changed the consultant's instructions. The one thing that
 **Instruction change, committed as `1c6a268d7e`:** before suggesting Publish, the consultant checks whether the site has a web address. If it doesn't, it says so in one line, explains the choice between a free `.1stc.site` address and your own domain, and sends you to Settings. Its instructions now say you should never find out by pressing Publish. The launch and priming tests pass, including the check that the priming still fits its size limit.
 
 Until BUG-230 lands, the consultant can describe where to go but can't give you a link, and pressing Publish on a site with no address will still show the old banner. The instruction change reaches your dev server on the next `bin/deploy --env dev`.
+
+<!-- xgd-turn id="0e23fca8-fcb5-4038-8d90-656b1767e0e6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T23:30:42.805631+00:00" -->
+#### You
+Can you create a bug - there is no way to dismiss the ugly yellow error banner - any error banners should have a dismiss x
 
 <!-- xgd-chat-end -->
