@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:44:38.148326+00:00'
+updated_at: '2026-10-19T00:58:11.514764+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9217,5 +9217,11 @@ Now there's no new storage and no new kind of reference:
 - **Screenshots of draft pages aren't stored at all.** They aren't Library items, just renders of the page at that moment. The stored copy holds only the placeholder, such as `[image: screenshot of home at 1280px]`. That loses nothing she still uses: REQ-168 already hides images after two turns, and a rebuilt conversation starts from placeholders anyway. While the server stays up, the in-memory copy keeps the real image, so the turn that took the screenshot and the next two still see it.
 
 The tests change to match: an oversized screenshot of a Library image leaves a few-hundred-byte record naming that item, a freshly started server sends the model the real image, a page screenshot leaves only its placeholder, and a deleted item becomes the placeholder.
+
+<!-- xgd-turn id="44e0ff6a-d99d-40db-90f4-5d87ccfcd1f7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:58:10.456822+00:00" -->
+#### You
+please help answer the4 bug 229 questions
 
 <!-- xgd-chat-end -->
