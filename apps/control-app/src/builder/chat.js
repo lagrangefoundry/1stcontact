@@ -503,6 +503,11 @@ const RECOVERY_CHASES = 3
  *   true when it handled the link itself (a set of looks to open in the
  *   preview), and the browser does not follow it. [[REQ-413]] — given the link
  *   too, so the host can say beside it when what it names is no longer there.
+ * @param {object} [options.attachments]
+ *   [[REQ-414]] — the composer's attachment tray (`attachments.js`). Bound above
+ *   the composer on every paint, so its chips go with the next message; and its
+ *   attachment lines are drawn as chips inside the client's bubbles. Absent, the
+ *   pane has no attachments — the settings conversation's case.
  * @param {(src: string, alt: string) => void} [options.onImageClick]
  *   REQ-220 — the reader clicked a picture in the transcript.
  *
@@ -546,6 +551,7 @@ export function createChatPanel(options = {}) {
     promptView = () => null,
     onImageClick = null,
     onLinkClick = null,
+    attachments = null,
     reopen = null,
     wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = options
@@ -605,6 +611,11 @@ export function createChatPanel(options = {}) {
   let chat = null
   let sessionId = null
   let sessionKey = null
+  // [[REQ-414]] — the tray sits above whichever composer is mounted, and the
+  // client's bubbles show what was attached, under the pane's own root so a
+  // remount is covered as well as the first paint.
+  let unbindAttachments = null
+  const undecorate = attachments?.decorate(element) ?? null
 
   /**
    * The working line ([[REQ-390]]) — see {@link withWorkingLine}.
@@ -957,6 +968,9 @@ export function createChatPanel(options = {}) {
   function setSession(session, key) {
     const next = session ? (key ?? session.sessionId) : null
     if (next === sessionKey) return
+    // [[REQ-414]] — chips waiting for one conversation do not go with another's
+    // next message. Their Library items stay; only the attachment is dropped.
+    if (sessionKey !== null) attachments?.clear()
     sessionKey = next
     sessionId = session?.sessionId ?? null
     // A NEW CONVERSATION GETS THE WHOLE BUDGET ([[BUG-123]]). The chases a
@@ -1054,6 +1068,8 @@ export function createChatPanel(options = {}) {
    * panel id on every keystroke, and the id is the conversation's, unchanged.
    */
   function paint(session) {
+    unbindAttachments?.()
+    unbindAttachments = null
     chat?.destroy()
     chat = null
     element.replaceChildren()
@@ -1157,6 +1173,9 @@ export function createChatPanel(options = {}) {
           }
         : {}),
     })
+    // [[REQ-414]] — the chips go with the next message, interposed like any
+    // other while a turn runs ([[BUG-224]]).
+    unbindAttachments = attachments?.bind(chat, { interposes }) ?? null
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
     // (BUG-46). When the origin says a turn is open, the transcript's last
@@ -1466,6 +1485,8 @@ export function createChatPanel(options = {}) {
     /** The live panel, or null before a session is set. Tests and the host read it. */
     getChat: () => chat,
     destroy() {
+      unbindAttachments?.()
+      undecorate?.()
       chat?.destroy()
       chat = null
       sessionId = null

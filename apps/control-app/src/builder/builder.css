@@ -1246,7 +1246,8 @@ body {
   font-size: 13px;
 }
 
-.builder-chat-start--typing .chat-widget-input-bar {
+.builder-chat-start--typing .chat-widget-input-bar,
+.builder-chat-start--typing .builder-attach {
   display: none;
 }
 
@@ -1272,6 +1273,129 @@ body {
   border-radius: 50%;
   background: currentColor;
   opacity: 0.6;
+}
+
+/*
+ * [[REQ-414]] — the composer's attachments: chips above the text box that go with
+ * the next message, and the same files drawn inside the client's sent bubble.
+ */
+.builder-chat.is-dropping {
+  outline: 2px dashed var(--shell-accent);
+  outline-offset: -4px;
+}
+
+.builder-attach {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 0;
+}
+
+.builder-attach__chips {
+  display: contents;
+}
+
+.builder-attach__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px;
+  font-size: var(--builder-control-font-size);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-border);
+  border-radius: var(--shell-radius);
+}
+
+.builder-attach__chip[data-state='refused'] {
+  border-color: var(--shell-danger, #b91c1c);
+}
+
+.builder-attach__thumb,
+.builder-attached__thumb {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.builder-attach__icon {
+  flex: none;
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.builder-attach__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.builder-attach__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.builder-attach__status {
+  font-size: 0.85em;
+  color: var(--shell-fg-muted);
+}
+
+.builder-attach__chip[data-state='refused'] .builder-attach__status {
+  color: var(--shell-danger, #b91c1c);
+}
+
+.builder-attach__role,
+.builder-attach__pick,
+.builder-attach__remove {
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+}
+
+.builder-attach__pick,
+.builder-attach__remove {
+  color: var(--shell-fg-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.builder-attach__pick:hover,
+.builder-attach__remove:hover {
+  color: var(--shell-fg);
+}
+
+.builder-attach__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.builder-attached {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0;
+  padding: 3px 8px 3px 4px;
+  border: 1px solid currentColor;
+  border-radius: var(--shell-radius);
+  opacity: 0.9;
+}
+
+.builder-attached__label {
+  font-weight: 600;
+}
+
+.builder-attached__meta {
+  font-size: 0.85em;
+  opacity: 0.8;
 }
 
 /*

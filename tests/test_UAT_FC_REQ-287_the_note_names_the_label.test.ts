@@ -22,6 +22,10 @@
  * site's asset store places nothing on a page. The label/filename choice this
  * file pins is unchanged.
  *
+ * [[REQ-414]] MOVED IT AGAIN: there is no note now. A chat drop is a chip in the
+ * composer, named by its label, and goes with the next message as an attachment
+ * line that names it the same way — so the label/filename choice is pinned there.
+ *
  * ONLY THE HTTP CALLS ARE INJECTED, for the reason every other builder suite
  * gives: they are the network. The note is composed by the module the browser
  * runs and read back off the messages the chat pane actually holds.
@@ -88,6 +92,7 @@ beforeEach(() => {
 
 /** The real builder, with the upload route answering whatever a case needs. */
 function mount(answer: Record<string, unknown>) {
+  const prompts: string[] = []
   const app = mountBuilder(host, {
     sites: SITES,
     storage: memoryStorage(),
@@ -97,7 +102,8 @@ function mount(answer: Record<string, unknown>) {
         turns: [],
         ready: true,
       }),
-      streamPrompt: async function* () {
+      streamPrompt: async function* (_id: string, text: string) {
+        prompts.push(text)
         yield { kind: 'done' }
       },
     },
@@ -107,99 +113,69 @@ function mount(answer: Record<string, unknown>) {
       save: async () => ({}),
       fileUrl: (uid: string) => `/api/material/file?uid=${uid}`,
       upload: async () => answer,
+      setRole: async (uid: string, role: string) => ({ uid, role, site_asset: 'placed.png' }),
     },
-  })
-  return app
+  }) as unknown as Attaching
+  return { app, prompts }
 }
 
-/** One file, dropped on the chat's "put it on the site" area. */
-async function dropOnChat(app: { chat: { element: HTMLElement }; upload: { element: HTMLElement } }, file: File) {
-  app.chat.element.dispatchEvent(fileDrag('dragenter'))
-  ;(app.upload.element.querySelector('[data-role="site"]') as HTMLElement).dispatchEvent(
-    fileDrag('drop', [file]),
-  )
+type Attaching = { chat: { element: HTMLElement }; attachments: { element: HTMLElement } }
+
+/** One file, dropped on the conversation — a chip in the composer. */
+async function dropOnChat(app: Attaching, file: File) {
+  app.chat.element.dispatchEvent(fileDrag('drop', [file]))
+  await settle()
   await settle()
 }
 
-const noteIn = (app: { chat: { getChat: () => { getMessages: () => unknown } } }): string =>
-  String((app.chat.getChat().getMessages() as Array<{ markdown: string }>)[0].markdown)
+const chipText = (app: Attaching, part: 'name' | 'status') =>
+  String(app.attachments.element.querySelector(`.builder-attach__${part}`)?.textContent)
 
-describe.skipIf(!WEBUI_INSTALLED)('REQ-287 — what the confirmation calls the material', () => {
+/** Send what is in the composer, and answer what the consultant was given. */
+async function send(app: Attaching, prompts: string[]) {
+  ;(app.chat.element.querySelector('.chat-widget-send-btn') as HTMLButtonElement).click()
+  for (let i = 0; i < 6; i++) await settle()
+  return prompts.at(-1) ?? ''
+}
+
+const UUID = '3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png'
+
+describe.skipIf(!WEBUI_INSTALLED)('REQ-287 — what an attachment is called', () => {
   it('test_UAT_FC_REQ-287_a_placed_drop_is_named_by_its_catalogue_label_and_not_its_storage_key', async () => {
-    // THE SENTENCE THE TICKET IS ABOUT. The client dropped a file whose name is a
-    // uuid; what they are told to call it from here on is `IMAGE-25`, which is
-    // the name the Library's row shows and the name the assistant answers to.
-    const app = mount({
-      uid: 'material-1',
-      label: 'IMAGE-25',
-      role: 'site',
-      site_asset: '3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png',
-      indexed: true,
-    })
+    // The client dropped a file whose name is a uuid; what they are shown, and
+    // what the consultant is told, is `IMAGE-25` — the name the Library's row
+    // shows and the name the assistant answers to.
+    const { app, prompts } = mount({ uid: 'material-1', label: 'IMAGE-25', kind: 'image', indexed: true })
     await settle()
 
-    await dropOnChat(
-      app,
-      new File(['b'], '3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png', { type: 'image/png' }),
-    )
+    await dropOnChat(app, new File(['b'], UUID, { type: 'image/png' }))
+    expect(chipText(app, 'name')).toBe('IMAGE-25')
 
-    const note = noteIn(app)
-    expect(note).toContain('Added — **IMAGE-25** is ready to use on your site.')
-    // AND NOT ALSO BY THE STORAGE KEY, in the sentence whose whole job is to hand
-    // over a name. The uuid appearing twice would leave the client guessing which
-    // of the two to type back.
-    expect(note).not.toContain('`3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png` is ready')
-
-    // THE FILENAME IS STILL THE FIRST LINE, in bold, as the thing they dropped —
-    // it is the only name they already know, and it is how they recognise which
-    // of three drags this note is about. The two names answer different
-    // questions and both belong in the note.
-    expect(note.split('\n')[0]).toBe('📎 **3d727c09-fe22-4b7e-8035-ff2ac6878fb9.png**')
+    // THE LABEL IS THE NAME; the filename follows as the thing they dropped, in
+    // backticks — a storage key, not a name anyone is asked to type back.
+    expect(await send(app, prompts)).toBe(`📎 Attached: IMAGE-25 (for the site), \`${UUID}\``)
   })
 
   it('test_UAT_FC_REQ-287_material_with_no_label_keeps_the_filename_it_has_always_used', async () => {
-    // WHERE THERE IS NO OTHER NAME. `label` is `string | null`: material ingested
-    // before [[REQ-280]] has none, and that is a gap in an old Library rather
-    // than a defect. The filename is then the honest name for a thing that has no
-    // other one — and it stays in backticks, because a storage key is what it is.
-    const app = mount({
-      uid: 'material-2',
-      label: null,
-      role: 'site',
-      site_asset: 'logo.png',
-      indexed: true,
-    })
+    // `label` is `string | null`: material ingested before [[REQ-280]] has none.
+    // The filename is then the honest name for a thing that has no other one.
+    const { app, prompts } = mount({ uid: 'material-2', label: null, indexed: true })
     await settle()
 
     await dropOnChat(app, new File(['b'], 'logo.png', { type: 'image/png' }))
-
-    expect(noteIn(app)).toContain('Added — `logo.png` is ready to use on your site.')
+    expect(chipText(app, 'name')).toBe('logo.png')
+    expect(await send(app, prompts)).toBe('📎 Attached: logo.png (for the site), `logo.png`')
   })
 
   it('test_UAT_FC_REQ-287_a_label_is_not_a_placement_and_does_not_produce_the_placement_sentence', async () => {
-    // THE GATE IS UNCHANGED, and this is the way this ticket could have broken
-    // it. Every material gets a label at ingest, including one the client marked
-    // "just for you to read" — so a note that reached for the label rather than
-    // for the placement would announce a site for a file that never touched one.
-    // The sentence is still conditional on `site_asset`; only the name inside it
-    // moved.
-    const unplaced = mount({
-      uid: 'material-3',
-      label: 'DOC-4',
-      role: 'reference',
-      site_asset: null,
-      indexed: false,
-    })
+    // Every material gets a label at ingest, including one that is "just for you
+    // to read" — so naming it by its label must not announce a site for a file
+    // that will never touch one.
+    const { app } = mount({ uid: 'material-3', label: 'DOC-4', indexed: true })
     await settle()
 
-    await dropOnChat(unplaced, new File(['b'], 'brand-book.pdf', { type: 'application/pdf' }))
-
-    const note = noteIn(unplaced)
-    expect(note).toContain("Added. I'll read it — it won't appear on your site.")
-    expect(note).not.toContain('ready to use')
-    expect(note).not.toContain('DOC-4')
-    // AND THE LINE THAT REPORTS WHAT WENT WRONG IS UNTOUCHED — it says what
-    // happened rather than what to call it, and this ticket changed only naming.
-    expect(note).toContain("I've stored it, but I can't search it yet.")
+    await dropOnChat(app, new File(['b'], 'brand-book.pdf', { type: 'application/pdf' }))
+    expect(chipText(app, 'status')).toBe("I'll read it — it won't appear on your site")
+    expect(chipText(app, 'status')).not.toContain('ready to use')
   })
 })

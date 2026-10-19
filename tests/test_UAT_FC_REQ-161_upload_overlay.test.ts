@@ -97,11 +97,10 @@ beforeEach(() => {
 
 /** The overlay, plus a log of everything it committed. */
 function overlayWithLog() {
-  const uploads: Array<{ names: string[]; role: string; source: string | null }> = []
+  const uploads: Array<{ names: string[]; role: string }> = []
   const overlay = createUploadOverlay({
     host,
-    onUpload: (files: File[], role: string, source: string | null) =>
-      void uploads.push({ names: files.map((f) => f.name), role, source }),
+    onUpload: (files: File[], role: string) => void uploads.push({ names: files.map((f) => f.name), role }),
   })
   return { overlay, uploads }
 }
@@ -137,13 +136,13 @@ describe('REQ-161 — the areas are roles, not file types', () => {
 
   it('test_UAT_FC_REQ-161_dropping_into_an_area_commits_that_role_and_nothing_else_does', () => {
     const { overlay, uploads } = overlayWithLog()
-    overlay.open('library')
+    overlay.open()
 
     const areas = [...overlay.element.querySelectorAll('.builder-upload__area')]
     areas[1].dispatchEvent(fileDrag('drop', [aFile('brand-book.pdf', 'application/pdf')]))
 
     expect(uploads).toEqual([
-      { names: ['brand-book.pdf'], role: 'reference', source: 'library' },
+      { names: ['brand-book.pdf'], role: 'reference' },
     ])
     // Committing gets out of the way — the client is done deciding.
     expect(overlay.isOpen()).toBe(false)
@@ -155,7 +154,7 @@ describe('REQ-161 — the areas are roles, not file types', () => {
     // wrong in a way nobody would notice — publishing what was meant to stay
     // private, or withholding what was meant to be published.
     const { overlay, uploads } = overlayWithLog()
-    overlay.open('chat')
+    overlay.open()
 
     overlay.element.dispatchEvent(fileDrag('drop', [aFile()]))
 
@@ -176,14 +175,14 @@ describe('REQ-161 — the areas are roles, not file types', () => {
     // Accessibility, and anyone on a device where dragging is awkward: the same
     // overlay and the same role, reached by a different trigger.
     const { overlay, uploads } = overlayWithLog()
-    overlay.open('library')
+    overlay.open()
 
     const input = overlay.element.querySelector('.builder-upload__input') as HTMLInputElement
     ;(overlay.element.querySelector('[data-role="site"]') as HTMLElement).click()
     Object.defineProperty(input, 'files', { value: [aFile('hero.jpg', 'image/jpeg')], configurable: true })
     input.dispatchEvent(new Event('change'))
 
-    expect(uploads).toEqual([{ names: ['hero.jpg'], role: 'site', source: 'library' }])
+    expect(uploads).toEqual([{ names: ['hero.jpg'], role: 'site' }])
   })
 
   it('test_UAT_FC_REQ-161_a_drag_that_is_not_carrying_files_never_raises_the_overlay', () => {
@@ -192,7 +191,7 @@ describe('REQ-161 — the areas are roles, not file types', () => {
     const { overlay } = overlayWithLog()
     const target = document.createElement('div')
     host.append(target)
-    overlay.watch(target, 'library')
+    overlay.watch(target)
 
     target.dispatchEvent(textDrag('dragenter'))
     expect(overlay.isOpen()).toBe(false)
@@ -238,96 +237,40 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-161 — two entry points, one interaction
     return { app, sent }
   }
 
-  it('test_UAT_FC_REQ-161_dragging_onto_either_the_chat_or_the_library_raises_the_same_overlay', async () => {
+  it('test_UAT_FC_REQ-161_dragging_onto_the_library_raises_the_overlay_and_the_chat_does_not', async () => {
     // DOC-8 open item #4 asked "drag-into-chat, dedicated asset panel, or an
-    // AI-prompted upload step?" and left it open. The answer is BOTH, because
-    // they serve different moments — the assistant asking for a logo, and the
-    // client filing something that is not part of the conversation — and the SAME
-    // overlay, because the decision they lead to is identical.
+    // AI-prompted upload step?". The Library is the deliberate path and asks its
+    // question on this sheet; a drop on the conversation is an attachment to the
+    // next message and asks it on its chip instead ([[REQ-414]]).
     const { app } = mount()
     await settle()
 
-    const overlays = host.querySelectorAll('.builder-upload')
-    expect(overlays, 'one overlay, not one per entry point').toHaveLength(1)
+    expect(host.querySelectorAll('.builder-upload'), 'one overlay').toHaveLength(1)
     expect(app.upload.isOpen()).toBe(false)
 
     app.chat.element.dispatchEvent(fileDrag('dragenter'))
-    expect(app.upload.isOpen()).toBe(true)
-    app.upload.close()
+    expect(app.upload.isOpen(), 'the conversation takes attachments, not the overlay').toBe(false)
 
     app.library.element.dispatchEvent(fileDrag('dragenter'))
     expect(app.upload.isOpen()).toBe(true)
-    expect(app.upload.element).toBe(overlays[0])
   })
 
-  it('test_UAT_FC_REQ-161_a_chat_route_drop_appears_in_the_conversation_and_a_library_one_does_not', async () => {
+  it('test_UAT_FC_REQ-161_a_library_drop_commits_its_role_and_puts_nothing_in_the_conversation', async () => {
     const { app, sent } = mount()
     await settle()
 
-    app.chat.element.dispatchEvent(fileDrag('dragenter'))
-    ;(app.upload.element.querySelector('[data-role="site"]') as HTMLElement).dispatchEvent(
-      fileDrag('drop', [new File(['b'], 'logo.png', { type: 'image/png' })]),
-    )
-    await settle()
-
-    // The site currently shown travels with it, which is what lets the origin put
-    // a "for the site" upload straight into that site's asset library.
-    expect(sent).toEqual([{ file: expect.anything(), role: 'site', site: 'alpha' }])
-
-    // THE CLIENT CAN SEE WHAT THEY SENT, as their own turn — because it is.
-    const messages = app.chat.getChat().getMessages() as Array<{ role: string; markdown: string }>
-    expect(messages).toHaveLength(1)
-    expect(messages[0].role).toBe('user')
-    expect(messages[0].markdown).toContain('logo.png')
-    // And it reports what actually happened, not merely that something did.
-    expect(messages[0].markdown).toContain('on your site')
-
-    // A LIBRARY-ROUTE DROP REACHES THE ASSISTANT BY THE SAME PATH — the origin's
-    // index refresh and the next turn's delta — but does NOT put a line in a
-    // conversation it was not part of.
+    // A LIBRARY-ROUTE DROP REACHES THE ASSISTANT BY the origin's index refresh and
+    // the next turn's delta — and does NOT put a line in a conversation it was not
+    // part of.
     app.library.element.dispatchEvent(fileDrag('dragenter'))
     ;(app.upload.element.querySelector('[data-role="reference"]') as HTMLElement).dispatchEvent(
       fileDrag('drop', [new File(['b'], 'notes.pdf', { type: 'application/pdf' })]),
     )
     await settle()
 
-    expect(sent).toHaveLength(2)
-    expect(sent[1].role).toBe('reference')
-    expect(app.chat.getChat().getMessages()).toHaveLength(1)
-  })
-
-  it('test_UAT_FC_REQ-161_an_upload_that_failed_says_so_rather_than_reading_as_added', async () => {
-    // A confirmation that said "added" whatever happened would make a failure
-    // indistinguishable from success to the only person who could tell us.
-    const app = mountBuilder(host, {
-      sites: SITES,
-      storage: memoryStorage(),
-      chatTransport: {
-        openSession: async () => ({ sessionId: 's', turns: [], ready: true }),
-        streamPrompt: async function* () {
-          yield { kind: 'done' }
-        },
-      },
-      libraryTransport: {
-        list: async () => ({ material: [] }),
-        item: async () => ({ body: '' }),
-        save: async () => ({}),
-        fileUrl: (uid: string) => `/x?uid=${uid}`,
-        upload: async () => {
-          throw new Error('That file is 25MB, and the limit is 25MB.')
-        },
-      },
-    })
-    await settle()
-
-    app.chat.element.dispatchEvent(fileDrag('dragenter'))
-    ;(app.upload.element.querySelector('[data-role="site"]') as HTMLElement).dispatchEvent(
-      fileDrag('drop', [new File(['b'], 'huge.psd', { type: 'image/vnd.adobe.photoshop' })]),
-    )
-    await settle()
-
-    const messages = app.chat.getChat().getMessages() as Array<{ markdown: string }>
-    expect(messages[0].markdown).toContain("didn't upload")
-    expect(messages[0].markdown).toContain('the limit is 25MB')
+    // The site currently shown travels with it, which is what lets the origin put
+    // a "for the site" upload straight into that site's asset library.
+    expect(sent).toEqual([{ file: expect.anything(), role: 'reference', site: 'alpha' }])
+    expect(app.chat.getChat().getMessages()).toHaveLength(0)
   })
 })

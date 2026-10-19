@@ -153,10 +153,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-221 — a refused upload says why, wherev
     return app
   }
 
-  /** Drop one file onto the given entry point's `site` area. */
+  /** Drop one file: on the conversation (a chip, [[REQ-414]]), or on the Library's `site` area. */
   async function drop(app: Record<string, never>, from: 'chat' | 'library') {
-    const entry = from === 'chat' ? app.chat : app.library
-    entry.element.dispatchEvent(fileDrag('dragenter'))
+    if (from === 'chat') {
+      ;(app.chat as { element: HTMLElement }).element.dispatchEvent(fileDrag('drop', [aPhotograph()]))
+      await settle()
+      await settle()
+      return
+    }
+    app.library.element.dispatchEvent(fileDrag('dragenter'))
     ;(app.upload.element.querySelector('[data-role="site"]') as HTMLElement).dispatchEvent(
       fileDrag('drop', [aPhotograph()]),
     )
@@ -182,16 +187,17 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-221 — a refused upload says why, wherev
     expect(notice.getAttribute('role')).toBe('status')
   })
 
-  it('UAT_FC_REQ-221 a chat drop still reports it in the conversation, and only there', async () => {
+  it('UAT_FC_REQ-221 a chat drop reports it on its chip, and only there', async () => {
     const app = mountRefusing()
     await settle()
     await drop(app, 'chat')
 
-    const messages = app.chat.getChat().getMessages() as Array<{ markdown: string }>
-    const note = messages.at(-1)!.markdown
-    expect(note).toContain("that didn't upload")
-    expect(note).toContain('Most Compatible')
-    // AND NOT TWICE. A chat drop has already said it; repeating it in a second
+    // [[REQ-414]] — ON THE CHIP, not as a message nobody sent.
+    const chip = app.attachments.element.querySelector('.builder-attach__chip') as HTMLElement
+    expect(chip.dataset.state).toBe('refused')
+    expect(chip.textContent).toContain('Most Compatible')
+    expect(app.chat.getChat().getMessages()).toHaveLength(0)
+    // AND NOT TWICE. The chip has already said it; repeating it in a second
     // surface would read as two separate failures rather than one.
     const notice = app.library.element.querySelector('.builder-library__refusal') as HTMLElement
     expect(notice.textContent).toBe('')
