@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:59:04.424861+00:00'
+updated_at: '2026-10-19T01:16:48.443601+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9246,5 +9246,11 @@ Posting these to BUG-229.
 I've posted the three answers to BUG-229, so its session can start once it has confirmed the one point in answer 1.
 
 If you'd rather keep its offset-map plan for answer 1, or use `jpeg-js` straight away for answer 3, tell me and I'll correct the ticket.
+
+<!-- xgd-turn id="a1399219-4fd8-4403-915a-e0b24502bb04-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T01:16:44.866447+00:00" -->
+#### You
+BUG-229 has more questions - your thoughts?
 
 <!-- xgd-chat-end -->
