@@ -48,6 +48,7 @@
  * not changed, and keeps the one the client is typing in even if it has.
  */
 import { answerAsk, compAction, deleteMaterial, fetchPlan, materialFileUrl, saveMaterialRole, uploadMaterial } from './api.js'
+import { fillFailure } from './failure-notice.js'
 import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import {
   COMPS_ADD_BUTTON,
@@ -294,7 +295,7 @@ export function createPlanPanel(options = {}) {
   const typedOther = new Map()
 
   function fail(message) {
-    error.textContent = PLAN_SAVE_FAILED(message)
+    fillFailure(error, PLAN_SAVE_FAILED, message)
     error.hidden = false
   }
 

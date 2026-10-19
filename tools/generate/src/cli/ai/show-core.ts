@@ -49,7 +49,7 @@ export const SHOW_TOOL = 'show_client'
 export const SHOW_CLIENT = 'show_client'
 
 /** What the consultant can bring forward. */
-export const SHOW_TARGETS = ['draft', 'story', 'looks', 'comp', 'ask'] as const
+export const SHOW_TARGETS = ['draft', 'story', 'looks', 'comp', 'ask', 'web_address'] as const
 export type ShowTarget = (typeof SHOW_TARGETS)[number]
 
 /** The two ways. */
@@ -132,6 +132,10 @@ async function resolve(p: Params, plan: ShowPlan, deps: ShowDeps): Promise<Shown
     return deps.pages()
   }
   if (target === 'story') return { href: showHref('story'), label: 'the story board' }
+  // [[BUG-230]] — WHERE THE CLIENT CHOOSES A WEB ADDRESS: Settings, at that
+  // section. A site cannot be published without one, and the client cannot be
+  // expected to find it on their own.
+  if (target === 'web_address') return { href: showHref('web_address'), label: 'where you choose your web address' }
   if (target === 'draft') {
     const id = str(p.page)
     if (!id) return { href: showHref('draft'), label: 'your draft' }

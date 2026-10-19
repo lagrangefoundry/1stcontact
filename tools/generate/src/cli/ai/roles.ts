@@ -47,7 +47,7 @@ import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
-import { planReminder, type Plan } from './plan-core'
+import { nearPublishing, planReminder, type Plan } from './plan-core'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
 
@@ -944,6 +944,12 @@ export function registerSiteProviders(
      */
     plan?: (() => Promise<Plan | null>) | null
     /**
+     * Where this site can be reached ([[REQ-238]]), read only once the plan is
+     * near publishing, for the plan entry's no-address line ([[BUG-230]]).
+     * Absent — the `1c` CLI — says nothing about addresses.
+     */
+    addresses?: (() => Promise<readonly unknown[]>) | null
+    /**
      * Whether this deployment composes the delegation surface ([[REQ-295]]).
      *
      * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entries it fills
@@ -1034,7 +1040,15 @@ export function registerSiteProviders(
   providers.register(SITE_PLAN_PROVIDER, async () => {
     if (!binding.plan) return null
     try {
-      return planReminder(await binding.plan())
+      const plan = await binding.plan()
+      // [[BUG-230]] — ONE QUERY, AND ONLY NEAR PUBLISHING, so the turns before
+      // then pay nothing for a line they would not carry. An address read that
+      // fails costs the line, never the plan entry.
+      const noAddress =
+        binding.addresses && nearPublishing(plan)
+          ? await binding.addresses().then((a) => a.length === 0, () => false)
+          : false
+      return planReminder(plan, { noAddress })
     } catch {
       return null
     }

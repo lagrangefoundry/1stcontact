@@ -5622,8 +5622,14 @@ async function routeUncached(
       // posts and reads JSON — is untouched and continues to get the envelope it
       // always got. A body flag would have been a second vocabulary for something
       // the protocol already has a word for.
+      //
+      // [[BUG-230]] — AWAITED, so a refusal the publish makes before it has
+      // anything to report (no address, an invalid draft, nothing built) throws
+      // out of here into the mapping at the bottom and is the same status and
+      // `code` the JSON form answers with. `streamPublish` only commits `200`
+      // once the publish has said something.
       if ((request.headers.get('accept') ?? '').includes('text/event-stream')) {
-        return streamPublish(
+        return await streamPublish(
           (onLadderProgress) =>
             publishSite(store, site, {
               message,
@@ -5633,6 +5639,7 @@ async function routeUncached(
             }),
           answer,
           scrub,
+          refusalCode,
         )
       }
 
@@ -8200,13 +8207,52 @@ function stampDraftAt(response: Response, at: number): Response {
  * emits. An over-budget ladder is written for the client and names only the
  * site's own facts, but it reaches here as an ordinary `Error` and must not be the
  * one place a message escapes the scrubber.
+ *
+ * [[BUG-230]] — NOTHING IS COMMITTED UNTIL THE PUBLISH HAS SAID SOMETHING. The
+ * response is held until the first progress frame (the ladder's plan, which it
+ * sends before any picture is touched) or until the publish settles. A publish
+ * that refuses before then — no address, an invalid draft, nothing built — has
+ * reported nothing, so the refusal is THROWN to the route and answered with the
+ * same status and `code` the JSON form gives. Those refusals sit ahead of the
+ * ladder in `publishSite` precisely so they cost nothing, which is also what
+ * makes them all reportable as statuses here. Before this, the stream opened
+ * first, and the builder's no-address dialog never saw the code it opens on.
+ *
+ * AND A LATE REFUSAL KEEPS ITS CODE. Anything thrown after the stream commits is
+ * reported in the terminal frame, with `code` beside the sentence whenever
+ * `codeOf` names one, so the client branches on the same field either way.
  */
-function streamPublish<T>(
+async function streamPublish<T>(
   run: (onLadderProgress: LadderProgressReporter) => Promise<T>,
   answer: (result: T) => Promise<unknown>,
   scrub: (message: string) => string,
-): Response {
+  codeOf: (err: unknown) => string | undefined,
+): Promise<Response> {
   const encoder = new TextEncoder()
+  // Frames said before the stream exists are held, then flushed in order.
+  const held: unknown[] = []
+  let sink: ((frame: unknown) => void) | null = null
+  let spoke!: () => void
+  const spoken = new Promise<void>((resolve) => (spoke = resolve))
+  const say = (frame: unknown): void => {
+    if (sink) sink(frame)
+    else {
+      held.push(frame)
+      spoke()
+    }
+  }
+
+  const outcome = run((progress) => say({ kind: 'progress', ...progress }))
+  const settled = outcome.then(
+    () => 'settled' as const,
+    () => 'settled' as const,
+  )
+  // A publish that refuses (or finishes) before saying anything throws or
+  // answers here, before a status exists — see above.
+  if ((await Promise.race([spoken.then(() => 'spoke' as const), settled])) === 'settled' && held.length === 0) {
+    await outcome
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       /**
@@ -8226,6 +8272,8 @@ function streamPublish<T>(
           // The client left. See above.
         }
       }
+      for (const frame of held.splice(0)) write(frame)
+      sink = write
 
       try {
         // THE PLAN FRAME IS THE FIRST THING THE LADDER SAYS, and the builder's
@@ -8233,13 +8281,15 @@ function streamPublish<T>(
         // resize, so nothing about resizing is shown. That is why this is the
         // ladder's own progress rather than a step count invented here — only the
         // ladder knows what the cache already holds.
-        const result = await run((progress) => write({ kind: 'progress', ...progress }))
+        const result = await outcome
         write({ kind: 'done', ok: true, ...((await answer(result)) as object) })
       } catch (err) {
+        const code = codeOf(err)
         write({
           kind: 'done',
           ok: false,
           error: scrub(err instanceof Error ? err.message : String(err)),
+          ...(code ? { code } : {}),
         })
       } finally {
         try {
@@ -8261,6 +8311,21 @@ function streamPublish<T>(
       'cache-control': 'no-store',
     },
   })
+}
+
+/**
+ * The `code` a publish refusal carries on the wire, or `undefined` ([[BUG-230]]).
+ *
+ * THE SAME CODES THE ERROR MAPPING BELOW THE ROUTES GIVES THESE ERRORS, for the
+ * streaming form's terminal frame — so a refusal reaches the builder with one
+ * code whichever form it was reported in.
+ */
+function refusalCode(err: unknown): string | undefined {
+  if (err instanceof NoPublicAddressError) return NO_PUBLIC_ADDRESS_CODE
+  if (err instanceof NothingBuiltError) return NOTHING_BUILT_CODE
+  if (err instanceof InvalidDefinitionError) return 'INVALID_DEFINITION'
+  if (err instanceof CommandError) return err.code
+  return undefined
 }
 
 /** How often an idle change feed says something, so nothing reaps it. */

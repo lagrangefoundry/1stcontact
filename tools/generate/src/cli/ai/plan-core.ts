@@ -1093,6 +1093,29 @@ export function answerText(answer: string | string[] | undefined): string {
  */
 export const MAX_PLAN_REMINDER_CHARS = 2_000
 
+/** [[BUG-230]] — the plan entry's line while a site near publishing has no web address. */
+export const NO_ADDRESS_LINE = "No web address yet: the site can't be published until one is chosen."
+
+/** The stages from which a missing web address is worth saying every turn ([[BUG-230]]). */
+const PUBLISH_STAGES = ['finishing_touches', 'ready_to_publish']
+
+/**
+ * Whether the plan has reached Finishing touches or Ready to publish — either
+ * one started or done ([[BUG-230]]). Before then a missing address is not yet
+ * the consultant's business, and saying it every turn would be noise.
+ */
+export function nearPublishing(plan: Plan | null): boolean {
+  return (plan?.fields.stages ?? []).some(
+    (s) => PUBLISH_STAGES.includes(s.id) && (s.state === IN_PROGRESS || s.state === STAGE_DONE),
+  )
+}
+
+/** What the host knows beside the plan that the plan entry says ([[BUG-230]]). */
+export interface PlanFacts {
+  /** The site is near publishing and has no web address. */
+  noAddress?: boolean
+}
+
 /**
  * The plan as a session is told it on every turn, or `null` without one.
  *
@@ -1100,12 +1123,16 @@ export const MAX_PLAN_REMINDER_CHARS = 2_000
  * nobody has made, or one that was only defaulted, is the thing a session left to
  * itself forgets. Settled decisions are named, not explained — the log explains.
  */
-export function planReminder(plan: Plan | null): string | null {
+export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string | null {
   if (!plan) return null
   const f = plan.fields
   const panel = planPanel(f)
   const list = (items: string[]): string => items.join('; ')
   const lines = ['### The site plan', '', stagesLine(f)]
+  // [[BUG-230]] — A FACT THE HOST READ, and the one a session left to itself
+  // forgets at exactly the wrong moment: it suggests Publish, and the client's
+  // first sign an address was needed is the refusal.
+  if (facts.noAddress) lines.push(NO_ADDRESS_LINE)
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
   // left to itself forgets: the stage it never moved, the milestone it never raised.
   const behind = stageBehind(f)

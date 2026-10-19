@@ -2408,6 +2408,8 @@ async function build(
     // because the plan changes under a conversation: the client answers, a task
     // finishes, another session records a decision.
     plan: deps.plan ? () => deps.plan!(slug).read() : null,
+    // [[BUG-230]] — so the plan entry can say the site has no address yet.
+    addresses: deps.addresses ? () => deps.addresses!(slug) : null,
   })
 
   // KM's two providers, when this host has a corpus. The seam registers and

@@ -3677,6 +3677,23 @@ body {
   border-top: 1px solid #d9a93a;
 }
 
+/* [[BUG-230]] — a failure's plain line, with the server's own text folded away
+   under Details (`failure-notice.js`). The server's text is for a support
+   request, so it wraps and stays selectable rather than scrolling sideways. */
+.builder-failure__details {
+  margin-top: 0.25rem;
+}
+
+.builder-failure__details summary {
+  cursor: pointer;
+}
+
+.builder-failure__details pre {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+  font-size: 0.85em;
+}
+
 /* ── the session has ended ([[BUG-52]]) ───────────────────────────────────────
    TWO SHAPES, ONE VOICE. `.builder-session-notice` is the mid-session strip and
    looks exactly like the two banners above — a different colour would say this

@@ -28,6 +28,8 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import controlApp from '../apps/control-app/src/index'
+import { route, type RouterEnv } from '../apps/control-app/src/router'
+import type { ImageLadder } from '../tools/generate/src/publish/ladder'
 import type { Env as ControlEnv } from '../apps/control-app/src/index'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import { applySchema } from './support/d1-site-factory'
@@ -155,11 +157,33 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
   })
 
   it('reports a failure in the terminal frame rather than as a status', async () => {
-    // THE CLAIM THIS FILE EXISTS FOR. The response commits `200` the moment it
-    // becomes a stream, so a publish that fails after that point CANNOT report
-    // itself as an HTTP status — a client reading the status alone would report a
-    // site as live that is not. The verdict is therefore in the frame.
-    const res = await publish('no-such-site', 'text/event-stream')
+    // THE CLAIM THIS FILE EXISTS FOR. The response commits `200` the moment the
+    // publish first reports progress, so a publish that fails after that point
+    // CANNOT report itself as an HTTP status — a client reading the status alone
+    // would report a site as live that is not. The verdict is therefore in the
+    // frame. ([[BUG-230]]: a failure BEFORE the publish says anything is still a
+    // status — see the case below — so this one needs a ladder that speaks first.)
+    const site = await draft()
+    const ladder: ImageLadder = {
+      async build(_source, opts) {
+        opts?.onProgress?.({ total: 2, done: 0 })
+        throw new Error(`a picture on ${site} could not be resized`)
+      },
+    }
+    const res = await route(
+      new Request('https://app.example/api/publish', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'text/event-stream' },
+        body: JSON.stringify({ site }),
+      }),
+      {
+        DB: env.DB,
+        SITES: env.SITES,
+        ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
+      } as unknown as RouterEnv,
+      { businessId: TENANT },
+      { ladder: () => ladder },
+    )
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('text/event-stream')
 
@@ -171,7 +195,16 @@ describe('REQ-222 — the publish route streams when it is asked to', () => {
     // emits — a failure with no words is a client who knows only that something
     // went wrong.
     expect(typeof terminal.error).toBe('string')
-    expect(terminal.error as string).toContain('no-such-site')
+    expect(terminal.error as string).toContain('could not be resized')
+  })
+
+  it('reports a failure before the publish says anything as a status ([[BUG-230]])', async () => {
+    // NOTHING IS COMMITTED UNTIL THE PUBLISH HAS SPOKEN, so a site that does not
+    // exist is refused with an ordinary status and envelope, as in the JSON form.
+    const res = await publish('no-such-site', 'text/event-stream')
+    expect(res.status).not.toBe(200)
+    expect(res.headers.get('content-type')).toContain('application/json')
+    expect(((await res.json()) as Record<string, unknown>).error).toContain('no-such-site')
   })
 
   it('refuses before committing to a stream where it still can', async () => {

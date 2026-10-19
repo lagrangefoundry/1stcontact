@@ -1041,8 +1041,10 @@ export async function streamPublish(site, onProgress, fetchImpl = fetch) {
   })
   // A REFUSAL BEFORE THE STREAM OPENS IS STILL AN ORDINARY STATUS, and it is the
   // only failure here that has one — an invalid draft, a missing site, a lapsed
-  // session. Read as JSON, because that is what the router answers with when it
-  // refuses before committing to a stream.
+  // session, a site with no address. Read as JSON, because that is what the
+  // router answers with when it refuses before committing to a stream — and the
+  // router holds the stream until the publish has said something, so every
+  // refusal the publish makes before its ladder starts arrives here ([[BUG-230]]).
   //
   // AND THE STATUS SURVIVES THE THROW ([[REQ-250]]). By the time the builder sees
   // this it is an `Error` like every other publish failure, and one of them — a
@@ -1069,7 +1071,13 @@ export async function streamPublish(site, onProgress, fetchImpl = fetch) {
   if (terminal === null) {
     throw new Error('The publish stopped before it said whether it finished.')
   }
-  if (terminal.ok !== true) throw new Error(terminal.error || 'the publish failed')
+  // A LATE REFUSAL KEEPS ITS CODE ([[BUG-230]]) — the same field a non-OK
+  // response sets above, so the caller branches on one thing either way.
+  if (terminal.ok !== true) {
+    const failure = new Error(terminal.error || 'the publish failed')
+    if (terminal.code) failure.code = terminal.code
+    throw failure
+  }
   return terminal
 }
 

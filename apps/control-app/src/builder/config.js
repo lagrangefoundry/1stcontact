@@ -995,7 +995,19 @@ export const PLAN_DOCUMENTS = (n) => `${n} files you sent`
 /** [[BUG-196]] — a file the answer cited that has since been deleted from the Library. */
 export const PLAN_DOCUMENT_GONE = 'Deleted from your Library'
 export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
-export const PLAN_SAVE_FAILED = (message) => `That answer was not saved: ${message}`
+/**
+ * [[BUG-230]] — what the panel says when an answer did not save. The server's
+ * sentence goes behind Details (`failure-notice.js`), never into this line.
+ */
+export const PLAN_SAVE_FAILED = 'That answer was not saved. Try again in a minute, and tell us if it keeps happening.'
+
+/**
+ * [[BUG-230]] — what the publish banner says when a publish went wrong. Plain
+ * words and what to do; the server's sentence is behind Details. A refusal the
+ * client can act on (a code) never gets this line — it gets its own dialog.
+ */
+export const PUBLISH_FAILED_MESSAGE =
+  'This site was not published. Something went wrong — try again in a minute, and tell us if it keeps happening.'
 
 /** The comp board's words ([[REQ-378]]). */
 export const COMPS_HEADING = "Sites we're comparing"

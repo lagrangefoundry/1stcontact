@@ -16,6 +16,7 @@ import {
   DEBUG_TAB,
   LIBRARY_TAB,
   PEOPLE_TAB,
+  PUBLISH_FAILED_MESSAGE,
   SETTINGS_TAB,
   SHOW_GONE,
   SITE_TAB,
@@ -42,6 +43,7 @@ import { createPeoplePanel } from './people.js'
 import { createSettingsPanel } from './settings.js'
 import { createDebugPanel } from './debug.js'
 import { NO_PUBLIC_ADDRESS, openNoAddressModal } from './publish-address.js'
+import { fillFailure } from './failure-notice.js'
 import { markdownReady as defaultMarkdownReady } from './markdown.js'
 import { createPageCarry } from './carry.js'
 import { createPageIndex } from './pages.js'
@@ -1067,7 +1069,8 @@ export function mountBuilder(root, options = {}) {
 
   /**
    * [[REQ-413]] — put a target in front of the client: a page of the draft, the
-   * story board, a look, a comparison site, a question on the panel. Answers
+   * story board, a look, a comparison site, a question on the panel, or the
+   * Settings section where they choose a web address ([[BUG-230]]). Answers
    * whether it was there to show. The client's own controls are untouched, so
    * whatever this did they undo it the way they always would.
    */
@@ -1099,6 +1102,11 @@ export function mountBuilder(root, options = {}) {
       return true
     }
     if (target === 'ask') return planPanel.showAsk(q.get('ask'))
+    // [[BUG-230]] — the same route the no-address dialog's button takes.
+    if (target === 'web_address') {
+      revealWebAddress()
+      return true
+    }
     return false
   }
 
@@ -2469,7 +2477,10 @@ function blockForPublish(shell) {
       banner = document.createElement('div')
       banner.className = 'builder-banner builder-banner--publish-failed'
       banner.setAttribute('role', 'alert')
-      banner.textContent = `This site was not published. ${message}`
+      // [[BUG-230]] — PLAIN WORDS, AND THE SERVER'S SENTENCE BEHIND DETAILS. The
+      // server writes for us: its sentence can carry a site id or an internal
+      // term, which tells a client nothing they can use.
+      fillFailure(banner, PUBLISH_FAILED_MESSAGE, message)
       if (content && panels) content.insertBefore(banner, panels)
       else (content ?? shell.element).prepend(banner)
     },
