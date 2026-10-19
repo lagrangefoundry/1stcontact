@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T22:43:41.679138+00:00'
+updated_at: '2026-10-19T22:45:22.210646+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9769,5 +9769,24 @@ Shall I go ahead?
 <!-- xgd-chat role="user" ts="2026-10-19T22:43:38.204359+00:00" -->
 #### You
 yes please
+
+<!-- xgd-turn id="15336ff8-bc44-4012-ab64-5670721cd8b1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-19T22:45:20.274284+00:00" -->
+#### Claude
+Now the bug ticket.
+
+I've filed the bug and changed the consultant's instructions. The one thing that went differently: REQ-413 had already landed and is frozen, so the Settings link went into the new bug instead of REQ-413.
+
+**BUG-230: a site with no web address gets a raw error banner instead of the dialog** (high, 5 points, under EPIC-19). It covers five things:
+1. **Check the address before the publish stream starts**, so the refusal comes back with its proper code and the REQ-250 dialog opens. That dialog says what's missing and has a button to Settings.
+2. **The stream's final message keeps the error code** as a fallback, so the builder never has to work out what kind of error it is from the wording.
+3. **Friendlier failure banners.** Nothing internal is visible: no site ids, codes or internal terms. The banner shows a plain line, with the server's text behind a "Details" toggle, and the builder's other failure banners get checked against the same rule.
+4. **The consultant can link to the web-address section of Settings**, as a new `web_address` target for `show_client`, opening it the same way the dialog's button does.
+5. **The consultant is told the fact.** While there's no address and the build is at Finishing touches or Ready to publish, the plan notice it gets each turn says *"No web address yet: the site can't be published until one is chosen."*
+
+**Instruction change, committed as `1c6a268d7e`:** before suggesting Publish, the consultant checks whether the site has a web address. If it doesn't, it says so in one line, explains the choice between a free `.1stc.site` address and your own domain, and sends you to Settings. Its instructions now say you should never find out by pressing Publish. The launch and priming tests pass, including the check that the priming still fits its size limit.
+
+Until BUG-230 lands, the consultant can describe where to go but can't give you a link, and pressing Publish on a site with no address will still show the old banner. The instruction change reaches your dev server on the next `bin/deploy --env dev`.
 
 <!-- xgd-chat-end -->
