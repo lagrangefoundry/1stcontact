@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T00:13:04.645022+00:00'
+updated_at: '2026-10-19T00:14:29.723429+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9061,5 +9061,11 @@ The one that has actually been cutting work short is the **builder's context**. 
 This is REQ-409's remaining question, now settled by your decision that the outcome matters more than the token bill. So I'd fold it all into **REQ-409**, which is still at `draft`, rather than file a new ticket.
 
 Two numbers to confirm: **$10 per turn** as the spend ceiling, and **two automatic continuations** before she has to stop. And do you want the builder-model question (Haiku 4.5 vs a larger-window model) settled in that ticket, or kept separate since it's mainly a cost decision?
+
+<!-- xgd-turn id="b273a234-f17d-4e43-a368-61e287addfbe-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T00:14:29.591773+00:00" -->
+#### You
+Lets try it - can we not just call Haiku again?
 
 <!-- xgd-chat-end -->
