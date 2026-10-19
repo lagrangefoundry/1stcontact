@@ -6,10 +6,10 @@ title: 'Builder banners: error banners can''t be dismissed — give every action
   banner a dismiss ×'
 created_by: EPIC-19
 created_at: '2026-10-19T23:31:13.561400+00:00'
-updated_at: '2026-10-19T23:47:51.221512+00:00'
+updated_at: '2026-10-19T23:48:19.847724+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: medium
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-fa32dc04
+  commits:
+  - working_sha: 6c2cc3084356554829d108273e8de7cfd5aa53ff
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 75da3b266bfae7480b1dd024fa187e1d86e9736e
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.546
 ---
 
 ## Symptom
