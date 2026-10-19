@@ -49,6 +49,7 @@ import type { SiteDigest, DigestPage } from './digest-core'
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
 import { planReminder, type Plan } from './plan-core'
 import { builderVocabulary } from './l1-vocabulary-core'
+import { CLIENT_BUSY, type ClientBusy } from './show-core'
 
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -627,6 +628,12 @@ export interface ClientView {
   width: number
   height?: number
   mode: ClientViewMode
+  /**
+   * [[REQ-413]] — what the client is in the middle of, when anything: editing a
+   * page with changes open, in the image editor, or part-way through answering on
+   * the panel. A switch of their view is never made under it.
+   */
+  busy?: ClientBusy
 }
 
 /** The widest layout a report may claim — far past any real screen, short of absurd. */
@@ -643,15 +650,17 @@ const MAX_VIEW_PX = 10_000
 export function readClientView(value: unknown): ClientView | null | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value !== 'object') return null
-  const { width, height, mode } = value as Record<string, unknown>
+  const { width, height, mode, busy } = value as Record<string, unknown>
   const px = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= MAX_VIEW_PX
   if (!px(width)) return null
   if (height !== undefined && !px(height)) return null
   if (typeof mode !== 'string' || !(VIEW_MODES as readonly string[]).includes(mode)) return null
+  if (busy !== undefined && !(CLIENT_BUSY as readonly unknown[]).includes(busy)) return null
   return {
     width: Math.round(width),
     ...(height !== undefined ? { height: Math.round(height) } : {}),
     mode: mode as ClientViewMode,
+    ...(busy !== undefined ? { busy: busy as ClientBusy } : {}),
   }
 }
 

@@ -165,13 +165,14 @@ export function createLooks({ panel, pages, draftPath }) {
      * Show a set's look — from a link the consultant posted. `look` picks which
      * one; the set's first otherwise. A set the listing does not hold yet (the
      * consultant made it a moment ago) is looked for again once before the call
-     * gives up.
+     * gives up. [[REQ-413]] — and so is a named look; one that is no longer on
+     * offer answers false rather than showing another in its place.
      */
     async open(set, look = null) {
-      if (!liveSets(pages.list()).has(set)) await pages.refresh()
-      const rows = liveSets(pages.list()).get(set)
-      if (!rows || !panel.getSrc()) return false
-      const target = rows.find((row) => row.id === look || row.slug === look) ?? rows[0]
+      const find = (rows) => (look ? rows?.find((row) => row.id === look || row.slug === look) : rows?.[0])
+      if (!find(liveSets(pages.list()).get(set))) await pages.refresh()
+      const target = find(liveSets(pages.list()).get(set))
+      if (!target || !panel.getSrc()) return false
       const { members, index } = position()
       const at = members.indexOf(target)
       if (index >= 0 && at >= 0) {

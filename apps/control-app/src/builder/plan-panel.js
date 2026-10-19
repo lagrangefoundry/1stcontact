@@ -160,6 +160,10 @@ const itemState = (status) => (status === 'answered' ? 'done' : status)
 /** The marks in an item's status box ([[REQ-401]]): empty, a dash, a tick. */
 const ITEM_MARK = { open: '', skipped: '–', done: '✓' }
 
+/** [[REQ-413]] — the highlight on a question the consultant brought forward, and how long it lasts. */
+export const SHOWN_CLASS = 'plan-item--shown'
+const SHOWN_MS = 2400
+
 /** [[REQ-401]] — draw an item folded or unfolded, with its status box. */
 function showFold(node, expanded) {
   const state = node.dataset.state
@@ -874,6 +878,24 @@ export function createPlanPanel(options = {}) {
     },
     /** The comp board as last drawn ([[REQ-378]]). */
     comps: () => last?.comps ?? [],
+    /**
+     * [[REQ-413]] — bring one question forward: unfolded (and remembered so, as
+     * the client's own unfold would be), scrolled to, and briefly highlighted.
+     * A question the panel does not show yet — raised a moment ago — is looked
+     * for again after one re-read. Answers whether it was there.
+     */
+    async showAsk(id) {
+      if (!blocks.get(id)?.node.isConnected) await refresh()
+      const node = blocks.get(id)?.node
+      if (!node?.isConnected) return false
+      if (node.dataset.expanded !== 'true') toggle(node)
+      node.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+      node.classList.remove(SHOWN_CLASS)
+      void node.offsetWidth
+      node.classList.add(SHOWN_CLASS)
+      setTimeout(() => node.classList.remove(SHOWN_CLASS), SHOWN_MS)
+      return true
+    },
     destroy() {
       site = null
       element.remove()

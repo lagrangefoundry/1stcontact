@@ -1275,6 +1275,42 @@ body {
 }
 
 /*
+ * [[REQ-413]] — a question the consultant brought forward: a soft accent glow
+ * that fades, so the eye lands on it without the panel shouting.
+ */
+.plan-item--shown {
+  animation: plan-item-shown 2.4s ease-out;
+  border-radius: 6px;
+}
+
+@keyframes plan-item-shown {
+  0%,
+  35% {
+    box-shadow: 0 0 0 2px var(--shell-accent, #7c3aed);
+    background: color-mix(in srgb, var(--shell-accent, #7c3aed) 10%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 2px transparent;
+    background: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-item--shown {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--shell-accent, #7c3aed);
+  }
+}
+
+/* [[REQ-413]] — said beside a link to something that is no longer there. */
+.builder-chat-gone {
+  margin-left: 6px;
+  font-size: 0.82em;
+  font-style: italic;
+  color: var(--shell-fg-muted, #71717a);
+}
+
+/*
  * [[REQ-364]] — the chat half: the plan panel stacked above the chat, behind a
  * vertical split. The half fills the outer split's pane; the split inside it does
  * the rest.

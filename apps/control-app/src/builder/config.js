@@ -1048,3 +1048,10 @@ export const LOOKS_CURRENT_DESCRIPTION = 'Your page as it stands now.'
  */
 export const LOOKS_TELL_CONSULTANT = 'Tell the consultant which look you prefer, and why.'
 export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'
+
+/**
+ * [[REQ-413]] — a link in the conversation to something that is not there any
+ * more: a look that was set aside, a question that was withdrawn, a page that
+ * was removed. Shown beside the link for a moment; nothing else changes.
+ */
+export const SHOW_GONE = 'That’s no longer there.'
