@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T20:40:37.337598+00:00'
+updated_at: '2026-10-19T20:42:57.367096+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9538,5 +9538,11 @@ Instructions alone haven't held up: the earlier evidence was guidance followed i
 1. Should I add these three behaviours (end turns by leading, the novice checklist, active listening with the story areas) to her instructions **before your second Bob's Salon pass**, so it tests them? It's a prompt change with no ticket. The checklist and the story-coverage notice would need code, which could follow after the run.
 2. Should I file the **"consultant can steer what's on screen" tool** now? It's the main fix for the busy screen, and I'd file it whatever the run shows.
 3. Should I record this as a finding on EPIC-19? The evidence is "the story interview ended after 19 minutes and Wigs for Kids was never reached", plus the list of turns you had to drive.
+
+<!-- xgd-turn id="35c0e602-9316-4dc5-ad38-a95b954c202b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-19T20:42:56.772547+00:00" -->
+#### You
+Sorry detail here but please read the document on AI naming and pronouns
 
 <!-- xgd-chat-end -->
