@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-417
 created_by: xgd
 created_at: '2026-10-20T14:50:03.142594+00:00'
-updated_at: '2026-10-20T15:27:30.196374+00:00'
+updated_at: '2026-10-20T15:28:33.466032+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -122,5 +122,22 @@ Until you decide, the branch and its worktree stay where they are.
 <!-- xgd-chat role="user" ts="2026-10-20T15:27:29.277330+00:00" -->
 #### You
 I have reopened it please complete the process in this ticket
+
+<!-- xgd-turn id="b14404c0-d11c-4eaa-b24d-290a0af6dc37-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T15:28:32.118172+00:00" -->
+#### Claude
+The ticket is back at `free_coded` and the branch is clean. Updating the ticket body first:
+
+Body updated. Now merging the branch back:
+
+The ghost text change is now in xgd-working, and REQ-417 is back at `free_coded`.
+
+- **The change:** while the question panel is empty, "We'll put questions here for you to answer" sits in the middle of the panel, both ways, below the progress tracker. Once a question exists, the panel goes back to its normal layout.
+- **Ticket body:** item 3 now asks for the text to be centred in both directions. The "What landed" and UAT notes describe how it's done and the new browser measurement.
+- **Commits:** the ticket now lists four commits: the original change and its version bump, the centring commit (`6f631d6`), and a new bump to version 0.2.555.
+- **Branch:** merged and cleaned up.
+
+The REQ-417 suite passed all 5 tests before the merge. I didn't re-run it on xgd-working after merging.
 
 <!-- xgd-chat-end -->
