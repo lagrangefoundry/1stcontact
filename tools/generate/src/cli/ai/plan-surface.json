@@ -397,8 +397,8 @@
       "op": "ask_comps",
       "tool": "ask_comps",
       "effect": "write",
-      "summary": "Put the comp board — \"Sites we're comparing\" — on the client's panel.",
-      "description": "The board is a question like any other: it is not on the client's panel until you raise it. Raise it when you are ready to look at other sites together — after the features question, before the first build — with one line in the conversation first, e.g. \"Next, let's look at a few sites in your trade — add any you like, or don't, and I'll find some too.\" Putting a site on it with `add_comp` raises it as well. Raising it again changes nothing.",
+      "summary": "Open the comp board for the client: Comparisons, a view in their preview.",
+      "description": "The client cannot see the board until you raise it: raising it adds Comparisons to their preview, beside View, Edit and Story. Raise it when you are ready to look at other sites together — after the features question, before the first build — with one line in the conversation first, e.g. \"Next, let's look at a few sites in your trade — add any you like, or don't, and I'll find some too.\" Putting a site on it with `add_comp` raises it as well. Raising it again changes nothing.",
       "params": {},
       "returns": { "shape": "written" },
       "errors": ["CONFLICT", "SCHEMA_INVALID"]
@@ -407,8 +407,8 @@
       "op": "add_comp",
       "tool": "add_comp",
       "effect": "write",
-      "summary": "Put a captured site on the client's comp board — \"Sites we're comparing\".",
-      "description": "Comps are real sites in the client's trade and area that you and the client look at before the first build. Capture the address with `capture_site` first, then give the `reference.uid` it answered. The client sees the site on their plan panel with a thumbnail of its hero, and can open it in the preview pane. Adding a site that is already on the board changes nothing.",
+      "summary": "Put a captured site on the client's comp board — Comparisons, in their preview.",
+      "description": "Comps are real sites in the client's trade and area that you and the client look at before the first build. Capture the address with `capture_site` first, then give the `reference.uid` it answered. The client sees it in Comparisons as a tile with a thumbnail of its home page, and opens the real site from the tile in a new tab. Adding a site that is already on the board changes nothing.",
       "params": {
         "reference": { "type": "string", "required": true, "description": "The reference uid `capture_site` answered for the site." }
       },
@@ -420,7 +420,7 @@
       "tool": "note_comp",
       "effect": "write",
       "summary": "Record what the client likes and dislikes about a comp, in their words.",
-      "description": "Short notes, one item each, as the client said them (\"phone number in three places\", \"too many coupons\"). Each list you give replaces that list; leave one out to keep it. The client can edit the same notes on their panel, and you are told on your next turn when they do.",
+      "description": "Short notes, one item each, as the client said them (\"phone number in three places\", \"too many coupons\"). Each list you give replaces that list; leave one out to keep it. The client can edit the same notes on the site's tile in Comparisons, and you are told on your next turn when they do.",
       "params": {
         "reference": { "type": "string", "required": true, "description": "The comp's reference uid." },
         "likes": { "type": "array", "description": "What the client likes about it, one short item each." },

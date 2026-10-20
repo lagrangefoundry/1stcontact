@@ -2,7 +2,7 @@ import { mountShell } from '@lagrangefoundry/webui-shell'
 import { mountSplit } from '@lagrangefoundry/webui-split'
 import { createChatPanel } from './chat.js'
 import { createPlanPanel } from './plan-panel.js'
-import { createCompViewer } from './comp-viewer.js'
+import { createComparisons } from './comparisons.js'
 import { createStoryBoard } from './story-board.js'
 import { createBanner } from './banner.js'
 import { createLooks, mountLooksBand } from './looks.js'
@@ -23,6 +23,7 @@ import {
   SITE_TAB,
   STORAGE_KEYS,
   STORY_MODE_LABEL,
+  COMPS_MODE_LABEL,
   TABS,
 } from './config.js'
 import {
@@ -638,16 +639,30 @@ export function mountBuilder(root, options = {}) {
   const carry = createPageCarry({ pageState })
 
   /**
-   * The comp viewer ([[REQ-378]]) and the draft channel to go back to.
-   * `draftMode` is whichever of View and Edit the client was in when they opened
-   * a comp, so going back puts them where they were.
+   * [[REQ-419]] — the comparable sites, the pane's fourth mode. Drawn from the
+   * plan view the panel reads (`onView` below), like the story board.
    */
-  let draftMode = 'view'
-  const compViewer = createCompViewer({ onBack: () => panel.setMode(draftMode) })
-  function openComp(reference, comps) {
-    if (panel.getMode() !== 'comp') draftMode = panel.getMode() ?? 'view'
-    compViewer.open(comps, reference)
-    panel.setMode('comp')
+  const comparisons = createComparisons({
+    ...(planTransport?.compAction ? { transport: { compAction: planTransport.compAction } } : {}),
+  })
+  /** Show Comparisons, with one comp's tile brought into view if one is named. */
+  function openComparisons(reference) {
+    panel.setMode('comparisons')
+    return reference ? comparisons.reveal(reference) : true
+  }
+  /**
+   * COMPARISONS IS OFFERED ONCE THE COMPS ARE RAISED, and the toggle is redrawn the
+   * moment they are. A site whose plan says they never were is not left showing an
+   * empty mode the toggle no longer offers.
+   */
+  let comparisonsOffered = false
+  function followComparisons(view) {
+    if (typeof view?.comps_raised !== 'boolean') return
+    if (!view.comps_raised && panel.getMode() === 'comparisons') panel.setMode('view', { remember: false })
+    if (comparisons.raised() !== comparisonsOffered) {
+      comparisonsOffered = comparisons.raised()
+      toolbar.render()
+    }
   }
 
   /**
@@ -671,7 +686,7 @@ export function mountBuilder(root, options = {}) {
     if (typeof view?.drafted !== 'boolean' || !currentSite) return
     if (!view.drafted && storyDecidedFor !== currentSite) {
       storyDecidedFor = currentSite
-      if (panel.getMode() !== 'story' && panel.getMode() !== 'comp') {
+      if (panel.getMode() !== 'story' && panel.getMode() !== 'comparisons') {
         panel.setMode('story', { remember: false })
         storyByHost = true
       }
@@ -784,17 +799,16 @@ export function mountBuilder(root, options = {}) {
       mount: (host) => storyBoard.mount(host),
       actions: ['mode-toggle'],
     })
-    // [[REQ-378]] — A COMPARABLE SITE, VIEWED. Entered only from the comp board,
-    // never offered by the toggle and never remembered. It names NO toolbar
-    // actions, so edit, pages, colours and Publish are absent while it shows —
-    // its own banner is the only chrome — and the draft's frames are left
-    // exactly as they were, so "Back to your draft" returns to the same page.
+    // [[REQ-419]] — COMPARISONS: every comparable site as a tile that opens the
+    // real site. On the toggle once the consultant has raised the comps, and
+    // switched to and away like any other mode. Like Story, only the toggle:
+    // nothing on the toolbar acts on another business's site.
     .registerMode({
-      id: 'comp',
-      label: 'Viewing',
-      transient: true,
-      mount: (host) => compViewer.mount(host),
-      actions: [],
+      id: 'comparisons',
+      label: COMPS_MODE_LABEL,
+      mount: (host) => comparisons.mount(host),
+      offered: () => comparisons.raised(),
+      actions: ['mode-toggle'],
     })
     .restore()
 
@@ -1064,8 +1078,7 @@ export function mountBuilder(root, options = {}) {
   /** The pane back on a page of the draft, in View unless the client was editing. */
   function toDraft() {
     const mode = panel.getMode()
-    if (mode === 'comp') panel.setMode(draftMode)
-    else if (mode !== 'view' && mode !== 'edit') panel.setMode('view')
+    if (mode !== 'view' && mode !== 'edit') panel.setMode('view')
   }
 
   /**
@@ -1095,12 +1108,11 @@ export function mountBuilder(root, options = {}) {
       toDraft()
       return looks.open(q.get('set'), q.get('look'))
     }
+    // [[REQ-419]] — a comp shown in chat is its tile in Comparisons.
     if (target === 'comp') {
-      const comps = planPanel.comps()
       const reference = q.get('comp')
-      if (!comps.some((c) => c.reference === reference)) return false
-      openComp(reference, comps)
-      return true
+      if (!comparisons.comps().some((c) => c.reference === reference)) return false
+      return openComparisons(reference)
     }
     if (target === 'ask') return planPanel.showAsk(q.get('ask'))
     // [[BUG-230]] — the same route the no-address dialog's button takes.
@@ -1281,8 +1293,8 @@ export function mountBuilder(root, options = {}) {
    */
   const planPanel = createPlanPanel({
     ...(planTransport ? { transport: planTransport } : {}),
-    // [[REQ-378]] — a comp clicked on the board is shown in the preview pane.
-    onOpenComp: openComp,
+    // [[REQ-419]] — the "Looking at other sites" stage links to Comparisons.
+    onOpenComparisons: () => openComparisons(),
     // [[BUG-196]] — the delete confirmation an answered upload opens mounts in the shell.
     getModalHost: () => shell.element,
     // [[REQ-401]] — the client's folds, remembered like the divider.
@@ -1290,6 +1302,8 @@ export function mountBuilder(root, options = {}) {
     // [[REQ-408]] — the story board is drawn from the same view.
     onView: (view) => {
       storyBoard.render(view)
+      comparisons.render(view)
+      followComparisons(view)
       storyFirst(view)
     },
   })
@@ -1910,8 +1924,8 @@ export function mountBuilder(root, options = {}) {
     storyBoard.setSite(site ?? null)
     storyDecidedFor = null
     void planPanel.setSite(site ?? null)
-    // [[REQ-378]] — another site's comps are not this one's: back to the draft.
-    if (panel.getMode() === 'comp') panel.setMode(draftMode)
+    // [[REQ-419]] — and the comparable sites, which are that site's own.
+    comparisons.setSite(site ?? null)
     if (!site) {
       chat.setSession(null)
       return
@@ -2253,6 +2267,8 @@ export function mountBuilder(root, options = {}) {
     debug,
     /** The plan panel above the chat ([[REQ-364]]), and the divider it sits behind. */
     planPanel,
+    /** [[REQ-419]] — the Comparisons mode's grid. */
+    comparisons,
     /** [[REQ-408]] — the story board, the pane's Story mode. */
     storyBoard,
     planSplit,

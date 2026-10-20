@@ -196,19 +196,4 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-388 — the preview has a width', () => {
     await app.chat.getChat().send('and on a phone?')
     expect(sent.at(-1)).toEqual({ text: 'and on a phone?', view: { width: 375, height: 750, mode: 'phone' } })
   })
-
-  it('test_UAT_FC_REQ-388_the_comp_viewers_toggle_wears_the_same_control', async () => {
-    const { createCompViewer } = await import('../apps/control-app/src/builder/comp-viewer.js')
-    const viewer = createCompViewer({ onBack: () => {} })
-    const host = document.createElement('div')
-    viewer.mount(host)
-    viewer.open([{ reference: 'r1', title: 'Rival', url: 'https://rival.example', desktop: 'd.png', phone: 'p.png' }], 'r1')
-    const group = host.querySelector('.comp-viewer__widths') as HTMLElement
-    expect(group.classList.contains('builder-segmented')).toBe(true)
-
-    const app = mount()
-    await settled()
-    expect(root.querySelector('[data-action="preview-width"]')!.classList.contains('builder-segmented')).toBe(true)
-    app.destroy()
-  })
 })

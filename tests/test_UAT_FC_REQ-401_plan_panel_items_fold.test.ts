@@ -170,7 +170,6 @@ async function mount(plan: ReturnType<typeof planTransport>, storage = memorySto
 
 const panel = (app: Handle): HTMLElement => app.planPanel.element
 const item = (app: Handle, id: string): HTMLElement => panel(app).querySelector(`[data-ask="${id}"]`) as HTMLElement
-const comps = (app: Handle): HTMLElement => panel(app).querySelector('[data-comps]') as HTMLElement
 const line = (node: HTMLElement): HTMLElement => node.querySelector(':scope > .plan-item__line') as HTMLElement
 const body = (node: HTMLElement): HTMLElement => node.querySelector(':scope > .plan-item__body') as HTMLElement
 const expanded = (node: HTMLElement): boolean => line(node).getAttribute('aria-expanded') === 'true' && !body(node).hidden
@@ -218,7 +217,6 @@ describe.skipIf(!WEBUI_INSTALLED)("REQ-401 — the panel is set in the chat's ty
       item(app, 'phone').querySelector('.plan-ask__why'),
       item(app, 'phone').querySelector('input.plan-ask__input'),
       item(app, 'licence').querySelector('.plan-ask__value'),
-      comps(app).querySelector('input.plan-comps__url'),
     ] as HTMLElement[]
     for (const el of shown) {
       expect(el).toBeTruthy()
@@ -383,41 +381,6 @@ describe.skipIf(!WEBUI_INSTALLED)("REQ-401 — the client's folds stick", () => 
     expect(expanded(item(second, 'towns'))).toBe(false)
     // Through the builder's own namespaced storage, keyed per site and item.
     expect([...storage.map.keys()].some((k) => /plan-fold/.test(k) && /alpha:ask:phone/.test(k))).toBe(true)
-  })
-})
-
-describe.skipIf(!WEBUI_INSTALLED)('REQ-401 — the comp board is an item', () => {
-  const COMP = { reference: 'reference-1', title: 'Plumber 1', url: 'https://p1.test/', source: 'consultant', added_at: 't', likes: [], dislikes: [] }
-
-  it('test_UAT_FC_REQ-401_sites_were_comparing_is_one_item_whose_status_follows_the_plan', async () => {
-    const plan = planTransport({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_raised: true, comps_status: 'open' })
-    const app = await mount(plan)
-    const board = comps(app)
-    // AN ITEM, NOT A SECTION: no heading names it; its line does.
-    expect([...panel(app).querySelectorAll('.plan-panel__heading')].map((h) => h.textContent)).not.toContain("Sites we're comparing")
-    expect(board.classList.contains('plan-item')).toBe(true)
-    expect(board.querySelector('.plan-item__title')!.textContent).toBe("Sites we're comparing")
-    expect(section(board)).toBe('open')
-    expect(board.querySelector('.plan-item__status')!.textContent).toBe('Open')
-    // Unfolded, the comps as before.
-    expect(expanded(board)).toBe(true)
-    expect(board.querySelector('.plan-comp[data-reference="reference-1"]')).toBeTruthy()
-    expect(board.querySelector('form.plan-comps__add')).toBeTruthy()
-
-    // The client skips it: written to the plan, and it moves and folds.
-    ;(board.querySelector('.plan-comps__skip') as HTMLButtonElement).click()
-    await settle()
-    expect(plan.calls.comps.at(-1)).toEqual({ site: 'alpha', action: 'skip' })
-    expect(section(comps(app))).toBe('done')
-    expect(comps(app).querySelector('.plan-item__status')!.textContent).toBe('Skipped')
-    expect(expanded(comps(app))).toBe(false)
-
-    // The consultant records the visual concept from it: done, ✓.
-    plan.set({ stages: STAGES, asks: [ask('phone')], comps: [COMP], comps_raised: true, comps_status: 'done' })
-    await app.planPanel.refresh()
-    expect(section(comps(app))).toBe('done')
-    expect(comps(app).querySelector('.plan-item__mark')!.textContent).toBe('✓')
-    expect(comps(app).querySelector('.plan-item__status')!.textContent).toBe('Done')
   })
 })
 

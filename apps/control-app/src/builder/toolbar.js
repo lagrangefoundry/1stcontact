@@ -174,9 +174,10 @@ export function modeToggleAction() {
       const group = document.createElement('div')
       group.className = 'builder-toolbar__modes'
       group.setAttribute('role', 'group')
-      // [[REQ-378]] — a transient mode (the comp viewer) is entered by the host,
-      // never offered here.
-      for (const mode of panel.getModes().filter((m) => !m.transient)) {
+      // [[REQ-419]] — a mode not offered yet (Comparisons, before the comps are
+      // raised) has no button — unless it is the one showing, restored from last time.
+      const offered = (m) => m.id === panel.getMode() || (m.offered?.() ?? true)
+      for (const mode of panel.getModes().filter(offered)) {
         const btn = document.createElement('button')
         btn.type = 'button'
         btn.dataset.mode = mode.id

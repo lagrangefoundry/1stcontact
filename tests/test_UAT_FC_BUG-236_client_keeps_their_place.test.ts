@@ -16,6 +16,7 @@ import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 import { createPlanPanel } from '../apps/control-app/src/builder/plan-panel.js'
+import { createComparisons } from '../apps/control-app/src/builder/comparisons.js'
 import { createAttachmentTray } from '../apps/control-app/src/builder/attachments.js'
 import { CHAT_RESULT_HELD, COMPS_FINISHED, COMPS_FINISHED_SAID, PLAN_DONE, PLAN_SAVED } from '../apps/control-app/src/builder/config.js'
 import { primingConfig } from '../tools/generate/src/cli/ai/roles'
@@ -307,35 +308,46 @@ describe('BUG-236 — every typed answer has Done, and the panel says it was sav
   })
 })
 
-describe('BUG-236 — the comp board has Done per site and "I\'ve finished commenting"', () => {
+// [[REQ-419]] — the comps moved from the panel to the preview's Comparisons mode;
+// what Done and "I've finished commenting" do is unchanged.
+describe('BUG-236 — each comparable site has Done, and "I\'ve finished commenting"', () => {
   const COMP = { reference: 'reference-1', title: 'Rival Salon', url: 'https://rival.example', source: 'consultant', likes: [], dislikes: [] }
   const VIEW = { stages: [], asks: [], comps: [COMP], comps_status: 'open', comps_raised: true }
 
+  function comparisonsFor(view: Record<string, any>) {
+    const origin = planOrigin(view)
+    const comparisons = createComparisons({ transport: origin.transport })
+    document.body.append(comparisons.element)
+    comparisons.setSite('alpha')
+    comparisons.render(view)
+    return { origin, element: comparisons.element as HTMLElement }
+  }
+
   it('test_UAT_FC_BUG-236_a_comps_done_saves_both_notes_and_says_saved', async () => {
-    const { origin, panel } = await panelFor(VIEW)
-    const comp = panel.element.querySelector<HTMLElement>('.plan-comp')!
-    const likes = comp.querySelector<HTMLTextAreaElement>('.plan-comp__likes')!
-    const dislikes = comp.querySelector<HTMLTextAreaElement>('.plan-comp__dislikes')!
+    const { origin, element } = comparisonsFor(VIEW)
+    const comp = element.querySelector<HTMLElement>('.comp-tile')!
+    const likes = comp.querySelector<HTMLTextAreaElement>('.comp-tile__likes')!
+    const dislikes = comp.querySelector<HTMLTextAreaElement>('.comp-tile__dislikes')!
     likes.value = 'the big photos\nthe booking button'
     dislikes.value = 'the grey text'
-    comp.querySelector<HTMLButtonElement>('.plan-comp__done')!.click()
+    comp.querySelector<HTMLButtonElement>('.comp-tile__done')!.click()
     await settle()
     expect(origin.comps).toEqual([
       { site: 'alpha', action: 'note', reference: 'reference-1', likes: ['the big photos', 'the booking button'], dislikes: ['the grey text'] },
     ])
-    expect(panel.element.querySelector('.plan-comp .plan-item__saved')?.textContent).toBe(PLAN_SAVED)
+    expect(element.querySelector('.comp-tile .comp-tile__saved')?.textContent).toBe(PLAN_SAVED)
   })
 
   it('test_UAT_FC_BUG-236_ive_finished_commenting_tells_the_origin_and_says_it_was_heard', async () => {
-    const { origin, panel } = await panelFor(VIEW)
-    const finish = panel.element.querySelector<HTMLButtonElement>('.plan-comps__finish')!
+    const { origin, element } = comparisonsFor(VIEW)
+    const finish = element.querySelector<HTMLButtonElement>('.comparisons__finish')!
     expect(finish.textContent).toBe(COMPS_FINISHED)
     expect(finish.hidden).toBe(false)
     finish.click()
     await settle()
     expect(origin.comps).toEqual([{ site: 'alpha', action: 'finish' }])
     expect(finish.hidden).toBe(true)
-    const heard = panel.element.querySelector<HTMLElement>('.plan-comps__finished')!
+    const heard = element.querySelector<HTMLElement>('.comparisons__finished')!
     expect(heard.hidden).toBe(false)
     expect(heard.textContent).toBe(COMPS_FINISHED_SAID)
   })

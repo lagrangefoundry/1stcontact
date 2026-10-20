@@ -138,8 +138,8 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-205 — looks on the existing toolbar', (
   it('test_UAT_FC_BUG-205_the_carousel_is_lit_only_on_a_page_with_looks_and_stepping_never_changes_the_mode', async () => {
     const app = await mounted()
     // On the toolbar of View itself, beside the page selector — no looks mode.
-    // ([[REQ-408]] added Story, the story board; it is not a looks mode.)
-    expect(app.panel.getModes().map((m: { id: string }) => m.id)).toEqual(['view', 'edit', 'story', 'comp'])
+    // ([[REQ-408]] added Story, the story board, and [[REQ-419]] Comparisons; neither is a looks mode.)
+    expect(app.panel.getModes().map((m: { id: string }) => m.id)).toEqual(['view', 'edit', 'story', 'comparisons'])
     expect(app.toolbar.ids()).not.toContain('looks')
     expect(lit()).toBe(true)
     expect(next().disabled).toBe(false)

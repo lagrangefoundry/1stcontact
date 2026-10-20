@@ -59,9 +59,9 @@
  * @property {(state: PanelState) => string} [src]  document URL for this mode
  * @property {(host: HTMLElement, state: PanelState) => void} [mount] non-document mode
  * @property {string[]} [actions]                   toolbar action ids valid in this mode
- * @property {boolean} [transient]                  [[REQ-378]] entered only by the host
- *   (the comp viewer): not offered by the mode toggle, and never remembered, so a
- *   reload opens the draft rather than a view with nothing to show
+ * @property {() => boolean} [offered]             [[REQ-419]] whether the mode toggle
+ *   offers it yet (Comparisons, once the comps are raised); absent means always.
+ *   The mode is otherwise like any other: switched to, and remembered
  */
 
 /** @typedef {{ site: string | null, mode: string | null }} PanelState */
@@ -298,9 +298,7 @@ export function createDisplayPanel(options = {}) {
   function prime() {
     if (site === null) return
     for (const [id, mode] of modes) {
-      // A transient mode is entered only by the host, which says what it shows
-      // when it enters it ([[REQ-391]]); nobody is about to flip to it.
-      if (!mode.src || mode.transient || id === current?.id) continue
+      if (!mode.src || id === current?.id) continue
       const rec = frames.get(id)
       if (!rec) continue
       const want = mode.src({ site, mode: id })
@@ -348,11 +346,7 @@ export function createDisplayPanel(options = {}) {
     // point at: the channel the operator has not opened yet is loaded behind the
     // one they are looking at, so the FIRST flip is in place too rather than
     // only every flip after it.
-    //
-    // A TRANSIENT MODE'S FRAME WAITS until the host enters it ([[REQ-391]]):
-    // nobody flips to it, so there is nothing to prime behind the page, and
-    // `show` makes it the first time it is needed.
-    if (spec.src && !spec.transient) makeFrame(spec.id)
+    if (spec.src) makeFrame(spec.id)
     // The first registered mode becomes active, so a host never has to sequence
     // register-then-select for the common single-mode case.
     if (activeId === null) {
@@ -369,7 +363,7 @@ export function createDisplayPanel(options = {}) {
     activeId = id
     // [[REQ-408]] — `remember: false` is a mode the HOST chose (Story, before the
     // first draft), which the next visit should not reopen as the client's own.
-    if (remember && !modes.get(id).transient) storage?.setItem('mode', id)
+    if (remember) storage?.setItem('mode', id)
     // NOTHING IS INVALIDATED HERE. That omission is the whole of [[BUG-79]]:
     // moving between channels does not make either one's document any less
     // current, so neither is re-fetched and the one being left keeps its layout
@@ -398,7 +392,7 @@ export function createDisplayPanel(options = {}) {
     const savedSite = storage?.getItem('site')
     if (savedSite) setSite(savedSite)
     const savedMode = storage?.getItem('mode')
-    if (savedMode && modes.has(savedMode) && !modes.get(savedMode).transient) setMode(savedMode)
+    if (savedMode && modes.has(savedMode)) setMode(savedMode)
     return api
   }
 

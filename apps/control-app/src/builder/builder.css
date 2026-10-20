@@ -1620,6 +1620,19 @@ body {
   color: var(--shell-fg-muted, #71717a);
 }
 
+/* [[REQ-419]] — the way to Comparisons from the "Looking at other sites" stage. */
+.plan-stages__tip-link {
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--shell-accent, #2563eb);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .plan-ask__input.plan-ask__input--long {
   flex-basis: 100%;
   resize: vertical;
@@ -1669,8 +1682,7 @@ body {
   gap: 8px;
 }
 
-.plan-panel__list[hidden],
-.plan-comps[hidden] {
+.plan-panel__list[hidden] {
   display: none;
 }
 
@@ -1906,10 +1918,6 @@ body {
 
 .plan-item__body[hidden] {
   display: none;
-}
-
-.plan-comps__skip {
-  margin-top: 6px;
 }
 
 /*
@@ -5648,40 +5656,78 @@ body {
   color: var(--shell-fg-muted);
 }
 
-/* --- the comp board ([[REQ-378]]) ---------------------------------------------
+/* --- Comparisons ([[REQ-419]]) -------------------------------------------------
  *
- * THE THUMBNAIL IS THE HERO: the desktop full-page screenshot, cropped to its
- * first viewport by a 16:10 box anchored at the top. No image is resized or
- * stored for it — the box does the crop.
+ * A GRID OF TILES, ONE PER COMPARABLE SITE. The thumbnail is the top of the
+ * desktop full-page screenshot, cropped to about one screen by a 16:10 box
+ * anchored at the top — no image is resized or stored for it. Where there is no
+ * usable picture the same box holds the site's name and address instead.
  */
-.plan-comps {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
-  gap: 8px;
-}
-
-.plan-comp {
+.comparisons {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 6px;
+  gap: 12px;
+  min-height: 100%;
+  padding: 20px 24px 40px;
+  background: var(--shell-surface-alt, #f4f4f5);
+  color: var(--shell-fg, #18181b);
+}
+
+.comparisons__heading {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.comparisons__intro,
+.comparisons__empty {
+  margin: 0;
+  max-width: 44em;
+  color: var(--shell-fg-muted, #52525b);
+}
+
+.comparisons__error {
+  margin: 0;
+  color: var(--shell-danger, #b91c1c);
+}
+
+.comparisons [hidden] {
+  display: none !important;
+}
+
+.comparisons__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 14px;
+}
+
+.comp-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
   border: 1px solid var(--shell-border, #e4e4e7);
   border-radius: var(--shell-radius, 6px);
   background: var(--shell-bg, #fff);
+  transition: box-shadow 0.3s;
 }
 
-.plan-comp__open {
+.comp-tile--shown {
+  box-shadow: 0 0 0 3px var(--shell-accent, #2563eb);
+}
+
+.comp-tile__shot {
   display: block;
-  padding: 0;
-  border: 1px solid var(--shell-border, #e4e4e7);
-  border-radius: 4px;
   overflow: hidden;
   aspect-ratio: 16 / 10;
+  border: 1px solid var(--shell-border, #e4e4e7);
+  border-radius: 4px;
   background: var(--shell-surface-alt, #f4f4f5);
-  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
 }
 
-.plan-comp__thumb {
+.comp-tile__thumb {
   display: block;
   width: 100%;
   height: 100%;
@@ -5689,24 +5735,63 @@ body {
   object-position: top;
 }
 
-.plan-comp__head {
+.comp-tile__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 100%;
+  padding: 12px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.comp-tile__card-name {
+  font-size: 1.1rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.comp-tile__card-address,
+.comp-tile__address,
+.comp-tile__source {
+  font-size: 0.8rem;
+  color: var(--shell-fg-muted, #71717a);
+  overflow-wrap: anywhere;
+}
+
+.comp-tile__head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 2px 8px;
 }
 
-.plan-comp__title {
+.comp-tile__title {
   font-weight: 600;
   overflow-wrap: anywhere;
 }
 
-.plan-comp__source {
+.comp-tile__saved {
+  margin-left: auto;
   font-size: 0.8rem;
-  color: var(--shell-fg-muted, #71717a);
+  color: var(--shell-success, #15803d);
 }
 
-.plan-comp__remove {
+.comp-tile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.comp-tile__visit {
+  font-weight: 600;
+  color: var(--shell-accent, #2563eb);
+}
+
+.comp-tile__remove {
   margin-left: auto;
   cursor: pointer;
   border: none;
@@ -5718,7 +5803,7 @@ body {
   text-decoration: underline;
 }
 
-.plan-comp__notes {
+.comp-tile__notes {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -5726,150 +5811,59 @@ body {
   color: var(--shell-fg-muted, #71717a);
 }
 
-.plan-comp__notes textarea {
-  resize: vertical;
-  padding: 3px 5px;
-  border: 1px solid var(--shell-border, #d4d4d8);
-  border-radius: var(--shell-radius, 6px);
-  font: inherit;
-  font-size: 0.85rem;
-  color: var(--shell-fg, #18181b);
-}
-
-.plan-comps__add {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  margin-top: 8px;
-}
-
-.plan-comps__add[hidden] {
-  display: none;
-}
-
-.plan-comps__add-label {
-  flex-basis: 100%;
-  font-size: 0.8rem;
-  color: var(--shell-fg-muted, #71717a);
-}
-
-.plan-comps__url {
-  flex: 1 1 12rem;
-  min-width: 0;
+.comp-tile__notes textarea,
+.comparisons__url {
   padding: 4px 6px;
   border: 1px solid var(--shell-border, #d4d4d8);
   border-radius: var(--shell-radius, 6px);
   font: inherit;
+  color: var(--shell-fg, #18181b);
 }
 
-.plan-comps__status {
-  color: var(--shell-fg-muted, #71717a);
+.comp-tile__notes textarea {
+  resize: vertical;
+  font-size: 0.85rem;
 }
 
-/* --- the comp viewer ([[REQ-378]]) ---------------------------------------------
- *
- * A VISIBLY DIFFERENT MODE: a dark banner across the top of the pane names the
- * site being viewed, so a competitor's page can never be read as the draft.
- */
-.comp-viewer {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
+.comp-tile__done {
+  align-self: flex-end;
 }
 
-.comp-viewer__banner {
+.comparisons__add {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px 12px;
-  padding: 8px 12px;
-  background: #27272a;
-  color: #fafafa;
+  gap: 4px 8px;
+  max-width: 36rem;
 }
 
-.comp-viewer__title {
-  font-weight: 600;
-}
-
-.comp-viewer__banner .builder-carousel {
-  margin-right: auto;
-}
-
-.comp-viewer__banner button,
-.comp-viewer__visit {
-  padding: 3px 10px;
-  border: 1px solid #52525b;
-  border-radius: var(--shell-radius, 6px);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.comp-viewer__banner button:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.comp-viewer__back {
-  background: #fafafa !important;
-  color: #18181b !important;
-}
-
-.comp-viewer__banner .builder-segmented {
-  border-color: #52525b;
-}
-
-.comp-viewer__banner .builder-segmented button {
-  border: 0;
-  border-radius: 0;
-}
-
-.comp-viewer__banner .builder-segmented button + button {
-  border-left: 1px solid #52525b;
-}
-
-
-.comp-viewer__motion {
-  padding: 4px 12px;
+.comparisons__add-label {
+  flex-basis: 100%;
   font-size: 0.85rem;
-  color: var(--shell-fg-muted, #71717a);
-  background: var(--shell-surface-alt, #f4f4f5);
+  color: var(--shell-fg-muted, #52525b);
 }
 
-.comp-viewer__stage {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  background: var(--shell-surface-alt, #f4f4f5);
+.comparisons__url {
+  flex: 1 1 12rem;
+  min-width: 0;
 }
 
-.comp-viewer__shot {
-  display: block;
-  width: 100%;
-  height: auto;
+.comparisons__status,
+.comparisons__finished {
+  color: var(--shell-fg-muted, #52525b);
 }
 
-.comp-viewer__shot--phone {
-  width: 375px;
-  max-width: 100%;
-  margin: 12px auto;
-  box-shadow: 0 0 0 1px var(--shell-border, #e4e4e7);
-}
-
-.comp-viewer__empty {
-  padding: 24px;
-  color: var(--shell-fg-muted, #71717a);
+.comparisons__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
 }
 
 /* --- the carousel ([[REQ-391]]) ------------------------------------------------
  *
- * ‹ label · n of N ›, with the one line that says what the shown one is. Shared
- * by the looks offered for a page and the comparable sites, so it inherits its
- * colours from wherever it sits: the dark comp banner and the light toolbar.
+ * ‹ label · n of N ›, with the one line that says what the shown one is: the
+ * looks offered for a page. It inherits its colours from wherever it sits.
  */
 .builder-carousel {
   display: inline-flex;

@@ -22,13 +22,9 @@
  * the consultant nothing, and the client finishes it with Done — or "None of these"
  * with nothing ticked — which answers with every tick at once.
  *
- * [[REQ-378]] — AND THE COMP BOARD: "Sites we're comparing". Each comp is a captured
- * site with a thumbnail of its hero, who put it there, and the client's likes and
- * dislikes, which they edit in place (saved with the comp's Done, or when they
- * leave the box). [[BUG-236]] — "I've finished commenting" under the board tells
- * the consultant, on its next turn, that the client is finished with it. The client
- * adds a site by its address — the route captures it — and clicking a thumbnail
- * asks the host to show that comp in the preview pane (`onOpenComp`).
+ * [[REQ-419]] — THE COMPARABLE SITES ARE NOT ON THE PANEL: they have the
+ * preview's Comparisons mode (`comparisons.js`). The panel's one route there is the
+ * link in the "Looking at other sites" stage's explanation (`onOpenComparisons`).
  *
  * [[REQ-390]], [[REQ-398]], [[BUG-209]] — AND, FIRST OF ALL, WHERE THE BUILD IS:
  * the progress banner, a segmented bar pinned across the top of the panel —
@@ -37,9 +33,10 @@
  * is never clicked to change one. While a turn is running (`setBusy`) the stage in
  * progress spins. SKIPPED IS DRAWN, NEVER STORED ({@link shownStates}). Hovering,
  * focusing or tapping a stage explains it: its name, its sentence from the seed,
- * and its state in words.
+ * and its state in words. The explanation stays up while the pointer is on it, so
+ * a link in it can be followed.
  *
- * [[REQ-401]] — EVERY QUESTION, AND THE COMP BOARD, IS ONE FOLDABLE ITEM: a line
+ * [[REQ-401]] — EVERY QUESTION IS ONE FOLDABLE ITEM: a line
  * of a disclosure triangle, a status box (open, skipped, done) and the start of
  * the question, which unfolds to the rest. The items sit in two sections — OPEN
  * QUESTIONS, and WHAT YOU'VE TOLD US for the done and skipped ones — and move
@@ -50,29 +47,15 @@
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
- * [[BUG-236]] — AND WHAT THEY TYPED IS KEPT BY ITSELF until it is stored, by ask
- * and by comp note, so a block that is drawn again — the client had moved on to
+ * [[BUG-236]] — AND WHAT THEY TYPED IS KEPT BY ITSELF until it is stored, by ask,
+ * so a block that is drawn again — the client had moved on to
  * another box — is drawn with their text still in it.
  */
-import { answerAsk, compAction, deleteMaterial, fetchPlan, materialFileUrl, saveMaterialRole, uploadMaterial } from './api.js'
+import { answerAsk, deleteMaterial, fetchPlan, saveMaterialRole, uploadMaterial } from './api.js'
 import { failureContent } from './failure-notice.js'
 import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import {
-  COMPS_DONE,
-  COMPS_FINISHED,
-  COMPS_FINISHED_SAID,
-  COMPS_ADD_BUTTON,
-  COMPS_ADD_LABEL,
-  COMPS_ADD_PLACEHOLDER,
-  COMPS_ADDING,
-  COMPS_DISLIKES,
-  COMPS_FAILED,
-  COMPS_FROM,
-  COMPS_HEADING,
-  COMPS_LIKES,
-  COMPS_NOTES_HINT,
-  COMPS_OPEN,
-  COMPS_REMOVE,
+  COMPS_STAGE_LINK,
   PLAN_CHANGE,
   PLAN_ITEM_STATUS,
   PLAN_DOCUMENT,
@@ -155,14 +138,6 @@ const answerText = (ask) => {
   return ask.answer_other ? `${Array.isArray(answer) && !answer.length ? '' : `${text}; `}${ask.answer_other}` : text
 }
 
-/** Notes as the box shows them, one per line, and back. */
-const notesText = (items) => (items ?? []).join('\n')
-const notesOf = (text) =>
-  text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line !== '')
-
 /** Every material an answer cites, one or several ([[BUG-196]]). */
 const answerMaterials = (ask) =>
   Array.isArray(ask.answer_material) ? ask.answer_material : ask.answer_material ? [ask.answer_material] : []
@@ -175,7 +150,7 @@ const SAVED_MS = 4000
 
 /** [[BUG-236]] — say on an item's line, for a moment, that what the client gave was stored. */
 function flashSaved(node) {
-  const line = node?.querySelector(':scope > .plan-item__line, :scope > .plan-comp__head')
+  const line = node?.querySelector(':scope > .plan-item__line')
   if (!line) return
   line.querySelector(':scope > .plan-item__saved')?.remove()
   const said = el('span', 'plan-item__saved', PLAN_SAVED)
@@ -183,6 +158,10 @@ function flashSaved(node) {
   line.append(said)
   setTimeout(() => said.remove(), SAVED_MS)
 }
+
+/** [[REQ-419]] — the stage whose explanation links to Comparisons, and how long a tip waits for the pointer. */
+const COMPARISONS_STAGE = 'other_sites'
+const TIP_GRACE_MS = 200
 
 /** The marks in an item's status box ([[REQ-401]]): empty, a dash, a tick. */
 const ITEM_MARK = { open: '', skipped: '–', done: '✓' }
@@ -215,10 +194,10 @@ function memoryFolds() {
 
 /**
  * @param {object} [options]
- * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, setRole?: Function, remove?: Function, compAction?: Function}} [options.transport]
+ * @param {{fetchPlan?: Function, answerAsk?: Function, uploadMaterial?: Function, setRole?: Function, remove?: Function}} [options.transport]
  * @param {() => Element|null} [options.getModalHost] where the delete confirmation mounts
- * @param {(reference: string, comps: object[]) => void} [options.onOpenComp]
- *   the client clicked a comp: show it in the preview pane ([[REQ-378]])
+ * @param {() => void} [options.onOpenComparisons]
+ *   the client followed the "Looking at other sites" link: show Comparisons ([[REQ-419]])
  * @param {Storage} [options.storage] where the client's folds are remembered ([[REQ-401]])
  * @param {(view: object) => void} [options.onView] every plan view drawn ([[REQ-408]])
  */
@@ -227,7 +206,6 @@ export function createPlanPanel(options = {}) {
     fetchPlan,
     answerAsk,
     uploadMaterial,
-    compAction,
     // [[BUG-196]] — the actions on an answered upload: the Library's own calls.
     setRole: saveMaterialRole,
     remove: deleteMaterial,
@@ -236,7 +214,7 @@ export function createPlanPanel(options = {}) {
   const getModalHost = options.getModalHost ?? (() => null)
   /** The delete dialog an answered upload opened, so a second press opens no other. */
   let confirming = null
-  const onOpenComp = options.onOpenComp ?? null
+  const onOpenComparisons = options.onOpenComparisons ?? null
   /** [[REQ-408]] — every view drawn, handed on: the Story pane draws its board from it. */
   const onView = options.onView ?? null
 
@@ -256,21 +234,49 @@ export function createPlanPanel(options = {}) {
   let busy = false
   /** The stage the tip is explaining, by id, so a redraw keeps it open. */
   let tipFor = null
+  /** A hide asked for as the pointer left a stage: called off if it arrives on the tip. */
+  let hiding = null
   const showTip = (item) => {
+    clearTimeout(hiding)
     tipFor = item.dataset.stage
     tip.replaceChildren(
       el('strong', 'plan-stages__tip-name', item.dataset.label),
       el('span', 'plan-stages__tip-about', item.dataset.about),
       el('span', 'plan-stages__tip-state', PLAN_STAGE_STATE[item.dataset.state] ?? item.dataset.state),
     )
+    // [[REQ-419]] — WHERE THE SITES ARE: the stage about other sites says how to
+    // see them, once there are any to see. The link changes the pane, never the stage.
+    if (item.dataset.stage === COMPARISONS_STAGE && comparisonsRaised && onOpenComparisons) {
+      const link = el('button', 'plan-stages__tip-link', COMPS_STAGE_LINK)
+      link.type = 'button'
+      link.addEventListener('click', (event) => {
+        event.stopPropagation()
+        hideTip()
+        onOpenComparisons()
+      })
+      tip.append(link)
+    }
     tip.hidden = false
     // UNDER THE STAGE, kept inside the banner at its right-hand end.
     tip.style.left = `${Math.max(0, Math.min(item.offsetLeft, tracker.clientWidth - tip.offsetWidth))}px`
   }
   const hideTip = () => {
+    clearTimeout(hiding)
     tipFor = null
     tip.hidden = true
   }
+  /** Leaving a stage hides its tip — unless the pointer or focus went into the tip. */
+  const leaveStage = () => {
+    clearTimeout(hiding)
+    hiding = setTimeout(hideTip, TIP_GRACE_MS)
+  }
+  tip.addEventListener('mouseenter', () => clearTimeout(hiding))
+  tip.addEventListener('mouseleave', leaveStage)
+  tip.addEventListener('focusout', (event) => {
+    if (!tip.contains(event.relatedTarget)) hideTip()
+  })
+  /** [[REQ-419]] — whether the comps have been raised, so the stage's link has somewhere to go. */
+  let comparisonsRaised = false
   // [[REQ-379]] — directly under the tracker: how much is left for the client.
   const progress = el('div', 'plan-panel__progress')
   progress.setAttribute('role', 'status')
@@ -282,38 +288,10 @@ export function createPlanPanel(options = {}) {
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
   // [[REQ-417]] — what the panel is for, until it has a question in it.
   const noQuestions = el('p', 'plan-panel__ghost', PLAN_NO_QUESTIONS_YET)
-  // [[REQ-378]], [[REQ-401]] — the comp board, ONE ITEM in whichever section its
-  // status puts it, drawn once and moved, so a note being typed is never lost.
-  const compsItem = itemShell(COMPS_HEADING)
-  compsItem.node.classList.add('plan-comps-item')
-  compsItem.node.dataset.comps = ''
-  const compsList = el('div', 'plan-comps')
-  const addForm = el('form', 'plan-comps__add')
-  const addInput = el('input', 'plan-comps__url')
-  addInput.type = 'url'
-  addInput.placeholder = COMPS_ADD_PLACEHOLDER
-  addInput.setAttribute('aria-label', COMPS_ADD_LABEL)
-  const addButton = el('button', 'plan-comps__add-button', COMPS_ADD_BUTTON)
-  addButton.type = 'submit'
-  const addStatus = el('span', 'plan-comps__status')
-  addForm.append(el('label', 'plan-comps__add-label', COMPS_ADD_LABEL), addInput, addButton, addStatus)
-  const compsSkip = el('button', 'plan-ask__skip plan-comps__skip', PLAN_SKIP)
-  compsSkip.type = 'button'
-  compsSkip.addEventListener('click', () => void comp({ action: 'skip' }))
-  // [[BUG-236]] — THE CLIENT SAYS THEY ARE FINISHED WITH THE BOARD; the consultant
-  // is told on its next turn. Until a site is noted again, it says it was heard.
-  const compsFinish = el('button', 'plan-comps__finish', COMPS_FINISHED)
-  compsFinish.type = 'button'
-  compsFinish.addEventListener('click', () => void comp({ action: 'finish' }))
-  const compsFinished = el('span', 'plan-comps__finished', COMPS_FINISHED_SAID)
-  compsFinished.setAttribute('role', 'status')
-  compsItem.body.append(compsList, addForm, compsFinish, compsFinished, compsSkip)
   element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList)
 
   let site = null
   let generation = 0
-  /** Comp reference → its drawn block and what it was drawn from ([[REQ-378]]). */
-  const compBlocks = new Map()
   /** Ask id → its drawn block and what it was drawn from. */
   const blocks = new Map()
   /**
@@ -332,8 +310,6 @@ export function createPlanPanel(options = {}) {
   const typed = new Map()
   /** [[BUG-236]] — the answer being sent for each ask, so Done after leaving the box sends it once. */
   const sending = new Map()
-  /** [[BUG-236]] — comp notes typed and not yet stored, by `reference:likes|dislikes`. */
-  const typedNotes = new Map()
 
   function fail(message) {
     error.replaceChildren(...failureContent(PLAN_SAVE_FAILED, message))
@@ -717,89 +693,6 @@ export function createPlanPanel(options = {}) {
     return { node, body }
   }
 
-  /** A comp-board write; redraws from what was stored ([[REQ-378]]). */
-  async function comp(body) {
-    const asked = site
-    try {
-      const view = await transport.compAction({ site: asked, ...body })
-      error.hidden = true
-      if (asked === site) render(view)
-      return true
-    } catch (err) {
-      error.textContent = COMPS_FAILED(err?.message ?? String(err))
-      error.hidden = false
-      return false
-    }
-  }
-
-  addForm.addEventListener('submit', async (event) => {
-    event.preventDefault()
-    const address = addInput.value.trim()
-    if (address === '' || !site) return
-    addButton.disabled = true
-    addStatus.textContent = COMPS_ADDING
-    const ok = await comp({ action: 'add', url: address })
-    addButton.disabled = false
-    addStatus.textContent = ''
-    if (ok) addInput.value = ''
-  })
-
-  /** One comp: its hero, its name and source, and the client's notes. */
-  function compBlock(entry) {
-    const block = el('div', 'plan-comp')
-    block.dataset.reference = entry.reference
-    block.dataset.source = entry.source
-    const open = el('button', 'plan-comp__open')
-    open.type = 'button'
-    open.setAttribute('aria-label', COMPS_OPEN(entry.title))
-    if (entry.desktop) {
-      // THE HERO IS THE TOP OF THE DESKTOP PAGE: the full-page screenshot, cropped
-      // to its first viewport by the box it sits in (see `builder.css`).
-      const thumb = el('img', 'plan-comp__thumb')
-      thumb.src = materialFileUrl(entry.reference, entry.desktop)
-      thumb.alt = ''
-      thumb.loading = 'lazy'
-      open.append(thumb)
-    }
-    open.addEventListener('click', () => onOpenComp?.(entry.reference, last?.comps ?? []))
-    const head = el('div', 'plan-comp__head')
-    head.append(
-      el('span', 'plan-comp__title', entry.title),
-      el('span', 'plan-comp__source', COMPS_FROM[entry.source] ?? entry.source),
-    )
-    const remove = el('button', 'plan-comp__remove', COMPS_REMOVE)
-    remove.type = 'button'
-    remove.addEventListener('click', () => void comp({ action: 'remove', reference: entry.reference }))
-    head.append(remove)
-    const areas = {}
-    /** [[BUG-236]] — store this comp's notes, and say so; what was typed is then the stored text. */
-    const note = async (keys) => {
-      const body = Object.fromEntries(keys.map((key) => [key, notesOf(areas[key].value)]))
-      if (!(await comp({ action: 'note', reference: entry.reference, ...body }))) return
-      for (const key of keys) typedNotes.delete(`${entry.reference}:${key}`)
-      flashSaved(compBlocks.get(entry.reference)?.node)
-    }
-    const notes = (label, key) => {
-      const box = el('label', `plan-comp__notes plan-comp__notes--${key}`)
-      const area = (areas[key] = el('textarea', `plan-comp__${key}`))
-      area.rows = 2
-      area.placeholder = COMPS_NOTES_HINT
-      area.value = typedNotes.get(`${entry.reference}:${key}`) ?? notesText(entry[key])
-      area.setAttribute('aria-label', `${label}: ${entry.title}`)
-      area.addEventListener('input', () => typedNotes.set(`${entry.reference}:${key}`, area.value))
-      // `change` IS "LEFT THE BOX, HAVING CHANGED IT" — the safety net under Done.
-      area.addEventListener('change', () => void note([key]))
-      box.append(el('span', 'plan-comp__notes-label', label), area)
-      return box
-    }
-    // [[BUG-236]] — DONE FOR THIS SITE: both boxes, stored at once.
-    const done = el('button', 'plan-ask__done plan-comp__done', COMPS_DONE)
-    done.type = 'button'
-    done.addEventListener('click', () => void note(['likes', 'dislikes']))
-    block.append(open, head, notes(COMPS_LIKES, 'likes'), notes(COMPS_DISLIKES, 'dislikes'), done)
-    return block
-  }
-
   let last = null
 
   /**
@@ -840,9 +733,11 @@ export function createPlanPanel(options = {}) {
           item.append(mark)
         }
         item.addEventListener('mouseenter', () => showTip(item))
-        item.addEventListener('mouseleave', hideTip)
+        item.addEventListener('mouseleave', leaveStage)
         item.addEventListener('focus', () => showTip(item))
-        item.addEventListener('blur', hideTip)
+        item.addEventListener('blur', (event) => {
+          if (!tip.contains(event.relatedTarget)) hideTip()
+        })
         // A TAP ON A TOUCH SCREEN opens the explanation; it never moves the stage.
         item.addEventListener('click', () => (tipFor === stage.id && !tip.hidden ? hideTip() : showTip(item)))
         return item
@@ -858,6 +753,7 @@ export function createPlanPanel(options = {}) {
   /** Draw a view, keeping every block that has not changed and the one in use. */
   function render(view) {
     last = view
+    comparisonsRaised = view.comps_raised === true
     drawStages(view.stages ?? [])
     const asks = view.asks ?? []
     const open = asks.filter((a) => a.status === 'open')
@@ -888,39 +784,6 @@ export function createPlanPanel(options = {}) {
     place(openList, open, openBlock)
     place(doneList, done, (ask) => doneBlock(ask, materials))
     for (const ask of [...open, ...done]) fold(drawn.get(ask.id).node, `ask:${ask.id}`, itemState(ask.status))
-    // [[REQ-378]], [[REQ-401]] — the comp board, one item, last of the open ones or
-    // first of the settled; never before a site is shown.
-    const compsState = view.comps_status ?? 'open'
-    // [[REQ-403]] — and, like every other question, not until the consultant has
-    // raised it.
-    if (site && view.comps_raised === true) {
-      if (compsState === 'open') openList.append(compsItem.node)
-      else doneList.prepend(compsItem.node)
-      compsItem.node.dataset.status = compsState
-      fold(compsItem.node, 'comps', compsState)
-    } else compsItem.node.remove()
-    compsSkip.hidden = compsState !== 'open'
-    const comps = view.comps ?? []
-    // [[BUG-236]] — "I've finished commenting" while there is a board to finish
-    // with, and once pressed, that it was heard.
-    compsFinish.hidden = compsState !== 'open' || comps.length === 0 || view.comps_finished === true
-    compsFinished.hidden = compsState !== 'open' || comps.length === 0 || view.comps_finished !== true
-    // The board's own entries, under the panel's rule: a block whose content has
-    // not changed is kept, and so is the one the client is typing in.
-    const keptComps = new Map()
-    compsList.replaceChildren(
-      ...comps.map((entry) => {
-        const key = JSON.stringify(entry)
-        const held = compBlocks.get(entry.reference)
-        const inUse = held && active && held.node.contains(active)
-        const node = held && (held.key === key || inUse) ? held.node : compBlock(entry)
-        keptComps.set(entry.reference, { node, key: held && inUse ? held.key : key })
-        return node
-      }),
-    )
-    compBlocks.clear()
-    for (const [ref, held] of keptComps) compBlocks.set(ref, held)
-    compsList.hidden = comps.length === 0
     blocks.clear()
     for (const [id, held] of drawn) blocks.set(id, held)
     // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
@@ -954,9 +817,7 @@ export function createPlanPanel(options = {}) {
       site = next ?? null
       changing.clear()
       typed.clear()
-      typedNotes.clear()
       blocks.clear()
-      compBlocks.clear()
       error.hidden = true
       render({ stages: [], asks: [], comps: [] })
       return refresh()
@@ -967,8 +828,6 @@ export function createPlanPanel(options = {}) {
       busy = Boolean(next)
       drawStages(last?.stages ?? [])
     },
-    /** The comp board as last drawn ([[REQ-378]]). */
-    comps: () => last?.comps ?? [],
     /**
      * [[REQ-413]] — bring one question forward: unfolded (and remembered so, as
      * the client's own unfold would be), scrolled to, and briefly highlighted.

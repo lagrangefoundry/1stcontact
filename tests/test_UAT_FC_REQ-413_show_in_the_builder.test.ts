@@ -253,11 +253,11 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-413 — the consultant switches the view'
     const chat = chatTransport([], switched('#show=comp&comp=reference-2', 'Duncan Plumbing 2'))
     const app = await mounted(chat)
     await send(app)
-    expect(app.panel.getMode()).toBe('comp')
-    expect(root.querySelector('.comp-viewer .builder-carousel__label')?.textContent).toBe('Duncan Plumbing 2')
-
-    const back = root.querySelector('.comp-viewer__back') as HTMLButtonElement
-    expect(back.textContent).toBe('Back to your draft')
+    // [[REQ-419]] — a comparison site is its tile in Comparisons, brought into view.
+    expect(app.panel.getMode()).toBe('comparisons')
+    const tile = root.querySelector('.comp-tile[data-reference="reference-2"]') as HTMLElement
+    expect(tile.textContent).toContain('Duncan Plumbing 2')
+    expect(tile.classList.contains('comp-tile--shown')).toBe(true)
 
     // A link to a page of the draft brings the pane back to the draft, on that page.
     const link = document.createElement('a')
