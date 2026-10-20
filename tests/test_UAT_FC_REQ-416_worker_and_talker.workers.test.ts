@@ -11,6 +11,7 @@ import { TALKER_ALLOW, TALKER_REFUSAL, TALKER_WITHHOLD } from '../tools/generate
 import type { PlanFields } from '../tools/generate/src/cli/ai/plan-core'
 import {
   calls,
+  metered,
   says,
   sentText,
   systemText,
@@ -247,6 +248,43 @@ describe('REQ-416 — a message written while the consultant works is answered b
     expect(((await chatTicket(sessionId))?.fields ?? {})[INBOX_FIELD] ?? '').toBe('')
     const status = stream.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
     expect(status.map((f) => f.content)).toContain(`The consultant is capturing ${BAD_URL}`)
+  })
+
+  it('test_UAT_FC_REQ-416_a_talker_rounds_requests_are_metered_on_a_spend_row_of_their_own', async () => {
+    const { sessionId } = await site()
+    const client = forked(
+      [
+        metered({ input_tokens: 1000, output_tokens: 10 }, calls('capture_site', { url: BAD_URL })),
+        metered({ input_tokens: 1100, output_tokens: 20 }, says('Captured nothing.')),
+      ],
+      [
+        metered({ input_tokens: 300, output_tokens: 7 }, calls('read_plan', {})),
+        metered({ input_tokens: 400, output_tokens: 9 }, says(REPLY)),
+      ],
+      async (n) => {
+        if (n !== 1) return
+        await post('/api/ai/interpose', { sessionId, text: WROTE })
+        await until(() => client.talker.length >= 2)
+        await new Promise((r) => setTimeout(r, 300))
+      },
+    )
+    setModelClient(client)
+    const stream = await frames(await post('/api/ai/prompt', { sessionId, text: 'Have a look.' }))
+    const talkerTurn = String(stream.find((f) => f.kind === 'talker')?.meta?.turn_id ?? '')
+    expect(talkerTurn).not.toBe('')
+
+    const { results } = await env.DB.prepare('SELECT * FROM turn_spend WHERE session_id = ? ORDER BY started_at, rowid')
+      .bind(sessionId)
+      .all<{ turn_id: string; role: string; outcome: string; requests: number; input_tokens: number; output_tokens: number }>()
+    const rows = results ?? []
+    // THE TALKER'S OWN ROW: its two requests and nothing of the worker's.
+    const talked = rows.find((r) => r.turn_id === talkerTurn)
+    expect(talked).toMatchObject({ role: 'consultant', outcome: 'complete', requests: 2, input_tokens: 700, output_tokens: 16 })
+    // AND THE WORKER'S, unchanged by it: every request of the client message is
+    // on exactly one row.
+    const worked = rows.filter((r) => r.turn_id !== talkerTurn)
+    expect(worked).toHaveLength(1)
+    expect(worked[0]).toMatchObject({ requests: 2, input_tokens: 2100, output_tokens: 30 })
   })
 
   it('test_UAT_FC_REQ-416_every_tool_that_changes_the_draft_or_the_stage_is_withheld_from_the_talker', async () => {

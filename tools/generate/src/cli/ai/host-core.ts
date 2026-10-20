@@ -4033,6 +4033,8 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps): Beside
         for (const message of await deps.inbox.read(sessionId)) {
           if (!forkable(manager, sessionId)) return
           talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 0) + 1)
+          const from = turnCursor(manager, sessionId)
+          const startedAt = new Date().toISOString()
           let started: { turnId: string; queued: boolean; talker: boolean; done: Promise<void> }
           try {
             started = await manager.startTurn(sessionId, message.text, { timeout: TURN_TIMEOUT_SECONDS })
@@ -4048,7 +4050,13 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps): Beside
             return
           }
           talkers.follow(started.turnId, message.id)
-          running.push(started.done.then(ends, ends))
+          const turnId = started.turnId
+          // [[REQ-416]] — AND WHAT IT COST, once it has closed: a talker round sends
+          // requests of its own, on its own conversation, which the worker's row
+          // does not carry.
+          running.push(
+            started.done.then(ends, ends).then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps)),
+          )
           await deps.inbox.take(sessionId, [message.id])
         }
       } catch {
@@ -4059,6 +4067,42 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps): Beside
       await Promise.all(running)
     },
   }
+}
+
+/**
+ * [[REQ-416]] — a talker round's spend row ([[REQ-292]]), off its own `turn_end`.
+ *
+ * A TALKER ROUND IS A TURN THAT COSTS MONEY, and nothing else meters it: it runs
+ * on a conversation forked from the worker's, so the worker's terminal event never
+ * sees its requests, and it is not driven through {@link siteTurn}'s `finally`.
+ * The manager folds the round's spend onto its `turn_end` however it ended
+ * ([[BUG-232]]), so that record is the source, found by the round's id past the
+ * cursor taken before it opened. A round that left no `turn_end` writes the row
+ * {@link writeTurnSpend} writes for a turn that measured nothing. Never throws.
+ */
+async function writeTalkerSpend(
+  manager: Untyped,
+  sessionId: string,
+  turnId: string,
+  from: number,
+  startedAt: string,
+  deps: HostDeps,
+): Promise<void> {
+  let closed: Record<string, unknown> | undefined
+  try {
+    const [records] = manager.logFor(sessionId).readFrom(Math.max(0, from)) as [Array<Record<string, unknown>>]
+    closed = [...records].reverse().find((r) => r?.kind === TURN_END && r.turn_id === turnId)
+  } catch {
+    // No junction, nothing to recover.
+  }
+  await writeTurnSpend(deps, closed, {
+    session: sessionId,
+    turn: turnId,
+    startedAt,
+    role: CONSULTANT_ROLE,
+    backend: PROJECT_BACKEND,
+    outcome: closed ? turnOutcome(closed) : 'aborted',
+  })
 }
 
 /**
