@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T16:08:15.267150+00:00'
+updated_at: '2026-10-20T18:58:20.551311+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10211,5 +10211,29 @@ I framed it around cost, as you asked. Guidance plus detection costs tokens ever
 - builders taught to use it for price lists and opening hours.
 
 **On tracking cost more generally:** this run will add spend from talker turns and the screenshots the host attaches after each build. The spend records already capture every turn, including builders. After your run I can break the cost down by consultant turns, talker turns, builder turns and host looks, and compare it with Bob's salon 2, so you can see what each change actually costs. Shall I do that when you're done?
+
+<!-- xgd-turn id="23181dbf-460a-4017-af05-1d1d7255830d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T18:58:19.592096+00:00" -->
+#### You
+Two problems I am seeing - the new attachments UI is good, but if I add too many photos I loose all ability to select the text box and then I am stuck - I actually had to delete all the photos.
+
+Next this turn from the consultant was too much:
+
+**Questions panel:** I've added five questions. Fill them in whenever suits you:
+
+- **What the site needs to do.** I've ticked the two I'd expect for a salon. One thing to know: **online booking isn't available yet**. So for now the main thing the site asks people to do is call you, and I'll make your number easy to find on every page.
+- **Your phone number.** Please confirm (617) 555-0142 is the one clients should call to book.
+- **Your email.** Is it OK to show hello@bobssalon.example publicly? Public emails attract spam, so I only show one you've said yes to.
+- **Photos of your work.** Long cuts, colour, nails, the inside of the salon. Phone photos are fine.
+- **Where clients review you.** Google, Yelp or Facebook; a link is perfect.
+
+Next we'll look at a few other salon websites together, and then I'll start the first draft.
+
+First, though, I'd like the story behind that logo. A long-haired man as a salon's emblem is unusual. How did long hair, for everyone, become *your* thing? Was there a moment or a client that started it?
+
+I started answering the questions and uploading material and completely lost track of the final questions which are the most important. The AI needs to pace its interaction
+
+Again another moment where too many things are going on - I was replying to the talker, when the worker finished and dumped a page and a half of material in.
 
 <!-- xgd-chat-end -->
