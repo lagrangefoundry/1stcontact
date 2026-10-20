@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-19T23:31:30.025211+00:00'
+updated_at: '2026-10-20T03:29:48.203797+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9809,5 +9809,11 @@ What it asks for:
 One exception I added: **banners that explain why the builder is locked stay put.** That's "this builder is not configured", the no-business banner, and the one shown while a publish is running. Each describes something that's still true and the reason you can't use the screen, so hiding it would leave a locked builder with no explanation. The ticket also says to write this rule next to the banner code, so future banners follow it.
 
 The wording of the publish failure banner itself is BUG-230's job; this ticket only adds the ×.
+
+<!-- xgd-turn id="dd321aa1-a291-4ea2-b760-fe30348c931a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T03:29:47.375548+00:00" -->
+#### You
+The progress reports "Your consultant is ..." Please replace with "The consultant.." - ticket please
 
 <!-- xgd-chat-end -->
