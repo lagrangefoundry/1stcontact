@@ -6,9 +6,9 @@ title: 'Worker and talker: adopt LF REQ-209/210 so discovery happens while the c
   builds'
 created_by: EPIC-19
 created_at: '2026-10-20T13:39:11.750473+00:00'
-updated_at: '2026-10-20T13:44:48.494369+00:00'
+updated_at: '2026-10-20T14:10:58.185010+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -107,3 +107,87 @@ In the consultant's priming and the plan seed:
   worker; the old working line is gone and the widget uses "The consultant is …".
 - Priming carries the hand-over-with-a-question rule, next-pass rule,
   build-sooner method and expectation-setting rule.
+
+
+## Implementation (as built)
+
+### Talker setting
+- `tools/generate/src/cli/ai/talker.json` declares the consultant's talker: `refusal`
+  ("That's part of the build that's running; I'll pick it up as soon as it's done."),
+  `withhold` (Delegate, set_stage, choose_look, place_on_site, set_upload_role,
+  delete_library_item, edit_image, CreateImage, EditImage and every L1 write incl.
+  write_image and publish) and `allow` (everything else the consultant can be
+  granted). Every granted tool must be in exactly one list; a UAT composes the real
+  grant with the consultant's own writes off and on and fails on an unclassified tool.
+- `roles.ts` `consultantRole` passes `talker: {withhold, refusal}`; the settings role
+  has none. The consultant's backend declares `fork` and `interrupt` (the latter so
+  Stop building really ends the round).
+
+### Where the talker runs (Cloudflare constraint)
+- The framework keeps the fork in the manager running the worker, and our Worker
+  builds a manager per request, so the talker has to run in the isolate that runs the
+  build. The client's message still goes to `/api/ai/interpose` (BUG-224's inbox on
+  the chat ticket). The build's own request polls the inbox (every 2 s, riding the
+  existing junction poll in `progress-core.ts`'s `withProgress`), and for each
+  waiting message calls `manager.startTurn` — which opens the talker — and retires
+  the message only once the talker opened. A message the build ended before taking
+  stays waiting and the panel runs it as the next prompt, naming its id.
+- The talker's records are read off the same junction and put on the BUILD'S stream
+  as `talker` frames (`meta.event` start/text/done, `turn_id`, `message_id`); the
+  panel routes them into the bubble under the client's message. A reattach after a
+  reload (`tailSession`) routes them the same way and no longer ends at a talker's
+  `turn_end`.
+- For a room member's round (group chat) nothing changes: mid-turn messages are still
+  interposed.
+
+### Status widget and Stop building (REQ-209)
+- The working line (REQ-390 / BUG-215 / BUG-234: `withWorkingLine`, step lines, the
+  `working` event kind, `WORKING_*`/`STEP_REPEATED` constants and CSS) is deleted.
+  The consultant's working notes are recorded as model-sourced `progress` records
+  ("The consultant is building …", estimate as `eta_s`), which `webui-chat`'s status
+  widget draws with its clock and Stop building; the host heartbeat stays wordless.
+  Step lines are collapsed into the one widget line. `onBusy` (the plan panel's stage
+  spinner) is driven by whether a stream of work is open.
+- The session reports `talker: true`; the panel then sets `turnModes: {talk: true}`
+  and wires `onStop`. Stop goes to `/api/ai/stop` with an optional `turnId`, kept on
+  the chat ticket (`client_stops`) for the build's isolate, which calls
+  `manager.requestStop` (no id → the build; a talker's id → that reply). Stops
+  pressed before the turn began are ignored.
+- The talker's story-board writes refresh the plan panel while the build runs (plan
+  changes are reported on every event, not only after the worker's own tool calls).
+
+### Priming
+- Talker reminder (`talker.discovery` provider, `talker-*` templates): rendered only
+  on a talker round; lists the story areas with no note on the board, the open panel
+  questions, the next-pass rule and "answer how it's going from the worker's status".
+- Story areas are data: `plan-seed.json` `story_areas` (how it started, craft, people,
+  customers, community, refusals, proud moment). `pin_notes` takes an optional `area`
+  per note; `missingStoryAreas` computes coverage.
+- Consultant priming (both corpus variants): new sections "Build sooner, story
+  later", "While you build" (hand-over ends with a story question; result names what
+  the talker gathered and which pass it goes into) and "Where things are"
+  (expectations at every hand-over). The announce-long-work reminder and the
+  delegation `note` paragraph say to end the hand-over with a story question. The
+  opening message tells the client to keep talking while the consultant builds.
+
+### Superseded evidence
+- BUG-224's "a message sent mid-turn is in the next model call" is replaced, for the
+  consultant, by the talker. BUG-215's working-line panel suite is deleted. BUG-205,
+  BUG-234, REQ-360, REQ-386 and REQ-390 assertions now read the status as
+  model-sourced `progress` frames (heartbeats are `source: host`).
+
+## Test plan (as built)
+- `tests/test_UAT_FC_REQ-416_worker_and_talker.workers.test.ts`: a message posted
+  mid-build is answered by a talker on the build's own stream; the talker is told its
+  job, the missing story areas and the worker's status; `set_stage` is refused with
+  the client-worded refusal and the stage does not move; `pin_notes` succeeds with its
+  area; the worker is told the exchange at its next call; every granted tool is
+  classified and the draft/stage-changing ones are withheld (writes off and on); Stop
+  building from another request stops the build and is consumed; the settings
+  assistant has no talker; the priming carries the method, hand-over question,
+  next-pass and expectations rules.
+- `tests/test_UAT_FC_REQ-416_talking_while_it_builds.test.ts`: the composer is in
+  talk mode; the status widget shows "The consultant is …" with Stop building and no
+  working line; a message mid-build is interposed and its talker reply drawn under
+  it; Stop building sends a stop naming no turn; a message the build ended before
+  answering runs next naming its id; a conversation without a talker still interposes.
