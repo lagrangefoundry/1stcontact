@@ -6,10 +6,10 @@ title: 'Layout check: flag a too-small logo or business name, and headings not a
   to their text'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:22.125248+00:00'
-updated_at: '2026-10-20T23:26:22.125248+00:00'
+updated_at: '2026-10-20T23:39:29.173520+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: medium
   priority: high
