@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T13:28:33.673075+00:00'
+updated_at: '2026-10-20T13:39:17.096006+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2278,3 +2278,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-415]] — visual checks: the host screenshots and layout-checks every page a builder writes; final stages need every changed page looked at on desktop and phone; screenshot pricing prose corrected (prices-page incident, Bob's salon 2). Matching priming rule "Does it look right?" committed as b174ff6e8e.
+
+
+- [[REQ-416]] — adopt LF REQ-209/210 (worker and talker): discovery happens while the consultant builds; first build starts after a short opening; talker may pin to the story board but never touch the site or the stages; the consultant sets and reinforces where things are and what can change (operator decisions 2026-10-20).
