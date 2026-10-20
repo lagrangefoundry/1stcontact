@@ -28,6 +28,12 @@
  * are not on the page to anyone looking, so they are neither text over text, nor
  * cut off, nor a section that takes no height.
  *
+ * TWO CRAFT DEFAULTS ARE MEASURED TOO ([[BUG-238]]), because a reminder in the
+ * priming did not hold: a header whose logo renders too short or whose business
+ * name is not clearly its largest text, and a heading that floats between the
+ * content above and below it instead of sitting with the text it introduces.
+ * Their thresholds are `layout-check.json`'s, not constants here.
+ *
  * WHAT IS DELIBERATELY NOT HERE: taste. Every finding is a fault on any site, in
  * any style; nothing here says a page is ugly.
  */
@@ -35,6 +41,7 @@
 import type { BrowserDriverFactory } from '../capture/types'
 import { VIEWPORTS } from '../capture/screenshot'
 import type { MeasureDeps } from './measure-core'
+import layoutDocument from './layout-check.json'
 
 /** The two widths every page is checked at, by the names the consultant uses. */
 export const LAYOUT_WIDTHS: readonly { name: LayoutWidthName; width: number }[] = [
@@ -43,6 +50,15 @@ export const LAYOUT_WIDTHS: readonly { name: LayoutWidthName; width: number }[] 
 ]
 
 export type LayoutWidthName = 'desktop' | 'phone'
+
+/** [[BUG-238]] — the thresholds `layout-check.json` sets, as the in-page script reads them. */
+const LAYOUT_THRESHOLDS = {
+  /** The least logo height, by the width in px it applies from. */
+  logoMinPx: Object.fromEntries(LAYOUT_WIDTHS.map((w) => [w.width, layoutDocument.brand.logoMinPx[w.name]])),
+  nameOverNav: layoutDocument.brand.nameOverNav,
+  belowOverAbove: layoutDocument.heading.belowOverAbove,
+  minAbovePx: layoutDocument.heading.minAbovePx,
+}
 
 /** What the in-page script reports for one fault. */
 export interface RawLayoutFinding {
@@ -62,6 +78,9 @@ export type LayoutFindingKind =
   | 'edges'
   | 'misaligned_rows'
   | 'split_rows'
+  | 'small_logo'
+  | 'small_name'
+  | 'loose_heading'
 
 /** One fault, on one page at one width. */
 export interface LayoutFinding extends RawLayoutFinding {
@@ -85,8 +104,10 @@ export interface LayoutFinding extends RawLayoutFinding {
  *
  * A STRING, not a function's source: a bundler is free to rewrite a function
  * (injected helpers, renamed locals) into something that does not run in a page.
+ * The thresholds are written into it from `layout-check.json`.
  */
 export const LAYOUT_SCRIPT = String.raw`(() => {
+  const CFG = ${JSON.stringify(LAYOUT_THRESHOLDS)};
   const vw = window.innerWidth;
   const out = { width: vw, findings: [] };
   const add = (section, kind, text) => out.findings.push({ section, kind, text });
@@ -139,6 +160,21 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   };
   const frames = [];
   const sideways = document.documentElement.scrollWidth > vw + 1;
+  const size = (el) => parseFloat(style(el).fontSize) || 0;
+  const median = (ns) => { const o = ns.slice().sort((p, q) => p - q); return o[Math.floor(o.length / 2)]; };
+  // The least logo height configured for the widest checked width this screen reaches.
+  const logoWidths = Object.keys(CFG.logoMinPx).map(Number).sort((p, q) => p - q);
+  const minLogo = CFG.logoMinPx[logoWidths.filter((w) => w <= vw).pop() ?? logoWidths[0]];
+  // A link to the home page: the business name, when it is a link, is one.
+  const homeLink = (a) => {
+    try { return /^(|index|home)(\.html?)?$/i.test(new URL(a.href, location.href).pathname.replace(/\/+$/, '').split('/').pop()); }
+    catch (e) { return false; }
+  };
+  const HEADING = 'h1,h2,h3,h4,h5,h6';
+  // Everything a reader sees on the page, as the content a heading sits between.
+  const leaves = [root].concat(Array.from(root.querySelectorAll('*')))
+    .filter((el) => (ownText(el) || el.matches(MEDIA)) && shown(el));
+  const first = kids.findIndex((k) => k.tagName !== 'TEMPLATE');
   let sidewaysNamed = false;
 
   kids.forEach((section, i) => {
@@ -193,6 +229,55 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
         if (rects[t].some((r) => (!scrollsX && (r.right > c.right + 1 || r.left < c.left - 1)) || (!scrollsY && (r.bottom > c.bottom + 1 || r.top < c.top - 1)))) clip = up;
       }
       if (clip) add(address, 'clipped', quote(el) + ' is cut off by the box it sits in');
+    }
+
+    // ── the header: a logo too short, a business name no larger than the links ──
+    if (i === first && section.querySelector('a[href]')) {
+      const logos = all.filter((el) => el.tagName === 'IMG');
+      const tallest = logos.reduce((m, el) => Math.max(m, el.getBoundingClientRect().height), 0);
+      if (logos.length && tallest < minLogo - 0.5) {
+        add(address, 'small_logo', 'has its logo only ' + px(tallest) + ' tall, too small to register as the business: make it at least ' +
+          px(minLogo) + ' tall at this width');
+      }
+      const navs = []; const names = [];
+      for (const el of texts) {
+        const a = el.closest('a');
+        if (a && section.contains(a) && !(homeLink(a) && !/^home$/i.test(words(a)))) navs.push(el); else names.push(el);
+      }
+      // A header of a logo and links only may carry its name in the logo, drawn or pictured.
+      const marked = logos.length > 0 || all.some((el) => el.tagName.toLowerCase() === 'svg');
+      if (navs.length >= 2 && (names.length || !marked)) {
+        const navSize = median(navs.map(size));
+        const want = navSize * CFG.nameOverNav;
+        const pool = names.length ? names : texts;
+        const name = pool.reduce((m, el) => (size(el) > size(m) ? el : m));
+        if (size(name) < want - 0.25) {
+          add(address, 'small_name', names.length
+            ? 'has the business name ' + quote(name) + ' at ' + px(size(name)) + ', not clearly the largest text in the header beside its ' +
+              px(navSize) + ' navigation links: make it at least ' + px(want)
+            : 'has no text clearly larger than its ' + px(navSize) + ' navigation links, so the business name does not stand out: make it at least ' + px(want));
+        }
+      }
+    }
+
+    // ── a heading that floats instead of sitting with its text ──
+    for (const h of all.filter((el) => el.matches(HEADING))) {
+      const r = h.getBoundingClientRect();
+      let above = null; let below = null; let next = null;
+      for (const el of leaves) {
+        if (h.contains(el) || el.contains(h)) continue;
+        const q = el.getBoundingClientRect();
+        if (q.right <= r.left + 1 || q.left >= r.right - 1) continue;
+        if (q.bottom <= r.top + 1 && (above === null || q.bottom > above)) above = q.bottom;
+        if (q.top >= r.bottom - 1 && (below === null || q.top < below)) { below = q.top; next = el; }
+      }
+      // A heading straight above another is judged by the lower one.
+      if (above === null || below === null || next.closest(HEADING)) continue;
+      const gapAbove = r.top - above; const gapBelow = below - r.bottom;
+      if (gapAbove >= CFG.minAbovePx && gapBelow >= gapAbove * CFG.belowOverAbove) {
+        add(address, 'loose_heading', 'has the heading ' + quote(h) + ' with ' + px(gapBelow) + ' of space below it and ' + px(gapAbove) +
+          ' above, so it floats between them instead of sitting with the text it introduces: make the space below it clearly smaller than the space above');
+      }
     }
 
     // ── a list of items built as side-by-side columns ──
