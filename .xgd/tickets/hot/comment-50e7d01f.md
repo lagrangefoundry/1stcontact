@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T22:13:10.313430+00:00'
+updated_at: '2026-10-20T22:14:18.003083+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4076,5 +4076,52 @@ I think the comp view should be a series of tiles (not a carosel) showing thumbn
 Thoughts?
 
 BTW I wasn't asked who my competitors are and what I think of their sites?
+
+<!-- xgd-turn id="baf50270-ed59-4e19-b8dd-c55e299c76dd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T22:14:17.244561+00:00" -->
+#### Claude
+I'll look at how the comp view is built today before answering.
+
+Mostly agreed, and the code explains why it feels the way it does.
+
+## Why it feels out of control
+
+The comp view was built (REQ-378) as a temporary "viewing" state, deliberately left off the View | Edit | Story toggle and never remembered. The idea was that nobody should mistake a competitor's page for their own draft. The result is what you hit:
+- there's no way back in except the cards or the panel tile;
+- "Back to your draft" returns to whichever mode you were in before. You'd come from Story, so it took you to the story board;
+- the arrows jump because they sit either side of the site's name, and the names differ in length.
+
+The design is also built around the picture. The code comment literally says *"A picture, never the site."* The screenshot was meant to be the main thing, with "Visit the live site" as a side link.
+
+## Your proposal
+
+**Comparisons as a fourth mode on the toggle: yes.** The reason for keeping it off the toggle was confusion with the draft. A grid of other businesses' sites can't be mistaken for your own draft, so that reason goes away. The mode appears once the first comp exists, and it stays where you left it like the others do.
+
+**Tiles, not a carousel: yes.** All the sites are visible at once, so nothing jumps and there's no "which one am I on".
+
+**The thumbnail is a cue, not the content.** Show only the top of the home page, cropped to roughly one screen, just enough to recognise the site. Clicking a tile opens the real site. The tile says "Open the site ↗" plainly and nothing claims the picture shows how it works.
+
+**Opening sites: what you want almost happens by default.** A page can't add tabs to a *separate* window. But a link that opens in a new tab adds that tab to the builder's own browser window. So each site you open becomes a tab alongside the builder, and you flip between them with the browser's own tab bar. The alternative is to have every site load into one shared "comparisons" tab, which keeps things tidy, but each click then replaces the last site, so you can't flip back and forth. I'd use a new tab per site.
+
+**Questions under each tile: yes.** Likes and dislikes go right under that site's thumbnail, plus an "add a site you know" tile and the "I've finished commenting" button. BUG-236 (ready to reconcile) only just added per-site **Done** and **"I've finished commenting"** to the panel version, so this would move them rather than rebuild them. One addition: clicking "Looking at other sites" on the progress bar should open the Comparisons mode, so the panel still leads there without needing its own tile.
+
+**The Drybar problem.** A cookie banner over the page or a half-loaded page ruins even a thumbnail. Two options:
+- the capture tries to dismiss consent banners and waits for the page to settle; or
+- when the capture looks blocked, the tile falls back to the site's name, address and logo.
+
+The second is simpler and always works, and it fits "go and look at the real site". I'd do that and leave the capture alone.
+
+**Phone.** One thing tiles lose is "what does it look like on a phone". Each tile could have a small "open on your phone" code, the same idea as View on your phone. That's nice to have, not essential.
+
+## You weren't asked about competitors
+
+You're right, and the consultant skipped an instruction. The comps priming says *"Start by asking: 'Who do you lose jobs to? Whose site have you looked at and thought "that's what I want"?'"* At 18:44 the consultant announced it was finding salon sites, but that turn's one question went on the logo story. Your competitors only came up later as a passing line ("you can add one you lose clients to"), never as a question.
+
+That's a clash between two rules: one question per message, and a story question in every message. Fixing that rule in the discovery draft removes most of the clash. I'll also add a line to Edit 5: the turn that starts the comp search asks the competitor question, not a story question. Once you've shared your own sites, the consultant should ask what you think of them as well as its picks.
+
+## Next
+
+I'd file one REQ for the comp view: a Comparisons mode on the toggle, a tile grid with live-site links, per-site questions under each tile, the panel tile removed, the progress-bar link, and the fallback for blocked captures. It would supersede the relevant parts of REQ-378 and REQ-391. Shall I file it, and add the competitor question to the priming draft?
 
 <!-- xgd-chat-end -->
