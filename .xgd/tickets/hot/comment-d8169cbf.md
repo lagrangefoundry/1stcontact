@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:41:36.450304+00:00'
+updated_at: '2026-10-20T23:18:15.903538+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10369,5 +10369,15 @@ Products that don't set either option are unaffected. I couldn't link it to EPIC
 - **The status widget moves to the plan panel,** directly under the progress banner and visually joined to it. It keeps "The consultant is …", the elapsed time and Stop building. It only appears while a build runs, and nothing of it is left above the composer.
 
 The order is LF REQ-214 first, then refresh the shared install, then BUG-236.
+
+<!-- xgd-turn id="8933fe14-f5ba-4006-9e66-754c7bd93e68-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T23:18:13.840731+00:00" -->
+#### You
+oops I think I did them the other way around - problem?
+
+Some challenges I see with where we are:
+1. The consultant is CONSTANTLY making the site name and logo too small
+2. Spacing of titles and text - this is really important for a professional looking site and feels consistently off to me (can we discuss?) I feel like the paragraph under a title should feel attached to the title we seem to get title - text - title equally spaced which just looks super odd to me
 
 <!-- xgd-chat-end -->
