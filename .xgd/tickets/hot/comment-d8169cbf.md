@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:24:43.759630+00:00'
+updated_at: '2026-10-20T19:40:26.299609+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10337,5 +10337,13 @@ It covers six things:
 6. **A question that's showing can't change form.** The host refuses the rewrite, so the consultant withdraws it and asks a new one. A redraw never throws away text you're typing.
 
 BUG-235 (the progress tracker, Stop, the inverted line about the layout check) is still separate and needs to land too. The priming change in item 2 only reaches your run after BUG-236 lands and you redeploy.
+
+<!-- xgd-turn id="05737750-b78d-4c3d-9e72-429ce037e1be-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T19:40:24.126834+00:00" -->
+#### You
+The bottom of the screen is getting pretty busy. I want to loose the paper clip and "Attach files" and instead add a "+" symbol inside the text entry area to mirror the send button (this is what ChatGPT does). Same functionality as we have now.
+
+Can we move the widget showing the progress to be an area UNDER but connected to the progress bar that we have at the top please?
 
 <!-- xgd-chat-end -->
