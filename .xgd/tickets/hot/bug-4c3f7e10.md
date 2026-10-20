@@ -5,9 +5,9 @@ type: bug
 title: 'Spend meter: a turn that ends by throwing records its own spend as zero'
 created_by: EPIC-20
 created_at: '2026-10-20T00:10:31.544851+00:00'
-updated_at: '2026-10-20T00:10:31.544851+00:00'
+updated_at: '2026-10-20T00:10:45.770263+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -47,6 +47,6 @@ Required behaviour:
 
 ## Test plan
 
-`tests/test_UAT_FC_BUG-<n>_*.test.ts`: drive a real host turn through the scripted-model harness where the tool loop throws after two billed requests. Assert the `turn_spend` row carries those two requests' counters and a non-null cost, `outcome: error`. Second case: a completed turn still reads its spend from the terminal event (row unchanged from today). Third: a throw before any request sent writes NULL cost, not zero.
+`tests/test_UAT_FC_BUG-232_*.test.ts`: drive a real host turn through the scripted-model harness where the tool loop throws after two billed requests. Assert the `turn_spend` row carries those two requests' counters and a non-null cost, `outcome: error`. Second case: a completed turn still reads its spend from the terminal event (row unchanged from today). Third: a throw before any request sent writes NULL cost, not zero.
 
 Regression scope: REQ-292, BUG-145, REQ-295 spend UATs (note the delegation suites are red pre-existing on a clean tree).
