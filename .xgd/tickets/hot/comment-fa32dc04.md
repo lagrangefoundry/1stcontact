@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-231
 created_by: xgd
 created_at: '2026-10-19T23:41:15.551577+00:00'
-updated_at: '2026-10-20T00:03:57.773205+00:00'
+updated_at: '2026-10-20T00:04:46.495168+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -95,5 +95,24 @@ please complete the free-coding of this ticket
 
 Project note (additive — does not override the above):
 Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="b9951970-e638-49fe-a14f-853293d3f67d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T00:04:46.109681+00:00" -->
+#### Claude
+The UAT file on `xgd-working` differs from my branch — checking what changed it.
+
+BUG-230's session merged and adapted my assertion to its new failure-banner wording, which is legitimate. Re-running the BUG-231 UATs on current `xgd-working` (foreground).
+
+All green on the merged state. Releasing the branch now.
+
+Adding one line to the ticket so the body matches what's now on `xgd-working`.
+
+BUG-231 is finished: the ticket is at `free_coded` and the branch is cleaned up. I haven't moved it to `ready_to_reconcile`; that's yours to do when you're ready.
+
+- **Tests:** all four BUG-231 UATs pass on current `xgd-working`, run in the foreground. So do the other banner suites I re-ran (REQ-222, REQ-367, REQ-173, REQ-179): 44 tests across the 5 files.
+- **A change from BUG-230:** after I merged, BUG-230 (commit `f365ba1cfa`) switched its publish-failure banner to the shared `createBanner` helper. It also edited my first UAT to expect its new wording: a plain line, with the server's message behind a Details toggle. The banner can still be dismissed, so I kept the edit and added a note about it to the ticket.
+- **Cleanup:** `xgd branch clean BUG-231` ran this time. It removed the worktree and the `free-BUG-231` branch and released the lock.
+- **Ticket:** it records two commits, `6c2cc30` (the fix) and `75da3b2` (the version bump to 0.2.546).
 
 <!-- xgd-chat-end -->
