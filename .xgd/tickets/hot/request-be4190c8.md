@@ -6,9 +6,9 @@ title: 'Worker and talker: adopt LF REQ-209/210 so discovery happens while the c
   builds'
 created_by: EPIC-19
 created_at: '2026-10-20T13:39:11.750473+00:00'
-updated_at: '2026-10-20T14:18:56.778118+00:00'
+updated_at: '2026-10-20T14:19:27.814750+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: status
 status: free_coded
 fields:
   priority: high
@@ -21,10 +21,18 @@ fields:
   - working_sha: 7b1dc19e9d407742a01f076e8f0a2f3cb873656d
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: e24e9abc3a69dba333a0ceeed655b3587a599514
     reconcile_sha: null
     main_sha: null
-  version: 0.2.552
+    working_sha_history: []
+  - working_sha: bd33fbfc386dcd2512c2a5152d0e610a8fd722a4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f418045d5c3700b1254e208af165168168979539
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.553
 ---
 
 ## Why
