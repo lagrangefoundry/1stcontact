@@ -5,9 +5,9 @@ type: bug
 title: 'Working line: say "The consultant is …", not "Your consultant is …"'
 created_by: EPIC-19
 created_at: '2026-10-20T03:31:07.784947+00:00'
-updated_at: '2026-10-20T03:35:08.659356+00:00'
+updated_at: '2026-10-20T03:36:42.568648+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: low
@@ -59,3 +59,20 @@ Update the three UATs above to expect "The consultant", and add a UAT
 (`test_UAT_FC_<ID>_*`) asserting that in one-to-one mode the working line begins
 "The consultant" and contains neither "Your consultant" nor any configured
 member name.
+
+
+## What changed (implementation)
+
+- `tools/generate/src/cli/ai/slow-tools.json`: `"unnamed": "The consultant"`, and its
+  `about` note now says the line reads "The consultant is …" ([[BUG-234]]). Every
+  one-to-one working line (slow-tool step lines and the Delegate turn line) takes
+  its subject from this one value, so nothing else needed changing.
+- No other client-visible "Your consultant" existed. The REQ-402 comment in
+  `apps/control-app/src/builder/config.js` that called "Tell the consultant" an
+  exception to "your consultant" was reworded — it is no longer an exception.
+- UATs: BUG-205 (one-to-one case renamed `…says_the_consultant…`, expects
+  "The consultant is capturing …"), BUG-215 fixture strings, REQ-390 comment updated.
+  New `tests/test_UAT_FC_BUG-234_working_line_says_the_consultant.workers.test.ts`:
+  through `/api/ai/session` + `/api/ai/prompt`, every working frame in a one-to-one
+  turn begins "The consultant is ", and contains neither "Your consultant" nor either
+  configured group-chat member name.
