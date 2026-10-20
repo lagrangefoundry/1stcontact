@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T00:08:01.105509+00:00'
+updated_at: '2026-10-20T00:11:05.313325+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3736,5 +3736,65 @@ I've added this comparison to EPIC-20. Do you want a bug filed for the JSON erro
 I think we fixed the error but its important that we don't loose the costs can you create a bug for that missing cost please?
 
 The principle had a number of challenges with the delegates - things failing to build as expected, success reported when things failed etc. Do you have the data to analyse how much inefficiency there was in that?
+
+<!-- xgd-turn id="a32faf58-978c-4b04-82c5-37729d390e14-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T00:11:03.721545+00:00" -->
+#### Claude
+First I'll check whether framework BUG-73 (spend lost on a throwing turn) landed, since that decides where the new bug belongs.
+
+BUG-73 is implemented upstream. Checking whether the installed copy has it and whether it covers a throw like this JSON error.
+
+The installed framework now marks such a turn as "spend unknown", but I need to see whether it actually recovers the tokens or only flags their absence.
+
+The framework now emits the spend before rethrowing (lines 1505–1511). So the question is whether our host keeps that spend when an exception follows it.
+
+Our host keeps the spend if the framework delivers it before the throw. Checking when BUG-73 landed relative to the Oct 18 failures.
+
+The session logs for those turns no longer exist on disk, so I'll confirm from the code instead: how the host already reads `attributed` off that same record.
+
+The cause is clear. Before writing the bug, I'll check what data exists on the delegation problems, so I can tell you in one go.
+
+Accepted counts match the worker counts exactly (15 and 49), so that figure is reliable. Filing the bug now.
+
+## The missing cost: BUG-232
+
+I filed **BUG-232** under EPIC-20 (high severity, draft). The cost isn't lost before it reaches us any more. Our host just doesn't read it from where it now lives.
+
+- Framework BUG-73 (installed) makes a failing turn report its spend before rethrowing. The framework then saves that spend on the turn's closing record in the session log.
+- On a failure, though, the framework doesn't send the final "turn finished" message, and our host only reads cost from that message. So it writes a row of zeros.
+- The host already reads that same closing record to recover the builders' spend on a failed turn. The fix is to recover the consultant's own spend in the same read.
+
+The ticket says a turn that genuinely measured nothing must still show "unknown", not $0. It also covers a turn abandoned partway through, and both places the host streams a turn. On the Oct 18 failures, the missing consultant spend is probably $2–5.
+
+## The delegation problems: yes, the data is all there
+
+There are 64 builder sessions since Oct 17 (15 for Salon 1, 49 for Salon 2, matching the spend records). Each one has:
+- the brief the consultant wrote,
+- the builder's full conversation and every tool call,
+- the result the consultant got back, including the per-check verdicts and the record of what changed,
+- what it cost.
+
+A first count, from the consultant's side:
+
+| | Salon 1 | Salon 2 |
+|---|---|---|
+| Delegations accepted | 8 of 15 | **24 of 49** |
+| Checks failed | 3 | 11 |
+| Checks never answered | 9 | 11 |
+| Builder never reported | 1 | 2 |
+
+So about half of Salon 2's delegations came back not accepted.
+
+That count can't separate the two problems you describe:
+- **A builder said it passed when it hadn't.** These count as accepted, so they hide inside the 24. Finding them means comparing each report with what actually changed, and with what the consultant did next.
+- **The work didn't come out as expected.** That shows as briefs sent again: the same goal delegated a second or third time.
+
+The analysis I'd do, per delegation:
+1. Classify the outcome: clean, re-delegated, false pass, worker failure, or bad brief.
+2. Price each class, both the builder's cost and the consultant's turns spent noticing and redoing.
+3. Report what share of Salon 2's ~$32 was rework.
+
+It's a few hours of careful reading rather than a query, because spotting false passes needs judgement on each one. Want me to run it on Salon 2?
 
 <!-- xgd-chat-end -->
