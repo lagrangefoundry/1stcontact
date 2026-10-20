@@ -6,9 +6,9 @@ title: 'Comparisons: a preview mode of site tiles that open the real sites, repl
   the comp viewer and the panel''s comp board'
 created_by: EPIC-20
 created_at: '2026-10-20T22:19:26.112561+00:00'
-updated_at: '2026-10-20T22:19:26.112561+00:00'
+updated_at: '2026-10-20T22:19:32.136952+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -76,7 +76,7 @@ Reconcile should treat their ACs/UATs that pin those specific points as invalida
 
 ## Test plan
 
-- `test_UAT_FC_<ticket>_*`, driving the real builder in jsdom:
+- `test_UAT_FC_REQ-419_*`, driving the real builder in jsdom:
   - with no comps raised, the toggle shows View, Edit and Story only; after the comp board is raised, Comparisons appears after Story;
   - in Comparisons, every comp is a tile, with no previous/next control;
   - each tile's link and thumbnail link point at the comp's real address with `target="_blank"` and `rel` including `noopener`; a non-http(s) address produces no link;
