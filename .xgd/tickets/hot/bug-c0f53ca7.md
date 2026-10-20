@@ -6,10 +6,10 @@ title: 'Layout check: flag a too-small logo or business name, and headings not a
   to their text'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:22.125248+00:00'
-updated_at: '2026-10-20T23:47:20.373065+00:00'
+updated_at: '2026-10-20T23:47:54.135363+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-19b40c10
+  commits:
+  - working_sha: 1b860b38101cbc15ee156136e30d813d08c1b424
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6a2f0877b8a9896491f9384ed6b685d1278a5634
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.561
 ---
 
 ## Symptom (operator, 2026-10-20)
