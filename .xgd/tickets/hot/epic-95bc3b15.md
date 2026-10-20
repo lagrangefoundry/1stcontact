@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T14:34:56.764166+00:00'
+updated_at: '2026-10-20T15:42:41.812151+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2284,3 +2284,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-417]] — opening tweaks: story-board empty message centred both ways; headline slot reads "Your headline statement:" with centred "Why choose your business?"; ghost text "We'll put questions here for you to answer" on the empty question panel.
+
+
+- [[BUG-235]] — review of REQ-415/416 before the next run: starting the first draft marked "Getting to know you" done; Stop building could be overridden by a layout continuation; the clean-check line was inverted; no-browser deployments could never close the final stages; opening text still says "the usual order". Priming fix 508dd93355: the host's post-build picture is a look at one width.
