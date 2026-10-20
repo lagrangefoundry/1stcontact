@@ -6,10 +6,10 @@ title: 'Builder briefs: stop appending the story board to every brief; the consu
   quotes it when a brief needs it'
 created_by: EPIC-20
 created_at: '2026-10-20T03:17:09.479920+00:00'
-updated_at: '2026-10-20T03:17:14.706411+00:00'
+updated_at: '2026-10-20T03:35:08.863793+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: high
   priority: high
