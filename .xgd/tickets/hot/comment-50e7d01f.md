@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:20:38.468289+00:00'
+updated_at: '2026-10-20T21:55:59.455828+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3938,5 +3938,21 @@ My guess is about this much: a client will happily give 15–20 minutes of story
 - **Never repeat a question the client skipped**; if it really matters, park it on the questions panel instead.
 
 It's hard to judge while you're role-playing, because you're answering as Bob and as yourself at once. One way to check would be reading the transcript cold the next day, or a scripted run (DOC-55) with a deliberately terse client to see how the consultant handles someone who won't chat.
+
+<!-- xgd-turn id="d17a8c8e-859e-4fb2-bbe3-b9133328962e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T21:55:59.159362+00:00" -->
+#### You
+I definitely think it needs to slow down on the random exploration questions.
+
+There are a few things that I think it should weigh:
+
+1. The nature of the customers answers are they loosing interest in the discovery
+2. Do we have enough? There comes a point where just adding more post-its to the story board is not going to move the needle unless you hit gold
+3. Are there other things that we should have it ask about? Should there be more of a discussion about the comp sites - I geve feedback but there was no back and forth.
+
+I think the talker should close out discovery - with some open question like: Is there anything else you want to tell me about your Salon, Bob, that would help us to make the site unique and appealing? <-- a question like that would have triggered the wigs for kids story that got lost in the last discovery round.
+
+Once its closed can we move on to talk about the site, points of style, dig into the comps etc.? What are the questions that would cause the consultant to take a different direction?
 
 <!-- xgd-chat-end -->
