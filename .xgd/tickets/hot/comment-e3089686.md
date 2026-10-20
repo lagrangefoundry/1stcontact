@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-419
 created_by: xgd
 created_at: '2026-10-20T23:09:35.426158+00:00'
-updated_at: '2026-10-20T23:32:07.547337+00:00'
+updated_at: '2026-10-20T23:33:31.664873+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -116,5 +116,30 @@ The ticket body now has an implementation section describing all of the above, s
 REQ-214 is done, please give me the follow on ticket.
 
 Another detail - when the consultant starts working, the send button becomes a stop button. That is incorrect. It should only be a stop button if the talker is running and only the worker is running at that point. This is confusing to the user - they need to know to typoe despite the stop sign
+
+<!-- xgd-turn id="bf7c0f19-fbfe-4961-b3cc-71ca03c9e392-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T23:33:24.568519+00:00" -->
+#### Claude
+The send/stop swap is drawn by the upstream `webui-chat` composer, so I'm checking how it handles `turnModes.talk`.
+
+The cause is upstream, in `webui-chat`. Before filing I'll check lagrange-framework doesn't already have a ticket for it.
+
+I took "REQ-214" to mean REQ-419: REQ-214 is an empty, abandoned ticket called "Tool for REQs and BUGs". I've filed the follow-on as **BUG-239** (`bug-f8800a8e`), "Chat composer: Stop shows while only the consultant's worker is running". It's at `draft`, high priority, medium severity.
+
+**Why it happens:** the fix isn't in 1stcontact. The Send/Stop button belongs to the shared chat component (`@lagrangefoundry/webui-chat`) from lagrange-framework. Its rule hides Stop only once the "consultant is building" status panel is showing. In the moment between the consultant starting work and that panel first appearing, an empty message box shows Stop, even though only the worker is running.
+
+That contradicts lagrange-framework's own REQ-210, which says the composer shows Send during a worker round. The fix there is a one-line change: when the session has a talker, show Stop only while the talker is replying.
+
+1stcontact can't fix it on its own side. The only option the chat component gives it would also remove the Stop for a talker's reply.
+
+**What the ticket covers:**
+- **The behaviour:** Send whenever only the worker is running; Stop only while the talker is replying, and it stops just that reply; "Stop building" stays the only way to stop the worker.
+- **The cause:** the exact rule in the chat component and the line that fixes it.
+- **The tests:** a test to add in 1stcontact once the fixed component is installed.
+
+Implementation belongs in BUG-239's own session. Nothing in REQ-419 changed.
+
+Decision for you: the actual change has to happen in lagrange-framework. Do you want me to file the matching ticket there, cross-referenced to BUG-239?
 
 <!-- xgd-chat-end -->
