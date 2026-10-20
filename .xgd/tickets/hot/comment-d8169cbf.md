@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:42:20.113751+00:00'
+updated_at: '2026-10-20T14:34:30.208400+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10111,5 +10111,17 @@ Once both have landed:
    - whether the consultant looks at every page before Ready to publish lets it through.
 
 I'll review the transcript against that list when you're done.
+
+<!-- xgd-turn id="f5bd642d-2152-4692-ac1d-c0038cb8c736-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T14:34:29.544592+00:00" -->
+#### You
+Can you give me an REQ for a few tweaks to the opening experinence
+
+1. "As we talk, I'll pin the things you say about your business here. Heart the ones that are most you." This should appear in the middle of the page (vertically centered as well as horizontally).
+2. "The headline: The headline.. why you" this is confusing can we try:
+ - "The headline" -> "Your headline statement:"
+ - "The headline... why you?" (1) centered (2) change the whole phrase to just "Why choose your business?"
+3. Please add a ghost text statement on the question panel "We'll put questions here for you to answer"
 
 <!-- xgd-chat-end -->
