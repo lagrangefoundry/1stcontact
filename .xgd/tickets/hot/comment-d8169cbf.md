@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:46:38.755241+00:00'
+updated_at: '2026-10-20T03:47:14.275995+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9897,5 +9897,30 @@ When you're finished with the consultant, shall I file this as one ticket: host-
 <!-- xgd-chat role="user" ts="2026-10-20T03:46:37.734122+00:00" -->
 #### You
 Please read the answer to why it didn't notice
+
+<!-- xgd-turn id="cbf51dd3-a24f-41d7-83fc-97fc9becec27-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T03:47:12.316786+00:00" -->
+#### Claude
+I've read the consultant's answer. It's candid and accurate, and every cause it gives is something we can fix in the system rather than in its notes.
+
+**The five causes, and what each one tells us:**
+
+1. **"I checked the words and called that checking the page."** It verified the prices page against your menu (sections, sentences, prices) and treated that as a review. The colour table was correct in the data and broken on screen. The builder had laid it out as *columns*, not rows, and an empty first cell in the name column took up no height, so every name slid up a row beside the wrong price. That's also a page-structure problem: a price table should be built row by row, so the names and prices can't drift apart.
+2. **"Screenshots are the most expensive thing I can do… I treated it as permission."** This is the trap you just named, confirmed in its own words. Our tool wording made it save on looking.
+3. **"Nobody was looking at it, so nothing prompted me."** It looked where your attention was, the home page, and waited for complaints everywhere else. The prices page got no looks at all.
+4. **"I reused an old check as if it were a new one."** A check of the words done several turns earlier was presented as a sign-off of how the page looked. The host can tell whether a page has changed since the consultant last looked at it, and the consultant can't fake that.
+5. **"I trusted the automatic warnings."** The page map's checks found no problems, and that was taken as a visual review. They can't see rows that don't line up or sections with different widths.
+
+**Its own fix** is a rule in its working notes: "look at every page at computer and phone size before I call the checks done". That's the right behaviour, but it's a note, and notes are exactly what failed here.
+
+**What I'd put in one ticket:**
+- **Correct the screenshot wording.** Looking at what a builder made is part of building it, not a luxury.
+- **After every builder session that writes a page,** the host takes a screenshot at your width and attaches it to the builder's result, together with a text layout check.
+- **Extend the page map's checks** with the three the consultant suggested: an empty cell in a table built from columns, row content split into separate columns, and sibling sections with different widths. Add content running off the right edge on a phone, which it hit on its first fix.
+- **Final-stage rule:** the host records which version of each page the consultant last looked at, and at which widths. "Ready to publish" can't be checked off while any page has changed since it was last looked at on desktop and phone. That fixes causes 3 and 4 without relying on the consultant's memory.
+- **Price tables are built as rows,** in the builders' instructions, and preferably as a typed table element in the page format.
+
+**At the end it offers to file "a capability request".** Tell it no, so we don't end up with two tickets for the same thing. Shall I file mine?
 
 <!-- xgd-chat-end -->
