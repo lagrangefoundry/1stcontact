@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:19:06.514487+00:00'
+updated_at: '2026-10-20T23:22:05.399835+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10410,5 +10410,11 @@ Three ways to fix it, from cheapest to most thorough:
 **My recommendation:** do 1 and 2 now in one ticket together with the logo check, since they're the same kind of thing: craft defaults builders get wrong, which the host now measures. File 3 as an L1 request alongside REQ-418, because it removes the problem for good and saves the build-flag-repair cycle of tokens.
 
 Does the 2–3× ratio match your eye? And would you like those two tickets filed?
+
+<!-- xgd-turn id="f76ebe7e-6ac1-4f9f-91e3-e46dfbbaaf55-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T23:22:04.242759+00:00" -->
+#### You
+I think we need to talk about 3 I think this is a big gap in L1 it should structurally understand this and support the pairing of title and paragraph. OK for the AI to adjust it to meet specific needs but I think we need to bake this in at the language level
 
 <!-- xgd-chat-end -->
