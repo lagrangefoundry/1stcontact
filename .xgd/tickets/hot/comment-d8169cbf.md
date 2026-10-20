@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:29:05.313664+00:00'
+updated_at: '2026-10-20T13:38:39.240973+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10060,5 +10060,15 @@ Discovery during builds changes what goes in each build. The guidance I'd give:
 1. **Should the talker be allowed to add notes to the story board while a builder is writing that same text?** I'd say yes. The board is background material and never touches the site directly.
 2. **Should the talker be allowed to move the progress stages?** I'd say no. Stages follow the work, which is the worker's.
 3. **Should the first build start sooner,** after the short opening, so the full story interview happens as a talker conversation? That's the biggest change to the method, and I think it's the right one.
+
+<!-- xgd-turn id="9d6ccd62-e04e-43cd-a8a4-4b587d19ca64-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T13:38:38.116863+00:00" -->
+#### You
+**Each pass ends with something whole you can react to**, and the next pass is shaped by both your reaction and what the talker gathered meanwhile. <-- it is important that the consultant sets and reinforces expectations about where things are and what can be changed.
+
+**Should the talker be allowed to add notes to the story board while a builder is writing that same text?** -- yes
+**Should the talker be allowed to move the progress stages?** no - it is only talking the stage is really determined by the work that is being done
+**Should the first build start sooner,** after the short opening, so the full story interview happens as a talker conversation? That's the biggest change to the method, and I think it's the right one. <-- yes I'm excited about this
 
 <!-- xgd-chat-end -->
