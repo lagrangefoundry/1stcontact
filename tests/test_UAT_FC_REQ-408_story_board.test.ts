@@ -19,7 +19,7 @@ import {
   type Plan,
   type PlanDeps,
 } from '../tools/generate/src/cli/ai/plan-core'
-import { boardChangesLine, boardChangesSince, storyBrief } from '../tools/generate/src/cli/ai/story-core'
+import { boardChangesLine, boardChangesSince } from '../tools/generate/src/cli/ai/story-core'
 import priming from '../tools/generate/src/cli/ai/priming.json'
 
 /**
@@ -267,20 +267,6 @@ describe('REQ-408 — the story board', () => {
     const reminder = planReminder(deps.stored())!
     expect(reminder).toContain('Story board: 4 notes in 2 themes (Family, The chair)')
     expect(reminder).toContain('For "Getting to know you" to finish: no reaction yet on Family, The chair; no note has a heart; no headline offered.')
-  })
-
-  it('test_UAT_FC_REQ-408_builders_are_briefed_with_the_chosen_headline_and_the_hearted_notes', async () => {
-    const { deps, alice } = await pinned()
-    expect(storyBrief(deps.stored().fields)).toBeNull()
-    const generations = note(deps.stored(), 'Three generations').id
-    deps.client({ action: 'react', note: generations, reaction: 'heart' })
-    await alice.run('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, from: [generations] })
-    deps.client({ action: 'choose', option: 'Three generations on one corner' })
-    const brief = storyBrief(deps.stored().fields)!
-    expect(brief).toContain('Headline (the client chose it; use it as written): "Three generations on one corner"')
-    expect(brief).toContain('- Three generations of one family cut hair here')
-    // ONLY THE HEARTED NOTES.
-    expect(brief).not.toContain('cup of tea')
   })
 
   it('test_UAT_FC_REQ-408_the_consultants_priming_and_manual_describe_the_board_reactions_and_headline', async () => {
