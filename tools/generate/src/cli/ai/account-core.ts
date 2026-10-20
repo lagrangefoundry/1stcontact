@@ -1715,11 +1715,6 @@ export interface WorkerLimits {
   /** The most one of its turns may carry; a brief over it is refused. `0` is no check. */
   briefMaxBytes?: number
   /**
-   * [[REQ-408]] — the story block every brief carries: the client's chosen headline
-   * and the notes they hearted, or `null` while the board holds neither.
-   */
-  story?: () => Promise<string | null>
-  /**
    * [[REQ-409]] — how many fresh builders may replace one that ran out of its
    * calls, its time or its context, per delegation. `0` replaces none.
    */
@@ -1880,19 +1875,15 @@ export function reportingDelegationToolbox(lib: Untyped, ceiling = 0, limits: Wo
       if (limits.spendOver?.()) {
         throw new lib.DelegationError(SPEND_CEILING, 'the spend ceiling for this request has been reached')
       }
-      // [[REQ-408]] — BUILDERS ARE BRIEFED FROM THE STORY BOARD. Appended by the
-      // host rather than left to the consultant to copy, and to every brief rather
-      // than to the ones a guess says concern copy: it is short, and a builder
-      // writing any words at all writes them from it. Counted against the ceiling
-      // with the rest of the brief.
+      // [[BUG-233]] — THE BRIEF IS THE CONSULTANT'S, as written. Nothing from the
+      // story board is added here: the consultant quotes the client's words in a
+      // brief that asks for words, and leaves them out of one that doesn't.
       // [[BUG-225]] — a check the record answers, worded so the host cannot claim
       // it, is refused before anything runs rather than left to the builder.
       const unsettled = unsettledChecks(Array.isArray(input?.accept) ? input.accept : [])
       if (unsettled.length > 0) {
         throw new lib.DelegationError(UNSETTLED_CHECK, unsettled.map((c) => JSON.stringify(c)).join('; '))
       }
-      const story = limits.story ? await limits.story().catch(() => null) : null
-      if (story && typeof input?.goal === 'string') input = { ...input, goal: `${input.goal}\n\n${story}` }
       if (briefMaxBytes > 0) {
         const checks = Array.isArray(input?.accept) ? input.accept : []
         const bytes = new TextEncoder().encode(lib.delegationBrief(input?.goal, checks)).length

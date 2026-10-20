@@ -605,26 +605,3 @@ export function boardReminderLine(fields: HasBoard): string {
     (gaps.length ? ` For "Getting to know you" to finish: ${gaps.join('; ')}.` : '')
   )
 }
-
-/** The bound on the story block a builder's brief carries. */
-export const STORY_BRIEF_MAX_CHARS = 1_500
-
-/**
- * What a builder is told from the board ([[REQ-408]]): the chosen headline and
- * the hearted notes, verbatim — the copy is written from these. `null` while the
- * board holds neither.
- */
-export function storyBrief(fields: HasBoard): string | null {
-  const board = boardOf(fields)
-  const hearted = liveNotes(board).filter((n) => n.reaction === 'heart')
-  const h = board.headline
-  if (!filled(h.text) && hearted.length === 0) return null
-  const lines = ['## From the client\'s story board', '']
-  if (filled(h.text)) lines.push(`Headline (the client chose it; use it as written): ${JSON.stringify(h.text)}`)
-  if (hearted.length) {
-    lines.push('What the client said is most them, in their own words — write the copy from these and add no claim they did not make:')
-    for (const n of hearted) lines.push(`- ${n.text}`)
-  }
-  const text = lines.join('\n')
-  return text.length <= STORY_BRIEF_MAX_CHARS ? text : `${text.slice(0, STORY_BRIEF_MAX_CHARS - 1)}…`
-}
