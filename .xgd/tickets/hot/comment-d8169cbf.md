@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:22:48.448053+00:00'
+updated_at: '2026-10-20T19:24:03.009082+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10310,5 +10310,11 @@ I'd fold both into the bug I described last turn. It would then cover:
 - questions that can't change form once they're showing.
 
 That's one ticket, since it's all the same theme: the client loses their place. Shall I file it?
+
+<!-- xgd-turn id="40d61c6a-b1e6-47b6-84b1-3f2ccdb7f3d7-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T19:24:00.669401+00:00" -->
+#### You
+ok please create the bug
 
 <!-- xgd-chat-end -->
