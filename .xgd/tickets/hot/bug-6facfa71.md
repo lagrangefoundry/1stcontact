@@ -6,10 +6,10 @@ title: 'Client loses their place: attachments hide the text box, crowded turns, 
   worker dumps, no Done on the panel, questions changing form'
 created_by: EPIC-19
 created_at: '2026-10-20T19:24:29.832787+00:00'
-updated_at: '2026-10-20T19:58:08.785321+00:00'
+updated_at: '2026-10-20T19:58:50.725714+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-5f832a19
+  commits:
+  - working_sha: b4d49d5f2a74184ca61fdf492006e0933586a8d6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ed965663f22a6f70cd90795a6ea5513dafc326df
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.558
 ---
 
 ## Theme
