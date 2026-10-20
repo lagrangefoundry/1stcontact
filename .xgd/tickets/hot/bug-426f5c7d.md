@@ -5,10 +5,10 @@ type: bug
 title: 'Working line: say "The consultant is …", not "Your consultant is …"'
 created_by: EPIC-19
 created_at: '2026-10-20T03:31:07.784947+00:00'
-updated_at: '2026-10-20T03:36:42.568648+00:00'
+updated_at: '2026-10-20T03:37:00.180011+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: low
   priority: medium
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-926eed03
+  commits:
+  - working_sha: 7e7f880b67e9d0394c8716fbb475f0be323d726d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 859559b0e4f0eb708625bd1bd9b8e5c30c0d203f
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.549
 ---
 
 ## Symptom
