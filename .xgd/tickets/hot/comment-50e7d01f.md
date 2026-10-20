@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:19:29.852077+00:00'
+updated_at: '2026-10-20T21:20:38.468289+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3901,5 +3901,42 @@ I've filed **BUG-233** under EPIC-20 (draft, high priority). It's ready for a se
 Ok the talker is going a great job of making me talk but at this point I'm starting to wonder if its overdoing it - that's not a request for a change, its the start of a conversation.
 
 Take a look at the transcript. How much patience will a client have for what appears to be chit chat? Its hard for me because I'm trying to role play this
+
+<!-- xgd-turn id="e68e4f51-b78f-4a98-a3b0-a0374af18651-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T21:20:38.017001+00:00" -->
+#### Claude
+Reading the Bob's Salon 3 consultant transcript now (52 turns, 18:31–21:18 UTC).
+
+Read it. One cost number would help frame this, so I'll check what the conversation turns cost.
+
+Here's my read. Briefly on cost first: this isn't a money problem. The pure conversation turns cost about 10¢ each, against $1.94 for the one turn that started the build. So the question is only about patience.
+
+## Before the first draft, the questions earned their place
+
+Up to about 18:55 the consultant asked about eight story questions, and nearly every answer was gold: Dolores's line, Ma's Friday chair, the Gillette plant and the Seaport, "I've been scared to let anyone touch my hair", your niece and the 300 photos. All of it went on the page. A real client would put up with this phase because it feels like being interviewed by someone interested, and there's nothing else to look at yet. That part is good, and I wouldn't touch it.
+
+## After that, three signs it's overdoing it
+
+**1. Your answers got shorter, and the questions didn't slow down.** "Marisol is just really good at what she does." "I think she just liked the vibe." "No idea." Each of those is a client saying they've run out on that topic. The consultant replied to every one with another question, and at least three of those were pure follow-ups (what made Twee stay, where the couch came from, who sits on it). A human consultant hears "no idea" as a cue to stop asking.
+
+**2. It kept asking after you'd switched to giving feedback.** After the draft at 20:13, everything you sent was about the page: more space for the call button, the headline as a subtitle, the squashed logo. Each reply dealt with your point and then went back to the big chop, twice. Once a client is looking at their site, that's what they want to talk about. Story questions at that point read as the consultant following its own agenda.
+
+**3. It repeats itself.** The logo story was asked twice (you replied "What did you want to know about my business?"). "Whose photo went up first" was asked twice. The big chop question was asked twice word for word. Repeating a question is the quickest way to make a client feel nobody's listening.
+
+There's also the sheer length. Replies average 800–1,200 characters against your 50–400, and nearly every one has the same parts: thanks, what I pinned, build progress in minutes, a bold question. By the tenth time, you skim it to find the question. The build updates ("about three minutes in, out of roughly 15") come every turn, which adds to the feeling of chatter.
+
+## How much patience would a real client have?
+
+My guess is about this much: a client will happily give 15–20 minutes of story at the start, especially the way it's framed here ("while I build, keep talking to me"). They'll answer the occasional follow-up later if it's clearly about something going on the site, like the deli's name. They'll get tired of open-ended "tell me more" questions once they can see a draft. In this session that switch came at about 19:30. Everything after that was diminishing returns, apart from Dela's Deli and the couch.
+
+## What I'd consider (this is discussion, not a ticket)
+
+- **Treat a short or "don't know" answer as a stop signal** for that topic.
+- **After the first draft, lead with the page.** Ask one question only when it fills a specific gap on the site, and say what it's for ("the Wigs for Kids section has no opening line yet").
+- **One build update per change of state**, not one per turn.
+- **Never repeat a question the client skipped**; if it really matters, park it on the questions panel instead.
+
+It's hard to judge while you're role-playing, because you're answering as Bob and as yourself at once. One way to check would be reading the transcript cold the next day, or a scripted run (DOC-55) with a deliberately terse client to see how the consultant handles someone who won't chat.
 
 <!-- xgd-chat-end -->
