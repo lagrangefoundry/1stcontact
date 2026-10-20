@@ -124,7 +124,7 @@ describe('REQ-390 — the working line is told what is under way', () => {
     configureDelegation(ENABLED)
     const { sessionId } = await site()
 
-    // A DELEGATE: the consultant's note, after "Your consultant", with no estimate of its
+    // A DELEGATE: the consultant's note, after "The consultant", with no estimate of its
     // own — the note says how long in words.
     const built = await turn(
       sessionId,

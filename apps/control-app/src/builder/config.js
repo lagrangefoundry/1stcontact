@@ -1077,9 +1077,9 @@ export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`
 export const LOOKS_CURRENT = 'Current'
 export const LOOKS_CURRENT_DESCRIPTION = 'Your page as it stands now.'
 /**
- * "Tell the consultant" — not "your consultant", and do not "fix" it back. This
- * is a deliberate exception to DOC-66's "your consultant" for running copy,
- * decided by the operator for this line ([[REQ-402]]).
+ * "Tell the consultant" — not "your consultant", and do not "fix" it back. The
+ * operator chose "the consultant" for this line ([[REQ-402]]), and for the
+ * working line too ([[BUG-234]]).
  */
 export const LOOKS_TELL_CONSULTANT = 'Tell the consultant which look you prefer, and why.'
 export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'
