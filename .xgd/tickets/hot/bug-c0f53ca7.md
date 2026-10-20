@@ -6,9 +6,9 @@ title: 'Layout check: flag a too-small logo or business name, and headings not a
   to their text'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:22.125248+00:00'
-updated_at: '2026-10-20T23:39:29.173520+00:00'
+updated_at: '2026-10-20T23:47:20.373065+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -47,9 +47,72 @@ result and `describe_page` warnings; a finding means the build isn't done):
   the gap before it. (The structural fix for spacing is the L1 rhythm REQ;
   this catches existing pages and anything built before it.)
 
+## What landed
+
+`tools/generate/src/cli/ai/layout-check.ts` — three new finding kinds in the
+in-page `LAYOUT_SCRIPT`, so they reach the `Delegate` result's host look and
+`describe_page` warnings through the existing REQ-415 wiring unchanged:
+
+- **`small_logo`** — the header is the page's first section when it holds a
+  link. Its tallest `<img>` renders shorter than the minimum for the width being
+  checked → "has its logo only 28px tall … make it at least 48px tall at this
+  width". A header with no `<img>` gets no logo finding.
+- **`small_name`** — the header's text splits into navigation links and name
+  candidates. A link to the home page (`/`, `index`, `home`, with or without
+  `.html`) counts as the name unless its text is just "Home"; text that isn't a
+  link counts as a name candidate too. With at least two nav links, the largest
+  candidate must be at least `nameOverNav` × the median nav link font size; the
+  finding quotes the name and says what size to make it. A header of links only,
+  with no name text: if it has a logo (`<img>` or inline `<svg>`), it's skipped,
+  because the name may be in the logo; if it has no logo, it's reported as "no
+  text clearly larger than its navigation links".
+- **`loose_heading`** — for each `<h1>`…`<h6>`, the nearest visible content above
+  and below that overlaps it horizontally, anywhere on the page. It's reported in
+  the heading's section when space below ≥ `belowOverAbove` × space above. Not
+  judged: a heading with nothing above or below it, a heading directly above
+  another heading (the lower one is judged instead), and space above under
+  `minAbovePx`.
+
+`tools/generate/src/cli/ai/layout-check.json` — the thresholds (new config file,
+read at import and written into the script): `brand.logoMinPx` {desktop 48,
+phone 36}, keyed by the names in `LAYOUT_WIDTHS`; `brand.nameOverNav` 1.25;
+`heading.belowOverAbove` 0.75; `heading.minAbovePx` 16.
+
+`tools/generate/src/cli/ai/priming.json` — the builder-role text (both
+`builder_priming` and `builder_priming_with_corpus`) gains a paragraph:
+start the logo at about 56px tall on desktop and 40px on a phone, make the
+business name the header's largest text (at least a third larger than the nav
+links), and put clearly less space below a heading than above it.
+
+## Design decisions
+
+- **No business-name lookup.** `site.json` `config.businessName` exists, but the
+  checker only sees the rendered page. Threading the name through every caller
+  (host look, `describe_page`, BUG-235's paths) wasn't worth it when the
+  header's structure (nav links vs. home link/plain text) identifies the name
+  well enough. Revisit if real sites mis-identify it.
+- **`minAbovePx` raised from 8 to 16 after probing 10 stored sandbox pages.**
+  At 8, tightly and evenly spaced headings (8px above and 8px below, 12px above)
+  were flagged, which is tight spacing, not floating. At 16, the real cases stay
+  flagged (84px above / 86px below; 20px above / 19px below). The same probe
+  found one header made of nav links with no business name at all, correctly
+  reported as `small_name`.
+- The thresholds are starting values to tune; they live in the JSON, not in code.
+
 ## Test plan
-- Layout-check fixtures: a 28px header logo, a header name smaller than the nav
-  links, and an evenly spaced heading/paragraph/heading stack each produce the
-  named finding at the stated width; a correctly sized header and a tightly
-  attached heading produce none.
-- Thresholds read from configuration.
+
+`tests/test_UAT_FC_BUG-238_brand_and_heading_layout.test.ts` (real Chromium,
+framework renderer, served like `captureL1`; run with
+`CHROMIUM_LAUNCH_ARGS=--single-process` under the sandbox):
+- a 28px header logo → `small_logo` at both widths, quoting the configured desktop minimum;
+- a logo height between the configured phone and desktop minimums → flagged on desktop only (the thresholds are read per width from configuration);
+- a 14px name beside 16px nav links → `small_name` quoting the name and the configured multiple;
+- a home-linked name the same size as the links → `small_name`;
+- an evenly spaced heading/paragraph/heading stack (32px gaps) → `loose_heading` for each heading;
+- a correctly sized header and tightly attached headings → no brand or heading findings;
+- builder priming (both variants) carries the starting sizes and the heading-spacing rule, and those sizes clear the configured thresholds.
+
+Regression: REQ-415 layout check, BUG-237 hidden text, REQ-418 table, REQ-415
+host-looks and BUG-235 workers suites all pass. `REQ-295_delegation_config`'s
+REQ-341 grant-list case fails, but it already failed before this change
+(unrelated `ManageTextStyles` grant).
