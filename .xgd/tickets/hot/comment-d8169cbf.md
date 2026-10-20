@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:47:14.275995+00:00'
+updated_at: '2026-10-20T13:14:17.172092+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9922,5 +9922,15 @@ I've read the consultant's answer. It's candid and accurate, and every cause it 
 - **Price tables are built as rows,** in the builders' instructions, and preferably as a typed table element in the page format.
 
 **At the end it offers to file "a capability request".** Tell it no, so we don't end up with two tickets for the same thing. Shall I file mine?
+
+<!-- xgd-turn id="5dee78e3-19e1-4c55-bc1b-b4a6c120d490-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T13:14:17.030317+00:00" -->
+#### You
+ok I'm going to run another website, can you summarize the changes that we have made since I ran the last one? Is anything in-flight that we should close? Is the new worker/talker mode integrated (it is implemented in LF)? Have we adjusted the prompts so worker and talker know about each other and will work together (I believe that the design is the in the intro documents we explain both to both - intro is common - and then in the reminder we tell who is who)?
+
+Does the consultant know to keep the discover going as the talker?
+
+We checked a few sites ago and you said the research on what makes a site good/differentiated was never referenced - was it referenced for Bob 2? How can we address that?
 
 <!-- xgd-chat-end -->
