@@ -17,6 +17,7 @@ fields:
   epic_parent: epic-0923bb64
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-de4386af
 ---
 
 ## Symptom
