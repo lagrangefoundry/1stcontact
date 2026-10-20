@@ -5,10 +5,10 @@ type: bug
 title: 'Spend meter: a turn that ends by throwing records its own spend as zero'
 created_by: EPIC-20
 created_at: '2026-10-20T00:10:31.544851+00:00'
-updated_at: '2026-10-20T02:13:35.604751+00:00'
+updated_at: '2026-10-20T03:50:31.775723+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: high
   epic_parent: epic-0923bb64
