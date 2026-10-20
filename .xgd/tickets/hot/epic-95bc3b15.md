@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T15:42:41.812151+00:00'
+updated_at: '2026-10-20T16:08:07.172232+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2287,3 +2287,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-235]] — review of REQ-415/416 before the next run: starting the first draft marked "Getting to know you" done; Stop building could be overridden by a layout continuation; the clean-check line was inverted; no-browser deployments could never close the final stages; opening text still says "the usual order". Priming fix 508dd93355: the host's post-build picture is a look at one width.
+
+
+- [[REQ-418]] (under EPIC-24) — L1 row-based table element so price lists can't come apart; the structural fix REQ-415 deferred. Filed to cut the build→flag→repair token loop.
