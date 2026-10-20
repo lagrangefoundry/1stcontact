@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-416
 created_by: xgd
 created_at: '2026-10-20T13:42:11.153749+00:00'
-updated_at: '2026-10-20T14:16:01.301432+00:00'
+updated_at: '2026-10-20T14:17:01.243528+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -225,5 +225,11 @@ The new tests pass: 5 end-to-end on the Worker, 3 in the browser panel. I ran th
 - In group chats, mid-turn messages are still passed into the running turn as before.
 
 The ticket body has an "Implementation (as built)" section covering all of this.
+
+<!-- xgd-turn id="d6b9aa66-a524-41a4-8576-7ace72ed2130-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T14:17:00.129232+00:00" -->
+#### You
+Talker rounds aren't written to the per-turn spend rows. <-- can we fix this its important to get full accounting
 
 <!-- xgd-chat-end -->
