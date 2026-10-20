@@ -6,10 +6,10 @@ title: 'Opening experience: centred story-board message, clearer headline slot, 
   text on the empty question panel'
 created_by: EPIC-19
 created_at: '2026-10-20T14:34:52.107085+00:00'
-updated_at: '2026-10-20T14:55:34.392597+00:00'
+updated_at: '2026-10-20T14:56:01.708936+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 2
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c5d6f79a
+  commits:
+  - working_sha: 72349a9a0deda83d3831367012a35bcab60534a6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 2c8b0ba00020eb16bc8da3942e70cb30f1f4d15b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.554
 ---
 
 ## What changes (operator, 2026-10-20)
