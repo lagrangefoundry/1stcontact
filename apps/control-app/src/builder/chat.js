@@ -53,6 +53,7 @@ import { mountChat } from '@lagrangefoundry/webui-chat'
 import {
   CHAT_MAX_SUBMISSION_CHARS,
   CHAT_OVER_LONG_MESSAGE,
+  CHAT_RESULT_HELD,
   CHAT_START,
   CHAT_START_FAILED,
 } from './config.js'
@@ -202,8 +203,12 @@ async function* watchForWrites(events, told) {
  *
  * `onBusy` is told when the first stream of work opens and the last one closes,
  * which is what animates the plan panel's current stage.
+ *
+ * [[BUG-236]] — `hold` says whether the client has unsent text in the box
+ * (`typing`), answers a promise of {@link FREED} once they have not (`free`), and
+ * shows or hides the marker the held result waits behind (`show`).
  */
-function talkDesk({ transport, onBusy, told }) {
+function talkDesk({ transport, onBusy, told, hold = NO_HOLD }) {
   /** Streams of work open in this panel: each one may carry a talker's reply. */
   let open = 0
   /** Messages sent to the talker, each waiting for its reply. */
@@ -267,13 +272,47 @@ function talkDesk({ transport, onBusy, told }) {
   }
   async function* unwrapped(events) {
     let done = null
+    // [[BUG-236]] — ONCE THE CONSULTANT HAS GONE TO WORK (its first `progress`),
+    // what it says while the client has unsent text in the box is HELD behind a
+    // marker, and shown when they send or clear it. The stream is still read
+    // meanwhile — a talker's reply must not wait behind the held text — so the
+    // next event and the box emptying are raced.
+    let working = false
+    const held = []
+    let freed = null
+    let next = null
+    let ended = false
+    const it = events[Symbol.asyncIterator]()
+    const release = function* () {
+      freed = null
+      hold.show(false)
+      while (held.length > 0) yield held.shift()
+    }
     try {
-      for await (const event of events) {
+      for (;;) {
+        if (held.length > 0 && !hold.typing()) {
+          yield* release()
+          continue
+        }
+        next ??= it.next()
+        if (held.length > 0) freed ??= hold.free()
+        const step = held.length > 0 ? await Promise.race([next, freed]) : await next
+        if (step === FREED) {
+          freed = null
+          continue
+        }
+        next = null
+        if (step.done) {
+          ended = true
+          break
+        }
+        const event = step.value
         if (event?.kind === TALKER) {
           route(event)
           continue
         }
         if (event?.kind === PROGRESS) {
+          working = true
           yield { ...event, ...(event.meta ?? {}) }
           continue
         }
@@ -281,9 +320,23 @@ function talkDesk({ transport, onBusy, told }) {
           done = event
           continue
         }
+        if (event?.kind === 'text' && working && (held.length > 0 || hold.typing())) {
+          held.push(event)
+          hold.show(true)
+          continue
+        }
         yield event
       }
+      // THE WORK HAS ENDED WITH ITS RESULT STILL HELD: it waits for the box, and
+      // the turn ends after it is shown.
+      if (held.length > 0) {
+        while (hold.typing()) await hold.free()
+        yield* release()
+      }
     } finally {
+      // Read by hand, so a reader that stops early must close the stream itself.
+      if (!ended) void Promise.resolve(it.return?.()).catch(() => {})
+      hold.show(false)
       open -= 1
       if (open === 0) {
         busy(false)
@@ -340,6 +393,15 @@ function talkDesk({ transport, onBusy, told }) {
     },
   }
 }
+
+/** [[BUG-236]] — what {@link talkDesk}'s `hold.free` resolves to. */
+const FREED = Symbol('freed')
+
+/** [[BUG-236]] — how often a held result looks at the box again. */
+const HOLD_POLL_MS = 250
+
+/** A panel with no composer to watch holds nothing. */
+const NO_HOLD = { typing: () => false, free: () => Promise.resolve(FREED), show: () => {} }
 
 /** Per-session instance id — also the key the composer's draft persists under. */
 export const CHAT_ID_PREFIX = 'builder-chat:'
@@ -674,8 +736,38 @@ export function createChatPanel(options = {}) {
   let unbindAttachments = null
   const undecorate = attachments?.decorate(element) ?? null
 
+  /**
+   * [[BUG-236]] — THE CONSULTANT'S RESULT NEVER LANDS WHILE THE CLIENT TYPES. It
+   * waits behind this marker, above the box, until they send or clear what they
+   * are writing — or press the marker. The box is looked at every
+   * {@link HOLD_POLL_MS} while something is held, because the composer reports no
+   * event for "emptied".
+   */
+  const heldMarker = document.createElement('button')
+  heldMarker.type = 'button'
+  heldMarker.className = 'builder-chat-held'
+  heldMarker.textContent = CHAT_RESULT_HELD
+  heldMarker.hidden = true
+  let shownAnyway = false
+  heldMarker.addEventListener('click', () => {
+    shownAnyway = true
+  })
+  const hold = {
+    typing: () => !shownAnyway && (chat?.getInputMarkdown?.() ?? '').trim() !== '',
+    free: () =>
+      new Promise((resolve) => {
+        const look = () => (hold.typing() ? setTimeout(look, HOLD_POLL_MS) : resolve(FREED))
+        look()
+      }),
+    show(on) {
+      if (!on) shownAnyway = false
+      heldMarker.hidden = !on
+      if (on && !heldMarker.isConnected) element.querySelector('.chat-widget-input-bar')?.before(heldMarker)
+    },
+  }
+
   /** [[REQ-416]] — the talker's messages and replies; see {@link talkDesk}. */
-  const desk = talkDesk({ transport, onBusy, told })
+  const desk = talkDesk({ transport, onBusy, told, hold })
 
   /**
    * Whether a lost turn is currently being chased, and how many times this

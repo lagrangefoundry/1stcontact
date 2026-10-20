@@ -929,6 +929,13 @@ export const CHAT_START = 'Click here to start'
 export const CHAT_START_FAILED = "That didn't start — please try again."
 
 /**
+ * [[BUG-236]] — the consultant came back from its work while the client had a
+ * message half-written: what it said is held behind this, and shows when they
+ * send or clear the box, or press it.
+ */
+export const CHAT_RESULT_HELD = 'The consultant has finished — show what it said'
+
+/**
  * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
  *
  * PROGRESS ON THE BUILD IS THE STAGE TRACKER ([[REQ-390]]) — never how few
@@ -990,6 +997,8 @@ export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
  * sentence goes behind Details (`failure-notice.js`), never into this line.
  */
 export const PLAN_SAVE_FAILED = 'That answer was not saved. Try again in a minute, and tell us if it keeps happening.'
+/** [[BUG-236]] — shown on an item's line for a moment once its answer is stored. */
+export const PLAN_SAVED = 'Saved ✓'
 
 /**
  * [[BUG-230]] — what the publish banner says when a publish went wrong. Plain
@@ -1012,6 +1021,10 @@ export const COMPS_NOTES_HINT = 'One per line'
 export const COMPS_OPEN = (title) => `Look at ${title}`
 export const COMPS_REMOVE = 'Remove'
 export const COMPS_FAILED = (message) => `That was not saved: ${message}`
+/** [[BUG-236]] — a comp's notes are finished; and the client is finished with the board. */
+export const COMPS_DONE = 'Done'
+export const COMPS_FINISHED = 'I’ve finished commenting'
+export const COMPS_FINISHED_SAID = 'Thanks — the consultant will pick it up from here.'
 
 /**
  * The story board's words ([[REQ-408]]). The board is the client's own words

@@ -12,6 +12,8 @@ import {
   clientCompChangesSince,
   compTile,
   clientCompNotesLine,
+  clientCompsFinishedSince,
+  CLIENT_COMPS_FINISHED_LINE,
   type CompRecord,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -366,8 +368,13 @@ export async function planAnswersDelta(
   // [[REQ-408]] — AND WHAT THE CLIENT DID ON THE STORY BOARD, on the same cursor:
   // reactions, notes added, edited or deleted, a headline chosen or written.
   const board = boardChangesSince(fields, since)
-  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0 && board.length === 0) return null
-  const newest = [...changes, ...compChanges, ...compAdds, ...board].map((c) => c.at).sort().pop() as string
+  // [[BUG-236]] — AND THAT THE CLIENT HAS FINISHED COMMENTING ON THE COMP BOARD.
+  const finished = clientCompsFinishedSince(fields, since)
+  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0 && board.length === 0 && !finished) return null
+  const newest = [...changes, ...compChanges, ...compAdds, ...board, ...(finished ? [{ at: finished }] : [])]
+    .map((c) => c.at)
+    .sort()
+    .pop() as string
   await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
   const comps = compDeps(store, memberUrl)
   const noted = (await Promise.all(compChanges.map((c) => comps.get(c.reference)))).filter(
@@ -377,7 +384,13 @@ export async function planAnswersDelta(
     compAdds.map(async (c) => compTile(c, (await comps.snapshot?.(c.reference)) ?? null)),
   )
   return (
-    [clientChangesLine(changes), clientCompNotesLine(noted), clientCompAddsLine(tiles), boardChangesLine(board)]
+    [
+      clientChangesLine(changes),
+      clientCompNotesLine(noted),
+      clientCompAddsLine(tiles),
+      finished ? CLIENT_COMPS_FINISHED_LINE : null,
+      boardChangesLine(board),
+    ]
       .filter(Boolean)
       .join('\n') ||
     null

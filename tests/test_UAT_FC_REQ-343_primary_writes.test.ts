@@ -257,7 +257,7 @@ describe('REQ-343 — a session that cannot write is not told to weigh a choice'
     // have checked and what the record cannot settle are true either way, which is
     // why they are stated once.
     expect(rendered).toMatch(/Write the brief/)
-    expect(rendered).toMatch(/believe them/i)
+    expect(rendered).toMatch(/look at what the builder made/i)
     expect(rendered).toMatch(/not whether it should have/i)
   })
 

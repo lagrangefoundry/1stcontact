@@ -399,6 +399,7 @@ import {
   publishOpened,
   removeComp,
   skipComps,
+  finishComps,
   type Plan,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -2311,7 +2312,7 @@ export const PLAN_ASK_PATH = '/api/plan/ask'
  */
 export const PLAN_COMP_PATH = '/api/plan/comp'
 /** What the client may do on the comp board. */
-export const COMP_ACTIONS = ['add', 'note', 'remove', 'skip'] as const
+export const COMP_ACTIONS = ['add', 'note', 'remove', 'skip', 'finish'] as const
 /**
  * [[REQ-408]] — the client's half of the story board: react to a note, delete,
  * add or edit one, choose or write the headline.
@@ -5890,6 +5891,8 @@ async function routeUncached(
      * next turn is told from. `remove` takes a site off the board; its capture
      * stays in the Library. `skip` ([[REQ-401]]) records that the client does not
      * want to compare sites, which the next turn is told; adding one reopens it.
+     * `finish` ([[BUG-236]]) records that the client has finished commenting on
+     * the board, which the next turn is told too.
      *
      * Answers the plan panel's view, like the ask route, so the panel redraws from
      * what is stored. It never starts a turn.
@@ -5931,6 +5934,8 @@ async function routeUncached(
           written = await writeIt((current) => addComp(current, record, CLIENT, at).plan)
         } else if (action === 'skip') {
           written = await writeIt((current) => skipComps(current, at))
+        } else if (action === 'finish') {
+          written = await writeIt((current) => finishComps(current, at))
         } else {
           const reference = typeof body.reference === 'string' ? body.reference : ''
           if (reference === '') return json(400, { error: 'reference is required' })

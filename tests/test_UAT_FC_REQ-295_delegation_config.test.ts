@@ -412,9 +412,9 @@ describe('REQ-295 — with the switch off the consultant is not told how to dele
         primingDocument.templates['delegation-method-commissioning'],
       ).replace('{parallel}', primingDocument.templates['delegation-serial']),
     )
-    // …and what it has to say. Re-inspecting checked work does not save the
-    // tokens, it moves them to the more expensive side.
-    expect(rendered).toMatch(/believe them/i)
-    expect(rendered).toMatch(/expensive/i)
+    // …and what it has to say. [[BUG-236]] — the record spares re-reading the
+    // site's data, and the principal still looks before saying it is done.
+    expect(rendered).toMatch(/you do not need to re-read the site's data/i)
+    expect(rendered).toMatch(/before you tell your client it is done/i)
   })
 })

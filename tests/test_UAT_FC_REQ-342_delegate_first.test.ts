@@ -122,13 +122,16 @@ describe('REQ-342 — the method says what comes back and which part is trustwor
     expect(saidInMethod).not.toMatch(/what the builder changed/i)
   })
 
-  it('test_UAT_FC_REQ-342_the_method_says_not_to_go_back_to_the_site_to_establish_either', () => {
-    // BEHAVIOUR 2, the consequence that is the entire saving. Read the record for
-    // what happened, the account for why, and neither by looking.
-    expect(saidInMethod).toMatch(/read it for what happened/i)
-    expect(saidInMethod).toMatch(/read the account for why/i)
-    expect(saidInMethod).toMatch(/do not go back to the site to establish either/i)
-    expect(saidInMethod).toMatch(/does not save the tokens, it moves them to the more expensive side/i)
+  it('test_UAT_FC_REQ-342_the_method_says_the_record_spares_re_reading_the_sites_data', () => {
+    // BEHAVIOUR 2, the consequence that is the saving. Read the record for what
+    // happened and the account for why — the site's data need not be re-read.
+    // [[BUG-236]] — WHAT IT NO LONGER SAYS is "do not go back to the site": how the
+    // page LOOKS is the other half, and the host attaches it ([[REQ-415]]).
+    expect(saidInMethod).toMatch(/read it for what happened and the account for why/i)
+    expect(saidInMethod).toMatch(/you do not need to re-read the site's data/i)
+    expect(saidInMethod).toMatch(/a picture of the page and the layout check's findings/i)
+    expect(saidInMethod).not.toMatch(/do not go back to the site/i)
+    expect(saidInMethod).not.toMatch(/more expensive side/i)
   })
 
   it('test_UAT_FC_REQ-342_the_method_says_the_record_cannot_settle_whether_the_change_was_right', () => {
@@ -142,14 +145,16 @@ describe('REQ-342 — the method says what comes back and which part is trustwor
   })
 
   it('test_UAT_FC_REQ-342_the_method_says_when_looking_is_the_right_answer', () => {
-    // BEHAVIOUR 3's other edge. "Do not re-inspect" without "except here" is an
-    // instruction a model will either over-apply or quietly ignore, so the three
-    // cases that DO earn a look are named: the record and the brief not meeting,
-    // a failed check, and an unanswered one.
+    // BEHAVIOUR 3's other edge. [[BUG-236]] — THE PRINCIPAL ALWAYS LOOKS before
+    // telling the client the work is done, at the picture the host attached; the
+    // three cases that earn a closer look are still named: the record and the
+    // brief not meeting, a failed check, and an unanswered one. "And not
+    // otherwise" is gone.
+    expect(saidInMethod).toMatch(/look at what the builder made, in the picture attached to its result, before you tell your client it is done/i)
     expect(saidInMethod).toMatch(/when the record and the brief do not meet/i)
     expect(saidInMethod).toMatch(/when a check came back failed/i)
     expect(saidInMethod).toMatch(/came back unanswered/i)
-    expect(saidInMethod).toMatch(/and not otherwise/i)
+    expect(saidInMethod).not.toMatch(/and not otherwise/i)
   })
 })
 
@@ -164,14 +169,15 @@ describe('REQ-342 — the parts the measurements vindicate are kept', () => {
     expect(saidInMethod).toMatch(/constraints you would have applied silently/i)
   })
 
-  it('test_UAT_FC_REQ-342_the_checks_are_still_asked_for_and_still_believed', () => {
-    // BEHAVIOUR 6, second half, and the one place this ticket could have done
-    // damage. The verdicts are still the worker's word — the record does not
-    // replace them, it stands beside them — and a verdict the consultant re-makes
-    // itself is a verdict that saved it nothing.
+  it('test_UAT_FC_REQ-342_the_checks_are_still_asked_for', () => {
+    // BEHAVIOUR 6, second half. The verdicts are still the worker's word — the
+    // record does not replace them, it stands beside them. [[BUG-236]] — and a
+    // passed check is no longer a reason not to look: it says only that what was
+    // asked about holds.
     expect(saidInMethod).toMatch(/say what you would have checked afterwards, and ask for exactly that/i)
     expect(saidInMethod).toMatch(/"the page looks right"/i)
-    expect(saidInMethod).toMatch(/when the checks come back passed, believe them/i)
+    expect(saidInMethod).toMatch(/a passed check says only that what you asked about holds/i)
+    expect(saidInMethod).not.toMatch(/believe them/i)
   })
 })
 

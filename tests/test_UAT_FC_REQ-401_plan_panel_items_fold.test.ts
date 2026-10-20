@@ -466,9 +466,12 @@ describe("REQ-401 — the consultant's two rules", () => {
       expect(priming).toMatch(/Open every question with what it is about/)
       expect(priming).toContain('"Phone number for the site — …"')
       expect(priming).toMatch(/never "Could you tell me …"/)
-      expect(priming).toMatch(/Announce every question you add/)
-      expect(priming).toMatch(/I've added two questions above — your phone number and the towns you cover/)
-      expect(priming).toMatch(/Never add a question silently/)
+      // [[BUG-236]] — ANNOUNCED IN ONE LINE IN TOTAL, never one per question and
+      // never restated: that replaced "announce every question you add".
+      expect(priming).toMatch(/Announce the questions you add in one line in total/)
+      expect(priming).toMatch(/I've put a few quick questions on the panel above — whenever suits you/)
+      expect(priming).not.toMatch(/Announce every question you add/)
+      expect(priming).toMatch(/never add a question silently/)
     })
   }
 

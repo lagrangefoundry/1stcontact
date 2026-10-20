@@ -11,9 +11,11 @@
  * generated and no turn is started: the consultant hears the answers on its next
  * turn.
  *
- * SAVED AS THE CLIENT GOES. A typed field saves when it is left; a choice saves
- * when it is picked; a document saves when it has uploaded. There is no submit
- * step for the panel as a whole.
+ * SAVED AS THE CLIENT GOES. A choice saves when it is picked; a document saves
+ * when it has uploaded. [[BUG-236]] — A TYPED ANSWER HAS ITS OWN DONE, and Enter
+ * in a one-line box is Done too; leaving the box having changed it still saves,
+ * as a safety net. Whatever saves says "Saved ✓" on its item's line for a moment.
+ * There is no submit step for the panel as a whole.
  *
  * [[BUG-200]] — EXCEPT A MULTI-SELECT, where the first tick is never the whole
  * answer. Its ticks are saved as a draft, which leaves the question open and tells
@@ -22,7 +24,9 @@
  *
  * [[REQ-378]] — AND THE COMP BOARD: "Sites we're comparing". Each comp is a captured
  * site with a thumbnail of its hero, who put it there, and the client's likes and
- * dislikes, which they edit in place (saved when they leave the box). The client
+ * dislikes, which they edit in place (saved with the comp's Done, or when they
+ * leave the box). [[BUG-236]] — "I've finished commenting" under the board tells
+ * the consultant, on its next turn, that the client is finished with it. The client
  * adds a site by its address — the route captures it — and clicking a thumbnail
  * asks the host to show that comp in the preview pane (`onOpenComp`).
  *
@@ -46,11 +50,17 @@
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT. Each ask is drawn as its own
  * block, keyed by id and by what it shows; a redraw keeps a block whose content has
  * not changed, and keeps the one the client is typing in even if it has.
+ * [[BUG-236]] — AND WHAT THEY TYPED IS KEPT BY ITSELF until it is stored, by ask
+ * and by comp note, so a block that is drawn again — the client had moved on to
+ * another box — is drawn with their text still in it.
  */
 import { answerAsk, compAction, deleteMaterial, fetchPlan, materialFileUrl, saveMaterialRole, uploadMaterial } from './api.js'
 import { failureContent } from './failure-notice.js'
 import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import {
+  COMPS_DONE,
+  COMPS_FINISHED,
+  COMPS_FINISHED_SAID,
   COMPS_ADD_BUTTON,
   COMPS_ADD_LABEL,
   COMPS_ADD_PLACEHOLDER,
@@ -81,6 +91,7 @@ import {
   PLAN_STAGES_LABEL,
   PLAN_STAGES_TITLE,
   PLAN_SAVE_FAILED,
+  PLAN_SAVED,
   PLAN_SKIP,
   PLAN_SKIP_TITLE,
   PLAN_SKIPPED,
@@ -158,6 +169,20 @@ const answerMaterials = (ask) =>
 
 /** [[REQ-401]] — an ask's status as its item shows it. */
 const itemState = (status) => (status === 'answered' ? 'done' : status)
+
+/** [[BUG-236]] — how long "Saved ✓" stays on an item's line. */
+const SAVED_MS = 4000
+
+/** [[BUG-236]] — say on an item's line, for a moment, that what the client gave was stored. */
+function flashSaved(node) {
+  const line = node?.querySelector(':scope > .plan-item__line, :scope > .plan-comp__head')
+  if (!line) return
+  line.querySelector(':scope > .plan-item__saved')?.remove()
+  const said = el('span', 'plan-item__saved', PLAN_SAVED)
+  said.setAttribute('role', 'status')
+  line.append(said)
+  setTimeout(() => said.remove(), SAVED_MS)
+}
 
 /** The marks in an item's status box ([[REQ-401]]): empty, a dash, a tick. */
 const ITEM_MARK = { open: '', skipped: '–', done: '✓' }
@@ -275,7 +300,14 @@ export function createPlanPanel(options = {}) {
   const compsSkip = el('button', 'plan-ask__skip plan-comps__skip', PLAN_SKIP)
   compsSkip.type = 'button'
   compsSkip.addEventListener('click', () => void comp({ action: 'skip' }))
-  compsItem.body.append(compsList, addForm, compsSkip)
+  // [[BUG-236]] — THE CLIENT SAYS THEY ARE FINISHED WITH THE BOARD; the consultant
+  // is told on its next turn. Until a site is noted again, it says it was heard.
+  const compsFinish = el('button', 'plan-comps__finish', COMPS_FINISHED)
+  compsFinish.type = 'button'
+  compsFinish.addEventListener('click', () => void comp({ action: 'finish' }))
+  const compsFinished = el('span', 'plan-comps__finished', COMPS_FINISHED_SAID)
+  compsFinished.setAttribute('role', 'status')
+  compsItem.body.append(compsList, addForm, compsFinish, compsFinished, compsSkip)
   element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList)
 
   let site = null
@@ -296,6 +328,12 @@ export function createPlanPanel(options = {}) {
   const drafting = new Map()
   /** [[REQ-399]] — "Something else?" text typed and not yet sent, by ask, so a redraw keeps it. */
   const typedOther = new Map()
+  /** [[BUG-236]] — a typed answer not yet stored, by ask, so a redraw keeps it. */
+  const typed = new Map()
+  /** [[BUG-236]] — the answer being sent for each ask, so Done after leaving the box sends it once. */
+  const sending = new Map()
+  /** [[BUG-236]] — comp notes typed and not yet stored, by `reference:likes|dislikes`. */
+  const typedNotes = new Map()
 
   function fail(message) {
     error.replaceChildren(...failureContent(PLAN_SAVE_FAILED, message))
@@ -308,7 +346,11 @@ export function createPlanPanel(options = {}) {
       const view = await transport.answerAsk({ site: asked, ask: ask.id, ...body })
       error.hidden = true
       changing.delete(ask.id)
-      if (asked === site) render(view)
+      typed.delete(ask.id)
+      if (asked === site) {
+        render(view)
+        if (body.action === 'answer') flashSaved(blocks.get(ask.id)?.node)
+      }
     } catch (err) {
       fail(err?.message ?? String(err))
     }
@@ -408,6 +450,36 @@ export function createPlanPanel(options = {}) {
     return list
   }
 
+  /**
+   * [[BUG-236]] — a typed answer's box and its Done. Saved by Done, by Enter in a
+   * one-line box, or — the safety net — by leaving the box having changed it
+   * (`change`). The same answer is sent once however many of those happen.
+   */
+  function typedAnswer(ask, field, box) {
+    if (typed.has(ask.id)) field.value = typed.get(ask.id)
+    field.addEventListener('input', () => typed.set(ask.id, field.value))
+    const commit = () => {
+      const value = field.value.trim()
+      if (value === '' || sending.get(ask.id) === value) return
+      sending.set(ask.id, value)
+      void save(ask, { action: 'answer', answer: value }).finally(() => {
+        if (sending.get(ask.id) === value) sending.delete(ask.id)
+      })
+    }
+    field.addEventListener('change', commit)
+    if (field.tagName === 'INPUT') {
+      field.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.isComposing) return
+        event.preventDefault()
+        commit()
+      })
+    }
+    const done = el('button', 'plan-ask__done', PLAN_DONE)
+    done.type = 'button'
+    done.addEventListener('click', commit)
+    box.append(field, done)
+  }
+
   /** The control an ask is answered with, saving as the client goes. */
   function editor(ask) {
     const box = el('div', 'plan-ask__editor')
@@ -488,19 +560,15 @@ export function createPlanPanel(options = {}) {
       }
       box.append(group)
     } else if (ask.input === 'long_text') {
-      // [[REQ-390]] — A FEW SENTENCES OR A LIST: a box that grows as it fills, and
-      // saves when it is left, like every other typed answer.
+      // [[REQ-390]] — A FEW SENTENCES OR A LIST: a box that grows as it fills.
+      // Enter is a new line in it, so Done is how it is finished ([[BUG-236]]).
       const area = el('textarea', 'plan-ask__input plan-ask__input--long')
       area.rows = 3
       area.setAttribute('aria-label', ask.prompt)
       area.dataset.input = ask.input
       if (typeof current === 'string') area.value = current
       area.addEventListener('input', () => grow(area))
-      area.addEventListener('change', () => {
-        if (area.value.trim() === '') return
-        void save(ask, { action: 'answer', answer: area.value.trim() })
-      })
-      box.append(area)
+      typedAnswer(ask, area, box)
       queueMicrotask(() => grow(area))
     } else if (ask.input !== 'upload') {
       const input = el('input', 'plan-ask__input')
@@ -510,12 +578,7 @@ export function createPlanPanel(options = {}) {
       input.setAttribute('aria-label', ask.prompt)
       input.dataset.input = ask.input
       if (typeof current === 'string') input.value = current
-      // `change` IS "LEFT THE FIELD, HAVING CHANGED IT", which is the save point.
-      input.addEventListener('change', () => {
-        if (input.value.trim() === '') return
-        void save(ask, { action: 'answer', answer: input.value.trim() })
-      })
-      box.append(input)
+      typedAnswer(ask, input, box)
     }
     if (ask.accepts_upload || ask.input === 'upload') {
       const pick = el('label', 'plan-ask__upload')
@@ -708,19 +771,32 @@ export function createPlanPanel(options = {}) {
     remove.type = 'button'
     remove.addEventListener('click', () => void comp({ action: 'remove', reference: entry.reference }))
     head.append(remove)
+    const areas = {}
+    /** [[BUG-236]] — store this comp's notes, and say so; what was typed is then the stored text. */
+    const note = async (keys) => {
+      const body = Object.fromEntries(keys.map((key) => [key, notesOf(areas[key].value)]))
+      if (!(await comp({ action: 'note', reference: entry.reference, ...body }))) return
+      for (const key of keys) typedNotes.delete(`${entry.reference}:${key}`)
+      flashSaved(compBlocks.get(entry.reference)?.node)
+    }
     const notes = (label, key) => {
       const box = el('label', `plan-comp__notes plan-comp__notes--${key}`)
-      const area = el('textarea', `plan-comp__${key}`)
+      const area = (areas[key] = el('textarea', `plan-comp__${key}`))
       area.rows = 2
       area.placeholder = COMPS_NOTES_HINT
-      area.value = notesText(entry[key])
+      area.value = typedNotes.get(`${entry.reference}:${key}`) ?? notesText(entry[key])
       area.setAttribute('aria-label', `${label}: ${entry.title}`)
-      // `change` IS "LEFT THE BOX, HAVING CHANGED IT", which is the save point.
-      area.addEventListener('change', () => void comp({ action: 'note', reference: entry.reference, [key]: notesOf(area.value) }))
+      area.addEventListener('input', () => typedNotes.set(`${entry.reference}:${key}`, area.value))
+      // `change` IS "LEFT THE BOX, HAVING CHANGED IT" — the safety net under Done.
+      area.addEventListener('change', () => void note([key]))
       box.append(el('span', 'plan-comp__notes-label', label), area)
       return box
     }
-    block.append(open, head, notes(COMPS_LIKES, 'likes'), notes(COMPS_DISLIKES, 'dislikes'))
+    // [[BUG-236]] — DONE FOR THIS SITE: both boxes, stored at once.
+    const done = el('button', 'plan-ask__done plan-comp__done', COMPS_DONE)
+    done.type = 'button'
+    done.addEventListener('click', () => void note(['likes', 'dislikes']))
+    block.append(open, head, notes(COMPS_LIKES, 'likes'), notes(COMPS_DISLIKES, 'dislikes'), done)
     return block
   }
 
@@ -824,9 +900,13 @@ export function createPlanPanel(options = {}) {
       fold(compsItem.node, 'comps', compsState)
     } else compsItem.node.remove()
     compsSkip.hidden = compsState !== 'open'
+    const comps = view.comps ?? []
+    // [[BUG-236]] — "I've finished commenting" while there is a board to finish
+    // with, and once pressed, that it was heard.
+    compsFinish.hidden = compsState !== 'open' || comps.length === 0 || view.comps_finished === true
+    compsFinished.hidden = compsState !== 'open' || comps.length === 0 || view.comps_finished !== true
     // The board's own entries, under the panel's rule: a block whose content has
     // not changed is kept, and so is the one the client is typing in.
-    const comps = view.comps ?? []
     const keptComps = new Map()
     compsList.replaceChildren(
       ...comps.map((entry) => {
@@ -873,6 +953,8 @@ export function createPlanPanel(options = {}) {
       if (next === site) return refresh()
       site = next ?? null
       changing.clear()
+      typed.clear()
+      typedNotes.clear()
       blocks.clear()
       compBlocks.clear()
       error.hidden = true

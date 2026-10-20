@@ -399,6 +399,11 @@ export interface PlanFields {
    * she raises it.
    */
   comps_asked_at?: string | null
+  /**
+   * [[BUG-236]] — when the client pressed "I've finished commenting" under the comp
+   * board. A site added or noted after it clears it, by writing `null`.
+   */
+  comps_finished_at?: string | null
   /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
@@ -1103,6 +1108,8 @@ export interface PanelView {
   comps_status: CompsStatus
   /** [[REQ-403]] — whether the comp board is on the panel at all; see {@link compsRaised}. */
   comps_raised: boolean
+  /** [[BUG-236]] — the client has said they are finished commenting on the board. */
+  comps_finished: boolean
   /** [[REQ-408]] — the story board, as the Story pane draws it. */
   board: BoardView
   /** [[REQ-408]] — whether the first draft has been built: until it has, the preview opens in Story. */
@@ -1167,6 +1174,7 @@ export function panelView(fields: PlanFields): PanelView {
     comps: fields.comps ?? [],
     comps_status: compsStatus(fields),
     comps_raised: compsRaised(fields),
+    comps_finished: Boolean(fields.comps_finished_at),
     board: boardView(fields),
     drafted: Boolean(fields.milestones?.first_pass_at),
   }
@@ -1308,6 +1316,8 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   if (!compsRaised(f)) lines.push('Not yet raised: the comp board. Raise it with ask_comps when you are ready to look at other sites together.')
   // [[REQ-401]] — the client can skip the board from the panel; she should know.
   if (compsStatus(f) === 'skipped') lines.push('The client skipped comparing other sites.')
+  // [[BUG-236]] — and has said when they are finished commenting on it.
+  else if (f.comps_finished_at) lines.push('The client has finished commenting on the comp board.')
   if (panel.tasks.total) {
     const bits = [`${panel.tasks.done} of ${panel.tasks.total} done`]
     if (panel.tasks.doing.length) bits.push(`doing: ${list(panel.tasks.doing)}`)
@@ -1691,6 +1701,8 @@ export function addComp(
   comps.push(entry)
   // [[REQ-401]] — A NEW SITE ON THE BOARD REOPENS A SKIPPED COMPARISON.
   if (next.fields.comps_skipped_at) next.fields.comps_skipped_at = null
+  // [[BUG-236]] — and one the client is no longer finished with.
+  if (next.fields.comps_finished_at) next.fields.comps_finished_at = null
   checkPlan(next.fields)
   return { plan: next, comp: entry }
 }
@@ -1702,12 +1714,39 @@ export function skipComps(plan: Plan, at: string): Plan {
   return next
 }
 
-/** Record who wrote a comp's notes, and when ([[REQ-378]]). */
+/**
+ * [[BUG-236]] — the client pressed "I've finished commenting": the consultant's
+ * next turn is told, on the plan-answers cursor.
+ */
+export function finishComps(plan: Plan, at: string): Plan {
+  const next = copy(plan)
+  next.fields.comps_finished_at = at
+  return next
+}
+
+/**
+ * [[BUG-236]] — when the client finished with the comp board since `since`, or
+ * `null`. On the same cursor as every other client change the notice reports.
+ */
+export function clientCompsFinishedSince(fields: PlanFields, since: string): string | null {
+  const at = fields.comps_finished_at
+  return typeof at === 'string' && at > since ? at : null
+}
+
+/** [[BUG-236]] — the notice line for a client who has finished with the comp board. */
+export const CLIENT_COMPS_FINISHED_LINE =
+  'Your client has finished commenting on the comp board: they have said what they want to about these sites.'
+
+/**
+ * Record who wrote a comp's notes, and when ([[REQ-378]]). [[BUG-236]] — the
+ * client noting a site again is no longer finished with the board.
+ */
 export function notedComp(plan: Plan, reference: string, by: string, at: string): Plan {
   const next = copy(plan)
   const c = compIn(next.fields, reference)
   c.notes_by = by
   c.notes_at = at
+  if (by === CLIENT && next.fields.comps_finished_at && next.fields.comps_finished_at < at) next.fields.comps_finished_at = null
   return next
 }
 
@@ -2118,6 +2157,22 @@ export function planOperations(
           }
           a.status = 'open'
           delete a.withdrawn_reason
+        } else {
+          // [[BUG-236]] — A QUESTION ON THE CLIENT'S PANEL KEEPS ITS FORM. A box
+          // that redraws as buttons, or buttons whose choices change, while the
+          // client is answering takes their place away; a different question is
+          // a new item.
+          const options = Array.isArray(p.options) ? p.options.map(String) : null
+          const reshaped =
+            (str(p.input) && str(p.input) !== a.input) ||
+            (options && JSON.stringify(options) !== JSON.stringify(a.options ?? []))
+          if (reshaped) {
+            throw refuse(
+              'ASK_SHOWN',
+              `${id} is already on the client's panel as a ${a.input}${a.options?.length ? ` (${a.options.join(', ')})` : ''}; ` +
+                'its input and options cannot change under them. withdraw_ask it and set_ask a new ask with a new id',
+            )
+          }
         }
         // THE WORDING IS THE AGENT'S AND THE ANSWER IS NOT: nothing below touches
         // `answer`, `status` or who answered.
