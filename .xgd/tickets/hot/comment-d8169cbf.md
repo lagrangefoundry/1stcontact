@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T18:58:59.588376+00:00'
+updated_at: '2026-10-20T19:22:21.927733+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10270,5 +10270,13 @@ REQ-210 already holds the worker's result until the talker has finished its repl
 The consultant's instructions for working with builders still say *"When the checks come back passed, believe them and move on… Re-inspecting work you have already been given a record of… moves them to the more expensive side."* That's the opposite of REQ-415 and of your rule that it must check the work. It's an old REQ-342 passage that REQ-415 didn't update. Three test files check its exact wording, so changing it needs a ticket.
 
 **My suggestion is one bug for all four:** the chip area's height limit, the pacing rules, the short worker hand-back that waits while you're typing, and the builder-instruction rewrite. The pacing rule could also go in straight away as a prompt-only change, but you'd need to redeploy partway through the run for it to take effect. Shall I file it?
+
+<!-- xgd-turn id="42e6e21b-1cbf-4db8-aa36-3527a66deb35-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T19:22:18.546370+00:00" -->
+#### You
+A couple of glitches with the question panel:
+1. often hard to say done - I just filled in a bunch of competitor comments but there is no "Submit button" - there's an add button but no way to submit the comments - I have had this on text box entries too - I think hitting enter worked there (it doesn't here) we need to make sure there is a clear CTA that says I'm finished here are my answers
+2. The consultant ask a question about correct phone or could it use the email. the card appeared with a text box initially then something trigger a refresh to radio buttons.
 
 <!-- xgd-chat-end -->
