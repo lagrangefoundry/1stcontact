@@ -6,9 +6,9 @@ title: 'Builder briefs: stop appending the story board to every brief; the consu
   quotes it when a brief needs it'
 created_by: EPIC-20
 created_at: '2026-10-20T03:17:09.479920+00:00'
-updated_at: '2026-10-20T03:17:09.479920+00:00'
+updated_at: '2026-10-20T03:17:14.706411+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -56,7 +56,7 @@ This reverses one line of REQ-408 (`request-214b8e48`): *"Builder briefs: every 
 
 ## Test plan
 
-- `test_UAT_FC_<this ticket>_*`: drive a delegation through the real `reportingDelegationToolbox` with a plan whose board has a chosen headline and hearted notes; assert the brief the builder receives is the consultant's goal unchanged, with no story-board text in it.
+- `test_UAT_FC_BUG-233_*`: drive a delegation through the real `reportingDelegationToolbox` with a plan whose board has a chosen headline and hearted notes; assert the brief the builder receives is the consultant's goal unchanged, with no story-board text in it.
 - Same, asserting a brief that *does* quote the client's words (because the consultant put them there) arrives with them intact, i.e. nothing strips them either.
 - Assert the consultant's priming contains the new rule.
 - Update or remove the REQ-408 UAT cases that assert `storyBrief` output or the appended block (`tests/test_UAT_FC_REQ-408_story_board.test.ts`, around lines 270–290), and say so in the commit.
