@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:38:58.203038+00:00'
+updated_at: '2026-10-20T03:39:35.437906+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9874,5 +9874,22 @@ When you're done with the consultant, I'll file that as one ticket. If you can, 
 Lets be really clear because you were confused about this early on and we are still fixing...processing is cheap, networking (downloads) are cheap, TOKENS ARE COSTLY
 
 So screenshots are super cheap - having the principal look at them is costly but clearly necessary. This is a land mine we set for ourselves. I guess its the price of delegation to Haruku models - but the principal MUST check the work - PARTICULARLY in the final stages
+
+<!-- xgd-turn id="b7c57f39-1e23-4b62-9095-ed6e9969087d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T03:39:31.747523+00:00" -->
+#### Claude
+Understood. I've saved that as a standing rule in my memory, because I've got it wrong more than once in this epic.
+
+**The cost model:** taking a screenshot, rendering a page, capturing a site and downloading are all close to free. What costs is the consultant *reading* the result. For a delegated build that reading isn't waste; it's what quality control costs, and it matters most near the end.
+
+What it changes:
+
+- **We set this trap ourselves.** REQ-284 tells the consultant *"Looking is the most expensive thing you do"*, and the comps section says *"take screenshots sparingly."* Both teach it to save on exactly the step it mustn't skip. The wording should become: *checking the result of a build is part of the build — always look at what a builder made before you hand it back.*
+- **Spend computing freely so the consultant reads less.** After every builder session that writes a page, the host takes the screenshot itself at your width. It also runs a mechanical layout check (overflow, overlapping boxes, clipped text, collapsed sections, columns that don't line up) and adds the result as a few lines of text. Both are essentially free, and they show the consultant where to look.
+- **The consultant must look at the picture.** The host attaches the screenshot to the builder's result. In Finishing touches and Ready to publish, every changed page gets checked at every width before the consultant says it's done. Problems the check finds count as not done.
+- **Keep reading as cheap as possible.** BUG-229's small low-detail JPEGs, plus images dropping out of context after two turns, already reduce the cost per look. Removing the look is the wrong saving.
+
+When you're finished with the consultant, shall I file this as one ticket: host-attached screenshot and layout check after every page-writing builder, a check of every page at every width in the final stages, and correcting the screenshot wording?
 
 <!-- xgd-chat-end -->
