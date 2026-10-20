@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:25:48.915107+00:00'
+updated_at: '2026-10-20T23:26:35.904856+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10465,5 +10465,30 @@ That puts the pairing in the language: a heading pulls the next text towards it 
    
    2. Default I think - like we said AI can tweak if required
    3. Correct
+
+<!-- xgd-turn id="05a71201-0f6e-4e07-bb75-6eeab0f66831-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T23:26:34.794035+00:00" -->
+#### Claude
+I've filed both tickets under EPIC-19 at `draft`, and listed them on the epic.
+
+**REQ-420: L1 vertical rhythm, so a heading attaches to its paragraph** (high, 13 points). Your three decisions are recorded in it: implicit pairing, a default rather than a rule, and L1 in this repo. It covers:
+- a rhythm unit for the site, which can differ by width;
+- `spaceAbove` and `spaceBelow` on text styles, with defaults by heading level (H2: 2.5 above, 0.5 below; body: 0 above, 1 below);
+- a `rhythm` spacing mode for stacks, where the space between neighbours is the larger of the two. Text stacks use it by default, and `gap` stays for grids and button rows;
+- per-node overrides for the AI;
+- headings kept with the text they introduce when the layout reflows, and grouped for screen readers;
+- the fold reading a reference site's rhythm, so reproductions keep it and the round-trip check covers it;
+- builder guidance.
+
+Existing pages render exactly as now until they're next restyled.
+
+**BUG-238: layout check flags a too-small logo or business name, and headings not attached to their text** (high priority, 3 points). It adds two findings to REQ-415's layout check, and either one means the build isn't done:
+- **brand too small:** a header logo under about 48px on desktop or 36px on a phone, or a business name that isn't clearly the largest text in the header. The thresholds are configuration;
+- **heading not attached:** the space below a heading isn't clearly smaller than the space above it.
+
+It also gives builders starting sizes. It's the quick win: it catches existing pages, and anything built before REQ-420 lands.
+
+I'd do BUG-238 first, since it's small, works on today's pages, and fixes the logo problem you hit on every site. REQ-420 is the larger language change and can follow.
 
 <!-- xgd-chat-end -->
