@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:24:03.009082+00:00'
+updated_at: '2026-10-20T19:24:43.759630+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10316,5 +10316,26 @@ That's one ticket, since it's all the same theme: the client loses their place. 
 <!-- xgd-chat role="user" ts="2026-10-20T19:24:00.669401+00:00" -->
 #### You
 ok please create the bug
+
+<!-- xgd-turn id="40d61c6a-b1e6-47b6-84b1-3f2ccdb7f3d7-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T19:24:42.686103+00:00" -->
+#### Claude
+I've filed **BUG-236**, *"Client loses their place: attachments hide the text box, crowded turns, mid-reply worker dumps, no Done on the panel, questions changing form"*. It's under EPIC-19 at `draft`, high severity, 8 points, and linked from the epic.
+
+It covers six things:
+1. **Attachments:** the chip area is capped at about two rows and scrolls, so the text box and Send are always reachable.
+2. **Pacing:**
+   - new panel questions are announced in one line in total, replacing REQ-401's line for every question;
+   - a message ends on its one real question, which is the main thing in it;
+   - "what's next" goes in its own message.
+3. **The worker's hand-back** is about three lines, and it's held behind a small "ready" marker while you have unsent text in the box.
+4. **The builder instructions** no longer say "believe passed checks and move on". They now say to look at what the builder made before telling you it's done, which matches REQ-415 and your rule. The three tests that check the old wording get updated.
+5. **The panel:**
+   - every typed answer gets a Done button, Enter sends single-line answers, and "Saved ✓" confirms it's stored;
+   - the comp board gets a Done for each site and "I've finished commenting", which tells the consultant.
+6. **A question that's showing can't change form.** The host refuses the rewrite, so the consultant withdraws it and asks a new one. A redraw never throws away text you're typing.
+
+BUG-235 (the progress tracker, Stop, the inverted line about the layout check) is still separate and needs to land too. The priming change in item 2 only reaches your run after BUG-236 lands and you redeploy.
 
 <!-- xgd-chat-end -->
