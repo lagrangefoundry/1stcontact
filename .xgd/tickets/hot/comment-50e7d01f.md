@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:58:54.790591+00:00'
+updated_at: '2026-10-20T21:59:54.446517+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4024,5 +4024,32 @@ It's prose, not code, so it doesn't need the full ticket process. Do you want me
 <!-- xgd-chat role="user" ts="2026-10-20T21:58:54.271014+00:00" -->
 #### You
 no go ahead and draft - then I want to talk about the comp presentation UX which needs a little tweaking
+
+<!-- xgd-turn id="84196edf-8099-461f-8010-b7dde5588d11-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T21:59:53.602819+00:00" -->
+#### Claude
+I'll pull the exact current wording of the sections that change, so the draft replaces real text.
+
+I have the three entries. Writing the draft.
+
+I've written the draft to `.xgd/tmp/epic20/discovery-priming-draft.md`. Nothing is applied yet. It makes five edits to `priming.json`, each in both priming variants:
+
+1. **The "Getting to know you" finish line** gains a close-out step: the stage is done when the client has had the last word. The comps finish line now also requires the client to agree with the direction the consultant names, not just react.
+2. **A new "When to stop asking" section** covers your three tests:
+   - Is the client still interested? Two short or "don't know" answers in a row end discovery.
+   - Do we have enough? After the finish line, a note has to be able to change the headline, a section or the proof.
+   - Is there something better to ask?
+
+   It also bans repeating a question, and gives the close-out message: a two- or three-sentence summary, then your open question.
+3. **A new "Questions that change the build" section** for after discovery: who the site is for, the look, the page structure, and what the comps showed. Each question has to name the decision it settles, and the client's feedback always comes first.
+4. **"While you build" is changed.** A story question at the start of a build is only for while discovery is open. After that, the consultant asks a direction question or nothing. Build progress is reported when it changes, not in every reply.
+5. **Comps get a real conversation.** The consultant sums up what the reactions add up to, asks about the one place they pull against each other, points out what a comp does that the site won't, then names the direction. Two or three exchanges at most.
+
+Two things I left alone on purpose: the interview style and the one-question-per-message rule, because the early discovery was good. I also didn't add a new plan stage; closing out is just how "Getting to know you" finishes.
+
+This is prompt text only, so it needs no ticket. Once you're happy with the wording I can splice it in. It only reaches the dev builder after `bin/deploy --env dev`.
+
+Now the comp presentation. What needs tweaking?
 
 <!-- xgd-chat-end -->
