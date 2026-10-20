@@ -12,7 +12,7 @@ import { nextSlug } from './support/site-seed'
 /**
  * [[BUG-205]] — **the working line names no one in a one-to-one conversation**
  * (DOC-66): with one AI in the conversation it has no personal name, so the
- * line reads "Your consultant is …". The group chat, where two AIs are visible,
+ * line reads "The consultant is …" ([[BUG-234]]). The group chat, where two AIs are visible,
  * keeps the display names `group-chat.json` gives them.
  *
  * Through the Worker's own `route` — `/api/ai/session`, `/api/ai/prompt` and the
@@ -112,7 +112,7 @@ describe('BUG-205 — the working line names no one', () => {
     resetChatHost()
   })
 
-  it('test_UAT_FC_BUG-205_a_one_to_one_working_line_says_your_consultant_and_no_display_name', async () => {
+  it('test_UAT_FC_BUG-205_a_one_to_one_working_line_says_the_consultant_and_no_display_name', async () => {
     const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('bug205') })
     const stream = await prompt(
       site,
@@ -121,7 +121,7 @@ describe('BUG-205 — the working line names no one', () => {
     )
     const working = stream.filter((f) => f.kind === 'working')
     expect(working).toHaveLength(1)
-    expect(working[0].content).toBe(`Your consultant is capturing ${BAD_URL}`)
+    expect(working[0].content).toBe(`The consultant is capturing ${BAD_URL}`)
     for (const name of [NAMES.consultant, NAMES.coordinator]) expect(working[0].content).not.toContain(name)
   })
 

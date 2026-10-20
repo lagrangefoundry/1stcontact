@@ -66,7 +66,7 @@ function mount(streamPrompt: () => AsyncGenerator<unknown>): Panel {
 
 const text = (cls: string): string | null => document.querySelector(`.${cls}`)?.textContent ?? null
 
-const OPENING = 'Your consultant is building the first draft of Bob’s Salon’s home page — about 15 minutes'
+const OPENING = 'The consultant is building the first draft of Bob’s Salon’s home page — about 15 minutes'
 
 describe.skipIf(!WEBUI_INSTALLED)('BUG-215 — the turn and the step, each on its own clock', () => {
   it('test_UAT_FC_BUG-215_the_turn_line_keeps_the_opening_estimate_and_the_step_line_times_the_step', async () => {
@@ -80,7 +80,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-215 — the turn and the step, each on it
       clock += 14 * 60_000
       yield {
         kind: 'working',
-        content: 'Your consultant is taking a screenshot',
+        content: 'The consultant is taking a screenshot',
         meta: { scope: 'step', doing: 'Taking a screenshot', estimate: 'about 1 min' },
       }
       clock += 2 * 60_000 + 34_000
@@ -138,7 +138,7 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-215 — no plumbing, and steps that do no
   it('test_UAT_FC_BUG-215_repeated_screenshots_collapse_into_one_light_step_line', async () => {
     const shot = {
       kind: 'working',
-      content: 'Your consultant is taking a screenshot',
+      content: 'The consultant is taking a screenshot',
       meta: { scope: 'step', doing: 'Taking a screenshot', estimate: 'about 1 min' },
     }
     const panel = mount(async function* () {

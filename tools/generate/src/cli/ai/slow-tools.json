@@ -17,10 +17,11 @@
     "",
     "`unnamed` is who the working line says is busy in a one-to-one conversation",
     "([[BUG-205]], DOC-66): with one AI in the conversation it has no personal",
-    "name. The group chat names its members from `group-chat.json` instead."
+    "name, and the line reads \"The consultant is …\" ([[BUG-234]]). The group chat",
+    "names its members from `group-chat.json` instead."
   ],
 
-  "unnamed": "Your consultant",
+  "unnamed": "The consultant",
 
   "tools": [
     { "tool": "capture_site", "doing": "Capturing {url}", "fallback": "Capturing a site", "minutes": 5 },
