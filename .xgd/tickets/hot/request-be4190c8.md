@@ -6,9 +6,9 @@ title: 'Worker and talker: adopt LF REQ-209/210 so discovery happens while the c
   builds'
 created_by: EPIC-19
 created_at: '2026-10-20T13:39:11.750473+00:00'
-updated_at: '2026-10-20T14:15:30.800488+00:00'
+updated_at: '2026-10-20T14:18:56.778118+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -199,3 +199,15 @@ In the consultant's priming and the plan seed:
   working line; a message mid-build is interposed and its talker reply drawn under
   it; Stop building sends a stop naming no turn; a message the build ended before
   answering runs next naming its id; a conversation without a talker still interposes.
+
+
+### Accounting (operator, 2026-10-20: full accounting is required)
+- Every talker round is metered on a spend row of its own ([[REQ-292]] `turn_spend`),
+  written by the build's isolate once the round closes, from the round's own
+  `turn_end` (which carries its spend however it ended): turn id = the talker round's
+  id, role `consultant`, the project backend. The talker runs on a conversation forked
+  from the worker's, so the worker's row never included these requests; every request
+  made for a client message is now on exactly one row.
+- UAT: `test_UAT_FC_REQ-416_a_talker_rounds_requests_are_metered_on_a_spend_row_of_their_own`
+  — a metered talker's two requests appear on its own row (requests, input and output
+  tokens), and the worker's row carries only the worker's.
