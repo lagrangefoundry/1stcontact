@@ -6,15 +6,23 @@ title: Post-build layout check reports contact-form component's visually-hidden 
   and honeypot as overlapping/clipped text
 created_by: xgd
 created_at: '2026-10-20T23:07:08.842467+00:00'
-updated_at: '2026-10-20T23:15:50.613662+00:00'
+updated_at: '2026-10-20T23:16:11.384815+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   auto_merge_back: true
   needs_review: false
   priority: medium
   chat_comment: comment-63119bf2
+  commits:
+  - working_sha: 1000060aa77bbeb16ddb5a92d619e5cd89f55a5b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 1d7b57cfb260dafbf6f8f46f495c07d9be9248ea
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.559
 ---
 
 ## What I was doing
