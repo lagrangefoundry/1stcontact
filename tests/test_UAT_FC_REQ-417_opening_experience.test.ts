@@ -162,6 +162,28 @@ function skip(why: string): void {
   console.warn(`REQ-417 centring measurement SKIPPED — ${why}. The layout is unverified here.`)
 }
 
+/**
+ * Lay `markup` out in a real Chromium, under the source `builder.css`, inside the
+ * pane the builder mounts it in at `width`×`height`, and run `measure` there.
+ * `undefined` means no browser could be started, already reported loudly.
+ */
+async function measureIn<T>(markup: string, width: number, height: number, measure: () => T): Promise<T | undefined> {
+  const chromium = await loadChromium()
+  if (!chromium) return skip('playwright is not resolvable from tools/generate')
+  const browser = await launchAnyChromium(chromium)
+  if (!browser) return skip('no chromium build or system Chrome could be launched')
+  try {
+    const page = await browser.newPage({ viewport: { width: width + 200, height: height + 100 } })
+    await page.setContent(
+      `<!doctype html><html><head><style>${BUILDER_CSS}</style></head>` +
+        `<body style="margin:0"><div class="builder-panel__host" style="width:${width}px;height:${height}px">${markup}</div></body></html>`,
+    )
+    return (await page.evaluate(measure)) as T
+  } finally {
+    await browser.close()
+  }
+}
+
 describe.skipIf(!WEBUI_INSTALLED)('REQ-417 — the opening experience', () => {
   it('test_UAT_FC_REQ-417_the_empty_board_says_what_it_is_for_until_the_first_pin', async () => {
     const plan = planTransport(view())
@@ -221,31 +243,20 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-417 — the opening experience', () => {
     'test_UAT_FC_REQ-417_the_empty_message_is_centred_both_ways_under_the_headline',
     async () => {
       const app = await mount(planTransport(view()))
-      const markup = board(app).outerHTML
-      const chromium = await loadChromium()
-      if (!chromium) return skip('playwright is not resolvable from tools/generate')
-      const browser = await launchAnyChromium(chromium)
-      if (!browser) return skip('no chromium build or system Chrome could be launched')
-      try {
-        const page = await browser.newPage({ viewport: { width: 1100, height: 800 } })
-        // THE PANE THE BUILDER MOUNTS THE BOARD IN, at a fixed size.
-        await page.setContent(
-          `<!doctype html><html><head><style>${BUILDER_CSS}</style></head>` +
-            `<body style="margin:0"><div class="builder-panel__host" style="width:900px;height:700px">${markup}</div></body></html>`,
-        )
-        const m = await page.evaluate(() => {
-          const box = (s: string) => document.querySelector(s)!.getBoundingClientRect()
-          const b = box('.story-board')
-          const style = getComputedStyle(document.querySelector('.story-board')!)
-          const h = box('.story-headline')
-          const e = box('.story-board__empty')
-          return {
-            board: { left: b.left + parseFloat(style.paddingLeft), right: b.right - parseFloat(style.paddingRight), bottom: b.bottom - parseFloat(style.paddingBottom) },
-            headline: { width: h.width, bottom: h.bottom + parseFloat(getComputedStyle(document.querySelector('.story-headline')!).marginBottom) },
-            empty: { left: e.left, right: e.right, top: e.top, bottom: e.bottom },
-            placeholderAlign: getComputedStyle(document.querySelector('.story-headline__line')!).textAlign,
-          }
-        })
+      const m = await measureIn(board(app).outerHTML, 900, 700, () => {
+        const box = (s: string) => document.querySelector(s)!.getBoundingClientRect()
+        const b = box('.story-board')
+        const style = getComputedStyle(document.querySelector('.story-board')!)
+        const h = box('.story-headline')
+        const e = box('.story-board__empty')
+        return {
+          board: { left: b.left + parseFloat(style.paddingLeft), right: b.right - parseFloat(style.paddingRight), bottom: b.bottom - parseFloat(style.paddingBottom) },
+          headline: { width: h.width, bottom: h.bottom + parseFloat(getComputedStyle(document.querySelector('.story-headline')!).marginBottom) },
+          empty: { left: e.left, right: e.right, top: e.top, bottom: e.bottom },
+          placeholderAlign: getComputedStyle(document.querySelector('.story-headline__line')!).textAlign,
+        }
+      })
+      if (!m) return
         // HORIZONTALLY: equal space either side within the board.
         expect(Math.abs(m.empty.left - m.board.left - (m.board.right - m.empty.right))).toBeLessThan(2)
         // VERTICALLY: equal space above (to the headline) and below (to the board's end).
@@ -256,9 +267,50 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-417 — the opening experience', () => {
         // THE HEADLINE KEEPS ITS FULL WIDTH in the board's new column layout.
         expect(m.headline.width).toBeGreaterThan(600)
         expect(m.placeholderAlign).toBe('center')
-      } finally {
-        await browser.close()
+    },
+    120000,
+  )
+
+  it(
+    'test_UAT_FC_REQ-417_the_ghost_text_is_centred_both_ways_in_the_question_panel',
+    async () => {
+      const plan = planTransport(view())
+      const app = await mount(plan)
+      const measure = () => {
+        const p = document.querySelector('.plan-panel')!
+        const g = p.querySelector('.plan-panel__ghost')!
+        const style = getComputedStyle(p)
+        const r = p.getBoundingClientRect()
+        const e = g.getBoundingClientRect()
+        // THE SPACE THE GHOST HAS: below whatever shows above it, to the panel's foot.
+        let top = r.top + parseFloat(style.paddingTop)
+        for (let n = g.previousElementSibling; n; n = n.previousElementSibling) {
+          const b = n.getBoundingClientRect()
+          if (getComputedStyle(n).display !== 'none' && b.height) top = Math.max(top, b.bottom + parseFloat(getComputedStyle(n).marginBottom))
+        }
+        return {
+          shown: getComputedStyle(g).display !== 'none',
+          display: style.display,
+          left: e.left - (r.left + parseFloat(style.paddingLeft)),
+          right: r.right - parseFloat(style.paddingRight) - e.right,
+          above: e.top - top,
+          below: r.bottom - parseFloat(style.paddingBottom) - e.bottom,
+        }
       }
+      const m = await measureIn(panel(app).outerHTML, 360, 700, measure)
+      if (!m) return
+      expect(m.shown).toBe(true)
+      expect(Math.abs(m.left - m.right)).toBeLessThan(2)
+      expect(m.above).toBeGreaterThan(100)
+      expect(Math.abs(m.above - m.below)).toBeLessThan(2)
+
+      // A PANEL WITH QUESTIONS lays out as it always did: no column, no ghost.
+      plan.set(view({ asks: [ask('a1')] }))
+      await app.planPanel.refresh()
+      await settle()
+      const after = await measureIn(panel(app).outerHTML, 360, 700, measure)
+      expect(after!.shown).toBe(false)
+      expect(after!.display).toBe('block')
     },
     120000,
   )
