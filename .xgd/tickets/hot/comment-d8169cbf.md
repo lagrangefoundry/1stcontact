@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T16:07:35.058139+00:00'
+updated_at: '2026-10-20T16:08:15.267150+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10192,5 +10192,24 @@ Once BUG-235 lands, run `bin/deploy --env dev` and start a new business.
 #### You
 Dev has a browser, so this won't hit your run, but it would hit any deployment without one. <-- does prod have a browser?
 Tell me if you want it filed. <-- yes our costs are going up I want to track them carefully
+
+<!-- xgd-turn id="47470f7d-5d64-4801-8abd-40d9caa87b9a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T16:08:14.084189+00:00" -->
+#### Claude
+Yes, prod has one. I'm filing the table-element ticket under EPIC-24.
+
+**Does prod have a browser?** Yes. Production declares the same `BROWSER` binding as dev (`[env.production.browser]` in `apps/control-app/wrangler.toml`), so the host's post-build looks and the final-stage look check will work there too. The no-browser case in BUG-235 is just a guard for a deployment that ever runs without one. It doesn't affect anything today.
+
+**Filed: REQ-418**, *"L1: a row-based table element, so price lists can't come apart"*. It's under EPIC-24 at `draft`, medium priority, 8 points, and also noted on EPIC-19.
+
+I framed it around cost, as you asked. Guidance plus detection costs tokens every time it fails: a builder gets the table wrong, the host flags it, the consultant reads the report and briefs a repair. A structure where the mistake can't be made at all is the cheapest fix. The ticket covers:
+- a real table made of rows and cells, with a fixed column count that's validated;
+- empty cells that still keep their place in the row;
+- a declared phone behaviour: either scroll inside the table, or stack each row as a card, never making the page scroll sideways;
+- proper table semantics for screen readers;
+- builders taught to use it for price lists and opening hours.
+
+**On tracking cost more generally:** this run will add spend from talker turns and the screenshots the host attaches after each build. The spend records already capture every turn, including builders. After your run I can break the cost down by consultant turns, talker turns, builder turns and host looks, and compare it with Bob's salon 2, so you can see what each change actually costs. Shall I do that when you're done?
 
 <!-- xgd-chat-end -->
