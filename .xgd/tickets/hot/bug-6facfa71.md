@@ -6,9 +6,9 @@ title: 'Client loses their place: attachments hide the text box, crowded turns, 
   worker dumps, no Done on the panel, questions changing form'
 created_by: EPIC-19
 created_at: '2026-10-20T19:24:29.832787+00:00'
-updated_at: '2026-10-20T19:46:03.048022+00:00'
+updated_at: '2026-10-20T19:58:08.785321+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -125,3 +125,77 @@ Both depend on **lagrange-framework REQ-214** (a leading composer action and a h
 - **The status widget moves to the plan panel**, into an area directly under the progress banner (REQ-398 / BUG-209) and visually joined to it, using REQ-214 `statusContainer`. It keeps its text ("The consultant is …"), elapsed time and Stop building. It is present only while the worker is working; the banner does not change height otherwise. Nothing of it remains above the composer.
 
 Tests: the composer shows a "+" inside the input that opens the file picker, and no "Attach files" control exists; with a build running, the status widget is inside the plan panel under the progress banner and not in the chat, and Stop building still stops the worker.
+
+
+
+## Implementation (2026-10-20, items 1–6)
+
+Items 1–6 are implemented. **Item 7 is not:** it depends on lagrange-framework
+REQ-214 (`composerAction` / `statusContainer`), which is still `draft` upstream.
+Item 7 stays open on this ticket until REQ-214 lands. It is not worked around by
+moving `webui-chat`'s DOM from the host.
+
+1. **Attachments.** `.builder-attach__chips` is a wrapping flex area capped at
+   96px (about two rows of chips) that scrolls inside itself
+   (`overflow-y: auto`). It is hidden when empty. The text box and Send stay
+   below it and usable.
+2. **Pacing (priming, both corpus variants).** The REQ-401 paragraph now says to
+   announce panel questions "in one line in total … never one line per
+   question, never the questions restated". The paragraph adds "a message ends
+   on its one real question …" and "what happens next goes in its own message,
+   or not at all …". `set_ask`'s description (`plan-surface.json`) says the
+   same one-line-in-total rule. REQ-401's UAT is updated to pin the new wording.
+3. **Worker's hand-back.** Priming: "when you come back from the work, keep the
+   result short: what is ready, where to look, and at most one question — about
+   three lines. The detail stays in your record …". Browser (`chat.js`
+   `talkDesk`): once a work stream has shown its status (its first `progress`),
+   any consultant text that arrives while the composer has unsent text is held.
+   A marker above the box says "The consultant has finished — show what it
+   said". The held text appears when the client sends or clears the box (the box
+   is checked every 250ms), or presses the marker. The stream keeps being read
+   meanwhile, so talker replies are not held up, and the turn's `done` still
+   waits for the talker (REQ-210 D5). When the box is empty, the result shows at
+   once as before.
+4. **`delegation-method`.** "Believe them and move on", "re-inspecting … moves
+   them to the more expensive side" and "and not otherwise" are gone. It now
+   says: the record means you do not need to re-read the site's data. How it
+   looks comes back too: a builder's result carries the host's picture of the
+   page and the layout check's findings (REQ-415). A passed check says only that
+   what you asked about holds. "Look at what the builder made, in the picture
+   attached to its result, before you tell your client it is done". Look closer
+   when the record and the brief do not meet, or a check failed or came back
+   unanswered. The REQ-295 / REQ-342 / REQ-343 UATs are updated to pin this.
+5. **Panel "I'm finished".** Every typed answer (one-line and `long_text`) has a
+   **Done** button. Enter in a one-line box is Done. Leaving the box still saves
+   as a safety net, and the same answer is sent once however many of these
+   happen. After any answer is stored, **"Saved ✓"** shows on the item's line for
+   about 4s. Comp board: each site has a **Done** that stores both its likes and
+   dislikes at once and shows "Saved ✓". Under the board, **"I've finished
+   commenting"** posts `/api/plan/comp` `action: finish`, which stores
+   `comps_finished_at` on the plan. The panel then shows "Thanks — the
+   consultant will pick it up from here." The consultant's next turn is told,
+   once, on the plan-answers cursor: "Your client has finished commenting on the
+   comp board …". The plan digest also says so. Adding a site, or the client
+   noting one after finishing, clears it, and the button shows again.
+6. **Questions keep their form.** `set_ask` on an ask already on the panel (open,
+   answered or skipped) is refused with `ASK_SHOWN` when it would change the
+   ask's `input` or `options`. The refusal says to `withdraw_ask` it and
+   `set_ask` a new ask with a new id. Rewording (`prompt`, `why`) is still
+   allowed, and so is reopening a withdrawn ask. The plan panel keeps the text
+   the client has typed into any answer box (and into comp notes), keyed by ask
+   or by comp, until it is stored. A block redrawn by another plan change, while
+   the client had moved to another box, is drawn with their text still in it.
+
+### Tests
+- `tests/test_UAT_FC_BUG-236_client_keeps_their_place.test.ts` (jsdom, real
+  components): 20 attachments scroll inside two rows, and the box and Send stay
+  usable. A result is held while the box has text and shown when it is cleared,
+  or when the marker is pressed. With an empty box it shows at once. Enter
+  saves a one-line answer and shows "Saved ✓". A long answer's Done sends once.
+  A redraw keeps typed text. A comp's Done saves both notes. "I've finished
+  commenting" posts `finish` and says it was heard. Priming pacing and the
+  short hand-back.
+- `tests/test_UAT_FC_BUG-236_panel_keeps_its_shape.workers.test.ts` (real
+  routes and D1): a consultant turn's `set_ask` from phone to single_choice is
+  refused with ASK_SHOWN and nothing changes. Withdrawing and adding a new id
+  is a new item. `finish` is stored and told on the next turn, once.
