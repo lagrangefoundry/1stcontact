@@ -59,8 +59,8 @@
  */
 
 import type { GlobalOptions } from '../options'
-import type { SiteStore } from '../../store/site-store'
-import { editAlternativeChoose } from '../edit'
+import type { SiteStore, StoredPage } from '../../store/site-store'
+import { editAlternativeChoose, servedPageId } from '../edit'
 import {
   COORDINATOR_ROLE,
   coordinatorRole,
@@ -81,6 +81,7 @@ import {
   productConfig,
   openingCue,
   continuationCue,
+  layoutContinuationCue,
   spendCeilingNotice,
   reportReserveNotice,
   type TurnSignal,
@@ -103,7 +104,11 @@ import { ledgerEntries, ledgerInstanceConfig, ledgerSurfaceFor } from './ledger-
 import {
   approvedDetails,
   builderSessionCompleted,
+  lookWidthOf,
   OPENING_MESSAGE,
+  pagesNotLooked,
+  screenshotTaken,
+  type NotLooked,
   planInstanceConfig,
   planPanel,
   planSurfaceFor,
@@ -172,7 +177,14 @@ import {
   type RecordTurnSpend,
 } from './spend-core'
 import { newId } from '../../store/ids'
-import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
+import {
+  FIDELITY_DECLARATION,
+  contentBlocksFrom,
+  fidelityOperations,
+  fidelitySurfaceFor,
+  type ContentBlock,
+} from './fidelity-core'
+import { browserLayoutChecker, layoutLine, LAYOUT_WIDTHS } from './layout-check'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
 import { iconMaker } from '../favicon'
 import { browserMeasurer, browserPageMeasurer } from './measure-core'
@@ -195,6 +207,8 @@ import {
   MAX_CONTINUATIONS,
   SPEND_CEILING_MICROS,
   TURN_TIMEOUT_SECONDS,
+  DELEGATE_TOOL,
+  delegationResult,
   endedOnBudget,
   narrateExhaustion,
 } from './turn-clock-core'
@@ -1331,6 +1345,152 @@ function cadenceHooks(deps: HostDeps, slug: string): CadenceHooks {
   }
 }
 
+// ── [[REQ-415]] — the host looks, and remembers what the consultant looked at ──
+
+/**
+ * [[REQ-415]] — record that the consultant took a picture of a page of the draft.
+ *
+ * KEPT ON THE PLAN, keyed by the page's id and the width class, with the change
+ * counter as it stands — so a later change to that page makes the look stale by
+ * arithmetic, and the publishing stages can ask whether every page has been seen
+ * as it now is. A plain write, not {@link countedPlan}: the client's panel has
+ * nothing to show for it.
+ */
+function lookRecorder(deps: HostDeps, slug: string): (page: string, width: number) => Promise<void> {
+  return async (page, width) => {
+    const at = lookWidthOf(width)
+    if (!at || !deps.plan) return
+    const id = servedPageId(await deps.store.readPages(slug), page)
+    if (id === null) return
+    const counter = await deps.store.counter(slug)
+    await deps.plan(slug).write((plan) => screenshotTaken(plan, id, at, counter))
+  }
+}
+
+/** [[REQ-415]] — the served pages that have changed since the consultant last looked at them. */
+async function unlookedFor(deps: HostDeps, slug: string): Promise<NotLooked[]> {
+  const plan = await deps.plan!(slug).read()
+  const looked = plan?.fields.looked_at ?? {}
+  const pages = (await deps.store.readPages(slug))
+    .map((p) => p.page)
+    .filter((page) => page.kind !== 'email' && !page.alternative)
+    .map((page) => ({ id: String(page.id), name: String(page.slug) }))
+  const ats = pages.flatMap((p) => Object.values(looked[p.id] ?? {}))
+  const since = ats.length ? Math.min(...ats) : await deps.store.counter(slug)
+  return pagesNotLooked(looked, pages, await deps.store.changesSince(slug, since))
+}
+
+/**
+ * [[REQ-415]] — the layout faults the host's last look found on each page a
+ * builder wrote during the client's current message, by page id. Cleared for a
+ * page when a later look finds it clean, and for every page when the next client
+ * message starts. While anything is here, the consultant's reply is not the end
+ * of the request: see {@link continuedTurn}.
+ */
+const layoutOwed = new Map<string, Map<string, string[]>>()
+
+/** Every outstanding layout finding for one session, in the order they were found. */
+function owedLayout(key: string): string[] {
+  return [...(layoutOwed.get(key)?.values() ?? [])].flat()
+}
+
+/** The {@link toolSet} hook that hands a `Delegate` result to the host's look. */
+function delegateLooked(look: (output: unknown) => Promise<unknown>): (name: string, output: unknown) => Promise<unknown> {
+  return async (name, output) => (name === DELEGATE_TOOL ? look(output) : output)
+}
+
+/** How many of the pages one builder wrote are pictured in its result; the rest are named. */
+const HOST_LOOK_PAGES = 3
+
+/**
+ * [[REQ-415]] — AFTER A BUILDER WRITES A PAGE, THE HOST LOOKS FIRST.
+ *
+ * The consultant signed off a price table it had only read, because a picture was
+ * a thing it had to decide to ask for. So the `Delegate` result now carries one:
+ * each page the builder wrote, at the width the client is viewing at (desktop if
+ * none was reported), low detail — and a layout check of each at desktop and
+ * phone width, as plain lines naming the section. A page with findings is not
+ * done, and the result says so.
+ *
+ * THE BUILDER'S RESULT IS KEPT WHOLE AND FIRST, fence and all, as the first text
+ * block: the provenance marking is the Toolbox's, and the host's own words follow
+ * it rather than being mixed into it. The pictures are the consultant's camera,
+ * so they count as looks ({@link lookRecorder}). Nothing here fails the
+ * delegation: a check or a picture that cannot be had is said, and the result
+ * goes back as it came when there is nothing to look at.
+ */
+function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output: unknown) => Promise<unknown> {
+  const camera = fidelityOperations(fidelity)
+  const checker = browserLayoutChecker(fidelity)
+  const said = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+  return async (output) => {
+    const account = delegationResult(output)?.result.account as
+      | { changed?: { differences?: { page?: unknown }[] } }
+      | undefined
+    const written = [
+      ...new Set((account?.changed?.differences ?? []).map((d) => d.page).filter((p): p is string => typeof p === 'string')),
+    ]
+    if (written.length === 0) return output
+    let stored: StoredPage[]
+    try {
+      stored = await deps.store.readPages(slug)
+    } catch {
+      return output
+    }
+    const pages = written
+      .map((id) => stored.find((p) => String(p.page.id) === id))
+      .filter((p): p is StoredPage => p !== undefined && p.page.kind !== 'email')
+    if (pages.length === 0) return output
+    const key = managerKey(slug, deps)
+    const owed = layoutOwed.get(key) ?? new Map<string, string[]>()
+    layoutOwed.set(key, owed)
+    const viewport = fidelity.clientView?.() ? 'client' : 'desktop'
+    const lines: string[] = []
+    const pictures: ContentBlock[] = []
+    const pictured: string[] = []
+    for (const [i, p] of pages.entries()) {
+      const name = String(p.page.slug)
+      const id = String(p.page.id)
+      try {
+        const found = (await checker(name, p.sections ?? [])).map(layoutLine)
+        if (found.length) owed.set(id, found)
+        else owed.delete(id)
+        lines.push(...(found.length ? found : [`${name}: nothing wrong at either width.`]))
+      } catch (error) {
+        lines.push(`${name}: the layout check could not run (${said(error)}).`)
+      }
+      if (i >= HOST_LOOK_PAGES) continue
+      try {
+        const blocks = await camera.screenshot({ of: { kind: 'draft', page: `/${name}`, viewport }, tiles: 'all', detail: 'low' })
+        pictures.push(...(blocks as ContentBlock[]))
+        pictured.push(name)
+      } catch (error) {
+        lines.push(`No picture of ${name}: ${said(error)}.`)
+      }
+    }
+    const unpictured = pages.map((p) => String(p.page.slug)).filter((n) => !pictured.includes(n))
+    const faulty = pages.some((p) => owed.has(String(p.page.id)))
+    const widths = LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`).join(' and ')
+    const report = [
+      'The host looked at what this builder wrote, so you did not have to ask.' +
+        (pictured.length
+          ? ` Below: ${pictured.join(', ')} at ${viewport === 'client' ? "your client's width" : 'desktop width'}, low detail.`
+          : '') +
+        (unpictured.length ? ` Not pictured: ${unpictured.join(', ')} — take a screenshot to see ${unpictured.length > 1 ? 'them' : 'it'}.` : ''),
+      `Layout check at ${widths}:`,
+      ...lines.map((l) => `- ${l}`),
+      faulty
+        ? 'THIS BUILD IS NOT DONE: a page it wrote has layout faults. Fix every line above in this request — brief a builder with them — and look again before you tell your client the page is ready.'
+        : 'The check finds faults; whether the page is what your client asked for is what the picture is for.',
+    ].join('\n')
+    return [
+      { type: 'text', text: typeof output === 'string' ? output : JSON.stringify(output) },
+      { type: 'text', text: report },
+      ...pictures,
+    ]
+  }
+}
+
 /**
  * The DNS changes each business's conversation has made and not yet reported
  * ([[REQ-260]]).
@@ -1606,6 +1766,9 @@ function toolSet(
   // [[REQ-397]] — how each call runs: as which writer of draft files. One store
   // serves every session on a site, so who is writing is a fact about the call.
   around: (<T>(run: () => Promise<T>) => Promise<T>) | null = null,
+  // [[REQ-415]] — what the host adds to a call's result once it has run, outside
+  // `around`: the host's own reads are nobody's writes.
+  after: ((name: string, output: unknown) => Promise<unknown>) | null = null,
 ): Untyped[] {
   const schemas = box.schemas() as Record<
     string,
@@ -1619,8 +1782,10 @@ function toolSet(
         // [[BUG-212]] — `failed`'s entries offered with their keys, which the
         // declaration cannot yet say (lagrange-framework BUG-86).
         { properties: name === REPORT_TOOL ? reportSchema(spec.properties) : spec.properties, required: spec.required },
-        (input: Record<string, unknown>) =>
-          around ? around(() => runTool(box, name, input)) : runTool(box, name, input),
+        async (input: Record<string, unknown>) => {
+          const output = await (around ? around(() => runTool(box, name, input)) : runTool(box, name, input))
+          return after ? after(name, output) : output
+        },
         // [[REQ-411]] — a closure runs beside other calls exactly when the
         // operation it wraps is declared `concurrent` (lagrange-framework
         // REQ-208): today `Delegate`. Each call is its own writer in `around`.
@@ -1766,6 +1931,10 @@ async function build(
   const fidelity = deps.fidelity
     ? { ...deps.fidelity(slug), clientView: () => signals.get(managerKey(slug, deps))?.view ?? null }
     : null
+  // [[REQ-415]] — THE CONSULTANT'S CAMERA RECORDS WHAT IT LOOKED AT; a builder's
+  // does not, because the principal checking the work is the point.
+  const consultantFidelity: FidelityDeps | null =
+    fidelity && deps.plan ? { ...fidelity, looked: lookRecorder(deps, slug) } : fidelity
 
   // -- delegation: construction on a cheaper session ([[REQ-295]]) -----------
   //
@@ -1826,6 +1995,8 @@ async function build(
           extraOps: deps.extraOps ?? {},
           measurer: fidelity ? browserMeasurer(fidelity) : null,
           pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
+          // [[REQ-415]] — what a browser finds wrong with a page, on its map.
+          layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
           assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
           addresses: deps.addresses ? () => deps.addresses!(slug) : null,
           extraSurfaces: [
@@ -2097,6 +2268,8 @@ async function build(
       measurer: fidelity ? browserMeasurer(fidelity) : null,
       // [[REQ-350]] — the same browser, reading a page's runs for `flow_l1`.
       pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
+      // [[REQ-415]] — what a browser finds wrong with a page, on its map.
+      layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
       // WHERE A DRAWING CAN BE SEEN ([[REQ-217]]), or absent where it cannot be.
       // Bound to this session's site here, so no operation takes a slug and no
       // line can address a site the conversation is not about.
@@ -2167,7 +2340,7 @@ async function build(
         ...(context ? [context] : []),
         // The fidelity surface, when this deployment has the browser and the
         // store it needs. No grant travels with it — see `fidelity-core.ts`.
-        ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
+        ...(consultantFidelity ? [{ surface: await fidelitySurfaceFor(lib, consultantFidelity) }] : []),
         // The `image` surface, when this deployment has a renderer to apply a
         // recipe with ([[REQ-219]]). Its grant TRAVELS WITH IT, like the
         // ledger's below and unlike fidelity's, because what a session may do to
@@ -2219,6 +2392,8 @@ async function build(
                   ...countedPlan(deps, slug),
                   // [[REQ-413]] — and the pages and guard `show_client` needs.
                   show: showDeps(slug, deps, grouped),
+                  // [[REQ-415]] — and what has not been looked at since it changed.
+                  unlooked: () => unlookedFor(deps, slug),
                   looks: {
                     choose: async (look: string, choice?: { contentChangesSeen?: boolean }) =>
                       (await editAlternativeChoose(slug, look, { ...opts, ...choice, actor: 'ai', store: deps.store }))
@@ -2289,7 +2464,13 @@ async function build(
               // [[REQ-397]] — the consultant's writes are implicit leases, refused
               // on a file a builder holds; and up to `max_concurrent` builders it
               // commissions in one reply run together where the framework can.
-              tools: toolSet(lib, box, claims ? claims.consultant(sessionIdFor(slug)) : null),
+              // [[REQ-415]] — and a builder's result comes back with the host's look at it.
+              tools: toolSet(
+                lib,
+                box,
+                claims ? claims.consultant(sessionIdFor(slug)) : null,
+                runtime && consultantFidelity ? delegateLooked(hostLook(deps, slug, consultantFidelity)) : null,
+              ),
               ...(runtime ? { maxConcurrentTools: delegation.maxConcurrent } : {}),
               ...webSearchFor(lib),
             }),
@@ -2411,6 +2592,8 @@ async function build(
     plan: deps.plan ? () => deps.plan!(slug).read() : null,
     // [[BUG-230]] — so the plan entry can say the site has no address yet.
     addresses: deps.addresses ? () => deps.addresses!(slug) : null,
+    // [[REQ-415]] — and which pages have not been looked at since they changed.
+    unlooked: deps.plan ? () => unlookedFor(deps, slug) : null,
   })
 
   // KM's two providers, when this host has a corpus. The seam registers and
@@ -2616,6 +2799,8 @@ async function composeCoordinator(
       extraOps: deps.extraOps ?? {},
       measurer: fidelity ? browserMeasurer(fidelity) : null,
       pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
+      // [[REQ-415]] — what a browser finds wrong with a page, on its map.
+      layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
       assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
@@ -4019,6 +4204,8 @@ async function* continuedTurn(
   const meter = spendMeterFor(key)
   meter.reset()
   continuationsLeft.set(key, MAX_CONTINUATIONS)
+  // [[REQ-415]] — what a builder left wrong is owed within the message it was built in.
+  layoutOwed.delete(key)
   let prompt = text
   let turnId = turn
   for (let round = 0; ; round++) {
@@ -4031,7 +4218,13 @@ async function* continuedTurn(
       else yield event
     }
     const again = done !== null && endedOnBudget(done.meta) && promisedContinuation.get(key) === true
-    if (!again) {
+    // [[REQ-415]] — A REPLY THAT ENDS WITH LAYOUT FAULTS ON A PAGE A BUILDER WROTE
+    // IS NOT THE END OF THE BUILD: the host carries it on, on REQ-409's terms —
+    // the same continuations and the same spend ceiling.
+    const owed = owedLayout(key)
+    const unfinished =
+      !again && done !== null && done.meta?.exhausted !== true && done.meta?.status !== 'error' && owed.length > 0 && willContinue(key)
+    if (!again && !unfinished) {
       if (meter.over()) {
         // VISIBLE TO THE OPERATOR, NEVER TO THE CLIENT: the Worker's log.
         console.warn(
@@ -4042,7 +4235,7 @@ async function* continuedTurn(
       return
     }
     continuationsLeft.set(key, (continuationsLeft.get(key) ?? 0) - 1)
-    prompt = continuationCue()
+    prompt = unfinished ? layoutContinuationCue(owed) : continuationCue()
     // Each turn its own spend row; the caller's ledger id keys the first.
     turnId = turn ? `${turn}-continued-${round + 1}` : undefined
   }

@@ -266,10 +266,11 @@
     "site-line": "You are working on the site \"{slug}\". Every tool you have acts on that site and no other.",
     "change-signal": "Your client has changed this site since your last turn \u2014 {changes} change{plural}. Call list_changes with since: {at} to see what moved BEFORE you touch anything, and never write over a change you have not read.",
     "business-line": "You are helping with the business \"{name}\". Everything you can read or change here belongs to that business and to no other.",
+    "layout-continuation-cue": "[The host, not your client: your reply ended while the layout check still finds faults on pages a builder wrote during this request:\n{findings}\nA page with layout faults is not done. Fix them now \u2014 brief a builder with these lines \u2014 and look at the page again once it is fixed. Do not ask the client whether to continue, and do not tell them the page is ready while the check finds anything. Stop and wait only for a decision that is genuinely theirs.]",
     "continuation-cue": "[The host, not your client: your previous reply reached its limit while the work was still in progress, and this is a continuation the host started for you. Your client has not written anything new. Carry on with the same task from where you stopped. Your previous reply ends with a list of what it did, and the change record has the detail. Keep going until your own checks pass. Do not ask the client whether to continue. Stop and wait only for a decision that is genuinely theirs: taste, content or an approval.]",
     "spend-ceiling": "This request has now used everything it may spend. Start no new work and commission no builder: finish this reply by telling your client, in plain words, what is done and what is still to do. Do not mention cost or limits to them.",
     "opening-cue": "[Your client pressed Start on a new conversation and has not written anything yet. Your reply below is the introduction the builder shows every new client: who you are, how the build runs and how the two of you will work. It ends with your first question about their business. Their next message is their answer.]",
-    "interrupted-turn": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Call list_changes before you answer: it says what landed on the site and who landed it, it costs almost nothing, and it is the whole answer to \"what did I already do?\". Pick up from what it tells you rather than from what the conversation says. Take a picture only if what it tells you is genuinely not enough \u2014 recovery is the moment you can least afford it, and looking is the most expensive thing you can do.",
+    "interrupted-turn": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Call list_changes before you answer: it says what landed on the site and who landed it, it costs almost nothing, and it is the whole answer to \"what did I already do?\". Pick up from what it tells you rather than from what the conversation says. It says what landed, not how it looks: before you call any of it finished, take a picture of it.",
     "interrupted-turn-settings": "Your previous turn in this conversation did not finish \u2014 it was stopped, or it failed part-way. Your client may not have seen all of your reply, and anything you had already done is NOT described in the transcript you have just read. Read the record back before you answer \u2014 read_business and read_addresses both cost almost nothing \u2014 and pick up from what they say rather than from what the conversation says.",
     "session-memory": "## Your record of this engagement\n\nWhat you have kept about this conversation, and what you and your client have settled. It is your own record \u2014 not a transcript, and not someone else's summary of you. Read it before you conclude you have lost the thread, and before you go looking at the site to work out what you already did.",
     "session-memory-note": "### Your standing note\n\nAs it stood when this turn began. Complete, and yours to rewrite whenever the shape of the work changes. It is a snapshot and does not move as you work \u2014 a rewrite you make during this turn is kept, and is the note you are given when the next turn begins, so its absence here is not a failed write.",
@@ -761,7 +762,8 @@
         "decision, with the comps that shaped it, and build the first rough cut from it.",
         "Comps also bring up features the client had not thought of, like online booking",
         "or financing; record the ones they want. Work from each comp's written",
-        "description, and take screenshots sparingly, because pictures cost context."
+        "description first, and look at a comp's picture when what you are discussing is",
+        "how it looks rather than what it says."
       ]
     },
     {
@@ -1246,7 +1248,8 @@
         "decision, with the comps that shaped it, and build the first rough cut from it.",
         "Comps also bring up features the client had not thought of, like online booking",
         "or financing; record the ones they want. Work from each comp's written",
-        "description, and take screenshots sparingly, because pictures cost context."
+        "description first, and look at a comp's picture when what you are discussing is",
+        "how it looks rather than what it says."
       ]
     },
     {
@@ -1448,6 +1451,13 @@
         "brief describes an intention; the site is the fact, and when the two disagree it",
         "is the site that is true and the disagreement that belongs in your report.",
         "",
+        "A list of items with prices or other values is built as one row per item, the",
+        "item and its values side by side in that row \u2014 never as a column of names",
+        "beside a column of prices. Columns line up only while every cell is the same",
+        "height, and one empty or wrapped cell slides every name beside the wrong price.",
+        "describe_page's warnings are what a browser finds wrong with a page at desktop",
+        "and phone width; a page you wrote is not finished while it has any.",
+        "",
         "## What you cannot do",
         "",
         "Your tools are the whole of what you can reach. If the brief asks for something",
@@ -1527,6 +1537,13 @@
         "what a tool will accept \u2014 comes from a tool, never from memory or a guess. The",
         "brief describes an intention; the site is the fact, and when the two disagree it",
         "is the site that is true and the disagreement that belongs in your report.",
+        "",
+        "A list of items with prices or other values is built as one row per item, the",
+        "item and its values side by side in that row \u2014 never as a column of names",
+        "beside a column of prices. Columns line up only while every cell is the same",
+        "height, and one empty or wrapped cell slides every name beside the wrong price.",
+        "describe_page's warnings are what a browser finds wrong with a page at desktop",
+        "and phone width; a page you wrote is not finished while it has any.",
         "",
         "## What you cannot do",
         "",

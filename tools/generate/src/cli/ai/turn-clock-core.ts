@@ -83,7 +83,9 @@ const UNTRUSTED_CLOSE = '<<</untrusted>>>'
  * `null`, because making up a result would be worse than leaving it out.
  */
 export function delegationResult(output: unknown): { result: Record<string, unknown>; untrusted: boolean } | null {
-  let result = output
+  // [[REQ-415]] — WITH THE HOST'S LOOK ATTACHED, the output is content blocks and
+  // the builder's result is the first of them, as it was rendered.
+  let result = Array.isArray(output) ? (output[0] as { type?: unknown; text?: unknown } | undefined)?.text : output
   let untrusted = false
   if (typeof result === 'string') {
     let body = result.trim()

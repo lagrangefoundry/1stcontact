@@ -765,6 +765,15 @@ function homePageId(files: PageFile[]): string | null {
 }
 
 /**
+ * [[REQ-415]] — the page a preview path (`/`, `/prices`) serves, by id, or `null`
+ * — resolved exactly as a link to it would be.
+ */
+export function servedPageId(pages: readonly StoredPage[], path: string): string | null {
+  const files = pages as PageFile[]
+  return hrefTargetPage(path, files, homePageId(files))
+}
+
+/**
  * Which pages a reader can actually get to ([[REQ-248]]).
  *
  * REACHABILITY, NOT INCOMING-LINK COUNT. Two pages that link only to each other

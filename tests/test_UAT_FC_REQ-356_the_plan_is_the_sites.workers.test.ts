@@ -114,8 +114,9 @@ describe('REQ-356 — the type is `plan`, and `brief` is gone', () => {
       // `milestones` is [[REQ-379]]'s: what the host has seen of the build;
       // `comps` is [[REQ-378]]'s: the comp board; `public_details` is [[REQ-389]]'s:
       // the contact details the client approved for the site; `stages` is
-      // [[REQ-390]]'s, and replaced `phase`.
-      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'milestones', 'public_details', 'site_key', 'stages', 'tasks'].sort(),
+      // [[REQ-390]]'s, and replaced `phase`; `looked_at` is [[REQ-415]]'s: what the
+      // consultant has looked at, page by page and width by width.
+      ['asks', 'brief', 'checks', 'comps', 'decisions', 'functionality', 'kind', 'looked_at', 'milestones', 'public_details', 'site_key', 'stages', 'tasks'].sort(),
     )
   })
 })

@@ -191,10 +191,13 @@ describe('REQ-284 — looking is priced where the choice is made', () => {
   it('test_UAT_FC_REQ-284_the_screenshot_line_prices_the_call_and_names_the_alternative', () => {
     const line = summaryOf(FIDELITY_DECLARATION, 'screenshot')
 
-    // It costs: the most expensive call available, and the cost does not end
-    // with the turn.
-    expect(line).toMatch(/most expensive/i)
-    expect(line).toMatch(/every turn after this one/i)
+    // It costs context, for a bounded time ([[REQ-415]]: a picture ages out after
+    // two turns, so "you pay for it on every turn" is no longer true) — and it is
+    // how a page is known to look right, so the price is never a reason not to.
+    expect(line).toMatch(/costs context/i)
+    expect(line).toMatch(/next two turns/i)
+    expect(line).toMatch(/looks right/i)
+    expect(line).not.toMatch(/most expensive/i)
     // And the cheap one is named in the same breath, because a session told what
     // things cost but not what to reach for instead has been told half an answer.
     expect(line).toContain('list_changes')
@@ -218,13 +221,16 @@ describe('REQ-284 — looking is priced where the choice is made', () => {
     // invisible at the moment of choosing. These are the lines that survive.
     expect(manual).toContain('**screenshot**')
     expect(manual).toContain('**list_changes**')
-    expect(manual).toMatch(/most expensive/i)
     expect(manual).toMatch(/cheapest answer/i)
 
     // And the surface's own prose prices reading against looking, including the
     // measurement that answers *do these match?* without either picture reaching
-    // the conversation at all.
-    expect(manual).toMatch(/pay for it again on every turn/i)
+    // the conversation at all — without calling looking the most expensive thing
+    // there is, which steered the consultant away from checking builds ([[REQ-415]]).
+    expect(manual).toMatch(/ages out/i)
+    expect(manual).toMatch(/looking at what a builder made is part of the build, not a luxury/i)
+    expect(manual).not.toMatch(/most expensive/i)
+    expect(manual).not.toMatch(/pay for it again on every turn/i)
     expect(manual).toContain('hands back numbers rather than the pictures')
   })
 })
