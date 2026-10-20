@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:22:49.005664+00:00'
+updated_at: '2026-10-20T23:25:48.915107+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10456,5 +10456,14 @@ That puts the pairing in the language: a heading pulls the next text towards it 
 1. **Implicit or explicit pairing?** I've proposed implicit: the pairing comes from the spacing on styles, plus keep-with-next. The alternative is an explicit "titled block" node that builders must create. Explicit is clearer to read, but it's one more structure builders can forget to use. The implicit version applies to every heading automatically, which I think is what you're after.
 2. **Rule or default?** Should the language *forbid* a heading whose space below is greater than or equal to its space above, or make it the default and have REQ-415's layout check flag a violation? I lean towards default plus flag, because there are real designs (eyebrow labels, display headings) that break the rule deliberately.
 3. **Where it goes.** It's L1, in `packages/site-schema` and the renderer here, so it's ours, not the framework's. I'd file one REQ under EPIC-19 (or whichever epic you treat as L1's home), next to REQ-418. The logo-size and heading-spacing layout checks would go in a separate small bug, since they help existing pages straight away.
+
+<!-- xgd-turn id="05a71201-0f6e-4e07-bb75-6eeab0f66831-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T23:25:48.100844+00:00" -->
+#### You
+1. Implicit is fine, if its wrong, the AI can tweak it.
+   
+   2. Default I think - like we said AI can tweak if required
+   3. Correct
 
 <!-- xgd-chat-end -->
