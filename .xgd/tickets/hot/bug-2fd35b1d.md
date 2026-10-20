@@ -6,9 +6,9 @@ title: 'Builder briefs: stop appending the story board to every brief; the consu
   quotes it when a brief needs it'
 created_by: EPIC-20
 created_at: '2026-10-20T03:17:09.479920+00:00'
-updated_at: '2026-10-20T03:35:08.863793+00:00'
+updated_at: '2026-10-20T03:38:44.238913+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -66,3 +66,18 @@ This reverses one line of REQ-408 (`request-214b8e48`): *"Builder briefs: every 
 ## Measure
 
 After it lands, the next comparable session should show no "ignore the story board" lines in briefs and no runs whose only work is restoring invented copy. Read it from the builders' briefs and the change log, as in the EPIC-20 Salon 2 analysis.
+
+## What landed
+
+- `delegate()` in `reportingDelegationToolbox` (`account-core.ts`) appends nothing; the REQ-408 comment is replaced by a [[BUG-233]] one stating the new rule. `WorkerLimits.story` is gone, as are the `story:` option in `host-core.ts` and `storyBrief()` / `STORY_BRIEF_MAX_CHARS` in `story-core.ts` (nothing else used them).
+- `templates/delegation-method` in `priming.json` gains, after the "write the brief for someone who cannot see this conversation" paragraph: *"When a brief asks the builder to write or change words on the site, quote the client's chosen headline and the notes that brief needs, verbatim, and say they are the client's own words — the builder never sees the story board. When it does not, leave the board out: a builder handed the client's sayings writes copy from them, asked or not."*
+- The story-board section of the consultant's priming (both variants) said *"Builders are given both with every brief."* That was now false, so it reads: *"The board is yours: a builder sees the client's words only when you quote them in its brief."*
+
+## Tests as landed
+
+`tests/test_UAT_FC_BUG-233_briefs_carry_no_story_board.workers.test.ts`, through the real `/api/ai/prompt` and `/api/plan/board` routes in workerd. The board is built for real: pin, heart, offer, choose.
+- A brief not about words (resize the logo) reaches the builder with the goal and no headline, hearted note or story-board text, while the consultant is shown the chosen headline on the same turn.
+- A brief that quotes the headline and a note arrives intact, with the headline appearing exactly once.
+- The delegation method has the new rule, and the priming no longer says builders are given the board.
+
+Both delegation cases fail on the pre-change code. `test_UAT_FC_REQ-408_builders_are_briefed_with_the_chosen_headline_and_the_hearted_notes` was removed because the function it tested is gone. Regression scope (36 files across REQ-408/295/296/341/342/343/354/379/397/409/411, BUG-208/225, priming, delegation): 6 failures in REQ-295 and REQ-342. The same 6 fail on the parent commit without this change.
