@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T00:29:34.910896+00:00'
+updated_at: '2026-10-20T03:15:42.682012+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3864,5 +3864,11 @@ BUG-225, under EPIC-19, covers the first two causes: builders limited to the sec
 The story board going into every brief has no ticket. That's the fix I'd make first. Want me to file it?
 
 The full write-up is on EPIC-20.
+
+<!-- xgd-turn id="a9650972-5815-486c-927c-57de40feb534-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T03:15:41.712544+00:00" -->
+#### You
+yes please fix that, lost tokens and totally confusing to the workers
 
 <!-- xgd-chat-end -->
