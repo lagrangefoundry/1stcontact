@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:39:35.437906+00:00'
+updated_at: '2026-10-20T03:46:38.755241+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9891,5 +9891,11 @@ What it changes:
 - **Keep reading as cheap as possible.** BUG-229's small low-detail JPEGs, plus images dropping out of context after two turns, already reduce the cost per look. Removing the look is the wrong saving.
 
 When you're finished with the consultant, shall I file this as one ticket: host-attached screenshot and layout check after every page-writing builder, a check of every page at every width in the final stages, and correcting the screenshot wording?
+
+<!-- xgd-turn id="cbf51dd3-a24f-41d7-83fc-97fc9becec27-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T03:46:37.734122+00:00" -->
+#### You
+Please read the answer to why it didn't notice
 
 <!-- xgd-chat-end -->
