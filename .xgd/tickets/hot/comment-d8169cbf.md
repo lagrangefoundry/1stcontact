@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:27:23.098485+00:00'
+updated_at: '2026-10-20T13:29:05.313664+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9998,5 +9998,67 @@ One thing I discussed and never filed: **the visual-check ticket from the prices
 So the answer to "how do we get it used" is the one we already used: **put it in the priming and have the plan prompt it at the right moments, rather than relying on a lookup.** That rubric covers what makes a site *distinctive*, though. The prices page shows it has nothing about *visual correctness*, which is the visual-check ticket's job. <-- lets do this
 
 Agreed on your tickets but I want to talk a little more about the guidance we give on splitting the work - remember a lot of what we are doing here is to make the AI more of a conversation driver (did we make those prompt changes? The ones about finishing the job and not asking for permission to do stuff that just needs to be done)?
+
+<!-- xgd-turn id="dac77041-b23a-47fa-9f7b-6dbc80e1336b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T13:29:04.593418+00:00" -->
+#### Claude
+Priming tests pass. Committing the rubric addition, then filing the visual-check ticket.
+
+I've filed **REQ-415** and committed the priming change. Then the discussion.
+
+## Done
+
+**REQ-415** (EPIC-19, `draft`, high, 8 points) covers six things:
+1. **Correct the screenshot wording** so it no longer says looking is the most expensive thing the consultant can do, and update REQ-284's tests that check the old wording.
+2. **After every build, the host takes a screenshot** of each changed page at your width and attaches it to the builder's result.
+3. **A mechanical layout check** at desktop and phone width:
+   - content running off the edge;
+   - boxes overlapping, or text clipped;
+   - empty sections;
+   - sections with different edges;
+   - a table built from columns with rows that don't line up.
+
+   A problem it finds means the build isn't done.
+4. **The host records which version of each page** the consultant last looked at, and at which widths.
+5. **Finishing touches and Ready to publish are refused** while any page has changed since it was last looked at on both desktop and phone.
+6. **Price tables are built as rows.**
+
+It quotes your cost model as the basis.
+
+**Priming change, committed as `b174ff6e8e`:** a new **"Does it look right?"** section beside the distinctiveness rubric. Reading the words isn't checking the page. It covers looking at every changed page on desktop and phone before calling it done, especially in the final stages and on pages you haven't been looking at. A builder's checks and the page map's warnings don't count as a look. Then five things to check on screen. The 8 priming test files (73 tests) pass. It reaches dev on the next `bin/deploy --env dev`.
+
+**The "lead, don't ask permission" changes:** yes, they're in. "Leading the build" (`57a266d5e5`, Oct 19) says to finish a whole stage, state the next step and do it, never ask permission for the obvious next step, and keep a checklist of what a novice won't raise. It sits next to REQ-389's "Finish before you hand back". Most of Bob's salon 2 ran before they landed, so **your next run is their first real test.**
+
+## Discovery while the worker builds
+
+Yes, the talker can work on the story board. REQ-210 lets us choose which tools the talker is denied. Story-board pins, themes and headline options are plan writes, not site writes, so we'd allow them. Here's how I'd allocate the tools:
+
+| talker **may** | talker **may not** (the worker's) |
+|---|---|
+| pin notes, group themes, offer headline options | write to the site, start builders |
+| add panel questions, record your answers and facts | choose a look, make looks |
+| add comps and record your likes and dislikes, web search (reviews) | publish, generate images |
+| look at the site (read-only), report progress | move the progress stages |
+
+**The flow that makes this efficient:**
+1. **A short opening.** Ask just enough for a first draft: what the business is, who it's for, the main action, and one or two story details. Then start the build.
+2. **Hand over with a question, not silence.** This is the key point. A talker only answers when you speak, so if the worker's last line is "about 15 minutes", you wait and nothing happens. The announcement before a build should end with the first story question: *"While I build, tell me how the salon started."* Your answer opens the talker, and the interview runs while the build does.
+3. **The talker works through the story areas still missing,** one question at a time. It follows each answer up on a specific detail, pins what you say, and points you at panel questions when the story is covered. Its reminder each exchange lists which areas are still empty, so it knows what to ask next.
+4. **What you said reaches the worker at its next tool call**, with the instruction not to reply. The rule: **new story goes into the next pass, not the build already running,** unless it contradicts something being built ("the shop's on Broadway, not Main Street"). The talker says so: *"That's going into the copy on the next pass."* That stops a mid-build U-turn and keeps the talker from promising changes.
+5. **The worker's final result picks it up:** *"While I built, you told me about Dolores and the Wigs for Kids wall. The next pass puts both on the home page."*
+
+## How to split the work
+
+Discovery during builds changes what goes in each build. The guidance I'd give:
+- **Build the structure and the look first, and write the story-heavy copy last.** The first draft uses only what's already known, with the copy clearly marked as a first version. Section headings and the layout don't depend on the interview, so they can go early. The headline, the about section and the proof wait for what the talker gathers.
+- **Each pass ends with something whole you can react to**, and the next pass is shaped by both your reaction and what the talker gathered meanwhile.
+- **Split each pass into independent sections** so builders run together (REQ-410/411). That shortens the wait, but the wait is also when the interview happens. That's fine: the talker's question list is the limit, not the build time.
+
+## Decisions for you before I write the adoption ticket
+
+1. **Should the talker be allowed to add notes to the story board while a builder is writing that same text?** I'd say yes. The board is background material and never touches the site directly.
+2. **Should the talker be allowed to move the progress stages?** I'd say no. Stages follow the work, which is the worker's.
+3. **Should the first build start sooner,** after the short opening, so the full story interview happens as a talker conversation? That's the biggest change to the method, and I think it's the right one.
 
 <!-- xgd-chat-end -->
