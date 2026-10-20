@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:38:39.240973+00:00'
+updated_at: '2026-10-20T13:39:29.331739+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10070,5 +10070,21 @@ Discovery during builds changes what goes in each build. The guidance I'd give:
 **Should the talker be allowed to add notes to the story board while a builder is writing that same text?** -- yes
 **Should the talker be allowed to move the progress stages?** no - it is only talking the stage is really determined by the work that is being done
 **Should the first build start sooner,** after the short opening, so the full story interview happens as a talker conversation? That's the biggest change to the method, and I think it's the right one. <-- yes I'm excited about this
+
+<!-- xgd-turn id="9d6ccd62-e04e-43cd-a8a4-4b587d19ca64-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T13:39:25.413862+00:00" -->
+#### Claude
+I've filed **REQ-416**, *"Worker and talker: adopt LF REQ-209/210 so discovery happens while the consultant builds"*, under EPIC-19 at `draft`, high priority, 13 points, and linked it from the epic. Your three decisions and the expectations rule are written in as decisions.
+
+What it covers:
+1. **The talker setting.** The talker can't touch the draft or the stages: no site writes, builders, looks, image generation, publishing or `set_stage`. A test fails if any tool that can change the draft or a stage gets through. It can work the story board (including while a builder writes that text), panel questions, facts, comps, web search, and read-only looks at the site. When it refuses, it says so in plain words: *"That's part of the build that's running; I'll pick it up as soon as it's done."*
+2. **REQ-209's status widget and Stop building** replace our own working line, keeping our wording rules ("The consultant is …", no ids). The old code is removed, not kept alongside.
+3. **The talker's job is discovery.** Its reminder lists the story areas still missing and the worker's latest status. New story goes into the next pass, not the running build, unless it contradicts something. The worker ends its announcement before a build with the first story question, because a talker only speaks when you do. The worker's result says what the talker gathered and which pass it goes into.
+4. **A new method:** a short opening, then the first build. Structure and look come first and story-heavy copy last. Each pass ends with something whole you can react to. And your addition: **at every hand-over the consultant says where things are** (which pass, what's still a first version, what's coming) **and what you can change now versus in the next pass.**
+
+I put the method change in this ticket instead of committing it as a prompt-only change now. Starting the first build sooner only works once a talker can carry the interview; without one, it would just shorten discovery.
+
+**For your next run, if you go before REQ-415 and REQ-416 land:** deploy first. You'll get the "leading the build" and "Does it look right?" prompt changes, but no talker yet, so it serves as the baseline. If you want to test the talker experience, wait for REQ-416.
 
 <!-- xgd-chat-end -->
