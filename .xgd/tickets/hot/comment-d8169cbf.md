@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:22:05.399835+00:00'
+updated_at: '2026-10-20T23:22:49.005664+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10416,5 +10416,45 @@ Does the 2–3× ratio match your eye? And would you like those two tickets file
 <!-- xgd-chat role="user" ts="2026-10-20T23:22:04.242759+00:00" -->
 #### You
 I think we need to talk about 3 I think this is a big gap in L1 it should structurally understand this and support the pairing of title and paragraph. OK for the AI to adjust it to meet specific needs but I think we need to bake this in at the language level
+
+<!-- xgd-turn id="f76ebe7e-6ac1-4f9f-91e3-e46dfbbaaf55-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T23:22:47.664646+00:00" -->
+#### Claude
+Agreed, this belongs in the language. And L1 already has most of what it needs: text runs know they're headings and at what level (REQ-269, `heading.level`), and sites have named text styles (REQ-350). **What's missing is any notion of vertical rhythm.** Spacing exists only as the container's single `gapPx`, so the language can't tell a heading attached to its paragraph from one floating between two blocks.
+
+## The design I'd propose
+
+**1. A rhythm unit for the site.** One base spacing unit, typically about the body text's line height, set alongside the type system and allowed to differ by width, so phone rhythm is tighter than desktop.
+
+**2. Text styles carry their own space.** Each named style gains `spaceAbove` and `spaceBelow`, measured in rhythm units, typed and bounded like every other axis. Defaults come from heading level:
+
+| | above | below |
+|---|---|---|
+| H1 | 3 | 0.75 |
+| H2 | 2.5 | 0.5 |
+| H3 | 2 | 0.5 |
+| Body paragraph | 0 | 1 |
+
+That puts the pairing in the language: a heading pulls the next text towards it and pushes the previous block away. **Every heading on every page gets it, without anyone remembering.**
+
+**3. Stacks space by rhythm.** A stack's spacing mode becomes `rhythm` (or keeps today's uniform `gap` for card grids, image rows and buttons). In rhythm mode, the space between two neighbours is the **larger of** the first one's space below and the second one's space above, which is how typesetting has always worked. So heading → paragraph is tight, and paragraph → next heading is generous, because the heading's space above wins. The first child's space above is dropped at the top of a container, so section padding still controls the edge. Text-led stacks use rhythm by default.
+
+**4. The AI can adjust it, locally.** A node can override its space above or below, in units, for a specific need such as a hero headline sitting tight under an eyebrow line. Changing the style changes every use; an override changes one.
+
+**5. Keep-with-next.** Headings are kept with the content they introduce when a layout reflows (columns stacking on a phone, a card breaking). The renderer also emits the semantic grouping, so a screen reader hears the heading and its text as one unit.
+
+## What it touches beyond the schema
+
+- **Validator and renderer:** spacing becomes collapsed margins between neighbours, not CSS `gap`. Everything is still structured, with no raw CSS.
+- **Capture and fold:** when we reproduce a reference site, the fold has to *read* its rhythm, meaning the spacing above and below headings and paragraphs, and put it into the styles. Otherwise reproductions lose it. That's real work, and it matters for the round-trip guarantee.
+- **Builders and the consultant:** taught to use rhythm stacks for text and to set spacing on styles, not per node.
+- **Existing pages** keep `gapPx` and render exactly as now. They switch to rhythm when next restyled.
+
+## Three decisions for you
+
+1. **Implicit or explicit pairing?** I've proposed implicit: the pairing comes from the spacing on styles, plus keep-with-next. The alternative is an explicit "titled block" node that builders must create. Explicit is clearer to read, but it's one more structure builders can forget to use. The implicit version applies to every heading automatically, which I think is what you're after.
+2. **Rule or default?** Should the language *forbid* a heading whose space below is greater than or equal to its space above, or make it the default and have REQ-415's layout check flag a violation? I lean towards default plus flag, because there are real designs (eyebrow labels, display headings) that break the rule deliberately.
+3. **Where it goes.** It's L1, in `packages/site-schema` and the renderer here, so it's ours, not the framework's. I'd file one REQ under EPIC-19 (or whichever epic you treat as L1's home), next to REQ-418. The logo-size and heading-spacing layout checks would go in a separate small bug, since they help existing pages straight away.
 
 <!-- xgd-chat-end -->
