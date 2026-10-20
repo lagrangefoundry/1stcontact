@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T03:15:42.682012+00:00'
+updated_at: '2026-10-20T03:17:35.732576+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3870,5 +3870,28 @@ The full write-up is on EPIC-20.
 <!-- xgd-chat role="user" ts="2026-10-20T03:15:41.712544+00:00" -->
 #### You
 yes please fix that, lost tokens and totally confusing to the workers
+
+<!-- xgd-turn id="a9650972-5815-486c-927c-57de40feb534-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T03:17:35.484234+00:00" -->
+#### Claude
+Found the cause: every brief gets a block that tells the builder to "write the copy from these". Checking what the consultant's priming says about it, then filing the ticket.
+
+Priming says nothing about it, so the append is the only route. Writing the ticket.
+
+Filed as BUG-233. Linking it to EPIC-20.
+
+I've filed **BUG-233** under EPIC-20 (draft, high priority). It's ready for a session to pick up; I haven't written the code, because this session plans the epic and leaves the coding to its child tickets.
+
+**The cause.** On every delegation, the host adds the client's story board to the end of the brief. That block ends with *"write the copy from these and add no claim they did not make"*. So a builder sent to resize the logo or change only the header is also told to write copy, and some of them did.
+
+**The fix in the ticket:**
+- **The host stops adding the board to briefs.** The builder gets exactly the brief the consultant wrote. The code that did the appending is deleted, with no switch to turn it back on.
+- **The consultant decides when the client's words belong in a brief.** It already sees the board every turn. Its delegation guidance gets one rule: when a brief asks for words to be written or changed on the site, quote the headline and the relevant notes word for word, and say they are the client's own; otherwise leave the board out.
+- **The story board itself is unchanged**: its pane, the consultant's board tools and the per-turn notice stay as they are. Only what builders receive changes.
+
+**It reverses one line of REQ-408**, the decision to append the board to every brief. REQ-408 has already been handed to reconcile, which locks its text, so BUG-233 states that it supersedes that line. The checks that pin the old behaviour are to be updated in the same change.
+
+**How we'll know it worked:** in the next comparable build, no brief should need an "ignore the story board" line, and no builder should spend a run putting back copy another builder invented. In Bob's Salon 2, 17 briefs carried that line and 4 runs were nothing but that repair.
 
 <!-- xgd-chat-end -->
