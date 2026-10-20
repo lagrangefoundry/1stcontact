@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-c5d6f79a
 ---
 
 ## What changes (operator, 2026-10-20)
