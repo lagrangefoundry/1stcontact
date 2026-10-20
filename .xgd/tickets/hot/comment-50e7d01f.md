@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T03:17:35.732576+00:00'
+updated_at: '2026-10-20T21:19:29.852077+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3893,5 +3893,13 @@ I've filed **BUG-233** under EPIC-20 (draft, high priority). It's ready for a se
 **It reverses one line of REQ-408**, the decision to append the board to every brief. REQ-408 has already been handed to reconcile, which locks its text, so BUG-233 states that it supersedes that line. The checks that pin the old behaviour are to be updated in the same change.
 
 **How we'll know it worked:** in the next comparable build, no brief should need an "ignore the story board" line, and no builder should spend a run putting back copy another builder invented. In Bob's Salon 2, 17 briefs carried that line and 4 runs were nothing but that repair.
+
+<!-- xgd-turn id="e68e4f51-b78f-4a98-a3b0-a0374af18651-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T21:19:29.557429+00:00" -->
+#### You
+Ok the talker is going a great job of making me talk but at this point I'm starting to wonder if its overdoing it - that's not a request for a change, its the start of a conversation.
+
+Take a look at the transcript. How much patience will a client have for what appears to be chit chat? Its hard for me because I'm trying to role play this
 
 <!-- xgd-chat-end -->
