@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:55:59.455828+00:00'
+updated_at: '2026-10-20T21:56:40.890052+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3954,5 +3954,69 @@ There are a few things that I think it should weigh:
 I think the talker should close out discovery - with some open question like: Is there anything else you want to tell me about your Salon, Bob, that would help us to make the site unique and appealing? <-- a question like that would have triggered the wigs for kids story that got lost in the last discovery round.
 
 Once its closed can we move on to talk about the site, points of style, dig into the comps etc.? What are the questions that would cause the consultant to take a different direction?
+
+<!-- xgd-turn id="d17a8c8e-859e-4fb2-bbe3-b9133328962e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T21:56:38.748736+00:00" -->
+#### Claude
+Before answering, I'll check how the consultant's priming currently decides when "Getting to know you" is finished.
+
+Your three tests are the right ones. I found why the consultant keeps going, and it's in its instructions, not its judgement.
+
+## Why it doesn't stop
+
+The priming has a finish line for "Getting to know you": the consultant can sum up the business in two sentences, including what's true of Bob that isn't true of the salon down the street, and Bob agrees. In this session that was met by about 18:55. But nothing says "once it's met, stop collecting." Instead, a separate rule fires on every turn:
+
+> *"When you start a build… end the same message with your first story question… most of the story is heard while the builds run… never hand over in silence."*
+
+So whenever a build is running, which was most of the evening, the consultant is told to end with a story question. It's following orders. That's why Twee, the couch and the big chop kept coming, even after "No idea".
+
+Comps have the same problem in a smaller way. The finish line is "they have reacted to real sites… and you can name the direction they chose." Your one message met it, so the consultant played your reactions back and moved on. Nothing asks it to push back or dig in.
+
+## Your three tests, made concrete
+
+1. **Is the client losing interest?** Short answers, "don't know", answering a different question, or switching to page feedback all mean stop on that topic. Two in a row means discovery is over.
+2. **Do we have enough?** The finish line already defines it. Once it's met, a new note only earns its place if it's the kind of thing that would change the headline, a section, or the proof. Another detail about a team member doesn't move the needle.
+3. **What else should we ask about?** This is where the time should go once the story is done. More below.
+
+## The close-out
+
+Your question is exactly right, and I'd add one thing to it: summarise first, then ask. Something like:
+
+> *"Here's what I've got: a salon built on one sentence from a hairdresser on Broadway — long hair is long hair — run like a family business, priced by length, with three hundred kids' photos on the wall. Is there anything else about the salon that would make the site more you? If not, let's turn to how it looks."*
+
+The summary does two jobs. It shows Bob he's been heard, which is what makes him willing to have answered all those questions. It also gives him something to correct, which is often where the gold comes from. And it's a clear end, so the next questions feel like a new phase rather than more of the same.
+
+## After discovery: questions that change direction
+
+The difference from discovery questions is that each one's answer changes what gets built. Some examples:
+
+**Who the site is for, and what it must do**
+- "Who's the client you most want more of?" (Nervous first-timers, long-hair men, parents of donors? It changes the home page.)
+- "When someone finds you on their phone, what's the one thing they should do?" (Call, find you, see prices.)
+- "What do new clients usually ask before booking?" (That's the FAQ and the order of the page.)
+
+**The comps, with actual back and forth**
+- Ask about the trade-offs your reactions point to. You liked Sofie James's "style consistency" and disliked it being "a little scrappy"; you liked Commune's stylists with personality. "So polished, but with people at the centre. Which matters more if they pull against each other?"
+- "Abstrakt puts pricing by length front and centre. Do you want prices on the home page, or one click away?"
+- Point out what each comp does that Bob's site doesn't yet, and ask if he wants it: Drybar's video, Commune's stylist pages.
+
+**Look and feel**
+- "Should the site feel like the tiled floor or the saggy couch?" (Posh, or lived-in? It sets the type and colours.)
+- "Is there a salon, shop or brand anywhere whose feel you'd love?"
+- "Your logo is gold and black. Should the site follow it, or should the logo be the one bold thing?"
+
+**Things only the consultant would know to raise**
+- "Do you want separate pages for each service, or one page?"
+- "Should each stylist have their own section people can book with?"
+- "What should someone see in the first screen on a phone?"
+
+The pattern for after discovery: one question per turn at most, tied to a specific decision, and only when the client isn't already giving feedback on the page.
+
+## What it would take
+
+This is mostly priming changes, plus probably one change to the plan stages: discovery gets an explicit close-out step, and the build-time "always end with a story question" rule is replaced. While a build runs after discovery is closed, the consultant asks one of these direction questions, or nothing at all.
+
+It's prose, not code, so it doesn't need the full ticket process. Do you want me to draft the priming changes for you to look at, or talk through the shape more first?
 
 <!-- xgd-chat-end -->
