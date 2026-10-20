@@ -5,10 +5,10 @@ type: bug
 title: 'Working line: say "The consultant is …", not "Your consultant is …"'
 created_by: EPIC-19
 created_at: '2026-10-20T03:31:07.784947+00:00'
-updated_at: '2026-10-20T03:31:07.784947+00:00'
+updated_at: '2026-10-20T03:35:08.659356+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: low
   priority: medium
