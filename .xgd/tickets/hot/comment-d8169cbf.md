@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:34:17.562722+00:00'
+updated_at: '2026-10-20T03:35:02.616907+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9843,5 +9843,28 @@ When I point it out the consultant can fix it.
 The question is - why do I have to point it out? 
 
 Its still working
+
+<!-- xgd-turn id="7b29d0d0-03d8-4751-928a-74a5115a48b8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T03:35:01.978012+00:00" -->
+#### Claude
+Short answer: the consultant is told to look at its own work, but it's told much more firmly that looking is expensive. And nothing forces it to look.
+
+**The rule is already in its instructions.** REQ-389's "Finish before you hand back" says *"Look at the result yourself, and fix what is visibly wrong in the same turn."* So this isn't missing guidance. It's the same failure as Finding 13: advice that only works if the consultant remembers to act on it.
+
+**Four things push the other way:**
+1. **Looking is priced as the worst thing it can do.** REQ-284 put *"Looking is the most expensive thing you do, and you pay for it again on every turn"* into the screenshot tool's description, and the comps section says *"take screenshots sparingly."* REQ-168 later made images expire after two turns, so that pricing is now overstated, and the fix for it was never filed. So the consultant leans towards not looking.
+2. **It trusts the builder's report.** The builder says its checks passed, and BUG-225 showed builders answer checks from what they believe rather than from the page. A report saying everything passed reads as done.
+3. **What it does see every turn is text.** The page digest lists sections and assets. A broken layout is fine in a digest; you only see it's broken in a picture.
+4. **It may have looked at the wrong width.** If it took a desktop screenshot and you're viewing between the tablet and desktop layouts, a broken pricing grid at your width goes unseen. REQ-388 is meant to cover this, but it only helps if the consultant actually looks.
+
+**The fix is for the host to do the looking, not the consultant.** After any builder session that writes a page, the host would:
+- **Take the screenshot itself** at the width you're viewing, and attach it to the builder's result. The consultant then can't avoid seeing what was built.
+- **Run a quick layout check** in the same browser render, and add any problems to the result as text. It would look for content running off the edge, boxes overlapping, clipped text, empty or collapsed sections, and a grid whose columns don't line up. That's cheap, objective, and works without anyone remembering to do it.
+- **Treat a problem it finds as not done.** The consultant fixes it in the same turn before handing back, which uses REQ-409's continuation when that lands.
+
+And correct the screenshot pricing so it says what's true now: about two turns' worth of cost, and worth paying after a build.
+
+When you're done with the consultant, I'll file that as one ticket. If you can, ask the consultant in that conversation why it didn't look at the pricing page before handing back. Its answer will tell us which of the four causes did it.
 
 <!-- xgd-chat-end -->
