@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T14:35:02.230950+00:00'
+updated_at: '2026-10-20T15:38:52.638367+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10137,5 +10137,13 @@ I've filed **REQ-417**, *"Opening experience: centred story-board message, clear
 All three strings are in `apps/control-app/src/builder/config.js`, beside the other builder wording. The REQ-408 story-pane tests that check the old wording get updated.
 
 It's small and touches only builder text and layout, so it shouldn't conflict with REQ-415 or REQ-416 and can land before or alongside them.
+
+<!-- xgd-turn id="01c9595e-3fb2-4b9b-91eb-60b679b21fad-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T15:38:52.369613+00:00" -->
+#### You
+I'm about to start the next website iteration.
+
+Can you review the changes that we have made please and make sure that they are complete and consistent based on what we discussed. Particularly the talker/worker implementation and the emphasis changes to the prompts
 
 <!-- xgd-chat-end -->
