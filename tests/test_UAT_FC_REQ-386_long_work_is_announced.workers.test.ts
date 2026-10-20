@@ -125,13 +125,14 @@ describe('REQ-386 — slow work is announced before it runs, with a rough durati
     const firstBad = out.frames[callAt(out.frames, 'capture_site', 0)]
     expect(String(firstBad.meta?.output)).toMatch(/^Error:/)
 
-    // [[BUG-215]] — EACH SLOW CALL IS A STEP NOTE, not a line of the consultant's:
-    // announced before it runs, with the 5-minute estimate, and a retry says which attempt.
-    const steps = out.frames.filter((f) => f.kind === 'working')
-    expect(steps.map((f) => [f.meta?.scope, f.meta?.doing, f.meta?.estimate])).toEqual([
-      ['step', `Capturing ${BAD_URL}`, 'about 5 min'],
-      ['step', `Capturing ${BAD_URL} again (attempt 2; the last try failed)`, 'about 5 min'],
-      ['step', `Capturing ${GOOD_URL}`, 'about 5 min'],
+    // [[BUG-215]] — EACH SLOW CALL IS A STATUS, not a line of the consultant's:
+    // announced before it runs, with the 5-minute estimate, and a retry says which
+    // attempt. [[REQ-416]] — the status widget's `progress` frame, estimate in seconds.
+    const steps = out.frames.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
+    expect(steps.map((f) => [f.content, f.meta?.eta_s])).toEqual([
+      [`The consultant is capturing ${BAD_URL}`, 300],
+      [`The consultant is capturing ${BAD_URL} again (attempt 2; the last try failed)`, 300],
+      [`The consultant is capturing ${GOOD_URL}`, 300],
     ])
     const at = (i: number) => out.frames.indexOf(steps[i])
     expect(at(0)).toBeLessThan(callAt(out.frames, 'capture_site', 0))

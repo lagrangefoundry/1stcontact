@@ -119,7 +119,7 @@ describe('BUG-205 — the working line names no one', () => {
       'Look at this site.',
       scriptedClient([calls('capture_site', { url: BAD_URL }), says('That one is private.')]),
     )
-    const working = stream.filter((f) => f.kind === 'working')
+    const working = stream.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
     expect(working).toHaveLength(1)
     expect(working[0].content).toBe(`The consultant is capturing ${BAD_URL}`)
     for (const name of [NAMES.consultant, NAMES.coordinator]) expect(working[0].content).not.toContain(name)
@@ -130,7 +130,7 @@ describe('BUG-205 — the working line names no one', () => {
     expect(switched.status).toBe(200)
     const { site } = await seedTenantSite(BUSINESS, { slug: nextSlug('bug205room') })
     const stream = await prompt(site, 'Look at this site.', roomClient())
-    const working = stream.filter((f) => f.kind === 'working')
+    const working = stream.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
     expect(working.length).toBeGreaterThan(0)
     expect(working[0].content).toBe(`${NAMES.consultant} is capturing ${BAD_URL}`)
     expect(working[0].content).not.toContain('Your consultant')

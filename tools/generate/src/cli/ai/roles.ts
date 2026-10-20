@@ -47,7 +47,9 @@ import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
-import { nearPublishing, planReminder, type Plan } from './plan-core'
+import { nearPublishing, planPanel, planReminder, type Plan } from './plan-core'
+import { missingStoryAreas } from './story-core'
+import talkerDocument from './talker.json'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
 
@@ -703,6 +705,37 @@ export const PAGE_DIGEST_PROVIDER = 'site.digest'
 export const SITE_PLAN_PROVIDER = 'site.plan'
 
 /**
+ * [[REQ-416]] — the talker's per-exchange reminder: its job is discovery. Renders
+ * only on a talker round, which the host knows and the framework's reminder
+ * context does not say, so the binding answers it.
+ */
+export const TALKER_REMINDER_PROVIDER = 'talker.discovery'
+
+/**
+ * [[REQ-416]] — the consultant's talker setting (lagrange-framework REQ-210), from
+ * `talker.json`: what the talker may not run, and what it says instead.
+ */
+export const TALKER_WITHHOLD: readonly string[] = talkerDocument.withhold
+export const TALKER_ALLOW: readonly string[] = talkerDocument.allow
+export const TALKER_REFUSAL: string = talkerDocument.refusal
+
+/**
+ * [[REQ-416]] — what the talker is told each exchange: the story areas the board
+ * has nothing on yet, and the panel questions still open.
+ */
+export function talkerDiscovery(plan: Plan | null): string {
+  const fields = (plan?.fields ?? {}) as Parameters<typeof missingStoryAreas>[0]
+  const missing = missingStoryAreas(fields).map((a) => a.label)
+  const open = plan ? planPanel(plan.fields).asks.open.length : 0
+  return fill(template('talker-discovery'), {
+    areas: missing.length
+      ? fill(template('talker-areas-missing'), { areas: missing.join('; ') })
+      : template('talker-areas-covered'),
+    asks: open > 0 ? fill(template('talker-open-asks'), { count: open, plural: open === 1 ? '' : 's' }) : '',
+  })
+}
+
+/**
  * The names the plan panel's answers are reached under ([[REQ-364]]): one per role,
  * because each member hears them on its own cursor and the registry is shared.
  */
@@ -1007,6 +1040,12 @@ export function registerSiteProviders(
     parallel?: number
     /** The framework's group-member framing, where this business runs a room ([[REQ-357]]). */
     room?: string | null
+    /**
+     * [[REQ-416]] — whether the round being assembled is a talker's. Read late,
+     * like the signal: the host knows it opened one, and the framework's reminder
+     * context does not say. Absent is never.
+     */
+    talking?: (() => boolean) | null
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
@@ -1034,6 +1073,16 @@ export function registerSiteProviders(
   providers.register(PAGE_DIGEST_PROVIDER, async () =>
     binding.digest ? pageDigest(await binding.digest(), binding.signal()?.view ?? null) : null,
   )
+  // [[REQ-416]] — SILENT EXCEPT ON A TALKER ROUND. A plan that cannot be read
+  // still says the job, with no list.
+  providers.register(TALKER_REMINDER_PROVIDER, async () => {
+    if (!binding.talking?.()) return null
+    try {
+      return talkerDiscovery(binding.plan ? await binding.plan() : null)
+    } catch {
+      return talkerDiscovery(null)
+    }
+  })
   // [[REQ-356]] — REGISTERED EITHER WAY for the digest's reason. A plan that
   // cannot be read is silence rather than a failed turn: the plan makes a turn
   // better, it is not what makes one possible.
@@ -1709,7 +1758,13 @@ export function delegationReminder(
  */
 export function consultantRole(lib: Untyped, providers: Untyped, withCorpus: boolean): Untyped {
   const roles = lib.rolesFromMapping(
-    { roles: { [CONSULTANT_ROLE]: primingConfig(withCorpus) } },
+    {
+      roles: {
+        // [[REQ-416]] — and a talker setting: a message the client writes while the
+        // consultant builds is answered by a talker beside the build.
+        [CONSULTANT_ROLE]: { ...primingConfig(withCorpus), talker: { withhold: [...TALKER_WITHHOLD], refusal: TALKER_REFUSAL } },
+      },
+    },
     { providers },
   )
   return roles[CONSULTANT_ROLE]

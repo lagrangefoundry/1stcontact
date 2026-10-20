@@ -97,10 +97,16 @@ function frameReader(response: Response): { next(): Promise<Frame | null>; drain
   return { next, drain }
 }
 
+/**
+ * A heartbeat: the host's `progress`, not the consultant's own status line
+ * ([[REQ-416]] — that one rides the same kind, written by the model's side).
+ */
+const isHeartbeat = (f: Frame): boolean => f.kind === 'progress' && f.meta?.source === 'host'
+
 /** Read frames until `count` heartbeats have arrived. Answers everything read. */
 async function untilHeartbeats(reader: ReturnType<typeof frameReader>, count: number): Promise<Frame[]> {
   const seen: Frame[] = []
-  while (seen.filter((f) => f.kind === 'progress').length < count) {
+  while (seen.filter(isHeartbeat).length < count) {
     const frame = await reader.next()
     if (!frame) throw new Error(`the stream ended after ${seen.length} frames without ${count} heartbeats`)
     seen.push(frame)
@@ -181,14 +187,14 @@ describe('REQ-360 — the build heartbeat reaches the client', () => {
     client.release()
     const frames = [...during, ...(await turn.drain())]
 
-    const beats = frames.filter((f) => f.kind === 'progress')
+    const beats = frames.filter(isHeartbeat)
     expect(beats.length).toBeGreaterThanOrEqual(3)
     for (const beat of beats) {
       expect(beat.content).toMatch(HEARTBEAT)
       expect(typeof beat.meta?.elapsed_s).toBe('number')
     }
     // EVERY ONE AHEAD OF THE HAND-OFF'S RESULT, and the turn still ends normally.
-    const lastBeat = frames.map((f) => f.kind).lastIndexOf('progress')
+    const lastBeat = frames.map(isHeartbeat).lastIndexOf(true)
     const handedBack = frames.findIndex((f) => f.kind === 'tool_activity' && f.meta?.name === 'Delegate')
     expect(handedBack).toBeGreaterThan(lastBeat)
     expect(frames.filter((f) => f.kind === 'text').map((f) => f.content).join('')).toContain('The home page is built.')
@@ -226,7 +232,7 @@ describe('REQ-360 — the build heartbeat reaches the client', () => {
     const painted = (await (await post('/api/ai/session', { site: key })).json()) as { cursor: number }
     const tail = frameReader(await post('/api/ai/reattach', { sessionId, cursor: painted.cursor }))
     const rejoined = await untilHeartbeats(tail, 1)
-    expect(rejoined.at(-1)?.content).toMatch(HEARTBEAT)
+    expect(rejoined.filter(isHeartbeat).at(-1)?.content).toMatch(HEARTBEAT)
 
     client.release()
     const rest = await tail.drain()
@@ -243,7 +249,7 @@ describe('REQ-360 — the build heartbeat reaches the client', () => {
     setModelClient(client)
     const frames = await frameReader(await post('/api/ai/prompt', { sessionId, text: 'Build my site.' })).drain()
     expect(frames.some((f) => f.kind === 'tool_activity' && f.meta?.name === 'Delegate')).toBe(true)
-    expect(frames.filter((f) => f.kind === 'progress')).toEqual([])
+    expect(frames.filter(isHeartbeat)).toEqual([])
   })
 })
 
@@ -269,6 +275,6 @@ describe('REQ-360 — the cadence is configuration', () => {
     client.release()
     const frames = await turn.drain()
     expect(frames.some((f) => f.kind === 'tool_activity' && f.meta?.name === 'Delegate')).toBe(true)
-    expect(frames.filter((f) => f.kind === 'progress')).toEqual([])
+    expect(frames.filter(isHeartbeat)).toEqual([])
   })
 })

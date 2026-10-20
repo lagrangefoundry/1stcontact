@@ -944,18 +944,6 @@ export const PLAN_STAGES_TITLE = 'Progress'
 export const PLAN_STAGE_STATE = { not_started: 'Not started', in_progress: 'In progress', done: 'Done', skipped: 'Skipped' }
 
 /**
- * The working line beside the composer ([[REQ-390]]): what it says with no note
- * from the host, and how the elapsed time is put.
- */
-export const WORKING_IDLE = 'Working'
-export const WORKING_SO_FAR = (elapsed) => `${elapsed} so far`
-/**
- * [[BUG-215]] — the working line's step half, and a step line in the conversation
- * that has happened `n` times running.
- */
-export const WORKING_NOW = (doing) => `now: ${doing}`
-export const STEP_REPEATED = (doing, n) => `${doing} ×${n}`
-/**
  * [[REQ-379]] — the line under the phase: how many open asks are left for the
  * client. Withdrawn and skipped asks are not counted.
  */
@@ -1079,7 +1067,7 @@ export const LOOKS_CURRENT_DESCRIPTION = 'Your page as it stands now.'
 /**
  * "Tell the consultant" — not "your consultant", and do not "fix" it back. The
  * operator chose "the consultant" for this line ([[REQ-402]]), and for the
- * working line too ([[BUG-234]]).
+ * status beside the composer too ([[BUG-234]], [[REQ-416]]).
  */
 export const LOOKS_TELL_CONSULTANT = 'Tell the consultant which look you prefer, and why.'
 export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'

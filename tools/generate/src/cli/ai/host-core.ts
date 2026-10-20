@@ -200,7 +200,7 @@ import {
 } from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { ALREADY_SWITCHED, busyReason, type ShowDeps, type ShowPage } from './show-core'
-import { PROGRESS, progressEvent, withProgress } from './progress-core'
+import { PROGRESS, progressEvent, TalkerFrames, withProgress, type Beside } from './progress-core'
 import { concurrentSupported, draftClaims, scopeSupported } from './lease-core'
 
 /**
@@ -294,20 +294,6 @@ export const BUSINESS_CHANGED = 'business_changed'
  * is how many landed since the previous signal.
  */
 export const PLAN_CHANGED = 'plan_changed'
-
-/**
- * [[REQ-390]] — the site host's event kind for "this is the slow thing under way".
- *
- * WHAT THE WORKING LINE BESIDE THE COMPOSER SAYS. The cadence wrapper announces a
- * slow call in the conversation; this carries the same moment as data, so the
- * builder can show *"<consultant> is building your home page · about 5 min · 2:14 so far"*
- * without reading the assistant's prose. `content` is the line's words, the
- * consultant's name included (from `group-chat.json`, never a constant);
- * `meta.estimate` is there when the operation has one. [[BUG-215]] — `meta.scope`
- * says whether the note is the turn's (`turn`) or one step's (`step`), and
- * `meta.doing` is the note's own words without the name.
- */
-export const WORKING = 'working'
 
 /**
  * The settings host's event kind for "we have just changed the client's domain"
@@ -433,6 +419,13 @@ export interface ChatSession {
    * Absent on any conversation that has ever had a turn.
    */
   opening?: boolean
+  /**
+   * [[REQ-416]] — a message written while the consultant works is answered by a
+   * talker beside the work (lagrange-framework REQ-210), so the panel's composer
+   * sends rather than interposing or queueing. Absent where it is not — the
+   * settings assistant, a room.
+   */
+  talker?: boolean
 }
 
 /**
@@ -547,12 +540,35 @@ export interface ClientInbox {
   take(sessionId: string, ids?: readonly string[]): Promise<WaitingMessage[]>
   /** What is waiting, oldest first. A pure read. */
   read(sessionId: string): Promise<WaitingMessage[]>
+  /**
+   * [[REQ-416]] — the client pressed Stop: keep the request for the isolate
+   * running the turn, for the inbox's own reason. `turnId` names a talker's reply
+   * to stop; `null` stops whatever is working — during a build, the build.
+   */
+  stop(sessionId: string, turnId: string | null): Promise<void>
+  /** [[REQ-416]] — remove and return the stop requests kept, oldest first. */
+  takeStops(sessionId: string): Promise<StopRequest[]>
+}
+
+/** [[REQ-416]] — a Stop the client pressed, waiting for the turn's isolate. */
+export interface StopRequest {
+  turn: string | null
+  at: string
 }
 
 /** An inbox in this process's memory — for a host with one process (the `1c` CLI). */
 export function memoryInbox(now: () => string = () => new Date().toISOString()): ClientInbox {
   const held = new Map<string, WaitingMessage[]>()
+  const stops = new Map<string, StopRequest[]>()
   return {
+    async stop(sessionId, turnId) {
+      stops.set(sessionId, [...(stops.get(sessionId) ?? []), { turn: turnId, at: now() }])
+    },
+    async takeStops(sessionId) {
+      const taken = stops.get(sessionId) ?? []
+      stops.delete(sessionId)
+      return taken
+    },
     async post(sessionId, text) {
       const message = { id: newId('msg'), text, at: now() }
       held.set(sessionId, [...(held.get(sessionId) ?? []), message])
@@ -1313,7 +1329,7 @@ export function aiOptions(
  * A host without plans has neither, and the status line goes without the count.
  */
 function cadenceHooks(deps: HostDeps, slug: string): CadenceHooks {
-  // [[REQ-390]] — THE WORKING LINE NEEDS NO PLAN: it is about the turn, not the site.
+  // [[REQ-390]] — THE STATUS NEEDS NO PLAN: it is about the turn, not the site.
   const working = (note: WorkingNote): void => {
     const key = managerKey(slug, deps)
     workingNotes.set(key, { seq: (workingNotes.get(key)?.seq ?? 0) + 1, note })
@@ -2310,7 +2326,10 @@ async function build(
         },
       ),
     // [[BUG-224]] — so what the client writes mid-turn reaches the next call.
-    betweenCalls(lib),
+    // [[REQ-416]] — and so a round can be forked: the client's message opens a
+    // talker beside the build (lagrange-framework REQ-210); and stopped: Stop
+    // building ends the round rather than only the client's view of it.
+    betweenCalls(lib, { talker: true }),
   )
 
   // -- priming, as configuration (REQ-182; DOC-22) ---------------------------
@@ -2350,6 +2369,8 @@ async function build(
     slug,
     box,
     signal: () => signals.get(key),
+    // [[REQ-416]] — whether the round being assembled is a talker's.
+    talking: () => talking(sessionIdFor(slug)),
     // [[REQ-295]] — WHETHER THE CONSULTANT IS TOLD HOW TO HAND WORK OVER, which
     // is the same question as whether it was given the tool. With the switch off
     // the entry renders nothing, so the prompt is byte-for-byte what this host
@@ -3625,6 +3646,7 @@ export async function openSession(
     ...lost,
     ...(await waitingFor(deps, sessionId)),
     ...(fresh ? { opening: true } : {}),
+    ...((await manager.talker(sessionId)) ? { talker: true } : {}),
   }
 }
 
@@ -3697,10 +3719,15 @@ export async function openBusinessSession(
  * the manager only hands a round the messages interposed into it when the
  * backend declares this. Every other capability stays off — they change what
  * the manager sends, and declaring them is a separate decision from this one.
+ *
+ * [[REQ-416]] — THE CONSULTANT'S DECLARES TWO MORE, together: `fork`, so a message
+ * written while it works opens a talker beside the work (lagrange-framework
+ * REQ-210), and `interrupt`, so Stop building ends the round rather than only the
+ * client's view of it.
  */
-function betweenCalls(lib: Untyped): Untyped {
+function betweenCalls(lib: Untyped, { talker = false }: { talker?: boolean } = {}): Untyped {
   const none = Object.fromEntries(Object.keys(lib.ClaudeAPIBackend.capabilities).map((k) => [k, false]))
-  return Object.freeze({ ...none, injectBetweenCalls: true })
+  return Object.freeze({ ...none, injectBetweenCalls: true, ...(talker ? { fork: true, interrupt: true } : {}) })
 }
 
 /**
@@ -3750,6 +3777,114 @@ async function deliverWaiting(manager: Untyped, sessionId: string, deps: HostDep
     return
   }
   for (const message of taken) manager.interpose(sessionId, message.text)
+}
+
+/**
+ * [[REQ-416]] — how often the turn's isolate looks for a message or a Stop the
+ * client sent. Each look is one read of the session's chat ticket, so this is
+ * slower than the junction poll it rides: a client waits at most this long for
+ * the talker to start answering.
+ */
+export const INBOX_POLL_MS = 2_000
+
+/** [[REQ-416]] — who wrote a `progress` record: the consultant's own words. */
+const PROGRESS_MODEL = 'model'
+
+/**
+ * [[REQ-416]] — the talker rounds opening or running in this isolate, by session.
+ * What the talker's reminder provider asks: a round assembled while one is, is a
+ * talker's (the worker assembled its own before the fork).
+ */
+const talkerRounds = new Map<string, number>()
+
+/** [[REQ-416]] — whether a talker round is opening or running for this session. */
+export function talking(sessionId: string): boolean {
+  return (talkerRounds.get(sessionId) ?? 0) > 0
+}
+
+/**
+ * [[REQ-416]] — whether the consultant's round in this isolate can be forked
+ * right now: it is running, and it is not closing.
+ *
+ * The framework keeps the fork in the manager that runs the worker
+ * (lagrange-framework REQ-210), and `startTurn` QUEUES a message on the junction
+ * when there is none — a queue this host never drains, because its turns run
+ * through `promptStream`. So the message is only handed over when there is a
+ * worker to open a talker beside, and otherwise stays in the inbox, where the
+ * panel runs it as the next prompt.
+ */
+function forkable(manager: Untyped, sessionId: string): boolean {
+  const fork = manager._forks?.get(sessionId)
+  return fork !== undefined && !fork.closing
+}
+
+/**
+ * [[REQ-416]] — what the consultant's turn does beside its stream: take the
+ * client's waiting messages and answer each with a talker round, and act on the
+ * Stops the client pressed. See `progress-core.ts`'s {@link withProgress}.
+ *
+ * A MESSAGE IS TAKEN ONLY ONCE ITS TALKER HAS OPENED. Read, handed to
+ * `startTurn`, and retired from the inbox only if it went to a talker; one that
+ * did not stays waiting and runs as the next prompt, as before.
+ *
+ * NEVER THROWS: a store that cannot answer leaves everything where it was, for
+ * the next poll.
+ */
+function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps): Beside {
+  const talkers = new TalkerFrames()
+  const running: Promise<void>[] = []
+  let looked = 0
+  // A STOP PRESSED BEFORE THIS TURN BEGAN was for a turn that is over.
+  const since = new Date().toISOString()
+  return {
+    talkers,
+    async tick() {
+      if (!deps.inbox || Date.now() - looked < INBOX_POLL_MS) return
+      looked = Date.now()
+      try {
+        for (const stop of await deps.inbox.takeStops(sessionId)) {
+          if (stop.at >= since) manager.requestStop(sessionId, stop.turn)
+        }
+        for (const message of await deps.inbox.read(sessionId)) {
+          if (!forkable(manager, sessionId)) return
+          talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 0) + 1)
+          let started: { turnId: string; queued: boolean; talker: boolean; done: Promise<void> }
+          try {
+            started = await manager.startTurn(sessionId, message.text, { timeout: TURN_TIMEOUT_SECONDS })
+          } catch {
+            talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
+            return
+          }
+          const ends = () => {
+            talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
+          }
+          if (started.queued) {
+            ends()
+            return
+          }
+          talkers.follow(started.turnId, message.id)
+          running.push(started.done.then(ends, ends))
+          await deps.inbox.take(sessionId, [message.id])
+        }
+      } catch {
+        // Left where it was: the next poll looks again.
+      }
+    },
+    settle: async () => {
+      await Promise.all(running)
+    },
+  }
+}
+
+/**
+ * [[REQ-416]] — keep a Stop the client pressed for the isolate running the turn.
+ * `turnId` names a talker's reply; `null` stops whatever is working.
+ */
+export async function stopTurn(sessionId: string, turnId: string | null, deps: HostDeps): Promise<void> {
+  if (!deps.inbox) throw new Error('this host cannot take a Stop while a turn is running')
+  const known = businessForSession(sessionId, deps) ?? (await siteForSession(sessionId, deps))
+  if (!known) throw new UnknownSessionError(sessionId)
+  await deps.inbox.stop(sessionId, turnId)
 }
 
 /**
@@ -4073,7 +4208,7 @@ async function* siteTurn(
   deps: HostDeps,
   turn?: string,
   view?: ClientView | null,
-  // [[BUG-205]] — who the working line names: no one in a one-to-one
+  // [[BUG-205]] — who the status names: no one in a one-to-one
   // conversation (DOC-66), the member by its display name in a room.
   who: string = WORKING_UNNAMED,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
@@ -4175,10 +4310,16 @@ async function* siteTurn(
     // parked inside a `Delegate` call for the whole build; the framework's
     // `progress` records go to the junction, and this is what reads them back
     // onto the stream the client is actually holding. See `progress-core.ts`.
+    // [[REQ-416]] — AND, IN A ONE-TO-ONE CONVERSATION, THE TALKER BESIDE IT: the
+    // client's messages are taken from the inbox while the turn runs and answered
+    // by a talker round in this isolate, whose reply rides this same stream.
+    const talks = role === CONSULTANT_ROLE && who === WORKING_UNNAMED
+    const beside = talks ? talkerDesk(manager, sessionId, deps) : null
     const events = withProgress(
       manager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
       manager.logFor(sessionId),
       manager.pollIntervalMs,
+      beside,
     )
     for await (const event of events) {
       // WHAT BECAME OF THE TURN, taken off the library's terminal event
@@ -4199,31 +4340,31 @@ async function* siteTurn(
       yield withoutImageData(event)
       // [[REQ-390]] — RIGHT BEHIND THE ANNOUNCEMENT the wrapper yielded, which is
       // the event that carried the note here. A Map read, so free on every event.
+      // [[REQ-416]] — RECORDED AS THE ROUND'S STATUS, not sent as a frame of its
+      // own: the junction's `progress` record is what the status widget shows
+      // (the poll above puts it on this stream) and what a talker is told when the
+      // client asks how it is going.
       const working = workingNotes.get(planKey)
       if (working && working.seq > workingSeen) {
         workingSeen = working.seq
-        // [[BUG-215]] — SCOPED, so the working line times the turn and the step
-        // separately; `doing` is the step's own words for the chat's step line.
-        const { doing, estimate, scope } = working.note
-        yield {
-          kind: WORKING,
-          content: workingText(who, doing),
-          meta: { scope, doing, ...(estimate ? { estimate } : {}) },
-        }
+        const { doing, minutes } = working.note
+        manager.progress(sessionId, workingText(who, doing), { source: PROGRESS_MODEL, etaS: (minutes ?? 0) * 60 })
       }
-      // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
-      // write. A turn that answers a question makes no extra read at all, and a
-      // turn that writes makes one primary-key lookup per call it made.
-      if (event.kind !== TOOL_ACTIVITY) continue
-      // [[BUG-224]] — what the client wrote meanwhile goes into the next call.
-      await deliverWaiting(manager, sessionId, deps)
-      // [[REQ-364]] — THE PLAN FIRST, and a Map read: it costs nothing on a turn
-      // that never touched the plan.
+      // [[REQ-364]] — THE PLAN, on every event and not only after the turn's own
+      // tool activity: a talker's story-board note lands while the worker is
+      // parked in a build ([[REQ-416]]). A Map read, so it costs nothing.
       const planned = planWrites.get(planKey) ?? 0
       if (planned > planSeen) {
         yield { kind: PLAN_CHANGED, content: '', meta: { at: planned, changes: planned - planSeen } }
         planSeen = planned
       }
+      // ONLY AFTER TOOL ACTIVITY, which is the only thing in a turn that can
+      // write. A turn that answers a question makes no extra read at all, and a
+      // turn that writes makes one primary-key lookup per call it made.
+      if (event.kind !== TOOL_ACTIVITY) continue
+      // [[BUG-224]] — what the client wrote meanwhile goes into the next call,
+      // where there is no talker to answer it (a room member's round).
+      if (!talks) await deliverWaiting(manager, sessionId, deps)
       const now = await store.counter(slug)
       if (now <= seen) continue
       const changes = now - seen
@@ -4805,10 +4946,20 @@ export async function* tailSession(
   const manager = business
     ? await managerForBusiness(business, deps)
     : await managerFor(slug as string, opts, deps, await groupChatOn(deps))
+  // [[REQ-416]] — A TALKER'S ROUND IS ITS OWN: drawn as one, and its end is not
+  // the end of the turn being rejoined.
+  const talkers = new TalkerFrames()
   for await (const record of manager.watch(sessionId, { cursor })) {
     const kind = String(record.kind)
+    const talker = talkers.frame(record)
+    if (talker) {
+      yield talker
+      continue
+    }
     if (kind === 'delta') {
-      yield { kind: TEXT, content: String(record.content ?? '') }
+      // [[REQ-416]] — the worker's prose after a talker opened stays marked, so the
+      // panel holds it as the live stream does.
+      yield { kind: TEXT, content: String(record.content ?? ''), ...(record.forked ? { meta: { forked: true } } : {}) }
     } else if (kind === 'tool') {
       // Through the same scrubber a live turn's tool activity goes through
       // (REQ-157): a replayed `screenshot` result carries the identical base64,
@@ -4942,6 +5093,7 @@ export function resetAiHost(): void {
   businessWrites.clear()
   planWrites.clear()
   workingNotes.clear()
+  talkerRounds.clear()
   clientShows.clear()
   spendMeters.clear()
   continuationsLeft.clear()

@@ -22,6 +22,7 @@
  * replaces a choice.
  */
 import { ledgerError } from './ledger-core'
+import planSeed from './plan-seed.json'
 
 /** The code a write that breaks a board rule is refused under (the plan's own). */
 const INVALID = 'PLAN_INVALID'
@@ -53,6 +54,18 @@ export const MAX_HEADLINE_CHARS = 140
 export const MIN_OPTIONS = 2
 export const MAX_OPTIONS = 3
 
+/**
+ * [[REQ-416]] — the parts a small business's story usually has, from the plan
+ * seed. A note may name the one it belongs to; an area with no live note is a
+ * question not yet asked.
+ */
+export interface StoryArea {
+  id: string
+  label: string
+}
+export const STORY_AREAS: readonly StoryArea[] = planSeed.story_areas
+const AREA_IDS: readonly string[] = STORY_AREAS.map((a) => a.id)
+
 export interface StoryTheme {
   id: string
   name: string
@@ -69,6 +82,8 @@ export interface StoryNote {
   /** One emoji saying what the note is about; the consultant chooses it. */
   emoji?: string
   theme: string
+  /** [[REQ-416]] — which of {@link STORY_AREAS} the note belongs to, when it fits one. */
+  area?: string
   /** The sentence the note was taken from, shown on hover. */
   quote?: string
   by: string
@@ -185,6 +200,7 @@ export function checkBoard(board: StoryBoard | undefined, bad: (message: string)
     if (!(NOTE_AUTHORS as readonly string[]).includes(n.by)) bad(`note ${n.id} has unknown author ${JSON.stringify(n.by)}`)
     if (n.by === 'consultant' && !filled(n.quote)) bad(`note ${n.id} is pinned without the sentence it came from`)
     if (n.emoji !== undefined && !isOneEmoji(n.emoji)) bad(`note ${n.id} has ${JSON.stringify(n.emoji)} as its emoji; it takes exactly one`)
+    if (n.area !== undefined && !AREA_IDS.includes(n.area)) bad(`note ${n.id} is in story area ${JSON.stringify(n.area)}; the areas are ${AREA_IDS.join(', ')}`)
     if (n.reaction !== undefined && !(REACTIONS as readonly string[]).includes(n.reaction)) {
       bad(`note ${n.id} has unknown reaction ${JSON.stringify(n.reaction)}`)
     }
@@ -355,6 +371,10 @@ export function boardOperations(
           if (!quote) throw refuse(INVALID, `"${text}" needs the sentence the client said it in, as quote`)
           if (!isOneEmoji(n?.emoji)) throw refuse(INVALID, `"${text}" needs exactly one emoji saying what it is about`)
           if (!themeRef) throw refuse(INVALID, `"${text}" needs a theme`)
+          const area = str(n?.area)
+          if (area !== undefined && !AREA_IDS.includes(area)) {
+            throw refuse(INVALID, `"${text}" names story area ${JSON.stringify(area)}; the areas are ${AREA_IDS.join(', ')}`)
+          }
           // A THEME NAMED AND NOT YET ON THE BOARD IS STARTED BY PINNING TO IT.
           const theme = themeNamed(board, themeRef) ?? addTheme(board, themeRef)
           const note: StoryNote = {
@@ -363,6 +383,7 @@ export function boardOperations(
             emoji: String(n.emoji).trim(),
             theme: theme.id,
             quote,
+            ...(area ? { area } : {}),
             by: 'consultant',
             pinned_at: at,
           }
@@ -579,6 +600,15 @@ export function boardFinishGaps(fields: HasBoard): string[] {
   const h = board.headline
   if (headlineState(h) === 'empty' && (h.passed ?? []).length === 0) gaps.push('no headline offered')
   return gaps
+}
+
+/**
+ * [[REQ-416]] — the story areas the board holds no live note for, in the seed's
+ * order: what the talker asks about next while a build runs.
+ */
+export function missingStoryAreas(fields: HasBoard): StoryArea[] {
+  const covered = new Set(liveNotes(boardOf(fields)).map((n) => n.area).filter(Boolean))
+  return STORY_AREAS.filter((a) => !covered.has(a.id))
 }
 
 /** The board as one line of the per-turn plan entry. */

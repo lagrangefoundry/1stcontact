@@ -329,17 +329,17 @@ export function createAttachmentTray({
    * exactly as the composer would take it, the attachment lines are added below
    * it, and the whole goes through the chat's own `send` — or, while a turn runs,
    * its `interpose` (or `queue`), so [[BUG-224]]'s handling applies to it as to
-   * any message. A box with nothing in it is enough: attachments alone are a
+   * any message — or, where the consultant has a talker, its `talk` ([[REQ-416]]). A box with nothing in it is enough: attachments alone are a
    * message. With no chip waiting nothing here acts, and the composer is its own.
    *
    * A TEXT OVER THE BOUND IS LEFT TO THE COMPOSER, which refuses it in its own
    * words ([[REQ-309]]) and keeps it in the box; the chips stay for the retry.
    *
    * @param {object} chat  the `mountChat` controller
-   * @param {{interposes?: boolean}} [opts]
+   * @param {{interposes?: boolean, talks?: boolean}} [opts]
    * @returns {() => void} unbind
    */
-  function bind(chat, { interposes = false } = {}) {
+  function bind(chat, { interposes = false, talks = false } = {}) {
     const bar = chat.element.querySelector('.chat-widget-input-bar')
     if (!bar) return () => {}
     bar.before(element)
@@ -353,6 +353,7 @@ export function createAttachmentTray({
         const message = [text.trim(), ...lines].filter(Boolean).join('\n\n')
         if (!message) return
         if (!chat.isBusy()) return chat.send(message)
+        if (talks) return chat.talk(message)
         return interposes ? chat.interpose(message) : chat.queue(message)
       })
       return true

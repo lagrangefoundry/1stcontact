@@ -442,7 +442,7 @@
       "summary": "Pin things the client said onto the story board, as sticky notes.",
       "description": "One or more notes, each the client's own words: reworded at most so it reads as a note (person, tense, unneeded words), never with a claim, fact or adjective added. Each needs the sentence it came from (`quote`), one emoji saying what it is about (e.g. 💇 the work, 👪 people, 💬 something a customer said, 📍 the place) and a theme; naming a theme the board does not have yet starts it. Afterwards tell the client in one line, e.g. \"I've put four of your sayings on the story board — heart the ones that are most you, and thumbs-down anything that's off.\"",
       "params": {
-        "notes": { "type": "story_notes", "required": true, "description": "The notes, each `{\"text\": ..., \"quote\": ..., \"emoji\": ..., \"theme\": ...}` — `quote` the client's original sentence, `theme` a theme's name or id." }
+        "notes": { "type": "story_notes", "required": true, "description": "The notes, each `{\"text\": ..., \"quote\": ..., \"emoji\": ..., \"theme\": ..., \"area\": ...}` — `quote` the client's original sentence, `theme` a theme's name or id, and `area` the part of their story it tells when it fits one: `beginning` (how it started), `craft` (the signature thing), `people`, `customers`, `community` (what they do for others), `refusals` (what they won't do) or `proud_moment`." }
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]

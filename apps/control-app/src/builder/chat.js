@@ -55,15 +55,11 @@ import {
   CHAT_OVER_LONG_MESSAGE,
   CHAT_START,
   CHAT_START_FAILED,
-  STEP_REPEATED,
-  WORKING_IDLE,
-  WORKING_NOW,
-  WORKING_SO_FAR,
 } from './config.js'
 import {
   interposeChatMessage,
   openChatConversation,
-  stopChatExchange,
+  stopChat,
   streamChatPrompt,
   streamChatReattach,
 } from './api.js'
@@ -121,16 +117,21 @@ const BUSINESS_CHANGED = 'business_changed'
 const DNS_CHANGED = 'dns_changed'
 
 /**
- * The host's event kind for "the build is still going" ([[REQ-360]]). Its meaning
- * is `progress-core.ts`'s `PROGRESS`; this is the same string on the client's side
- * of the wire.
- *
- * [[BUG-215]] — IT SHOWS NOTHING. The heartbeat keeps a long build's stream alive
- * and the working line is already counting; its words were the framework's
- * plumbing (a worker id, the files it held, a UTC time) and the client never sees
- * them. It stops at {@link withWorkingLine} and goes no further.
+ * The host's event kind for a round's status ([[REQ-360]], [[REQ-416]]). Its
+ * meaning is `progress-core.ts`'s `PROGRESS`; this is the same string on the
+ * client's side of the wire. `webui-chat`'s status widget (lagrange-framework
+ * REQ-209) draws it — "The consultant is building …", the time and Stop building
+ * — and reads its fields off the frame itself, so {@link talkDesk} lifts them out
+ * of `meta`.
  */
 const PROGRESS = 'progress'
+
+/**
+ * `progress-core.ts`'s `TALKER` ([[REQ-416]]): a talker round's records, carried on
+ * the stream of the work it was opened beside. `meta.event` is `start`, `text` or
+ * `done`.
+ */
+const TALKER = 'talker'
 
 /**
  * Pass a turn through, telling the host each time it reports a write (BUG-43,
@@ -185,93 +186,158 @@ async function* watchForWrites(events, told) {
 }
 
 /**
- * `host-core.ts`'s `WORKING` ([[REQ-390]]): the slow operation under way, in the
- * words the working line shows.
- */
-const WORKING = 'working'
-
-/** The working line's class, for `builder.css` and the tests ([[REQ-390]]). */
-export const WORKING_LINE_CLASS = 'builder-chat-working'
-
-/** [[BUG-215]] — the working line's two halves: the turn, and the step under way. */
-export const WORKING_TURN_CLASS = 'builder-chat-working__turn'
-export const WORKING_STEP_CLASS = 'builder-chat-working__step'
-
-/** [[BUG-215]] — a step line in the conversation: lighter than a message. */
-export const STEP_LINE_CLASS = 'builder-chat-step'
-
-/** An elapsed time as the working line counts it: `0:42`, `12:05`, `1:02:09`. */
-export function elapsedText(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = String(total % 60).padStart(2, '0')
-  return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
-}
-
-/**
- * The working line's turn half ([[REQ-390]], [[BUG-215]]): *"<consultant> is
- * building your home page · about 5 min · 2:14 so far"*, or *"Working · 0:42 so far"*
- * with no announcement. `note` is the TURN's note and `elapsedMs` the turn's
- * clock — a step's estimate never appears here.
- */
-export function workingLineText(note, elapsedMs) {
-  return [note?.content || WORKING_IDLE, note?.meta?.estimate, WORKING_SO_FAR(elapsedText(elapsedMs))]
-    .filter(Boolean)
-    .join(' · ')
-}
-
-/** A step's words as they read after "now:" — "Taking …" becomes "taking …". */
-function stepWords(note) {
-  const doing = String(note?.meta?.doing || note?.content || '')
-  return /^[A-Z][a-z]+ing\b/.test(doing) ? `${doing[0].toLowerCase()}${doing.slice(1)}` : doing
-}
-
-/**
- * The working line's step half ([[BUG-215]]): *"now: taking a screenshot · about
- * 1 min · 0:12"* — the step's own estimate beside the step's own clock.
- */
-export function stepLineText(note, elapsedMs) {
-  return [WORKING_NOW(stepWords(note)), note?.meta?.estimate, elapsedText(elapsedMs)].filter(Boolean).join(' · ')
-}
-
-/**
- * Pass a turn through, with the working line up for as long as it runs
- * ([[REQ-390]]).
+ * [[REQ-416]] — the client's messages to the talker, and the replies to them.
  *
- * MOVEMENT, NOT JUST A STOP BUTTON. Before this the red stop button was the only
- * sign the consultant was busy. The line sits beside the composer from the turn's
- * first moment to its last, counting up, and says what is under way whenever the
- * host has said so — each `working` frame replacing the last. The frame goes no
- * further: `webui-chat` has no use for it.
+ * WHILE THE CONSULTANT WORKS, A MESSAGE IS ANSWERED BESIDE THE WORK
+ * (lagrange-framework REQ-210). `webui-chat`'s composer sends it through
+ * `sendPrompt`, which hands it here: the origin keeps it (`/api/ai/interpose`),
+ * the isolate running the work opens a talker for it, and the talker's reply comes
+ * back on THAT turn's stream — the only place it can, because the talker lives
+ * where the work does. {@link wrap} takes the reply off the work's stream and
+ * {@link talk} streams it into the message's bubble.
  *
- * [[BUG-215]] — TWO CLOCKS, NOT ONE. The turn half keeps the announcement that
- * opened the turn, with its estimate, against the turn's clock; a `step` note
- * replaces only the "now:" half beneath it, timed from when that step began, and
- * adds a light step line to the conversation (a repeat of the same step bumps its
- * count instead). So "about 1 min" is never set beside sixteen minutes of turn.
+ * A MESSAGE THE WORK ENDED BEFORE TAKING is not lost: when no stream of work is
+ * left open it runs as the next prompt, naming its id so the origin retires it,
+ * and that turn streams into the same bubble.
  *
- * DOWN WHEN THE TURN ENDS BY ANY ROAD — `done`, a lost stream, a thrown one —
- * because a line claiming work is under way, left over a turn that is not, is a
- * worse lie than the silence it replaced.
+ * `onBusy` is told when the first stream of work opens and the last one closes,
+ * which is what animates the plan panel's current stage.
  */
-async function* withWorkingLine(events, line) {
-  line.start()
-  try {
-    for await (const event of events) {
-      if (event?.kind === WORKING) {
-        line.note(event)
-        continue
-      }
-      // [[BUG-215]] — the heartbeat keeps the turn alive and shows nothing.
-      if (event?.kind === PROGRESS) continue
-      // The consultant spoke: the next step starts a fresh step line.
-      if (event?.kind === 'text' && event.content) line.spoke()
-      if (event?.kind === 'done') line.stop()
-      yield event
+function talkDesk({ transport, onBusy, told }) {
+  /** Streams of work open in this panel: each one may carry a talker's reply. */
+  let open = 0
+  /** Messages sent to the talker, each waiting for its reply. */
+  const waiting = []
+  /** [[BUG-224]] — messages the origin already holds, by text, adopted rather than re-sent. */
+  let adopted = new Map()
+
+  const wake = (entry) => {
+    const next = entry.wake
+    entry.wake = null
+    next?.()
+  }
+  const busy = (on) => {
+    try {
+      onBusy(on)
+    } catch {
+      // The plan panel's spinner is not the turn's business.
     }
-  } finally {
-    line.stop()
+  }
+  /** The waiting message a talker frame answers: by id, else the first by its words. */
+  function entryFor(meta) {
+    if (meta.message_id) {
+      const byId = waiting.find((e) => e.id === meta.message_id)
+      if (byId) return byId
+    }
+    if (meta.turn_id) {
+      const byTurn = waiting.find((e) => e.turnId === meta.turn_id)
+      if (byTurn) return byTurn
+    }
+    if (meta.event !== 'start') return null
+    const said = String(meta.said ?? '').trim()
+    return waiting.find((e) => e.turnId === '' && e.wire.trim() === said) ?? null
+  }
+  function route(event) {
+    const meta = event.meta ?? {}
+    const entry = entryFor(meta)
+    if (!entry) return
+    if (meta.event === 'start') {
+      entry.turnId = String(meta.turn_id ?? '')
+      entry.frames.push({ kind: 'turn_start', turn_id: entry.turnId })
+    } else if (meta.event === 'text') {
+      entry.frames.push({ kind: 'text', content: event.content ?? '' })
+    } else if (meta.event === 'done') {
+      entry.frames.push({ kind: 'done', meta: { status: meta.status } })
+    }
+    wake(entry)
+  }
+
+  /**
+   * A stream of work, with the talker's frames taken off it and the status
+   * widget's fields lifted out of `meta`. Its own `done` is held until the stream
+   * really ends, because a talker reply can still arrive after the work's result.
+   */
+  function wrap(events) {
+    // COUNTED WHEN WRAPPED, not when first read: a message adopted on a reload is
+    // handed to the talker in the same tick the rejoin is set up, before its
+    // stream has been pulled once.
+    open += 1
+    if (open === 1) busy(true)
+    return unwrapped(events)
+  }
+  async function* unwrapped(events) {
+    let done = null
+    try {
+      for await (const event of events) {
+        if (event?.kind === TALKER) {
+          route(event)
+          continue
+        }
+        if (event?.kind === PROGRESS) {
+          yield { ...event, ...(event.meta ?? {}) }
+          continue
+        }
+        if (event?.kind === 'done') {
+          done = event
+          continue
+        }
+        yield event
+      }
+    } finally {
+      open -= 1
+      if (open === 0) {
+        busy(false)
+        for (const entry of waiting) if (entry.turnId === '') wake(entry)
+      }
+    }
+    if (done) yield done
+  }
+
+  /**
+   * One message to the talker, as the stream of its reply. `wire` is what is sent;
+   * the reply is drawn by `webui-chat` into the bubble under the message.
+   */
+  async function* talk(sessionId, text, wire, promptView) {
+    const entry = { id: '', wire, turnId: '', frames: [], wake: null }
+    waiting.push(entry)
+    try {
+      const held = adopted.get(text.trim())
+      if (held !== undefined) adopted.delete(text.trim())
+      entry.id = held ?? (await transport.interpose(sessionId, wire))
+      for (;;) {
+        while (entry.frames.length > 0) {
+          const frame = entry.frames.shift()
+          yield frame
+          if (frame.kind === 'done') return
+        }
+        if (entry.turnId === '' && open === 0) {
+          // NOTHING LEFT TO OPEN A TALKER: the next prompt, naming the message.
+          for await (const event of watchForWrites(
+            wrap(transport.streamPrompt(sessionId, wire, promptView(), [entry.id])),
+            told,
+          )) {
+            yield event
+          }
+          return
+        }
+        await new Promise((resolve) => {
+          entry.wake = resolve
+        })
+      }
+    } finally {
+      waiting.splice(waiting.indexOf(entry), 1)
+    }
+  }
+
+  return {
+    wrap,
+    talk,
+    /** Whether a stream of work is open, so a message now goes to the talker. */
+    isOpen: () => open > 0,
+    /** [[BUG-224]] — the messages the origin is holding, for a fresh paint. */
+    adopt(messages) {
+      adopted = new Map(messages.map((m) => [m.text.trim(), m.id]))
+    },
   }
 }
 
@@ -473,12 +539,8 @@ const RECOVERY_CHASES = 3
  * @param {(meta: {href: string, label: string}) => void} [options.onShow]
  *   [[REQ-413]] — the consultant switched the client's view during the turn.
  * @param {(busy: boolean) => void} [options.onBusy]
- *   [[REQ-390]] — a turn started running, or stopped: the working line went up or
- *   came down.
- * @param {() => number} [options.now] the working line's clock ([[REQ-390]]).
- * @param {(fn: () => void, ms: number) => () => void} [options.every]
- *   how the working line ticks, answering how to stop it. Seams for tests, as
- *   `wait` is.
+ *   [[REQ-390]] — the consultant started working, or stopped ([[REQ-416]]: the
+ *   first stream of work opened, or the last one closed).
  * @param {(markdown: string) => string} [options.expandPrompt]
  *   REQ-210 — the last thing that happens to a draft before it becomes a turn.
  *
@@ -531,7 +593,7 @@ export function createChatPanel(options = {}) {
       streamPrompt: streamChatPrompt,
       streamReattach: streamChatReattach,
       openConversation: openChatConversation,
-      stopExchange: stopChatExchange,
+      stop: stopChat,
       interpose: interposeChatMessage,
     },
     onSiteChanged = () => {},
@@ -542,11 +604,6 @@ export function createChatPanel(options = {}) {
     onTurnEnd = () => {},
     onShow = () => {},
     onBusy = () => {},
-    now = () => Date.now(),
-    every = (fn, ms) => {
-      const id = setInterval(fn, ms)
-      return () => clearInterval(id)
-    },
     expandPrompt = (markdown) => markdown,
     promptView = () => null,
     onImageClick = null,
@@ -617,110 +674,8 @@ export function createChatPanel(options = {}) {
   let unbindAttachments = null
   const undecorate = attachments?.decorate(element) ?? null
 
-  /**
-   * The working line ([[REQ-390]]) — see {@link withWorkingLine}.
-   *
-   * IMMEDIATELY ABOVE THE COMPOSER, which is where the stop button the client is
-   * looking at already is. It ticks once a second off `now`, and tells the host
-   * the conversation is busy (`onBusy`) as it goes up and comes down, which is
-   * what animates the plan panel's current stage.
-   */
-  const workingLine = {
-    el: null,
-    turnEl: null,
-    stepEl: null,
-    since: 0,
-    turn: null,
-    step: null,
-    stepSince: 0,
-    /** The step line last added to the conversation, while a repeat would join it. */
-    logged: null,
-    cancel: null,
-    paint() {
-      if (!this.el) return
-      const t = now()
-      this.turnEl.textContent = workingLineText(this.turn, t - this.since)
-      if (!this.step) return
-      if (!this.stepEl) {
-        this.stepEl = document.createElement('div')
-        this.stepEl.className = WORKING_STEP_CLASS
-        this.el.append(this.stepEl)
-      }
-      this.stepEl.textContent = stepLineText(this.step, t - this.stepSince)
-    },
-    start() {
-      if (this.cancel) return
-      this.since = now()
-      this.turn = null
-      this.step = null
-      this.logged = null
-      this.el = document.createElement('div')
-      this.el.className = WORKING_LINE_CLASS
-      this.el.setAttribute('role', 'status')
-      this.turnEl = document.createElement('div')
-      this.turnEl.className = WORKING_TURN_CLASS
-      this.el.append(this.turnEl)
-      const bar = element.querySelector('.chat-widget-input-bar')
-      if (bar) bar.before(this.el)
-      else element.append(this.el)
-      this.paint()
-      this.cancel = every(() => this.paint(), 1000)
-      try {
-        onBusy(true)
-      } catch {
-        // The plan panel's spinner is not the turn's business.
-      }
-    },
-    note(event) {
-      const note = { content: String(event.content ?? ''), meta: event.meta ?? {} }
-      if (note.meta.scope === 'step') {
-        this.step = note
-        this.stepSince = now()
-        this.log(String(note.meta.doing || note.content))
-      } else {
-        this.turn = note
-      }
-      this.paint()
-    },
-    /**
-     * [[BUG-215]] — a step, as one light line in the conversation; the same step
-     * again, with nothing said between, is the same line with a count.
-     */
-    log(text) {
-      const messages = element.querySelector('.chat-widget-messages')
-      if (!messages || text === '') return
-      const last = this.logged
-      if (last && last.text === text && last.el.isConnected) {
-        last.count += 1
-        last.el.textContent = STEP_REPEATED(text, last.count)
-        return
-      }
-      const el = document.createElement('div')
-      el.className = STEP_LINE_CLASS
-      el.textContent = text
-      messages.append(el)
-      el.scrollIntoView?.({ block: 'nearest' })
-      this.logged = { el, text, count: 1 }
-    },
-    spoke() {
-      this.logged = null
-    },
-    stop() {
-      if (!this.cancel) return
-      this.cancel()
-      this.cancel = null
-      this.el?.remove()
-      this.el = null
-      this.turnEl = null
-      this.stepEl = null
-      this.logged = null
-      try {
-        onBusy(false)
-      } catch {
-        // As above.
-      }
-    },
-  }
+  /** [[REQ-416]] — the talker's messages and replies; see {@link talkDesk}. */
+  const desk = talkDesk({ transport, onBusy, told })
 
   /**
    * Whether a lost turn is currently being chased, and how many times this
@@ -1100,6 +1055,10 @@ export function createChatPanel(options = {}) {
     // The waiting ids the next prompt delivers, when it is run to deliver them.
     let delivering = []
     const interposes = typeof transport.interpose === 'function'
+    // [[REQ-416]] — A CONSULTANT WITH A TALKER: while she works, ▶ and Enter send
+    // to the talker beside the work, and Stop building stops the work alone.
+    const talks = session.talker === true && interposes
+    if (talks) desk.adopt(waiting)
     chat = mountChat(element, {
       // KEYED ON THE CONVERSATION, NOT THE WIRE ID. This is also the composer's
       // draft key, so a half-typed message stays with the business it was typed
@@ -1123,11 +1082,15 @@ export function createChatPanel(options = {}) {
       overLongText: CHAT_OVER_LONG_MESSAGE,
       ...(storage ? { storage } : {}),
       // [[BUG-224]] — WHILE A TURN RUNS, ▶ AND ENTER INTERPOSE: the message goes
-      // to the origin and reaches the consultant at her next tool call. Queue
-      // stays on the hold menu.
-      ...(interposes ? { turnModes: { interpose: true } } : {}),
+      // to the origin and reaches the assistant at its next tool call. Queue
+      // stays on the hold menu. [[REQ-416]] — the consultant TALKS instead.
+      ...(talks ? { turnModes: { talk: true } } : interposes ? { turnModes: { interpose: true } } : {}),
       sendPrompt: (text, opts) => {
         const wire = expandPrompt(text)
+        // [[REQ-416]] — WRITTEN WHILE SHE WORKS: to the talker, whose reply comes
+        // back on the work's own stream. The origin keeps the message, so it is
+        // not remembered here.
+        if (talks && desk.isOpen()) return desk.talk(id, text, wire, promptView)
         // A MESSAGE THAT MISSED ITS TURN comes back here naming its id, and the
         // origin retires it so it is not delivered into this turn a second time.
         const fromMessages =
@@ -1142,10 +1105,7 @@ export function createChatPanel(options = {}) {
         // answering it with an exhausted budget would make one bad minute
         // permanent for the life of the page.
         chases = 0
-        return watchForWrites(
-          withWorkingLine(transport.streamPrompt(id, wire, promptView(), fromMessages), workingLine),
-          told,
-        )
+        return watchForWrites(desk.wrap(transport.streamPrompt(id, wire, promptView(), fromMessages)), told)
       },
       // THE STREAM STOPPED WITHOUT ENDING THE TURN ([[BUG-123]]). `webui-chat`
       // has kept the bubble, marked it, and declined to offer a resend, because
@@ -1160,7 +1120,13 @@ export function createChatPanel(options = {}) {
       // the answer is its id, which the delivery is matched by. A refusal leaves
       // the panel holding it, and it runs as the next turn through `sendPrompt`,
       // which remembers it then.
-      ...(interposes
+      // [[REQ-416]] — STOP REACHES THE ORIGIN, which keeps it for the isolate
+      // running the work. A talker's reply is stopped by its id; the status
+      // widget's Stop building names none, and stops the work.
+      ...(talks
+        ? { onStop: (turnId) => void Promise.resolve(transport.stop?.(id, turnId ?? null)).catch(() => {}) }
+        : {}),
+      ...(interposes && !talks
         ? {
             onInterpose: (text) => {
               const held = adopted.get(text.trim())
@@ -1175,7 +1141,7 @@ export function createChatPanel(options = {}) {
     })
     // [[REQ-414]] — the chips go with the next message, interposed like any
     // other while a turn runs ([[BUG-224]]).
-    unbindAttachments = attachments?.bind(chat, { interposes }) ?? null
+    unbindAttachments = attachments?.bind(chat, { interposes, talks }) ?? null
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
     // (BUG-46). When the origin says a turn is open, the transcript's last
@@ -1229,7 +1195,7 @@ export function createChatPanel(options = {}) {
     // reloaded page the one place edits happen invisibly, which is the failure
     // that had them reloading in the first place.
     Promise.resolve(
-      chat.resume(watchForWrites(withWorkingLine(transport.streamReattach(id, session.cursor), workingLine), told), {
+      chat.resume(watchForWrites(desk.wrap(transport.streamReattach(id, session.cursor)), told), {
         markdown: seed?.markdown ?? '',
         // THE SEEDED TURN IS A TRANSCRIPT TURN TOO ([[BUG-138]]). It is not
         // appended by the loop above — it is handed to `resume` so the half
@@ -1255,7 +1221,12 @@ export function createChatPanel(options = {}) {
     // [[BUG-224]] — BACK ON SCREEN AS WAITING, adopted rather than re-sent. The
     // running turn takes them at its next tool call; one that misses it runs
     // next, as any interposed message does.
-    for (const m of waiting) chat.interpose(m.text)
+    // [[REQ-416]] — or, to a consultant with a talker, sent to it: adopted by
+    // their id, and answered beside the work being rejoined.
+    for (const m of waiting) {
+      if (talks) chat.talk(m.text)
+      else chat.interpose(m.text)
+    }
   }
 
   /**
@@ -1307,7 +1278,7 @@ export function createChatPanel(options = {}) {
         )
       },
       onStop: () => {
-        void Promise.resolve(transport.stopExchange?.(id)).catch(() => {})
+        void Promise.resolve(transport.stop?.(id)).catch(() => {})
       },
       onTurnLost: (lost) => void chaseLostTurn(lost),
     })
@@ -1447,7 +1418,7 @@ export function createChatPanel(options = {}) {
           // held by the one that set it up.
           chasing = false
           Promise.resolve(
-            chat.resume(watchForWrites(withWorkingLine(transport.streamReattach(id, session.cursor), workingLine), told), {
+            chat.resume(watchForWrites(desk.wrap(transport.streamReattach(id, session.cursor)), told), {
               // THE PANEL'S OWN PARTIAL, not the transcript's. What `resume`
               // continues is the bubble on screen, and the origin's fold stops at
               // the cursor the tail is about to resume FROM — so seeding from the

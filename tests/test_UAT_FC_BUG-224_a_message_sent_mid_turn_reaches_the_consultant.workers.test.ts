@@ -20,10 +20,13 @@ import { nextSlug } from './support/site-seed'
  * not in the next one.
  *
  * WHAT THIS PROVES. `/api/ai/interpose` keeps the message on the session's chat
- * ticket — a store every isolate shares — and the turn running in another
- * request takes it after its next tool call, so the model's very next request
- * carries it. A message that arrives after the last call is not lost: it waits,
- * the session says so, and it runs as the next prompt exactly once.
+ * ticket — a store every isolate shares. A message the running turn does not
+ * take is not lost: it waits, the session says so, and it runs as the next
+ * prompt exactly once.
+ *
+ * [[REQ-416]] — WHAT THE RUNNING TURN DOES WITH ONE IT TAKES is no longer to put
+ * it in the consultant's next call: a talker beside the work answers it. That is
+ * `test_UAT_FC_REQ-416_*`.
  *
  * The one double is the Anthropic client; the routes, session manager, junction,
  * D1 ticket store and SSE framing are the real thing. The interposing request is
@@ -118,46 +121,6 @@ describe('BUG-224 — a message sent while a turn runs reaches the consultant', 
     setModelClient(null)
     resetAiHost()
     resetChatHost()
-  })
-
-  it('test_UAT_FC_BUG-224_a_message_sent_mid_turn_is_in_the_next_model_call', async () => {
-    const { site } = await seedTenantSite(TENANT, { slug: nextSlug('mid') })
-    const { sessionId } = await openSite(site)
-    const WROTE = 'Actually, make the header teal like the comparison site.'
-
-    const inner = scriptedClient([calls('DescribeTools', { tools: ['Delegate'] }), says('Teal it is.')])
-    let interposed: Response | null = null
-    setModelClient({
-      seen: inner.seen,
-      messages: {
-        create: async (req: ModelRequest) => {
-          // THE FIRST CALL IS IN FLIGHT: the client writes now, from its own request.
-          if (inner.seen.length === 0) interposed = await post('/api/ai/interpose', { sessionId, text: WROTE })
-          return inner.messages.create(req)
-        },
-      },
-    })
-
-    const { ctx, settled } = collectingCtx()
-    const turn = await frames(await post('/api/ai/prompt', { sessionId, text: 'Rebuild the header.' }, ctx))
-    await settled()
-
-    expect(interposed!.status).toBe(200)
-    const { messageId } = (await interposed!.json()) as { messageId: string }
-    expect(messageId).toMatch(/\S/)
-    // THE OBSERVATION THAT MATTERS: the model's next request carried it, while
-    // the request before it — the one the message arrived during — did not.
-    expect(inner.seen).toHaveLength(2)
-    expect(requestText(inner.seen[0])).not.toContain(WROTE)
-    expect(requestText(inner.seen[1])).toContain(WROTE)
-    // The client's stream says it was delivered, so the pending bubble turns solid.
-    const delivered = turn.filter((f) => f.kind === 'interposition')
-    expect(delivered).toHaveLength(1)
-    expect(JSON.stringify(delivered[0])).toContain(WROTE)
-    // It is in the conversation's record, and nothing is left waiting.
-    expect(await archivedTranscript(sessionId)).toContain(WROTE)
-    expect(((await chatTicket(sessionId))?.fields ?? {})[INBOX_FIELD] ?? '').toBe('')
-    expect((await openSite(site)).waiting).toBeUndefined()
   })
 
   it('test_UAT_FC_BUG-224_a_message_that_misses_every_call_waits_and_runs_next_once', async () => {
