@@ -5,10 +5,10 @@ type: request
 title: 'L1: a row-based table element, so price lists can''t come apart'
 created_by: BUG-235
 created_at: '2026-10-20T16:08:01.229820+00:00'
-updated_at: '2026-10-20T18:43:30.334598+00:00'
+updated_at: '2026-10-20T18:44:01.432585+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: medium
   story_points: 8
@@ -16,8 +16,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-f76b15ce
+  commits:
+  - working_sha: f6b641d9836d38c142fdefcc2c2a3024d3299ab0
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: d5c900a6d518fae6312d6488e43c58c06b045916
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.557
 ---
-
 
 ## Why
 
