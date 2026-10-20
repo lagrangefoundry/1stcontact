@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T03:31:14.499112+00:00'
+updated_at: '2026-10-20T13:28:33.673075+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2275,3 +2275,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-234]] — the working line says "The consultant is …", not "Your consultant is …" (operator decision 2026-10-19; revises BUG-205's wording).
+
+
+- [[REQ-415]] — visual checks: the host screenshots and layout-checks every page a builder writes; final stages need every changed page looked at on desktop and phone; screenshot pricing prose corrected (prices-page incident, Bob's salon 2). Matching priming rule "Does it look right?" committed as b174ff6e8e.
