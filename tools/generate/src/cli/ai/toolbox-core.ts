@@ -101,6 +101,7 @@ import {
   type DrawingMeasurer,
   type PageMeasurer,
 } from './measure-core'
+import { layoutLine, type LayoutChecker } from './layout-check'
 import { AnchorError } from '@1stcontact/site-schema'
 
 /**
@@ -449,6 +450,13 @@ export function l1Operations(
    * declared and granted, and refuses with a sentence.
    */
   pageMeasurer: PageMeasurer | null = null,
+  /**
+   * [[REQ-415]] — how a page of the draft is laid out in a browser and checked for
+   * faults its words cannot show, or `null` where there is no browser. The page
+   * map then carries no `warnings`, rather than an empty list that reads as a
+   * clean page.
+   */
+  layoutChecker: LayoutChecker | null = null,
 ): L1Operations {
   /** Measure one of the site's own drawings, or say why nothing could be. */
   const measure = async (name: string) => {
@@ -569,6 +577,15 @@ export function l1Operations(
         page.l1 ? { ...page, l1: resolveL1TextStyles(page.l1, config.textStyles, config.textDefault) } : page,
         config.palette,
       )
+      // [[REQ-415]] — AND WHAT A BROWSER SEES WRONG, at desktop and phone width:
+      // the faults the stored page cannot show, such as a table whose rows have
+      // slid apart. A served page only; scoped to the section when the map is.
+      const warnings =
+        layoutChecker && !mailed
+          ? (await layoutChecker(String(page.slug), got.sections ?? []))
+              .filter((f) => section === undefined || f.section === prefix || f.section?.startsWith(`${prefix}.`))
+              .map(layoutLine)
+          : null
       return {
         page: {
           id: page.id,
@@ -579,6 +596,7 @@ export function l1Operations(
           ...(mailed ? { email: page.email ?? {} } : {}),
         },
         attention: audit.summary,
+        ...(warnings ? { warnings } : {}),
         /*
          * [[REQ-247]] §3 — WHAT AN EMAIL PAGE MAY SAY, PROJECTED FROM THE
          * DECLARATION. It is the same constant the site validator computes its
@@ -1134,10 +1152,11 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           addresses: (() => Promise<readonly unknown[]>) | null = null,
           fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
           pageMeasurer: PageMeasurer | null = null,
+          layoutChecker: LayoutChecker | null = null,
         ) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(
-            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts, pageMeasurer),
+            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts, pageMeasurer, layoutChecker),
           )) {
             ;(this as unknown as Params)[op] = run
           }
@@ -1274,6 +1293,7 @@ export async function l1SurfaceSet(
     assetUrl = null,
     addresses = null,
     pageMeasurer = null,
+    layoutChecker = null,
   }: {
     role?: string
     config?: Record<string, unknown> | null
@@ -1321,6 +1341,8 @@ export async function l1SurfaceSet(
     addresses?: (() => Promise<readonly unknown[]>) | null
     /** [[REQ-350]] — the page measurer `flow_l1` takes; see {@link l1Operations}. */
     pageMeasurer?: PageMeasurer | null
+    /** [[REQ-415]] — the layout check `describe_page` reports; see {@link l1Operations}. */
+    layoutChecker?: LayoutChecker | null
     /**
      * Surfaces composed ALONGSIDE the L1 one, each with whatever grant travels
      * with it — a LIST since REQ-157, because there are now two of them.
@@ -1357,7 +1379,7 @@ export async function l1SurfaceSet(
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
   const surfaces: Untyped[] = [
-    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses, PLATFORM_FONT_INDEX, pageMeasurer),
+    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses, PLATFORM_FONT_INDEX, pageMeasurer, layoutChecker),
   ]
   let granted = instance
   for (const extra of extraSurfaces) {

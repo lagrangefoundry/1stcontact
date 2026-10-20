@@ -444,9 +444,11 @@ describe('REQ-218 AC2 — the sixth kind is declared, and nothing else was added
     // they exist rather than guessing at them.
     expect(picture.keys.image).toBeDefined()
     expect(picture.keys.original).toBeDefined()
-    // And the paragraph the epic turns on: looking is deliberate, because an
-    // image stays in every turn after this one.
-    expect(FIDELITY_DECLARATION.overview as string).toMatch(/stays\s+in every turn after this one/)
+    // And the paragraph the epic turns on: looking at a stored picture is
+    // deliberate, because an image costs context for the turns it stays
+    // ([[REQ-415]]: it ages out, so it no longer stays for every turn after).
+    expect(FIDELITY_DECLARATION.overview as string).toMatch(/Nothing hands you a stored picture automatically/)
+    expect(FIDELITY_DECLARATION.overview as string).toMatch(/costs context for the turns it stays/)
   })
 })
 

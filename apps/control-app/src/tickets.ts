@@ -433,6 +433,8 @@ export function productTypePack(): ProductTypePack {
         milestones: { type: 'object' },
         // [[REQ-389]] — contact details the client said may appear on the site.
         public_details: { type: 'list' },
+        // [[REQ-415]] — what the consultant has looked at, page by page and width by width.
+        looked_at: { type: 'object' },
       },
       body: { required: true, non_empty: true },
     },

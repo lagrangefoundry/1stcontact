@@ -32,7 +32,9 @@ describe('REQ-378 — the comp review method', () => {
       expect(text).toMatch(/searching the web; never propose a site from memory/)
       // The tools it names, and the decision the conventions go into.
       for (const tool of ['capture_site', 'add_comp', 'note_comp', 'visual_concept']) expect(text).toContain(tool)
-      expect(text).toMatch(/take screenshots sparingly/)
+      // [[REQ-415]] — a comp's picture is for how it looks, not rationed as general advice.
+      expect(text).toMatch(/look at a comp's picture when what you are discussing is\s+how it looks/)
+      expect(text).not.toMatch(/take screenshots sparingly/)
     }
   })
 

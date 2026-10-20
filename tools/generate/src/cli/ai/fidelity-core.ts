@@ -378,6 +378,15 @@ export interface FidelityDeps extends PictureDeps {
 
   /** [[BUG-229]] — how a low-detail picture is encoded; see {@link LowDetailEncoder}. */
   lowDetail?: LowDetailEncoder
+
+  /**
+   * [[REQ-415]] — told of every picture of the draft this surface hands back: the
+   * page as it was named (`/`, `/prices`) and the width it was laid out at. The
+   * consultant's host records it, so "has this page been looked at since it
+   * changed?" has an answer; a builder's camera, and every host that keeps no
+   * plan, leaves it out. A record that fails costs the record, never the picture.
+   */
+  looked?: (page: string, width: number) => Promise<void>
 }
 
 /**
@@ -650,7 +659,11 @@ export function fidelityOperations(deps: FidelityDeps): FidelityOperations {
         return (await imageBlocks(await resolvePicture(source, deps), low)).blocks
       }
       const picture = await resolvePicture(source, deps, { sections: true })
-      return tileBlocks(picture, ask, detail, settings, deps.lowDetail)
+      const blocks = await tileBlocks(picture, ask, detail, settings, deps.lowDetail)
+      if (source.kind === 'draft' && deps.looked) {
+        await deps.looked(source.page ?? '/', picture.viewport.width).catch(() => undefined)
+      }
+      return blocks
     },
 
     compare: async (p) => {

@@ -47,7 +47,7 @@ import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
-import { nearPublishing, planReminder, type Plan } from './plan-core'
+import { nearPublishing, planReminder, type NotLooked, type Plan } from './plan-core'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
 
@@ -541,6 +541,16 @@ export function continuationCue(): string {
   return template('continuation-cue')
 }
 
+/**
+ * [[REQ-415]] — the user turn the host records when a reply ends while the layout
+ * check still finds faults on pages a builder wrote during the request: the
+ * build is not done, so the host carries it on the way it does a reply that ran
+ * out ([[REQ-409]]), with the findings in front of the consultant.
+ */
+export function layoutContinuationCue(findings: readonly string[]): string {
+  return template('layout-continuation-cue').replace('{findings}', findings.map((f) => `- ${f}`).join('\n'))
+}
+
 /** [[REQ-409]] — what the consultant is told once the message's spend ceiling is reached. */
 export function spendCeilingNotice(): string {
   return template('spend-ceiling')
@@ -950,6 +960,11 @@ export function registerSiteProviders(
      */
     addresses?: (() => Promise<readonly unknown[]>) | null
     /**
+     * [[REQ-415]] — the pages not looked at since they changed, read only once the
+     * plan is near publishing. Absent says nothing about looking.
+     */
+    unlooked?: (() => Promise<NotLooked[]>) | null
+    /**
      * Whether this deployment composes the delegation surface ([[REQ-295]]).
      *
      * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entries it fills
@@ -1048,7 +1063,10 @@ export function registerSiteProviders(
         binding.addresses && nearPublishing(plan)
           ? await binding.addresses().then((a) => a.length === 0, () => false)
           : false
-      return planReminder(plan, { noAddress })
+      // [[REQ-415]] — and the pages not looked at since they changed, on the same terms.
+      const unlooked =
+        binding.unlooked && nearPublishing(plan) ? await binding.unlooked().catch(() => undefined) : undefined
+      return planReminder(plan, { noAddress, unlooked })
     } catch {
       return null
     }

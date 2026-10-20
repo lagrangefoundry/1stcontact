@@ -403,6 +403,12 @@ export interface PlanFields {
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
   public_details?: PublicDetail[]
+  /**
+   * [[REQ-415]] — what the consultant has looked at: for each page (by id), the
+   * site's change counter when it last took a picture of it at each width.
+   * Absent until it has looked at anything.
+   */
+  looked_at?: Record<string, Partial<Record<LookWidth, number>>>
   /** [[REQ-408]] — the story board. Absent until anything is pinned. */
   board?: StoryBoard
 }
@@ -450,6 +456,11 @@ export interface PlanDeps {
    * is a link.
    */
   show?: ShowDeps
+  /**
+   * [[REQ-415]] — the pages that have changed since the consultant last looked at
+   * them on desktop and on phone. Absent, the publishing stages are not held to it.
+   */
+  unlooked?: () => Promise<NotLooked[]>
 }
 
 type Params = Record<string, unknown>
@@ -563,6 +574,83 @@ export function publishOpened(plan: Plan, at: string): Plan {
   checkPlan(next.fields)
   return next
 }
+
+/**
+ * [[REQ-415]] — the two widths a page has to have been looked at before the site
+ * is finished: what a visitor at a desk sees and what one on a phone sees.
+ */
+export const LOOK_WIDTHS = ['desktop', 'phone'] as const
+export type LookWidth = (typeof LOOK_WIDTHS)[number]
+
+/** The widest picture that is a look at the phone layout, and the narrowest at the desktop one. */
+const PHONE_MAX_WIDTH = 480
+const DESKTOP_MIN_WIDTH = 1024
+
+/** Which of {@link LOOK_WIDTHS} a picture `width` pixels wide is a look at, or `null` (a tablet). */
+export function lookWidthOf(width: number): LookWidth | null {
+  if (width <= PHONE_MAX_WIDTH) return 'phone'
+  if (width >= DESKTOP_MIN_WIDTH) return 'desktop'
+  return null
+}
+
+/**
+ * [[REQ-415]] — the consultant took a picture of `page` (its id) at `width`, when
+ * the site's change counter stood at `at`. The latest look at each width is kept.
+ */
+export function screenshotTaken(plan: Plan, page: string, width: LookWidth, at: number): Plan {
+  const next = copy(plan)
+  const looked = (next.fields.looked_at = next.fields.looked_at ?? {})
+  looked[page] = { ...(looked[page] ?? {}), [width]: at }
+  checkPlan(next.fields)
+  return next
+}
+
+/** A page, and the widths it has not been looked at since it last changed. */
+export interface NotLooked {
+  /** The page as the consultant names it. */
+  page: string
+  widths: LookWidth[]
+}
+
+/**
+ * A change that alters how every page looks, though it is recorded against none:
+ * the palette, and the site's settings (fonts, text styles) a page paints from.
+ */
+const SITEWIDE_PAINT = /^(palette\.|config\.set$)/
+
+/**
+ * [[REQ-415]] — the pages that have changed since they were last looked at, at
+ * each width, out of `pages` (`id` as the change log records it, `name` as the
+ * consultant says it).
+ *
+ * `changes` is the log since the oldest look. A page never looked at has not been
+ * looked at; a log that no longer reaches back far enough cannot vouch for any
+ * look, so a truncated one makes every look stale rather than any look current.
+ */
+export function pagesNotLooked(
+  looked: PlanFields['looked_at'],
+  pages: readonly { id: string; name: string }[],
+  changes: { truncated: boolean; changes: readonly { at: number; page?: string; op: string }[] },
+): NotLooked[] {
+  const out: NotLooked[] = []
+  for (const { id, name } of pages) {
+    const widths = LOOK_WIDTHS.filter((w) => {
+      const at = looked?.[id]?.[w]
+      if (at === undefined || changes.truncated) return true
+      return changes.changes.some((c) => c.at > at && (c.page === id || (c.page === undefined && SITEWIDE_PAINT.test(c.op))))
+    })
+    if (widths.length) out.push({ page: name, widths })
+  }
+  return out
+}
+
+/** The pages and widths, as a refusal and the plan entry say them. */
+export function notLookedText(pages: readonly NotLooked[]): string {
+  return pages.map((p) => `${p.page} (${p.widths.join(', ')})`).join('; ')
+}
+
+/** [[REQ-415]] — the refusal for a publishing stage marked before the pages were looked at. */
+export const NOT_LOOKED = 'NOT_LOOKED'
 
 /** A stage's words, from the seed. */
 export const stageLabel = (id: string): string => STAGES.find((s) => s.id === id)?.label ?? id
@@ -1097,7 +1185,9 @@ export const MAX_PLAN_REMINDER_CHARS = 2_000
 export const NO_ADDRESS_LINE = "No web address yet: the site can't be published until one is chosen."
 
 /** The stages from which a missing web address is worth saying every turn ([[BUG-230]]). */
-const PUBLISH_STAGES = ['finishing_touches', 'ready_to_publish']
+const FINISHING_TOUCHES = 'finishing_touches'
+const READY_TO_PUBLISH = 'ready_to_publish'
+const PUBLISH_STAGES = [FINISHING_TOUCHES, READY_TO_PUBLISH]
 
 /**
  * Whether the plan has reached Finishing touches or Ready to publish — either
@@ -1114,6 +1204,8 @@ export function nearPublishing(plan: Plan | null): boolean {
 export interface PlanFacts {
   /** The site is near publishing and has no web address. */
   noAddress?: boolean
+  /** [[REQ-415]] — near publishing, the pages not looked at since they changed. */
+  unlooked?: NotLooked[]
 }
 
 /**
@@ -1133,6 +1225,12 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   // forgets at exactly the wrong moment: it suggests Publish, and the client's
   // first sign an address was needed is the refusal.
   if (facts.noAddress) lines.push(NO_ADDRESS_LINE)
+  // [[REQ-415]] — the principal checks the work, most of all at the end.
+  if (facts.unlooked?.length) {
+    lines.push(
+      `Not looked at since they changed: ${notLookedText(facts.unlooked)}. Take a screenshot of each at that width and check it — "${stageLabel(FINISHING_TOUCHES)}" can't be ticked and "${stageLabel(READY_TO_PUBLISH)}" can't be marked until you have.`,
+    )
+  }
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
   // left to itself forgets: the stage it never moved, the milestone it never raised.
   const behind = stageBehind(f)
@@ -1944,11 +2042,21 @@ export function planOperations(
     // [[BUG-221]] — MOVING FORWARD TICKS the stage moved off: starting a later stage
     // means the earlier one is finished, and resetting it made the panel call it
     // skipped. Moving backward puts the later stage back to not started.
-    set_stage: (p) =>
-      change((plan) => {
-        const id = String(p.stage ?? '')
-        const state = String(p.state ?? '')
+    //
+    // [[REQ-415]] — AND THE SITE IS NOT FINISHED UNSEEN. Finishing touches cannot be
+    // ticked, and Ready to publish cannot be started or ticked, while a page has
+    // changed since the consultant last looked at it on desktop and on phone. The
+    // pages are read before the write, and only when the call could do either.
+    set_stage: async (p) => {
+      const id = String(p.stage ?? '')
+      const state = String(p.state ?? '')
+      const gated =
+        deps.unlooked && STAGE_IDS.indexOf(id) >= STAGE_IDS.indexOf(FINISHING_TOUCHES) && state !== 'not_started'
+          ? await deps.unlooked()
+          : []
+      return change((plan) => {
         plan.fields.stages = stagesFor(plan.fields.stages)
+        const was = new Map(plan.fields.stages.map((s) => [s.id, s.state]))
         const stage = plan.fields.stages.find((s) => s.id === id)
         if (!stage) throw refuse(PLAN_INVALID, `unknown stage ${JSON.stringify(id)}`)
         let moved: { moved_from: string; marked: string } | undefined
@@ -1961,8 +2069,22 @@ export function planOperations(
           }
         }
         stage.state = state
+        const now = (sid: string): string | undefined => plan.fields.stages.find((s) => s.id === sid)?.state
+        const finished = now(FINISHING_TOUCHES) === STAGE_DONE && was.get(FINISHING_TOUCHES) !== STAGE_DONE
+        const publishing =
+          now(READY_TO_PUBLISH) !== 'not_started' && was.get(READY_TO_PUBLISH) !== now(READY_TO_PUBLISH)
+        if (gated.length && (finished || publishing)) {
+          throw refuse(
+            NOT_LOOKED,
+            `${finished ? `"${stageLabel(FINISHING_TOUCHES)}" can't be ticked done` : `"${stageLabel(READY_TO_PUBLISH)}" can't be marked`} ` +
+              `while pages have changed since you last looked at them: ${notLookedText(gated)}. ` +
+              'Take a screenshot of each page at each width named (viewport desktop, and mobile for phone), ' +
+              'check it looks right, fix what does not, and then set the stage again.',
+          )
+        }
         return { stage: { ...stage, label: stageLabel(stage.id) }, ...moved }
-      }),
+      })
+    },
 
     // ── asks: both roles ([[REQ-364]]) ───────────────────────────────────────
     set_ask: (p) =>
