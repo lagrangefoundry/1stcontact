@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:14:17.172092+00:00'
+updated_at: '2026-10-20T13:16:06.687796+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9932,5 +9932,59 @@ ok I'm going to run another website, can you summarize the changes that we have 
 Does the consultant know to keep the discover going as the talker?
 
 We checked a few sites ago and you said the research on what makes a site good/differentiated was never referenced - was it referenced for Bob 2? How can we address that?
+
+<!-- xgd-turn id="5dee78e3-19e1-4c55-bc1b-b4a6c120d490-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T13:16:05.871645+00:00" -->
+#### Claude
+Checking: LF has worker/talker (REQ-210); 1stcontact has no references to it yet. Now confirming what adoption requires.
+
+Here's where things stand before your next run.
+
+## What's changed since Bob's salon 2 started
+
+All 17 tickets have landed (`ready_to_reconcile`, apart from REQ-409, which is `free_coded`):
+
+| | |
+|---|---|
+| **Keeping work moving** | REQ-409: higher limits, and a turn that runs out continues by itself instead of asking you, with a fresh builder taking over when one runs out. REQ-410/411: builders can run up to three at once, scoped to sections. |
+| **Builder honesty** | BUG-225: checks are verified, not taken on the builder's word, and builders stay within their scope. BUG-226: choosing a look refuses if its content has drifted. BUG-233: builder briefs no longer carry the whole story board. |
+| **Chat** | BUG-224: messages you type while it's working now reach the consultant. REQ-414: uploads go in the composer as attachments. BUG-229: the conversation save bug and images stored by reference. BUG-228: streaming in dev works. |
+| **Steering and publishing** | REQ-413: the consultant brings the right view to you (switching it, or a link). BUG-230: a site with no web address gets the dialog and a friendly error. BUG-231: banners can be dismissed. |
+| **Fonts and deploy** | BUG-227: fonts render. REQ-412: deploy ships fonts when they've changed. |
+| **Smaller** | BUG-232: spend is recorded on turns that throw. BUG-234: "The consultant is…". |
+
+Plus the prompt changes: leading the build, active listening and the story areas, and the web-address step before Publish.
+
+## Anything in flight?
+
+No 1stcontact ticket or `free-*` branch is open, and nothing is waiting to be closed. One thing I discussed and never filed: **the visual-check ticket from the prices-page incident.** The host would take the screenshot and run a layout check after each build, and "Ready to publish" would require every changed page to have been looked at on desktop and phone. That's still undone, so the prices-page failure can happen again in this run.
+
+**Before you start:** run `bin/deploy --env dev`, and start a new business.
+
+## Worker and talker: built in LF, not used in 1stcontact
+
+LF REQ-210 (worker and talker) and REQ-209 (the status widget with Stop building) are both done and in your shared install (`fork.js` is there). **1stcontact uses neither.** There are no references to the talker setting anywhere in our code, so this run will behave as it does today: messages you send mid-build are queued to the consultant (BUG-224), not answered by a talker.
+
+You're right about how the priming works. LF splits it: the explanation of the fork goes into the shared prompt that both rounds read, the talker's per-turn reminder says "you are the talker", and the worker is told at its next tool call. But REQ-210 explicitly leaves **1stcontact's part** to us:
+- which tools the talker is denied: all site writes, `Delegate`, choosing looks, publishing and image generation;
+- our priming;
+- switching our builder over to REQ-209's status widget, which overlaps our own working line from REQ-390/BUG-215.
+
+**So does the consultant know to keep discovery going as the talker? Not yet,** because there is no talker. The nearest thing is the line added on the 19th: "come back to the missing story areas while builds run". That was written for the queue. The talker reminder should make discovery its standing job: work through the story areas still missing, point you at the open panel questions, and pin what you say to the story board. Those are all allowed while the worker builds.
+
+## Was DOC-48 used in Bob's salon 2?
+
+**The document wasn't, but its content was.** DOC-48 came up once, as a search hit for an animation query, and was never opened for its design criteria. But the six-line rubric I put directly into the priming on the 18th was in force, and it worked. The weakest-part check fired ("What would make me wince…"), and it found a real gap: the site promises long hair for men, but every photo in "The work" shows women's hair.
+
+So the answer to "how do we get it used" is the one we already used: **put it in the priming and have the plan prompt it at the right moments, rather than relying on a lookup.** That rubric covers what makes a site *distinctive*, though. The prices page shows it has nothing about *visual correctness*, which is the visual-check ticket's job.
+
+## Before you run
+
+I'd file two tickets:
+1. **Adopt worker and talker in 1stcontact:** the talker setting and its denied tools, the talker's reminder making discovery its standing job, and REQ-209's status widget in place of our working line.
+2. **Host-side visual checking:** a screenshot and layout check after each build, the page-check rules, and "Ready to publish" requiring every page to have been looked at at both widths.
+
+If you want this run to test the talker, it has to wait for (1). If not, run now and treat this run as the baseline the talker gets compared against. Shall I file both?
 
 <!-- xgd-chat-end -->
