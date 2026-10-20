@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T22:14:18.003083+00:00'
+updated_at: '2026-10-20T22:18:40.516081+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4123,5 +4123,11 @@ That's a clash between two rules: one question per message, and a story question
 ## Next
 
 I'd file one REQ for the comp view: a Comparisons mode on the toggle, a tile grid with live-site links, per-site questions under each tile, the panel tile removed, the progress-bar link, and the fallback for blocked captures. It would supersede the relevant parts of REQ-378 and REQ-391. Shall I file it, and add the competitor question to the priming draft?
+
+<!-- xgd-turn id="65da0a04-7ccf-4ce6-85b3-62d1baa4c81d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T22:18:39.854924+00:00" -->
+#### You
+Yes please proceed
 
 <!-- xgd-chat-end -->
