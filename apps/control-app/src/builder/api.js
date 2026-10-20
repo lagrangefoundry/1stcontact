@@ -907,14 +907,15 @@ export async function* streamChatReattach(sessionId, cursor, fetchImpl = fetch) 
  * unreachable is in the conversation.
  */
 /**
- * Ask a running group-chat exchange to stop ([[REQ-357]]). Durable on the origin,
- * so it reaches the exchange whichever isolate is running it.
+ * Ask a running group-chat exchange to stop ([[REQ-357]]), or the consultant's
+ * work ([[REQ-416]]). Durable on the origin, so it reaches the work whichever
+ * isolate is running it. `turnId` names a talker's reply to stop alone.
  */
-export async function stopChatExchange(sessionId, fetchImpl = fetch) {
+export async function stopChat(sessionId, turnId = null, fetchImpl = fetch) {
   const res = await send(fetchImpl, scoped('/api/ai/stop'), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ sessionId }),
+    body: JSON.stringify({ sessionId, ...(turnId ? { turnId } : {}) }),
   })
   if (!res.ok) throw new Error(`POST /api/ai/stop → ${res.status}`)
   return res.json()

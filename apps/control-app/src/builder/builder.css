@@ -1252,30 +1252,6 @@ body {
 }
 
 /*
- * [[BUG-215]] — a step in the conversation (a screenshot, a capture): a light
- * line, not a message — no bubble, small, muted, a dot before it — so routine
- * steps show the build moving without reading as the consultant speaking.
- */
-.builder-chat-step {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 2px 0 2px 12px;
-  font-size: 0.78rem;
-  color: var(--shell-fg-muted, #71717a);
-}
-
-.builder-chat-step::before {
-  content: '';
-  flex: none;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.6;
-}
-
-/*
  * [[REQ-414]] — the composer's attachments: chips above the text box that go with
  * the next message, and the same files drawn inside the client's sent bubble.
  */
@@ -1605,19 +1581,6 @@ body {
 
 .plan-stages__tip-state {
   color: var(--shell-fg-muted, #71717a);
-}
-
-/* [[REQ-390]] — the working line, immediately above the composer. */
-.builder-chat-working {
-  padding: 2px 12px;
-  font-size: 0.8rem;
-  color: var(--shell-fg-muted, #71717a);
-}
-
-/* [[BUG-215]] — the step under way, beneath the turn and lighter than it. */
-.builder-chat-working__step {
-  font-size: 0.75rem;
-  opacity: 0.85;
 }
 
 .plan-ask__input.plan-ask__input--long {

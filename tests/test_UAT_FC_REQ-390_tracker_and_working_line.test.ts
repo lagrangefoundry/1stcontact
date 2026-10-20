@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 /**
  * [[REQ-390]] — **the browser half: the stage tracker at the top of the plan panel,
- * the working line beside the composer, and the multi-line answer.**
+ * what is under way beside the composer, and the multi-line answer.** [[REQ-416]] —
+ * what is under way is the framework's status widget (lagrange-framework REQ-209),
+ * which replaced this project's own working line.
  *
  * THE REAL BUILDER, mounted in jsdom against the installed `webui-*` components,
  * with the origin replaced at the plan and chat transports it already takes (the
@@ -14,7 +16,6 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 type Handle = Record<string, any>
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => Handle
-let WORKING_LINE_CLASS: string
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-390 panel suites skipped: ${WEBUI_SKIP_REASON}`)
 
@@ -73,7 +74,6 @@ let clock = 1_000_000
 beforeAll(async () => {
   if (WEBUI_INSTALLED) {
     ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
-    ;({ WORKING_LINE_CLASS } = await import('../apps/control-app/src/builder/chat.js'))
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -116,7 +116,8 @@ const drawn = (app: Handle) =>
     spinning: Boolean(li.querySelector('.plan-stage__spinner')),
   }))
 
-const workingLine = (): HTMLElement | null => document.querySelector(`.${WORKING_LINE_CLASS}`)
+/** The status widget, while it shows (REQ-209). */
+const statusWidget = (): HTMLElement | null => document.querySelector('.chat-widget-status:not([hidden])')
 
 const chatTransport = (stream: () => AsyncGenerator<unknown>) => ({
   openSession: async (slug: string) => ({ sessionId: `site-${slug}`, turns: [], ready: true }),
@@ -169,14 +170,12 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-390 — the stage tracker', () => {
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-390 — while the consultant works', () => {
-  it('test_UAT_FC_REQ-390_a_running_turn_spins_the_current_stage_and_the_working_line_counts_up_with_the_note', async () => {
-    const seen: { line: string | null; beforeComposer: boolean; spinning: boolean }[] = []
+  it('test_UAT_FC_REQ-390_a_running_turn_spins_the_current_stage_and_the_status_shows_the_note', async () => {
+    const seen: { status: string | null; spinning: boolean }[] = []
     let app: Handle
     const look = () => {
-      const line = workingLine()
       seen.push({
-        line: line?.textContent ?? null,
-        beforeComposer: line?.nextElementSibling?.classList.contains('chat-widget-input-bar') ?? false,
+        status: statusWidget()?.querySelector('.chat-widget-status-text')?.textContent ?? null,
         spinning: drawn(app).some((s) => s.spinning),
       })
     }
@@ -186,41 +185,36 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-390 — while the consultant works', () =
       storage: memoryStorage(),
       planTransport: plan,
       chatTransport: chatTransport(async function* () {
-        // NO NOTE YET: the line says only that work is going on, and for how long.
-        clock += 42_000
-        await new Promise((r) => setTimeout(r, 1_100))
+        // NO STATUS YET: the stage spins, and nothing claims what is under way.
+        await new Promise((r) => setTimeout(r, 20))
         look()
         yield { kind: 'text', content: 'Building your home page now; it takes about five minutes.' }
-        yield { kind: 'working', content: 'Alice is building your home page', meta: { estimate: 'about 5 min' } }
-        clock += 92_000
-        // THE TIMER ADVANCES ON ITS OWN, with no frame arriving.
-        await new Promise((r) => setTimeout(r, 1_100))
+        yield {
+          kind: 'progress',
+          content: 'The consultant is building your home page',
+          meta: { source: 'model', turn_id: 't1', started_at: new Date().toISOString(), eta_s: 300 },
+        }
+        await new Promise((r) => setTimeout(r, 20))
         look()
         yield { kind: 'text', content: ' Done.' }
         yield { kind: 'done' }
       }),
     })
     await settle()
-    expect(workingLine()).toBeNull()
+    expect(statusWidget()).toBeNull()
 
     await app.chat.getChat().send('Build my home page.')
     await settle()
 
-    // WHILE IT RUNS: the line just above the composer, and the current stage spinning.
-    expect(seen[0]).toEqual({ line: 'Working · 0:42 so far', beforeComposer: true, spinning: true })
-    expect(seen[1]).toEqual({
-      line: 'Alice is building your home page · about 5 min · 2:14 so far',
-      beforeComposer: true,
-      spinning: true,
-    })
-    // THE STOP BUTTON IS STILL THE WAY TO STOP — it is not replaced.
-    expect(document.querySelector('.chat-widget-stop-btn')).not.toBeNull()
+    // WHILE IT RUNS: the current stage spinning, and the status beside the composer.
+    expect(seen[0]).toEqual({ status: null, spinning: true })
+    expect(seen[1]).toEqual({ status: 'The consultant is building your home page', spinning: true })
 
-    // AND WHEN IT ENDS: no line, no spinner — and the frame never reached the conversation.
-    expect(workingLine()).toBeNull()
+    // AND WHEN IT ENDS: no status, no spinner — and the status never reached the conversation.
+    expect(statusWidget()).toBeNull()
     expect(drawn(app).some((s) => s.spinning)).toBe(false)
     const said = app.chat.getChat().getMessages().map((m: { markdown: string }) => m.markdown).join('')
-    expect(said).not.toContain('Alice is building')
+    expect(said).not.toContain('The consultant is building')
   })
 })
 

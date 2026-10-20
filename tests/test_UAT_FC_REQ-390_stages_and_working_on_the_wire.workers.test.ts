@@ -131,28 +131,25 @@ describe('REQ-390 — the working line is told what is under way', () => {
       'Build my site.',
       twoSided([calls('Delegate', { scope: ['site.json', 'home.json'], role: BUILDER_ROLE, goal: 'Build the home page.', note: NOTE }), says('Built.')], BUILDS),
     )
-    const working = built.filter((f) => f.kind === 'working')
+    // [[REQ-416]] — THE STATUS IS A `progress` FRAME the status widget draws,
+    // written as the consultant's own (`source: model`).
+    const status = (all: Frame[]) => all.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
+    const working = status(built)
     expect(working).toHaveLength(1)
     expect(working[0].content).toBe(`${CONSULTANT} is building your home page now — it takes about ten minutes`)
-    expect(working[0].meta?.estimate).toBeUndefined()
+    expect(working[0].meta?.eta_s).toBeUndefined()
     const announcedAt = built.findIndex((f) => f.kind === 'text' && f.content.includes(NOTE))
     const workingAt = built.indexOf(working[0])
     const handOffAt = built.findIndex((f) => f.kind === 'tool_activity' && f.meta?.name === 'Delegate')
-    expect(workingAt).toBe(announcedAt + 1)
+    expect(workingAt).toBeGreaterThan(announcedAt)
     expect(workingAt).toBeLessThan(handOffAt)
 
     // A SLOW TOOL: its own words and its estimate in the short form.
     const captured = await turn(sessionId, 'Look at this site.', scriptedClient([calls('capture_site', { url: BAD_URL }), says('That one is private.')]))
-    const slow = captured.filter((f) => f.kind === 'working')
-    expect(slow).toEqual([
-      {
-        kind: 'working',
-        content: `${CONSULTANT} is capturing ${BAD_URL}`,
-        meta: { scope: 'step', doing: `Capturing ${BAD_URL}`, estimate: 'about 5 min' },
-      },
-    ])
+    const slow = status(captured)
+    expect(slow.map((f) => [f.content, f.meta?.eta_s])).toEqual([[`${CONSULTANT} is capturing ${BAD_URL}`, 300]])
     // AND NOTHING FROM AN EARLIER TURN IS REPEATED: one frame per announcement.
-    expect(captured.some((f) => f.kind === 'working' && f.content.includes('home page'))).toBe(false)
+    expect(captured.some((f) => f.kind === 'progress' && f.content.includes('home page'))).toBe(false)
   })
 })
 

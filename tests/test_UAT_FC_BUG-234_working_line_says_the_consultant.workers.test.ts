@@ -85,7 +85,7 @@ describe('BUG-234 — the working line says "The consultant"', () => {
       'Look at this site.',
       scriptedClient([calls('capture_site', { url: BAD_URL }), says('That one is private.')]),
     )
-    const working = stream.filter((f) => f.kind === 'working')
+    const working = stream.filter((f) => f.kind === 'progress' && f.meta?.source === 'model')
     expect(working.length).toBeGreaterThan(0)
     for (const frame of working) {
       expect(frame.content.startsWith('The consultant is ')).toBe(true)

@@ -50,7 +50,21 @@
     "Publish opens. Asking it needs a judgement of the draft against the",
     "distinctiveness rubric in `priming.json`'s conduct paragraph, so the rubric is",
     "applied when it is due rather than whenever the prompt is remembered. A check",
-    "added here reaches existing plans on their next read (`plan.ts`)."
+    "added here reaches existing plans on their next read (`plan.ts`).",
+    "",
+    "[[REQ-416]] — `story_areas` are the parts a small business's story usually",
+    "has, as the consultant's priming lists them. Each pinned note may name the area",
+    "it belongs to; an area with no note on the board is one the consultant has not",
+    "asked about yet, and the talker's reminder lists those while a build runs."
+  ],
+  "story_areas": [
+    { "id": "beginning", "label": "how it started" },
+    { "id": "craft", "label": "the craft or signature thing" },
+    { "id": "people", "label": "the people" },
+    { "id": "customers", "label": "the customers" },
+    { "id": "community", "label": "what they do for the neighbourhood or for others" },
+    { "id": "refusals", "label": "what they refuse to do" },
+    { "id": "proud_moment", "label": "a moment they are proud of" }
   ],
   "stages": [
     { "id": "getting_to_know_you", "label": "Getting to know you", "about": "We learn about your business, your customers and what you want the site to do." },
@@ -71,7 +85,7 @@
     "- **The questions panel** above this chat collects simple facts, like your phone number and opening hours. Fill them in whenever suits you.",
     "- **The story board** (Story, beside the preview) is where I pin the things you tell me about your business, in your own words. Heart the ones that are most you.",
     "- **The preview** shows your site as it's built. **View on your phone** shows it the way most of your customers will see it.",
-    "- **Before a long piece of work,** I'll tell you, and roughly how long it will take.",
+    "- **Before a long piece of work,** I'll tell you, and roughly how long it will take. **While I build, keep talking to me** — that's when I'll hear your story, and what you tell me goes into the next pass.",
     "- **When I show you several looks,** tell me which you prefer.",
     "- **Photos, your logo, flyers** — upload anything you have. It all helps.",
     "",

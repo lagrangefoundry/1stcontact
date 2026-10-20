@@ -29,9 +29,9 @@
  *
  * [[BUG-215]] — A STEP, NOT A MESSAGE. Each slow call used to be yielded as the
  * assistant's text, so a turn of routine screenshots read as a stream of
- * consultant messages. It now reaches the client only as a `working` note scoped
- * to the step, which the chat draws as a light step line (repeats collapsed) and
- * as the working line's "now:" half. The first `Delegate`'s line — the
+ * consultant messages. It now reaches the client only as a working note, which
+ * the host records as the round's status ([[REQ-416]]: the status widget's one
+ * line, each note replacing the last). The first `Delegate`'s line — the
  * consultant's own announcement of the turn — is still her words in the chat.
  *
  * [[REQ-413]] — AND A VIEW THE CONSULTANT SWITCHED. A `show_client` call that
@@ -130,18 +130,11 @@ export interface SlowTool {
   minutes: number
 }
 
-/**
- * The estimates the client is given — orders of magnitude, nothing finer — in
- * the working line's short form.
- */
-const ESTIMATES: Record<number, string> = {
-  1: 'about 1 min',
-  5: 'about 5 min',
-  30: 'about 30 min',
-}
+/** The estimates the client is given — orders of magnitude, nothing finer. */
+const ESTIMATES: readonly number[] = [1, 5, 30]
 
 /**
- * [[BUG-205]] — who the working line names in a one-to-one conversation: no one
+ * [[BUG-205]] — who the status names in a one-to-one conversation: no one
  * by name (DOC-66). A room names its member instead.
  */
 export const WORKING_UNNAMED: string = slowToolsDocument.unnamed
@@ -156,7 +149,7 @@ const VALUE_CAP = 120
  */
 export const SLOW_TOOLS: ReadonlyMap<string, SlowTool> = new Map(
   (slowToolsDocument.tools as SlowTool[]).map((entry) => {
-    if (!(entry.minutes in ESTIMATES)) {
+    if (!ESTIMATES.includes(entry.minutes)) {
       throw new Error(`slow-tools.json: ${entry.tool} estimates ${entry.minutes} minutes; use 1, 5 or 30.`)
     }
     return [entry.tool, entry]
@@ -176,25 +169,18 @@ function slowDoing(slow: SlowTool, input: Record<string, unknown>, attempt: numb
 }
 
 /**
- * [[REQ-390]] — the slow operation under way, as the working line beside the
- * composer shows it: what is being done, and the estimate when there is one. A
- * `Delegate` carries no estimate of its own; its note says how long in words.
+ * [[REQ-390]] — the slow operation under way, as the status widget beside the
+ * composer shows it ([[REQ-416]], lagrange-framework REQ-209): what is being done,
+ * and the estimate in minutes when there is one. A `Delegate` carries no estimate
+ * of its own; its note says how long in words.
  */
 export interface WorkingNote {
   doing: string
-  estimate?: string
-  /**
-   * [[BUG-215]] — what the note describes: the whole `turn` (the first
-   * `Delegate`, whose announcement opened it) or one `step` within it (every
-   * slow call, and any later `Delegate`). The working line times each against
-   * its own start, so an estimate is never set beside a clock it does not
-   * describe.
-   */
-  scope: 'turn' | 'step'
+  minutes?: number
 }
 
 /**
- * [[REQ-390]] — the working line's words: "<consultant> is building your home page".
+ * [[REQ-390]] — the status's words: "<consultant> is building your home page".
  *
  * A NOTE THAT STARTS WITH WHAT IS BEING DONE ("Building …", "Capturing …") reads
  * after the name; anything else is quoted after it, because a note is the model's
@@ -222,7 +208,7 @@ export interface CadenceHooks {
   openAsks?: () => Promise<number>
   /** A builder session completed having written the site. */
   builderCompleted?: () => Promise<void>
-  /** [[REQ-390]] — a slow operation was announced; the working line shows it. */
+  /** [[REQ-390]] — a slow operation was announced; the status shows it. */
   working?: (note: WorkingNote) => void
 }
 
@@ -257,22 +243,28 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
       }
     }
 
+    // [[REQ-416]] — A TALKER ROUND NEVER MOVES THE STATUS: it is only talking, and
+    // what it would run that is slow or builds is withheld from it anyway. The
+    // framework hands the talker's round its `withhold`, and nothing else does.
+    const talking = Boolean(opts.withhold)
     for await (const event of backend.promptStream(ref, content, opts) as AsyncGenerator<StreamEvent>) {
       const name = event.meta?.name as string | undefined
       const input = (event.meta?.input ?? {}) as Record<string, unknown>
       let line: string | null = null
       let note: WorkingNote | null = null
-      if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL) {
-        // EVERY DELEGATE MOVES THE WORKING LINE; only the first is announced.
+      if (talking) {
+        // Passed through below, untouched.
+      } else if (event.kind === TOOL_ISSUE && name === DELEGATE_TOOL) {
+        // EVERY DELEGATE MOVES THE STATUS; only the first is announced.
         const said = flatten(input[DELEGATE_NOTE])
-        note = { doing: said === '' ? FALLBACK_NOTE : capped(said, NOTE_CAP), scope: delegated ? 'step' : 'turn' }
+        note = { doing: said === '' ? FALLBACK_NOTE : capped(said, NOTE_CAP) }
         if (!delegated) line = statusLine(input[DELEGATE_NOTE], await waiting())
         delegated = true
       } else if (event.kind === TOOL_ISSUE && name !== undefined && SLOW_TOOLS.has(name)) {
         const slow = SLOW_TOOLS.get(name)!
         const attempt = (failures.get(callKey(name, input)) ?? 0) + 1
         // [[BUG-215]] — NO LINE IN THE CONVERSATION: the note is the whole notice.
-        note = { doing: slowDoing(slow, input, attempt), estimate: ESTIMATES[slow.minutes], scope: 'step' }
+        note = { doing: slowDoing(slow, input, attempt), minutes: slow.minutes }
       }
       // [[REQ-390]] — TOLD BEFORE THE LINE IS YIELDED, so the host has the note by
       // the time the line reaches it and can put it on the stream right behind.
@@ -280,7 +272,7 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
         try {
           hooks.working(note)
         } catch {
-          // A working line missed is not a turn lost.
+          // A status missed is not a turn lost.
         }
       }
       if (line !== null) {

@@ -110,6 +110,7 @@ import {
   openConversation,
   privateSessions,
   stopExchange,
+  stopTurn,
   streamPrompt,
   tailSession,
   UnknownSessionError,
@@ -404,6 +405,7 @@ import {
 import { fidelityOperations } from '../../../tools/generate/src/cli/ai/fidelity-core'
 import { compBoard, type BoardComp } from './comps'
 import { BOARD_ACTIONS } from '../../../tools/generate/src/cli/ai/story-core'
+import { siteOfRoom } from '../../../tools/generate/src/cli/ai/group-core'
 
 /**
  * The builder's route table, in workerd (REQ-145 phases 2 and 3).
@@ -6787,12 +6789,15 @@ async function routeUncached(
     }
 
     /**
-     * POST /api/ai/stop — end a group-chat exchange ([[REQ-357]]).
+     * POST /api/ai/stop — end a group-chat exchange ([[REQ-357]]), or the
+     * consultant's work in a one-to-one conversation ([[REQ-416]]).
      *
      * DURABLE, NOT A SOCKET CLOSE: the request is recorded on the room's ticket,
-     * which the isolate running the exchange reads between rounds and while a
-     * round is in flight — so it reaches the run whichever isolate it lands in.
-     * Answers whether there was an exchange to stop.
+     * or the conversation's chat ticket, which the isolate running the work reads
+     * while it runs — so it reaches the run whichever isolate it lands in.
+     * Answers whether there was an exchange to stop; a one-to-one Stop is kept
+     * and answers `stopping: true`. `turnId` names a talker's reply to stop
+     * alone; absent, the work — during a build, the build — is stopped.
      */
     if (p === '/api/ai/stop' && method === 'POST') {
       const body = await readJsonBody(request)
@@ -6800,8 +6805,13 @@ async function routeUncached(
       if (typeof sessionId !== 'string' || sessionId === '') {
         return json(400, { error: 'sessionId is required' })
       }
+      const turnId = typeof body.turnId === 'string' && body.turnId !== '' ? body.turnId : null
       const host = await chatHost(env, requireScope(), deps, url.origin)
       try {
+        if (!siteOfRoom(sessionId)) {
+          await stopTurn(sessionId, turnId, host.deps)
+          return json(200, { stopping: true })
+        }
         return json(200, await stopExchange(sessionId, host.deps))
       } catch (err) {
         if (err instanceof UnknownSessionError) return json(404, { error: err.message })

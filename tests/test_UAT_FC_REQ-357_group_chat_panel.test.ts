@@ -119,7 +119,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-357 — the chat panel draws the room', (
           await finished
           yield { kind: 'done', content: '', meta: { status: 'aborted' } }
         },
-        stopExchange: async (id: string) => {
+        stop: async (id: string) => {
           stops.push(id)
           finish()
           return { stopping: true }
