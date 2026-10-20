@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:56:40.890052+00:00'
+updated_at: '2026-10-20T21:58:54.790591+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4018,5 +4018,11 @@ The pattern for after discovery: one question per turn at most, tied to a specif
 This is mostly priming changes, plus probably one change to the plan stages: discovery gets an explicit close-out step, and the build-time "always end with a story question" rule is replaced. While a build runs after discovery is closed, the consultant asks one of these direction questions, or nothing at all.
 
 It's prose, not code, so it doesn't need the full ticket process. Do you want me to draft the priming changes for you to look at, or talk through the shape more first?
+
+<!-- xgd-turn id="84196edf-8099-461f-8010-b7dde5588d11-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T21:58:54.271014+00:00" -->
+#### You
+no go ahead and draft - then I want to talk about the comp presentation UX which needs a little tweaking
 
 <!-- xgd-chat-end -->
