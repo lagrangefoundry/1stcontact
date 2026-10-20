@@ -6,10 +6,10 @@ title: 'Builder banners: error banners can''t be dismissed — give every action
   banner a dismiss ×'
 created_by: EPIC-19
 created_at: '2026-10-19T23:31:13.561400+00:00'
-updated_at: '2026-10-20T00:04:40.325680+00:00'
+updated_at: '2026-10-20T00:08:17.621478+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: medium
