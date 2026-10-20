@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T15:38:52.638367+00:00'
+updated_at: '2026-10-20T15:42:56.119815+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10145,5 +10145,45 @@ It's small and touches only builder text and layout, so it shouldn't conflict wi
 I'm about to start the next website iteration.
 
 Can you review the changes that we have made please and make sure that they are complete and consistent based on what we discussed. Particularly the talker/worker implementation and the emphasis changes to the prompts
+
+<!-- xgd-turn id="01c9595e-3fb2-4b9b-91eb-60b679b21fad-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T15:42:54.854448+00:00" -->
+#### Claude
+Reviews done. I'm making the one small prompt fix now, then filing the bugs.
+
+I reviewed REQ-415, 416 and 417 against their tickets and against what we agreed. **They're almost all there, but I'd fix four problems before you run. I've filed them together as BUG-235** (high, 3 points). The 17 test files I ran (115 tests) all pass.
+
+## What's complete
+
+**Worker and talker (REQ-416):**
+- The talker is wired end to end. The session tells the chat it can talk during a build; a message you send while it builds opens a talker turn; the reply comes back on the same stream. The chat UI copied into our build matches the framework's.
+- Tools: the talker can't use any site write, builders, looks, image generation, publishing or `set_stage`. It can use the story board, panel questions, decisions and facts, comps, web search and read-only looks. The settings assistant has no talker.
+- The REQ-209 status widget and Stop building replaced our old working line, which is deleted, and it still says "The consultant is …".
+- The talker's instructions make discovery its standing job, list the story areas still missing, say new story goes into the next pass, and report progress only from the worker's status.
+- The worker ends its announcement before a build with a story question, and its result names what the talker gathered.
+- The new method is in the priming: build sooner, story later, and say where things stand and what can be changed now.
+
+**Visual checks (REQ-415):** all six items are in. The screenshot wording no longer discourages looking. After every build the host attaches a screenshot and a layout check covering all six problem types at desktop and phone width. Problems found mean the build isn't done and the host carries it on. Looks are recorded per page version, and the final stages are refused until every changed page has been looked at. Price-table guidance tells builders to build rows.
+
+**Opening tweaks (REQ-417):** all done.
+
+**The "Does it look right?" priming section** is intact. I've just added (`508dd93355`) that the screenshot the host attaches is a look at one width, the other is still owed, and the final stages won't close without both. It didn't say that before.
+
+## BUG-235: fix these before the run
+
+1. **The progress tracker works against build-sooner.** Starting the first draft automatically marks "Getting to know you" done, and shows "Looking at other sites" as skipped, just as the talker's interview begins. You'd see "done" at exactly the wrong moment. The fix lets discovery stay in progress alongside the build.
+2. **Stop building can be overridden.** If you stop a build that left layout problems, the host's layout continuation starts it up again. A stopped build must stay stopped.
+3. **When the layout check is clean, the report still says "The check finds faults"**, telling the consultant the opposite of what's true.
+4. **With no browser, the final stages could never close**, because no look can be recorded. Dev has a browser, so this won't hit your run, but it would hit any deployment without one.
+
+The ticket also includes three smaller items:
+- the opening message still says the stages come in "the usual order";
+- the talker test should work out which tools change the site rather than use a hard-coded list;
+- two code comments call the consultant "she".
+
+**One item not filed:** REQ-415 deferred a proper table element for price tables. It was supposed to be recorded under EPIC-24/L1, and wasn't. The builder guidance covers it for now. Tell me if you want it filed.
+
+Once BUG-235 lands, run `bin/deploy --env dev` and start a new business.
 
 <!-- xgd-chat-end -->
