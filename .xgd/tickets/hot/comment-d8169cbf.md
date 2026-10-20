@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:35:02.616907+00:00'
+updated_at: '2026-10-20T03:38:58.203038+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9866,5 +9866,13 @@ Short answer: the consultant is told to look at its own work, but it's told much
 And correct the screenshot pricing so it says what's true now: about two turns' worth of cost, and worth paying after a build.
 
 When you're done with the consultant, I'll file that as one ticket. If you can, ask the consultant in that conversation why it didn't look at the pricing page before handing back. Its answer will tell us which of the four causes did it.
+
+<!-- xgd-turn id="b7c57f39-1e23-4b62-9095-ed6e9969087d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T03:38:56.045522+00:00" -->
+#### You
+Lets be really clear because you were confused about this early on and we are still fixing...processing is cheap, networking (downloads) are cheap, TOKENS ARE COSTLY
+
+So screenshots are super cheap - having the principal look at them is costly but clearly necessary. This is a land mine we set for ourselves. I guess its the price of delegation to Haruku models - but the principal MUST check the work - PARTICULARLY in the final stages
 
 <!-- xgd-chat-end -->
