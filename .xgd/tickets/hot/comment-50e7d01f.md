@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T00:25:06.633838+00:00'
+updated_at: '2026-10-20T00:29:34.910896+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3802,5 +3802,67 @@ It's a few hours of careful reading rather than a query, because spotting false 
 <!-- xgd-chat role="user" ts="2026-10-20T00:25:05.884496+00:00" -->
 #### You
 Yesz
+
+<!-- xgd-turn id="e6ff63d0-eba5-4aa0-b3b3-8e5e36910e0f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T00:29:33.354508+00:00" -->
+#### Claude
+Starting with the consultant's own record of every delegation it made in Salon 2.
+
+28 of the 49 results were cut short in the consultant's transcript. Each builder's own session holds the full brief and report, so I'll build the table from those.
+
+The consultant's copy is incomplete, but `accepted` is the first key in each result, so it survives the truncation. Matching it to the workers in order.
+
+The conversation itself shows five places where you had to point out a problem the consultant had reported as done. Now I'm reading each brief and its report against those.
+
+I've read all 49 briefs and reports. Now tallying cost by what each delegation was actually for.
+
+Builder side done. Now the consultant's own spend on the same rework, split by turn.
+
+Rework comes to about 42% of Salon 2's metered spend. One thing to check before writing it up: whether the story-board problem already has a ticket.
+
+The story board is appended to every builder brief on purpose (REQ-408). Checking whether anything has since reversed that, as you asked for at 21:04.
+
+Nothing has reversed it: the 10-19 briefs still carry the story board. Recording the analysis on EPIC-20.
+
+About **42% of Bob's Salon 2's metered spend, roughly $13.50 of $32.30, went on rework.** That's work that only existed to fix earlier delegations: 27 of the 49 builder runs.
+
+I read all 49 builders' briefs, tool calls and reports, and matched them to their costs. Sorting each run into one of three kinds is my judgement: I read each brief against what had come before it.
+
+| The builder run was… | Runs | Builder cost | Consultant cost | Accepted |
+|---|---|---|---|---|
+| New work | 22 | $8.91 | $5.41 | 8 |
+| Redoing incomplete or wrong work | 11 | $4.45 | $2.07 | 3 |
+| Repairing damage an earlier builder did | 16 | $3.09 | $3.92 | 13 |
+
+Turns with no delegation, just conversation, cost another $4.44. Five turns aren't priced at all (the BUG-232 failures), and four of those were rework, so the real share is a bit higher.
+
+## What caused it
+
+**1. Builders changed things they weren't asked to.** This caused all 16 repair runs.
+- A builder asked to change only the header rewrote the "long hair" section.
+- Your portraits vanished when the Bold & alive look was applied.
+- The prices page wording was mangled twice.
+
+The biggest single driver is that **every builder brief gets the story board appended automatically**: 48 of the 49 do. That's by design (REQ-408), and the builders treat it as copy to write. The consultant ended up adding "IGNORE any story board" to 17 briefs, and four runs did nothing but put back text a builder had invented. It's still happening: the Oct 19 briefs carry it too. You said at 21:04 the story board should go to the consultant, not the builders, and nothing has made that change yet.
+
+**2. Reported as done, then you found it broken.** Your three corrections line up with three accepted runs:
+- the egg-shaped logo;
+- the portrait crop "reset" and the group photo cutting people off on phones;
+- the fonts, reported as working when they weren't loading. That one was the deploy problem, not the builder.
+
+In each case the checks covered only what was asked for, not what else changed or how it looked at other screen widths.
+
+**3. First attempts that needed finishing.** The three looks took three extra "finish this look" runs after the first builder ran out of steps. Logo and banner sizing needed a second pass each time.
+
+**4. Tool errors.** 98 of the builders' 769 edits were refused, about 13%, mostly malformed page edits. Builders also still pass screenshot options that no longer exist after the screenshot rework (REQ-363). These cost little money but add steps.
+
+## What's already covered
+
+BUG-225, under EPIC-19, covers the first two causes: builders limited to the sections they're given, and text checks settled from the page itself rather than taken on the builder's word. It landed at 12:37 on Oct 18, partway through this session, so most of these runs predate it.
+
+The story board going into every brief has no ticket. That's the fix I'd make first. Want me to file it?
+
+The full write-up is on EPIC-20.
 
 <!-- xgd-chat-end -->
