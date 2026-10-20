@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:22:21.927733+00:00'
+updated_at: '2026-10-20T19:22:48.448053+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10278,5 +10278,37 @@ The consultant's instructions for working with builders still say *"When the che
 A couple of glitches with the question panel:
 1. often hard to say done - I just filled in a bunch of competitor comments but there is no "Submit button" - there's an add button but no way to submit the comments - I have had this on text box entries too - I think hitting enter worked there (it doesn't here) we need to make sure there is a clear CTA that says I'm finished here are my answers
 2. The consultant ask a question about correct phone or could it use the email. the card appeared with a text box initially then something trigger a refresh to radio buttons.
+
+<!-- xgd-turn id="42e6e21b-1cbf-4db8-aa36-3527a66deb35-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T19:22:47.569076+00:00" -->
+#### Claude
+Both are real. Here's what's behind each.
+
+## 1. No clear "I'm finished" button
+
+Typed answers on the panel save when you **leave** the box: they're saved on the browser's `change` event, which fires on blur (`plan-panel.js`, the long-text answer around line 492, and the same pattern for short text). So there's no Submit button. Enter happens to work in a single-line box, but not in a multi-line one, and the comp notes behave the same way. The only Done buttons are on multi-choice questions (BUG-200) and the comp board's **Add**, which adds a site, not your notes. So the panel never says *"got it"*, and you can't tell whether what you typed has been taken.
+
+**Fix:** every question you type an answer into gets a clear **Done** button, Enter-to-send on single-line answers, and **"Saved ✓"** once it's stored. The comp notes get the same treatment: a **Done with this site** button for each site, plus one **"I've finished commenting"** button under the board. That final button tells the consultant you're done, so it can move on instead of waiting. Saving when you leave the box stays, as a safety net, but it's no longer the only way.
+
+## 2. A question changed from a text box to radio buttons
+
+The panel shows a question's current form and redraws whenever the plan changes. The likely cause is that **the consultant rewrote the question after posting it.** It asked about your phone first as typed text, then changed the same question into a choice ("use this number" or "use the email"). The redraw then swapped the box out, possibly while you were looking at it, or typing in it. I'd confirm that from the plan's change history when the fix is written.
+
+**Fix:**
+- **A question that's already showing can't change its form.** The host refuses that rewrite and tells the consultant to withdraw the question and ask a new one. The new one appears as a separate, clearly new item.
+- **A redraw never throws away what you're typing.** Any text in an answer box survives the redraw.
+
+---
+
+I'd fold both into the bug I described last turn. It would then cover:
+- the attachment chips hiding the text box;
+- pacing: one line for new panel questions, and a message ends on its one real question;
+- the worker's short hand-back that waits while you're typing;
+- the builder instructions that still say not to look;
+- explicit Done buttons and "Saved" on the panel;
+- questions that can't change form once they're showing.
+
+That's one ticket, since it's all the same theme: the client loses their place. Shall I file it?
 
 <!-- xgd-chat-end -->
