@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:31:21.038985+00:00'
+updated_at: '2026-10-20T03:34:17.562722+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9829,5 +9829,19 @@ I've filed **BUG-234**, *"Working line: say "The consultant is …", not "Your c
 The wording comes from one place: `"unnamed": "Your consultant"` in `tools/generate/src/cli/ai/slow-tools.json`, which the working line reads through `cadence-core.ts`. So the code change is one line, plus the three UATs that check for the old wording (BUG-205, BUG-215 and REQ-390). The ticket also asks for a check that "Your consultant" doesn't appear anywhere else you can see it. Group chat keeps its configured names.
 
 This replaces BUG-205's "Your consultant" choice, and the ticket says so. DOC-66 still recommends "your consultant" for text you see, so it should be updated to match. That's a doc edit with no ticket needed, and I can make it if you want.
+
+<!-- xgd-turn id="7b29d0d0-03d8-4751-928a-74a5115a48b8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T03:34:14.235527+00:00" -->
+#### You
+Im havving an important conversation with the consultant right now
+
+Here's the problem: The pricing page was a mess - layout was ugly and obviously broken.
+
+When I point it out the consultant can fix it.
+
+The question is - why do I have to point it out? 
+
+Its still working
 
 <!-- xgd-chat-end -->
