@@ -22,6 +22,12 @@
  * builder session that writes a page, and on every page map — so the consultant's
  * looking can be pointed at what is wrong rather than spread over everything.
  *
+ * ONLY TEXT A READER CAN SEE IS MEASURED ([[BUG-237]]). Text inside a box of at
+ * most a pixel that clips its content — the visually-hidden pattern a form uses
+ * for its accessible labels and its honeypot — and a `<template>`'s inert content
+ * are not on the page to anyone looking, so they are neither text over text, nor
+ * cut off, nor a section that takes no height.
+ *
  * WHAT IS DELIBERATELY NOT HERE: taste. Every finding is a fault on any site, in
  * any style; nothing here says a page is ugly.
  */
@@ -92,11 +98,24 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   while (kids.length === 1 && real(kids[0]).length > 0) { at += '.0'; root = kids[0]; kids = real(root); }
   const px = (n) => Math.round(n) + 'px';
   const style = (el) => getComputedStyle(el);
+  // A box of at most a pixel that clips what is in it shows none of it: the
+  // visually-hidden (sr-only) pattern an accessible label or a honeypot uses.
+  const sealed = new Map();
+  const unseen = (el) => {
+    if (!el || el === document.body) return false;
+    if (sealed.has(el)) return sealed.get(el);
+    const s = style(el);
+    const r = el.getBoundingClientRect();
+    const clips = s.overflowX !== 'visible' || s.overflowY !== 'visible' || s.clip !== 'auto' || s.clipPath !== 'none';
+    const hidden = (clips && (r.width <= 1 || r.height <= 1)) || unseen(el.parentElement);
+    sealed.set(el, hidden);
+    return hidden;
+  };
   const shown = (el) => {
     const s = style(el);
     if (s.display === 'none' || s.visibility === 'hidden' || Number(s.opacity) === 0) return false;
     const r = el.getBoundingClientRect();
-    return r.width > 0 && r.height > 0;
+    return r.width > 0 && r.height > 0 && !unseen(el);
   };
   const words = (el) => (el.textContent || '').replace(/\s+/g, ' ').trim();
   const quote = (el) => { const w = words(el); return '"' + (w.length > 40 ? w.slice(0, 37) + '...' : w) + '"'; };
@@ -123,6 +142,7 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   let sidewaysNamed = false;
 
   kids.forEach((section, i) => {
+    if (section.tagName === 'TEMPLATE') return;
     const address = at + '.' + i;
     const box = section.getBoundingClientRect();
     if (box.height < 2) { add(address, 'collapsed', 'takes no height, so nothing in it can be seen'); return; }
