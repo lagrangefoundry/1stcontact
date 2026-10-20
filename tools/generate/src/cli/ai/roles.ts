@@ -998,6 +998,11 @@ export function registerSiteProviders(
      */
     unlooked?: (() => Promise<NotLooked[]>) | null
     /**
+     * [[BUG-235]] — this deployment has no browser, so no page can be looked at;
+     * said near publishing instead of the pages not looked at.
+     */
+    cannotLook?: boolean
+    /**
      * Whether this deployment composes the delegation surface ([[REQ-295]]).
      *
      * BOUND HERE RATHER THAN IN A SEAM OF ITS OWN, because the entries it fills
@@ -1115,7 +1120,7 @@ export function registerSiteProviders(
       // [[REQ-415]] — and the pages not looked at since they changed, on the same terms.
       const unlooked =
         binding.unlooked && nearPublishing(plan) ? await binding.unlooked().catch(() => undefined) : undefined
-      return planReminder(plan, { noAddress, unlooked })
+      return planReminder(plan, { noAddress, unlooked, cannotLook: binding.cannotLook === true && nearPublishing(plan) })
     } catch {
       return null
     }

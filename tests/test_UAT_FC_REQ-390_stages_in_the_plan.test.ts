@@ -116,21 +116,23 @@ describe('REQ-390 — the consultant ticks off the stages', () => {
     // OUT OF ORDER: Colours & fonts started before Looking at other sites — fine.
     const started = JSON.parse(unwrap(await alice.run('set_stage', { stage: 'colours_and_fonts', state: 'in_progress' })))
     expect(started.stage).toMatchObject({ id: 'colours_and_fonts', state: 'in_progress', label: 'Colours & fonts' })
-    // STARTING A STAGE MOVES THE MARKER: the first draft, started next, takes it.
+    // [[BUG-235]] — STARTING A STAGE CHANGES THAT STAGE ONLY: the first draft,
+    // started next, leaves Colours & fonts in progress beside it.
     const moved = JSON.parse(unwrap(await alice.run('set_stage', { stage: 'first_draft', state: 'in_progress' })))
-    expect(moved.moved_from).toBe('colours_and_fonts')
+    expect(moved.moved_from).toBeUndefined()
     expect(await stages(alice)).toEqual([
       ['Getting to know you', 'done'],
       ['Looking at other sites', 'not_started'],
       ['First draft', 'in_progress'],
       ['Refining', 'not_started'],
-      ['Colours & fonts', 'not_started'],
+      ['Colours & fonts', 'in_progress'],
       ['Finishing touches', 'not_started'],
       ['Ready to publish', 'not_started'],
     ])
 
     // BACKWARDS: a done stage reopened is in progress again, and un-ticked.
     await alice.run('set_stage', { stage: 'first_draft', state: 'done' })
+    await alice.run('set_stage', { stage: 'colours_and_fonts', state: 'not_started' })
     await alice.run('set_stage', { stage: 'getting_to_know_you', state: 'in_progress' })
     const now = await stages(alice)
     expect(now[0]).toEqual(['Getting to know you', 'in_progress'])

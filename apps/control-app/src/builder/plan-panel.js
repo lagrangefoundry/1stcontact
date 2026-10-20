@@ -733,6 +733,10 @@ export function createPlanPanel(options = {}) {
    */
   function drawStages(stages) {
     const states = shownStates(stages)
+    // [[BUG-235]] — TWO STAGES MAY BE IN PROGRESS (getting to know you carries on
+    // while the first draft is built): the furthest is named and spins, and the
+    // other keeps its in-progress colour only.
+    const named = states.lastIndexOf('in_progress')
     stageList.replaceChildren(
       ...stages.map((stage, i) => {
         const state = states[i]
@@ -744,7 +748,7 @@ export function createPlanPanel(options = {}) {
         item.tabIndex = 0
         item.setAttribute('aria-describedby', tip.id)
         item.setAttribute('aria-label', `${i + 1}. ${stage.label} — ${PLAN_STAGE_STATE[state] ?? state}`)
-        const current = state === 'in_progress'
+        const current = i === named
         if (current) item.setAttribute('aria-current', 'step')
         item.append(el('span', 'plan-stage__number', current ? `${i + 1}.` : String(i + 1)))
         if (current) {

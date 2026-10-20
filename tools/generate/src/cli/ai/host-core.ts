@@ -1497,7 +1497,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       ...lines.map((l) => `- ${l}`),
       faulty
         ? 'THIS BUILD IS NOT DONE: a page it wrote has layout faults. Fix every line above in this request — brief a builder with them — and look again before you tell your client the page is ready.'
-        : 'The check finds faults; whether the page is what your client asked for is what the picture is for.',
+        : 'The layout check found no layout faults. Whether the page is what your client asked for is what the picture is for.',
     ].join('\n')
     return [
       { type: 'text', text: typeof output === 'string' ? output : JSON.stringify(output) },
@@ -2408,8 +2408,10 @@ async function build(
                   ...countedPlan(deps, slug),
                   // [[REQ-413]] — and the pages and guard `show_client` needs.
                   show: showDeps(slug, deps, grouped),
-                  // [[REQ-415]] — and what has not been looked at since it changed.
-                  unlooked: () => unlookedFor(deps, slug),
+                  // [[REQ-415]] — and what has not been looked at since it changed:
+                  // [[BUG-235]] only where a browser can record a look, or the
+                  // publishing stages could never close.
+                  ...(consultantFidelity ? { unlooked: () => unlookedFor(deps, slug) } : {}),
                   looks: {
                     choose: async (look: string, choice?: { contentChangesSeen?: boolean }) =>
                       (await editAlternativeChoose(slug, look, { ...opts, ...choice, actor: 'ai', store: deps.store }))
@@ -2613,8 +2615,10 @@ async function build(
     plan: deps.plan ? () => deps.plan!(slug).read() : null,
     // [[BUG-230]] — so the plan entry can say the site has no address yet.
     addresses: deps.addresses ? () => deps.addresses!(slug) : null,
-    // [[REQ-415]] — and which pages have not been looked at since they changed.
-    unlooked: deps.plan ? () => unlookedFor(deps, slug) : null,
+    // [[REQ-415]] — and which pages have not been looked at since they changed;
+    // [[BUG-235]] with no browser, that they cannot be looked at.
+    unlooked: deps.plan && fidelity ? () => unlookedFor(deps, slug) : null,
+    cannotLook: Boolean(deps.plan) && !fidelity,
   })
 
   // KM's two providers, when this host has a corpus. The seam registers and
@@ -4015,12 +4019,10 @@ function forkable(manager: Untyped, sessionId: string): boolean {
  * NEVER THROWS: a store that cannot answer leaves everything where it was, for
  * the next poll.
  */
-function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps): Beside {
+function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: string): Beside {
   const talkers = new TalkerFrames()
   const running: Promise<void>[] = []
   let looked = 0
-  // A STOP PRESSED BEFORE THIS TURN BEGAN was for a turn that is over.
-  const since = new Date().toISOString()
   return {
     talkers,
     async tick() {
@@ -4385,25 +4387,30 @@ async function* continuedTurn(
   continuationsLeft.set(key, MAX_CONTINUATIONS)
   // [[REQ-415]] — what a builder left wrong is owed within the message it was built in.
   layoutOwed.delete(key)
+  // [[BUG-235]] — A STOP PRESSED ANYWHERE IN THE REQUEST counts, from here.
+  const since = new Date().toISOString()
   let prompt = text
   let turnId = turn
   for (let round = 0; ; round++) {
     let done: { kind: string; content: string; meta?: Record<string, unknown> } | null = null
     promisedContinuation.delete(key)
     for await (const event of siteTurn(
-      manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), prompt, deps, turnId, view, WORKING_UNNAMED,
+      manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), prompt, deps, turnId, view, WORKING_UNNAMED, since,
     )) {
       if (event.kind === DONE) done = event
       else yield event
     }
-    const again = done !== null && endedOnBudget(done.meta) && promisedContinuation.get(key) === true
+    // [[BUG-235]] — A STOPPED ROUND IS NEVER CONTINUED, by either path below.
+    const stopped = done === null || done.meta?.status === ABORTED_STATUS
+    const again = !stopped && endedOnBudget(done!.meta) && promisedContinuation.get(key) === true
     // [[REQ-415]] — A REPLY THAT ENDS WITH LAYOUT FAULTS ON A PAGE A BUILDER WROTE
     // IS NOT THE END OF THE BUILD: the host carries it on, on REQ-409's terms —
     // the same continuations and the same spend ceiling.
     const owed = owedLayout(key)
     const unfinished =
-      !again && done !== null && done.meta?.exhausted !== true && done.meta?.status !== 'error' && owed.length > 0 && willContinue(key)
-    if (!again && !unfinished) {
+      !stopped && !again && done!.meta?.exhausted !== true && done!.meta?.status !== 'error' && owed.length > 0 && willContinue(key)
+    // [[BUG-235]] — nor is one the client stopped after the round last looked.
+    if ((!again && !unfinished) || (await stopPending(deps, sessionId, since))) {
       if (meter.over()) {
         // VISIBLE TO THE OPERATOR, NEVER TO THE CLIENT: the Worker's log.
         console.warn(
@@ -4417,6 +4424,25 @@ async function* continuedTurn(
     prompt = unfinished ? layoutContinuationCue(owed) : continuationCue()
     // Each turn its own spend row; the caller's ledger id keys the first.
     turnId = turn ? `${turn}-continued-${round + 1}` : undefined
+  }
+}
+
+/** The status a turn the client stopped ends with (lagrange-framework `ABORTED`). */
+const ABORTED_STATUS = 'aborted'
+
+/**
+ * [[BUG-235]] — whether the client pressed Stop building since `since`, and it is
+ * still waiting: pressed after the round's last look at the inbox, so nothing has
+ * acted on it. Taken, so it cannot stop the turn after this request. A Stop that
+ * names a talker's reply is not a Stop of the build. Never throws: a store that
+ * cannot answer is no Stop.
+ */
+async function stopPending(deps: HostDeps, sessionId: string, since: string): Promise<boolean> {
+  if (!deps.inbox) return false
+  try {
+    return (await deps.inbox.takeStops(sessionId)).some((stop) => stop.turn === null && stop.at >= since)
+  } catch {
+    return false
   }
 }
 
@@ -4448,6 +4474,9 @@ async function* siteTurn(
   // [[BUG-205]] — who the status names: no one in a one-to-one
   // conversation (DOC-66), the member by its display name in a room.
   who: string = WORKING_UNNAMED,
+  // [[BUG-235]] — when the client's request began, for a continuation round: a
+  // Stop pressed between rounds stops this one rather than being discarded.
+  stopsSince?: string,
 ): AsyncGenerator<{ kind: string; content: string; meta?: Record<string, unknown> }> {
   await attach(manager, sessionId, role, backend)
 
@@ -4551,7 +4580,9 @@ async function* siteTurn(
     // client's messages are taken from the inbox while the turn runs and answered
     // by a talker round in this isolate, whose reply rides this same stream.
     const talks = role === CONSULTANT_ROLE && who === WORKING_UNNAMED
-    const beside = talks ? talkerDesk(manager, sessionId, deps) : null
+    // A STOP PRESSED BEFORE THIS TURN BEGAN was for a turn that is over — and
+    // [[BUG-235]] a continuation round's turn begins with the client's message.
+    const beside = talks ? talkerDesk(manager, sessionId, deps, stopsSince ?? new Date().toISOString()) : null
     const events = withProgress(
       manager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
       manager.logFor(sessionId),

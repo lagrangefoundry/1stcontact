@@ -9,6 +9,14 @@ import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-c
 import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
 import { TALKER_ALLOW, TALKER_REFUSAL, TALKER_WITHHOLD } from '../tools/generate/src/cli/ai/roles'
 import type { PlanFields } from '../tools/generate/src/cli/ai/plan-core'
+import l1Surface from '../tools/generate/src/cli/ai/l1-surface.json'
+import imageSurface from '../tools/generate/src/cli/ai/image-surface.json'
+import librarySurface from '../tools/generate/src/cli/ai/library-surface.json'
+import fidelitySurface from '../tools/generate/src/cli/ai/fidelity-surface.json'
+import dnsSurface from '../tools/generate/src/cli/ai/dns-surface.json'
+import settingsSurface from '../tools/generate/src/cli/ai/settings-surface.json'
+import planSurface from '../tools/generate/src/cli/ai/plan-surface.json'
+import ledgerSurface from '../tools/generate/src/cli/ai/ledger-surface.json'
 import {
   calls,
   metered,
@@ -142,6 +150,25 @@ function forked(
       },
     },
   }
+}
+
+type Declared = { operations?: { op: string; effect?: string }[] }
+
+/**
+ * [[BUG-235]] — every tool a declaration says writes the site or a stage. A write
+ * on a surface that holds the site writes the site. The plan's and the ledger's
+ * writes are the talker's to make — the story board, the questions, the record —
+ * except the two plan operations that reach past the plan: the stage, and the
+ * look a page is given.
+ */
+function siteWriters(): Set<string> {
+  const writes = (d: Declared): string[] => (d.operations ?? []).filter((o) => o.effect === 'write').map((o) => o.op)
+  const site = [l1Surface, imageSurface, librarySurface, fidelitySurface, dnsSurface, settingsSurface] as Declared[]
+  const planWrites = writes(planSurface as Declared)
+  expect(writes(ledgerSurface as Declared).length).toBeGreaterThan(0)
+  const pastThePlan = ['set_stage', 'choose_look']
+  for (const op of pastThePlan) expect(planWrites).toContain(op)
+  return new Set([...site.flatMap(writes), ...pastThePlan])
 }
 
 const until = async (ok: () => boolean, ms = 8_000): Promise<void> => {
@@ -304,10 +331,15 @@ describe('REQ-416 — a message written while the consultant works is answered b
       const granted = client.worker[0].tools.map((t) => t.name)
       expect(granted.length).toBeGreaterThan(20)
       expect(granted.filter((t) => !withheld.has(t) && !allowed.has(t))).toEqual([])
-      // What changes the draft or the stage, wherever it is granted, is withheld.
-      for (const tool of ['Delegate', 'set_stage', 'place_on_site', 'choose_look', 'set_l1', 'add_page', 'write_image']) {
-        if (granted.includes(tool)) expect(withheld.has(tool)).toBe(true)
-      }
+      // [[BUG-235]] — WHAT WRITES THE SITE OR A STAGE IS WITHHELD, read off each
+      // granted tool's declared effect rather than a list kept beside it: a new
+      // site-writing tool put on the allow list fails here.
+      const mustWithhold = siteWriters()
+      const leaked = granted.filter((t) => mustWithhold.has(t) && !withheld.has(t))
+      expect(leaked).toEqual([])
+      expect(granted.filter((t) => mustWithhold.has(t))).toContain('set_stage')
+      // Delegate is the framework's, declared upstream: it is the build itself.
+      expect(withheld.has('Delegate')).toBe(true)
       expect(granted).toContain('pin_notes')
       expect(granted).toContain('set_stage')
     }

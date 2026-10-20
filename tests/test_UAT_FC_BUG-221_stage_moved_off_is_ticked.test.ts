@@ -19,9 +19,13 @@ import {
 import { shownStates } from '../apps/control-app/src/builder/plan-panel.js'
 
 /**
- * [[BUG-221]] — **starting a later stage ticks the one moved off**, so the
- * client's panel no longer calls a stage that was worked through "skipped"; and
- * the per-turn plan entry tells the consultant when a stage is passed over.
+ * [[BUG-221]] — the per-turn plan entry tells the consultant when a stage is
+ * passed over, so the client's panel does not go on calling a stage that was
+ * worked through "skipped".
+ *
+ * BUG-221's other half — starting a later stage ticked the one moved off, and
+ * starting an earlier one reset the later — is superseded by [[BUG-235]]:
+ * starting a stage changes that stage only (`test_UAT_FC_BUG-235_*`).
  *
  * WHAT IS REAL HERE: as REQ-390's suite — the Toolbox, the capability gate, the
  * plan declaration and operations, driven through `box.run` — plus the panel's
@@ -82,36 +86,7 @@ const unwrap = (answer: string): string =>
 /** The stages' states as the client's banner draws them. */
 const banner = (plan: Plan | null): string[] => shownStates(plan!.fields.stages)
 
-describe('BUG-221 — a stage moved off is not left looking skipped', () => {
-  it('test_UAT_FC_BUG-221_moving_forward_ticks_the_stage_moved_off', async () => {
-    const deps = memoryPlan()
-    const alice = await toolbox('consultant', deps)
-    // THE REPRO: intake started, then comps started without ticking intake.
-    await alice.run('set_stage', { stage: 'getting_to_know_you', state: 'in_progress' })
-    const moved = JSON.parse(unwrap(await alice.run('set_stage', { stage: 'other_sites', state: 'in_progress' })))
-    expect(moved).toMatchObject({ moved_from: 'getting_to_know_you', marked: 'done' })
-    expect(moved.stage).toMatchObject({ id: 'other_sites', state: 'in_progress' })
-    await alice.run('set_stage', { stage: 'other_sites', state: 'done' })
-    await alice.run('set_stage', { stage: 'first_draft', state: 'in_progress' })
-
-    expect(banner(deps.stored()).slice(0, 3)).toEqual(['done', 'done', 'in_progress'])
-    expect(banner(deps.stored())).not.toContain('skipped')
-    expect(planReminder(deps.stored())).not.toContain('Passed over')
-  })
-
-  it('test_UAT_FC_BUG-221_moving_backward_puts_the_later_stage_back_to_not_started', async () => {
-    const deps = memoryPlan()
-    const alice = await toolbox('consultant', deps)
-    await alice.run('set_stage', { stage: 'getting_to_know_you', state: 'done' })
-    await alice.run('set_stage', { stage: 'refining', state: 'in_progress' })
-    const back = JSON.parse(unwrap(await alice.run('set_stage', { stage: 'first_draft', state: 'in_progress' })))
-    expect(back).toMatchObject({ moved_from: 'refining', marked: 'not_started' })
-    const states = deps.stored()!.fields.stages.map((s) => s.state)
-    expect(states.slice(0, 4)).toEqual(['done', 'not_started', 'in_progress', 'not_started'])
-    // REFINING, after the furthest stage, is never drawn as skipped.
-    expect(banner(deps.stored())[3]).toBe('not_started')
-  })
-
+describe('BUG-221 — a stage passed over is named to the consultant', () => {
   it('test_UAT_FC_BUG-221_the_plan_entry_names_a_stage_passed_over', async () => {
     const deps = memoryPlan()
     const alice = await toolbox('consultant', deps)

@@ -1055,7 +1055,7 @@ export function createChatPanel(options = {}) {
     // The waiting ids the next prompt delivers, when it is run to deliver them.
     let delivering = []
     const interposes = typeof transport.interpose === 'function'
-    // [[REQ-416]] — A CONSULTANT WITH A TALKER: while she works, ▶ and Enter send
+    // [[REQ-416]] — A CONSULTANT WITH A TALKER: while it works, ▶ and Enter send
     // to the talker beside the work, and Stop building stops the work alone.
     const talks = session.talker === true && interposes
     if (talks) desk.adopt(waiting)
@@ -1087,7 +1087,7 @@ export function createChatPanel(options = {}) {
       ...(talks ? { turnModes: { talk: true } } : interposes ? { turnModes: { interpose: true } } : {}),
       sendPrompt: (text, opts) => {
         const wire = expandPrompt(text)
-        // [[REQ-416]] — WRITTEN WHILE SHE WORKS: to the talker, whose reply comes
+        // [[REQ-416]] — WRITTEN WHILE IT WORKS: to the talker, whose reply comes
         // back on the work's own stream. The origin keeps the message, so it is
         // not remembered here.
         if (talks && desk.isOpen()) return desk.talk(id, text, wire, promptView)
