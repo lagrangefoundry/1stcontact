@@ -7,6 +7,7 @@ import {
   formatL1Path,
   L1_DOCUMENT_KEYS,
   l1OpaqueHexSchema,
+  l1Children,
   l1PlainText,
   l1PaletteNameSchema,
   parseL1Path,
@@ -177,7 +178,7 @@ function textOf(node: L1Node): string {
   const runs: string[] = []
   const walk = (n: L1Node): void => {
     if (n.kind === 'text') runs.push(l1PlainText(n.text))
-    for (const child of (n as { children?: L1Node[] }).children ?? []) walk(child)
+    for (const child of l1Children(n)) walk(child)
   }
   walk(node)
   return runs.join(' ').replace(/\s+/g, ' ').trim()
@@ -2487,7 +2488,7 @@ function pageContent(l1: unknown): { text: string[]; pictures: string[] } {
       if (words !== '') text.push(words)
     }
     if (node.kind === 'image') pictures.push(`${node.src} ("${node.alt}")`)
-    if (node.kind === 'container' || node.kind === 'box') (node.children ?? []).forEach(walk)
+    l1Children(node).forEach(walk)
   }
   const root = (l1 as { root?: L1Node } | undefined)?.root
   if (root) walk(root)

@@ -14,6 +14,7 @@
 import {
   isSafeHref,
   isSafeUrl,
+  l1PlainText,
   L1_FRAME_TARGET,
   l1AnimateTracks,
   l1IsFrameTrack,
@@ -95,6 +96,7 @@ import type {
   L1Sizing,
   L1Sticky,
   L1SurfaceAxes,
+  L1Table,
   L1Text,
   L1Transform,
   L1ViewportResponse,
@@ -4394,6 +4396,89 @@ function textRunsHtml(content: L1Text['text'], nodeClass: string, state: RenderS
     .join('')
 }
 
+/** REQ-418 — the width below which a `stack` table stacks, when it declares none. */
+const TABLE_STACK_BELOW_PX = 600
+/** REQ-418 — the cell inset when a table declares none: enough that columns never touch. */
+const TABLE_CELL_PADDING = { topPx: 8, rightPx: 12, bottomPx: 8, leftPx: 12 }
+const TABLE_ALIGN: Record<string, string> = { start: 'start', center: 'center', end: 'end' }
+
+/**
+ * REQ-418 — a row-based table's markup and its rules: a real `<table>`, so a
+ * screen reader reads rows and columns, inside the node's own box (which carries
+ * its class, paint and placement, and is what scrolls in `scroll` mode).
+ *
+ * EVERY CELL IS AN ORDINARY TEXT NODE, emitted by `emitNode` at its address
+ * (header cells first, then each row left to right — `l1Children`'s order), so
+ * a cell's type, colour, runs, links and edit stamp are the text leaf's own code
+ * path rather than a second one. An empty cell is an empty `<td>`: it still
+ * takes its row's height, which is the whole point.
+ *
+ * `stack` restyles the same markup below its breakpoint rather than emitting a
+ * second copy: each row becomes a block, each cell a line labelled with its
+ * column's header, and the header row itself steps aside — every cell now says
+ * which column it is. Changing `display` costs a table its implicit roles in
+ * some browsers, so a stacking table states them explicitly.
+ */
+function tableHtml(
+  node: L1Table,
+  name: string,
+  state: RenderState,
+  path: readonly number[],
+  cls: string,
+  idAttr: string,
+  editAttrs: string,
+): string {
+  const t = `.${name}-t`
+  const stack = node.narrow === 'stack'
+  const role = (r: string): string => (stack ? ` role="${r}"` : '')
+  const pad = node.cellPadding ?? TABLE_CELL_PADDING
+  const cellDecls = ['vertical-align: top', 'text-align: start']
+  for (const [side, prop] of [
+    ['topPx', 'padding-top'],
+    ['rightPx', 'padding-right'],
+    ['bottomPx', 'padding-bottom'],
+    ['leftPx', 'padding-left'],
+  ] as const) {
+    const v = px(pad[side])
+    if (v) cellDecls.push(`${prop}: ${v}`)
+  }
+  const rule = node.rule ? borderCss(node.rule) : null
+  state.rules.push({ selector: t, decls: ['width: 100%', 'border-collapse: collapse'] })
+  state.rules.push({ selector: `${t} th, ${t} td`, decls: rule ? [...cellDecls, `border-bottom: ${rule}`] : cellDecls })
+  if (rule) state.rules.push({ selector: `${t} tbody tr:last-child > *`, decls: ['border-bottom: 0'] })
+  node.columns.forEach((col, i) => {
+    if (col.align && col.align !== 'start') {
+      state.rules.push({ selector: `${t} tr > :nth-child(${i + 1})`, decls: [`text-align: ${TABLE_ALIGN[col.align]}`] })
+    }
+  })
+  if (stack) {
+    const media = `(max-width: ${(node.narrowBelowPx ?? TABLE_STACK_BELOW_PX) - 1}px)`
+    state.rules.push(
+      { media, selector: `${t}, ${t} tbody, ${t} tr, ${t} td`, decls: ['display: block', 'width: 100%'] },
+      { media, selector: `${t} thead`, decls: ['display: none'] },
+      { media, selector: `${t} tr > *`, decls: ['text-align: start', 'border-bottom: 0'] },
+      { media, selector: `${t} td[data-label]::before`, decls: ['content: attr(data-label)', 'display: block', 'font-size: 0.8em', 'opacity: 0.7'] },
+    )
+    if (rule) state.rules.push({ media, selector: `${t} tbody tr:not(:last-child)`, decls: [`border-bottom: ${rule}`] })
+  }
+
+  const header = node.header ?? []
+  const labels = header.map((cell) => l1PlainText(cell.text))
+  let index = 0
+  const cell = (c: L1Node, tag: 'th' | 'td', label: string | undefined): string => {
+    const inner = emitNode(c, state, [...path, index++])
+    if (tag === 'th') return `<th scope="col"${role('columnheader')}>${inner}</th>`
+    return `<td${role('cell')}${label ? ` data-label="${escapeHtml(label)}"` : ''}>${inner}</td>`
+  }
+  const head = header.length
+    ? `<thead${role('rowgroup')}><tr${role('row')}>${header.map((c) => cell(c, 'th', undefined)).join('')}</tr></thead>`
+    : ''
+  const body = node.rows
+    .map((row) => `<tr${role('row')}>${row.map((c, i) => cell(c, 'td', labels[i])).join('')}</tr>`)
+    .join('')
+  return `<div class="${cls}"${idAttr}${editAttrs}><table class="${name}-t"${role('table')}>${head}<tbody${role('rowgroup')}>${body}</tbody></table></div>`
+}
+
 function emitNode(
   node: L1Node,
   state: RenderState,
@@ -4908,6 +4993,18 @@ function emitNode(
       html = `<div class="${cls}"${idAttr}${editAttrs} data-l1-slot="${escapeHtml(node.name)}"${
         node.behavior ? ` data-l1-behavior="${escapeHtml(node.behavior)}"` : ''
       }>${mounted}</div>`
+      break
+    }
+    case 'table': {
+      html = tableHtml(node, name, state, path, cls, idAttr, editAttrs)
+      base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
+      base.push(...axisSizingCss(node.sizing, parent))
+      if (!node.geometry) base.push('position: relative')
+      // REQ-418 — never wider than what it sits in, so neither narrow mode can
+      // push the PAGE sideways: a `scroll` table scrolls inside this box, and a
+      // `stack` table has nothing left that is wider than a cell.
+      base.push('max-width: 100%', 'min-width: 0')
+      if ((node.narrow ?? 'scroll') === 'scroll') base.push('overflow-x: auto')
       break
     }
     case 'box': {

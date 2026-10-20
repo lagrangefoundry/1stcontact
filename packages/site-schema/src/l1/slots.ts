@@ -9,6 +9,7 @@
  * Duplicates are returned rather than deduped: two slots sharing a name make the
  * mount point ambiguous, and the caller must be able to see that.
  */
+import { l1Children } from './children'
 import type { L1Document, L1Node } from './types'
 
 /** Every `slot` node's name in `root`, in document order, duplicates included. */
@@ -16,8 +17,7 @@ export function l1SlotNames(root: L1Node): string[] {
   const names: string[] = []
   const walk = (node: L1Node): void => {
     if (node.kind === 'slot') names.push(node.name)
-    else if (node.kind === 'container') node.children.forEach(walk)
-    else if (node.kind === 'box') (node.children ?? []).forEach(walk)
+    else l1Children(node).forEach(walk)
   }
   walk(root)
   return names
@@ -39,8 +39,7 @@ export function l1ControlNames(root: L1Node): string[] {
   const names: string[] = []
   const walk = (node: L1Node): void => {
     if (node.kind === 'control') names.push(node.control)
-    else if (node.kind === 'container') node.children.forEach(walk)
-    else if (node.kind === 'box') (node.children ?? []).forEach(walk)
+    else l1Children(node).forEach(walk)
   }
   walk(root)
   return names

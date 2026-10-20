@@ -32,7 +32,9 @@
  */
 import {
   L1_TYPE_AXES,
+  l1Children,
   resolveL1TextStyles,
+  withL1Children,
   type L1Node,
   type L1ScalarTrack,
   type L1TextStyle,
@@ -70,8 +72,7 @@ function keyOf(v: unknown): string {
   return JSON.stringify(v)
 }
 
-const kidsOf = (n: L1Node): L1Node[] =>
-  n.kind === 'container' ? n.children : n.kind === 'box' ? (n.children ?? []) : []
+const kidsOf = (n: L1Node): L1Node[] => l1Children(n)
 
 const isRun = (n: L1Node): n is Run => n.kind === 'text' || n.kind === 'control'
 
@@ -241,7 +242,7 @@ export function assignTextStyles(base: Record<string, unknown>, pages: Record<st
         typed = { ...node, type: { style: only } } as L1Node
       }
     }
-    return { ...typed, children: kids.map((k) => rewrite(k, own, false)) } as L1Node
+    return withL1Children(typed, kids.map((k) => rewrite(k, own, false)))
   }
   const assigned = literal.map((page) => {
     const l1 = page.l1 as { root?: L1Node } | undefined

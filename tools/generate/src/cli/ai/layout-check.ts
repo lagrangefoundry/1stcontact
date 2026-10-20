@@ -11,7 +11,8 @@
  * have said so. A browser laying the page out can.
  *
  * WHAT IS CHECKED, at desktop and phone width, each named by the section it is in:
- * content wider than the screen; text overlapping text, or clipped by its box; an
+ * content wider than the screen; text overlapping text, or clipped by its box (text a box SCROLLS to — a wide
+ * table on a phone, [[REQ-418]] — is reachable, so it is not reported as cut off); an
  * empty or collapsed section; sibling sections whose content edges disagree; and a
  * list of items with numbers in it built as side-by-side columns — misaligned when
  * its rows no longer line up, and reported even when they do, because a name and
@@ -167,7 +168,9 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
         const s = style(up);
         if (s.overflowX === 'visible' && s.overflowY === 'visible') continue;
         const c = up.getBoundingClientRect();
-        if (rects[t].some((r) => r.right > c.right + 1 || r.left < c.left - 1 || r.bottom > c.bottom + 1 || r.top < c.top - 1)) clip = up;
+        const scrollsX = s.overflowX === 'auto' || s.overflowX === 'scroll';
+        const scrollsY = s.overflowY === 'auto' || s.overflowY === 'scroll';
+        if (rects[t].some((r) => (!scrollsX && (r.right > c.right + 1 || r.left < c.left - 1)) || (!scrollsY && (r.bottom > c.bottom + 1 || r.top < c.top - 1)))) clip = up;
       }
       if (clip) add(address, 'clipped', quote(el) + ' is cut off by the box it sits in');
     }
@@ -207,10 +210,10 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
       }
       if (wrong) {
         add(address, 'misaligned_rows', 'has a list built as ' + listy.length + ' side-by-side columns, and ' + wrong +
-          (empties ? '; an empty cell takes no height' : '') + '. Build it as one row per item, with the item and its values in that row');
+          (empties ? '; an empty cell takes no height' : '') + '. Build it as a table element, one row per item, with the item and its values in that row');
       } else {
         add(address, 'split_rows', 'has a list built as ' + listy.length + ' side-by-side columns of ' + counts[0] +
-          ' entries, so each row is split across columns and lines up only by luck. Build it as one row per item');
+          ' entries, so each row is split across columns and lines up only by luck. Build it as a table element, one row per item');
       }
     }
 
