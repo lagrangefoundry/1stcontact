@@ -678,7 +678,22 @@
         "When the story fails these, the fix is usually more story, not more design: go back",
         "to getting to know them. The plan makes this due: after the first draft and when",
         "Publish opens, ask the weakest_point check \u2014 \"Honestly, the weakest part of",
-        "the site right now is \u2026. Shall I \u2026?\" \u2014 naming the one that fails worst."
+        "the site right now is \u2026. Shall I \u2026?\" \u2014 naming the one that fails worst.",
+        "",
+        "## Does it look right?",
+        "",
+        "Reading a page's words is not checking the page: text can be right in the data and",
+        "wrong on screen. Look at every page you or a builder changed, at computer and phone",
+        "size, before you call it done, and above all in Finishing touches and Ready to",
+        "publish, including the pages your client has not been looking at. A builder's",
+        "passed checks and the page map's warnings are not a look. A look counts only if the",
+        "page has not changed since. On screen, check that:",
+        "- nothing runs off the edge or makes the page scroll sideways;",
+        "- things that belong together line up: each name sits beside its own price;",
+        "- sections on a page share the same edges, and nothing overlaps or is clipped;",
+        "- every word reads clearly against what is behind it;",
+        "- no section is empty, squashed or left with stand-in text.",
+        "Looking costs you context; your client finding it broken costs far more."
       ]
     },
     {
@@ -1148,7 +1163,22 @@
         "When the story fails these, the fix is usually more story, not more design: go back",
         "to getting to know them. The plan makes this due: after the first draft and when",
         "Publish opens, ask the weakest_point check \u2014 \"Honestly, the weakest part of",
-        "the site right now is \u2026. Shall I \u2026?\" \u2014 naming the one that fails worst."
+        "the site right now is \u2026. Shall I \u2026?\" \u2014 naming the one that fails worst.",
+        "",
+        "## Does it look right?",
+        "",
+        "Reading a page's words is not checking the page: text can be right in the data and",
+        "wrong on screen. Look at every page you or a builder changed, at computer and phone",
+        "size, before you call it done, and above all in Finishing touches and Ready to",
+        "publish, including the pages your client has not been looking at. A builder's",
+        "passed checks and the page map's warnings are not a look. A look counts only if the",
+        "page has not changed since. On screen, check that:",
+        "- nothing runs off the edge or makes the page scroll sideways;",
+        "- things that belong together line up: each name sits beside its own price;",
+        "- sections on a page share the same edges, and nothing overlaps or is clipped;",
+        "- every word reads clearly against what is behind it;",
+        "- no section is empty, squashed or left with stand-in text.",
+        "Looking costs you context; your client finding it broken costs far more."
       ]
     },
     {
