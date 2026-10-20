@@ -165,7 +165,13 @@ import {
   projectBackendModel,
   projectBackendWindow,
 } from './backends'
-import { SpendMeter, turnSpendRecord, type RecordTurnSpend } from './spend-core'
+import {
+  SpendMeter,
+  countersOf,
+  measured,
+  turnSpendRecord,
+  type RecordTurnSpend,
+} from './spend-core'
 import { newId } from '../../store/ids'
 import { FIDELITY_DECLARATION, contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import { imageInstanceConfig, imageSurfaceFor, type ImageEditDeps } from './image-core'
@@ -3411,41 +3417,92 @@ async function writeOccupancy(
 }
 
 /**
- * What the turn that just closed handed off, and what that cost ([[REQ-295]]).
+ * Where this conversation's junction ends, before the turn appends anything to it
+ * ([[BUG-232]]).
  *
- * WHY THE JUNCTION AND NOT THE TERMINAL EVENT. The manager takes the turn's
- * attributions, clears them, and writes them onto the `turn_end` record it
- * appends from its own `finally` — so they are durable on every exit path,
- * including the worker that failed, the worker that was stopped and the turn the
- * client walked away from, which is precisely condition 7. They are NOT on
- * `doneEvent`, which carries the turn's own spend and its status. This reads the
- * place the fact actually is.
+ * THE BOUNDARY {@link closedTurn} READS FROM, so the `turn_end` it finds can only
+ * be this turn's. A turn the budget refused before calling the manager, or one the
+ * manager rejected before opening, appends no `turn_end` — and reading the whole
+ * log would then hand back the PREVIOUS turn's, billing its spend (and its
+ * attributions) a second time.
  *
- * THE LAST `turn_end` IS THIS TURN'S. It is read from the `finally` that closes
- * the stream, and returning the manager's generator runs its `finally` first —
- * so the record exists by the time this looks for it, and nothing later can have
- * been appended.
+ * A BYTE COUNT, NOT A READ: `size()` is the same cursor `readFrom` takes, and it
+ * costs a turn that completes nothing beyond it. `-1` where there is no junction
+ * to measure, which {@link closedTurn} reads as "nothing to recover".
+ */
+function turnCursor(manager: Untyped, sessionId: string): number {
+  try {
+    return Number(manager.logFor(sessionId).size()) || 0
+  } catch {
+    return -1
+  }
+}
+
+/**
+ * The `turn_end` record the manager appended for the turn that just closed, or
+ * `null` ([[REQ-295]], [[BUG-232]]).
  *
- * READING THE WHOLE LOG IS THE FRAMEWORK'S OWN IDIOM here (`readFrom(0)` is what
- * the delegation surface's stop watch does, every hundred milliseconds), and this
- * runs once per turn and only where delegation is composed at all.
+ * WHY THE JUNCTION AND NOT THE TERMINAL EVENT. The manager appends `turn_end`
+ * from its own `finally`, so it is durable on every exit path — the worker that
+ * failed, the worker that was stopped, the turn that threw, the turn the client
+ * walked away from. The terminal event is not: on a throw the manager rethrows
+ * without emitting one. Two facts are read off this record for that reason:
+ * `attributed`, which the manager puts here and never on `doneEvent`, and — since
+ * framework BUG-73 made the tool loop report its spend before rethrowing — the
+ * turn's OWN spend (`usage`, `requests`, `cost_usd`), which the manager folds
+ * onto this record whichever way the turn ended.
+ *
+ * READ ONLY PAST `from`, the {@link turnCursor} taken before the turn began, so
+ * the record found is this turn's or nothing. The last such record, because a
+ * turn appends exactly one; and it exists by the time this runs, because
+ * returning the manager's generator runs its `finally` first.
  *
  * A MISSING JUNCTION IS `null`, NOT A THROW. This is called from a `finally`
  * beside the meter, and a reader that took the turn down would be worse than the
  * figure it was fetching.
  */
-function turnAttributions(manager: Untyped, sessionId: string): unknown[] | null {
+function closedTurn(
+  manager: Untyped,
+  sessionId: string,
+  from: number,
+): Record<string, unknown> | null {
+  if (from < 0) return null
   try {
-    const [records] = manager.logFor(sessionId).readFrom(0) as [Array<Record<string, unknown>>]
+    const [records] = manager.logFor(sessionId).readFrom(from) as [Array<Record<string, unknown>>]
     for (let at = records.length - 1; at >= 0; at -= 1) {
-      if (records[at]?.kind !== TURN_END) continue
-      const attributed = records[at].attributed
-      return Array.isArray(attributed) ? attributed : null
+      if (records[at]?.kind === TURN_END) return records[at]
     }
   } catch {
-    // No junction, no attribution to read.
+    // No junction, nothing to recover.
   }
   return null
+}
+
+/**
+ * The spend to meter this turn by: its terminal event's, else its `turn_end`'s
+ * ([[BUG-232]]).
+ *
+ * THE TERMINAL EVENT FIRST, because it is what a completed turn already carries
+ * and reading it costs nothing. The junction is read only when that event never
+ * arrived or measured nothing — the turn that threw, the turn walked away from —
+ * or when `delegating` asks for its attributions anyway, so one read answers both.
+ *
+ * WHAT `turn_end` CANNOT SAY IT STILL DOES NOT CLAIM. A turn that ended badly
+ * having measured nothing closes with `spend_unknown: true` and no `usage`; that
+ * folds, through {@link turnSpendRecord}, to no counters and a NULL cost — "not
+ * observed", never "free".
+ */
+function turnSpendSource(
+  manager: Untyped,
+  sessionId: string,
+  from: number,
+  spendMeta: Record<string, unknown> | undefined,
+  delegating: boolean,
+): { meta: Record<string, unknown> | undefined; attributed: unknown[] | null } {
+  const carried = measured(countersOf(spendMeta?.usage))
+  const closed = carried && !delegating ? null : closedTurn(manager, sessionId, from)
+  const attributed = delegating && Array.isArray(closed?.attributed) ? closed.attributed : null
+  return { meta: carried ? spendMeta : (closed ?? spendMeta), attributed }
 }
 
 /**
@@ -3823,6 +3880,8 @@ export async function* streamPrompt(
     const spendTurn = turn ?? newId('turn')
     const spendStartedAt = new Date().toISOString()
     let spendMeta: Record<string, unknown> | undefined
+    // [[BUG-232]] — see the site branch below.
+    const spendFrom = turnCursor(settingsManager, sessionId)
     let seen = businessWrites.get(key) ?? 0
     try {
       // [[REQ-296]] — REFUSED BEFORE THE PROVIDER DOES. A settings conversation
@@ -3898,8 +3957,10 @@ export async function* streamPrompt(
       // AND WHAT IT COST ([[REQ-292]]). A settings turn spends exactly as a site
       // turn does, so it is metered by the same call with the same shape — the
       // role is the only thing that differs, and it is a column. See the site
-      // branch's own note below for what an abandoned turn can and cannot say.
-      await writeTurnSpend(deps, spendMeta, {
+      // branch's own note below for where a turn with no terminal event is read
+      // from ([[BUG-232]]). A settings turn delegates nothing.
+      const source = turnSpendSource(settingsManager, sessionId, spendFrom, spendMeta, false)
+      await writeTurnSpend(deps, source.meta, {
         session: sessionId,
         turn: spendTurn,
         startedAt: spendStartedAt,
@@ -4087,6 +4148,9 @@ async function* siteTurn(
   const spendTurn = turn ?? newId('turn')
   const spendStartedAt = new Date().toISOString()
   let spendMeta: Record<string, unknown> | undefined
+  // [[BUG-232]] — where the junction ends before this turn, so the `turn_end`
+  // read at its close can only be its own. See {@link turnCursor}.
+  const spendFrom = turnCursor(manager, sessionId)
 
   // BUG-43 — the counter as it stands right now, carried down the loop below so
   // each write is compared against the one before it rather than against the
@@ -4197,21 +4261,33 @@ async function* siteTurn(
     // else, and on the Worker `ctx.waitUntil` holds the isolate open for it — so
     // a turn abandoned the instant its answer arrived is recorded like any other.
     //
-    // WHAT IT CANNOT RECOVER, stated because the gap is upstream's rather than
-    // this line's: a turn cut off MID-GENERATION never produces a terminal
-    // event, so `spendMeta` is undefined and the requests already sent are
-    // accounted for nowhere this host can reach — the adapter's own per-segment
-    // ledger has them and the manager's `turn_end` does not. Nothing of the
-    // CALLER'S is written, which is the honest answer rather than the convenient
-    // one: a row of zeros would claim the turn was free.
+    // WHERE A TURN WITH NO TERMINAL EVENT IS READ FROM ([[BUG-232]]). A turn
+    // that THROWS — the tool loop failing after requests were sent and paid for —
+    // and a turn the client walked away from both reach this block without a
+    // terminal event, so `spendMeta` is undefined. Their spend is not lost: the
+    // tool loop reports it before rethrowing (framework BUG-73), and the manager
+    // folds it onto the `turn_end` record it appends from its own `finally`. That
+    // record is read here, only when the terminal event carried nothing, so a
+    // completed turn costs no extra read. A `turn_end` that truly measured
+    // nothing (`spend_unknown`) still writes no counters and a NULL cost: the
+    // honest answer rather than the convenient one, since a zero would claim the
+    // turn was free.
     //
-    // WHAT IT STILL RECOVERS ([[BUG-145]]): what that turn handed off. The
-    // manager writes `attributed` onto `turn_end` from its own `finally`, so it
-    // survives exactly the exits the terminal meta does not — and it is now a
-    // reason for the row to exist rather than a field discarded with it. Such a
-    // row carries four zero counters and a NULL cost, which is what says the
-    // caller's own spend was never observed rather than that it was nil.
-    await writeTurnSpend(deps, spendMeta, {
+    // AND WHAT THAT TURN HANDED OFF ([[BUG-145]]), off the same record and in
+    // the same read: the manager writes `attributed` onto `turn_end` and never
+    // onto the terminal event, and it is a reason for the row to exist rather
+    // than a field discarded with it. Asked only where this deployment composes
+    // the delegation surface at all ([[REQ-295]]): with the switch off there can
+    // be no attribution, and a host that cannot delegate should not pay a
+    // junction read per completed turn to be told so.
+    const source = turnSpendSource(
+      manager,
+      sessionId,
+      spendFrom,
+      spendMeta,
+      role === CONSULTANT_ROLE && Boolean(manager.roles[BUILDER_ROLE]),
+    )
+    await writeTurnSpend(deps, source.meta, {
       session: sessionId,
       turn: spendTurn,
       startedAt: spendStartedAt,
@@ -4220,14 +4296,7 @@ async function* siteTurn(
       // `claude_coordinator`, and its row must say so.
       backend: role === COORDINATOR_ROLE ? COORDINATOR_BACKEND : PROJECT_BACKEND,
       outcome,
-      // AND WHAT IT HANDED OFF ([[REQ-295]]). Asked only where this deployment
-      // composes the delegation surface at all: with the switch off there can be
-      // no attribution, and a host that cannot delegate should not pay a junction
-      // read per turn to be told so.
-      attributed:
-        role === CONSULTANT_ROLE && manager.roles[BUILDER_ROLE]
-          ? turnAttributions(manager, sessionId)
-          : null,
+      attributed: source.attributed,
     })
     // AND HOW FULL IT LEFT THE CONVERSATION ([[REQ-296]]). Off the same terminal
     // event the meter reads, in the same `finally`, and with the same rule about
