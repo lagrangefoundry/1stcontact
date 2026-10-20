@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-19T23:33:00.165033+00:00'
+updated_at: '2026-10-20T00:08:01.105509+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3728,5 +3728,13 @@ Seven turns failed with the same error, between 3:07pm and 5:14pm on Oct 18:
 I haven't found what causes that error yet. It looks like some text being read as JSON when it isn't. The string appears nowhere in the database except the error itself, so the bad value isn't stored there.
 
 I've added this comparison to EPIC-20. Do you want a bug filed for the JSON error? It's the one real defect here.
+
+<!-- xgd-turn id="a32faf58-978c-4b04-82c5-37729d390e14-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T00:08:00.597048+00:00" -->
+#### You
+I think we fixed the error but its important that we don't loose the costs can you create a bug for that missing cost please?
+
+The principle had a number of challenges with the delegates - things failing to build as expected, success reported when things failed etc. Do you have the data to analyse how much inefficiency there was in that?
 
 <!-- xgd-chat-end -->
