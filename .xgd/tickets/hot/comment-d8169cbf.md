@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T15:42:56.119815+00:00'
+updated_at: '2026-10-20T16:07:35.058139+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10185,5 +10185,12 @@ The ticket also includes three smaller items:
 **One item not filed:** REQ-415 deferred a proper table element for price tables. It was supposed to be recorded under EPIC-24/L1, and wasn't. The builder guidance covers it for now. Tell me if you want it filed.
 
 Once BUG-235 lands, run `bin/deploy --env dev` and start a new business.
+
+<!-- xgd-turn id="47470f7d-5d64-4801-8abd-40d9caa87b9a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T16:07:33.849942+00:00" -->
+#### You
+Dev has a browser, so this won't hit your run, but it would hit any deployment without one. <-- does prod have a browser?
+Tell me if you want it filed. <-- yes our costs are going up I want to track them carefully
 
 <!-- xgd-chat-end -->
