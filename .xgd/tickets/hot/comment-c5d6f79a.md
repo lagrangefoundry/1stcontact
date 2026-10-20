@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-417
 created_by: xgd
 created_at: '2026-10-20T14:50:03.142594+00:00'
-updated_at: '2026-10-20T14:56:26.157239+00:00'
+updated_at: '2026-10-20T15:22:39.072633+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -80,5 +80,11 @@ REQ-417 is done: the change is merged into xgd-working and the ticket is at `fre
 **Shared test helper:** to avoid a second copy of the Chromium-launch code, I moved it out of the BUG-58 test into `tests/support/chromium.ts`, and both suites now use it.
 
 The deployed dev environment still shows the old wording until you run `bin/deploy --env dev`.
+
+<!-- xgd-turn id="dbe08be4-98f2-4fed-acfd-de33c05ec315-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T15:22:38.569948+00:00" -->
+#### You
+Please put the "We'll put questions here for you to answer" in the center of the panel - vertically and horizontally centered
 
 <!-- xgd-chat-end -->
