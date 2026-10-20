@@ -5,9 +5,9 @@ type: bug
 title: 'Spend meter: a turn that ends by throwing records its own spend as zero'
 created_by: EPIC-20
 created_at: '2026-10-20T00:10:31.544851+00:00'
-updated_at: '2026-10-20T02:04:57.551156+00:00'
+updated_at: '2026-10-20T02:12:59.828724+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -46,8 +46,36 @@ Required behaviour:
 4. A consumer walking away mid-turn (abort without throw) gets the same recovery, since it also reaches the `finally` without a terminal event.
 5. The stale comment in the `finally` is rewritten to describe the new source, not deleted.
 
+## What changed
+
+`tools/generate/src/cli/ai/host-core.ts`, both streaming paths (site/coordinator and settings):
+
+- **`turnCursor()`** records the junction's byte `size()` just before the turn starts. That's a byte count, not a log read.
+- **`closedTurn()`** returns the `turn_end` record appended past that cursor, or `null`. It replaces `turnAttributions()`, which read the whole log from 0 and took the last `turn_end`.
+- **`turnSpendSource()`** picks the spend to meter. It uses the terminal event's meta when that carries measured `usage`, and otherwise this turn's `turn_end`, which holds `usage`, `requests` and `cost_usd` folded by the manager. The junction is read only when the terminal event carried no measured spend, or when the consultant composes delegation and needs `attributed` anyway. One read answers both questions. `attributed` now comes off the same record.
+- The stale comment in the site path's `finally` ("the manager's `turn_end` does not [have them]") is rewritten to describe the new source. The settings path points to it.
+- Occupancy (`writeOccupancy`, REQ-296) is unchanged and still reads only the terminal event.
+
+Resulting behaviour:
+
+1. A turn that throws after sending billed requests writes a `turn_spend` row with those requests' counters, `requests` count, settled `cost_micros`, and `outcome: error`.
+2. A completed turn still reads its spend from the terminal event. Its row is unchanged, and it makes no junction read unless delegation is composed.
+3. A turn whose `turn_end` measured nothing (`spend_unknown: true`, no `usage`) still claims nothing. With no attribution it writes no row. With an attribution (BUG-145) it writes four zero counters and a NULL cost. Unknown is never zero.
+4. A consumer walking away mid-turn goes through the same recovery. With today's framework that recovers nothing: an abandoned adapter generator doesn't reach its `done`, so its `turn_end` carries `spend_unknown`. The host side is in place for when upstream measures that exit too.
+5. A turn's `turn_end` is only ever its own. A turn refused before the manager runs (REQ-296 budget refusal), or one that throws before the manager appends anything, can no longer pick up the previous turn's `turn_end`. Before, that would have billed the previous turn's spend and re-attributed its delegations a second time.
+
+## Design decisions
+
+- **A cursor, not "the last `turn_end`".** Once `turn_end` is a spend source, reading the whole log and taking the last record would double-bill whenever the current turn appends none. `SessionLog.size()` is the same byte cursor `readFrom` takes, and the junction is only rewritten (`seed`/`delete`) by resume, repair, attach and close, never mid-turn. So a cursor taken just before the turn is stable.
+- **"Carried spend" means measured `usage`** (`measured(countersOf(meta.usage))` from spend-core). That is the same rule `turnSpendRecord` uses to decide a row exists, so the fallback and the row rule can't disagree.
+- **Occupancy is out of scope.** The ticket only asks for the meter.
+
 ## Test plan
 
-`tests/test_UAT_FC_BUG-232_*.test.ts`: drive a real host turn through the scripted-model harness where the tool loop throws after two billed requests. Assert the `turn_spend` row carries those two requests' counters and a non-null cost, `outcome: error`. Second case: a completed turn still reads its spend from the terminal event (row unchanged from today). Third: a throw before any request sent writes NULL cost, not zero.
+`tests/test_UAT_FC_BUG-232_thrown_turn_spend.workers.test.ts` drives the real `POST /api/ai/prompt` route in workerd through the scripted-model harness, with a real D1:
 
-Regression scope: REQ-292, BUG-145, REQ-295 spend UATs (note the delegation suites are red pre-existing on a clean tree).
+- `a_turn_that_throws_after_billed_requests_records_them`: two metered tool-call requests, then a third request that throws. Asserts one row with `outcome: error`, `requests: 2`, summed counters (all four), and a non-null positive cost. Fails on the unfixed host (no row at all).
+- `a_completed_turn_still_reads_its_terminal_event`: a completed two-request turn gives an unchanged row (`complete`, 2 requests, summed counters, priced).
+- `a_throw_before_any_request_claims_nothing`: a metered completed turn, then a turn whose first request throws. Asserts exactly one row (the first turn's). The failed turn writes no row and doesn't fall back to the previous turn's `turn_end`.
+
+Regression scope run: BUG-121 (workers), BUG-145 (both), BUG-229, REQ-292 (both), REQ-293 report, REQ-295 delegation, REQ-296, REQ-297 tenant cost, REQ-357 group chat, REQ-362. 70/73 pass. The 3 failures are pre-existing and identical without this change: REQ-292 `a_host_with_no_meter_still_completes_a_turn` (upstream `logDir` → `junctions` rename), and REQ-295 `the_caller_gets_a_result…` and `a_worker_that_never_reported…` (delegation result-shape drift).
