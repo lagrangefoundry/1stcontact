@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T18:58:20.551311+00:00'
+updated_at: '2026-10-20T18:58:59.588376+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10235,5 +10235,40 @@ First, though, I'd like the story behind that logo. A long-haired man as a salon
 I started answering the questions and uploading material and completely lost track of the final questions which are the most important. The AI needs to pace its interaction
 
 Again another moment where too many things are going on - I was replying to the talker, when the worker finished and dumped a page and a half of material in.
+
+<!-- xgd-turn id="23181dbf-460a-4017-af05-1d1d7255830d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T18:58:58.775275+00:00" -->
+#### Claude
+These are three separate problems, and all are fixable. One more turned up while I was checking the pacing rules.
+
+## 1. Too many photos hide the text box
+
+The chips above the text box wrap onto as many rows as they need, with no height limit (`.builder-attach` in `builder.css:1263`: `flex-wrap: wrap`, no `max-height`). Add enough photos and the chips take over the composer and push the text box out of reach. **Fix:** the chips area gets a maximum height of about two rows and scrolls inside itself, or collapses to "+8 more". The text box and the Send button always stay visible and clickable, however many files are attached.
+
+## 2. The consultant's turn was too much
+
+It already has a rule that says *"keep to one topic and at most one question per message."* That turn broke it in three ways:
+- **It listed every panel question in the chat.** The questions are already on the panel. Spelling them out puts five questions into one chat message, and that's what pulled you away. A line we added in REQ-401 ("announce every question you add") probably encouraged this.
+- **It also said what's coming next** (comps, then the first draft).
+- **The question that mattered most came last,** after everything else had already sent you off doing something.
+
+**Fix, in the priming:**
+- Questions added to the panel get **one line in total**: *"I've put a few quick questions on the panel above, whenever suits you."* Never one line per question, and never the questions themselves.
+- **A message ends on its one real question, and that question is the main thing in it.** When the most important question is a story question, little else should be in the message with it.
+- **"What happens next" goes in a separate message, or not at all,** when the message also asks something.
+- The rule is to pace the conversation: one thing at a time, and the client's attention goes to the thing that matters most.
+
+## 3. The worker's result arrived while you were replying to the talker
+
+REQ-210 already holds the worker's result until the talker has finished its reply, but it doesn't know you were partway through typing. The real problem is the **page and a half.** The worker's result is written as a full report when it should be a hand-back. **Fix:**
+- **The worker's result is short:** what's ready, where to look, and at most one question. About three lines. The details stay in its own record, and the consultant brings them up when relevant.
+- **It never lands while you're typing.** While the text box has unsent text, the result waits behind a small "The first draft is ready" marker, then appears once you've sent your message or cleared the box.
+
+## 4. Found while checking: the builder instructions still say not to look
+
+The consultant's instructions for working with builders still say *"When the checks come back passed, believe them and move on… Re-inspecting work you have already been given a record of… moves them to the more expensive side."* That's the opposite of REQ-415 and of your rule that it must check the work. It's an old REQ-342 passage that REQ-415 didn't update. Three test files check its exact wording, so changing it needs a ticket.
+
+**My suggestion is one bug for all four:** the chip area's height limit, the pacing rules, the short worker hand-back that waits while you're typing, and the builder-instruction rewrite. The pacing rule could also go in straight away as a prompt-only change, but you'd need to redeploy partway through the run for it to take effect. Shall I file it?
 
 <!-- xgd-chat-end -->
