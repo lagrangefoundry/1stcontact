@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T19:40:26.299609+00:00'
+updated_at: '2026-10-20T19:41:36.450304+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10345,5 +10345,29 @@ BUG-235 (the progress tracker, Stop, the inverted line about the layout check) i
 The bottom of the screen is getting pretty busy. I want to loose the paper clip and "Attach files" and instead add a "+" symbol inside the text entry area to mirror the send button (this is what ChatGPT does). Same functionality as we have now.
 
 Can we move the widget showing the progress to be an area UNDER but connected to the progress bar that we have at the top please?
+
+<!-- xgd-turn id="05737750-b78d-4c3d-9e72-429ce037e1be-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T19:41:32.378954+00:00" -->
+#### Claude
+Both changes need a small framework hook first. I'll file it in lagrange-framework and fold the 1stcontact side into BUG-236.
+
+Now the 1stcontact side, added to BUG-236.
+
+Both changes are in tickets now. They need a small change to the framework's chat component first.
+
+**Why the framework is involved:** the chat component builds the text box with only its own buttons (Stop, Send, Queue), and it attaches the status widget inside the chat itself. Neither can currently be placed or extended by our host.
+
+**lagrange-framework REQ-214** (`draft`, high, 3 points) adds two optional settings:
+- **A button inside the text box**, at the opposite end from Send and styled to match it. We use it for the "+".
+- **Somewhere else to put the status widget.** Its behaviour doesn't change: the elapsed clock, Stop building, and the composer still knowing a build is running.
+
+Products that don't set either option are unaffected. I couldn't link it to EPIC-19 as its parent, because the ticket store doesn't accept a parent in a different repo. The ticket says where it came from, and EPIC-19 lists it.
+
+**The 1stcontact side is folded into BUG-236** as item 7, since it's the same "busy bottom of the screen" problem. The ticket is now 10 points.
+- **Attach becomes a "+" inside the text box.** The 📎 "Attach files" row is removed. Everything else stays as it is: drag and drop, chips (still capped at about two rows), choosing site or reference, and attachments going with your next message.
+- **The status widget moves to the plan panel,** directly under the progress banner and visually joined to it. It keeps "The consultant is …", the elapsed time and Stop building. It only appears while a build runs, and nothing of it is left above the composer.
+
+The order is LF REQ-214 first, then refresh the shared install, then BUG-236.
 
 <!-- xgd-chat-end -->
