@@ -1268,8 +1268,24 @@ body {
   padding: 4px 12px 0;
 }
 
+/*
+ * [[BUG-236]] — HOWEVER MANY FILES, THE TEXT BOX AND SEND STAY IN REACH: the
+ * chips take about two rows and scroll inside themselves beyond that.
+ */
 .builder-attach__chips {
-  display: contents;
+  display: flex;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-height: 96px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.builder-attach__chips:empty {
+  display: none;
 }
 
 .builder-attach__chip {
@@ -1351,6 +1367,27 @@ body {
   height: 1px;
   opacity: 0;
   pointer-events: none;
+}
+
+/*
+ * [[BUG-236]] — the consultant's result, held while the client is writing: one
+ * quiet line above the box that shows it when pressed.
+ */
+.builder-chat-held {
+  align-self: flex-start;
+  margin: 4px 12px 0;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: var(--builder-control-font-size);
+  color: var(--shell-accent);
+  background: var(--shell-surface);
+  border: 1px solid var(--shell-accent);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.builder-chat-held[hidden] {
+  display: none;
 }
 
 .builder-attached {
