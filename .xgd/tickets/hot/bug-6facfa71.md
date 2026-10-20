@@ -6,14 +6,14 @@ title: 'Client loses their place: attachments hide the text box, crowded turns, 
   worker dumps, no Done on the panel, questions changing form'
 created_by: EPIC-19
 created_at: '2026-10-20T19:24:29.832787+00:00'
-updated_at: '2026-10-20T19:41:17.956300+00:00'
+updated_at: '2026-10-20T19:41:19.268630+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_points
 status: draft
 fields:
   severity: high
   priority: high
-  story_points: 8
+  story_points: 10
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
