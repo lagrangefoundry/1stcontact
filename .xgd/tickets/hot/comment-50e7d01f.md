@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T22:18:40.516081+00:00'
+updated_at: '2026-10-20T22:19:57.676845+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4129,5 +4129,33 @@ I'd file one REQ for the comp view: a Comparisons mode on the toggle, a tile gri
 <!-- xgd-chat role="user" ts="2026-10-20T22:18:39.854924+00:00" -->
 #### You
 Yes please proceed
+
+<!-- xgd-turn id="65da0a04-7ccf-4ce6-85b3-62d1baa4c81d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T22:19:55.693411+00:00" -->
+#### Claude
+Filing the REQ and updating the draft. First, a check on which epic the comp work belongs under.
+
+Filed as REQ-419. Now linking it to EPIC-19, then adding the competitor question to the priming draft.
+
+I filed **REQ-419** for the comp view and added the competitor question to the priming draft.
+
+## REQ-419: Comparisons mode
+
+It's a draft under **EPIC-19** (Web Builder Experience), the epic that owns the existing comp work, rather than under this cost epic. Five points.
+
+- **Comparisons sits on the toggle** after Story. It appears once the consultant raises the comp board, and it's remembered like the other modes. There's no "Back to your draft" button and no separate way in or out.
+- **All comps show at once as tiles.** Each tile has a thumbnail cropped to the top of the home page, the site's name and address, and an **"Open the site ↗"** link to the real site in a new tab. Clicking the thumbnail does the same. Likes and dislikes are edited under each tile.
+- **Other ways in:** clicking a comp card in chat switches to Comparisons, and the "Looking at other sites" stage on the progress bar gets a link to it.
+- **A bad capture shows a name-and-address tile instead**, with the link and notes still there. The capture code itself isn't touched.
+- **These go:** the "Sites we're comparing" panel item and the comp viewer, along with its carousel, screenshot display and desktop/phone switch. They get deleted, not just left unused.
+
+It states which parts of REQ-378, REQ-391 and BUG-236 it supersedes. All three are already with reconcile, so their text can't be edited. BUG-236's per-site **Done** and **"I've finished commenting"** keep working the same way; they just move from the panel to the tiles.
+
+## Priming draft
+
+I added **Edit 5a**. When the consultant starts the comp search, that message's one question is "Who do you lose jobs to?", even if discovery is still going; the story question waits until the next message. When the client names sites, the consultant asks what they think of each one before showing its own picks. The draft now has six edits and is still at `.xgd/tmp/epic20/discovery-priming-draft.md`. Nothing is applied yet.
+
+When you're happy with the draft wording, say so and I'll splice it into `priming.json`. REQ-419 is ready for a session to pick up.
 
 <!-- xgd-chat-end -->
