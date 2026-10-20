@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:39:29.331739+00:00'
+updated_at: '2026-10-20T13:42:03.847473+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10086,5 +10086,11 @@ What it covers:
 I put the method change in this ticket instead of committing it as a prompt-only change now. Starting the first build sooner only works once a talker can carry the interview; without one, it would just shorten discovery.
 
 **For your next run, if you go before REQ-415 and REQ-416 land:** deploy first. You'll get the "leading the build" and "Does it look right?" prompt changes, but no talker yet, so it serves as the baseline. If you want to test the talker experience, wait for REQ-416.
+
+<!-- xgd-turn id="5d0eef39-0a06-4bdf-8341-20f1383d6b32-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T13:42:02.545386+00:00" -->
+#### You
+No I'm waiting for 415 and 416 they are critical
 
 <!-- xgd-chat-end -->
