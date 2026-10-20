@@ -6,10 +6,10 @@ title: 'Visual checks: the host looks after every build, and the final stages ne
   every changed page looked at on desktop and phone'
 created_by: EPIC-19
 created_at: '2026-10-20T13:28:28.517314+00:00'
-updated_at: '2026-10-20T14:09:02.277774+00:00'
+updated_at: '2026-10-20T14:09:28.168263+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9d553ad7
+  commits:
+  - working_sha: fbb8de3600af2215123607d6ca02c9e2ef07ee13
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 75b3bc2f1008c602ef371837aa3f0c91a3c9eea9
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.551
 ---
 
 ## Symptom (Bob's salon 2, 2026-10-20)
