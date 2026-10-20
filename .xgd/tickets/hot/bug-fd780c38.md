@@ -6,9 +6,9 @@ title: 'Builder banners: error banners can''t be dismissed — give every action
   banner a dismiss ×'
 created_by: EPIC-19
 created_at: '2026-10-19T23:31:13.561400+00:00'
-updated_at: '2026-10-19T23:48:19.847724+00:00'
+updated_at: '2026-10-20T00:04:40.325680+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   severity: medium
@@ -63,3 +63,6 @@ UATs `test_UAT_FC_<id>_*`, in the builder (jsdom):
 ## UATs
 
 `tests/test_UAT_FC_BUG-231_dismissible_banners.test.ts` — failed-publish banner dismisses and a second identical failure shows a fresh one; Escape inside dismisses; not-configured / no-business / publishing banners have no Dismiss; every dismissible banner from the helper (plain, operator with and without back) has exactly one Dismiss as its last child, and the CSS draws the glyph and the 44px coarse-pointer target.
+
+
+**Note (after merge):** BUG-230 (`f365ba1cfa`) now builds its publish-failure banner with `createBanner` too. It also updated this ticket's first UAT to expect its new wording, a plain line with the server's sentence behind a Details toggle. The banner is still dismissible and its text is still only its words, because the × is drawn by CSS. All four BUG-231 UATs pass on xgd-working after the merge.
