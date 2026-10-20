@@ -2665,6 +2665,89 @@ export const l1SlotSchema = z
   })
   .strict()
 
+// ── Table (REQ-418) ──────────────────────────────────────────────────────────
+//
+// A price list built as a column of names beside a column of prices lines up
+// only while every cell is the same height. One empty or wrapped cell slides
+// every name beside the wrong price — right in the data, wrong on screen, and
+// invisible to anything that reads the words (Bob's salon, 2026-10-20). Guidance
+// and a layout check catch it after the fact, every time, at a cost in tokens.
+//
+// The table makes the mistake unbuildable: an item and its values are ONE ROW,
+// so they cannot come apart whatever height any cell turns out to be. It is a
+// node kind rather than a layout mode because the row is structure the document
+// has to carry — a grid of loose children is exactly the shape that slid.
+
+/**
+ * REQ-418 — one table cell: a `text` leaf whose place is its row and column.
+ *
+ * A cell IS a text node — every walk over text (type, palette, copy editing, the
+ * envelope's text bounds, escaping) reaches it unchanged — minus the axes that
+ * would take it out of its row: absolute placement, the scroll pin, and paint
+ * order. Empty copy is a legal cell, and it still occupies its row.
+ */
+export const l1TableCellSchema = l1TextSchema.omit({
+  geometry: true,
+  sticky: true,
+  stacked: true,
+  paintOrder: true,
+  scrollTrack: true,
+  backedBy: true,
+})
+
+/** REQ-418 — one column of a table: how its cells align. The column list fixes the table's width. */
+export const l1TableColumnSchema = z
+  .object({
+    /** Where each cell's copy sits across the column; `end` is the price column. Absent → `start`. */
+    align: z.enum(['start', 'center', 'end']).optional(),
+  })
+  .strict()
+
+/**
+ * REQ-418 — what a table does when the screen is too narrow for it. Declared per
+ * table, and neither choice ever makes the PAGE scroll sideways:
+ *
+ * - `scroll` — the table keeps its rows and columns and scrolls within its own box.
+ * - `stack` — below `narrowBelowPx`, each row becomes a card: its cells one under
+ *   another, each labelled with its column's header.
+ */
+export const l1TableNarrowSchema = z.enum(['scroll', 'stack'])
+
+/**
+ * REQ-418 — a **row-based table**: price lists, opening hours, any list of items
+ * and their values. Rendered as a real `<table>`, so a screen reader reads it as
+ * one.
+ *
+ * `columns` fixes how many cells every row holds, and the validator refuses a row
+ * (or header) with any other count — a missing value is an empty cell, never a
+ * shorter row.
+ */
+export const l1TableSchema = z
+  .object({
+    kind: z.literal('table'),
+    id: z.string().optional(),
+    /** One entry per column, in order; its length is every row's cell count. */
+    columns: z.array(l1TableColumnSchema).min(1),
+    /** The optional header row — one cell per column, emitted as `<th>`. */
+    header: z.array(l1TableCellSchema).optional(),
+    /** The body: one array of cells per row, one cell per column. */
+    rows: z.array(z.array(l1TableCellSchema)).min(1),
+    /** Narrow-screen behaviour; absent → `scroll`. */
+    narrow: l1TableNarrowSchema.optional(),
+    /** The width below which a `stack` table stacks; absent → 600. Inert for `scroll`. */
+    narrowBelowPx: finite.positive().optional(),
+    /** The inset inside every cell. Absent → 8px above and below, 12px either side. */
+    cellPadding: l1PaddingSchema.optional(),
+    /** The line between rows. Absent → none. */
+    rule: l1BorderSchema.optional(),
+    /** The table's own painted surface. */
+    axes: l1SurfaceAxesSchema.optional(),
+    /** REQ-350 — the type the table sets for every cell it contains. */
+    type: l1TypeSchema.optional(),
+    ...nodeAxisGroupsShape,
+  })
+  .strict()
+
 // The box and container leaves are recursive (they nest children). Zod cannot
 // self-infer a recursive schema, so the tree type is written by hand and the
 // schemas are annotated `z.ZodType<…>` + wrapped in `z.lazy` (the leaf axes are
@@ -2737,6 +2820,7 @@ export type L1NodeUnion =
   | z.infer<typeof l1ImageSchema>
   | z.infer<typeof l1SlotSchema>
   | z.infer<typeof l1ControlSchema>
+  | z.infer<typeof l1TableSchema>
   | L1BoxNode
   | L1ContainerNode
 
@@ -2793,7 +2877,15 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
 )
 
 export const l1NodeSchema: z.ZodType<L1NodeUnion> = z.lazy(() =>
-  z.union([l1TextSchema, l1ImageSchema, l1SlotSchema, l1ControlSchema, l1BoxSchema, l1ContainerSchema]),
+  z.union([
+    l1TextSchema,
+    l1ImageSchema,
+    l1SlotSchema,
+    l1ControlSchema,
+    l1TableSchema,
+    l1BoxSchema,
+    l1ContainerSchema,
+  ]),
 )
 
 // ── Document-level resource table (handle → substance; DOC-27 / REQ-90) ───────

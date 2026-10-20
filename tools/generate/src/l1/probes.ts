@@ -1159,6 +1159,28 @@ function layoutInFlow(
       ctx.leaves.push({ path, kind: 'control', id: node.id, box, pinned, ...stackedOf(node, ctx) })
       return { advance: adv(box.height), box }
     }
+    case 'table': {
+      // REQ-418 — a table is laid out by the browser's table algorithm, which this
+      // model does not reproduce. Its height is estimated row by row — each row as
+      // tall as its tallest cell at an even share of the width, plus the cell
+      // inset — which is what keeps the sections below it in about the right
+      // place. Its cells are not measured as leaves: nothing here folds a table.
+      const own = declaredHeight(node, width, vh)
+      const pad = node.cellPadding ?? { topPx: 8, rightPx: 12, bottomPx: 8, leftPx: 12 }
+      const cellWidth = Math.max(1, box.width / node.columns.length - (pad.leftPx ?? 0) - (pad.rightPx ?? 0))
+      const rowHeight = (row: readonly L1Node[]): number =>
+        Math.max(
+          0,
+          ...row.map((c) => {
+            if (c.kind !== 'text') return 0
+            const a = c.axes ?? {}
+            return estimateTextHeight(c.text, a.fontSizePx ?? 16, a.lineHeightPx, cellWidth, opts.contentScale, false)
+          }),
+        ) + (pad.topPx ?? 0) + (pad.bottomPx ?? 0)
+      const rows = [...(node.header ? [node.header] : []), ...node.rows]
+      box.height = own !== undefined ? own : rows.reduce((sum, row) => sum + rowHeight(row), 0)
+      return { advance: adv(box.height), box }
+    }
     case 'box':
     case 'container': {
       const children = node.kind === 'container' ? node.children : (node.children ?? [])

@@ -69,6 +69,10 @@ import type {
   l1SlotSchema,
   l1StickySchema,
   l1SurfaceAxesSchema,
+  l1TableCellSchema,
+  l1TableColumnSchema,
+  l1TableNarrowSchema,
+  l1TableSchema,
   l1TextAxesSchema,
   l1TextContentSchema,
   l1TextResponsiveSchema,
@@ -183,6 +187,11 @@ export type L1Image = z.infer<typeof l1ImageSchema>
 export type L1Slot = z.infer<typeof l1SlotSchema>
 // REQ-96 — the control leaf: L1 wraps a module-declared element.
 export type L1Control = z.infer<typeof l1ControlSchema>
+// REQ-418 — the row-based table, its cells, columns and narrow-screen mode.
+export type L1Table = z.infer<typeof l1TableSchema>
+export type L1TableCell = z.infer<typeof l1TableCellSchema>
+export type L1TableColumn = z.infer<typeof l1TableColumnSchema>
+export type L1TableNarrow = z.infer<typeof l1TableNarrowSchema>
 export type L1Box = z.infer<typeof l1BoxSchema>
 export type L1Container = z.infer<typeof l1ContainerSchema>
 export type L1Node = z.infer<typeof l1NodeSchema>

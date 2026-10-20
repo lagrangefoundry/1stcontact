@@ -15,6 +15,7 @@
  */
 import { L1_ZOOM_OVERLAY_FIELDS, l1DocumentSchema } from './schema'
 import { collectL1PaletteRefs } from './palette'
+import { l1ChildEntries } from './children'
 import {
   L1_FRAME_TARGET,
   l1AnimateTracks,
@@ -187,6 +188,13 @@ export const L1_ENVELOPE = {
    * multi-megabyte sheet that stalls a hero image is not.
    */
   frameCount: { min: 2, max: 240 },
+  /**
+   * REQ-418 — how many columns one table may declare. A price list is two or
+   * three; a timetable a handful. Past a dozen a table is no longer readable on
+   * any screen, and the narrow-screen modes are the only thing keeping it off
+   * the page's own width.
+   */
+  tableColumns: { min: 1, max: 12 },
 } as const
 
 /**
@@ -290,6 +298,8 @@ export const L1_STRUCTURAL_RULES = {
   /** REQ-335 — a strip's box is a window whose fit and position are the frame mechanism's, so an `objectFit` or `objectPosition` alongside `frames` is an instruction the renderer must ignore. Refused rather than ignored, because an axis that is accepted and does nothing is the failure this envelope exists to prevent. */
   framesOwnsObjectFit:
     'an `image` that declares `frames` cannot also carry `objectFit` or `objectPosition`',
+  /** REQ-418 — the column list fixes a table's width, and every row (and the header) holds exactly that many cells. A missing value is an empty cell: a shorter row is the shape that slides an item beside the wrong value. */
+  tableRowWidth: 'every table row, and its header, must hold exactly one cell per column — a missing value is an empty cell',
 } as const
 
 /**
@@ -1393,10 +1403,46 @@ function walk(
     }
   }
 
+  // REQ-418 — the table's own refusals: the width every row must match, and the
+  // bounds on the numbers it carries beside its cells.
+  if (node.kind === 'table') {
+    const width = node.columns.length
+    if (!inRange(width, L1_ENVELOPE.tableColumns.min, L1_ENVELOPE.tableColumns.max)) {
+      errors.push({
+        path: `${path}/columns`,
+        message: `${width} columns out of range [${L1_ENVELOPE.tableColumns.min}, ${L1_ENVELOPE.tableColumns.max}]`,
+      })
+    }
+    if (node.header && node.header.length !== width) {
+      errors.push({
+        path: `${path}/header`,
+        message: `${L1_STRUCTURAL_RULES.tableRowWidth} (header has ${node.header.length}, columns ${width})`,
+      })
+    }
+    node.rows.forEach((row, r) => {
+      if (row.length !== width) {
+        errors.push({
+          path: `${path}/rows/${r}`,
+          message: `${L1_STRUCTURAL_RULES.tableRowWidth} (row ${r} has ${row.length}, columns ${width})`,
+        })
+      }
+    })
+    if (node.narrowBelowPx !== undefined && !inRange(node.narrowBelowPx, 1, L1_ENVELOPE.lengthPx.max)) {
+      errors.push({ path: `${path}/narrowBelowPx`, message: `narrowBelowPx=${node.narrowBelowPx} out of range` })
+    }
+    for (const [side, v] of Object.entries(node.cellPadding ?? {})) {
+      if (typeof v === 'number' && !inRange(v, L1_ENVELOPE.paddingPx.min, L1_ENVELOPE.paddingPx.max)) {
+        errors.push({ path: `${path}/cellPadding/${side}`, message: `${side}=${v} out of range` })
+      }
+    }
+    if (node.rule && !inRange(node.rule.widthPx, 0, L1_ENVELOPE.effectPx.max)) {
+      errors.push({ path: `${path}/rule/widthPx`, message: `widthPx=${node.rule.widthPx} out of range` })
+    }
+  }
+
   checkEffects(node, path, errors)
 
-  const children = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-  children.forEach((child, i) => walk(child, widths, `${path}/children/${i}`, depth + 1, counter, errors))
+  l1ChildEntries(node).forEach(({ node: child, at }) => walk(child, widths, `${path}/${at}`, depth + 1, counter, errors))
 }
 
 /** Options for {@link validateL1}. */
@@ -1915,8 +1961,7 @@ export function validateL1(
     const dangling: string[] = []
     const scan = (node: L1Node, path: string): void => {
       if (node.geometry?.anchor) dangling.push(path)
-      const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-      kids.forEach((c, i) => scan(c, `${path}/children/${i}`))
+      l1ChildEntries(node).forEach(({ node: c, at }) => scan(c, `${path}/${at}`))
     }
     scan(doc.root, '/root')
     for (const path of dangling) {
@@ -1944,8 +1989,7 @@ export function validateL1(
         seenIds.set(node.id, path)
       }
     }
-    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-    kids.forEach((c, i) => scanIds(c, `${path}/children/${i}`))
+    l1ChildEntries(node).forEach(({ node: c, at }) => scanIds(c, `${path}/${at}`))
   }
   scanIds(doc.root, '/root')
 
@@ -1964,8 +2008,7 @@ export function validateL1(
         message: `${L1_STRUCTURAL_RULES.backingSurfaceExists} — no node declares id '${backedBy}'`,
       })
     }
-    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-    kids.forEach((c, i) => scanBacking(c, `${path}/children/${i}`))
+    l1ChildEntries(node).forEach(({ node: c, at }) => scanBacking(c, `${path}/${at}`))
   }
   scanBacking(doc.root, '/root')
 
@@ -1988,8 +2031,7 @@ export function validateL1(
         dialogIds.add(node.id)
       }
     }
-    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-    kids.forEach((c, i) => scanDialogs(c, `${path}/children/${i}`))
+    l1ChildEntries(node).forEach(({ node: c, at }) => scanDialogs(c, `${path}/${at}`))
   }
   scanDialogs(doc.root, '/root')
 
@@ -2027,8 +2069,7 @@ export function validateL1(
         errors.push({ path: `${path}/action`, message: L1_STRUCTURAL_RULES.actionOrLink })
       }
     }
-    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-    kids.forEach((c, i) => scanActions(c, `${path}/children/${i}`))
+    l1ChildEntries(node).forEach(({ node: c, at }) => scanActions(c, `${path}/${at}`))
   }
   scanActions(doc.root, '/root')
 
@@ -2067,8 +2108,7 @@ export function validateL1(
         }
       }
     }
-    const kids = node.kind === 'container' || node.kind === 'box' ? node.children ?? [] : []
-    kids.forEach((c, i) => scanZoomGroups(c, `${path}/children/${i}`))
+    l1ChildEntries(node).forEach(({ node: c, at }) => scanZoomGroups(c, `${path}/${at}`))
   }
   scanZoomGroups(doc.root, '/root')
 

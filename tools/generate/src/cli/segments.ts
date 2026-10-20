@@ -1,4 +1,4 @@
-import { formatL1Path, l1PlainText, type L1Node } from '@1stcontact/site-schema'
+import { formatL1Path, l1Children, l1PlainText, type L1Node } from '@1stcontact/site-schema'
 
 /**
  * The derived segment model (REQ-129, REQ-131).
@@ -47,6 +47,11 @@ export function labelOf(node: L1Node): string {
   if (node.kind === 'image') return node.alt || node.src
   if (node.kind === 'control') return node.control
   if (node.kind === 'slot') return node.behavior ? `${node.name} (${node.behavior})` : node.name
+  // REQ-418 — a table's shape, and that its cells follow in reading order.
+  if (node.kind === 'table') {
+    const head = node.header ? ', a header row' : ''
+    return `table, ${node.columns.length} columns, ${node.rows.length} rows${head}; cells follow header first, then row by row`
+  }
   const children = (node as { children?: L1Node[] }).children?.length ?? 0
   const layout = node.kind === 'container' ? node.layout : 'box'
   return `${layout}, ${children} ${children === 1 ? 'child' : 'children'}`
@@ -56,7 +61,7 @@ export function labelOf(node: L1Node): string {
  * Walk an L1 root list, emitting EVERY node.
  *
  * The addressing rule is `resolveL1Node`'s and is not re-derived here: index the
- * root list, then walk `children`. Emitting the address with `formatL1Path` — the
+ * root list, then walk `l1Children` (a table's cells in reading order). Emitting the address with `formatL1Path` — the
  * same function the renderer stamps `data-l1-path` with — is what guarantees the
  * addresses this map hands out are the addresses the write path resolves. That
  * correspondence IS the addressing contract (DOC-30 R4); the declaration states
@@ -83,8 +88,8 @@ function walkSegments(
       ...(scope.module ? { module: scope.module, slot: scope.slot } : {}),
       label: labelOf(node),
     })
-    const children = (node as { children?: L1Node[] }).children
-    if (children?.length) out.push(...walkSegments(children, scope, at))
+    const children = l1Children(node)
+    if (children.length) out.push(...walkSegments(children, scope, at))
   })
   return out
 }

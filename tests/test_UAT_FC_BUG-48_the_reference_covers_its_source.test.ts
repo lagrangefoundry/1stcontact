@@ -299,6 +299,16 @@ describe('BUG-48 — the limits section keeps its whole promise', () => {
       ),
       // REQ-327 — the magnify role, refused beside a link on exactly the terms
       // `action` is: the emitter emits one interactive element.
+      // [[REQ-418]] — a row one cell short of the table's two columns.
+      tableRowWidth: refusals(
+        page({
+          root: {
+            kind: 'table',
+            columns: [{}, {}],
+            rows: [[{ kind: 'text', text: 'Full colour' }, { kind: 'text', text: '£60' }], [{ kind: 'text', text: '£70' }]],
+          },
+        } as Partial<L1Document>),
+      ),
       zoomOrLink: refusals(
         page({
           root: {

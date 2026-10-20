@@ -85,6 +85,8 @@ export type {
 } from './validate'
 // REQ-93 — the slot inventory a page's behavior modules bind against.
 export { l1SlotNames, l1DocumentSlotNames, l1ControlNames } from './slots'
+// [[REQ-418]] — the one answer to "what is under this node", a table's cells included.
+export { l1Children, l1ChildEntries, l1TableCells, setL1Child, withL1Children } from './children'
 // REQ-104 — the one place the renderer and the analytic evaluator agree on which
 // layout mode a container is in at a given width.
 export { resolveLayoutMode } from './layout'

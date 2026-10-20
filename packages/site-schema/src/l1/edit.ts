@@ -25,6 +25,7 @@
  */
 import type { L1Color, L1Palette, L1PaletteRef } from './palette'
 import { l1TextRuns } from './text'
+import { l1Children, setL1Child } from './children'
 import type { L1FontFace, L1Node, L1ScalarTrack, L1Text } from './types'
 
 // ── the stamp ────────────────────────────────────────────────────────────────
@@ -100,7 +101,7 @@ export function formatL1Path(path: readonly number[]): string {
 
 /**
  * The **one** resolution rule (REQ-116): index the render's root node list, then
- * walk `children` at each later step. `roots` is `[doc.root]` for a document and
+ * walk {@link l1Children} at each later step (a table's cells in reading order, REQ-418). `roots` is `[doc.root]` for a document and
  * the slot's subtree array for a behavior module's fragment.
  */
 export function resolveL1Node(
@@ -110,8 +111,7 @@ export function resolveL1Node(
   if (path.length === 0) return undefined
   let node: L1Node | undefined = roots[path[0]]
   for (const i of path.slice(1)) {
-    const kids: L1Node[] | undefined = (node as { children?: L1Node[] } | undefined)?.children
-    node = kids?.[i]
+    node = node ? l1Children(node)[i] : undefined
     if (!node) return undefined
   }
   return node
@@ -145,11 +145,7 @@ export function replaceL1Node(
     return true
   }
   const parent = resolveL1Node(roots, path.slice(0, -1))
-  const kids: L1Node[] | undefined = (parent as { children?: L1Node[] } | undefined)?.children
-  const last = path[path.length - 1]
-  if (!kids || kids[last] === undefined) return false
-  kids[last] = replacement
-  return true
+  return parent ? setL1Child(parent, path[path.length - 1], replacement) : false
 }
 
 // ── the exposed fields ───────────────────────────────────────────────────────
