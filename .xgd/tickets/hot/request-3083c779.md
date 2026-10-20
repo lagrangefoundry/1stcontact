@@ -6,10 +6,10 @@ title: 'Visual checks: the host looks after every build, and the final stages ne
   every changed page looked at on desktop and phone'
 created_by: EPIC-19
 created_at: '2026-10-20T13:28:28.517314+00:00'
-updated_at: '2026-10-20T13:28:28.517314+00:00'
+updated_at: '2026-10-20T13:46:22.220391+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 8
