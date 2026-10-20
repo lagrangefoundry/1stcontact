@@ -1,0 +1,32 @@
+{
+  "about": [
+    "The thresholds of the layout check's two craft findings ([[BUG-238]]). Both",
+    "are defaults builders get wrong again and again, so the host measures them",
+    "rather than trusting a reminder in the priming.",
+    "",
+    "`brand`: the header is the page's first section when it holds a link.",
+    "`logoMinPx` is the least height its logo image may render at, per width the",
+    "page is checked at (`desktop`, `phone`). `nameOverNav` is how much larger",
+    "than the navigation links the business name must be to read as the header's",
+    "largest text.",
+    "",
+    "`heading`: a heading belongs to the text it introduces, so the space below it",
+    "must be clearly smaller than the space above it. It is reported when the",
+    "space below is at least `belowOverAbove` times the space above. A space above",
+    "under `minAbovePx` is tight spacing, not a floating heading, and is not",
+    "reported: 16 keeps an 8px-and-8px heading out while catching 20px above and",
+    "19px below.",
+    "",
+    "The numbers are starting values to tune, not measurements."
+  ],
+
+  "brand": {
+    "logoMinPx": { "desktop": 48, "phone": 36 },
+    "nameOverNav": 1.25
+  },
+
+  "heading": {
+    "belowOverAbove": 0.75,
+    "minAbovePx": 16
+  }
+}
