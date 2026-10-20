@@ -6,9 +6,9 @@ title: Post-build layout check reports contact-form component's visually-hidden 
   and honeypot as overlapping/clipped text
 created_by: xgd
 created_at: '2026-10-20T23:07:08.842467+00:00'
-updated_at: '2026-10-20T23:13:16.385682+00:00'
+updated_at: '2026-10-20T23:15:50.613662+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   auto_merge_back: true
@@ -43,3 +43,17 @@ The "Name" on "Name" pair is the giveaway: the visible label and the component's
 
 ## Suggested fix (suggestion only)
 Exclude visually-hidden elements (clip/sr-only patterns, off-screen honeypots, aria-hidden) from the overlap and clipping measurement, or have the component mark its internal hidden elements so the checker skips them.
+
+
+## Fix (as implemented)
+The layout check (`tools/generate/src/cli/ai/layout-check.ts`, `LAYOUT_SCRIPT`) now measures only what a reader can see:
+
+- **Visually-hidden text is not measured.** An element is treated as unseen when it, or an ancestor, is a box of at most 1px in width or height that clips its content (overflow not visible, or a `clip` / `clip-path` set). That is the sr-only pattern the contact form uses for its accessible labels and for its honeypot. Unseen elements are dropped from every measurement: overlap, clipping, sideways overflow, column lists, and section edges. The rule is stated generally, with no contact-form marker, so any component using the same pattern is covered.
+- **A `<template>` is never a section.** Its content is inert, so it is no longer reported as "takes no height". It still counts in the section addressing, so addresses stay identical to `SECTIONS_SCRIPT` (`picture.ts`) and `describe_page`.
+- **`aria-hidden` alone is deliberately NOT a reason to skip.** It is a statement to assistive technology, not to the eye. Visible decorative text marked aria-hidden can still overlap other text, and that is a real fault. The honeypot is skipped because it is visually hidden, not because it is aria-hidden.
+
+Real faults in visible text (overlap, clipping, sideways overflow, misaligned columns, edges) are reported exactly as before.
+
+## Test plan
+- `tests/test_UAT_FC_BUG-237_hidden_text_is_not_checked.test.ts`: a real `contact-form` with four visibly-labelled fields (text, tel, email, textarea, empty placeholders), laid out by the framework's `contactFormPreset`, rendered into an L1 seam by the conformance harness and checked at 1280px and 375px. Asserts the page carries the hidden labels and honeypot, and that the check reports no findings. Before the fix it reported 36 findings, the ones in this ticket plus a collapsed `<template>` section.
+- Regression scope: `test_UAT_FC_REQ-415_layout_check`, `test_UAT_FC_REQ-418_table`, `test_UAT_FC_REQ-415_the_host_looks.workers`, `test_UAT_FC_BUG-235_build_sooner_checks.workers`. All pass.
