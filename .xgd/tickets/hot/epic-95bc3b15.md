@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T19:41:24.812994+00:00'
+updated_at: '2026-10-20T22:19:37.919540+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_children
 status: ongoing
 fields:
   priority: medium
@@ -26,6 +26,7 @@ fields:
   - request-95b2b06a
   - request-c4ab7564
   - doc-777c6f44
+  - request-a71bd8f1
 ---
 
 ## What this epic is for
