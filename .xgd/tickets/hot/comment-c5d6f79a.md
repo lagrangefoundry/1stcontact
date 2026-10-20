@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-417
 created_by: xgd
 created_at: '2026-10-20T14:50:03.142594+00:00'
-updated_at: '2026-10-20T15:22:39.072633+00:00'
+updated_at: '2026-10-20T15:24:43.085866+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -86,5 +86,35 @@ The deployed dev environment still shows the old wording until you run `bin/depl
 <!-- xgd-chat role="user" ts="2026-10-20T15:22:38.569948+00:00" -->
 #### You
 Please put the "We'll put questions here for you to answer" in the center of the panel - vertically and horizontally centered
+
+<!-- xgd-turn id="dbe08be4-98f2-4fed-acfd-de33c05ec315-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T15:24:42.609844+00:00" -->
+#### Claude
+I'll make the panel a vertical flex column only while the ghost text is showing, so the populated panel's layout is unaffected:
+
+Adding a browser measurement for the panel. I'll factor the existing Chromium block into a helper both tests share:
+
+The 6px is the margin under the stage tracker: the browser centres the ghost below that margin, but my measurement left it out. Including it in the measurement:
+
+Passing. A quick check that the new test fails without the centring rule:
+
+The test catches the missing rule. Now updating the ticket body (item 3 and the "What landed" note), keeping everything else as it is:
+
+The ticket body is frozen, so the operator must have promoted it. Checking its status:
+
+The ghost text is now centred both ways in the question panel, but it isn't on xgd-working yet: I've stopped before merging because REQ-417 has moved on to reconciliation.
+
+**The change:** while the panel has no questions, it becomes a vertical stack and the ghost text sits in the middle of the space below the progress tracker, centred both ways. The rule only applies while the ghost text is showing, so a panel with questions lays out exactly as before.
+
+**Tests:** I added a real-Chromium measurement to the REQ-417 suite. It checks the text is centred both ways, and that the panel goes back to its normal layout once a question exists. All 5 tests in the suite pass, and the new one fails if the centring rule is removed. The REQ-401 and REQ-403 panel suites also pass.
+
+**Where it is:** it's committed only on branch `free-REQ-417` (`6f631d6`). Someone has moved REQ-417 to `ready_to_reconcile`, and a reconcile (BUNDLE-31) is running. Because of that, the ticket body is now locked and I couldn't update it, so this follow-up isn't recorded on the ticket. The protocol says to check with you before adding work to a ticket in that state.
+
+Decision for you: which way should this go?
+1. **Fold it into REQ-417:** you move the ticket back to `free_coded` (or wait until BUNDLE-31 finishes and say how you'd like it handled). I then merge, record the commit, and update the ticket wording, which I've already drafted.
+2. **Separate follow-up ticket:** you say "create a new ticket" and I put this commit on it, leaving REQ-417's reconcile untouched.
+
+Until you decide, the branch and its worktree stay where they are.
 
 <!-- xgd-chat-end -->
