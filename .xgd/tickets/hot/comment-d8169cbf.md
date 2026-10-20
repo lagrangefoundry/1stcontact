@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T03:29:48.203797+00:00'
+updated_at: '2026-10-20T03:31:21.038985+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9815,5 +9815,19 @@ The wording of the publish failure banner itself is BUG-230's job; this ticket o
 <!-- xgd-chat role="user" ts="2026-10-20T03:29:47.375548+00:00" -->
 #### You
 The progress reports "Your consultant is ..." Please replace with "The consultant.." - ticket please
+
+<!-- xgd-turn id="dd321aa1-a291-4ea2-b760-fe30348c931a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T03:31:19.243705+00:00" -->
+#### Claude
+Now filing the ticket.
+
+Now adding it to the epic's child list.
+
+I've filed **BUG-234**, *"Working line: say "The consultant is …", not "Your consultant is …""*. It's under EPIC-19 at `draft`, 1 point, and the epic lists it.
+
+The wording comes from one place: `"unnamed": "Your consultant"` in `tools/generate/src/cli/ai/slow-tools.json`, which the working line reads through `cadence-core.ts`. So the code change is one line, plus the three UATs that check for the old wording (BUG-205, BUG-215 and REQ-390). The ticket also asks for a check that "Your consultant" doesn't appear anywhere else you can see it. Group chat keeps its configured names.
+
+This replaces BUG-205's "Your consultant" choice, and the ticket says so. DOC-66 still recommends "your consultant" for text you see, so it should be updated to match. That's a doc edit with no ticket needed, and I can make it if you want.
 
 <!-- xgd-chat-end -->
