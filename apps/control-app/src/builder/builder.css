@@ -1600,10 +1600,21 @@ body {
   color: var(--shell-danger, #b91c1c);
 }
 
-/* [[REQ-417]] — ghost text in the panel's own type until the first question. */
+/*
+ * [[REQ-417]] — ghost text in the panel's own type until the first question, in
+ * the middle of the panel both ways. The panel is a column only while it shows,
+ * so a panel with questions in it lays out exactly as before.
+ */
+.plan-panel:has(> .plan-panel__ghost:not([hidden])) {
+  display: flex;
+  flex-direction: column;
+}
+
 .plan-panel__ghost {
-  margin: 12px 0;
+  margin: auto;
+  padding: 12px;
   color: var(--shell-fg-muted, #71717a);
+  text-align: center;
 }
 
 .plan-panel__heading {
