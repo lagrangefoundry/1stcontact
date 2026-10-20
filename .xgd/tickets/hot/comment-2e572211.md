@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-416
 created_by: xgd
 created_at: '2026-10-20T13:42:11.153749+00:00'
-updated_at: '2026-10-20T14:17:01.243528+00:00'
+updated_at: '2026-10-20T14:19:43.503686+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -231,5 +231,37 @@ The ticket body has an "Implementation (as built)" section covering all of this.
 <!-- xgd-chat role="user" ts="2026-10-20T14:17:00.129232+00:00" -->
 #### You
 Talker rounds aren't written to the per-turn spend rows. <-- can we fix this its important to get full accounting
+
+<!-- xgd-turn id="d6b9aa66-a524-41a4-8576-7ace72ed2130-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T14:19:42.629675+00:00" -->
+#### Claude
+I'll extend REQ-416 rather than open a new ticket, and cut a fresh branch first.
+
+I'll write each talker's spend row once its round ends, from its own `turn_end` record, using the same writer every turn uses.
+
+Adding a UAT: the talker's requests show up in their own spend row, and the build's row doesn't count them.
+
+Passes. Running the existing spend suites alongside.
+
+Green. Updating the ticket body: removing the stated limitation and adding the accounting requirement and its test.
+
+The body never stated the limitation, so I'll just add the accounting section.
+
+Committing, merging back, and recording the commit on the ticket.
+
+Talker rounds now get their own row in `turn_spend`, so every request made for a client message is counted exactly once. The fix is merged into xgd-working.
+
+**Why they were missing:** a talker runs on a copy of the build's conversation, so the build's spend row never included the talker's requests.
+
+**The fix:**
+- When a talker round ends, the request running the build writes a row for it.
+- The figures come from the round's own end-of-turn record, which carries its token usage however the round ended.
+- The row is keyed by the talker round's id, with role `consultant`, and is priced like any other turn.
+- A round that left no end record still writes the same "nothing measured" row that any other turn would.
+
+**New test:** a build and a talker each make two metered model calls. The talker's row has exactly its own two requests and tokens, and the build's row has only the build's. That test and the existing spend suites (REQ-292, BUG-232, BUG-145, REQ-293) all pass.
+
+REQ-416 is still at `free_coded`, now at version 0.2.553, with the new commit recorded alongside the earlier ones. I added an "Accounting" section to the ticket body stating the requirement and the test.
 
 <!-- xgd-chat-end -->
