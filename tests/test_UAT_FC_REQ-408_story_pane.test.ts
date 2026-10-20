@@ -157,7 +157,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-408 — the Story pane', () => {
     const plan = planTransport(view())
     const storage = memoryStorage()
     const app = await mount(plan, storage)
-    expect(app.panel.getModes().filter((m: { transient?: boolean }) => !m.transient).map((m: { label: string }) => m.label)).toEqual(['View', 'Edit', 'Story'])
+    expect(app.panel.getModes().slice(0, 3).map((m: { label: string }) => m.label)).toEqual(['View', 'Edit', 'Story'])
     expect(app.panel.getMode()).toBe('story')
     expect(modeButtons(app)).toEqual(['View', 'Edit', 'Story'])
     expect(app.panel.element.contains(board(app))).toBe(true)

@@ -227,21 +227,3 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     expect(location.hash).not.toBe('#looks=home-looks')
   })
 })
-
-describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — one carousel for looks and comps', () => {
-  it('test_UAT_FC_REQ-391_the_comp_viewer_uses_the_same_carousel_without_choose', async () => {
-    const app = await mounted()
-    const open = app.planPanel.element.querySelector('.plan-comp[data-reference="reference-1"] button.plan-comp__open') as HTMLButtonElement
-    open.click()
-    await settle()
-    expect(app.panel.getMode()).toBe('comp')
-    const viewer = root.querySelector('.comp-viewer') as HTMLElement
-    expect(viewer.querySelector('.builder-carousel__label')?.textContent).toBe('Duncan Plumbing 1')
-    expect(viewer.querySelector('.builder-carousel__count')?.textContent).toBe('1 of 3')
-    // A comp is never chosen onto the site.
-    expect(root.querySelector('.looks-band__choose')).toBeNull()
-    expect(viewer.textContent).not.toContain('Choose this one')
-    ;(viewer.querySelector('.builder-carousel__next') as HTMLButtonElement).click()
-    expect(root.querySelector('.comp-viewer .builder-carousel__label')?.textContent).toBe('Duncan Plumbing 2')
-  })
-})

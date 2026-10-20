@@ -1,11 +1,10 @@
 /**
  * The carousel's chrome — **‹ Workwear · 1 of 3 ›** ([[REQ-391]]).
  *
- * ONE CONTROL FOR EVERYTHING THE PREVIEW PAGES THROUGH. The looks offered for a
- * page and the comparable sites on the comp board ([[REQ-378]]) are both "one of
- * several, shown one at a time", so they share this control and the client
- * learns it once: the arrows, what is shown, where it sits in the set, and the
- * one line that says what it is.
+ * THE LOOKS OFFERED FOR A PAGE, "one of several, shown one at a time": the arrows,
+ * what is shown, where it sits in the set, and the one line that says what it is.
+ * ([[REQ-419]] — the comparable sites no longer page through it: Comparisons shows
+ * them all at once.)
  *
  * IT HOLDS NOTHING. Its owner says what is shown and where, and is told when the
  * client asks to move; redrawing is the owner's, which keeps the owner the one

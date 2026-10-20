@@ -1008,8 +1008,18 @@ export const PLAN_SAVED = 'Saved ✓'
 export const PUBLISH_FAILED_MESSAGE =
   'This site was not published. Something went wrong — try again in a minute, and tell us if it keeps happening.'
 
-/** The comp board's words ([[REQ-378]]). */
+/**
+ * The comparable sites' words ([[REQ-378]]) — shown in the preview's Comparisons
+ * mode ([[REQ-419]]), where each tile opens the real site.
+ */
+export const COMPS_MODE_LABEL = 'Comparisons'
 export const COMPS_HEADING = "Sites we're comparing"
+export const COMPS_INTRO =
+  'Open each site and have a look around — how it moves and how it feels on your phone matters as much as how it looks.'
+export const COMPS_EMPTY = "No sites yet. Add one you know below, or ask in the chat for some to look at."
+export const COMPS_VISIT = 'Open the site ↗'
+/** [[REQ-419]] — the link in the "Looking at other sites" stage's explanation. */
+export const COMPS_STAGE_LINK = "See the sites we're comparing"
 export const COMPS_ADD_LABEL = 'Add a site you like'
 export const COMPS_ADD_PLACEHOLDER = 'https://…'
 export const COMPS_ADD_BUTTON = 'Add'
@@ -1018,7 +1028,7 @@ export const COMPS_FROM = { consultant: 'Suggested', client: 'You added' }
 export const COMPS_LIKES = 'Likes'
 export const COMPS_DISLIKES = 'Dislikes'
 export const COMPS_NOTES_HINT = 'One per line'
-export const COMPS_OPEN = (title) => `Look at ${title}`
+export const COMPS_OPEN = (title) => `Open ${title} in a new tab`
 export const COMPS_REMOVE = 'Remove'
 export const COMPS_FAILED = (message) => `That was not saved: ${message}`
 /** [[BUG-236]] — a comp's notes are finished; and the client is finished with the board. */
@@ -1056,17 +1066,7 @@ export const STORY_REACTIONS = [
 export const STORY_DELETE = { emoji: '🗑', label: "Delete — it doesn't belong" }
 export const STORY_SAVE_FAILED = (message) => `That was not saved: ${message}`
 
-/** The comp viewer's words ([[REQ-378]]). */
-export const COMP_VIEWING = 'Comparable site'
-export const COMP_BACK = 'Back to your draft'
-export const COMP_VISIT = 'Visit the live site'
-export const COMP_DESKTOP = 'Desktop'
-export const COMP_PHONE = 'Phone'
-export const COMP_NO_PICTURE = 'There is no picture of this site yet.'
-export const COMP_MOTION_NOTE =
-  "This is a picture, so it doesn't show animation or what happens as you scroll. Visit the live site to see that."
-
-/** The carousel's words — looks ([[REQ-391]]) and comps ([[REQ-378]]) alike. */
+/** The carousel's words — the looks offered for a page ([[REQ-391]]). */
 export const CAROUSEL_PREVIOUS = 'Previous'
 export const CAROUSEL_NEXT = 'Next'
 export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`

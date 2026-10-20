@@ -198,7 +198,7 @@ export function createLooks({ panel, pages, draftPath }) {
  * re-parenting an iframe reloads it.
  *
  * ONLY WHERE A PAGE OF THE DRAFT IS SHOWN. `modes` names the panel's modes the
- * band belongs to; another (the comp viewer) has nothing to do with looks.
+ * band belongs to; another (Story, Comparisons) has nothing to do with looks.
  *
  * EDIT IS FOR THE REAL PAGE. A look shown in Edit is shown, not edited, and the
  * band says so in one line.

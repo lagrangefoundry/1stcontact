@@ -162,12 +162,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-403 — the question panel of a new plan'
     const app = await mount(plan)
     expect(panel(app).querySelector('[data-comps]')).toBeNull()
 
+    const offered = () =>
+      [...app.toolbar.element.querySelectorAll('.builder-toolbar__modes button')].map((b) => (b as HTMLElement).textContent)
+    expect(offered()).not.toContain('Comparisons')
+
+    // [[REQ-419]] — raised, the comps are Comparisons in the preview, not an item on the panel.
     plan.set({ ...NEW_PLAN, comps_raised: true })
     await app.planPanel.refresh()
-    const board = panel(app).querySelector('[data-comps]') as HTMLElement
-    expect(board).toBeTruthy()
-    expect(board.parentElement!.classList.contains('plan-panel__list--open')).toBe(true)
-    expect(shownHeadings(app)).toEqual(['Open questions'])
+    expect(offered()).toContain('Comparisons')
+    expect(panel(app).querySelector('[data-comps]')).toBeNull()
   })
 })
 
