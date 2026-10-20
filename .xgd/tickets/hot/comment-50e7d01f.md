@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T00:11:05.313325+00:00'
+updated_at: '2026-10-20T00:25:06.633838+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -3796,5 +3796,11 @@ The analysis I'd do, per delegation:
 3. Report what share of Salon 2's ~$32 was rework.
 
 It's a few hours of careful reading rather than a query, because spotting false passes needs judgement on each one. Want me to run it on Salon 2?
+
+<!-- xgd-turn id="e6ff63d0-eba5-4aa0-b3b3-8e5e36910e0f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T00:25:05.884496+00:00" -->
+#### You
+Yesz
 
 <!-- xgd-chat-end -->
