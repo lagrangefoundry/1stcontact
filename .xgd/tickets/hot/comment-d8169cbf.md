@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T14:34:30.208400+00:00'
+updated_at: '2026-10-20T14:35:02.230950+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10123,5 +10123,19 @@ Can you give me an REQ for a few tweaks to the opening experinence
  - "The headline" -> "Your headline statement:"
  - "The headline... why you?" (1) centered (2) change the whole phrase to just "Why choose your business?"
 3. Please add a ghost text statement on the question panel "We'll put questions here for you to answer"
+
+<!-- xgd-turn id="f5bd642d-2152-4692-ac1d-c0038cb8c736-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T14:35:01.447617+00:00" -->
+#### Claude
+I've filed **REQ-417**, *"Opening experience: centred story-board message, clearer headline slot, ghost text on the empty question panel"*. It's under EPIC-19 at `draft`, high priority, 2 points, and linked from the epic.
+
+1. **The story board's empty message** sits in the middle of the board, centred both vertically and horizontally below the headline slot. It disappears when the first note is pinned.
+2. **The headline slot.** The label reads **"Your headline statement:"**, and the empty slot shows **"Why choose your business?"**, centred. The options, chosen and edited states don't change.
+3. **The empty question panel** shows grey ghost text, **"We'll put questions here for you to answer"**, until the first question is added.
+
+All three strings are in `apps/control-app/src/builder/config.js`, beside the other builder wording. The REQ-408 story-pane tests that check the old wording get updated.
+
+It's small and touches only builder text and layout, so it shouldn't conflict with REQ-415 or REQ-416 and can land before or alongside them.
 
 <!-- xgd-chat-end -->
