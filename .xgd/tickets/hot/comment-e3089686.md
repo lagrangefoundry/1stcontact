@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-419
 created_by: xgd
 created_at: '2026-10-20T23:09:35.426158+00:00'
-updated_at: '2026-10-20T23:22:46.203797+00:00'
+updated_at: '2026-10-20T23:32:07.547337+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -108,5 +108,13 @@ REQ-419 is done and merged into xgd-working. The ticket is at `free_coded` with 
 - **One failure that isn't from this change:** `reconciliation-palette-popup-surface` AC1249 also fails on the clean main checkout.
 
 The ticket body now has an implementation section describing all of the above, so it's ready to promote to `ready_to_reconcile` whenever you want.
+
+<!-- xgd-turn id="bf7c0f19-fbfe-4961-b3cc-71ca03c9e392-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T23:32:06.616151+00:00" -->
+#### You
+REQ-214 is done, please give me the follow on ticket.
+
+Another detail - when the consultant starts working, the send button becomes a stop button. That is incorrect. It should only be a stop button if the talker is running and only the worker is running at that point. This is confusing to the user - they need to know to typoe despite the stop sign
 
 <!-- xgd-chat-end -->
