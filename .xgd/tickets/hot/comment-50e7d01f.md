@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T21:59:54.446517+00:00'
+updated_at: '2026-10-20T22:13:10.313430+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4051,5 +4051,30 @@ Two things I left alone on purpose: the interview style and the one-question-per
 This is prompt text only, so it needs no ticket. Once you're happy with the wording I can splice it in. It only reaches the dev builder after `bin/deploy --env dev`.
 
 Now the comp presentation. What needs tweaking?
+
+<!-- xgd-turn id="baf50270-ed59-4e19-b8dd-c55e299c76dd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T22:13:09.398341+00:00" -->
+#### You
+There's two things - navigation and screenshots.
+
+How does the user actual navigate to the comps view? They either click on the cards or they click on the "Sites we're comparing" in the questions panel. Both open the comps preview
+
+Comps preview has some very ugly (unstyled) buttons and controls at the top. 
+The carousel controls jump around...
+Back to your draft actually took me back to my story board
+Once back at the story board I have to go to one of the places above to open the comps view back up again
+
+All-in-all its confusing and as a user I feel out of control
+
+Perhaps more importantly the whol experience feels geared around showing the screenshots not navigating to the site. The screen shot is only the home page and animations and effects are lost - take a look at the Drybar screenshot - its a very slow to load page so the screenshot only got part of it and it throws a cookies permission very early as a screen blocking popup that makes the screenshot frankly useless.
+
+We should be encouraging the user to visit the actual sites.
+
+I think the comp view should be a series of tiles (not a carosel) showing thumbnails of the site home page. Clicking on the page opens the site in a new window - what would be really cool is if we could open one new window and add tabs to it as we open more but I don't think that would be possible. "Comparisons" should be a modal control on the preview next to View | Edit | Story that appears or is activated when comps become available. I think we kill the sites we are comparing question tile and put the questions under these thumbnails on the preview screen.
+
+Thoughts?
+
+BTW I wasn't asked who my competitors are and what I think of their sites?
 
 <!-- xgd-chat-end -->
