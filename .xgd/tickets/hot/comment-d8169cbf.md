@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:16:06.687796+00:00'
+updated_at: '2026-10-20T13:27:23.098485+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -9986,5 +9986,17 @@ I'd file two tickets:
 2. **Host-side visual checking:** a screenshot and layout check after each build, the page-check rules, and "Ready to publish" requiring every page to have been looked at at both widths.
 
 If you want this run to test the talker, it has to wait for (1). If not, run now and treat this run as the baseline the talker gets compared against. Shall I file both?
+
+<!-- xgd-turn id="dac77041-b23a-47fa-9f7b-6dbc80e1336b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-20T13:27:21.668562+00:00" -->
+#### You
+One thing I discussed and never filed: **the visual-check ticket from the prices-page incident. <-- please file this now**
+
+**So does the consultant know to keep discovery going as the talker? Not yet,** because there is no talker. The nearest thing is the line added on the 19th: "come back to the missing story areas while builds run". That was written for the queue. The talker reminder should make discovery its standing job: work through the story areas still missing, point you at the open panel questions, and pin what you say to the story board. Those are all allowed while the worker builds. <-- ok this is a key change lets talk it through, ideally we would do most of the discovery while the agent is building because that is most efficient so lets discuss how this could work - the talker can still manipulate the story board right?
+
+So the answer to "how do we get it used" is the one we already used: **put it in the priming and have the plan prompt it at the right moments, rather than relying on a lookup.** That rubric covers what makes a site *distinctive*, though. The prices page shows it has nothing about *visual correctness*, which is the visual-check ticket's job. <-- lets do this
+
+Agreed on your tickets but I want to talk a little more about the guidance we give on splitting the work - remember a lot of what we are doing here is to make the AI more of a conversation driver (did we make those prompt changes? The ones about finishing the job and not asking for permission to do stuff that just needs to be done)?
 
 <!-- xgd-chat-end -->
