@@ -6,9 +6,9 @@ title: 'Client loses their place: attachments hide the text box, crowded turns, 
   worker dumps, no Done on the panel, questions changing form'
 created_by: EPIC-19
 created_at: '2026-10-20T19:24:29.832787+00:00'
-updated_at: '2026-10-20T19:24:29.832787+00:00'
+updated_at: '2026-10-20T19:41:17.956300+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -112,3 +112,15 @@ most likely the consultant rewrote the same ask's input type after posting it
   reaches the consultant's notice.
 - `set_ask` changing a shown ask's input from text to single_choice is refused;
   typing in an answer box survives a redraw triggered by another plan change.
+
+
+## 7. A quieter bottom of the screen (operator, 2026-10-20)
+
+> The bottom of the screen is getting pretty busy. I want to loose the paper clip and "Attach files" and instead add a "+" symbol inside the text entry area to mirror the send button … Same functionality as we have now. Can we move the widget showing the progress to be an area UNDER but connected to the progress bar that we have at the top please?
+
+Both depend on **lagrange-framework REQ-214** (a leading composer action and a host-placed status widget).
+
+- **Attach becomes a "+" inside the text entry area**, mirroring Send (REQ-214 `composerAction`). The separate "📎 Attach files" row and its button go (`attachments.js` ~132, `ATTACH_BUTTON` in `config.js`). Everything else about attachments is unchanged: drag and drop, chips above the text box (capped per item 1), choosing site or reference per file, going with the next message.
+- **The status widget moves to the plan panel**, into an area directly under the progress banner (REQ-398 / BUG-209) and visually joined to it, using REQ-214 `statusContainer`. It keeps its text ("The consultant is …"), elapsed time and Stop building. It is present only while the worker is working; the banner does not change height otherwise. Nothing of it remains above the composer.
+
+Tests: the composer shows a "+" inside the input that opens the file picker, and no "Attach files" control exists; with a build running, the status widget is inside the plan panel under the progress banner and not in the chat, and Stop building still stops the worker.
