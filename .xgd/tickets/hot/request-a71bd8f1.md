@@ -6,10 +6,10 @@ title: 'Comparisons: a preview mode of site tiles that open the real sites, repl
   the comp viewer and the panel''s comp board'
 created_by: EPIC-20
 created_at: '2026-10-20T22:19:26.112561+00:00'
-updated_at: '2026-10-20T22:19:32.136952+00:00'
+updated_at: '2026-10-20T23:12:40.767538+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 5
