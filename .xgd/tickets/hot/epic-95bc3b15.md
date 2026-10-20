@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T13:39:17.096006+00:00'
+updated_at: '2026-10-20T14:34:56.764166+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2281,3 +2281,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-416]] — adopt LF REQ-209/210 (worker and talker): discovery happens while the consultant builds; first build starts after a short opening; talker may pin to the story board but never touch the site or the stages; the consultant sets and reinforces where things are and what can change (operator decisions 2026-10-20).
+
+
+- [[REQ-417]] — opening tweaks: story-board empty message centred both ways; headline slot reads "Your headline statement:" with centred "Why choose your business?"; ghost text "We'll put questions here for you to answer" on the empty question panel.
