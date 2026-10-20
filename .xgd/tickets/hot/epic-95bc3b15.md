@@ -5,9 +5,9 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T22:19:37.919540+00:00'
+updated_at: '2026-10-20T23:26:27.361716+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -2297,3 +2297,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - lagrange-framework REQ-214 — webui-chat composer "+" action and host-placed status widget; BUG-236 item 7 adopts both (attach "+" in the input; status widget under the progress banner).
+
+
+- [[REQ-420]] — L1 vertical rhythm: text styles carry space above/below in rhythm units; stacks space by max(below, above); heading attaches to its paragraph by default, AI may override (operator: implicit pairing, a default not a rule, L1 in this repo).
+- [[BUG-238]] — layout check flags a too-small header logo/business name and headings not attached to their text (catches existing pages until REQ-420).
