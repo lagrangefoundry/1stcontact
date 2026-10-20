@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T13:42:03.847473+00:00'
+updated_at: '2026-10-20T13:42:20.113751+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10092,5 +10092,24 @@ I put the method change in this ticket instead of committing it as a prompt-only
 <!-- xgd-chat role="user" ts="2026-10-20T13:42:02.545386+00:00" -->
 #### You
 No I'm waiting for 415 and 416 they are critical
+
+<!-- xgd-turn id="5d0eef39-0a06-4bdf-8341-20f1383d6b32-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T13:42:15.427855+00:00" -->
+#### Claude
+Understood. Nothing else is in flight, so these two are the whole queue before your next run.
+
+They can be built at the same time, but there's a merge risk. Both change the consultant's `priming.json`, and both change what a builder's result carries: REQ-415 adds the screenshot and the layout report, REQ-416 changes who sees the worker's output. Whichever lands second should rebase onto the first and re-run the priming tests, so the second session doesn't overwrite the first one's priming entries. If you'd rather avoid that entirely, build REQ-415 first. It's smaller, and REQ-416's worker priming can then build on the "Does it look right?" rule.
+
+Once both have landed:
+1. Run `bin/deploy --env dev`. It builds the browser files and ships fonts if they've changed.
+2. Start a new business, because the method change is seeded when a plan is created.
+3. In the run, watch for:
+   - whether the first build starts after a short opening;
+   - whether the hand-over ends with a story question;
+   - whether the talker keeps you talking and pins what you say;
+   - whether the consultant looks at every page before Ready to publish lets it through.
+
+I'll review the transcript against that list when you're done.
 
 <!-- xgd-chat-end -->
