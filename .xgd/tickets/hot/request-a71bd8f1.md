@@ -6,10 +6,10 @@ title: 'Comparisons: a preview mode of site tiles that open the real sites, repl
   the comp viewer and the panel''s comp board'
 created_by: EPIC-20
 created_at: '2026-10-20T22:19:26.112561+00:00'
-updated_at: '2026-10-20T23:21:46.350841+00:00'
+updated_at: '2026-10-20T23:22:15.635204+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e3089686
+  commits:
+  - working_sha: b85d50672e0f568601b31625be93fd4f55a62eec
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ecc89708d67fd49f5cf66e6d646b6f242fb939aa
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.560
 ---
 
 ## What changes
