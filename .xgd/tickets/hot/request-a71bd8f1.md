@@ -6,9 +6,9 @@ title: 'Comparisons: a preview mode of site tiles that open the real sites, repl
   the comp viewer and the panel''s comp board'
 created_by: EPIC-20
 created_at: '2026-10-20T22:19:26.112561+00:00'
-updated_at: '2026-10-20T23:12:40.767538+00:00'
+updated_at: '2026-10-20T23:21:46.350841+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -90,3 +90,31 @@ Reconcile should treat their ACs/UATs that pin those specific points as invalida
   - the questions panel has no "Sites we're comparing" item.
 - Update or remove the REQ-378, REQ-391 and BUG-236 UATs that pin the comp viewer, its carousel or the panel comp board, and say so in the commit.
 - Regression: the plan-panel, story-board and builder mode suites. Some builder suites need sockets and skip in the sandbox; note which ran.
+
+
+## Implementation (free-coded, 2026-10-20)
+
+- **New module `apps/control-app/src/builder/comparisons.js`** — the Comparisons pane mode (a `mount` mode like Story). It draws the comps from the plan view the panel already reads (`onView`), and writes through the same `/api/plan/comp` route (`compAction`) as before: `add`, `note`, `remove`, `finish`, `skip`. The redraw rules carried over from the panel: a tile whose comp hasn't changed is kept, so is the one being typed in, and typed-but-unsaved notes are kept separately (BUG-236).
+- **Tiles**: thumbnail (desktop screenshot cropped to 16:10, top-anchored) wrapped in the link; name; address (host + path, no scheme/`www.`); "Open the site ↗"; who added it; Remove; likes/dislikes with per-tile Done and "Saved ✓". Under the grid: add a site by address, "I've finished commenting" (and its "heard" line), and **Skip** while the comps are open. Skip moved here from the panel item with the rest of its contents, so the client can still decline comps.
+- **Bad picture**: no `desktop` screenshot, or an image that fails to load (`error` event), shows a name-and-address card in the thumbnail's place. Captures record no site icon today, so the card has none. The capture is unchanged.
+- **Mode toggle**: `transient` is gone from the pane's mode spec (`panel.js`); a mode may declare `offered()` instead, and the toggle (`toolbar.js`) shows a mode when it is offered **or** currently active. Comparisons is `offered` once the plan view says `comps_raised`, and the app redraws the toolbar when that flips. The mode is remembered like the others. If a site whose comps were never raised opens in Comparisons (remembered from another site), the pane goes to View without remembering it.
+- **Ways in**: `#show=comp&comp=<ref>` (the consultant's `show_client` comp card) switches to Comparisons and briefly highlights that comp's tile after scrolling it into view. The "Looking at other sites" stage explanation (stage id `other_sites`) has a "See the sites we're comparing" link once the comps are raised. The explanation now stays open while the pointer or focus is on it (200 ms grace on leaving the stage), so the link can be clicked. Clicking a stage still never changes it.
+- **Removed**: `comp-viewer.js`, the `comp` mode, the panel's comp item and everything only they used: `COMP_*` strings, `.comp-viewer*`, `.plan-comp*`, `.plan-comps*` CSS, `planPanel.comps()`, the panel's `onOpenComp`. The carousel stays for the looks only.
+- **Consultant text** (`plan-surface.json` ask_comps/add_comp/note_comp, `priming.json` comps section): now says the board is Comparisons in the client's preview, not on their panel. The tools and their behaviour are unchanged.
+
+## Tests
+
+- New: `tests/test_UAT_FC_REQ-419_comparisons.test.ts` (10 UATs, real builder in jsdom). They cover: the toggle before and after raising; switching away and back, and remembering across a reload; toolbar shows only the toggle; no "Back to your draft"; the panel has no comp item; tiles, with no carousel; link `href`/`target`/`rel`, with non-http giving no link; the no-picture card and an image load error; Done, add, and finish going through `compAction`; a chat comp link; the stage-tip link, with the stage unchanged; a never-raised site falling back from Comparisons.
+- Updated, as superseded by this ticket:
+  - REQ-378 `viewing_a_comp` suite deleted (viewer + panel board).
+  - REQ-391's comp-carousel case deleted; REQ-388's comp-viewer width case deleted.
+  - REQ-401's "comp board is an item" case deleted, and the font case no longer reads the panel's URL box.
+  - BUG-236's Done and "I've finished commenting" cases now drive `createComparisons`.
+  - REQ-413's switch-to-comp case now expects Comparisons and the highlighted tile.
+  - REQ-403's raise case now expects Comparisons on the toggle and nothing on the panel.
+  - BUG-205's mode list and REQ-408's label filter are updated for the fourth mode.
+- Regression run in the worktree, with the webui symlink and generated artifacts in place so nothing skipped:
+  - Plan panel, stages, story board/pane, looks, preview width, show, page/panel controls and mode suites: all green.
+  - Priming and surface suites: all green.
+  - The `workers` comp board and BUG-236 shape suites: all green.
+  - `reconciliation-palette-popup-surface` AC1249 fails, and fails identically on the clean main checkout, so it is pre-existing.
