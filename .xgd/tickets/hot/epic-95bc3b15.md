@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-19T23:31:22.853745+00:00'
+updated_at: '2026-10-20T03:31:14.499112+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2272,3 +2272,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-231]] — error and notice banners get a dismiss ×; banners explaining a locked builder stay.
+
+
+- [[BUG-234]] — the working line says "The consultant is …", not "Your consultant is …" (operator decision 2026-10-19; revises BUG-205's wording).
