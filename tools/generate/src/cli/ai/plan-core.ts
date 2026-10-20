@@ -649,6 +649,14 @@ export function notLookedText(pages: readonly NotLooked[]): string {
   return pages.map((p) => `${p.page} (${p.widths.join(', ')})`).join('; ')
 }
 
+/**
+ * [[BUG-235]] — what the plan entry says near publishing where there is no browser:
+ * nothing can look at the pages, so nothing holds the stages back for it, and the
+ * client must not be told the pages were checked.
+ */
+export const CANNOT_LOOK_LINE =
+  "The pages couldn't be looked at: this deployment has no browser to take screenshots with. Don't tell your client the pages have been checked by eye."
+
 /** [[REQ-415]] — the refusal for a publishing stage marked before the pages were looked at. */
 export const NOT_LOOKED = 'NOT_LOOKED'
 
@@ -678,9 +686,9 @@ export function stagesFor(stored: unknown, phase?: unknown): PlanStage[] {
   return STAGE_IDS.map((id, i) => ({ id, state: i < at ? STAGE_DONE : i === at ? IN_PROGRESS : 'not_started' }))
 }
 
-/** [[REQ-390]] — the stage in progress, or `null`. */
+/** [[REQ-390]] — the furthest stage in progress, or `null` ([[BUG-235]]: there may be two). */
 export function currentStage(fields: Pick<PlanFields, 'stages'>): string | null {
-  return (fields.stages ?? []).find((s) => s.state === IN_PROGRESS)?.id ?? null
+  return [...(fields.stages ?? [])].reverse().find((s) => s.state === IN_PROGRESS)?.id ?? null
 }
 
 /**
@@ -816,7 +824,7 @@ export function checkPlan(fields: PlanFields): void {
     throw refuse(PLAN_INVALID, message)
   }
   if (!(PLAN_KINDS as readonly string[]).includes(fields.kind)) bad(`unknown plan kind ${JSON.stringify(fields.kind)}`)
-  // [[REQ-390]] — every stage known, each once, and only one in progress.
+  // [[REQ-390]] — every stage known, each once. [[BUG-235]]: more than one may be in progress.
   if (!Array.isArray(fields.stages)) bad('the plan has no stages')
   const stageIds = new Set<string>()
   for (const s of fields.stages) {
@@ -827,7 +835,6 @@ export function checkPlan(fields: PlanFields): void {
       bad(`stage ${s.id} has unknown state ${JSON.stringify(s.state)}`)
     }
   }
-  if (fields.stages.filter((s) => s.state === IN_PROGRESS).length > 1) bad('only one stage can be in progress')
   for (const f of fields.functionality) {
     if (!(FEATURE_STATUSES as readonly string[]).includes(f.status)) {
       bad(`feature ${f.feature} has unknown status ${JSON.stringify(f.status)}`)
@@ -1206,6 +1213,8 @@ export interface PlanFacts {
   noAddress?: boolean
   /** [[REQ-415]] — near publishing, the pages not looked at since they changed. */
   unlooked?: NotLooked[]
+  /** [[BUG-235]] — near publishing, with no browser to look at the pages with. */
+  cannotLook?: boolean
 }
 
 /**
@@ -1231,6 +1240,7 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
       `Not looked at since they changed: ${notLookedText(facts.unlooked)}. Take a screenshot of each at that width and check it — "${stageLabel(FINISHING_TOUCHES)}" can't be ticked and "${stageLabel(READY_TO_PUBLISH)}" can't be marked until you have.`,
     )
   }
+  if (facts.cannotLook) lines.push(CANNOT_LOOK_LINE)
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
   // left to itself forgets: the stage it never moved, the milestone it never raised.
   const behind = stageBehind(f)
@@ -2037,11 +2047,12 @@ export function planOperations(
         t.status = String(p.status)
         return { task: t }
       }),
-    // [[REQ-390]] — ONE STAGE IN PROGRESS: starting one moves the marker. Any order
-    // and backwards are both fine — a done stage can be reopened.
-    // [[BUG-221]] — MOVING FORWARD TICKS the stage moved off: starting a later stage
-    // means the earlier one is finished, and resetting it made the panel call it
-    // skipped. Moving backward puts the later stage back to not started.
+    // [[REQ-390]] — ANY ORDER, and backwards: a done stage can be reopened.
+    // [[BUG-235]] — STARTING A STAGE CHANGES THAT STAGE ONLY. Under build-sooner
+    // ([[REQ-416]]) the first draft starts while getting to know the client is
+    // still going on, so two stages may be in progress; only an explicit done
+    // ticks one. (This replaces [[BUG-221]]'s marker move, which ticked the stage
+    // moved off — and so ended the interview the moment the build began.)
     //
     // [[REQ-415]] — AND THE SITE IS NOT FINISHED UNSEEN. Finishing touches cannot be
     // ticked, and Ready to publish cannot be started or ticked, while a page has
@@ -2059,15 +2070,6 @@ export function planOperations(
         const was = new Map(plan.fields.stages.map((s) => [s.id, s.state]))
         const stage = plan.fields.stages.find((s) => s.id === id)
         if (!stage) throw refuse(PLAN_INVALID, `unknown stage ${JSON.stringify(id)}`)
-        let moved: { moved_from: string; marked: string } | undefined
-        if (state === IN_PROGRESS) {
-          for (const other of plan.fields.stages) {
-            if (other !== stage && other.state === IN_PROGRESS) {
-              other.state = STAGE_IDS.indexOf(other.id) < STAGE_IDS.indexOf(stage.id) ? STAGE_DONE : 'not_started'
-              moved = { moved_from: other.id, marked: other.state }
-            }
-          }
-        }
         stage.state = state
         const now = (sid: string): string | undefined => plan.fields.stages.find((s) => s.id === sid)?.state
         const finished = now(FINISHING_TOUCHES) === STAGE_DONE && was.get(FINISHING_TOUCHES) !== STAGE_DONE
@@ -2082,7 +2084,7 @@ export function planOperations(
               'check it looks right, fix what does not, and then set the stage again.',
           )
         }
-        return { stage: { ...stage, label: stageLabel(stage.id) }, ...moved }
+        return { stage: { ...stage, label: stageLabel(stage.id) } }
       })
     },
 
