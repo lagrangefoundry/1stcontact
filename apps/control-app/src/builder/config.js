@@ -954,6 +954,8 @@ export const PLAN_STILL_TO_ANSWER = (n) => `${n} ${n === 1 ? 'question' : 'quest
  */
 export const PLAN_OPEN_QUESTIONS = 'Open questions'
 export const PLAN_TOLD_US = "What you've told us"
+/** [[REQ-417]] — the panel before the first question: ghost text, not a question. */
+export const PLAN_NO_QUESTIONS_YET = "We'll put questions here for you to answer"
 /** [[REQ-401]] — each item's status box, in words, for a screen reader. */
 export const PLAN_ITEM_STATUS = { open: 'Open', skipped: 'Skipped', done: 'Done' }
 export const PLAN_SKIP = 'Skip'
@@ -1019,8 +1021,8 @@ export const STORY_MODE_LABEL = 'Story'
 export const STORY_BOARD_LABEL = 'Your story board'
 export const STORY_EMPTY =
   "As we talk, I'll pin the things you say about your business here. Heart the ones that are most you."
-export const STORY_HEADLINE_LABEL = 'The headline'
-export const STORY_HEADLINE_PLACEHOLDER = 'The headline… why you?'
+export const STORY_HEADLINE_LABEL = 'Your headline statement:'
+export const STORY_HEADLINE_PLACEHOLDER = 'Why choose your business?'
 export const STORY_HEADLINE_YOURS = 'your words'
 export const STORY_HEADLINE_MY_PICK = 'my pick'
 export const STORY_HEADLINE_CHOOSE = 'Choose…'

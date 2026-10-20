@@ -237,7 +237,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-408 — the Story pane', () => {
     const slot = () => board(app).querySelector('.story-headline') as HTMLElement
     const line = () => slot().querySelector('.story-headline__line') as HTMLTextAreaElement
     expect(slot().dataset.state).toBe('empty')
-    expect(line().placeholder).toBe('The headline… why you?')
+    expect(line().placeholder).toBe('Why choose your business?')
     expect(line().value).toBe('')
 
     const options = ['Three generations on one corner', 'Where every cut starts with tea', 'Leave feeling like yourself']

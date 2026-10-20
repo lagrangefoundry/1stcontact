@@ -70,6 +70,7 @@ import {
   PLAN_DOCUMENTS,
   PLAN_DONE,
   PLAN_NONE_OF_THESE,
+  PLAN_NO_QUESTIONS_YET,
   PLAN_NOT_YET_AVAILABLE,
   PLAN_SOMETHING_ELSE,
   PLAN_UPLOAD_SEVERAL,
@@ -254,6 +255,8 @@ export function createPlanPanel(options = {}) {
   const openList = el('div', 'plan-panel__list plan-panel__list--open')
   const doneHeading = el('h3', 'plan-panel__heading', PLAN_TOLD_US)
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
+  // [[REQ-417]] — what the panel is for, until it has a question in it.
+  const noQuestions = el('p', 'plan-panel__ghost', PLAN_NO_QUESTIONS_YET)
   // [[REQ-378]], [[REQ-401]] — the comp board, ONE ITEM in whichever section its
   // status puts it, drawn once and moved, so a note being typed is never lost.
   const compsItem = itemShell(COMPS_HEADING)
@@ -273,7 +276,7 @@ export function createPlanPanel(options = {}) {
   compsSkip.type = 'button'
   compsSkip.addEventListener('click', () => void comp({ action: 'skip' }))
   compsItem.body.append(compsList, addForm, compsSkip)
-  element.append(tracker, progress, error, openHeading, openList, doneHeading, doneList)
+  element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList)
 
   let site = null
   let generation = 0
@@ -839,6 +842,7 @@ export function createPlanPanel(options = {}) {
     // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
     openHeading.hidden = openList.hidden = openList.childElementCount === 0
     doneHeading.hidden = doneList.hidden = doneList.childElementCount === 0
+    noQuestions.hidden = !(openList.hidden && doneList.hidden)
     onView?.(view)
   }
 

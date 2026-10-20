@@ -1600,6 +1600,12 @@ body {
   color: var(--shell-danger, #b91c1c);
 }
 
+/* [[REQ-417]] — ghost text in the panel's own type until the first question. */
+.plan-panel__ghost {
+  margin: 12px 0;
+  color: var(--shell-fg-muted, #71717a);
+}
+
 .plan-panel__heading {
   margin: 12px 0 6px;
   font-size: 0.8rem;
@@ -5937,6 +5943,8 @@ body {
  */
 .story-board {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
   padding: 28px 32px 48px;
   background: #faf8f3;
@@ -5946,9 +5954,11 @@ body {
   line-height: 1.4;
 }
 
+/* [[REQ-417]] — in the middle of the space under the headline, both ways. */
 .story-board__empty {
   max-width: 34em;
-  margin: 24px auto;
+  margin: auto;
+  padding: 24px 0;
   color: #8a8578;
   text-align: center;
 }
@@ -5961,6 +5971,8 @@ body {
 /* The headline: marker-like — bigger, darker, plain. Dashed while undecided. */
 .story-headline {
   position: relative;
+  box-sizing: border-box;
+  width: 100%;
   max-width: 46em;
   margin: 0 auto 28px;
   padding: 12px 16px;
@@ -6001,6 +6013,11 @@ body {
 
 .story-headline__line::placeholder {
   color: #c4bfb3;
+}
+
+/* [[REQ-417]] — the empty slot's shadow text sits in the middle of the slot. */
+.story-headline__line:placeholder-shown {
+  text-align: center;
 }
 
 .story-headline__line:focus {
