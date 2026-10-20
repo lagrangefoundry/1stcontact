@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:18:15.903538+00:00'
+updated_at: '2026-10-20T23:19:06.514487+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10379,5 +10379,36 @@ oops I think I did them the other way around - problem?
 Some challenges I see with where we are:
 1. The consultant is CONSTANTLY making the site name and logo too small
 2. Spacing of titles and text - this is really important for a professional looking site and feels consistently off to me (can we discuss?) I feel like the paragraph under a title should feel attached to the title we seem to get title - text - title equally spaced which just looks super odd to me
+
+<!-- xgd-turn id="8933fe14-f5ba-4006-9e66-754c7bd93e68-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-20T23:19:06.249483+00:00" -->
+#### Claude
+Checking how the page format spaces headings and text before answering.
+
+**On the order: no harm done.** BUG-236's session built items 1–6 and left item 7 alone, because LF REQ-214 isn't there yet (it's still `free_coding`). So the 📎 row and the status widget's position are unchanged, and nothing broke. BUG-236 is now frozen at `ready_to_reconcile`, so item 7 needs a small follow-up ticket once REQ-214 lands. I'll file that when it does.
+
+## 1. The name and logo too small
+
+You've raised this on every site, and it's in the consultant's novice checklist ("the logo and the business name large enough to read"). It keeps happening for the reason we've now seen several times: builders default to modest sizes, and a checklist line in the priming is a reminder, not a check. The fix is the same pattern as REQ-415: **make it something the host measures.** The layout check already renders every page a builder writes, so it can also report:
+- a header logo shorter than about **48px on desktop or 36px on a phone**;
+- a business name in the header that **isn't clearly the largest text in it**, e.g. smaller than about 1.25× the navigation links.
+
+Either finding means the build isn't done, the same as overflow. Builders also get a default to start from, instead of choosing a size themselves.
+
+## 2. Heading and text spacing: you're right, and the cause is structural
+
+What you're describing is the **proximity principle**, the most basic rule of typographic rhythm. Things that belong together sit closer together. A heading belongs to the text *below* it, so the space above a heading should be clearly larger than the space below it, typically **2–3 times** larger. When heading, paragraph and next heading are evenly spaced, the heading looks as if it floats between two blocks, and the page reads as a list of loose parts. That's the "something's off" feeling, and professional designers fix it before almost anything else.
+
+**Why our sites keep doing it:** in our page format (L1), a container spaces its children with **one value, `gapPx`**, the same gap between every pair (`render.ts:5041`). A builder putting heading, paragraph, heading, paragraph in one stack can only space them evenly. It isn't a lapse of taste the builder could avoid. The simplest structure produces exactly what you're seeing.
+
+Three ways to fix it, from cheapest to most thorough:
+1. **Builder guidance:** each heading and its text go in their own small group with a tight gap, and the groups sit in an outer stack with a larger gap. That's possible today, but it depends on builders remembering, which we know is unreliable.
+2. **A host layout check:** flag any heading whose space to the text below it isn't clearly smaller than its space to whatever is above it. That makes it a "not done" finding, like the others, so it can't slip through.
+3. **Spacing that belongs to text styles:** a heading style carries its own space above and below, e.g. 2.5× above and 0.5× below the base unit. Every heading then gets the right rhythm automatically, and it holds across the whole site. This is the professional answer, in the same spirit as REQ-418's table: a structure in which the mistake can't be made. It's an L1 change.
+
+**My recommendation:** do 1 and 2 now in one ticket together with the logo check, since they're the same kind of thing: craft defaults builders get wrong, which the host now measures. File 3 as an L1 request alongside REQ-418, because it removes the problem for good and saves the build-flag-repair cycle of tokens.
+
+Does the 2–3× ratio match your eye? And would you like those two tickets filed?
 
 <!-- xgd-chat-end -->
