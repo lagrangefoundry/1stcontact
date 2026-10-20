@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T19:24:35.694198+00:00'
+updated_at: '2026-10-20T19:41:24.812994+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2293,3 +2293,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-236]] — the client loses their place (live run, 2026-10-20): attachments hide the text box; crowded consultant turns (pacing rules); worker dumps a long report mid-reply; builder instructions still say "believe passed checks and move on"; no Done/Saved on panel answers or comp notes; a showing question changed form.
+
+
+- lagrange-framework REQ-214 — webui-chat composer "+" action and host-placed status widget; BUG-236 item 7 adopts both (attach "+" in the input; status widget under the progress banner).
