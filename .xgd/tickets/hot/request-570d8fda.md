@@ -6,9 +6,9 @@ title: 'L1: a shared site header and footer with navigation that knows the site'
   pages; host checks for missing headers and dead-end pages'
 created_by: EPIC-19
 created_at: '2026-10-21T18:29:34.512587+00:00'
-updated_at: '2026-10-21T18:29:34.512587+00:00'
+updated_at: '2026-10-21T18:55:16.563738+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -96,3 +96,15 @@ nothing is forced.
   from home, a page with no link home, and an empty placeholder section each
   produce their finding.
 - Priming carries the navigation rules.
+
+
+## 7. The business name is never smaller than the page's headings (operator, 2026-10-21)
+
+> I constantly see the main title of the site smaller than our heading text — is that right?
+
+No. A hero headline (a tagline) may be larger than the header's wordmark — that is a common, legitimate pattern — but **the business name must never be smaller than the section headings** on the same page. BUG-238's check only compares the name with the navigation links (`nameOverNav` 1.25), so a name smaller than every H2 passes.
+
+- **Header wordmark default:** at least ~24px on phone and ~28–32px on desktop, in the brand's display face and weight (configuration, not constants).
+- **Home page first screen:** the business name appears prominently — either as the hero heading itself, or in the header at the size above with the hero headline supporting it.
+- **Layout check finding `name_smaller_than_headings`:** the business name (header wordmark, or logo's rendered height compared with heading cap height) is smaller than any section heading (H2) on the page, at desktop or phone. A finding means the build isn't done (REQ-415), and it applies to today's pages as well as after the shared header lands.
+- Test: a page whose header name is 18px with 32px H2s produces the finding; a 30px name with 28px H2s does not.
