@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:20:15.174930+00:00'
+updated_at: '2026-10-21T17:20:44.579574+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10836,5 +10836,53 @@ As I am working through these when I get to the end of a site, the AI could comm
 
 I hit Done/Submit - clear change in the tile
 My content is transposed into a chat prompt that shows what I wrote and lets the AI respond (responses need to be short to keep this under control).
+
+<!-- xgd-turn id="f3f11477-61e9-46ae-a27e-532e7f4f6f5e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:20:43.334683+00:00" -->
+#### Claude
+Agreed on both. Here's how I'd shape it.
+
+## The comp tile
+
+Make each comp a proper card in the board, not a row:
+- **The hero thumbnail**, larger, with the site name and "Open the real site ↗".
+- **The consultant's note**: why this site was chosen, in a line or two (*"The odd one out: here to show how far 'premium' can go"*).
+- **Your notes**: a real multi-line box that grows as you write, with a gentle prompt in it: *"What do you like? What would you never do?"*
+- **A footer** with the box's state and the send button.
+
+On a wide panel, two cards per row; otherwise one.
+
+## "Done" really means "send", and the box needs states
+
+You're right: today's Done saves silently and leaves you guessing whether anything happened. I'd give the box three visible states:
+
+| state | what you see |
+|---|---|
+| **Empty** | the prompt text, and the button dimmed |
+| **Unsent changes** | a small dot plus *"Not sent yet"*, and the button live: **Send to the consultant ➤** |
+| **Sent** | the card's edge turns your accent colour, *"Sent ✓ 2:14pm"*, and the button dimmed. Edit again and it goes back to *"Not sent yet"* |
+
+Your typing is still kept as a **draft** (on blur, and while you type), so nothing is ever lost. But a draft is visibly different from something sent, and only Send reaches the consultant. That separates "saved" from "said".
+
+For consistency, the same states would apply to the panel's other typed answers, where the button reads **Save** because they don't start a conversation: *"Not saved yet"* → *"Saved ✓"*.
+
+## Sending a comp note starts a short exchange
+
+When you press Send:
+1. The card changes to *Sent*.
+2. Your note appears **in the chat as your own message**, labelled with the site: *"On JDS Custom Ironworks: love the photos of real jobs, can't stand the phone number in five places."* The conversation then has a record of it, and the consultant reads it in context.
+3. **The consultant replies briefly**, two or three sentences at most: what it takes from your note for your site (*"Real job photos, yes. We'll use yours from the Saturday classes and the shipyard. One phone number, placed well."*), and **a follow-up question only if your answer opened something worth asking**. No summary of the comp and no list.
+4. When you've sent notes on every comp, or pressed "I've finished commenting", the consultant **sums up** the conventions it will follow and records them as the visual-concept decision. That's the step the first draft is built from.
+
+This replaces BUG-236's "I've finished commenting" ending with a natural one, and it fits the one-thread rule: your note *is* the thread, so the reply belongs right there. If a build is running, the talker answers, in the same voice.
+
+One deliberate change: until now, panel answers never started a turn (DOC-65). Comp notes would be the exception, because they're opinions to react to, not facts to file. Phone, hours and the other fact questions keep the current behaviour.
+
+## Three decisions
+
+1. **Can a note be edited after it's sent?** I'd say yes. Editing makes it *Not sent yet* again, and re-sending posts the change as a new message.
+2. **Should the consultant reply to every comp note, or only when there's something worth saying?** I'd say always, but very short. Silence after you've written something feels like being ignored, and it's an Opus turn per comp, which is fine for four or five comps.
+3. **Should this go with last turn's items** (one thread at a time, comps as one line and a link, the "why chosen" commentary, new-question badges) **in one ticket?** I'd say yes, since it's all one experience. The consultant reply to comp notes and the panel's Save states would be listed as their own items.
 
 <!-- xgd-chat-end -->
