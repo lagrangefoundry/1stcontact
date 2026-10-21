@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T14:21:42.277537+00:00'
+updated_at: '2026-10-21T14:23:57.260451+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -395,5 +395,11 @@ I noted three places in the README where the images and the written details disa
 - **The shop is at street level in the photos**, with a chalkboard on the sidewalk. The documents put it on the second floor above a bakery, and one review complains about the stairs. I can rewrite those bits to match the photos if you like.
 - **The chalkboard says "Good hair, kinder people".** It would work as a tagline, but the documents don't use it yet.
 - **The Wigs for Kids wall has a typo in the image.** The brass plaque reads "Small acts make a big BRIFFERENCE". Crop or regenerate it before it goes on a site.
+
+<!-- xgd-turn id="293076d7-1153-4d54-a5b1-e964c4ede22a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T14:23:56.555691+00:00" -->
+#### You
+I think the original shop should be over the bakery - this is the current shop
 
 <!-- xgd-chat-end -->
