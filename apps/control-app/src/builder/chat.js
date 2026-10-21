@@ -200,8 +200,9 @@ async function* watchForWrites(events, told) {
  * {@link talk} streams it into the message's bubble.
  *
  * A MESSAGE THE WORK ENDED BEFORE TAKING is not lost: when no stream of work is
- * left open it runs as the next prompt, naming its id so the origin retires it,
- * and that turn streams into the same bubble.
+ * left open it runs as the next prompt, naming its id so the origin retires it.
+ * [[BUG-247]] — as a turn of the panel's own (`runTurn`), below the message: its
+ * work is drawn by the status widget like any turn's.
  *
  * `onBusy` is told when the first stream of work opens and the last one closes,
  * which is what animates the plan panel's current stage.
@@ -213,7 +214,15 @@ async function* watchForWrites(events, told) {
  * answering what the client said. `onAbsorbed` is told the round and the words.
  * Otherwise the result shows as it arrives, as it always did.
  */
-function talkDesk({ transport, onBusy, told, typing = () => false, onCued = () => {}, onAbsorbed = () => {} }) {
+function talkDesk({
+  transport,
+  onBusy,
+  told,
+  typing = () => false,
+  onCued = () => {},
+  onAbsorbed = () => {},
+  runTurn = () => {},
+}) {
   /** Streams of work open in this panel: each one may carry a talker's reply. */
   let open = 0
   /** [[BUG-240]] — the host-cued talker replies arriving, by round: their text so far. */
@@ -391,12 +400,13 @@ function talkDesk({ transport, onBusy, told, typing = () => false, onCued = () =
         }
         if (entry.turnId === '' && open === 0) {
           // NOTHING LEFT TO OPEN A TALKER: the next prompt, naming the message.
-          for await (const event of watchForWrites(
-            wrap(transport.streamPrompt(sessionId, wire, promptView(), [entry.id])),
-            told,
-          )) {
-            yield event
-          }
+          // [[BUG-247]] — A TURN OF ITS OWN, NOT A TALKER REPLY. It may answer first
+          // and then go to work, and a talker's bubble draws no `progress` and keeps
+          // the composer's Stop up for as long as it streams. So the bubble closes,
+          // empty, and the panel runs the prompt as it runs any turn; the stream is
+          // opened only when that turn starts.
+          yield { kind: 'done', meta: { status: 'complete' } }
+          runTurn(() => watchForWrites(wrap(transport.streamPrompt(sessionId, wire, promptView(), [entry.id])), told))
           return
         }
         await new Promise((resolve) => {
@@ -798,6 +808,13 @@ export function createChatPanel(options = {}) {
       showNews(true)
       if (sessionId) void Promise.resolve(transport.absorbed?.(sessionId, turnId, text)).catch(() => {})
     },
+    // [[BUG-247]] — on the panel it was written in; a repaint delivers it anew.
+    // FIRST ON THE NEXT TICK: by then the talker's bubble and the ending turn have
+    // both closed, so the message runs at once rather than after a poll.
+    runTurn: (start) => {
+      const mounted = chat
+      setTimeout(() => whenFree(start, () => chat === mounted), 0)
+    },
   })
 
   /**
@@ -1093,15 +1110,31 @@ export function createChatPanel(options = {}) {
   let cuePending = null
   function cue(kind) {
     if (!chat || !sessionId || typeof transport.cue !== 'function') return
-    const mine = (cuePending = { kind, key: sessionKey })
+    const mine = (cuePending = { kind })
+    whenFree(
+      () => {
+        cuePending = null
+        return watchForWrites(desk.wrap(transport.cue(sessionId, kind, promptView())), told)
+      },
+      () => cuePending === mine,
+    )
+  }
+
+  /**
+   * A turn the client did not start from the composer, run as the panel's own once
+   * nothing is on it: [[BUG-245]]'s cue, and [[BUG-247]]'s message the work ended
+   * before taking. `start` opens the turn's stream, and is not called at all if
+   * the conversation (or `still`) changes first.
+   */
+  function whenFree(start, still = () => true) {
+    const key = sessionKey
     const run = () => {
-      if (cuePending !== mine || !chat || sessionKey !== mine.key) return
+      if (!still() || !chat || sessionKey !== key) return
       if (chat.isBusy()) {
         setTimeout(run, CUE_WAIT_MS)
         return
       }
-      cuePending = null
-      void chat.resume(watchForWrites(desk.wrap(transport.cue(sessionId, kind, promptView())), told), { markdown: '' })
+      void chat.resume(start(), { markdown: '' })
     }
     run()
   }
