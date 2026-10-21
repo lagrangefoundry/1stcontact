@@ -6,10 +6,10 @@ title: 'Looks become their own mode: a Looks tab showing only the looks, no Edit
   Colours, no ''Current'' posing as a look'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:12.936153+00:00'
-updated_at: '2026-10-21T21:54:07.602800+00:00'
+updated_at: '2026-10-21T21:54:36.750831+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-c58de9a6
+  commits:
+  - working_sha: 5657a56e40101a2b4838f8f24b3557545f46afa5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 3b150d409dcb463ac5339e92bde050dc0440e36b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.577
 ---
 
 ## Why (operator, 2026-10-21)
