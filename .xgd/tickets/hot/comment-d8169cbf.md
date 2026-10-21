@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:50:56.946653+00:00'
+updated_at: '2026-10-21T17:57:54.529955+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11065,5 +11065,17 @@ The reload is the right test. Afterwards, tell me:
 2. **On the next build:** does it behave, or does the ■ come back? Pay most attention if the consultant answers first and then starts building.
 
 If the reload fixes it and it comes back on an answer-first build, the cause is confirmed.
+
+<!-- xgd-turn id="5613d739-fbc8-4624-8579-5bb48246d069-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:57:53.565907+00:00" -->
+#### You
+Yeah reload seems to have fixed it.
+
+Nit - every time the builder changes something, the site is relaoaded (ok fair enough - seeing it formed as we watch is part of the experience but:
+
+1. scroll positioning is lost every time - annoying when I'm trying to watch the lower part of the page grow
+2. when the builder is working on a second page and I have the home page open - the home page is refreshed
+3. The refresh triggers all the animations to rerun (may be unavoidable but looks janky if a lot of changes are being made)
 
 <!-- xgd-chat-end -->
