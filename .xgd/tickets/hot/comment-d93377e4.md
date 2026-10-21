@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-17T20:04:24.985785+00:00'
+updated_at: '2026-10-21T13:42:42.240455+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -292,5 +292,25 @@ Two changes went in with it:
 Charlie's README still says "Bob is the coordinator". I left that as it is because it's accurate for that first run.
 
 I only committed `example-businesses/`. Two other files were already modified before I started and I left them out: `.xgd/tickets/hot/request-2dabea8f.md` and `packages/framework/src/modules/module-assets.ts`.
+
+<!-- xgd-turn id="b1c6b095-2ab6-4ed4-b28f-4363d22a8c42-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T13:42:41.248162+00:00" -->
+#### You
+ok I want to create a new business I am getting board of Bob
+
+The next business is Ariel's Archwelding based in Oakland
+
+Ariel Sanchez learned metalworking from her father who had been a ship worker early in his life in San Diego. 
+
+She has a shop in a converted Oakland warehouse with basic metalworking equipment lathes milling machines a forge. Her passion is welding and she spends all her spare time building sculptures out of scrap metal. Some are massive 20-30' high, some are intricate and use things like cutlery and spak plugs for details. Her biggest work is a 30' high devil that has plumbing for oil and sets on fire it was built for Burning Man a few years ago. All these scultpures decorate the yard around her shop.
+
+Her business involves custom manufacturing and repair work. There are a lot of jobs on boats, cars, buildings and even aircraft in the bay. 
+
+She has a couple of people who work with her a younger intern and an older guy who does the machining of custom parts.
+
+On weekends she does classes for kids on metal work and sculpture
+
+Please complete the story and fill in the details as our next business
 
 <!-- xgd-chat-end -->
