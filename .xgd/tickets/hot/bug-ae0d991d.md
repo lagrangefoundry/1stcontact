@@ -6,10 +6,10 @@ title: 'Preview refresh: keep scroll position, refresh only the page that change
   no replayed animations, fewer redraws during a build'
 created_by: EPIC-19
 created_at: '2026-10-21T18:00:24.767152+00:00'
-updated_at: '2026-10-21T20:45:32.954119+00:00'
+updated_at: '2026-10-21T20:46:02.286754+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-343fd22b
+  commits:
+  - working_sha: b6581b31ece743a2830def3e6dd599d7a9e23e1a
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 857c415ad827a9f3c65f2a4db265076771d14d41
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.574
 ---
 
 ## Symptom (Ariel's AR Welding run, 2026-10-21; operator)
