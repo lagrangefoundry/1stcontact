@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:45:14.867263+00:00'
+updated_at: '2026-10-21T18:48:55.234515+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11294,5 +11294,11 @@ It's the same class of error as LF BUG-81, the empty reasoning block, now on the
 - **BUG-249, extended:** a talker that fails must never go silent. Your message is queued for the worker's next step or the next turn, and you see a gentle line such as *"I'll pick that up as soon as this part of the build is done."* Repeated failures are logged with their cause.
 
 **One more thing from the log:** the turns that "completed" at 18:31–18:34 each finished in about 40 ms. Those were your retries being **queued behind the stuck 18:29 turn**, not answered. That confirms the earlier wedge was a turn holding its lease. BUG-249 covers it.
+
+<!-- xgd-turn id="61d4f8d3-5fa2-459e-a1d8-d0b64d751c9c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:48:54.470334+00:00" -->
+#### You
+We attempted to get the AI to draw a logo - this was moderately successful with xgd but is it possible that this is beyond Haiku?
 
 <!-- xgd-chat-end -->
