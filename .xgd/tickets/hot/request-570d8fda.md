@@ -6,9 +6,9 @@ title: 'L1: a shared site header and footer with navigation that knows the site'
   pages; host checks for missing headers and dead-end pages'
 created_by: EPIC-19
 created_at: '2026-10-21T18:29:34.512587+00:00'
-updated_at: '2026-10-21T21:36:37.883191+00:00'
+updated_at: '2026-10-21T21:36:42.517062+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
