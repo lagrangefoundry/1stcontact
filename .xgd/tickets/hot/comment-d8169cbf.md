@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T23:07:21.004191+00:00'
+updated_at: '2026-10-21T23:07:50.262315+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12210,5 +12210,21 @@ Separately, the hero on Ariel's site needs a content fix: the heading and subtit
 <!-- xgd-chat role="user" ts="2026-10-21T23:07:18.665940+00:00" -->
 #### You
 Too late its implemented
+
+<!-- xgd-turn id="90b109e4-b729-4b9b-bbae-d403fe3a1c0d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T23:07:48.371417+00:00" -->
+#### Claude
+Right: BUG-238 is already at `ready_to_reconcile`, so its body is locked and these checks can't go there.
+
+Nothing else open covers them. I'd put all three checks on one new layout-check bug:
+- **Heading spacing:** measure the space between the letters rather than the boxes. The space after a heading must also be clearly smaller than the space between the paragraphs under it.
+- **Stranded word:** flag a short word left alone on its own line in large heading text, like "and".
+- **Menu:**
+  - a label that wraps onto two lines;
+  - links under about 14px on a phone;
+  - a menu taking more than about a third of the first screen.
+
+Should I create it as a child of this epic?
 
 <!-- xgd-chat-end -->
