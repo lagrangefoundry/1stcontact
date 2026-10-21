@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:45:21.846494+00:00'
+updated_at: '2026-10-21T20:45:50.235924+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11910,5 +11910,44 @@ Shall I write that up as the design note, with the due list and the critic as th
 Yeah I like the idea of the strategies but I think it's been a wrong time. Planning the stage before it starts as relatively straightforward that's what happened when you get into it is where we need help.
 
 I think we have an opportunity to make the talker more strategically aware it is not busy building things it is talking to the customer. That is where we want a strategic thinking to be. It seems still a little obsessed with chitchat questions. This may of course be a good thing but we still need to work through it.
+
+<!-- xgd-turn id="bb03089a-250b-4186-b18b-5e80f7a17849-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:45:49.380517+00:00" -->
+#### Claude
+Agreed on both points.
+
+**On timing:** planning a stage up front is the easy part, and the consultant can do that on its own. The help is needed partway through, when the conversation drifts, the client surprises it, or enough material has piled up that it's time to change gear.
+
+**On where strategy belongs:** the talker is the obvious home. It's not running builders, scopes, locks and layout checks; its only job is the conversation with the client. That's exactly the uncluttered context the strategic thinking needs.
+
+## Why the talker leans towards small talk
+
+That's partly our doing. REQ-416 gave it discovery as its *standing job* and a reminder listing *"story areas still missing"*. So with nothing else to steer it, it works down the list asking for more story, forever. Nothing tells it what the story is **for**, or when it has **enough**.
+
+## Making the talker the strategist
+
+**1. Give it decisions, not story areas.** Its per-exchange notes change from "areas missing" to **the open decisions and what each still needs**:
+> *Open: the positioning card (has: themes, proof; missing: why contractors choose you over others) → then the headline. Due: reaction task (14 notes, 0 reactions). Readiness: messaging unknown, look knows a lot.*
+
+**2. Every question earns its place.** Before asking anything, the talker checks: *which decision does this answer feed, and what would change?* If nothing would change, it doesn't ask. Story questions stay, but now in service of something: *"what do contractors say when they recommend you?"* feeds the positioning card. *"Tell me about the Saturdays"* only gets asked if the Saturdays might be part of why someone picks you.
+
+**3. Know when to stop gathering.** When a decision has enough material, the talker **changes gear** instead of asking more. It runs the reaction task, drafts the positioning card, or offers headline options. All of these are plan writes, which the talker is already allowed. Gathering → synthesising → deciding becomes the talker's own job, with the due list as its guide.
+
+**4. Read the client as you go.** The talker is best placed to notice "this client knows exactly what they want" or "this one is lost". It updates readiness (REQ-425) as it goes, so the pace adjusts in the middle of a stage. That's the in-the-moment help you're describing.
+
+**5. It still leads when you go quiet.** BUG-240 already opens a talker when a build starts. Its first move should come from the due list. Most of the time that's the most valuable open decision, not *"tell me more about…"*.
+
+The worker keeps the build-time duties: building, getting a critique at the end of the run, and handing back. Strategy lives with whoever is talking to the client.
+
+## Is the small talk sometimes good?
+
+Yes, a little. Rapport matters, and the best material often comes out sideways, like the Wigs for Kids story. So I wouldn't ban it. I'd make it **cheap and purposeful**: one warm follow-up on something the client clearly cares about, then back to the open decision.
+
+## What it would take
+
+Most of it is the talker's priming plus the facts it gets each exchange: the due list, open decisions with what's missing, readiness, and the positioning status. Those need a little code to compute. It sits naturally alongside REQ-425 (positioning card and readiness) and REQ-424 (focus tasks), and it depends on them.
+
+Do you want to work through it more first? Or shall I file it as "the talker as conversation strategist" and record the critic and the due list in the design note, so the pieces are joined up?
 
 <!-- xgd-chat-end -->
