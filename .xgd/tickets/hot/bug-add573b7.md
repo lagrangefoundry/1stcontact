@@ -6,7 +6,7 @@ title: 'The consultant doesn''t know which view the client has open: report the 
   and unopened views, and link to the right one'
 created_by: EPIC-19
 created_at: '2026-10-21T17:33:54.640791+00:00'
-updated_at: '2026-10-21T18:29:45.458887+00:00'
+updated_at: '2026-10-21T18:40:18.978846+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -73,3 +73,39 @@ The consultant created an Art page, showed it to the client, then asked about "t
 - The view report and digest also carry **which page** is shown ("The client is looking at: Art & commissions (art), View").
 - When the consultant creates a page or first shows the client a page other than home, it says in one line how to move between pages: "Use the page menu above the preview to switch between Home and Art." (Then not again.)
 - Test: a message sent while viewing `art` reaches the host with page `art`; the priming carries the page-switching line rule.
+
+
+## Implementation (as landed)
+
+- **Builder** (`apps/control-app/src/builder/`): `client-pane.js` is the one
+  definition of the pane names and labels (View, Edit, Story, Comparisons,
+  Looks), shared by the toggle (`config.js` labels) and the digest.
+  `opened-views.js` records, per business (site), every pane the client has had
+  open — whoever opened it, including Story put up by the host before the first
+  draft — in the builder's own storage, so it survives reload. `app.js` adds to
+  each prompt's `view`: `pane` (a look shown in View/Edit reports `looks`),
+  `comps` (sites on the comparison board, when Comparisons is open) and
+  `unopened` (panes on offer — mode toggle entries offered, plus Looks when the
+  page has looks — never opened for this business).
+- **Host** (`tools/generate/src/cli/ai/roles.ts`): `readClientView` accepts and
+  validates `pane` / `comps` / `unopened` (an unknown pane, a bad count or an
+  unknown unopened entry is a malformed view, refused by the route). The page
+  digest states, beside the width line: "The client is looking at: Comparisons
+  (4 sites)." and "Not yet opened: Edit, Story." Nothing is said on a turn that
+  reported no pane.
+- **Priming** (`priming.json`, the `showing` entry, in both declared orders):
+  the link-when-elsewhere rule, the first-time where-it-lives line, the
+  switch-only-after-making-something-new rule, and the unambiguous-names rule.
+
+## Test evidence
+
+- `tests/test_UAT_FC_BUG-246_the_builder_reports_the_pane.test.ts` (jsdom, real
+  builder): Comparisons open → view carries `pane: comparisons`, `comps: 4`,
+  `unopened: [edit, story]`; opening Story clears it and survives a remount over
+  the same storage; the record is per business (another site still lists Story).
+- `tests/test_UAT_FC_BUG-246_the_consultant_is_told_the_pane.test.ts` (real
+  host): the digest lines; malformed pane reports refused; priming rules present
+  in both orders.
+- `tests/test_UAT_FC_REQ-388_preview_width.test.ts`: the submission assertion
+  changed from exact equality to `toMatchObject`, since the view now carries the
+  pane alongside the width (REQ-388's width contract unchanged).
