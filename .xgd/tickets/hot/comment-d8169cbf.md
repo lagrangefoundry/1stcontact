@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:21:49.923550+00:00'
+updated_at: '2026-10-21T14:54:02.873555+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10704,5 +10704,11 @@ I checked the diagnosis and the one-line fix, and both are right. In talk mode, 
 3. Re-run BUG-239's session to write the UAT and close it.
 
 LF REQ-214 changes the same composer and status widget code, to add the "+" and move the widget to the panel. It's worth giving REQ-214 and BUG-89 to the same lagrange-framework session.
+
+<!-- xgd-turn id="8cb02511-0c2c-4aaf-bfe3-ddbe06454428-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T14:54:02.055837+00:00" -->
+#### You
+Can you please summarize the changes that we made since the start of the last run? Is everything that we agreed on ready to go?
 
 <!-- xgd-chat-end -->
