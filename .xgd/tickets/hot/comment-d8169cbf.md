@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:13:32.267624+00:00'
+updated_at: '2026-10-21T01:14:29.834041+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10609,5 +10609,47 @@ The order is REQ-215 first, refresh the shared install, then BUG-240. Item 2 als
 **Are you happy to call colours and lettering done, or does anything still feel off?**Bob, the layout check flagged the message form again after the colour change. It's the same false alarm as BUG-237, so I've left the form alone. <-- This bold text appeared as normal text on the chat with ** around it (i.e. it did not render)
 
 The consultant talks about workers and builders - I think that might be a little confusing - I did break character earlier, but we should decide what language it should use for things like that
+
+<!-- xgd-turn id="16a78471-23ce-4185-a095-9eedf921a012-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T01:14:28.777740+00:00" -->
+#### Claude
+Here's what I found on both, plus something related that's costing you money.
+
+## 1. Why the bold didn't render
+
+The consultant wrote it correctly; the problem is how the chat joined two messages. "**Are you happy … off?**" ended one reply. Then the host's layout continuation started a **second** round, whose reply ("Bob, the layout check flagged…") was appended to the same chat bubble **with no space or line break**, giving `…off?**Bob, …`. In Markdown, a closing `**` that comes straight after punctuation and straight before a letter doesn't close the bold, so the asterisks show as text.
+
+It's the same bug as the run-together *"…about 5 minutes._The opening movement…"* earlier in this run: the status note and the result were joined with no break. **Any time two assistant segments land in one bubble, they need a paragraph break between them.** In the saved transcript they're separate turns, which is why it only shows live.
+
+## 2. The bigger thing behind it
+
+That second round exists because of the **form false alarm.** The layout check keeps flagging the contact form's hidden labels. That's BUG-237, which landed at 16:16 yesterday. Either your dev snapshot was deployed before it, or the fix doesn't cover this form. Every flag makes the host continue the build, so **this run has 11 host continuations**. Each one is a consultant turn you pay for, and each ends with the consultant telling Bob about a "false alarm in BUG-237". That's wasted spend, and it's internal detail Bob should never hear. Worth checking which it is before the next session: redeploy, and if it still fires, BUG-237 needs reopening.
+
+## 3. What the consultant should call things
+
+My proposal: **to the client, the consultant is one person doing all the work, and nothing behind the curtain is ever named.**
+
+| instead of | say |
+|---|---|
+| "a builder is adding…" / "the worker…" | "I'm adding…" |
+| "the layout check found…" | "I checked the page on a computer and a phone, and…" |
+| "BUG-237", ticket numbers, "known false alarm" | nothing. A problem in our tools that doesn't affect the client's site isn't mentioned at all; if it does affect them, "something on our side isn't working yet; we're fixing it", and it's reported with ReportBug |
+| "talker", "host", "round", "stage tool" | nothing |
+| progress stages | their banner names: "Colours & fonts", "Finishing touches" |
+
+What stays as it is:
+- **Library labels** like IMAGE-5. You decided they're client vocabulary.
+- **"The consultant"** in third-person status lines (DOC-66, BUG-234).
+- **Break character ("bc").** When you write "bc", the consultant answers that one message in operator language, tickets and mechanisms included, then goes back to client vocabulary.
+
+Today the only rule is one line, *"Do not name framework concepts to your client"*. It obviously isn't enough, especially now that our own host cues say "builder" and "layout check" to the consultant.
+
+## Next
+
+- **One bug:** a paragraph break between assistant segments that share a bubble, both live and in replay.
+- **The vocabulary table above**, written into the consultant's priming. That's a prompt change, but the existing one-line reminder may be checked word for word by a test, so I'd put it in the same ticket. The ticket should also cover rewording the host's own cues to the consultant ("the build you started…" rather than naming builders), so they don't keep teaching it the wrong words.
+
+Does the table match what you want, and shall I file it?
 
 <!-- xgd-chat-end -->
