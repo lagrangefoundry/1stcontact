@@ -134,7 +134,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-398 — the progress banner', () => {
 
     // `Progress` leads ([[BUG-209]] dropped the colon), and no toggle — nor its stored setting — is left.
     expect(bar.querySelector('.plan-stages__title')?.textContent).toBe('Progress')
-    expect(bar.querySelector('button')).toBeNull()
+    // [[BUG-244]] — the chat's status widget (with Stop building) lives in the
+    // banner's status row while the worker works; it is not a banner control.
+    expect([...bar.querySelectorAll('button')].filter((b) => !b.closest('.plan-stages__status'))).toEqual([])
     expect(globalThis.localStorage.getItem('plan-stages-collapsed')).toBeNull()
   })
 
