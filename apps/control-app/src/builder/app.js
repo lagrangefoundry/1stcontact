@@ -52,6 +52,8 @@ import { createPageIndex } from './pages.js'
 import { createDisplayPanel } from './panel.js'
 import { createPreviewWidth } from './preview-width.js'
 import { VIEW_LABELS, VIEW_MODES } from './view-width.js'
+import { CLIENT_PANES } from './client-pane.js'
+import { createOpenedViews } from './opened-views.js'
 import { openFontPopup } from './font-popup.js'
 import { openPalettePopup } from './palette-popup.js'
 import { openPhonePreview } from './phone-preview.js'
@@ -1060,6 +1062,41 @@ export function mountBuilder(root, options = {}) {
   looks = createLooks({ panel, pages, draftPath: () => carry.pathFor(currentSite) })
 
   /**
+   * [[BUG-246]] — which pane the client has open, and which they have never
+   * opened, for the consultant's digest: it cannot point at "the story board" in
+   * front of a client looking at the comparison board, or who has never seen
+   * Story at all, without being told.
+   */
+  const openedViews = createOpenedViews({ storage: shell.storage(STORAGE_KEYS.openedViews) })
+  /** The pane on screen — a look shown in View is the looks, not the draft. */
+  function openPane() {
+    const mode = panel.getMode()
+    if ((mode === 'view' || mode === 'edit') && looks.showingLook()) return 'looks'
+    return CLIENT_PANES.includes(mode) ? mode : null
+  }
+  const noteOpened = () => openedViews.opened(currentSite, openPane())
+  panel.on('mode', noteOpened)
+  panel.on('document', noteOpened)
+  // The pane the builder opened on is open too: `restore()` chose it before this listened.
+  noteOpened()
+  /** What goes beside the width: the pane, the comps it holds, and what is still unopened. */
+  function paneReport() {
+    noteOpened()
+    const pane = openPane()
+    if (pane === null) return {}
+    const offered = panel
+      .getModes()
+      .filter((m) => m.offered?.() !== false)
+      .map((m) => m.id)
+    if (looks.state().members.length > 0) offered.push('looks')
+    return {
+      pane,
+      ...(pane === 'comparisons' ? { comps: comparisons.comps().length } : {}),
+      unopened: openedViews.unopened(currentSite, offered),
+    }
+  }
+
+  /**
    * [[REQ-413]] — what a link in the conversation asks to show, or `null` for a
    * link that is the chat's to follow. `#show=<target>&…` is the consultant's
    * `show_client` link; `#looks=<set>` is the one `make_alternatives` hands over
@@ -1383,10 +1420,12 @@ export function mountBuilder(root, options = {}) {
     // [[REQ-388]] — the width the client is viewing the draft at, sent with every
     // prompt so the assistant's digest can state it rather than guess.
     // [[REQ-413]] — with what they are in the middle of, so a switch never lands on it.
+    // [[BUG-246]] — and which pane they have open, and which they never have.
     promptView: () => {
       const view = previewWidth.report()
+      if (!view) return view
       const busy = clientBusy()
-      return view && busy ? { ...view, busy } : view
+      return { ...view, ...paneReport(), ...(busy ? { busy } : {}) }
     },
     // [[REQ-220]] — the picture in the chat is the picture in the Library, and
     // clicking it opens the one modal. The Library needs no telling: it is

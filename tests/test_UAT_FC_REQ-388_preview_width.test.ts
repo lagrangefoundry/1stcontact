@@ -188,12 +188,13 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-388 — the preview has a width', () => {
 
     paneOf(app, 812, 640)
     await app.chat.getChat().send('the header wraps')
-    expect(sent.at(-1)).toEqual({ text: 'the header wraps', view: { width: 812, height: 640, mode: 'fit' } })
+    // [[BUG-246]] — the view also carries the pane; the width is what this pins.
+    expect(sent.at(-1)).toMatchObject({ text: 'the header wraps', view: { width: 812, height: 640, mode: 'fit' } })
 
     // A fixed setting reports the width the draft is LAID OUT at, not the pane's.
     paneOf(app, 300, 600)
     widthButton('phone').click()
     await app.chat.getChat().send('and on a phone?')
-    expect(sent.at(-1)).toEqual({ text: 'and on a phone?', view: { width: 375, height: 750, mode: 'phone' } })
+    expect(sent.at(-1)).toMatchObject({ text: 'and on a phone?', view: { width: 375, height: 750, mode: 'phone' } })
   })
 })
