@@ -112,6 +112,7 @@ import {
   stopExchange,
   stopTurn,
   streamPrompt,
+  unstickSession,
   tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
@@ -260,6 +261,7 @@ import {
 import type { ReferenceStore } from '../../../tools/generate/src/store/reference-store'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
+import { STALLED, stallDetail } from '../../../tools/generate/src/cli/ai/progress-core'
 import {
   addContact,
   CONTACT_CHANGE_POLL_MS,
@@ -1130,6 +1132,12 @@ export interface RouterEnv
     // vars rather than a binding, and `development.ts` says why neither is
     // written down in `wrangler.toml`: both are minted per `1c builder` run.
     DevelopmentEnv {
+  /**
+   * [[BUG-249]] — `"1"` where the panel may show a failed turn's id and cause: the
+   * local dev server and `--env dev`. Absent in production, where a client reads a
+   * gentle line and the detail stays in the ledger and the log.
+   */
+  TURN_DIAGNOSTICS?: string
   /** The build artifacts (`1c assets`), served only to an already-verified caller. */
   ASSETS: Fetcher
   /**
@@ -6596,13 +6604,18 @@ async function routeUncached(
      * judgement — see `sessionTurnFailure` — and taking it from anywhere else
      * would be asking two different isolates the same question.
      */
-    const turnFailure = async (opened: { sessionId: string; live?: boolean }) =>
-      sessionTurnFailure(
+    const turnFailure = async (opened: { sessionId: string; live?: boolean }) => {
+      const failed = await sessionTurnFailure(
         env.DB ? env : null,
         requireScope().businessId,
         opened.sessionId,
         opened.live === true,
       )
+      // [[BUG-249]] — NO TURN ID AND NO CAUSE FOR A CLIENT. Both stay in the
+      // ledger, where the operator reads them; the panel says something gentle.
+      if (failed === null || (env.TURN_DIAGNOSTICS ?? '').trim() === '1') return failed
+      return { at: failed.at, state: failed.state }
+    }
 
     /**
      * The assistant's two calls (REQ-122 / REQ-127), now in workerd (REQ-146).
@@ -6835,6 +6848,31 @@ async function routeUncached(
      * and answers `stopping: true`. `turnId` names a talker's reply to stop
      * alone; absent, the work — during a build, the build — is stopped.
      */
+    /**
+     * POST /api/ai/unstick — the last resort ([[BUG-249]]): free a conversation that
+     * something still holds, so the next message runs.
+     *
+     * The progress deadline frees a stalled turn on its own; this is for whatever
+     * it has not reached. It is the same release, over the whole junction, and it
+     * is open to whoever may drive the conversation — the same people who could
+     * already press Stop on it. It frees what THIS isolate's junction can see: a
+     * turn wedged in another isolate is freed there by its own deadline.
+     */
+    if (p === '/api/ai/unstick' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      const host = await chatHost(env, requireScope(), deps, url.origin)
+      try {
+        return json(200, await unstickSession(sessionId, host.deps))
+      } catch (err) {
+        if (err instanceof UnknownSessionError) return json(404, { error: err.message })
+        throw err
+      }
+    }
+
     if (p === '/api/ai/stop' && method === 'POST') {
       const body = await readJsonBody(request)
       const { sessionId } = body
@@ -7652,7 +7690,22 @@ function streamTurn(
         for await (const event of streamPrompt(sessionId, text, {}, host.deps, ledger?.id, view, fromMessages)) {
           if (event.kind === 'done') {
             const status = typeof event.meta?.status === 'string' ? event.meta.status : ''
-            outcome = status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : 'complete'
+            outcome =
+              status === 'error' ? 'error' : status === 'aborted' ? 'aborted' : status === STALLED ? 'stalled' : 'complete'
+            // [[BUG-249]] — EVERY CLOSE CARRIES ITS CAUSE: an error's own words, and
+            // for a stall what it was waiting on — including one the host carried on
+            // from, which closes `complete` but did stall.
+            const stall = event.meta?.stalled as Record<string, unknown> | undefined
+            const cause = stall
+              ? stallDetail({
+                  silentS: Number(stall.silent_s ?? 0),
+                  awaiting: String(stall.awaiting ?? ''),
+                  last: String(stall.last ?? ''),
+                })
+              : typeof event.meta?.error === 'string'
+                ? scrub(event.meta.error)
+                : null
+            detail = stall && outcome === 'complete' ? `recovered after ${cause}` : cause
           }
           controller.enqueue(frame(event))
         }

@@ -179,6 +179,32 @@ export interface JunctionNamespace {
  * One session's bytes: a mirror that answers every read, and a queue that makes
  * them durable.
  */
+/**
+ * [[BUG-249]] — how long one call to a session's object may take before this
+ * isolate stops waiting for it, in milliseconds.
+ *
+ * WHY THERE IS A CEILING AT ALL. Every write-behind flush is a link in one chain,
+ * and `prepare` drains that chain before every turn, every open and every tail.
+ * A call that never settles therefore wedged the chain, and with it every later
+ * request for the session, until the isolate died. The chain is ordering, not a
+ * transaction (see `queue`), and a write that did not land is already a case this
+ * class repairs: the next adopt finds the object behind and re-sends the tail.
+ * So the call is given up on, logged, and repaired like any other lost write.
+ *
+ * FIFTEEN SECONDS is two orders of magnitude past a healthy append, and short
+ * enough that a stuck object costs a turn a pause rather than the conversation.
+ */
+export const DO_CALL_TIMEOUT_MS = 15_000
+
+/** [[BUG-249]] — `call`, or a rejection once `ms` has passed without it settling. */
+function bounded<T>(call: Promise<T>, ms: number, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const ceiling = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${what}: no answer from the object in ${ms} ms`)), ms)
+  })
+  return Promise.race([call, ceiling]).finally(() => clearTimeout(timer))
+}
+
 class DurableJunctionStorage {
   readonly key: string
   private readonly mirror: Untyped
@@ -219,7 +245,11 @@ class DurableJunctionStorage {
    */
   private degraded: string | null = null
 
-  constructor(sessionId: string, namespace: JunctionNamespace) {
+  constructor(
+    sessionId: string,
+    namespace: JunctionNamespace,
+    private readonly callTimeoutMs: number = DO_CALL_TIMEOUT_MS,
+  ) {
     this.key = `durable:${sessionId}`
     this.mirror = new lib.MemoryJunctionStorage(this.key)
     this.namespace = namespace
@@ -317,7 +347,9 @@ class DurableJunctionStorage {
     // against a cursor the object has not caught up to yet.
     await this.drain()
     const from = this.adopted ? this.mirror.size() : 0
-    const slice: JunctionSlice = await this.stub().since(from, this.epoch)
+    // [[BUG-249]] — bounded: an object that does not answer leaves this session
+    // degraded for this request, which `prepare` already knows how to be.
+    const slice: JunctionSlice = await bounded(this.stub().since(from, this.epoch), this.callTimeoutMs, 'since')
     const bytes = new Uint8Array(slice.bytes)
     if (this.behind(slice, bytes)) {
       // THE OBJECT IS BEHIND, AND IS PUSHED FORWARD RATHER THAN OBEYED. This is
@@ -437,7 +469,9 @@ class DurableJunctionStorage {
     const stub = this.stub()
     const run = async (): Promise<void> => {
       try {
-        await write(stub)
+        // [[BUG-249]] — bounded, so one call that never settles cannot hold every
+        // write behind it, and every `prepare` behind those.
+        await bounded(write(stub), this.callTimeoutMs, 'write')
       } catch (err) {
         // ONE FAILED WRITE MUST NOT POISON THE CHAIN, and it must not reject:
         // the only caller that awaits this is the route's `ctx.waitUntil` drain,
@@ -475,12 +509,15 @@ export interface DurableJunctions {
  * nothing in this Worker asks — `reconcileOrphans` is a Node-host entry point,
  * and the recovery that matters here happens per session on attach.
  */
-export function durableJunctions(namespace: JunctionNamespace): DurableJunctions {
+export function durableJunctions(
+  namespace: JunctionNamespace,
+  { callTimeoutMs = DO_CALL_TIMEOUT_MS }: { callTimeoutMs?: number } = {},
+): DurableJunctions {
   const storages = new Map<string, DurableJunctionStorage>()
   const storageFor = (sessionId: string): DurableJunctionStorage => {
     let storage = storages.get(sessionId)
     if (storage === undefined) {
-      storage = new DurableJunctionStorage(sessionId, namespace)
+      storage = new DurableJunctionStorage(sessionId, namespace, callTimeoutMs)
       storages.set(sessionId, storage)
     }
     return storage

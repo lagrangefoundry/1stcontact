@@ -813,6 +813,8 @@ export const TURN_HEALTH_STATES = {
   complete: 'Completed',
   aborted: 'Abandoned',
   error: 'Failed',
+  // [[BUG-249]] — ended by the host's progress deadline and not carried on.
+  stalled: 'Stalled',
   lost: 'Died',
   open: 'In flight',
 }

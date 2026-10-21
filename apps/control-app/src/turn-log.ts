@@ -42,7 +42,19 @@ export interface TurnLogEnv {
  * side with no translation. Restating the union rather than importing it keeps
  * this module free of the host's type graph; a UAT holds the two together.
  */
-export type TurnLogOutcome = 'complete' | 'aborted' | 'error'
+export type TurnLogOutcome = 'complete' | 'aborted' | 'error' | 'stalled' | 'lost'
+
+/**
+ * [[BUG-249]] — the words only this ledger has.
+ *
+ * `stalled` is a turn the HOST ended because it stopped making progress and could
+ * not be carried on; a stall the host recovered from closes `complete`, with the
+ * stall in its detail. `lost` is what the watchdog ({@link sweepOpenTurns}) writes
+ * over a row nobody closed — the derived judgement below, made durable, so no row
+ * stays open forever. Neither reaches `turn_spend` or `pending_turn`, which keep the
+ * host's three.
+ */
+const OUTCOMES: ReadonlySet<string> = new Set(['complete', 'aborted', 'error', 'stalled', 'lost'])
 
 /**
  * How long a turn may be open before an unfinished row is read as a death.
@@ -165,7 +177,7 @@ export function turnLost(row: TurnLogRow, now = Date.now()): boolean {
  * a sweeper, which is a second mechanism able to fail in the same way as the
  * first. Derived, it is true the instant it becomes true and needs nobody.
  */
-export function turnState(row: TurnLogRow, now = Date.now()): TurnLogOutcome | 'lost' | 'open' {
+export function turnState(row: TurnLogRow, now = Date.now()): TurnLogOutcome | 'open' {
   if (row.outcome !== null) return row.outcome
   return turnLost(row, now) ? 'lost' : 'open'
 }
@@ -191,8 +203,7 @@ function rowOf(raw: RawRow): TurnLogRow {
     endedAt: raw.ended_at,
     // AN UNRECOGNISED WORD READS AS UNCLOSED, on `storedPending`'s judgement: a
     // value this reader cannot interpret must not be reported as if it could.
-    outcome:
-      outcome === 'complete' || outcome === 'aborted' || outcome === 'error' ? outcome : null,
+    outcome: outcome !== null && OUTCOMES.has(outcome) ? (outcome as TurnLogOutcome) : null,
     detail: raw.detail,
   }
 }
@@ -265,14 +276,14 @@ export interface TurnHealth {
    * and a surface that re-derived it from `endedAt` would be free to disagree
    * with the tally printed beside it.
    */
-  turns: (TurnLogRow & { state: TurnLogOutcome | 'lost' | 'open' })[]
-  counts: Record<TurnLogOutcome | 'lost' | 'open', number>
+  turns: (TurnLogRow & { state: TurnLogOutcome | 'open' })[]
+  counts: Record<TurnLogOutcome | 'open', number>
   /** Turns lost without interruption, counting back from the most recent. */
   consecutiveLost: number
 }
 
 export function turnHealth(rows: TurnLogRow[], now = Date.now()): TurnHealth {
-  const counts = { complete: 0, aborted: 0, error: 0, lost: 0, open: 0 }
+  const counts = { complete: 0, aborted: 0, error: 0, stalled: 0, lost: 0, open: 0 }
   const turns = rows.map((row) => ({ ...row, state: turnState(row, now) }))
   let consecutiveLost = 0
   let unbroken = true
@@ -315,7 +326,7 @@ export async function sessionTurnFailure(
   tenantId: string,
   sessionId: string,
   live: boolean,
-): Promise<{ turn: string; at: string; state: 'lost' | 'error'; detail: string | null } | null> {
+): Promise<{ turn: string; at: string; state: 'lost' | 'error' | 'stalled'; detail: string | null } | null> {
   if (!env?.DB || live) return null
   let row: TurnLogRow | null = null
   try {
@@ -326,9 +337,42 @@ export async function sessionTurnFailure(
     return null
   }
   if (row === null) return null
-  if (row.endedAt === null) {
+  if (row.endedAt === null || row.outcome === 'lost') {
     return { turn: row.turn, at: row.startedAt, state: 'lost', detail: null }
   }
-  if (row.outcome !== 'error') return null
-  return { turn: row.turn, at: row.startedAt, state: 'error', detail: row.detail }
+  // [[BUG-249]] — a turn the host ended and could not carry on is owed the same
+  // notice as one that errored.
+  if (row.outcome !== 'error' && row.outcome !== 'stalled') return null
+  return { turn: row.turn, at: row.startedAt, state: row.outcome, detail: row.detail }
+}
+
+/**
+ * [[BUG-249]] — the watchdog: close every row still open past
+ * {@link TURN_LOST_AFTER_MS} as `lost`. Returns how many it closed.
+ *
+ * WHY A SWEEP, when `lost` is otherwise derived. The derivation is true the
+ * instant it becomes true and needs nobody — but only for a reader that applies
+ * it, and a row that is open forever is a row every reader must remember to
+ * judge. Writing the judgement down once, on the cron that already runs every ten
+ * minutes, is what makes *every turn closes* a property of the table.
+ *
+ * THE SAME CEILING THE DERIVATION USES, so the sweep can only make durable what
+ * every reader already said. It never touches a row inside the ceiling: that may
+ * be a turn still running.
+ */
+export async function sweepOpenTurns(
+  env: TurnLogEnv,
+  now = Date.now(),
+): Promise<{ closed: number }> {
+  const result = await env.DB.prepare(
+    'UPDATE turn_log SET ended_at = ?, outcome = ?, detail = ? WHERE ended_at IS NULL AND started_at < ?',
+  )
+    .bind(
+      new Date(now).toISOString(),
+      'lost',
+      `watchdog: no close recorded within ${TURN_LOST_AFTER_MS / 60_000} min`,
+      new Date(now - TURN_LOST_AFTER_MS).toISOString(),
+    )
+    .run()
+  return { closed: Number(result.meta?.changes ?? 0) }
 }

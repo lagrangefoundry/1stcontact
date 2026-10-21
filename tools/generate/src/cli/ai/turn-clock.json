@@ -43,11 +43,22 @@
     "consultant's turn, its continuations and every builder they commission.",
     "The operator sees it; the client never does. Reaching it ends the work",
     "cleanly: no new builders, no continuation, and the consultant says what is",
-    "left. See `turn-clock-core.ts`."
+    "left. See `turn-clock-core.ts`.",
+    "",
+    "WHY `stall_seconds` ([[BUG-249]]). The hour above is how long a turn may",
+    "WORK; this is how long it may do NOTHING. A turn parked on an await that",
+    "never settles kept the session's claim alive with a bare heartbeat and wedged",
+    "the conversation until the isolate died. Progress is any record a turn writes",
+    "on any junction its manager opens (a delegated worker writes to its own), and",
+    "never a heartbeat; five minutes of none is past the longest silence a working",
+    "turn has (a model thinking, a slow render) and well inside the window in",
+    "which a client is still waiting for an answer. Past it the host ends the",
+    "round `stalled`, frees the session and carries the work on once."
   ],
 
   "turn_timeout_seconds": 3600,
   "max_continuations": 2,
   "max_builder_replacements": 2,
-  "spend_ceiling_usd": 10
+  "spend_ceiling_usd": 10,
+  "stall_seconds": 300
 }
