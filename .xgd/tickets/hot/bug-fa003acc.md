@@ -7,10 +7,10 @@ title: 'One voice, one thing at a time: absorb work news into the next reply, co
   done'
 created_by: EPIC-19
 created_at: '2026-10-21T17:27:46.675245+00:00'
-updated_at: '2026-10-21T17:59:05.171448+00:00'
+updated_at: '2026-10-21T17:59:29.879346+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -19,8 +19,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-52904f4f
+  commits:
+  - working_sha: da70b3eae62ab0187a7335d66efecd082a95fa70
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: fea1d4de9588e389f5eed768ae12f12de868188b
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.570
 ---
-
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator decisions)
 
