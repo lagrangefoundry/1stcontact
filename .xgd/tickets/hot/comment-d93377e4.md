@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T14:23:57.260451+00:00'
+updated_at: '2026-10-21T14:25:05.753366+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -401,5 +401,27 @@ I noted three places in the README where the images and the written details disa
 <!-- xgd-chat role="user" ts="2026-10-21T14:23:56.555691+00:00" -->
 #### You
 I think the original shop should be over the bakery - this is the current shop
+
+<!-- xgd-turn id="293076d7-1153-4d54-a5b1-e964c4ede22a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T14:25:05.174845+00:00" -->
+#### Claude
+Bob's Salon now has two shops in its story: he opened over the bakery, and the photos show where he is now. It's committed as `a8961b43a8`.
+
+**The move:**
+- **2012–2022:** the original shop was upstairs over Dorsey's Bakery at 455 E Broadway, with one sink and two chairs.
+- **By 2021 it was bursting.** Five people were sharing one sink, Aoife did facials in what used to be a closet, and there was a waiting list.
+- **2022:** the hardware store two doors down closed, and Bob took its ground floor at 461 E Broadway. That's the shop in your photos, with the big front window, four chairs, three sinks, a nail bar and a real facial room. There are no stairs, which mattered to his mother.
+- **The kids' photo wall moved by hand.** Clients each carried one framed Wigs for Kids photo down the block.
+- **The bakery is still part of it.** Dorsey's sends over day-old bread every Saturday, and Bob gets his coffee there every morning.
+
+**Where it changed:**
+- **README:** the address is now the street-level shop, the first shop has its own row, and the gallery note now says these are photos of the current shop.
+- **`salon-story.md`:** the move is in the narrative, with a new "The move" quote. The opening quote now ends "the smell of bread every morning, that's what I miss."
+- **`services.md`:** lunch for "The Whole Thing" package now comes from Dorsey's, "two doors down, our downstairs neighbours for ten years."
+- **`testimonials.md`:** the Providence reviewer still complains about parking, and adds "at least they moved downstairs. The old place's stairs were brutal."
+- **Invoice and letterhead:** "2nd floor" is gone from the address.
+
+There are no pictures of the old upstairs shop. If you generate one, it would work as a "where we started" photo.
 
 <!-- xgd-chat-end -->
