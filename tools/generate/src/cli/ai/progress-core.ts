@@ -45,7 +45,8 @@ export const PROGRESS = 'progress'
  * [[REQ-416]] — the event kind a talker round's records travel as: `meta.event`
  * is `start`, `text` or `done`, `meta.turn_id` the talker round, and
  * `meta.message_id` the client's waiting message it answers, where the host knows
- * it.
+ * it. [[BUG-240]] — `start` carries `cued` for a round the host opened on a cue,
+ * and `done` carries `passed` for a round that had nothing to add.
  */
 export const TALKER = 'talker'
 
@@ -118,12 +119,23 @@ export class TalkerFrames {
       ...(messageId ? { message_id: messageId } : {}),
       ...more,
     })
+    // [[BUG-240]] — A CUED ROUND answers no message the client sent (its
+    // `turn_start` carries no content), and a round that PASSED said nothing:
+    // both are said, so the panel draws a cued reply on its own and a pass not at all.
     if (record.kind === 'turn_start') {
-      return { kind: TALKER, content: '', meta: meta('start', { said: contentText(record.content) }) }
+      return {
+        kind: TALKER,
+        content: '',
+        meta: meta('start', { said: contentText(record.content), ...(record.cued ? { cued: true } : {}) }),
+      }
     }
     if (record.kind === 'delta') return { kind: TALKER, content: String(record.content ?? ''), meta: meta('text') }
     if (record.kind === 'turn_end') {
-      return { kind: TALKER, content: '', meta: meta('done', { status: String(record.status ?? '') }) }
+      return {
+        kind: TALKER,
+        content: '',
+        meta: meta('done', { status: String(record.status ?? ''), ...(record.passed ? { passed: true } : {}) }),
+      }
     }
     return null
   }

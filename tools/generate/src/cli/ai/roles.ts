@@ -544,6 +544,20 @@ export function continuationCue(): string {
 }
 
 /**
+ * [[BUG-240]] — the host's cue for a talker opened on the client's own message,
+ * when the consultant's round went to work without replying to it
+ * (lagrange-framework REQ-215). Recorded nowhere: the talker reads it as this
+ * round's prompt, and the client's message is already in front of it. `note` is
+ * the status note the work put up, quoted so the talker knows what was taken.
+ */
+export function talkerCue(note: string): string {
+  const said = note.trim()
+  return fill(template('talker-cue'), {
+    taken: said ? fill(template('talker-cue-taken'), { note: said }) : template('talker-cue-taken-unnamed'),
+  })
+}
+
+/**
  * [[REQ-415]] — the user turn the host records when a reply ends while the layout
  * check still finds faults on pages a builder wrote during the request: the
  * build is not done, so the host carries it on the way it does a reply that ran
