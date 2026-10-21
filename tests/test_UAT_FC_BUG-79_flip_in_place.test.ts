@@ -163,7 +163,8 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-79 — the channel flip is in place', () 
     expect(viewFrame.hasAttribute('hidden')).toBe(false)
     expect(viewFrame.classList.contains('builder-panel__pane')).toBe(true)
     expect(viewFrame.classList.contains('builder-panel__frame')).toBe(false)
-    expect(panes()).toHaveLength(2)
+    // A frame per document mode: View, Edit and ([[BUG-250]]) Looks.
+    expect(panes()).toHaveLength(3)
   })
 
   it('test_UAT_FC_BUG-79_the_revealed_document_is_announced', () => {

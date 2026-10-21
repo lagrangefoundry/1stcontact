@@ -1097,20 +1097,20 @@ export const CAROUSEL_NEXT = 'Next'
 export const CAROUSEL_COUNT = (n, total) => `${n} of ${total}`
 
 /**
- * Alternative looks for a page ([[REQ-391]]), in the band across the top of the
- * preview ([[REQ-402]]). The page as it stands is one of the positions, and
- * choosing is the conversation's — so the band invites the client to say which
- * and why.
+ * Alternative looks for a page ([[REQ-391]]), in Looks mode's band across the
+ * top of the preview ([[REQ-402]], [[BUG-250]]). Only the looks are positions —
+ * the page as it stands is a link away, not one of them — and choosing is the
+ * conversation's, so the band invites the client to say which and why.
  */
-export const LOOKS_CURRENT = 'Current'
-export const LOOKS_CURRENT_DESCRIPTION = 'Your page as it stands now.'
+export const LOOKS_MODE_LABEL = PANE_LABELS.looks
 /**
  * "Tell the consultant" — not "your consultant", and do not "fix" it back. The
  * operator chose "the consultant" for this line ([[REQ-402]]), and for the
  * status beside the composer too ([[BUG-234]], [[REQ-416]]).
  */
 export const LOOKS_TELL_CONSULTANT = 'Tell the consultant which look you prefer, and why.'
-export const LOOKS_EDIT_REAL_PAGE = 'This look can’t be edited — go back to Current to edit the page.'
+/** [[BUG-250]] — the link from Looks mode to View on the real page. */
+export const LOOKS_COMPARE = 'Compare with your current page'
 
 /**
  * [[REQ-413]] — a link in the conversation to something that is not there any

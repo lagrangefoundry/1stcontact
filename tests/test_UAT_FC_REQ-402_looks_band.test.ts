@@ -4,6 +4,7 @@
  * own across the top of the preview**: `‹ label · n of N ›` on the left, the
  * look's description in full on the right with the invitation under it, and
  * nothing at all on a page with no looks. The toolbar carries no look control.
+ * Since [[BUG-250]] the band is Looks mode's, and its positions are the looks only.
  *
  * THE REAL BUILDER, mounted in jsdom against the installed `webui-*` components,
  * with the origin replaced at the transports it already takes (the page listing
@@ -140,6 +141,12 @@ async function choosePage(slug: string): Promise<void> {
   await settle()
 }
 
+/** [[BUG-250]] — the band is in Looks mode, reached by its tab. */
+async function openLooks(): Promise<void> {
+  ;(root.querySelector('button[data-mode="looks"]') as HTMLButtonElement).click()
+  await settle()
+}
+
 async function step(button: () => HTMLButtonElement): Promise<void> {
   button().click()
   await settle()
@@ -156,15 +163,18 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-402 — the band of looks above the previ
     expect([...preview.children]).toEqual([app.panel.element])
     expect(rule('.builder-preview > .builder-panel')).toMatch(/flex:\s*1 1 0/)
 
-    // And it comes back with the page that has looks — the frame never re-parented.
+    // And it comes with Looks on the page that has looks — the frames never re-parented.
     const frame = app.panel.frame
     await choosePage('home')
+    expect(band()).toBeNull()
+    await openLooks()
     expect(band()).not.toBeNull()
-    expect(app.panel.frame).toBe(frame)
+    expect(app.panel.element.contains(frame)).toBe(true)
   })
 
   it('test_UAT_FC_REQ-402_the_band_sits_above_the_page_frame_not_over_it_and_spans_the_pane', async () => {
     const app = await mounted()
+    await openLooks()
     const preview = app.panel.element.parentElement as HTMLElement
     // Above the pane, in the same column — not inside the pane, where it would overlay the frame.
     expect([...preview.children]).toEqual([band(), app.panel.element])
@@ -176,35 +186,31 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-402 — the band of looks above the previ
     expect(rule('.looks-band__about')).toMatch(/flex:\s*1 1 0/)
   })
 
-  it('test_UAT_FC_REQ-402_stepping_goes_current_through_each_look_and_round_to_current', async () => {
+  it('test_UAT_FC_REQ-402_stepping_goes_through_each_look_and_round_to_the_first', async () => {
     const app = await mounted()
-    expect(label()).toBe('Current')
-    expect(count()).toBe('1 of 3')
-    expect(description()).toBe('Your page as it stands now.')
-
+    await openLooks()
+    expect([label(), count(), description()]).toEqual(['Heavy Duty', '1 of 2', 'Steel grey and safety yellow'])
     await step(next)
-    expect([label(), count(), description()]).toEqual(['Heavy Duty', '2 of 3', 'Steel grey and safety yellow'])
-    await step(next)
-    expect([label(), count(), description()]).toEqual(['Family', '3 of 3', LONG])
-    // The set is a ring: › from the last look is Current again.
+    expect([label(), count(), description()]).toEqual(['Family', '2 of 2', LONG])
+    // The set is a ring: › from the last look is the first again.
     expect(next().disabled).toBe(false)
     await step(next)
-    expect([label(), count()]).toEqual(['Current', '1 of 3'])
-    expect((app.panel.frame as HTMLIFrameElement).getAttribute('src')).toMatch(/\/draft\/(home)?$/)
-    // And ‹ from Current goes round to the last.
+    expect([label(), count()]).toEqual(['Heavy Duty', '1 of 2'])
+    expect((app.panel.frame as HTMLIFrameElement).getAttribute('src')).toMatch(/\/draft\/home-heavy-duty$/)
+    // And ‹ from the first goes round to the last.
     await step(previous)
     expect(label()).toBe('Family')
-    expect(app.panel.getMode()).toBe('view')
+    expect(app.panel.getMode()).toBe('looks')
   })
 
   it('test_UAT_FC_REQ-402_a_long_description_is_shown_in_full_and_wrapped', async () => {
     await mounted()
-    await step(next)
+    await openLooks()
     await step(next)
     const shown = band()!.querySelector('.looks-band__description') as HTMLElement
     expect(shown.textContent).toBe(LONG)
     expect(shown.textContent).not.toContain('…')
-    const css = rule('.looks-band__description,.looks-band__invite,.looks-band__note')
+    const css = rule('.looks-band__description,.looks-band__invite')
     expect(css).toMatch(/white-space:\s*normal/)
     expect(css).not.toMatch(/text-overflow|line-clamp|nowrap/)
     expect(rule('.looks-band__about')).not.toMatch(/overflow:\s*hidden|max-height|nowrap/)
@@ -212,7 +218,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-402 — the band of looks above the previ
 
   it('test_UAT_FC_REQ-402_the_instruction_under_the_description_reads_tell_the_consultant', async () => {
     await mounted()
-    for (let at = 0; at < 3; at += 1) {
+    await openLooks()
+    for (let at = 0; at < 2; at += 1) {
       const about = band()!.querySelector('.looks-band__about') as HTMLElement
       const lines = [...about.children].map((el) => el.className)
       expect(lines.indexOf('looks-band__invite')).toBe(lines.indexOf('looks-band__description') + 1)
@@ -225,15 +232,15 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-402 — the band of looks above the previ
 
   it('test_UAT_FC_REQ-402_the_preview_toolbar_carries_no_look_controls', async () => {
     const app = await mounted()
-    for (const mode of ['view', 'edit']) {
+    for (const mode of ['view', 'edit', 'looks']) {
       app.panel.setMode(mode)
       await settle()
       expect(app.toolbar.ids()).not.toContain('looks')
       const toolbar = app.toolbar.element as HTMLElement
       expect(toolbar.querySelector('.builder-carousel, .looks-band, [data-action="looks"]')).toBeNull()
-      // The band is the one place looks are changed, in Edit as in View.
-      expect(root.querySelectorAll('.builder-carousel')).toHaveLength(1)
-      expect(band()).not.toBeNull()
+      // [[BUG-250]] — the band is the one place looks are changed, and only in Looks.
+      expect(root.querySelectorAll('.builder-carousel')).toHaveLength(mode === 'looks' ? 1 : 0)
+      expect(band() !== null).toBe(mode === 'looks')
     }
   })
 })

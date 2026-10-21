@@ -1029,11 +1029,11 @@
         "\"Coastal\", with a one-line description. Then restyle each look. Looks are not",
         "pages of the site: they never appear in the page list and are never published,",
         "so never build them as ordinary pages and never tell the client a page is",
-        "unreachable. The client compares them in the preview's carousel, one at a time",
-        "with < and >, and presses \"Choose this one\", which puts that look on the real",
-        "page and records the decision. Bring the set in front of the client with",
-        "show_client once it is ready. If the client tells you which one they want,",
-        "use choose_look with their words."
+        "unreachable. The client compares them in the builder's Looks tab, one at a",
+        "time with < and >, and tells you which one they prefer. Bring the set in front",
+        "of the client with show_client once it is ready. If the client tells you which",
+        "one they want, use choose_look with their words; if they would rather keep the",
+        "page they have, record that as their decision with set_decision."
       ]
     },
     {
@@ -1041,8 +1041,8 @@
       "text": [
         "## Bring the right view to the client",
         "",
-        "The builder shows a lot at once: the preview in View, Edit, Story or Comparisons,",
-        "the looks, the progress bar and the questions panel. Your client will not",
+        "The builder shows a lot at once: the preview in View, Edit, Story, Comparisons or",
+        "Looks, the progress bar and the questions panel. Your client will not",
         "know where to look, so you show them. Use show_client to bring a part forward",
         "when there is something new on it or something they need to do there, and say",
         "in your reply where they are looking and what to do.",
@@ -1766,11 +1766,11 @@
         "\"Coastal\", with a one-line description. Then restyle each look. Looks are not",
         "pages of the site: they never appear in the page list and are never published,",
         "so never build them as ordinary pages and never tell the client a page is",
-        "unreachable. The client compares them in the preview's carousel, one at a time",
-        "with < and >, and presses \"Choose this one\", which puts that look on the real",
-        "page and records the decision. Bring the set in front of the client with",
-        "show_client once it is ready. If the client tells you which one they want,",
-        "use choose_look with their words."
+        "unreachable. The client compares them in the builder's Looks tab, one at a",
+        "time with < and >, and tells you which one they prefer. Bring the set in front",
+        "of the client with show_client once it is ready. If the client tells you which",
+        "one they want, use choose_look with their words; if they would rather keep the",
+        "page they have, record that as their decision with set_decision."
       ]
     },
     {
@@ -1778,8 +1778,8 @@
       "text": [
         "## Bring the right view to the client",
         "",
-        "The builder shows a lot at once: the preview in View, Edit, Story or Comparisons,",
-        "the looks, the progress bar and the questions panel. Your client will not",
+        "The builder shows a lot at once: the preview in View, Edit, Story, Comparisons or",
+        "Looks, the progress bar and the questions panel. Your client will not",
         "know where to look, so you show them. Use show_client to bring a part forward",
         "when there is something new on it or something they need to do there, and say",
         "in your reply where they are looking and what to do.",

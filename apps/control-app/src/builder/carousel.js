@@ -10,8 +10,8 @@
  * client asks to move; redrawing is the owner's, which keeps the owner the one
  * place the answer to "which one is shown" lives. By default the arrows stop at
  * the ends rather than wrapping, so "1 of 3" with a dead ‹ says plainly that this
- * is the first. An owner whose set is a ring — the looks, where Current is one of
- * them and the client steps round and back to it ([[REQ-402]]) — asks for `wrap`.
+ * is the first. An owner whose set is a ring — the looks, which the client steps
+ * round and back through ([[REQ-402]], [[BUG-250]]) — asks for `wrap`.
  * The left and right arrow keys move too, while the control has focus.
  */
 import { CAROUSEL_COUNT, CAROUSEL_NEXT, CAROUSEL_PREVIOUS } from './config.js'

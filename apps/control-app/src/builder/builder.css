@@ -6153,18 +6153,29 @@ body {
 }
 
 .looks-band__description,
-.looks-band__invite,
-.looks-band__note {
+.looks-band__invite {
   margin: 0;
   overflow-wrap: anywhere;
   white-space: normal;
 }
 
-.looks-band__invite,
-.looks-band__note {
+.looks-band__invite {
   margin-top: 4px;
   font-size: 0.85rem;
   opacity: 0.75;
+}
+
+/* [[BUG-250]] — the way back to the page as it stands: a link, not a look. */
+.looks-band__compare {
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* --- the story board ([[REQ-408]]) ---------------------------------------------

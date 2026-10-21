@@ -692,6 +692,8 @@ export interface ClientView {
   pane?: ClientPane
   /** [[BUG-246]] — with Comparisons open, how many sites are on the comparison board. */
   comps?: number
+  /** [[BUG-250]] — with Looks open, what the look shown is called. */
+  look?: string
   /** [[BUG-246]] — the panes on offer the client has never opened, for this business. */
   unopened?: ClientPane[]
 }
@@ -701,6 +703,8 @@ export type ClientPane = 'view' | 'edit' | 'story' | 'comparisons' | 'looks'
 
 /** The widest layout a report may claim — far past any real screen, short of absurd. */
 const MAX_VIEW_PX = 10_000
+/** [[BUG-250]] — the longest look label a report may carry; a label is a word or two. */
+const MAX_LOOK_LABEL = 120
 
 /**
  * Read a reported view off a request body ([[REQ-388]]).
@@ -713,7 +717,7 @@ const MAX_VIEW_PX = 10_000
 export function readClientView(value: unknown): ClientView | null | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value !== 'object') return null
-  const { width, height, mode, busy, pane, comps, unopened } = value as Record<string, unknown>
+  const { width, height, mode, busy, pane, comps, look, unopened } = value as Record<string, unknown>
   const px = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= MAX_VIEW_PX
   if (!px(width)) return null
   if (height !== undefined && !px(height)) return null
@@ -723,6 +727,7 @@ export function readClientView(value: unknown): ClientView | null | undefined {
   if (pane !== undefined && !isPane(pane)) return null
   if (comps !== undefined && !(Number.isInteger(comps) && (comps as number) >= 0 && (comps as number) <= 1000)) return null
   if (unopened !== undefined && !(Array.isArray(unopened) && unopened.every(isPane))) return null
+  if (look !== undefined && !(typeof look === 'string' && look.trim() !== '' && look.length <= MAX_LOOK_LABEL)) return null
   return {
     width: Math.round(width),
     ...(height !== undefined ? { height: Math.round(height) } : {}),
@@ -730,6 +735,7 @@ export function readClientView(value: unknown): ClientView | null | undefined {
     ...(busy !== undefined ? { busy: busy as ClientBusy } : {}),
     ...(pane !== undefined ? { pane } : {}),
     ...(comps !== undefined ? { comps: comps as number } : {}),
+    ...(look !== undefined ? { look: (look as string).trim() } : {}),
     ...(unopened !== undefined ? { unopened: [...new Set(unopened as ClientPane[])] } : {}),
   }
 }
@@ -1344,7 +1350,11 @@ export function paneLines(view: ClientView | null): string[] {
   const label = (p: ClientPane) => (PANE_LABELS as Record<string, string>)[p]
   const comps = view.comps
   const detail =
-    view.pane === 'comparisons' && comps !== undefined ? ` (${comps} site${comps === 1 ? '' : 's'})` : ''
+    view.pane === 'comparisons' && comps !== undefined
+      ? ` (${comps} site${comps === 1 ? '' : 's'})`
+      : view.pane === 'looks' && view.look !== undefined
+        ? ` (the "${view.look}" look)`
+        : ''
   const lines = [fill(template('page-digest-pane'), { pane: label(view.pane), detail })]
   if (view.unopened && view.unopened.length > 0) {
     lines.push(fill(template('page-digest-unopened'), { panes: view.unopened.map(label).join(', ') }))
