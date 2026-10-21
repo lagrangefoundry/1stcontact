@@ -6,9 +6,9 @@ title: 'Drawing stays with the consultant: SVG composition moves from builders t
   the principal, stored in the Library'
 created_by: EPIC-19
 created_at: '2026-10-21T18:52:32.985885+00:00'
-updated_at: '2026-10-21T18:52:32.985885+00:00'
+updated_at: '2026-10-21T21:21:14.629458+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -69,3 +69,46 @@ them where judgement matters).
   references).
 - Priming carries the wordmark-first / generate-for-illustration / look-before-use
   method.
+
+
+## Design decisions (implementation session, 2026-10-21)
+
+- **The drawing operation is `draw_image` on the Library surface** (group `DrawImages`,
+  effect write), not on L1. The Library grant travels with its surface and is not
+  narrowed while the consultant commissions (REQ-343), so the consultant holds it;
+  builders get the Library read-only (REQ-387, derived by `readOnlyGrant`), so they
+  never hold it.
+- **`write_image` is removed from the L1 surface entirely** — its operation, its
+  `DrawImages` group, its "Draw an image and use it" sequence, and both
+  `instances.json` grants. One way to draw, not two. This explicitly supersedes the
+  REQ-209 behaviour of `assert` relations on `write_image`: `measure_drawing`,
+  `relate` and `solve` still measure a drawing once it is on the site.
+- **A drawing is a Library item from its first write.** `draw_image` validates the SVG
+  with the same `validateSvg` envelope as before (no script, no event handler, no
+  stylesheet, no external reference; refused whole with the reason, nothing stored),
+  then stores it through the same path a generated picture takes
+  (`generatedMaterialStore`): a `material` ticket, `origin: generated`, `kind: image`,
+  `role: site`, republishable, a label (IMAGE-n), the description as its body, the
+  SVG attached as `<name>.svg` (`image/svg+xml`), indexed. Every draw is a new item —
+  a redraw is a new IMAGE-n.
+- **The result hands back a `display` line** (where the deployment can show one) so
+  the client sees the drawing in the conversation, plus the item's `item` handle and
+  `label`.
+- **Placing is the consultant's.** Builders do not hold `place_on_site` (REQ-387).
+  The consultant places the drawing (`place_on_site`, which works for an SVG item
+  exactly as for any picture) and briefs the builder with the `/assets/…` handle.
+- **Builders are told drawing is not theirs**: the builder priming says a builder
+  asked to draw or compose a picture refuses and names the consultant.
+- **Talker:** `draw_image` is on the talker's withhold list.
+- **Look before using**: `screenshot` with `of.image` already shows a stored SVG
+  whole; the consultant looks at the item alone, and at the header after it is placed.
+
+## Test plan (as implemented)
+
+- `test_UAT_FC_REQ-423_*` in `tests/`: the builder's composed tool list holds no
+  `draw_image`/`write_image`; the consultant's (commissioning) list holds `draw_image`;
+  `draw_image` stores a labelled, described SVG Library item that `place_on_site`
+  puts on the site; hostile SVG is refused and nothing is stored; the talker
+  withholds `draw_image`; priming carries the logo method and the builder refusal.
+- Existing tests that drew with `write_image` are retargeted to the new operation or
+  to the site store directly.
