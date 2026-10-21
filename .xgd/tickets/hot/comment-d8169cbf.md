@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:36:04.310951+00:00'
+updated_at: '2026-10-21T17:37:47.899380+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10999,5 +10999,13 @@ So with talk mode on, Send should have stayed Send at worker start.
 - **If the round ▶ Send button in the composer turned into a red ■:** then talk mode wasn't switched on for this conversation in your browser, and the old rule applied. That's a real bug and I'd chase it. The likely cause is the session payload not saying `talker: true` when the page opened, for example a tab opened before the deploy and not reloaded.
 
 Which was it? If it was the composer button, reloading the page should fix it for now, and I'll file a bug.
+
+<!-- xgd-turn id="739447c2-ece1-4234-a712-e990def929d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:37:47.574925+00:00" -->
+#### You
+**he round ▶ Send button in the composer turned into a red ■:**
+
+**Also this turn I do not see the messages telling me that the consultant is doing at the top like the last feew turns - they are in the chat and there is no update on timing**
 
 <!-- xgd-chat-end -->
