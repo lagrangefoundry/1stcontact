@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:01:51.411828+00:00'
+updated_at: '2026-10-21T17:07:37.541961+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10778,5 +10778,17 @@ You're right, and the marker is also broken. Two things are going on.
 That removes the marker entirely, replaces BUG-236 item 3's hold, and fixes the "nothing appears" bug along the way. It probably needs a small change in the framework so a worker result can be handed to the next talker or consultant reply instead of shown, plus the change on our side.
 
 Shall I file it? It would be a lagrange-framework ticket for the hand-over, if needed, plus one bug here that removes the marker.
+
+<!-- xgd-turn id="089d7523-7d4f-477a-b4d4-b0dde5325bcf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:07:33.989629+00:00" -->
+#### You
+As I was typing a reply the comps popped up and pushed everything out - a little confusing and janky lets talk about that experience. Too many things at the same time is bad. Take a look.
+
+Some questions also appeared on the question pannel I didn't see any explanation - this all feels overwhelming
+
+Dropping the comp sites into the chat is unnecessary and really too much - I thing we should just say: "I've put four Bay Area fabrication shops on the comparison board, under Comparisons in the preview, chosen to show you a range. Open the board to see" <-- link the last part
+
+There should be space for the AI's commentry on the comp board.
 
 <!-- xgd-chat-end -->
