@@ -6,9 +6,9 @@ title: 'Preview refresh: keep scroll position, refresh only the page that change
   no replayed animations, fewer redraws during a build'
 created_by: EPIC-19
 created_at: '2026-10-21T18:00:24.767152+00:00'
-updated_at: '2026-10-21T20:26:18.097890+00:00'
+updated_at: '2026-10-21T20:45:32.954119+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -76,3 +76,23 @@ play again.
 ## Looks are separate pages (operator, 2026-10-21)
 
 The "Current" draft refreshes every time a builder changes one of the looks. A look is its own page (e.g. `home-heavy-duty`), so item 2's rule covers it: a change naming only a look page must not refresh the real page, and a change to the real page must not refresh a look being viewed. Add to the test plan: a write to `home-<look>` leaves a visible `home` alone.
+
+
+## As landed (free-coded, 2026-10-21)
+
+**Origin.**
+- Journal records may carry `pages` (the pages a write touched when that is not just `page`); setting up looks (`alternative.set`) records the look pages it wrote, not the page they are for.
+- `scopeOf(slice)` (`journal-model.ts`) turns a run of changes into `{ pages, site }`: a record naming no page (palette, text styles, fonts, config, assets, gaps) or a truncated window makes it `site: true`.
+- The draft feed's `draft` frames (`/api/sites/changes`) and the in-stream `site_changed` meta both carry `pages` + `site`.
+- The builder preview honours `?still=1` (`PREVIEW_STILL_PARAM`): the page is served without the reveal script, which is the only thing that turns entrance motion on, so it renders settled. Builder preview only; published output never sees it.
+
+**Builder.**
+- `panel.reloadDocument()` no longer reloads the shown frame: it loads the page (where the frame actually is, links followed included) into a frame behind it, scrolls that frame to the shown frame's position read at swap time (the latest scroll wins; the browser clamps to the new height), then swaps it in with the panel's existing swap (the new page fades in over the old). A refresh asked while one loads re-points the same frame; a reader who navigated meanwhile keeps their page (the refresh is dropped). With the story board (a frameless mode) showing, the frame is only marked stale. Palette writes and segment saves use the same refresh.
+- Refreshes the draft causes carry `still`; the View toolbar gains **Replay animations**, which refreshes the same page in place without the flag. Edit has no Replay (its render runs no page script).
+- The visible page refreshes only when a signal names it (by id or slug) or is site-wide; a signal with no scope, or a page the listing cannot place yet, refreshes conservatively.
+- Pacing: at most one draft-caused refresh per `previewRefreshMs` (builder option, default 3000 ms). The first change after a quiet spell shows at once; the rest of a burst shows once when the interval has passed. Whether the frame is behind is judged when the refresh is due, and a count already asked for is not asked again (the same write reported in the chat and on the feed starts one load).
+
+## Test plan (as landed)
+- `tests/test_UAT_FC_BUG-248_preview_refresh.test.ts` (jsdom): swap at 1200px with no blank frame; a scroll during load wins; `prices` and a look don't refresh `home`, a site-wide change does; a change to `home` doesn't refresh a viewed look; refresh URL carries `still=1`, Replay drops it and keeps the scroll, Edit has no Replay; ten changes → one refresh during, one after; the interval is configurable.
+- `tests/test_UAT_FC_BUG-248_change_scope.workers.test.ts` (workerd/D1): a page write names that page and `site: false`; a palette write is `site: true`; looks name the look page; `?still` preview has no reveal script, the plain one does.
+- Updated to the new mechanism/shape: BUG-192 and BUG-43 client and origin UATs, AC1249 (palette refresh, previously failing on clean code), AC970 (View's declared controls).
