@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T22:04:49.919702+00:00'
+updated_at: '2026-10-21T23:07:21.004191+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12204,5 +12204,11 @@ The open question is the layout checks. Should I add them to BUG-238? These are 
   - a menu taking more than about a third of the first screen.
 
 Separately, the hero on Ariel's site needs a content fix: the heading and subtitle should use heading styles so REQ-420 spaces them properly. The header should also move to the new REQ-422 menu once that's on dev. Run `bin/deploy --env dev` and you can ask the consultant to switch the header over.
+
+<!-- xgd-turn id="90b109e4-b729-4b9b-bbae-d403fe3a1c0d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T23:07:18.665940+00:00" -->
+#### You
+Too late its implemented
 
 <!-- xgd-chat-end -->
