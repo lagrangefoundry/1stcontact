@@ -6,9 +6,9 @@ title: 'Turns can wedge a session until the server restarts: progress deadline, 
   leases, automatic recovery, no ugly client errors'
 created_by: EPIC-19
 created_at: '2026-10-21T18:37:46.343167+00:00'
-updated_at: '2026-10-21T19:02:26.133891+00:00'
+updated_at: '2026-10-21T19:19:43.939774+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: critical
@@ -19,6 +19,7 @@ fields:
   needs_review: false
   chat_comment: comment-962214e3
 ---
+
 
 ## Incident (Ariel's AR Welding run, 2026-10-21 18:29 UTC)
 
@@ -135,25 +136,82 @@ its status. This ticket is the host half. No code lands in lagrange-framework fr
    naming what did not return), kept off the client's transcript like the other cues. The
    client sees the status line "One moment — picking that back up…" meanwhile. A second
    stall in the same message ends the request with the stall recorded.
-5. **Every turn closes in `turn_log` with a cause.** `stalled` is a new outcome; its detail
-   is the silence and the awaited operation (`stalled 300s awaiting tool Delegate (last:
-   tool_issue)`). A recovered request still records `stalled`, because it did stall. An
-   errored done carries its error text as detail. A **watchdog** on the existing 10-minute
-   cron closes rows open past `TURN_LOST_AFTER_MS` as outcome `lost`, detail `watchdog: no
-   close recorded`. The operator console's turn health counts `stalled`.
+5. **Every turn closes in `turn_log` with a cause.** `stalled` is a new outcome for a
+   request the host ended and could not carry on. Its detail is the silence and the awaited
+   operation: `stalled 300s awaiting tool Delegate (last: tool_issue)`. A request the host
+   *recovered* closes `complete`, with detail `recovered after stalled …`, so the stall
+   stays visible without the reopened panel calling a recovered request a failure. An
+   errored done carries its scrubbed error text as detail. A **watchdog** on the existing
+   10-minute cron (`sweepOpenTurns`, every tick) closes rows open past `TURN_LOST_AFTER_MS`
+   as outcome `lost`, detail `watchdog: no close recorded within 15 min`. The operator
+   console's turn health shows a `Stalled` count, and `/api/ai/session`'s `failed` reports
+   `stalled` the way it reports `error`.
 6. **Diagnosable**: the stall is logged at the moment it happens. It is a JSON
    `turn_stalled` line on `console.error` with session, turn, silence, awaited op and last
    record, which is the operator-visible alert in the Workers log.
 7. **No ugly client messages.** A `TURN_DIAGNOSTICS` var is `"1"` in local `[vars]` and
-   `[env.dev.vars]` and absent in production. Without it, `/api/ai/session`'s `failed`
+   `[env.dev.vars]`, and is restated as `""` in `[env.production.vars]` (named environments
+   must repeat every top-level var). Unless it is `"1"`, `/api/ai/session`'s `failed`
    carries no turn id and no detail, and the panel shows a gentle line ("That reply was cut
-   short — sorry. Ask again and I'll pick it up."). With it, the detailed note stays.
-8. **Admin unstick**: `POST /api/ai/unstick {sessionId}`, available to a platform admin.
-   It runs the same release over every open turn in that session's junction. It is the
-   last resort when something holds a session the deadline has not reached.
+   short — sorry. Ask again and I'll pick it up."). The interrupted-turn notes fall back to
+   their existing wording, which has no turn id. With it on, the detailed note stays, and a
+   `stalled` turn names its cause. If a request stalls twice, the client reads "Sorry —
+   that didn't go through. Ask me again and I'll pick it up from here."
+8. **Unstick, the last resort**: `POST /api/ai/unstick {sessionId}`, in the
+   conversation's own scope and open to whoever may drive it (the same people who can
+   already press Stop). It runs the same release over every open turn and claim in the
+   session's junction (`unstickSession`), logs `session_unstuck`, and flushes. It frees what
+   the serving isolate's junction mirror can see; a turn wedged in another isolate is freed
+   there by its own deadline.
 9. **A talker that fails does not go silent.** When a talker round's `turn_end` says
    `error`, the host logs it with its cause and puts the client's message back in the
    inbox. It stops opening talkers for the rest of that worker round, and from then on
    delivers waiting messages at the worker's tool boundaries (BUG-224's path), or the panel
    runs them as the next prompt. The client sees "I'll pick that up as soon as this part of
-   the build is done."
+   the build is done." as the status line (a model-sourced `progress` record).
+10. **The desk itself is bounded.** `withProgress` awaits the talker desk's tick for no
+   longer than the deadline, and never starts a second tick while one is still running, so
+   a desk that hangs cannot hide a stall.
+
+## Known limits (left to lagrange-framework BUG-92)
+
+- The wedged step's own lease heartbeat timer keeps appending `heartbeat` records, which
+  nobody honours, for the life of the isolate. Only a framework `abandonTurn` can stop it.
+- Before the deadline fires, a prompt sent into the wedged session is still answered
+  `queued` by the framework (no reply). After the deadline the session is free.
+- A tool still hung inside the framework's tool loop is abandoned, not cancelled. It settles
+  into nothing whenever it settles.
+
+## Test plan (as implemented)
+
+- `tests/test_UAT_FC_BUG-249_a_wedged_turn_frees_the_session.workers.test.ts`. A D1 double
+  is the only double: its `site_pages` read never answers while armed by the model's
+  `list_pages` call, under a 1.5 s deadline.
+  - `…a_tool_that_never_returns_is_ended_and_the_work_carried_on`: the stream ends. The
+    client reads the "One moment — picking that back up…" status and then the recovered
+    reply, with no turn id. The recovery round is cued with `tool list_pages`. `turn_log`
+    closes `complete` with `recovered after stalled … awaiting tool list_pages`. The next
+    message is answered normally (not `queued`).
+  - `…a_turn_that_stalls_twice_is_recorded_stalled_and_frees_the_session`: the ledger
+    reads `stalled 2s awaiting tool list_pages (last: tool_issue)` and the client is told
+    gently. On reopen `live` is false and `failed` is `stalled` with no turn and no detail;
+    with `TURN_DIAGNOSTICS=1` both are present. The next message completes, with no restart.
+  - `…the_watchdog_closes_a_row_nobody_closed`: the 10-minute cron closes a 20-minute-old
+    open row `lost` and leaves a fresh one alone.
+  - `…a_junction_write_that_never_lands_does_not_wedge_the_session`: a DO `append` that
+    never answers does not block `flush` or `prepare`, and later writes still land.
+- `tests/test_UAT_FC_BUG-249_a_failed_talker_does_not_go_silent.workers.test.ts`: every
+  talker request fails (400). The client's mid-build message goes back to the inbox and is
+  delivered to the worker's next call. The status line reads the deferred line, the inbox
+  ends empty, and the talker is not retried for the round.
+- `tests/test_UAT_FC_BUG-249_the_panel_says_it_gently.test.ts` (jsdom, installed
+  webui-chat): without a turn id, `lost`/`error`/`stalled` read "cut short", never "our
+  failure", "recorded" or a turn id. With diagnostics, a stalled turn names its cause.
+- `tests/test_UAT_FC_REQ-306_a_killed_turn_leaves_a_record.workers.test.ts` now runs with
+  `TURN_DIAGNOSTICS: '1'`, because it asserts the dev-only turn id.
+- Regression run: the related workers suites (BUG-121/149/166/224/232/235/240/245/46,
+  REQ-231/235/306/307/320/360/403/415/416) and node suites (priming, turn clock,
+  continuation, panel, wrangler parity) pass. Some failures were checked against clean
+  xgd-working and fail there identically: REQ-416 `priming_carries_the_method…`, REQ-185
+  `break_glass_var_ships_empty`, REQ-180's two vocabulary checks, and AC1333's hook
+  ordering. The webui/served-tree failures are worktree-location artifacts.
