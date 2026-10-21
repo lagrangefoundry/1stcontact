@@ -47,6 +47,7 @@ import primingDocument from './priming.json'
 import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
+import { CLIENT_PANES, PANE_LABELS } from '../../../../../apps/control-app/src/builder/client-pane.js'
 import { nearPublishing, planPanel, planReminder, type NotLooked, type Plan } from './plan-core'
 import { missingStoryAreas } from './story-core'
 import talkerDocument from './talker.json'
@@ -670,7 +671,16 @@ export interface ClientView {
    * the panel. A switch of their view is never made under it.
    */
   busy?: ClientBusy
+  /** [[BUG-246]] — the pane the client has open: View, Edit, Story, Comparisons or the looks. */
+  pane?: ClientPane
+  /** [[BUG-246]] — with Comparisons open, how many sites are on the comparison board. */
+  comps?: number
+  /** [[BUG-246]] — the panes on offer the client has never opened, for this business. */
+  unopened?: ClientPane[]
 }
+
+/** The builder's panes ([[BUG-246]]) — `client-pane.js` is the one definition. */
+export type ClientPane = 'view' | 'edit' | 'story' | 'comparisons' | 'looks'
 
 /** The widest layout a report may claim — far past any real screen, short of absurd. */
 const MAX_VIEW_PX = 10_000
@@ -686,17 +696,24 @@ const MAX_VIEW_PX = 10_000
 export function readClientView(value: unknown): ClientView | null | undefined {
   if (value === undefined || value === null) return undefined
   if (typeof value !== 'object') return null
-  const { width, height, mode, busy } = value as Record<string, unknown>
+  const { width, height, mode, busy, pane, comps, unopened } = value as Record<string, unknown>
   const px = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 1 && n <= MAX_VIEW_PX
   if (!px(width)) return null
   if (height !== undefined && !px(height)) return null
   if (typeof mode !== 'string' || !(VIEW_MODES as readonly string[]).includes(mode)) return null
   if (busy !== undefined && !(CLIENT_BUSY as readonly unknown[]).includes(busy)) return null
+  const isPane = (p: unknown): p is ClientPane => (CLIENT_PANES as readonly unknown[]).includes(p)
+  if (pane !== undefined && !isPane(pane)) return null
+  if (comps !== undefined && !(Number.isInteger(comps) && (comps as number) >= 0 && (comps as number) <= 1000)) return null
+  if (unopened !== undefined && !(Array.isArray(unopened) && unopened.every(isPane))) return null
   return {
     width: Math.round(width),
     ...(height !== undefined ? { height: Math.round(height) } : {}),
     mode: mode as ClientViewMode,
     ...(busy !== undefined ? { busy: busy as ClientBusy } : {}),
+    ...(pane !== undefined ? { pane } : {}),
+    ...(comps !== undefined ? { comps: comps as number } : {}),
+    ...(unopened !== undefined ? { unopened: [...new Set(unopened as ClientPane[])] } : {}),
   }
 }
 
@@ -1292,12 +1309,34 @@ export function viewLine(view: ClientView | null, ladder: readonly number[]): st
   })
 }
 
+/**
+ * The lines that say which pane the client has open and which they have never
+ * opened ([[BUG-246]]), or `[]` when this turn reported no pane.
+ *
+ * STATED BESIDE THE WIDTH, FOR THE WIDTH'S REASON: a session that is not told
+ * guesses, and the guess here was "the board" said to a client looking at a
+ * different board — one they may not have known the preview could switch from.
+ */
+export function paneLines(view: ClientView | null): string[] {
+  if (view?.pane === undefined) return []
+  const label = (p: ClientPane) => (PANE_LABELS as Record<string, string>)[p]
+  const comps = view.comps
+  const detail =
+    view.pane === 'comparisons' && comps !== undefined ? ` (${comps} site${comps === 1 ? '' : 's'})` : ''
+  const lines = [fill(template('page-digest-pane'), { pane: label(view.pane), detail })]
+  if (view.unopened && view.unopened.length > 0) {
+    lines.push(fill(template('page-digest-unopened'), { panes: view.unopened.map(label).join(', ') }))
+  }
+  return lines
+}
+
 /** The whole digest at one rung, with the page list cut to `keep`. */
 function digestAt(digest: SiteDigest, rung: DigestRung, keep: number, view: ClientView | null): string {
   const shown = digest.pages.slice(0, keep)
   const parts = [template('page-digest'), digestState(digest)]
   const seen = viewLine(view, digest.widths)
   if (seen !== null) parts.push(seen)
+  parts.push(...paneLines(view))
   if (digest.pages.length === 0) {
     parts.push(template('page-digest-no-pages'))
   } else {

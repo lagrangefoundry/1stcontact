@@ -9,6 +9,8 @@
  * A label string must never appear as a literal anywhere else in the repo.
  */
 
+import { PANE_LABELS } from './client-pane.js'
+
 /** Storage namespace for every `shell.storage(...)` handle (DOC-8 §9.2). */
 export const APP_ID = '1c-builder'
 
@@ -316,6 +318,8 @@ export const STORAGE_KEYS = {
   panel: `${SITE_TAB.id}:panel`,
   /** [[REQ-388]] — the preview's width setting, remembered like the divider. */
   previewWidth: `${SITE_TAB.id}:preview-width`,
+  /** [[BUG-246]] — which panes the client has opened, per business. */
+  openedViews: `${SITE_TAB.id}:opened-views`,
   chat: `${SITE_TAB.id}:chat`,
   library: `${LIBRARY_TAB.id}:list`,
   people: `${PEOPLE_TAB.id}:list`,
@@ -1022,7 +1026,7 @@ export const PUBLISH_FAILED_MESSAGE =
  * The comparable sites' words ([[REQ-378]]) — shown in the preview's Comparisons
  * mode ([[REQ-419]]), where each tile opens the real site.
  */
-export const COMPS_MODE_LABEL = 'Comparisons'
+export const COMPS_MODE_LABEL = PANE_LABELS.comparisons
 export const COMPS_HEADING = "Sites we're comparing"
 export const COMPS_INTRO =
   'Open each site and have a look around — how it moves and how it feels on your phone matters as much as how it looks. Then tell the consultant what you think: send a note, or skip the site.'
@@ -1059,7 +1063,7 @@ export const COMPS_NOTE_MESSAGE = (title, note) => `On ${title}: ${note}`
  * The story board's words ([[REQ-408]]). The board is the client's own words
  * about their business; every label here is chrome around them.
  */
-export const STORY_MODE_LABEL = 'Story'
+export const STORY_MODE_LABEL = PANE_LABELS.story
 export const STORY_BOARD_LABEL = 'Your story board'
 export const STORY_EMPTY =
   "As we talk, I'll pin the things you say about your business here. Heart the ones that are most you."
