@@ -6,10 +6,10 @@ title: 'Chat: segments run together in one bubble (bold breaks), and the consult
   names our internals to the client; bc: for out-of-character debugging'
 created_by: EPIC-19
 created_at: '2026-10-21T01:18:26.515729+00:00'
-updated_at: '2026-10-21T01:36:36.615320+00:00'
+updated_at: '2026-10-21T01:37:35.234198+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-24cb5d98
+  commits:
+  - working_sha: 2554af922c07f95a4a5c4d971dfc8bc13db8cf26
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 86f21d027ea22ac0de99ae0cc49525ab5509d554
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.564
 ---
 
 ## Symptoms (Bob's Salon 3, 2026-10-21)
