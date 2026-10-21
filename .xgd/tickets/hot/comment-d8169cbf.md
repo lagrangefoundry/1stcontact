@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:38:03.651243+00:00'
+updated_at: '2026-10-21T18:44:16.965424+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11266,5 +11266,11 @@ Agreed, it would be catastrophic, and a restart fixing it makes it worse. A rest
 The main test injects a wait that never finishes into a tool call. It then checks that the turn is aborted on time, that everything it held is released, and that your next message works **without a restart**.
 
 I'd put BUG-249 ahead of the UX tickets. Everything else assumes a conversation that can't get permanently stuck.
+
+<!-- xgd-turn id="35e1eb23-7b51-47c2-880c-e7a4cfafa022-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:44:16.069617+00:00" -->
+#### You
+Has it happened again? the talker has stopped responding?
 
 <!-- xgd-chat-end -->
