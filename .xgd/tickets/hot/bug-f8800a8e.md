@@ -5,9 +5,9 @@ type: bug
 title: 'Chat composer: Stop shows while only the consultant''s worker is running'
 created_by: REQ-419
 created_at: '2026-10-20T23:33:17.148650+00:00'
-updated_at: '2026-10-21T14:29:27.802249+00:00'
+updated_at: '2026-10-21T14:31:15.748589+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -16,6 +16,7 @@ fields:
   needs_review: false
   chat_comment: comment-708569da
 ---
+
 
 ## Symptom
 
@@ -29,10 +30,12 @@ For a consultant with a talker (the 1stcontact consultant, `session.talker === t
 - The composer shows **Stop** only while a talker reply is generating, and it stops only that reply. This part is unchanged.
 - **Stop building** in the status widget remains the only way to stop the worker. This part is unchanged.
 - Sessions with no talker keep their current Stop behaviour.
+- As soon as a worker round opens, the status widget is drawn with **Stop building**, before the round's first `progress` frame, so the worker can always be stopped. (Added in the EPIC-19 review below.)
+- Once the client sends a message to the talker, a talker reply is being generated, so the composer shows Stop until that reply ends. It then goes back to Send while the worker keeps running.
 
 This is what lagrange-framework REQ-210 already specifies: item 15, and its UI test "the composer shows Send during a worker round".
 
-## Root cause (diagnosed, not yet fixed)
+## Root cause (fixed upstream in lagrange-framework BUG-89)
 
 The rule lives upstream, in `@lagrangefoundry/webui-chat`'s `src/input.js`:
 
@@ -57,12 +60,12 @@ No 1stcontact source change is expected beyond the test. Per the cross-repo rule
 
 ## Test plan
 
-- `test_UAT_FC_<this ticket>_*`, mounting the real builder in jsdom with a talker session (`session.talker: true`, `interpose` on the transport).
-  - Start a turn whose stream has not sent a `progress` frame yet. With an empty composer, `.chat-widget-send-btn` is visible and `.chat-widget-stop-btn` is hidden.
-  - Feed a talker `start` frame. Stop is offered, and pressing it calls `transport.stop` with the talker's turn id.
-- Regression: the REQ-416 talker suites and the builder chat suites.
+`tests/test_UAT_FC_BUG-239_composer_shows_send_while_the_worker_runs.test.ts` mounts the real builder panel (`createChatPanel`) in jsdom, against the installed `webui-chat`, using a scripted transport (`interpose`, `stop`). The worker stream sends a `text` frame and no `progress` frame.
 
-
+- `…_an_empty_composer_shows_send_and_the_widget_offers_stop_building_before_any_progress`: talker session. The empty composer shows Send and not Stop. The status widget shows **Stop building**, and pressing it calls `transport.stop(id, null)`.
+- `…_stop_shows_only_while_a_talker_reply_generates_and_stops_that_reply`: the client writes while it builds, and Stop shows. A talker `start` comes in; pressing Stop calls `transport.stop` with `talker-1`. The talker `done` arrives, and the composer is back to Send.
+- `…_a_session_without_a_talker_keeps_its_stop`: no talker, same window. Stop is shown.
+- Regression: the REQ-416, BUG-240, BUG-236 and BUG-241 talker panel suites all pass. In the builder chat suites, BUG-64 `a_genuinely_live_turn_still_gates_the_composer`, REQ-127 `a_turn_carries_the_session_it_was_given_and_nothing_else`, AC1065 and AC1070 fail identically in the main checkout without this change. They were already failing, so they are unrelated.
 
 ## Status (2026-10-20)
 
@@ -72,3 +75,7 @@ No 1stcontact source change is expected beyond the test. Per the cross-repo rule
 ## Review (EPIC-19, 2026-10-21)
 
 Diagnosis and fix confirmed; still blocked on lagrange-framework BUG-89 (still `draft`; `stopOffered` unchanged upstream and in the shared install). Added to BUG-89: in talk mode the status widget with **Stop building** must appear as soon as a worker round opens, not at the first `progress` frame — otherwise the fix leaves a window in which the worker can't be stopped at all. This ticket's UAT should also assert that: worker turn open, no `progress` frame yet → the widget with Stop building is shown and the composer shows Send.
+
+## Status (2026-10-21)
+
+Unblocked. lagrange-framework BUG-89 is installed in the shared store: `stopOffered` is now `modes.talk ? talking : talking || !stopHidden`, and `openStatus` draws the widget when the round opens. As expected, the only 1stcontact change is the UAT file above. There is no source change.
