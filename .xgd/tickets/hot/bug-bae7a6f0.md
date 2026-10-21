@@ -6,9 +6,9 @@ title: 'Composer and status: the ''+'' inside the text box and the status widget
   the progress banner (BUG-236 item 7, now unblocked)'
 created_by: EPIC-19
 created_at: '2026-10-21T14:54:45.179356+00:00'
-updated_at: '2026-10-21T15:09:09.524369+00:00'
+updated_at: '2026-10-21T15:14:03.171047+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -52,3 +52,33 @@ frozen at `ready_to_reconcile`, so the item lands here.
 - With a build running, the status widget is inside the plan panel under the
   progress banner and not in the chat; Stop building still stops the worker;
   the composer shows Send (BUG-239 unaffected).
+
+
+## As built
+
+- **"+" in the composer.** `createAttachmentTray` now exposes `action`
+  (`{label: 'Attach files', onClick}`: opens the tray's hidden file input), and
+  the chat pane passes it to `mountChat` as `composerAction`. The tray's own
+  "📎 Attach files" button and its CSS are gone. With no chip waiting, the tray
+  row takes no room. "Attach files" survives only as the "+"'s accessible name and
+  tooltip.
+- **Status widget under the banner.** The plan panel puts a status slot
+  (`.plan-stages__status`) inside the pinned progress banner, after the stages,
+  and exposes it as `statusSlot`. `app.js` hands it to the chat pane as
+  `statusContainer`, and the pane passes it to `mountChat` (the main and group
+  conversations). The banner wraps onto a second row only while the widget shows;
+  the slot is `display: contents`, so a hidden widget adds no row or gap. The
+  settings conversation is unaffected and keeps its widget above its own composer.
+- **REQ-398 UAT adjusted.** Its "no collapse toggle in the banner" check
+  (`bar.querySelector('button')`) now ignores buttons inside the status slot. The
+  hidden widget's Stop building button sits in the banner by design.
+
+## UATs
+
+`tests/test_UAT_FC_BUG-244_plus_in_composer_and_status_under_banner.test.ts`:
+- the "+" sits inside the input bar, opens the picker, and a picked file becomes a
+  chip; no "Attach files" row or button exists;
+- with a build running in the real builder, the widget is inside the banner after
+  the stages and not in the chat; the composer shows Send;
+- with a talker session, the widget opens with the round under the banner, and
+  Stop building asks the origin to stop the work. The widget is gone once the round ends.
