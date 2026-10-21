@@ -272,6 +272,9 @@ ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = ""
+# [[BUG-249]] — the panel may show a failed turn's id and cause. Dev only:
+# [env.production.vars] restates it empty, and a client reads a gentle line instead.
+TURN_DIAGNOSTICS = "1"
 
 # The site store (REQ-143 / DOC-12 §7 phase 2): definitions in D1, asset bytes in
 # R2. Declared at the top level for `wrangler dev` and REPEATED under
@@ -519,6 +522,9 @@ MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
 # public apex, and a loopback dev server has no apex to share one with.
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = "1stcontact.io"
+# [[BUG-249]] — restated EMPTY, so a client is handed no turn ids or causes; the
+# detail stays in the ledger and the Workers log. "1" only where a developer reads it.
+TURN_DIAGNOSTICS = ""
 
 [env.production.assets]
 directory = "./dist-assets"
@@ -632,6 +638,9 @@ ACCESS_AUD = "c802fa9c4efc483e13f1c27d2d9a9ca3ff9336d55a014205bd1a63258260c74e"
 MAIL_FROM = "1st Contact <no-reply@1stcontact.io>"
 SESSION_COOKIE_NAME = "session"
 SESSION_COOKIE_DOMAIN = ""
+# [[BUG-249]] — the panel may show a failed turn's id and cause. Dev only:
+# [env.production.vars] restates it empty, and a client reads a gentle line instead.
+TURN_DIAGNOSTICS = "1"
 
 # Declared so `wrangler deploy --env dev --dry-run --outdir` resolves, and so the
 # parity rule holds. The local runner is handed `--assets <snapshot>/assets`

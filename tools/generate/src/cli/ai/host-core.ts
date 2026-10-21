@@ -81,6 +81,8 @@ import {
   productConfig,
   openingCue,
   continuationCue,
+  stallContinuationCue,
+  isStallContinuationCue,
   compsFinishedCue,
   layoutContinuationCue,
   talkerCue,
@@ -214,10 +216,22 @@ import {
   delegationResult,
   endedOnBudget,
   narrateExhaustion,
+  stallDeadlineMs,
 } from './turn-clock-core'
 import { keepClientOriented, WORKING_UNNAMED, workingText, type CadenceHooks, type WorkingNote } from './cadence-core'
 import { ALREADY_SWITCHED, busyReason, type ShowDeps, type ShowPage } from './show-core'
-import { PROGRESS, progressEvent, TalkerFrames, withProgress, type Beside } from './progress-core'
+import {
+  isProgress,
+  PROGRESS,
+  progressEvent,
+  STALLED,
+  stallDetail,
+  TalkerFrames,
+  withProgress,
+  type Beside,
+  type Stall,
+  type StallWatch,
+} from './progress-core'
 import { concurrentSupported, draftClaims, scopeSupported } from './lease-core'
 
 /**
@@ -2755,8 +2769,11 @@ async function build(
     named[COORDINATOR_ROLE] = await composeCoordinator(lib, slug, opts, deps, wiring, providers, fidelity)
   }
 
+  const witness = { at: Date.now() }
   manager = new lib.SessionManager(named, deps.archive, {
-    ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
+    // [[BUG-249]] — WITNESSED, so a delegated worker's progress on its own junction
+    // keeps the consultant's turn alive and a wedged one does not.
+    ...(deps.junctions ? { junctions: witnessed(deps.junctions, witness) } : { logDir: deps.logDir }),
     // BOTH HALVES, EXPLICITLY (DOC-22 §10). The manager defaults the registry and
     // the product tier *together*, because a product mapping names providers and
     // a registry without them could not load it — so a host passing only one is
@@ -2772,6 +2789,7 @@ async function build(
     // delivered where it is actually read: in the seed, every turn.
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
+  progressWitness.set(manager, witness)
   if (wiring) {
     wiring.consultant.manager = manager
     wiring.coordinator.manager = manager
@@ -3078,12 +3096,16 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
     signal: () => signals.get(businessManagerKey(businessId, deps)),
   })
 
-  return new lib.SessionManager({ [SETTINGS_ROLE]: settingsRole(lib, providers) }, deps.archive, {
-    ...(deps.junctions ? { junctions: deps.junctions } : { logDir: deps.logDir }),
+  const witness = { at: Date.now() }
+  const settingsManager = new lib.SessionManager({ [SETTINGS_ROLE]: settingsRole(lib, providers) }, deps.archive, {
+    // [[BUG-249]] — see the site manager's.
+    ...(deps.junctions ? { junctions: witnessed(deps.junctions, witness) } : { logDir: deps.logDir }),
     providers,
     product: productConfig(lib, providers, false),
     maxPrimingChars: MAX_PRIMING_CHARS,
   })
+  progressWitness.set(settingsManager, witness)
+  return settingsManager
 }
 
 /**
@@ -3155,7 +3177,9 @@ async function storedTranscript(
   // [[REQ-409]] — nor is the host's cue for a continuation. [[BUG-245]] — nor its
   // cue for a finished comp board.
   const cues = new Set([opening, continuationCue(), compsFinishedCue()])
-  const hidden = (turn: { role: string; content: string }): boolean => turn.role === 'user' && cues.has(turn.content)
+  // [[BUG-249]] — nor its cue for a round it carried on after a stall.
+  const hidden = (turn: { role: string; content: string }): boolean =>
+    turn.role === 'user' && (cues.has(turn.content) || isStallContinuationCue(turn.content))
   const turns = recorded.filter((turn) => !hidden(turn)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -4060,6 +4084,145 @@ export const INBOX_POLL_MS = 2_000
 const PROGRESS_MODEL = 'model'
 
 /**
+ * [[BUG-249]] — what the client reads while the host carries a stalled round on: a
+ * status line, never a turn id and never an apology for machinery.
+ */
+export const RECOVERING_LINE = 'One moment — picking that back up…'
+
+/** [[BUG-249]] — what the client reads when a message stalls a second time. */
+export const STUCK_AGAIN_LINE = "Sorry — that didn't go through. Ask me again and I'll pick it up from here."
+
+/**
+ * [[BUG-249]] — when each manager's junctions last recorded progress, in epoch ms.
+ * Written by {@link witnessed}; read by {@link stallWatch}.
+ */
+const progressWitness = new WeakMap<object, { at: number }>()
+
+/**
+ * [[BUG-249]] — `junctions`, with every log it opens stamping `witness` on each
+ * append that is progress ({@link isProgress}).
+ *
+ * WHY ACROSS EVERY SESSION THE MANAGER OPENS. A delegated worker runs in its own
+ * session, on its own junction, while the consultant's round sits inside one
+ * `Delegate` call writing nothing — so the consultant's junction alone would call
+ * a working build silent. The manager's other sessions are the only place that
+ * work shows.
+ */
+function witnessed(junctions: Untyped, witness: { at: number }): Untyped {
+  return {
+    ...junctions,
+    open(sessionId: string) {
+      const log = junctions.open(sessionId)
+      const append = log.append.bind(log)
+      log.append = (kind: string, fields: Record<string, unknown> = {}) => {
+        if (isProgress({ ...fields, kind })) witness.at = Date.now()
+        return append(kind, fields)
+      }
+      return log
+    },
+  }
+}
+
+/**
+ * [[BUG-249]] — free what a turn holds, from outside it: the session's claim, the
+ * talkers' claims, the fork and the talker count. Returns how many it closed.
+ *
+ * WRITTEN ON THE JUNCTION, because that is where the lease is decided. A
+ * `turn_end` closes a claim for every reader (`resolveClaim`, `resolveTalker`), and
+ * a claim that never reached its `turn_start` is retracted the way its holder would
+ * have. The wedged step's own heartbeat timer cannot be reached from here and goes
+ * on beating for a claim nobody honours any more — lagrange-framework BUG-92 asks
+ * for an `abandonTurn` that can stop it.
+ *
+ * THE STOP FIRST: a turn stuck on the model stream is unwound by it. One stuck in a
+ * tool is not (the tool loop does not look while it waits — BUG-92 again), which is
+ * why the records follow it rather than waiting on it.
+ */
+function releaseStalledTurn(manager: Untyped, sessionId: string, from: number, why: string): number {
+  try {
+    manager.requestStop(sessionId, null, { reason: 'stalled' })
+  } catch {
+    // A stop must never cost the release.
+  }
+  const log = manager.logFor(sessionId)
+  const [records] = log.readFrom(Math.max(0, from)) as [Array<Record<string, unknown>>]
+  const claimed = new Map<string, string>()
+  const started = new Set<string>()
+  for (const r of records) {
+    const id = String(r.turn_id ?? '')
+    if (id === '') continue
+    if (r.kind === 'turn_claim') {
+      if (r.release) claimed.delete(id)
+      else claimed.set(id, String(r.producer ?? ''))
+    } else if (r.kind === 'turn_start') started.add(id)
+    else if (r.kind === 'turn_end') {
+      claimed.delete(id)
+      started.delete(id)
+    }
+  }
+  for (const id of started) {
+    log.append('turn_end', { turn_id: id, status: ABORTED_STATUS, stalled: true, reason: why })
+    claimed.delete(id)
+  }
+  for (const [id, producer] of claimed) log.append('turn_claim', { turn_id: id, producer, release: true })
+  manager._forks?.delete(sessionId)
+  talkerRounds.delete(sessionId)
+  return started.size + claimed.size
+}
+
+/**
+ * [[BUG-249]] — the progress deadline for one round: no progress for
+ * `stall_seconds` and the round is ended `stalled`, what it held freed, and the
+ * stall logged as the operator's alert — at the moment it happens, naming what it
+ * was waiting on, so the next incident names its own cause.
+ */
+function stallWatch(manager: Untyped, sessionId: string, from: number, turn: string): StallWatch {
+  const witness = progressWitness.get(manager)
+  return {
+    ms: stallDeadlineMs(),
+    ...(witness ? { progressedAt: () => witness.at } : {}),
+    onStall: async (stall: Stall) => {
+      const released = releaseStalledTurn(manager, sessionId, from, stallDetail(stall))
+      console.error(
+        JSON.stringify({
+          event: 'turn_stalled',
+          session: sessionId,
+          turn,
+          silent_s: stall.silentS,
+          awaiting: stall.awaiting,
+          last: stall.last,
+          released,
+        }),
+      )
+    },
+  }
+}
+
+/**
+ * [[BUG-249]] — the operator's last resort: free a session something still holds.
+ *
+ * The same release the deadline runs, over the WHOLE junction rather than one
+ * round's records, so it frees whatever is open however it got that way. Returns
+ * how many turns or claims it closed; `0` is an honest answer for a session that
+ * was not stuck.
+ */
+export async function unstickSession(sessionId: string, deps: HostDeps): Promise<{ released: number }> {
+  await prepareJunction(deps, sessionId)
+  const business = businessForSession(sessionId, deps)
+  let manager: Untyped
+  if (business) manager = await managerForBusiness(business, deps)
+  else {
+    const slug = await siteForSession(sessionId, deps)
+    if (!slug) throw new UnknownSessionError(sessionId)
+    manager = await managerFor(slug, {}, deps, await groupChatOn(deps))
+  }
+  const released = releaseStalledTurn(manager, sessionId, 0, 'unstuck by an operator')
+  console.error(JSON.stringify({ event: 'session_unstuck', session: sessionId, released }))
+  await deps.junctions?.flush?.(sessionId)
+  return { released }
+}
+
+/**
  * [[REQ-416]] — the talker rounds opening or running in this isolate, by session.
  * What the talker's reminder provider asks: a round assembled while one is, is a
  * talker's (the worker assembled its own before the fork).
@@ -4103,9 +4266,40 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
   const talkers = new TalkerFrames()
   const running: Promise<void>[] = []
   let looked = 0
+  // [[BUG-249]] — a talker round of this worker round ended in error: no more are
+  // opened beside it, and the client's messages go to the worker instead.
+  let failed = false
   type Started = { turnId: string; queued: boolean; talker: boolean; done: Promise<void> } | null
+  /**
+   * [[BUG-249]] — a talker round that ERRORED leaves the client's message unanswered
+   * unless the host does something: it is put back in the inbox, where the worker's
+   * next tool boundary takes it (BUG-224) or the panel runs it as the next prompt,
+   * and the client is told so on the status line. Logged with its cause, once per
+   * worker round, because a broken talker breaks every round at once.
+   */
+  async function talkerFailed(closed: Record<string, unknown> | undefined, text: string): Promise<void> {
+    if (closed?.status !== 'error') return
+    const first = !failed
+    failed = true
+    if (first) {
+      console.error(
+        JSON.stringify({ event: 'talker_failed', session: sessionId, turn: String(closed.turn_id ?? ''), error: String(closed.error ?? '') }),
+      )
+      try {
+        manager.progress(sessionId, TALKER_DEFERRED_LINE, { source: PROGRESS_MODEL })
+      } catch {
+        // A status line must never cost the message.
+      }
+    }
+    if (text === '' || !deps.inbox) return
+    try {
+      await deps.inbox.post(sessionId, text)
+    } catch {
+      // The panel still holds the message it sent, and replays what no turn took.
+    }
+  }
   /** Open one talker round with `start`; whether it opened. `messageId` is what it answers, or `''`. */
-  async function open(start: () => Promise<Started>, messageId: string): Promise<boolean> {
+  async function open(start: () => Promise<Started>, messageId: string, text = ''): Promise<boolean> {
     talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 0) + 1)
     const ends = () => {
       talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
@@ -4129,7 +4323,10 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
     // requests of its own, on its own conversation, which the worker's row
     // does not carry.
     running.push(
-      started.done.then(ends, ends).then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps)),
+      started.done
+        .then(ends, ends)
+        .then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps))
+        .then((closed) => talkerFailed(closed, text)),
     )
     return true
   }
@@ -4140,7 +4337,7 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
       // the rest of the client's message now, on the host's cue
       // (lagrange-framework REQ-215), not when the client writes again. Taken on
       // the first poll after the dive, not on the inbox's slower cadence.
-      const note = talkerCues.get(key)
+      const note = failed ? undefined : talkerCues.get(key)
       if (note !== undefined) {
         talkerCues.delete(key)
         if (forkable(manager, sessionId)) {
@@ -4154,10 +4351,11 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
           if (stop.at >= since) manager.requestStop(sessionId, stop.turn)
         }
         for (const message of await deps.inbox.read(sessionId)) {
-          if (!forkable(manager, sessionId)) return
+          if (failed || !forkable(manager, sessionId)) return
           const opened = await open(
             () => manager.startTurn(sessionId, message.text, { timeout: TURN_TIMEOUT_SECONDS }),
             message.id,
+            message.text,
           )
           if (!opened) return
           await deps.inbox.take(sessionId, [message.id])
@@ -4169,8 +4367,13 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
     settle: async () => {
       await Promise.all(running)
     },
+    failed: () => failed,
   }
 }
+
+/** [[BUG-249]] — the status line a client reads when its talker could not answer. */
+export const TALKER_DEFERRED_LINE = "I'll pick that up as soon as this part of the build is done."
+
 
 /**
  * [[REQ-416]] — a talker round's spend row ([[REQ-292]]), off its own `turn_end`.
@@ -4190,7 +4393,7 @@ async function writeTalkerSpend(
   from: number,
   startedAt: string,
   deps: HostDeps,
-): Promise<void> {
+): Promise<Record<string, unknown> | undefined> {
   let closed: Record<string, unknown> | undefined
   try {
     const [records] = manager.logFor(sessionId).readFrom(Math.max(0, from)) as [Array<Record<string, unknown>>]
@@ -4206,6 +4409,8 @@ async function writeTalkerSpend(
     backend: PROJECT_BACKEND,
     outcome: closed ? turnOutcome(closed) : 'aborted',
   })
+  // [[BUG-249]] — and the record itself, so the desk can tell a round that failed.
+  return closed
 }
 
 /**
@@ -4357,9 +4562,15 @@ export async function* streamPrompt(
       }
       // [[BUG-168]] — this project's clock, not the framework's 600 s default.
       // One clock for every turn this host drives, so there is one number to reason about.
-      for await (const event of settingsManager.promptStream(sessionId, text, {
-        timeout: TURN_TIMEOUT_SECONDS,
-      })) {
+      // [[BUG-249]] — AND THE PROGRESS DEADLINE. A settings turn has no talker and
+      // nothing to carry on, so a stall simply ends it, freed and recorded.
+      for await (const event of withProgress(
+        settingsManager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
+        settingsManager.logFor(sessionId),
+        settingsManager.pollIntervalMs,
+        null,
+        stallWatch(settingsManager, sessionId, spendFrom, spendTurn),
+      )) {
         if (event.kind === DONE) {
           outcome = turnOutcome(event.meta)
           // WHAT IT COST RIDES THE SAME EVENT ([[REQ-292]]). Held rather than
@@ -4495,6 +4706,8 @@ async function* continuedTurn(
   // [[BUG-241]] — the end of what the client has been shown so far: a round the
   // host continued opens a new paragraph in the same live bubble.
   let said = ''
+  // [[BUG-249]] — the stall this message already recovered from, if any. One.
+  let stalled: Record<string, unknown> | null = null
   for (let round = 0; ; round++) {
     let done: { kind: string; content: string; meta?: Record<string, unknown> } | null = null
     let opened = round === 0
@@ -4515,6 +4728,22 @@ async function* continuedTurn(
       }
       yield event
     }
+    // [[BUG-249]] — A ROUND THAT STALLED IS CARRIED ON ONCE: the host freed the
+    // session, and the client's message is still owed an answer. A second stall in
+    // the same message is not chased — it ends the request, said gently.
+    if (done?.meta?.status === STALLED) {
+      const first = stalled === null
+      stalled ??= (done.meta.stalled as Record<string, unknown>) ?? {}
+      if (first && !(await stopPending(deps, sessionId, since))) {
+        yield { kind: PROGRESS, content: RECOVERING_LINE, meta: { source: PROGRESS_MODEL, turn_id: '', elapsed_s: 0 } }
+        prompt = stallContinuationCue(String(stalled.awaiting ?? 'a step'))
+        turnId = turn ? `${turn}-recovered` : undefined
+        continue
+      }
+      yield { kind: TEXT, content: `${paragraphBreak(said)}${STUCK_AGAIN_LINE}` }
+      yield { ...done, meta: { ...done.meta, stalled } }
+      return
+    }
     // [[BUG-235]] — A STOPPED ROUND IS NEVER CONTINUED, by either path below.
     const stopped = done === null || done.meta?.status === ABORTED_STATUS
     const again = !stopped && endedOnBudget(done!.meta) && promisedContinuation.get(key) === true
@@ -4532,7 +4761,8 @@ async function* continuedTurn(
           `[REQ-409] spend ceiling reached: session ${sessionId}, ${meter.micros} of ${meter.ceilingMicros} micros`,
         )
       }
-      if (done) yield done
+      // [[BUG-249]] — a request that recovered from a stall still says it stalled.
+      if (done) yield stalled ? { ...done, meta: { ...done.meta, stalled } } : done
       return
     }
     continuationsLeft.set(key, (continuationsLeft.get(key) ?? 0) - 1)
@@ -4719,11 +4949,13 @@ async function* siteTurn(
     // [[BUG-240]] — a cue left by an earlier round is that round's, and stale.
     talkerCues.delete(planKey)
     const beside = talks ? talkerDesk(manager, sessionId, deps, stopsSince ?? new Date().toISOString(), planKey) : null
+    // [[BUG-249]] — AND NO ROUND WAITS FOREVER: see {@link stallWatch}.
     const events = withProgress(
       manager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
       manager.logFor(sessionId),
       manager.pollIntervalMs,
       beside,
+      stallWatch(manager, sessionId, spendFrom, spendTurn),
     )
     for await (const event of events) {
       // WHAT BECAME OF THE TURN, taken off the library's terminal event
@@ -4768,7 +5000,8 @@ async function* siteTurn(
       if (event.kind !== TOOL_ACTIVITY) continue
       // [[BUG-224]] — what the client wrote meanwhile goes into the next call,
       // where there is no talker to answer it (a room member's round).
-      if (!talks) await deliverWaiting(manager, sessionId, deps)
+      // [[BUG-249]] — and where the talker failed, so the message is not left unanswered.
+      if (!talks || beside?.failed?.()) await deliverWaiting(manager, sessionId, deps)
       const now = await store.counter(slug)
       if (now <= seen) continue
       const changes = now - seen

@@ -62,6 +62,9 @@ function workerEnv(): Env {
     ACCESS_DEV_OPEN: '1',
     ACCESS_TEAM_DOMAIN: '',
     ACCESS_AUD: '',
+    // [[BUG-249]] — the panel is handed a failed turn's id only with diagnostics on
+    // (the dev server); this suite asserts that id, so it runs as the dev server does.
+    TURN_DIAGNOSTICS: '1',
     ANTHROPIC_API_KEY: 'test-key-not-a-real-one',
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }

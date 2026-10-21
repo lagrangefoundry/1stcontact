@@ -25,6 +25,7 @@ import {
 } from './sessions'
 import { NoBusinessError, resolveScope, ScopeRefusedError, splitBusinessPrefix } from './scope'
 import { ACTIVITY_CRON, closeSessions } from './activity'
+import { sweepOpenTurns } from './turn-log'
 import { sweepSynthetic } from './gutter'
 import { beginRequest, pruneRecords, type RequestLog } from './log'
 import { guardTerms } from './terms'
@@ -649,6 +650,15 @@ export default {
      */
     const closed = await closeSessions(env)
     console.log(JSON.stringify({ event: 'sessions_closed', cron: event.cron, ...closed }))
+
+    /*
+     * AND THE TURN LEDGER'S WATCHDOG ([[BUG-249]]), on every tick for the same
+     * reason: a row left open is a turn nobody closed, and ten minutes is the
+     * cadence at which an operator is still asking why the builder stopped. A
+     * non-zero count is a turn whose isolate died without writing its own end.
+     */
+    const swept = await sweepOpenTurns(env)
+    console.log(JSON.stringify({ event: 'turns_swept', cron: event.cron, ...swept }))
 
     /*
      * AND THE DAILY WORK IS SKIPPED ON THE FREQUENT TICK. Purging expired

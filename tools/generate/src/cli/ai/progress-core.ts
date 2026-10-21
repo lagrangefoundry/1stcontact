@@ -36,7 +36,7 @@
  * NO LIBRARY IMPORT, for `budget-core.ts`'s reason: both hosts load this.
  */
 
-import type { StreamEvent } from './budget-core'
+import { DONE, type StreamEvent } from './budget-core'
 
 /** The framework's record kind and this host's event kind for "still working". */
 export const PROGRESS = 'progress'
@@ -160,6 +160,65 @@ export interface Beside {
   tick(): Promise<void>
   /** Resolves when nothing the host started beside the turn is still running. */
   settle(): Promise<void>
+  /** [[BUG-249]] — a talker round failed: the turn's own boundaries take the client's messages. */
+  failed?(): boolean
+}
+
+/**
+ * [[BUG-249]] — the terminal status a turn that stopped making progress ends with.
+ * Not one of the framework's three words: the framework never saw this turn end.
+ */
+export const STALLED = 'stalled'
+
+/**
+ * [[BUG-249]] — the junction records that are NOT a turn making progress.
+ *
+ * A HEARTBEAT IS NOT PROGRESS, and that is the whole bug: the lease's heartbeat
+ * is a bare timer (lagrange-framework BUG-92), so a turn parked forever on an
+ * await kept its claim — and the session — alive for the life of the isolate.
+ * The rest are control records anybody may write about a turn (a claim, a Stop,
+ * a queued message), and a retry losing the lease must not reset the clock of
+ * the turn that holds it. A `progress` record is progress only when the MODEL
+ * wrote it: the delegation runtime's "still working" line is a timer too.
+ */
+const NOT_PROGRESS = new Set(['heartbeat', 'turn_claim', 'stop_request', 'enqueue', 'interpose', 'subject'])
+
+/** [[BUG-249]] — whether a junction record says some turn did something. */
+export function isProgress(record: Record<string, unknown>): boolean {
+  const kind = String(record.kind ?? '')
+  if (NOT_PROGRESS.has(kind)) return false
+  if (kind === PROGRESS) return String(record.source ?? '') === MODEL
+  return true
+}
+
+/** [[BUG-249]] — what a stalled turn was doing when it stopped, for the ledger and the log. */
+export interface Stall {
+  /** How long nothing progressed, in seconds. */
+  silentS: number
+  /** `tool <name>` for a call issued and never answered, `model` while waiting on it. */
+  awaiting: string
+  /** The last record the turn wrote. */
+  last: string
+}
+
+/**
+ * [[BUG-249]] — the progress deadline, as the host configures it.
+ *
+ * `progressedAt` is progress the turn's own junction cannot see: a delegated
+ * worker writes to ITS session's junction, so a build that is working would
+ * otherwise read as silence. `onStall` releases what the turn holds; it is
+ * awaited, and a throw from it is swallowed — the turn ends stalled either way.
+ */
+export interface StallWatch {
+  ms: number
+  progressedAt?: () => number
+  onStall: (stall: Stall) => Promise<void>
+  now?: () => number
+}
+
+/** One line for the ledger and the log: `stalled 300s awaiting tool Delegate (last: tool_issue)`. */
+export function stallDetail(stall: Stall): string {
+  return `stalled ${stall.silentS}s awaiting ${stall.awaiting} (last: ${stall.last})`
 }
 
 /**
@@ -169,17 +228,47 @@ export interface Beside {
  * `log` is read from its size when this starts, which is before `events` has
  * taken its first step — so the turn's own records are all in range and nothing
  * from an earlier turn is.
+ *
+ * [[BUG-249]] — AND NO TURN WAITS FOREVER. With `stall` set, a turn that makes
+ * no progress for `stall.ms` is abandoned: the hung step is NOT awaited (it may
+ * never settle — that is the failure), `onStall` releases what the turn holds,
+ * and the stream ends with a `done` whose status is {@link STALLED}.
  */
 export async function* withProgress(
   events: AsyncIterable<StreamEvent>,
   log: ProgressLog,
   pollMs: number,
   beside: Beside | null = null,
+  stall: StallWatch | null = null,
 ): AsyncGenerator<StreamEvent> {
   const it = events[Symbol.asyncIterator]()
   let at = log.size()
   let pending: Promise<IteratorResult<StreamEvent>> | null = null
   let finished = false
+  const clock = stall?.now ?? Date.now
+  let progressed = clock()
+  let last = 'turn_start'
+  // Calls issued and not yet answered, by the provider's id: what a stall names.
+  const issued = new Map<string, string>()
+  const watched = (record: Record<string, unknown>): void => {
+    if (!isProgress(record)) return
+    progressed = clock()
+    last = String(record.kind ?? '')
+    const meta = (record.meta ?? {}) as Record<string, unknown>
+    if (record.kind === 'tool_issue') issued.set(String(record.tool_use_id ?? ''), String(record.name ?? ''))
+    else if (record.kind === 'tool') issued.delete(String(meta.tool_use_id ?? ''))
+  }
+  const stalled = (): Stall | null => {
+    if (!stall) return null
+    const quiet = clock() - Math.max(progressed, stall.progressedAt?.() ?? 0)
+    if (quiet <= stall.ms) return null
+    const open = [...issued.values()]
+    return {
+      silentS: Math.round(quiet / 1000),
+      awaiting: open.length > 0 ? `tool ${open[open.length - 1]}` : 'model',
+      last,
+    }
+  }
   // DRAINED BEFORE ANY EVENT IS PASSED ON, so a heartbeat written during a build
   // arrives ahead of the `tool_activity` that reports the build's end, and a
   // talker's reply is in order with what the worker said around it.
@@ -188,6 +277,7 @@ export async function* withProgress(
     at = next
     let latest: Record<string, unknown> | null = null
     for (const record of records) {
+      watched(record)
       if (record.kind === PROGRESS) {
         latest = record
         continue
@@ -204,16 +294,52 @@ export async function* withProgress(
     })
     return { tick, cancel: () => clearTimeout(timer) }
   }
+  // [[BUG-249]] — A DESK THAT HANGS MUST NOT HIDE A STALL: the tick is awaited as
+  // it always was, but no longer than the deadline, and a tick still running is not
+  // started twice.
+  let ticking: Promise<void> | null = null
+  const tick = async (desk: Beside): Promise<void> => {
+    ticking ??= desk
+      .tick()
+      .catch(() => undefined)
+      .finally(() => {
+        ticking = null
+      })
+    if (!stall) return ticking
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const ceiling = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, stall.ms)
+    })
+    await Promise.race([ticking, ceiling])
+    clearTimeout(timer)
+  }
   try {
     for (;;) {
       pending ??= it.next()
       const wait = pause()
       const step = await Promise.race([pending, wait.tick])
       wait.cancel()
-      if (step === null) await beside?.tick()
+      if (step === null && beside) await tick(beside)
       yield* drain()
-      if (step === null) continue
+      if (step === null) {
+        const stop = stalled()
+        if (stop === null) continue
+        // ABANDONED, NOT RETURNED: `it.return()` queues behind the hung step and
+        // would wait for it exactly as the turn did. The step is left to settle
+        // whenever it does, into nothing.
+        pending = null
+        finished = true
+        await stall!.onStall(stop).catch(() => undefined)
+        yield* drain()
+        yield {
+          kind: DONE,
+          content: '',
+          meta: { status: STALLED, stalled: { silent_s: stop.silentS, awaiting: stop.awaiting, last: stop.last } },
+        }
+        return
+      }
       pending = null
+      progressed = clock()
       if (step.done) {
         finished = true
         break

@@ -43,6 +43,23 @@ export const MAX_BUILDER_REPLACEMENTS: number = turnClockDocument.max_builder_re
 export const SPEND_CEILING_MICROS: number = Math.round(turnClockDocument.spend_ceiling_usd * 1_000_000)
 
 /**
+ * [[BUG-249]] — how long a turn may make no progress before the host ends it
+ * `stalled`, in milliseconds. `turn-clock.json` gives the reason for the value;
+ * {@link setStallDeadline} is the suites' way to wait seconds rather than minutes.
+ */
+let stallMs: number = turnClockDocument.stall_seconds * 1000
+
+/** [[BUG-249]] — the progress deadline in force. */
+export function stallDeadlineMs(): number {
+  return stallMs
+}
+
+/** [[BUG-249]] — replace the progress deadline; `null` restores `turn-clock.json`'s. */
+export function setStallDeadline(ms: number | null): void {
+  stallMs = ms ?? turnClockDocument.stall_seconds * 1000
+}
+
+/**
  * Whether a turn's terminal meta says it ran out of calls or time ([[REQ-409]]) —
  * the two budgets a continuation can give back. A context stop is not one: the
  * conversation it stopped is full, and the next turn would be refused before it

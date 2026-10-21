@@ -545,6 +545,23 @@ export function continuationCue(): string {
 }
 
 /**
+ * [[BUG-249]] — the user turn the host records to carry on a round it ended because
+ * it stopped making progress. `awaiting` is what the round was stuck on (`tool
+ * Delegate`, `model`), so the consultant looks before redoing it. Kept out of the
+ * client's transcript like {@link continuationCue}: what it starts with is a
+ * prefix, since the cue carries what was awaited.
+ */
+export function stallContinuationCue(awaiting: string): string {
+  return fill(template('stall-continuation-cue'), { awaiting })
+}
+
+/** [[BUG-249]] — whether a user turn is the host's stall cue, whatever it was stuck on. */
+export function isStallContinuationCue(content: string): boolean {
+  const [head] = template('stall-continuation-cue').split('{awaiting}')
+  return content.startsWith(head!)
+}
+
+/**
  * [[BUG-245]] — the user turn the host records when the comp board finishes on a
  * Skip: every card is sent or skipped and the client wrote nothing, so the
  * consultant sums up without being asked. Kept out of the client's transcript like

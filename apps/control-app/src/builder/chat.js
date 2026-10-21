@@ -866,7 +866,16 @@ export function createChatPanel(options = {}) {
    * otherwise would be inventing a cause.
    */
   function failureNotice(failed) {
-    const reference = failed?.turn ? ` (${failed.turn})` : ''
+    // [[BUG-249]] — A CLIENT IS NEVER HANDED MACHINERY. The origin sends a turn's id
+    // and cause only where diagnostics are on (the dev server); without them this is
+    // the whole of what a customer reads.
+    if (!failed?.turn) return GENTLE_FAILURE
+    const reference = ` (${failed.turn})`
+    if (failed.state === 'stalled') {
+      return `That turn stopped making progress and the host ended it${reference}${
+        failed.detail ? `: ${failed.detail}` : '.'
+      }`
+    }
     if (failed?.state === 'error') {
       return `That turn failed before it finished${reference}${
         failed.detail ? `: ${failed.detail}` : '.'
@@ -877,6 +886,9 @@ export function createChatPanel(options = {}) {
       'It was our failure, it has been recorded, and asking again is worth a try.'
     )
   }
+
+  /** [[BUG-249]] — what a customer reads about a turn that did not finish. */
+  const GENTLE_FAILURE = "That reply was cut short — sorry. Ask again and I'll pick it up."
 
   /**
    * A turn of this conversation that did not finish ([[BUG-121]]).
@@ -916,8 +928,9 @@ export function createChatPanel(options = {}) {
     if (interrupted.recorded) {
       // The prompt and the fragment are both above already. What is missing is
       // the fact that the reply stopped rather than ended.
+      // [[BUG-249]] — the detailed note only where the origin sent one (dev).
       note(
-        failed
+        failed?.turn
           ? failureNotice(failed) + ' The reply above is not all of it; ask again to pick it up.'
           : 'That turn was interrupted — the reply above is not all of it. Ask again to pick it up.',
       )
@@ -930,7 +943,7 @@ export function createChatPanel(options = {}) {
     // conversation it was part of.
     chat.appendMessage('user', interrupted.text, at(interrupted.at))
     note(
-      (failed ? failureNotice(failed) + ' ' : 'That turn was interrupted and ') +
+      (failed?.turn ? failureNotice(failed) + ' ' : 'That turn was interrupted and ') +
         'nothing of it was recorded — not even your message, until now. ' +
         'It is back in the box below, ready to send again.',
     )
