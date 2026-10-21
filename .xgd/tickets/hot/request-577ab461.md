@@ -6,9 +6,9 @@ title: 'Builders: share the common starting context through the cache, and cache
   run''s history for 5 minutes'
 created_by: EPIC-20
 created_at: '2026-10-21T13:22:20.449737+00:00'
-updated_at: '2026-10-21T14:31:26.419246+00:00'
+updated_at: '2026-10-21T14:37:49.653041+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -52,10 +52,34 @@ Together: roughly $6 of ~$29.50, about a fifth of builder spend, with no change 
 
 ## Depends on
 
-Item 2 needs the framework to let a backend choose a lifetime for its system prefix separately from its message history, and to read that from `backends.json` (lagrange-framework REQ-216, `request-01439873`). Item 1 does not, and can land first.
+Item 2 needed the framework to let a backend choose a lifetime for its system prefix separately from its message history, and to read it from `backends.json` (lagrange-framework REQ-216, `request-01439873`). That is installed, and item 2 lands here.
+
+Item 1 turned out to need a framework change too (see "Cause" below). It is filed as **lagrange-framework BUG-90** (`bug-110add91`). No code for item 1 lands in this repository.
+
+## Cause of item 1 (found 2026-10-21)
+
+Reproduced through the real route with a recording model client, using two builder delegations in a row on one deployment:
+
+- Their first requests' `tools` are **byte-identical** (49 tools, 64,522 chars of JSON). The tool definitions were never the problem.
+- Their `system` is two cached blocks, `[902 chars, 1h][48,570 chars, 1h]`, and the two builders' blocks differ in one place only: `chat-985c4771` vs `chat-707c1fbe`. With that id masked, the systems are byte-identical.
+- That id comes from the framework's session-memory core. `composeProduct` puts the core's stable entries (the memory charter, *"This conversation is ticket {ticket}."*) into the **product** tier's cached prefix, and `assembleMarked` always renders the product tier **before** the role tier. So every session's system prompt starts with ~900 characters naming its own ticket, with a breakpoint after them. A cache prefix must match from the start, so nothing after them can be read by another builder: not the ~48k role prose, vocabulary and manual, and not the tools in front.
+- The consultant doesn't notice, because it is one long session re-reading its own prefix.
+
+Nothing in 1stcontact can fix this without cutting words: memory configuration is per manager, which the consultant, coordinator and builder share, and requirement 4 forbids dropping the charter. The fix belongs upstream: the per-session text should go after the last shared breakpoint, with no wording change. That is lagrange-framework BUG-90.
+
+Duplication check (requirement 4): no paragraph over 120 characters of the builder's system prompt also appears in its tool definitions, so there is no duplicate to remove.
+
+## What landed (item 2)
+
+- `backends.json` declares `cache_ttl` on every backend: `claude` (consultant) `"1h"`, `claude_coordinator` `"1h"`, and `claude_builder` `{"system": "1h", "messages": "5m"}`. The `about` text says why.
+- The host no longer passes `cacheTtl` to any `ClaudeAPIBackend`. The framework reads `cache_ttl` from `backends.json` under the name each backend is constructed with, so the document is the single source for the wire.
+- `cacheTtlOf(name)` (backends.ts) now returns `{system, messages}` read from the same key, so the meter prices from what the wire asked for. A plain string means both halves; an absent key means the framework's default, the hour.
+- The meter (`costMicros`) still prices split writes by the lifetime the provider reports for each part. Any unsplit remainder is priced at the backend's **system** lifetime, the longer of the two, so a mixed-lifetime backend can be over-metered on an unsplit write but never under-metered.
+- The consultant and the coordinator are unchanged: the hour on prefix and history alike.
 
 ## Test plan
 
-- `test_UAT_FC_REQ-421_*`: two builder delegations in a row on one deployment, with a recording model client: the second builder's first request carries the same system and tools as the first's, with a cache breakpoint at the end of the shared prefix, so a provider would read it rather than write it. Assert on the request payloads, byte-identical up to the breakpoint.
-- With the framework change installed: the builder's system breakpoint asks for 1 hour and its message breakpoints for 5 minutes; the consultant's ask for 1 hour throughout.
-- Measure afterwards from `turn_spend.attributed`: a short builder run's cache writes should be close to its own growth, not its whole context.
+- `tests/test_UAT_FC_REQ-421_builder_cache_lifetimes.workers.test.ts` drives one delegation through the real route with a scripted model client. Every builder request's `system` markers ask for `1h` and its message markers for `5m`. Every consultant request's markers ask for `1h`. `cacheTtlOf` returns `{1h, 5m}` for the builder and `{1h, 1h}` for the consultant.
+- The BUG-242 and REQ-292 UATs now read `cacheTtlOf(...).system`; both still pin the consultant at the hour.
+- The two-builders-share-the-prefix UAT (byte-identical up to the breakpoint) is lagrange-framework BUG-90's conformance fixture. Once BUG-90 is installed, the same assertion can be added here.
+- Measure afterwards from `turn_spend.attributed`. Item 2 alone should show builder history writes at the 5m rate. Only after BUG-90 should a short builder run's writes come close to its own growth rather than its whole context.
