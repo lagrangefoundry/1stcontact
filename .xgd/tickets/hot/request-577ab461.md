@@ -6,10 +6,10 @@ title: 'Builders: share the common starting context through the cache, and cache
   run''s history for 5 minutes'
 created_by: EPIC-20
 created_at: '2026-10-21T13:22:20.449737+00:00'
-updated_at: '2026-10-21T14:37:49.653041+00:00'
+updated_at: '2026-10-21T14:38:20.065867+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-41aadfd0
+  commits:
+  - working_sha: 2121f8813b2e5c2930e15be261c4fe455271b625
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: c393bd06756cf6f412f308f44ef43217e81cc716
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.567
 ---
 
 ## What changes
