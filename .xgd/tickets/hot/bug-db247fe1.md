@@ -17,6 +17,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-962214e3
 ---
 
 ## Incident (Ariel's AR Welding run, 2026-10-21 18:29 UTC)
