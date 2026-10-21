@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:20:02.088386+00:00'
+updated_at: '2026-10-21T15:50:46.620621+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4355,5 +4355,11 @@ The six edits in `.xgd/tmp/epic20/discovery-priming-draft.md` aren't applied. Th
 ## To try it
 
 Dev only picks up these changes after `bin/deploy --env dev`. Once you've redeployed, the next test site will show whether the report loop is gone, the 5-minute builder writes, the corrected meter and the new Comparisons mode. The shared-prefix saving will follow once BUG-90 lands and the framework is reinstalled.
+
+<!-- xgd-turn id="095c3665-7a7f-4f39-a47c-86ea33f67e67-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T15:50:46.269921+00:00" -->
+#### You
+bug-90 has landed
 
 <!-- xgd-chat-end -->
