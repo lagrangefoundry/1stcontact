@@ -6,9 +6,9 @@ title: 'Guided focus tasks: the consultant leads the client through questions an
   story-board reactions, knows when they''re done, and resumes'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:14.162881+00:00'
-updated_at: '2026-10-21T22:10:45.311338+00:00'
+updated_at: '2026-10-21T22:34:05.046498+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -142,3 +142,60 @@ reaction) or `comps` (open comparison cards). Self-contained in `focus-core.ts`,
   describes the cycle (gather → start a focus task, typically right after commissioning a
   build → one line, ask nothing else → resume when told), the small-batch/tidy-board rule,
   and the re-point-once rule using the pane the view report names.
+
+
+
+## As implemented (9932993d36)
+
+The design above landed as written, with these specifics:
+
+- **Who can start one:** the consultant's worker *and* its talker. `start_focus` / `end_focus`
+  are on the talker's allow list, so the talker can start a task while a build runs, which is
+  the moment item 1 names. The consultant's priming (section "Walk the client through it:
+  focus tasks") is deliberately short. The detail lives in the `start_focus` declaration,
+  which keeps the priming inside BUG-129's 200k budget.
+- **Switching:** `start_focus` calls `show_client`'s own resolver: questions → the first
+  question in the task (unfolded and highlighted on the panel), story → Story, comps → the
+  comparison board. The cadence wrapper delivers the switch for every tool in
+  `SWITCHING_TOOLS` (`show_client`, `start_focus`). In the browser, a switch is declined while
+  the composer holds unsent text. The recorded "Showing you …" line stays in the reply as the
+  client's link.
+- **Notice and cue:** the plan-answers notice gains `focusFinishedLine` (what the task was;
+  "every item is done" or "they pressed Done with N of M left"; answered/skipped counts, or
+  ❤️/👍/👎 note texts, or sent/skipped sites; "Resume the conversation now, without being
+  asked …"). A comparison task that finished together with the board is reported once,
+  through BUG-245's board line. The cue `comps_finished` is replaced by **`finished`**
+  (`FINISHED_CUE`, template `finished-cue`). `/api/ai/prompt {cue: "finished"}` runs only while
+  the board's or a task's finish is still untold, and answers 409 otherwise. The builder cues
+  when any surface's view carries a `focus_finished_at` it has not seen for this site. The
+  first view of a site only records where things stand.
+- **Panel view** gains `focus` (`{kind, intro, total, closed, pending}` or `null`),
+  `focus_later` (story notes for a later task) and `focus_finished_at`.
+- **Talker:** while a task is open, its reminder is `talker-focus` ("open no new topic, ask
+  no new question and pin nothing new; answer if they speak") instead of discovery.
+- **Story board tidiness** (item 6) is priming only. The consultant is told to merge
+  near-duplicates and keep each theme to its strongest few notes. No automatic merging.
+
+## UATs
+
+- `tests/test_UAT_FC_REQ-424_focus_tasks.workers.test.ts` (host, real routes + D1). Covered:
+  - a story task covers the first 8 new notes, switches to `#show=story` and tells the
+    consultant to say one line and ask nothing else; the rest are `focus_later`;
+  - while a story task is open, `pin_notes` and a second `start_focus` are refused
+    `FOCUS_OPEN` and `set_ask` is not; the reminder says the task is open; after `end_focus`, a
+    questions task refuses a new `set_ask`;
+  - reacting to every note finishes the task, and the `finished` cue runs once, names the
+    hearted note and says to resume; the cue is hidden on reload;
+  - Done ends a questions task with items left, and the next turn is told
+    "pressed Done with 2 of 3 left";
+  - a second story task covers only the notes that were new;
+  - a talker during an open task gets the focus reminder, not discovery, and its `pin_notes`
+    is refused.
+- `tests/test_UAT_FC_REQ-424_focus_on_the_surface.test.ts` (jsdom). Covered:
+  - the story board's banner, progress, pending outline, New tag and Done;
+  - the questions panel and comparison board banners and highlights, each showing only its
+    own kind;
+  - the builder switches an idle client to Story and leaves a typing client where they are;
+  - a finished task cues the resuming turn once;
+  - priming carries the cycle (with and without corpus).
+- BUG-245's workers test is updated for the renamed cue.
