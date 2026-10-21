@@ -5,10 +5,10 @@ type: bug
 title: 'Chat composer: Stop shows while only the consultant''s worker is running'
 created_by: REQ-419
 created_at: '2026-10-20T23:33:17.148650+00:00'
-updated_at: '2026-10-21T14:31:41.743973+00:00'
+updated_at: '2026-10-21T14:51:37.076020+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: high
