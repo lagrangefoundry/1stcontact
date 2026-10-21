@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:44:12.918651+00:00'
+updated_at: '2026-10-21T00:47:05.900967+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10575,5 +10575,11 @@ This gets you three things at once:
 3. **A cheap priming rule for now:** if a message both asks something and asks for work, answer the question in a line or two first, then start the work. It won't be reliable on its own (Finding 13), but it helps until the structural fix lands.
 
 That's one lagrange-framework REQ for the hidden cue, and one 1stcontact ticket for the detection, the talker instruction, and the no-repeat rule. Shall I file them, and put the priming line in now?
+
+<!-- xgd-turn id="307c7797-8236-4ea0-aae6-085ed9f59963-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T00:47:05.779145+00:00" -->
+#### You
+please create the two tickets
 
 <!-- xgd-chat-end -->
