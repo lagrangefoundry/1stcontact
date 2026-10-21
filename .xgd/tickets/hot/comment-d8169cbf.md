@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:34:49.489016+00:00'
+updated_at: '2026-10-21T17:36:04.310951+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10973,5 +10973,31 @@ It's separate from BUG-245, so the two can be built in parallel.
 <!-- xgd-chat role="user" ts="2026-10-21T17:34:48.356812+00:00" -->
 #### You
 oops - the red stop button came up at a worker start - that should not happen now, right? I think its the first time I'm seeing it - can you check the last turn before I do anyything and see what happened
+
+<!-- xgd-turn id="8646aed8-daee-434b-9b4d-33062f004056-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:36:01.255505+00:00" -->
+#### Claude
+I'm reading the live session log in the Durable Object for the current turn.
+
+I checked the turn without changing anything. The log doesn't show the case BUG-89 fixed, so I need one detail from you.
+
+**What the turn did** (your 17:32:41 "Here are some testimonials" message):
+1. It read the attachment (`get_library_item`).
+2. It **replied first**, about 13 streamed pieces of text, which is what BUG-240's "answer before working" rule asks for.
+3. It pinned notes, set the stage twice and added a panel question.
+4. Then it reported progress and started a builder (`Delegate`). That's the moment it became the worker, around 17:33. The build is still running.
+
+**Why the composer's Stop shouldn't have appeared:**
+- No talker opened in this turn. There are no talker events in the session log.
+- Your dev snapshot (deployed today at 08:51) contains the BUG-89 fix. In talk mode, the composer offers Stop **only while a talker reply is being generated**, and the browser-side code only sets that when a talker is active.
+
+So with talk mode on, Send should have stayed Send at worker start.
+
+**There are two possible explanations, and one detail from you tells them apart:**
+- **If the red button was in the status widget above the composer, labelled "Stop building":** that's by design. The widget appears as soon as the worker starts, and that button is how you stop the build. It's working correctly, but if it looked alarming, we should change its styling rather than its behaviour.
+- **If the round ▶ Send button in the composer turned into a red ■:** then talk mode wasn't switched on for this conversation in your browser, and the old rule applied. That's a real bug and I'd chase it. The likely cause is the session payload not saying `talker: true` when the page opened, for example a tab opened before the deploy and not reloaded.
+
+Which was it? If it was the composer button, reloading the page should fix it for now, and I'll file a bug.
 
 <!-- xgd-chat-end -->
