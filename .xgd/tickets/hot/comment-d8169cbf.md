@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:49:47.951800+00:00'
+updated_at: '2026-10-21T17:50:40.667010+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11047,5 +11047,11 @@ That narrows it down, and I've added it to BUG-247.
 So it's not the widget's box being replaced: that alone wouldn't put progress into the chat. Most likely the browser treated the turn as an **ordinary reply**, because it started by answering you (the answer-first behaviour we just added). The other candidate is a reconnect path, such as after the consultant switched your view at 17:31. The ticket now points the fix at those two paths first.
 
 **For the rest of this run:** reload the page between builds. A fresh page load should pick up talk mode and the widget again, at least for builds that start working straight away. If a build that *answers first* still shows the ■ after a reload, that confirms the cause. Tell me and I'll note it on the ticket.
+
+<!-- xgd-turn id="83197d46-4e5d-4fb8-8f35-583bf59c340d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:50:40.035771+00:00" -->
+#### You
+Actually the stop button is not perminantly on (I have lost the greyed out button altogther) - trying a reload
 
 <!-- xgd-chat-end -->
