@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:00:05.960562+00:00'
+updated_at: '2026-10-21T18:00:36.373097+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11101,5 +11101,17 @@ It's mostly browser-side, plus one change to the site-changed signal so it names
 <!-- xgd-chat role="user" ts="2026-10-21T18:00:04.233592+00:00" -->
 #### You
 Yes please
+
+<!-- xgd-turn id="23e40041-dfc4-4b49-8528-b834731da71b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:00:35.188813+00:00" -->
+#### Claude
+I've filed **BUG-248**, *"Preview refresh: keep scroll position, refresh only the page that changed, no replayed animations, fewer redraws during a build"*, under EPIC-19 at `draft`, high priority, 5 points, and listed it on the epic.
+
+It covers four changes:
+1. **Your scroll position is kept.** The new version loads in a hidden frame, gets scrolled to where you were, then swaps in. That reuses the panel's existing hidden-frame preload and swap, so there's no flash either. If you scroll while it's loading, wherever you've scrolled to wins.
+2. **Only your page refreshes.** The site-changed signal will name which pages changed, or flag a site-wide change such as styles, fonts, the palette, spacing or the header and footer. A builder working on the prices page leaves your home page alone.
+3. **No replayed animations.** A page reloaded because something changed loads with its entrance animations switched off. That only applies in the preview, never on the published site. Opening a page yourself still plays them, and a "Replay animations" button lets you judge the motion.
+4. **Fewer redraws during a burst.** While a build makes lots of changes, your page refreshes at most once every few seconds (the interval is a setting), plus once when the build finishes. You still see the page grow.
 
 <!-- xgd-chat-end -->
