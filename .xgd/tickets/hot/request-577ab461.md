@@ -6,9 +6,9 @@ title: 'Builders: share the common starting context through the cache, and cache
   run''s history for 5 minutes'
 created_by: EPIC-20
 created_at: '2026-10-21T13:22:20.449737+00:00'
-updated_at: '2026-10-21T13:22:20.449737+00:00'
+updated_at: '2026-10-21T13:22:46.790703+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -24,7 +24,7 @@ Builders share their common starting context through the prompt cache instead of
 
 ## Why (Bob's Salon 3, 2026-10-20/21, analysis on EPIC-20)
 
-Builders were 60% of the session's spend: 38 runs, 1,516 requests, $25.58 metered (about $29.50 at the true 1-hour write rate, see the meter bug filed alongside).
+Builders were 60% of the session's spend: 38 runs, 1,516 requests, $25.58 metered (about $29.50 at the true 1-hour write rate, see BUG-242).
 
 **1. Every builder writes its whole starting context to the cache itself.** A builder starts at roughly 45–50k tokens before it does anything: its role prose, the page vocabulary, the summary manual and, above all, the tool definitions for its grant (the L1 surface declaration alone is ~100 KB). That prefix is identical for every builder of a deployment, and `roles.ts` says it is meant to be shared: *"every worker of a deployment shares it in the cached prefix."* It isn't. The shortest runs show it:
 
@@ -51,10 +51,10 @@ Together: roughly $6 of ~$29.50, about a fifth of builder spend, with no change 
 
 ## Depends on
 
-Item 2 needs the framework to let a backend choose a lifetime for its system prefix separately from its message history, and to read that from `backends.json` (lagrange-framework REQ filed alongside). Item 1 does not, and can land first.
+Item 2 needs the framework to let a backend choose a lifetime for its system prefix separately from its message history, and to read that from `backends.json` (lagrange-framework REQ-216, `request-01439873`). Item 1 does not, and can land first.
 
 ## Test plan
 
-- `test_UAT_FC_<ID>_*`: two builder delegations in a row on one deployment, with a recording model client: the second builder's first request carries the same system and tools as the first's, with a cache breakpoint at the end of the shared prefix, so a provider would read it rather than write it. Assert on the request payloads, byte-identical up to the breakpoint.
+- `test_UAT_FC_REQ-421_*`: two builder delegations in a row on one deployment, with a recording model client: the second builder's first request carries the same system and tools as the first's, with a cache breakpoint at the end of the shared prefix, so a provider would read it rather than write it. Assert on the request payloads, byte-identical up to the breakpoint.
 - With the framework change installed: the builder's system breakpoint asks for 1 hour and its message breakpoints for 5 minutes; the consultant's ask for 1 hour throughout.
 - Measure afterwards from `turn_spend.attributed`: a short builder run's cache writes should be close to its own growth, not its whole context.
