@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:32:01.566456+00:00'
+updated_at: '2026-10-21T20:32:28.881067+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11759,5 +11759,51 @@ You are suggesting 4 new "agents" Planner, Next move, Strategist and Critic.
 We can come back to whether we need 4
 
 My question is how are they called, primed and how is their context managed What I had in mind was that they would be that they are called as "tools" the worker triggers their run they are primed and given read access on a per call basis ... variation - they are stateful tools calling a second time builds on the initial context - but the context is private. The caller gets a report. I think you are suggesting something else?
+
+<!-- xgd-turn id="a8c578ec-fcea-4b70-8203-da6b4cdb71f5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:32:28.748478+00:00" -->
+#### Claude
+I think we mostly agree. I caused the confusion by describing four things as if they were all agents. Only **two are model calls**:
+
+| | what it is | model? |
+|---|---|---|
+| **Plan state** | data the host already keeps: stages, questions, notes, reactions, positioning card, readiness | no, just data |
+| **Next move** | **code**: deterministic rules over the plan state that write one line into each turn's notes | no |
+| **Strategist** | a model call that plans the conversation for a stage | yes |
+| **Critic** | a model call that assesses the work, through a chosen lens | yes |
+
+So there's no "planner" agent, and "next move" isn't an agent. It's a few rules in the host.
+
+## How the two model calls work: your model, almost exactly
+
+They're **tools** that the consultant (as worker or talker) calls, for example `critique(lens: "messaging", focus: "the home page headline")` and `plan_stage(stage: "getting_to_know_you")`. Each call:
+- **is primed with its own role:** for the critic, the lens rubric (DOC-48 material); for the strategist, the conversation method (propose first, synthesise before the headline, focus tasks);
+- **gets read access for that call only:** the plan, the story board, the site's pages, screenshots at desktop and phone. No write tools at all;
+- **gets the caller's brief,** meaning what to look at or decide, but **never the caller's transcript or reasoning.** That independence is the point, otherwise it agrees with whatever the caller already thinks;
+- **returns a report** to the caller as the tool result: for the critic, ranked findings with severity, evidence and a suggested fix; for the strategist, a short stage plan.
+
+That's what `Delegate` already does: a separate session with its own role, priming and grant, a private context, and a report back. So these are two new delegated roles, not new infrastructure.
+
+**Your stateful variation is a good addition, and it's new.** Today a delegated session runs exactly one turn and is discarded. A **persistent private session per tool, per site** would let the second call build on the first:
+- the critic remembers what it flagged last time and checks whether it was fixed, instead of rediscovering it or dropping it;
+- the strategist revises its stage plan instead of starting from scratch.
+
+The context stays private, and the caller only ever sees the reports. It needs a framework addition (a named delegated session that persists across calls), plus a size limit on that private context, using the rolling-summary pattern we already have.
+
+## Where I did suggest something different: who decides when they run
+
+If the consultant only calls them when it thinks to, we're back to Finding 13, because it won't. So: **they're tools, and the host makes them due.**
+- The next-move line says *"Critique due: the first draft is finished"* or *"Stage plan due: entering Looks"*.
+- The host **holds the hand-back** (the same mechanism as REQ-415's "not done") until a due critique has been run and its top findings either acted on or recorded as decisions for you.
+- **One critique per big run,** as you said: at the end of the run, before handing back.
+
+The consultant still calls the tool and reads the report itself, so the reasoning stays with the caller. The host only guarantees that the call happens at the moments that matter.
+
+Does that match what you had in mind? If so, the design note would describe:
+- the **next-move rules** (code, in 1stcontact);
+- **two delegated tool roles,** `critique` and `plan_stage`, with their priming, read grants and report formats (1stcontact);
+- **persistent private delegated sessions** (lagrange-framework);
+- **due and hold** at the gates (1stcontact).
 
 <!-- xgd-chat-end -->
