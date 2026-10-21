@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:48:33.005085+00:00'
+updated_at: '2026-10-21T19:52:14.325136+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11628,5 +11628,13 @@ Yes, that's the right shape: an internal critic. It's a different kind of thing 
 ## Next step
 
 It changes how the consultant thinks, so I'd **write the design note first**: a short DOC covering the critic's inputs, the lenses with their rubrics, the gates, the rules, and how it fits with the worker and talker. Then the tickets: probably one in lagrange-framework, if a critic call with a clean context is a general mechanism, plus one here for the lenses, gates and wiring. Shall I write the note?
+
+<!-- xgd-turn id="c66c8501-2f55-4d9b-ab6b-0ac604a76be8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:52:13.779081+00:00" -->
+#### You
+**No loops.** A fixed number of critique rounds per gate, so it can't polish forever. <-- e.g. worker runs a critique once, after its finished a big run, but before relinquishing to the client?
+
+This drifted from our original conversation which was about conversation strategy though and it doesn't really solve for that
 
 <!-- xgd-chat-end -->
