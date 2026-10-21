@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:34:06.350151+00:00'
+updated_at: '2026-10-21T17:34:49.489016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10967,5 +10967,11 @@ It covers four things:
 4. **Unambiguous names:** "the story board" and "the comparison board", never just "the board".
 
 It's separate from BUG-245, so the two can be built in parallel.
+
+<!-- xgd-turn id="8646aed8-daee-434b-9b4d-33062f004056-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:34:48.356812+00:00" -->
+#### You
+oops - the red stop button came up at a worker start - that should not happen now, right? I think its the first time I'm seeing it - can you check the last turn before I do anyything and see what happened
 
 <!-- xgd-chat-end -->
