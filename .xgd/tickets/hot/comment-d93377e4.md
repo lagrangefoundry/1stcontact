@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T14:19:59.190750+00:00'
+updated_at: '2026-10-21T14:20:02.266054+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -358,5 +358,11 @@ Yeah I meant arc welding - sorry
 I've changed the name to **Ariel's Arc Welding** everywhere. The folder is now `example-businesses/ariels-arcwelding/`, and the made-up email and website are `shop@arielsarcwelding.example` and `arielsarcwelding.example`. The index is updated too, and no "Archwelding" is left anywhere.
 
 None of it is committed yet. Bob's 16 images are also still loose in `bobs-salon/` and uncommitted. Should I move them into `bobs-salon/images/`, list them in Bob's README, and commit both businesses together?
+
+<!-- xgd-turn id="1a1460fb-3ef8-4082-9c34-fd7e167d6a49-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T14:20:01.588240+00:00" -->
+#### You
+Yes please organize bob's gallery and commit it
 
 <!-- xgd-chat-end -->
