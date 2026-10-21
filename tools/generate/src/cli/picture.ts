@@ -30,6 +30,7 @@
  * `ReferenceStore` were drawn to close, and the Worker could not use it —
  * which is the whole reason the four tickets under this one exist.
  */
+import { L1_KEEP_ATTR } from '@1stcontact/site-schema'
 import type { ReferenceStore } from '../store/reference-store'
 import { ladderMember, SCREENSHOT_MEMBER } from '../store/reference-store'
 import type { BrowserDriverFactory, Viewport } from './capture/types'
@@ -160,7 +161,9 @@ export interface PageSection {
  * so the n-th element child of the root is the node at `0.n`, the address
  * `describe_page` gives it. A root that is only a wrapper around one container is
  * descended through, because "the page's sections" on such a page are that
- * container's children, and `0.0.n` is still their address. A page with no L1
+ * container's children, and `0.0.n` is still their address. A keep-with-next
+ * group's wrapper ([[REQ-420]]) is the one element that is not a node, so it is
+ * looked through to its members. A page with no L1
  * root (a module-only page) answers with no sections rather than guessed ones.
  *
  * Read AFTER the shot, so the positions are those of the layout the pixels show.
@@ -168,7 +171,9 @@ export interface PageSection {
  */
 export const SECTIONS_SCRIPT =
   '(() => {' +
-  "  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE');" +
+  // REQ-420 — a keep-with-next wrapper is not a node; its members are.
+  "  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE')" +
+  `    .flatMap((c) => (c.hasAttribute('${L1_KEEP_ATTR}') ? real(c) : [c]));` +
   "  let root = document.querySelector('body > .l1-0');" +
   '  if (!root) return [];' +
   "  let at = '0';" +

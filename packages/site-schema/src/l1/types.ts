@@ -79,6 +79,8 @@ import type {
   l1TextStyleSchema,
   l1TextStylesSchema,
   l1TypeSchema,
+  l1RhythmSchema,
+  l1SpacingSchema,
   l1TextRunAxesSchema,
   l1TextRunSchema,
   l1TextSchema,
@@ -121,6 +123,9 @@ export type L1TextResponsive = z.infer<typeof l1TextResponsiveSchema>
 export type L1TextStyle = z.infer<typeof l1TextStyleSchema>
 export type L1TextStyles = z.infer<typeof l1TextStylesSchema>
 export type L1Type = z.infer<typeof l1TypeSchema>
+// REQ-420 — the site's rhythm unit, and how a container spaces its children.
+export type L1Rhythm = z.infer<typeof l1RhythmSchema>
+export type L1Spacing = z.infer<typeof l1SpacingSchema>
 // REQ-98 — the one paint capability every box-rendering kind carries.
 export type L1SurfaceAxes = z.infer<typeof l1SurfaceAxesSchema>
 export type L1ImageAxes = z.infer<typeof l1ImageAxesSchema>

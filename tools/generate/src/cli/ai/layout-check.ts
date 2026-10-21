@@ -16,7 +16,9 @@
  * empty or collapsed section; sibling sections whose content edges disagree; and a
  * list of items with numbers in it built as side-by-side columns — misaligned when
  * its rows no longer line up, and reported even when they do, because a name and
- * its price in different columns line up only by luck.
+ * its price in different columns line up only by luck. [[REQ-420]] — and a
+ * heading that floats: one that sits at least as far from the text below it as
+ * from the text above it, so it reads as belonging to neither.
  *
  * PROCESSING IS CHEAP, LOOKING IS NOT. The host runs this freely — after every
  * builder session that writes a page, and on every page map — so the consultant's
@@ -32,6 +34,7 @@
  * any style; nothing here says a page is ugly.
  */
 
+import { L1_KEEP_ATTR } from '@1stcontact/site-schema'
 import type { BrowserDriverFactory } from '../capture/types'
 import { VIEWPORTS } from '../capture/screenshot'
 import type { MeasureDeps } from './measure-core'
@@ -62,6 +65,7 @@ export type LayoutFindingKind =
   | 'edges'
   | 'misaligned_rows'
   | 'split_rows'
+  | 'floating_heading'
 
 /** One fault, on one page at one width. */
 export interface LayoutFinding extends RawLayoutFinding {
@@ -90,7 +94,9 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   const vw = window.innerWidth;
   const out = { width: vw, findings: [] };
   const add = (section, kind, text) => out.findings.push({ section, kind, text });
-  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE');
+  // [[REQ-420]] — a keep-with-next wrapper is not a node; its members are.
+  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE')
+    .flatMap((c) => (c.hasAttribute('${L1_KEEP_ATTR}') ? real(c) : [c]));
   let root = document.querySelector('body > .l1-0');
   if (!root) return out;
   let at = '0';
@@ -235,6 +241,31 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
         add(address, 'split_rows', 'has a list built as ' + listy.length + ' side-by-side columns of ' + counts[0] +
           ' entries, so each row is split across columns and lines up only by luck. Build it as a table element, one row per item');
       }
+    }
+
+    // ── a heading that floats between the text above and below it ([[REQ-420]]) ──
+    // A heading belongs to what follows it, so it must sit clearly closer to that
+    // than to what came before. Measured against the nearest text above and below
+    // it in its own column. A heading with text tight above it (an eyebrow, or a
+    // title under its kicker) is attached upward on purpose and is not judged.
+    const blocks = all.filter((el) => !inline(el) && leaf(el) && words(el) !== '')
+      .map((el) => ({ el, r: el.getBoundingClientRect() }));
+    for (const h of blocks) {
+      if (!/^H[1-6]$/.test(h.el.tagName)) continue;
+      const col = (o) => Math.min(o.r.right, h.r.right) - Math.max(o.r.left, h.r.left) > 0.5 * Math.min(o.r.width, h.r.width);
+      let above = null; let below = null;
+      for (const o of blocks) {
+        if (o === h || h.el.contains(o.el) || o.el.contains(h.el) || !col(o)) continue;
+        if (o.r.bottom <= h.r.top + 1 && (!above || o.r.bottom > above.r.bottom)) above = o;
+        if (o.r.top >= h.r.bottom - 1 && (!below || o.r.top < below.r.top)) below = o;
+      }
+      if (!above || !below || /^H[1-6]$/.test(below.el.tagName)) continue;
+      const up = h.r.top - above.r.bottom;
+      const down = below.r.top - h.r.bottom;
+      const size = parseFloat(style(h.el).fontSize) || 16;
+      if (up < size * 0.5 || down < up) continue;
+      add(address, 'floating_heading', 'has the heading ' + quote(h.el) + ' ' + px(down) + ' from the text below it and only ' +
+        px(up) + ' from what comes before it, so it does not read as belonging to its text. Give it more space above than below');
     }
 
     // ── the section's content edges, compared below ──

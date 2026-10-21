@@ -25,7 +25,7 @@ import {
   shareHeadTags,
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition, ImageDeliveryManifest, ShareHead } from '@1stcontact/framework/worker'
-import { l1InlinedDrawings, resolveSiteLocale } from '@1stcontact/site-schema'
+import { l1InlinedDrawings, l1RhythmUnit, resolveSiteLocale } from '@1stcontact/site-schema'
 import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
 // re-exports it while importing `node:path` and the filesystem helpers. A
@@ -301,7 +301,10 @@ function renderPage(
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
   })
-  const l1 = page.l1 ? renderL1Document(page.l1, { mounts, edit, delivery, drawings }) : null
+  // REQ-420 — the rhythm unit is the site's, so it is handed in with the page.
+  const l1 = page.l1
+    ? renderL1Document(page.l1, { mounts, edit, delivery, drawings, rhythm: l1RhythmUnit(site) })
+    : null
   const body = l1 ? l1.html : rendered.join('\n')
 
   const head = [

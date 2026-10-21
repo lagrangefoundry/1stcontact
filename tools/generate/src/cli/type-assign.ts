@@ -29,19 +29,58 @@
  * resolved back to literals first, so a second run recomputes from the page as
  * it paints. The styles themselves are kept — the retrofit adds beside them and
  * never deletes one somebody defined.
+ *
+ * REQ-420 — and the page's VERTICAL RHYTHM is read off its layout and kept: the
+ * styles it creates for headings and body carry the space the reference put
+ * above and below them, and a site with no declared unit gets the one it was
+ * measured in. A reproduction is pinned geometry, so this changes nothing it
+ * paints; it is what lets the page keep the reference's spacing when it is later
+ * restyled into rhythm stacks. Read only on a site with no rhythm container at
+ * all, which is what keeps the retrofit a change of description: there, a
+ * style's spacing moves no pixel.
  */
 import {
   L1_TYPE_AXES,
   l1Children,
+  l1RhythmPlan,
   resolveL1TextStyles,
   withL1Children,
+  type L1Document,
   type L1Node,
+  type L1Rhythm,
   type L1ScalarTrack,
   type L1TextStyle,
   type L1TextStyles,
 } from '@1stcontact/site-schema'
 
+import { readRhythm, rhythmBlocksOfDocument } from '../l1/read-rhythm'
+
 const TRACKED = ['fontSizePx', 'lineHeightPx', 'letterSpacingPx'] as const
+
+/**
+ * REQ-420 — the styles with their rhythm space taken off. What the retrofit
+ * resolves to literals is TYPE; a style's space must stay on the style, or every
+ * run naming it would come out pinned to that space as its own override.
+ */
+function withoutSpace(styles: L1TextStyles): L1TextStyles {
+  return Object.fromEntries(
+    Object.entries(styles).map(([name, { spaceAbove: _a, spaceBelow: _b, ...type }]) => [name, type]),
+  )
+}
+
+/** REQ-420 — does any page space a container by rhythm? */
+function anyRhythm(pages: readonly Record<string, unknown>[]): boolean {
+  let found = false
+  const walk = (v: unknown): void => {
+    if (found || !v || typeof v !== 'object') return
+    if (Array.isArray(v)) return v.forEach(walk)
+    const n = v as L1Node
+    if (n.kind === 'container' && l1RhythmPlan(n)) found = true
+    for (const item of Object.values(v)) walk(item)
+  }
+  pages.forEach(walk)
+  return found
+}
 
 type Run = Extract<L1Node, { kind: 'text' } | { kind: 'control' }>
 
@@ -103,6 +142,8 @@ export interface TypeAssignment {
   pages: Record<string, unknown>[]
   /** How many runs now name a style (directly or through a container), and how many containers set one. */
   report: { runs: number; containers: number; styles: number }
+  /** REQ-420 — the unit the page's rhythm was measured in, when the site declared none. */
+  rhythm?: L1Rhythm
 }
 
 /**
@@ -111,6 +152,7 @@ export interface TypeAssignment {
  */
 export function assignTextStyles(base: Record<string, unknown>, pages: Record<string, unknown>[]): TypeAssignment {
   const existing = (base.textStyles as L1TextStyles | undefined) ?? {}
+  const typeOnly = withoutSpace(existing)
   const kept = typeof base.textDefault === 'string' && existing[base.textDefault] ? base.textDefault : undefined
   // Start from the page as it paints — every named style and container value
   // resolved to the run — except the default, which a kept default goes on
@@ -120,13 +162,13 @@ export function assignTextStyles(base: Record<string, unknown>, pages: Record<st
     return {
       ...page,
       ...(p.l1
-        ? { l1: resolveL1TextStyles(p.l1, existing, kept ? undefined : (base.textDefault as string | undefined)) }
+        ? { l1: resolveL1TextStyles(p.l1, typeOnly, kept ? undefined : (base.textDefault as string | undefined)) }
         : {}),
       ...(Array.isArray(p.modules)
         ? {
             modules: p.modules.map((m) =>
               m.slots
-                ? { ...m, slots: resolveL1TextStyles(m.slots, existing, kept ? undefined : (base.textDefault as string | undefined)) }
+                ? { ...m, slots: resolveL1TextStyles(m.slots, typeOnly, kept ? undefined : (base.textDefault as string | undefined)) }
                 : m,
             ),
           }
@@ -179,10 +221,16 @@ export function assignTextStyles(base: Record<string, unknown>, pages: Record<st
     throw new Error(`type assign: ran out of names for ${name}`)
   }
   const nameOf = new Map<string, string>()
+  /** REQ-420 — the heading level each created `heading-<level>` style is for. */
+  const levelOf = new Map<string, number>()
   let body: string | undefined
   for (const [key, g] of ordered) {
     const heading = [...g.headings.entries()].sort((a, b) => b[1] - a[1])[0]
-    if (heading && heading[1] * 2 > g.uses) nameOf.set(key, unique(`heading-${heading[0]}`))
+    if (heading && heading[1] * 2 > g.uses) {
+      const name = unique(`heading-${heading[0]}`)
+      nameOf.set(key, name)
+      levelOf.set(name, heading[0])
+    }
     else if (body === undefined && !taken.has('body')) nameOf.set(key, (body = unique('body')))
   }
   for (const [key, g] of ordered) {
@@ -193,6 +241,28 @@ export function assignTextStyles(base: Record<string, unknown>, pages: Record<st
   const textStyles: L1TextStyles = {}
   for (const [key, g] of ordered) textStyles[nameOf.get(key)!] = g.style
   for (const [name, style] of Object.entries(existing)) textStyles[name] = style
+
+  // REQ-420 — the rhythm the pages were laid out with, onto the styles just made.
+  let rhythm: L1Rhythm | undefined
+  if (!anyRhythm(pages)) {
+    const docs = literal.flatMap((page) => {
+      const l1 = page.l1 as L1Document | undefined
+      return l1?.root && Array.isArray(l1.widths) ? [l1] : []
+    })
+    const read = readRhythm(docs.map((doc) => rhythmBlocksOfDocument(doc, Math.max(...doc.widths))))
+    if (read) {
+      for (const [name, level] of levelOf) {
+        const space = read.headings[level]
+        if (space && Object.keys(space).length) textStyles[name] = { ...textStyles[name], ...space }
+      }
+      // Body spacing goes on the style most body text was given — `body` when the
+      // retrofit made one, else the most used of the others it made — never on a
+      // style somebody already defined.
+      const prose = body ?? ordered.map(([key]) => nameOf.get(key)!).find((n) => !levelOf.has(n) && !(n in existing))
+      if (prose !== undefined && Object.keys(read.body).length) textStyles[prose] = { ...textStyles[prose], ...read.body }
+      if (base.rhythm === undefined) rhythm = { unitPx: Math.min(200, Math.max(1, read.unitPx)) }
+    }
+  }
 
   // 3 (decided first, because it changes what a run must name). Every run on the
   // site — slots included, since a slot inherits the default too — must set
@@ -265,5 +335,11 @@ export function assignTextStyles(base: Record<string, unknown>, pages: Record<st
       throw new Error(`type assign: page '${String(pages[i].id)}' would not keep its type exactly; nothing was written`)
     }
   }
-  return { textStyles, textDefault, pages: assigned, report: { runs, containers, styles: Object.keys(textStyles).length } }
+  return {
+    textStyles,
+    textDefault,
+    pages: assigned,
+    report: { runs, containers, styles: Object.keys(textStyles).length },
+    ...(rhythm ? { rhythm } : {}),
+  }
 }

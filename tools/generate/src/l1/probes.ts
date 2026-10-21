@@ -39,6 +39,9 @@
 import {
   l1PlainText,
   resolveLayoutMode,
+  l1RhythmPlan,
+  L1_RHYTHM_FALLBACK_UNIT_PX,
+  type L1RhythmUnit,
   validateL1,
   type L1Column,
   type L1ColumnTerm,
@@ -230,6 +233,11 @@ export interface EvaluateOptions {
    * (`viewportResponse`, `atHeight`); nothing read it back.
    */
   viewportHeight?: number
+  /**
+   * REQ-420 — the site's rhythm unit, so a rhythm container's spaces resolve to
+   * the px the renderer's margins do. Absent, the renderer's own fallback unit.
+   */
+  rhythm?: L1RhythmUnit
   /**
    * BUG-143 — the surface each run is backed by, from
    * {@link deriveSurfaceBacking}. Supplied, the evaluation asserts **containment**
@@ -839,8 +847,10 @@ interface Ctx {
   width: number
   /** BUG-173 — the document's centred column, for REQ-88 anchored axes. */
   column?: L1Column
-  opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed'>>
+  opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed' | 'rhythm'>>
   leaves: EvalLeaf[]
+  /** REQ-420 — one rhythm unit at this width, in px. */
+  rhythmPx: number
   /**
    * REQ-278 — the corner an absolutely-placed node is absolute TO: the nearest
    * in-flow ancestor's own box, or the page (0,0) when there is none. The fold's
@@ -1207,7 +1217,11 @@ function layoutInFlow(
         ctx.leaves.push({ path, kind: 'box', id: node.id, box, pinned, ...stackedOf(node, ctx) })
         return { advance: adv(box.height), box }
       }
-      const gap = node.kind === 'container' ? (node.gapPx ?? 0) : 0
+      // REQ-420 — a rhythm container spaces by its children's own space, not by
+      // a uniform gap: the lead before each member, in units, from the SAME plan
+      // the renderer compiles to margins.
+      const rhythm = node.kind === 'container' ? l1RhythmPlan(node) : null
+      const gap = node.kind === 'container' && !rhythm ? (node.gapPx ?? 0) : 0
       // BUG-142 — the flow interior is the border box inset by the node's own
       // padding. `interior` is what every child frame and every cursor below is
       // measured from; `box` itself stays the border box the geometry pinned.
@@ -1317,6 +1331,10 @@ function layoutInFlow(
             layout(child, { ...box }, `${path}.${i}`, inner)
             return
           }
+          // REQ-420 — a member's rhythm lead is its margin-top in a stack. A
+          // keep-with-next group's wrapper is a column carrying its first
+          // member's lead, so in a stack the arithmetic is the members' own.
+          cursorY += (rhythm?.leads.get(i) ?? 0) * ctx.rhythmPx
           const childFrame: EvalBox = { x: interior.x, y: cursorY, width: interior.width, height: 0 }
           const h = layout(child, childFrame, `${path}.${i}`, inner, child === through ? { block: true, absorbed: true } : block)
           cursorY += h + gap
@@ -1736,7 +1754,7 @@ export function evaluateLayout(
   width: number,
   options: EvaluateOptions = {},
 ): LayoutResult {
-  const opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed'>> = {
+  const opts: Required<Omit<EvaluateOptions, 'measured' | 'viewportHeight' | 'backing' | 'fullBleed' | 'rhythm'>> = {
     contentScale: options.contentScale ?? 1,
     epsilonPx: options.epsilonPx ?? 2,
   }
@@ -1751,6 +1769,9 @@ export function evaluateLayout(
     textCursor: new Map(),
     viewportHeight: options.viewportHeight,
     column: doc.column,
+    rhythmPx: options.rhythm?.track
+      ? evalScalarTrack(options.rhythm.track, width)
+      : (options.rhythm?.unitPx ?? L1_RHYTHM_FALLBACK_UNIT_PX),
   }
   const rootFrame: EvalBox = { x: 0, y: 0, width, height: 0 }
   // BUG-188 — the root is a block inside `body`, so a top margin can collapse
@@ -4016,7 +4037,9 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
           const only = children[cells[ci][0]]
           return flowNode(only, cellLeads.get(ci)!, !heightBelongsToContent(only))
         }
-        const container: L1Node = { kind: 'container', layout: 'stack', children: members }
+        // REQ-420 — a recovered stack is spaced by its members' measured leads,
+        // so it says `gap` rather than defaulting to rhythm and adding to them.
+        const container: L1Node = { kind: 'container', layout: 'stack', spacing: 'gap', children: members }
         return single ? container : withFlowGeometry(container, cellLeads.get(ci)!, discontinuous)
       }
 
@@ -4078,7 +4101,7 @@ export function promoteToFlow(doc: L1Document, options: PromoteOptions = {}): Pr
         continue
       }
       name()
-      emitted.push({ kind: 'container', layout: 'stack', children: nodes })
+      emitted.push({ kind: 'container', layout: 'stack', spacing: 'gap', children: nodes })
     }
 
     // The absolutely-kept children (the fills) are re-attached ahead of the flow,
