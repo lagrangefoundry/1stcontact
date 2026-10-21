@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:38:23.972466+00:00'
+updated_at: '2026-10-21T20:38:53.937092+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11866,5 +11866,41 @@ I'd put this in the design note as its organising principle, *rules for the chec
 I think I understand critic. What is strategist and when is it called?
 
 Also given this conversation do we need Next Move or is it obvious from Plan State?
+
+<!-- xgd-turn id="faca62fd-a5be-4455-ad62-f8e4293a09d5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:38:49.527738+00:00" -->
+#### Claude
+## The strategist
+
+**What it is:** a tool that plans the *conversation* for one stage. It's given the plan state, the story board, your readiness per area, a short summary of how the conversation has gone so far, and the stage method (propose first, synthesise before choosing a headline, focus tasks). It returns a short **stage plan**:
+- which decisions are left in this stage, and in what order;
+- for each one, the approach for *this* client: guide, propose, or just carry out;
+- when to run a focus task, and what the stage needs from you before it can be called done.
+
+**When it's called:**
+- when a stage starts;
+- when something changes the picture: your readiness shifts ("actually I know exactly what I want"), or you take the conversation somewhere new;
+- when the consultant is unsure what to do next.
+
+**An honest assessment:** it's the most speculative of these pieces. Its value is the clean-context step back at transitions, which is what I described when you asked why I seem more grounded here. But much of what it does overlaps with the consultant's own job, and with readiness plus the next-move rules. **I'd leave it out to start with,** and add it only if readiness and the due list (below) don't handle the range of clients.
+
+## Next move vs plan state
+
+It's obvious **to us**, reading the plan state with hindsight. Evidence says it isn't obvious to the consultant mid-build with a crowded context. "14 notes, 0 reactions" was in front of it, and it kept asking for more notes. The consultant reliably acts on **conclusions**, not on raw facts it has to interpret (Finding 13 again).
+
+So you're right that it shouldn't be a separate *thing*. It's a **derived field of the plan state**: a short **"due" list** the host computes from the state, for example:
+> *Due: reaction task (14 notes, 0 reactions) · positioning card · critique of the first draft*
+
+The plan state already holds everything; the due list is just the plan state's own summary of what to do next. The same rules put a hold on hand-back when a critique is due.
+
+## That leaves a small first step
+
+1. **Plan state** (exists) **plus a due list** derived from it. It's code, cheap and testable.
+2. **The critic**: a delegated tool role, due at the end of each big build and before publishing.
+3. **Readiness per area** (REQ-425) to set the pace.
+4. **Later, only if needed:** the strategist, and persistent private sessions for the critic.
+
+Shall I write that up as the design note, with the due list and the critic as the first ticket?
 
 <!-- xgd-chat-end -->
