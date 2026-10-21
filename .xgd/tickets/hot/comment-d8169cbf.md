@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:43:17.039440+00:00'
+updated_at: '2026-10-21T00:44:12.918651+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10534,5 +10534,46 @@ Take a look at the last turn of the Bobs Salon 3 please...I asked: The movement 
 And the consultant disappeared to work on it without answering my question, so I had to ask it again and the talker could give me a response.
 
 Can we tell when the AI dives into work mode? could we resend the prompt in talker mode? I'm not sure quite  how to manage the parallelism here but it feels like there is an opportunity?
+
+<!-- xgd-turn id="2cac2e9f-ee6f-4641-9577-7001b7501b71-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T00:44:12.123465+00:00" -->
+#### Claude
+I read it. Here's what happened, and how I'd use the parallelism.
+
+## What happened
+
+Your 00:38:37 message had two parts: **a request** (more movement, like the top photo) and **a question** ("what's next?"). The consultant's turn treated the whole message as a build request. Its first action was a builder call, and all you saw was the status note: *"Adding a gentle opening movement to the top photo and headline, about 5 minutes."* So your question had no answer. Sixteen seconds later you asked "What's next?" again, which opened a talker. The talker answered well: the plan in three steps, plus a good story question about Aoife's room. Then the worker finished and answered "Next: colours and fonts" a second time, repeating what the talker had just told you.
+
+There are two defects:
+1. **The worker went straight to work** without answering the conversational part of the message.
+2. **The worker's hand-back repeated** something the talker had already answered. It's told about the talker's exchanges, but nothing tells it not to repeat them.
+
+## Can we tell when the AI starts working? Yes, exactly
+
+The host sees the moment a turn issues its **first tool the talker isn't allowed**, such as `Delegate` or a site write. That's the point where the turn has committed to building. If it does that **before writing anything to you**, it has gone into work mode without replying.
+
+## Replaying your message to a talker: yes, that's the opportunity
+
+When the worker starts building without replying, the host **immediately opens a talker on the same message**, with no second message needed from you. The talker is told that the worker has taken the building part (it's given the status note), and that its job is to:
+- **answer anything else you asked**, in this case "what's next?";
+- otherwise **acknowledge briefly and ask a story question**, which is exactly the hand-over REQ-416 wanted;
+- **say nothing** if the message was purely a build request and there's nothing useful to add (that option has to exist, or it will always chatter).
+
+This gets you three things at once:
+- **No unanswered questions.** Mixed messages are common, and this splits them automatically: the worker builds, the talker replies within seconds.
+- **The build-time conversation always starts.** Today, a talker only appears if you speak again. With this, every build opens with a talker turn, so the story interview starts by itself instead of relying on the worker remembering to end its announcement with a question.
+- **It's cheap.** The talker shares the worker's cached prompt (REQ-210), so a quick reply costs little. Its value is exactly what you said earlier: it makes your waiting time useful.
+
+## What it needs
+
+1. **A framework addition** (lagrange-framework): a host can open a talker round on a **cue the client never sees**, answering the message that started the worker. Today a talker only opens on a new client message from the inbox (`talkerDesk` → `startTurn`).
+2. **On our side:**
+   - detect the moment the turn starts building before it has said anything to you, and open the cued talker;
+   - give the talker the instruction above, including "say nothing if there's nothing to add";
+   - add a rule to the worker's hand-back: **don't repeat what the talker has already told the client.** It already receives those exchanges.
+3. **A cheap priming rule for now:** if a message both asks something and asks for work, answer the question in a line or two first, then start the work. It won't be reliable on its own (Finding 13), but it helps until the structural fix lands.
+
+That's one lagrange-framework REQ for the hidden cue, and one 1stcontact ticket for the detection, the talker instruction, and the no-repeat rule. Shall I file them, and put the priming line in now?
 
 <!-- xgd-chat-end -->
