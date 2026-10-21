@@ -187,6 +187,24 @@ export function previewPageUrl(url, rel) {
 }
 
 /**
+ * The same preview page, with its entrance motion off or back on ([[BUG-248]]).
+ *
+ * The builder asks for `still` when it refreshes a page because the draft moved
+ * — replaying every entrance on each write is noise — and drops it when the
+ * reader asks to see the motion. The origin honours it on builder previews only
+ * (`PREVIEW_STILL_PARAM` in `router.ts`); published pages never see it.
+ */
+export function previewStillUrl(url, still) {
+  const [head, hash = ''] = String(url ?? '').split('#')
+  const [path, query = ''] = head.split('?')
+  const params = new URLSearchParams(query)
+  params.delete('still')
+  if (still) params.set('still', '1')
+  const rest = params.toString()
+  return `${path}${rest ? `?${rest}` : ''}${hash ? `#${hash}` : ''}`
+}
+
+/**
  * The same page, rendered by a different channel ([[BUG-131]]).
  *
  * THE FOURTH READER OF THE SAME URL SHAPE, and the exact dual of
@@ -1211,7 +1229,9 @@ export function subscribeMaterial(since, onChange, { EventSourceImpl = globalThi
  * the count the connection opened at.
  *
  * @param {string} site the site key
- * @param {(frame: {kind: 'ready'|'draft', at: number}) => void} onChange
+ * @param {(frame: {kind: 'ready'|'draft', at: number, pages?: string[], site?: boolean}) => void} onChange
+ *   [[BUG-248]] — a `draft` frame names the pages written and whether anything
+ *   every page renders moved
  * @param {object} [opts]
  * @param {typeof EventSource} [opts.EventSourceImpl] injected by tests
  * @returns {{close: () => void}}

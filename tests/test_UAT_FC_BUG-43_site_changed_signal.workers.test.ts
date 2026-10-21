@@ -163,9 +163,11 @@ describe('BUG-43 — the assistant’s writes reach the page', () => {
     // And each carries the counter as it stood at that moment, which is what
     // makes the signal a fact about the store rather than a note from the model.
     const signals = events.filter((e) => e.kind === 'site_changed')
+    // [[BUG-248]] — and which page each write touched, so a preview showing
+    // another page can leave itself alone.
     expect(signals.map((e) => e.meta)).toEqual([
-      { at: 1, changes: 1 },
-      { at: 2, changes: 1 },
+      { at: 1, changes: 1, pages: ['services'], site: false },
+      { at: 2, changes: 1, pages: ['contact'], site: false },
     ])
 
     // The page a signal announced really is renderable the moment it arrives:

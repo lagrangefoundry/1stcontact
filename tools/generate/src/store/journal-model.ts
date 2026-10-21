@@ -34,6 +34,12 @@ export interface JournalRecord {
   op: string
   /** The page it happened on, when it happened on one. */
   page?: string
+  /**
+   * The pages it WROTE, when that is not just `page` ([[BUG-248]]). Setting up
+   * looks writes the look pages and names the page they are for as `page`; a
+   * reader deciding whether its page moved needs the pages that did.
+   */
+  pages?: string[]
   /** The address it was recorded against — for orientation only. */
   path?: string
   module?: string
@@ -141,4 +147,31 @@ export function sliceSince(journal: JournalFile, since?: number): ChangeSlice {
   // truncated while a site whose records have aged out reports that it has.
   const earliest = journal.records.length ? journal.records[0].at : journal.counter + 1
   return { since: from, now: journal.counter, truncated: earliest > from + 1, changes }
+}
+
+/**
+ * What a run of changes touched, for a reader deciding whether the page it is
+ * showing moved ([[BUG-248]]).
+ *
+ * `site` IS THE CONSERVATIVE ANSWER. A record that names no page — palette,
+ * text styles, fonts, config, assets, gaps — changes what every page renders,
+ * and so does a window that no longer reaches back to `since`: what fell out of
+ * it cannot be said to have spared anything.
+ */
+export interface ChangeScope {
+  /** The pages written, by page id. */
+  pages: string[]
+  /** True when something not confined to those pages changed. */
+  site: boolean
+}
+
+export function scopeOf(slice: ChangeSlice): ChangeScope {
+  const pages = new Set<string>()
+  let site = slice.truncated
+  for (const record of slice.changes) {
+    const named = record.pages ?? (record.page ? [record.page] : null)
+    if (named === null) site = true
+    else for (const page of named) pages.add(page)
+  }
+  return { pages: [...pages], site }
 }

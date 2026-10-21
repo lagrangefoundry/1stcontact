@@ -40,6 +40,10 @@
  * first of them out of the way behind the visible page, so that the FIRST flip
  * is in place as well as every one after it.
  *
+ * A WRITE NEVER RELOADS THE FRAME IN FRONT OF THE OPERATOR ([[BUG-248]]). The
+ * newer page loads in a frame behind it, is scrolled to where they are, and is
+ * swapped in — so the place they were reading is kept and nothing blanks.
+ *
  * A HOST MAY ASK TO BE TOLD when the displayed document is about to go and when
  * a new one has arrived (`onBeforeNavigate`, and the `document` event). The pane
  * does not know what is worth keeping across a swap — that is [[REQ-215]]'s
@@ -74,6 +78,8 @@ const SHOWN_CLASS = 'builder-panel__frame'
 const LEAVING_CLASS = 'builder-panel__pane--leaving'
 const ENTERING_CLASS = 'builder-panel__pane--entering'
 const SWAP_MS = 320
+/** [[BUG-248]] — the swap a refresh makes: the newer page fades in over the older. */
+const REFRESH_SWAP = 'refresh'
 
 export function createDisplayPanel(options = {}) {
   const element = document.createElement('div')
@@ -123,6 +129,12 @@ export function createDisplayPanel(options = {}) {
    * only place that state can be read from either way.
    */
   const onBeforeNavigate = options.onBeforeNavigate ?? null
+  /**
+   * [[BUG-248]] — the URL a refresh loads: `(url, still) => url`, where `still`
+   * asks for the page without its entrance motion. The host's, because the
+   * pane knows nothing about what a preview URL can say.
+   */
+  const stillUrl = options.stillUrl ?? ((url) => url)
 
   let activeId = null
   /** The timer that ends an animated swap ([[REQ-391]]). */
@@ -181,6 +193,7 @@ export function createDisplayPanel(options = {}) {
     el.addEventListener('load', () => {
       rec.loaded = true
       if (current === rec) emit('document', el.contentDocument)
+      if (refreshing?.to === rec) finishRefresh()
       prime()
     })
     if (register) frames.set(id, rec)
@@ -190,8 +203,16 @@ export function createDisplayPanel(options = {}) {
     return rec
   }
 
-  /** Every frame there is: each mode's own, and the spares. */
-  const allFrames = () => [...frames.values(), ...spares]
+  /**
+   * [[BUG-248]] — a refresh under way: the shown frame (`from`), the frame the
+   * newer page is loading into behind it (`to`), and where `from` was when it
+   * was asked for (`where`, without the flag). `to` is out of `spares` until it
+   * is swapped in or dropped, so a carousel preload cannot re-point it.
+   */
+  let refreshing = null
+
+  /** Every frame there is: each mode's own, the spares, and one being refreshed into. */
+  const allFrames = () => [...frames.values(), ...spares, ...(refreshing ? [refreshing.to] : [])]
 
   /**
    * The width every frame is laid out at, or `null` to fill the pane ([[REQ-388]]).
@@ -262,11 +283,82 @@ export function createDisplayPanel(options = {}) {
    * after leaving an entered business is ANOTHER CUSTOMER'S SITE. `rec.src`
    * still records `''`, so "nothing shown" reads the same to everything else.
    */
-  function navigate(rec, url) {
+  function navigate(rec, url, actual = url) {
     rec.src = url
     rec.stale = false
     rec.loaded = false
-    rec.el.setAttribute('src', url === '' ? 'about:blank' : url)
+    rec.el.setAttribute('src', actual === '' ? 'about:blank' : actual)
+  }
+
+  /**
+   * Where a frame's document actually is — it may have followed a link since it
+   * was pointed anywhere — or `null` when that cannot be read.
+   */
+  function locationOf(rec) {
+    try {
+      const href = rec.el.contentWindow?.location?.href
+      return typeof href === 'string' && href !== '' && href !== 'about:blank' ? href : null
+    } catch {
+      return null
+    }
+  }
+
+  /** The two halves of an animated swap ([[REQ-391]]), cleared once it has run. */
+  function animate(outgoing, incoming, direction) {
+    for (const rec of [outgoing, incoming]) {
+      rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
+      rec.el.dataset.swap = direction
+    }
+    outgoing.el.classList.add(LEAVING_CLASS)
+    incoming.el.classList.add(ENTERING_CLASS)
+    clearTimeout(settle)
+    settle = setTimeout(() => {
+      for (const rec of [outgoing, incoming]) rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
+    }, SWAP_MS)
+  }
+
+  /** Abandon a refresh under way; its frame goes back to the spares, out of date. */
+  function dropRefresh() {
+    if (!refreshing) return
+    refreshing.to.stale = true
+    spares.push(refreshing.to)
+    refreshing = null
+  }
+
+  /**
+   * The newer page has loaded behind the shown one ([[BUG-248]]): put it where
+   * the reader is, and swap it in.
+   *
+   * THE SCROLL IS READ NOW, NOT WHEN THE REFRESH WAS ASKED FOR, so a reader who
+   * kept scrolling while it loaded lands where they are rather than where they
+   * were. The browser clamps it to the new page's height.
+   *
+   * A READER WHO LEFT THE PAGE meanwhile — followed a link inside it — is on a
+   * page loaded after the write, so the refresh is dropped rather than taking
+   * them back.
+   */
+  function finishRefresh() {
+    const { from: outgoing, to: incoming, where } = refreshing
+    refreshing = null
+    const now = stillUrl(locationOf(outgoing) ?? outgoing.src, false)
+    if (current !== outgoing || !sameUrl(now, where)) {
+      incoming.stale = true
+      spares.push(incoming)
+      return
+    }
+    try {
+      const from = outgoing.el.contentWindow
+      incoming.el.contentWindow?.scrollTo({ left: from?.scrollX ?? 0, top: from?.scrollY ?? 0, behavior: 'instant' })
+    } catch {
+      /* a document that cannot be read or scrolled is shown from its top */
+    }
+    onBeforeNavigate?.()
+    outgoing.stale = true
+    spares.push(outgoing)
+    frames.set(outgoing.id, incoming)
+    animate(outgoing, incoming, REFRESH_SWAP)
+    display(incoming)
+    emit('document', incoming.el.contentDocument)
   }
 
   /**
@@ -310,6 +402,7 @@ export function createDisplayPanel(options = {}) {
   function show() {
     const mode = activeId === null ? null : modes.get(activeId)
     if (!mode) return
+    dropRefresh()
     onBeforeNavigate?.()
     if (mode.mount) {
       display(null)
@@ -440,25 +533,6 @@ export function createDisplayPanel(options = {}) {
       show()
     },
     /**
-     * The displayed document has been written to: re-render it, and mark every
-     * other frame out of date ([[BUG-79]]).
-     *
-     * `draft` and `edit` render at request time (REQ-119), so a write is
-     * published by re-fetching and there is no artifact to keep in step. That
-     * was `frame.contentWindow.location.reload()` at three call sites while
-     * there was one frame. With several, "reload the preview" has to mean the
-     * one on screen AND a note against the others: a hidden frame must not
-     * serve a pre-write render the next time it is shown, and must not pay for
-     * a render nobody is looking at either.
-     *
-     * THE DOCUMENT'S OWN `reload`, as the three call sites always used — kept
-     * because it reloads WHERE THE FRAME IS rather than where it was sent. The
-     * operator may have followed a link inside it, and re-assigning the mode's
-     * `src` would take them back to the page they left, which is the loss this
-     * ticket is about wearing another costume. Re-assigning is the fallback for
-     * a frame with no reachable window at all.
-     */
-    /**
      * Point the displayed frame at `url` — the chrome doing what a link inside
      * the render does ([[REQ-248]]).
      *
@@ -478,6 +552,7 @@ export function createDisplayPanel(options = {}) {
      */
     navigateDocument(url) {
       if (!current) return
+      dropRefresh()
       invalidate(current)
       navigate(current, url)
       currentSrc = url
@@ -518,6 +593,7 @@ export function createDisplayPanel(options = {}) {
       if (!current) return
       const outgoing = current
       if (sameUrl(outgoing.src, url) && !outgoing.stale) return
+      dropRefresh()
       onBeforeNavigate?.()
       let incoming = spares.find((r) => r.id === outgoing.id && !r.stale && sameUrl(r.src, url))
       if (!incoming) {
@@ -527,44 +603,63 @@ export function createDisplayPanel(options = {}) {
       spares.splice(spares.indexOf(incoming), 1)
       spares.push(outgoing)
       frames.set(outgoing.id, incoming)
-      for (const rec of [outgoing, incoming]) {
-        rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
-        rec.el.dataset.swap = direction
-      }
-      outgoing.el.classList.add(LEAVING_CLASS)
-      incoming.el.classList.add(ENTERING_CLASS)
+      animate(outgoing, incoming, direction)
       display(incoming)
-      clearTimeout(settle)
-      settle = setTimeout(() => {
-        for (const rec of [outgoing, incoming]) rec.el.classList.remove(LEAVING_CLASS, ENTERING_CLASS)
-      }, SWAP_MS)
       currentSrc = url
       emit('src', currentSrc)
       if (incoming.loaded) emit('document', incoming.el.contentDocument)
     },
-    reloadDocument() {
+    /**
+     * The displayed document has been written to: re-render it, and mark every
+     * other frame out of date ([[BUG-79]]).
+     *
+     * `draft` and `edit` render at request time (REQ-119), so a write is
+     * published by re-fetching and there is no artifact to keep in step. A
+     * hidden frame must not serve a pre-write render the next time it is shown,
+     * and must not pay for a render nobody is looking at either — so the others
+     * are only noted.
+     *
+     * THE NEWER PAGE LOADS BEHIND THE SHOWN ONE AND IS SWAPPED IN ([[BUG-248]]).
+     * Reloading in place blanked the pane, lost the reader's place and replayed
+     * every entrance. It loads WHERE THE FRAME IS rather than where it was sent —
+     * the operator may have followed a link inside it — scrolled to where they
+     * are (see {@link finishRefresh}). `still` (the default) asks for the page
+     * without its entrance motion: a refresh is the same page, newer, and the
+     * motion was seen when it was opened. `still: false` is the reader asking to
+     * see it again.
+     *
+     * A refresh asked for while one is loading re-points the same frame, so the
+     * newest page is the one swapped in.
+     */
+    reloadDocument({ still = true } = {}) {
       invalidate(current)
       if (!current) return
+      // A mode with no frame is showing (the story board): the frame is only
+      // noted, and re-renders when it is shown again.
+      if (modes.get(activeId)?.mount) {
+        current.stale = true
+        return
+      }
       current.stale = false
-      // A FRAME STILL ON ITS WAY SOMEWHERE IS RE-POINTED, NEVER RELOADED
-      // ([[BUG-207]]). Until it has loaded, its window is the document being
-      // LEFT — after a site switch, the previous site — and reloading that
-      // cancels the navigation to the new one, leaving the old site on screen
-      // under a panel that says it moved. What it was asked for is the page.
+      // A FRAME STILL ON ITS WAY SOMEWHERE IS RE-POINTED ([[BUG-207]]). Until it
+      // has loaded, its window is the document being LEFT — after a site
+      // switch, the previous site — so where it "is" is not the page. What it
+      // was asked for is.
       if (!current.loaded) {
+        dropRefresh()
         navigate(current, current.src)
         return
       }
-      try {
-        const win = current.el.contentWindow
-        if (typeof win?.location?.reload === 'function') {
-          win.location.reload()
-          return
-        }
-      } catch {
-        /* a window that cannot be reached is re-pointed instead */
+      const outgoing = current
+      const where = stillUrl(locationOf(outgoing) ?? outgoing.src, false)
+      let incoming = refreshing?.from === outgoing ? refreshing.to : null
+      if (!incoming) {
+        dropRefresh()
+        incoming = spares.find((r) => r.id === outgoing.id && r.stale) ?? makeFrame(outgoing.id, false)
+        spares.splice(spares.indexOf(incoming), 1)
       }
-      navigate(current, current.src)
+      refreshing = { from: outgoing, to: incoming, where }
+      navigate(incoming, outgoing.src, stillUrl(where, still))
     },
     /**
      * Lay the draft out at `width` CSS pixels, or fill the pane with `null`

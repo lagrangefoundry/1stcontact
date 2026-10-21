@@ -345,6 +345,29 @@ export function phonePreviewAction(honestUrl, open) {
 }
 
 /**
+ * Replay animations — the page again, with its entrances ([[BUG-248]]).
+ *
+ * A page the builder refreshes because the draft moved arrives with its
+ * entrance motion off: the motion was seen when the page was opened, and
+ * replaying all of it on every write is noise. This is how the motion is judged
+ * again on demand — the same refresh, keeping the reader's place, asking for the
+ * page as published. View only: the edit render runs no page script.
+ */
+export function replayAnimationsAction() {
+  return {
+    id: 'replay-animations',
+    create({ panel }) {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'builder-toolbar__replay'
+      btn.textContent = 'Replay animations'
+      btn.addEventListener('click', () => panel.reloadDocument({ still: false }))
+      return btn
+    },
+  }
+}
+
+/**
  * Colors — opens the palette popup in manage mode (REQ-133 §1).
  *
  * ONE MORE ACTION SPEC, not a branch. The toolbar renders whatever the active

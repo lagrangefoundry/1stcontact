@@ -150,9 +150,10 @@ describe('BUG-192 — the draft change feed', () => {
 
     const after = await counter(business, site)
     expect(after).toBeGreaterThan(before)
+    // [[BUG-248]] — a palette write touches every page.
     expect(got.map((f) => f.data)).toEqual([
       { kind: 'ready', at: before },
-      { kind: 'draft', at: after },
+      { kind: 'draft', at: after, pages: [], site: true },
     ])
     expect(got[1].id).toBe(String(after))
   })
@@ -175,7 +176,7 @@ describe('BUG-192 — the draft change feed', () => {
     // carrying where the count is now.
     expect(got.map((f) => f.data)).toEqual([
       { kind: 'ready', at: seen },
-      { kind: 'draft', at: now },
+      { kind: 'draft', at: now, pages: [], site: true },
     ])
   })
 

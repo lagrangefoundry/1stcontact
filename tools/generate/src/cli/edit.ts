@@ -2459,7 +2459,8 @@ export async function editAlternativesMake(
         members.map((p) => `${String((p as PageRecord).alternative!.label)} (${String((p as PageRecord).id)})`).join(', ') +
         '.',
     },
-    { op: 'alternative.set', page: ofPageId, label: set },
+    // [[BUG-248]] — the looks are what was written, not the page they are for.
+    { op: 'alternative.set', page: ofPageId, pages: written.map((f) => String(f.page.id)), label: set },
   )
 }
 
