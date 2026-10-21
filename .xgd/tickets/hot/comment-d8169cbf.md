@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T22:04:30.170588+00:00'
+updated_at: '2026-10-21T22:04:49.919702+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12188,5 +12188,21 @@ I'd add these checks to the existing layout-check ticket (BUG-238) rather than o
 <!-- xgd-chat role="user" ts="2026-10-21T22:04:26.782594+00:00" -->
 #### You
 Its ok I restarted the dashboard with the bug fix in it - that's how we are talking
+
+<!-- xgd-turn id="70fc268b-ed29-4ab1-ac80-095fd0d5aeb0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T22:04:44.490484+00:00" -->
+#### Claude
+Good, so that's fixed and I'll drop it.
+
+The open question is the layout checks. Should I add them to BUG-238? These are the three I'd add:
+- **Heading spacing:** measure the space between the letters, not the boxes. The space after a heading must also be clearly smaller than the space between the paragraphs under it.
+- **Stranded word:** flag a short word left alone on its own line in large heading text, like "and".
+- **Menu:**
+  - a label that wraps onto two lines;
+  - links under about 14px on a phone;
+  - a menu taking more than about a third of the first screen.
+
+Separately, the hero on Ariel's site needs a content fix: the heading and subtitle should use heading styles so REQ-420 spaces them properly. The header should also move to the new REQ-422 menu once that's on dev. Run `bin/deploy --env dev` and you can ask the consultant to switch the header over.
 
 <!-- xgd-chat-end -->
