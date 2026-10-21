@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:36:20.992911+00:00'
+updated_at: '2026-10-21T20:38:23.972466+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11858,5 +11858,13 @@ This is the placeholder you raised on the 18th. It's the clearest case for **sam
 ## Next
 
 I'd put this in the design note as its organising principle, *rules for the checks, readiness for the path*, alongside the next-move line, the two tools and the persistent sessions. The existing-site route would get its own ticket afterwards, since it's a separate starting point. Shall I write the note now?
+
+<!-- xgd-turn id="faca62fd-a5be-4455-ad62-f8e4293a09d5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T20:38:21.425682+00:00" -->
+#### You
+I think I understand critic. What is strategist and when is it called?
+
+Also given this conversation do we need Next Move or is it obvious from Plan State?
 
 <!-- xgd-chat-end -->
