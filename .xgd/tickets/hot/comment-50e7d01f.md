@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:19:19.257951+00:00'
+updated_at: '2026-10-21T15:20:02.088386+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4313,5 +4313,47 @@ I think the cause is ours. Past 80% of its context, the host tells the builder o
 <!-- xgd-chat role="user" ts="2026-10-21T15:19:16.935322+00:00" -->
 #### You
 Please take another look is everything implemented
+
+<!-- xgd-turn id="bd61a17d-6aed-41cf-85a6-078f093bf9c3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T15:20:01.574959+00:00" -->
+#### Claude
+Checking the status, commits and actual code for each ticket from this round, plus whether the priming draft went in.
+
+Most of it checks out. The gap is REQ-421: `backends.json` sets no cache lifetime for any backend. I'll read what REQ-421 says it did and how the installed framework takes the setting.
+
+The key is `cache_ttl`, not `cacheTtl`; my check used the wrong name. Confirming the key, reading the cause REQ-421 found, and checking the framework bug it filed.
+
+Nearly everything is in. One piece is still in progress in the framework, and one is waiting on you.
+
+## Done (all committed and merged into xgd-working)
+
+| ticket | checked in the code |
+|---|---|
+| **BUG-233**: story board no longer appended to builder briefs | The append and `storyBrief` are gone from the delegation path. |
+| **BUG-242**: meter prices cache writes at the right rate | `prices.json` now carries separate 5-minute and 1-hour write rates. |
+| **BUG-243**: builders stop after reporting | A recorded report ends the builder's turn. |
+| **REQ-419**: Comparisons mode | The comp viewer is deleted, and the panel's "Sites we're comparing" item is gone. |
+| **REQ-421**, part 2: builders cache their conversation for 5 minutes | `backends.json` gives the builder `{system: 1h, messages: 5m}` and keeps the consultant and coordinator at 1 hour. The meter reads the same setting, so it prices what's actually requested. |
+| **lagrange-framework REQ-216**: configurable cache lifetimes | Installed in the shared framework copy. |
+| **BUG-237**: layout check false alarm | Landed. |
+
+All of these are at `ready_to_reconcile`. None has been through reconcile yet.
+
+## Still open: builders sharing their starting context
+
+REQ-421 found the cause, and it's in the framework, not here. Every session's system prompt starts with about 900 characters of session-memory text that names its own ticket ("This conversation is ticket chat-…"). Each builder's prompt is unique from its first line, so no builder can read another's cached copy. That rules out the ~48k tokens of role prose and manual behind it, and the tool definitions, which REQ-421 confirmed are byte-identical across builders.
+
+The fix is to move that per-session line after the shared part, with no wording change. That's **lagrange-framework BUG-90**. It's at `free_coding` with no commits yet, so it's being worked on but hasn't landed. Until it does, the larger of the two caching savings isn't realised. The 5-minute history change is already in.
+
+REQ-421 also checked for duplicated text between the builder's instructions and its tool definitions and found none, so there was nothing to trim there.
+
+## Waiting on you: the discovery priming draft
+
+The six edits in `.xgd/tmp/epic20/discovery-priming-draft.md` aren't applied. They cover closing out discovery, the stop-asking tests, direction questions after discovery, quieter build updates, the comps back and forth, and asking about competitors. I was holding them for your OK on the wording. Say the word and I'll splice them into `priming.json`.
+
+## To try it
+
+Dev only picks up these changes after `bin/deploy --env dev`. Once you've redeployed, the next test site will show whether the report loop is gone, the 5-minute builder writes, the corrected meter and the new Comparisons mode. The shared-prefix saving will follow once BUG-90 lands and the framework is reinstalled.
 
 <!-- xgd-chat-end -->
