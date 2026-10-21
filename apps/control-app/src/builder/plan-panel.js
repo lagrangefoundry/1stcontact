@@ -59,8 +59,14 @@
  * [[BUG-236]] — AND WHAT THEY TYPED IS KEPT BY ITSELF until it is stored, by ask,
  * so a block that is drawn again — the client had moved on to
  * another box — is drawn with their text still in it.
+ *
+ * [[REQ-424]] — WHILE THE CONSULTANT HAS THE CLIENT ANSWERING THE QUESTIONS, the
+ * panel says so: the focus banner under the progress line (the consultant's line,
+ * "2 of 5 questions left", Done for them all) and each question still waiting
+ * edged in its blue. Skip stays on each question.
  */
-import { answerAsk, deleteMaterial, fetchPlan, saveMaterialRole, uploadMaterial } from './api.js'
+import { answerAsk, deleteMaterial, fetchPlan, focusAction, saveMaterialRole, uploadMaterial } from './api.js'
+import { createFocusBanner } from './focus-banner.js'
 import { failureContent } from './failure-notice.js'
 import { canUseOnSite, confirmDelete, deleteButton, useOnSiteButton } from './material-actions.js'
 import {
@@ -218,6 +224,7 @@ export function createPlanPanel(options = {}) {
   const transport = {
     fetchPlan,
     answerAsk,
+    focusAction,
     uploadMaterial,
     // [[BUG-196]] — the actions on an answered upload: the Library's own calls.
     setRole: saveMaterialRole,
@@ -311,7 +318,9 @@ export function createPlanPanel(options = {}) {
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
   // [[REQ-417]] — what the panel is for, until it has a question in it.
   const noQuestions = el('p', 'plan-panel__ghost', PLAN_NO_QUESTIONS_YET)
-  element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList, working)
+  // [[REQ-424]] — the questions task, when the consultant has started one.
+  const focus = createFocusBanner({ kind: 'questions', site: () => site, transport, onView: (view) => render(view) })
+  element.append(tracker, progress, focus.element, error, noQuestions, openHeading, openList, doneHeading, doneList, working)
 
   let site = null
   let generation = 0
@@ -872,6 +881,9 @@ export function createPlanPanel(options = {}) {
     blocks.clear()
     for (const [id, held] of drawn) blocks.set(id, held)
     drawNew(open)
+    const pending = new Set(focus.render(view)?.pending ?? [])
+    element.classList.toggle('plan-panel--focus', pending.size > 0)
+    for (const [id, held] of blocks) held.node.classList.toggle('plan-item--focus', pending.has(id))
     // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
     openHeading.hidden = openList.hidden = openList.childElementCount === 0
     doneHeading.hidden = doneList.hidden = doneList.childElementCount === 0

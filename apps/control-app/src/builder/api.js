@@ -592,6 +592,21 @@ export async function boardAction({ site, ...action }, fetchImpl = fetch) {
 }
 
 /**
+ * [[REQ-424]] — the client's Done on the focus task the consultant started
+ * (`action: 'done'`). Answers the panel's view as the write left it, like
+ * {@link boardAction}.
+ */
+export async function focusAction({ site, action }, fetchImpl = fetch) {
+  return copyEnvelope(
+    await send(fetchImpl, scoped('/api/plan/focus'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ site, action }),
+    }),
+  )
+}
+
+/**
  * Answer or skip one ask on the plan panel ([[REQ-364]]).
  *
  * `action` is `answer` or `skip`. An answer is `answer` (a string, or the options

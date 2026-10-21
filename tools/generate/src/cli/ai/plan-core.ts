@@ -31,7 +31,11 @@ import {
   boardOperations,
   boardReminderLine,
   boardView,
+  boardOf,
   checkBoard,
+  liveNotes,
+  pinNotes,
+  REACTION_EMOJI,
   type BoardView,
   type StoryBoard,
 } from './story-core'
@@ -444,6 +448,8 @@ export interface PlanFields {
   looked_at?: Record<string, Partial<Record<LookWidth, number>>>
   /** [[REQ-408]] — the story board. Absent until anything is pinned. */
   board?: StoryBoard
+  /** [[REQ-424]] — the focus tasks the consultant has led, newest last. Absent until the first. */
+  focus_tasks?: FocusTask[]
 }
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
@@ -933,6 +939,17 @@ export function checkPlan(fields: PlanFields): void {
     if (!filled(d.quote)) bad(`${d.detail} cannot be approved without the client's own words attached`)
   }
   checkBoard(fields.board, bad)
+  // [[REQ-424]] — focus tasks: known kinds and endings, items to go through, a line to show.
+  for (const t of fields.focus_tasks ?? []) {
+    if (!(FOCUS_KINDS as readonly string[]).includes(t.kind)) bad(`unknown focus task kind ${JSON.stringify(t.kind)}`)
+    if (!Array.isArray(t.items) || t.items.length === 0 || !t.items.every(filled)) bad('a focus task needs the items it covers')
+    if (!filled(t.intro)) bad('a focus task needs the line it shows the client')
+    if (!filled(t.started_at)) bad('a focus task needs when it started')
+    if (t.finished_by !== undefined && !(FOCUS_ENDINGS as readonly string[]).includes(t.finished_by)) {
+      bad(`unknown focus task ending ${JSON.stringify(t.finished_by)}`)
+    }
+  }
+  if ((fields.focus_tasks ?? []).slice(0, -1).some((t) => !t.finished_at)) bad('only the newest focus task may still be open')
 }
 
 const filled = (v: unknown): boolean => typeof v === 'string' && v.trim() !== ''
@@ -1147,6 +1164,12 @@ export interface PanelView {
   board: BoardView
   /** [[REQ-408]] — whether the first draft has been built: until it has, the preview opens in Story. */
   drafted: boolean
+  /** [[REQ-424]] — the focus task open, as its surface draws it, or `null`. */
+  focus: FocusView | null
+  /** [[REQ-424]] — story notes waiting for a later task, marked new on the board. */
+  focus_later: string[]
+  /** [[REQ-424]] — when the client last finished a focus task: a change the builder cues a turn on. */
+  focus_finished_at: string | null
 }
 
 /** [[REQ-401]] — where comparing sites stands, as the panel's item shows it. */
@@ -1211,6 +1234,9 @@ export function panelView(fields: PlanFields): PanelView {
     comps_note: fields.comps_note ?? '',
     board: boardView(fields),
     drafted: Boolean(fields.milestones?.first_pass_at),
+    focus: focusView(fields),
+    focus_later: focusLater(fields),
+    focus_finished_at: focusFinishedAt(fields),
   }
 }
 
@@ -1311,6 +1337,8 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   if (briefBits.length) lines.push(`Brief — ${briefBits.join('; ')}.`)
   // [[REQ-408]] — the story board, and what "Getting to know you" still needs from it.
   lines.push(boardReminderLine(f))
+  // [[REQ-424]] — the focus task open, or what is waiting for one.
+  lines.push(focusReminderLine(f))
   const order: [string, string][] = [
     ['open', 'Not yet decided'],
     ['defaulted', 'Defaulted, never really chosen'],
@@ -1505,6 +1533,8 @@ export function clientAnswer(
   if (prior !== undefined) a.previous_answer = prior
   else delete a.previous_answer
   featuresAnswered(next.fields, a)
+  // [[REQ-424]] — the last open question of a focus task finishes it.
+  settleFocus(next.fields, at)
   checkPlan(next.fields)
   return next
 }
@@ -1726,6 +1756,8 @@ export function clientCompAction(plan: Plan, reference: string, action: ClientCo
     else delete c.state
   }
   settleComps(next.fields, at)
+  // [[REQ-424]] — and the last open card of a focus task finishes it.
+  settleFocus(next.fields, at)
   checkPlan(next.fields)
   return next
 }
@@ -1768,7 +1800,269 @@ export function removeComp(plan: Plan, reference: string, at: string): Plan {
   compIn(next.fields, reference)
   next.fields.comps = next.fields.comps.filter((c) => c.reference !== reference)
   settleComps(next.fields, at)
+  settleFocus(next.fields, at)
   return next
+}
+
+// ── [[REQ-424]] guided focus tasks ─────────────────────────────────────────
+
+/**
+ * [[REQ-424]] — WHAT A FOCUS TASK CAN BE ABOUT: the questions on the panel, the
+ * notes on the story board, the cards on the comparison board.
+ */
+export const FOCUS_KINDS = ['questions', 'story', 'comps'] as const
+export type FocusKind = (typeof FOCUS_KINDS)[number]
+
+/** [[REQ-424]] — how a task ended: every item closed, the client's Done, or the consultant's end. */
+export const FOCUS_ENDINGS = ['items', 'client', 'consultant'] as const
+export type FocusEnding = (typeof FOCUS_ENDINGS)[number]
+
+/**
+ * [[REQ-424]] — a step the consultant leads: the client is pointed at one surface
+ * and works through a handful of its items, and the consultant is told when they
+ * have. The plan keeps every task in `focus_tasks`, newest last; the newest is
+ * OPEN until it has `finished_at`.
+ */
+export interface FocusTask {
+  kind: FocusKind
+  /** Ask ids, note ids or comp references — what the client is asked to go through. */
+  items: string[]
+  /** The consultant's one line, shown on the surface: what to do there. */
+  intro: string
+  started_at: string
+  finished_at?: string
+  finished_by?: FocusEnding
+}
+
+/** [[REQ-424]] — the longest line a task shows the client. */
+export const MAX_FOCUS_INTRO_CHARS = 200
+
+/** [[REQ-424]] — how many notes one reaction task covers, from the plan seed. */
+export const FOCUS_MAX_STORY_NOTES: number = planSeed.focus.max_story_notes
+
+/** [[REQ-424]] — what the client is asked to do on each surface, as the consultant is told it. */
+export const FOCUS_WHAT: Record<FocusKind, string> = {
+  questions: 'answering the questions on the panel',
+  story: 'reacting to notes on the story board',
+  comps: 'commenting on the sites on the comparison board',
+}
+
+/** [[REQ-424]] — the task still open, or `null`. */
+export function openFocus(fields: Pick<PlanFields, 'focus_tasks'>): FocusTask | null {
+  const last = (fields.focus_tasks ?? []).at(-1)
+  return last && !last.finished_at ? last : null
+}
+
+/** [[REQ-424]] — whether one item of a task is done with: answered or skipped, reacted to, sent or skipped. */
+export function focusItemClosed(fields: PlanFields, kind: FocusKind, id: string): boolean {
+  if (kind === 'questions') {
+    const a = (fields.asks ?? []).find((x) => x.id === id)
+    return !a || a.status !== 'open'
+  }
+  if (kind === 'comps') {
+    const c = (fields.comps ?? []).find((x) => x.reference === id)
+    return !c || compCardState(c) !== 'open'
+  }
+  const n = boardOf(fields).notes.find((x) => x.id === id)
+  return !n || n.deleted === true || n.reaction !== undefined
+}
+
+/** [[REQ-424]] — every item a story task has ever covered: those are not "new". */
+const storyCovered = (fields: PlanFields): Set<string> =>
+  new Set((fields.focus_tasks ?? []).filter((t) => t.kind === 'story').flatMap((t) => t.items))
+
+/**
+ * [[REQ-424]] — what a task of this kind would cover now: every open question, in
+ * the order the client sees them; every open comparison card; and the notes you
+ * pinned that have no reaction and that no story task has covered yet — the new
+ * ones — oldest first.
+ */
+export function focusCandidates(fields: PlanFields, kind: FocusKind): string[] {
+  if (kind === 'questions') return orderedAsks(fields.asks ?? []).filter((a) => a.status === 'open').map((a) => a.id)
+  if (kind === 'comps') return (fields.comps ?? []).filter((c) => compCardState(c) === 'open').map((c) => c.reference)
+  const covered = storyCovered(fields)
+  return liveNotes(boardOf(fields))
+    .filter((n) => n.by === 'consultant' && n.reaction === undefined && !covered.has(n.id))
+    .map((n) => n.id)
+}
+
+/**
+ * [[REQ-424]] — THE TASK KNOWS WHEN IT IS FINISHED: once every one of its items is
+ * closed it is stamped finished (by `items`), once. Run on every write to the plan,
+ * the client's and the consultant's alike. Mutates `fields`.
+ */
+export function settleFocus(fields: PlanFields, at: string): void {
+  const task = openFocus(fields)
+  if (task && task.items.every((id) => focusItemClosed(fields, task.kind, id))) {
+    task.finished_at = at
+    task.finished_by = 'items'
+  }
+}
+
+/** [[REQ-424]] — the task the client was asked to finish, as a line the consultant reads. */
+function focusRefusal(task: FocusTask): string {
+  return (
+    `your client is ${FOCUS_WHAT[task.kind]} — the focus task you started — so nothing new goes there until they finish; ` +
+    'you will be told when they do. Keep it and add it then, or end_focus first if they have walked away from it'
+  )
+}
+
+/**
+ * [[REQ-424]] — WHILE A TASK IS OPEN ITS SURFACE TAKES NOTHING NEW from you: no new
+ * question while they answer the questions, no new note while they react to the
+ * story board, no new site while they comment on the comparison board.
+ */
+export function focusGuard(fields: Pick<PlanFields, 'focus_tasks'> | undefined, kind: FocusKind): void {
+  const task = fields ? openFocus(fields) : null
+  if (task && task.kind === kind) throw refuse('FOCUS_OPEN', focusRefusal(task))
+}
+
+/** [[REQ-424]] — start a task (the consultant's `start_focus`). Mutates `fields`; answers the task. */
+export function startFocus(fields: PlanFields, p: Record<string, unknown>, at: string): FocusTask {
+  const kind = String(p.kind ?? '') as FocusKind
+  if (!(FOCUS_KINDS as readonly string[]).includes(kind)) throw refuse(PLAN_INVALID, `a focus task is one of ${FOCUS_KINDS.join(', ')}`)
+  const open = openFocus(fields)
+  if (open) {
+    throw refuse(
+      'FOCUS_OPEN',
+      `your client is still ${FOCUS_WHAT[open.kind]} — one focus task at a time. Wait until you are told they have finished, or end_focus it if they have walked away from it`,
+    )
+  }
+  const intro = str(p.intro)
+  if (!intro || intro.length > MAX_FOCUS_INTRO_CHARS) {
+    throw refuse(PLAN_INVALID, `give intro: one line of at most ${MAX_FOCUS_INTRO_CHARS} characters saying what to do there`)
+  }
+  const candidates = focusCandidates(fields, kind)
+  let items: string[]
+  if (Array.isArray(p.items) && p.items.length) {
+    items = [...new Set(p.items.map(String))]
+    const off = items.find((id) => focusItemClosed(fields, kind, id))
+    if (off !== undefined) throw refuse(PLAN_INVALID, `${JSON.stringify(off)} is not an open item there; leave items out to cover everything still open`)
+  } else {
+    items = candidates
+  }
+  if (kind === 'story' && items.length > FOCUS_MAX_STORY_NOTES) items = items.slice(0, FOCUS_MAX_STORY_NOTES)
+  if (items.length === 0) {
+    throw refuse('NOTHING_TO_FOCUS', `there is nothing open for your client there: ${FOCUS_WHAT[kind]} has nothing waiting on them`)
+  }
+  const task: FocusTask = { kind, items, intro, started_at: at }
+  fields.focus_tasks = [...(fields.focus_tasks ?? []), task]
+  return task
+}
+
+/**
+ * [[REQ-424]] — end the open task: the client pressed Done (`client`), or the
+ * consultant ended one they walked away from (`consultant`, which tells nobody).
+ * Pure; refused when no task is open.
+ */
+export function finishFocus(plan: Plan, by: Exclude<FocusEnding, 'items'>, at: string): Plan {
+  const next = copy(plan)
+  const task = openFocus(next.fields)
+  if (!task) throw refuse('NO_FOCUS', 'there is no focus task open')
+  task.finished_at = at
+  task.finished_by = by
+  checkPlan(next.fields)
+  return next
+}
+
+/** [[REQ-424]] — the open task as the client's surfaces draw it. */
+export interface FocusView {
+  kind: FocusKind
+  intro: string
+  started_at: string
+  total: number
+  /** How many items are closed. */
+  closed: number
+  /** The items still waiting, which the surface highlights. */
+  pending: string[]
+}
+
+export function focusView(fields: PlanFields): FocusView | null {
+  const task = openFocus(fields)
+  if (!task) return null
+  const pending = task.items.filter((id) => !focusItemClosed(fields, task.kind, id))
+  return { kind: task.kind, intro: task.intro, started_at: task.started_at, total: task.items.length, closed: task.items.length - pending.length, pending }
+}
+
+/**
+ * [[REQ-424]] — the story notes waiting for a later task, which the board marks
+ * NEW: unreacted notes no task has covered, once the board has had a reaction task.
+ */
+export function focusLater(fields: PlanFields): string[] {
+  if (!(fields.focus_tasks ?? []).some((t) => t.kind === 'story')) return []
+  const open = openFocus(fields)
+  const inOpen = new Set(open?.kind === 'story' ? open.items : [])
+  return focusCandidates(fields, 'story').filter((id) => !inOpen.has(id))
+}
+
+/** [[REQ-424]] — when the client last finished a task (theirs, or every item closed), or `null`. */
+export function focusFinishedAt(fields: Pick<PlanFields, 'focus_tasks'>): string | null {
+  const done = (fields.focus_tasks ?? []).filter((t) => t.finished_at && t.finished_by !== 'consultant')
+  return done.at(-1)?.finished_at ?? null
+}
+
+/** [[REQ-424]] — the task the client finished since `since`, or `null`. On the plan-answers cursor. */
+export function focusFinishedSince(fields: PlanFields, since: string): FocusTask | null {
+  const done = (fields.focus_tasks ?? []).filter((t) => t.finished_at && t.finished_by !== 'consultant' && t.finished_at > since)
+  return done.at(-1) ?? null
+}
+
+const focusQuote = (text: string, max = 60): string => JSON.stringify(text.length <= max ? text : `${text.slice(0, max - 1)}…`)
+
+/**
+ * [[REQ-424]] — the notice for a task the client finished: what it was, how it
+ * ended, what they did, and that the consultant resumes without being asked.
+ */
+export function focusFinishedLine(fields: PlanFields, task: FocusTask): string {
+  const left = task.items.filter((id) => !focusItemClosed(fields, task.kind, id)).length
+  const ended = task.finished_by === 'client' && left > 0 ? `they pressed Done with ${left} of ${task.items.length} left` : 'every item is done'
+  let did: string
+  if (task.kind === 'questions') {
+    const asks = (fields.asks ?? []).filter((a) => task.items.includes(a.id))
+    const answered = asks.filter((a) => a.status === 'answered').length
+    const skipped = asks.filter((a) => a.status === 'skipped').length
+    did = `they answered ${answered} and skipped ${skipped} of ${task.items.length} questions`
+  } else if (task.kind === 'comps') {
+    const comps = (fields.comps ?? []).filter((c) => task.items.includes(c.reference))
+    did = `they sent notes on ${comps.filter((c) => compCardState(c) === 'sent').length} and skipped ${comps.filter((c) => compCardState(c) === 'skipped').length} of ${task.items.length} sites`
+  } else {
+    const notes = boardOf(fields).notes.filter((n) => task.items.includes(n.id))
+    const by = (r: string): string[] => notes.filter((n) => !n.deleted && n.reaction === r).map((n) => focusQuote(n.text))
+    const parts = (['heart', 'up', 'down'] as const)
+      .map((r) => (by(r).length ? `${REACTION_EMOJI[r]} ${by(r).join(', ')}` : ''))
+      .filter(Boolean)
+    const deleted = notes.filter((n) => n.deleted).length
+    did = `of ${task.items.length} notes: ${parts.length ? parts.join('; ') : 'no reactions'}${deleted ? `; ${deleted} deleted` : ''}`
+  }
+  return (
+    `Your client has finished the focus task you started — ${FOCUS_WHAT[task.kind]} (${ended}); ${did}. ` +
+    'Resume the conversation now, without being asked: in a line or two say what you took from it, naming it ' +
+    '(e.g. "You hearted the shipyard and your dad\'s rule — those lead the home page"), then carry on with the next thing. ' +
+    'Ask about each 👎 or anything left open only if it matters.'
+  )
+}
+
+/** [[REQ-424]] — the focus line of the per-turn plan entry. */
+export function focusReminderLine(fields: PlanFields): string {
+  const view = focusView(fields)
+  if (view) {
+    return (
+      `Focus task open: your client is ${FOCUS_WHAT[view.kind]} (${view.closed} of ${view.total} done; you said "${view.intro}"). ` +
+      'Open no new topic and add nothing to that surface until you are told they have finished; answer them if they speak. ' +
+      'If the view report says they are not looking at it, point them back once, gently, with a show_client link — then leave it.'
+    )
+  }
+  const waiting = FOCUS_KINDS.map((k) => [k, focusCandidates(fields, k).length] as const).filter(([, n]) => n > 0)
+  if (waiting.length === 0) return 'No focus task open, and nothing waiting on the client.'
+  const named: Record<FocusKind, (n: number) => string> = {
+    questions: (n) => `${n} open question${n === 1 ? '' : 's'}`,
+    story: (n) => `${n} new note${n === 1 ? '' : 's'} with no reaction`,
+    comps: (n) => `${n} comparison site${n === 1 ? '' : 's'} not yet sent or skipped`,
+  }
+  return (
+    `No focus task open. Waiting on the client: ${waiting.map(([k, n]) => named[k](n)).join('; ')}. ` +
+    'Walk them through these with start_focus, one surface at a time, at a moment you choose — right after you start a build is a good one.'
+  )
 }
 
 /** [[REQ-391]] — what choosing a look decided, as the site write reports it. */
@@ -1886,11 +2180,19 @@ export function planOperations(
     await deps.write((current) => {
       const next = copy(current)
       written = edit(next)
+      // [[REQ-424]] — a withdrawn question or a removed note can close a focus task's last item.
+      settleFocus(next.fields, now())
       checkPlan(next.fields)
       return next
     })
     return clipped(written) as Record<string, unknown>
   }
+
+  const board = boardOperations((edit) => change((plan) => edit(plan.fields)), now)
+  const shows = showOperations(async () => {
+    const fields = (await deps.read())?.fields
+    return { asks: fields?.asks ?? [], comps: fields?.comps ?? [] }
+  }, deps.show)
 
   return {
     read_plan: async () => {
@@ -2154,6 +2456,8 @@ export function planOperations(
         if (approves) {
           p = { ...p, input: 'single_choice', options: [...APPROVAL_OPTIONS] }
         }
+        // [[REQ-424]] — NO NEW QUESTION WHILE THE CLIENT IS ANSWERING THE ONES IN FRONT OF THEM.
+        if (!a || a.status === 'withdrawn') focusGuard(plan.fields, 'questions')
         if (!a) {
           // A NEW ASK NEEDS WHAT EVERY ASK HAS, so the panel never shows one it
           // cannot draw or explain.
@@ -2230,6 +2534,7 @@ export function planOperations(
         ids(Object.keys(relabel), 'labels')
         let a = asks.find((x) => x.id === FEATURES_ASK)
         if (a && answeredByClient(a)) throw refuse('ASK_ANSWERED', `the client has answered ${FEATURES_ASK}; their answer stands`)
+        focusGuard(plan.fields, 'questions')
         if (!a) {
           a = { id: FEATURES_ASK, prompt: '', why: '', input: 'multi_choice', needed_by: '', blocking: false, status: 'open' }
           asks.push(a)
@@ -2323,6 +2628,8 @@ export function planOperations(
       const held = await compRecord(String(p.reference ?? ''))
       const written = await change((plan) => {
         const at = now()
+        // [[REQ-424]] — no new site while the client is commenting on the ones in front of them.
+        if (!(plan.fields.comps ?? []).some((c) => c.reference === held.reference)) focusGuard(plan.fields, 'comps')
         const { plan: next, comp } = addComp(plan, held, 'consultant', at, str(p.why))
         plan.fields.comps = next.fields.comps
         plan.fields.comps_skipped_at = next.fields.comps_skipped_at
@@ -2365,15 +2672,60 @@ export function planOperations(
       }),
 
     // ── the story board: both roles ([[REQ-408]]) ───────────────────────────
-    ...boardOperations((edit) => change((plan) => edit(plan.fields)), now),
+    ...board,
+    // [[REQ-424]] — no new note while the client is reacting to the ones in front of them.
+    pin_notes: (p) =>
+      change((plan) => {
+        focusGuard(plan.fields, 'story')
+        return pinNotes(plan.fields, p, now())
+      }),
 
     // ── bringing a view to the client: the consultant's ([[REQ-413]]) ───────
-    ...showOperations(async () => {
-      const fields = (await deps.read())?.fields
-      return { asks: fields?.asks ?? [], comps: fields?.comps ?? [] }
-    }, deps.show),
+    ...shows,
+
+    // ── focus tasks: the consultant's ([[REQ-424]]) ─────────────────────────
+    /**
+     * Start one: the task is recorded, then its surface is put in front of the
+     * client by `show_client`'s own path — a switch unless they are busy, else a
+     * link to paste. The host delivers the switch as it does `show_client`'s.
+     */
+    start_focus: async (p) => {
+      const written = await change((plan) => ({ focus: startFocus(plan.fields, p, now()) }))
+      const task = written.focus as FocusTask
+      const shown = await shows.show_client({ ...FOCUS_TARGET[task.kind](task), how: 'switch', label: FOCUS_LINK_LABEL[task.kind] })
+      return { focus: { kind: task.kind, items: task.items, intro: task.intro }, ...shown, say: FOCUS_SAY }
+    },
+    end_focus: async () => {
+      let ended: FocusTask | null = null
+      await deps.write((current) => {
+        const next = finishFocus(current, 'consultant', now())
+        ended = next.fields.focus_tasks!.at(-1)!
+        return next
+      })
+      return { ended: { kind: ended!.kind, intro: ended!.intro } }
+    },
   }
 }
+
+/** [[REQ-424]] — where each kind of task is shown: the first question, the story board, the comparison board. */
+const FOCUS_TARGET: Record<FocusKind, (task: FocusTask) => Params> = {
+  questions: (task) => ({ target: 'ask', ask: task.items[0] }),
+  story: () => ({ target: 'story' }),
+  comps: () => ({ target: 'comps' }),
+}
+
+/** [[REQ-424]] — the words of the link when a task's surface is linked rather than switched to. */
+const FOCUS_LINK_LABEL: Record<FocusKind, string> = {
+  questions: 'Open the questions',
+  story: 'Open the story board',
+  comps: 'Open the comparison board',
+}
+
+/** [[REQ-424]] — what `start_focus` tells the consultant to say. */
+export const FOCUS_SAY =
+  'Tell your client in ONE line what to do and where — if the result has a `link`, end that line with it exactly; ' +
+  'if it switched, say you have put it in front of them. Ask nothing else in this message, and open no new topic ' +
+  'until you are told they have finished.'
 
 /**
  * [[REQ-408]] — the client acting on the story board from the Story pane: a
@@ -2383,6 +2735,8 @@ export function planOperations(
 export function clientBoardAction(plan: Plan, input: Record<string, unknown>, at: string): Plan {
   const next = copy(plan)
   boardClientAction(next.fields, input, at)
+  // [[REQ-424]] — the last note of a reaction task reacted to finishes it.
+  settleFocus(next.fields, at)
   checkPlan(next.fields)
   return next
 }

@@ -20,8 +20,14 @@
  *
  * A REDRAW NEVER TAKES A FIELD FROM UNDER THE CLIENT: while they are typing in
  * the board, a new view waits until they leave the box.
+ *
+ * [[REQ-424]] — WHILE THE CONSULTANT HAS THE CLIENT REACTING TO NOTES, the board
+ * says so: the focus banner at the top (the consultant's line, "4 of 8 notes
+ * reacted to", Done), each note still waiting outlined with its reactions at full
+ * strength, and the notes left for a later round tagged New.
  */
 import { boardAction } from './api.js'
+import { createFocusBanner } from './focus-banner.js'
 import {
   STORY_ADD_NOTE,
   STORY_BOARD_LABEL,
@@ -37,6 +43,8 @@ import {
   STORY_HEADLINE_USE,
   STORY_HEADLINE_WRITE_OWN,
   STORY_HEADLINE_YOURS,
+  STORY_LATER,
+  STORY_LATER_TITLE,
   STORY_NOTE_PLACEHOLDER,
   STORY_REACTIONS,
   STORY_SAVE_FAILED,
@@ -96,7 +104,7 @@ function typingBox(className, value, placeholder, onSave) {
 
 /**
  * @param {object} [options]
- * @param {{boardAction?: Function}} [options.transport]
+ * @param {{boardAction?: Function, focusAction?: Function}} [options.transport]
  * @param {(view: object) => void} [options.onView] a write answered the plan's view
  */
 export function createStoryBoard(options = {}) {
@@ -105,13 +113,26 @@ export function createStoryBoard(options = {}) {
 
   const element = el('section', 'story-board')
   element.setAttribute('aria-label', STORY_BOARD_LABEL)
+  // [[REQ-424]] — the reaction task, when the consultant has started one.
+  const focus = createFocusBanner({
+    kind: 'story',
+    site: () => site,
+    transport,
+    onView: (view) => {
+      render(view)
+      onView?.(view)
+    },
+  })
+  /** [[REQ-424]] — the notes the task is waiting on, and those left for a later one. */
+  let waiting = new Set()
+  let later = new Set()
   const headline = el('div', 'story-headline')
   const error = el('p', 'story-board__error')
   error.hidden = true
   error.setAttribute('role', 'alert')
   const empty = el('p', 'story-board__empty', STORY_EMPTY)
   const themes = el('div', 'story-board__themes')
-  element.append(headline, error, empty, themes)
+  element.append(focus.element, headline, error, empty, themes)
 
   let site = null
   let board = null
@@ -240,6 +261,12 @@ export function createStoryBoard(options = {}) {
     if (note.reaction) node.dataset.reaction = note.reaction
     node.style.setProperty('--tilt', `${tiltOf(note.id)}deg`)
     if (seen && !seen.has(note.id)) node.classList.add('story-note--new')
+    if (waiting.has(note.id)) node.classList.add('story-note--pending')
+    else if (later.has(note.id)) {
+      node.classList.add('story-note--later')
+      node.dataset.later = STORY_LATER
+      node.title = STORY_LATER_TITLE
+    }
     if (note.emoji) node.append(el('span', 'story-note__emoji', note.emoji))
     if (editing === note.id) {
       const box = typingBox('story-note__box', note.text, STORY_NOTE_PLACEHOLDER, (text) => {
@@ -310,6 +337,9 @@ export function createStoryBoard(options = {}) {
 
   /** Draw a plan view's board — later, if the client is typing in the board. */
   function render(view) {
+    const task = focus.render(view)
+    waiting = new Set(task?.pending ?? [])
+    later = new Set(view?.focus_later ?? [])
     const next = view?.board ?? { themes: [], headline: { state: 'empty', options: [], pick: 0, new_options: [] } }
     if (typing()) {
       pending = next

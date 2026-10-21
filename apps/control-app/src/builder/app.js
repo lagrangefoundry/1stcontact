@@ -20,6 +20,7 @@ import {
   PUBLISH_FAILED_MESSAGE,
   SETTINGS_TAB,
   SHOW_GONE,
+  FINISHED_CUE,
   SITE_TAB,
   STORAGE_KEYS,
   STORY_MODE_LABEL,
@@ -658,8 +659,27 @@ export function mountBuilder(root, options = {}) {
     // [[BUG-245]] — a sent note is the client's own message in the conversation;
     // a board finished on a Skip is the consultant's cue to sum up.
     onSend: (message) => chat.say(message),
-    onFinished: () => chat.cue('comps_finished'),
+    onFinished: () => chat.cue(FINISHED_CUE),
+    // [[REQ-424]] — the focus task's Done.
+    onView: (view) => followFocus(view),
   })
+  /**
+   * [[REQ-424]] — THE CLIENT FINISHED THE FOCUS TASK, so the consultant resumes
+   * without being asked: every surface's view passes through here, and a finish
+   * this page has not seen before starts a turn on the host's cue — which the
+   * origin refuses, silently, once the consultant has been told some other way.
+   * The first view of a site only learns where it stands.
+   */
+  let focusSeen = { site: null, at: null }
+  function followFocus(view) {
+    if (!view || !('focus_finished_at' in view) || !currentSite) return
+    const at = view.focus_finished_at ?? null
+    if (focusSeen.site !== currentSite) focusSeen = { site: currentSite, at }
+    else if (at && at !== focusSeen.at) {
+      focusSeen.at = at
+      chat.cue(FINISHED_CUE)
+    }
+  }
   /** Show Comparisons, with one comp's tile brought into view if one is named. */
   function openComparisons(reference) {
     panel.setMode('comparisons')
@@ -686,6 +706,8 @@ export function mountBuilder(root, options = {}) {
    */
   const storyBoard = createStoryBoard({
     ...(planTransport?.boardAction ? { transport: { boardAction: planTransport.boardAction } } : {}),
+    // [[REQ-424]] — a reaction that finishes the task, or its Done.
+    onView: (view) => followFocus(view),
   })
   /**
    * [[REQ-408]] — BEFORE THE FIRST DRAFT, THE PREVIEW OPENS IN STORY, instead of
@@ -1292,10 +1314,14 @@ export function mountBuilder(root, options = {}) {
     return null
   }
 
-  /** [[REQ-413]] — the consultant switched the client's view; done unless they are busy. */
+  /**
+   * [[REQ-413]] — the consultant switched the client's view; done unless they are busy.
+   * [[REQ-424]] — or typing a message: the line the reply carries is their link.
+   */
   function onShow(meta) {
     const q = showQuery(meta?.href)
-    if (q && !clientBusy()) void showTarget(q)
+    const typing = (chat.getChat()?.getInputMarkdown?.() ?? '').trim() !== ''
+    if (q && !clientBusy() && !typing) void showTarget(q)
   }
 
   /** The subject write, beside the listing and from the same seam. */
@@ -1447,6 +1473,7 @@ export function mountBuilder(root, options = {}) {
       comparisons.render(view)
       followComparisons(view)
       storyFirst(view)
+      followFocus(view)
     },
   })
   // [[REQ-408]] — a mode the client picked is theirs, whatever the host chose before.
@@ -1483,7 +1510,10 @@ export function mountBuilder(root, options = {}) {
     attachments,
     // [[BUG-244]] — what the worker is doing shows under the progress banner.
     statusContainer: planPanel.statusSlot,
-    ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
+    // [[REQ-424]] — and the host's cue, where an injected origin answers one.
+    ...(chatTransport?.streamPrompt
+      ? { transport: { streamPrompt: chatTransport.streamPrompt, ...(chatTransport.cue ? { cue: chatTransport.cue } : {}) } }
+      : {}),
     // WHAT BECAME OF A TURN WHOSE STREAM DIED ([[BUG-123]]). The pane notices the
     // loss; only this module can ask, because the question is "re-open the
     // conversation for THIS SITE" and the pane knows nothing about sites

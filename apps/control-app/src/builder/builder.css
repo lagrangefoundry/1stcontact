@@ -6178,6 +6178,83 @@ body {
   cursor: pointer;
 }
 
+/*
+ * [[REQ-424]] — the focus task on its surface: the consultant's line of what to do,
+ * the progress and Done, in a strip that reads as "this is what to do now", with
+ * the items still waiting edged in the same blue. Literal values, because it sits
+ * on the story board too, which never takes the shell's.
+ */
+.focus-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border: 2px solid #2563eb;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.focus-banner[hidden] {
+  display: none;
+}
+
+.focus-banner__label {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.focus-banner__intro {
+  flex: 1 1 16em;
+  font-weight: 600;
+}
+
+.focus-banner__progress {
+  white-space: nowrap;
+}
+
+.focus-banner__done {
+  padding: 4px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: #2563eb;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.focus-banner__done:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.focus-banner__error {
+  flex-basis: 100%;
+  color: #b91c1c;
+}
+
+.plan-item--focus {
+  border-radius: 6px;
+  box-shadow: inset 3px 0 0 #2563eb;
+  background: #eff6ff;
+}
+
+.comp-tile--focus {
+  box-shadow: 0 0 0 2px #2563eb;
+}
+
 /* --- the story board ([[REQ-408]]) ---------------------------------------------
  *
  * ITS OWN FIXED STYLE, THE SAME FOR EVERY BUSINESS, and LITERAL VALUES ONLY: no
@@ -6490,6 +6567,35 @@ body {
   .story-note {
     transition: none;
   }
+}
+
+/*
+ * [[REQ-424]] — a note the client is asked to react to now: outlined in the focus
+ * banner's blue, its reactions at full strength so they read as what to do.
+ */
+.story-note--pending {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.story-note--pending .story-note__react {
+  border-color: rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  opacity: 1;
+}
+
+/* [[REQ-424]] — a note waiting for the next round: a small "New" tag on its corner. */
+.story-note--later::before {
+  content: attr(data-later);
+  position: absolute;
+  top: -9px;
+  right: 8px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #2b2b2b;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 /*

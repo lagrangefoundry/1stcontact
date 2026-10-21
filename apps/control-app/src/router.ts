@@ -118,8 +118,8 @@ import {
   tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
-import { compsFinishedCue, readClientView, type ClientView } from '../../../tools/generate/src/cli/ai/roles'
-import { compsFinishedUntold, recordAbsorbed } from './session-delta'
+import { finishedCue, readClientView, type ClientView } from '../../../tools/generate/src/cli/ai/roles'
+import { finishedUntold, recordAbsorbed } from './session-delta'
 import {
   sessionImageDescriber,
   sessionTextDescriber,
@@ -399,6 +399,7 @@ import {
   clientAnswer,
   clientBoardAction,
   clientCompAction,
+  finishFocus,
   CLIENT_COMP_ACTIONS,
   type ClientCompAction,
   panelView,
@@ -2321,8 +2322,16 @@ export const PLAN_ASK_PATH = '/api/plan/ask'
 export const PLAN_COMP_PATH = '/api/plan/comp'
 /** What the client may do on the comp board. */
 export const COMP_ACTIONS = ['add', 'remove', 'skip', ...CLIENT_COMP_ACTIONS] as const
-/** [[BUG-245]] — the cue a turn starts on when the comp board finishes on a Skip. */
-export const COMPS_FINISHED_CUE = 'comps_finished'
+/**
+ * [[BUG-245]] — the cue a turn starts on when the client finishes something without
+ * writing: the comp board on a Skip, or [[REQ-424]] a focus task.
+ */
+export const FINISHED_CUE = 'finished'
+/**
+ * [[REQ-424]] — the client's Done on the focus task the consultant started: the
+ * task ends, and the browser starts the consultant's resuming turn on the cue.
+ */
+export const PLAN_FOCUS_PATH = '/api/plan/focus'
 /**
  * [[REQ-408]] — the client's half of the story board: react to a note, delete,
  * add or edit one, choose or write the headline.
@@ -6006,6 +6015,39 @@ async function routeUncached(
     }
 
     /**
+     * [[REQ-424]] — the client's Done on the focus task the consultant started.
+     *
+     * ENDS THE TASK, LEFT ITEMS AND ALL: what they skipped past stays as it was,
+     * and the consultant's next turn is told it finished and how. Compare-and-set,
+     * re-applied once on a clash for the ask route's reason; answers the plan
+     * panel's view. IT NEVER STARTS A TURN — the browser cues one.
+     */
+    if (p === PLAN_FOCUS_PATH && method === 'POST') {
+      const body = await readJsonBody(request)
+      const site = typeof body.site === 'string' ? body.site : ''
+      if (site === '' || body.action !== 'done') return json(400, { error: 'site and action (done) are required' })
+      if (!(await (await openStore()).hasDraft(site))) return json(404, { error: 'no such site' })
+      const tickets = await openTickets()
+      const plan = sitePlan(tickets, site)
+      const doneIt = (current: Plan): Plan => finishFocus(current, 'client', new Date().toISOString())
+      try {
+        let written: Plan
+        try {
+          written = await plan.write(doneIt)
+        } catch (err) {
+          if ((err as { code?: string }).code !== 'CONFLICT') throw err
+          written = await plan.write(doneIt)
+        }
+        return json(200, await panelWithMaterial(tickets, written.fields))
+      } catch (err) {
+        const code = (err as { code?: string }).code ?? ''
+        const status = { NO_FOCUS: 409, CONFLICT: 409, PLAN_INVALID: 400 }[code]
+        if (status === undefined) throw err
+        return json(status, { error: scrub((err as Error).message), code })
+      }
+    }
+
+    /**
      * The Library's read surface ([[REQ-161]]) — the list, one item, its bytes.
      *
      * THREE ROUTES AND NOT ONE, and the split is the payload rather than taste.
@@ -6696,18 +6738,19 @@ async function routeUncached(
       }
       /**
        * [[BUG-245]] — A TURN ON THE HOST'S CUE, NOT THE CLIENT'S WORDS: the comp
-       * board finished on a Skip, so the consultant sums up without being asked.
-       * Only while the board's finishing is still untold — a turn that already
-       * heard it (the client's last Send, a round that was running) has said it —
-       * else 409 and no turn. The cue is a hidden user turn, like a continuation's.
+       * board finished on a Skip — [[REQ-424]] or the client finished a focus task
+       * — so the consultant resumes without being asked. Only while that finishing
+       * is still untold — a turn that already heard it (the client's last Send, a
+       * round that was running) has said it — else 409 and no turn. The cue is a
+       * hidden user turn, like a continuation's.
        */
       if (body.cue !== undefined) {
-        if (body.cue !== COMPS_FINISHED_CUE) return json(400, { error: `unknown cue (${COMPS_FINISHED_CUE})` })
+        if (body.cue !== FINISHED_CUE) return json(400, { error: `unknown cue (${FINISHED_CUE})` })
         const siteKey = sessionId.startsWith('site-') ? sessionId.slice('site-'.length) : ''
-        if (siteKey === '' || !(await compsFinishedUntold(await openTickets(), sessionId, siteKey))) {
-          return json(409, { error: 'the consultant has already been told the board is finished' })
+        if (siteKey === '' || !(await finishedUntold(await openTickets(), sessionId, siteKey))) {
+          return json(409, { error: 'the consultant has already been told the client finished' })
         }
-        text = compsFinishedCue()
+        text = finishedCue()
       }
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })

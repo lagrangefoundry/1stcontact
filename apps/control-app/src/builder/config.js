@@ -1090,6 +1090,30 @@ export const STORY_REACTIONS = [
 ]
 export const STORY_DELETE = { emoji: '🗑', label: "Delete — it doesn't belong" }
 export const STORY_SAVE_FAILED = (message) => `That was not saved: ${message}`
+/**
+ * [[BUG-245]], [[REQ-424]] — the host's cue for the consultant's turn when the client
+ * finishes something without writing: the comparison board, or a focus task.
+ */
+export const FINISHED_CUE = 'finished'
+
+/** [[REQ-424]] — a note waiting for a later reaction task, on the story board. */
+export const STORY_LATER = 'New'
+export const STORY_LATER_TITLE = 'New — for the next round'
+
+/**
+ * [[REQ-424]] — the focus task the consultant has the client working through, on
+ * its surface: its line, the progress, and Done for the whole task.
+ */
+export const FOCUS_LABEL = 'Now'
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+export const FOCUS_PROGRESS = {
+  questions: (closed, total) => `${total - closed} of ${plural(total, 'question')} left`,
+  story: (closed, total) => `${closed} of ${plural(total, 'note')} reacted to`,
+  comps: (closed, total) => `${total - closed} of ${plural(total, 'site')} left`,
+}
+export const FOCUS_DONE = 'Done'
+export const FOCUS_DONE_TITLE = 'I’m finished with this — back to the conversation'
+export const FOCUS_FAILED = (message) => `That was not saved: ${message}`
 
 /** The carousel's words — the looks offered for a page ([[REQ-391]]). */
 export const CAROUSEL_PREVIOUS = 'Previous'

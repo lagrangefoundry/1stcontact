@@ -52,7 +52,7 @@
 import { TEXT, TOOL_ACTIVITY, type StreamEvent } from './budget-core'
 import { DELEGATE_TOOL, delegationResult } from './turn-clock-core'
 import slowToolsDocument from './slow-tools.json'
-import { SHOW_CLIENT, SHOW_TOOL, shownLine, switchedBy } from './show-core'
+import { SHOW_CLIENT, SWITCHING_TOOLS, shownLine, switchedBy } from './show-core'
 import talkerDocument from './talker.json'
 
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -334,7 +334,8 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
       yield event
       // [[REQ-413]] — AFTER the call's own activity, so the line and the switch
       // land where the consultant's message is: right before what it says next.
-      const shown = event.kind === TOOL_ACTIVITY && name === SHOW_TOOL ? switchedBy(event.meta?.output, delegationResult) : null
+      // [[REQ-424]] — a focus task's start switches the same way.
+      const shown = event.kind === TOOL_ACTIVITY && name !== undefined && SWITCHING_TOOLS.has(name) ? switchedBy(event.meta?.output, delegationResult) : null
       if (shown) {
         yield { kind: TEXT, content: `${spoke ? '\n\n' : ''}${shownLine(shown)}\n\n` }
         spoke = true

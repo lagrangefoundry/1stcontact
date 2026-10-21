@@ -57,6 +57,10 @@
     "it belongs to; an area with no note on the board is one the consultant has not",
     "asked about yet, and the talker's reminder lists those while a build runs."
   ],
+  "focus": {
+    "about": "REQ-424 — guided focus tasks. A story-board reaction task covers at most this many notes, so the client is never handed the whole board at once; the rest wait, marked new, for the next task.",
+    "max_story_notes": 8
+  },
   "story_areas": [
     { "id": "beginning", "label": "how it started" },
     { "id": "craft", "label": "the craft or signature thing" },

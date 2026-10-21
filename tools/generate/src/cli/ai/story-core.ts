@@ -348,6 +348,45 @@ type Params = Record<string, unknown>
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
 /**
+ * Pin the client's sayings as notes ([[REQ-408]]): the consultant's `pin_notes`,
+ * as an edit of the fields in hand. Mutates `fields`; answers what was pinned.
+ */
+export function pinNotes(fields: HasBoard, p: Params, at: string): Record<string, unknown> {
+  const board = boardFor(fields)
+  const notes = Array.isArray(p.notes) ? (p.notes as Params[]) : []
+  if (notes.length === 0) throw refuse(INVALID, 'give at least one note to pin')
+  const pinned: StoryNote[] = []
+  for (const n of notes) {
+    const text = str(n?.text)
+    const quote = str(n?.quote)
+    const themeRef = str(n?.theme)
+    if (!text) throw refuse(INVALID, 'a note needs its text')
+    if (!quote) throw refuse(INVALID, `"${text}" needs the sentence the client said it in, as quote`)
+    if (!isOneEmoji(n?.emoji)) throw refuse(INVALID, `"${text}" needs exactly one emoji saying what it is about`)
+    if (!themeRef) throw refuse(INVALID, `"${text}" needs a theme`)
+    const area = str(n?.area)
+    if (area !== undefined && !AREA_IDS.includes(area)) {
+      throw refuse(INVALID, `"${text}" names story area ${JSON.stringify(area)}; the areas are ${AREA_IDS.join(', ')}`)
+    }
+    // A THEME NAMED AND NOT YET ON THE BOARD IS STARTED BY PINNING TO IT.
+    const theme = themeNamed(board, themeRef) ?? addTheme(board, themeRef)
+    const note: StoryNote = {
+      id: nextId('n', board.notes.map((x) => x.id)),
+      text,
+      emoji: String(n.emoji).trim(),
+      theme: theme.id,
+      quote,
+      ...(area ? { area } : {}),
+      by: 'consultant',
+      pinned_at: at,
+    }
+    board.notes.push(note)
+    pinned.push(note)
+  }
+  return { notes: pinned.map((n) => ({ id: n.id, text: n.text, theme: themeIn(board, n.theme).name })) }
+}
+
+/**
  * The consultant's board operations ([[REQ-408]]), bound by the plan surface to
  * its own checked, compare-and-set `change`.
  */
@@ -356,42 +395,7 @@ export function boardOperations(
   now: () => string,
 ): Record<string, (p: Params) => Promise<Untyped>> {
   return {
-    pin_notes: (p) =>
-      change((fields) => {
-        const board = boardFor(fields)
-        const notes = Array.isArray(p.notes) ? (p.notes as Params[]) : []
-        if (notes.length === 0) throw refuse(INVALID, 'give at least one note to pin')
-        const at = now()
-        const pinned: StoryNote[] = []
-        for (const n of notes) {
-          const text = str(n?.text)
-          const quote = str(n?.quote)
-          const themeRef = str(n?.theme)
-          if (!text) throw refuse(INVALID, 'a note needs its text')
-          if (!quote) throw refuse(INVALID, `"${text}" needs the sentence the client said it in, as quote`)
-          if (!isOneEmoji(n?.emoji)) throw refuse(INVALID, `"${text}" needs exactly one emoji saying what it is about`)
-          if (!themeRef) throw refuse(INVALID, `"${text}" needs a theme`)
-          const area = str(n?.area)
-          if (area !== undefined && !AREA_IDS.includes(area)) {
-            throw refuse(INVALID, `"${text}" names story area ${JSON.stringify(area)}; the areas are ${AREA_IDS.join(', ')}`)
-          }
-          // A THEME NAMED AND NOT YET ON THE BOARD IS STARTED BY PINNING TO IT.
-          const theme = themeNamed(board, themeRef) ?? addTheme(board, themeRef)
-          const note: StoryNote = {
-            id: nextId('n', board.notes.map((x) => x.id)),
-            text,
-            emoji: String(n.emoji).trim(),
-            theme: theme.id,
-            quote,
-            ...(area ? { area } : {}),
-            by: 'consultant',
-            pinned_at: at,
-          }
-          board.notes.push(note)
-          pinned.push(note)
-        }
-        return { notes: pinned.map((n) => ({ id: n.id, text: n.text, theme: themeIn(board, n.theme).name })) }
-      }),
+    pin_notes: (p) => change((fields) => pinNotes(fields, p, now())),
     reword_note: (p) =>
       change((fields) => {
         const board = boardFor(fields)

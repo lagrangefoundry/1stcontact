@@ -1,7 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import {
-  COMPS_FINISHED_CUE,
+  FINISHED_CUE,
   PLAN_COMP_PATH,
   PLAN_PATH,
   resetChatHost,
@@ -13,7 +13,7 @@ import type { Scope } from '../apps/control-app/src/scope'
 import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/tickets'
 import { sitePlan } from '../apps/control-app/src/plan'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { compsFinishedCue } from '../tools/generate/src/cli/ai/roles'
+import { finishedCue } from '../tools/generate/src/cli/ai/roles'
 import { addComp, CLIENT, CLIENT_COMPS_FINISHED_LINE, COMPS_BOARD_LINK } from '../tools/generate/src/cli/ai/plan-core'
 import { calls, says, scriptedClient, turnTailText, type ModelRequest, type ModelStep } from './support/scripted-model-client'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
@@ -224,16 +224,16 @@ describe('BUG-245 — each card is open or closed, and the board knows when it i
 
     const client = scriptedClient([says('From what you said: plain and direct, no clutter.')])
     setModelClient(client)
-    const cued = await post('/api/ai/prompt', { sessionId: ctx.sessionId, cue: COMPS_FINISHED_CUE })
+    const cued = await post('/api/ai/prompt', { sessionId: ctx.sessionId, cue: FINISHED_CUE })
     expect(cued.status).toBe(200)
     await cued.text()
     // THE CONSULTANT WAS CUED — the client said nothing.
     expect(JSON.stringify(client.seen[0].messages)).toContain('the comparison board, so the board is finished')
     // ONCE: told now, so a second cue is refused and starts no turn.
-    expect((await post('/api/ai/prompt', { sessionId: ctx.sessionId, cue: COMPS_FINISHED_CUE })).status).toBe(409)
+    expect((await post('/api/ai/prompt', { sessionId: ctx.sessionId, cue: FINISHED_CUE })).status).toBe(409)
     // THE CUE IS NOT THE CLIENT'S, so a reload does not show it; the reply is shown.
     const replay = await session(ctx.sessionId, ctx.site)
-    expect(replay.turns.some((t) => t.markdown === compsFinishedCue())).toBe(false)
+    expect(replay.turns.some((t) => t.markdown === finishedCue())).toBe(false)
     expect(replay.turns.at(-1)).toMatchObject({ role: 'assistant', markdown: 'From what you said: plain and direct, no clutter.' })
   })
 })

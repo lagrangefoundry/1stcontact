@@ -85,7 +85,7 @@ import {
   continuationCue,
   stallContinuationCue,
   isStallContinuationCue,
-  compsFinishedCue,
+  finishedCue,
   layoutContinuationCue,
   talkerCue,
   spendCeilingNotice,
@@ -3173,8 +3173,8 @@ async function storedTranscript(
   // theirs. It still counts as the conversation having started.
   const opening = openingCue()
   // [[REQ-409]] — nor is the host's cue for a continuation. [[BUG-245]] — nor its
-  // cue for a finished comp board.
-  const cues = new Set([opening, continuationCue(), compsFinishedCue()])
+  // cue for a finished comp board or [[REQ-424]] focus task.
+  const cues = new Set([opening, continuationCue(), finishedCue()])
   // [[BUG-249]] — nor its cue for a round it carried on after a stall.
   const hidden = (turn: { role: string; content: string }): boolean =>
     turn.role === 'user' && (cues.has(turn.content) || isStallContinuationCue(turn.content))

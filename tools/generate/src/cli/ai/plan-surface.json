@@ -38,6 +38,16 @@
       "link": "the markdown line to paste into your reply, exactly as given, when it is a link",
       "not_switched": "why a switch you asked for became a link, when it did — say it in your reply with the link",
       "say_in_room": "in a group chat only: the line to include in what you say to the room, so the client can go back to what you showed them"
+    },
+    "focus": {
+      "focus": "the task as started: its kind, the items it covers and your line",
+      "how": "`switch` when its surface was put in front of the client, `link` when it was not",
+      "shown": "what was put in front of the client, when it was switched",
+      "link": "the markdown line to paste into your reply, exactly as given, when it is a link",
+      "not_switched": "why the switch became a link, when it did",
+      "say_in_room": "in a group chat only: the line to include in what you say to the room",
+      "say": "what to say in the conversation now",
+      "ended": "the task you ended: its kind and your line"
     }
   },
   "errors": {
@@ -103,6 +113,15 @@
     },
     "NO_VIEW": {
       "message": "this host cannot show the client a page, so nothing was shown."
+    },
+    "FOCUS_OPEN": {
+      "message": "your client is working through a focus task you started, so nothing new was written: one task at a time, and nothing new on its surface until they finish. You are told when they do."
+    },
+    "NOTHING_TO_FOCUS": {
+      "message": "nothing there is waiting on your client, so no focus task was started."
+    },
+    "NO_FOCUS": {
+      "message": "there is no focus task open, so nothing was ended."
     }
   },
   "operations": [
@@ -211,6 +230,30 @@
       },
       "returns": { "shape": "shown" },
       "errors": ["UNKNOWN_PAGE", "UNKNOWN_LOOK", "UNKNOWN_COMP", "UNKNOWN_ASK", "ASK_WITHDRAWN", "NO_VIEW", "PLAN_INVALID", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "start_focus",
+      "tool": "start_focus",
+      "effect": "write",
+      "summary": "Walk your client through one thing: the questions on their panel, reactions on the story board, or the sites on the comparison board.",
+      "description": "Puts the surface in front of your client (a switch, or a `link` to paste when they are busy), highlighted, with your `intro`, their progress and a Done. While it is open nothing new goes on that surface. You are told when they finish — every item done, or Done — and resume then. A later task covers only what is new. `questions`: every open question; `comps`: every comparison card not yet sent or skipped; `story`: your pinned notes with no reaction that no earlier task covered, a handful at most (the rest wait, marked New). Give `items` only to cover fewer.",
+      "params": {
+        "kind": { "type": "string", "required": true, "enum": ["questions", "story", "comps"], "description": "What the client is to work through." },
+        "intro": { "type": "string", "required": true, "description": "One line shown on the surface, in your voice: what to do there, e.g. \"Heart the ones that sound most like you.\"" },
+        "items": { "type": "array", "description": "Only to cover fewer than everything open: the ask ids, note ids or comp references." }
+      },
+      "returns": { "shape": "focus" },
+      "errors": ["FOCUS_OPEN", "NOTHING_TO_FOCUS", "UNKNOWN_ASK", "ASK_WITHDRAWN", "NO_VIEW", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "end_focus",
+      "tool": "end_focus",
+      "effect": "write",
+      "summary": "End the focus task your client has walked away from.",
+      "description": "Only when they have plainly left it and you need its surface again. Nobody is told; what they did is kept.",
+      "params": {},
+      "returns": { "shape": "focus" },
+      "errors": ["NO_FOCUS", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "set_task",
@@ -335,7 +378,7 @@
         "approves": { "type": "string", "description": "A contact detail — an email address, a personal number, a name — you are asking permission to show on the site, e.g. `office@example.com`. The ask becomes a yes-or-no question whose two answers the host words, and the client answering yes approves that detail. Write the prompt so it names the detail and says it would be public." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "ASK_SHOWN", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "UNKNOWN_ASK", "ASK_WITHDRAWN", "ASK_SHOWN", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "ask_features",
@@ -351,7 +394,7 @@
         "why": { "type": "string", "description": "One line on why it matters, if the catalogue's does not suit." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "ASK_ANSWERED", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "ASK_ANSWERED", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "withdraw_ask",
@@ -416,7 +459,7 @@
         "why": { "type": "string", "description": "Why you chose this site, in one or two lines the client reads on its card: what it shows them, where it sits in the range." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "UNKNOWN_COMP", "NO_COMPS", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "UNKNOWN_COMP", "NO_COMPS", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "note_comp",
@@ -455,7 +498,7 @@
         "notes": { "type": "story_notes", "required": true, "description": "The notes, each `{\"text\": ..., \"quote\": ..., \"emoji\": ..., \"theme\": ..., \"area\": ...}` — `quote` the client's original sentence, `theme` a theme's name or id, and `area` the part of their story it tells when it fits one: `beginning` (how it started), `craft` (the signature thing), `people`, `customers`, `community` (what they do for others), `refusals` (what they won't do) or `proud_moment`." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "reword_note",
@@ -543,8 +586,8 @@
       "group": "PlanWork",
       "effect": "write",
       "title": "Planning the work",
-      "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, putting a look the client chose onto their page, and bringing the part of the builder that matters in front of the client.",
-      "operations": ["set_decision", "set_task", "answer_check", "choose_look", "show_client"]
+      "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, putting a look the client chose onto their page, bringing the part of the builder that matters in front of the client, and leading them through a focus task on it.",
+      "operations": ["set_decision", "set_task", "answer_check", "choose_look", "show_client", "start_focus", "end_focus"]
     },
     {
       "group": "CoordinatePlan",

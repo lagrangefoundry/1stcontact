@@ -10,6 +10,8 @@ import {
   clientCompAddsSince,
   clientCompsFinishedSince,
   CLIENT_COMPS_FINISHED_LINE,
+  focusFinishedLine,
+  focusFinishedSince,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 import { boardChangesLine, boardChangesSince } from '../../../tools/generate/src/cli/ai/story-core'
@@ -356,29 +358,36 @@ export async function planAnswersDelta(store: TicketStore, sessionId: string, si
   const board = boardChangesSince(fields, since)
   // [[BUG-245]] — AND THAT EVERY CARD ON THE COMP BOARD IS SENT OR SKIPPED.
   const finished = clientCompsFinishedSince(fields, since)
-  if (changes.length === 0 && compAdds.length === 0 && board.length === 0 && !finished) return null
-  const newest = [...changes, ...compAdds, ...board, ...(finished ? [{ at: finished }] : [])]
+  // [[REQ-424]] — AND THAT THE CLIENT FINISHED THE FOCUS TASK the consultant started.
+  // A comparison task finished with the board says it once, as the board's line.
+  const focus = focusFinishedSince(fields, since)
+  const focusLine = focus && !(finished && focus.kind === 'comps') ? focusFinishedLine(fields, focus) : null
+  if (changes.length === 0 && compAdds.length === 0 && board.length === 0 && !finished && !focus) return null
+  const newest = [...changes, ...compAdds, ...board, ...(finished ? [{ at: finished }] : []), ...(focus ? [{ at: focus.finished_at! }] : [])]
     .map((c) => c.at)
     .sort()
     .pop() as string
   await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
   return (
-    [clientChangesLine(changes), clientCompAddsLine(compAdds), finished ? CLIENT_COMPS_FINISHED_LINE : null, boardChangesLine(board)]
+    [clientChangesLine(changes), clientCompAddsLine(compAdds), finished ? CLIENT_COMPS_FINISHED_LINE : null, boardChangesLine(board), focusLine]
       .filter(Boolean)
       .join('\n') || null
   )
 }
 
 /**
- * [[BUG-245]] — whether the comp board finished since this session was last told,
- * without telling it: the host's check before it starts a turn on the board's cue.
+ * [[BUG-245]] — whether the comp board — [[REQ-424]] or a focus task — finished
+ * since this session was last told, without telling it: the host's check before it
+ * starts a turn on the `finished` cue.
  */
-export async function compsFinishedUntold(store: TicketStore, sessionId: string, siteKey: string): Promise<boolean> {
+export async function finishedUntold(store: TicketStore, sessionId: string, siteKey: string): Promise<boolean> {
   const plan = await findPlan(store, siteKey)
   if (!plan) return false
   const chat = await findChat(store, sessionId)
   const raw = (chat?.fields ?? {})[PLAN_CURSOR_FIELD]
-  return clientCompsFinishedSince((plan.fields ?? {}) as unknown as PlanFields, typeof raw === 'string' ? raw : '') !== null
+  const since = typeof raw === 'string' ? raw : ''
+  const fields = (plan.fields ?? {}) as unknown as PlanFields
+  return clientCompsFinishedSince(fields, since) !== null || focusFinishedSince(fields, since) !== null
 }
 
 /** [[BUG-245]] — the chat ticket field the work's withheld results live in. */
