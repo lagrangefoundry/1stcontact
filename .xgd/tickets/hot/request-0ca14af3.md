@@ -6,10 +6,10 @@ title: 'Drawing stays with the consultant: SVG composition moves from builders t
   the principal, stored in the Library'
 created_by: EPIC-19
 created_at: '2026-10-21T18:52:32.985885+00:00'
-updated_at: '2026-10-21T21:54:05.314122+00:00'
+updated_at: '2026-10-21T21:54:18.503161+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 5
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-9c913f76
+  commits:
+  - working_sha: 8c7de655e2ce394515d06d903da676b313bf8e93
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: ef89fe7a0b013bbbcf3adb08a1ac2e1843fd4b49
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.576
 ---
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator decision)
@@ -142,4 +150,3 @@ them where judgement matters).
   is a labelled, described SVG Library item with a display line, not on the site
   until placed, and placing puts the exact bytes there; executable SVG is refused
   with nothing stored).
-
