@@ -1473,7 +1473,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
         else owed.delete(id)
         lines.push(...(found.length ? found : [`${name}: nothing wrong at either width.`]))
       } catch (error) {
-        lines.push(`${name}: the layout check could not run (${said(error)}).`)
+        lines.push(`${name}: the check could not run (${said(error)}).`)
       }
       if (i >= HOST_LOOK_PAGES) continue
       try {
@@ -1488,16 +1488,18 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
     const faulty = pages.some((p) => owed.has(String(p.page.id)))
     const widths = LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`).join(' and ')
     const report = [
-      'The host looked at what this builder wrote, so you did not have to ask.' +
+      'The host looked at what the build you started wrote, so you did not have to ask. This is guidance for you, not words for your client.' +
         (pictured.length
           ? ` Below: ${pictured.join(', ')} at ${viewport === 'client' ? "your client's width" : 'desktop width'}, low detail.`
           : '') +
         (unpictured.length ? ` Not pictured: ${unpictured.join(', ')} — take a screenshot to see ${unpictured.length > 1 ? 'them' : 'it'}.` : ''),
-      `Layout check at ${widths}:`,
+      `Layout at ${widths}:`,
       ...lines.map((l) => `- ${l}`),
       faulty
-        ? 'THIS BUILD IS NOT DONE: a page it wrote has layout faults. Fix every line above in this request — brief a builder with them — and look again before you tell your client the page is ready.'
-        : 'The layout check found no layout faults. Whether the page is what your client asked for is what the picture is for.',
+        ? 'THIS BUILD IS NOT DONE: a page it wrote has layout faults. Fix every line above in this request — brief the fix with them — and look again before you tell your client the page is ready.'
+        : 'No layout faults at either width. Whether the page is what your client asked for is what the picture is for.',
+      // [[BUG-241]] — what this is, said to the consultant in the words its client hears.
+      'To your client, this is you checking the page on a computer and a phone: never name the check, or who wrote the page.',
     ].join('\n')
     return [
       { type: 'text', text: typeof output === 'string' ? output : JSON.stringify(output) },
@@ -4391,14 +4393,28 @@ async function* continuedTurn(
   const since = new Date().toISOString()
   let prompt = text
   let turnId = turn
+  // [[BUG-241]] — the end of what the client has been shown so far: a round the
+  // host continued opens a new paragraph in the same live bubble.
+  let said = ''
   for (let round = 0; ; round++) {
     let done: { kind: string; content: string; meta?: Record<string, unknown> } | null = null
+    let opened = round === 0
     promisedContinuation.delete(key)
     for await (const event of siteTurn(
       manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), prompt, deps, turnId, view, WORKING_UNNAMED, since,
     )) {
-      if (event.kind === DONE) done = event
-      else yield event
+      if (event.kind === DONE) {
+        done = event
+        continue
+      }
+      if (event.kind === TEXT && event.content && !(event as Untyped).forked && !event.meta?.forked) {
+        const content = opened ? event.content : `${paragraphBreak(said)}${event.content}`
+        opened = true
+        said = (said + content).slice(-2)
+        yield content === event.content ? event : { ...event, content }
+        continue
+      }
+      yield event
     }
     // [[BUG-235]] — A STOPPED ROUND IS NEVER CONTINUED, by either path below.
     const stopped = done === null || done.meta?.status === ABORTED_STATUS
@@ -4425,6 +4441,25 @@ async function* continuedTurn(
     // Each turn its own spend row; the caller's ledger id keys the first.
     turnId = turn ? `${turn}-continued-${round + 1}` : undefined
   }
+}
+
+/**
+ * [[BUG-241]] — what goes in front of a continued round's first words so they
+ * start a paragraph of their own: nothing when what the client was shown ends
+ * with a blank line, one newline when it ends with one, two otherwise.
+ *
+ * WHY IT MATTERS. Every round of one request lands in ONE live chat bubble, which
+ * concatenates them. The framework separates text blocks WITHIN a turn
+ * (`BLOCK_SEPARATOR`), but a round the host continues is a new turn, so nothing
+ * separated them: a closing `**` landed between a `?` and a letter (`…off?**Then`),
+ * where Markdown does not read it as closing, and the client read literal
+ * asterisks. The stored transcript keeps rounds as separate turns, so a reload
+ * never showed it; the break is added here, above the manager, so it is the live
+ * bubble's alone and the transcript is unchanged.
+ */
+function paragraphBreak(said: string): string {
+  if (said === '' || said.endsWith('\n\n')) return ''
+  return said.endsWith('\n') ? '\n' : '\n\n'
 }
 
 /** The status a turn the client stopped ends with (lagrange-framework `ABORTED`). */

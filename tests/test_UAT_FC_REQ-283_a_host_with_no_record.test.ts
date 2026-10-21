@@ -125,7 +125,7 @@ describe('REQ-283 — a host with no record is told none of it', () => {
     expect(reminder).not.toContain('Keep your record current as you work')
     // The reminders it DOES get are unchanged, so this is an absence rather than
     // a broken tier.
-    expect(reminder).toContain('Do not name framework concepts to your client')
+    expect(reminder).toContain('One person to the client, naming none of our machinery')
   })
 
   it('test_UAT_FC_REQ-283_it_is_offered_neither_the_record_nor_the_reads_on_itself', async () => {
