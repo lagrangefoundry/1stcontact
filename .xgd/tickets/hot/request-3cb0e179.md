@@ -6,10 +6,10 @@ title: 'L1: vertical rhythm — text styles carry space above and below, so a he
   attaches to its paragraph'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:20.891074+00:00'
-updated_at: '2026-10-21T00:19:36.943070+00:00'
+updated_at: '2026-10-21T00:19:52.424413+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-02c29bae
+  commits:
+  - working_sha: ba720eb7914e9d08faff8a9c9e1e938b7adc22d5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bb6ed8399722cb7057516ee589db60489cb4953c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.562
 ---
 
 ## Why (operator, 2026-10-20)
