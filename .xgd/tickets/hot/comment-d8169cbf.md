@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:48:55.234515+00:00'
+updated_at: '2026-10-21T18:49:42.377027+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11300,5 +11300,21 @@ It's the same class of error as LF BUG-81, the empty reasoning block, now on the
 <!-- xgd-chat role="user" ts="2026-10-21T18:48:54.470334+00:00" -->
 #### You
 We attempted to get the AI to draw a logo - this was moderately successful with xgd but is it possible that this is beyond Haiku?
+
+<!-- xgd-turn id="61d4f8d3-5fa2-459e-a1d8-d0b64d751c9c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:49:41.138070+00:00" -->
+#### Claude
+Very possibly, yes. In this run the logo is a hand-written SVG (`ariels-sign.svg` on the site), and drawing tools like that are on the builders' side, which run Haiku 4.5. I haven't confirmed which session wrote that particular file, but it fits a builder.
+
+**Why a hand-drawn logo is hard for Haiku:** writing SVG paths by hand means planning shapes in coordinates, with no eyes on the result. It needs spatial reasoning (curves, proportions, optical balance) and design judgement at the same time. Larger models are much better at both. On xgd, the logo was probably drawn when the consultant (Opus) did the work itself, before most building was handed to builders. That would explain "moderately successful" there and worse here.
+
+**Options, roughly from most to least promising:**
+1. **Start with a wordmark.** Most small-business logos are a well-set name: a chosen typeface, weight, spacing and maybe one simple mark or rule. That's typography, which L1 already does well, and it's within reach for any model. It also stays crisp and editable. Make this the consultant's default.
+2. **Give craft work to a stronger model.** A logo is small in tokens and large in impact, which is exactly the trade where paying for Opus or Sonnet is right. Either the consultant draws it itself, or `Delegate` gets a tier, e.g. `craft`, that runs on a stronger builder model for briefs like logos, illustrations and a hero composition. That's in keeping with your cost model: spend tokens where judgement matters.
+3. **Illustrated marks come from image generation, not hand-written SVG.** `CreateImage` and `EditImage` already exist. The consultant writes the prompt, looks at the result, which counts as a look under REQ-415, and iterates with you. A raster logo is fine on the web at the right size. Converting it to vector can come later if it's ever needed.
+4. **Always look at it.** The post-build screenshot (REQ-415) catches a bad mark, but only once it's on the page. For a logo, the consultant should check it on its own and at the header's actual size before anything else is built around it.
+
+**My recommendation:** do 1 and 3 by default and 2 for anything hand-drawn, and never leave a logo to a Haiku builder working alone. That's one ticket: a model tier on `Delegate` (with the strong model set in configuration), plus the consultant's logo method in the priming. Shall I file it?
 
 <!-- xgd-chat-end -->
