@@ -307,9 +307,11 @@ export function ratesFor(backend: string, model: string): Rates | null {
  * BY THE LIFETIME EACH WAS WRITTEN WITH. Where the usage record splits the writes,
  * each part is priced at its own rate; any remainder of the total the split does
  * not account for, and the whole total where there is no split, is priced at the
- * lifetime the backend REQUESTED. That fallback is exact today rather than
- * approximate: a backend asks for one lifetime on every marker it emits, so every
- * token it writes was written with it.
+ * lifetime the backend REQUESTED for its system prefix. A backend may ask for a
+ * shorter lifetime on its history ([[REQ-421]]), so for one that does this
+ * fallback is an upper bound rather than exact — the meter may over-count an
+ * unsplit write, never under-count it. The adapter reports the split
+ * (lagrange-framework REQ-216), so the fallback prices only what it leaves out.
  */
 function writeMicros(usage: TurnCounters, rates: Rates, ttl: string): number {
   const requested = rates[WRITE_RATE_OF[lifetimeOf(ttl)]]
@@ -334,10 +336,10 @@ export function costMicros(
   usage: TurnCounters,
   backend: string,
   model: string,
-  // [[BUG-242]] — the lifetime the backend asked for, from the same function its
-  // constructor is given it by. A parameter only so a lifetime no backend asks
-  // for today can be priced.
-  ttl: string = cacheTtlOf(backend),
+  // [[BUG-242]] — the lifetime the backend asked for its system prefix, read from
+  // the `backends.json` key the adapter itself reads. A parameter only so a
+  // lifetime no backend asks for today can be priced.
+  ttl: string = cacheTtlOf(backend).system,
 ): number | null {
   const rates = ratesFor(backend, model)
   if (rates === null) return null

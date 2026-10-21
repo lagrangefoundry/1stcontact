@@ -32,7 +32,7 @@ import { metered, says, scriptedClient } from './support/scripted-model-client'
  */
 function rateName(key: (typeof COUNTER_KEYS)[number]): string {
   return key === 'cache_creation_input_tokens'
-    ? WRITE_RATE_OF[lifetimeOf(cacheTtlOf(PROJECT_BACKEND))]
+    ? WRITE_RATE_OF[lifetimeOf(cacheTtlOf(PROJECT_BACKEND).system)]
     : RATE_OF[key]
 }
 
