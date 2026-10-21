@@ -35,8 +35,11 @@ import {
   boardOf,
   checkBoard,
   liveNotes,
+  offerHeadlines,
   pinNotes,
+  positioningState,
   REACTION_EMOJI,
+  writePositioning,
   type BoardView,
   type StoryBoard,
 } from './story-core'
@@ -451,7 +454,21 @@ export interface PlanFields {
   board?: StoryBoard
   /** [[REQ-424]] — the focus tasks the consultant has led, newest last. Absent until the first. */
   focus_tasks?: FocusTask[]
+  /** [[REQ-425]] — how ready the client is in each area, as the consultant judges it. Absent until judged. */
+  readiness?: Readiness
 }
+
+/**
+ * [[REQ-425]] — THE AREAS A CLIENT CAN BE MORE OR LESS READY IN, and how each reads.
+ * A client may know exactly what they want said and have no idea how it should
+ * look; the consultant paces each area on its own.
+ */
+export const READINESS_AREAS = { messaging: 'messaging', look: 'look and feel', functions: 'site functions' } as const
+export type ReadinessArea = keyof typeof READINESS_AREAS
+/** From "I don't know where to start" to "I know exactly what I want — just do it". */
+export const READINESS_LEVELS = ['unknown', 'has_ideas', 'knows_exactly'] as const
+export type ReadinessLevel = (typeof READINESS_LEVELS)[number]
+export type Readiness = Partial<Record<ReadinessArea, ReadinessLevel>>
 
 /** A plan as the host stores it: structured frontmatter, free-text body. */
 export interface Plan {
@@ -940,6 +957,11 @@ export function checkPlan(fields: PlanFields): void {
     if (!filled(d.quote)) bad(`${d.detail} cannot be approved without the client's own words attached`)
   }
   checkBoard(fields.board, bad)
+  // [[REQ-425]] — readiness: the known areas, each at a known level.
+  for (const [area, level] of Object.entries(fields.readiness ?? {})) {
+    if (!(area in READINESS_AREAS)) bad(`unknown readiness area ${JSON.stringify(area)}`)
+    if (!(READINESS_LEVELS as readonly string[]).includes(level as string)) bad(`readiness is one of ${READINESS_LEVELS.join(', ')}`)
+  }
   // [[REQ-424]] — focus tasks: known kinds and endings, items to go through, a line to show.
   for (const t of fields.focus_tasks ?? []) {
     if (!(FOCUS_KINDS as readonly string[]).includes(t.kind)) bad(`unknown focus task kind ${JSON.stringify(t.kind)}`)
@@ -1336,6 +1358,8 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
     typeof brief.quality_bar === 'string' ? `quality bar: ${brief.quality_bar}` : '',
   ].filter(Boolean)
   if (briefBits.length) lines.push(`Brief — ${briefBits.join('; ')}.`)
+  // [[REQ-425]] — how ready the client is in each area, so the pace fits without re-asking.
+  lines.push(readinessLine(f))
   // [[REQ-408]] — the story board, and what "Getting to know you" still needs from it.
   lines.push(boardReminderLine(f))
   // [[REQ-424]] — the focus task open, or what is waiting for one.
@@ -1391,6 +1415,15 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   return text.length <= MAX_PLAN_REMINDER_CHARS
     ? text
     : `${text.slice(0, MAX_PLAN_REMINDER_CHARS - 40).replace(/\s+\S*$/, '')}\n(read_plan for the rest)`
+}
+
+/** [[REQ-425]] — the readiness line of the per-turn plan entry. */
+export function readinessLine(fields: Pick<PlanFields, 'readiness'>): string {
+  const r = fields.readiness ?? {}
+  const parts = (Object.keys(READINESS_AREAS) as ReadinessArea[]).map(
+    (a) => `${READINESS_AREAS[a]}: ${r[a] ? r[a]!.replace('_', ' ') : 'not judged yet'}`,
+  )
+  return `Client readiness — ${parts.join('; ')}. Propose and guide where unknown, build on their ideas, carry out what they know exactly; set_readiness as they show it.`
 }
 
 /** [[REQ-399]] — the catalogue as a session is told it: ids, and what is not built yet. */
@@ -1848,6 +1881,25 @@ export const FOCUS_WHAT: Record<FocusKind, string> = {
   comps: 'commenting on the sites on the comparison board',
 }
 
+/**
+ * [[REQ-425]] — A STORY TASK IS ONE STEP AT A TIME: react to the new notes, then
+ * confirm the positioning card, then pick a headline. The two later steps are
+ * items of their own, named by these ids.
+ */
+export const STORY_STEPS = { positioning: 'positioning', headline: 'headline' } as const
+const STEP_IDS: readonly string[] = Object.values(STORY_STEPS)
+export type StoryStep = 'notes' | keyof typeof STORY_STEPS
+export const storyStep = (task: Pick<FocusTask, 'kind' | 'items'>): StoryStep | null =>
+  task.kind !== 'story' ? null : task.items[0] === STORY_STEPS.positioning ? 'positioning' : task.items[0] === STORY_STEPS.headline ? 'headline' : 'notes'
+
+/** [[REQ-425]] — what the client is doing in a task, as the consultant reads it. */
+export function focusWhat(task: Pick<FocusTask, 'kind' | 'items'>): string {
+  const step = storyStep(task)
+  if (step === 'positioning') return 'confirming the positioning card on the story board'
+  if (step === 'headline') return 'picking a headline on the story board'
+  return FOCUS_WHAT[task.kind]
+}
+
 /** [[REQ-424]] — the task still open, or `null`. */
 export function openFocus(fields: Pick<PlanFields, 'focus_tasks'>): FocusTask | null {
   const last = (fields.focus_tasks ?? []).at(-1)
@@ -1864,6 +1916,9 @@ export function focusItemClosed(fields: PlanFields, kind: FocusKind, id: string)
     const c = (fields.comps ?? []).find((x) => x.reference === id)
     return !c || compCardState(c) !== 'open'
   }
+  // [[REQ-425]] — the card is done with once confirmed (or the fallback recorded); the headline once chosen.
+  if (id === STORY_STEPS.positioning) return ['none', 'confirmed', 'fallback'].includes(positioningState(boardOf(fields)))
+  if (id === STORY_STEPS.headline) return boardOf(fields).headline.text !== undefined || (boardOf(fields).headline.options ?? []).length === 0
   const n = boardOf(fields).notes.find((x) => x.id === id)
   return !n || n.deleted === true || n.reaction !== undefined
 }
@@ -1881,6 +1936,14 @@ const storyCovered = (fields: PlanFields): Set<string> =>
 export function focusCandidates(fields: PlanFields, kind: FocusKind): string[] {
   if (kind === 'questions') return orderedAsks(fields.asks ?? []).filter((a) => a.status === 'open').map((a) => a.id)
   if (kind === 'comps') return (fields.comps ?? []).filter((c) => compCardState(c) === 'open').map((c) => c.reference)
+  // [[REQ-425]] — the new notes first; with none, the next step that is waiting.
+  const notes = newNotes(fields)
+  if (notes.length) return notes
+  return STEP_IDS.filter((id) => !focusItemClosed(fields, 'story', id)).slice(0, 1)
+}
+
+/** [[REQ-424]] — the notes you pinned with no reaction that no story task has covered yet. */
+function newNotes(fields: PlanFields): string[] {
   const covered = storyCovered(fields)
   return liveNotes(boardOf(fields))
     .filter((n) => n.by === 'consultant' && n.reaction === undefined && !covered.has(n.id))
@@ -1903,7 +1966,7 @@ export function settleFocus(fields: PlanFields, at: string): void {
 /** [[REQ-424]] — the task the client was asked to finish, as a line the consultant reads. */
 function focusRefusal(task: FocusTask): string {
   return (
-    `your client is ${FOCUS_WHAT[task.kind]} — the focus task you started — so nothing new goes there until they finish; ` +
+    `your client is ${focusWhat(task)} — the focus task you started — so nothing new goes there until they finish; ` +
     'you will be told when they do. Keep it and add it then, or end_focus first if they have walked away from it'
   )
 }
@@ -1926,7 +1989,7 @@ export function startFocus(fields: PlanFields, p: Record<string, unknown>, at: s
   if (open) {
     throw refuse(
       'FOCUS_OPEN',
-      `your client is still ${FOCUS_WHAT[open.kind]} — one focus task at a time. Wait until you are told they have finished, or end_focus it if they have walked away from it`,
+      `your client is still ${focusWhat(open)} — one focus task at a time. Wait until you are told they have finished, or end_focus it if they have walked away from it`,
     )
   }
   const intro = str(p.intro)
@@ -1937,6 +2000,10 @@ export function startFocus(fields: PlanFields, p: Record<string, unknown>, at: s
   let items: string[]
   if (Array.isArray(p.items) && p.items.length) {
     items = [...new Set(p.items.map(String))]
+    // [[REQ-425]] — one step at a time: a card or headline step is a task of its own.
+    if (kind === 'story' && items.length > 1 && items.some((id) => STEP_IDS.includes(id))) {
+      throw refuse(PLAN_INVALID, 'confirming the positioning card and picking a headline are each a task of their own; give one of them alone')
+    }
     const off = items.find((id) => focusItemClosed(fields, kind, id))
     if (off !== undefined) throw refuse(PLAN_INVALID, `${JSON.stringify(off)} is not an open item there; leave items out to cover everything still open`)
   } else {
@@ -1969,6 +2036,8 @@ export function finishFocus(plan: Plan, by: Exclude<FocusEnding, 'items'>, at: s
 /** [[REQ-424]] — the open task as the client's surfaces draw it. */
 export interface FocusView {
   kind: FocusKind
+  /** [[REQ-425]] — for a story task, which step it is. */
+  step?: StoryStep
   intro: string
   started_at: string
   total: number
@@ -1982,7 +2051,16 @@ export function focusView(fields: PlanFields): FocusView | null {
   const task = openFocus(fields)
   if (!task) return null
   const pending = task.items.filter((id) => !focusItemClosed(fields, task.kind, id))
-  return { kind: task.kind, intro: task.intro, started_at: task.started_at, total: task.items.length, closed: task.items.length - pending.length, pending }
+  const step = storyStep(task)
+  return {
+    kind: task.kind,
+    ...(step ? { step } : {}),
+    intro: task.intro,
+    started_at: task.started_at,
+    total: task.items.length,
+    closed: task.items.length - pending.length,
+    pending,
+  }
 }
 
 /**
@@ -1993,7 +2071,7 @@ export function focusLater(fields: PlanFields): string[] {
   if (!(fields.focus_tasks ?? []).some((t) => t.kind === 'story')) return []
   const open = openFocus(fields)
   const inOpen = new Set(open?.kind === 'story' ? open.items : [])
-  return focusCandidates(fields, 'story').filter((id) => !inOpen.has(id))
+  return newNotes(fields).filter((id) => !inOpen.has(id))
 }
 
 /** [[REQ-424]] — when the client last finished a task (theirs, or every item closed), or `null`. */
@@ -2026,6 +2104,13 @@ export function focusFinishedLine(fields: PlanFields, task: FocusTask): string {
   } else if (task.kind === 'comps') {
     const comps = (fields.comps ?? []).filter((c) => task.items.includes(c.reference))
     did = `they sent notes on ${comps.filter((c) => compCardState(c) === 'sent').length} and skipped ${comps.filter((c) => compCardState(c) === 'skipped').length} of ${task.items.length} sites`
+  } else if (storyStep(task) === 'positioning') {
+    const board = boardOf(fields)
+    const card = board.positioning
+    did = card?.edited ? 'they put the positioning card in their own words' : card?.heart ? 'they hearted the positioning card' : 'they left the positioning card unconfirmed'
+  } else if (storyStep(task) === 'headline') {
+    const h = boardOf(fields).headline
+    did = h.text ? `${h.yours ? 'they wrote their own headline' : 'they chose the headline'} ${focusQuote(h.text, 140)}` : 'they chose no headline'
   } else {
     const notes = boardOf(fields).notes.filter((n) => task.items.includes(n.id))
     const by = (r: string): string[] => notes.filter((n) => !n.deleted && n.reaction === r).map((n) => focusQuote(n.text))
@@ -2036,7 +2121,7 @@ export function focusFinishedLine(fields: PlanFields, task: FocusTask): string {
     did = `of ${task.items.length} notes: ${parts.length ? parts.join('; ') : 'no reactions'}${deleted ? `; ${deleted} deleted` : ''}`
   }
   return (
-    `Your client has finished the focus task you started — ${FOCUS_WHAT[task.kind]} (${ended}); ${did}. ` +
+    `Your client has finished the focus task you started — ${focusWhat(task)} (${ended}); ${did}. ` +
     'Resume the conversation now, without being asked: in a line or two say what you took from it, naming it ' +
     '(e.g. "You hearted the shipyard and your dad\'s rule — those lead the home page"), then carry on with the next thing. ' +
     'Ask about each 👎 or anything left open only if it matters.'
@@ -2048,20 +2133,27 @@ export function focusReminderLine(fields: PlanFields): string {
   const view = focusView(fields)
   if (view) {
     return (
-      `Focus task open: your client is ${FOCUS_WHAT[view.kind]} (${view.closed} of ${view.total} done; you said "${view.intro}"). ` +
+      `Focus task open: your client is ${focusWhat(openFocus(fields)!)} (${view.closed} of ${view.total} done; you said "${view.intro}"). ` +
       'Open no new topic and add nothing to that surface until you are told they have finished; answer them if they speak. ' +
       'If the view report says they are not looking at it, point them back once, gently, with a show_client link — then leave it.'
     )
   }
-  const waiting = FOCUS_KINDS.map((k) => [k, focusCandidates(fields, k).length] as const).filter(([, n]) => n > 0)
+  const waiting = FOCUS_KINDS.map((k) => [k, focusCandidates(fields, k)] as const).filter(([, ids]) => ids.length > 0)
   if (waiting.length === 0) return 'No focus task open, and nothing waiting on the client.'
-  const named: Record<FocusKind, (n: number) => string> = {
-    questions: (n) => `${n} open question${n === 1 ? '' : 's'}`,
-    story: (n) => `${n} new note${n === 1 ? '' : 's'} with no reaction`,
-    comps: (n) => `${n} comparison site${n === 1 ? '' : 's'} not yet sent or skipped`,
+  const n = (ids: string[], word: string): string => `${ids.length} ${word}${ids.length === 1 ? '' : 's'}`
+  const named: Record<FocusKind, (ids: string[]) => string> = {
+    questions: (ids) => `${n(ids, 'open question')}`,
+    // [[REQ-425]] — or the story board's next step.
+    story: (ids) =>
+      ids[0] === STORY_STEPS.positioning
+        ? 'the positioning card to confirm'
+        : ids[0] === STORY_STEPS.headline
+          ? 'the headline options to pick from'
+          : `${n(ids, 'new note')} with no reaction`,
+    comps: (ids) => `${n(ids, 'comparison site')} not yet sent or skipped`,
   }
   return (
-    `No focus task open. Waiting on the client: ${waiting.map(([k, n]) => named[k](n)).join('; ')}. ` +
+    `No focus task open. Waiting on the client: ${waiting.map(([k, ids]) => named[k](ids)).join('; ')}. ` +
     'Walk them through these with start_focus, one surface at a time, at a moment you choose — right after you start a build is a good one.'
   )
 }
@@ -2734,6 +2826,46 @@ export function planOperations(
         focusGuard(plan.fields, 'story')
         return pinNotes(plan.fields, p, now())
       }),
+    // [[REQ-425]] — and no new card or headline offer while they work through the board.
+    offer_headlines: (p) =>
+      change((plan) => {
+        focusGuard(plan.fields, 'story')
+        return offerHeadlines(plan.fields, p, now())
+      }),
+    write_positioning: (p) =>
+      change((plan) => {
+        focusGuard(plan.fields, 'story')
+        const card = writePositioning(plan.fields, p, now())
+        // THE FALLBACK IS RECORDED AS A DECISION: the core story, proposed — the
+        // client still settles it, as every decision.
+        if (card.fallback) {
+          let d = plan.fields.decisions.find((x) => x.id === CORE_STORY)
+          if (!d) {
+            const seeded = planSeed.decisions.find((x) => x.id === CORE_STORY)!
+            d = { id: CORE_STORY, title: seeded.title, area: seeded.area, tier: seeded.tier, state: 'open', compared: false }
+            plan.fields.decisions.push(d)
+          }
+          d.value = `Fallback — nothing distinctive yet: ${card.lines.find((l) => l.kind === 'known_for')!.text}`
+          if (d.state === 'open' || d.state === 'defaulted') d.state = 'proposed'
+        }
+        return { positioning: card }
+      }),
+
+    // ── readiness: the consultant's ([[REQ-425]]) ───────────────────────────
+    set_readiness: (p) =>
+      change((plan) => {
+        const r: Readiness = { ...(plan.fields.readiness ?? {}) }
+        const areas = Object.keys(READINESS_AREAS) as ReadinessArea[]
+        const given = areas.filter((a) => str(p[a]) !== undefined)
+        if (given.length === 0) throw refuse(PLAN_INVALID, `give a level for at least one of ${areas.join(', ')}`)
+        for (const a of given) {
+          const level = str(p[a])!
+          if (!(READINESS_LEVELS as readonly string[]).includes(level)) throw refuse(PLAN_INVALID, `readiness is one of ${READINESS_LEVELS.join(', ')}`)
+          r[a] = level as ReadinessLevel
+        }
+        plan.fields.readiness = r
+        return { readiness: r }
+      }),
 
     // ── bringing a view to the client: the consultant's ([[REQ-413]]) ───────
     ...shows,
@@ -2761,6 +2893,9 @@ export function planOperations(
     },
   }
 }
+
+/** [[REQ-425]] — the decision the positioning fallback is recorded as. */
+const CORE_STORY = 'core_story'
 
 /** [[REQ-424]] — where each kind of task is shown: the first question, the story board, the comparison board. */
 const FOCUS_TARGET: Record<FocusKind, (task: FocusTask) => Params> = {

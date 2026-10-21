@@ -4,10 +4,11 @@
   "surface_version": 2,
   "title": "The site plan",
   "call_type": "inproc",
-  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the stages of the build, each not started, in progress or done; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**A change answers what it changed, not the plan.** Every write confirms the one thing it wrote — the decision, task or check as it now stands — with long text shortened. Read the plan when you need the rest of it.\n\n**Asks are the questions waiting for the client.** They show on a panel above the chat, where the client answers them whenever they like, without interrupting the conversation. Put a question there only if the client can answer it unaided and the answer stays true: their phone number, opening hours, the towns they cover, whether they have a price list. Questions of judgement — style, which version they prefer, what to lead with — belong in the conversation. The client owns the answer; you own the wording. Their answers reach you at the start of your next turn.\n\n**Milestones fall due.** When the host sees a moment of the build happen — the first pass built, a round of revisions finished, Publish opened — the checks that moment triggers fall due, and your per-turn plan entry says so. Raise each one with the client in the conversation, and record that you asked (`ask_check`) and what they said (`record_check_answer`). When the entry says the stages are behind the build, catch them up with `set_stage`.\n\n**The stages are the client's progress bar.** The client sees them at the top of the panel: Getting to know you, Looking at other sites, First draft, Refining, Colours & fonts, Finishing touches, Ready to publish. Start a stage (`in_progress`) when the work on it begins, and tick it (`done`) when the client agrees it is done. Starting a stage never ticks another: getting to know the client carries on while the first draft is built, so two stages can be in progress at once, and a stage is done only when you tick it. They can be done in any order, skipped, or reopened — but a stage passed over shows to the client as skipped, so tick it if it was covered.\n\n**The story board is the client's story in their own words.** It is a third view of the preview, beside View and Edit, and the client sees it before there is any draft. Pin the key things the client says about their business as sticky notes (`pin_notes`) during Getting to know you, and keep pinning as they talk. You may reword a quote so it reads as a note — change person or tense, drop words it does not need — but never add a claim, a fact or an adjective; every note keeps the sentence it came from, which the client sees on hover. Give each note one emoji saying what it is about, and group the notes into themes, at most six, each with its own colour. The client reacts to each note: ❤️ \"that's us\", 👍 true, 👎 not right or not how they would say it (it stays, pale, and you ask about it or offer a better wording with `reword_note`), or 🗑 delete. They can add notes and edit any note; a note they wrote, edited, hearted or thumbed up is their wording, and you never reword or remove it. When the board has hearts, offer two or three headlines written from the hearted notes (`offer_headlines`) — one line answering why the right customer would pick them over what they would otherwise choose. A new offer never replaces their choice. Their reactions, notes and headline reach you at the start of your next turn. The board never changes the site: the copy is written from the hearted notes and the chosen headline.",
+  "overview": "Every site has one plan, and it is the single shared picture of the project. It outlives every conversation about the site, so read it before acting on what you think you remember.\n\nThe plan has structured parts and a written part. The structured parts are the stages of the build, each not started, in progress or done; the brief, which is the client's goals in structured form; the features they want; the decisions that make up the site, each with a state; the checks — questions put to the consultant and the client — with the answers given; and the tasks. The written part holds the client's goals in their own words, the decision log, and notes.\n\n**A decision has a state, and not objecting is not choosing.** `open` means nobody has decided. `defaulted` means it was picked to get the page built and the client has not really looked. `proposed` means a specific option was put to the client. `not_objected` means the client saw it and said nothing. `chosen`, `delegated` (\"you decide\") and `parked` (\"not now\", with a reason) come only from the client, and only with the client's own words attached. Concept-level decisions should end up chosen or delegated; the dangerous gaps are the ones that stayed defaulted.\n\n**Nobody but the consultant and the client answers a check.** The coordinator asks and records; it never has an opinion of the site.\n\n**A change answers what it changed, not the plan.** Every write confirms the one thing it wrote — the decision, task or check as it now stands — with long text shortened. Read the plan when you need the rest of it.\n\n**Asks are the questions waiting for the client.** They show on a panel above the chat, where the client answers them whenever they like, without interrupting the conversation. Put a question there only if the client can answer it unaided and the answer stays true: their phone number, opening hours, the towns they cover, whether they have a price list. Questions of judgement — style, which version they prefer, what to lead with — belong in the conversation. The client owns the answer; you own the wording. Their answers reach you at the start of your next turn.\n\n**Milestones fall due.** When the host sees a moment of the build happen — the first pass built, a round of revisions finished, Publish opened — the checks that moment triggers fall due, and your per-turn plan entry says so. Raise each one with the client in the conversation, and record that you asked (`ask_check`) and what they said (`record_check_answer`). When the entry says the stages are behind the build, catch them up with `set_stage`.\n\n**The stages are the client's progress bar.** The client sees them at the top of the panel: Getting to know you, Looking at other sites, First draft, Refining, Colours & fonts, Finishing touches, Ready to publish. Start a stage (`in_progress`) when the work on it begins, and tick it (`done`) when the client agrees it is done. Starting a stage never ticks another: getting to know the client carries on while the first draft is built, so two stages can be in progress at once, and a stage is done only when you tick it. They can be done in any order, skipped, or reopened — but a stage passed over shows to the client as skipped, so tick it if it was covered.\n\n**The story board is the client's story in their own words.** It is a third view of the preview, beside View and Edit, and the client sees it before there is any draft. Pin the key things the client says about their business as sticky notes (`pin_notes`) during Getting to know you, and keep pinning as they talk. You may reword a quote so it reads as a note — change person or tense, drop words it does not need — but never add a claim, a fact or an adjective; every note keeps the sentence it came from, which the client sees on hover. Give each note one emoji saying what it is about, and group the notes into themes, at most six, each with its own colour. The client reacts to each note: ❤️ \"that's us\", 👍 true, 👎 not right or not how they would say it (it stays, pale, and you ask about it or offer a better wording with `reword_note`), or 🗑 delete. They can add notes and edit any note; a note they wrote, edited, hearted or thumbed up is their wording, and you never reword or remove it. When the board has hearts, write the positioning card from them (`write_positioning`) and, once the client has confirmed it, offer headlines from its lines (`offer_headlines`). A new offer never replaces their choice. Their reactions, notes and headline reach you at the start of your next turn. The board never changes the site: the copy is written from the hearted notes and the chosen headline.",
   "param_types": {
     "story_notes": { "base": "array", "item_base": "object" },
-    "audience_list": { "base": "array", "item_base": "object" }
+    "audience_list": { "base": "array", "item_base": "object" },
+    "card_picks": { "base": "array", "item_base": "object" }
   },
   "shapes": {
     "plan": {
@@ -122,6 +123,9 @@
     },
     "NO_FOCUS": {
       "message": "there is no focus task open, so nothing was ended."
+    },
+    "NO_POSITIONING": {
+      "message": "the story board has no positioning card yet, so no headlines were offered: write it with write_positioning first."
     }
   },
   "operations": [
@@ -553,18 +557,48 @@
       "errors": ["PLAN_INVALID", "UNKNOWN_THEME", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
+      "op": "write_positioning",
+      "tool": "write_positioning",
+      "effect": "write",
+      "summary": "Write the positioning card above the headline on the story board.",
+      "description": "The step between the notes and the headline, written from the notes the client hearted (name them in `from`): what you are hearing, what they are known for, and why each kind of customer picks them — said through what that customer is deciding on, not as a slogan. The client hearts it or edits it; once they have, it is theirs and a rewrite is refused. With nothing distinctive to say, pass `fallback: true` instead: the card says they are the most trustworthy and easiest to contact (or your `known_for`), recorded as a proposed core_story decision.",
+      "params": {
+        "hearing": { "type": "array", "description": "Two or three themes you are hearing, one short line each." },
+        "known_for": { "type": "string", "description": "One line: what the business is known for." },
+        "picks": { "type": "card_picks", "description": "One to three `{\"customer\": ..., \"why\": ...}` — a kind of customer, and why they pick this business through what they are deciding on." },
+        "from": { "type": "array", "description": "The ids of the hearted notes the card is written from." },
+        "fallback": { "type": "boolean", "description": "Nothing distinctive yet: write the honest fallback card instead." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "UNKNOWN_NOTE", "CLIENTS_WORDS", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
       "op": "offer_headlines",
       "tool": "offer_headlines",
       "effect": "write",
       "summary": "Offer the client two or three headlines at the top of the story board.",
-      "description": "One line each that a stranger reads on the home page, answering why the right customer would pick them over what they would otherwise choose — not a strategy statement. Write them from the notes the client hearted and name those notes in `from`; a headline from nothing is refused. Recommend one with `pick`. The client steps through them, chooses one, or writes their own. Offered lines they did not choose are never offered again. After they have chosen, a new offer waits beside their choice as new options and never replaces it. One round costs one exchange: if nothing lands, move on and settle the headline in the draft.",
+      "description": "One line each that a stranger reads on the home page, answering why the right customer would pick them — not a strategy statement. Each comes from a line of the positioning card, named in `sources` (one card line id per option, e.g. `known`, `p1`); with no card the offer is refused. Recommend one with `pick`. The client steps through them, chooses one, or writes their own. Offered lines they did not choose are never offered again. After they have chosen, a new offer waits beside their choice as new options and never replaces it.",
       "params": {
         "options": { "type": "array", "required": true, "description": "Two or three headlines, one line each." },
         "pick": { "type": "number", "required": true, "description": "The index (from 0) of the one you recommend." },
-        "from": { "type": "array", "required": true, "description": "The ids of the hearted notes the headlines are written from." }
+        "sources": { "type": "array", "required": true, "description": "For each option, the id of the card line it comes from." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "UNKNOWN_NOTE", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "NO_POSITIONING", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "set_readiness",
+      "tool": "set_readiness",
+      "effect": "write",
+      "summary": "Record how ready the client is in each area.",
+      "description": "From what the client says, never by asking: `unknown` (doesn't know where to start: propose and guide), `has_ideas` (build on them), `knows_exactly` (carry it out). Set one area or several; your plan entry shows them every turn.",
+      "params": {
+        "messaging": { "type": "string", "enum": ["unknown", "has_ideas", "knows_exactly"], "description": "What the site says." },
+        "look": { "type": "string", "enum": ["unknown", "has_ideas", "knows_exactly"], "description": "Look and feel." },
+        "functions": { "type": "string", "enum": ["unknown", "has_ideas", "knows_exactly"], "description": "What the site does." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
     }
   ],
   "groups": [
@@ -587,7 +621,7 @@
       "effect": "write",
       "title": "Planning the work",
       "description": "The consultant's part: proposing decisions, owning the tasks, answering checks, putting a look the client chose onto their page, bringing the part of the builder that matters in front of the client, and leading them through a focus task on it.",
-      "operations": ["set_decision", "set_task", "answer_check", "choose_look", "show_client", "start_focus", "end_focus"]
+      "operations": ["set_decision", "set_task", "answer_check", "choose_look", "show_client", "start_focus", "end_focus", "set_readiness"]
     },
     {
       "group": "CoordinatePlan",
@@ -621,8 +655,8 @@
       "group": "KeepStoryBoard",
       "effect": "write",
       "title": "Keeping the story board",
-      "description": "The client's story in their own words: pinning, rewording, moving and removing notes, naming the themes they cluster under, and offering headlines written from the notes the client hearted.",
-      "operations": ["pin_notes", "reword_note", "move_note", "remove_note", "set_theme", "offer_headlines"]
+      "description": "The client's story in their own words: pinning, rewording, moving and removing notes, naming the themes they cluster under, writing the positioning card from the notes the client hearted, and offering headlines written from it.",
+      "operations": ["pin_notes", "reword_note", "move_note", "remove_note", "set_theme", "write_positioning", "offer_headlines"]
     }
   ],
   "sequences": [],

@@ -73,7 +73,7 @@ export function createFocusBanner({ kind, site, onView, transport = {} }) {
       element.hidden = !focus
       if (focus) {
         intro.textContent = focus.intro
-        progress.textContent = FOCUS_PROGRESS[kind](focus.closed, focus.total)
+        progress.textContent = FOCUS_PROGRESS[kind](focus.closed, focus.total, focus.step)
       }
       return focus
     },

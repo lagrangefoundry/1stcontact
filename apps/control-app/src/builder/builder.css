@@ -6411,6 +6411,127 @@ body {
   border: 1px solid #c9c2b3;
 }
 
+/* [[REQ-425]] — the positioning card above the headline: an index card, plain and
+ * square, so it reads as a summary and not as one more sticky note. Lifted when
+ * hearted; outlined while a focus task asks the client to confirm it. */
+.story-card {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 46em;
+  margin: 0 auto 20px;
+  padding: 14px 18px 16px;
+  border: 1px solid #d9d3c6;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.story-card[data-state='confirmed'] {
+  border-color: #2b2b2b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.story-card--pending,
+.story-headline--pending {
+  outline: 3px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.story-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.story-card__label,
+.story-card__title {
+  color: #8a8578;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+.story-card__title {
+  margin: 10px 0 2px;
+}
+
+.story-card__heart {
+  padding: 2px 8px;
+  border: 1px solid #c9c2b3;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.story-card__heart[aria-pressed='true'] {
+  border-color: #b4232c;
+  background: #fdecec;
+  opacity: 1;
+}
+
+.story-card__fallback {
+  margin: 0;
+  color: #6f6a5e;
+  font-style: italic;
+}
+
+.story-card__lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.story-card__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 2px 0;
+}
+
+.story-card__customer::after {
+  content: ':';
+}
+
+.story-card__text {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2b2b2b;
+  font: inherit;
+  text-align: left;
+  cursor: text;
+}
+
+.story-card__text:hover {
+  background: #f3efe6;
+}
+
+.story-card__box {
+  flex: 1;
+  min-width: 12em;
+  padding: 2px 4px;
+  border: 1px solid #c9c2b3;
+  border-radius: 4px;
+  font: inherit;
+  resize: none;
+  field-sizing: content;
+}
+
+.story-card__yours,
+.story-headline__source {
+  color: #6f6a5e;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.story-headline__option .story-headline__source {
+  display: block;
+  font-weight: 400;
+}
+
 /* The themes: each a cluster under its written name. */
 .story-board__themes {
   display: grid;

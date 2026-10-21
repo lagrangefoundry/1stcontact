@@ -25,12 +25,24 @@
  * says so: the focus banner at the top (the consultant's line, "4 of 8 notes
  * reacted to", Done), each note still waiting outlined with its reactions at full
  * strength, and the notes left for a later round tagged New.
+ *
+ * [[REQ-425]] — THE POSITIONING CARD sits above the headline: the consultant's
+ * synthesis of the hearted notes, which the client confirms with a heart or by
+ * putting a line in their own words. Each headline option says which line of the
+ * card it comes from. While a task has them confirming the card or picking a
+ * headline, that is what is outlined.
  */
 import { boardAction } from './api.js'
 import { createFocusBanner } from './focus-banner.js'
 import {
   STORY_ADD_NOTE,
   STORY_BOARD_LABEL,
+  STORY_CARD_EDIT,
+  STORY_CARD_FALLBACK,
+  STORY_CARD_HEART,
+  STORY_CARD_LABEL,
+  STORY_CARD_SECTIONS,
+  STORY_CARD_YOURS,
   STORY_DELETE,
   STORY_EMPTY,
   STORY_FROM,
@@ -40,6 +52,7 @@ import {
   STORY_HEADLINE_MY_PICK,
   STORY_HEADLINE_NEW,
   STORY_HEADLINE_PLACEHOLDER,
+  STORY_HEADLINE_SOURCE,
   STORY_HEADLINE_USE,
   STORY_HEADLINE_WRITE_OWN,
   STORY_HEADLINE_YOURS,
@@ -126,13 +139,16 @@ export function createStoryBoard(options = {}) {
   /** [[REQ-424]] — the notes the task is waiting on, and those left for a later one. */
   let waiting = new Set()
   let later = new Set()
+  const card = el('section', 'story-card')
+  card.setAttribute('aria-label', STORY_CARD_LABEL)
+  card.hidden = true
   const headline = el('div', 'story-headline')
   const error = el('p', 'story-board__error')
   error.hidden = true
   error.setAttribute('role', 'alert')
   const empty = el('p', 'story-board__empty', STORY_EMPTY)
   const themes = el('div', 'story-board__themes')
-  element.append(focus.element, headline, error, empty, themes)
+  element.append(focus.element, card, headline, error, empty, themes)
 
   let site = null
   let board = null
@@ -145,6 +161,8 @@ export function createStoryBoard(options = {}) {
   /** The theme a note is being added to, and the note being reworded. */
   let adding = null
   let editing = null
+  /** [[REQ-425]] — the card line being put in the client's words. */
+  let cardEditing = null
   /** Every note drawn so far, so only a newly pinned one fades in. */
   let seen = null
 
@@ -178,9 +196,63 @@ export function createStoryBoard(options = {}) {
     }
   }
 
+  /** [[REQ-425]] — the positioning card: three sections of lines, and the heart. */
+  function drawCard(view) {
+    const p = view.positioning
+    card.replaceChildren()
+    card.hidden = !p
+    if (!p) return
+    card.dataset.state = p.state
+    card.classList.toggle('story-card--pending', waiting.has('positioning'))
+    const head = el('div', 'story-card__head')
+    head.append(el('span', 'story-card__label', STORY_CARD_LABEL))
+    const heart = button('story-card__heart', STORY_CARD_HEART.emoji, STORY_CARD_HEART.label)
+    heart.setAttribute('aria-pressed', String(p.heart))
+    heart.addEventListener('click', () => void act({ action: 'heart_card' }))
+    head.append(heart)
+    card.append(head)
+    if (p.state === 'fallback') card.append(el('p', 'story-card__fallback', STORY_CARD_FALLBACK))
+    for (const kind of ['hearing', 'known_for', 'pick']) {
+      const lines = p.lines.filter((l) => l.kind === kind)
+      if (!lines.length) continue
+      const section = el('div', `story-card__section story-card__section--${kind}`)
+      section.append(el('h3', 'story-card__title', STORY_CARD_SECTIONS[kind]))
+      const list = el('ul', 'story-card__lines')
+      for (const line of lines) {
+        const item = el('li', 'story-card__line')
+        item.dataset.line = line.id
+        if (line.customer) item.append(el('strong', 'story-card__customer', line.customer))
+        if (cardEditing === line.id) {
+          const box = typingBox('story-card__box', line.text, '', (text) => {
+            cardEditing = null
+            if (text && text !== line.text) void act({ action: 'edit_card', line: line.id, text })
+            else if (board) draw(board)
+          })
+          item.append(box)
+          queueMicrotask(() => box.focus())
+        } else {
+          const text = button('story-card__text', line.text, STORY_CARD_EDIT)
+          text.addEventListener('click', () => {
+            cardEditing = line.id
+            if (board) draw(board)
+          })
+          item.append(text)
+          if (line.edited) item.append(el('span', 'story-card__yours', STORY_CARD_YOURS))
+        }
+        list.append(item)
+      }
+      section.append(list)
+      card.append(section)
+    }
+  }
+
+  /** [[REQ-425]] — the card line an option comes from, as the client reads it. */
+  const sourceOf = (id) => board?.positioning?.lines.find((l) => l.id === id)?.label ?? ''
+
   function drawHeadline(h) {
     headline.replaceChildren()
     headline.dataset.state = h.state
+    headline.classList.toggle('story-headline--pending', waiting.has('headline'))
     const label = el('span', 'story-headline__label', STORY_HEADLINE_LABEL)
     const list = choosing === 'new' ? h.new_options : h.options
     const index = h.state === 'offered' ? Math.min(step ?? h.pick, h.options.length - 1) : 0
@@ -209,6 +281,8 @@ export function createStoryBoard(options = {}) {
       const count = el('span', 'story-headline__count', STORY_HEADLINE_COUNT(index + 1, h.options.length))
       strip.append(prev, count, next)
       if (index === h.pick) strip.append(el('span', 'story-headline__pick', `· ${STORY_HEADLINE_MY_PICK}`))
+      const from = sourceOf(h.sources?.[index])
+      if (from) strip.append(el('span', 'story-headline__source', `· ${STORY_HEADLINE_SOURCE(from)}`))
       const choose = button('story-headline__choose', `· ${STORY_HEADLINE_CHOOSE}`)
       choose.setAttribute('aria-expanded', String(choosing === 'options'))
       choose.addEventListener('click', () => {
@@ -229,7 +303,8 @@ export function createStoryBoard(options = {}) {
     if (strip.childElementCount) headline.append(strip)
     if (choosing && list && list.length) {
       const panel = el('ol', 'story-headline__choices')
-      for (const option of list) {
+      const sources = (choosing === 'new' ? h.new_sources : h.sources) ?? []
+      for (const [i, option] of list.entries()) {
         const item = el('li', 'story-headline__choice')
         const use = button('story-headline__use', STORY_HEADLINE_USE)
         use.addEventListener('click', () => {
@@ -237,7 +312,10 @@ export function createStoryBoard(options = {}) {
           step = null
           void act({ action: 'choose', option })
         })
-        item.append(el('span', 'story-headline__option', option), use)
+        const words = el('span', 'story-headline__option', option)
+        const from = sourceOf(sources[i])
+        if (from) words.append(el('small', 'story-headline__source', STORY_HEADLINE_SOURCE(from)))
+        item.append(words, use)
         panel.append(item)
       }
       const own = el('li', 'story-headline__choice story-headline__choice--own')
@@ -301,6 +379,7 @@ export function createStoryBoard(options = {}) {
 
   function draw(view) {
     board = view
+    drawCard(view)
     drawHeadline(view.headline)
     const all = view.themes.flatMap((t) => t.notes)
     empty.hidden = all.length > 0
@@ -340,7 +419,11 @@ export function createStoryBoard(options = {}) {
     const task = focus.render(view)
     waiting = new Set(task?.pending ?? [])
     later = new Set(view?.focus_later ?? [])
-    const next = view?.board ?? { themes: [], headline: { state: 'empty', options: [], pick: 0, new_options: [] } }
+    const next = view?.board ?? {
+      themes: [],
+      headline: { state: 'empty', options: [], pick: 0, new_options: [], sources: [], new_sources: [] },
+      positioning: null,
+    }
     if (typing()) {
       pending = next
       return
@@ -360,7 +443,7 @@ export function createStoryBoard(options = {}) {
     setSite(next) {
       if (next === site) return
       site = next ?? null
-      step = choosing = adding = editing = pending = seen = null
+      step = choosing = adding = editing = cardEditing = pending = seen = null
       render(null)
     },
     /** Put the board in the pane's host (a mount mode's `mount`). */

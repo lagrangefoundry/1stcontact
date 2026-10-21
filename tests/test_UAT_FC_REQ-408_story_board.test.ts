@@ -102,6 +102,13 @@ async function pinned(): Promise<{ deps: ReturnType<typeof memoryPlan>; alice: A
 
 const notes = (plan: Plan) => panelView(plan.fields).board.themes.flatMap((t) => t.notes)
 const note = (plan: Plan, text: string) => notes(plan).find((n) => n.text.startsWith(text))!
+/** [[REQ-425]] — a positioning card written from a hearted note: the headline's source. */
+const card = (from: string) => ({
+  hearing: ['Family', 'Tea and talk'],
+  known_for: 'Three generations of one family on one corner',
+  picks: [{ customer: 'Regulars', why: 'deciding who to trust with their hair: the same hands for fifty years' }],
+  from: [from],
+})
 
 describe('REQ-408 — the story board', () => {
   it('test_UAT_FC_REQ-408_a_pinned_note_shows_its_text_emoji_theme_colour_and_original_sentence', async () => {
@@ -188,13 +195,16 @@ describe('REQ-408 — the story board', () => {
     const { deps, alice } = await pinned()
     expect(panelView(deps.stored().fields).board.headline.state).toBe('empty')
 
-    // NEVER FROM NOTHING: an offer needs hearted notes behind it.
+    // NEVER FROM NOTHING: [[REQ-425]] an offer needs the positioning card behind it,
+    // and the card needs hearted notes.
     const options = ['Three generations on one corner', 'Where every cut starts with tea', 'Leave feeling like yourself again']
-    expect(await alice.run('offer_headlines', { options, pick: 0, from: [] })).toMatch(/PLAN_INVALID/)
+    const sources = ['known', 'h1', 'p1']
+    expect(await alice.run('offer_headlines', { options, pick: 0, sources })).toMatch(/NO_POSITIONING/)
     const generations = note(deps.stored(), 'Three generations').id
-    expect(await alice.run('offer_headlines', { options, pick: 0, from: [generations] })).toMatch(/PLAN_INVALID/)
+    expect(await alice.run('write_positioning', card(generations))).toMatch(/PLAN_INVALID/)
     deps.client({ action: 'react', note: generations, reaction: 'heart' })
-    expect(await alice.run('offer_headlines', { options, pick: 2, from: [generations] })).not.toMatch(FAILED)
+    expect(await alice.run('write_positioning', card(generations))).not.toMatch(FAILED)
+    expect(await alice.run('offer_headlines', { options, pick: 2, sources })).not.toMatch(FAILED)
 
     let h = panelView(deps.stored().fields).board.headline
     expect(h.state).toBe('offered')
@@ -209,10 +219,10 @@ describe('REQ-408 — the story board', () => {
     expect(h.options).toEqual([])
 
     // UNCHOSEN OPTIONS ARE NEVER OFFERED AGAIN.
-    expect(await alice.run('offer_headlines', { options: [options[1], 'A fresh line'], pick: 0, from: [generations] })).toMatch(/PLAN_INVALID/)
+    expect(await alice.run('offer_headlines', { options: [options[1], 'A fresh line'], pick: 0, sources: ['h1', 'h2'] })).toMatch(/PLAN_INVALID/)
 
     // A NEW OFFER NEVER REPLACES A CHOICE: it waits as new options.
-    expect(await alice.run('offer_headlines', { options: ['Your gran’s salon, still', 'Fifty years on the corner'], pick: 1, from: [generations] })).not.toMatch(FAILED)
+    expect(await alice.run('offer_headlines', { options: ['Your gran’s salon, still', 'Fifty years on the corner'], pick: 1, sources: ['h1', 'known'] })).not.toMatch(FAILED)
     h = panelView(deps.stored().fields).board.headline
     expect(h.text).toBe(options[0])
     expect(h.new_options).toEqual(['Fifty years on the corner', 'Your gran’s salon, still'])
@@ -222,7 +232,8 @@ describe('REQ-408 — the story board', () => {
     const { deps, alice } = await pinned()
     const generations = note(deps.stored(), 'Three generations').id
     deps.client({ action: 'react', note: generations, reaction: 'heart' })
-    await alice.run('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, from: [generations] })
+    await alice.run('write_positioning', card(generations))
+    await alice.run('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, sources: ['known', 'h1'] })
 
     deps.client({ action: 'write', text: 'Three generations, one chair, your corner' })
     const h = panelView(deps.stored().fields).board.headline
@@ -246,7 +257,8 @@ describe('REQ-408 — the story board', () => {
     deps.client({ action: 'react', note: generations, reaction: 'heart' }, '2026-10-18T12:00:00.000Z')
     deps.client({ action: 'react', note: street, reaction: 'down' }, '2026-10-18T12:01:00.000Z')
     deps.client({ action: 'add', theme: family, text: 'We do the whole wedding party' }, '2026-10-18T12:02:00.000Z')
-    await alice.run('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, from: [generations] })
+    await alice.run('write_positioning', card(generations))
+    await alice.run('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, sources: ['known', 'h1'] })
     deps.client({ action: 'choose', option: 'Cut by family since 1971' }, '2026-10-18T12:03:00.000Z')
 
     const line = boardChangesLine(boardChangesSince(deps.stored().fields, since))!
@@ -266,7 +278,7 @@ describe('REQ-408 — the story board', () => {
     const { deps } = await pinned()
     const reminder = planReminder(deps.stored())!
     expect(reminder).toContain('Story board: 4 notes in 2 themes (Family, The chair)')
-    expect(reminder).toContain('For "Getting to know you" to finish: no reaction yet on Family, The chair; no note has a heart; no headline offered.')
+    expect(reminder).toContain('For "Getting to know you" to finish: no reaction yet on Family, The chair; no note has a heart; no positioning card; no headline offered.')
   })
 
   it('test_UAT_FC_REQ-408_the_consultants_priming_and_manual_describe_the_board_reactions_and_headline', async () => {
@@ -286,7 +298,7 @@ describe('REQ-408 — the story board', () => {
     const decl = PLAN_DECLARATION as { overview: string; operations: { op: string }[]; groups: { group: string; operations: string[] }[] }
     expect(decl.overview).toContain("**The story board is the client's story in their own words.**")
     const group = decl.groups.find((g) => g.group === 'KeepStoryBoard')!
-    expect(group.operations).toEqual(['pin_notes', 'reword_note', 'move_note', 'remove_note', 'set_theme', 'offer_headlines'])
+    expect(group.operations).toEqual(['pin_notes', 'reword_note', 'move_note', 'remove_note', 'set_theme', 'write_positioning', 'offer_headlines'])
     for (const op of group.operations) expect(decl.operations.some((o) => o.op === op)).toBe(true)
     expect(JSON.stringify(planInstanceConfig('consultant'))).toContain('KeepStoryBoard')
   })

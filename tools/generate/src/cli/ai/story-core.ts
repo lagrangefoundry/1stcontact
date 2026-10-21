@@ -50,6 +50,14 @@ export const MAX_NOTE_CHARS = 200
 export const MAX_THEME_CHARS = 40
 /** The longest a headline may be: one line a stranger reads. */
 export const MAX_HEADLINE_CHARS = 140
+/** [[REQ-425]] — how many lines the card's "what I'm hearing" and "why they pick you" hold. */
+export const MIN_HEARING = 2
+export const MAX_HEARING = 3
+export const MAX_PICKS = 3
+/** The longest a kind of customer may be named on the card. */
+export const MAX_CUSTOMER_CHARS = 60
+/** [[REQ-425]] — the fallback card's line, when the consultant gives none of its own. */
+export const FALLBACK_KNOWN_FOR = 'The most trustworthy choice, and the easiest to get hold of'
 /** How many headline options one offer holds. */
 export const MIN_OPTIONS = 2
 export const MAX_OPTIONS = 3
@@ -101,14 +109,20 @@ export interface StoryNote {
 export interface StoryHeadline {
   /** The chosen line, once there is one. */
   text?: string
+  /** [[REQ-425]] — the card line the chosen option came from; absent for the client's own line. */
+  source?: string
   /** The client typed it: their words, which the consultant never overwrites. */
   yours?: boolean
   /** The offer still being decided — empty once a line is chosen. */
   options?: string[]
   /** Which option the consultant recommends. */
   pick?: number
+  /** [[REQ-425]] — the positioning card line each option comes from, beside `options`. */
+  sources?: string[]
   /** Options offered after a choice, opened only if the client wants. */
   new_options?: string[]
+  /** [[REQ-425]] — the card line each new option comes from, beside `new_options`. */
+  new_sources?: string[]
   /** Offered and not chosen: never offered again. */
   passed?: string[]
   offered_at?: string
@@ -116,10 +130,54 @@ export interface StoryHeadline {
   client_did?: 'choose' | 'write'
 }
 
+/**
+ * [[REQ-425]] — what a line of the positioning card says: what the consultant is
+ * hearing (two or three themes), what the business is known for, and why each kind
+ * of customer picks it, through what that customer is deciding on.
+ */
+export const CARD_LINE_KINDS = ['hearing', 'known_for', 'pick'] as const
+export type CardLineKind = (typeof CARD_LINE_KINDS)[number]
+
+export interface CardLine {
+  /** `h1`…`h3`, `known`, `p1`…`p3`: what a headline option names as its source. */
+  id: string
+  kind: CardLineKind
+  /** A `pick` line's kind of customer. */
+  customer?: string
+  text: string
+  /** The client reworded this line: their words now. */
+  edited?: boolean
+}
+
+/**
+ * [[REQ-425]] — the positioning card: the synthesis between the client's notes and
+ * the headline. The consultant writes it from the notes the client hearted; the
+ * client confirms it by hearting or editing it, and once they have it is theirs.
+ * The headline options are written from its lines. `fallback` is the honest card
+ * for a business with nothing distinctive to say yet: be the most trustworthy and
+ * the easiest to contact.
+ */
+export interface PositioningCard {
+  lines: CardLine[]
+  /** The hearted notes it was written from; empty for the fallback. */
+  from: string[]
+  fallback?: boolean
+  heart?: boolean
+  /** The client edited a line. */
+  edited?: boolean
+  written_at: string
+  client_at?: string
+  client_did?: 'heart' | 'unheart' | 'edit'
+  /** The line the client last edited. */
+  client_line?: string
+}
+
 export interface StoryBoard {
   themes: StoryTheme[]
   notes: StoryNote[]
   headline: StoryHeadline
+  /** [[REQ-425]] — absent until the consultant writes one. */
+  positioning?: PositioningCard
 }
 
 /** What a plan holds the board in. */
@@ -155,6 +213,22 @@ export const clientOwns = (n: StoryNote): boolean =>
 
 /** The notes on the board: everything not deleted. */
 export const liveNotes = (board: StoryBoard): StoryNote[] => board.notes.filter((n) => !n.deleted)
+
+/** [[REQ-425]] — where the positioning card stands. */
+export type PositioningState = 'none' | 'written' | 'confirmed' | 'fallback'
+export const positioningState = (board: StoryBoard): PositioningState => {
+  const card = board.positioning
+  if (!card) return 'none'
+  if (card.fallback) return 'fallback'
+  return card.heart === true || card.edited === true ? 'confirmed' : 'written'
+}
+
+/** [[REQ-425]] — how a card line reads where it is named as a source. */
+export function cardLineLabel(line: CardLine): string {
+  if (line.kind === 'known_for') return 'what you’re known for'
+  if (line.kind === 'pick') return `why ${line.customer ?? 'your customers'} pick you`
+  return 'what I’m hearing'
+}
 
 /** Where the headline stands. */
 export type HeadlineState = 'empty' | 'offered' | 'chosen'
@@ -214,6 +288,36 @@ export function checkBoard(board: StoryBoard | undefined, bad: (message: string)
   if (h.pick !== undefined && !(Number.isInteger(h.pick) && h.pick >= 0 && h.pick < (h.options ?? []).length)) {
     bad('the recommended headline is not one of the options')
   }
+  checkPositioning(board.positioning, bad)
+  // [[REQ-425]] — EVERY OPTION NAMES ITS CARD LINE, one for one.
+  const lineIds = new Set((board.positioning?.lines ?? []).map((l) => l.id))
+  for (const [list, sources] of [[h.options, h.sources], [h.new_options, h.new_sources]] as const) {
+    if (sources === undefined) continue
+    if (!Array.isArray(sources) || sources.length !== (list ?? []).length) bad("each headline option names the card line it comes from")
+    if (!sources.every((id) => lineIds.has(id))) bad('a headline option names a line the positioning card does not have')
+  }
+}
+
+/** [[REQ-425]] — the positioning card's rules. */
+function checkPositioning(card: PositioningCard | undefined, bad: (message: string) => never): void {
+  if (card === undefined) return
+  if (!Array.isArray(card.lines) || !Array.isArray(card.from)) bad('the positioning card needs its lines and the notes it is written from')
+  if (!filled(card.written_at)) bad('the positioning card needs when it was written')
+  const ids = new Set<string>()
+  for (const l of card.lines) {
+    if (!filled(l.id) || ids.has(l.id)) bad('every line of the positioning card has its own id')
+    ids.add(l.id)
+    if (!(CARD_LINE_KINDS as readonly string[]).includes(l.kind)) bad(`the positioning card has a line of unknown kind ${JSON.stringify(l.kind)}`)
+    if (!filled(l.text) || l.text.length > MAX_NOTE_CHARS) bad(`each line of the positioning card is at most ${MAX_NOTE_CHARS} characters`)
+    if (l.kind === 'pick' && (!filled(l.customer) || l.customer.length > MAX_CUSTOMER_CHARS)) bad('a "why they pick you" line names its kind of customer')
+  }
+  const count = (k: CardLineKind): number => card.lines.filter((l) => l.kind === k).length
+  if (count('known_for') !== 1) bad('the positioning card says once what the business is known for')
+  if (!card.fallback) {
+    if (count('hearing') < MIN_HEARING || count('hearing') > MAX_HEARING) bad(`the positioning card hears ${MIN_HEARING} or ${MAX_HEARING} themes`)
+    if (count('pick') < 1 || count('pick') > MAX_PICKS) bad(`the positioning card gives 1 to ${MAX_PICKS} kinds of customer a reason to pick the business`)
+    if (card.from.length === 0) bad('the positioning card is written from notes the client hearted')
+  }
 }
 
 /** The next free id with a prefix: `n1`, `n2`, … */
@@ -256,7 +360,7 @@ function addTheme(board: StoryBoard, name: string): StoryTheme {
 const boardFor = (fields: HasBoard): StoryBoard => (fields.board = fields.board ?? emptyBoard())
 
 /** What the client may do on the board, from the Story pane. */
-export const BOARD_ACTIONS = ['react', 'delete', 'add', 'edit', 'choose', 'write'] as const
+export const BOARD_ACTIONS = ['react', 'delete', 'add', 'edit', 'choose', 'write', 'heart_card', 'edit_card'] as const
 
 /**
  * The client acting on the board ([[REQ-408]]): a reaction, a delete, a note
@@ -326,6 +430,26 @@ export function boardClientAction(fields: HasBoard, input: Record<string, unknow
     // TYPING OVER AN OFFER IS A CHOICE: their line becomes the headline and the
     // options are dismissed.
     settleHeadline(board.headline, text, true, at, 'write')
+  } else if (action === 'heart_card' || action === 'edit_card') {
+    // [[REQ-425]] — THE CLIENT CONFIRMS THE CARD by hearting it or putting it in
+    // their own words; the heart toggles, as a note's does.
+    const card = board.positioning
+    if (!card) throw refuse('NO_POSITIONING', 'there is no positioning card on the board yet')
+    if (action === 'heart_card') {
+      card.heart = card.heart !== true
+      card.client_did = card.heart ? 'heart' : 'unheart'
+    } else {
+      const line = card.lines.find((l) => l.id === String(input.line ?? ''))
+      if (!line) throw refuse(INVALID, `the positioning card has no line ${JSON.stringify(input.line ?? '')}`)
+      if (!text) throw refuse(INVALID, 'a line of the card needs some words')
+      if (text === line.text) return
+      line.text = text
+      line.edited = true
+      card.edited = true
+      card.client_did = 'edit'
+      card.client_line = line.id
+    }
+    card.client_at = at
   } else {
     throw refuse(INVALID, `unknown action ${JSON.stringify(action)}`)
   }
@@ -334,12 +458,20 @@ export function boardClientAction(fields: HasBoard, input: Record<string, unknow
 /** The headline settled on `text`; everything on offer and not taken is passed. */
 function settleHeadline(h: StoryHeadline, text: string, yours: boolean, at: string, did: 'choose' | 'write'): void {
   const passed = [...(h.passed ?? []), ...(h.options ?? []), ...(h.new_options ?? [])].filter((o) => !same(o, text))
+  // [[REQ-425]] — a chosen option keeps the card line it came from.
+  const offered = [...(h.options ?? []), ...(h.new_options ?? [])]
+  const sources = [...(h.sources ?? []), ...(h.new_sources ?? [])]
+  const source = yours ? undefined : sources[offered.findIndex((o) => o === text)]
+  if (source) h.source = source
+  else delete h.source
   h.text = text
   h.yours = yours
   h.passed = passed.filter((o, i) => passed.findIndex((x) => same(x, o)) === i)
   delete h.options
   delete h.pick
+  delete h.sources
   delete h.new_options
+  delete h.new_sources
   h.client_at = at
   h.client_did = did
 }
@@ -384,6 +516,96 @@ export function pinNotes(fields: HasBoard, p: Params, at: string): Record<string
     pinned.push(note)
   }
   return { notes: pinned.map((n) => ({ id: n.id, text: n.text, theme: themeIn(board, n.theme).name })) }
+}
+
+/**
+ * Offer headlines ([[REQ-408]]): the consultant's `offer_headlines`, as an edit of
+ * the fields in hand. Mutates `fields`; answers the headline.
+ */
+export function offerHeadlines(fields: HasBoard, p: Params, at: string): Record<string, unknown> {
+  const board = boardFor(fields)
+  const h = board.headline
+  const options = (Array.isArray(p.options) ? p.options : []).map((o) => String(o).trim()).filter(Boolean)
+  if (options.length < MIN_OPTIONS || options.length > MAX_OPTIONS) {
+    throw refuse(INVALID, `offer ${MIN_OPTIONS} or ${MAX_OPTIONS} headlines`)
+  }
+  const long = options.find((o) => o.length > MAX_HEADLINE_CHARS)
+  if (long) throw refuse(INVALID, `"${long.slice(0, 40)}…" is longer than one line (${MAX_HEADLINE_CHARS} characters)`)
+  // [[REQ-425]] — WRITTEN FROM THE POSITIONING CARD, NEVER FROM NOTHING: each
+  // option names the line of the card it comes from.
+  const card = board.positioning
+  if (!card) throw refuse('NO_POSITIONING', 'write the positioning card first (write_positioning); headlines are written from its lines')
+  const sources = (Array.isArray(p.sources) ? p.sources : []).map((x) => String(x).trim())
+  const ids = card.lines.map((l) => l.id)
+  if (sources.length !== options.length || !sources.every((id) => ids.includes(id))) {
+    throw refuse(INVALID, `give sources: for each option, the id of the card line it comes from (${ids.join(', ')})`)
+  }
+  // OFFERED-NOT-CHOSEN IS NEVER OFFERED AGAIN.
+  const again = options.find((o) => (h.passed ?? []).some((x) => same(x, o)) || (filled(h.text) && same(h.text, o)))
+  if (again) throw refuse(INVALID, `"${again}" was offered before; offer something new`)
+  const pick = typeof p.pick === 'number' ? p.pick : Number(p.pick ?? 0)
+  if (!Number.isInteger(pick) || pick < 0 || pick >= options.length) throw refuse(INVALID, 'pick is the index of your recommended option')
+  // A NEW OFFER NEVER REPLACES A CHOICE: after one, it waits as new options.
+  if (filled(h.text)) {
+    const order = [pick, ...options.map((_, i) => i).filter((i) => i !== pick)]
+    h.new_options = order.map((i) => options[i])
+    h.new_sources = order.map((i) => sources[i])
+  } else {
+    h.passed = [...(h.passed ?? []), ...(h.options ?? [])]
+    h.options = options
+    h.sources = sources
+    h.pick = pick
+  }
+  h.offered_at = at
+  return { headline: h }
+}
+
+/**
+ * [[REQ-425]] — write the positioning card: the consultant's `write_positioning`,
+ * as an edit of the fields in hand. Mutates `fields`; answers the card.
+ *
+ * WRITTEN FROM HEARTED NOTES, like the headline was before it, and replaced
+ * whole while it is still the consultant's. Once the client has hearted or edited
+ * it, it is theirs: a change is suggested in the conversation. `fallback` writes
+ * the honest card instead — nothing distinctive yet, so be the most trustworthy
+ * and the easiest to contact — which needs no hearts.
+ */
+export function writePositioning(fields: HasBoard, p: Params, at: string): PositioningCard {
+  const board = boardFor(fields)
+  const old = board.positioning
+  if (old && !old.fallback && (old.heart || old.edited)) {
+    throw refuse('CLIENTS_WORDS', `the client has ${old.edited ? 'put the positioning card in their own words' : 'hearted the positioning card'}; it is theirs now, so suggest a change in the conversation instead`)
+  }
+  const lines: CardLine[] = []
+  const fallback = p.fallback === true
+  const hearing = (Array.isArray(p.hearing) ? p.hearing : []).map((x) => String(x).trim()).filter(Boolean)
+  const known = str(p.known_for) ?? (fallback ? FALLBACK_KNOWN_FOR : undefined)
+  const picks = Array.isArray(p.picks) ? (p.picks as Params[]) : []
+  const from = (Array.isArray(p.from) ? p.from : []).map(String)
+  if (!fallback) {
+    if (hearing.length < MIN_HEARING || hearing.length > MAX_HEARING) {
+      throw refuse(INVALID, `give hearing: the ${MIN_HEARING} or ${MAX_HEARING} themes you are hearing, one short line each`)
+    }
+    if (!known) throw refuse(INVALID, 'give known_for: one line on what the business is known for')
+    if (picks.length < 1 || picks.length > MAX_PICKS) {
+      throw refuse(INVALID, `give picks: for 1 to ${MAX_PICKS} kinds of customer, why they pick the business, through what they are deciding on`)
+    }
+    if (from.length === 0) throw refuse(INVALID, 'name the hearted notes the card is written from, in from')
+    for (const id of from) {
+      if (noteIn(board, id).reaction !== 'heart') throw refuse(INVALID, `note ${id} has no heart; the card is written from the notes the client hearted`)
+    }
+  }
+  hearing.forEach((text, i) => lines.push({ id: `h${i + 1}`, kind: 'hearing', text }))
+  lines.push({ id: 'known', kind: 'known_for', text: known! })
+  picks.forEach((pk, i) => {
+    const customer = str(pk?.customer)
+    const why = str(pk?.why)
+    if (!customer || !why) throw refuse(INVALID, 'each of picks is {"customer": ..., "why": ...}')
+    lines.push({ id: `p${i + 1}`, kind: 'pick', customer, text: why })
+  })
+  const card: PositioningCard = { lines, from: fallback ? [] : from, ...(fallback ? { fallback: true } : {}), written_at: at }
+  board.positioning = card
+  return card
 }
 
 /**
@@ -446,40 +668,7 @@ export function boardOperations(
         }
         return { theme: themeNamed(board, name) ?? addTheme(board, name) }
       }),
-    offer_headlines: (p) =>
-      change((fields) => {
-        const board = boardFor(fields)
-        const h = board.headline
-        const options = (Array.isArray(p.options) ? p.options : []).map((o) => String(o).trim()).filter(Boolean)
-        if (options.length < MIN_OPTIONS || options.length > MAX_OPTIONS) {
-          throw refuse(INVALID, `offer ${MIN_OPTIONS} or ${MAX_OPTIONS} headlines`)
-        }
-        const long = options.find((o) => o.length > MAX_HEADLINE_CHARS)
-        if (long) throw refuse(INVALID, `"${long.slice(0, 40)}…" is longer than one line (${MAX_HEADLINE_CHARS} characters)`)
-        // WRITTEN FROM HEARTED NOTES, NEVER FROM NOTHING.
-        const from = (Array.isArray(p.from) ? p.from : []).map(String)
-        if (from.length === 0) throw refuse(INVALID, 'name the hearted notes the headlines are written from, in from')
-        for (const id of from) {
-          const n = noteIn(board, id)
-          if (n.reaction !== 'heart') throw refuse(INVALID, `note ${id} has no heart; headlines are written from the notes the client hearted`)
-        }
-        // OFFERED-NOT-CHOSEN IS NEVER OFFERED AGAIN.
-        const again = options.find((o) => (h.passed ?? []).some((x) => same(x, o)) || (filled(h.text) && same(h.text, o)))
-        if (again) throw refuse(INVALID, `"${again}" was offered before; offer something new`)
-        const pick = typeof p.pick === 'number' ? p.pick : Number(p.pick ?? 0)
-        if (!Number.isInteger(pick) || pick < 0 || pick >= options.length) throw refuse(INVALID, 'pick is the index of your recommended option')
-        // A NEW OFFER NEVER REPLACES A CHOICE: after one, it waits as new options.
-        if (filled(h.text)) {
-          const recommended = options[pick]
-          h.new_options = [recommended, ...options.filter((_, i) => i !== pick)]
-        } else {
-          h.passed = [...(h.passed ?? []), ...(h.options ?? [])]
-          h.options = options
-          h.pick = pick
-        }
-        h.offered_at = now()
-        return { headline: h }
-      }),
+    offer_headlines: (p) => change((fields) => offerHeadlines(fields, p, now())),
   }
 }
 
@@ -496,7 +685,18 @@ export interface BoardView {
     options: string[]
     pick: number
     new_options: string[]
+    /** [[REQ-425]] — the card line each option, and each new option, comes from (`''` for none). */
+    sources: string[]
+    new_sources: string[]
+    /** The card line the chosen headline came from. */
+    source?: string
   }
+  /** [[REQ-425]] — the positioning card, or `null` before one is written. */
+  positioning: {
+    state: PositioningState
+    heart: boolean
+    lines: (CardLine & { label: string })[]
+  } | null
 }
 
 export function boardView(fields: HasBoard): BoardView {
@@ -516,7 +716,17 @@ export function boardView(fields: HasBoard): BoardView {
       options: h.options ?? [],
       pick: h.pick ?? 0,
       new_options: h.new_options ?? [],
+      sources: (h.options ?? []).map((_, i) => h.sources?.[i] ?? ''),
+      new_sources: (h.new_options ?? []).map((_, i) => h.new_sources?.[i] ?? ''),
+      ...(h.source ? { source: h.source } : {}),
     },
+    positioning: board.positioning
+      ? {
+          state: positioningState(board),
+          heart: board.positioning.heart === true,
+          lines: board.positioning.lines.map((l) => ({ ...l, label: cardLineLabel(l) })),
+        }
+      : null,
   }
 }
 
@@ -553,6 +763,20 @@ export function boardChangesSince(fields: HasBoard, since: string): BoardChange[
               ? `took back their reaction to ${what}`
               : `gave ${what} ${REACTION_EMOJI[n.reaction as Reaction] ?? n.reaction}`
     out.push({ at: n.client_at, line })
+  }
+  // [[REQ-425]] — the positioning card, as it now stands.
+  const card = board.positioning
+  if (card && filled(card.client_at) && card.client_at > since) {
+    const line = card.lines.find((l) => l.id === card.client_line)
+    out.push({
+      at: card.client_at,
+      line:
+        card.client_did === 'heart'
+          ? 'hearted the positioning card'
+          : card.client_did === 'unheart'
+            ? 'took back their heart on the positioning card'
+            : `reworded the positioning card's ${line ? `${line.id} (${cardLineLabel(line)}) line to ${quoted(line.text)}` : 'lines'}`,
+    })
   }
   const h = board.headline
   if (filled(h.client_at) && h.client_at > since && filled(h.text)) {
@@ -596,11 +820,16 @@ export function boardChangesLine(changes: BoardChange[], budget = BOARD_NOTICE_B
 export function boardFinishGaps(fields: HasBoard): string[] {
   const board = boardOf(fields)
   const live = liveNotes(board)
-  if (live.length === 0) return ['nothing is pinned yet']
+  const card = positioningState(board)
+  if (live.length === 0 && card !== 'fallback') return ['nothing is pinned yet']
   const gaps: string[] = []
   const quiet = board.themes.filter((t) => live.some((n) => n.theme === t.id) && !live.some((n) => n.theme === t.id && n.reaction))
   if (quiet.length) gaps.push(`no reaction yet on ${quiet.map((t) => t.name).join(', ')}`)
-  if (!live.some((n) => n.reaction === 'heart')) gaps.push('no note has a heart')
+  // [[REQ-425]] — THE STAGE ENDS ON A CONFIRMED POSITIONING CARD, or on the honest
+  // fallback recorded as a decision — which is written from no hearts.
+  if (card !== 'fallback' && !live.some((n) => n.reaction === 'heart')) gaps.push('no note has a heart')
+  if (card === 'none') gaps.push('no positioning card')
+  else if (card === 'written') gaps.push('the positioning card is not confirmed (the client hearts or edits it)')
   const h = board.headline
   if (headlineState(h) === 'empty' && (h.passed ?? []).length === 0) gaps.push('no headline offered')
   return gaps
@@ -610,7 +839,7 @@ export function boardFinishGaps(fields: HasBoard): string[] {
 export function boardReminderLine(fields: HasBoard): string {
   const board = boardOf(fields)
   const live = liveNotes(board)
-  if (live.length === 0) {
+  if (live.length === 0 && !board.positioning) {
     return 'Story board: empty. Pin the client\'s own sayings with pin_notes as they talk, and tell them in one line.'
   }
   const count = (r: Reaction): number => live.filter((n) => n.reaction === r).length
@@ -624,9 +853,10 @@ export function boardReminderLine(fields: HasBoard): string {
           ? 'headline offered once and passed over'
           : 'no headline yet'
   const gaps = boardFinishGaps(fields)
+  const card = { none: 'no positioning card', written: 'positioning card written, not confirmed', confirmed: 'positioning card confirmed', fallback: 'positioning fallback recorded' }[positioningState(board)]
   return (
     `Story board: ${live.length} notes in ${board.themes.length} themes (${board.themes.map((t) => t.name).join(', ')}); ` +
-    `❤️ ${count('heart')}, 👍 ${count('up')}, 👎 ${count('down')}; ${headline}.` +
+    `❤️ ${count('heart')}, 👍 ${count('up')}, 👎 ${count('down')}; ${card}; ${headline}.` +
     (gaps.length ? ` For "Getting to know you" to finish: ${gaps.join('; ')}.` : '')
   )
 }

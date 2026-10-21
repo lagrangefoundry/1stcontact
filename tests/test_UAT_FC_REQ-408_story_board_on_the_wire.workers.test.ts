@@ -115,9 +115,16 @@ describe('REQ-408 — the story board on the wire', () => {
       ['My daughter starts in June', null, 'client'],
     ])
 
-    // HER NEXT TURN HEARS IT — and she offers headlines from the hearted note.
+    // HER NEXT TURN HEARS IT — and [[REQ-425]] she writes the positioning card from the
+    // hearted note, then offers headlines from its lines.
     const second = await turn(sessionId, 'Done.', [
-      calls('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, from: [generations] }),
+      calls('write_positioning', {
+        hearing: ['Family', 'Tea and talk'],
+        known_for: 'Three generations of one family on one corner',
+        picks: [{ customer: 'Regulars', why: 'the same family hands for fifty years' }],
+        from: [generations],
+      }),
+      calls('offer_headlines', { options: ['Three generations on one corner', 'Cut by family since 1971'], pick: 0, sources: ['known', 'h1'] }),
       says('Here are two headlines to try.'),
     ])
     const told = turnTailText(second.seen[0])
