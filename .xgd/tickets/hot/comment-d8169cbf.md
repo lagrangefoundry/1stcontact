@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:33:37.636448+00:00'
+updated_at: '2026-10-21T17:34:06.350151+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10953,5 +10953,19 @@ It's a small ticket: a view field on the message beside the width, the "not yet 
 <!-- xgd-chat role="user" ts="2026-10-21T17:33:36.982066+00:00" -->
 #### You
 New ticket please 245 is in flight
+
+<!-- xgd-turn id="b313583f-5fe0-44ad-9bea-2cd389916c83-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:34:04.805050+00:00" -->
+#### Claude
+I've filed **BUG-246**, *"The consultant doesn't know which view the client has open: report the view and unopened views, and link to the right one"*. It's under EPIC-19 at `draft`, high priority, 3 points, and it's on the epic's list.
+
+It covers four things:
+1. **Your current view is sent with every message**, along with your screen width: View, Edit, Story, Comparisons or Looks. The consultant sees a line in its per-turn notes such as *"The client is looking at: Comparisons (4 sites)."*
+2. **Views you've never opened are tracked** for each business and listed for the consultant: *"Not yet opened: Story."*
+3. **A rule backed by those facts.** When the consultant refers to something on a view you aren't looking at, it gives you a **link** rather than switching the view for you. The first time it points you to a view you've never opened, it adds one line saying where that view is. It only switches the view itself straight after making something new for you to look at, and only if you're not in the middle of something.
+4. **Unambiguous names:** "the story board" and "the comparison board", never just "the board".
+
+It's separate from BUG-245, so the two can be built in parallel.
 
 <!-- xgd-chat-end -->
