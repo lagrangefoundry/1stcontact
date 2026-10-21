@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-420
 created_by: xgd
 created_at: '2026-10-20T23:33:59.571224+00:00'
-updated_at: '2026-10-21T00:20:47.421780+00:00'
+updated_at: '2026-10-21T00:39:41.944449+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -175,5 +175,11 @@ REQ-420 is implemented and merged into `xgd-working`. The ticket is at `free_cod
 **Merge conflict with BUG-238:** another session landed the same floating-heading check as `loose_heading` while I was working. I dropped my duplicate and pointed my test at theirs. In the builder prompt I kept their sentence, which their test checks for, and continued it with the rhythm guidance. The conflict resolution lives in merge commit `4e6eb7f`, which isn't in the ticket's commits because reconcile only takes non-merge commits. If reconcile hits the same conflict on `main`, the ticket body describes the intended result.
 
 **Tests:** 9 new UATs in `tests/test_UAT_FC_REQ-420_vertical_rhythm.test.ts`, 4 of them in Chromium, all passing. I also added the two new fields to the REQ-105 and AC802 tests, which require every element-level field to be listed. In the full node suite, the failures I checked also fail without my change: BUG-48, REQ-269, the browser test of `flow_l1` and REQ-219, plus about 90 server and setup failures in this worktree. The browser tests only run with `CHROMIUM_LAUNCH_ARGS=--single-process` here; otherwise they skip.
+
+<!-- xgd-turn id="97585a66-508f-437e-b4b6-8a5bf4c9965e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T00:39:41.410410+00:00" -->
+#### You
+can you review and implement the adjustments to the ticket please?
 
 <!-- xgd-chat-end -->
