@@ -6,10 +6,10 @@ title: Worker dives into work without answering the client's question; open a ta
   on the same message, and don't repeat it at hand-back
 created_by: EPIC-19
 created_at: '2026-10-21T00:47:40.966334+00:00'
-updated_at: '2026-10-21T01:31:56.624513+00:00'
+updated_at: '2026-10-21T01:32:29.189149+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-73624890
+  commits:
+  - working_sha: 65d86eb9960bf1ba228e123a04e9e6d5c676941d
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b8f6fdcd0ebc0cb6dd50c73623b103f01c36a3bc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.563
 ---
 
 ## Symptom (Bob's Salon 3, 2026-10-21 00:38)
