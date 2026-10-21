@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:38:24.050754+00:00'
+updated_at: '2026-10-21T00:43:17.039440+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10524,5 +10524,15 @@ A few other details from the implementation:
 - Both the builders and the consultant have been told to change spacing on the style, and to override a single element only when there's a reason.
 
 If you'd rather those 4 unspaced stacks had stayed as they were, say so and I'll make item 9 a requirement to keep them unchanged.
+
+<!-- xgd-turn id="2cac2e9f-ee6f-4641-9577-7001b7501b71-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T00:43:16.209005+00:00" -->
+#### You
+Take a look at the last turn of the Bobs Salon 3 please...I asked: The movement is good we could have a little more, like with the top photo - what's next
+
+And the consultant disappeared to work on it without answering my question, so I had to ask it again and the talker could give me a response.
+
+Can we tell when the AI dives into work mode? could we resend the prompt in talker mode? I'm not sure quite  how to manage the parallelism here but it feels like there is an opportunity?
 
 <!-- xgd-chat-end -->
