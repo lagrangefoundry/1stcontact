@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:49:42.377027+00:00'
+updated_at: '2026-10-21T18:51:59.906660+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11316,5 +11316,11 @@ Very possibly, yes. In this run the logo is a hand-written SVG (`ariels-sign.svg
 4. **Always look at it.** The post-build screenshot (REQ-415) catches a bad mark, but only once it's on the page. For a logo, the consultant should check it on its own and at the header's actual size before anything else is built around it.
 
 **My recommendation:** do 1 and 3 by default and 2 for anything hand-drawn, and never leave a logo to a Haiku builder working alone. That's one ticket: a model tier on `Delegate` (with the strong model set in configuration), plus the consultant's logo method in the priming. Shall I file it?
+
+<!-- xgd-turn id="30a9af08-a49b-42fe-afdf-15a3764173c9-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:51:59.292862+00:00" -->
+#### You
+Agreed I think SVG should be taken from the delegate and kept with the principal
 
 <!-- xgd-chat-end -->
