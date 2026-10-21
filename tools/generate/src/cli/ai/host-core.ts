@@ -82,6 +82,7 @@ import {
   openingCue,
   continuationCue,
   layoutContinuationCue,
+  talkerCue,
   spendCeilingNotice,
   reportReserveNotice,
   type TurnSignal,
@@ -1227,9 +1228,21 @@ const workingNotes = new Map<string, { seq: number; note: WorkingNote }>()
  */
 const clientShows = new Map<string, { busy: string | null; switched: boolean }>()
 
+/**
+ * [[BUG-240]] — the talker cue waiting to be opened for each site, the status
+ * note of a round that went to work without replying; and the sites whose
+ * current client message has already had one. ONE CUE PER CLIENT MESSAGE: a
+ * continuation that goes straight back to work is the same message, already
+ * answered. Keyed by `managerKey`, like {@link clientShows}.
+ */
+const talkerCues = new Map<string, string>()
+const cuedMessages = new Set<string>()
+
 /** [[REQ-413]] — a client message arrived: what they were doing, and no switch yet. */
 function clientMessage(slug: string, deps: HostDeps, view: ClientView | null | undefined): void {
-  clientShows.set(managerKey(slug, deps), { busy: view?.busy ?? null, switched: false })
+  const key = managerKey(slug, deps)
+  clientShows.set(key, { busy: view?.busy ?? null, switched: false })
+  cuedMessages.delete(key)
 }
 
 /**
@@ -1348,9 +1361,17 @@ function cadenceHooks(deps: HostDeps, slug: string): CadenceHooks {
     const key = managerKey(slug, deps)
     workingNotes.set(key, { seq: (workingNotes.get(key)?.seq ?? 0) + 1, note })
   }
-  if (!deps.plan) return { working }
+  // [[BUG-240]] — kept for the turn's talker desk, which opens it on its next poll.
+  const dived = (note: string): void => {
+    const key = managerKey(slug, deps)
+    if (cuedMessages.has(key)) return
+    cuedMessages.add(key)
+    talkerCues.set(key, note)
+  }
+  if (!deps.plan) return { working, dived }
   return {
     working,
+    dived,
     openAsks: async () => {
       const plan = await deps.plan!(slug).read()
       return plan ? planPanel(plan.fields).asks.open.length : 0
@@ -4019,13 +4040,54 @@ function forkable(manager: Untyped, sessionId: string): boolean {
  * NEVER THROWS: a store that cannot answer leaves everything where it was, for
  * the next poll.
  */
-function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: string): Beside {
+function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: string, key: string): Beside {
   const talkers = new TalkerFrames()
   const running: Promise<void>[] = []
   let looked = 0
+  type Started = { turnId: string; queued: boolean; talker: boolean; done: Promise<void> } | null
+  /** Open one talker round with `start`; whether it opened. `messageId` is what it answers, or `''`. */
+  async function open(start: () => Promise<Started>, messageId: string): Promise<boolean> {
+    talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 0) + 1)
+    const ends = () => {
+      talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
+    }
+    const from = turnCursor(manager, sessionId)
+    const startedAt = new Date().toISOString()
+    let started: Started
+    try {
+      started = await start()
+    } catch {
+      ends()
+      return false
+    }
+    if (!started || started.queued) {
+      ends()
+      return false
+    }
+    talkers.follow(started.turnId, messageId)
+    const turnId = started.turnId
+    // [[REQ-416]] — AND WHAT IT COST, once it has closed: a talker round sends
+    // requests of its own, on its own conversation, which the worker's row
+    // does not carry.
+    running.push(
+      started.done.then(ends, ends).then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps)),
+    )
+    return true
+  }
   return {
     talkers,
     async tick() {
+      // [[BUG-240]] — THE ROUND WENT TO WORK WITHOUT REPLYING: a talker answers
+      // the rest of the client's message now, on the host's cue
+      // (lagrange-framework REQ-215), not when the client writes again. Taken on
+      // the first poll after the dive, not on the inbox's slower cadence.
+      const note = talkerCues.get(key)
+      if (note !== undefined) {
+        talkerCues.delete(key)
+        if (forkable(manager, sessionId)) {
+          await open(() => manager.cueTalker(sessionId, talkerCue(note), { timeout: TURN_TIMEOUT_SECONDS }), '')
+        }
+      }
       if (!deps.inbox || Date.now() - looked < INBOX_POLL_MS) return
       looked = Date.now()
       try {
@@ -4034,31 +4096,11 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
         }
         for (const message of await deps.inbox.read(sessionId)) {
           if (!forkable(manager, sessionId)) return
-          talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 0) + 1)
-          const from = turnCursor(manager, sessionId)
-          const startedAt = new Date().toISOString()
-          let started: { turnId: string; queued: boolean; talker: boolean; done: Promise<void> }
-          try {
-            started = await manager.startTurn(sessionId, message.text, { timeout: TURN_TIMEOUT_SECONDS })
-          } catch {
-            talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
-            return
-          }
-          const ends = () => {
-            talkerRounds.set(sessionId, (talkerRounds.get(sessionId) ?? 1) - 1)
-          }
-          if (started.queued) {
-            ends()
-            return
-          }
-          talkers.follow(started.turnId, message.id)
-          const turnId = started.turnId
-          // [[REQ-416]] — AND WHAT IT COST, once it has closed: a talker round sends
-          // requests of its own, on its own conversation, which the worker's row
-          // does not carry.
-          running.push(
-            started.done.then(ends, ends).then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps)),
+          const opened = await open(
+            () => manager.startTurn(sessionId, message.text, { timeout: TURN_TIMEOUT_SECONDS }),
+            message.id,
           )
+          if (!opened) return
           await deps.inbox.take(sessionId, [message.id])
         }
       } catch {
@@ -4582,7 +4624,9 @@ async function* siteTurn(
     const talks = role === CONSULTANT_ROLE && who === WORKING_UNNAMED
     // A STOP PRESSED BEFORE THIS TURN BEGAN was for a turn that is over — and
     // [[BUG-235]] a continuation round's turn begins with the client's message.
-    const beside = talks ? talkerDesk(manager, sessionId, deps, stopsSince ?? new Date().toISOString()) : null
+    // [[BUG-240]] — a cue left by an earlier round is that round's, and stale.
+    talkerCues.delete(planKey)
+    const beside = talks ? talkerDesk(manager, sessionId, deps, stopsSince ?? new Date().toISOString(), planKey) : null
     const events = withProgress(
       manager.promptStream(sessionId, text, { timeout: TURN_TIMEOUT_SECONDS }),
       manager.logFor(sessionId),
@@ -5363,6 +5407,8 @@ export function resetAiHost(): void {
   workingNotes.clear()
   talkerRounds.clear()
   clientShows.clear()
+  talkerCues.clear()
+  cuedMessages.clear()
   spendMeters.clear()
   continuationsLeft.clear()
   promisedContinuation.clear()

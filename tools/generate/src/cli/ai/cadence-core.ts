@@ -53,6 +53,7 @@ import { TEXT, TOOL_ACTIVITY, type StreamEvent } from './budget-core'
 import { DELEGATE_TOOL, delegationResult } from './turn-clock-core'
 import slowToolsDocument from './slow-tools.json'
 import { SHOW_CLIENT, SHOW_TOOL, shownLine, switchedBy } from './show-core'
+import talkerDocument from './talker.json'
 
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -210,7 +211,20 @@ export interface CadenceHooks {
   builderCompleted?: () => Promise<void>
   /** [[REQ-390]] — a slow operation was announced; the status shows it. */
   working?: (note: WorkingNote) => void
+  /**
+   * [[BUG-240]] — the round went to work without replying: its first tool the
+   * talker is denied was issued before it wrote anything the client sees. `note`
+   * is the status note that call put up, or `''`. At most once a round.
+   */
+  dived?: (note: string) => void
 }
+
+/**
+ * [[BUG-240]] — the tools that mean the round has gone to work: the talker's
+ * withheld list ([[REQ-416]], `talker.json`), so "working" means exactly what
+ * the talker may not do.
+ */
+const WORK_TOOLS: ReadonlySet<string> = new Set(talkerDocument.withhold)
 
 /**
  * The consultant's backend, telling the client before it goes quiet.
@@ -231,6 +245,11 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
     let delegated = false
     let counted = false
     let spoke = false
+    // [[BUG-240]] — whether the model has written anything the client sees, and
+    // whether this round has already been reported as going to work without it.
+    // Kept apart from `spoke`, which the host's own lines also set.
+    let replied = false
+    let dived = false
     const failures = new Map<string, number>()
 
     async function waiting(): Promise<number> {
@@ -266,6 +285,17 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
         // [[BUG-215]] — NO LINE IN THE CONVERSATION: the note is the whole notice.
         note = { doing: slowDoing(slow, input, attempt), minutes: slow.minutes }
       }
+      // [[BUG-240]] — WENT TO WORK WITHOUT A WORD: the first work tool, issued
+      // before any reply. The host opens a talker on the same message, which
+      // answers the rest of it while this round builds.
+      if (!talking && !dived && !replied && event.kind === TOOL_ISSUE && name !== undefined && WORK_TOOLS.has(name)) {
+        dived = true
+        try {
+          hooks.dived?.(note?.doing ?? '')
+        } catch {
+          // A reply missed is not a turn lost.
+        }
+      }
       // [[REQ-390]] — TOLD BEFORE THE LINE IS YIELDED, so the host has the note by
       // the time the line reaches it and can put it on the stream right behind.
       if (note && hooks.working) {
@@ -286,6 +316,7 @@ export function keepClientOriented(backend: Untyped, hooks: CadenceHooks = {}): 
         yield { kind: TEXT, content: '' }
       }
       if (event.kind === TEXT && event.content) spoke = true
+      if (event.kind === TEXT && String(event.content ?? '').trim() !== '') replied = true
       if (event.kind === TOOL_ACTIVITY && name !== undefined && SLOW_TOOLS.has(name) && failed(event.meta?.output)) {
         const key = callKey(name, event.meta?.input)
         failures.set(key, (failures.get(key) ?? 0) + 1)

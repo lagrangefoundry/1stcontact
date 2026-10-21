@@ -208,9 +208,11 @@ async function* watchForWrites(events, told) {
  * (`typing`), answers a promise of {@link FREED} once they have not (`free`), and
  * shows or hides the marker the held result waits behind (`show`).
  */
-function talkDesk({ transport, onBusy, told, hold = NO_HOLD }) {
+function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }) {
   /** Streams of work open in this panel: each one may carry a talker's reply. */
   let open = 0
+  /** [[BUG-240]] — the host-cued talker replies arriving, by round: their text so far. */
+  const cued = new Map()
   /** Messages sent to the talker, each waiting for its reply. */
   const waiting = []
   /** [[BUG-224]] — messages the origin already holds, by text, adopted rather than re-sent. */
@@ -242,8 +244,34 @@ function talkDesk({ transport, onBusy, told, hold = NO_HOLD }) {
     const said = String(meta.said ?? '').trim()
     return waiting.find((e) => e.turnId === '' && e.wire.trim() === said) ?? null
   }
+  /**
+   * [[BUG-240]] — A REPLY THE HOST CUED answers the client's message the work
+   * started from, which already has its bubble, so it is drawn as the
+   * consultant's next message once it is whole. One that passed, or said
+   * nothing, is not drawn at all.
+   */
+  function routeCued(event, meta) {
+    const turnId = String(meta.turn_id ?? '')
+    if (meta.event === 'start') cued.set(turnId, '')
+    else if (meta.event === 'text') cued.set(turnId, (cued.get(turnId) ?? '') + (event.content ?? ''))
+    else if (meta.event === 'done') {
+      const said = cued.get(turnId) ?? ''
+      cued.delete(turnId)
+      if (meta.passed !== true && said.trim() !== '') {
+        try {
+          onCued(said)
+        } catch {
+          // A reply drawn wrong is not the work's business.
+        }
+      }
+    }
+  }
   function route(event) {
     const meta = event.meta ?? {}
+    if (meta.cued === true || cued.has(String(meta.turn_id ?? ''))) {
+      routeCued(event, meta)
+      return
+    }
     const entry = entryFor(meta)
     if (!entry) return
     if (meta.event === 'start') {
@@ -767,7 +795,14 @@ export function createChatPanel(options = {}) {
   }
 
   /** [[REQ-416]] — the talker's messages and replies; see {@link talkDesk}. */
-  const desk = talkDesk({ transport, onBusy, told, hold })
+  // [[BUG-240]] — and a reply the host cued, drawn as the consultant's next message.
+  const desk = talkDesk({
+    transport,
+    onBusy,
+    told,
+    hold,
+    onCued: (markdown) => chat?.appendMessage('assistant', markdown, at(new Date().toISOString())),
+  })
 
   /**
    * Whether a lost turn is currently being chased, and how many times this
