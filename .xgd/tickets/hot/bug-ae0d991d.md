@@ -6,9 +6,9 @@ title: 'Preview refresh: keep scroll position, refresh only the page that change
   no replayed animations, fewer redraws during a build'
 created_by: EPIC-19
 created_at: '2026-10-21T18:00:24.767152+00:00'
-updated_at: '2026-10-21T18:00:24.767152+00:00'
+updated_at: '2026-10-21T19:03:27.805356+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: medium
@@ -70,3 +70,8 @@ play again.
   animations don't run; a user-opened page and "Replay animations" run them.
 - Ten changes within the interval produce one refresh during the build and one
   at its end.
+
+
+## Looks are separate pages (operator, 2026-10-21)
+
+The "Current" draft refreshes every time a builder changes one of the looks. A look is its own page (e.g. `home-heavy-duty`), so item 2's rule covers it: a change naming only a look page must not refresh the real page, and a change to the real page must not refresh a look being viewed. Add to the test plan: a write to `home-<look>` leaves a visible `home` alone.
