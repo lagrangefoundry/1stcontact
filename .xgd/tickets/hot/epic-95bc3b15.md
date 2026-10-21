@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T14:54:49.744965+00:00'
+updated_at: '2026-10-21T17:27:52.400790+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2310,3 +2310,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-244]] — BUG-236 item 7, unblocked by LF REQ-214: the attach "+" inside the text box and the status widget under the progress banner.
+
+
+- [[BUG-245]] — one voice, one thing at a time (Ariel's AR Welding run): work news absorbed into the next reply (removes BUG-236's "consultant has finished" marker, which showed nothing); comps announced in one line with a board link; comp cards with the consultant's why-chosen note, a real notes box, Send/Skip and open/sent/skipped states; a sent note becomes a client message with a short reply; the board tells the consultant when every card is closed; Save states on fact answers; "N new" badge on the panel; the panel shows when the consultant is working (default: the in-progress blue).
