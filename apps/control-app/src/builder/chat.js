@@ -660,6 +660,10 @@ const RECOVERY_CHASES = 3
  *   the composer on every paint, so its chips go with the next message; and its
  *   attachment lines are drawn as chips inside the client's bubbles. Absent, the
  *   pane has no attachments — the settings conversation's case.
+ * @param {HTMLElement} [options.statusContainer]
+ *   [[BUG-244]] — where the status widget (what the consultant is doing, the
+ *   elapsed time, Stop building) is drawn: lagrange-framework REQ-214's
+ *   `statusContainer`. Absent, it sits above the composer.
  * @param {(src: string, alt: string) => void} [options.onImageClick]
  *   REQ-220 — the reader clicked a picture in the transcript.
  *
@@ -699,6 +703,7 @@ export function createChatPanel(options = {}) {
     onImageClick = null,
     onLinkClick = null,
     attachments = null,
+    statusContainer = null,
     reopen = null,
     wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   } = options
@@ -1208,6 +1213,11 @@ export function createChatPanel(options = {}) {
       maxSubmissionChars: CHAT_MAX_SUBMISSION_CHARS,
       overLongText: CHAT_OVER_LONG_MESSAGE,
       ...(storage ? { storage } : {}),
+      // [[BUG-244]] — ATTACH IS THE "+" INSIDE THE TEXT BOX, mirroring ▶.
+      ...(attachments ? { composerAction: attachments.action } : {}),
+      // [[BUG-244]] — THE STATUS WIDGET IS THE HOST'S TO PLACE: under the plan
+      // panel's progress banner, not above the composer.
+      ...(statusContainer ? { statusContainer } : {}),
       // [[BUG-224]] — WHILE A TURN RUNS, ▶ AND ENTER INTERPOSE: the message goes
       // to the origin and reaches the assistant at its next tool call. Queue
       // stays on the hold menu. [[REQ-416]] — the consultant TALKS instead.
@@ -1386,6 +1396,7 @@ export function createChatPanel(options = {}) {
       maxSubmissionChars: CHAT_MAX_SUBMISSION_CHARS,
       overLongText: CHAT_OVER_LONG_MESSAGE,
       ...(storage ? { storage } : {}),
+      ...(statusContainer ? { statusContainer } : {}),
       attribution: (turn) => ({
         side: turn.role === 'user' ? 'right' : 'left',
         self: turn.role === 'user',

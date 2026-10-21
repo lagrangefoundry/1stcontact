@@ -1314,7 +1314,7 @@ export function mountBuilder(root, options = {}) {
 
   /**
    * The composer's attachments ([[REQ-414]]) — a file dropped on the conversation,
-   * or picked beside the text box, waits there as a chip and goes with the next
+   * or picked with the "+" in the text box, waits there as a chip and goes with the next
    * message. See `attachments.js` for why it is uploaded as reference and only
    * placed on the site when it is sent.
    *
@@ -1339,6 +1339,8 @@ export function mountBuilder(root, options = {}) {
   const chat = createChatPanel({
     storage: shell.storage(STORAGE_KEYS.chat),
     attachments,
+    // [[BUG-244]] — what the worker is doing shows under the progress banner.
+    statusContainer: planPanel.statusSlot,
     ...(chatTransport?.streamPrompt ? { transport: { streamPrompt: chatTransport.streamPrompt } } : {}),
     // WHAT BECAME OF A TURN WHOSE STREAM DIED ([[BUG-123]]). The pane notices the
     // loss; only this module can ask, because the question is "re-open the

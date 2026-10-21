@@ -230,7 +230,11 @@ export function createPlanPanel(options = {}) {
   tip.id = `plan-stages-tip-${Math.random().toString(36).slice(2)}`
   tip.setAttribute('role', 'tooltip')
   tip.hidden = true
-  tracker.append(el('span', 'plan-stages__title', PLAN_STAGES_TITLE), stageList, tip)
+  // [[BUG-244]] — UNDER THE BANNER AND JOINED TO IT, the chat's status widget
+  // while the worker works (the host hands this to the chat as its
+  // `statusContainer`). Pinned with the banner; empty, it takes no room.
+  const statusSlot = el('div', 'plan-stages__status')
+  tracker.append(el('span', 'plan-stages__title', PLAN_STAGES_TITLE), stageList, tip, statusSlot)
   let busy = false
   /** The stage the tip is explaining, by id, so a redraw keeps it open. */
   let tipFor = null
@@ -811,6 +815,8 @@ export function createPlanPanel(options = {}) {
 
   return {
     element,
+    /** [[BUG-244]] — where the chat's status widget is drawn, under the banner. */
+    statusSlot,
     /** Show a site's plan, or nothing. */
     setSite(next) {
       if (next === site) return refresh()

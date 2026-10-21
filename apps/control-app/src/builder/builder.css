@@ -1268,6 +1268,11 @@ body {
   padding: 4px 12px 0;
 }
 
+/* [[BUG-244]] — picked with the composer's "+", so with no chip the tray takes no room. */
+.builder-attach:not(:has(.builder-attach__chip)) {
+  padding: 0;
+}
+
 /*
  * [[BUG-236]] — HOWEVER MANY FILES, THE TEXT BOX AND SEND STAY IN REACH: the
  * chips take about two rows and scroll inside themselves beyond that.
@@ -1342,13 +1347,11 @@ body {
 }
 
 .builder-attach__role,
-.builder-attach__pick,
 .builder-attach__remove {
   font: inherit;
   font-size: var(--builder-control-font-size);
 }
 
-.builder-attach__pick,
 .builder-attach__remove {
   color: var(--shell-fg-muted);
   background: none;
@@ -1356,7 +1359,6 @@ body {
   cursor: pointer;
 }
 
-.builder-attach__pick:hover,
 .builder-attach__remove:hover {
   color: var(--shell-fg);
 }
@@ -1492,6 +1494,25 @@ body {
   font-size: 0.8rem;
   white-space: nowrap;
   container-type: inline-size;
+}
+
+/*
+ * [[BUG-244]] — the chat's status widget, while the worker works: a row of its own
+ * under the stages, inside the banner and so joined to it. `display: contents`
+ * makes the widget itself the flex item, so a hidden one adds no row and no gap.
+ */
+.plan-stages {
+  flex-wrap: wrap;
+}
+
+.plan-stages__status {
+  display: contents;
+}
+
+.plan-stages__status > .chat-widget-status {
+  flex: 1 1 100%;
+  margin: 0;
+  white-space: normal;
 }
 
 .plan-stages__title {

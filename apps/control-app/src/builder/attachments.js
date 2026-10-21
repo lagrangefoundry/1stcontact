@@ -26,6 +26,10 @@
  * NOT IN THE FRAMEWORK'S COMPOSER. `webui-chat` has no attachments, so this sits
  * above its input bar and takes over ▶ and Enter only while a chip is waiting —
  * with none, the composer is untouched.
+ *
+ * [[BUG-244]] — PICKED WITH A "+" INSIDE THE TEXT BOX, mirroring ▶: the panel's
+ * own leading action (lagrange-framework REQ-214 `composerAction`), handed
+ * {@link action} by the chat pane. There is no separate "Attach files" row.
  */
 
 import { enterIntent } from '@lagrangefoundry/webui-chat'
@@ -126,10 +130,6 @@ export function createAttachmentTray({
 }) {
   const element = el('div', 'builder-attach')
   const list = el('div', 'builder-attach__chips')
-  const pick = document.createElement('button')
-  pick.type = 'button'
-  pick.className = 'builder-attach__pick'
-  pick.textContent = `📎 ${ATTACH_BUTTON}`
   const input = document.createElement('input')
   input.type = 'file'
   input.multiple = true
@@ -137,13 +137,12 @@ export function createAttachmentTray({
   input.className = 'builder-attach__input'
   input.tabIndex = -1
   input.setAttribute('aria-hidden', 'true')
-  pick.addEventListener('click', () => input.click())
   input.addEventListener('change', () => {
     const files = Array.from(input.files ?? [])
     input.value = ''
     add(files)
   })
-  element.append(list, pick, input)
+  element.append(list, input)
 
   /** @type {Array<object>} the chips, in the order they were added */
   let chips = []
@@ -460,6 +459,11 @@ export function createAttachmentTray({
 
   return {
     element,
+    /**
+     * [[BUG-244]] — the composer's "+", as `mountChat`'s `composerAction`: it
+     * opens the file picker, and what is picked becomes chips like a drop.
+     */
+    action: { label: ATTACH_BUTTON, onClick: () => input.click() },
     add,
     take,
     clear,
