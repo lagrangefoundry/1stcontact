@@ -6,9 +6,9 @@ title: 'L1: vertical rhythm — text styles carry space above and below, so a he
   attaches to its paragraph'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:20.891074+00:00'
-updated_at: '2026-10-20T23:44:39.688080+00:00'
+updated_at: '2026-10-21T00:16:51.583665+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -90,3 +90,96 @@ be spaced evenly, so every builder produces the floating-heading look.
 - Round trip: capture(render(doc)) recovers the unit and style spacing within
   tolerance.
 - Existing documents with `gapPx` render byte-identically.
+
+## As implemented
+
+**Language (`packages/site-schema`).**
+- `site.rhythm = { unitPx, responsive?: { unitPx: track } }` (1–200 px, `.strict()`).
+  Absent, the unit is the default text style's line height (its per-width track
+  when it has one), else 24px. Set through `set_config` key `rhythm`.
+- `spaceAbove` / `spaceBelow` (rhythm units, 0–16) on `l1TextStyleSchema` and on
+  every node (shared node axis group) as the per-node override. Styles resolve
+  onto runs at the same boundary as type (`resolveL1TextStyles`), so the
+  renderer reads literals. A heading never inherits spacing from the site's
+  default style; otherwise a body style saying `spaceBelow: 1` would float every
+  heading.
+- Container `spacing: 'rhythm' | 'gap'`. Unset: `gap` when `gapPx` is set; `rhythm`
+  for a `stack` (no responsive layout) holding a text run and no child placed by
+  geometry; otherwise `gap`. Recovered/folded stacks (pinned or offset children)
+  stay `gap`, and the recovery code (`flow_l1`/promote) now says `spacing: 'gap'`
+  on the stacks it builds.
+- Defaults live in one table, `L1_RHYTHM_DEFAULTS` (`l1/rhythm.ts`): H1 3/0.75,
+  H2 2.5/0.5, H3 2/0.5, H4–H6 1.5/0.5, body text 0/1, any other node 1/1. An
+  unpainted, unpadded rhythm container passes its first and last children's
+  space through. `l1RhythmPlan` (leads + keep-with-next groups) is shared by the
+  renderer and the analytic evaluator so they cannot disagree.
+- Email pages refuse `spacing` on a container; `spaceAbove`/`spaceBelow` are inert
+  there (a run can pick them up from a style).
+
+**Renderer (`packages/framework`).** A rhythm member gets
+`margin-top: calc(var(--l1-ru, <unit>px) * k)`, with k = max(previous below, own
+above), and 0 for the first member. The unit is declared once on `:root`, with
+per-width rules for a track, and only by a page that uses rhythm. Rhythm space is
+vertical: at widths where a container is a row or grid its members get 0. A
+rhythm container emits no `gap`. Keep-with-next: a heading (or run of headings)
+plus the next child is wrapped in `<div data-l1-keep role="group"
+aria-labelledby="<heading id>">`, a column carrying the first member's lead.
+In a stack nothing moves; in a wrapping row or restacking layout the heading and
+its text move as one item. Section addressing (layout check, page sections) looks
+through `data-l1-keep`, so `0.n` still names node n. Documents with `gapPx` render
+byte-identically. Across the 13 stored fixture/sandbox pages, only the 4 with
+plain text stacks and no `gapPx` change (xgd home and whitepapers, Charlie's home,
+sandbox demo); they now space by rhythm.
+
+**Analytic evaluator (`probes.ts`).** Advances a stack's cursor by each member's
+lead × unit (`EvaluateOptions.rhythm`). Rows in a rhythm container are modelled
+with no space between members, as rendered.
+
+**Capture / fold.** `tools/generate/src/l1/read-rhythm.ts` reads a laid-out page's
+rhythm. The unit is the median body line height; body→body gaps give body
+`spaceBelow`, heading→body gives the heading's `spaceBelow`, body→heading its
+`spaceAbove`. Medians, to the nearest quarter unit. Gaps over 8 units are ignored
+as section breaks. The fold itself produces pinned geometry and no styles, so
+the reading is recorded where a reproduction's styles are created: `1c type
+assign` puts the measured space on the `heading-<n>` styles it creates and on
+the main body-text style it creates, and sets `site.rhythm` when the site has
+none. It does this only on a site with no rhythm container, so the retrofit stays
+a change of description (the page paints byte-identically). It also no longer
+resolves an existing style's spacing into per-run literals. `captureL1` accepts
+render options, so the round trip renders with the site's unit.
+
+**REQ-415 layout check.** New finding `floating_heading`: a heading whose nearest
+text below (same column, not itself a heading) is at least as far as the nearest
+text above it, ignored when the space above is under half its font size
+(eyebrow/kicker attached on purpose). Worded with both distances.
+
+**Teaching.** Builder priming (both variants): text stacks space by rhythm, no
+`gapPx`; `gapPx` with `spacing: "gap"` is for rows and grids; change spacing on
+the style, override per element only for a reason, and report it. Consultant
+priming: heading spacing is a property of the text style; change the style,
+not one element. Surface (`surface_version` 20 → 21): `set_text_style` /
+`add_text_style` / `get_text_styles` describe `spaceAbove`/`spaceBelow`,
+`set_config` describes `rhythm`, page-map `warnings` names the floating heading.
+`REF-l1` and the builder vocabulary pick the new fields up from the schema.
+
+## UAT coverage (`tests/test_UAT_FC_REQ-420_vertical_rhythm.test.ts`)
+- `text_styles_and_the_unit_carry_bounded_space`: styles accept bounded space;
+  out-of-range values and a freeform key are refused; the unit is a bounded
+  setting, declared on `:root` per width.
+- `a_rhythm_stack_attaches_each_heading_to_its_text`: H2→p 0.5, p→p 1, p→H2 2.5,
+  first child 0; heading and text in one labelled group; no `gap`.
+- `the_style_sets_every_use_and_an_override_one`: a style's space reaches every
+  use; a node's own `spaceAbove` changes only that node, and survives a style change.
+- `gap_documents_render_unchanged`: a `gapPx` document's output is identical with
+  any unit and with `spacing: 'gap'` stated, and the served page does not change
+  when the site's unit does.
+- `type_assign_keeps_the_rhythm_a_reproduction_was_laid_out_with`: measured
+  offsets → `rhythm.unitPx` 20, `heading-2` 2.5/0.5, body style 0/1; served page
+  byte-identical.
+- Browser (Chromium): `round_trip_recovers_the_unit_and_the_style_spacing`
+  (measured 10/20/50/40px gaps; read back exactly);
+  `a_heading_is_kept_with_its_text_when_a_row_wraps` (phone width);
+  `a_group_is_transparent_to_section_addresses`;
+  `the_layout_check_names_a_floating_heading` (even `gapPx` flagged, rhythm clean).
+- Existing sweeps extended: REQ-105 / AC802 node-axis-group samples include
+  `spaceAbove` / `spaceBelow`.
