@@ -7,10 +7,10 @@ title: 'One voice, one thing at a time: absorb work news into the next reply, co
   done'
 created_by: EPIC-19
 created_at: '2026-10-21T17:27:46.675245+00:00'
-updated_at: '2026-10-21T17:59:29.879346+00:00'
+updated_at: '2026-10-21T18:22:05.237378+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
