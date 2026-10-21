@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:49:21.657521+00:00'
+updated_at: '2026-10-21T17:49:47.951800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11034,5 +11034,18 @@ So for Send to turn into ■ **and** the widget not to appear, one of these must
 <!-- xgd-chat role="user" ts="2026-10-21T17:49:21.091054+00:00" -->
 #### You
 Yeah the talk still works if I ignore the stop button  and type, but the progress panel at the top has gone and progress is getting dropped into chat
+
+<!-- xgd-turn id="5855bf12-a3a9-4e16-a217-c38cde3ba6aa-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:49:46.807749+00:00" -->
+#### Claude
+That narrows it down, and I've added it to BUG-247.
+
+- **The talker still answers when you type**, so the server side of talk mode is fine. The host still sends your mid-build message to a talker.
+- **Progress shows up as chat text, and the widget is gone**, so your browser is reading this turn's stream through a route that doesn't recognise progress updates. They fall through as ordinary text. The widget never gets switched on, and with it never shown, the composer falls back to the old "Stop until the widget appears" rule. That accounts for the ■.
+
+So it's not the widget's box being replaced: that alone wouldn't put progress into the chat. Most likely the browser treated the turn as an **ordinary reply**, because it started by answering you (the answer-first behaviour we just added). The other candidate is a reconnect path, such as after the consultant switched your view at 17:31. The ticket now points the fix at those two paths first.
+
+**For the rest of this run:** reload the page between builds. A fresh page load should pick up talk mode and the widget again, at least for builds that start working straight away. If a build that *answers first* still shows the ■ after a reload, that confirms the cause. Tell me and I'll note it on the ticket.
 
 <!-- xgd-chat-end -->
