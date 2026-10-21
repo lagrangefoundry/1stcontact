@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:47:05.900967+00:00'
+updated_at: '2026-10-21T00:47:55.412135+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10581,5 +10581,25 @@ That's one lagrange-framework REQ for the hidden cue, and one 1stcontact ticket 
 <!-- xgd-chat role="user" ts="2026-10-21T00:47:05.779145+00:00" -->
 #### You
 please create the two tickets
+
+<!-- xgd-turn id="307c7797-8236-4ea0-aae6-085ed9f59963-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T00:47:54.361553+00:00" -->
+#### Claude
+I've filed both tickets.
+
+**lagrange-framework REQ-215**, *"Worker and talker: a host can open a talker on a hidden cue, and a talker may pass"* (`draft`, high, 5 points). It covers four things:
+- **A talker the host can open.** While a worker round is open, the host can start a talker round from a cue. The cue is never saved as your message, never shown, and never passed to the worker. The talker still sees the message that started the worker, so it can answer it.
+- **The same rules as any talker:** the same denied tools, and one talker reply at a time. A message you send during the reply waits for it to finish.
+- **A talker can choose to say nothing**, in which case nothing is shown or saved. That's what makes it safe to open one on every build.
+- **The worker still receives the talker's reply**, so it knows what you've already been told.
+
+**BUG-240** (EPIC-19, `draft`, high priority, 5 points), *"Worker dives into work without answering the client's question; open a talker on the same message, and don't repeat it at hand-back"*. It covers four things:
+1. **Spot the moment it goes to work:** its first denied tool comes before it has written anything to you except the status note.
+2. **Open a talker on the same message**, through REQ-215's cue. The talker answers whatever else you asked; if you asked nothing, it acknowledges in a line and asks one story question; if there's nothing useful to say, it stays silent. It fires at most once per build, and never if the worker replied first.
+3. **The worker's hand-back doesn't repeat** anything the talker already told you.
+4. **An interim instruction, landing with this ticket:** answer the question first, then start the work. It stays afterwards, for conversations with no talker.
+
+The order is REQ-215 first, refresh the shared install, then BUG-240. Item 2 also fixes the earlier gap where a talker only appears once you speak again: every build will now start the conversation itself.
 
 <!-- xgd-chat-end -->
