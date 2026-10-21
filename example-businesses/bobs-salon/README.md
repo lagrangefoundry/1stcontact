@@ -131,5 +131,34 @@ Paste these as they are or mix them.
 - `letterhead.md`: letterhead
 - `competitors.md`: three real South Boston salons, compared
 
-There are no images yet. Add a logo, Bob, the chair, and a long-hair
-before and after to `images/` when you have them.
+## Gallery (`images/`)
+
+| File | What it shows |
+|---|---|
+| `logo.png` | Gold emblem on black: long-haired man in profile, "Bob's Salon · Hair Nails Facials · For Everyone" |
+| `team-storefront.png` | The whole team outside the shop under the sign, with the "Good hair, kinder people" chalkboard |
+| `collage-hair-heart-community.png` | Ready-made collage: team, Bob at work, four long-hair results |
+| `bob-portrait.png` | Bob outside the shop in his denim apron |
+| `bob-cutting-long-hair.png` | Bob trimming a client's long dark hair |
+| `marisol-portrait.png` | Marisol (colour and curls), long curly hair |
+| `twee-portrait.png` | Twee (nails), glasses and tattooed arms |
+| `aoife-portrait.png` | Aoife (facials), red-gold hair in a bun |
+| `eileen-portrait.png` | Eileen, Bob's mother |
+| `mens-long-curls.png` | Long-hair speciality: a man's long curly hair with highlights |
+| `balayage-waves-back.png` | Brunette balayage, long waves, from behind |
+| `balayage-waves-profile.png` | The same look in profile |
+| `copper-long-waves.png` | Long copper colour |
+| `textured-updo.png` | Wedding/occasion updo |
+| `wigs-for-kids-wall.png` | Reception and the Wigs for Kids photo wall with donated braids |
+
+The staff names are matched to the portraits by role and look. They're
+assignments, not something the images say. Two of the images disagree with
+the invented details:
+
+- The shop in the photos is a **street-level storefront** with a sidewalk
+  chalkboard. The docs say "second floor above a bakery", and the
+  testimonials mention steep stairs.
+- The chalkboard line **"Good hair, kinder people"** is a ready-made
+  tagline. The docs don't use it yet.
+- `wigs-for-kids-wall.png` has an AI typo on the brass plaque ("SMALL ACTS MAKE A BIG
+  BRIFFERENCE"). Crop it out or regenerate before showing it on a site.
