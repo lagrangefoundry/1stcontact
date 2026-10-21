@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-420
 created_by: xgd
 created_at: '2026-10-20T23:33:59.571224+00:00'
-updated_at: '2026-10-21T01:13:22.976224+00:00'
+updated_at: '2026-10-21T01:13:36.053808+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -212,5 +212,13 @@ Neither of these is vertical rhythm, so I won't fold them into REQ-420. First, a
 <!-- xgd-chat role="user" ts="2026-10-21T01:13:21.492891+00:00" -->
 #### You
 Sorry wrong ticket
+
+<!-- xgd-turn id="4031f681-9ded-43f6-8a1e-ea918e5231e6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T01:13:35.142805+00:00" -->
+#### Claude
+No problem. I hadn't changed anything; I'd only started reading the chat code, and REQ-420 is untouched.
+
+One thing for whichever ticket picks up the bold text: it may not be a renderer bug. In `**Are you happy…?**Bob`, the closing `**` comes right after a `?` and right before a letter. Under the standard Markdown (CommonMark) rules, `**` in that position can't close bold, so it prints as literal asterisks. The usual cause is two separate pieces of the reply being joined with no space or line break between them, so look at how the reply's text pieces are joined before looking at the renderer.
 
 <!-- xgd-chat-end -->
