@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T01:30:17.295753+00:00'
+updated_at: '2026-10-21T01:32:04.290012+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4165,5 +4165,52 @@ When you're happy with the draft wording, say so and I'll splice it into `primin
 Our site cost is climbing Bob's Salon 3 is the most expensive test site I have built so far... take a look and tell me if you see where the money is going and if there are obvious inefficiencies...
 
 Looks to me like a healthy amount is Haiku - the costed turns I can see don't look like the add up to the totals I see though.
+
+<!-- xgd-turn id="18b1a3be-59dd-4843-87e2-7aef91183337-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T01:32:02.625046+00:00" -->
+#### Claude
+Pulling Bob's Salon 3's spend records, including the builders' share.
+
+The builders are 60% of the bill. Checking three things: what the console shows per turn, which cache lifetime we pay for, and how big a builder's context is when it starts.
+
+Builders start at about 45–50k tokens and the long ones grow to about 150k. One last check: whether the old-tool-result trimming (REQ-361) reaches inside a builder's run at all.
+
+The meter puts Bob's Salon 3 at **$42.46**, and the real bill is probably nearer **$50**. Builders (Haiku) are 60% of it, and nearly all of that is builders re-reading their own context.
+
+## Where it went
+
+| | requests | cost | share |
+|---|---|---|---|
+| Consultant (Opus 5.5), 53 turns | 212 | $16.87 | 40% |
+| Builders (Haiku 4.5), 38 runs | 1,516 | $25.58 | 60% |
+| **Metered total** | | **$42.46** | |
+
+The consultant is fine: about 32¢ a turn. The builders are where the money is.
+
+## Why your totals don't add up
+
+There are two likely reasons, and one of them is a real meter defect.
+
+1. **The meter underprices cache writes.** We use the framework's 1-hour cache lifetime, which bills a cache write at 2× the input rate. `prices.json` charges 1.25×, the 5-minute rate. So every write is underpriced by about 40%: roughly +$3.20 on the consultant and +$3.90 on the builders. That puts the real cost at about **$49.60**, and it applies to every figure we've metered so far.
+2. **The turn table only shows the last 50 turns,** and this site has 53. It also shows each turn's own cost and its builders' cost as two separate figures, so adding up the visible own-cost column misses the 60% that went to builders.
+
+## Builder inefficiencies
+
+Of the $25.58, **$14.47 is builders re-reading their context.** Each of the 1,516 builder requests re-reads, on average, about 95k tokens.
+
+- **A builder starts heavy.** The shortest run (8 requests) averaged about 49k tokens per request, so a builder is already around 45–50k tokens before it does anything. That's its instructions, tool definitions and whatever else it's given at the start. Every request pays for it.
+- **Nothing trims a builder's context during its run.** A builder's whole run is one turn, and REQ-361's trimming of old tool results only applies to the consultant, at turn boundaries. So every page read and screenshot a builder takes stays in its context until it stops. The long runs all grew to the same ~150k, which looks like the builder's context ceiling.
+- **Runs are long.** The median run was 31 requests, ten runs went past 50, and three passed 85 (the step limit is now 100). The top ten runs cost about $11, which is 43% of builder spend. Runs that long, each request re-reading 100k+ tokens, cost $1–1.60 each.
+- **38 builder runs for one site is a lot.** Bob's Salon 2 needed 49, and 42% of those were rework. I haven't classified this session's runs yet, so I don't know how much of the 38 was rework.
+
+## What I'd do, in order
+
+1. **Fix the meter's cache-write price** to match the cache lifetime we actually use. Without that, every figure we analyse is about 15% low. It's a small change.
+2. **Measure what makes up a builder's starting 45–50k tokens.** If half of it is reference material most briefs never need, halving it saves about a quarter of builder reads. That's cheap to find out.
+3. **Trim within a builder's run.** Drop old page reads and screenshots once a newer one replaces them. That's framework work, alongside REQ-361.
+4. **Classify the 38 runs** as I did for Salon 2, to see how much was rework.
+
+Do you want tickets for 1 and 2 now? Item 1 is a straight bug; item 2 starts as an investigation.
 
 <!-- xgd-chat-end -->
