@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:25:41.700730+00:00'
+updated_at: '2026-10-21T18:29:07.722995+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11168,5 +11168,15 @@ I read the draft:
 **C. Fold into BUG-246**, which is still a draft and is the same "where am I" problem: the consultant is told which **page** you're viewing, not just which view. When it creates a page, it says how to move between pages: *"Use the page menu above the preview to switch between Home and Art."*
 
 Shall I file A as a new REQ (it includes B, since B is the safety net until A lands) and add C to BUG-246?
+
+<!-- xgd-turn id="a2528733-cf7a-4887-851f-c5155ef71ab8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:29:07.442061+00:00" -->
+#### You
+Agreed with the kind of sites we are building there will be a common header (and often footer) with consistent links and branding that should be a first class concept in L1
+
+I am just telling the AI now: **The home page has no title or banner can you leverage the design in the group photo to build something**
+
+Honestly, this is a big gap on this site. It looks super odd to me
 
 <!-- xgd-chat-end -->
