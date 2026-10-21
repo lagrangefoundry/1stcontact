@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:32:28.881067+00:00'
+updated_at: '2026-10-21T20:35:37.352891+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11805,5 +11805,13 @@ Does that match what you had in mind? If so, the design note would describe:
 - **two delegated tool roles,** `critique` and `plan_stage`, with their priming, read grants and report formats (1stcontact);
 - **persistent private delegated sessions** (lagrange-framework);
 - **due and hold** at the gates (1stcontact).
+
+<!-- xgd-turn id="9d6cd546-90e4-4d9a-9803-81fc9d36990c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T20:35:37.226276+00:00" -->
+#### You
+Perhaps calling them should be a rule?
+
+I am a little nervous about making the flow too rigid - we are working almost entirely with the idea of type 1 customers. Customers who already have a site they like for example will need very different handling I suspect - hopefully its the same stages but we can skip over them much faster?
 
 <!-- xgd-chat-end -->
