@@ -6,10 +6,10 @@ title: 'The consultant doesn''t know which view the client has open: report the 
   and unopened views, and link to the right one'
 created_by: EPIC-19
 created_at: '2026-10-21T17:33:54.640791+00:00'
-updated_at: '2026-10-21T18:40:47.607315+00:00'
+updated_at: '2026-10-21T18:44:38.526537+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: high
