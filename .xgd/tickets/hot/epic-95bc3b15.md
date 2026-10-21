@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T19:10:19.857610+00:00'
+updated_at: '2026-10-21T19:43:33.551073+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2338,3 +2338,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 - [[BUG-250]] — Looks become their own mode: a Looks tab only while a page has looks, showing only the looks (no "Current"), no Edit or Colours; reverses BUG-205's in-View carousel.
 - [[REQ-424]] — guided focus tasks: the consultant picks a moment (often right after starting a build) to lead the client through the panel questions or story-board reactions, one thing at a time, with progress and Done; the host tells the consultant when it's finished and it resumes; small batches so the board doesn't overwhelm.
+
+
+- [[REQ-425]] — a positioning card on the story board (themes, what you're known for, why your customer picks you) between the notes and the headline; headlines derived from it; readiness per area (messaging, look, functions) on the plan. Priming half landed as 7b5db38f70: propose first, then ask; story is proof, not pitch; look through the buyer's eyes.
