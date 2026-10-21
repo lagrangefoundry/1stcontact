@@ -42,6 +42,13 @@ type Params = Record<string, unknown>
 export const SHOW_TOOL = 'show_client'
 
 /**
+ * [[REQ-424]] — every tool whose result can switch the client's view: this one, and
+ * `start_focus`, which puts its task's surface in front of the client through this
+ * file's own path. The cadence wrapper delivers a switch from any of them.
+ */
+export const SWITCHING_TOOLS: ReadonlySet<string> = new Set([SHOW_TOOL, 'start_focus'])
+
+/**
  * The host's event kind for "change the client's view now". `meta.href` is the
  * target's link, `meta.label` what it is called. Delivered live and never
  * recorded, so a reload never repeats it.

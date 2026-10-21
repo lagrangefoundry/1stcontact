@@ -29,8 +29,13 @@
  * takes a field from under the client: a card whose comp has not changed is kept,
  * so is the one they are typing in, and text typed and not yet stored is kept by
  * itself so a card drawn again still holds it.
+ *
+ * [[REQ-424]] — A COMPARISON FOCUS TASK is the same board led by the consultant:
+ * the focus banner at its head (the consultant's line, "1 of 3 sites left", Done)
+ * and the cards still open edged in its blue.
  */
 import { compAction, materialFileUrl } from './api.js'
+import { createFocusBanner } from './focus-banner.js'
 import {
   COMPS_ADD_BUTTON,
   COMPS_ADD_LABEL,
@@ -119,7 +124,7 @@ const grow = (area) => {
 
 /**
  * @param {object} [options]
- * @param {{compAction?: Function}} [options.transport]
+ * @param {{compAction?: Function, focusAction?: Function}} [options.transport]
  * @param {(message: string) => void} [options.onSend]
  *   [[BUG-245]] — a note was sent: post `message` into the conversation as the
  *   client's own, which starts the consultant's short reply.
@@ -132,6 +137,8 @@ export function createComparisons(options = {}) {
   const transport = { compAction, ...(options.transport ?? {}) }
   const onSend = options.onSend ?? (() => {})
   const onFinished = options.onFinished ?? (() => {})
+  /** [[REQ-424]] — a write answered the plan's view: a card closed, or the focus task's Done. */
+  const onView = options.onView ?? null
 
   const element = el('section', 'comparisons')
   element.setAttribute('aria-label', COMPS_HEADING)
@@ -144,6 +151,15 @@ export function createComparisons(options = {}) {
   error.hidden = true
   const empty = el('p', 'comparisons__empty', COMPS_EMPTY)
   const grid = el('div', 'comparisons__grid')
+  const focus = createFocusBanner({
+    kind: 'comps',
+    site: () => site,
+    transport,
+    onView: (view) => {
+      render(view)
+      onView?.(view)
+    },
+  })
 
   const addForm = el('form', 'comparisons__add')
   const addInput = el('input', 'comparisons__url')
@@ -159,7 +175,7 @@ export function createComparisons(options = {}) {
   const footer = el('div', 'comparisons__footer')
   footer.append(skip)
 
-  element.append(heading, note, intro, error, empty, grid, addForm, footer)
+  element.append(heading, focus.element, note, intro, error, empty, grid, addForm, footer)
 
   let site = null
   let last = null
@@ -176,7 +192,10 @@ export function createComparisons(options = {}) {
     try {
       const view = await transport.compAction({ site: asked, ...body })
       error.hidden = true
-      if (asked === site) render(view)
+      if (asked === site) {
+        render(view)
+        onView?.(view)
+      }
       return view ?? {}
     } catch (err) {
       error.textContent = COMPS_FAILED(err?.message ?? String(err))
@@ -373,6 +392,8 @@ export function createComparisons(options = {}) {
     )
     tiles.clear()
     for (const [ref, held] of kept) tiles.set(ref, held)
+    const pending = new Set(focus.render(view)?.pending ?? [])
+    for (const [ref, held] of tiles) held.node.classList.toggle('comp-tile--focus', pending.has(ref))
     note.textContent = view?.comps_note ?? ''
     note.hidden = note.textContent === ''
     empty.hidden = comps.length > 0

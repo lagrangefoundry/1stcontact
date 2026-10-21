@@ -48,7 +48,7 @@ import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
 import { CLIENT_PANES, PANE_LABELS } from '../../../../../apps/control-app/src/builder/client-pane.js'
-import { nearPublishing, planPanel, planReminder, type NotLooked, type Plan } from './plan-core'
+import { FOCUS_WHAT, focusView, nearPublishing, planPanel, planReminder, type NotLooked, type Plan } from './plan-core'
 import { missingStoryAreas } from './story-core'
 import talkerDocument from './talker.json'
 import { builderVocabulary } from './l1-vocabulary-core'
@@ -562,13 +562,13 @@ export function isStallContinuationCue(content: string): boolean {
 }
 
 /**
- * [[BUG-245]] — the user turn the host records when the comp board finishes on a
- * Skip: every card is sent or skipped and the client wrote nothing, so the
- * consultant sums up without being asked. Kept out of the client's transcript like
- * {@link continuationCue}.
+ * [[BUG-245]] — the user turn the host records when the client finishes something
+ * without writing: the comp board on a Skip, or [[REQ-424]] a focus task. The
+ * turn's notice says which; the consultant resumes without being asked. Kept out
+ * of the client's transcript like {@link continuationCue}.
  */
-export function compsFinishedCue(): string {
-  return template('comps-finished-cue')
+export function finishedCue(): string {
+  return template('finished-cue')
 }
 
 /**
@@ -795,9 +795,15 @@ export const TALKER_REFUSAL: string = talkerDocument.refusal
 
 /**
  * [[REQ-416]] — what the talker is told each exchange: the story areas the board
- * has nothing on yet, and the panel questions still open.
+ * has nothing on yet, and the panel questions still open. [[REQ-424]] — or, while
+ * a focus task is open, that the client is working through it.
  */
 export function talkerDiscovery(plan: Plan | null): string {
+  // [[REQ-424]] — WHILE THE CLIENT WORKS THROUGH A FOCUS TASK, discovery waits: no new topic.
+  const focus = plan ? focusView(plan.fields) : null
+  if (focus) {
+    return fill(template('talker-focus'), { what: FOCUS_WHAT[focus.kind], done: String(focus.closed), total: String(focus.total) })
+  }
   const fields = (plan?.fields ?? {}) as Parameters<typeof missingStoryAreas>[0]
   const missing = missingStoryAreas(fields).map((a) => a.label)
   const open = plan ? planPanel(plan.fields).asks.open.length : 0

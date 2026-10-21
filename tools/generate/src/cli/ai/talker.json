@@ -100,6 +100,8 @@
     "set_task",
     "answer_check",
     "show_client",
+    "start_focus",
+    "end_focus",
     "set_ask",
     "ask_features",
     "withdraw_ask",
