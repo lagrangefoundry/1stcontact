@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-20T23:26:35.904856+00:00'
+updated_at: '2026-10-21T00:37:30.968800+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10490,5 +10490,11 @@ Existing pages render exactly as now until they're next restyled.
 It also gives builders starting sizes. It's the quick win: it catches existing pages, and anything built before REQ-420 lands.
 
 I'd do BUG-238 first, since it's small, works on today's pages, and fixes the logo problem you hit on every site. REQ-420 is the larger language change and can follow.
+
+<!-- xgd-turn id="8e732eb8-9ccc-474c-933c-a29190ff223b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T00:37:30.381894+00:00" -->
+#### You
+Are we good with the decisions of REQ-420 - please make any changes to the body of its ticke
 
 <!-- xgd-chat-end -->
