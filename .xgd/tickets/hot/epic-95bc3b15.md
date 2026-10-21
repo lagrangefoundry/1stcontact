@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T18:45:05.761087+00:00'
+updated_at: '2026-10-21T18:52:39.460723+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2331,3 +2331,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - lagrange-framework BUG-91 (critical) — talker rounds fail with 400 "each thinking block must contain thinking" while a worker runs, so the consultant goes silent mid-build (Ariel's run 18:43 UTC). BUG-249 gains: a failed talker queues the message and tells the client gently.
+
+
+- [[REQ-423]] — SVG drawing taken from the builders (Haiku) and kept with the consultant (operator decision): drawn images stored as Library items, looked at before use; logo method = wordmark first, image generation for illustrated marks.
