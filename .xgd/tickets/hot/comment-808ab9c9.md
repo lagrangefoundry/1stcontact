@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-10-21T20:08:10.829653+00:00'
+updated_at: '2026-10-21T20:10:57.155676+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -281,5 +281,50 @@ Ready to cut the branch and implement REQ-266 when you want it.
 <!-- xgd-chat role="user" ts="2026-10-21T20:08:10.720937+00:00" -->
 #### You
 Can you validate that the PHP2Shell issue is not relevant to us? (you will need to do a web search on that term. I assume since we don't use PHP that it is irrelevant, yes? Are there any lessons for us in it?
+
+<!-- xgd-turn id="173ff2bc-fe4b-41a1-a717-04e4a7cbe416-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:10:55.716656+00:00" -->
+#### Claude
+The repo has no PHP. Now I'm checking whether our Workers code holds state that carries over between requests, since that's one of the two PHP2Shell bugs.
+
+The PHP side is settled. I found four caches at module scope in the control app; checking what each one is keyed by.
+
+I have what I need. Adding a short note to the EPIC-17 threat model so the finding isn't lost.
+
+Yes, PHP2Shell doesn't affect us. I checked the code rather than assuming. Of the lessons, one applies to our code directly, and our own codebase has already been bitten by that kind of bug once.
+
+## Why it doesn't apply
+
+PHP2Shell is two bugs in the PHP runtime itself (CVE-2026-109618 and -109619). Both are rated critical (CVSS 9.2). They let an attacker run code on the server with no login, on any server running PHP. The fixed releases are 8.2.35, 8.3.36, 8.4.27 and 8.5.12.
+
+There's no PHP anywhere in our repo: no `.php` files, no `composer.json`, nothing that runs PHP. Every "php" string in the tree is either the Philippine peso currency code or a `facebook.com/profile.php` link. We run on Cloudflare Workers and static files, and patching that runtime is Cloudflare's job. Cloudflare had protective firewall rules out before the patch shipped.
+
+**There is one indirect exposure.** Most of the customer sites we import or replace are WordPress, which runs on PHP, so many of them will be vulnerable. A compromised source site can serve hostile pages and images to our capture/import. The threat model already treats that path as untrusted input, and this advisory backs that up.
+
+## Lessons for us
+
+**1. State left over from one request and read by the next one. This is the main lesson.** The -109619 bug is leftover global state from one request being read by the next request in a long-lived PHP process. Workers have the same property: anything stored at module level survives from one request to the next. I listed the control app's long-lived caches. There are four, and three are clearly safe. The fourth is the chat-host cache, `CHATS`. Before REQ-168 fixed it, this exact leak happened here: a single module-level variable held the first caller's store, transcripts and knowledge base, and served them to every later caller. Even one operator switching between two of their own businesses could trigger it. It's now partitioned by business, and every request re-checks that the business is still active.
+
+The gap is that nothing stops someone adding a fifth cache that isn't partitioned. The fix is cheap: a source-level test that lists every piece of module-level mutable state and fails unless each entry is on an allowlist with a stated reason it's safe. It's the same pattern as F5/F6.
+
+**2. A feature that's on by default but unused is attack surface.** The -109619 trigger was `session.upload_progress`, a PHP setting that's on by default and that almost nobody uses. Our equivalent is F8's `workers_dev=true` on public-site.
+
+**3. Running out of memory mid-operation left exploitable partial state.** That's the -109618 bug. It's the same kind of problem REQ-266 closes for publishing, by reserving the revision id before writing any bytes.
+
+**4. Exploit code was public before the patch, and only supported versions got fixed.** That's the argument for F7: pin `@lagrangefoundry/*` to exact digests. We can't patch quickly if we can't tell which version we're running.
+
+I've added this as §6 of the EPIC-17 threat model (ticket text only, no code). I put the guard test under Next, not as a beta blocker, because today's caches are all correct. Do you want it filed as a REQ?
+
+Sources:
+- [Help Net Security: PHP2Shell patched](https://www.helpnetsecurity.com/2026/10/21/php2shell-php-vulnerabilities-patched-cve-2026-109618-cve-2026-109619/)
+- [The Hacker News: two critical PHP RCE flaws](https://thehackernews.com/2026/10/php2shell-two-unpatched-critical-php.html)
+- [BleepingComputer: emergency patches](https://www.bleepingcomputer.com/news/security/php-ships-emergency-patches-for-critical-php2shell-flaws/)
+- [Imperva: when PHP runs out of memory](https://www.imperva.com/blog/php2shell-vulnerability-updates/)
+- [Cloudflare: WAF protections](https://blog.cloudflare.com/php-vulnerabilities-waf-protection/)
+- [SecurityWeek: mass exploitation looms](https://www.securityweek.com/php2shell-mass-exploitation-looms-for-leaked-critical-php-flaws/)
+- [Wikipedia: PHP2Shell](https://en.wikipedia.org/wiki/PHP2Shell)
+- [Brandefense: CVE analysis](https://brandefense.io/blog/php2shell-php-rce-cve-2026-109618-109619/)
+- [Cybersecurity News: public PoC](https://cybersecuritynews.com/php2shell-vulnerability/)
 
 <!-- xgd-chat-end -->
