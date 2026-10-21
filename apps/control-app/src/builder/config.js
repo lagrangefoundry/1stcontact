@@ -1091,6 +1091,22 @@ export const STORY_REACTIONS = [
 export const STORY_DELETE = { emoji: '🗑', label: "Delete — it doesn't belong" }
 export const STORY_SAVE_FAILED = (message) => `That was not saved: ${message}`
 /**
+ * [[REQ-425]] — the positioning card above the headline: what the consultant is
+ * hearing, what the business is known for, and why each kind of customer picks it.
+ */
+export const STORY_CARD_LABEL = 'Your position'
+export const STORY_CARD_SECTIONS = {
+  hearing: 'What I’m hearing',
+  known_for: 'What you’re known for',
+  pick: 'Why your customers pick you',
+}
+export const STORY_CARD_FALLBACK = 'Nothing sets you apart yet, so we’ll make you the easiest to trust and to contact.'
+export const STORY_CARD_HEART = { emoji: '❤️', label: 'That’s us' }
+export const STORY_CARD_EDIT = 'Click a line to put it in your own words'
+export const STORY_CARD_YOURS = 'your words'
+/** [[REQ-425]] — which line of the card a headline option comes from. */
+export const STORY_HEADLINE_SOURCE = (label) => `from ${label}`
+/**
  * [[BUG-245]], [[REQ-424]] — the host's cue for the consultant's turn when the client
  * finishes something without writing: the comparison board, or a focus task.
  */
@@ -1108,7 +1124,17 @@ export const FOCUS_LABEL = 'Now'
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
 export const FOCUS_PROGRESS = {
   questions: (closed, total) => `${total - closed} of ${plural(total, 'question')} left`,
-  story: (closed, total) => `${closed} of ${plural(total, 'note')} reacted to`,
+  // [[REQ-425]] — a story task is one step: the notes, the card, or the headline.
+  story: (closed, total, step) =>
+    step === 'positioning'
+      ? closed
+        ? 'Card confirmed'
+        : 'Heart the card, or edit it'
+      : step === 'headline'
+        ? closed
+          ? 'Headline chosen'
+          : 'Pick a headline'
+        : `${closed} of ${plural(total, 'note')} reacted to`,
   comps: (closed, total) => `${total - closed} of ${plural(total, 'site')} left`,
 }
 export const FOCUS_DONE = 'Done'

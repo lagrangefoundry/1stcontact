@@ -56,6 +56,7 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'board',
   'looked_at',
   'focus_tasks',
+  'readiness',
 ]
 
 /**

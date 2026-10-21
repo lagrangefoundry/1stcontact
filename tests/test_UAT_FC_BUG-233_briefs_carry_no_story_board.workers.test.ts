@@ -90,7 +90,13 @@ async function boardedSession(slug: string): Promise<string> {
   const generations = (await board()).themes[0].notes[0].id
   expect((await post(PLAN_BOARD_PATH, { site, action: 'react', note: generations, reaction: 'heart' })).status).toBe(200)
   await turn(sessionId, 'Done.', scriptedClient([
-    calls('offer_headlines', { options: [HEADLINE, 'Cut by family since 1971'], pick: 0, from: [generations] }),
+    calls('write_positioning', {
+      hearing: ['Family', 'Tea and talk'],
+      known_for: 'Three generations of one family on one corner',
+      picks: [{ customer: 'Regulars', why: 'the same family hands for fifty years' }],
+      from: [generations],
+    }),
+    calls('offer_headlines', { options: [HEADLINE, 'Cut by family since 1971'], pick: 0, sources: ['known', 'h1'] }),
     says('Two to try.'),
   ]))
   expect((await post(PLAN_BOARD_PATH, { site, action: 'choose', option: HEADLINE })).status).toBe(200)
