@@ -6,10 +6,10 @@ title: 'Story board: a positioning card between the notes and the headline, and 
   per area so the consultant proposes first'
 created_by: EPIC-19
 created_at: '2026-10-21T19:43:28.066371+00:00'
-updated_at: '2026-10-21T23:16:17.583901+00:00'
+updated_at: '2026-10-21T23:17:01.068800+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,8 +17,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-8520a80f
+  commits:
+  - working_sha: 22ddcd152104147c90efdcaa962073ff6cf7ff2b
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: aa8e92eb49b8d85f7c3d4af5cdeb9140d1b88151
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.580
 ---
-
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator)
 
