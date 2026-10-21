@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:54:47.803319+00:00'
+updated_at: '2026-10-21T18:55:24.065159+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11345,5 +11345,24 @@ I dropped the "stronger model tier for builders" idea. Your decision covers it m
 <!-- xgd-chat role="user" ts="2026-10-21T18:54:47.329345+00:00" -->
 #### You
 OK again the site title is so small - perhaps mnny asthetic is off but I constantly see the Main title of the site smaller than our heading text - is that right?
+
+<!-- xgd-turn id="9e632060-7075-4973-88c4-f500af654693-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:55:23.328114+00:00" -->
+#### Claude
+Your eye is right, and our check is too lenient to catch it.
+
+**What's normal:** the large headline at the top of the home page (often a tagline, like *"If you wouldn't stand under it, don't weld it"*) can be bigger than the business name in the header. That's a common, legitimate pattern.
+
+**What isn't:** the business name being **smaller than the section headings** further down the page. That makes the name read as less important than "Our services", and on a small-business site the name is the brand. That's what you keep seeing.
+
+**Why it gets through:** BUG-238's check only compares the name with the **menu links**: it has to be 1.25× their size. A name that clears the menu links but is smaller than every section heading passes. And with no shared header yet (REQ-422), there's often no prominent name on the page at all.
+
+**I've added this to REQ-422** as item 7. That ticket is still a draft and is about the header and branding, so it belongs there:
+- **The header wordmark has a minimum size:** about 24px on phones and 28–32px on desktop, in the brand's display font. These are configuration values.
+- **The home page's first screen shows the name prominently,** either as the main headline itself or as a full-size header name with the headline supporting it.
+- **A new layout-check finding, `name_smaller_than_headings`:** the business name smaller than any section heading on the page, at desktop or phone width, means the build isn't done. It applies to today's pages as well, not only once the shared header exists.
+
+For the run you're in now: ask the consultant to make the name at least as large as the section headings. It'll be quick to fix by hand until the check lands.
 
 <!-- xgd-chat-end -->
