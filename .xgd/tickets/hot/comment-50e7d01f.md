@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:50:46.620621+00:00'
+updated_at: '2026-10-21T15:51:21.759802+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4361,5 +4361,26 @@ Dev only picks up these changes after `bin/deploy --env dev`. Once you've redepl
 <!-- xgd-chat role="user" ts="2026-10-21T15:50:46.269921+00:00" -->
 #### You
 bug-90 has landed
+
+<!-- xgd-turn id="095c3665-7a7f-4f39-a47c-86ea33f67e67-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T15:51:20.529930+00:00" -->
+#### Claude
+I'll confirm BUG-90 is in the installed framework copy, since that's what 1stcontact actually runs.
+
+It's installed: the shared framework copy carries the BUG-90 change in `priming.js` and `memory.js`. Checking whether 1stcontact assembles priming in a way that bypasses it.
+
+BUG-90 is in, and that completes the set from the Bob's Salon 3 review. It's committed in the framework, and the shared framework copy 1stcontact runs on has it. 1stcontact doesn't need any change for it: the framework now puts the line naming each session's ticket after the part all builders share. So builders started close together can read the same ~45–50k starting context from the cache instead of each writing it again.
+
+Everything else from that review is also in: the story board out of briefs (BUG-233), the meter's cache-write pricing (BUG-242), builders stopping after they report (BUG-243), the Comparisons mode (REQ-419), and the 5-minute builder history (REQ-421, with framework REQ-216). All are waiting for reconcile.
+
+**To see it work**, run `bin/deploy --env dev`, then build a test site. Dev only picks up changes on deploy. After that session I can check three things from the spend records:
+- short builder runs write little more than their own growth to the cache, not their whole starting context;
+- no builder run ends in repeated ReportResult calls;
+- builder conversation writes are priced at the 5-minute rate.
+
+That will give us the first real before-and-after figure for builder spend.
+
+**Still waiting on you:** the discovery priming draft (`.xgd/tmp/epic20/discovery-priming-draft.md`). If you want the next test to include the discovery changes too, give me the OK and I'll apply it before you deploy.
 
 <!-- xgd-chat-end -->
