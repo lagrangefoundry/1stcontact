@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:09:33.361217+00:00'
+updated_at: '2026-10-21T19:10:29.448919+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11423,5 +11423,28 @@ The AI needs to understand that now I have answered the questions, reacted to th
 If more questions or material are added we can repeat this cycle.
 
 The current board is almost overwhelming BTW - probably ok but there;s a lot to react to
+
+<!-- xgd-turn id="ccd32072-1800-403d-9b32-a00007401406-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:10:28.853042+00:00" -->
+#### Claude
+I've filed two tickets under EPIC-19, both at `draft`.
+
+**BUG-250, Looks become their own mode** (3 points):
+- A **Looks** tab appears only while the page has looks, and disappears once you choose one.
+- It shows only the looks, with REQ-402's band: name, "2 of 3", description, and "Tell the consultant which look you prefer, and why."
+- No Edit and no Colours. Width, phone view and new tab still work.
+- A "Compare with your current page" link jumps to View on the real page.
+- The carousel inside View, and "Current" posing as a look, are removed.
+
+**REQ-424, guided focus tasks** (8 points). This is the general fix for what you just described:
+1. **The consultant leads a focus task at a moment it chooses.** Often the best moment is right after it starts a build, when you'd otherwise be waiting. A task is one of: answer the panel questions, react to the story board, or comment on the comparisons. The comparisons version is BUG-245's board, which becomes one kind of focus task.
+2. **One thing at a time.** One line with a link, e.g. *"While I build, have a look at the story board and heart the notes that sound most like you"*, and nothing else asked in that message. While the task is open, neither the consultant nor the talker adds new questions or notes to that surface. Your ice-cream rule is in the ticket.
+3. **The surface shows the task:** it's highlighted, with progress like *"4 of 9 notes reacted to"* and a **Done** for the whole task.
+4. **It knows when you're finished,** either because every item is answered or reacted to, or because you pressed Done. The consultant then **resumes the conversation by itself**, briefly saying what it took from your answers (*"You hearted the shipyard and your dad's rule; those lead the home page"*), then carrying on.
+5. **The cycle repeats** when new questions or notes build up, covering only the new items.
+6. **Small batches, so it doesn't overwhelm:** about 8 notes per reaction task by default (configurable). The consultant also keeps the board tidy by merging near-duplicates and keeping each theme to its strongest notes. Notes added later are marked "new" for the next round.
+
+On today's board: the consultant has been adding notes faster than you could react, which is exactly what item 6 addresses. Until REQ-424 lands, you can ask the consultant now to pause new questions and walk you through the board a few notes at a time.
 
 <!-- xgd-chat-end -->
