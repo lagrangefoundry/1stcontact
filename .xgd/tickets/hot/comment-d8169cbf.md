@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:16:31.121232+00:00'
+updated_at: '2026-10-21T19:16:53.021167+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11452,5 +11452,17 @@ On today's board: the consultant has been adding notes faster than you could rea
 <!-- xgd-chat role="user" ts="2026-10-21T19:16:30.195610+00:00" -->
 #### You
 On today's board: the consultant has been adding notes faster than you could react, <-- I wasn't even thinking about reacting bec ause I didn't have it open - again I need to be guided to it
+
+<!-- xgd-turn id="bc2d9cbe-ddd9-477d-9895-142e163676f2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:16:52.075535+00:00" -->
+#### Claude
+You're right, I got the cause wrong. The board wasn't too fast for you: you never had it open, so reacting never came up. That's a bigger gap, and I've added it to REQ-424:
+
+- **Starting a focus task puts its surface in front of you.** The host switches the view to the story board, questions panel or comparison board. If you're in the middle of typing, you get a link instead. This is a deliberate exception to the usual "offer a link, don't switch your view" rule, because starting a task is exactly when you're being asked to go there.
+- **The surface opens on the task.** On the story board, the notes waiting for a reaction are highlighted, and the reaction controls are clearly what to do: *"Heart the ones that are most you."*
+- **If you haven't opened it by your next message**, the consultant points you to it once more, gently, with the link, and then leaves it.
+
+This relies on BUG-246, which tells the consultant which view you have open, so the two work together.
 
 <!-- xgd-chat-end -->
