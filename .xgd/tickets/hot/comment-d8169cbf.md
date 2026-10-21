@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T21:14:25.185079+00:00'
+updated_at: '2026-10-21T21:15:20.284880+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11961,5 +11961,24 @@ Yes, a little. Rapport matters, and the best material often comes out sideways, 
 I agree there is value in just keeping the client talking - the long build cycles break the user workflow. Having them occupied until the build is finished is good. But it would be even better if it didn't feel like we were burning tokens and killing time.
 
 Look at the questions I'm getting asked now....I think it would be helpful if the purpose of the question were made clear (it would also help keep the talk on point)
+
+<!-- xgd-turn id="9d58be3a-75a7-4662-afb2-d509cd043475-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T21:15:18.754507+00:00" -->
+#### Claude
+Your recent questions show the problem clearly. The last seven were all about the Saturday kids' classes: free or paid, what the kids take home, what age they move up from glue, class size, the three regulars, safety gear, who teaches. One of them was asked twice. Meanwhile the positioning, the headline and the story-board reactions all stayed open. Each question is reasonable on its own, but none says what it's for, and nothing stops the run.
+
+I've filed it as **REQ-426**, *"Talker as conversation strategist"* (EPIC-19, `draft`, high, 5 points), and quoted you in it:
+1. **Every question says what it's for, in your terms:** *"For the classes page: how many kids do you take on a Saturday?"* If the talker can't say where the answer will go, whether a section, a page or a decision, it doesn't ask. You can then say "not needed" and it moves on.
+2. **Its notes list open decisions, not story areas:** the decisions and sections still in play and what each one needs, the due list, and your readiness. That replaces REQ-416's "story areas still missing" line, which was driving the endless drilling.
+3. **Enough is enough:** after two or three questions on one topic it asks whether to keep going: *"I've got what the classes section needs. Add more, or shall we look at the headline?"* When a decision or section has enough, it moves on to synthesising: a reaction task, the positioning card, or headline options.
+4. **Priority follows value:** its first move, including the opening at the start of a build, goes to the most valuable open decision, usually positioning and proof before side topics.
+5. **One warm follow-up is fine**, with the purpose stated, and then back to the decision.
+6. **No repeated questions.**
+7. **It updates your readiness as it learns about you.**
+
+The time you spend waiting on the build is then spent gathering material that ends up on the site.
+
+I've also recorded the agreed direction on the epic: the critic as a tool at the end of each big build and before publishing, and the due list as a derived field of the plan, with the separate strategist deferred.
 
 <!-- xgd-chat-end -->
