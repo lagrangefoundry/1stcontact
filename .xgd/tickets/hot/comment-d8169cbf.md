@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:42:24.629881+00:00'
+updated_at: '2026-10-21T19:43:57.402245+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11545,5 +11545,39 @@ I'd file it as **one REQ**: the positioning card on the story board, headline op
 ok lets try all that.
 
 I am impressed by your grasp of this - you are the same model that I'm talking to there - so why the difference - why can I get grounded understanding from you but in the product you are all over the place?
+
+<!-- xgd-turn id="4538bd87-0553-4248-aed1-b6fbc92aebcf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:43:56.057754+00:00" -->
+#### Claude
+Fixing a JSON quoting slip in the priming edit.
+
+## Done
+
+- **Priming, committed as `7b5db38f70`.** Two new sections:
+  - **"Propose first, then ask."** No blank-page questions at decisions. The consultant leads with a concrete proposal and the way out (*"if you already know, just tell me"*). It carries out a clear view, does more of the work when you hesitate, and remembers how ready you are in each area.
+  - **"From story to message."** Before any headline, it shows what it's hearing, what you're known for and why your customer picks you, then offers candidate lines built from that. Headlines are judged through the buyer's eyes, and the story is the proof, not the pitch.
+
+  The priming tests pass. It reaches your dev server on the next `bin/deploy --env dev`.
+- **REQ-425:**
+  - a **positioning card** on the story board, between your notes and the headline;
+  - headline options that can only be built from it;
+  - a confirmed card as the "Getting to know you" finish line;
+  - **how ready you are in each area** (messaging, look, functions), recorded on the plan so it calibrates without asking again;
+  - all of it run as a REQ-424 focus task.
+
+## Why I seem grounded here and scattered there
+
+Same model, very different situation. The main differences, as I see them:
+
+1. **I'm reviewing; it's deciding live.** I read a finished transcript, with your critique, and work out what went wrong. Hindsight with evidence is much easier than choosing the next line in the moment, with a client waiting.
+2. **I have your standards; it has a rulebook.** I've spent days with you on what good looks like: one voice, propose first, tokens are scarce, the story is proof. The consultant gets a compressed version as priming rules, among dozens of others, with no reasons attached. Finding 13 measured this directly: guidance that sits in documents it has to go and look up doesn't get used.
+3. **Its attention goes to running the machinery.** Its context is full of tool manuals, the plan, builder reports, layout findings, locks, progress stages and reminders. A lot of each turn goes to running the build. Here I do one thing: think about the conversation.
+4. **We've told it to act.** Most of the rules we've added push towards producing things: lead the build, don't ask permission, finish the stage, make the change rather than describe it. Those were the right fixes for passivity, but they bias it towards output, not towards stepping back to synthesise. You're asking it to be a strategist at certain moments, and nothing tells it which moments those are.
+5. **I'm corrected in real time; it rarely is.** You push back on me constantly, and I often get things wrong first (the context gauge, the budgets, the board). The consultant is in character with a client who doesn't know what to push back on.
+
+**What that suggests:** give the consultant the reflective step *structurally*, not as another rule. At the moments that matter (end of discovery, choosing a headline, choosing a look, before publishing), run a short **step-back pass** with a clean context: the story board, the plan, the positioning and the client's reactions, without the tool clutter. That pass answers "What do I know? What's missing? What's the decision, and what's my recommendation?". Its answer then shapes the next turn. That's roughly how I work for you here: review the evidence, then decide. The positioning card is the first instance of it. A general "step back at stage gates" mechanism would be the next.
+
+If you'd like, I'll draft that as a design note on the epic first, since it changes how the consultant thinks rather than just a feature.
 
 <!-- xgd-chat-end -->
