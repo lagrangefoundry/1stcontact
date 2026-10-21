@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-423
 created_by: xgd
 created_at: '2026-10-21T21:15:13.741062+00:00'
-updated_at: '2026-10-21T21:19:14.598453+00:00'
+updated_at: '2026-10-21T21:20:46.036492+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -70,5 +70,15 @@ The rest I'll decide as I go:
 - **Talker:** `draw_image` goes on its withhold list.
 
 If you're happy with 1A and 2A, say so and I'll scope the ticket and start.
+
+<!-- xgd-turn id="6c16c694-8339-49b1-a924-475a3d927e69-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T21:20:44.151001+00:00" -->
+#### You
+Please implement this ticket following the FREE CODING protocol. If you have any questions that you need to answer before implementation please ask them here
+
+Project note (additive — does not override the above):
+Please make sure you have clarity on the user interaction model and the core design. That you understand the API contracts, what you should be built from scratch and when code must be reused. We try to minimise external dependencies and maximise code reuse because the cost of code is not just in its creation but its maintenance.
+Please do make implementation decisions and low level UI decisions yourself. It is generally cheaper to fix the details in a working system than it is to try to get them all right upfront, provided the general shape is correct
 
 <!-- xgd-chat-end -->
