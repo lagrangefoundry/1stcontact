@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T01:32:04.290012+00:00'
+updated_at: '2026-10-21T13:19:11.783428+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4212,5 +4212,15 @@ Of the $25.58, **$14.47 is builders re-reading their context.** Each of the 1,51
 4. **Classify the 38 runs** as I did for Salon 2, to see how much was rework.
 
 Do you want tickets for 1 and 2 now? Item 1 is a straight bug; item 2 starts as an investigation.
+
+<!-- xgd-turn id="892274f9-b08e-4e7e-b9b5-d5d8891d3e79-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T13:19:11.192807+00:00" -->
+#### You
+Yes please create tickets and do your analysis
+
+on shortening instructions, there is obviously a trade off if the builder instructions are unclear it could burn more tokens making mistakes.
+
+Also if that 50k is reuse can we make better uses of caching for the builders?
 
 <!-- xgd-chat-end -->
