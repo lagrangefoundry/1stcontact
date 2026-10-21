@@ -6,9 +6,9 @@ title: 'Drawing stays with the consultant: SVG composition moves from builders t
   the principal, stored in the Library'
 created_by: EPIC-19
 created_at: '2026-10-21T18:52:32.985885+00:00'
-updated_at: '2026-10-21T21:21:17.141108+00:00'
+updated_at: '2026-10-21T21:54:05.314122+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -39,12 +39,15 @@ them where judgement matters).
 1. **Builders can't draw SVG.** `write_image` (and any other tool that composes an
    image from markup) is removed from the builder grant. A builder asked to
    produce a picture refuses with a pointer back to the consultant; builders still
-   **place** images (`place_on_site`) that already exist in the Library.
+   **use** images that already exist — the consultant places them (`place_on_site`)
+   and briefs the builder with the `/assets/…` handle (builders hold the Library
+   read-only, REQ-387).
 2. **The consultant draws.** The consultant gets an image-drawing operation on a
    surface it holds while commissioning (not the L1 write surface — see
    REQ-343/416): it composes an SVG and stores it **as a Library item** (REQ-404:
    every site image has a Library item), with a label (IMAGE-n) and a
-   description. Builders then place it like any other Library image.
+   description. It is placed on the site like any other Library image, by the
+   consultant, and builders use the placed file.
 3. **It looks before using.** After drawing, the consultant looks at the result —
    alone and at the header's actual size — before briefing anything around it
    (a `screenshot` of the Library item; counts as a look under REQ-415).
@@ -64,7 +67,7 @@ them where judgement matters).
 - The builder's granted tools contain no image-composing operation; a builder
   brief to draw a logo gets the refusal.
 - The consultant's drawing operation stores an SVG as a Library item with a label
-  and description; a builder can `place_on_site` it.
+  and description; `place_on_site` puts it on the site like any Library picture.
 - The SVG passes the same safety validation as before (no script, no external
   references).
 - Priming carries the wordmark-first / generate-for-illustration / look-before-use
@@ -112,3 +115,31 @@ them where judgement matters).
   withholds `draw_image`; priming carries the logo method and the builder refusal.
 - Existing tests that drew with `write_image` are retargeted to the new operation or
   to the site store directly.
+
+## Implementation notes (landed)
+
+- Also removed with `write_image`, because only it used them: the L1 `image` shape and
+  the host's `assetUrl` wire (`HostDeps.assetUrl`, `workerHost`'s parameter, the
+  router's draft-preview closure). The L1 absence about pasting a `display` line moved
+  to the Library surface, which now produces one. `l1-surface.json` surface_version
+  21→22, `library-surface.json` 5→6. The CLI's `1c asset write` (`editAssetWrite`)
+  still writes a validated SVG straight onto a site — the operator's path, unchanged.
+- **Explicit supersessions** (the drawing is no longer an L1 write):
+  - REQ-209 — `assert` relations on `write_image`: the five assert-on-write UATs are
+    removed; the measuring UATs now put the drawing on the site with `editAssetWrite`.
+  - AC1104/AC1105/AC1107 — proven through `1c asset write` instead of `write_image`;
+    AC1108 — drawing's own grantable group is now the Library's `DrawImages`.
+  - REQ-343 `drawing_an_image_becomes_a_workers_job` — inverted by this ticket and
+    removed; the workers REQ-343 UAT now asserts the commissioning consultant is
+    offered `draw_image`.
+  - REQ-130 / REQ-217 (node) cases that exercised `write_image` directly are removed or
+    retargeted to `draw_image`'s declaration; REQ-217 (workers) and REQ-404 now drive
+    `draw_image` (+ `place_on_site`) through the Worker's routes.
+- UATs: `tests/test_UAT_FC_REQ-423_drawing_is_the_consultants.test.ts` (declarations,
+  grants, talker, priming) and
+  `tests/test_UAT_FC_REQ-423_drawing_stays_with_the_consultant.workers.test.ts`
+  (a delegated builder is offered no drawing tool while the consultant is; a drawing
+  is a labelled, described SVG Library item with a display line, not on the site
+  until placed, and placing puts the exact bytes there; executable SVG is refused
+  with nothing stored).
+
