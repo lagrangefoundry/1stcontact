@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T01:18:32.345768+00:00'
+updated_at: '2026-10-21T14:54:49.744965+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2307,3 +2307,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-241]] — assistant segments joined with no break in one bubble (broken bold); client vocabulary: the consultant is one person doing all the work, no builders/layout check/ticket ids; `bc:` lets the operator (and, once used, the consultant) step out of character for debugging (operator, 2026-10-21). Also noted: BUG-237's form false alarm still drove 11 host continuations in Bob's Salon 3 — redeploy, and reopen if it still fires.
+
+
+- [[BUG-244]] — BUG-236 item 7, unblocked by LF REQ-214: the attach "+" inside the text box and the status widget under the progress banner.
