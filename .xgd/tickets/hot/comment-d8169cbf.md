@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:17:57.290230+00:00'
+updated_at: '2026-10-21T01:18:41.779532+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10657,5 +10657,22 @@ Does the table match what you want, and shall I file it?
 <!-- xgd-chat role="user" ts="2026-10-21T01:17:54.333011+00:00" -->
 #### You
 Sounds good - we should allow the AI to break character for debugging though - I have been using bc: for out of character discussion perhaps we should include that in the prompt too
+
+<!-- xgd-turn id="fc8a55b3-3535-4077-bd36-679040ea4cc5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T01:18:39.254808+00:00" -->
+#### Claude
+I've filed **BUG-241** under EPIC-19 (`draft`, high priority, 3 points) and listed it on the epic.
+
+Out-of-character debugging is now part of the decisions, in two directions:
+- **You start it.** A message that begins with `bc:` (or has `bc` as its first word) is you speaking out of character. The consultant answers that one message in operator language (tickets, mechanisms, tools, what it did and why), then goes back to client vocabulary on your next message without `bc`.
+- **The consultant can use it too, but only once you have.** After you've used `bc` in a conversation, the consultant can open its own note with `bc:` when it has something you should know: a tool failing, a suspected product bug, or a decision it isn't sure the product supports. It keeps that note separate from its in-character reply. With a real client who never types `bc`, this never happens.
+
+The ticket also covers:
+1. **A paragraph break between assistant segments that land in one chat bubble:** continuation rounds, the status note and the result, and the talker/worker hand-off. Live and reloaded chats must render the same.
+2. **The vocabulary table goes into the consultant's priming**, replacing the one-line rule. Library labels and "The consultant" in status lines stay as they are.
+3. **The host's own cues to the consultant** stop using "builder" and "layout check" as words it then repeats to the client.
+
+**Separately, worth doing before your next session:** redeploy, then see whether the contact-form false alarm still fires. It caused 11 paid continuation turns in this run, and BUG-237 landed yesterday afternoon. If it still fires after a redeploy, BUG-237 needs reopening.
 
 <!-- xgd-chat-end -->
