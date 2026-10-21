@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:38:36.126265+00:00'
+updated_at: '2026-10-21T19:39:14.361945+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11501,5 +11501,41 @@ I think we are currently designing for 1 - people who are at 2 can probably just
 Also disappointed at the AI's choices here "If you wouldn't stand under it, don't weld it." is an interesting adage but its not going to sell my services. It doesn't tell you I do good work.
 
 This is all related to the story board not quite working yet
+
+<!-- xgd-turn id="64b8ab77-5c03-49af-bad9-b562d8c49889-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:39:13.748475+00:00" -->
+#### Claude
+You're making sense, and the transcript shows what you're describing. Three things went wrong, and they share one cause.
+
+## What happened
+
+1. **A blank-page question at the most important moment.** *"If a contractor reads one line at the top of your page, what do you want it to tell them?"* It's the right question, asked the hardest way. Our own playbook (DOC-33 §7.2) says never to leave a client facing a blank question. You answered well, *"Beauty and Strength — quality custom metalwork"*, because you know the business. Most owners would have frozen or written "quality work at fair prices".
+2. **It picked the story, not the sale.** *"If you wouldn't stand under it, don't weld it"* is the most vivid line on the board, and that's why it was chosen. But it answers "what's memorable about you?", not "why would a contractor choose you?". It's **evidence** (it belongs in "Where it started", or behind a claim about safety and code), not a **pitch**. Nothing in the consultant's method makes it look through the *buyer's* eyes: what does a contractor weigh when choosing a welder? Licensing, inspections, reliability, turnaround, capacity, and quality they can show their own client.
+3. **There was no synthesis step.** The story board collects material. Nothing turns it into a position. So the consultant went from a pile of notes straight to a headline, and when that missed, back to asking you.
+
+## Your approach 2 is the missing step: synthesise, then ask
+
+Before any headline, the consultant should show its understanding as a short **positioning summary** you can react to:
+> **What I'm hearing:** structural work done to code (permits, inspections, licensed), art and custom work nobody else will take on, and a shop with a family trade behind it.
+> **What you're known for:** taking on the jobs other shops turn down, and doing them properly.
+> **Why a contractor picks you:** you'll build the hard, one-off piece to the engineer's drawings, and it passes inspection first time.
+> **So the first thing they should read is something like:** …three candidate lines, each built from this.
+
+Then: *"Which is closest, or what would you change?"* That serves both ends of your spectrum. If you know the answer, you overwrite it in one line. If you don't, you react to something concrete instead of facing a blank page.
+
+## The spectrum: propose first, everywhere
+
+For messaging, look and feel, and site functions, the same rule covers everyone from "I don't know where to start" to "just do what I tell you":
+- **Never brainstorm first.** Lead with a concrete proposal built from what you already know, and offer the way out: *"If you already know what you want this to say, just tell me."*
+- **Calibrate from what you say.** If you arrive with a clear view ("grittier, rust, not orange"), the consultant switches to carrying it out and stops proposing alternatives. If you hesitate, it does more of the work. It records your readiness per area on the plan, so it doesn't re-ask.
+- **The buyer's lens comes first in messaging.** For each kind of customer, say what they're deciding on, and make every headline answer that. The story is the proof underneath.
+
+## Where it lands in the product
+
+- **The story board finishes with the positioning card.** It sits above the headline slot (REQ-408) and is written by the consultant from your hearted notes. You heart it or edit it, and headline options are only generated *from* it. A hearted positioning card becomes the "Getting to know you" finish line (REQ-405), which the stage currently lacks.
+- **The REQ-424 focus task covers it:** react to the notes, then confirm the positioning, then pick a headline, one step at a time.
+
+I'd file it as **one REQ**: the positioning card on the story board, headline options derived from it, the buyer's lens and propose-first calibration in the priming, and readiness per area on the plan. The priming part could go in straight away without a ticket, so the consultant stops asking blank-page questions in your next session. Shall I do both?
 
 <!-- xgd-chat-end -->
