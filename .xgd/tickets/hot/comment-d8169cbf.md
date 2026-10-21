@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:52:14.325136+00:00'
+updated_at: '2026-10-21T19:52:37.704239+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11636,5 +11636,41 @@ It changes how the consultant thinks, so I'd **write the design note first**: a 
 **No loops.** A fixed number of critique rounds per gate, so it can't polish forever. <-- e.g. worker runs a critique once, after its finished a big run, but before relinquishing to the client?
 
 This drifted from our original conversation which was about conversation strategy though and it doesn't really solve for that
+
+<!-- xgd-turn id="c66c8501-2f55-4d9b-ab6b-0ac604a76be8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:52:36.353252+00:00" -->
+#### Claude
+**On timing: yes, exactly that.** The critique runs **once, at the end of a big piece of work, before the consultant hands back to you.** The consultant fixes the top findings in the same run and then hands back. At most one re-check, and only if a finding was severe. Small changes get no critique; a first draft, a set of looks or the pre-publish pass each get one.
+
+**And you're right that it drifted.** The critic audits **artefacts**: the page, the headline, the styling. What went wrong in that exchange was **conversation strategy**:
+- the consultant kept gathering material and never stopped to have you react;
+- it never synthesised before asking for the headline;
+- it asked a blank-page question;
+- it didn't read how much you already knew.
+
+A critic looking at the site wouldn't catch any of that.
+
+## What would address conversation strategy
+
+The same lesson as before applies: the consultant handles things well when they're a **fact in front of it**, and badly when it has to **remember to do them**. Conversation strategy is currently all memory. Two pieces would change that.
+
+**1. The host works out the "next move" and states it every turn.** The plan already holds the material: the stages, open questions, notes and reactions, the positioning card (REQ-425), and your readiness per area. Simple, predictable rules can turn that into a line in the consultant's per-turn notes, for example:
+> *Getting to know you: 14 notes, 0 reactions, no positioning card. Next move: a reaction task (REQ-424), then the positioning card. Don't ask for new material until then.*
+
+or
+> *Messaging readiness: has ideas. Propose a headline from the card; don't brainstorm.*
+
+That turns "stop gathering, have them react, synthesise, then ask" from advice into state. It's cheap, the same every time, and testable.
+
+**2. A strategist pass at stage boundaries.** Once per stage, a strong-model call with a clean context (the plan, the board, your readiness, how the conversation has gone so far) produces a short **conversation plan for the stage**: which decisions remain, in what order, how to approach each for *this* client, and where a focus task fits. The consultant follows it and the host keeps it current. This is the reflective step I described. It works at the level of the conversation, not the site.
+
+That's essentially the **executive function** we designed Bob for, as a planner instead of a second voice. We dropped Bob because two voices in the chat didn't work; the job itself still needed doing.
+
+**So there are two separate things:**
+- **a conversation director** (host-computed next move, plus a strategist pass at stage gates) for how the dialogue is run;
+- **the critic** (one review at the end of each big run) for whether the work is any good.
+
+I'd start with the director, since it's what this conversation was about, and the next-move line is cheap to try. Shall I write a design note covering both, with the director first, and then file the director as the first ticket?
 
 <!-- xgd-chat-end -->
