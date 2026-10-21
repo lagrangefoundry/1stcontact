@@ -6,7 +6,7 @@ title: 'Guided focus tasks: the consultant leads the client through questions an
   story-board reactions, knows when they''re done, and resumes'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:14.162881+00:00'
-updated_at: '2026-10-21T19:16:47.396429+00:00'
+updated_at: '2026-10-21T22:10:43.939904+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -95,3 +95,50 @@ The failure isn't only pace; the client never saw the board. So:
 - **The surface opens on the task**: on the story board, the notes awaiting a reaction are highlighted and the reaction controls are visibly what to do ("Heart the ones that are most you").
 - **If the client hasn't opened the surface** (BUG-246's view report) by their next message, the consultant re-points once, gently, with the link — then leaves it.
 - Test: starting a reaction task switches an idle client's view to Story with pending notes highlighted; a mid-typing client gets the link instead; a client who stays elsewhere is re-pointed once.
+
+
+
+## Implementation design (REQ-424 session, 2026-10-21)
+
+**One focus task at a time, stored in the plan** (`fields.focus_tasks`, newest last; the
+last one is *open* until finished). A task is `{kind, items, intro, started_at,
+finished_at?, finished_by?}` with kind `questions` (open asks), `story` (notes awaiting a
+reaction) or `comps` (open comparison cards). Self-contained in `focus-core.ts`, like
+`story-core.ts`.
+
+- **`start_focus`** (consultant, plan surface): `kind`, `intro` (the one line shown on the
+  surface), optional `items`. Default items: every open ask; every open comp card; for the
+  story board the consultant-pinned notes with no reaction that no earlier story task
+  covered, capped at `plan-seed.json` `focus.max_story_notes` (8). Refused while another task
+  is open (`FOCUS_OPEN`) or with nothing to cover (`NOTHING_TO_FOCUS`). **It brings the
+  surface in front of the client** through `show_client`'s own path (questions → the first
+  question, story → Story, comps → the comparison board): a switch unless the client is
+  busy, else a link to paste. The host's cadence wrapper delivers it exactly as a
+  `show_client` switch. The browser also declines a switch while the client has unsent text
+  in the composer, leaving the recorded "Showing you …" line as their link.
+- **`end_focus`** (consultant): closes an open task the client has walked away from, with no
+  notice.
+- **While a task is open the consultant adds nothing to its surface:** a new ask /
+  `ask_features` (questions), `pin_notes` (story) or `add_comp` (comps) is refused
+  `FOCUS_OPEN`, saying to add it after they finish. Rewording, answering the client, and
+  the other surfaces are unaffected. The talker's discovery reminder is replaced, while a
+  task is open, by "your client is working through …: open no new topic, answer them if they
+  speak".
+- **Done when every item is closed** (ask answered/skipped/withdrawn; note reacted to or
+  deleted; card sent or skipped), stamped on every client write and consultant write; or
+  **when the client presses Done** on the surface (`POST /api/plan/focus {site, action:
+  "done"}`).
+- **Completion reaches the consultant on BUG-245's path**: the plan-answers notice gains a
+  line naming the task, how it finished and what the client did (hearted notes named), with
+  "resume the conversation now". The browser starts the resuming turn on the host's cue,
+  which is generalised from `comps_finished` to one **`finished`** cue (the comparison board
+  finishing on its own, or a focus task) — refused 409 once the consultant has been told.
+- **The surface shows the task**: a shared banner (`focus-banner.js`) at the top of the
+  questions panel, the story board or the comparison board — the consultant's line, progress
+  ("4 of 8 notes reacted to", "2 of 5 questions left", "1 of 3 sites left") and **Done**.
+  Pending items are highlighted; on the story board, unreacted notes outside the task that no
+  task has covered yet are marked **new**.
+- **The consultant's plan reminder** carries the open task and its progress; priming
+  describes the cycle (gather → start a focus task, typically right after commissioning a
+  build → one line, ask nothing else → resume when told), the small-batch/tidy-board rule,
+  and the re-point-once rule using the pane the view report names.
