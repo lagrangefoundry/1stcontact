@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T23:36:52.892848+00:00'
+updated_at: '2026-10-21T23:40:24.889433+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12232,5 +12232,38 @@ Should I create it as a child of this epic?
 <!-- xgd-chat role="user" ts="2026-10-21T23:36:52.118961+00:00" -->
 #### You
 Language check: This is a confusing response: If the button fix isn't already part of what I'm doing now, it's the first thing I do next. I'll check everything on a computer and a phone before I show you.
+
+<!-- xgd-turn id="728a61a4-586a-4d15-af5b-fd4f4f56fcf2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T23:40:23.194599+00:00" -->
+#### Claude
+Found the reply in the live transcript; now finding which priming text tells the consultant how to answer a request that arrives mid-build.
+
+I'm reading the coordinator's own priming, since it's the one that answers while a build is running.
+
+The host can hand a mid-build message to the running build, so I'm checking how "taken" works before I reword anything.
+
+Checking the framework's documentation for whether the running build sees what the client says mid-build. That decides what the talker can honestly promise.
+
+Edited. Running the priming and talker tests to check nothing pins the old wording or breaks the size budget.
+
+That failure is the known one: it fails the same way on a clean tree. Committing the priming change on its own, since prompt text needs no ticket.
+
+I've changed the wording the consultant uses when you ask for something while it's building, and committed it as `a0089791ee`. It's a priming change only, so no ticket was needed. You'll see it after `bin/deploy --env dev`.
+
+**Why the reply was confusing.** While a build runs, a second instance of the consultant answers you (the "talker"). Its rule was: anything you say now goes into the next pass, unless it conflicts with what's being built, in which case it joins the current work. Your button request was close to what was being built, so it couldn't tell which case applied and said both: "if it isn't already part of what I'm doing… it's the first thing I do next."
+
+It got one more thing wrong. It listed the footer "[logo] Ariel's Arc Welding" request as "written down" for later. That request was in the message that started the build, so it was already part of the current work.
+
+**The new rule:**
+- **A new request is next, said in one definite line**, for example *"The buttons are next, straight after the header and footer."*
+- **Anything asked in the message that started the build is part of the current work**, never "written down" for later.
+- **No hedging** like "if it isn't already part of what I'm doing". One plan, not its doubts.
+
+The same rule went into the template used while you're working through a panel task.
+
+**Tests:** 73 of 74 priming and talker tests pass. The one failure also fails on a clean tree: a test's expected sentence was split across two lines in the priming.
+
+**Not checked:** I haven't confirmed that the build actually does a request made mid-build once it finishes. The builder does see that part of the conversation when it hands back, but nothing I found makes it act on those requests. If it doesn't, "the buttons are next" is a promise nothing keeps. Watch whether it does the buttons when the header and footer work finishes; if it doesn't, that needs a fix in how the build hands back.
 
 <!-- xgd-chat-end -->
