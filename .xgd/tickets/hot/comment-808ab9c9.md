@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-09-17T21:35:02.400960+00:00'
+updated_at: '2026-10-21T20:08:10.829653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -275,5 +275,11 @@ I deliberately left `DELETE` out: `UPDATE` rewrites history, `DELETE` removes it
 Seven UATs are specified, each traced to a numbered clause, with the whole-ticket falsifier stated: *alter a published revision's bytes in the bucket and have anything in the product serve, check out, or report them as sound.*
 
 Ready to cut the branch and implement REQ-266 when you want it.
+
+<!-- xgd-turn id="173ff2bc-fe4b-41a1-a717-04e4a7cbe416-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T20:08:10.720937+00:00" -->
+#### You
+Can you validate that the PHP2Shell issue is not relevant to us? (you will need to do a web search on that term. I assume since we don't use PHP that it is irrelevant, yes? Are there any lessons for us in it?
 
 <!-- xgd-chat-end -->
