@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:47:55.412135+00:00'
+updated_at: '2026-10-21T01:13:32.267624+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10601,5 +10601,13 @@ I've filed both tickets.
 4. **An interim instruction, landing with this ticket:** answer the question first, then start the work. It stays afterwards, for conversations with no talker.
 
 The order is REQ-215 first, refresh the shared install, then BUG-240. Item 2 also fixes the earlier gap where a talker only appears once you speak again: every build will now start the conversation itself.
+
+<!-- xgd-turn id="16a78471-23ce-4185-a095-9eedf921a012-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T01:13:31.870553+00:00" -->
+#### You
+**Are you happy to call colours and lettering done, or does anything still feel off?**Bob, the layout check flagged the message form again after the colour change. It's the same false alarm as BUG-237, so I've left the form alone. <-- This bold text appeared as normal text on the chat with ** around it (i.e. it did not render)
+
+The consultant talks about workers and builders - I think that might be a little confusing - I did break character earlier, but we should decide what language it should use for things like that
 
 <!-- xgd-chat-end -->
