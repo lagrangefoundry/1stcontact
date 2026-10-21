@@ -6,9 +6,9 @@ title: 'The consultant doesn''t know which view the client has open: report the 
   and unopened views, and link to the right one'
 created_by: EPIC-19
 created_at: '2026-10-21T17:33:54.640791+00:00'
-updated_at: '2026-10-21T18:26:21.976721+00:00'
+updated_at: '2026-10-21T18:29:45.458887+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -64,3 +64,12 @@ the "say where they are looking" instruction (REQ-413), but nothing tells it
   survives reload and is per business.
 - Priming contains the link-when-elsewhere rule, the first-time where-it-lives
   line and the unambiguous-names rule.
+
+
+## 5. Pages too (operator, 2026-10-21)
+
+The consultant created an Art page, showed it to the client, then asked about "the layout now that there are two pages" — but the client had never been told how to move between pages in the builder.
+
+- The view report and digest also carry **which page** is shown ("The client is looking at: Art & commissions (art), View").
+- When the consultant creates a page or first shows the client a page other than home, it says in one line how to move between pages: "Use the page menu above the preview to switch between Home and Art." (Then not again.)
+- Test: a message sent while viewing `art` reaches the host with page `art`; the priming carries the page-switching line rule.
