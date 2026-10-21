@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:31:51.834558+00:00'
+updated_at: '2026-10-21T17:32:15.754635+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10925,5 +10925,27 @@ ok so navigation support and awareness.
 The consultant just told me: The board has plenty from you and the shop now, but nothing yet in your customers' words. **When a contractor recommends you to another contractor, what do they say about you?** Even one sentence you've overheard would help.
 
 the thing is the comp board is up not the story board. The consultant needs to know what I'm looking at and either change my context (risky) or give me a link to let me do it. At this point I may not have realized I can switch view yet.
+
+<!-- xgd-turn id="61117265-fadd-4ac3-a709-142bab44d6d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:32:13.709791+00:00" -->
+#### Claude
+That's a real gap, and it's on our side, not the consultant's judgement.
+
+**What the consultant knows today:** the **width** you're viewing at (REQ-388 sends it with every message). It also has the `show_client` tool and the instruction to "say in your reply where they are looking" (REQ-413). **What it doesn't know:** which view you have open (draft, Edit, Story, Comparisons or Looks). Nothing reports it. So it's told to point you to the right place without knowing where you are. When it talked about "the board", it meant the story board, while you were on the comparison board, which is also a "board".
+
+## What I'd add
+
+1. **Every message carries your current view**, the same way width does now. The per-turn digest says *"The client is looking at: Comparisons (4 sites)."*
+2. **The consultant is also told which views you've never opened:** *"Not yet opened: Story."* That's the "may not have realised I can switch" problem, as a fact instead of a guess. The host records the first time you open each view.
+3. **A rule backed by those facts:** whenever the consultant asks about, or refers to, something on a view you're not currently looking at, the message carries a `show_client` **link** to it. It's a link, not a switch, because you're in the middle of something.
+   - The first time it points you at a view you've never opened, the link comes with one line on where it lives: *"The story board is under **Story**, next to View and Edit above the preview."*
+   - It only **switches** your view straight after it has made something new for you to look at, and only if you're not in the middle of something. That's REQ-413's existing rule.
+4. **Name things unambiguously.** "The story board" and "the comparison board", never just "the board". It's a small wording rule, but it's exactly what tripped this one up.
+
+So in this case the message would have read:
+> Nothing on the story board is in your customers' words yet. **When a contractor recommends you to another, what do they say?** [Open the story board](…). It's under Story, beside View and Edit.
+
+It's a small ticket: a view field on the message beside the width, the "not yet opened" record, two digest lines and the priming rule. Shall I file it, or fold it into BUG-245? BUG-245 hasn't started, but it's already 13 points.
 
 <!-- xgd-chat-end -->
