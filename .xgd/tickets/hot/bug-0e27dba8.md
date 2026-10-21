@@ -6,9 +6,9 @@ title: 'Chat: segments run together in one bubble (bold breaks), and the consult
   names our internals to the client; bc: for out-of-character debugging'
 created_by: EPIC-19
 created_at: '2026-10-21T01:18:26.515729+00:00'
-updated_at: '2026-10-21T01:24:14.719927+00:00'
+updated_at: '2026-10-21T01:36:36.615320+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -88,3 +88,54 @@ Unchanged: Library labels (IMAGE-5, DOC-7) are client vocabulary (REQ-280);
   gone and its pinning UAT updated.
 - Host cue texts carry no client-facing instruction to name builders, the layout
   check, ticket ids, or the talker.
+
+
+## Implementation (as landed)
+
+**1 — Segments.** Investigation showed the framework already separates text
+blocks *within* one turn (`BLOCK_SEPARATOR`, `\n\n`, between tool-loop
+iterations). The join was at the **round boundary**: a round the host
+continues (REQ-409 continuation, REQ-415 layout continuation) is a new turn
+streamed into the same live bubble, and nothing separated them. That also
+explains "…about 5 minutes._The opening movement…" (the status note ended
+round one; the result opened the continuation). Fix: `continuedTurn`
+(`host-core.ts`) puts a paragraph break in front of a continued round's first
+visible words (none if what was shown already ends with a blank line, one
+newline if it ends with one). It is added above the manager, so the stored
+transcript, which keeps rounds as separate turns, is unchanged; reload shows
+them as separate bubbles, so both render bold correctly. No upstream
+(webui-chat) change was needed. Forked worker text is not counted as shown.
+
+**2 — Priming.** New entry `client-vocabulary` in both consultant priming
+orders, after `conduct`: "## What your client hears" (one person doing all
+the work, host guidance is never words to repeat, the vocabulary table,
+"something on our side isn't working yet; we're fixing it" + ReportBug, Library
+labels stay client vocabulary) and "## Out of character: bc" (both rules). It
+names no DOC id (BUG-65). The per-turn reminder `no-framework-vocabulary` is
+replaced by `client-vocabulary`: "One person to the client, naming none of our
+machinery: “What your client hears”." (short because the reminder tail has a
+600-character budget, REQ-171). The coordinator's own reminder is unchanged.
+
+**3 — Host cues.** `continuation-cue` and `layout-continuation-cue` open with
+"guidance for you, not words for them", say "the build you started" / "brief
+the fix" instead of naming builders and the layout check, and the layout cue
+says that to the client this is "checking the page on a computer and a phone".
+The post-build report (`hostLook`) says "what the build you started wrote …
+This is guidance for you, not words for your client", "Layout at …", "No
+layout faults at either width", and ends with how to say it to the client.
+The talker cue answers "from the build's status … as your own work" and says
+it is "taking it into the work under way" rather than "passed it on". Other
+refusals are covered by the priming rule that host text is guidance, not words
+to repeat.
+
+## UATs (`tests/test_UAT_FC_BUG-241_one_voice_and_separate_segments.test.ts`)
+- prose after a tool call is a new paragraph live and in the reloaded transcript
+  (`**…?**` then `\n\nBob, …`)
+- a round the host continues starts a new paragraph in the same bubble
+  ("Carrying on from here.\n\nDone: …")
+- the consultant's priming carries the table and both `bc` rules; the old line is
+  gone from the tail; the new reminder is there
+- both continuation cues are marked as guidance and name no builder, layout check,
+  talker or ticket id
+
+Updated pins: BUG-235, REQ-415 (report/cue wording), REQ-283 (reminder line).
