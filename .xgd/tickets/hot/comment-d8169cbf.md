@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:55:50.048668+00:00'
+updated_at: '2026-10-21T20:32:01.566456+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11747,5 +11747,17 @@ Each call is small next to a consultant turn, and it's spent exactly where judge
 3. The **critic** at the end of a run.
 
 Shall I write this up as the design note on EPIC-19 and file the first ticket (the next-move line and its rules)?
+
+<!-- xgd-turn id="a8c578ec-fcea-4b70-8203-da6b4cdb71f5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T20:32:01.070893+00:00" -->
+#### You
+I'm still confused about the mechanism here. 
+
+You are suggesting 4 new "agents" Planner, Next move, Strategist and Critic. 
+
+We can come back to whether we need 4
+
+My question is how are they called, primed and how is their context managed What I had in mind was that they would be that they are called as "tools" the worker triggers their run they are primed and given read access on a per call basis ... variation - they are stateful tools calling a second time builds on the initial context - but the context is private. The caller gets a report. I think you are suggesting something else?
 
 <!-- xgd-chat-end -->
