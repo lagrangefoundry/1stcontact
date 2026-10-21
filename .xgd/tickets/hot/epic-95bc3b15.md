@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-20T23:26:27.361716+00:00'
+updated_at: '2026-10-21T00:47:46.148990+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2301,3 +2301,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 - [[REQ-420]] — L1 vertical rhythm: text styles carry space above/below in rhythm units; stacks space by max(below, above); heading attaches to its paragraph by default, AI may override (operator: implicit pairing, a default not a rule, L1 in this repo).
 - [[BUG-238]] — layout check flags a too-small header logo/business name and headings not attached to their text (catches existing pages until REQ-420).
+
+
+- [[BUG-240]] + lagrange-framework REQ-215 — when the worker dives into work without answering a mixed message, the host opens a talker on the same message via a hidden cue (the talker may pass); the worker's hand-back doesn't repeat the talker; interim answer-first priming rule (Bob's Salon 3, 2026-10-21).
