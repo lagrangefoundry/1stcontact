@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:34:59.580995+00:00'
+updated_at: '2026-10-21T18:37:12.930742+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11238,5 +11238,11 @@ I'd file this as **two tickets**:
 - **1stcontact:** automatic resume, client-facing wording with dev detail kept behind a dev setting, the turn watchdog, and failure logging (items 2–5).
 
 Shall I file them?
+
+<!-- xgd-turn id="b5a18c6d-efd6-44b1-8421-afec40b03611-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:37:12.612952+00:00" -->
+#### You
+In this case it wasn't anthropic - I had to restart the dev server that seems to have fixed it - this would be catastrophic if it happened in production BTW
 
 <!-- xgd-chat-end -->
