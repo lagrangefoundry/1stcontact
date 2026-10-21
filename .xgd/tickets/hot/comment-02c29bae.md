@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-420
 created_by: xgd
 created_at: '2026-10-20T23:33:59.571224+00:00'
-updated_at: '2026-10-21T00:40:21.839894+00:00'
+updated_at: '2026-10-21T01:12:51.159479+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -192,5 +192,13 @@ I reviewed the adjustments, and none of them need code. Nothing was committed an
 - **Rewritten item 9, the `gapPx` half:** confirmed. Containers with `gapPx` render byte-identically; a UAT checks it, and I hash-compared every stored page before and after the change.
 - **Item 9, the plain-text-stack half:** confirmed. A text stack with no stated spacing now spaces by rhythm. The UAT `a_rhythm_stack_attaches_each_heading_to_its_text` uses exactly such a stack, and 4 of the 13 stored pages change.
 - **Item 9, "a published site changes only when it is published again":** this was the one new claim, and it holds. Publishing renders static HTML into R2 (`publish.ts` → `renderSiteFiles`), and the public site serves those files as they are. A live site keeps its old spacing until the next publish, while drafts and previews show rhythm straight away.
+
+<!-- xgd-turn id="4f535891-a162-4d70-ad5c-969ac56f312f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T01:12:50.407860+00:00" -->
+#### You
+**Are you happy to call colours and lettering done, or does anything still feel off?**Bob, the layout check flagged the message form again after the colour change. It's the same false alarm as BUG-237, so I've left the form alone. <-- This bold text appeared as normal text on the chat with ** around it (i.e. it did not render)
+
+The consultant talks about workers and builders - I think that might be a little confusing - I did break character earlier, but we should decide what language it should use for things like that
 
 <!-- xgd-chat-end -->
