@@ -650,7 +650,20 @@ export const emailPageSchema = z
  * and adding a key to all of them to say so would be a rewrite of every site in
  * every store to record a fact that was already true.
  */
-export const pageKindSchema = z.enum(['web', 'email'])
+export const pageKindSchema = z.enum(['web', 'email', 'header', 'footer'])
+
+/**
+ * [[REQ-422]] — which of the site's shared parts a web page is drawn with. Absent
+ * (or `true`) carries the part; `false` opts the page out of it — a landing page
+ * that must stand alone. Opting out is the only way to lose one, so a new page
+ * can never arrive without the site's header and its way back home.
+ */
+export const pageSharedSchema = z
+  .object({
+    header: z.boolean().optional(),
+    footer: z.boolean().optional(),
+  })
+  .strict()
 
 /**
  * [[REQ-391]] — this page is one LOOK in a set of alternatives for another page.
@@ -742,6 +755,8 @@ export const pageSchema = z
     seoMeta: seoMetaSchema.optional(),
     /** [[REQ-391]] — set when this page is a look offered for another page. */
     alternative: pageAlternativeSchema.optional(),
+    /** [[REQ-422]] — the shared parts this web page opts out of. */
+    shared: pageSharedSchema.optional(),
     modules: z.array(moduleInstanceSchema).default([]),
     l1: l1DocumentSchema.optional(),
   })
@@ -751,6 +766,24 @@ export const pageSchema = z
         code: z.ZodIssueCode.custom,
         path: ['alternative'],
         message: `email page '${page.id}' cannot be an alternative look — a message is never shown in the preview's carousel`,
+      })
+    }
+    // [[REQ-422]] — a shared part is drawn INTO other pages; it is not one itself.
+    if (page.kind === 'header' || page.kind === 'footer') {
+      const refuse = (path: string, why: string): void =>
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: [path], message: `the site ${page.kind} '${page.id}' ${why}` })
+      if (page.alternative) refuse('alternative', 'cannot be an alternative look — it is part of every page')
+      if (page.seoMeta) refuse('seoMeta', 'is never served on its own, so it has no search or share metadata')
+      if (page.shared) refuse('shared', 'is itself a shared part, so it carries no others')
+      if (page.modules.length > 0) {
+        refuse('modules', 'cannot carry a component — put the component on the pages themselves')
+      }
+    }
+    if (page.shared && page.kind === 'email') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['shared'],
+        message: `email page '${page.id}' is mailed, not served, so it carries no site header or footer`,
       })
     }
     if (page.alternative?.of === page.id) {
@@ -1247,6 +1280,33 @@ export const siteSchema = z
           message: `'${p.id}' is a look for '${target.id}', which is itself a look — offer looks for the real page`,
         })
       }
+    })
+    /*
+     * [[REQ-422]] — ONE HEADER AND ONE FOOTER. Every web page is drawn with the
+     * site's part, so two of a kind would leave the renderer guessing which.
+     * And nothing navigates TO a part: it has no address of its own.
+     */
+    for (const part of ['header', 'footer'] as const) {
+      const held = site.pages.filter((p) => p.kind === part)
+      held.slice(1).forEach((p) => {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['pages', site.pages.indexOf(p), 'kind'],
+          message: `the site already has a ${part} ('${held[0].id}'); '${p.id}' cannot be a second one`,
+        })
+      })
+    }
+    const parts = new Set(site.pages.filter((p) => p.kind === 'header' || p.kind === 'footer').map((p) => p.id))
+    site.nav.entries.forEach((entry, i) => {
+      const target = entry.target
+      if (target.kind === 'url' || !parts.has(target.pageId)) return
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['nav', 'entries', i, 'target', 'pageId'],
+        message: `'${entry.label}' points at '${target.pageId}', the site's shared ${
+          site.pages.find((p) => p.id === target.pageId)?.kind
+        }, which has no address — point it at a page`,
+      })
     })
     const looks = new Set(site.pages.filter((p) => p.alternative).map((p) => p.id))
     site.nav.entries.forEach((entry, i) => {

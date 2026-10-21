@@ -1250,7 +1250,12 @@ function digestState(digest: SiteDigest): string {
 
 /** One page's heading — what it is called, where it is, and whether it is the live one. */
 function digestHeading(page: DigestPage, focused: boolean): string {
-  const where = page.kind === 'email' ? template('page-digest-message') : page.address
+  const where =
+    page.kind === 'email'
+      ? template('page-digest-message')
+      : page.kind === 'header' || page.kind === 'footer'
+        ? fill(template('page-digest-part'), { part: page.kind })
+        : page.address
   const marked = focused ? `, ${template('page-digest-focus')}` : ''
   return `### ${page.id} — "${page.title}" (${where})${marked}`
 }

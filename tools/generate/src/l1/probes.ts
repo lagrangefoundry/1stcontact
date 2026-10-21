@@ -1191,6 +1191,16 @@ function layoutInFlow(
       box.height = own !== undefined ? own : rows.reduce((sum, row) => sum + rowHeight(row), 0)
       return { advance: adv(box.height), box }
     }
+    case 'nav': {
+      // [[REQ-422]] — a menu's items are the site's, not the document's, so this
+      // model cannot know how many there are. It is one line of its item's type:
+      // what a menu is on a wide screen, and what its folded button is on a narrow
+      // one. Nothing here folds a menu.
+      const own = declaredHeight(node, width, vh)
+      const a = node.item.axes ?? {}
+      box.height = own ?? a.lineHeightPx ?? (a.fontSizePx ?? 16) * 1.3
+      return { advance: adv(box.height), box }
+    }
     case 'box':
     case 'container': {
       const children = node.kind === 'container' ? node.children : (node.children ?? [])

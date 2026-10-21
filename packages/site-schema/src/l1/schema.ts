@@ -2814,6 +2814,61 @@ export const l1TableSchema = z
   })
   .strict()
 
+// ── Navigation (REQ-422) ─────────────────────────────────────────────────────
+//
+// A site's menu was hand-made links on each page, so nothing knew the site's
+// pages: adding one changed no menu, a builder scoped to one page could not keep
+// the others in step, and a consultant could say "it's in the menu" of a menu
+// that did not exist (Ariel's AR Welding, 2026-10-21). The `nav` leaf is a menu
+// whose ITEMS ARE NOT IN THE DOCUMENT: the renderer draws one per entry of the
+// site's navigation (`site.nav.entries`), so the document says only how an item
+// looks. It is the sole emitter of those links, as it is of every `<a>`.
+
+/**
+ * REQ-422 — how every item of a menu looks: a text node whose copy and link are
+ * the entry's, not its own. Its `text` is a stand-in the renderer replaces with
+ * each entry's label. It has no id (one item is drawn many times), no link and
+ * no action (the entry is the link), and none of the axes that would take it out
+ * of the menu's own flow.
+ */
+export const l1NavItemSchema = l1TableCellSchema.omit({
+  id: true,
+  link: true,
+  action: true,
+  heading: true,
+})
+
+/**
+ * REQ-422 — the site's navigation, drawn here: one link per entry of the site's
+ * navigation, in its order, the current page marked for assistive technology.
+ * Rendered as a real `<nav>`.
+ *
+ * Below `collapseBelowPx` (absent → 640; `0` never collapses) the links fold
+ * behind a menu button labelled `menuLabel` (absent → "Menu"). The button is a
+ * native disclosure, so it opens and closes with no script at all.
+ */
+export const l1NavSchema = z
+  .object({
+    kind: z.literal('nav'),
+    id: z.string().optional(),
+    /** How every item looks. Its copy is replaced by each entry's label. */
+    item: l1NavItemSchema,
+    /** The space between items. Absent → 24px. */
+    gapPx: finite.nonnegative().optional(),
+    /** Where the items sit across the menu's width. Absent → `start`. */
+    align: z.enum(['start', 'center', 'end']).optional(),
+    /** The width below which the links fold behind the menu button. Absent → 640; `0` never. */
+    collapseBelowPx: finite.nonnegative().max(4000).optional(),
+    /** The menu button's words. Absent → "Menu". */
+    menuLabel: z.string().min(1).max(40).optional(),
+    /** The menu's own painted surface; the open menu on a phone is painted with it too. */
+    axes: l1SurfaceAxesSchema.optional(),
+    /** REQ-350 — the type the menu sets for its items. */
+    type: l1TypeSchema.optional(),
+    ...nodeAxisGroupsShape,
+  })
+  .strict()
+
 // The box and container leaves are recursive (they nest children). Zod cannot
 // self-infer a recursive schema, so the tree type is written by hand and the
 // schemas are annotated `z.ZodType<…>` + wrapped in `z.lazy` (the leaf axes are
@@ -2889,6 +2944,7 @@ export type L1NodeUnion =
   | z.infer<typeof l1SlotSchema>
   | z.infer<typeof l1ControlSchema>
   | z.infer<typeof l1TableSchema>
+  | z.infer<typeof l1NavSchema>
   | L1BoxNode
   | L1ContainerNode
 
@@ -2953,6 +3009,7 @@ export const l1NodeSchema: z.ZodType<L1NodeUnion> = z.lazy(() =>
     l1SlotSchema,
     l1ControlSchema,
     l1TableSchema,
+    l1NavSchema,
     l1BoxSchema,
     l1ContainerSchema,
   ]),

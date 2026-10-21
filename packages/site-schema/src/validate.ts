@@ -4,6 +4,19 @@ import type { Site } from './types'
 import type { L1Document, L1Node } from './l1/types'
 import { checkPaletteRefs, checkTextStyleRefs, validateL1 } from './l1/validate'
 import { emailCopyErrors, emailTargetErrors } from './l1/email'
+import { l1Children } from './l1/children'
+import { carriedParts } from './parts'
+
+/** Every node id in a document's tree. */
+function nodeIds(doc: L1Document): Set<string> {
+  const ids = new Set<string>()
+  const walk = (node: L1Node): void => {
+    if (node.id) ids.add(node.id)
+    l1Children(node).forEach(walk)
+  }
+  walk(doc.root)
+  return ids
+}
 
 /** A single structural validation failure. */
 export interface ValidationError {
@@ -124,6 +137,27 @@ export function validateSite(input: unknown): Result<Site, ValidationError[]> {
       checkPaletteRefs(instance.slots, site.palette, `/pages/${i}/modules/${m}/slots`, errors)
       checkTextStyleRefs(instance.slots, site.textStyles, `/pages/${i}/modules/${m}/slots`, errors)
     })
+  })
+
+  /*
+   * [[REQ-422]] — A PAGE AND THE PARTS IT CARRIES ARE ONE HTML DOCUMENT, so a node
+   * id is a DOM id across all three. A `logo` in the header and a `logo` on a page
+   * would break the anchor and every `for`/`id` pairing on that page; each
+   * document's own validation cannot see it, so it is refused here, naming both.
+   */
+  site.pages.forEach((page, i) => {
+    if (!page.l1) return
+    const own = nodeIds(page.l1)
+    for (const [part, shared] of Object.entries(carriedParts(page, site.pages))) {
+      const clash = [...nodeIds(shared!.l1 as L1Document)].filter((id) => own.has(id))
+      if (clash.length === 0) continue
+      errors.push({
+        path: `/pages/${i}/l1`,
+        message:
+          `page '${page.id}' and the site ${part} it is drawn with both use the id${clash.length > 1 ? 's' : ''} ` +
+          `${clash.map((id) => `'${id}'`).join(', ')} — ids must be unique on the page a reader sees; rename one`,
+      })
+    }
   })
 
   return errors.length === 0 ? { ok: true, value: site } : { ok: false, errors }

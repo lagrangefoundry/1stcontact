@@ -8,7 +8,9 @@
     "`logoMinPx` is the least height its logo image may render at, per width the",
     "page is checked at (`desktop`, `phone`). `nameOverNav` is how much larger",
     "than the navigation links the business name must be to read as the header's",
-    "largest text.",
+    "largest text. `wordmarkPx` is the size a new site header sets the business",
+    "name at ([[REQ-422]]); whatever size it ends up at, the business name must",
+    "never be smaller than the page's section headings (`name_smaller_than_headings`).",
     "",
     "`heading`: a heading belongs to the text it introduces, so the space below it",
     "must be clearly smaller than the space above it. It is reported when the",
@@ -22,7 +24,8 @@
 
   "brand": {
     "logoMinPx": { "desktop": 48, "phone": 36 },
-    "nameOverNav": 1.25
+    "nameOverNav": 1.25,
+    "wordmarkPx": { "desktop": 30, "phone": 24 }
   },
 
   "heading": {

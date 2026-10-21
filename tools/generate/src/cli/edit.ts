@@ -22,6 +22,11 @@ import {
   validateSite,
   validateSvg,
   SVG_MAX_BYTES,
+  carriedParts,
+  isPagePart,
+  isServedPage,
+  sitePartOf,
+  type PagePart,
   type L1Color,
   type L1Document,
   type L1FontFace,
@@ -72,7 +77,8 @@ import { IconSourceError } from './favicon'
 import type { GlobalOptions } from './options'
 import { CommandError } from './errors'
 import { labelOf } from './segments'
-import { starterDocument } from './scaffold'
+import { starterDocument, starterPartDocument } from './scaffold'
+import layoutDocument from './ai/layout-check.json'
 import { flowL1, groupL1, layoutDrift } from '../l1/structure'
 import { assignTextStyles } from './type-assign'
 import { liftLegacyHeadings, liftLegacyTypography } from '../store/legacy-typography'
@@ -760,7 +766,8 @@ function hrefTargetPage(href: string, files: PageFile[], homeId: string | null):
  */
 function homePageId(files: PageFile[]): string | null {
   // [[REQ-391]] — never a look, which is never served: the renderer's own rule.
-  const served = files.filter((f) => !(f.page as PageRecord).alternative)
+  // [[REQ-422]] — nor a message or a shared part, by the same rule.
+  const served = files.filter((f) => isServedPage(f.page))
   const home = served.find((f) => String(f.page.slug) === 'home') ?? served[0]
   return home ? String(home.page.id) : null
 }
@@ -839,9 +846,108 @@ function reachablePages(files: PageFile[], base: Record<string, unknown>): Set<s
     const from = queue.shift() as string
     const file = files.find((f) => String(f.page.id) === from)
     if (!file) continue
-    for (const href of collectHrefs(file.page)) admit(hrefTargetPage(href, files, homeId))
+    for (const href of pageLinks(file.page, files, base)) admit(hrefTargetPage(href, files, homeId))
   }
   return reached
+}
+
+/** [[REQ-422]] — a fault in how a site's pages hang together, found from the stored site alone. */
+export interface SiteStructureFinding {
+  /** The page's id. */
+  page: string
+  /** The page's path, as the consultant names it. */
+  slug: string
+  kind: 'unreachable' | 'dead_end' | 'leftover_placeholder'
+  /** What is wrong, in a sentence that does not name the page. */
+  text: string
+}
+
+/** The id `starterDocument` gives the heading a new page arrives with. */
+const STARTER_PLACEHOLDER_ID = 'placeholder'
+
+/**
+ * [[REQ-422]] — the site-level half of the check the host runs after a build:
+ * every served page reachable from home by links a reader can follow, a way
+ * back home from every page, and nothing left over from a page's creation.
+ *
+ * ON THE STORED SITE, NOT A BROWSER: a link is in the page or its shared parts
+ * (and a menu draws the site's navigation), which is a fact of the definition —
+ * the same walk `list_pages` reports `reachable` from, so the two never disagree.
+ */
+export function siteStructureFindings(pages: readonly StoredPage[], base: Record<string, unknown>): SiteStructureFinding[] {
+  const files = pages as PageFile[]
+  const homeId = homePageId(files)
+  const reached = reachablePages(files, base)
+  const out: SiteStructureFinding[] = []
+  for (const file of files) {
+    if (!isServedPage(file.page)) continue
+    const id = String(file.page.id)
+    const at = { page: id, slug: String(file.page.slug) }
+    if (!reached.has(id)) {
+      out.push({
+        ...at,
+        kind: 'unreachable',
+        text: 'cannot be reached from the home page by any link: put it in the site navigation, or link to it from a page that can be reached',
+      })
+    }
+    if (id !== homeId && !pageLinks(file.page, files, base).some((href) => hrefTargetPage(href, files, homeId) === homeId)) {
+      out.push({
+        ...at,
+        kind: 'dead_end',
+        text: "has no link back to the home page — a dead end: give it the site's shared header, or a link home",
+      })
+    }
+    const root = (file.page.l1 as { root?: L1Node } | undefined)?.root
+    if (root && l1Children(root).some((child) => child.id === STARTER_PLACEHOLDER_ID)) {
+      out.push({
+        ...at,
+        kind: 'leftover_placeholder',
+        text: `still holds the placeholder heading it was created with (\`${STARTER_PLACEHOLDER_ID}\`): replace it or remove it`,
+      })
+    }
+  }
+  return out
+}
+
+/** One structure finding as a plain line: page, then what is wrong. */
+export function siteStructureLine(f: SiteStructureFinding): string {
+  return `${f.slug}: the page ${f.text}.`
+}
+
+/** True when a subtree holds a `nav` node, which draws the site's navigation. */
+function drawsNavigation(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(drawsNavigation)
+  if (value === null || typeof value !== 'object') return false
+  if ((value as Record<string, unknown>).kind === 'nav') return true
+  return Object.values(value as Record<string, unknown>).some(drawsNavigation)
+}
+
+/** The in-site hrefs the site's navigation draws, by entry. */
+function navHrefs(files: PageFile[], base: Record<string, unknown>): string[] {
+  const entries = (base.nav as { entries?: unknown } | undefined)?.entries
+  if (!Array.isArray(entries)) return []
+  const out: string[] = []
+  for (const entry of entries) {
+    const target = (entry as { target?: Record<string, unknown> } | null)?.target
+    if (!target) continue
+    if (target.kind === 'url' && typeof target.href === 'string') out.push(target.href)
+    if (target.kind !== 'page' && target.kind !== 'anchor') continue
+    const page = files.find((f) => String(f.page.id) === String(target.pageId))
+    if (page) out.push(`/${String(page.page.slug)}`)
+  }
+  return out
+}
+
+/**
+ * [[REQ-422]] — every in-site href a READER of `page` can follow: its own, the
+ * shared parts it is drawn with, and the site's navigation wherever one of those
+ * draws a menu. What a page links to is what is on the page a reader sees, and
+ * the header is on it.
+ */
+function pageLinks(page: Record<string, unknown>, files: PageFile[], base: Record<string, unknown>): string[] {
+  const drawn = [page, ...Object.values(carriedParts(page, files))]
+  const hrefs = drawn.flatMap((p) => collectHrefs(p))
+  return drawn.some((p) => drawsNavigation(p.l1)) ? [...hrefs, ...navHrefs(files, base)] : hrefs
 }
 
 /** Drop nav entries that target `pageId` from a base clone. */
@@ -854,6 +960,61 @@ function stripNavTargeting(base: Record<string, unknown>, pageId: string): Recor
       return !(target && (target.kind === 'page' || target.kind === 'anchor') && target.pageId === pageId)
     })
   }
+  return clone
+}
+
+/**
+ * [[REQ-422]] — a base clone with `page` appended to the site's navigation, or
+ * the base itself when an entry already names it. The label is the page's title,
+ * which is what a reader expects the menu to call it.
+ */
+function withNavEntry(base: Record<string, unknown>, page: Record<string, unknown>): Record<string, unknown> {
+  if (navEntriesTargeting(base, String(page.id)).length > 0) return base
+  const clone = structuredClone(base)
+  const nav = (clone.nav ?? { pattern: 'top-tabs', entries: [] }) as Record<string, unknown>
+  const entries = Array.isArray(nav.entries) ? (nav.entries as unknown[]) : []
+  clone.nav = {
+    ...nav,
+    entries: [...entries, { label: String(page.title ?? page.id), target: { kind: 'page', pageId: String(page.id) } }],
+  }
+  return clone
+}
+
+/**
+ * [[REQ-422]] — a base clone whose empty navigation lists every page a reader can
+ * visit, home first; the base itself when the navigation already lists anything.
+ *
+ * WHEN A SITE GETS ITS FIRST MENU. Every site built before navigation was drawn
+ * has an empty list (its menus were hand-made links), so the header it is given
+ * would draw a menu of nothing. Its pages are what the menu should hold; the
+ * order and labels are then the client's to change.
+ */
+function withNavSeeded(base: Record<string, unknown>, files: PageFile[]): Record<string, unknown> {
+  const entries = (base.nav as { entries?: unknown } | undefined)?.entries
+  if (Array.isArray(entries) && entries.length > 0) return base
+  const homeId = homePageId(files)
+  const served = files.filter((f) => isServedPage(f.page))
+  const ordered = [...served.filter((f) => String(f.page.id) === homeId), ...served.filter((f) => String(f.page.id) !== homeId)]
+  return ordered.reduce((acc, f) => withNavEntry(acc, f.page), base)
+}
+
+/**
+ * [[REQ-422]] — a base clone whose entries for `pageId` that still carry the
+ * page's old title carry its new one, or the base itself when none did. An entry
+ * somebody relabelled on purpose ("Prices" for a page titled "Our price list")
+ * keeps the label they gave it.
+ */
+function withNavRelabelled(base: Record<string, unknown>, pageId: string, from: string, to: string): Record<string, unknown> {
+  const entries = (base.nav as { entries?: unknown } | undefined)?.entries
+  if (from === to || !Array.isArray(entries)) return base
+  const hit = (entry: Record<string, unknown>): boolean => {
+    const target = entry?.target as Record<string, unknown> | undefined
+    return target?.kind === 'page' && target.pageId === pageId && entry.label === from
+  }
+  if (!(entries as Record<string, unknown>[]).some(hit)) return base
+  const clone = structuredClone(base)
+  const nav = clone.nav as Record<string, unknown>
+  nav.entries = (nav.entries as Record<string, unknown>[]).map((entry) => (hit(entry) ? { ...entry, label: to } : entry))
   return clone
 }
 
@@ -1925,8 +2086,11 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
      * or merely old. Every page has a kind; absent in the store means `web`, and
      * this is where that default is spelled.
      */
-    kind: f.page.kind === 'email' ? 'email' : 'web',
+    // [[REQ-422]] — and a shared part says which it is: it is drawn into pages, not visited.
+    kind: f.page.kind === 'email' || isPagePart(f.page.kind) ? String(f.page.kind) : 'web',
     ...(f.page.kind === 'email' ? { email: f.page.email ?? {} } : {}),
+    // [[REQ-422]] — the shared parts this page opts out of, when it opts out of any.
+    ...(f.page.shared ? { shared: f.page.shared } : {}),
     /*
      * [[REQ-388]] — THE PAGE'S VIEWPORT LADDER, so the builder's width control
      * offers the widths this page is actually laid out at rather than widths
@@ -1958,6 +2122,8 @@ export async function editPageList(slug: string, opts: EditOptions): Promise<Edi
               (p.alternative
                 ? `\tlook "${p.alternative.label}" for '${p.alternative.of}' in set '${p.alternative.set}'` +
                   (p.alternative.archived ? ' (archived)' : '')
+                : isPagePart(p.kind)
+                ? `\t(the site's shared ${p.kind}: drawn on every page that carries it)`
                 : p.reachable
                 ? ''
                 : p.kind === 'email'
@@ -2014,7 +2180,18 @@ export interface PageWriteOptions extends EditOptions {
    * product should be able to send, and a page with no body would be exactly
    * that.
    */
-  kind?: 'web' | 'email'
+  kind?: 'web' | 'email' | PagePart
+  /**
+   * [[REQ-422]] — which of the site's shared parts this page opts OUT of: `false`
+   * leaves it off this page, `true` puts it back. Web pages only.
+   */
+  shared?: { header?: boolean; footer?: boolean }
+  /**
+   * [[REQ-422]] — whether a new page joins the site's navigation. Absent is yes:
+   * a page nobody can find is the failure the navigation exists to prevent. `add`
+   * and `copy` only.
+   */
+  nav?: boolean
   /** The message's subject line. Email pages only; defaults to the title. */
   subject?: string
   /** The tokens the message promises its copy carries. Email pages only. */
@@ -2139,8 +2316,23 @@ export async function editPageAdd(
 
   const title = opts.title ?? pageId
   const mailed = opts.kind === 'email'
+  const part = isPagePart(opts.kind) ? opts.kind : null
   if (!mailed) refuseEmailOnlyFields(opts, pageId)
-  const newPage: Record<string, unknown> = mailed
+  const newPage: Record<string, unknown> = part
+    ? {
+        id: pageId,
+        slug: pageSlug,
+        title,
+        kind: part,
+        modules: [],
+        // [[REQ-422]] — the business, linking home, beside the site's navigation.
+        l1: starterPartDocument(part, {
+          name: String((base.config as { businessName?: unknown } | undefined)?.businessName ?? title),
+          wordmarkPx: layoutDocument.brand.wordmarkPx,
+          ...((base.textStyles as Record<string, unknown> | undefined)?.heading ? { textStyle: 'heading' } : {}),
+        }),
+      }
+    : mailed
     ? {
         id: pageId,
         slug: pageSlug,
@@ -2176,19 +2368,34 @@ export async function editPageAdd(
         // the same way rather than to add an operation every caller must
         // remember.
         l1: starterDocument(title),
+        ...(opts.shared ? { shared: opts.shared } : {}),
       }
-  await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
+  // [[REQ-422]] — a served page joins the navigation in the same write, so a page
+  // can never exist that the menu has not heard of unless somebody said so; and a
+  // site's first header or footer starts with a menu of the pages it already has.
+  const newBase = part
+    ? withNavSeeded(base, files)
+    : isServedPage(newPage) && opts.nav !== false
+      ? withNavEntry(base, newPage)
+      : base
+  await validateOrThrow(slug, opts, newBase, [...files.map((f) => f.page), newPage])
   if (opts.sections) refuseUnsplittable(newPage, pageId)
 
-  await opts.store.write(slug, { pages: [{ name, page: newPage, ...(opts.sections ? { form: 'sections' as const } : {}) }] })
+  await opts.store.write(slug, {
+    ...(newBase !== base ? { siteJson: newBase } : {}),
+    pages: [{ name, page: newPage, ...(opts.sections ? { form: 'sections' as const } : {}) }],
+  })
   return note(
     slug,
     opts,
     {
       data: { page: newPage, ...(opts.sections ? { sections: sectionIdsOf(newPage) } : {}) },
-      human: mailed
+      human: part
+        ? `Added the site ${part} '${pageId}' — it is drawn on every page that does not opt out of it.`
+        : mailed
         ? `Added email page '${pageId}' — nobody receives it until a form names it.`
-        : `Added page '${pageId}' (path: ${pageSlug}) — it carries a heading and nothing else, ready to paint.`,
+        : `Added page '${pageId}' (path: ${pageSlug}) — it carries a heading and nothing else, ready to paint` +
+          (newBase !== base ? ', and it is in the site navigation.' : '.'),
     },
     { op: 'page.add', page: pageId, label: String(newPage.title) },
   )
@@ -2200,6 +2407,8 @@ export interface PageCopyOptions extends EditOptions {
   path?: string
   /** The copy's title. Defaults to the source page's — a copy arrives titled. */
   title?: string
+  /** [[REQ-422]] — whether the copy joins the site's navigation. Absent is yes. */
+  nav?: boolean
 }
 
 /**
@@ -2261,9 +2470,11 @@ export async function editPageCopy(
     title: opts.title ?? source.page.title,
   }
 
-  await validateOrThrow(slug, opts, base, [...files.map((f) => f.page), newPage])
+  // [[REQ-422]] — a copy is a new page like any other, so it joins the navigation.
+  const newBase = isServedPage(newPage) && opts.nav !== false ? withNavEntry(base, newPage) : base
+  await validateOrThrow(slug, opts, newBase, [...files.map((f) => f.page), newPage])
 
-  await opts.store.write(slug, { pages: [{ name, page: newPage }] })
+  await opts.store.write(slug, { ...(newBase !== base ? { siteJson: newBase } : {}), pages: [{ name, page: newPage }] })
   return note(
     slug,
     opts,
@@ -2436,9 +2647,14 @@ export async function editAlternativesMake(
 
   const byName = new Map(written.map((f) => [f.name, f.page]))
   const pages = [...files.map((f) => byName.get(f.name) ?? f.page), ...written.filter((f) => !files.some((g) => g.name === f.name)).map((f) => f.page)]
-  await validateOrThrow(slug, opts, base, pages)
+  // [[REQ-422]] — a page that becomes a look leaves the menu: a look is never published.
+  const newBase = written.reduce((acc, f) => (navEntriesTargeting(acc, String(f.page.id)).length ? stripNavTargeting(acc, String(f.page.id)) : acc), base)
+  await validateOrThrow(slug, opts, newBase, pages)
 
-  await opts.store.write(slug, { pages: written.map((f) => ({ name: f.name, page: f.page })) })
+  await opts.store.write(slug, {
+    ...(newBase !== base ? { siteJson: newBase } : {}),
+    pages: written.map((f) => ({ name: f.name, page: f.page })),
+  })
   const members = pages
     .filter((p) => (p as PageRecord).alternative?.set === set && !(p as PageRecord).alternative?.archived)
     .sort((a, b) => ((a as PageRecord).alternative?.order ?? 0) - ((b as PageRecord).alternative?.order ?? 0))
@@ -2683,13 +2899,14 @@ export async function editPageUpdate(
     opts.seoMeta === undefined &&
     opts.subject === undefined &&
     opts.placeholders === undefined &&
-    opts.from === undefined
+    opts.from === undefined &&
+    opts.shared === undefined
   if (nothingNamed) {
     throw new CommandError({
       code: 'SCHEMA_INVALID',
       message: mailed
         ? 'Nothing to update; pass --title, --subject, --placeholders and/or --from.'
-        : 'Nothing to update; pass --title, --path and/or --seo.',
+        : 'Nothing to update; pass --title, --path, --seo and/or shared.',
       hint: 'Provide at least one field to change.',
     })
   }
@@ -2706,6 +2923,13 @@ export async function editPageUpdate(
   if (opts.title !== undefined) updated.title = opts.title
   if (opts.path !== undefined) updated.slug = opts.path
   if (opts.seoMeta !== undefined) updated.seoMeta = mergeConfigValue(file.page.seoMeta, opts.seoMeta)
+  // [[REQ-422]] — an opt-out is merged, and a page carrying everything says nothing.
+  if (opts.shared !== undefined) {
+    const shared: Record<string, unknown> = { ...((file.page.shared ?? {}) as Record<string, unknown>), ...opts.shared }
+    for (const key of Object.keys(shared)) if (shared[key] !== false) delete shared[key]
+    if (Object.keys(shared).length > 0) updated.shared = shared
+    else delete updated.shared
+  }
   // [[REQ-247]] — the subject, the declaration and the sender are merged over
   // what is there rather than replacing it, on the same reasoning `seoMeta`
   // takes: an author changing the subject must not lose their placeholders.
@@ -2719,13 +2943,21 @@ export async function editPageUpdate(
   }
 
   const pages = files.map((f) => (f === file ? updated : f.page))
-  await validateOrThrow(slug, opts, base, pages)
+  // [[REQ-422]] — a renamed page's menu entry follows its new title.
+  const newBase = withNavRelabelled(base, pageId, String(file.page.title ?? ''), String(updated.title ?? ''))
+  await validateOrThrow(slug, opts, newBase, pages)
 
-  await opts.store.write(slug, { pages: [{ name: file.name, page: updated }] })
+  await opts.store.write(slug, {
+    ...(newBase !== base ? { siteJson: newBase } : {}),
+    pages: [{ name: file.name, page: updated }],
+  })
   return note(
     slug,
     opts,
-    { data: { page: updated }, human: `Updated page '${pageId}'.` },
+    {
+      data: { page: updated },
+      human: `Updated page '${pageId}'${newBase !== base ? ', and its entry in the site navigation' : ''}.`,
+    },
     {
       op: 'page.update',
       page: pageId,
@@ -2756,26 +2988,20 @@ export async function editPageRm(
     })
   }
 
+  /*
+   * [[REQ-422]] — THE NAVIGATION FOLLOWS THE PAGE LIST. Removing a page removes
+   * its entries in the same write; it used to be refused until somebody removed
+   * them by hand (REQ-11), which is a step a builder scoped to the page could not
+   * take and a menu would otherwise keep pointing at nothing.
+   */
   const referencing = navEntriesTargeting(base, pageId)
-  if (referencing.length > 0 && !opts.force) {
-    throw new CommandError({
-      code: 'REFERENTIAL_INTEGRITY',
-      message: `Page '${pageId}' is targeted by nav entr${referencing.length === 1 ? 'y' : 'ies'}: ${referencing
-        .map((l) => `'${l}'`)
-        .join(', ')}.`,
-      path: pageId,
-      hint: 'Remove the nav entry first, or pass --force to remove it automatically.',
-    })
-  }
 
   /*
-   * [[REQ-247]] — A MESSAGE A FORM SENDS IS NOT REMOVED OUT FROM UNDER IT. The
-   * nav check above is the same rule for the served half of the site, and this
-   * is its counterpart: a page nothing links to still has something pointing at
-   * it when a form names it, and deleting it would leave the form silently
-   * mailing nobody.
+   * [[REQ-247]] — A MESSAGE A FORM SENDS IS NOT REMOVED OUT FROM UNDER IT: a
+   * page nothing links to still has something pointing at it when a form names
+   * it, and deleting it would leave the form silently mailing nobody.
    *
-   * IT DOES NOT REWRITE THE FORM THE WAY `--force` REWRITES THE NAV. Dropping a
+   * IT DOES NOT REWRITE THE FORM THE WAY REMOVAL REWRITES THE NAV. Dropping a
    * nav entry loses a link; clearing a form's `template` changes what pressing
    * that button does, which is not this command's decision to make. So `--force`
    * removes the page and leaves the form naming it — and publish refuses until
@@ -2816,6 +3042,169 @@ export async function editPageRm(
       }.`,
     },
     { op: 'page.remove', page: pageId, label: String(file.page.title ?? pageId) },
+  )
+}
+
+// ── the site's navigation and shared parts ([[REQ-422]]) ──────────────────────
+
+/** One entry of the navigation as a caller states it: a page by id, or an outside link. */
+export interface NavEntrySpec {
+  /** A page of the site, by id. */
+  page?: string
+  /** An outside address, instead of a page. */
+  href?: string
+  /** What the menu calls it. Defaults to the page's title; required for an outside link. */
+  label?: string
+}
+
+/**
+ * [[REQ-422]] — set the site's navigation: which pages the menu shows, in what
+ * order, and what it calls each. A served page left out is HIDDEN from the menu
+ * — it still exists, and anything that links to it still reaches it.
+ *
+ * ONE LIST, STATED WHOLE, because order and visibility are one decision: a menu
+ * is read left to right, and "move Prices before Contact" and "hide Gallery" are
+ * both answered by saying what the menu is. Adding, removing and renaming a page
+ * keep the list in step on their own; this is for the choices only a person makes.
+ */
+export async function editNavSet(slug: string, specs: NavEntrySpec[], opts: EditOptions): Promise<EditOutput> {
+  const base = await readBase(slug, opts)
+  const files = await readPageFiles(slug, opts)
+  const entries = specs.map((spec, i) => {
+    if (spec.href !== undefined && spec.page === undefined) {
+      if (!spec.label) {
+        throw new CommandError({
+          code: 'SCHEMA_INVALID',
+          message: `Entry ${i + 1} links to '${spec.href}' and has no label, so the menu would show nothing for it.`,
+          hint: 'Give an outside link a label.',
+        })
+      }
+      return { label: spec.label, target: { kind: 'url', href: spec.href } }
+    }
+    const file = spec.page === undefined ? null : findPageFile(files, spec.page)
+    if (!file || !isServedPage(file.page)) {
+      const served = files.filter((f) => isServedPage(f.page)).map((f) => `'${String(f.page.id)}'`)
+      throw new CommandError({
+        code: 'NOT_FOUND',
+        message: `Entry ${i + 1} names ${spec.page === undefined ? 'no page' : `'${spec.page}'`}, which is not a page a reader can visit.`,
+        hint: `Name one of ${served.join(', ')}, or give an outside link as \`href\`.`,
+      })
+    }
+    return { label: spec.label ?? String(file.page.title ?? file.page.id), target: { kind: 'page', pageId: String(file.page.id) } }
+  })
+  const nav = (base.nav ?? { pattern: 'top-tabs' }) as Record<string, unknown>
+  const newBase = { ...structuredClone(base), nav: { ...nav, entries } }
+  await validateOrThrow(slug, opts, newBase, files.map((f) => f.page))
+  await opts.store.write(slug, { siteJson: newBase })
+  const shown = new Set(entries.flatMap((e) => (e.target.kind === 'page' ? [e.target.pageId] : [])))
+  const hidden = files.filter((f) => isServedPage(f.page) && !shown.has(String(f.page.id))).map((f) => String(f.page.id))
+  return note(
+    slug,
+    opts,
+    {
+      data: { entries, hidden },
+      human:
+        `The menu now reads: ${entries.map((e) => e.label).join(' · ') || '(nothing)'}.` +
+        (hidden.length ? ` Not in the menu: ${hidden.join(', ')}.` : ''),
+    },
+    { op: 'nav.set', label: entries.map((e) => e.label).join(' · ') },
+  )
+}
+
+/**
+ * [[REQ-422]] — make one of a page's own sections the site's shared header or
+ * footer: how a site built before shared parts existed gets one.
+ *
+ * THE SECTION MOVES, IT IS NOT COPIED. It becomes the part's document — with the
+ * page's widths, paint and fonts, so it looks as it did — and leaves the page,
+ * which now carries the part in its place. Every other page holding a section of
+ * the same id (a copy of the page, built the same way) loses its copy in the same
+ * write, so no page shows two headers; the answer names them.
+ *
+ * REFUSED when the site already has that part (edit it instead), when the section
+ * hosts a component (a part carries none), and for anything but a web page.
+ */
+export async function editShareSection(
+  slug: string,
+  pageId: string,
+  sectionId: string,
+  part: PagePart,
+  opts: EditOptions,
+): Promise<EditOutput> {
+  const files = await readPageFiles(slug, opts)
+  const file = findPageFile(files, pageId)
+  if (!file || !isServedPage(file.page)) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `'${pageId}' is not a web page of site '${slug}'.`,
+      hint: 'Name the page whose own section should become the shared part.',
+    })
+  }
+  const existing = sitePartOf(files, part)
+  if (existing) {
+    throw new CommandError({
+      code: 'CONFLICT',
+      message: `The site already has a ${part}, '${String(existing.id)}'.`,
+      hint: `Edit '${String(existing.id)}' itself; it is drawn on every page.`,
+    })
+  }
+  const l1 = file.page.l1 as L1Document | undefined
+  const sections = l1?.root.kind === 'container' ? l1.root.children : []
+  const node = sections.find((child) => child.id === sectionId)
+  if (!l1 || !node) {
+    throw new CommandError({
+      code: 'NOT_FOUND',
+      message: `Page '${pageId}' has no section '${sectionId}' at its top level.`,
+      hint: `Its sections are: ${sections.map((child) => child.id ?? '(no id)').join(', ') || '(none)'}.`,
+    })
+  }
+  if (((file.page.modules ?? []) as Record<string, unknown>[]).some((m) => moduleHost(file.page, m) === sectionId)) {
+    throw new CommandError({
+      code: 'SCHEMA_INVALID',
+      message: `Section '${sectionId}' holds a component, and a shared ${part} carries none.`,
+      hint: 'Move the component to a section of its own first.',
+    })
+  }
+  const { name, pageSlug } = claimPageIdentity(slug, files, part, undefined)
+  const { root: _root, ...style } = l1
+  const shared: Record<string, unknown> = {
+    id: part,
+    slug: pageSlug,
+    title: `Site ${part}`,
+    kind: part,
+    modules: [],
+    l1: { ...structuredClone(style), root: structuredClone(node) },
+  }
+  const without = (page: Record<string, unknown>): Record<string, unknown> => {
+    const clone = structuredClone(page)
+    const root = (clone.l1 as L1Document).root as { children: L1Node[] }
+    root.children = root.children.filter((child) => child.id !== sectionId)
+    return clone
+  }
+  const holders = files.filter((f) => {
+    const root = (f.page.l1 as L1Document | undefined)?.root
+    return isServedPage(f.page) && root?.kind === 'container' && root.children.some((child) => child.id === sectionId)
+  })
+  const changed = new Map(holders.map((f) => [f, without(f.page)]))
+  const base = await readBase(slug, opts)
+  // [[REQ-422]] — and a menu of the pages the site already has, if it had none.
+  const newBase = withNavSeeded(base, files)
+  await validateOrThrow(slug, opts, newBase, [...files.map((f) => changed.get(f) ?? f.page), shared])
+  await opts.store.write(slug, {
+    ...(newBase !== base ? { siteJson: newBase } : {}),
+    pages: [{ name, page: shared }, ...holders.map((f) => ({ name: f.name, page: changed.get(f)! }))],
+  })
+  const others = holders.filter((f) => f !== file).map((f) => String(f.page.id))
+  return note(
+    slug,
+    opts,
+    {
+      data: { part: shared, removedFrom: holders.map((f) => String(f.page.id)) },
+      human:
+        `Section '${sectionId}' of '${pageId}' is now the site ${part}, drawn on every page.` +
+        (others.length ? ` Its copies on ${others.join(', ')} were removed.` : ''),
+    },
+    { op: 'page.add', page: part, label: `Site ${part}` },
   )
 }
 

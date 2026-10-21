@@ -126,6 +126,8 @@ export {
   L1_EDIT_PAGE_ATTR,
   L1_EDIT_CSS,
 } from './l1/render'
+// [[REQ-422]] — the site's navigation, resolved per page, as the renderer draws it.
+export type { L1NavigationItem } from './l1/render'
 
 // [[REQ-222]] — the delivery width ladder. Exported from the WORKER entry
 // because the Worker is where a publish happens: `publish.ts` builds the ladder

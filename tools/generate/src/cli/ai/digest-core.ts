@@ -77,7 +77,8 @@ export interface DigestPage {
   title: string
   /** Where it sits in the site. */
   address: string
-  kind: 'web' | 'email'
+  /** [[REQ-422]] — `header`/`footer` for the site's shared parts. */
+  kind: 'web' | 'email' | 'header' | 'footer'
   bands: DigestBand[]
   /**
    * What this page references, by the name the CLIENT reads ([[REQ-280]]).
@@ -266,7 +267,7 @@ export async function collectSiteDigest(
       id: String(page.id ?? ''),
       title: typeof page.title === 'string' ? page.title : String(page.id ?? ''),
       address: addressOf(page),
-      kind: page.kind === 'email' ? ('email' as const) : ('web' as const),
+      kind: page.kind === 'email' || page.kind === 'header' || page.kind === 'footer' ? page.kind : ('web' as const),
       bands: bandsOf(page),
       assets: assetsOf(page, labels),
     })),

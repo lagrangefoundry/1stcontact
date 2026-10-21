@@ -25,8 +25,16 @@ import {
   shareHeadTags,
 } from '@1stcontact/framework/worker'
 import type { BehaviorDefinition, ImageDeliveryManifest, ShareHead } from '@1stcontact/framework/worker'
-import { l1InlinedDrawings, l1RhythmUnit, resolveSiteLocale } from '@1stcontact/site-schema'
-import type { Page, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
+import {
+  carriedParts,
+  isPagePart,
+  isServedPage,
+  l1InlinedDrawings,
+  l1RhythmUnit,
+  resolveSiteLocale,
+  siteNavigation,
+} from '@1stcontact/site-schema'
+import type { L1Document, Page, PagePart, ResolvedLocale, Site, SiteCapabilities } from '@1stcontact/site-schema'
 // From `assemble`, which DEFINES `LoadedSite`, not from `loadSite`, which merely
 // re-exports it while importing `node:path` and the filesystem helpers. A
 // type-only import is erased before a bundler sees it, so the Worker's BUNDLE
@@ -275,6 +283,51 @@ function pageShareHead(site: Site, page: Page): ShareHead {
   }
 }
 
+/** [[REQ-422]] — the drawings each shared part asked for, read once per render. */
+type PartDrawings = Partial<Record<PagePart, Readonly<Record<string, string>>>>
+
+/**
+ * [[REQ-422]] — the site's header or footer, drawn as part of `page`, or `''`.
+ *
+ * A PART IS ITS OWN DOCUMENT, RENDERED BESIDE THE PAGE'S rather than spliced into
+ * it: its classes are prefixed with the part's name, and it sits outside the
+ * page's root. So the page's own addresses (`0.n`, what the editor, `set_l1` and
+ * the layout check name a section by) are exactly what they were, and nothing on
+ * a page can collide with anything in its header.
+ *
+ * THE WRAPPER IS `display: contents`, so the part's root lays out as if it were
+ * the body's own child — a sticky header sticks to the page, not to a wrapper of
+ * its own height — while the `<header>`/`<footer>` element still says what it is.
+ *
+ * IN THE EDIT CHANNEL A PART IS SHOWN BUT NOT EDITABLE THERE: it belongs to
+ * another page (`header`), whose own preview is where it is edited, and stamping
+ * its addresses here would resolve a click on it against the page being edited.
+ * `inert` keeps its links from navigating, as the edit render's links never do.
+ */
+function renderPart(
+  site: Site,
+  page: Page,
+  part: PagePart,
+  edit: boolean,
+  navigation: ReturnType<typeof siteNavigation>,
+  delivery?: ImageDeliveryManifest,
+  drawings?: Readonly<Record<string, string>>,
+): { html: string; css: string } | null {
+  const shared = carriedParts(page, site.pages)[part]
+  if (!shared?.l1) return null
+  const rendered = renderL1Document(shared.l1 as L1Document, {
+    prefix: part,
+    navigation,
+    delivery,
+    drawings,
+    rhythm: l1RhythmUnit(site),
+  })
+  return {
+    html: `<${part} data-l1-part="${part}"${edit ? ' inert' : ''}>${rendered.html}</${part}>`,
+    css: rendered.css,
+  }
+}
+
 /** Build a complete HTML document for one page. */
 function renderPage(
   site: Site,
@@ -283,6 +336,7 @@ function renderPage(
   edit: boolean,
   delivery?: ImageDeliveryManifest,
   drawings?: Readonly<Record<string, string>>,
+  partDrawings: PartDrawings = {},
 ): string {
   const title = page.seoMeta?.title ?? `${page.title} — ${site.config.businessName}`
   const description = page.seoMeta?.description ?? site.config.tagline ?? ''
@@ -301,17 +355,25 @@ function renderPage(
   page.modules.forEach((m, i) => {
     if (m.slot) mounts[m.slot] = rendered[i]
   })
+  // [[REQ-422]] — the site's navigation as drawn on this page, for every menu on
+  // it and in the parts it carries.
+  const navigation = siteNavigation(site.nav, site.pages, page.id)
   // REQ-420 — the rhythm unit is the site's, so it is handed in with the page.
   const l1 = page.l1
-    ? renderL1Document(page.l1, { mounts, edit, delivery, drawings, rhythm: l1RhythmUnit(site) })
+    ? renderL1Document(page.l1, { mounts, edit, delivery, drawings, rhythm: l1RhythmUnit(site), navigation })
     : null
-  const body = l1 ? l1.html : rendered.join('\n')
+  const header = renderPart(site, page, 'header', edit, navigation, delivery, partDrawings.header)
+  const footer = renderPart(site, page, 'footer', edit, navigation, delivery, partDrawings.footer)
+  const body = [header?.html, l1 ? l1.html : rendered.join('\n'), footer?.html].filter(Boolean).join('\n')
 
   const head = [
     '<meta charset="utf-8" />',
     '<meta name="viewport" content="width=device-width, initial-scale=1" />',
     `<title>${escapeHtml(title)}</title>`,
     description ? `<meta name="description" content="${escapeHtml(description)}" />` : '',
+    // [[REQ-422]] — whose site this is, in the standard place a browser reads it
+    // from. The layout check reads it too, to find the business at a page's top.
+    `<meta name="application-name" content="${escapeHtml(site.config.businessName)}" />`,
     // [[REQ-400]] — the tab icon and the share card. See {@link pageShareHead}.
     ...shareHeadTags(pageShareHead(site, page)),
     // Theme tokens (fonts, spacing, scales) are declared as custom properties in
@@ -332,6 +394,10 @@ function renderPage(
     // REQ-88: the folded L1 document's self-contained css (absolute geometry
     // keyframes + typed axes). Only present for a raw-L1 page.
     l1 ? `<style>\n${l1.css}\n</style>` : '',
+    // [[REQ-422]] — the shared parts' own rules, and their wrappers out of the way.
+    header || footer ? '<style>[data-l1-part] { display: contents }</style>' : '',
+    header ? `<style>\n${header.css}\n</style>` : '',
+    footer ? `<style>\n${footer.css}\n</style>` : '',
     // REQ-116 — the edit channel's own stylesheet: the faint per-segment outline.
     // It rides here, at the page level, rather than inside the L1 emitter's
     // per-node css, so it covers a module-only page too and is emitted exactly
@@ -386,7 +452,8 @@ function servedPages(site: Site): Page[] {
   // [[REQ-391]] — an alternative look is never published either: it is one of
   // several candidates for a real page, and only the one chosen onto that page
   // ever reaches the public site.
-  return site.pages.filter((page) => page.kind !== 'email' && !page.alternative)
+  // [[REQ-422]] — nor is a shared part: it is drawn into the pages that carry it.
+  return site.pages.filter(isServedPage)
 }
 
 /**
@@ -409,6 +476,9 @@ function renderedPages(site: Site, unpublished: boolean): Page[] {
     ...servedPages(site),
     ...site.pages.filter((page) => page.kind !== 'email' && page.alternative),
     ...site.pages.filter((page) => page.kind === 'email'),
+    // [[REQ-422]] — and the site's header and footer, each on its own, so the
+    // builder can show the one place they are edited.
+    ...site.pages.filter((page) => isPagePart(page.kind)),
   ]
 }
 
@@ -521,6 +591,13 @@ export async function renderSiteFiles(
   const resolveModule = opts.resolveModule ?? getModule
   const pages: string[] = []
 
+  // [[REQ-422]] — the shared parts' drawings, read once rather than per page.
+  const partDrawings: PartDrawings = {}
+  for (const part of site.pages.filter((page) => isPagePart(page.kind))) {
+    const read = await pageDrawings(part, opts.readAsset)
+    if (read) partDrawings[part.kind as PagePart] = read
+  }
+
   for (const page of renderedPages(site, opts.unpublishedPages === true)) {
     // REQ-109 — the flatness invariant. Emitted asset URLs are document-relative
     // (`assets/x.svg`, not `/assets/x.svg`) so a snapshot is relocatable under any
@@ -543,7 +620,7 @@ export async function renderSiteFiles(
     const html =
       page.kind === 'email'
         ? renderEmailPage(site, page)
-        : renderPage(site, page, resolveModule, edit, opts.delivery, await pageDrawings(page, opts.readAsset))
+        : renderPage(site, page, resolveModule, edit, opts.delivery, await pageDrawings(page, opts.readAsset), partDrawings)
     // A message with no document has no file — see {@link renderEmailPage}.
     if (html === null) continue
     const file = `${page.slug}.html`

@@ -61,7 +61,8 @@
 import type { GlobalOptions } from '../options'
 import type { SiteStore, StoredPage } from '../../store/site-store'
 import { scopeOf } from '../../store/journal-model'
-import { editAlternativeChoose, servedPageId } from '../edit'
+import { editAlternativeChoose, servedPageId, siteStructureFindings, siteStructureLine } from '../edit'
+import { homePageOf, isPagePart, isServedPage } from '@1stcontact/site-schema'
 import {
   COORDINATOR_ROLE,
   coordinatorRole,
@@ -1442,7 +1443,7 @@ async function unlookedFor(deps: HostDeps, slug: string): Promise<NotLooked[]> {
   const looked = plan?.fields.looked_at ?? {}
   const pages = (await deps.store.readPages(slug))
     .map((p) => p.page)
-    .filter((page) => page.kind !== 'email' && !page.alternative)
+    .filter(isServedPage)
     .map((page) => ({ id: String(page.id), name: String(page.slug) }))
   const ats = pages.flatMap((p) => Object.values(looked[p.id] ?? {}))
   const since = ats.length ? Math.min(...ats) : await deps.store.counter(slug)
@@ -1501,15 +1502,25 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
     ]
     if (written.length === 0) return output
     let stored: StoredPage[]
+    let siteJson: Record<string, unknown> | null
     try {
       stored = await deps.store.readPages(slug)
+      siteJson = await deps.store.readSiteJson(slug)
     } catch {
       return output
     }
-    const pages = written
+    const touched = written
       .map((id) => stored.find((p) => String(p.page.id) === id))
-      .filter((p): p is StoredPage => p !== undefined && p.page.kind !== 'email')
-    if (pages.length === 0) return output
+      .filter((p): p is StoredPage => p !== undefined)
+    // [[REQ-422]] — a shared part is seen where it is drawn: on the home page.
+    const home = homePageOf(stored)
+    const pages = [
+      ...touched.filter((p) => isServedPage(p.page)),
+      ...(touched.some((p) => isPagePart(p.page.kind)) && home && !touched.some((p) => p.page === home)
+        ? stored.filter((p) => p.page === home)
+        : []),
+    ]
+    if (pages.length === 0 && touched.every((p) => !isPagePart(p.page.kind))) return output
     const key = managerKey(slug, deps)
     const owed = layoutOwed.get(key) ?? new Map<string, string[]>()
     layoutOwed.set(key, owed)
@@ -1537,8 +1548,22 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
         lines.push(`No picture of ${name}: ${said(error)}.`)
       }
     }
+    /*
+     * [[REQ-422]] — AND HOW THE SITE'S PAGES HANG TOGETHER: every page reachable
+     * from home, a way back home from every page, no placeholder left from a
+     * page's creation. Across EVERY page, not only those written, because a build
+     * that hid a page from the menu stranded a page it never touched. Owed under
+     * its own key per page, so a later browser look at the page cannot clear it.
+     */
+    const structure = siteJson ? siteStructureFindings(stored, siteJson) : []
+    for (const p of stored.filter((s) => isServedPage(s.page))) {
+      const found = structure.filter((f) => f.page === String(p.page.id)).map(siteStructureLine)
+      if (found.length) owed.set(`${String(p.page.id)}#site`, found)
+      else owed.delete(`${String(p.page.id)}#site`)
+      lines.push(...found)
+    }
     const unpictured = pages.map((p) => String(p.page.slug)).filter((n) => !pictured.includes(n))
-    const faulty = pages.some((p) => owed.has(String(p.page.id)))
+    const faulty = pages.some((p) => owed.has(String(p.page.id))) || structure.length > 0
     const widths = LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`).join(' and ')
     const report = [
       'The host looked at what the build you started wrote, so you did not have to ask. This is guidance for you, not words for your client.' +
@@ -1549,7 +1574,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       `Layout at ${widths}:`,
       ...lines.map((l) => `- ${l}`),
       faulty
-        ? 'THIS BUILD IS NOT DONE: a page it wrote has layout faults. Fix every line above in this request — brief the fix with them — and look again before you tell your client the page is ready.'
+        ? 'THIS BUILD IS NOT DONE: the site has layout or navigation faults. Fix every line above — brief the fix with them — and look again before you say a page is ready or in the menu.'
         : 'No layout faults at either width. Whether the page is what your client asked for is what the picture is for.',
       // [[BUG-241]] — what this is, said to the consultant in the words its client hears.
       'To your client, this is you checking the page on a computer and a phone: never name the check, or who wrote the page.',

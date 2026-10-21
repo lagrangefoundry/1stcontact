@@ -36,7 +36,7 @@ import { CommandError } from '../errors'
 import { pageSegments } from '../segments'
 import { auditKey, auditPage } from '../style-audit'
 import { publishSite } from '../../publish/publish'
-import type { EditOptions, LookSpec } from '../edit'
+import type { EditOptions, LookSpec, NavEntrySpec } from '../edit'
 import {
   editAssetAdd,
   editAssetGet,
@@ -69,6 +69,8 @@ import {
   editSectionRemove,
   editPageList,
   editPageRm,
+  editNavSet,
+  editShareSection,
   editPageUpdate,
   editPaletteAdd,
   editPaletteGet,
@@ -262,15 +264,19 @@ const obj = (p: Params, name: string): Record<string, unknown> | undefined =>
  * and then refine its subject with the same vocabulary it created it with.
  */
 function pageKindOf(p: Params): {
-  kind?: 'web' | 'email'
+  kind?: 'web' | 'email' | 'header' | 'footer'
   subject?: string
   placeholders?: string[]
   from?: string
+  shared?: { header?: boolean; footer?: boolean }
 } {
   const kind = opt(p, 'kind')
   const declared = p.placeholders
+  // [[REQ-422]] — which shared parts a web page opts out of.
+  const shared = obj(p, 'shared') as { header?: boolean; footer?: boolean } | undefined
   return {
-    ...(kind === 'email' || kind === 'web' ? { kind } : {}),
+    ...(kind === 'email' || kind === 'web' || kind === 'header' || kind === 'footer' ? { kind } : {}),
+    ...(shared ? { shared } : {}),
     ...(opt(p, 'subject') === undefined ? {} : { subject: opt(p, 'subject') }),
     ...(Array.isArray(declared) ? { placeholders: declared.map((entry) => String(entry)) } : {}),
     ...(opt(p, 'from') === undefined ? {} : { from: opt(p, 'from') }),
@@ -591,7 +597,7 @@ export function l1Operations(
           id: page.id,
           slug: page.slug,
           title: page.title,
-          kind: mailed ? 'email' : 'web',
+          kind: mailed ? 'email' : page.kind === 'header' || page.kind === 'footer' ? page.kind : 'web',
           seoMeta: page.seoMeta ?? null,
           ...(mailed ? { email: page.email ?? {} } : {}),
         },
@@ -841,6 +847,7 @@ export function l1Operations(
         seoMeta: obj(p, 'seo'),
         ...pageKindOf(p),
         ...(p.sections === true ? { sections: true } : {}),
+        ...(p.nav === false ? { nav: false } : {}),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },
@@ -854,6 +861,7 @@ export function l1Operations(
         ...opts,
         title: opt(p, 'title'),
         path: opt(p, 'path'),
+        ...(p.nav === false ? { nav: false } : {}),
       })
       return { changed: out.data, message: out.human, now: out.at }
     },
@@ -914,6 +922,22 @@ export function l1Operations(
 
     remove_page: async (p) => {
       const out = await editPageRm(slug, req(p, 'page'), opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-422]] — the menu's order, labels and which pages it shows.
+    set_navigation: async (p) => {
+      const out = await editNavSet(slug, (Array.isArray(p.entries) ? p.entries : []) as NavEntrySpec[], opts)
+      return { changed: out.data, message: out.human, now: out.at }
+    },
+
+    // [[REQ-422]] — a page's own top section becomes the site's shared header or footer.
+    share_section: async (p) => {
+      const as = req(p, 'as')
+      if (as !== 'header' && as !== 'footer') {
+        throw new CommandError({ code: 'SCHEMA_INVALID', message: `'as' is 'header' or 'footer', not '${as}'.` })
+      }
+      const out = await editShareSection(slug, req(p, 'page'), req(p, 'section'), as, opts)
       return { changed: out.data, message: out.human, now: out.at }
     },
 

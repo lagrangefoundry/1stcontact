@@ -70,6 +70,8 @@ import type {
   l1StickySchema,
   l1SurfaceAxesSchema,
   l1TableCellSchema,
+  l1NavItemSchema,
+  l1NavSchema,
   l1TableColumnSchema,
   l1TableNarrowSchema,
   l1TableSchema,
@@ -197,6 +199,9 @@ export type L1Table = z.infer<typeof l1TableSchema>
 export type L1TableCell = z.infer<typeof l1TableCellSchema>
 export type L1TableColumn = z.infer<typeof l1TableColumnSchema>
 export type L1TableNarrow = z.infer<typeof l1TableNarrowSchema>
+// REQ-422 — the site's navigation, and how each of its items looks.
+export type L1Nav = z.infer<typeof l1NavSchema>
+export type L1NavItem = z.infer<typeof l1NavItemSchema>
 export type L1Box = z.infer<typeof l1BoxSchema>
 export type L1Container = z.infer<typeof l1ContainerSchema>
 export type L1Node = z.infer<typeof l1NodeSchema>

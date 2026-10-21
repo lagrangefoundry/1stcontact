@@ -115,6 +115,103 @@ export function starterDocument(heading: string): Record<string, unknown> {
   }
 }
 
+/** [[REQ-422]] — what a site's header and footer start as; see {@link starterPartDocument}. */
+export interface StarterPartOptions {
+  /** The business name, set as the wordmark that links home. */
+  name: string
+  /** The wordmark's size at phone and desktop width (`layout-check.json`'s `brand.wordmarkPx`). */
+  wordmarkPx: { phone: number; desktop: number }
+  /** A named text style the wordmark takes its face from, when the site has one for headings. */
+  textStyle?: string
+}
+
+/**
+ * [[REQ-422]] — the document a site's shared HEADER or FOOTER starts life with.
+ *
+ * A HEADER IS THE BUSINESS AND THE WAY AROUND THE SITE: its name, linking home,
+ * at a size that reads as the business on a phone and on a desktop — never
+ * smaller than the page's headings, which is what builders kept getting wrong —
+ * and the site's navigation beside it, folding behind a menu button on a phone.
+ * A FOOTER is the name again and the same navigation, centred and never folded.
+ *
+ * Both are ordinary L1, written with the same operations as any page, so this is
+ * a starting point and not a template: everything here is the builder's to
+ * restyle. The navigation's ITEMS are not here — they are the site's pages.
+ */
+export function starterPartDocument(part: 'header' | 'footer', opts: StarterPartOptions): Record<string, unknown> {
+  const phone = STARTER_WIDTHS.find((w) => w >= 375) ?? STARTER_WIDTHS[0]
+  const desktop = STARTER_WIDTHS.find((w) => w >= 1280) ?? STARTER_WIDTHS[STARTER_WIDTHS.length - 1]
+  const header = part === 'header'
+  const nameSize = header ? opts.wordmarkPx : { phone: 18, desktop: 18 }
+  const wordmark = {
+    kind: 'text',
+    id: `${part}-name`,
+    text: opts.name,
+    link: { href: '/' },
+    axes: {
+      color: STARTER_TEXT,
+      ...(opts.textStyle ? { textStyle: opts.textStyle } : {}),
+      fontSizePx: nameSize.desktop,
+      fontWeight: 700,
+      lineHeightPx: Math.round(nameSize.desktop * 1.2),
+    },
+    ...(nameSize.phone !== nameSize.desktop
+      ? {
+          responsive: {
+            fontSizePx: {
+              keyframes: [
+                { at: phone, value: nameSize.phone },
+                { at: desktop, value: nameSize.desktop },
+              ],
+            },
+            lineHeightPx: {
+              keyframes: [
+                { at: phone, value: Math.round(nameSize.phone * 1.2) },
+                { at: desktop, value: Math.round(nameSize.desktop * 1.2) },
+              ],
+            },
+          },
+        }
+      : {}),
+  }
+  const nav = {
+    kind: 'nav',
+    id: `${part}-nav`,
+    ...(header ? {} : { align: 'center', collapseBelowPx: 0, gapPx: 16 }),
+    item: {
+      kind: 'text',
+      text: 'Page',
+      axes: { color: STARTER_TEXT, fontSizePx: header ? 16 : 14, fontWeight: header ? 500 : 400, lineHeightPx: header ? 24 : 20 },
+    },
+  }
+  return {
+    widths: [...STARTER_WIDTHS],
+    background: STARTER_BACKGROUND,
+    textColor: STARTER_TEXT,
+    root: header
+      ? {
+          kind: 'container',
+          id: 'site-header',
+          layout: 'row',
+          wrap: true,
+          align: 'center',
+          distribution: 'between',
+          gapPx: 24,
+          padding: { topPx: 16, rightPx: 24, bottomPx: 16, leftPx: 24 },
+          children: [wordmark, nav],
+        }
+      : {
+          kind: 'container',
+          id: 'site-footer',
+          layout: 'stack',
+          align: 'center',
+          gapPx: 12,
+          padding: { topPx: 32, rightPx: 24, bottomPx: 32, leftPx: 24 },
+          children: [wordmark, nav],
+        },
+  }
+}
+
 /**
  * [[BUG-215]] — what an account's starter page says: the line the preview has
  * always shown before anything is built, now ON the page rather than in place of
