@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:37:47.899380+00:00'
+updated_at: '2026-10-21T17:38:43.065502+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11007,5 +11007,26 @@ Which was it? If it was the composer button, reloading the page should fix it fo
 **he round ▶ Send button in the composer turned into a red ■:**
 
 **Also this turn I do not see the messages telling me that the consultant is doing at the top like the last feew turns - they are in the chat and there is no update on timing**
+
+<!-- xgd-turn id="739447c2-ece1-4234-a712-e990def929d0-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:38:42.374319+00:00" -->
+#### Claude
+Both symptoms point to the same thing: the chat stopped treating the build as a talk-mode build. I've filed **BUG-247** (high, 3 points) under EPIC-19.
+
+**What's certain:**
+- The turn answered you first, then wrote to the plan (pinned notes, set the stage twice, added a panel question), then reported progress and started a builder. There was no talker in it.
+- Your dev snapshot (deployed today at 08:51) has both the BUG-89 Stop fix and BUG-244's widget under the progress banner. Those were working on the previous turns.
+
+So for Send to turn into ■ **and** the widget not to appear, one of these must have happened, and the ticket asks for each to be checked in this order:
+1. **Talk mode was lost in your browser.** Something remounted the chat without the "this conversation has a talker" flag. Candidates are the view switch the consultant made at 17:31:36 (*"Showing you the Home page"*), or reconnecting to a turn already running. Without talk mode, the old rule applies: Stop shows until the widget appears.
+2. **The widget was drawn somewhere you can't see.** This turn rewrote the plan panel four times *before* its first progress update. If a redraw replaces the box the widget lives in, the widget is drawn into a detached element. That would explain the missing timer, and with talk mode off it also explains the Stop.
+3. **A turn that answers first and then starts building** is handled differently from one that starts building straight away, which was the previous turns' pattern.
+
+**Required behaviour:**
+- with a talker configured, the composer never shows Stop unless a talker reply is being written;
+- whenever the consultant is working, the widget shows under the progress banner with its note and timer, including after plan redraws and after a reload partway through a build.
+
+**For now:** reload the page once this build finishes. If talk mode comes back on the next build, that points to explanation 1. If the widget is still missing after a plan update, that points to explanation 2. Tell me what you see and I'll add it to the ticket.
 
 <!-- xgd-chat-end -->
