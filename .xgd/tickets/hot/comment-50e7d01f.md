@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:54:43.788729+00:00'
+updated_at: '2026-10-21T15:56:45.251327+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4388,5 +4388,31 @@ That will give us the first real before-and-after figure for builder spend.
 <!-- xgd-chat role="user" ts="2026-10-21T15:54:42.865228+00:00" -->
 #### You
 Sure please apply the draft and we will try it outt
+
+<!-- xgd-turn id="0fb240cb-82aa-4a29-b12d-8e6880f5310b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T15:56:43.523694+00:00" -->
+#### Claude
+Applying it. It's prompt text only, so no ticket is needed. My notes say `priming.json` mixes escape styles and a JSON round-trip churns about 100 lines, so I'll splice the text in place instead.
+
+All six edits are applied to both priming variants, and both are still identical to each other. Next I'll check whether any tests pin the sentences I replaced.
+
+No test pins the replaced wording. I'll run the suites that load `priming.json` to make sure nothing checks its shape or size in a way the additions break.
+
+The filter was too long for vitest. Running the most relevant suites by short name instead.
+
+All 13 suites pass (105 tests). Committing just `priming.json`; the other modified files in the tree aren't mine.
+
+I've applied the discovery draft to the consultant's priming and committed it on xgd-working as `ba4773e9dc`. It goes into both priming variants and changes the prompt text only.
+
+- **Closing discovery:** the consultant sums up what it has heard, then asks one open question ("Is there anything else about the salon that would make the site more you?"). The stage counts as done once you've had the last word.
+- **When to stop asking:** it drops a topic after short or "don't know" answers. Once it has enough, it only pins a new note if that note could change the site. It never asks the same question twice.
+- **After discovery:** questions have to tie to a decision about the site (who it's for, the look, the page structure), and your feedback on the page always comes first.
+- **While a build runs:** it asks a story question only while discovery is still open, and gives a progress update only when something changes.
+- **Comps:** the comp search opens with "Who do you lose jobs to?", and it talks your reactions through before naming a direction.
+
+No tests pinned the old wording. The 13 suites that load the priming file all pass (105 tests). I committed only `priming.json`; the other files already modified in your tree weren't touched.
+
+To try it, run `bin/deploy --env dev` and build a fresh test site. After the session I can check the conversation (whether discovery closes out and whether the questions ease off once there's a draft) and the cost: whether builders now share their starting context, stop after reporting, and are priced correctly.
 
 <!-- xgd-chat-end -->
