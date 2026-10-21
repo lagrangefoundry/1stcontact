@@ -37,8 +37,9 @@ take a cent. We've all been going there ever since.
 
 **★★★★☆ "Prov-bound" (Yelp)**
 Worth the drive from Providence for Marisol's curly cuts. Only four stars
-because parking on E Broadway on a Saturday is a nightmare, and the stairs
-are steep. Not their fault, but plan for it.
+because parking on E Broadway on a Saturday is a nightmare. Not their
+fault, but plan for it. (At least they moved downstairs. The old place's
+stairs were brutal.)
 
 ---
 

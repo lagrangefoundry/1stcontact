@@ -26,8 +26,8 @@ it and hated the atmosphere: the upsell, the price list with "men's" and
 clothes. Downtown he became the guy people were sent to for long hair,
 men especially, because nobody else wanted them.
 
-In 2012 he took the second floor above a bakery on East Broadway, a former
-insurance office with one sink. He opened with two chairs and one rule:
+In 2012 he took the second floor above Dorsey's Bakery on East Broadway, a
+former insurance office with one sink. He opened with two chairs and one rule:
 price by the hair, not the person. His mother did the reception the first
 year. The old Southie ladies came because they knew his mother. The long-hair
 guys came because they'd been looking for him for years.
@@ -37,6 +37,15 @@ Twee rented the nail station in 2017. She was meant to stay a year and is
 still there. Aoife arrived from Galway in 2021 and turned the old storage
 room into a facial room. Her "come here, you've got dry skin" pitch to men
 waiting for haircuts became a whole part of the business.
+
+By then the upstairs was bursting: five people, one sink, a facial room
+the size of a closet, and a waiting list. In 2022 the hardware store two
+doors down closed, and Bob took the ground floor. Now there's a big front
+window, four chairs, three sinks, a proper nail bar, a real facial room,
+and no stairs, which mattered to his mother. Clients carried the Wigs for
+Kids photos down the street by hand, one frame each, and the wall went
+back up by the new front desk. Dorsey's still sends a bag of day-old
+bread over every Saturday.
 
 The free Wigs for Kids cuts started in 2013, after Bob's niece was treated
 for leukaemia at Children's. The wall of photos by the front desk has over
@@ -71,14 +80,21 @@ in the chair what Bob was like at nine.
 > nobody blinks.
 
 **Opening**
-> 2012. Second floor over the bakery, one sink, two chairs. I hardly had
-> any money. The smell of bread every morning's the best thing about it,
-> still.
+> 2012. Second floor over Dorsey's Bakery, one sink, two chairs. I hardly
+> had any money. The smell of bread every morning, that's what I miss.
+
+**The move**
+> Ten years upstairs, then we just ran out of room. Five of us, one sink,
+> Aoife doing facials in what used to be a closet. When the hardware store
+> two doors down closed in 2022, I took it. Street level, a big window,
+> no stairs for my ma. The clients carried the Wigs for Kids photos down
+> the block by hand, one each. I still get my coffee at Dorsey's every
+> morning.
 
 **The team**
 > Marisol came in 2015 and she's the reason we're known for colour. Twee came
 > to rent the nail station "for a year". That was 2017. Aoife came from Galway
-> in 2021, cleared out my storage room and made it a facial room. Best decision
+> in 2021, cleared out my old storage room and made it a facial room. Best decision
 > I never made.
 
 **Wigs for Kids**

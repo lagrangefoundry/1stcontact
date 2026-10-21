@@ -91,8 +91,9 @@ mid-back).
 > want to lose.
 
 > **The Whole Thing**: cut, colour, manicure and express facial in one
-> visit. About four hours. We take 10% off and bring you lunch from the
-> bakery downstairs.
+> visit. About four hours. We take 10% off and bring you lunch from
+> Dorsey's Bakery, two doors down. They were our downstairs neighbours
+> for ten years.
 
 > **Bridal party**: priced together. Call and talk to me.
 

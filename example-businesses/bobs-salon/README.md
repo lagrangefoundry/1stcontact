@@ -19,7 +19,8 @@ Introduce these in character for them to count.
 | | |
 |---|---|
 | Owner | Bob Kearney, 48. Grew up on the Old Harbor side of Southie |
-| Address | 461 E Broadway, South Boston, MA 02127. Second floor, above a bakery |
+| Address | 461 E Broadway, South Boston, MA 02127. A street-level storefront since 2022 |
+| First shop | 2012–2022, upstairs over Dorsey's Bakery, two doors down at 455 E Broadway |
 | Phone | (617) 555-0142 |
 | Email / web | hello@bobssalon.example · bobssalon.example |
 | Opened | 2012 |
@@ -152,12 +153,11 @@ Paste these as they are or mix them.
 | `wigs-for-kids-wall.png` | Reception and the Wigs for Kids photo wall with donated braids |
 
 The staff names are matched to the portraits by role and look. They're
-assignments, not something the images say. Two of the images disagree with
-the invented details:
+assignments, not something the images say. Notes:
 
-- The shop in the photos is a **street-level storefront** with a sidewalk
-  chalkboard. The docs say "second floor above a bakery", and the
-  testimonials mention steep stairs.
+- The photos show the **current** shop, a street-level storefront
+  (since 2022). The **original** 2012 shop was upstairs over the bakery
+  two doors down. There are no photos of it yet.
 - The chalkboard line **"Good hair, kinder people"** is a ready-made
   tagline. The docs don't use it yet.
 - `wigs-for-kids-wall.png` has an AI typo on the brass plaque ("SMALL ACTS MAKE A BIG

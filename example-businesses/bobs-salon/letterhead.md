@@ -2,7 +2,7 @@
 
 **Long hair, for everyone. South Boston since 2012**
 
-461 E Broadway, 2nd floor · South Boston, MA 02127
+461 E Broadway · South Boston, MA 02127
 (617) 555-0142 · hello@bobssalon.example · bobssalon.example
 
 ---
