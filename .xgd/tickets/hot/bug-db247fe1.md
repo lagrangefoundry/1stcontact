@@ -6,7 +6,7 @@ title: 'Turns can wedge a session until the server restarts: progress deadline, 
   leases, automatic recovery, no ugly client errors'
 created_by: EPIC-19
 created_at: '2026-10-21T18:37:46.343167+00:00'
-updated_at: '2026-10-21T18:45:04.306412+00:00'
+updated_at: '2026-10-21T19:02:24.806619+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -19,6 +19,7 @@ fields:
   needs_review: false
   chat_comment: comment-962214e3
 ---
+
 
 ## Incident (Ariel's AR Welding run, 2026-10-21 18:29 UTC)
 
@@ -84,3 +85,76 @@ A second incident, different cause: the worker round was healthy, but every talk
 - When a talker round fails, the host does not leave the client's message unanswered: it queues the message for the worker's next boundary / the next round (BUG-224's path), and the client sees a gentle line ("I'll pick that up as soon as this part of the build is done").
 - Repeated talker failures in one worker round are logged with their cause and stop being attempted for that round.
 - Test: a talker round that ends `status: error` leaves the message delivered to the next round and shows the gentle line; no message is lost.
+
+## Diagnosis (2026-10-21, implementing session)
+
+The mechanism that matches the incident: a turn parked forever on an await (a tool call, a DO
+write) keeps its session claim alive. The claim is held because lagrange-framework's
+`TurnLease` heartbeat is a bare 5 s timer. `/api/ai/session` reports `live: true`, so the
+failure notice is suppressed and the panel reattaches to a tail that never ends. Every retry
+loses `claimTurn` and is answered `queued` onto a queue this host never drains, so it closes
+`complete` with no reply. Nothing can unblock the turn: Stop aborts only the model stream,
+the tool loop sits in `await entry.settled`, and `withProgress`'s and the manager's `finally`
+both wait on the hung step. A restart "fixes" it because the heartbeats stop and the claim
+lapses. The framework half is filed as **lagrange-framework BUG-92 (`bug-266fbb52`)**:
+progress-tied heartbeat, cancellable tool waits, a bounded `promptStream` finally, a public
+`abandonTurn`, 5xx/529/stream-stall retry in `ClaudeAPIBackend`, and talker `done` carrying
+its status. This ticket is the host half. No code lands in lagrange-framework from here.
+
+## Design (host half, as implemented)
+
+1. **Progress deadline** (`progress-core.ts` `withProgress`). It already wraps every
+   consultant turn's `promptStream` and wakes on a poll while the turn is silent, and the
+   settings turn is now wrapped too. Progress means any event from the turn's own stream,
+   or any junction record that is not control-class. Not progress: `heartbeat`,
+   `turn_claim`, `stop_request`, `enqueue`, `interpose`, `subject`, and a host-sourced
+   `progress` (the delegation runtime's "still working" timer is a heartbeat as well). A
+   delegated worker writes to its *own* session's junction, so the host counts progress
+   across every junction its manager opens. It does this with a per-manager witness, by
+   wrapping the junction store given to the manager. A delegated build that is working is
+   therefore never cut, and one whose worker is wedged is.
+   When nothing has progressed for `stall_seconds` (`turn-clock.json`, default 300), the
+   wrapper stops waiting on the hung step without awaiting it. It reports what the turn
+   was last doing (the last record kind, and the tool named by an unanswered `tool_issue`,
+   or `model` while it waits on the model). It then runs the host's release and ends the
+   stream with a `done` whose `status` is `stalled`.
+2. **Release** (host-core `releaseStalledTurn`). It requests a stop, which aborts the model
+   stream if that is what hung. It appends `turn_end {status: aborted, stalled: true}` for
+   every `turn_start` of this turn (worker and talkers) that has no end; that frees the
+   claim, ends the talker's claim and makes `live` false. It drops the dead fork and the
+   talker count, so the next round is not assembled as a talker's. REQ-397 draft leases
+   already expire on their own (idle 300 s, implicit 60 s), so nothing more is needed for
+   them. `siteTurn`'s own `finally` then runs normally: pending record, spend row and
+   occupancy close as `aborted`.
+3. **Bounded Durable Object calls** (`junctions.ts`). Every write-behind call and the
+   adopt read has a ceiling (`DO_CALL_TIMEOUT_MS`, 15 s). A hung DO call is logged and
+   dropped from the chain. That repairs itself: the next adopt sees the object behind and
+   re-sends the tail. A wedged drain therefore never blocks `prepare`, the next turn or the
+   route's flush.
+4. **The flow picks back up** (`continuedTurn`, REQ-409's continuation). A round that
+   stalls is continued once per client message with a host cue (`stall-continuation-cue`,
+   naming what did not return), kept off the client's transcript like the other cues. The
+   client sees the status line "One moment — picking that back up…" meanwhile. A second
+   stall in the same message ends the request with the stall recorded.
+5. **Every turn closes in `turn_log` with a cause.** `stalled` is a new outcome; its detail
+   is the silence and the awaited operation (`stalled 300s awaiting tool Delegate (last:
+   tool_issue)`). A recovered request still records `stalled`, because it did stall. An
+   errored done carries its error text as detail. A **watchdog** on the existing 10-minute
+   cron closes rows open past `TURN_LOST_AFTER_MS` as outcome `lost`, detail `watchdog: no
+   close recorded`. The operator console's turn health counts `stalled`.
+6. **Diagnosable**: the stall is logged at the moment it happens. It is a JSON
+   `turn_stalled` line on `console.error` with session, turn, silence, awaited op and last
+   record, which is the operator-visible alert in the Workers log.
+7. **No ugly client messages.** A `TURN_DIAGNOSTICS` var is `"1"` in local `[vars]` and
+   `[env.dev.vars]` and absent in production. Without it, `/api/ai/session`'s `failed`
+   carries no turn id and no detail, and the panel shows a gentle line ("That reply was cut
+   short — sorry. Ask again and I'll pick it up."). With it, the detailed note stays.
+8. **Admin unstick**: `POST /api/ai/unstick {sessionId}`, available to a platform admin.
+   It runs the same release over every open turn in that session's junction. It is the
+   last resort when something holds a session the deadline has not reached.
+9. **A talker that fails does not go silent.** When a talker round's `turn_end` says
+   `error`, the host logs it with its cause and puts the client's message back in the
+   inbox. It stops opening talkers for the rest of that worker round, and from then on
+   delivers waiting messages at the worker's tool boundaries (BUG-224's path), or the panel
+   runs them as the next prompt. The client sees "I'll pick that up as soon as this part of
+   the build is done."
