@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:03:08.197521+00:00'
+updated_at: '2026-10-21T19:03:40.554601+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11379,5 +11379,27 @@ And then we get the "Look carosel" this is another slightly odd mode. Edit doesn
 Perhaps we need a new mode "Looks" that appears at this point. It doesn't show the draft it only shows looks Edit mode is not available nor is Colors.
 
 What do you think?
+
+<!-- xgd-turn id="62adcd56-fdfa-4260-8395-1f9c63ed425b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:03:37.531234+00:00" -->
+#### Claude
+**The refresh:** yes, BUG-248 covers it. Each look is its own page (for example `home-heavy-duty`), so "refresh only when the page you're viewing changed" means building a look won't touch Current, and the reverse. I've added that case to BUG-248's tests to make sure it's tested.
+
+**A Looks mode:** I think you're right. It's also a reversal of what we decided in BUG-205, so here's why it makes sense now.
+
+In BUG-205 you asked for **no separate mode**: carousel controls on the existing bar, with the current draft as one of the looks. That made sense when View and Edit were the only modes and a hidden mode switch was confusing. Since then the bar has become a set of visible, named modes (View, Edit, Story, Comparisons). Against that, a carousel that appears inside View is the odd one out, and "Current" pretending to be a look is misleading:
+- **Edit doesn't work on a look,** but the Edit button is still there.
+- **Colours would apply to the wrong thing.**
+- **"Current" isn't a look.** It's the real page, and choosing it means "keep what I have", which is a different kind of decision.
+
+**What I'd propose:**
+- **A Looks tab** appears in the mode bar **only while the page has looks**, and disappears once one has been chosen. When the consultant makes looks, it opens this tab for you (REQ-413's `show_client` already has a looks target).
+- **It shows only the looks,** not the draft. The REQ-402 band stays: ‹ Name ›, "2 of 3", the full description, and "Tell the consultant which look you prefer, and why."
+- **Edit and Colours aren't available in it.** Width, View on your phone and Open in new tab are, since judging a look on a phone matters.
+- **To compare with what you have,** you switch to View. A small "Compare with your current page" link in the band jumps there and back, so the draft isn't lost from sight, but it isn't presented as a look either.
+- **Choosing stays in the conversation,** as now ("I'll go with Workwear because…"), and keeping the current page is a valid answer.
+
+That means undoing part of BUG-205: the toolbar carousel goes, "Current" stops being a position in it, and the REQ-402 band moves into the Looks tab. Shall I file it as one bug under EPIC-19?
 
 <!-- xgd-chat-end -->
