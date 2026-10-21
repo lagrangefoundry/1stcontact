@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:55:24.065159+00:00'
+updated_at: '2026-10-21T19:03:08.197521+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11364,5 +11364,20 @@ Your eye is right, and our check is too lenient to catch it.
 - **A new layout-check finding, `name_smaller_than_headings`:** the business name smaller than any section heading on the page, at desktop or phone width, means the build isn't done. It applies to today's pages as well, not only once the shared header exists.
 
 For the run you're in now: ask the consultant to make the name at least as large as the section headings. It'll be quick to fix by hand until the check lands.
+
+<!-- xgd-turn id="62adcd56-fdfa-4260-8395-1f9c63ed425b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:03:07.524491+00:00" -->
+#### You
+Related to one of the earlier tickets - the "Current" site is being refeshed every time a change is made to one of the other looks. Hopefully the page fix will fix that too.
+
+We know have these clearly defined modes:
+View Edit Story Comparison
+
+And then we get the "Look carosel" this is another slightly odd mode. Edit doesn't work on the "Looks" - Current appears as if it were a look but is not its different.
+
+Perhaps we need a new mode "Looks" that appears at this point. It doesn't show the draft it only shows looks Edit mode is not available nor is Colors.
+
+What do you think?
 
 <!-- xgd-chat-end -->
