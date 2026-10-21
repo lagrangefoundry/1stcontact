@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:58:25.213881+00:00'
+updated_at: '2026-10-21T18:00:05.960562+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11095,5 +11095,11 @@ On the preview refreshes, the code explains all three:
 4. **Fewer refreshes during a burst of changes.** While a build is making many changes, refresh at most every few seconds, plus once when it finishes. You still watch the page grow, without constant redraws.
 
 It's mostly browser-side, plus one change to the site-changed signal so it names the pages. Shall I file it as one bug under EPIC-19?
+
+<!-- xgd-turn id="23e40041-dfc4-4b49-8528-b834731da71b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:00:04.233592+00:00" -->
+#### You
+Yes please
 
 <!-- xgd-chat-end -->
