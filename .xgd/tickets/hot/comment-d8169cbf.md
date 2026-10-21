@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:14:29.834041+00:00'
+updated_at: '2026-10-21T01:17:57.290230+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10651,5 +10651,11 @@ Today the only rule is one line, *"Do not name framework concepts to your client
 - **The vocabulary table above**, written into the consultant's priming. That's a prompt change, but the existing one-line reminder may be checked word for word by a test, so I'd put it in the same ticket. The ticket should also cover rewording the host's own cues to the consultant ("the build you started…" rather than naming builders), so they don't keep teaching it the wrong words.
 
 Does the table match what you want, and shall I file it?
+
+<!-- xgd-turn id="fc8a55b3-3535-4077-bd36-679040ea4cc5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T01:17:54.333011+00:00" -->
+#### You
+Sounds good - we should allow the AI to break character for debugging though - I have been using bc: for out of character discussion perhaps we should include that in the prompt too
 
 <!-- xgd-chat-end -->
