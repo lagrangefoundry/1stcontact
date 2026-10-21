@@ -6,7 +6,7 @@ title: 'L1: vertical rhythm — text styles carry space above and below, so a he
   attaches to its paragraph'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:20.891074+00:00'
-updated_at: '2026-10-21T00:16:51.583665+00:00'
+updated_at: '2026-10-21T00:19:36.943070+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -148,12 +148,17 @@ a change of description (the page paints byte-identically). It also no longer
 resolves an existing style's spacing into per-run literals. `captureL1` accepts
 render options, so the round trip renders with the site's unit.
 
-**REQ-415 layout check.** New finding `floating_heading`: a heading whose nearest
-text below (same column, not itself a heading) is at least as far as the nearest
-text above it, ignored when the space above is under half its font size
-(eyebrow/kicker attached on purpose). Worded with both distances.
+**REQ-415 layout check.** The floating-heading finding is [[BUG-238]]'s
+`loose_heading` (landed concurrently, `1b860b3810`): space below a heading at least
+`belowOverAbove` (0.75) times the space above, with at least `minAbovePx` (16) above,
+thresholds in `layout-check.json`. REQ-420's own `floating_heading` duplicated it and
+was dropped in the merge (`4e6eb7f99e`); REQ-420 does not add a finding kind. Its UAT
+asserts `loose_heading` fires on an evenly spaced (`gapPx`) stack and not on a
+rhythm stack. The layout check and page-section scripts look through
+`data-l1-keep` wrappers.
 
-**Teaching.** Builder priming (both variants): text stacks space by rhythm, no
+**Teaching.** Builder priming (both variants), continuing BUG-238's "put clearly
+less space below it than above it" sentence: text stacks space by rhythm, no
 `gapPx`; `gapPx` with `spacing: "gap"` is for rows and grids; change spacing on
 the style, override per element only for a reason, and report it. Consultant
 priming: heading spacing is a property of the text style; change the style,
@@ -180,6 +185,7 @@ not one element. Surface (`surface_version` 20 → 21): `set_text_style` /
   (measured 10/20/50/40px gaps; read back exactly);
   `a_heading_is_kept_with_its_text_when_a_row_wraps` (phone width);
   `a_group_is_transparent_to_section_addresses`;
-  `the_layout_check_names_a_floating_heading` (even `gapPx` flagged, rhythm clean).
+  `the_layout_check_names_a_floating_heading` (BUG-238's `loose_heading`: even
+  `gapPx` flagged, rhythm clean).
 - Existing sweeps extended: REQ-105 / AC802 node-axis-group samples include
   `spaceAbove` / `spaceBelow`.
