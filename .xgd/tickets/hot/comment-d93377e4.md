@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T13:46:38.269759+00:00'
+updated_at: '2026-10-21T14:19:31.413665+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -344,5 +344,11 @@ Everything you gave me is in the README's canon table. Here's how I filled in th
 **Two things to check:**
 1. **The name.** I used "Archwelding" exactly as you wrote it. If you meant "Arc Welding", say so and I'll change it everywhere, including the folder name.
 2. **Bob's Salon has 16 new images** sitting loose in its folder, not in `images/`, and they aren't committed. Do you want me to move them into `images/`, list them in Bob's README and commit everything along with Ariel?
+
+<!-- xgd-turn id="7393766f-c986-4638-a91b-87769f170e3f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T14:19:31.170898+00:00" -->
+#### You
+Yeah I meant arc welding - sorry
 
 <!-- xgd-chat-end -->
