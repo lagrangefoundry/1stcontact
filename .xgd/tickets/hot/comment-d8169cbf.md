@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T23:07:50.262315+00:00'
+updated_at: '2026-10-21T23:36:52.892848+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12226,5 +12226,11 @@ Nothing else open covers them. I'd put all three checks on one new layout-check 
   - a menu taking more than about a third of the first screen.
 
 Should I create it as a child of this epic?
+
+<!-- xgd-turn id="728a61a4-586a-4d15-af5b-fd4f4f56fcf2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T23:36:52.118961+00:00" -->
+#### You
+Language check: This is a confusing response: If the button fix isn't already part of what I'm doing now, it's the first thing I do next. I'll check everything on a computer and a phone before I show you.
 
 <!-- xgd-chat-end -->
