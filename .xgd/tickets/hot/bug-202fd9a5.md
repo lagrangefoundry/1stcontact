@@ -6,9 +6,9 @@ title: 'Builders: keep calling ReportResult after reporting until they run out o
   context'
 created_by: EPIC-20
 created_at: '2026-10-21T13:24:40.462540+00:00'
-updated_at: '2026-10-21T13:24:40.462540+00:00'
+updated_at: '2026-10-21T13:24:43.049490+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: high
@@ -44,7 +44,7 @@ If the investigation shows the loop also happens below the reserve threshold, ca
 
 ## Test plan
 
-- `test_UAT_FC_<ID>_*`, with a scripted builder model:
+- `test_UAT_FC_BUG-243_*`, with a scripted builder model:
   - a builder past the reserve threshold that reports once: no further model request is made after the report (count requests);
   - after a recorded report, no later request carries the report-reserve notice;
   - a builder below the threshold that reports: same, its turn ends after the report;
