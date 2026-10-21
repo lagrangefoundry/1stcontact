@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:38:43.065502+00:00'
+updated_at: '2026-10-21T17:49:21.657521+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11028,5 +11028,11 @@ So for Send to turn into ■ **and** the widget not to appear, one of these must
 - whenever the consultant is working, the widget shows under the progress banner with its note and timer, including after plan redraws and after a reload partway through a build.
 
 **For now:** reload the page once this build finishes. If talk mode comes back on the next build, that points to explanation 1. If the widget is still missing after a plan update, that points to explanation 2. Tell me what you see and I'll add it to the ticket.
+
+<!-- xgd-turn id="5855bf12-a3a9-4e16-a217-c38cde3ba6aa-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:49:21.091054+00:00" -->
+#### You
+Yeah the talk still works if I ignore the stop button  and type, but the progress panel at the top has gone and progress is getting dropped into chat
 
 <!-- xgd-chat-end -->
