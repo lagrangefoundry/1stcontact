@@ -6,10 +6,10 @@ title: Worker dives into work without answering the client's question; open a ta
   on the same message, and don't repeat it at hand-back
 created_by: EPIC-19
 created_at: '2026-10-21T00:47:40.966334+00:00'
-updated_at: '2026-10-21T00:47:40.966334+00:00'
+updated_at: '2026-10-21T01:24:57.882848+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: medium
   priority: high
