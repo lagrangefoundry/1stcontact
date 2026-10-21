@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:51:59.906660+00:00'
+updated_at: '2026-10-21T18:52:46.772457+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11322,5 +11322,22 @@ Very possibly, yes. In this run the logo is a hand-written SVG (`ariels-sign.svg
 <!-- xgd-chat role="user" ts="2026-10-21T18:51:59.292862+00:00" -->
 #### You
 Agreed I think SVG should be taken from the delegate and kept with the principal
+
+<!-- xgd-turn id="30a9af08-a49b-42fe-afdf-15a3764173c9-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:52:45.737805+00:00" -->
+#### Claude
+I've filed **REQ-423**, *"Drawing stays with the consultant: SVG composition moves from builders to the principal, stored in the Library"*. It's under EPIC-19 at `draft`, high priority, 5 points, and quotes your decision.
+
+1. **Builders can't draw.** `write_image`, which lives on the builders' page-editing tools (the ones Haiku uses), is removed from them. If a builder is asked to draw, it refuses and points back to the consultant. Builders can still place images that are already in the Library.
+2. **The consultant draws instead.** It gets a drawing operation of its own. This can't simply be `write_image`, because while it's directing builders the consultant doesn't hold the page-editing tools. Each drawing is saved as a Library item with a label and description (IMAGE-n), and builders place it like any other picture.
+3. **It looks before using.** The consultant checks the result on its own and at the header's real size before building anything around it.
+4. **The logo method, in the consultant's instructions:**
+   - start with a wordmark, the name well set in type;
+   - illustrated marks come from image generation, which the consultant refines with you;
+   - hand-drawn SVG is for simple shapes, icons and dividers.
+5. **The talker can't draw either**, because it would change assets the build is using.
+
+I dropped the "stronger model tier for builders" idea. Your decision covers it more simply: drawing isn't delegated at all.
 
 <!-- xgd-chat-end -->
