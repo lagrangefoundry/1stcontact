@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:38:53.937092+00:00'
+updated_at: '2026-10-21T20:45:21.846494+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11902,5 +11902,13 @@ The plan state already holds everything; the due list is just the plan state's o
 4. **Later, only if needed:** the strategist, and persistent private sessions for the critic.
 
 Shall I write that up as the design note, with the due list and the critic as the first ticket?
+
+<!-- xgd-turn id="bb03089a-250b-4186-b18b-5e80f7a17849-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T20:45:20.692429+00:00" -->
+#### You
+Yeah I like the idea of the strategies but I think it's been a wrong time. Planning the stage before it starts as relatively straightforward that's what happened when you get into it is where we need help.
+
+I think we have an opportunity to make the talker more strategically aware it is not busy building things it is talking to the customer. That is where we want a strategic thinking to be. It seems still a little obsessed with chitchat questions. This may of course be a good thing but we still need to work through it.
 
 <!-- xgd-chat-end -->
