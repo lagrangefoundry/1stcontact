@@ -19,7 +19,6 @@ import {
   calls,
   says,
   scriptedClient,
-  turnTailText,
   type ModelRequest,
   type ModelStep,
 } from './support/scripted-model-client'
@@ -246,44 +245,9 @@ describe('REQ-378 — the consultant keeps the comp board', () => {
     expect(concept!.value).toContain('Dense services grid')
   })
 
-  it('test_UAT_FC_REQ-378_client_likes_and_dislikes_persist_on_the_reference_and_reach_the_next_turn', async () => {
-    const { site: key, sessionId } = await site()
-    const added = await post(PLAN_COMP_PATH, { site: key, action: 'add', url: COMP_URL })
-    const [comp] = ((await added.json()) as { comps: BoardComp[] }).comps
-
-    // The consultant's own first turn reads the board once; nothing is news yet.
-    await turn(sessionId, 'Hello.', [says('Hello.')])
-
-    const noted = await post(PLAN_COMP_PATH, {
-      site: key,
-      action: 'note',
-      reference: comp.reference,
-      likes: ['reviews near the top'],
-      dislikes: ['the stock photo of a tap'],
-    })
-    expect(noted.status).toBe(200)
-    expect(((await noted.json()) as { comps: BoardComp[] }).comps[0]).toMatchObject({
-      likes: ['reviews near the top'],
-      dislikes: ['the stock photo of a tap'],
-    })
-    // PERSISTED ON THE REFERENCE TICKET.
-    const { ticket } = await (await tickets()).get({ uid: comp.reference })
-    expect(ticket.fields).toMatchObject({ likes: ['reviews near the top'], dislikes: ['the stock photo of a tap'] })
-
-    // AND THE CONSULTANT IS TOLD ON ITS NEXT TURN — once.
-    const next = await turn(sessionId, 'What do you think?', [says('Noted.')])
-    const told = turnTailText(next[0])
-    expect(told).toContain('likes and dislikes on 1 comp')
-    expect(told).toContain('"reviews near the top"')
-    expect(told).toContain('"the stock photo of a tap"')
-    const after = await turn(sessionId, 'And now?', [says('Still noted.')])
-    expect(turnTailText(after[0])).not.toContain('likes and dislikes on')
-
-    // Removing takes it off the board; the capture stays in the Library.
-    const removed = await post(PLAN_COMP_PATH, { site: key, action: 'remove', reference: comp.reference })
-    expect(((await removed.json()) as { comps: BoardComp[] }).comps).toEqual([])
-    expect((await (await tickets()).get({ uid: comp.reference })).ticket.type).toBe('reference')
-  })
+  // [[BUG-245]] — the client no longer writes likes and dislikes on the board: a
+  // card's note is a draft until Send, which posts it as the client's own message.
+  // See test_UAT_FC_BUG-245_one_voice_one_thing.workers.test.ts.
 })
 
 describe('REQ-378 — the consultant can search the web', () => {
@@ -317,51 +281,6 @@ describe('REQ-378 — the consultant can search the web', () => {
   })
 })
 
-describe('BUG-202 — every comp reaches the conversation as a tile that opens the real site', () => {
-  /** The thumbnail address a tile names: this business's file route, the capture's desktop shot. */
-  const heroOf = (reference: string): string =>
-    `/b/${BUSINESS}/api/material/file?uid=${reference}&member=screenshot-1280.png`
-
-  it('test_UAT_FC_BUG-202_the_consultant_adding_a_comp_is_handed_its_tile', async () => {
-    const { sessionId } = await site()
-    let reference = ''
-    let answered = ''
-    await turn(sessionId, 'Let us look at plumbers near me.', [
-      calls('capture_site', { url: COMP_URL }),
-      (req) => {
-        reference = referenceIn(req)
-        return calls('add_comp', { reference })(req)
-      },
-      (req) => {
-        answered = JSON.stringify(req.messages[req.messages.length - 1])
-        return says('Here is Joe’s.')(req)
-      },
-    ])
-    // The tile, in the tool's answer: the hero, the name and address, the live link.
-    expect(answered).toContain('exactly as written')
-    expect(answered).toContain(heroOf(reference))
-    expect(answered).toContain('joes-plumbing.test')
-    expect(answered).toContain(`[Open the real site ↗](${COMP_URL})`)
-    // And the thumbnail it names is served, as the picture.
-    const hero = await ask(heroOf(reference))
-    expect(hero.status).toBe(200)
-    expect(hero.headers.get('content-type')).toContain('image/png')
-  })
-
-  it('test_UAT_FC_BUG-202_a_comp_the_client_adds_reaches_the_next_turn_as_a_tile_once', async () => {
-    const { site: key, sessionId } = await site()
-    await turn(sessionId, 'Hello.', [says('Hello.')])
-
-    const added = await post(PLAN_COMP_PATH, { site: key, action: 'add', url: COMP_URL })
-    const [comp] = ((await added.json()) as { comps: BoardComp[] }).comps
-
-    const next = await turn(sessionId, 'I added one.', [says('Let us look.')])
-    const told = turnTailText(next[0])
-    expect(told).toContain('Your client added 1 comp to the board')
-    expect(told).toContain(heroOf(comp.reference))
-    expect(told).toContain(`[Open the real site ↗](${COMP_URL})`)
-    // Once: the following turn is not told again.
-    const after = await turn(sessionId, 'And now?', [says('Still here.')])
-    expect(turnTailText(after[0])).not.toContain('Your client added')
-  })
-})
+// [[BUG-245]] — BUG-202's in-chat comp tiles are reversed: the board carries each
+// site, and the conversation one line with the board's link. See
+// test_UAT_FC_BUG-245_one_voice_one_thing.workers.test.ts.

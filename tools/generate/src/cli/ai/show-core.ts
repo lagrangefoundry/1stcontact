@@ -49,7 +49,7 @@ export const SHOW_TOOL = 'show_client'
 export const SHOW_CLIENT = 'show_client'
 
 /** What the consultant can bring forward. */
-export const SHOW_TARGETS = ['draft', 'story', 'looks', 'comp', 'ask', 'web_address'] as const
+export const SHOW_TARGETS = ['draft', 'story', 'looks', 'comp', 'comps', 'ask', 'web_address'] as const
 export type ShowTarget = (typeof SHOW_TARGETS)[number]
 
 /** The two ways. */
@@ -165,6 +165,8 @@ async function resolve(p: Params, plan: ShowPlan, deps: ShowDeps): Promise<Shown
       label: alt.label ? `the ${alt.label} look` : 'the looks',
     }
   }
+  // [[BUG-245]] — the comparison board as a whole: where the comps are announced to be.
+  if (target === 'comps') return { href: showHref('comps'), label: 'the comparison board' }
   if (target === 'comp') {
     const ref = str(p.comp)
     const comp = plan.comps.find((c) => c.reference === ref)

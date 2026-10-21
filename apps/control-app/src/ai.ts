@@ -84,7 +84,7 @@ import {
   sessionWorkerKnowledge,
   type SessionKnowledge,
 } from './session-knowledge'
-import { planAnswersDelta, turnDelta } from './session-delta'
+import { absorbedNewsDelta, absorbedResults, planAnswersDelta, turnDelta } from './session-delta'
 import { pendingTurns } from './session-pending'
 import { sessionInbox } from './session-inbox'
 import { sessionOccupancy } from './session-occupancy'
@@ -895,7 +895,14 @@ export function workerHost(
       // condition rather than the corpus delta's: a ticket store, which this host
       // always has. The plan is the site's, so a session with no knowledge base
       // still has a client answering its questions.
-      planAnswers: (sessionId: string, site: string) => planAnswersDelta(tickets, sessionId, site, compMemberUrl),
+      // [[BUG-245]] — AND THE NEWS THE CLIENT WAS NOT SHOWN: a result of the work
+      // that arrived while they were writing, handed to this turn to tell them.
+      planAnswers: async (sessionId: string, site: string) =>
+        [await absorbedNewsDelta(tickets, sessionId), await planAnswersDelta(tickets, sessionId, site)]
+          .filter(Boolean)
+          .join('\n') || null,
+      // [[BUG-245]] — those results, so a reload does not show them as messages.
+      absorbed: (sessionId: string) => absorbedResults(tickets, sessionId),
       // WHAT THE TURN COST ([[REQ-292]]), passed straight through:
       // `host-core.ts` folds the terminal event's spend and calls this from the
       // `finally` that already closes the pending record, and `spend.ts` decides

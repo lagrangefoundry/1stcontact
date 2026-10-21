@@ -3,18 +3,13 @@ import { PROJECT_KB } from './knowledge'
 import type { SessionKnowledge } from './session-knowledge'
 import type { Ticket, TicketStore } from './tickets'
 import { findPlan } from './plan'
-import { compDeps } from './comps'
 import {
   clientChangesLine,
   clientChangesSince,
   clientCompAddsLine,
   clientCompAddsSince,
-  clientCompChangesSince,
-  compTile,
-  clientCompNotesLine,
   clientCompsFinishedSince,
   CLIENT_COMPS_FINISHED_LINE,
-  type CompRecord,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
 import { boardChangesLine, boardChangesSince } from '../../../tools/generate/src/cli/ai/story-core'
@@ -344,13 +339,7 @@ export const PLAN_CURSOR_FIELD = 'plan_cursor'
  * NO PLAN IS NO NOTICE and costs no write. Reading the plan never creates it here:
  * a notice is not the place a site acquires a plan.
  */
-export async function planAnswersDelta(
-  store: TicketStore,
-  sessionId: string,
-  siteKey: string,
-  /** [[BUG-202]] — where a capture's member is seen, for a client-added comp's tile. */
-  memberUrl?: (uid: string, member: string) => string,
-): Promise<string | null> {
+export async function planAnswersDelta(store: TicketStore, sessionId: string, siteKey: string): Promise<string | null> {
   const plan = await findPlan(store, siteKey)
   if (!plan) return null
   const chat = await findChat(store, sessionId)
@@ -358,43 +347,120 @@ export async function planAnswersDelta(
   const since = typeof raw === 'string' ? raw : ''
   const fields = (plan.fields ?? {}) as unknown as PlanFields
   const changes = clientChangesSince(fields, since)
-  // [[REQ-378]] — AND THE COMP NOTES THE CLIENT WROTE, on the same cursor: the
-  // plan entry says who wrote them and when, the reference ticket holds them.
-  const compChanges = clientCompChangesSince(fields, since)
-  // [[BUG-202]] — AND THE COMPS THE CLIENT ADDED, so the consultant shows each one
-  // as a tile in its reply: the client added it on the panel, and the tile is how
-  // it reaches the conversation, where it survives a reload.
+  // [[BUG-202]] — AND THE COMPS THE CLIENT ADDED. [[BUG-245]] — named, not shown:
+  // the board carries them, and the client's notes reach the consultant as their
+  // own messages when they press Send.
   const compAdds = clientCompAddsSince(fields, since)
   // [[REQ-408]] — AND WHAT THE CLIENT DID ON THE STORY BOARD, on the same cursor:
   // reactions, notes added, edited or deleted, a headline chosen or written.
   const board = boardChangesSince(fields, since)
-  // [[BUG-236]] — AND THAT THE CLIENT HAS FINISHED COMMENTING ON THE COMP BOARD.
+  // [[BUG-245]] — AND THAT EVERY CARD ON THE COMP BOARD IS SENT OR SKIPPED.
   const finished = clientCompsFinishedSince(fields, since)
-  if (changes.length === 0 && compChanges.length === 0 && compAdds.length === 0 && board.length === 0 && !finished) return null
-  const newest = [...changes, ...compChanges, ...compAdds, ...board, ...(finished ? [{ at: finished }] : [])]
+  if (changes.length === 0 && compAdds.length === 0 && board.length === 0 && !finished) return null
+  const newest = [...changes, ...compAdds, ...board, ...(finished ? [{ at: finished }] : [])]
     .map((c) => c.at)
     .sort()
     .pop() as string
   await writeField(store, sessionId, PLAN_CURSOR_FIELD, newest, chat)
-  const comps = compDeps(store, memberUrl)
-  const noted = (await Promise.all(compChanges.map((c) => comps.get(c.reference)))).filter(
-    (c): c is CompRecord => c !== null,
-  )
-  const tiles = await Promise.all(
-    compAdds.map(async (c) => compTile(c, (await comps.snapshot?.(c.reference)) ?? null)),
-  )
   return (
-    [
-      clientChangesLine(changes),
-      clientCompNotesLine(noted),
-      clientCompAddsLine(tiles),
-      finished ? CLIENT_COMPS_FINISHED_LINE : null,
-      boardChangesLine(board),
-    ]
+    [clientChangesLine(changes), clientCompAddsLine(compAdds), finished ? CLIENT_COMPS_FINISHED_LINE : null, boardChangesLine(board)]
       .filter(Boolean)
-      .join('\n') ||
-    null
+      .join('\n') || null
   )
+}
+
+/**
+ * [[BUG-245]] — whether the comp board finished since this session was last told,
+ * without telling it: the host's check before it starts a turn on the board's cue.
+ */
+export async function compsFinishedUntold(store: TicketStore, sessionId: string, siteKey: string): Promise<boolean> {
+  const plan = await findPlan(store, siteKey)
+  if (!plan) return false
+  const chat = await findChat(store, sessionId)
+  const raw = (chat?.fields ?? {})[PLAN_CURSOR_FIELD]
+  return clientCompsFinishedSince((plan.fields ?? {}) as unknown as PlanFields, typeof raw === 'string' ? raw : '') !== null
+}
+
+/** [[BUG-245]] — the chat ticket field the work's withheld results live in. */
+export const ABSORBED_FIELD = 'absorbed_news'
+
+/** [[BUG-245]] — how many withheld results a conversation remembers. */
+const MAX_ABSORBED = 20
+
+/** [[BUG-245]] — the longest withheld result kept, in characters. */
+const MAX_ABSORBED_CHARS = 8_000
+
+/**
+ * [[BUG-245]] — a result of the consultant's work the client was not shown, because
+ * it arrived while they were writing: the news goes into the consultant's next
+ * reply instead (`told` once it has been handed over), and a reload does not show
+ * it as a message of its own.
+ */
+export interface AbsorbedResult {
+  turn_id: string
+  text: string
+  at: string
+  told: boolean
+}
+
+/** The withheld results a chat ticket holds, oldest first. */
+export function storedAbsorbed(chat: Ticket | null): AbsorbedResult[] {
+  const raw = (chat?.fields ?? {})[ABSORBED_FIELD]
+  if (typeof raw !== 'string' || raw.trim() === '') return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((e): e is Record<string, unknown> => typeof e === 'object' && e !== null && typeof (e as { text?: unknown }).text === 'string')
+      .map((e) => ({ turn_id: String(e.turn_id ?? ''), text: String(e.text), at: String(e.at ?? ''), told: e.told === true }))
+  } catch {
+    // A corrupt record costs one result shown again on reload, never a turn.
+    return []
+  }
+}
+
+/** [[BUG-245]] — record a result the client was not shown. */
+export async function recordAbsorbed(
+  store: TicketStore,
+  sessionId: string,
+  entry: { turn_id: string; text: string },
+  at: string,
+): Promise<void> {
+  const text = entry.text.trim().slice(0, MAX_ABSORBED_CHARS)
+  if (text === '') return
+  const chat = await findChat(store, sessionId)
+  const held = storedAbsorbed(chat).filter((e) => !(e.turn_id !== '' && e.turn_id === entry.turn_id && e.text === text))
+  const next = [...held, { turn_id: entry.turn_id, text, at, told: false }].slice(-MAX_ABSORBED)
+  await writeField(store, sessionId, ABSORBED_FIELD, JSON.stringify(next), chat)
+}
+
+/** [[BUG-245]] — the per-turn notice for withheld results not yet handed over, or `null`. */
+export function absorbedNewsLine(untold: AbsorbedResult[]): string | null {
+  if (untold.length === 0) return null
+  return (
+    'While your client was writing, your work finished, and what you said at its end was not shown to them: ' +
+    untold.map((e) => JSON.stringify(e.text)).join(' Then: ') +
+    ' First respond to what they just said. Then give them that news in a line or two, in your own words ' +
+    '("Meanwhile, …"), with any link it had — never as a second question on top of one you are asking.'
+  )
+}
+
+/**
+ * [[BUG-245]] — the withheld results this turn hands over: sweep, report, mark told.
+ * Like the plan notice, said once.
+ */
+export async function absorbedNewsDelta(store: TicketStore, sessionId: string): Promise<string | null> {
+  const chat = await findChat(store, sessionId)
+  const all = storedAbsorbed(chat)
+  const untold = all.filter((e) => !e.told)
+  if (untold.length === 0) return null
+  await writeField(store, sessionId, ABSORBED_FIELD, JSON.stringify(all.map((e) => ({ ...e, told: true }))), chat)
+  return absorbedNewsLine(untold)
+}
+
+/** [[BUG-245]] — every withheld result this conversation holds, for its replay. */
+export async function absorbedResults(store: TicketStore, sessionId: string): Promise<AbsorbedResult[]> {
+  return storedAbsorbed(await findChat(store, sessionId))
 }
 
 function asMap(value: Untyped): Map<string, Untyped> {

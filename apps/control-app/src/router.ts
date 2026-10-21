@@ -115,7 +115,8 @@ import {
   tailSession,
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
-import { readClientView, type ClientView } from '../../../tools/generate/src/cli/ai/roles'
+import { compsFinishedCue, readClientView, type ClientView } from '../../../tools/generate/src/cli/ai/roles'
+import { compsFinishedUntold, recordAbsorbed } from './session-delta'
 import {
   sessionImageDescriber,
   sessionTextDescriber,
@@ -393,13 +394,13 @@ import {
   CLIENT_ACTIONS,
   clientAnswer,
   clientBoardAction,
-  noteList,
-  notedComp,
+  clientCompAction,
+  CLIENT_COMP_ACTIONS,
+  type ClientCompAction,
   panelView,
   publishOpened,
   removeComp,
   skipComps,
-  finishComps,
   type Plan,
   type PlanFields,
 } from '../../../tools/generate/src/cli/ai/plan-core'
@@ -2307,12 +2308,15 @@ export const OVER_LONG_PROMPT_MESSAGE =
 export const PLAN_PATH = '/api/plan'
 export const PLAN_ASK_PATH = '/api/plan/ask'
 /**
- * The client's half of the comp board ([[REQ-378]]): add a site, note it, remove
- * it — or skip comparing sites altogether ([[REQ-401]]).
+ * The client's half of the comp board ([[REQ-378]]): add a site, remove it, skip
+ * comparing sites altogether ([[REQ-401]]) — and [[BUG-245]] each card's note:
+ * kept as a draft, sent, skipped or reopened.
  */
 export const PLAN_COMP_PATH = '/api/plan/comp'
 /** What the client may do on the comp board. */
-export const COMP_ACTIONS = ['add', 'note', 'remove', 'skip', 'finish'] as const
+export const COMP_ACTIONS = ['add', 'remove', 'skip', ...CLIENT_COMP_ACTIONS] as const
+/** [[BUG-245]] — the cue a turn starts on when the comp board finishes on a Skip. */
+export const COMPS_FINISHED_CUE = 'comps_finished'
 /**
  * [[REQ-408]] — the client's half of the story board: react to a note, delete,
  * add or edit one, choose or write the headline.
@@ -5886,16 +5890,16 @@ async function routeUncached(
      * as its source. An address that cannot be captured is refused with the
      * capture's own reason and nothing is added.
      *
-     * `note` writes the client's likes and dislikes onto that reference ticket and
-     * marks the plan entry as noted by the client, which is what the consultant's
-     * next turn is told from. `remove` takes a site off the board; its capture
-     * stays in the Library. `skip` ([[REQ-401]]) records that the client does not
-     * want to compare sites, which the next turn is told; adding one reopens it.
-     * `finish` ([[BUG-236]]) records that the client has finished commenting on
-     * the board, which the next turn is told too.
+     * `remove` takes a site off the board; its capture stays in the Library.
+     * `skip` ([[REQ-401]]) records that the client does not want to compare
+     * sites, which the next turn is told; adding one reopens it. [[BUG-245]] —
+     * `draft`, `send`, `skip_site` and `reopen_site` act on one card's note
+     * (`clientCompAction`); when every card is sent or skipped the board is
+     * finished, which the next turn is told.
      *
      * Answers the plan panel's view, like the ask route, so the panel redraws from
-     * what is stored. It never starts a turn.
+     * what is stored. It never starts a turn: a sent note reaches the consultant
+     * as the client's own message, which the browser posts.
      */
     if (p === PLAN_COMP_PATH && method === 'POST') {
       const body = await readJsonBody(request)
@@ -5934,26 +5938,14 @@ async function routeUncached(
           written = await writeIt((current) => addComp(current, record, CLIENT, at).plan)
         } else if (action === 'skip') {
           written = await writeIt((current) => skipComps(current, at))
-        } else if (action === 'finish') {
-          written = await writeIt((current) => finishComps(current, at))
         } else {
           const reference = typeof body.reference === 'string' ? body.reference : ''
           if (reference === '') return json(400, { error: 'reference is required' })
           if (action === 'remove') {
-            written = await writeIt((current) => removeComp(current, reference))
+            written = await writeIt((current) => removeComp(current, reference, at))
           } else {
-            const notes = { likes: noteList(body.likes), dislikes: noteList(body.dislikes) }
-            if (notes.likes === undefined && notes.dislikes === undefined) {
-              return json(400, { error: 'likes or dislikes are required' })
-            }
-            // CHECKED ON THE BOARD FIRST, so a note never lands on a capture the
-            // plan does not hold as a comp.
-            const current = await plan.read()
-            if (!(current?.fields.comps ?? []).some((c) => c.reference === reference)) {
-              return json(404, { error: 'that site is not on the comp board', code: 'UNKNOWN_COMP' })
-            }
-            await plan.comps!.note(reference, notes)
-            written = await writeIt((now) => notedComp(now, reference, CLIENT, at))
+            const note = typeof body.note === 'string' ? body.note : undefined
+            written = await writeIt((current) => clientCompAction(current, reference, action as ClientCompAction, note, at))
           }
         }
         return json(200, await panelWithMaterial(tickets, written.fields))
@@ -6686,9 +6678,25 @@ async function routeUncached(
 
     if (p === '/api/ai/prompt' && method === 'POST') {
       const body = await readJsonBody(request)
-      const { sessionId, text } = body
+      const { sessionId } = body
+      let { text } = body
       if (typeof sessionId !== 'string' || sessionId === '') {
         return json(400, { error: 'sessionId is required' })
+      }
+      /**
+       * [[BUG-245]] — A TURN ON THE HOST'S CUE, NOT THE CLIENT'S WORDS: the comp
+       * board finished on a Skip, so the consultant sums up without being asked.
+       * Only while the board's finishing is still untold — a turn that already
+       * heard it (the client's last Send, a round that was running) has said it —
+       * else 409 and no turn. The cue is a hidden user turn, like a continuation's.
+       */
+      if (body.cue !== undefined) {
+        if (body.cue !== COMPS_FINISHED_CUE) return json(400, { error: `unknown cue (${COMPS_FINISHED_CUE})` })
+        const siteKey = sessionId.startsWith('site-') ? sessionId.slice('site-'.length) : ''
+        if (siteKey === '' || !(await compsFinishedUntold(await openTickets(), sessionId, siteKey))) {
+          return json(409, { error: 'the consultant has already been told the board is finished' })
+        }
+        text = compsFinishedCue()
       }
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
@@ -6791,6 +6799,29 @@ async function routeUncached(
         if (err instanceof UnknownSessionError) return json(404, { error: err.message })
         throw err
       }
+    }
+
+    /**
+     * POST /api/ai/absorbed — [[BUG-245]]: a result of the consultant's work the
+     * client was not shown, because it arrived while they were writing.
+     *
+     * The browser decides — only it knows the box has unsent text — and tells the
+     * origin, which keeps it on the conversation's chat ticket: the next turn is
+     * handed the news to tell, and a reload does not replay the result as a
+     * message of its own. Answers `{kept: true}`; never starts a turn.
+     */
+    if (p === '/api/ai/absorbed' && method === 'POST') {
+      const body = await readJsonBody(request)
+      const { sessionId, text } = body
+      if (typeof sessionId !== 'string' || sessionId === '') {
+        return json(400, { error: 'sessionId is required' })
+      }
+      if (typeof text !== 'string' || text.trim() === '') {
+        return json(400, { error: 'text is required' })
+      }
+      const turnId = typeof body.turnId === 'string' ? body.turnId : ''
+      await recordAbsorbed(await openTickets(), sessionId, { turn_id: turnId, text }, new Date().toISOString())
+      return json(200, { kept: true })
     }
 
     /**
