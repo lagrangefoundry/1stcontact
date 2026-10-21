@@ -7,9 +7,9 @@ title: 'One voice, one thing at a time: absorb work news into the next reply, co
   done'
 created_by: EPIC-19
 created_at: '2026-10-21T17:27:46.675245+00:00'
-updated_at: '2026-10-21T17:37:07.092164+00:00'
+updated_at: '2026-10-21T17:59:05.171448+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -20,6 +20,7 @@ fields:
   needs_review: false
   chat_comment: comment-52904f4f
 ---
+
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator decisions)
 
@@ -131,3 +132,131 @@ alone: the status widget's words carry it.
 - Fact answers show Not saved yet → Saved ✓ and start no turn.
 - New asks raise the badge and highlight; the panel shows the working state
   while a round runs and clears after.
+
+
+## As built
+
+### 1. One voice: the work's news is absorbed, not posted
+- **The browser decides** (only it knows the box has unsent text). `chat.js`'s
+  `talkDesk` replaces BUG-236's hold: once the round has gone to work (first
+  `progress`), text arriving while the composer has unsent text **or a talker
+  reply is being written** is not drawn at all — absorbing is sticky for the
+  rest of the round, so news is never cut in half. REQ-210's forked result (text
+  after the last tool call) is decided at the round's end the same way: absorbed,
+  or passed to `webui-chat` to show as its own bubble. Otherwise the result shows
+  as it always did.
+- **The marker is gone**: `CHAT_RESULT_HELD`, `.builder-chat-held`, the hold's
+  polling. In its place a quiet status line, `CHAT_NEWS_WAITING` ("Done ✓ — the
+  consultant will tell you in its next reply"), under the progress banner where
+  the status widget was (`.builder-chat-news`), cleared when the client next
+  writes.
+- **The origin keeps the withheld result**: `POST /api/ai/absorbed
+  {sessionId, turnId, text}` → `absorbed_news` on the session's chat ticket
+  (`session-delta.ts`). The next turn's notice (`absorbedNewsDelta`, on the same
+  `planAnswers` channel) hands the words over once: respond to what the client
+  said first, then the news in a line or two, never a second question.
+- **Replay matches what the client saw** without a framework change: the
+  framework's folded turns carry `turn_id`, so `openSession` cuts each withheld
+  result from the end of the turn that carried it (`withoutAbsorbed`, by turn id
+  where known, else the latest turn ending with it) and drops a turn left empty.
+  `openSession` answers `news: true` while one is untold, and the pane shows the
+  same quiet line after a reload.
+
+### 2. Comps announced in one line
+- `add_comp` no longer returns a markdown tile; it returns `say`
+  (`COMP_ADDED_SAY`): one line for the whole board, ending with
+  `COMPS_BOARD_LINK` = `[Open the board to see](#show=comps)`, no pictures,
+  addresses or descriptions, nothing asked until the client has looked.
+- `show_client` gains the target `comps` (the board as a whole); the builder's
+  `#show=comps` link opens Comparisons.
+- A client-added comp reaches the next turn **by name** (`clientCompAddsLine`),
+  not as a tile. `capture_site` failures no longer append a tile.
+  `compTile` / `compTileDisplay` are deleted.
+
+### 3–4. Comp cards: why, a note, Send or Skip
+- Per comp on the plan: `why` (the consultant's line, via `add_comp`/`note_comp`
+  `why`), `note` (the draft in the box), `state` (`sent`|`skipped`; absent =
+  open), `sent`, `sent_at`. Board header note `comps_note` via `ask_comps note`.
+- Card (`comparisons.js`): thumbnail (larger — one or two cards per row via a
+  container query at 720px), name, address, "Open the real site ↗", source,
+  Remove, "Why I picked it", a growing notes box ("What do you like? What would
+  you never do?"), footer state + **Send to the consultant ➤** + **Skip /
+  Reopen**. States: Open (empty), "Not sent yet" with a dot (unsent text), "Sent
+  ✓ <time>" with an accent edge and Send dimmed, "Skipped" muted. Typing is kept
+  as a draft (debounced 800 ms, and on leaving the box); editing a sent note
+  reads "Not sent yet" again (derived: sent only while the box holds what was
+  sent).
+- Route `/api/plan/comp` actions are now `add`, `remove`, `skip` (the whole
+  comparison), `draft`, `send`, `skip_site`, `reopen_site`
+  (`clientCompAction`). The client's likes/dislikes route action (`note`) and
+  `finish` are removed; the consultant still records likes/dislikes with
+  `note_comp`.
+
+### 5. Sending a note; the board knows when it is finished
+- Send stores the note, then the board calls `chat.say("On <site>: <note>")`:
+  the client's own message, sent where a typed one would go (the talker while
+  work runs, else a turn).
+- `settleComps`: when every card is sent or skipped, `comps_finished_at` is
+  stamped (cleared again by reopening, a new site, or an edit that unsends). The
+  next turn is told once (`CLIENT_COMPS_FINISHED_LINE`: sum up the conventions
+  and record `visual_concept`, without being asked). When the board finishes on
+  a **Skip**, nothing else starts a turn, so the board calls
+  `chat.cue('comps_finished')`: `POST /api/ai/prompt {sessionId, cue}` runs a turn
+  on a hidden cue (`comps-finished-cue`, kept off the replay like the
+  continuation cue) — only while the finish is still untold, else 409 and
+  nothing. A cue raised while a turn runs waits for the panel to be free.
+- "I've finished commenting" (BUG-236) is removed.
+
+### 6–8. The panel
+- Typed answers: the button is **Save**, with a state beside it: "Not saved yet"
+  (with a dot) while the box differs from the stored answer, "Saved ✓" while it
+  matches. Multi-select keeps its Done. No turn starts.
+- New questions: the "Open questions" heading carries `data-new="N new"`, drawn
+  as a badge by CSS (the heading's words are unchanged); each unseen open item
+  has `.plan-item--new` until the client touches or focuses it. Seen asks are
+  kept per site in browser storage; the first sight of a site's panel sees what
+  is already on it.
+- While a round runs (`setBusy`), `.plan-panel--working`: a 2 px in-progress
+  blue (#2563eb, the banner's) edge and a gently pulsing blue banner, static
+  under reduced motion, plus `aria-busy` and a visually hidden "The consultant is
+  working" — never colour alone.
+
+### Priming
+- New paragraph after the hand-back rule: you and the work are one voice; news
+  that arrives while the client writes is handed to you next turn — answer
+  first, then the news in a line or two; a result shown at once is one short
+  message, never a second question.
+- New-question announcements go inside the next reply, never as an interruption.
+- Comps section: `ask_comps` note, `add_comp why`, ONE line with the board link,
+  no tiles; a sent note "On <site>: …" gets two or three sentences at most (the
+  deliberate exception to DOC-65's "a panel answer never starts a turn"); the
+  finished board is summed up without being asked.
+
+### Supersedes (explicit)
+- BUG-236 item 3's hold (result held behind a marker) and its comp Done /
+  "I've finished commenting"; BUG-202's in-chat comp tiles and the failed-capture
+  tile; REQ-378's client likes/dislikes route. Their UATs are removed or
+  rewritten: BUG-236 (marker ×2, comp Done, finish; host finish), BUG-202 (tile
+  ×2; failed capture renamed `..._a_failed_capture_says_so_quickly`; priming
+  renamed `..._the_priming_searches_in_the_same_turn_it_asks`), REQ-378
+  (`client_likes_and_dislikes…`), REQ-419 (cards now have a note box and Send /
+  Skip; "Open the real site ↗"). Typed answers' "Done" → "Save" in BUG-236's.
+
+## UATs
+`tests/test_UAT_FC_BUG-245_one_voice_one_thing.test.ts` (jsdom, real components):
+unsent text → no bubble, no marker, absorbed reported with the round id, quiet
+line until the next message; result during a talker reply absorbed; `news`
+survives reload; card shows why / growing box / Send / Skip / board note;
+draft → Send → labelled message → Sent ✓ → edit → Not sent yet; Skip mutes,
+Reopen, last Skip cues once; two-per-row and sent/skipped CSS; `#show=comps`
+opens Comparisons; a sent note is the client's message and starts the reply;
+Save with Not saved yet → Saved ✓; "N new" badge and highlight until opened;
+working state; priming (both corpora).
+
+`tests/test_UAT_FC_BUG-245_one_voice_one_thing.workers.test.ts` (real routes, D1,
+ticket store): `add_comp` keeps `why` and hands one line with the board link,
+`ask_comps` note; a client-added comp named once, no tile; draft kept and never
+told, send/skip/reopen and board finished/unfinished; finished board told once;
+a Skip-finished board's cue turn runs once (409 after) and the cue is not
+replayed; an absorbed result is cut from the replay, `news` set, the next turn
+told once.
