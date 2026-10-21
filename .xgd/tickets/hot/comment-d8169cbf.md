@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:01:21.647499+00:00'
+updated_at: '2026-10-21T17:01:51.411828+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10755,5 +10755,28 @@ Items 2 and 3 only affect cost, not what you see. With both unfixed, though, bui
 ok so twice now I have been typing and a CTA has popped up at the bottom of the chat saying the consultant has finished do I want to see what it has to say - clicking it disap[pears and adds no text. 
 
 I think this is the wrong experience we want the talker and the worker to really appear as one entity
+
+<!-- xgd-turn id="1a191124-34bb-4cb0-a1a6-3aba2fcb0641-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:01:50.451663+00:00" -->
+#### Claude
+You're right, and the marker is also broken. Two things are going on.
+
+**What it is:** BUG-236 item 3 holds the worker's final result while you have unsent text in the box, behind a button reading *"The consultant has finished — show what it said"* (`config.js:936`, `chat.js` around 779).
+
+**Why clicking it showed nothing:** clicking only sets a flag (`shownAnyway`) so that the held text gets released on the next poll. But from the moment a talker opens, REQ-210 deliberately **hides the worker's prose in the chat** (item 5a), so the released text has nowhere visible to go. The marker vanishes and nothing appears. My reading of the code is that every time you'd been talking to the talker, the hold and the hiding cancelled each other out. I haven't reproduced it, but it fits both of your cases.
+
+**Why the design is wrong anyway:** "The consultant has finished, show what it said" announces a second voice. It turns one consultant into "the one you're talking to" and "the one who was off working", which is exactly the split we wanted to hide. A one-person experience shouldn't need a button to fetch the other person's message.
+
+## What I'd do instead: one voice, nothing to click
+
+- **If you're not typing when the build finishes,** the result appears as the consultant's next message, as it does now, kept short (BUG-236's roughly three lines).
+- **If you're typing,** nothing pops up. The status widget quietly changes to **"Done — first draft ready"**: a status, not a message. The worker's result goes to the consultant, not to you. **The reply to the message you're writing covers both:** your message first, then *"…and the first draft is ready. Have a look in the preview."* One voice, one reply, nothing interrupting you and nothing to click.
+- **Talker replies stay ordinary consultant messages,** with no label, as now.
+- The same rule covers a build that finishes while a talker reply is being written: the reply finishes first and absorbs the news, instead of the result landing straight after it (REQ-210 D5 currently shows the result afterwards).
+
+That removes the marker entirely, replaces BUG-236 item 3's hold, and fixes the "nothing appears" bug along the way. It probably needs a small change in the framework so a worker result can be handed to the next talker or consultant reply instead of shown, plus the change on our side.
+
+Shall I file it? It would be a lagrange-framework ticket for the hand-over, if needed, plus one bug here that removes the marker.
 
 <!-- xgd-chat-end -->
