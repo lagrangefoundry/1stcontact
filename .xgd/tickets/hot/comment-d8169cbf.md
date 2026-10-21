@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:50:40.667010+00:00'
+updated_at: '2026-10-21T17:50:56.946653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11053,5 +11053,17 @@ So it's not the widget's box being replaced: that alone wouldn't put progress in
 <!-- xgd-chat role="user" ts="2026-10-21T17:50:40.035771+00:00" -->
 #### You
 Actually the stop button is not perminantly on (I have lost the greyed out button altogther) - trying a reload
+
+<!-- xgd-turn id="83197d46-4e5d-4fb8-8f35-583bf59c340d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:50:56.077592+00:00" -->
+#### Claude
+I've added that to BUG-247: the red ■ is now on all the time, and the greyed-out idle Send never comes back between messages. That fits the composer believing a reply is permanently in progress, which is what happens when the browser treats the build as an ordinary reply that never ends.
+
+The reload is the right test. Afterwards, tell me:
+1. **Straight after the reload:** is the composer back to the greyed-out Send, and is the status widget back under the progress banner? (The build is still running, so it should reappear with its timer.)
+2. **On the next build:** does it behave, or does the ■ come back? Pay most attention if the consultant answers first and then starts building.
+
+If the reload fixes it and it comes back on an answer-first build, the cause is confirmed.
 
 <!-- xgd-chat-end -->
