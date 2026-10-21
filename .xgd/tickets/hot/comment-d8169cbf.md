@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:10:29.448919+00:00'
+updated_at: '2026-10-21T19:16:31.121232+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11446,5 +11446,11 @@ I've filed two tickets under EPIC-19, both at `draft`.
 6. **Small batches, so it doesn't overwhelm:** about 8 notes per reaction task by default (configurable). The consultant also keeps the board tidy by merging near-duplicates and keeping each theme to its strongest notes. Notes added later are marked "new" for the next round.
 
 On today's board: the consultant has been adding notes faster than you could react, which is exactly what item 6 addresses. Until REQ-424 lands, you can ask the consultant now to pause new questions and walk you through the board a few notes at a time.
+
+<!-- xgd-turn id="bc2d9cbe-ddd9-477d-9895-142e163676f2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:16:30.195610+00:00" -->
+#### You
+On today's board: the consultant has been adding notes faster than you could react, <-- I wasn't even thinking about reacting bec ause I didn't have it open - again I need to be guided to it
 
 <!-- xgd-chat-end -->
