@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:52:37.704239+00:00'
+updated_at: '2026-10-21T19:55:09.602405+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11672,5 +11672,11 @@ That's essentially the **executive function** we designed Bob for, as a planner 
 - **the critic** (one review at the end of each big run) for whether the work is any good.
 
 I'd start with the director, since it's what this conversation was about, and the next-move line is cheap to try. Shall I write a design note covering both, with the director first, and then file the director as the first ticket?
+
+<!-- xgd-turn id="b71763bc-9b3a-48e6-b50d-79295005df5d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:55:08.854515+00:00" -->
+#### You
+Say more about how these two work in practivce - particularly with our worker/talker story
 
 <!-- xgd-chat-end -->
