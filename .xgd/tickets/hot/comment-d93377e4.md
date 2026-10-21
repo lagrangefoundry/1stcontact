@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T13:42:42.240455+00:00'
+updated_at: '2026-10-21T13:46:38.269759+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -312,5 +312,37 @@ She has a couple of people who work with her a younger intern and an older guy w
 On weekends she does classes for kids on metal work and sculpture
 
 Please complete the story and fill in the details as our next business
+
+<!-- xgd-turn id="b1c6b095-2ab6-4ed4-b28f-4363d22a8c42-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T13:46:37.365386+00:00" -->
+#### Claude
+I'll set Ariel up the same way as the other two. First, a quick search for real Oakland competitors.Ariel's Archwelding is ready at `example-businesses/ariels-archwelding/`, with the same set of files as Charlie and Bob plus a classes file. I've added it to the index too. Nothing is committed.
+
+Everything you gave me is in the README's canon table. Here's how I filled in the story:
+- **Ariel's father, Tomás**, welded Navy supply ships in San Diego for 15 years. After the layoffs he opened a muffler and fabrication shop in Chula Vista. Ariel struck her first arc there at ten, with his hand on hers. His rule runs through everything: "If you wouldn't stand under it, don't weld it." He died in 2019, and his old stick welder sits on a shelf in her office and still gets used.
+- **Ariel** went to art school in Oakland for sculpture, where she was told her work was "too industrial". Then she spent six years at a ship-repair yard in Alameda, the only woman on the crew. That's where she learned aluminium.
+- **The shop** opened in 2014 in half of an old cannery in Jingletown, on the estuary. She started with a used welder, an estate-sale lathe and a forge she built from a brake drum. The first customers were boat owners who followed her from the yard.
+- **The team**: Gus, 67, spent 20 years as a machinist at an aerospace shop in Hayward. He retired, lasted six weeks at home and walked back in. Mika, 20, started in the kids' class at 13 and now studies welding at Laney College.
+- **The devil** is "Old Scratch", built over eleven months of weekends for Burning Man 2022. Fire comes from the horns and mouth. He's lit at Halloween and at the Jingletown open studios. I added two more sculptures: a heron made of boat propellers, and bees with spark-plug bodies.
+- **Aircraft**: I kept this realistic. She doesn't weld anything that holds a plane up. She builds engine stands, tooling and hangar equipment, and Gus machines parts to drawings for a licensed mechanic to sign off.
+
+**The files**
+- **`README.md`**: the facts, plus paste-ready quotes in Ariel's voice on her customers, what she's best at (aluminium and stainless, and parts nobody makes any more), last week's jobs, the sculptures, Gus and Mika, and the classes.
+- **`services.md`**: rates are $125/hr in the shop, $115/hr for machining, $165/hr mobile and a $75 walk-in minimum. It's priced line by line across marine, auto, buildings, aviation, machining, restaurant, forge and art commissions, with a list of what she won't do.
+- **`classes.md`**: Saturday 10–1, $240 for four weeks, two free places per session for Oakland kids. There's a no-welding track for ages 10–12 and a welding track for 12–16, plus birthday parties and adult taster nights.
+- **`ariel-story.md`**, **`testimonials.md`** (10 reviews, two of them lukewarm), **`invoice-blank.md`** and **`letterhead.md`**, the same as for the other two businesses.
+- **`competitors.md`**: three real businesses that each cover one side of what she does:
+  - [HRT Mobile Welding](https://hrtmobilewelding.com/) for mobile and port work
+  - [Bayfab Metals](https://www.bayfabmetals.com/) in San Leandro for fabrication
+  - [The Crucible](https://www.thecrucible.org/) for classes. Its class pages wouldn't load, so those details come from search results only.
+
+  None of them shows its work as art, none pitches dock-side repair for private boats, and none publishes real rates.
+
+**What I made up:** her age (41), the address (2867 Kennedy St), the 555 phone number, the licence number, the prices and the dates. Change any of them before pasting.
+
+**Two things to check:**
+1. **The name.** I used "Archwelding" exactly as you wrote it. If you meant "Arc Welding", say so and I'll change it everywhere, including the folder name.
+2. **Bob's Salon has 16 new images** sitting loose in its folder, not in `images/`, and they aren't committed. Do you want me to move them into `images/`, list them in Bob's README and commit everything along with Ariel?
 
 <!-- xgd-chat-end -->
