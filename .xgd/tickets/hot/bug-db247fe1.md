@@ -6,10 +6,10 @@ title: 'Turns can wedge a session until the server restarts: progress deadline, 
   leases, automatic recovery, no ugly client errors'
 created_by: EPIC-19
 created_at: '2026-10-21T18:37:46.343167+00:00'
-updated_at: '2026-10-21T19:20:30.523122+00:00'
+updated_at: '2026-10-21T19:22:56.227874+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: critical
   priority: high
