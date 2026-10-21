@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:30:05.282867+00:00'
+updated_at: '2026-10-21T18:33:42.710865+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11201,5 +11201,15 @@ I've filed **REQ-422**, *"L1: a shared site header and footer with navigation th
 **One flag on BUG-246.** I added the page-awareness part to it: the consultant is told which **page** you're on, and the first time it shows you a second page it explains how to switch between pages. But BUG-246 had already moved to `free_coding`, so its session is mid-build. I appended to it rather than creating a new ticket, which goes against what you asked for BUG-245. If that session has already passed the point where it can take the addition, tell me and I'll move it to its own ticket.
 
 For the run you're in now: your request for a title or banner on the home page is the right fix for today. Until REQ-422 lands, though, nothing will add a menu or a way back from the Art page unless you ask for one.
+
+<!-- xgd-turn id="77f42576-4ae5-451f-a141-b960348c738b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:33:41.820852+00:00" -->
+#### You
+*That turn stopped before it finished — the connection held, the reply did not (turn_cc6be6d1c46e1a31982cbad770fca1c6). It was our failure, it has been recorded, and asking again is worth a try. The reply above is not all of it; ask again to pick it up.*
+
+*Just hit this - any idea what happened?*
+
+*API crashes are more frequent that I'd like - we need the system to be robust against failed calls and pick up the flow again without dropping ugly errors like this on our users (useful in dev though)*
 
 <!-- xgd-chat-end -->
