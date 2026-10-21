@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T14:55:04.349485+00:00'
+updated_at: '2026-10-21T17:01:21.647499+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10747,5 +10747,13 @@ Items 2 and 3 only affect cost, not what you see. With both unfixed, though, bui
 - **Ideally land BUG-244 first,** plus BUG-243 if you want this run's costs to mean anything.
 - **Run `bin/deploy --env dev`**, then start a new business.
 - **Check one thing early:** the contact form shouldn't trigger the "layout fault" continuation any more (BUG-237). If it still does, stop and tell me, because that's what cost you 11 paid turns last time.
+
+<!-- xgd-turn id="1a191124-34bb-4cb0-a1a6-3aba2fcb0641-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:01:21.290191+00:00" -->
+#### You
+ok so twice now I have been typing and a CTA has popped up at the bottom of the chat saying the consultant has finished do I want to see what it has to say - clicking it disap[pears and adds no text. 
+
+I think this is the wrong experience we want the talker and the worker to really appear as one entity
 
 <!-- xgd-chat-end -->
