@@ -929,11 +929,11 @@ export const CHAT_START = 'Click here to start'
 export const CHAT_START_FAILED = "That didn't start — please try again."
 
 /**
- * [[BUG-236]] — the consultant came back from its work while the client had a
- * message half-written: what it said is held behind this, and shows when they
- * send or clear the box, or press it.
+ * [[BUG-245]] — the consultant's work finished while the client was writing (or
+ * while it was answering them): no message, only this quiet state beside the
+ * progress banner. Its next reply carries the news.
  */
-export const CHAT_RESULT_HELD = 'The consultant has finished — show what it said'
+export const CHAT_NEWS_WAITING = 'Done ✓ — the consultant will tell you in its next reply'
 
 /**
  * The plan panel's words ([[REQ-364]], [[DOC-65]] §5).
@@ -999,6 +999,16 @@ export const PLAN_FILLED_BY_AGENT = 'Taken from what you sent'
 export const PLAN_SAVE_FAILED = 'That answer was not saved. Try again in a minute, and tell us if it keeps happening.'
 /** [[BUG-236]] — shown on an item's line for a moment once its answer is stored. */
 export const PLAN_SAVED = 'Saved ✓'
+/**
+ * [[BUG-245]] — a typed answer's button and its state, always visible: what is in
+ * the box is either not saved yet, or saved.
+ */
+export const PLAN_SAVE = 'Save'
+export const PLAN_NOT_SAVED = 'Not saved yet'
+/** [[BUG-245]] — the badge on the panel while it holds questions the client has not opened. */
+export const PLAN_NEW = (n) => `${n} new`
+/** [[BUG-245]] — said to a screen reader while the consultant works, beside the tint. */
+export const PLAN_WORKING = 'The consultant is working'
 
 /**
  * [[BUG-230]] — what the publish banner says when a publish went wrong. Plain
@@ -1015,9 +1025,9 @@ export const PUBLISH_FAILED_MESSAGE =
 export const COMPS_MODE_LABEL = 'Comparisons'
 export const COMPS_HEADING = "Sites we're comparing"
 export const COMPS_INTRO =
-  'Open each site and have a look around — how it moves and how it feels on your phone matters as much as how it looks.'
+  'Open each site and have a look around — how it moves and how it feels on your phone matters as much as how it looks. Then tell the consultant what you think: send a note, or skip the site.'
 export const COMPS_EMPTY = "No sites yet. Add one you know below, or ask in the chat for some to look at."
-export const COMPS_VISIT = 'Open the site ↗'
+export const COMPS_VISIT = 'Open the real site ↗'
 /** [[REQ-419]] — the link in the "Looking at other sites" stage's explanation. */
 export const COMPS_STAGE_LINK = "See the sites we're comparing"
 export const COMPS_ADD_LABEL = 'Add a site you like'
@@ -1025,16 +1035,25 @@ export const COMPS_ADD_PLACEHOLDER = 'https://…'
 export const COMPS_ADD_BUTTON = 'Add'
 export const COMPS_ADDING = 'Looking at that site…'
 export const COMPS_FROM = { consultant: 'Suggested', client: 'You added' }
-export const COMPS_LIKES = 'Likes'
-export const COMPS_DISLIKES = 'Dislikes'
-export const COMPS_NOTES_HINT = 'One per line'
 export const COMPS_OPEN = (title) => `Open ${title} in a new tab`
 export const COMPS_REMOVE = 'Remove'
 export const COMPS_FAILED = (message) => `That was not saved: ${message}`
-/** [[BUG-236]] — a comp's notes are finished; and the client is finished with the board. */
-export const COMPS_DONE = 'Done'
-export const COMPS_FINISHED = 'I’ve finished commenting'
-export const COMPS_FINISHED_SAID = 'Thanks — the consultant will pick it up from here.'
+/**
+ * [[BUG-245]] — a comp card: the consultant's reason for it, the client's notes
+ * box, and its two buttons and three states.
+ */
+export const COMPS_WHY = 'Why I picked it'
+export const COMPS_NOTES_LABEL = 'Your notes'
+export const COMPS_NOTES_HINT = 'What do you like? What would you never do?'
+export const COMPS_SEND = 'Send to the consultant ➤'
+export const COMPS_SKIP = 'Skip'
+export const COMPS_UNSKIP = 'Reopen'
+export const COMPS_STATE_OPEN = ''
+export const COMPS_STATE_UNSENT = 'Not sent yet'
+export const COMPS_STATE_SENT = (time) => `Sent ✓ ${time}`
+export const COMPS_STATE_SKIPPED = 'Skipped'
+/** [[BUG-245]] — how a sent note appears in the conversation: the client's own message. */
+export const COMPS_NOTE_MESSAGE = (title, note) => `On ${title}: ${note}`
 
 /**
  * The story board's words ([[REQ-408]]). The board is the client's own words

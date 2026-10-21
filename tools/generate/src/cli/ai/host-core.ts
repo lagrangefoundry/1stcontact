@@ -81,6 +81,7 @@ import {
   productConfig,
   openingCue,
   continuationCue,
+  compsFinishedCue,
   layoutContinuationCue,
   talkerCue,
   spendCeilingNotice,
@@ -442,6 +443,12 @@ export interface ChatSession {
    * settings assistant, a room.
    */
   talker?: boolean
+  /**
+   * [[BUG-245]] — a result of the work arrived while the client was writing and
+   * has not been told yet: the panel shows a quiet "done" state, and the next
+   * reply carries the news. Absent otherwise.
+   */
+  news?: boolean
 }
 
 /**
@@ -850,6 +857,14 @@ export interface HostDeps {
    * wherever it keeps plans.
    */
   planAnswers?: ((sessionId: string, site: string) => Promise<string | null>) | null
+
+  /**
+   * [[BUG-245]] — the results of the consultant's work the client was not shown,
+   * because they arrived while the client was writing; the next reply carries the
+   * news instead. {@link openSession} keeps them off the replayed transcript, so a
+   * reload shows what the client saw, and says when one has not been told yet.
+   */
+  absorbed?: ((sessionId: string) => Promise<{ turn_id: string; text: string; told: boolean }[]>) | null
 
   /**
    * Where a turn's prompt is kept while the turn is unaccounted for
@@ -3123,6 +3138,8 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
 async function storedTranscript(
   manager: Untyped,
   sessionId: string,
+  /** [[BUG-245]] — results the client was not shown, cut from the replay. */
+  absorbed: { turn_id: string; text: string }[] = [],
 ): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean; started: boolean } | null> {
   let read: { session: Untyped; cursor: number; live: boolean }
   try {
@@ -3131,14 +3148,14 @@ async function storedTranscript(
     if ((await manager.archive.list()).includes(sessionId)) throw err
     return null
   }
-  const recorded = read.session.turns as { role: string; content: string; ts?: string }[]
+  const recorded = withoutAbsorbed(read.session.turns as { role: string; content: string; ts?: string; turn_id?: string }[], absorbed)
   // [[REQ-403]] — THE OPENING'S CUE IS NOT THE CLIENT'S, so it is not shown as
   // theirs. It still counts as the conversation having started.
   const opening = openingCue()
-  // [[REQ-409]] — nor is the host's cue for a continuation.
-  const continuation = continuationCue()
-  const hidden = (turn: { role: string; content: string }): boolean =>
-    turn.role === 'user' && (turn.content === opening || turn.content === continuation)
+  // [[REQ-409]] — nor is the host's cue for a continuation. [[BUG-245]] — nor its
+  // cue for a finished comp board.
+  const cues = new Set([opening, continuationCue(), compsFinishedCue()])
+  const hidden = (turn: { role: string; content: string }): boolean => turn.role === 'user' && cues.has(turn.content)
   const turns = recorded.filter((turn) => !hidden(turn)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -3157,6 +3174,39 @@ async function storedTranscript(
     }),
   )
   return { turns, cursor: read.cursor, live: read.live === true, started: recorded.length > 0 }
+}
+
+/**
+ * [[BUG-245]] — THE TRANSCRIPT AS THE CLIENT SAW IT: each result the client was not
+ * shown is cut from the end of the consultant's turn that carried it (by its turn
+ * id where the record has one, else the latest turn ending with it), and a turn
+ * left with nothing is dropped. A result not found is left where it is: showing
+ * it twice is the lesser fault than losing words the client did see.
+ */
+export function withoutAbsorbed<T extends { role: string; content: string; turn_id?: string }>(
+  turns: T[],
+  absorbed: { turn_id: string; text: string }[],
+): T[] {
+  if (absorbed.length === 0) return turns
+  const out = turns.map((t) => ({ ...t }))
+  const gone = new Set<number>()
+  for (const entry of absorbed) {
+    const text = entry.text.trim()
+    if (text === '') continue
+    const ends = (t: T): boolean => typeof t.content === 'string' && t.content.trimEnd().endsWith(text)
+    let at = -1
+    for (let i = out.length - 1; i >= 0; i--) {
+      if (gone.has(i) || out[i].role !== 'assistant' || !ends(out[i])) continue
+      if (entry.turn_id !== '' && out[i].turn_id && out[i].turn_id !== entry.turn_id) continue
+      at = i
+      break
+    }
+    if (at === -1) continue
+    const kept = out[at].content.trimEnd().slice(0, -text.length).trimEnd()
+    if (kept === '') gone.add(at)
+    else out[at].content = kept
+  }
+  return out.filter((_, i) => !gone.has(i))
 }
 
 /**
@@ -3835,10 +3885,13 @@ export async function openSession(
   // {@link storedTranscript} folds the junction and touches no backend, so the
   // property this ordering already bought — a deployment with no API key shows
   // the conversation AND says why it is frozen — survives the swap intact.
-  const read = await storedTranscript(manager, sessionId)
+  // [[BUG-245]] — what the client was not shown is not replayed either.
+  const absorbed = deps.absorbed ? await deps.absorbed(sessionId).catch(() => []) : []
+  const read = await storedTranscript(manager, sessionId, absorbed)
   const turns = read?.turns ?? []
   const cursor = read?.cursor ?? 0
   const live = read?.live ?? false
+  const news = absorbed.some((e) => !e.told) ? { news: true } : {}
   // BESIDE THE TRANSCRIPT, NEVER INSTEAD OF IT ([[BUG-121]]). A turn that did not
   // finish is reported alongside the conversation it belongs to and reconciled
   // against it — see {@link interruptedTurn}, which is also why this is read here
@@ -3848,7 +3901,7 @@ export async function openSession(
   try {
     await attach(manager, sessionId, CONSULTANT_ROLE, siteBackendName(slug))
   } catch (err) {
-    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost }
+    return { sessionId, turns, cursor, live, ready: false, error: operatorMessage(err), ...lost, ...news }
   }
   // [[REQ-403]] — NOTHING SAID YET, SO THE PANEL OFFERS TO START.
   const fresh = !read?.started && !live && (await previousTurn(deps, sessionId)) === null
@@ -3859,6 +3912,7 @@ export async function openSession(
     live,
     ready: true,
     ...lost,
+    ...news,
     ...(await waitingFor(deps, sessionId)),
     ...(fresh ? { opening: true } : {}),
     ...((await manager.talker(sessionId)) ? { talker: true } : {}),

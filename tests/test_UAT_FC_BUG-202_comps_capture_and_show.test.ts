@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { validateL1 } from '../packages/site-schema/src/index'
 import { foldToL1 } from '../tools/generate/src'
 import { fidelityOperations } from '../tools/generate/src/cli/ai/fidelity-core'
-import { planOperations, seedPlan, type CompDeps, type CompRecord, type Plan } from '../tools/generate/src/cli/ai/plan-core'
 import { egressGuard } from '../tools/generate/src/cli/capture/egress-guard'
 import { HINTS_SCRIPT } from '../tools/generate/src/cli/capture/hints'
 import type { RawSignals } from '../tools/generate/src/cli/capture/extract'
@@ -194,8 +193,8 @@ describe('BUG-202 — a capture survives its own fold', () => {
   })
 })
 
-describe('BUG-202 — a capture that cannot load says so quickly, and still links the site', () => {
-  it('test_UAT_FC_BUG-202_a_failed_capture_answers_a_tile_that_links_the_real_site', async () => {
+describe('BUG-202 — a capture that cannot load says so quickly', () => {
+  it('test_UAT_FC_BUG-202_a_failed_capture_says_so_quickly', async () => {
     TimeoutDriver.navigations = 0
     vi.useFakeTimers({ toFake: ['Date'] })
     const { deps } = captureDeps(() => new TimeoutDriver())
@@ -208,9 +207,8 @@ describe('BUG-202 — a capture that cannot load says so quickly, and still link
     // spent it, and two more attempts only tripled the wait. (Nor does a timeout
     // earn an alternate spelling of the host — BUG-67.)
     expect(TimeoutDriver.navigations).toBe(1)
-    // The tile: no snapshot, said so, and a link that opens the real site.
-    expect(failure).toContain("couldn't take a snapshot")
-    expect(failure).toContain('[Open the real site ↗](https://rosenthalplumbing.test/)')
+    // [[BUG-245]] — no tile for the conversation: comps live on the board.
+    expect(failure).not.toContain('Open the real site')
     expect(failure).not.toMatch(/!\[/)
   })
 
@@ -225,65 +223,20 @@ describe('BUG-202 — a capture that cannot load says so quickly, and still link
   })
 })
 
-describe('BUG-202 — every comp reaches the conversation as a tile', () => {
-  const comp: CompRecord = {
-    reference: 'reference-1',
-    title: 'Duncan Plumbing [Bay Area](x)',
-    url: 'https://www.duncanplumbing.test/',
-    likes: [],
-    dislikes: [],
-  }
-
-  function planDeps(snapshot: string | null) {
-    let stored: Plan = seedPlan('site-1')
-    const comps: CompDeps = {
-      get: async (reference) => (reference === comp.reference ? comp : null),
-      note: async () => comp,
-      snapshot: async () => snapshot,
-    }
-    return {
-      read: async () => stored,
-      write: async (change: (p: Plan) => Plan) => (stored = change(stored)),
-      comps,
-    }
-  }
-
-  it('test_UAT_FC_BUG-202_adding_a_comp_answers_a_tile_with_its_thumbnail_and_a_link_to_the_live_site', async () => {
-    const thumb = '/b/biz-1/api/material/file?uid=reference-1&member=screenshot-1280.png'
-    const out = (await planOperations(planDeps(thumb)).add_comp({ reference: comp.reference })) as {
-      comp: { reference: string }
-      display: string
-    }
-    expect(out.comp.reference).toBe('reference-1')
-    expect(out.display).toMatch(/exactly as written/)
-    expect(out.display).toContain(`](${thumb})`)
-    expect(out.display).toContain('duncanplumbing.test')
-    expect(out.display).toContain('[Open the real site ↗](https://www.duncanplumbing.test/)')
-    // A stranger's title is text: its brackets cannot become a link of their own.
-    expect(out.display).toContain('Duncan Plumbing \\[Bay Area\\]\\(x\\)')
-    expect(out.display).not.toContain("couldn't take a snapshot")
-  })
-
-  it('test_UAT_FC_BUG-202_a_comp_with_no_snapshot_answers_the_link_without_a_thumbnail', async () => {
-    const out = (await planOperations(planDeps(null)).add_comp({ reference: comp.reference })) as { display: string }
-    expect(out.display).not.toMatch(/!\[/)
-    expect(out.display).toContain("couldn't take a snapshot")
-    expect(out.display).toContain('[Open the real site ↗](https://www.duncanplumbing.test/)')
-  })
-})
+// [[BUG-245]] — BUG-202's in-chat comp tiles are reversed: `add_comp` hands the
+// consultant one line for the whole board, with its link. See
+// test_UAT_FC_BUG-245_one_voice_one_thing.workers.test.ts.
 
 describe('BUG-202 — the consultant searches as well as asks', () => {
   type Section = { name?: string; text?: string[] }
   const comps = (key: 'priming' | 'priming_without_corpus'): string =>
     ((primingDocument[key] as Section[]).find((s) => s.name === 'comps')?.text ?? []).join('\n')
 
-  it('test_UAT_FC_BUG-202_the_priming_searches_in_the_same_turn_it_asks_and_shows_each_tile', () => {
+  it('test_UAT_FC_BUG-202_the_priming_searches_in_the_same_turn_it_asks', () => {
     for (const key of ['priming', 'priming_without_corpus'] as const) {
       const text = comps(key)
-      expect(text).toMatch(/In the same turn, search the web yourself/)
+      expect(text).toMatch(/In\s+the same turn, search the web yourself/)
       expect(text).toMatch(/client's sites add\s+to your search, they never replace it/)
-      expect(text).toMatch(/Show each tile in your reply and invite the client to open\s+the real site/)
-      expect(text).toMatch(/could not capture still comes back with a tile/)
     }
   })
 })

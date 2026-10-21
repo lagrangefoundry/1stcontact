@@ -536,11 +536,12 @@ export async function fetchPlan(site, fetchImpl = fetch) {
 /**
  * The client's half of the comp board ([[REQ-378]]).
  *
- * `add` captures `url` and puts it on the board; `note` replaces the `likes`
- * and/or `dislikes` held for `reference`; `remove` takes it off. Answers the
- * panel's view as the write left it, like {@link answerAsk}.
+ * `add` captures `url` and puts it on the board; `remove` takes `reference` off.
+ * [[BUG-245]] — `draft` keeps a card's `note`, `send` sends it, `skip_site` and
+ * `reopen_site` close and open the card. Answers the panel's view as the write
+ * left it, like {@link answerAsk}.
  */
-export async function compAction({ site, action, url, reference, likes, dislikes }, fetchImpl = fetch) {
+export async function compAction({ site, action, url, reference, note }, fetchImpl = fetch) {
   return copyEnvelope(
     await send(fetchImpl, scoped('/api/plan/comp'), {
       method: 'POST',
@@ -550,8 +551,7 @@ export async function compAction({ site, action, url, reference, likes, dislikes
         action,
         ...(url !== undefined ? { url } : {}),
         ...(reference !== undefined ? { reference } : {}),
-        ...(likes !== undefined ? { likes } : {}),
-        ...(dislikes !== undefined ? { dislikes } : {}),
+        ...(note !== undefined ? { note } : {}),
       }),
     }),
   )
@@ -828,6 +828,40 @@ export async function* streamChatPrompt(sessionId, text, view = null, fromMessag
     'the assistant failed',
     fetchImpl,
   )
+}
+
+/**
+ * [[BUG-245]] — a turn on the host's cue rather than the client's words: the comp
+ * board finished on a Skip. A REFUSAL IS SILENCE, not a sentence in the
+ * conversation: 409 means the consultant has already been told, which is the
+ * outcome the cue was for.
+ */
+export async function* streamChatCue(sessionId, cue, view = null, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/prompt'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId, cue, ...(view ? { view } : {}) }),
+  })
+  if (!res.ok) {
+    yield { kind: 'done', meta: { status: 'refused' } }
+    return
+  }
+  yield* readEventStream(res)
+}
+
+/**
+ * [[BUG-245]] — a result of the work the client was not shown, because it arrived
+ * while they were writing. The origin keeps it: the next reply tells the news, and
+ * a reload does not show it as a message.
+ */
+export async function reportAbsorbed(sessionId, turnId, text, fetchImpl = fetch) {
+  const res = await send(fetchImpl, scoped('/api/ai/absorbed'), {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ sessionId, turnId, text }),
+  })
+  if (!res.ok) throw new Error(`POST /api/ai/absorbed → ${res.status}`)
+  return res.json()
 }
 
 /**

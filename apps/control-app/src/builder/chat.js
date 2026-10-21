@@ -52,15 +52,17 @@
 import { mountChat } from '@lagrangefoundry/webui-chat'
 import {
   CHAT_MAX_SUBMISSION_CHARS,
+  CHAT_NEWS_WAITING,
   CHAT_OVER_LONG_MESSAGE,
-  CHAT_RESULT_HELD,
   CHAT_START,
   CHAT_START_FAILED,
 } from './config.js'
 import {
   interposeChatMessage,
   openChatConversation,
+  reportAbsorbed,
   stopChat,
+  streamChatCue,
   streamChatPrompt,
   streamChatReattach,
 } from './api.js'
@@ -204,15 +206,20 @@ async function* watchForWrites(events, told) {
  * `onBusy` is told when the first stream of work opens and the last one closes,
  * which is what animates the plan panel's current stage.
  *
- * [[BUG-236]] — `hold` says whether the client has unsent text in the box
- * (`typing`), answers a promise of {@link FREED} once they have not (`free`), and
- * shows or hides the marker the held result waits behind (`show`).
+ * [[BUG-245]] — ONE VOICE, ONE THING AT A TIME. Once the consultant has gone to
+ * work (its first `progress`), what it says while the client has unsent text in
+ * the box (`typing`) — or while a talker reply is being written — is not shown at
+ * all: it is the work's news, and the consultant's next reply carries it, after
+ * answering what the client said. `onAbsorbed` is told the round and the words.
+ * Otherwise the result shows as it arrives, as it always did.
  */
-function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }) {
+function talkDesk({ transport, onBusy, told, typing = () => false, onCued = () => {}, onAbsorbed = () => {} }) {
   /** Streams of work open in this panel: each one may carry a talker's reply. */
   let open = 0
   /** [[BUG-240]] — the host-cued talker replies arriving, by round: their text so far. */
   const cued = new Map()
+  /** [[BUG-245]] — talker rounds being written now, by turn id. */
+  const talking = new Set()
   /** Messages sent to the talker, each waiting for its reply. */
   const waiting = []
   /** [[BUG-224]] — messages the origin already holds, by text, adopted rather than re-sent. */
@@ -268,7 +275,10 @@ function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }
   }
   function route(event) {
     const meta = event.meta ?? {}
-    if (meta.cued === true || cued.has(String(meta.turn_id ?? ''))) {
+    const turnId = String(meta.turn_id ?? '')
+    if (meta.event === 'start') talking.add(turnId)
+    else if (meta.event === 'done') talking.delete(turnId)
+    if (meta.cued === true || cued.has(turnId)) {
       routeCued(event, meta)
       return
     }
@@ -300,47 +310,24 @@ function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }
   }
   async function* unwrapped(events) {
     let done = null
-    // [[BUG-236]] — ONCE THE CONSULTANT HAS GONE TO WORK (its first `progress`),
-    // what it says while the client has unsent text in the box is HELD behind a
-    // marker, and shown when they send or clear it. The stream is still read
-    // meanwhile — a talker's reply must not wait behind the held text — so the
-    // next event and the box emptying are raced.
+    // [[BUG-245]] — the round at work, its words the client was not shown, and the
+    // text after its last tool call while a talker had the client (REQ-210's
+    // forked result), which is decided on when the round ends.
     let working = false
-    const held = []
-    let freed = null
-    let next = null
-    let ended = false
-    const it = events[Symbol.asyncIterator]()
-    const release = function* () {
-      freed = null
-      hold.show(false)
-      while (held.length > 0) yield held.shift()
-    }
+    let turnId = ''
+    let absorbing = false
+    const withheld = []
+    let tail = ''
+    const elsewhere = () => typing() || talking.size > 0 || cued.size > 0
     try {
-      for (;;) {
-        if (held.length > 0 && !hold.typing()) {
-          yield* release()
-          continue
-        }
-        next ??= it.next()
-        if (held.length > 0) freed ??= hold.free()
-        const step = held.length > 0 ? await Promise.race([next, freed]) : await next
-        if (step === FREED) {
-          freed = null
-          continue
-        }
-        next = null
-        if (step.done) {
-          ended = true
-          break
-        }
-        const event = step.value
+      for await (const event of events) {
         if (event?.kind === TALKER) {
           route(event)
           continue
         }
         if (event?.kind === PROGRESS) {
           working = true
+          turnId ||= String(event.meta?.turn_id ?? '')
           yield { ...event, ...(event.meta ?? {}) }
           continue
         }
@@ -348,23 +335,34 @@ function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }
           done = event
           continue
         }
-        if (event?.kind === 'text' && working && (held.length > 0 || hold.typing())) {
-          held.push(event)
-          hold.show(true)
+        if (event?.kind === TOOL_ACTIVITY) tail = ''
+        if (event?.kind === 'text' && (event.forked || event.meta?.forked)) {
+          tail += event.content ?? ''
+          continue
+        }
+        if (event?.kind === 'text' && working && (absorbing || elsewhere())) {
+          // ONCE ABSORBING, THE REST OF THE ROUND IS TOO: news is never cut in half.
+          absorbing = true
+          withheld.push(event.content ?? '')
           continue
         }
         yield event
       }
-      // THE WORK HAS ENDED WITH ITS RESULT STILL HELD: it waits for the box, and
-      // the turn ends after it is shown.
-      if (held.length > 0) {
-        while (hold.typing()) await hold.free()
-        yield* release()
+      // THE FORKED RESULT, at the round's end: news if the client is writing or a
+      // talker is, else shown — `webui-chat` draws it as a bubble of its own.
+      if (tail.trim() !== '') {
+        if (absorbing || elsewhere()) withheld.push(tail)
+        else yield { kind: 'text', content: tail, meta: { forked: true } }
+      }
+      const news = withheld.join('').trim()
+      if (news !== '') {
+        try {
+          onAbsorbed(turnId, news)
+        } catch {
+          // Telling the origin is not the turn's business.
+        }
       }
     } finally {
-      // Read by hand, so a reader that stops early must close the stream itself.
-      if (!ended) void Promise.resolve(it.return?.()).catch(() => {})
-      hold.show(false)
       open -= 1
       if (open === 0) {
         busy(false)
@@ -422,14 +420,11 @@ function talkDesk({ transport, onBusy, told, hold = NO_HOLD, onCued = () => {} }
   }
 }
 
-/** [[BUG-236]] — what {@link talkDesk}'s `hold.free` resolves to. */
-const FREED = Symbol('freed')
+/** `webui-chat`'s frame kind for a tool call; a forked result is the text after the last one. */
+const TOOL_ACTIVITY = 'tool_activity'
 
-/** [[BUG-236]] — how often a held result looks at the box again. */
-const HOLD_POLL_MS = 250
-
-/** A panel with no composer to watch holds nothing. */
-const NO_HOLD = { typing: () => false, free: () => Promise.resolve(FREED), show: () => {} }
+/** [[BUG-245]] — how often a waiting cue looks again for a free panel. */
+const CUE_WAIT_MS = 500
 
 /** Per-session instance id — also the key the composer's draft persists under. */
 export const CHAT_ID_PREFIX = 'builder-chat:'
@@ -689,6 +684,8 @@ export function createChatPanel(options = {}) {
       openConversation: openChatConversation,
       stop: stopChat,
       interpose: interposeChatMessage,
+      absorbed: reportAbsorbed,
+      cue: streamChatCue,
     },
     onSiteChanged = () => {},
     onBusinessChanged = () => {},
@@ -770,33 +767,22 @@ export function createChatPanel(options = {}) {
   const undecorate = attachments?.decorate(element) ?? null
 
   /**
-   * [[BUG-236]] — THE CONSULTANT'S RESULT NEVER LANDS WHILE THE CLIENT TYPES. It
-   * waits behind this marker, above the box, until they send or clear what they
-   * are writing — or press the marker. The box is looked at every
-   * {@link HOLD_POLL_MS} while something is held, because the composer reports no
-   * event for "emptied".
+   * [[BUG-245]] — THE WORK'S NEWS WAITS QUIETLY, NOT AS A MESSAGE. A result that
+   * arrived while the client was writing is not drawn; this line says the work is
+   * done, beside the progress banner where the status widget was, until the
+   * client's next message — whose reply carries the news.
    */
-  const heldMarker = document.createElement('button')
-  heldMarker.type = 'button'
-  heldMarker.className = 'builder-chat-held'
-  heldMarker.textContent = CHAT_RESULT_HELD
-  heldMarker.hidden = true
-  let shownAnyway = false
-  heldMarker.addEventListener('click', () => {
-    shownAnyway = true
-  })
-  const hold = {
-    typing: () => !shownAnyway && (chat?.getInputMarkdown?.() ?? '').trim() !== '',
-    free: () =>
-      new Promise((resolve) => {
-        const look = () => (hold.typing() ? setTimeout(look, HOLD_POLL_MS) : resolve(FREED))
-        look()
-      }),
-    show(on) {
-      if (!on) shownAnyway = false
-      heldMarker.hidden = !on
-      if (on && !heldMarker.isConnected) element.querySelector('.chat-widget-input-bar')?.before(heldMarker)
-    },
+  const news = document.createElement('div')
+  news.className = 'builder-chat-news'
+  news.setAttribute('role', 'status')
+  news.textContent = CHAT_NEWS_WAITING
+  news.hidden = true
+  const showNews = (on) => {
+    news.hidden = !on
+    if (on && !news.isConnected) {
+      if (statusContainer) statusContainer.append(news)
+      else element.querySelector('.chat-widget-input-bar')?.before(news)
+    }
   }
 
   /** [[REQ-416]] — the talker's messages and replies; see {@link talkDesk}. */
@@ -805,8 +791,13 @@ export function createChatPanel(options = {}) {
     transport,
     onBusy,
     told,
-    hold,
+    // [[BUG-245]] — the client is mid-answer: there is unsent text in the box.
+    typing: () => (chat?.getInputMarkdown?.() ?? '').trim() !== '',
     onCued: (markdown) => chat?.appendMessage('assistant', markdown, at(new Date().toISOString())),
+    onAbsorbed: (turnId, text) => {
+      showNews(true)
+      if (sessionId) void Promise.resolve(transport.absorbed?.(sessionId, turnId, text)).catch(() => {})
+    },
   })
 
   /**
@@ -1064,7 +1055,42 @@ export function createChatPanel(options = {}) {
     // previous conversation spent are a fact about that conversation's origin,
     // not about this one's.
     chases = 0
+    cuePending = null
     paint(session)
+  }
+
+  /**
+   * [[BUG-245]] — say something in the conversation as the client: a comp card's
+   * note, sent from the board. It goes exactly where a typed message would — the
+   * talker while the consultant works, else a turn of its own.
+   */
+  function say(text) {
+    if (!chat || !text) return
+    showNews(false)
+    if (chat.isBusy()) chat.talk(text)
+    else void chat.send(text)
+  }
+
+  /**
+   * [[BUG-245]] — a turn on the host's cue: the consultant speaks without the client
+   * having written (the comp board finished on a Skip). Drawn as the consultant's
+   * message alone. While a turn runs it waits for the panel to be free; the origin
+   * refuses it, silently, once the consultant has been told some other way.
+   */
+  let cuePending = null
+  function cue(kind) {
+    if (!chat || !sessionId || typeof transport.cue !== 'function') return
+    const mine = (cuePending = { kind, key: sessionKey })
+    const run = () => {
+      if (cuePending !== mine || !chat || sessionKey !== mine.key) return
+      if (chat.isBusy()) {
+        setTimeout(run, CUE_WAIT_MS)
+        return
+      }
+      cuePending = null
+      void chat.resume(watchForWrites(desk.wrap(transport.cue(sessionId, kind, promptView())), told), { markdown: '' })
+    }
+    run()
   }
 
   /**
@@ -1155,6 +1181,7 @@ export function createChatPanel(options = {}) {
    * panel id on every keystroke, and the id is the conversation's, unchanged.
    */
   function paint(session) {
+    showNews(false)
     unbindAttachments?.()
     unbindAttachments = null
     chat?.destroy()
@@ -1224,6 +1251,8 @@ export function createChatPanel(options = {}) {
       ...(talks ? { turnModes: { talk: true } } : interposes ? { turnModes: { interpose: true } } : {}),
       sendPrompt: (text, opts) => {
         const wire = expandPrompt(text)
+        // [[BUG-245]] — the client wrote: the reply to it carries any news.
+        showNews(false)
         // [[REQ-416]] — WRITTEN WHILE IT WORKS: to the talker, whose reply comes
         // back on the work's own stream. The origin keeps the message, so it is
         // not remembered here.
@@ -1279,6 +1308,9 @@ export function createChatPanel(options = {}) {
     // [[REQ-414]] — the chips go with the next message, interposed like any
     // other while a turn runs ([[BUG-224]]).
     unbindAttachments = attachments?.bind(chat, { interposes, talks }) ?? null
+    // [[BUG-245]] — news the client has not been told yet survives a reload as the
+    // same quiet line, never as the message it replaced.
+    showNews(session.news === true)
 
     // A TURN STILL IN FLIGHT IS PAINTED BY `resume`, NOT BY `appendMessage`
     // (BUG-46). When the origin says a turn is open, the transcript's last
@@ -1593,6 +1625,8 @@ export function createChatPanel(options = {}) {
     getSessionKey: () => sessionKey,
     /** The live panel, or null before a session is set. Tests and the host read it. */
     getChat: () => chat,
+    say,
+    cue,
     destroy() {
       unbindAttachments?.()
       undecorate?.()

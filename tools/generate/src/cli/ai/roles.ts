@@ -544,6 +544,16 @@ export function continuationCue(): string {
 }
 
 /**
+ * [[BUG-245]] — the user turn the host records when the comp board finishes on a
+ * Skip: every card is sent or skipped and the client wrote nothing, so the
+ * consultant sums up without being asked. Kept out of the client's transcript like
+ * {@link continuationCue}.
+ */
+export function compsFinishedCue(): string {
+  return template('comps-finished-cue')
+}
+
+/**
  * [[BUG-240]] — the host's cue for a talker opened on the client's own message,
  * when the consultant's round went to work without replying to it
  * (lagrange-framework REQ-215). Recorded nowhere: the talker reads it as this

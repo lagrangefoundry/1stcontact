@@ -66,7 +66,7 @@ const raised = (extra: View = {}): View => ({
   asks: [],
   comps_raised: true,
   comps_status: 'open',
-  comps: [comp(1, { likes: ['the big photos'] }), comp(2, { source: 'client' })],
+  comps: [comp(1, { note: 'the big photos' }), comp(2, { source: 'client' })],
   ...extra,
 })
 
@@ -87,7 +87,6 @@ function planTransport(initial: View) {
     compAction: async (body: Record<string, any>) => {
       calls.comps.push(body)
       if (body.action === 'add') current = { ...current, comps: [...current.comps, comp(9, { title: 'Another', url: body.url, source: 'client' })] }
-      if (body.action === 'finish') current = { ...current, comps_finished: true }
       return current
     },
   }
@@ -212,8 +211,10 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-419 — the tiles', () => {
     expect(first.querySelector('.comp-tile__address')?.textContent).toBe('salon1.test')
     expect(first.textContent).toContain('Suggested')
     expect(tile(app, 2).textContent).toContain('You added')
-    expect((first.querySelector('textarea.comp-tile__likes') as HTMLTextAreaElement).value).toBe('the big photos')
-    expect(first.querySelector('.comp-tile__done')).toBeTruthy()
+    // [[BUG-245]] — one notes box, holding what the client kept, and Send / Skip.
+    expect((first.querySelector('textarea.comp-tile__note') as HTMLTextAreaElement).value).toBe('the big photos')
+    expect(first.querySelector('.comp-tile__send')).toBeTruthy()
+    expect(first.querySelector('.comp-tile__skip')).toBeTruthy()
   })
 
   it('test_UAT_FC_REQ-419_the_thumbnail_and_open_the_site_open_the_real_site_in_a_new_tab_only_for_http', async () => {
@@ -222,7 +223,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-419 — the tiles', () => {
     await toComparisons(app)
     const first = tile(app, 1)
     const links = [first.querySelector('a.comp-tile__shot'), first.querySelector('a.comp-tile__visit')] as HTMLAnchorElement[]
-    expect(links[1].textContent).toBe('Open the site ↗')
+    expect(links[1].textContent).toBe('Open the real site ↗')
     for (const link of links) {
       expect(link.getAttribute('href')).toBe('https://www.salon1.test/')
       expect(link.target).toBe('_blank')
@@ -244,8 +245,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-419 — the tiles', () => {
     expect(card.querySelector('.comp-tile__card-name')?.textContent).toBe('Salon 1')
     expect(card.querySelector('.comp-tile__card-address')?.textContent).toBe('salon1.test')
     expect(bare.querySelector('a.comp-tile__visit')?.getAttribute('href')).toBe('https://www.salon1.test/')
-    expect(bare.querySelector('textarea.comp-tile__likes')).toBeTruthy()
-    expect(bare.querySelector('textarea.comp-tile__dislikes')).toBeTruthy()
+    expect(bare.querySelector('textarea.comp-tile__note')).toBeTruthy()
 
     // A picture that will not load is a bad picture too.
     const img = tile(app, 2).querySelector('img.comp-tile__thumb') as HTMLImageElement
@@ -254,16 +254,17 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-419 — the tiles', () => {
     expect(tile(app, 2).querySelector('.comp-tile__card-name')?.textContent).toBe('Salon 2')
   })
 
-  it('test_UAT_FC_REQ-419_notes_done_finished_and_add_a_site_go_through_the_same_route', async () => {
+  it('test_UAT_FC_REQ-419_notes_send_and_add_a_site_go_through_the_same_route', async () => {
     const plan = planTransport(raised())
     const app = await mounted(plan)
     await toComparisons(app)
 
-    // Likes and dislikes, edited in place and stored with the tile's Done.
+    // [[BUG-245]] — a note, written in place and sent with the card's Send.
     const second = tile(app, 2)
-    ;(second.querySelector('textarea.comp-tile__likes') as HTMLTextAreaElement).value = 'warm colours'
-    ;(second.querySelector('textarea.comp-tile__dislikes') as HTMLTextAreaElement).value = 'too many popups\n\nstock photos'
-    ;(second.querySelector('.comp-tile__done') as HTMLButtonElement).click()
+    const area = second.querySelector('textarea.comp-tile__note') as HTMLTextAreaElement
+    area.value = 'warm colours, too many popups'
+    area.dispatchEvent(new Event('input', { bubbles: true }))
+    ;(second.querySelector('.comp-tile__send') as HTMLButtonElement).click()
     await settle()
 
     // Add a site you know, by its address: a new tile.
@@ -275,13 +276,9 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-419 — the tiles', () => {
     await settle()
     expect(app.comparisons.element.querySelectorAll('.comp-tile')).toHaveLength(3)
 
-    // "I've finished commenting" tells the consultant.
-    ;(app.comparisons.element.querySelector('.comparisons__finish') as HTMLButtonElement).click()
-    await settle()
     expect(plan.calls.comps).toEqual([
-      { site: 'alpha', action: 'note', reference: 'reference-2', likes: ['warm colours'], dislikes: ['too many popups', 'stock photos'] },
+      { site: 'alpha', action: 'send', reference: 'reference-2', note: 'warm colours, too many popups' },
       { site: 'alpha', action: 'add', url: 'https://another.test/' },
-      { site: 'alpha', action: 'finish' },
     ])
   })
 })

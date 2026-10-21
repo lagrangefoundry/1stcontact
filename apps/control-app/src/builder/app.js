@@ -644,6 +644,10 @@ export function mountBuilder(root, options = {}) {
    */
   const comparisons = createComparisons({
     ...(planTransport?.compAction ? { transport: { compAction: planTransport.compAction } } : {}),
+    // [[BUG-245]] — a sent note is the client's own message in the conversation;
+    // a board finished on a Skip is the consultant's cue to sum up.
+    onSend: (message) => chat.say(message),
+    onFinished: () => chat.cue('comps_finished'),
   })
   /** Show Comparisons, with one comp's tile brought into view if one is named. */
   function openComparisons(reference) {
@@ -1107,6 +1111,11 @@ export function mountBuilder(root, options = {}) {
     if (target === 'looks') {
       toDraft()
       return looks.open(q.get('set'), q.get('look'))
+    }
+    // [[BUG-245]] — the comparison board as a whole, as the consultant announces it.
+    if (target === 'comps') {
+      if (!comparisons.raised()) return false
+      return openComparisons(null)
     }
     // [[REQ-419]] — a comp shown in chat is its tile in Comparisons.
     if (target === 'comp') {

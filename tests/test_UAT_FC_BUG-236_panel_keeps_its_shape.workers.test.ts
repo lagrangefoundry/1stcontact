@@ -1,7 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import {
-  PLAN_COMP_PATH,
   PLAN_PATH,
   resetChatHost,
   route,
@@ -13,12 +12,11 @@ import { ticketStoreFor, type TicketStore } from '../apps/control-app/src/ticket
 import { findPlan, sitePlan } from '../apps/control-app/src/plan'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
 import {
-  CLIENT_COMPS_FINISHED_LINE,
   planOperations,
   type PlanAsk,
   type PlanFields,
 } from '../tools/generate/src/cli/ai/plan-core'
-import { calls, says, scriptedClient, turnTailText, type ModelRequest, type ModelStep } from './support/scripted-model-client'
+import { calls, says, scriptedClient, type ModelRequest, type ModelStep } from './support/scripted-model-client'
 import { applySchema, seedTenantSite } from './support/d1-site-factory'
 import { nextSlug } from './support/site-seed'
 
@@ -145,17 +143,6 @@ describe("BUG-236 — a question on the client's panel keeps its form", () => {
   })
 })
 
-describe("BUG-236 — \"I've finished commenting\" reaches the consultant", () => {
-  it('test_UAT_FC_BUG-236_finishing_the_comp_board_is_stored_and_told_on_the_next_turn_once', async () => {
-    const ctx = await site()
-    const finished = await post(PLAN_COMP_PATH, { site: ctx.site, action: 'finish' })
-    expect(finished.status).toBe(200)
-    expect(((await finished.json()) as { comps_finished: boolean }).comps_finished).toBe(true)
-
-    const told = turnTailText((await turn(ctx.sessionId, 'That is all from me on those.', [says('Thanks.')]))[0])
-    expect(told).toContain(CLIENT_COMPS_FINISHED_LINE)
-    // ONCE: the cursor has moved past it.
-    const again = turnTailText((await turn(ctx.sessionId, 'Anything else?', [says('No.')]))[0])
-    expect(again).not.toContain(CLIENT_COMPS_FINISHED_LINE)
-  })
-})
+// [[BUG-245]] — "I've finished commenting" is replaced by a board that knows it is
+// finished (every card sent or skipped). See
+// test_UAT_FC_BUG-245_one_voice_one_thing.workers.test.ts.

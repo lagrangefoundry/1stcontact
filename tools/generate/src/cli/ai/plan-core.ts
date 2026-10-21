@@ -337,6 +337,31 @@ export interface PlanComp {
   /** Who last wrote the comp's likes and dislikes: `client`, or the agent. */
   notes_by?: string
   notes_at?: string
+  /** [[BUG-245]] — the consultant's one or two lines on why it chose this site. */
+  why?: string
+  /**
+   * [[BUG-245]] — what is in the client's notes box: a draft until they send it,
+   * kept so nothing they type is lost. Only a send reaches the consultant.
+   */
+  note?: string
+  /** [[BUG-245]] — the card closed: `sent` (see {@link sent}) or `skipped`. Absent is open. */
+  state?: CompState
+  /** [[BUG-245]] — the note as the client last sent it, and when. */
+  sent?: string
+  sent_at?: string
+}
+
+/** [[BUG-245]] — how a comp card was closed. */
+export type CompState = 'sent' | 'skipped'
+
+/**
+ * [[BUG-245]] — a comp card as the client sees it: `sent` only while the box still
+ * holds what was sent (editing it reopens the card), `skipped`, else `open`.
+ */
+export function compCardState(c: Pick<PlanComp, 'state' | 'note' | 'sent'>): 'open' | 'sent' | 'skipped' {
+  if (c.state === 'skipped') return 'skipped'
+  if (c.state === 'sent' && (c.note ?? '') === (c.sent ?? '')) return 'sent'
+  return 'open'
 }
 
 /** A comp as its reference ticket holds it ([[REQ-378]]). */
@@ -400,10 +425,13 @@ export interface PlanFields {
    */
   comps_asked_at?: string | null
   /**
-   * [[BUG-236]] — when the client pressed "I've finished commenting" under the comp
-   * board. A site added or noted after it clears it, by writing `null`.
+   * [[BUG-245]] — when every card on the comp board became sent or skipped: the
+   * board knows it is finished, and the consultant is told. Reopening a card, or a
+   * site added, clears it, by writing `null` (see {@link settleComps}).
    */
   comps_finished_at?: string | null
+  /** [[BUG-245]] — the consultant's short note at the head of the board, on the range it chose. */
+  comps_note?: string
   /** [[REQ-379]] — what the host has seen of the build. Absent until it has seen anything. */
   milestones?: PlanMilestones
   /** [[REQ-389]] — contact details the client said may appear on the site. */
@@ -896,6 +924,9 @@ export function checkPlan(fields: PlanFields): void {
     if (!(COMP_SOURCES as readonly string[]).includes(c.source)) {
       bad(`comp ${c.reference} has unknown source ${JSON.stringify(c.source)}`)
     }
+    if (c.state !== undefined && c.state !== 'sent' && c.state !== 'skipped') {
+      bad(`comp ${c.reference} has unknown state ${JSON.stringify(c.state)}`)
+    }
   }
   for (const d of fields.public_details ?? []) {
     if (!filled(d.detail)) bad('an approved contact detail has no detail')
@@ -1108,8 +1139,10 @@ export interface PanelView {
   comps_status: CompsStatus
   /** [[REQ-403]] — whether the comp board is on the panel at all; see {@link compsRaised}. */
   comps_raised: boolean
-  /** [[BUG-236]] — the client has said they are finished commenting on the board. */
+  /** [[BUG-245]] — every card on the board is sent or skipped. */
   comps_finished: boolean
+  /** [[BUG-245]] — the consultant's note at the head of the board, or `''`. */
+  comps_note: string
   /** [[REQ-408]] — the story board, as the Story pane draws it. */
   board: BoardView
   /** [[REQ-408]] — whether the first draft has been built: until it has, the preview opens in Story. */
@@ -1175,6 +1208,7 @@ export function panelView(fields: PlanFields): PanelView {
     comps_status: compsStatus(fields),
     comps_raised: compsRaised(fields),
     comps_finished: Boolean(fields.comps_finished_at),
+    comps_note: fields.comps_note ?? '',
     board: boardView(fields),
     drafted: Boolean(fields.milestones?.first_pass_at),
   }
@@ -1309,15 +1343,15 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   const comps = f.comps ?? []
   if (comps.length) {
     lines.push(
-      `Sites you are comparing (${comps.length}): ${list(comps.map((c) => `${c.title} [${c.reference}]${c.source === CLIENT ? ' (the client added it)' : ''}`))}.`,
+      `Sites you are comparing (${comps.length}): ${list(comps.map((c) => `${c.title} [${c.reference}]${c.source === CLIENT ? ' (the client added it)' : ''}${compCardState(c) === 'open' ? '' : ` (${compCardState(c)})`}`))}.`,
     )
   }
   // [[REQ-403]] — UNTIL SHE RAISES IT, the comp board is not on the panel either.
   if (!compsRaised(f)) lines.push('Not yet raised: the comp board. Raise it with ask_comps when you are ready to look at other sites together.')
   // [[REQ-401]] — the client can skip the board from the panel; she should know.
   if (compsStatus(f) === 'skipped') lines.push('The client skipped comparing other sites.')
-  // [[BUG-236]] — and has said when they are finished commenting on it.
-  else if (f.comps_finished_at) lines.push('The client has finished commenting on the comp board.')
+  // [[BUG-245]] — and the board knows when every card is sent or skipped.
+  else if (f.comps_finished_at) lines.push('Every site on the comp board is sent or skipped: the client is done with it.')
   if (panel.tasks.total) {
     const bits = [`${panel.tasks.done} of ${panel.tasks.total} done`]
     if (panel.tasks.doing.length) bits.push(`doing: ${list(panel.tasks.doing)}`)
@@ -1562,25 +1596,7 @@ export function clientChangesLine(changes: ClientChange[], budget = PLAN_ANSWERS
   return `${head}${shown.join('; ')} — and ${changes.length - shown.length} more (read_plan for them)${tail}`
 }
 
-/** One comp whose notes the client wrote after a cursor ([[REQ-378]]). */
-export interface ClientCompChange {
-  reference: string
-  title: string
-  at: string
-}
-
-/**
- * The comps whose likes and dislikes the client wrote after `since`, oldest first
- * ([[REQ-378]]). `notes_by` is the attribution, for `clientChangesSince`'s reason.
- */
-export function clientCompChangesSince(fields: PlanFields, since: string): ClientCompChange[] {
-  return (fields.comps ?? [])
-    .filter((c) => c.notes_by === CLIENT && typeof c.notes_at === 'string' && c.notes_at > since)
-    .map((c) => ({ reference: c.reference, title: c.title, at: c.notes_at as string }))
-    .sort((x, y) => x.at.localeCompare(y.at))
-}
-
-/** A client-added comp since a cursor ([[BUG-202]]) — what the next turn shows. */
+/** A client-added comp since a cursor ([[BUG-202]]) — what the next turn is told. */
 export interface ClientCompAdd {
   reference: string
   title: string
@@ -1596,85 +1612,18 @@ export function clientCompAddsSince(fields: PlanFields, since: string): ClientCo
     .sort((x, y) => x.at.localeCompare(y.at))
 }
 
-/** Markdown's own punctuation, escaped, so a stranger's page title stays text. */
-const markdownText = (text: string): string => text.replace(/[\\`*_{}[\]()<>#!|~]/g, (c) => `\\${c}`)
-
-/** An address as a markdown link target: no spaces, no parentheses to end it early. */
-const markdownTarget = (url: string): string => url.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29')
-
-/** The host a comp lives at, for the tile's address line. */
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host.replace(/^www\./, '')
-  } catch {
-    return url
-  }
-}
-
-/**
- * A comp as the client first sees it in the conversation ([[BUG-202]]): its hero
- * thumbnail, its name and address, and a link that opens the real site in a new
- * tab — the live site with its motion and its clutter, which a screenshot is not.
- *
- * MARKDOWN THE CONSULTANT PASTES, NOT A CARD, for [[REQ-217]]'s reason: the line
- * is inside the assistant's own turn, so replaying the transcript replays the
- * tile, where a card would be gone on reload. A comp with no snapshot (a capture
- * that took none, or one that failed outright) is still a tile and still opens
- * the real site — what the client can always see, even when we could not.
- *
- * THE TITLE IS A STRANGER'S `<title>`, escaped, so it cannot become a link or a
- * picture of its own. The address is an http(s) URL the capture already vetted.
- */
-export function compTile(comp: { title: string; url: string }, snapshot: string | null): string {
-  const host = hostOf(comp.url)
-  const name = markdownText(comp.title.trim() || host)
-  const lines: string[] = []
-  if (snapshot) lines.push(`![${name}](${markdownTarget(snapshot)})`)
-  lines.push(`**${name}** · ${markdownText(host)}${snapshot ? '' : " — couldn't take a snapshot"}`)
-  lines.push(`[Open the real site ↗](${markdownTarget(comp.url)})`)
-  return lines.join('\n\n')
-}
-
-/** The sentence that hands a tile to the consultant, as `display` ([[BUG-202]]). */
-export function compTileDisplay(tile: string): string {
-  return (
-    'Show this comp to your client by including these lines in your reply, exactly as written, ' +
-    'and invite them to open the real site before you ask what they like and dislike:\n\n' +
-    tile
-  )
-}
-
 /**
  * The notice for comps the client added since the last turn, or `null`
- * ([[BUG-202]]). NOT CLIPPED like the notes line: a tile cut short is broken
- * markdown, and a client adds a handful of comps, not dozens.
+ * ([[BUG-202]]). [[BUG-245]] — NAMES, NOT TILES: the board shows each site, so
+ * the conversation carries no pictures, addresses or descriptions of them.
  */
-export function clientCompAddsLine(tiles: string[]): string | null {
-  if (tiles.length === 0) return null
-  const head =
-    `Your client added ${tiles.length} comp${tiles.length === 1 ? '' : 's'} to the board since your last turn. ` +
-    'Show each one in your reply with its lines, exactly as written, and invite them to open the real site:'
-  return [head, ...tiles].join('\n\n')
-}
-
-/** One comp and its notes as a notice entry: `Title: likes …; dislikes …`. */
-export function compNotesText(comp: Pick<CompRecord, 'title' | 'likes' | 'dislikes'>): string {
-  const part = (label: string, items: string[]): string =>
-    `${label} ${items.length ? items.map((x) => JSON.stringify(x)).join(', ') : 'nothing yet'}`
-  return `${comp.title} — ${part('likes', comp.likes)}; ${part('dislikes', comp.dislikes)}`
-}
-
-/**
- * The notice line for comp notes the client wrote, or `null` ([[REQ-378]]).
- * Bounded like {@link clientChangesLine}: the count is exact and the notes are
- * what get cut.
- */
-export function clientCompNotesLine(comps: CompRecord[], budget = PLAN_ANSWERS_BUDGET_CHARS): string | null {
-  if (comps.length === 0) return null
-  const head = `Your client updated their likes and dislikes on ${comps.length} comp${comps.length === 1 ? '' : 's'} since your last turn: `
-  const all = comps.map(compNotesText).join(' | ')
-  const room = budget - head.length - 1
-  return all.length <= room ? `${head}${all}.` : `${head}${clip(all, room - 30)} (read_plan for the rest).`
+export function clientCompAddsLine(adds: Pick<ClientCompAdd, 'title' | 'reference'>[]): string | null {
+  if (adds.length === 0) return null
+  return (
+    `Your client added ${adds.length} site${adds.length === 1 ? '' : 's'} to the comparison board since your last turn: ` +
+    `${adds.map((a) => `${a.title} [${a.reference}]`).join(', ')}. ` +
+    'Give it a note on why it is worth comparing (note_comp `why`); in the conversation, one line at most.'
+  )
 }
 
 const compIn = (fields: PlanFields, reference: string): PlanComp => {
@@ -1686,23 +1635,28 @@ const compIn = (fields: PlanFields, reference: string): PlanComp => {
 /**
  * Put a capture on the comp board ([[REQ-378]]). Already there is not an error: it
  * answers the entry as it stands, so adding the same site twice is harmless.
+ * [[BUG-245]] — `why` is the consultant's note on why it chose the site.
  */
 export function addComp(
   plan: Plan,
   comp: Pick<CompRecord, 'reference' | 'title' | 'url'>,
   source: string,
   at: string,
+  why?: string,
 ): { plan: Plan; comp: PlanComp } {
   const next = copy(plan)
   const comps = (next.fields.comps = next.fields.comps ?? [])
   const held = comps.find((c) => c.reference === comp.reference)
-  if (held) return { plan: next, comp: held }
-  const entry: PlanComp = { reference: comp.reference, title: comp.title, url: comp.url, source, added_at: at }
+  if (held) {
+    if (why) held.why = why
+    return { plan: next, comp: held }
+  }
+  const entry: PlanComp = { reference: comp.reference, title: comp.title, url: comp.url, source, added_at: at, ...(why ? { why } : {}) }
   comps.push(entry)
   // [[REQ-401]] — A NEW SITE ON THE BOARD REOPENS A SKIPPED COMPARISON.
   if (next.fields.comps_skipped_at) next.fields.comps_skipped_at = null
-  // [[BUG-236]] — and one the client is no longer finished with.
-  if (next.fields.comps_finished_at) next.fields.comps_finished_at = null
+  // [[BUG-245]] — and an open card means the board is not finished.
+  settleComps(next.fields, at)
   checkPlan(next.fields)
   return { plan: next, comp: entry }
 }
@@ -1715,46 +1669,105 @@ export function skipComps(plan: Plan, at: string): Plan {
 }
 
 /**
- * [[BUG-236]] — the client pressed "I've finished commenting": the consultant's
- * next turn is told, on the plan-answers cursor.
+ * [[BUG-245]] — THE BOARD KNOWS WHEN IT IS FINISHED: every card sent or skipped
+ * stamps `comps_finished_at` (once — a stamp already there is kept), and any card
+ * open again clears it. Mutates `fields`.
  */
-export function finishComps(plan: Plan, at: string): Plan {
+export function settleComps(fields: PlanFields, at: string): void {
+  const comps = fields.comps ?? []
+  const finished = comps.length > 0 && comps.every((c) => compCardState(c) !== 'open')
+  if (finished && !fields.comps_finished_at) fields.comps_finished_at = at
+  else if (!finished && fields.comps_finished_at) fields.comps_finished_at = null
+}
+
+/** [[BUG-245]] — the link in the conversation that opens the comparison board. */
+export const COMPS_BOARD_LINK = '[Open the board to see](#show=comps)'
+
+/** [[BUG-245]] — what `add_comp` tells the consultant to say, once for the board. */
+export const COMP_ADDED_SAY =
+  'When you have put on the board all the sites you are adding now, tell your client in ONE line how many ' +
+  'sites are on the comparison board (under Comparisons in their preview) and what range they show, ending with ' +
+  `this link exactly: ${COMPS_BOARD_LINK}. No pictures, addresses, site links or per-site descriptions in the ` +
+  'conversation: each card on the board carries them, and your why. Ask nothing about the sites until the client has looked.'
+
+/**
+ * [[BUG-245]] — the client's actions on one comp card.
+ *
+ * `draft` keeps what is in the notes box and tells nobody. `send` keeps it as sent:
+ * the client's note reaches the consultant as their own message in the
+ * conversation, which the browser posts. `skip_site` closes the card unsent;
+ * `reopen_site` opens a skipped one again. Editing a sent note is a `draft` that
+ * no longer matches what was sent, which reopens the card by itself.
+ */
+export const CLIENT_COMP_ACTIONS = ['draft', 'send', 'skip_site', 'reopen_site'] as const
+export type ClientCompAction = (typeof CLIENT_COMP_ACTIONS)[number]
+
+/** [[BUG-245]] — the longest note a card keeps, in characters: a message, not a document. */
+export const MAX_COMP_NOTE_CHARS = 4_000
+
+/** [[BUG-245]] — apply a client action to one comp card, and settle the board. */
+export function clientCompAction(plan: Plan, reference: string, action: ClientCompAction, note: string | undefined, at: string): Plan {
   const next = copy(plan)
-  next.fields.comps_finished_at = at
+  const c = compIn(next.fields, reference)
+  const text = (note ?? '').slice(0, MAX_COMP_NOTE_CHARS)
+  if (action === 'draft') {
+    c.note = text
+  } else if (action === 'send') {
+    if (text.trim() === '') throw refuse(PLAN_INVALID, 'there is nothing in the note to send')
+    c.note = text
+    c.sent = text
+    c.sent_at = at
+    c.state = 'sent'
+  } else if (action === 'skip_site') {
+    c.state = 'skipped'
+  } else if (c.state === 'skipped') {
+    // REOPENED: back to sent if what was sent is still in the box, else open.
+    if (c.sent !== undefined) c.state = 'sent'
+    else delete c.state
+  }
+  settleComps(next.fields, at)
+  checkPlan(next.fields)
   return next
 }
 
 /**
- * [[BUG-236]] — when the client finished with the comp board since `since`, or
- * `null`. On the same cursor as every other client change the notice reports.
+ * [[BUG-245]] — when the board became finished since `since`, or `null`. On the
+ * same cursor as every other client change the notice reports.
  */
 export function clientCompsFinishedSince(fields: PlanFields, since: string): string | null {
   const at = fields.comps_finished_at
   return typeof at === 'string' && at > since ? at : null
 }
 
-/** [[BUG-236]] — the notice line for a client who has finished with the comp board. */
-export const CLIENT_COMPS_FINISHED_LINE =
-  'Your client has finished commenting on the comp board: they have said what they want to about these sites.'
-
 /**
- * Record who wrote a comp's notes, and when ([[REQ-378]]). [[BUG-236]] — the
- * client noting a site again is no longer finished with the board.
+ * [[BUG-245]] — the notice for a board the client has finished: every card sent
+ * or skipped. The consultant does not wait to be asked.
  */
+export const CLIENT_COMPS_FINISHED_LINE =
+  'Your client has sent or skipped every site on the comparison board, so the board is finished. ' +
+  'Without waiting to be asked: in a few sentences, sum up the conventions you will follow from what they said ' +
+  '(what to do, what never to do), and record them as the visual_concept decision with the comps that shaped it — ' +
+  'the first draft is built from it.'
+
+/** Record who wrote a comp's notes, and when ([[REQ-378]]). */
 export function notedComp(plan: Plan, reference: string, by: string, at: string): Plan {
   const next = copy(plan)
   const c = compIn(next.fields, reference)
   c.notes_by = by
   c.notes_at = at
-  if (by === CLIENT && next.fields.comps_finished_at && next.fields.comps_finished_at < at) next.fields.comps_finished_at = null
   return next
 }
 
-/** Take a comp off the board ([[REQ-378]]). Its capture stays in the Library. */
-export function removeComp(plan: Plan, reference: string): Plan {
+/**
+ * Take a comp off the board ([[REQ-378]]). Its capture stays in the Library.
+ * [[BUG-245]] — the board is settled again: the card removed may have been the
+ * last one open.
+ */
+export function removeComp(plan: Plan, reference: string, at: string): Plan {
   const next = copy(plan)
   compIn(next.fields, reference)
   next.fields.comps = next.fields.comps.filter((c) => c.reference !== reference)
+  settleComps(next.fields, at)
   return next
 }
 
@@ -2299,23 +2312,26 @@ export function planOperations(
      * [[REQ-403]] — put the comp board on the client's panel. Raising it twice
      * changes nothing; it keeps the moment it was first raised.
      */
-    ask_comps: () =>
+    ask_comps: (p) =>
       change((plan) => {
         plan.fields.comps_asked_at = plan.fields.comps_asked_at || now()
+        // [[BUG-245]] — the board's header note: why this range of sites.
+        if (str(p.note)) plan.fields.comps_note = str(p.note)
         return { comps_status: compsStatus(plan.fields) }
       }),
     add_comp: async (p) => {
       const held = await compRecord(String(p.reference ?? ''))
       const written = await change((plan) => {
-        const { plan: next, comp } = addComp(plan, held, 'consultant', now())
+        const at = now()
+        const { plan: next, comp } = addComp(plan, held, 'consultant', at, str(p.why))
         plan.fields.comps = next.fields.comps
+        plan.fields.comps_skipped_at = next.fields.comps_skipped_at
+        plan.fields.comps_finished_at = next.fields.comps_finished_at
         return { comp }
       })
-      // [[BUG-202]] — AND THE TILE THE CLIENT SEES IT BY. Outside `change`, whose
-      // confirmation clips every string: a tile cut at 200 characters is broken
-      // markdown.
-      const snapshot = (await deps.comps!.snapshot?.(held.reference)) ?? null
-      return { ...written, display: compTileDisplay(compTile(held, snapshot)) }
+      // [[BUG-245]] — ONE LINE IN THE CONVERSATION FOR THE WHOLE BOARD, with the
+      // link that opens it: no pictures, addresses or descriptions in the chat.
+      return { ...written, say: COMP_ADDED_SAY }
     },
     note_comp: async (p) => {
       const reference = String(p.reference ?? '')
@@ -2323,20 +2339,28 @@ export function planOperations(
       compIn(plan?.fields ?? seedPlan('').fields, reference)
       await compRecord(reference)
       const notes = { likes: noteList(p.likes), dislikes: noteList(p.dislikes) }
-      if (notes.likes === undefined && notes.dislikes === undefined) {
-        throw refuse(PLAN_INVALID, 'give likes, dislikes or both')
+      const why = str(p.why)
+      if (notes.likes === undefined && notes.dislikes === undefined && why === undefined) {
+        throw refuse(PLAN_INVALID, 'give likes, dislikes, why, or any of them')
       }
-      const stored = await deps.comps!.note(reference, notes)
+      const stored =
+        notes.likes === undefined && notes.dislikes === undefined
+          ? await compRecord(reference)
+          : await deps.comps!.note(reference, notes)
       await change((current) => {
-        current.fields.comps = notedComp(current, reference, role, now()).fields.comps
+        const next = notes.likes === undefined && notes.dislikes === undefined ? copy(current) : notedComp(current, reference, role, now())
+        if (why !== undefined) compIn(next.fields, reference).why = why
+        current.fields.comps = next.fields.comps
         return {}
       })
-      return { comp: stored }
+      return { comp: stored, ...(why !== undefined ? { why } : {}) }
     },
     remove_comp: (p) =>
       change((plan) => {
         const reference = String(p.reference ?? '')
-        plan.fields.comps = removeComp(plan, reference).fields.comps
+        const next = removeComp(plan, reference, now())
+        plan.fields.comps = next.fields.comps
+        plan.fields.comps_finished_at = next.fields.comps_finished_at
         return { removed: reference }
       }),
 

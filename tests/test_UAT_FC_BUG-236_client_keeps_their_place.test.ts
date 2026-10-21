@@ -16,9 +16,8 @@ import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 import { createPlanPanel } from '../apps/control-app/src/builder/plan-panel.js'
-import { createComparisons } from '../apps/control-app/src/builder/comparisons.js'
 import { createAttachmentTray } from '../apps/control-app/src/builder/attachments.js'
-import { CHAT_RESULT_HELD, COMPS_FINISHED, COMPS_FINISHED_SAID, PLAN_DONE, PLAN_SAVED } from '../apps/control-app/src/builder/config.js'
+import { PLAN_SAVE, PLAN_SAVED } from '../apps/control-app/src/builder/config.js'
 import { primingConfig } from '../tools/generate/src/cli/ai/roles'
 
 type Chat = {
@@ -149,10 +148,12 @@ function workingTransport(result: string) {
   }
 }
 
-describe.skipIf(!WEBUI_INSTALLED)("BUG-236 — the worker's hand-back waits for the client's box", () => {
+// [[BUG-245]] — a result arriving while the client writes is no longer held behind
+// a marker: it is absorbed into the next reply (see BUG-245's suite). With an
+// empty box it is shown at once, as before.
+describe.skipIf(!WEBUI_INSTALLED)("BUG-236 — the worker's hand-back with an empty box", () => {
   const RESULT = 'The first draft is ready — have a look at the home page.'
   const said = (panel: Panel) => panel.getChat()!.getMessages().some((m) => m.markdown.includes(RESULT))
-  const marker = (panel: Panel) => panel.element.querySelector<HTMLButtonElement>('.builder-chat-held')
 
   async function working(result = RESULT) {
     const work = workingTransport(result)
@@ -167,42 +168,11 @@ describe.skipIf(!WEBUI_INSTALLED)("BUG-236 — the worker's hand-back waits for 
     return { work, panel, chat }
   }
 
-  it('test_UAT_FC_BUG-236_a_result_is_held_behind_a_marker_while_the_box_has_text_and_shown_when_it_is_cleared', async () => {
-    const { work, panel, chat } = await working()
-    chat.setInputMarkdown('It started in my mum’s')
-    work.release()
-    await settle(8)
-    // HELD: not in the conversation, and the marker says something is waiting.
-    expect(said(panel)).toBe(false)
-    expect(marker(panel)?.hidden).toBe(false)
-    expect(marker(panel)?.textContent).toBe(CHAT_RESULT_HELD)
-
-    // The client clears the box: the result appears, and the marker goes.
-    chat.setInputMarkdown('')
-    await wait(400)
-    await settle(8)
-    expect(said(panel)).toBe(true)
-    expect(marker(panel)?.hidden ?? true).toBe(true)
-  })
-
-  it('test_UAT_FC_BUG-236_a_held_result_shows_when_the_client_presses_the_marker', async () => {
-    const { work, panel, chat } = await working()
-    chat.setInputMarkdown('We also do beards')
-    work.release()
-    await settle(8)
-    expect(said(panel)).toBe(false)
-    marker(panel)!.click()
-    await wait(400)
-    await settle(8)
-    expect(said(panel)).toBe(true)
-  })
-
   it('test_UAT_FC_BUG-236_with_an_empty_box_the_result_is_shown_at_once', async () => {
     const { work, panel } = await working()
     work.release()
     await settle(8)
     expect(said(panel)).toBe(true)
-    expect(marker(panel)?.hidden ?? true).toBe(true)
   })
 })
 
@@ -264,11 +234,11 @@ async function panelFor(view: Record<string, any>) {
 
 const block = (root: HTMLElement, id: string) => root.querySelector<HTMLElement>(`[data-ask="${id}"]`)!
 
-describe('BUG-236 — every typed answer has Done, and the panel says it was saved', () => {
+describe('BUG-236 — every typed answer has Save, and the panel says it was saved', () => {
   it('test_UAT_FC_BUG-236_a_one_line_answer_saves_with_enter_and_says_saved', async () => {
     const { origin, panel } = await panelFor({ stages: [], asks: [ask('phone', 'phone')], comps: [] })
     const input = block(panel.element, 'phone').querySelector<HTMLInputElement>('.plan-ask__input')!
-    expect(block(panel.element, 'phone').querySelector('.plan-ask__done')?.textContent).toBe(PLAN_DONE)
+    expect(block(panel.element, 'phone').querySelector('.plan-ask__done')?.textContent).toBe(PLAN_SAVE)
     input.value = '07700 900123'
     input.dispatchEvent(new Event('input', { bubbles: true }))
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
@@ -308,50 +278,8 @@ describe('BUG-236 — every typed answer has Done, and the panel says it was sav
   })
 })
 
-// [[REQ-419]] — the comps moved from the panel to the preview's Comparisons mode;
-// what Done and "I've finished commenting" do is unchanged.
-describe('BUG-236 — each comparable site has Done, and "I\'ve finished commenting"', () => {
-  const COMP = { reference: 'reference-1', title: 'Rival Salon', url: 'https://rival.example', source: 'consultant', likes: [], dislikes: [] }
-  const VIEW = { stages: [], asks: [], comps: [COMP], comps_status: 'open', comps_raised: true }
-
-  function comparisonsFor(view: Record<string, any>) {
-    const origin = planOrigin(view)
-    const comparisons = createComparisons({ transport: origin.transport })
-    document.body.append(comparisons.element)
-    comparisons.setSite('alpha')
-    comparisons.render(view)
-    return { origin, element: comparisons.element as HTMLElement }
-  }
-
-  it('test_UAT_FC_BUG-236_a_comps_done_saves_both_notes_and_says_saved', async () => {
-    const { origin, element } = comparisonsFor(VIEW)
-    const comp = element.querySelector<HTMLElement>('.comp-tile')!
-    const likes = comp.querySelector<HTMLTextAreaElement>('.comp-tile__likes')!
-    const dislikes = comp.querySelector<HTMLTextAreaElement>('.comp-tile__dislikes')!
-    likes.value = 'the big photos\nthe booking button'
-    dislikes.value = 'the grey text'
-    comp.querySelector<HTMLButtonElement>('.comp-tile__done')!.click()
-    await settle()
-    expect(origin.comps).toEqual([
-      { site: 'alpha', action: 'note', reference: 'reference-1', likes: ['the big photos', 'the booking button'], dislikes: ['the grey text'] },
-    ])
-    expect(element.querySelector('.comp-tile .comp-tile__saved')?.textContent).toBe(PLAN_SAVED)
-  })
-
-  it('test_UAT_FC_BUG-236_ive_finished_commenting_tells_the_origin_and_says_it_was_heard', async () => {
-    const { origin, element } = comparisonsFor(VIEW)
-    const finish = element.querySelector<HTMLButtonElement>('.comparisons__finish')!
-    expect(finish.textContent).toBe(COMPS_FINISHED)
-    expect(finish.hidden).toBe(false)
-    finish.click()
-    await settle()
-    expect(origin.comps).toEqual([{ site: 'alpha', action: 'finish' }])
-    expect(finish.hidden).toBe(true)
-    const heard = element.querySelector<HTMLElement>('.comparisons__finished')!
-    expect(heard.hidden).toBe(false)
-    expect(heard.textContent).toBe(COMPS_FINISHED_SAID)
-  })
-})
+// [[BUG-245]] — the comp cards' Done and "I've finished commenting" are replaced by
+// Send / Skip and a board that knows when it is finished (BUG-245's suite).
 
 // ── 2 / 3. what the consultant is primed to do ───────────────────────────────
 

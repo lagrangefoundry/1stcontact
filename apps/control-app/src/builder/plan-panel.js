@@ -15,7 +15,16 @@
  * when it has uploaded. [[BUG-236]] — A TYPED ANSWER HAS ITS OWN DONE, and Enter
  * in a one-line box is Done too; leaving the box having changed it still saves,
  * as a safety net. Whatever saves says "Saved ✓" on its item's line for a moment.
- * There is no submit step for the panel as a whole.
+ * There is no submit step for the panel as a whole. [[BUG-245]] — A TYPED ANSWER'S
+ * BUTTON IS SAVE, and its state is always beside it: "Not saved yet" while the
+ * box holds something not stored, "Saved ✓" once it is. Saving starts no turn.
+ *
+ * [[BUG-245]] — NEW QUESTIONS ARE VISIBLE: an "N new" badge beside Open questions,
+ * and a highlight on each new item until the client opens it (clicks or focuses
+ * into it). Which questions the client has seen is kept per site in this browser;
+ * the first sight of a site's panel sees everything already on it. And WHILE THE
+ * CONSULTANT WORKS the panel says so (`setBusy`): its edge and banner take the
+ * progress banner's in-progress blue, gently animated, still under reduced motion.
  *
  * [[BUG-200]] — EXCEPT A MULTI-SELECT, where the first tick is never the whole
  * answer. Its ticks are saved as a draft, which leaves the question open and tells
@@ -68,11 +77,14 @@ import {
   PLAN_SOMETHING_ELSE,
   PLAN_UPLOAD_SEVERAL,
   PLAN_FILLED_BY_AGENT,
+  PLAN_NEW,
+  PLAN_NOT_SAVED,
   PLAN_OPEN_QUESTIONS,
   PLAN_PANEL_LABEL,
   PLAN_STAGE_STATE,
   PLAN_STAGES_LABEL,
   PLAN_STAGES_TITLE,
+  PLAN_SAVE,
   PLAN_SAVE_FAILED,
   PLAN_SAVED,
   PLAN_SKIP,
@@ -84,6 +96,7 @@ import {
   PLAN_UPLOADED,
   PLAN_UPLOADED_ANSWER,
   PLAN_UPLOADED_TITLE,
+  PLAN_WORKING,
 } from './config.js'
 
 /** The HTML input each typed ask is drawn with. */
@@ -287,12 +300,18 @@ export function createPlanPanel(options = {}) {
   const error = el('div', 'plan-panel__error')
   error.hidden = true
   const openHeading = el('h3', 'plan-panel__heading', PLAN_OPEN_QUESTIONS)
+  // [[BUG-245]] — how many open questions the client has not opened yet: a badge
+  // the stylesheet draws beside the heading from `data-new`, so the heading's own
+  // words stay "Open questions".
+  // [[BUG-245]] — the working state in words, for a screen reader: never colour alone.
+  const working = el('span', 'plan-panel__working', PLAN_WORKING)
+  working.hidden = true
   const openList = el('div', 'plan-panel__list plan-panel__list--open')
   const doneHeading = el('h3', 'plan-panel__heading', PLAN_TOLD_US)
   const doneList = el('div', 'plan-panel__list plan-panel__list--done')
   // [[REQ-417]] — what the panel is for, until it has a question in it.
   const noQuestions = el('p', 'plan-panel__ghost', PLAN_NO_QUESTIONS_YET)
-  element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList)
+  element.append(tracker, progress, error, noQuestions, openHeading, openList, doneHeading, doneList, working)
 
   let site = null
   let generation = 0
@@ -314,6 +333,53 @@ export function createPlanPanel(options = {}) {
   const typed = new Map()
   /** [[BUG-236]] — the answer being sent for each ask, so Done after leaving the box sends it once. */
   const sending = new Map()
+
+  /**
+   * [[BUG-245]] — the asks the client has seen on this site, as kept in this
+   * browser; `null` until the site's panel has been seen once.
+   */
+  const seenKey = () => `plan-seen:${site}`
+  function seenAsks() {
+    try {
+      const raw = JSON.parse(folds.getItem(seenKey()) ?? 'null')
+      return Array.isArray(raw) ? new Set(raw.map(String)) : null
+    } catch {
+      return null
+    }
+  }
+  function markSeen(ids) {
+    const seen = seenAsks() ?? new Set()
+    for (const id of ids) seen.add(id)
+    folds.setItem(seenKey(), JSON.stringify([...seen]))
+  }
+  /** Whether this site's plan has been read from the origin yet: a placeholder draw sees nothing. */
+  let loaded = false
+  /** Draw which open asks are new, and the badge that counts them. */
+  function drawNew(open) {
+    let seen = loaded ? seenAsks() : new Set(open.map((a) => a.id))
+    if (seen === null && site) {
+      // THE FIRST SIGHT OF A SITE'S PANEL SEES WHAT IS ON IT: only later arrivals are new.
+      markSeen(open.map((a) => a.id))
+      seen = seenAsks()
+    }
+    let count = 0
+    for (const ask of open) {
+      const fresh = Boolean(site) && !seen?.has(ask.id)
+      blocks.get(ask.id)?.node.classList.toggle('plan-item--new', fresh)
+      if (fresh) count += 1
+    }
+    if (count) openHeading.dataset.new = PLAN_NEW(count)
+    else delete openHeading.dataset.new
+  }
+  /** The client opened an item: it is no longer new. */
+  function opened(node) {
+    const id = node?.dataset.ask
+    if (!id || !node.classList.contains('plan-item--new')) return
+    markSeen([id])
+    if (last) drawNew((last.asks ?? []).filter((a) => a.status === 'open'))
+  }
+  element.addEventListener('pointerdown', (event) => opened(event.target?.closest?.('.plan-item')))
+  element.addEventListener('focusin', (event) => opened(event.target?.closest?.('.plan-item')))
 
   function fail(message) {
     error.replaceChildren(...failureContent(PLAN_SAVE_FAILED, message))
@@ -431,13 +497,27 @@ export function createPlanPanel(options = {}) {
   }
 
   /**
-   * [[BUG-236]] — a typed answer's box and its Done. Saved by Done, by Enter in a
+   * [[BUG-236]] — a typed answer's box and its Save. Saved by Save, by Enter in a
    * one-line box, or — the safety net — by leaving the box having changed it
    * (`change`). The same answer is sent once however many of those happen.
+   * [[BUG-245]] — and its state beside it: "Not saved yet" while the box holds
+   * something not stored, "Saved ✓" while it holds what is.
    */
   function typedAnswer(ask, field, box) {
     if (typed.has(ask.id)) field.value = typed.get(ask.id)
-    field.addEventListener('input', () => typed.set(ask.id, field.value))
+    const stored = ask.status === 'answered' && typeof ask.answer === 'string' ? ask.answer : null
+    const state = el('span', 'plan-ask__state')
+    state.setAttribute('role', 'status')
+    const show = () => {
+      const value = field.value.trim()
+      const saved = value !== '' && value === stored
+      state.textContent = value === '' ? '' : saved ? PLAN_SAVED : PLAN_NOT_SAVED
+      state.dataset.unsaved = String(value !== '' && !saved)
+    }
+    field.addEventListener('input', () => {
+      typed.set(ask.id, field.value)
+      show()
+    })
     const commit = () => {
       const value = field.value.trim()
       if (value === '' || sending.get(ask.id) === value) return
@@ -454,10 +534,11 @@ export function createPlanPanel(options = {}) {
         commit()
       })
     }
-    const done = el('button', 'plan-ask__done', PLAN_DONE)
-    done.type = 'button'
-    done.addEventListener('click', commit)
-    box.append(field, done)
+    const saveButton = el('button', 'plan-ask__done plan-ask__save', PLAN_SAVE)
+    saveButton.type = 'button'
+    saveButton.addEventListener('click', commit)
+    box.append(field, saveButton, state)
+    show()
   }
 
   /** The control an ask is answered with, saving as the client goes. */
@@ -790,6 +871,7 @@ export function createPlanPanel(options = {}) {
     for (const ask of [...open, ...done]) fold(drawn.get(ask.id).node, `ask:${ask.id}`, itemState(ask.status))
     blocks.clear()
     for (const [id, held] of drawn) blocks.set(id, held)
+    drawNew(open)
     // A SECTION WITH NOTHING IN IT IS HIDDEN, heading and all.
     openHeading.hidden = openList.hidden = openList.childElementCount === 0
     doneHeading.hidden = doneList.hidden = doneList.childElementCount === 0
@@ -804,7 +886,10 @@ export function createPlanPanel(options = {}) {
     const asked = site
     try {
       const view = await transport.fetchPlan(asked)
-      if (mine === generation && asked === site) render(view)
+      if (mine === generation && asked === site) {
+        loaded = true
+        render(view)
+      }
     } catch {
       // THE PANEL IS AN ORNAMENT ON THE CONVERSATION, not a condition of it: a
       // plan that cannot be read leaves the last drawing and says nothing.
@@ -821,6 +906,7 @@ export function createPlanPanel(options = {}) {
     setSite(next) {
       if (next === site) return refresh()
       site = next ?? null
+      loaded = false
       changing.clear()
       typed.clear()
       blocks.clear()
@@ -829,9 +915,15 @@ export function createPlanPanel(options = {}) {
       return refresh()
     },
     refresh,
-    /** [[REQ-390]] — a turn is running, or not: the current stage spins while it is. */
+    /**
+     * [[REQ-390]] — a turn is running, or not: the current stage spins while it is.
+     * [[BUG-245]] — and the whole panel shows that the consultant is working.
+     */
     setBusy(next) {
       busy = Boolean(next)
+      element.classList.toggle('plan-panel--working', busy)
+      element.setAttribute('aria-busy', String(busy))
+      working.hidden = !busy
       drawStages(last?.stages ?? [])
     },
     /**
