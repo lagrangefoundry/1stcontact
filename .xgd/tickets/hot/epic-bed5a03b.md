@@ -5,9 +5,9 @@ type: epic
 title: Security Analysis
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T19:33:30.327185+00:00'
-updated_at: '2026-09-17T21:34:35.267818+00:00'
+updated_at: '2026-10-21T20:10:39.368126+00:00'
 completed_at: null
-last_field_updated: epic_children
+last_field_updated: body
 status: ongoing
 fields:
   priority: medium
@@ -556,3 +556,20 @@ how much the amendment saves.
 The two questions worth asking every time, because they are what found F1 and
 F2: *what is the least-trusted party who can reach this?* and *what is the most
 irreversible thing that can happen if a turn goes wrong?*
+
+
+## §6 External advisory review — PHP2Shell (2026-10-21)
+
+**Verdict: not applicable.** CVE-2026-109618 / -109619 are bugs in the PHP runtime (CVSS 9.2, unauthenticated RCE, patched in 8.2.35 / 8.3.36 / 8.4.27 / 8.5.12). The repo has no `.php` files, no `composer.json`, and no PHP runtime; every `php` string in the tree is the Philippine peso code or a `facebook.com/profile.php` URL. We run on Workers isolates and static assets, and the runtime is Cloudflare's to patch.
+
+**Where it does reach us, indirectly:** most customer sites we import or replace are WordPress, which runs on PHP. A compromised source site can serve hostile pages and images to capture/import. That path is already listed as untrusted input (SSRF guard, F1, F4, AI-I vectors), and this advisory confirms the assumption that a source site is hostile until proven otherwise.
+
+**Lesson carried over: state that lives longer than one request (the -109619 class).** That bug is global state left over from one request and read by the next one in a long-lived PHP worker. Workers isolates have the same property, because anything at module scope survives across requests. The control app has four such caches:
+- `access.ts` `jwksCache`: public keys, keyed by issuer. Safe.
+- `portal.ts` `FALLBACKS`: a constant store that nothing writes to (its own comment explains why). Safe.
+- `router.ts` `PREVIEWS`: a WeakMap keyed by the per-tenant store object, and the renderer re-checks the stamp on every read. Safe.
+- `router.ts` `CHATS`: keyed by `businessId`. **This exact leak has happened here before**: a single module-level `let` handed the first caller's store, transcripts and KB to every later caller in the isolate. It was fixed under REQ-168, and `resolveScope` re-checks `tenants.status` on every request.
+
+Today nothing structural prevents a fifth cache that isn't partitioned. Proposed (Next, a test only): a source-level guard that lists module-scope mutable state (`let`/`var`/`new Map|Set|WeakMap` that isn't `ReadonlySet`) in Worker sources and fails on any entry not on an allowlist, with each allowlisted entry saying how it is safe (partitioned / immutable / keyed by store identity). It uses the same idiom as F5/F6 and the existing `TENANT_ID` reader assertion.
+
+**Secondary lessons:** (a) a feature that is on by default and unused is attack surface (`session.upload_progress` was the -109619 trigger), the same shape as F8's `workers_dev=true` on public-site. (b) An out-of-memory failure in the middle of an operation left exploitable partial state (-109618), the same class REQ-266 closes for publish by claiming the id before writing bytes. (c) A proof-of-concept was public before the patch, and only supported branches were fixed. That is the argument for F7 (pin `@lagrangefoundry/*` by digest): we cannot patch quickly what we cannot identify.
