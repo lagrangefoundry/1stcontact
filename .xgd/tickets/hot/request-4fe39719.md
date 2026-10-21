@@ -6,10 +6,10 @@ title: 'Guided focus tasks: the consultant leads the client through questions an
   story-board reactions, knows when they''re done, and resumes'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:14.162881+00:00'
-updated_at: '2026-10-21T22:34:05.046498+00:00'
+updated_at: '2026-10-21T22:34:37.811689+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-62eb8842
+  commits:
+  - working_sha: 9932993d36ba3062a633246ef2269274a3d08584
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6aa048b67f8a4e6045046d49edec88da95a01a2d
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.578
 ---
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator)
