@@ -606,15 +606,6 @@ export function boardFinishGaps(fields: HasBoard): string[] {
   return gaps
 }
 
-/**
- * [[REQ-416]] — the story areas the board holds no live note for, in the seed's
- * order: what the talker asks about next while a build runs.
- */
-export function missingStoryAreas(fields: HasBoard): StoryArea[] {
-  const covered = new Set(liveNotes(boardOf(fields)).map((n) => n.area).filter(Boolean))
-  return STORY_AREAS.filter((a) => !covered.has(a.id))
-}
-
 /** The board as one line of the per-turn plan entry. */
 export function boardReminderLine(fields: HasBoard): string {
   const board = boardOf(fields)

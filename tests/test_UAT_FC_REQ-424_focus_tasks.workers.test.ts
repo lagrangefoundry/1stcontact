@@ -369,7 +369,7 @@ describe('REQ-424 — the talker leaves the client to the task', () => {
     const first = sentText(client.talker[0])
     expect(first).toContain('reacting to notes on the story board — a focus task the consultant started (0 of 2 done)')
     expect(first).toContain('open no new topic, ask no new question and pin nothing new')
-    expect(first).not.toContain('Your standing job')
+    expect(first).not.toContain('Use the time to move the site forward')
     // …and the board takes nothing new from it.
     expect(toolResult(client.talker[1])).toContain('FOCUS_OPEN')
     const notes = (await planView(ctx.site)).board.themes.flatMap((t) => t.notes)

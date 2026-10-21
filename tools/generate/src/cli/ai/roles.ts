@@ -48,8 +48,7 @@ import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
 import { CLIENT_PANES, PANE_LABELS } from '../../../../../apps/control-app/src/builder/client-pane.js'
-import { FOCUS_WHAT, focusView, nearPublishing, planPanel, planReminder, type NotLooked, type Plan } from './plan-core'
-import { missingStoryAreas } from './story-core'
+import { FOCUS_WHAT, focusView, nearPublishing, planReminder, talkerAgenda, type NotLooked, type Plan } from './plan-core'
 import talkerDocument from './talker.json'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
@@ -794,25 +793,20 @@ export const TALKER_ALLOW: readonly string[] = talkerDocument.allow
 export const TALKER_REFUSAL: string = talkerDocument.refusal
 
 /**
- * [[REQ-416]] — what the talker is told each exchange: the story areas the board
- * has nothing on yet, and the panel questions still open. [[REQ-424]] — or, while
- * a focus task is open, that the client is working through it.
+ * [[REQ-416]] — what the talker is told each exchange. [[REQ-426]] — its job is
+ * moving the site forward, and its notes are the agenda: the open decisions with
+ * what each still needs, what is being built, what is due and what is already
+ * asked. [[REQ-424]] — or, while a focus task is open, that the client is working
+ * through it.
  */
 export function talkerDiscovery(plan: Plan | null): string {
-  // [[REQ-424]] — WHILE THE CLIENT WORKS THROUGH A FOCUS TASK, discovery waits: no new topic.
+  // [[REQ-424]] — WHILE THE CLIENT WORKS THROUGH A FOCUS TASK, the talk waits: no new topic.
   const focus = plan ? focusView(plan.fields) : null
   if (focus) {
     return fill(template('talker-focus'), { what: FOCUS_WHAT[focus.kind], done: String(focus.closed), total: String(focus.total) })
   }
-  const fields = (plan?.fields ?? {}) as Parameters<typeof missingStoryAreas>[0]
-  const missing = missingStoryAreas(fields).map((a) => a.label)
-  const open = plan ? planPanel(plan.fields).asks.open.length : 0
-  return fill(template('talker-discovery'), {
-    areas: missing.length
-      ? fill(template('talker-areas-missing'), { areas: missing.join('; ') })
-      : template('talker-areas-covered'),
-    asks: open > 0 ? fill(template('talker-open-asks'), { count: open, plural: open === 1 ? '' : 's' }) : '',
-  })
+  const agenda = plan ? talkerAgenda(plan.fields) : []
+  return fill(template('talker-discovery'), { agenda: agenda.length ? `\n\n### What the talk is for\n\n${agenda.join('\n')}` : '' })
 }
 
 /**

@@ -29,6 +29,7 @@ import { ledgerError } from './ledger-core'
 import {
   boardClientAction,
   boardOperations,
+  boardFinishGaps,
   boardReminderLine,
   boardView,
   boardOf,
@@ -2063,6 +2064,60 @@ export function focusReminderLine(fields: PlanFields): string {
     `No focus task open. Waiting on the client: ${waiting.map(([k, n]) => named[k](n)).join('; ')}. ` +
     'Walk them through these with start_focus, one surface at a time, at a moment you choose — right after you start a build is a good one.'
   )
+}
+
+/**
+ * [[REQ-426]] — the decisions a conversation can settle, most valuable first: what
+ * the site says before what it does, and a concept before its details. Settling by
+ * showing (looks, type, colour) is the builder's work, not the talk's.
+ */
+const TALK_SETTLES = ['ask', 'talk']
+const TALK_AREAS = ['messaging', 'purpose', 'functionality', 'structure', 'imagery']
+const TALK_STATES = ['open', 'defaulted', 'proposed']
+/** At most this many decisions in the talker's notes: the top of the list is the point. */
+export const TALKER_AGENDA_DECISIONS = 5
+/** [[REQ-426]] — what a decision still needs, by state, then by how it is settled. */
+const NEEDS: Record<string, string> = {
+  proposed: 'their yes on what you proposed',
+  defaulted: 'a real choice — it was only defaulted',
+  ask: 'a straight answer',
+  talk: 'talking it through',
+}
+
+/**
+ * [[REQ-426]] — what the talker is told the talk is for, one line each: the open
+ * decisions, most valuable first, with what each still needs; what is being built
+ * or comes next; what is due; and the questions already waiting on the panel,
+ * which it points to rather than asks again. Derived, like {@link planPanel}.
+ */
+export function talkerAgenda(fields: PlanFields): string[] {
+  const rank = (d: PlanDecision): number =>
+    (d.tier === 'concept' ? 0 : 100) + (TALK_AREAS.indexOf(d.area) + 1 || TALK_AREAS.length + 1)
+  const open = (fields.decisions ?? [])
+    .filter((d) => TALK_STATES.includes(d.state) && TALK_SETTLES.includes(d.settle ?? 'talk'))
+    .sort((a, b) => rank(a) - rank(b))
+    .slice(0, TALKER_AGENDA_DECISIONS)
+  const lines: string[] = []
+  if (open.length) {
+    lines.push(
+      `Open decisions, most valuable first: ${open.map((d) => `${d.title} (needs ${NEEDS[d.state] ?? NEEDS[d.settle ?? 'talk']})`).join('; ')}.`,
+    )
+  }
+  const panel = planPanel(fields)
+  const building = [...panel.tasks.doing, ...panel.tasks.next]
+  if (building.length) lines.push(`Being built or next: ${building.join('; ')} — draft these with them, gaps marked [?].`)
+  const due = [
+    ...boardFinishGaps(fields),
+    ...panel.due_checks.map((c) => `ask "${c.question}"`),
+    ...(focusCandidates(fields, 'story').length ? [`${focusCandidates(fields, 'story').length} new story notes waiting for a reaction task`] : []),
+  ]
+  if (due.length) lines.push(`Due: ${due.join('; ')}.`)
+  if (panel.asks.open.length) {
+    lines.push(
+      `Already on the panel, waiting for them — point to these, never ask them again: ${panel.asks.open.map((a) => JSON.stringify(a.prompt)).join('; ')}.`,
+    )
+  }
+  return lines
 }
 
 /** [[REQ-391]] — what choosing a look decided, as the site write reports it. */

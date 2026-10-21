@@ -247,11 +247,11 @@ describe('REQ-416 — a message written while the consultant works is answered b
     expect(said).not.toContain('next pass')
     expect(stream.at(-1)?.kind).toBe('done')
 
-    // THE TALKER IS TOLD ITS JOB: discovery, the story areas still missing, and the
-    // worker's status for "how is it going?".
+    // THE TALKER IS TOLD ITS JOB: moving the site forward on the open decisions
+    // ([[REQ-426]]), and the worker's status for "how is it going?".
     const first = sentText(client.talker[0])
-    expect(first).toContain('Your standing job')
-    expect(first).toContain('Still missing from the story board: how it started; the craft or signature thing')
+    expect(first).toContain('Use the time to move the site forward')
+    expect(first).toContain('Open decisions, most valuable first')
     expect(first).toContain('next pass')
     expect(first).toContain('The consultant is capturing')
 
@@ -403,6 +403,6 @@ describe('REQ-416 — the consultant is primed to build sooner and discover whil
     expect(priming).toContain('## Where things are')
     expect(priming).toContain('what they can change now and what waits for the')
     // Not a talker round: no talker reminder for the worker.
-    expect(sentText(client.worker[0])).not.toContain('Your standing job')
+    expect(sentText(client.worker[0])).not.toContain('Use the time to move the site forward')
   })
 })
