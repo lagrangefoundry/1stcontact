@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:45:50.235924+00:00'
+updated_at: '2026-10-21T21:14:25.185079+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11949,5 +11949,17 @@ Yes, a little. Rapport matters, and the best material often comes out sideways, 
 Most of it is the talker's priming plus the facts it gets each exchange: the due list, open decisions with what's missing, readiness, and the positioning status. Those need a little code to compute. It sits naturally alongside REQ-425 (positioning card and readiness) and REQ-424 (focus tasks), and it depends on them.
 
 Do you want to work through it more first? Or shall I file it as "the talker as conversation strategist" and record the critic and the due list in the design note, so the pieces are joined up?
+
+<!-- xgd-turn id="9d58be3a-75a7-4662-afb2-d509cd043475-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T21:14:21.814491+00:00" -->
+#### You
+## Is the small talk sometimes good?
+
+Yes, a little. Rapport matters, and the best material often comes out sideways, like the Wigs for Kids story. So I wouldn't ban it. <-- no its important my comment is more that it feels a little random right now, like it is just trying to get the user to talk rather that helping gather material that is likely to make it to the site. The agent should do more than keep the client talking.
+
+I agree there is value in just keeping the client talking - the long build cycles break the user workflow. Having them occupied until the build is finished is good. But it would be even better if it didn't feel like we were burning tokens and killing time.
+
+Look at the questions I'm getting asked now....I think it would be helpful if the purpose of the question were made clear (it would also help keep the talk on point)
 
 <!-- xgd-chat-end -->
