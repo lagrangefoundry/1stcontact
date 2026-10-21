@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:27:04.310950+00:00'
+updated_at: '2026-10-21T17:28:02.626054+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10896,5 +10896,24 @@ Related - this is important because the flow starts to break - I filled in all t
 I think each tile also gets a SKIP button and the flow waits until each tile has sent content or is skipped - it needs to be clear that the tile is open or closed  although its always acceptable to go back and add/change comments
 
 Separately it tide to have the progress at the top but I kind of missed it. I think the panel should go through a clear color change when operating so we know - I would say green but I'm a little concerned about the clash with the blue progress bar...
+
+<!-- xgd-turn id="c6723cb8-2738-48c0-a8c4-0a59f27a7f93-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:28:01.761617+00:00" -->
+#### Claude
+I've filed **BUG-245** under EPIC-19 (`draft`, high, 13 points), covering everything from the last three messages, and added it to the epic.
+
+1. **One voice, one thread.** While you're answering something, news from the work (comps found, a draft built, new panel questions) isn't posted as its own message. It goes into the consultant's next reply, after that reply has responded to you. The broken "consultant has finished" button is removed; while a result waits, the status widget just says something like "Done — first draft ready". A reload shows the same as what you saw.
+2. **Comps in the chat are one line and a link**, in your wording, opening Comparisons. No screenshots, and the "where on the range?" question waits until you've looked.
+3. **Comp cards with the consultant's commentary:** a bigger thumbnail, a "why it was chosen" note on each, a header note on the board explaining the range, and a notes box that grows as you write.
+4. **Each card is open or closed:** **Send to the consultant ➤** or **Skip**. A card shows *Not sent yet* (with a dot when it has text), *Sent ✓ 2:14pm*, or *Skipped*. Your typing is always kept as a draft, and any card can be reopened or edited.
+5. **Sending starts a short exchange:** your note appears in the chat as your message, labelled with the site, and the consultant replies in two or three sentences. **When every card is Sent or Skipped, the board tells the consultant itself.** The consultant then sums up what it will follow for the first draft without being asked, so the next step is never left to you.
+6. **Panel fact answers** get **Save** with *Not saved yet* → *Saved ✓*. They don't start a conversation.
+7. **New panel questions** show an **"N new"** badge and stay highlighted until you open them, and the consultant mentions them once, inside its next reply.
+8. **The panel visibly shows when the consultant is working:** a tinted, gently animated edge, which is static if reduced motion is on.
+
+On your colour concern, I've made the default **the same blue the progress banner uses for "in progress"**, rather than green. Then blue means "in progress" everywhere, and green keeps meaning "done", so the two never clash. Judge it in the run, and if it doesn't stand out enough, it's a one-line change.
+
+One possible dependency: making the reload match when a result was folded into a later reply might need a small framework change. If it does, the ticket says to file that in lagrange-framework and do our side as far as it can go.
 
 <!-- xgd-chat-end -->
