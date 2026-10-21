@@ -5,7 +5,7 @@ type: bug
 title: 'Chat composer: Stop shows while only the consultant''s worker is running'
 created_by: REQ-419
 created_at: '2026-10-20T23:33:17.148650+00:00'
-updated_at: '2026-10-21T01:19:04.404424+00:00'
+updated_at: '2026-10-21T01:21:41.289295+00:00'
 completed_at: null
 last_field_updated: body
 status: draft
@@ -67,3 +67,8 @@ No 1stcontact source change is expected beyond the test. Per the cross-repo rule
 ## Status (2026-10-20)
 
 **Blocked on lagrange-framework BUG-89 (bug-c489db35)**, filed with the diagnosis and fix above. Confirmed that neither the upstream source (`components/webui/chat/js/src/input.js:489`) nor the installed shared store has the fix yet. No code has landed against this ticket. Once BUG-89 is released and `bin/install --lang js --component all` has been run, this ticket's UAT (Test plan above) gets written here. It's the only 1stcontact change.
+
+
+## Review (EPIC-19, 2026-10-21)
+
+Diagnosis and fix confirmed; still blocked on lagrange-framework BUG-89 (still `draft`; `stopOffered` unchanged upstream and in the shared install). Added to BUG-89: in talk mode the status widget with **Stop building** must appear as soon as a worker round opens, not at the first `progress` frame — otherwise the fix leaves a window in which the worker can't be stopped at all. This ticket's UAT should also assert that: worker turn open, no `progress` frame yet → the widget with Stop building is shown and the composer shows Send.
