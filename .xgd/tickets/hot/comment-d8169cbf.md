@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:08:15.609016+00:00'
+updated_at: '2026-10-21T17:20:15.174930+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10823,5 +10823,18 @@ The link uses REQ-413's view link, so it opens Comparisons mode. No screenshots 
 - **Item 4:** a panel badge and highlight, plus priming.
 
 I'd file it as **one 1stcontact bug for the "too many things at once" experience** covering all four, plus a lagrange-framework ticket if the hand-over needs one. Shall I file it?
+
+<!-- xgd-turn id="f3f11477-61e9-46ae-a27e-532e7f4f6f5e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:20:14.611757+00:00" -->
+#### You
+ok some more thoughts - the area for entering comments on each comp is tiny - I think these tiles could be bigger and should include the AI's commentary.
+
+The Done button is unsatisfying - it is not really Done at all it is at best submit - it is unclear if the content has been submitted already there should be some indication of a dirty editor. Lets discuss this
+
+As I am working through these when I get to the end of a site, the AI could comment on what I wrote...eg:
+
+I hit Done/Submit - clear change in the tile
+My content is transposed into a chat prompt that shows what I wrote and lets the AI respond (responses need to be short to keep this under control).
 
 <!-- xgd-chat-end -->
