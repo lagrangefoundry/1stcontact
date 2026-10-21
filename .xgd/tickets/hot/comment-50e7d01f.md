@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-20T22:19:57.676845+00:00'
+updated_at: '2026-10-21T01:30:17.295753+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4157,5 +4157,13 @@ It states which parts of REQ-378, REQ-391 and BUG-236 it supersedes. All three a
 I added **Edit 5a**. When the consultant starts the comp search, that message's one question is "Who do you lose jobs to?", even if discovery is still going; the story question waits until the next message. When the client names sites, the consultant asks what they think of each one before showing its own picks. The draft now has six edits and is still at `.xgd/tmp/epic20/discovery-priming-draft.md`. Nothing is applied yet.
 
 When you're happy with the draft wording, say so and I'll splice it into `priming.json`. REQ-419 is ready for a session to pick up.
+
+<!-- xgd-turn id="18b1a3be-59dd-4843-87e2-7aef91183337-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T01:30:15.847005+00:00" -->
+#### You
+Our site cost is climbing Bob's Salon 3 is the most expensive test site I have built so far... take a look and tell me if you see where the money is going and if there are obvious inefficiencies...
+
+Looks to me like a healthy amount is Haiku - the costed turns I can see don't look like the add up to the totals I see though.
 
 <!-- xgd-chat-end -->
