@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-248
 created_by: xgd
 created_at: '2026-10-21T20:20:02.953392+00:00'
-updated_at: '2026-10-21T20:48:34.596796+00:00'
+updated_at: '2026-10-21T20:49:50.585571+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -150,5 +150,22 @@ Promoting the ticket to `ready_to_reconcile` is up to you.
 <!-- xgd-chat role="user" ts="2026-10-21T20:48:33.527617+00:00" -->
 #### You
 Is this complete?
+
+<!-- xgd-turn id="ba258d44-45a3-45de-802a-ed363faa6506-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:49:49.705380+00:00" -->
+#### Claude
+Yes. Everything I can do in this session is finished. I just checked:
+
+- **Ticket:** BUG-248 is at `free_coded` with version 0.2.574. Both commits are recorded on it: the work (`b6581b31`) and the version bump (`857c415a`).
+- **Merged:** both commits are in `xgd-working`.
+- **Cleaned up:** the `free-BUG-248` branch and its worktree have been removed.
+- **Ticket body:** the existing text is untouched, and there's a new "As landed" section describing what was built. Every test is backed by wording in the ticket.
+
+What's left:
+
+1. **Your call:** promoting the ticket to `ready_to_reconcile`. When reconciliation runs, it should treat the changed expectations in the older BUG-43, BUG-192, AC1249 and AC970 tests as deliberately replaced by this ticket.
+2. **Not seen in a real browser:** I checked the change with automated tests only. Those ran the builder's browser code in a simulated page and the server code against a real D1 database. Nobody has watched it during a real build yet, so how smooth the fade looks and whether 3 seconds between refreshes feels right are still untested.
+3. **Not deployed:** the dev site keeps serving its old copy until someone redeploys it. To try it on dev, run `bin/deploy --env dev`.
 
 <!-- xgd-chat-end -->
