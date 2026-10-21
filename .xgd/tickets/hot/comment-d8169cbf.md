@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:52:46.772457+00:00'
+updated_at: '2026-10-21T18:54:47.803319+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11339,5 +11339,11 @@ I've filed **REQ-423**, *"Drawing stays with the consultant: SVG composition mov
 5. **The talker can't draw either**, because it would change assets the build is using.
 
 I dropped the "stronger model tier for builders" idea. Your decision covers it more simply: drawing isn't delegated at all.
+
+<!-- xgd-turn id="9e632060-7075-4973-88c4-f500af654693-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:54:47.329345+00:00" -->
+#### You
+OK again the site title is so small - perhaps mnny asthetic is off but I constantly see the Main title of the site smaller than our heading text - is that right?
 
 <!-- xgd-chat-end -->
