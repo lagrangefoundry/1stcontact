@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T17:33:59.681864+00:00'
+updated_at: '2026-10-21T17:38:33.808722+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2316,3 +2316,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-246]] — the consultant is told which view the client has open and which views they have never opened; it links (not switches) to the right one, explains where a never-opened view lives, and says "story board"/"comparison board", never "the board".
+
+
+- [[BUG-247]] — composer showed Stop and no status widget appeared on a turn that answered first, wrote to the plan, then started a builder (Ariel's run, 17:33 UTC); hypotheses: talk mode lost on a remount, or the widget drawn into a container the plan redraw replaced.
