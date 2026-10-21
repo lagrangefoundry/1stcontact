@@ -6,10 +6,10 @@ title: 'Builders: keep calling ReportResult after reporting until they run out o
   context'
 created_by: EPIC-20
 created_at: '2026-10-21T13:24:40.462540+00:00'
-updated_at: '2026-10-21T15:00:00.596119+00:00'
+updated_at: '2026-10-21T15:00:28.709850+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: high
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-0cb4214e
+  commits:
+  - working_sha: e8b135941efbe8b542bdc2f17d506e91f8386139
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 64b4e751ca55b6393d9fc4a924bce35220428ed6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.568
 ---
 
 ## Symptom
