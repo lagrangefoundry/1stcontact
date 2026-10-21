@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T00:37:30.968800+00:00'
+updated_at: '2026-10-21T00:38:24.050754+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10496,5 +10496,33 @@ I'd do BUG-238 first, since it's small, works on today's pages, and fixes the lo
 <!-- xgd-chat role="user" ts="2026-10-21T00:37:30.381894+00:00" -->
 #### You
 Are we good with the decisions of REQ-420 - please make any changes to the body of its ticke
+
+<!-- xgd-turn id="8e732eb8-9ccc-474c-933c-a29190ff223b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T00:38:22.706728+00:00" -->
+#### Claude
+REQ-420 has already been built (`free_coded`), so I'm checking the implementation against our decisions before editing.
+
+Yes, we're good. REQ-420 is already built (`free_coded`), and it meets all three of your decisions:
+
+- **Implicit pairing.** Spacing lives on the text styles, neighbours take the larger of the two spaces, and a heading is grouped with its text. There's no separate "titled block" node.
+- **A default, not a rule.** Nothing refuses a heading with more space below than above. The AI can override any element, and an evenly spaced heading is flagged by the layout check (BUG-238's `loose_heading`) rather than refused.
+- **L1 in this repo.** It's in the schema, the renderer, capture and the fold, and in `1c type assign`.
+
+**I made two changes to the ticket body** (it isn't frozen yet; it's at `free_coded`):
+1. **A "Review against the decisions" section** that records the three checks above.
+2. **A correction to item 9**, the one place the implementation differs from what we wrote. We said existing pages would render unchanged. As built:
+   - pages that use `gapPx` render exactly as before;
+   - a plain text stack that set no spacing at all now uses rhythm. That's 4 of the 13 stored pages: the xgd home and whitepapers, Charlie's home, and the sandbox demo.
+
+   Those stacks had no spacing between their children before, so I've recorded this as the fix reaching them, not as a restyle. Drafts change the next time they're rendered; a published site only changes when it's published again.
+
+A few other details from the implementation:
+- The default space table matches what we agreed: H2 is 2.5 above and 0.5 below, body text 0 and 1. H4–H6 get 1.5 and 0.5, and anything that isn't text gets 1 and 1.
+- The rhythm unit defaults to the body text's line height, falling back to 24px.
+- When a reference site is reproduced, its spacing is measured and stored on the text styles, so the reproduction keeps it.
+- Both the builders and the consultant have been told to change spacing on the style, and to override a single element only when there's a reason.
+
+If you'd rather those 4 unspaced stacks had stayed as they were, say so and I'll make item 9 a requirement to keep them unchanged.
 
 <!-- xgd-chat-end -->
