@@ -6,10 +6,10 @@ title: 'Composer and status: the ''+'' inside the text box and the status widget
   the progress banner (BUG-236 item 7, now unblocked)'
 created_by: EPIC-19
 created_at: '2026-10-21T14:54:45.179356+00:00'
-updated_at: '2026-10-21T15:14:03.171047+00:00'
+updated_at: '2026-10-21T15:14:28.257471+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-2e24d6a8
+  commits:
+  - working_sha: d52fd4f7ee3870503b053946dfb55042ad7b6bc5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 04c9b3ef7ed96525b063fb072b0749975645ee98
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.569
 ---
 
 ## Why
