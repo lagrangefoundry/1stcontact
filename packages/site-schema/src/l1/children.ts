@@ -11,7 +11,7 @@
  * so a cell is `…​.n` exactly as a container's n-th child is, and the structure
  * that keeps a row together stays in the document rather than in its address.
  */
-import type { L1Node, L1Table, L1TableCell } from './types'
+import type { L1Nav, L1NavItem, L1Node, L1Table, L1TableCell } from './types'
 
 /** REQ-418 — a table's cells in address order: the header's, then each row's left to right. */
 export function l1TableCells(table: L1Table): L1TableCell[] {
@@ -23,6 +23,8 @@ export function l1Children(node: L1Node): L1Node[] {
   if (node.kind === 'container') return node.children
   if (node.kind === 'box') return node.children ?? []
   if (node.kind === 'table') return l1TableCells(node)
+  // REQ-422 — a menu's one child is the look of its items, drawn once per entry.
+  if (node.kind === 'nav') return [node.item as L1Node]
   return []
 }
 
@@ -32,6 +34,7 @@ export function l1Children(node: L1Node): L1Node[] {
  * author is pointed at the cell rather than at its position in reading order.
  */
 export function l1ChildEntries(node: L1Node): { node: L1Node; at: string }[] {
+  if (node.kind === 'nav') return [{ node: node.item as L1Node, at: 'item' }]
   if (node.kind !== 'table') return l1Children(node).map((child, i) => ({ node: child, at: `children/${i}` }))
   const header = (node.header ?? []).map((cell, i) => ({ node: cell as L1Node, at: `header/${i}` }))
   const rows = node.rows.flatMap((row, r) => row.map((cell, c) => ({ node: cell as L1Node, at: `rows/${r}/${c}` })))
@@ -63,6 +66,10 @@ export function setL1Child(parent: L1Node, i: number, replacement: L1Node): bool
     row[at % width] = replacement as L1TableCell
     return true
   }
+  if (parent.kind === 'nav' && i === 0) {
+    ;(parent as L1Nav).item = replacement as L1NavItem
+    return true
+  }
   return false
 }
 
@@ -83,5 +90,6 @@ export function withL1Children(node: L1Node, kids: L1Node[]): L1Node {
       rows: node.rows.map((_, r) => cells.slice(head + r * width, head + (r + 1) * width)),
     }
   }
+  if (node.kind === 'nav' && kids[0]) return { ...node, item: kids[0] as L1NavItem }
   return node
 }

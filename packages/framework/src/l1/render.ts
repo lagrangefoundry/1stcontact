@@ -101,6 +101,7 @@ import type {
   L1Sizing,
   L1Sticky,
   L1SurfaceAxes,
+  L1Nav,
   L1Table,
   L1Text,
   L1Transform,
@@ -4298,6 +4299,8 @@ interface RenderState {
   edit?: boolean
   /** REQ-420 — the site's rhythm unit, which every rhythm space is a multiple of. */
   rhythm?: L1RhythmUnit
+  /** [[REQ-422]] — the site's navigation as drawn on this page; see {@link L1RenderOptions.navigation}. */
+  navigation?: readonly L1NavigationItem[]
   /** REQ-420 — set once any container spaces by rhythm, so the unit is declared only then. */
   usesRhythm?: boolean
 }
@@ -4581,6 +4584,94 @@ function tableHtml(
     .map((row) => `<tr${role('row')}>${row.map((c, i) => cell(c, 'td', labels[i])).join('')}</tr>`)
     .join('')
   return `<div class="${cls}"${idAttr}${editAttrs}><table class="${name}-t"${role('table')}>${head}<tbody${role('rowgroup')}>${body}</tbody></table></div>`
+}
+
+/** [[REQ-422]] — one entry of the site's navigation, resolved for the page being drawn. */
+export interface L1NavigationItem {
+  label: string
+  /** Root-relative or absolute; cleared by `isSafeHref` at emit like every link. */
+  href: string
+  /** True on the entry for the page being drawn. */
+  current?: boolean
+}
+
+/** [[REQ-422]] — below this width a menu folds behind its button, when it declares none. */
+const NAV_COLLAPSE_BELOW_PX = 640
+/** [[REQ-422]] — the space between menu items, when the menu declares none. */
+const NAV_GAP_PX = 24
+const NAV_JUSTIFY: Record<string, string> = { start: 'flex-start', center: 'center', end: 'flex-end' }
+
+/**
+ * [[REQ-422]] — a menu's markup and its rules: a real `<nav>`, one link per entry
+ * of the site's navigation, and below its collapse width the same links behind a
+ * native `<details>` button, which opens and closes with no script.
+ *
+ * EVERY ITEM IS AN ORDINARY TEXT NODE — the menu's `item`, with the entry's label
+ * as its copy and the entry's href as its link — emitted by `emitNode` at the
+ * item's one address, so an item's type, colour, link safety and edit stamp are
+ * the text leaf's own code path. Each item is emitted once; the folded list
+ * reuses the same markup, so the two lists cannot look different.
+ *
+ * The page being drawn is marked `aria-current="page"`. The edit render keeps the
+ * folded list open, because it shows all content at once.
+ */
+function navHtml(
+  node: L1Nav,
+  name: string,
+  state: RenderState,
+  path: readonly number[],
+  cls: string,
+  idAttr: string,
+  editAttrs: string,
+): string {
+  const gap = `${node.gapPx ?? NAV_GAP_PX}px`
+  const list = `.${name}-l`
+  const menu = `.${name}-m`
+  state.rules.push(
+    {
+      selector: list,
+      decls: [
+        'display: flex',
+        'flex-wrap: wrap',
+        'align-items: center',
+        `justify-content: ${NAV_JUSTIFY[node.align ?? 'start']}`,
+        `gap: ${gap}`,
+        'list-style: none',
+        'margin: 0',
+        'padding: 0',
+      ],
+    },
+    { selector: `${list} > li, ${menu} li`, decls: ['margin: 0', 'padding: 0'] },
+  )
+  const item = { ...node.item, kind: 'text' } as L1Node
+  const items = (state.navigation ?? []).map((entry) => {
+    const html = emitNode({ ...item, text: entry.label, link: { href: entry.href } } as L1Node, state, [...path, 0])
+    return `<li>${entry.current ? html.replace(/^<a /, '<a aria-current="page" ') : html}</li>`
+  })
+  const links = `<ul class="${name}-l">${items.join('')}</ul>`
+  const below = node.collapseBelowPx ?? NAV_COLLAPSE_BELOW_PX
+  if (below <= 0) return `<nav class="${cls}"${idAttr}${editAttrs} aria-label="Main">${links}</nav>`
+  const media = `(max-width: ${below - 1}px)`
+  state.rules.push(
+    { selector: menu, decls: ['display: none'] },
+    { selector: `${menu} > summary`, decls: ['cursor: pointer', 'list-style: none'] },
+    { selector: `${menu} > summary::-webkit-details-marker`, decls: ['display: none'] },
+    // Closed means closed in every engine, whatever it does with a closed disclosure's content.
+    { selector: `${menu}:not([open]) > ul`, decls: ['display: none'] },
+    {
+      selector: `${menu} > ul`,
+      decls: ['display: flex', 'flex-direction: column', `gap: ${gap}`, 'list-style: none', 'margin: 0', `padding: ${gap} 0 0`],
+    },
+    { media, selector: list, decls: ['display: none'] },
+    { media, selector: menu, decls: ['display: block'] },
+  )
+  const button = emitNode({ ...item, text: node.menuLabel ?? 'Menu' } as L1Node, state, [...path, 0])
+    .replace(/^<p /, '<span ')
+    .replace(/<\/p>$/, '</span>')
+  return (
+    `<nav class="${cls}"${idAttr}${editAttrs} aria-label="Main">${links}` +
+    `<details class="${name}-m"${state.edit ? ' open' : ''}><summary>${button}</summary><ul>${items.join('')}</ul></details></nav>`
+  )
 }
 
 function emitNode(
@@ -5113,6 +5204,14 @@ function emitNode(
       if ((node.narrow ?? 'scroll') === 'scroll') base.push('overflow-x: auto')
       break
     }
+    case 'nav': {
+      html = navHtml(node, name, state, path, cls, idAttr, editAttrs)
+      base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
+      base.push(...axisSizingCss(node.sizing, parent))
+      if (!node.geometry) base.push('position: relative')
+      base.push('min-width: 0')
+      break
+    }
     case 'box': {
       base.push(...surfaceLadderDecls(node.axes ?? {}, selector, node.geometry, node.sizing, state))
       base.push(...axisSizingCss(node.sizing, parent))
@@ -5509,6 +5608,20 @@ export interface L1RenderResult {
 /** Options for {@link renderL1Document}. */
 export interface L1RenderOptions {
   /**
+   * [[REQ-422]] — the site's navigation as drawn on THIS page, for every `nav`
+   * node in the document. Resolved by the caller, which holds the site and knows
+   * the page; the emitter only draws it. Absent, a menu draws no items.
+   */
+  navigation?: readonly L1NavigationItem[]
+  /**
+   * [[REQ-422]] — render this document as a PART of a page (the site's header or
+   * footer) rather than as the page: every class carries this prefix so it cannot
+   * collide with the page's own (`header-l1-0` beside `l1-0`), no document reset
+   * is emitted, and the document's background and text colour paint its root
+   * rather than the body the page owns.
+   */
+  prefix?: string
+  /**
    * REQ-93 — behavior-module fragments to mount, keyed by the L1 `slot` name each
    * is bound to. A slot with no entry renders as the inert placeholder. Rendering
    * a module needs an async Astro container, which the pure L1 emitter must not
@@ -5601,6 +5714,8 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
     delivery: opts.delivery,
     drawings: opts.drawings,
     rhythm: opts.rhythm,
+    navigation: opts.navigation,
+    prefix: opts.prefix,
   }
   // The document's root node list is the single `doc.root`, so its address is
   // `0` — the same "index the list, then walk `children`" rule a fragment uses.
@@ -5612,17 +5727,18 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   // REQ-420 — the unit is declared once, for the page, and only by a page that
   // spaces something by rhythm: a document that does not is byte-identical.
   if (state.usesRhythm) state.rules.unshift(...rhythmUnitRules(opts.rhythm))
-  const reset = [
-    '*, *::before, *::after { box-sizing: border-box }',
-    'html, body { margin: 0; padding: 0 }',
-  ]
+  // [[REQ-422]] — a part paints its own root, never the page's body.
+  const canvas = opts.prefix ? `.${opts.prefix}-l1-0` : 'body'
+  const reset = opts.prefix
+    ? []
+    : ['*, *::before, *::after { box-sizing: border-box }', 'html, body { margin: 0; padding: 0 }']
   const bg = cssColor(doc.background)
-  if (bg) reset.push(`body { background-color: ${bg} }`)
+  if (bg) reset.push(`${canvas} { background-color: ${bg} }`)
   // REQ-114 — the page's inherited text colour. Its former home was the
   // `--color-text` theme token, which went with the legacy palette; a page-level
   // colour is a property of the L1 document, not of a token surface.
   const fg = cssColor(doc.textColor)
-  if (fg) reset.push(`body { color: ${fg} }`)
+  if (fg) reset.push(`${canvas} { color: ${fg} }`)
   // REQ-90 — @font-face rules first so every family handle is bound before any
   // rule references it (no serif fallback while the CSS is parsed top-down).
   const faces = fontFaceRules(doc.resources)

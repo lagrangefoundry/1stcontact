@@ -548,9 +548,15 @@ describe('REQ-126 — the surface documents itself', () => {
       'rename_text_style',
       'set_config',
       'set_l1',
+      // [[REQ-422]] — the site's menu: which pages it shows, their order and labels.
+      // Structured entries naming pages or an href the renderer clears like any link.
+      'set_navigation',
       'set_page_style',
       'set_palette_color',
       'set_text_style',
+      // [[REQ-422]] — one of a page's own sections becomes the site's shared header
+      // or footer: a move between pages, reaching nothing `set_l1` could not.
+      'share_section',
       'update_page',
       'use_font',
       'write_image',

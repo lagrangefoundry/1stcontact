@@ -59,6 +59,11 @@
       "item_base": "object",
       "description": "A list of looks, each an object: `label` (required), `description`, and optionally `page`."
     },
+    "nav_entry_list": {
+      "base": "array",
+      "item_base": "object",
+      "description": "The site's menu, in order, each entry an object: `page` (a page id) and optionally `label`, or `href` and `label` for a link off the site."
+    },
     "section_id": {
       "base": "string",
       "description": "The id of one section of a page stored in sections, as `describe_page` lists them under `sections`. Given with an address, the address is counted from that section — `0` is the section itself — and a change can touch that section and nothing else."
@@ -614,7 +619,7 @@
       "tool": "add_page",
       "effect": "write",
       "summary": "Add a new page to the site — or a new message a form can send.",
-      "description": "The page arrives with a heading carrying its title, centred on a blank page, and nothing else — enough that it renders and can be seen, and little enough that it is all replaceable. Read it with `describe_page` and rewrite it with `set_l1` like any other page: there is no separate step that brings the page into existence, and nothing to remember before painting it.\n\nPass `kind: \"email\"` to make a **message** instead: the copy a contact form mails when somebody fills it in. A message is an ordinary page in every way that matters to you — it is in the page list, you read it with `get_l1` and write it with `set_l1`, and it is styled the same way. Two things are different. It has **no public address**: nobody can visit it, nothing links to it, and it is not part of the published site's pages. And it can use **only part of what a web page can** — no absolute positioning, no gradients, no shadows, no web fonts, because a mail client supports none of them. `describe_page` tells you exactly what is allowed; anything else is refused when you write it.\n\nA message arrives with readable default copy, so it can be read and rewritten **before anybody receives it**. Show it to your user before a form starts sending it.\n\nIf the message carries a link the recipient has to follow — a download, a confirmation — declare `cta_url` in `placeholders`. The copy is then built around it, and you will be stopped from later deleting the one thing the message depends on.",
+      "description": "The page arrives with a heading carrying its title (`placeholder`, centred on a blank page) and nothing else — enough that it renders and can be seen, and little enough that it is all replaceable. Replace or remove that heading: a page that still holds it is not finished. It is drawn with the site's shared header and footer from the moment it exists, and it joins the end of the site's navigation unless you pass `nav: false` — so it is never a dead end and the menu already knows it. Joining the navigation changes the site's settings (`site.json`), so a build that adds a page needs `site.json` in its scope.\n\nPass `kind: \"header\"` or `kind: \"footer\"` to make the site's **shared header or footer** instead: one of each per site, drawn above (or below) every web page, so it is edited once and every page changes. It arrives holding the business name linking home, beside the site's navigation (a `nav` element whose items are the site's pages). Write it with `set_l1` like any page; it has no address of its own. Read it with `describe_page` and rewrite it with `set_l1` like any other page: there is no separate step that brings the page into existence, and nothing to remember before painting it.\n\nPass `kind: \"email\"` to make a **message** instead: the copy a contact form mails when somebody fills it in. A message is an ordinary page in every way that matters to you — it is in the page list, you read it with `get_l1` and write it with `set_l1`, and it is styled the same way. Two things are different. It has **no public address**: nobody can visit it, nothing links to it, and it is not part of the published site's pages. And it can use **only part of what a web page can** — no absolute positioning, no gradients, no shadows, no web fonts, because a mail client supports none of them. `describe_page` tells you exactly what is allowed; anything else is refused when you write it.\n\nA message arrives with readable default copy, so it can be read and rewritten **before anybody receives it**. Show it to your user before a form starts sending it.\n\nIf the message carries a link the recipient has to follow — a download, a confirmation — declare `cta_url` in `placeholders`. The copy is then built around it, and you will be stopped from later deleting the one thing the message depends on.",
       "params": {
         "page": {
           "type": "page_id",
@@ -635,7 +640,15 @@
         },
         "kind": {
           "type": "string",
-          "description": "`web` (the default) for a page the public reads, or `email` for a message a form sends."
+          "description": "`web` (the default) for a page the public reads, `email` for a message a form sends, or `header` / `footer` for the site's shared header or footer."
+        },
+        "nav": {
+          "type": "boolean",
+          "description": "Leave it out and the new page joins the site's navigation. `false` keeps it out of the menu — only for a page something else links to."
+        },
+        "shared": {
+          "type": "object",
+          "description": "Which of the site's shared parts this page goes WITHOUT: `{\"header\": false}` for a landing page that stands alone. Leave it out and the page carries both — almost always what you want."
         },
         "subject": {
           "type": "string",
@@ -687,6 +700,10 @@
         "title": {
           "type": "string",
           "description": "The new page's title. Defaults to the title of the page being copied — so say what this one is, or two pages answer to the same name."
+        },
+        "nav": {
+          "type": "boolean",
+          "description": "Leave it out and the copy joins the site's navigation, like any new page. `false` keeps it out of the menu."
         }
       },
       "returns": {
@@ -734,7 +751,8 @@
       "op": "update_page",
       "tool": "update_page",
       "effect": "write",
-      "summary": "Change a page's title, its address in the site, or how it describes itself to a search engine.",
+      "summary": "Change a page's title, its address in the site, how it describes itself to a search engine, or whether it carries the site's header and footer.",
+      "description": "A new title is also the page's new name in the site's navigation, unless its menu entry was given a label of its own.",
       "params": {
         "page": {
           "type": "page_id",
@@ -755,6 +773,10 @@
         "kind": {
           "type": "string",
           "description": "`web` (the default) for a page the public reads, or `email` for a message a form sends."
+        },
+        "shared": {
+          "type": "object",
+          "description": "Which of the site's shared parts this page goes without: `{\"header\": false}` takes the header off it, `{\"header\": true}` puts it back. Only what you name changes."
         },
         "subject": {
           "type": "string",
@@ -880,6 +902,7 @@
       "tool": "remove_page",
       "effect": "write",
       "summary": "Delete a page from the site.",
+      "description": "Its entries in the site's navigation go with it, in the same change.",
       "params": {
         "page": {
           "type": "page_id",
@@ -892,6 +915,59 @@
       "errors": [
         "NOT_FOUND",
         "REFERENTIAL_INTEGRITY"
+      ]
+    },
+    {
+      "op": "set_navigation",
+      "tool": "set_navigation",
+      "effect": "write",
+      "summary": "Set the site's menu: which pages it shows, in what order, and what it calls each.",
+      "description": "The menu is drawn by every `nav` element on the site — the shared header's, usually — and its items are this list, so one call changes the menu on every page. Name the whole menu, in reading order: a page you leave out is **hidden** from it (it still exists, and links to it still work). `label` defaults to the page's title.\n\nYou rarely need this for a new page — adding, removing or renaming a page keeps the menu in step by itself. It is for the choices only your client makes: the order, a shorter label, hiding a page. It changes the site's settings, so a build that calls it needs `site.json` in its scope.\n\nNever tell your client something is in the menu until the host's look after the build confirms the page is reachable.",
+      "params": {
+        "entries": {
+          "type": "nav_entry_list",
+          "required": true,
+          "description": "The menu, in order: `[{\"page\": \"home\", \"label\": \"Home\"}, {\"page\": \"art\"}, {\"page\": \"contact\"}]`. For a link off the site, `{\"href\": \"https://…\", \"label\": \"Shop\"}`."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
+      "op": "share_section",
+      "tool": "share_section",
+      "effect": "write",
+      "summary": "Make a page's own top section the site's shared header (or its bottom section the shared footer), drawn on every page.",
+      "description": "How a site built before it had a shared header gets one. The section moves: it becomes the site's header with the page's widths, colours and fonts, so it looks as it did, and every other page holding a section of the same id loses its copy in the same change, so nothing shows two headers. Afterwards the header is edited once, as the page `header`, and every page changes.\n\nThis is a one-off decision about the whole site: say to your client which section you will make the header and get their yes first. Refused if the site already has one, or if the section holds a component.",
+      "params": {
+        "page": {
+          "type": "page_id",
+          "required": true,
+          "description": "The page whose section becomes the shared part."
+        },
+        "section": {
+          "type": "string",
+          "required": true,
+          "description": "The id of the section at the top level of the page — the first one for a header, the last for a footer."
+        },
+        "as": {
+          "type": "string",
+          "required": true,
+          "description": "`header` or `footer`."
+        }
+      },
+      "returns": {
+        "shape": "change"
+      },
+      "errors": [
+        "NOT_FOUND",
+        "CONFLICT",
+        "SCHEMA_INVALID"
       ]
     },
     {
@@ -1507,13 +1583,15 @@
         "make_alternatives",
         "update_page",
         "remove_page",
+        "set_navigation",
+        "share_section",
         "decompose_page",
         "recompose_page",
         "add_section",
         "remove_section",
         "move_section"
       ],
-      "description": "The pages themselves, rather than what is on them — which pages the site has, what each is called, where it sits, and how it describes itself to a search engine. A new page arrives empty; putting something on it is the work of the group above — unless it is a copy, which arrives holding everything the page it was copied from holds. A page can also be stored in sections, so a part of it can be read and changed without the rest; the sections themselves — which there are, and in what order — are managed here too, and what is inside one is changed with the group above, scoped by `section`."
+      "description": "The pages themselves, rather than what is on them — which pages the site has, what each is called, where it sits, how it describes itself to a search engine, and the site's menu, which follows the page list. The site's shared header and footer are pages here too (`kind` `header`/`footer`), drawn on every page that does not opt out. A new page arrives empty; putting something on it is the work of the group above — unless it is a copy, which arrives holding everything the page it was copied from holds. A page can also be stored in sections, so a part of it can be read and changed without the rest; the sections themselves — which there are, and in what order — are managed here too, and what is inside one is changed with the group above, scoped by `section`."
     },
     {
       "group": "ManageComponents",

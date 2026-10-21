@@ -9,7 +9,7 @@ import { configureDelegation, delegationDocument } from '../tools/generate/src/c
 import { BUILDER_ROLE } from '../tools/generate/src/cli/ai/roles'
 import { LAYOUT_SCRIPT } from '../tools/generate/src/cli/ai/layout-check'
 import { CANNOT_LOOK_LINE } from '../tools/generate/src/cli/ai/plan-core'
-import { starterHomePage } from '../tools/generate/src/cli/scaffold'
+import { starterHomePage, starterPartDocument } from '../tools/generate/src/cli/scaffold'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 import { fakeBrowser } from './support/fake-puppeteer'
@@ -55,17 +55,34 @@ const post = (scope: Scope, deps: RouterDeps, path: string, body: unknown): Prom
     deps,
   )
 
-/** A business with one site holding a home page and a prices page, and a session on it. */
+/** A business with one site holding a home page, a prices page and a shared header, and a session on it. */
 async function session(id: string, deps: RouterDeps): Promise<{ scope: Scope; sessionId: string }> {
   await APPLIED
   await ensureTenant(id)
   const scope = { businessId: id }
   const seed = siteSeed({ slug: `site-${id}` })
-  const home = starterHomePage(seed.slug) as Record<string, unknown>
-  const pages = { 'home.json': home, 'prices.json': { ...home, id: 'prices', slug: 'prices', title: 'Prices' } }
+  // [[REQ-422]] — a site whose pages hang together: a shared header drawing the
+  // menu of both pages, and no placeholder left from creation. A clean check has
+  // to have a clean site to look at, and a page with no way in or out is not one.
+  const home = structuredClone(starterHomePage(seed.slug)) as { l1: { root: { children: { id?: string }[] } } }
+  home.l1.root.children[0].id = 'welcome'
+  const header = {
+    id: 'header',
+    slug: 'header',
+    title: 'Site header',
+    kind: 'header',
+    modules: [],
+    l1: starterPartDocument('header', { name: seed.slug, wordmarkPx: { phone: 24, desktop: 30 } }),
+  }
+  const pages = {
+    'header.json': header,
+    'home.json': home,
+    'prices.json': { ...home, id: 'prices', slug: 'prices', title: 'Prices' },
+  }
+  const entries = ['home', 'prices'].map((pageId) => ({ label: pageId, target: { kind: 'page', pageId } }))
   const imported = await post(scope, deps, '/api/import', {
     slug: seed.slug,
-    siteJson: seed.siteJson,
+    siteJson: { ...seed.siteJson, nav: { pattern: 'top-tabs', entries } },
     pages: Object.entries(pages).map(([name, page]) => ({ name, page })),
     assets: [],
   })

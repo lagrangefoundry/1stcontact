@@ -137,6 +137,7 @@ export type {
   L1RenderResult,
   L1FragmentResult,
   L1RenderOptions,
+  L1NavigationItem,
   L1ControlElement,
   L1ControlTag,
   L1SegmentKind,

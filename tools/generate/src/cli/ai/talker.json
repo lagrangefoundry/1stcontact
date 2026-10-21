@@ -47,6 +47,8 @@
     "configure_component",
     "remove_component",
     "remove_page",
+    "set_navigation",
+    "share_section",
     "decompose_page",
     "recompose_page",
     "add_section",

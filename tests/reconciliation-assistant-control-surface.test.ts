@@ -305,9 +305,14 @@ describe('the assistant control surface — declared once, granted narrowly, che
       'rename_text_style',
       'set_config',
       'set_l1',
+      // [[REQ-422]] — the site's menu (which pages, their order and labels), and a
+      // page's own section moved into the site's shared header or footer. Both
+      // write only structured page lists and L1 the rest of this list already can.
+      'set_navigation',
       'set_page_style',
       'set_palette_color',
       'set_text_style',
+      'share_section',
       'update_page',
       'use_font',
       'write_image',

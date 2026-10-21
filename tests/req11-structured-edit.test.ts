@@ -208,7 +208,10 @@ describe('1c structured-edit command surface (REQ-11)', () => {
     expect(cli.code).toBe(5)
   })
 
-  it('test_UAT_FC_REQ-11_page_rm_blocked_by_nav', async () => {
+  // [[REQ-422]] supersedes the refusal this test used to pin: the navigation
+  // follows the page list, so removing a page the menu names removes its entry
+  // in the same write instead of refusing until somebody removes it by hand.
+  it('test_UAT_FC_REQ-11_page_rm_removes_its_nav_entries', async () => {
     cmdNew('acme', opts)
     await editPageAdd('acme', 'about', { ...opts, path: 'about' })
     // A TYPED value, not a string (REQ-130): argv is the one place a setting
@@ -220,18 +223,8 @@ describe('1c structured-edit command surface (REQ-11)', () => {
       opts,
     )
 
-    // Blocked: the integrity error names the offending nav entry.
-    try {
-      await editPageRm('acme', 'about', opts)
-      throw new Error('expected REFERENTIAL_INTEGRITY')
-    } catch (e) {
-      const ce = e as CommandError
-      expect(ce.code).toBe('REFERENTIAL_INTEGRITY')
-      expect(ce.message).toContain('About Us')
-    }
-
-    // --force removes the page AND cleans the nav entry.
-    const out = await editPageRm('acme', 'about', { ...opts, force: true })
+    // Not refused, and the entry goes with the page in one write.
+    const out = await editPageRm('acme', 'about', opts)
     expect((out.data as { navEntriesRemoved: number }).navEntriesRemoved).toBe(1)
     const nav = (await editConfigGet('acme', 'nav.entries', opts)).data as { value: unknown[] }
     expect(nav.value).toEqual([])

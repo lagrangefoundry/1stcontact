@@ -3145,7 +3145,10 @@ async function dispatchEdit(
       title: str('title'),
       path: str('path'),
       seoMeta: jsonFlag('seo'),
-      ...(kind === 'email' || kind === 'web' ? { kind: kind as 'web' | 'email' } : {}),
+      // [[REQ-422]] — and the site's shared parts.
+      ...(kind === 'email' || kind === 'web' || kind === 'header' || kind === 'footer'
+        ? { kind: kind as 'web' | 'email' | 'header' | 'footer' }
+        : {}),
       ...(str('subject') === undefined ? {} : { subject: str('subject') }),
       ...(declared === undefined
         ? {}

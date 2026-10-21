@@ -52,6 +52,8 @@ export function labelOf(node: L1Node): string {
     const head = node.header ? ', a header row' : ''
     return `table, ${node.columns.length} columns, ${node.rows.length} rows${head}; cells follow header first, then row by row`
   }
+  // [[REQ-422]] — a menu draws the site's navigation; its one child is how an item looks.
+  if (node.kind === 'nav') return "menu of the site's navigation (its items are the site's pages); how an item looks follows"
   const children = (node as { children?: L1Node[] }).children?.length ?? 0
   const layout = node.kind === 'container' ? node.layout : 'box'
   return `${layout}, ${children} ${children === 1 ? 'child' : 'children'}`

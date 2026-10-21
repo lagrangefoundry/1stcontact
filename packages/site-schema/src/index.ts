@@ -23,6 +23,9 @@ export * from './locale'
 // id are both held to, and the refusal messages an AI author self-corrects from.
 export * from './page-name'
 
+// [[REQ-422]] — a site's shared header and footer, and the navigation it draws.
+export * from './parts'
+
 // Font provenance registry (REQ-101) — the licence index over every font file.
 export * from './fonts'
 

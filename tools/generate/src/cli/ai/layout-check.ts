@@ -34,6 +34,14 @@
  * content above and below it instead of sitting with the text it introduces.
  * Their thresholds are `layout-check.json`'s, not constants here.
  *
+ * THE BUSINESS AT THE TOP OF EVERY PAGE ([[REQ-422]]). A page whose top shows
+ * neither the business name nor a logo has no header, and a business name smaller
+ * than the page's section headings does not read as the business. Both need to
+ * know the name, which a site page states in `<meta name="application-name">`; a
+ * page that does not (a bare L1 fixture) is not checked for either. The site's
+ * shared header, drawn outside the page's own root, is measured as a section of
+ * its own (`site-header`), and when there is one it IS the page's header.
+ *
  * WHAT IS DELIBERATELY NOT HERE: taste. Every finding is a fault on any site, in
  * any style; nothing here says a page is ugly.
  */
@@ -82,6 +90,8 @@ export type LayoutFindingKind =
   | 'small_logo'
   | 'small_name'
   | 'loose_heading'
+  | 'no_header'
+  | 'name_smaller_than_headings'
 
 /** One fault, on one page at one width. */
 export interface LayoutFinding extends RawLayoutFinding {
@@ -120,6 +130,18 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   let at = '0';
   let kids = real(root);
   while (kids.length === 1 && real(kids[0]).length > 0) { at += '.0'; root = kids[0]; kids = real(root); }
+  // [[REQ-422]] — the site's shared parts sit beside the page's root, each its own section.
+  const part = (name) => { const w = document.querySelector('body > [data-l1-part="' + name + '"]'); return w ? real(w)[0] || null : null; };
+  const siteHeader = part('header');
+  const siteFooter = part('footer');
+  const sections = [].concat(siteHeader ? [{ el: siteHeader, address: 'site-header', shared: true }] : [],
+    kids.map((el, i) => ({ el, address: at + '.' + i, shared: false })),
+    siteFooter ? [{ el: siteFooter, address: 'site-footer', shared: true }] : []);
+  const brandMeta = document.querySelector('meta[name="application-name"]');
+  const brandWord = ((brandMeta && brandMeta.getAttribute('content')) || '').toLowerCase().replace(/['\u2019]/g, '')
+    .split(/[^\p{L}\p{N}]+/u).find((w) => w.length >= 3) || '';
+  const namesBrand = (el) => brandWord !== '' && (el.textContent || '').toLowerCase().replace(/['\u2019]/g, '')
+    .split(/[^\p{L}\p{N}]+/u).includes(brandWord);
   const px = (n) => Math.round(n) + 'px';
   const style = (el) => getComputedStyle(el);
   // A box of at most a pixel that clips what is in it shows none of it: the
@@ -177,12 +199,11 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   // Everything a reader sees on the page, as the content a heading sits between.
   const leaves = [root].concat(Array.from(root.querySelectorAll('*')))
     .filter((el) => (ownText(el) || el.matches(MEDIA)) && shown(el));
-  const first = kids.findIndex((k) => k.tagName !== 'TEMPLATE');
+  const top = siteHeader || kids.find((k) => k.tagName !== 'TEMPLATE') || null;
   let sidewaysNamed = false;
 
-  kids.forEach((section, i) => {
+  sections.forEach(({ el: section, address, shared }) => {
     if (section.tagName === 'TEMPLATE') return;
-    const address = at + '.' + i;
     const box = section.getBoundingClientRect();
     if (box.height < 2) { add(address, 'collapsed', 'takes no height, so nothing in it can be seen'); return; }
     if (style(section).display === 'none') return;
@@ -235,7 +256,32 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
     }
 
     // ── the header: a logo too short, a business name no larger than the links ──
-    if (i === first && section.querySelector('a[href]')) {
+    // ── [[REQ-422]] the business at the top: its name or its logo, never smaller than the headings ──
+    if (section === top && brandWord !== '') {
+      const marks = all.filter((el) => el.tagName === 'IMG' || el.tagName.toLowerCase() === 'svg');
+      const named = texts.filter(namesBrand);
+      if (!marks.length && !named.length) {
+        add(address, 'no_header', 'is the top of the page and shows neither the business name nor a logo, so the page has no header: ' +
+          "give it the site's shared header, or put the business name at its top");
+      }
+      const h2s = Array.from(document.querySelectorAll('h2')).filter(shown);
+      const biggest = h2s.reduce((m, h) => (size(h) > size(m) ? h : m), h2s[0]);
+      if (biggest) {
+        const headingPx = size(biggest);
+        const name = named.reduce((m, el) => (m && size(m) >= size(el) ? m : el), null);
+        const tallest = marks.reduce((m, el) => Math.max(m, el.getBoundingClientRect().height), 0);
+        if (name && size(name) < headingPx - 0.25) {
+          add(address, 'name_smaller_than_headings', 'has the business name ' + quote(name) + ' at ' + px(size(name)) +
+            ', smaller than the page\'s ' + px(headingPx) + ' section heading ' + quote(biggest) +
+            ': the name must never be smaller than the headings — make it at least ' + px(headingPx));
+        } else if (!name && marks.length && tallest < headingPx * 0.7 - 0.5) {
+          add(address, 'name_smaller_than_headings', 'has its logo only ' + px(tallest) + ' tall, shorter than the capitals of the page\'s ' +
+            px(headingPx) + ' section heading ' + quote(biggest) + ': make it at least ' + px(headingPx * 0.7) + ' tall');
+        }
+      }
+    }
+
+    if (section === top && section.querySelector('a[href]')) {
       const logos = all.filter((el) => el.tagName === 'IMG');
       const tallest = logos.reduce((m, el) => Math.max(m, el.getBoundingClientRect().height), 0);
       if (logos.length && tallest < minLogo - 0.5) {
@@ -329,7 +375,7 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
     let frame = section;
     for (let next = real(frame).filter(shown); next.length === 1 && !leaf(next[0]); next = real(frame).filter(shown)) frame = next[0];
     const edges = contentBox(frame);
-    if (edges.left > 1 || edges.right < vw - 1) frames.push({ address, left: Math.round(edges.left), right: Math.round(edges.right) });
+    if (!shared && (edges.left > 1 || edges.right < vw - 1)) frames.push({ address, left: Math.round(edges.left), right: Math.round(edges.right) });
   });
 
   if (sideways && !sidewaysNamed) {

@@ -50,7 +50,12 @@ describe.runIf(browserOk)('BUG-237 layout check skips text no reader can see', (
       expect(html).toContain('class="contact-form__label"')
       expect(html).toContain('Leave this field empty')
 
-      const found = await checkLayoutAt(served.handle.url, 'contact', createPlaywrightDriver)
+      // [[REQ-422]] — a bare form page has no header, which is its own finding
+      // (`no_header`, pinned by REQ-422's UATs); what is asserted here is that
+      // nothing hidden is measured, so the page-level brand findings are set aside.
+      const found = (await checkLayoutAt(served.handle.url, 'contact', createPlaywrightDriver)).filter(
+        (f) => f.kind !== 'no_header' && f.kind !== 'name_smaller_than_headings',
+      )
       expect(found.map(layoutLine)).toEqual([])
     } finally {
       await served.dispose()
