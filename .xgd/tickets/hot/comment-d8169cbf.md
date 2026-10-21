@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:43:57.402245+00:00'
+updated_at: '2026-10-21T19:48:05.130941+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11579,5 +11579,11 @@ Same model, very different situation. The main differences, as I see them:
 **What that suggests:** give the consultant the reflective step *structurally*, not as another rule. At the moments that matter (end of discovery, choosing a headline, choosing a look, before publishing), run a short **step-back pass** with a clean context: the story board, the plan, the positioning and the client's reactions, without the tool clutter. That pass answers "What do I know? What's missing? What's the decision, and what's my recommendation?". Its answer then shapes the next turn. That's roughly how I work for you here: review the evidence, then decide. The positioning card is the first instance of it. A general "step back at stage gates" mechanism would be the next.
 
 If you'd like, I'll draft that as a design note on the epic first, since it changes how the consultant thinks rather than just a feature.
+
+<!-- xgd-turn id="a6643766-5c60-4f1f-9ba2-3fc697850314-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:48:04.090262+00:00" -->
+#### You
+Are you suggesting that we add a "critic" to our worker and talker model? The critic perhaps is an internal audit function - a tool that is run to explicitly assess and criticise the work - maybe it can be focused on messaging vs style vs ... strategy? What do you think?
 
 <!-- xgd-chat-end -->
