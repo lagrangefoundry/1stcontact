@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T21:26:59.526933+00:00'
+updated_at: '2026-10-21T21:40:19.664732+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12030,5 +12030,25 @@ The consultant's priming has a new section, **"Working on a page together"**:
 **To use it:** run `bin/deploy --env dev` and reload. The current conversation picks it up on the next turn, so you can see it on the classes page straight away.
 
 It's only a prompt rule for now, and we've seen those slip. The structural half is still to build under REQ-426: the talker's notes listing open decisions instead of missing story areas, the no-repeat check, and priority by value. I've noted on that ticket which half has landed.
+
+<!-- xgd-turn id="04e6e155-18ca-42d7-b382-4eec1a79bef5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T21:40:16.123134+00:00" -->
+#### You
+I'm still struggling with spacing issues - did that fix go in yesterday to keep headers closer to content?
+
+Look at the current site - I have already asked for changes:
+
+Beauty 
+             gap
+and 
+              smaller gap?
+Strength
+              large gap
+
+Quality custom metal work
+              This gap about right
+
+Structural steel, stairs, railings, gates and security work for Oakland contractors and building owners. C-60 licensed. AWS D1.1 certified for structural steel.
 
 <!-- xgd-chat-end -->
