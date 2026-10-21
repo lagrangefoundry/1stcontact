@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:28:02.626054+00:00'
+updated_at: '2026-10-21T17:31:51.834558+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10915,5 +10915,15 @@ I've filed **BUG-245** under EPIC-19 (`draft`, high, 13 points), covering everyt
 On your colour concern, I've made the default **the same blue the progress banner uses for "in progress"**, rather than green. Then blue means "in progress" everywhere, and green keeps meaning "done", so the two never clash. Judge it in the run, and if it doesn't stand out enough, it's a one-line change.
 
 One possible dependency: making the reload match when a result was folded into a later reply might need a small framework change. If it does, the ticket says to file that in lagrange-framework and do our side as far as it can go.
+
+<!-- xgd-turn id="61117265-fadd-4ac3-a709-142bab44d6d0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:31:51.159882+00:00" -->
+#### You
+ok so navigation support and awareness.
+
+The consultant just told me: The board has plenty from you and the shop now, but nothing yet in your customers' words. **When a contractor recommends you to another contractor, what do they say about you?** Even one sentence you've overheard would help.
+
+the thing is the comp board is up not the story board. The consultant needs to know what I'm looking at and either change my context (risky) or give me a link to let me do it. At this point I may not have realized I can switch view yet.
 
 <!-- xgd-chat-end -->
