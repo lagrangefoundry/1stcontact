@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:20:44.579574+00:00'
+updated_at: '2026-10-21T17:27:04.310950+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10884,5 +10884,17 @@ One deliberate change: until now, panel answers never started a turn (DOC-65). C
 1. **Can a note be edited after it's sent?** I'd say yes. Editing makes it *Not sent yet* again, and re-sending posts the change as a new message.
 2. **Should the consultant reply to every comp note, or only when there's something worth saying?** I'd say always, but very short. Silence after you've written something feels like being ignored, and it's an Opus turn per comp, which is fine for four or five comps.
 3. **Should this go with last turn's items** (one thread at a time, comps as one line and a link, the "why chosen" commentary, new-question badges) **in one ticket?** I'd say yes, since it's all one experience. The consultant reply to comp notes and the panel's Save states would be listed as their own items.
+
+<!-- xgd-turn id="c6723cb8-2738-48c0-a8c4-0a59f27a7f93-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:27:03.979446+00:00" -->
+#### You
+Agreed.
+
+Related - this is important because the flow starts to break - I filled in all the comps and it was up to me to pick up the ball again and report back. The AI should know that I'm done
+
+I think each tile also gets a SKIP button and the flow waits until each tile has sent content or is skipped - it needs to be clear that the tile is open or closed  although its always acceptable to go back and add/change comments
+
+Separately it tide to have the progress at the top but I kind of missed it. I think the panel should go through a clear color change when operating so we know - I would say green but I'm a little concerned about the clash with the blue progress bar...
 
 <!-- xgd-chat-end -->
