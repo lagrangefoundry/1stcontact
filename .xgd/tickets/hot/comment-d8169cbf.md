@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:39:14.361945+00:00'
+updated_at: '2026-10-21T19:42:24.629881+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11537,5 +11537,13 @@ For messaging, look and feel, and site functions, the same rule covers everyone 
 - **The REQ-424 focus task covers it:** react to the notes, then confirm the positioning, then pick a headline, one step at a time.
 
 I'd file it as **one REQ**: the positioning card on the story board, headline options derived from it, the buyer's lens and propose-first calibration in the priming, and readiness per area on the plan. The priming part could go in straight away without a ticket, so the consultant stops asking blank-page questions in your next session. Shall I do both?
+
+<!-- xgd-turn id="4538bd87-0553-4248-aed1-b6fbc92aebcf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:42:24.493100+00:00" -->
+#### You
+ok lets try all that.
+
+I am impressed by your grasp of this - you are the same model that I'm talking to there - so why the difference - why can I get grounded understanding from you but in the product you are all over the place?
 
 <!-- xgd-chat-end -->
