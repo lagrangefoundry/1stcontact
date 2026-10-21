@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:48:05.130941+00:00'
+updated_at: '2026-10-21T19:48:33.005085+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11585,5 +11585,48 @@ If you'd like, I'll draft that as a design note on the epic first, since it chan
 <!-- xgd-chat role="user" ts="2026-10-21T19:48:04.090262+00:00" -->
 #### You
 Are you suggesting that we add a "critic" to our worker and talker model? The critic perhaps is an internal audit function - a tool that is run to explicitly assess and criticise the work - maybe it can be focused on messaging vs style vs ... strategy? What do you think?
+
+<!-- xgd-turn id="a6643766-5c60-4f1f-9ba2-3fc697850314-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:48:31.559643+00:00" -->
+#### Claude
+Yes, that's the right shape: an internal critic. It's a different kind of thing from the worker and the talker, though, and the details decide whether it helps.
+
+## What the critic is
+
+**A tool, not a participant.** The worker builds and the talker converses, and both face the client. The critic is an **internal audit**: a separate model call that assesses the work and hands its findings to the consultant. It never speaks in the chat. The consultant decides what to do with the findings and what to tell you, so there's still one voice.
+
+**Its value is the clean, independent view.** The consultant goes wrong because its context is full of machinery and its own momentum. The critic gets:
+- **only the brief and the result:** the positioning card, your hearted notes and decisions, the comps conventions, and screenshots of the pages at desktop and phone width;
+- **none of the consultant's reasoning.** If it sees *why* something was done, it tends to agree with it. A critic that only sees the result judges it the way your customer will.
+
+**Focused by lens**, each with its own short rubric (much of it already written in DOC-48):
+
+| lens | asks |
+|---|---|
+| **Strategy** | Does the site serve the business's goal? Is the positioning clear? What's missing from the customer's path from landing to calling? |
+| **Messaging** | Does the headline answer what the buyer is deciding on? Is every claim backed by proof? Could this text belong to a competitor? |
+| **Style** | Hierarchy (is the name larger than the headings?), rhythm, contrast, brand presence, consistency between pages, the busyness the trade expects |
+| **Function** | Contact routes, phone display, forms, navigation between pages, and checking that "it's in the menu" is actually true |
+
+**Its output is short and ranked:** the top one to three findings, each with its severity, the evidence, and a suggested fix. It's allowed to say "good enough". Without that, it nitpicks forever.
+
+## When it runs
+
+- **At stage gates, triggered by the host, so it doesn't rely on anyone remembering:** strategy and messaging at the end of discovery, before the first build; all lenses after the first draft and again before publishing.
+- **When the consultant asks:** for example, *"is this headline any good?"* before offering it to you.
+- **While the worker builds:** it runs alongside, so it adds no waiting time.
+
+## Rules that make it work
+
+- **It runs on a strong model.** Judgement is the whole point, and a Haiku critic would be worse than none. That fits your cost model: one call per lens per gate, with shared inputs cached, is token spend that buys quality.
+- **The consultant must respond to every top finding,** either by acting on it or by recording why not. Otherwise critiques get ignored, as rules have been.
+- **Only the single weakest point reaches you.** It powers the existing weakest-point check from REQ-408 (*"Honestly, the weakest part of the site right now is… Shall I…?"*), so you're not buried in critique.
+- **No loops.** A fixed number of critique rounds per gate, so it can't polish forever.
+- **It's measurable.** Critic findings logged across runs become our quality metric: whether headline problems or hierarchy problems are getting rarer from one business to the next.
+
+## Next step
+
+It changes how the consultant thinks, so I'd **write the design note first**: a short DOC covering the critic's inputs, the lenses with their rubrics, the gates, the rules, and how it fits with the worker and talker. Then the tickets: probably one in lagrange-framework, if a critic call with a clean context is a general mechanism, plus one here for the lenses, gates and wiring. Shall I write the note?
 
 <!-- xgd-chat-end -->
