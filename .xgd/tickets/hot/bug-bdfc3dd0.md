@@ -6,9 +6,9 @@ title: Worker dives into work without answering the client's question; open a ta
   on the same message, and don't repeat it at hand-back
 created_by: EPIC-19
 created_at: '2026-10-21T00:47:40.966334+00:00'
-updated_at: '2026-10-21T01:24:57.882848+00:00'
+updated_at: '2026-10-21T01:31:56.624513+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: medium
@@ -72,3 +72,67 @@ said.
 - The cue never appears in the transcript or chat.
 - The worker's final result priming contains the no-repeat rule; the consultant
   priming contains the answer-first rule.
+
+## As built
+
+- **Detecting the dive** (`cadence-core.ts`, `keepClientOriented`): in a worker
+  (non-talker) round, the first `tool_issue` for a tool on `talker.json`'s
+  `withhold` list, issued before the model has streamed any non-blank text,
+  calls a new `dived(note)` hook with the status note that call put up (the
+  `Delegate` note or slow-tool line, else `''`). At most once per round; a
+  round that wrote a reply first never fires it. The host's own lines (the
+  Delegate announcement) don't count as a reply.
+- **Once per client message** (`host-core.ts`): the hook keeps a cue for the
+  site; a continuation round (REQ-409) on the same message does not get a
+  second one. A cue left over from an earlier round is dropped when the next
+  round starts.
+- **Opening the cued talker** (`host-core.ts`, `talkerDesk`): on its next poll
+  (not the slower inbox cadence) the desk calls `manager.cueTalker(sessionId,
+  talkerCue(note))` if the worker is still forkable, sharing the same
+  open/meter path as a message-opened talker (talker-round count for the
+  talker reminder, frames, its own spend row). If the worker has already
+  closed, or the round finished before a poll, nothing opens.
+- **The cue's words** (`priming.json` templates `talker-cue`,
+  `talker-cue-taken`, `talker-cue-taken-unnamed`; `roles.ts` `talkerCue`):
+  "[The host, not your client: the build now running has taken the building
+  part of your client's last message (the status beside the chat reads
+  "<note>"). Answer anything else they asked in that message, in a line or two.
+  If they asked nothing else, acknowledge the request in a line and ask one
+  question about their story. If there is nothing useful to say, pass.]" The
+  framework's talker reminder says how to pass (`[nothing to add]`). The cue is
+  recorded nowhere (REQ-215): not in the transcript, the chat, or the worker's
+  brief.
+- **On the wire** (`progress-core.ts`, `TalkerFrames`): a talker `start` frame
+  carries `cued: true` for a cued round, and `done` carries `passed: true` for
+  a round that passed.
+- **In the panel** (`chat.js`, `talkDesk`): a cued round answers no waiting
+  message, so its reply is collected and, when the round ends, drawn once as
+  the consultant's next message (no user bubble). A round that passed, or said
+  nothing, draws nothing. On reload the reply comes from the transcript like
+  any talker turn.
+- **Priming** (`priming.json`, `conduct`, both consultant tiers): new
+  "## Answer before you build": answer a question in a line or two before
+  starting the work, since the status beside the chat is not a reply; and when
+  handing back, don't say again anything the talker already told the client,
+  refer to it at most ("as I said, next is colours and fonts").
+- Not done: the framework's optional "first withheld tool before any text"
+  stream event (REQ-215 didn't build it); the host infers the dive itself.
+
+## UATs
+
+- `tests/test_UAT_FC_BUG-240_talker_on_a_dive.workers.test.ts` (real router,
+  junction DO, D1; scripted model):
+  - a round whose first two acts are `set_stage` with no text opens exactly one
+    cued talker; its reply rides the work's stream (`cued: true`); the talker's
+    request carries the client's message and the cue; the cue is in none of the
+    worker's requests nor the reloaded transcript; the worker's next call gets
+    the reply as the talker brief; the client's message appears once
+  - a round that writes a reply before its work tool opens no talker
+  - a cued talker that replies `[nothing to add]` streams no text, its `done`
+    carries `passed: true`, and nothing of it or the cue is in the chat
+  - the consultant's priming carries the answer-first and no-repeat rules
+- `tests/test_UAT_FC_BUG-240_cued_reply_in_the_panel.test.ts` (real panel,
+  jsdom):
+  - a cued reply is drawn once as an assistant message after the client's
+    message, with no extra user bubble and nothing sent to the origin
+  - a cued round that passed draws nothing
