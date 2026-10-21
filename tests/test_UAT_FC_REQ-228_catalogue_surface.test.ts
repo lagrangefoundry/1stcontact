@@ -550,7 +550,7 @@ describe('REQ-228 AC5 — a surface of its own, with its grant travelling with i
     // since [[BUG-196]], one that cannot make the client's own two corrections on
     // their say-so is the other half.
     expect(libraryInstanceConfig()).toEqual({
-      library: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary'] },
+      library: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary', 'DrawImages'] },
     })
   })
 

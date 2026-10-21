@@ -10,7 +10,7 @@ import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { splitBusinessPrefix, type Scope } from '../apps/control-app/src/scope'
 import { IMAGE_SECRET, imageSurface } from '../apps/control-app/src/imagegen'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
+import { configureDelegation } from '../tools/generate/src/cli/ai/delegation'
 import { applySchema, ensureTenant } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -43,8 +43,9 @@ import type { ModelStep, ScriptedClient } from './support/scripted-model-client'
  *
  * THE CLAIMS:
  *
- *   1. A DRAWING APPEARS IN THE TURN THAT DREW IT. `write_image` hands the model
- *      a markdown line, and the line fetches the drawing.
+ *   1. A DRAWING APPEARS IN THE TURN THAT DREW IT. `draw_image` ([[REQ-423]])
+ *      hands the model a markdown line, and the line fetches the drawing from
+ *      the client's Library, where it now lives.
  *   2. A GENERATED PICTURE DOES TOO. `create_image`'s host display sentence
  *      carries a markdown line, and the line fetches the material's bytes.
  *   3. THE ADDRESS NAMES THIS BUSINESS AND NOT WHICHEVER ONE IS FIRST.
@@ -186,22 +187,6 @@ async function fetchScoped(url: string): Promise<{ businessId: string | null; re
   return { businessId, res }
 }
 
-/**
- * THE SESSION THAT DRAWS ITS OWN PICTURE, installed rather than assumed
- * ([[REQ-343]]).
- *
- * `write_image` is declared a WRITE, so the consultant holds it only where
- * `primary_writes` leaves it the write groups — under the shipped document
- * drawing an image is a worker's job and the picture arrives through a
- * delegation. What these cases are about is what happens to a picture ONCE MADE:
- * that it appears in the turn that made it, that it carries a line which fetches
- * its bytes, and that a deployment with nowhere to show it renders no line. None
- * of that is a claim about which role drew it, so the cases install the
- * configuration in which the consultant draws and go on asserting what they
- * always did.
- */
-const WRITING = { ...delegationDocument, primary_writes: true }
-
 describe('REQ-217 — the picture is in the conversation that made it', () => {
   beforeAll(async () => {
     await APPLIED
@@ -214,13 +199,12 @@ describe('REQ-217 — the picture is in the conversation that made it', () => {
   })
 
   it('test_UAT_FC_REQ-217_a_drawing_the_turn_made_is_fetchable_from_the_turn', async () => {
-    configureDelegation(WRITING)
-    resetAiHost()
-    resetChatHost()
+    // THE SHIPPED CONFIGURATION ([[REQ-423]]): the consultant draws while it
+    // commissions, because drawing is on the Library surface, not the site's.
     const { scope, slug } = await business('req217-draw')
 
     const client = await turn(scope, slug, [
-      calls('write_image', { name: 'wordmark', svg: MARK }),
+      calls('draw_image', { name: 'wordmark', svg: MARK, description: 'A navy square mark.' }),
       says('Here it is — tell me if it is close.'),
     ])
 

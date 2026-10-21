@@ -65,7 +65,7 @@
     "remove_text_style",
     "rename_text_style",
     "add_asset",
-    "write_image",
+    "draw_image",
     "remove_asset",
     "publish"
   ],

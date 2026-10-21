@@ -187,6 +187,9 @@ describe('REQ-343 — the consultant reads the whole site and writes no part of 
     expect(offered).not.toContain('set_config')
     expect(offered).not.toContain('set_palette_color')
     expect(offered).not.toContain('write_image')
+    // [[REQ-423]] — but it still DRAWS: drawing is on the Library surface, whose
+    // grant travels with it and is not narrowed while it commissions.
+    expect(offered).toContain('draw_image')
     expect(offered).toContain('get_l1')
     expect(offered).toContain('measure_drawing')
 
@@ -264,7 +267,6 @@ describe('REQ-343 — the consultant reads the whole site and writes no part of 
     expect(offered).toContain('add_page')
     expect(offered).toContain('set_config')
     expect(offered).toContain('set_palette_color')
-    expect(offered).toContain('write_image')
     // And no prose about a tool it has not got.
     expect(sentText(await turnUnder(DISABLED, 'rollback-prose'))).not.toContain(
       'Handing construction over',

@@ -315,7 +315,6 @@ describe('the assistant control surface — declared once, granted narrowly, che
       'share_section',
       'update_page',
       'use_font',
-      'write_image',
     ])
 
     // The reading half is classified and grouped on the same terms.

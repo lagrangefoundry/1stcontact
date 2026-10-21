@@ -554,21 +554,6 @@ export function workerHost(
    */
   pictures: HostDeps['pictures'] = null,
   /**
-   * Where a site's own asset is served to the person being talked to
-   * ([[REQ-217]]), or `null` where nothing could show one.
-   *
-   * A PARAMETER, ASSEMBLED BY `router.ts`, for the reason every wire above is
-   * one: the address has to name the business this conversation belongs to, and
-   * the scope is the router's — it is resolved per request, before this host is
-   * reached, and it is the one thing that makes a picture in a transcript still
-   * correct years later rather than quietly resolved against whichever business
-   * happens to be admissible first.
-   *
-   * NULL IS ORDINARY. A picture that cannot be shown is simply not offered as a
-   * line to paste, which is the state the `1c` CLI is permanently in.
-   */
-  assetUrl: HostDeps['assetUrl'] = null,
-  /**
    * The client's catalogue ([[REQ-228]]), or `null` where this deployment has
    * no site store to place anything onto.
    *
@@ -725,7 +710,7 @@ export function workerHost(
   // read as "no corpus" rather than as a corpus that throws on first use.
   const knowing = knowledge != null
   // [[BUG-202]] — WHERE A COMP'S SNAPSHOT IS SEEN, scoped to this business for
-  // the reason `assetUrl` is: a tile replayed from the transcript must still name
+  // the reason a Library item's address is: a tile replayed from the transcript must still name
   // the business it belongs to. Absent with no business, which draws every comp
   // tile as a link only — the `1c` CLI's permanent state.
   const compMemberUrl = settings
@@ -842,10 +827,6 @@ export function workerHost(
       // assistant that could crop a picture it could not look at is a shape
       // nobody asked for but neither is it a reason to couple them.
       pictures,
-      // Passed straight through, like `pictures` above: `host-core.ts` binds it
-      // to the session's site and `toolbox-core.ts` decides what a line looks
-      // like. This file only carries it.
-      assetUrl,
       // THE CLIENT'S CATALOGUE ([[REQ-228]]), passed straight through:
       // `host-core.ts` composes the surface when this is present and composes
       // nothing when it is not, which is the one place that decision belongs.

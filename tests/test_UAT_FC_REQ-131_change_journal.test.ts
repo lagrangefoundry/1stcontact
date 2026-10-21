@@ -323,24 +323,14 @@ describe('REQ-131 — the operation is declared, granted, and marked third-party
     // its own upload was somebody else's work. That is precisely the false alarm
     // the counter exists to make impossible, so the shape of the answer must not
     // decide whether the count travels with it.
-    const box = await createL1Toolbox(SLUG, { cwd, sandbox: true })
-    const unwrap = (a: string): Record<string, unknown> =>
-      JSON.parse(a.replace(/^<<<untrusted>>>\n/, '').replace(/\n<<<\/untrusted>>>$/, ''))
-
-    const drawn = unwrap(
-      (await box.run('write_image', {
-        name: 'mark',
-        svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>',
-      })) as string,
-    ) as { now: number }
-    expect(drawn.now).toBeGreaterThan(0)
-    expect((await changes(drawn.now)).changes).toEqual([])
-
+    // [[REQ-423]] — the assistant's drawing moved to the Library, so the one
+    // asset-answering write left on this surface is `add_asset`, which no
+    // assistant role is granted; its declared shape still carries the count.
     // And the declaration says so, so the model is told the field is there
     // rather than having to notice it. A returned field the manual never
     // mentions is a field the model will not use.
     const shapes = L1_DECLARATION.shapes as Record<string, Record<string, string>>
-    for (const shape of ['change', 'palette_change', 'image', 'asset', 'publish_result']) {
+    for (const shape of ['change', 'palette_change', 'asset', 'publish_result']) {
       expect(shapes[shape], shape).toHaveProperty('now')
     }
   })

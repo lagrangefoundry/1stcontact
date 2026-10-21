@@ -4687,7 +4687,7 @@ export async function listSiteAssets(slug: string, opts: EditOptions): Promise<S
  *
  * IT LIVES HERE BECAUSE THE NAMES DO. `assetHandle` and the drawing stem rule
  * are this file's, and they are exactly the spellings a caller will be holding:
- * a page node carries the handle, `write_image` returns the stem it was written
+ * a page node carries the handle, `asset write` takes the stem it is written
  * under, and `list_assets` shows the filename. Declaring all three beside the
  * functions that mint them is what stops a fourth idea of an asset's name being
  * invented in the fidelity surface.

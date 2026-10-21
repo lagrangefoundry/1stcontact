@@ -43,6 +43,7 @@
  * reads the declaration's sentence — the same treatment `image-core.ts` gives
  * `RecipeRefusedError`.
  */
+import { SVG_MAX_BYTES, validateSvg } from '@1stcontact/site-schema'
 import librarySurface from './library-surface.json'
 import { resolveStoredImage, type StoredImage } from '../image-library'
 
@@ -238,6 +239,16 @@ export interface LibraryDeps {
    * Whatever is already on the site stays: the site holds its own copy.
    */
   remove(name: string): Promise<void>
+  /**
+   * Keep a drawing the consultant composed as a NEW Library item — [[REQ-423]].
+   *
+   * THE SVG HAS ALREADY PASSED THE ENVELOPE ({@link libraryOperations} checks it
+   * before this is called), so the host only stores: the same record a generated
+   * picture gets — labelled, described, republishable, `role: site` — with the
+   * drawing attached as `<name>.svg`. It answers the item as it now stands and,
+   * where this deployment can show a picture, the line that shows it.
+   */
+  draw(name: string, svg: string, description: string): Promise<{ item: CatalogueItem; display: string | null }>
   /** Which site this session is about, for reading `placed_on` as a boolean. */
   slug: string
 }
@@ -304,7 +315,10 @@ export function libraryInstanceConfig(): Record<string, unknown> {
   // [[BUG-196]] — AND KEEPING IT, on the client's say-so: what an upload is for, and
   // deleting one. Its own group for the same reason placing is: a deployment can
   // grant looking without changing.
-  return { [LIBRARY_SURFACE]: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary'] } }
+  //
+  // [[REQ-423]] — AND DRAWING, which is the consultant's: a builder's Library is
+  // read-only ({@link readOnlyGrant} derives it), so it never holds this group.
+  return { [LIBRARY_SURFACE]: { groups: ['ReadLibrary', 'PlaceOnSite', 'KeepLibrary', 'DrawImages'] } }
 }
 
 /**
@@ -371,6 +385,9 @@ async function itemNamed(
             .join(', ')}${items.length > 12 ? ', …' : ''}.`),
   )
 }
+
+/** A name a drawing's file can be made from: one plain word — `editAssetWrite`'s own rule. */
+const DRAWING_NAME = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 /** One item as the model reads it — the declaration's `catalogue_item`. */
 function itemView(item: CatalogueItem): Record<string, unknown> {
@@ -487,6 +504,48 @@ export function libraryOperations(
         // here is what makes that a thing it can do without a second call.
         description: placed.description,
         placed_on: placed.placed_on,
+      }
+    },
+
+    /**
+     * [[REQ-423]] — DRAWING STAYS WITH THE CONSULTANT, and lands in the Library.
+     *
+     * THE ENVELOPE IS THE ONE THE RETIRED `write_image` HAD — `validateSvg`, the closed
+     * grammar — and it runs HERE, before the host is asked to store anything, so
+     * a refused drawing leaves no record behind. A placed drawing is served from
+     * the site's own address, which is why it is a content check and not a
+     * courtesy.
+     */
+    draw_image: async (p: Params) => {
+      const name = String(p.name ?? '').trim().toLowerCase().replace(/\.svg$/, '')
+      if (!DRAWING_NAME.test(name)) {
+        throw new LibraryRefusedError(
+          'SCHEMA_INVALID',
+          `'${String(p.name ?? '')}' is not a name a drawing can be kept under: one word, lowercase letters, digits and hyphens, e.g. "wordmark".`,
+        )
+      }
+      const description = String(p.description ?? '').trim()
+      if (description === '') {
+        throw new LibraryRefusedError('SCHEMA_INVALID', 'a drawing needs a description: say what it shows.')
+      }
+      const svg = String(p.svg ?? '')
+      const checked = validateSvg(svg)
+      if (!checked.ok) {
+        throw new LibraryRefusedError(
+          'SCHEMA_INVALID',
+          `the drawing was refused and nothing was stored: ${checked.errors
+            .map((e) => `${e.path}: ${e.message}`)
+            .join('; ')}. A drawing is shapes, paths, gradients and text only — no script, no event handler, no stylesheet, no reference to anywhere else — and under ${SVG_MAX_BYTES} bytes.`,
+        )
+      }
+      const { item, display } = await deps.draw(name, svg, description)
+      return {
+        item: item.name,
+        label: item.label,
+        title: item.title ?? item.filename,
+        filename: item.filename,
+        placed_on: item.placed_on,
+        ...(display ? { display } : {}),
       }
     },
 

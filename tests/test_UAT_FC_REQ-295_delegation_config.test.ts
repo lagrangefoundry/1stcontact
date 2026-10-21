@@ -206,9 +206,10 @@ describe('REQ-295 — the worker\'s authority is its role\'s grant and never its
       'ManageComponents',
       'WriteConfig',
       'ManagePalette',
+      'ManageTextStyles',
       'MeasureDrawings',
-      'DrawImages',
     ])
+    // [[REQ-423]] — and no drawing: that is the consultant's, in the Library.
     expect(builder.fidelity.groups).toEqual(['SeeSite'])
 
     // AND NOTHING ELSE ABOUT THE ROLE MOVED. Publishing reaches the public

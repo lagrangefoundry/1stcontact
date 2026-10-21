@@ -222,7 +222,7 @@ function bench(options: { corpus?: FixtureFamily[]; pages?: number } = {}): Benc
     site,
     cwd,
     index: index as PlatformFontIndex,
-    ops: l1Operations(site.slug, site.opts, {}, null, null, null, index as PlatformFontIndex) as Bench['ops'],
+    ops: l1Operations(site.slug, site.opts, {}, null, null, index as PlatformFontIndex) as Bench['ops'],
   }
 }
 
@@ -409,7 +409,7 @@ describe('REQ-313 — the assistant can obtain a font', () => {
     const site = makeFsSite()
     sites.push(site)
     // The corpus this build ships when `1c fonts mirror` has never been run.
-    const ops = l1Operations(site.slug, site.opts, {}, null, null, null, {
+    const ops = l1Operations(site.slug, site.opts, {}, null, null, {
       mirror: null,
       families: [],
     }) as Bench['ops']

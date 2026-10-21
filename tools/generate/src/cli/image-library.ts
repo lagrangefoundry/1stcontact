@@ -4,7 +4,7 @@
  * WHY THIS IS A VOCABULARY AND NOT A LOOKUP. The product stores pictures in two
  * places that were drawn for different reasons and have never had to agree about
  * anything. A SITE ASSET is bytes under a site's `assets/`, named by its
- * filename, written by `write_image` or by promoting something onto the site;
+ * filename, written by `asset write` or by promoting something onto the site;
  * `list_assets` is its listing. A LIBRARY ITEM is a material ticket, named by
  * its record and titled the way the Library titles it; it is what the client
  * dropped on the conversation and what the generator made. They live in

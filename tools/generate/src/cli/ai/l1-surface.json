@@ -1,7 +1,7 @@
 {
   "surface": "l1",
   "version": 1,
-  "surface_version": 21,
+  "surface_version": 22,
   "title": "The site you look after",
   "call_type": "inproc",
   "overview": "You look after one website. Everything here acts on that site and no other — there is no way to name a different one.\n\nThe site has two halves. The **draft** is the working copy: every change you make lands there, privately, and nobody but your user sees it. **Published revisions** are the public site — immutable snapshots, made only when someone deliberately publishes. Publishing is a separate act, and it is your user's decision, never yours.\n\nA page is a tree of typed elements: text runs, images, and the boxes that hold them, plus a few vetted components that supply behaviour — a contact form, a carousel. You reach a place on a page by its **address**, and addresses come from the tool that maps a page. They are numbered by position in the tree, so they describe *where a thing sits*, not what it is.\n\n**Addresses last exactly as long as the map you read them from.** They are regenerated every time the page is rendered, which is every time anything changes. So re-read the map rather than remembering an address across a change — especially your own. An address you carried over from before an edit may now point somewhere else entirely.\n\n**A page can be stored in sections.** A page whose top level is a stack of named parts — a header, a hero, a band of services, a footer — can be split so that each part is stored on its own (`decompose_page`). Then you can work on one section at a time: give `section` to the tools that map, read and change a page's elements, and addresses start again at `0` for that section, a read returns that section and nothing else, and a change can touch that section and nothing else. Every other section, and every address inside it, stays exactly as it was — so an address read inside one section stays good while another section changes. What belongs to the page as a whole — its style, its fonts, its widths, its title and search description, and which sections it has in what order — is changed without `section`.\n\n**Your user can change the site themselves, while you are working on it.** They edit words and pictures directly on the page they are looking at, so the page may have moved since you last read it — and a change of yours that overwrites one of theirs is the worst thing you can do to them. You do not have to keep checking: you are told, at the start of a turn, when something has changed since your last one, and how much. When you are told, look at what changed before you act, and say that you saw it. Every change you make yourself is reported back with the site's change count, which is what makes anything beyond that count somebody else's work rather than your own.\n\nA change is all-or-nothing. Before anything is written, the whole resulting site is validated; if it does not hold together the change is refused and the draft is left byte-for-byte as it was. A refusal is therefore always safe, and always information: read it and correct the call.",
@@ -32,7 +32,7 @@
     },
     "image_name": {
       "base": "string",
-      "description": "A name for a drawing you have made: one word, lowercase letters, digits and hyphens. Not a filename and not a path — the site works out where it goes."
+      "description": "A drawing on the site, by its name: the file's name without `.svg` — `wordmark` for `/assets/wordmark.svg`. Not a path."
     },
     "palette_name": {
       "base": "string",
@@ -89,12 +89,6 @@
     },
     "behavior_list": {
       "behaviors": "every kind of component this site can use: what it is called, what it must be set up with (and what each setting accepts), the seams inside it you can decorate, and whether it comes with a look of its own"
-    },
-    "image": {
-      "asset": "the drawing as the site now holds it — the name to reference it by",
-      "now": "the site's change count after this edit — hold on to it, and anything past it was somebody else",
-      "asserted": "one entry per relation you stated, each with how far it is from holding — or, when it could not be read at all, why. Absent when you stated none",
-      "display": "a line of your own reply that shows this drawing to the person you are talking to — paste it into your answer EXACTLY as written, somewhere the sentence wants a picture. It is the only way they see it: a tool result is not something they can read, and only your own words are kept. Absent when this deployment has nowhere to show a picture, in which case say what you drew in words instead."
     },
     "element": {
       "target": "the page, address and component scope this element was read from",
@@ -1460,41 +1454,6 @@
       ]
     },
     {
-      "op": "write_image",
-      "tool": "write_image",
-      "effect": "write",
-      "summary": "Draw an image yourself and put it in the site.",
-      "description": "For a mark, an icon, a divider, a diagram — a drawing you compose rather than a picture someone took. It is written as SVG, and once written it is an ordinary image in the site’s list, referenced from a picture element like any other.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is written, and the refusal says which one. This is not a formality: the drawing is served from the site’s own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar and put that on the page. A drawing offered in place of their own file is not a smaller version of what they asked for; it is a different thing wearing its name, and they will find out by looking at their site. Draw when a drawing is what was wanted.\n\n**Show them what you drew.** The result carries a `display` line — paste it into your reply, word for word, where the picture belongs in what you are saying. Do not retype it, do not rename the file in it and do not describe the picture instead of including it: the client is looking at the conversation, and a drawing nobody pasted is a drawing they have to go hunting for. Where the field is absent there is nowhere to show it, and saying what you drew is the whole of what you can do.\n\n**Say what it shows on the element that places it.** A drawing carries no description of its own; the picture element you put it in has a field for what someone who cannot see it needs told, and that is where it goes.\n\n**A run of styled text is ONE `<text>` with `<tspan>` children — never several `<text>` elements placed by hand.** The browser advances the pen from one run to the next, so every run after the first needs no `x` at all and lands exactly right in whatever font resolves. `dx` and `dy` shift a run relative to where the pen already is; `font-size`, `font-weight` and `fill` restyle it. Positioning runs separately means guessing at the gaps between them, and those guesses are wrong on any machine but the one you tuned them on.\n\n**Name a real font.** `system-ui`, `-apple-system` and a bare `sans-serif` are not faces — each resolves to something different per platform, with different letter widths, so a mark tuned against one is wrong nearly everywhere else. Name a font the site has.\n\n**Give a node an `id` when you mean to position it precisely.** It is how `measure_drawing`, `relate` and `solve` address it, and an un-id'd node can only be named by its position in the tree.\n\nThis is not a way to make a photograph.",
-      "params": {
-        "name": {
-          "type": "image_name",
-          "required": true
-        },
-        "svg": {
-          "type": "string",
-          "required": true,
-          "description": "The drawing itself, as a complete `<svg>` document."
-        },
-        "replace": {
-          "type": "boolean",
-          "description": "Redraw an image of this name that already exists. Without it, a name already in use is refused."
-        },
-        "assert": {
-          "type": "array",
-          "description": "Relations you intend this drawing to hold, each `<node>.<anchor> = <node>.<anchor>` and optionally `+` or `-` a number. Each is checked against the drawing that actually landed and reported with how far it is from holding.\n\n**It never blocks the write.** A non-zero delta is told to you, not enforced — you may have changed something deliberately. A relation that cannot be read at all is reported with the reason rather than dropped.\n\n**It costs a render, and nothing else does.** An ordinary write is a text check with no browser; state a relation and the drawing is rendered to check it. State them when you have just solved for a position and are writing the number in — that transcription is where this goes wrong, not the arithmetic."
-        }
-      },
-      "returns": {
-        "shape": "image"
-      },
-      "errors": [
-        "NOT_FOUND",
-        "CONFLICT",
-        "SCHEMA_INVALID",
-        "ENVIRONMENT"
-      ]
-    },
-    {
       "op": "remove_asset",
       "tool": "remove_asset",
       "effect": "write",
@@ -1660,15 +1619,6 @@
       ]
     },
     {
-      "group": "DrawImages",
-      "effect": "write",
-      "title": "Drawing images",
-      "description": "Composing an image yourself and putting it in the site. Its own capability, and deliberately separate from managing the images that are already there: every other image in a site was chosen by a person, and this is the one that was not.",
-      "operations": [
-        "write_image"
-      ]
-    },
-    {
       "group": "Publish",
       "effect": "write",
       "title": "Publishing",
@@ -1731,15 +1681,6 @@
         "set_l1"
       ],
       "note": "Serve the face first, then paint it. The other order paints a name nothing draws, and nothing reports that — the page simply comes out in the browser's default. Write the `fontFamily` value the binding gives you, not the family name you typed."
-    },
-    {
-      "name": "Draw an image and use it",
-      "steps": [
-        "write_image",
-        "describe_page",
-        "set_l1"
-      ],
-      "note": "Writing the drawing only puts it in the site's images. Reference it from a picture element for it to appear on a page — `list_assets` shows the name to use."
     },
     {
       "name": "Pick up after your user has been editing",
@@ -1808,7 +1749,7 @@
     },
     {
       "name": "Fetching a picture, or any file, yourself",
-      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Site asset”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph or a logo, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. You can also DRAW an image — see `write_image` — but read what that says about when not to. A file that arrives this way brings a written description of what it shows, held with the material it came from rather than on the file itself — so when you place a picture your client sent, read that description and write it onto the element as what the picture shows. **A TYPEFACE IS NOT ONE OF THESE.** The platform holds a large library of licensed fonts and `use_font` serves one on the site, so a font is something you fetch for yourself — never something to send a client looking for."
+      "note": "You cannot go and get a file — not from a URL, not from a machine, not from anywhere. What you CAN do is ask for one: the client can drop a file straight onto this conversation and choose “Site asset”, and it arrives in the site's list of images ready to use, usually before their next message. So when you need a photograph or a logo, ASK FOR IT HERE and say what you need it for. Do not send anyone to a separate asset manager or builder screen to add it; that is not where this happens. A drawing — a mark, an icon, a divider — is made with `draw_image` and kept in the client's Library, then put on the site with `place_on_site` like any other picture; if you do not hold `draw_image`, drawing is not yours: say so to whoever asked. A file that arrives this way brings a written description of what it shows, held with the material it came from rather than on the file itself — so when you place a picture your client sent, read that description and write it onto the element as what the picture shows. **A TYPEFACE IS NOT ONE OF THESE.** The platform holds a large library of licensed fonts and `use_font` serves one on the site, so a font is something you fetch for yourself — never something to send a client looking for."
     },
     {
       "name": "Making a new kind of component",
@@ -1821,10 +1762,6 @@
     {
       "name": "Undoing a change",
       "note": "There is no undo. A change can be reversed by setting the old value back, and what a thing said before is on record — `list_changes` carries the words before and after — so you do not have to narrate the old value into the conversation to keep it recoverable. Say what you changed; look the previous value up if you are asked to put it back."
-    },
-    {
-      "name": "Showing a picture any way but pasting the line",
-      "note": "You cannot put a picture in front of your user directly — nothing you return is shown to them. What they read is your own reply and nothing else, so a picture reaches them only by the `display` line travelling into it unchanged. A turn that made a drawing and did not paste its line is a turn that left the picture where only you can see it, and the client is left to go and find it for themselves. When a result carries one, use it."
     }
   ]
 }

@@ -141,22 +141,6 @@ describe('REQ-343 — the withheld groups are derived from the declaration, not 
     expect(narrowed.l1.groups).not.toContain('ManagePalette')
   })
 
-  it('test_UAT_FC_REQ-343_drawing_an_image_becomes_a_workers_job', () => {
-    // THE CONSEQUENCE THE TICKET NAMES. `write_image` is declared `effect:
-    // "write"`, so the derivation withholds it rather than carrying an exception
-    // list — and the builder holds the group already, so the capability moves
-    // rather than disappearing.
-    const narrowed = readOnlyGrant(CONSULTANT_GRANT, DECLARATIONS) as Record<
-      string,
-      { groups: string[] }
-    >
-    expect(CONSULTANT_GRANT.l1.groups).toContain('DrawImages')
-    expect(narrowed.l1.groups).not.toContain('DrawImages')
-    expect((L1_INSTANCES[BUILDER_ROLE] as { l1: { groups: string[] } }).l1.groups).toContain(
-      'DrawImages',
-    )
-  })
-
   it('test_UAT_FC_REQ-343_a_write_group_added_to_the_surface_later_is_withheld_with_no_edit', () => {
     // "A write group added later is withheld without an edit." The failure this
     // prevents is the hand-written inventory: a list of the consultant's write

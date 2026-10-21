@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import l1Surface from '../tools/generate/src/cli/ai/l1-surface.json'
+import librarySurface from '../tools/generate/src/cli/ai/library-surface.json'
 
 /**
  * BUG-44 — **the declared surface stops telling the assistant things that are false**.
@@ -41,6 +42,11 @@ interface Declaration {
 }
 
 const declaration = l1Surface as unknown as Declaration
+
+/** [[REQ-423]] — the drawing operation, on the Library surface. */
+const drawImage = () =>
+  (librarySurface as unknown as { operations: { op: string; description: string; params?: Record<string, unknown> }[] })
+    .operations.find((o) => o.op === 'draw_image')!
 
 function operation(op: string): Operation {
   const found = declaration.operations.find((o) => o.op === op)
@@ -118,23 +124,25 @@ describe('BUG-44 — the surface no longer says a file cannot arrive through the
     // for it. That description still exists — on the material the file came from
     // — and the assistant has to be told to go and get it, or the accessible
     // name for every client photograph silently becomes empty.
-    expect(operation('write_image').params ?? {}).not.toHaveProperty('alt')
     expect(operation('add_asset').params ?? {}).not.toHaveProperty('alt')
 
     const upload = declaration.absences.find((a) => /file/i.test(a.name))!.note
     expect(upload).toMatch(/description/i)
     expect(upload).toMatch(/element/i)
 
-    // A drawing has no description of its own either, and is told the same thing.
-    expect(prose('write_image')).toMatch(/element that places it/i)
+    // A drawing ([[REQ-423]]: drawn into the Library with `draw_image`) carries no
+    // alt either, and is told the same thing.
+    expect(drawImage().params ?? {}).not.toHaveProperty('alt')
+    expect(drawImage().description).toMatch(/element that places it/i)
   })
 
-  it('test_UAT_FC_BUG-44_write_image_forbids_standing_in_for_a_supplied_file', () => {
+  it('test_UAT_FC_BUG-44_drawing_forbids_standing_in_for_a_supplied_file', () => {
     // THE THIRD FAILURE, AND THE ONE THE CLIENT ACTUALLY SAW. Having decided it
     // could not use their logo, the assistant drew a substitute and reported
     // completion. `write_image` warned it was "not a way to make a photograph"
     // but said nothing about standing in for a file that had been supplied.
-    const write = prose('write_image')
+    // [[REQ-423]] — the drawing operation is the Library's `draw_image` now.
+    const write = drawImage().description
 
     expect(write).toMatch(/never draw a stand-in|do not compose something similar/i)
     // It must name the remedy, not only the prohibition — a refusal with no

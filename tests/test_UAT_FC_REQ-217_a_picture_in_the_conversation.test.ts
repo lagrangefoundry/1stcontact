@@ -31,22 +31,16 @@
 
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   L1_DECLARATION,
   displayLine,
-  l1Operations,
 } from '../tools/generate/src/cli/ai/toolbox-core'
 import { businessPath, splitBusinessPrefix } from '../apps/control-app/src/scope'
-import { makeMemorySite } from './support/site-factory'
-import type { SiteFixture } from './support/site-factory'
+import librarySurface from '../tools/generate/src/cli/ai/library-surface.json'
 
 const repo = (...parts: string[]) => path.resolve(__dirname, '..', ...parts)
 const CSS = readFileSync(repo('apps/control-app/src/builder/builder.css'), 'utf8')
-
-/** A drawing that passes the SVG envelope — shapes only, nothing executable. */
-const MARK = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
-  '<rect x="1" y="1" width="8" height="8" fill="#1a3a6b"/></svg>'
 
 /** The declaration's own words, read rather than restated. */
 const declaration = L1_DECLARATION as unknown as {
@@ -55,64 +49,14 @@ const declaration = L1_DECLARATION as unknown as {
   absences: { name: string; note: string }[]
 }
 
-const writeImageOp = () => declaration.operations.find((o) => o.op === 'write_image')!
-
-/** The address this deployment would serve a drawing at, for site `slug`. */
-const serving = (slug: string) => (handle: string) =>
-  businessPath('biz-one', `/preview/${slug}/draft/${handle.replace(/^\/+/, '')}`)
+/**
+ * [[REQ-423]] — drawing moved to the Library: `draw_image` and its `drawing`
+ * shape are where the display line is declared now.
+ */
+const library = librarySurface as unknown as typeof declaration
+const drawImageOp = () => library.operations.find((o) => o.op === 'draw_image')!
 
 describe('REQ-217 — a picture a turn made is a picture the client sees', () => {
-  let site: SiteFixture | null = null
-  afterEach(() => {
-    void site?.dispose()
-    site = null
-  })
-
-  it('test_UAT_FC_REQ-217_write_image_hands_back_the_line_to_paste', async () => {
-    site = makeMemorySite()
-    const ops = l1Operations(site.slug, site.opts, {}, null, serving(site.slug))
-
-    const out = (await ops.write_image({ name: 'wordmark', svg: MARK })) as {
-      asset: { id: string; src: string }
-      display: string
-    }
-
-    // THE LINE ADDRESSES THE DRAWING THAT WAS ACTUALLY WRITTEN, not the name the
-    // model typed: `write_image` normalises a name to a filename, and a line
-    // composed from the parameter rather than the result would point at nothing
-    // whenever those two differ.
-    expect(out.asset.id).toBe('wordmark.svg')
-    expect(out.display).toBe(`![wordmark](/b/biz-one/preview/${site.slug}/draft/assets/wordmark.svg)`)
-  })
-
-  it('test_UAT_FC_REQ-217_a_redraw_points_at_the_same_picture', async () => {
-    site = makeMemorySite()
-    const ops = l1Operations(site.slug, site.opts, {}, null, serving(site.slug))
-    await ops.write_image({ name: 'wordmark', svg: MARK })
-
-    // A REDRAW IS THE SAME ASSET AND THEREFORE THE SAME LINE. The address names
-    // the drawing as the site now holds it, which is what makes an earlier
-    // bubble show the current picture — the ticket accepts that consequence
-    // rather than freezing a copy per turn.
-    const again = (await ops.write_image({
-      name: 'wordmark',
-      svg: MARK.replace('#1a3a6b', '#e76f51'),
-      replace: true,
-    })) as { display: string }
-    expect(again.display).toBe(`![wordmark](/b/biz-one/preview/${site.slug}/draft/assets/wordmark.svg)`)
-  })
-
-  it('test_UAT_FC_REQ-217_no_surface_to_show_it_means_no_line', async () => {
-    site = makeMemorySite()
-    // THE `1c` CLI'S DEPLOYMENT: a terminal conversation, no origin, nowhere to
-    // put a picture. The field is ABSENT rather than empty or pointing nowhere,
-    // so a model reading the result has nothing to paste and nothing to explain.
-    const ops = l1Operations(site.slug, site.opts, {}, null, null)
-    const out = (await ops.write_image({ name: 'mark', svg: MARK })) as Record<string, unknown>
-    expect('display' in out).toBe(false)
-    expect(out.asset).toBeTruthy()
-  })
-
   it('test_UAT_FC_REQ-217_the_line_is_ordinary_markdown_the_sanitiser_already_allows', () => {
     // ORDINARY `![alt](url)` AND NOTHING ELSE, because the chat's sanitiser is
     // stock DOMPurify: an `<img>` survives it untouched, so the picture needs
@@ -125,14 +69,14 @@ describe('REQ-217 — a picture a turn made is a picture the client sees', () =>
   })
 
   it('test_UAT_FC_REQ-217_the_surface_tells_the_model_to_paste_it_verbatim', () => {
-    const shape = declaration.shapes.image
+    const shape = library.shapes.drawing
     expect(shape.display).toBeTruthy()
     // THE FIELD SAYS WHAT IT IS FOR, AND THAT ABSENCE IS ORDINARY — the two
     // things a model reading only the shape has to know.
     expect(shape.display.toLowerCase()).toContain('exactly as written')
     expect(shape.display.toLowerCase()).toContain('absent')
 
-    const op = writeImageOp()
+    const op = drawImageOp()
     expect(op.description).toContain('`display`')
     expect(op.description.toLowerCase()).toContain('word for word')
   })
@@ -143,7 +87,7 @@ describe('REQ-217 — a picture a turn made is a picture the client sees', () =>
     // would put the picture in a fixed place rather than where the sentence
     // wants it. So the instruction is reinforced in `absences`, which is the
     // section a model reads for what it cannot do.
-    const absence = declaration.absences.find((a) => /`display`|display line/i.test(a.note))
+    const absence = library.absences.find((a) => /`display`|display line/i.test(a.note))
     expect(absence).toBeTruthy()
     expect(absence!.note.toLowerCase()).toContain('display')
   })

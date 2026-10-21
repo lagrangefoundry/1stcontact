@@ -559,7 +559,6 @@ describe('REQ-126 — the surface documents itself', () => {
       'share_section',
       'update_page',
       'use_font',
-      'write_image',
     ])
   })
 })

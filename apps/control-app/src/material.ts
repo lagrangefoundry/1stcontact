@@ -2187,7 +2187,7 @@ export async function catalogueSiteImages(
  * The site store with the Library door on it ([[REQ-404]]).
  *
  * **ONE DOOR, NOT ONE FIX PER CALLER**, on `cappedSiteStore`'s reasoning: a
- * picture reaches a site by several roads — the assistant's `write_image`, an
+ * picture reaches a site by several roads — the `1c` CLI's `asset write`, an
  * import, a page reproduced from a capture, a tab icon cut from a picture — and
  * every one of them ends in `SiteStore.write({ assets })`. Catalogued where they
  * meet, a road added later cannot skip it.
