@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:21:08.911332+00:00'
+updated_at: '2026-10-21T01:21:49.923550+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10680,5 +10680,29 @@ The ticket also covers:
 <!-- xgd-chat role="user" ts="2026-10-21T01:21:07.514492+00:00" -->
 #### You
 Can you help with the questions in BUG-239 please
+
+<!-- xgd-turn id="ff2a416d-4903-4df6-8367-1b55b4f19f20-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T01:21:48.205832+00:00" -->
+#### Claude
+BUG-239's session didn't ask any design questions. It stopped because the fix is upstream and hasn't been made, and that's still true:
+
+- **lagrange-framework BUG-89**, which that session filed, is at `draft`. Nobody has started it.
+- The rule that decides when to show Stop is unchanged, both in the framework source and in your shared install (`input.js:489`).
+- BUG-239's only 1stcontact change is a UAT that checks the fixed behaviour, so it can't be written until the framework fix is installed.
+
+I checked the diagnosis and the one-line fix, and both are right. In talk mode, only a talker reply should show Stop in the composer. There was one gap, which I've added to both tickets:
+
+**With the fix, there's a moment when you can't stop the worker at all.** The composer will show Send, which is correct. But the status widget, the only place Stop building lives, isn't drawn until the worker's first progress update arrives. So between the build starting and that first update, there's no stop control anywhere. The fix: in talk mode, show the status widget as soon as the worker starts, with its opening note, or a plain "Working…" if there isn't one.
+
+- **LF BUG-89** now includes that change and a test for it.
+- **BUG-239's** test plan now also checks that the widget with Stop building appears straight away, and that the composer shows Send.
+
+**To unblock it:**
+1. Run BUG-89 in a lagrange-framework session.
+2. Run `bin/install --lang js --component all`.
+3. Re-run BUG-239's session to write the UAT and close it.
+
+LF REQ-214 changes the same composer and status widget code, to add the "+" and move the widget to the panel. It's worth giving REQ-214 and BUG-89 to the same lagrange-framework session.
 
 <!-- xgd-chat-end -->
