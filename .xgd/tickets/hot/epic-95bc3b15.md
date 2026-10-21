@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T18:52:39.460723+00:00'
+updated_at: '2026-10-21T19:10:19.857610+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2334,3 +2334,7 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-423]] — SVG drawing taken from the builders (Haiku) and kept with the consultant (operator decision): drawn images stored as Library items, looked at before use; logo method = wordmark first, image generation for illustrated marks.
+
+
+- [[BUG-250]] — Looks become their own mode: a Looks tab only while a page has looks, showing only the looks (no "Current"), no Edit or Colours; reverses BUG-205's in-View carousel.
+- [[REQ-424]] — guided focus tasks: the consultant picks a moment (often right after starting a build) to lead the client through the panel questions or story-board reactions, one thing at a time, with progress and Done; the host tells the consultant when it's finished and it resumes; small batches so the board doesn't overwhelm.
