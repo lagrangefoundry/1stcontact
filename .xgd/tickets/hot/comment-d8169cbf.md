@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:57:54.529955+00:00'
+updated_at: '2026-10-21T17:58:25.213881+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11077,5 +11077,23 @@ Nit - every time the builder changes something, the site is relaoaded (ok fair e
 1. scroll positioning is lost every time - annoying when I'm trying to watch the lower part of the page grow
 2. when the builder is working on a second page and I have the home page open - the home page is refreshed
 3. The refresh triggers all the animations to rerun (may be unavoidable but looks janky if a lot of changes are being made)
+
+<!-- xgd-turn id="5613d739-fbc8-4624-8579-5bb48246d069-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:58:23.972300+00:00" -->
+#### Claude
+Good, the reload confirmed it. I've added that to BUG-247: the fault is in the live chat's state for a turn that started by answering you, not in the server.
+
+On the preview refreshes, the code explains all three:
+
+**What happens now:** every time the site's change count goes up, the builder calls `panel.reloadDocument()` (`app.js:879`), which does a plain `location.reload()` of whichever page is showing. It doesn't check *which* page changed, and it doesn't remember where you'd scrolled to. And because a reload is a fresh page load, every entrance animation plays again.
+
+**How I'd fix it:**
+1. **Keep your scroll position.** Load the new version in a hidden frame, scroll it to where you were, then swap it in. The panel already has this machinery: it preloads looks in hidden frames and cross-fades between them (`SWAP_MS`). Refreshes would reuse it instead of reloading in place. This also removes the flash.
+2. **Only refresh when *your* page changed.** The site-changed signal should say which pages changed. The page you're viewing refreshes only if it changed, or if something shared did (site styles, fonts, the header or footer, the palette). A builder working on the prices page leaves your home page alone.
+3. **No entrance animations on a refresh.** A page loaded *because something changed* is rendered with entrance animations switched off. They still play when you open a page yourself, and there's an easy way to replay them, so movement can still be judged.
+4. **Fewer refreshes during a burst of changes.** While a build is making many changes, refresh at most every few seconds, plus once when it finishes. You still watch the page grow, without constant redraws.
+
+It's mostly browser-side, plus one change to the site-changed signal so it names the pages. Shall I file it as one bug under EPIC-19?
 
 <!-- xgd-chat-end -->
