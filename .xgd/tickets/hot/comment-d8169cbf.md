@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:00:36.373097+00:00'
+updated_at: '2026-10-21T18:24:41.317453+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11113,5 +11113,28 @@ It covers four changes:
 2. **Only your page refreshes.** The site-changed signal will name which pages changed, or flag a site-wide change such as styles, fonts, the palette, spacing or the header and footer. A builder working on the prices page leaves your home page alone.
 3. **No replayed animations.** A page reloaded because something changed loads with its entrance animations switched off. That only applies in the preview, never on the published site. Opening a page yourself still plays them, and a "Replay animations" button lets you judge the motion.
 4. **Fewer redraws during a burst.** While a build makes lots of changes, your page refreshes at most once every few seconds (the interval is a setting), plus once when the build finishes. You still see the page grow.
+
+<!-- xgd-turn id="dd4724f3-f11a-48f2-915a-681328e96ce5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T18:24:40.973770+00:00" -->
+#### You
+Cool - now see this:
+
+Thanks. Most of $10k for the permits and inspections is on the story board, and it goes onto the art page with Scratch's other numbers on the next pass.
+
+The staircase photo has arrived as IMAGE-7, and it goes into the Sentinal section on the next pass. That finally puts a photo of your real building work on the home page.
+
+I asked this before and we moved on, but now I'd like the caption to tell it properly: **what made getting that staircase into The Sentinal so hard, and how did you finally get it in? <-- question stranded**
+
+Showing you the Art & commissions — Ariel's AR Welding page
+
+I've put your new **Art & commissions** page in front of you, and **Art** is now in the menu.
+
+- **The art page** walks through what it takes to build Old Scratch: eleven months of weekends, the propane and oil plumbing, and most of $10k in permits and inspections. Then it gives the number: a piece like Scratch, commissioned today, is about $100,000 and six months or more. After that come your prices, how a commission works, Fiona's review and a button to get in touch.
+- **Your staircase photo, IMAGE-7,** now sits beside the Sentinal section on the home page. That's the first photo of your real building work on the site. There's also a new button in the home page's art section that leads to the art page.
+
+I checked both pages on a computer and on a phone, and they hold together. The art page only uses facts you've given me. The staircase caption is still the first-version text, and your story of getting it in will replace it on the next pass.
+
+**Now that there are two pages, is the layout working for you, or does anything feel out of place? <-- I have not been told how to move between pages and (worse) the AI built a second page but added no navigation links (that I can see)**
 
 <!-- xgd-chat-end -->
