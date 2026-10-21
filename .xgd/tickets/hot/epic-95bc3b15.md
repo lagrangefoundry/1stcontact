@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T18:37:52.562711+00:00'
+updated_at: '2026-10-21T18:45:05.761087+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2328,3 +2328,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-249]] (critical) — a turn wedged the session until the dev server was restarted (Ariel's run, 18:29 UTC; not the model API): progress deadline that aborts a turn and frees its lease and locks, self-expiring leases, automatic recovery, gentle client wording (detail in dev only), every turn closed in turn_log with a cause, alert and "unstick" for production. Operator: "catastrophic if it happened in production".
+
+
+- lagrange-framework BUG-91 (critical) — talker rounds fail with 400 "each thinking block must contain thinking" while a worker runs, so the consultant goes silent mid-build (Ariel's run 18:43 UTC). BUG-249 gains: a failed talker queues the message and tells the client gently.
