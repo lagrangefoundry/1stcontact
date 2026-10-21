@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:33:42.710865+00:00'
+updated_at: '2026-10-21T18:34:59.580995+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11211,5 +11211,32 @@ For the run you're in now: your request for a title or banner on the home page i
 *Just hit this - any idea what happened?*
 
 *API crashes are more frequent that I'd like - we need the system to be robust against failed calls and pick up the flow again without dropping ugly errors like this on our users (useful in dev though)*
+
+<!-- xgd-turn id="77f42576-4ae5-451f-a141-b960348c738b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:34:55.384511+00:00" -->
+#### Claude
+I looked, and I can't give you the cause. That's itself one of the problems.
+
+**What the records show for `turn_cc6be6d1…`:**
+- Your message reached the server at 18:29:05, and the reply stream opened normally (`POST /api/ai/prompt` → 200).
+- **Nothing after that.** There's no error, warning or restart in the dev log. The turn's row in `turn_log` has **no end time and no outcome**, so as far as the server knows, the turn is still running.
+- About two minutes later your browser reconnected (`/api/ai/session`), and then came your retries.
+
+So the reply didn't fail with an error. **It stopped producing anything and was never closed.** The most likely cause is a model API call that stalled (the connection open, no bytes) with nothing timing it out. An isolate dying silently is possible, but there's no restart in the log. The browser's turn-health check noticed the silence and showed you that note. Nothing on the server ever recorded what went wrong.
+
+## What robust looks like
+
+1. **Retry at the request level, invisibly.** Every model call gets a **stall timeout** (no bytes for, say, 60 seconds) and **automatic retries with backoff** on transient failures: overloaded or 5xx responses, a dropped connection, a stall. Within a turn, the earlier tool results are already in the history, so retrying the last request repeats no work and you never notice. This belongs in lagrange-framework's `ClaudeAPIBackend`.
+2. **If a turn still dies, pick the flow back up automatically.** The host resumes the turn instead of asking you to "ask again". It can use REQ-409's continuation, or the framework's resume-from-the-session-log work (LF REQ-175), so the client sees the reply carry on.
+3. **No ugly messages for clients.** In production the client sees something like *"One moment, picking that back up…"*, while it retries. No turn ids and no "it was our failure, it has been recorded". In dev you keep the full detailed note, behind a dev setting.
+4. **No turn left open.** A watchdog closes any turn with no activity for too long, recording an outcome such as `stalled` and its cause, so `turn_log` never has holes like this one.
+5. **Every failure logs its cause:** the status code, how long it stalled, and which request. The next time this happens we'll know why.
+
+I'd file this as **two tickets**:
+- **lagrange-framework:** stall timeout plus transient retries in the API backend (item 1).
+- **1stcontact:** automatic resume, client-facing wording with dev detail kept behind a dev setting, the turn watchdog, and failure logging (items 2–5).
+
+Shall I file them?
 
 <!-- xgd-chat-end -->
