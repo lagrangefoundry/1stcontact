@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T21:26:05.434663+00:00'
+updated_at: '2026-10-21T21:26:59.526933+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12013,5 +12013,22 @@ On the role-play caveat: agreed. A real owner might happily talk about the kids 
 <!-- xgd-chat role="user" ts="2026-10-21T21:26:04.498039+00:00" -->
 #### You
 Lets try that
+
+<!-- xgd-turn id="f718f210-4575-4305-b0e3-28c5849dc09e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T21:26:56.459002+00:00" -->
+#### Claude
+The prompt change is in, so you can try it now: committed as `9077897094`, with the priming tests passing (7 files, 64 tests).
+
+The consultant's priming has a new section, **"Working on a page together"**:
+- **It gathers material by drafting, not by interrogating.** For a page or section, it shows what it would cover and a first version from what it already knows, with the gaps marked [?]. You fill them in, correct them or skip them, all at once.
+- **Short facts go to the panel as one batch:** prices, ages, numbers, what to bring. The chat is kept for the story and the reasons why.
+- **When it does ask in the chat, it says what the answer is for:** *"For the classes page: …"*
+- **After two or three questions on one topic it stops** and offers to move on.
+- Each exchange should visibly move the site forward.
+
+**To use it:** run `bin/deploy --env dev` and reload. The current conversation picks it up on the next turn, so you can see it on the classes page straight away.
+
+It's only a prompt rule for now, and we've seen those slip. The structural half is still to build under REQ-426: the talker's notes listing open decisions instead of missing story areas, the no-repeat check, and priority by value. I've noted on that ticket which half has landed.
 
 <!-- xgd-chat-end -->
