@@ -256,16 +256,12 @@ export function budgetDoneEvent(
   records: readonly unknown[],
   occupancy: number,
 ): StreamEvent {
-  return {
-    kind: DONE,
-    content: '',
-    meta: {
-      interrupted: true,
-      stop_reason: BUDGET_STOP_REASON,
-      ...lib.turnUsage([...records]),
-      ...(occupancy > 0 ? { occupancy_tokens: occupancy } : {}),
-    },
-  }
+  return { kind: DONE, content: '', meta: { interrupted: true, stop_reason: BUDGET_STOP_REASON, ...spent(lib, records, occupancy) } }
+}
+
+/** What a turn the guard closes spent: its usage, and the last request's occupancy. */
+function spent(lib: Untyped, records: readonly unknown[], occupancy: number): Record<string, unknown> {
+  return { ...lib.turnUsage([...records]), ...(occupancy > 0 ? { occupancy_tokens: occupancy } : {}) }
 }
 
 /**
@@ -355,6 +351,15 @@ function reserveSignals(inner: unknown, notice: () => string): () => string {
  * its notice on the per-call signal — see {@link reserveSignals}. Only a builder
  * is given one: its report is the whole of what its caller receives, and the
  * consultant has no report to make.
+ *
+ * A `finish` ENDS THE TURN ON THE CALL THAT FINISHES IT ([[BUG-243]]). A builder
+ * that had reported went on calling `ReportResult` until its window ran out:
+ * the reserve's notice still told it to report on every request, and a receipt
+ * reading `{recorded: true}` never told it to stop. So once a tool activity
+ * satisfies `finish`, the reserve's notice is off for the segment and the turn
+ * closes there — a `done` that is NOT `interrupted`, because the work was
+ * finished rather than cut short, carrying the turn's spend as the stop does.
+ * The inner loop is returned the same way, so no further request is built.
  */
 export function guardTurn(
   lib: Untyped,
@@ -362,11 +367,14 @@ export function guardTurn(
   {
     fraction = TURN_BUDGET_FRACTION,
     reserve = null,
+    finish = null,
     charge = null,
     notice = null,
   }: {
     fraction?: number
     reserve?: ReportReserve | null
+    /** [[BUG-243]] — whether a tool activity finishes the turn. */
+    finish?: ((event: StreamEvent) => boolean) | null
     /**
      * [[REQ-409]] — handed each request's `usage` once, as it completes, so a
      * spend meter can run across turns and sessions.
@@ -376,6 +384,9 @@ export function guardTurn(
     notice?: (() => string) | null
   } = {},
 ): Untyped {
+  // The segments whose turn has been finished: the reserve is not shown on them again.
+  const finished = new Set<string>()
+
   async function* guarded(
     ref: string,
     content: unknown,
@@ -401,7 +412,8 @@ export function guardTurn(
             ...opts,
             signals: reserveSignals(opts.signals, () => {
               const occupancy = warnAt > 0 ? lastOccupancy(lib, backend.usage(ref).slice(before)) : 0
-              const reserved = warnAt > 0 && occupancy >= warnAt ? reserve!.notice(occupancy, ceiling) : ''
+              const reserved =
+                warnAt > 0 && occupancy >= warnAt && !finished.has(ref) ? reserve!.notice(occupancy, ceiling) : ''
               return [reserved, notice ? notice() : ''].filter(Boolean).join('\n\n')
             }),
           }
@@ -411,7 +423,15 @@ export function guardTurn(
       for await (const event of events) {
         chargeNew()
         yield event
-        if (ceiling <= 0 || event.kind !== TOOL_ACTIVITY) continue
+        if (event.kind !== TOOL_ACTIVITY) continue
+        if (finish && finish(event)) {
+          finished.add(ref)
+          const mine = backend.usage(ref).slice(before)
+          yield { kind: DONE, content: '', meta: spent(lib, mine, lastOccupancy(lib, mine)) }
+          await events.return(undefined as never)
+          return
+        }
+        if (ceiling <= 0) continue
         const mine = backend.usage(ref).slice(before)
         const occupancy = lastOccupancy(lib, mine)
         if (!overBudget(occupancy, ceiling)) continue

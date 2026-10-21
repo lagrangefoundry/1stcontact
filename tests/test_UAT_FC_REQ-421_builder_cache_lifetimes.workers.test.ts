@@ -94,10 +94,16 @@ const delegates = calls('Delegate', {
 })
 const reports = calls('ReportResult', { summary: 'Done.', changed: [], decisions: [], passed: [] })
 
-/** Each side calls once, then answers its result in prose. */
+const reads = calls('describe_page', { page: 'home' })
+
+/**
+ * The consultant delegates, then answers its result in prose. The builder reads,
+ * then reports — its last request, since a recorded report ends its turn
+ * ([[BUG-243]]).
+ */
 const step: ModelStep = (req) =>
   req.model === WORKER_MODEL
-    ? (answered(req) ? says('Reported.') : reports)(req)
+    ? (answered(req) ? reports : reads)(req)
     : (answered(req) ? says('Handed over.') : delegates)(req)
 
 beforeAll(async () => {
