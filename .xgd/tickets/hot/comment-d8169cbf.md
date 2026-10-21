@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:55:09.602405+00:00'
+updated_at: '2026-10-21T19:55:50.048668+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11678,5 +11678,74 @@ I'd start with the director, since it's what this conversation was about, and th
 <!-- xgd-chat role="user" ts="2026-10-21T19:55:08.854515+00:00" -->
 #### You
 Say more about how these two work in practivce - particularly with our worker/talker story
+
+<!-- xgd-turn id="b71763bc-9b3a-48e6-b50d-79295005df5d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T19:55:49.194701+00:00" -->
+#### Claude
+Here's how they'd fit in practice, using Ariel's site as the example.
+
+## Who does what
+
+| | what it is | who sees its output |
+|---|---|---|
+| **Plan state** | what the host knows: stages, open questions, notes and reactions, positioning card, your readiness per area, open decisions | the host |
+| **Director: next move** | simple host rules over the plan state, turned into **one line in every turn's notes** | the worker, the talker, and plain consultant turns: **the same line for all of them**, so they never contradict each other |
+| **Director: strategist pass** | one strong-model call **per stage**, with a clean context, that writes a short **stage plan** into the plan: the remaining decisions, their order, and how to handle each for this client | the next-move rules read it |
+| **Critic** | strong-model calls, one per lens, at the **end of a worker's big run** | the worker, as part of its result |
+
+The strategist and the critic can both reuse the **delegation machinery we already have**. Each is a delegated session with its own role, priming and grant: a strong model, read-only, given screenshots and the plan, never the transcript. That's not new infrastructure.
+
+## A run, step by step
+
+**1. Opening (plain consultant turn).** The next move reads: *"Short opening: what you do, who for, the main action. Then the features question, then the first build."* The consultant asks briefly and starts the first draft, which makes it the **worker**.
+
+**2. While the first build runs, the strategist pass for "Getting to know you" runs alongside it.** It sees the plan and the board and writes a stage plan, e.g.:
+> Missing: customer proof, why contractors choose her. Readiness: messaging *unknown*, look *has ideas*. Order: interview (proof, why-you) → react to notes after about 8 → positioning card → headline candidates.
+
+**3. You talk, and the talker carries out the stage plan.** Its notes say:
+> *Next move: interview, customer proof (missing).*
+
+It asks one question and pins what you say. When the board reaches 8 notes, **the next move flips**:
+> *Next move: reaction task now. No new questions.*
+
+The talker starts the focus task (REQ-424): your view switches to the story board and asks you to heart the notes. When you're done, the host notices, the next move becomes *"positioning card"*, and the talker drafts the card, which it's allowed to do because it's a plan write, and asks you to confirm it. **Discovery happens during the build**, in order, without anyone having to remember the method.
+
+**4. The worker finishes its build, and the critic runs before it hands back.** Four lenses run in parallel, taking about a minute, on screenshots plus the brief. For example:
+- *Style (high):* the business name is smaller than the section headings.
+- *Messaging (high):* the headline is an adage; it doesn't answer what a contractor is deciding.
+
+The worker **fixes what it can within the same run**: the name size. The messaging finding needs you, because it depends on the positioning card, so it **isn't fixed silently**. It goes into the plan as an **open decision**, and the director schedules it. The worker hands back in three short lines.
+
+**5. Your next consultant turn** includes the build news (BUG-245's one voice) and the next move:
+> *Next move: offer headline candidates from the confirmed card. Messaging readiness: unknown, so propose three; don't ask a blank question.*
+
+So the critic **finds** the problem, the director **schedules** it, and the talker or consultant **raises** it with you at the right moment.
+
+**6. Stage boundary: on to looks.** A new strategist pass for the looks stage reads your stated direction ("grittier, rust, not orange; black and bare steel is closest"). Your look readiness is *knows quite a lot*, so its plan is: *"one look in their stated direction plus at most one variation; don't present three random options."*
+
+## Why this fixes what went wrong today
+
+- *"It kept asking for content and never had me react"* → the next move flips to a reaction task at a set point.
+- *"Never synthesised before the headline"* → positioning comes before the headline in the stage plan, and the rules enforce it.
+- *"A blank question"* → readiness says to propose, and the next move says so.
+- *"Chose a pithy saying, not a sale"* → the critic's messaging lens flags it, and the director turns it into a decision for you.
+- *"Worker and talker each did their own thing"* → both read the same next move.
+
+## Cost
+
+- **Next move:** free, since it's rules over the plan.
+- **Strategist pass:** about one strong-model call per stage, roughly 6 per site, with a small context.
+- **Critic:** about 4 calls per big run, 3–5 big runs per site, with cached inputs.
+
+Each call is small next to a consultant turn, and it's spent exactly where judgement matters.
+
+## Order
+
+1. The **next-move line**: cheap, and it fixes most of today's problems on its own.
+2. The **strategist pass** at stage boundaries.
+3. The **critic** at the end of a run.
+
+Shall I write this up as the design note on EPIC-19 and file the first ticket (the next-move line and its rules)?
 
 <!-- xgd-chat-end -->
