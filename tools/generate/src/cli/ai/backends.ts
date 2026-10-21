@@ -251,3 +251,27 @@ export function modelOfBackend(name: string): string {
   const model = (entry as Record<string, unknown>).model
   return typeof model === 'string' ? model : ''
 }
+
+/**
+ * The cache lifetime backend `name` asks for — `'1h'`, or `''` for the API's own
+ * five minutes ([[BUG-242]]).
+ *
+ * ONE ANSWER, READ BY TWO PARTIES. Every `ClaudeAPIBackend` this host constructs
+ * is passed `cacheTtl: cacheTtlOf(name)`, and the meter prices a turn's cache
+ * writes at the rate of `cacheTtlOf(backend)`. Before this the lifetime was the
+ * framework's `DEFAULT_CACHE_TTL`, reached by passing nothing, while `prices.json`
+ * priced every write at the five-minute rate — two readings of one fact, kept in
+ * two places, and they disagreed: every write was metered at 62.5% of its bill.
+ * Asking the same function is what stops them drifting apart again.
+ *
+ * NOT A `backends.json` KEY, though that is where it belongs: the framework
+ * validates that document against its own schema and `cacheTtl` is a constructor
+ * option rather than a setting, so naming it there would refuse to start.
+ *
+ * BY NAME, though every backend asks for the same hour today, so that a decision
+ * to change one backend's lifetime ([[REQ-421]]) is an edit here that the meter
+ * follows without being told.
+ */
+export function cacheTtlOf(_name: string): string {
+  return '1h'
+}

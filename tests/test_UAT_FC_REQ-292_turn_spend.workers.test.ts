@@ -292,7 +292,8 @@ describe('REQ-292 — the turn meter', () => {
         1200 * rates!.input +
           300 * rates!.output +
           0 * rates!.cache_read +
-          4800 * rates!.cache_write,
+          // [[BUG-242]] — the consultant asks for the hour, so its writes cost 2x input.
+          4800 * rates!.cache_write_1h,
       ),
     )
     // AND IT IS NOT WHAT ONE INPUT RATE WOULD GIVE. This is the assertion that

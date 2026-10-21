@@ -163,6 +163,7 @@ import {
   reportingDelegationToolbox,
 } from './account-core'
 import {
+  cacheTtlOf,
   configureProjectBackends,
   PROJECT_BACKEND,
   projectBackendBudgets,
@@ -2105,6 +2106,7 @@ async function build(
                   // `claude_builder` entry the thing that decides the model and
                   // the ceiling.
                   name: backend,
+                  cacheTtl: cacheTtlOf(backend),
                   tools: toolSet(lib, toolbox, claims ? claims.worker(session) : null),
                 }), {
                   // [[BUG-212]] — told to report while it still has the room to.
@@ -2502,6 +2504,8 @@ async function build(
               // the environment and an absent key still fails at FIRST USE with the
               // library's own message rather than at construction.
               ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+              // [[BUG-242]] — the lifetime the meter prices this backend's writes at.
+              cacheTtl: cacheTtlOf(PROJECT_BACKEND),
               // [[REQ-397]] — the consultant's writes are implicit leases, refused
               // on a file a builder holds; and up to `max_concurrent` builders it
               // commissions in one reply run together where the framework can.
@@ -2886,6 +2890,7 @@ async function composeCoordinator(
           ...(modelClient ? { client: modelClient } : {}),
           ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
           name: COORDINATOR_BACKEND,
+          cacheTtl: cacheTtlOf(COORDINATOR_BACKEND),
           tools: toolSet(lib, box),
         }),
       ),
@@ -3029,6 +3034,7 @@ async function buildBusiness(businessId: string, deps: HostDeps): Promise<Untype
           new lib.ClaudeAPIBackend({
             ...(modelClient ? { client: modelClient } : {}),
             ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+            cacheTtl: cacheTtlOf(PROJECT_BACKEND),
             tools: toolSet(lib, box),
           }),
         ),
