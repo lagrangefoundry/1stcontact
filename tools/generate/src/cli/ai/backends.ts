@@ -252,26 +252,32 @@ export function modelOfBackend(name: string): string {
   return typeof model === 'string' ? model : ''
 }
 
+/** The two lifetimes one request asks for: its system prefix's and its history's. */
+export interface CacheTtls {
+  system: string
+  messages: string
+}
+
 /**
- * The cache lifetime backend `name` asks for — `'1h'`, or `''` for the API's own
- * five minutes ([[BUG-242]]).
+ * The cache lifetimes backend `name` asks for, each `'1h'`, `'5m'` or `''` (the
+ * API's own five minutes) — read from its `cache_ttl` in `backends.json`
+ * ([[BUG-242]], [[REQ-421]]).
  *
- * ONE ANSWER, READ BY TWO PARTIES. Every `ClaudeAPIBackend` this host constructs
- * is passed `cacheTtl: cacheTtlOf(name)`, and the meter prices a turn's cache
- * writes at the rate of `cacheTtlOf(backend)`. Before this the lifetime was the
- * framework's `DEFAULT_CACHE_TTL`, reached by passing nothing, while `prices.json`
- * priced every write at the five-minute rate — two readings of one fact, kept in
- * two places, and they disagreed: every write was metered at 62.5% of its bill.
- * Asking the same function is what stops them drifting apart again.
+ * ONE DOCUMENT, READ BY TWO PARTIES. The framework reads `cache_ttl` from
+ * `backends.json` when it constructs each `ClaudeAPIBackend` (lagrange-framework
+ * REQ-216) and the meter prices a turn's unsplit cache writes by this. Before
+ * BUG-242 the wire's lifetime was the framework's default while the meter priced
+ * every write at the five-minute rate — two readings of one fact, and every write
+ * was metered at 62.5% of its bill. Both now read the same key.
  *
- * NOT A `backends.json` KEY, though that is where it belongs: the framework
- * validates that document against its own schema and `cacheTtl` is a constructor
- * option rather than a setting, so naming it there would refuse to start.
- *
- * BY NAME, though every backend asks for the same hour today, so that a decision
- * to change one backend's lifetime ([[REQ-421]]) is an edit here that the meter
- * follows without being told.
+ * A single value means both halves, as it does to the framework. Every backend
+ * this project configures declares the key, so the absent case is a backend this
+ * project does not run, and the hour is the framework's own default for it.
  */
-export function cacheTtlOf(_name: string): string {
-  return '1h'
+export function cacheTtlOf(name: string): CacheTtls {
+  const entry = (backendsDocument as Record<string, unknown>)[name] as
+    | { cache_ttl?: string | CacheTtls }
+    | undefined
+  const ttl = entry?.cache_ttl ?? '1h'
+  return typeof ttl === 'string' ? { system: ttl, messages: ttl } : ttl
 }

@@ -15,7 +15,7 @@ import { nextSlug } from './support/site-seed'
  * prices**, through the real route.
  *
  * A turn taken through `/api/ai/prompt` on the consultant's backend: every
- * `cache_control` marker in the request it sent asks for `cacheTtlOf('claude')`,
+ * `cache_control` marker in the request it sent asks for `cacheTtlOf('claude')` (the hour, both halves),
  * and the row it leaves in D1 settles that turn's cache writes at the one-hour
  * rate — 2x input, not the five-minute 1.25x every write was metered at before.
  */
@@ -108,8 +108,8 @@ describe('BUG-242 — the wire asks for the lifetime the meter prices', () => {
     expect(client.seen.length).toBeGreaterThan(0)
     const sent = markers(client.seen[0])
     expect(sent.length).toBeGreaterThan(0)
-    for (const marker of sent) expect(marker.ttl ?? '').toBe(cacheTtlOf(PROJECT_BACKEND))
-    expect(cacheTtlOf(PROJECT_BACKEND)).toBe('1h')
+    expect(cacheTtlOf(PROJECT_BACKEND)).toEqual({ system: '1h', messages: '1h' })
+    for (const marker of sent) expect(marker.ttl ?? '').toBe('1h')
 
     // THE METER. Writes at 2x input — the hour's rate — and not the 1.25x of five minutes.
     const { results } = await env.DB.prepare('SELECT * FROM turn_spend WHERE session_id = ?')
