@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T01:18:41.779532+00:00'
+updated_at: '2026-10-21T01:21:08.911332+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10674,5 +10674,11 @@ The ticket also covers:
 3. **The host's own cues to the consultant** stop using "builder" and "layout check" as words it then repeats to the client.
 
 **Separately, worth doing before your next session:** redeploy, then see whether the contact-form false alarm still fires. It caused 11 paid continuation turns in this run, and BUG-237 landed yesterday afternoon. If it still fires after a redeploy, BUG-237 needs reopening.
+
+<!-- xgd-turn id="ff2a416d-4903-4df6-8367-1b55b4f19f20-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T01:21:07.514492+00:00" -->
+#### You
+Can you help with the questions in BUG-239 please
 
 <!-- xgd-chat-end -->
