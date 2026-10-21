@@ -6,10 +6,10 @@ title: 'Story board: a positioning card between the notes and the headline, and 
   per area so the consultant proposes first'
 created_by: EPIC-19
 created_at: '2026-10-21T19:43:28.066371+00:00'
-updated_at: '2026-10-21T19:43:28.066371+00:00'
+updated_at: '2026-10-21T23:03:20.312994+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   priority: high
   story_points: 8
