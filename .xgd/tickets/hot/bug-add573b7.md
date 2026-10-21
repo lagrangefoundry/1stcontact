@@ -6,10 +6,10 @@ title: 'The consultant doesn''t know which view the client has open: report the 
   and unopened views, and link to the right one'
 created_by: EPIC-19
 created_at: '2026-10-21T17:33:54.640791+00:00'
-updated_at: '2026-10-21T18:40:18.978846+00:00'
+updated_at: '2026-10-21T18:40:47.607315+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-fc4865df
+  commits:
+  - working_sha: 350af29245d9ea1c9bbdf45afd6acc23a2fbb1ea
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 03f5d6ccc71e816e6cfd1eb875684f8e69061b62
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.571
 ---
 
 ## Symptom (Ariel's AR Welding run, 2026-10-21)
