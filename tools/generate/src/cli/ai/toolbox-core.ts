@@ -42,7 +42,6 @@ import {
   editAssetGet,
   editAssetList,
   editAssetRm,
-  editAssetWrite,
   editBehaviorList,
   editChanges,
   editConfigGet,
@@ -94,7 +93,6 @@ import { CONSULTANT_ROLE } from './roles'
 import {
   MeasureUnavailableError,
   NodeNotFoundError,
-  evaluateRelations,
   measurementResponse,
   relateAnchors,
   solveTranslation,
@@ -393,25 +391,10 @@ export function l1Operations(
    */
   measurer: DrawingMeasurer | null = null,
   /**
-   * Where a site asset is served to the person being talked to, or `null` where
-   * this deployment has no surface that could show one ([[REQ-217]]).
-   *
-   * WHY A URL AND NOT A LINE. The host knows the address and nothing else: it has
-   * no view on markdown, and the `1c` CLI — whose conversation is a terminal —
-   * has no address at all. The markdown framing belongs HERE, with the surface
-   * prose that tells the model to paste it, because those two have to agree and
-   * they are written in the same place.
-   *
-   * NULL IS AN ORDINARY DEPLOYMENT, exactly as `measurer` above is. A session
-   * with nowhere to show a picture writes the drawing and says so in words, which
-   * is what every session did before this existed.
-   */
-  assetUrl: ((handle: string) => string) | null = null,
-  /**
    * Every public address this site can be reached at, or `null` where this
    * deployment cannot answer ([[REQ-238]]).
    *
-   * ALREADY BOUND TO THE SLUG, like `assetUrl` above it and for the identical
+   * ALREADY BOUND TO THE SLUG, like `measurer` above is to a browser, and for the identical
    * reason: which site an address belongs to is settled by the time a toolbox is
    * built for one.
    *
@@ -434,7 +417,7 @@ export function l1Operations(
    * A PARAMETER RATHER THAN A BARE IMPORT because it is a BUILD ARTIFACT and not
    * a constant: `1c fonts index` rewrites it every time the mirror is refreshed,
    * so what `use_font` may serve is a property of the deployment in exactly the
-   * sense `measurer` and `assetUrl` above are. Defaulted to the projection this
+   * sense `measurer` above is. Defaulted to the projection this
    * bundle carries, so no existing caller changes and the Worker needs no wiring.
    *
    * AN EMPTY CORPUS IS AN ORDINARY STATE, not a misconfiguration — the font bytes
@@ -466,29 +449,6 @@ export function l1Operations(
       return { svg, measurement: await measurer(svg) }
     } catch (error) {
       throw refusal(error)
-    }
-  }
-
-  /**
-   * Evaluate the relations a write stated, against the drawing that landed.
-   *
-   * AGAINST WHAT WAS WRITTEN, not against what was passed in — the artifact is
-   * the thing the assertion is about, and re-reading it is what makes the check
-   * a check rather than a restatement.
-   *
-   * NOTHING DISAPPEARS. A relation that cannot be evaluated at all — a misspelt
-   * anchor, a node that is gone, a deployment with no browser — is reported WITH
-   * THE REASON rather than dropped, because a silently absent assertion reads
-   * exactly like one that passed, and that is the one thing an advisory check
-   * must never look like.
-   */
-  const assertOnWrite = async (name: string, stated: readonly string[]) => {
-    try {
-      const { measurement } = await measure(name)
-      return evaluateRelations(measurement, stated)
-    } catch (error) {
-      const why = error instanceof Error ? error.message : String(error)
-      return stated.map((relation) => ({ relation, why }))
     }
   }
 
@@ -1055,56 +1015,6 @@ export function l1Operations(
       }
     },
 
-    /**
-     * Write a drawing, and — when relations were stated — say whether it holds
-     * them (REQ-209).
-     *
-     * THE CHECK BELONGS ON THE WRITE. `solve` is arithmetic and will be right;
-     * what fails is the transcription hop between it and the artifact — the
-     * number lands on the wrong attribute, the same rewrite changes the
-     * font-size so the solved value is stale before it is written, an ancestor
-     * gains a transform. A write that echoes its own relations checks them
-     * whether or not anyone remembered to.
-     *
-     * ADVISORY, NEVER GATING, and the write happens FIRST. A refusal here would
-     * be a new failure mode with no upside: the model may have changed something
-     * deliberately, and a blocked write on a stale assertion is worse than a
-     * visible non-zero delta.
-     *
-     * A RENDER HAPPENS ONLY WHEN `assert` IS PRESENT. Ordinary writes are a pure
-     * string scan with no browser, and stay that way.
-     */
-    write_image: async (p) => {
-      const name = req(p, 'name')
-      const svg = req(p, 'svg')
-      const out = await editAssetWrite(slug, name, svg, {
-        ...opts,
-        force: p.replace === true,
-      })
-      const asset = (out.data as { asset: { id: string; src: string } }).asset
-      const written = {
-        ...(out.data as object),
-        now: out.at,
-        // THE PICTURE GOES BACK INTO THE CONVERSATION THAT MADE IT ([[REQ-217]]).
-        //
-        // THE TOOL AUTHORS THE LINE AND THE MODEL PLACES IT. A tool result is not
-        // a chat bubble — only an assistant's own text turn is in the transcript,
-        // and the transcript is what replays on reload — so the picture has to
-        // reach the client through the reply, which means the model pasting it.
-        // What is NOT left to the model is the address: it composes nothing, it
-        // copies a line, and the line is right because this composed it.
-        //
-        // ABSENT WHERE NOTHING COULD SHOW IT, rather than present and pointing
-        // nowhere. That is the same shape every other optional wire on this
-        // surface has, and it is what keeps the `1c` CLI honest: a terminal
-        // session is told about no line, so it invents none.
-        ...(assetUrl ? { display: displayLine(asset.id, assetUrl(asset.src)) } : {}),
-      }
-      const stated = Array.isArray(p.assert) ? (p.assert as string[]) : []
-      if (stated.length === 0) return written
-      return { ...written, asserted: await assertOnWrite(name, stated) }
-    },
-
     remove_asset: async (p) => {
       const out = await editAssetRm(slug, req(p, 'asset'), { ...opts, force: p.force === true })
       return { changed: out.data, message: out.human, now: out.at }
@@ -1148,7 +1058,6 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
           opts: EditOptions,
           extra: Partial<L1Operations> = {},
           measurer: DrawingMeasurer | null = null,
-          assetUrl: ((handle: string) => string) | null = null,
           addresses: (() => Promise<readonly unknown[]>) | null = null,
           fonts: PlatformFontIndex = PLATFORM_FONT_INDEX,
           pageMeasurer: PageMeasurer | null = null,
@@ -1156,7 +1065,7 @@ function l1ToolboxClass(lib: AiLibrary): Promise<Untyped> {
         ) {
           super(L1_DECLARATION)
           for (const [op, run] of Object.entries(
-            l1Operations(slug, opts, extra, measurer, assetUrl, addresses, fonts, pageMeasurer, layoutChecker),
+            l1Operations(slug, opts, extra, measurer, addresses, fonts, pageMeasurer, layoutChecker),
           )) {
             ;(this as unknown as Params)[op] = run
           }
@@ -1290,7 +1199,6 @@ export async function l1SurfaceSet(
     extraOps = {},
     extraSurfaces = [],
     measurer = null,
-    assetUrl = null,
     addresses = null,
     pageMeasurer = null,
     layoutChecker = null,
@@ -1322,19 +1230,10 @@ export async function l1SurfaceSet(
      */
     measurer?: DrawingMeasurer | null
     /**
-     * Where a site asset is served to the person being talked to ([[REQ-217]]),
-     * or absent where this deployment has no surface that could show one.
-     *
-     * ALREADY BOUND TO THE SLUG, like {@link measurer} is already bound to a
-     * browser: which site an asset belongs to is settled by the time a manager
-     * is built for one, so the operations below never see it.
-     */
-    assetUrl?: ((handle: string) => string) | null
-    /**
      * Every public address this site can be reached at, or absent where this
      * deployment cannot answer ([[REQ-238]]).
      *
-     * ALREADY BOUND TO THE SLUG, exactly as {@link assetUrl} is, and passed
+     * ALREADY BOUND TO THE SLUG, exactly as {@link measurer} is to a browser, and passed
      * straight through to the operations — see `l1Operations` for why the
      * publish gate is wired here rather than left to whichever route publishes.
      */
@@ -1379,7 +1278,7 @@ export async function l1SurfaceSet(
   // the filesystem under `1c` and against D1/R2 in the Worker without either one
   // branching.
   const surfaces: Untyped[] = [
-    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, assetUrl, addresses, PLATFORM_FONT_INDEX, pageMeasurer, layoutChecker),
+    new L1Toolbox(slug, { ...opts, store }, extraOps, measurer, addresses, PLATFORM_FONT_INDEX, pageMeasurer, layoutChecker),
   ]
   let granted = instance
   for (const extra of extraSurfaces) {

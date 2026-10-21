@@ -748,7 +748,7 @@ export function sessionPicturesFor(
     // item it was placed from, read off `placed_as` the other way. A site file
     // with no recorded origin is refused.
     //
-    // BOUND TO THIS SESSION'S SITE, like `assetUrl` and the libraries above: a
+    // BOUND TO THIS SESSION'S SITE, like the libraries above: a
     // placement is recorded per slug, and an origin lookup that took one would
     // be able to ask about a site the conversation is not about.
     originOf: placedOriginOf(tickets, site),
@@ -807,6 +807,10 @@ function chatHost(
       // deployment has no `[images]` binding, which is the same ordinary absence
       // the fidelity and image surfaces already answer to.
       const renderer = imageRendererFor(env, scope.businessId)
+      // WHERE A LIBRARY ITEM'S FILE CAN BE SEEN ([[REQ-217]]) — one address for a
+      // picture the assistant generated and one it drew ([[REQ-423]]).
+      const materialUrl = (uid: string) =>
+        businessPath(scope.businessId, `/api/material/file?uid=${encodeURIComponent(uid)}`)
       return workerHost(
         env,
         store,
@@ -836,8 +840,7 @@ function chatHost(
             // route and the business are both here and nowhere else, which is
             // why the composition is here: `imagegen.ts` says what a display
             // sentence SAYS, this says what it points AT.
-            materialUrl: (uid: string) =>
-              businessPath(scope.businessId, `/api/material/file?uid=${encodeURIComponent(uid)}`),
+            materialUrl,
           },
         ),
         // THE ASSISTANT'S HANDS FOR *CHANGING* A PICTURE ([[REQ-219]]).
@@ -847,27 +850,6 @@ function chatHost(
         // merged picture library. `null` where there is no `[images]` binding,
         // which composes no surface at all.
         sessionPicturesFor(env, scope, store, tickets),
-        // WHERE A DRAWING THE ASSISTANT MAKES CAN BE SEEN ([[REQ-217]]).
-        //
-        // THE SAME ADDRESS THE BUILDER'S OWN PREVIEW PANE LOADS, deliberately: a
-        // drawing is a SITE ASSET and not a piece of material — `write_image`
-        // mints no catalogue ticket and [[BUG-84]] settles that it should not —
-        // so the only address it has is the one the draft channel serves it at.
-        // A reader who clicks it opens nothing, and that is the designed
-        // outcome rather than a gap.
-        //
-        // SCOPED EXPLICITLY. The builder's document stays at `/`, so a
-        // root-absolute path pasted into a bubble would arrive naming no
-        // business and resolve against the first admissible one — which for an
-        // operator holding two is the crossing `scope.ts` exists to prevent.
-        // Naming the business is what keeps a replayed transcript correct.
-        (site: string, handle: string) =>
-          /^[a-z][a-z0-9+.-]*:|^\/\//i.test(handle)
-            ? handle
-            : businessPath(
-                scope.businessId,
-                `/preview/${encodeURIComponent(site)}/draft/${handle.replace(/^\/+/, '')}`,
-              ),
         // THE CLIENT'S CATALOGUE ([[REQ-228]]). Assembled here, like every wire
         // above it, because what it needs is request-scoped and both halves are
         // already open at this point: this business's ticket store, which is
@@ -883,8 +865,14 @@ function chatHost(
         // this host is composed from — the catalogue and the client's Library
         // must not put different bytes on the site for the same material.
         (site: string) =>
-          chatLibrary(tickets, store, site, renderer ?? undefined, () =>
-            deps.index ? deps.index(env, scope) : defaultIndexer(env, scope),
+          chatLibrary(
+            tickets,
+            store,
+            site,
+            renderer ?? undefined,
+            () => (deps.index ? deps.index(env, scope) : defaultIndexer(env, scope)),
+            // [[REQ-423]] — so a drawing comes back with the line that shows it.
+            materialUrl,
           ),
         // THE BUSINESS'S OWN RECORD, AND WHICH BUSINESS THIS IS ([[REQ-239]]).
         //

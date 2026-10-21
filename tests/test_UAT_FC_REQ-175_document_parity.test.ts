@@ -37,6 +37,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { cmdNew } from '../tools/generate/src/cli'
 import { createL1Toolbox, L1_DECLARATION, L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox'
+import { editAssetWrite } from '../tools/generate/src/cli/edit'
+import { fsOpts } from './support/site-factory'
 import { L1_DOCUMENT_KEYS } from '../packages/site-schema/src/index'
 import type { L1Node } from '@1stcontact/site-schema'
 import { L1_CORPUS_SITES } from './fixtures/l1-corpus/corpus'
@@ -357,10 +359,14 @@ describe('REQ-175 — a change that would break the page is refused, and says wh
     expect(refused).toContain('logo-they-never-sent.png')
 
     // The same picture, once the site actually holds it.
-    await box.run('write_image', {
-      name: 'logo-they-never-sent',
-      svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>',
-    })
+    // ([[REQ-423]]: written as the command line writes a drawing — the
+    // assistant's own drawings now arrive by placement from the Library.)
+    await editAssetWrite(
+      SLUG,
+      'logo-they-never-sent',
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>',
+      fsOpts(cwd),
+    )
     const drawn = {
       ...root,
       children: [

@@ -531,7 +531,7 @@ export function generatedMaterialStore(
  * name every way of looking at a picture takes.
  *
  * ONE COMPOSER FOR BOTH HALVES. The markdown is {@link displayLine}, the same
- * function `write_image` uses, because a picture in the conversation is one
+ * function `draw_image` uses ([[REQ-423]]), because a picture in the conversation is one
  * contract with one reader: the chat pane recovers what a picture IS by reading
  * the address back off the `<img>`, and two spellings of that address is how the
  * two come apart.

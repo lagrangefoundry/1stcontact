@@ -233,8 +233,10 @@ describe('story-6cd17452 — the count is the whole mechanism', () => {
     // And the declaration SAYS so on every answer shape a write can produce, so
     // the model is told the field is there rather than having to notice it. A
     // returned field the manual never mentions is a field the model will not use.
+    // ([[REQ-423]]: the `image` shape went with `write_image`; the CLI's drawing
+    // write above answers as an `asset`.)
     const declaredShapes = L1_DECLARATION.shapes as Record<string, Record<string, string>>
-    for (const shape of ['change', 'palette_change', 'image', 'asset', 'publish_result']) {
+    for (const shape of ['change', 'palette_change', 'asset', 'publish_result']) {
       expect(declaredShapes[shape], shape).toHaveProperty('now')
       expect(declaredShapes[shape].now, shape).toMatch(/change count/i)
     }

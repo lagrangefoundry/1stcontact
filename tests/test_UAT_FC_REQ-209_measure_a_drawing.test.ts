@@ -27,6 +27,7 @@ import {
 } from '../packages/site-schema/src/anchors'
 import type { RawMeasurement } from '../tools/generate/src/cli/capture/measure-svg'
 import { l1Operations } from '../tools/generate/src/cli/ai/toolbox-core'
+import { editAssetWrite } from '../tools/generate/src/cli/edit'
 import { makeMemorySite } from './support/site-factory'
 import type { SiteFixture } from './support/site-factory'
 
@@ -234,11 +235,15 @@ describe('REQ-209 measuring, relating and solving through the surface', () => {
     site = undefined
   })
 
-  /** The surface, over a real store, with a drawing already in it. */
+  /**
+   * The surface, over a real store, with a drawing already ON THE SITE — written
+   * the way the command line's `asset write` writes one ([[REQ-423]]: the
+   * assistant's own drawings now start in the Library and arrive by placement).
+   */
   async function surface(measurer: ((svg: string) => Promise<RawMeasurement>) | null) {
     site = makeMemorySite()
     const ops = l1Operations(site.slug, site.opts, {}, measurer)
-    await ops.write_image({ name: 'wordmark', svg: A_DRAWING })
+    await editAssetWrite(site.slug, 'wordmark', A_DRAWING, site.opts)
     return ops
   }
 
@@ -265,10 +270,12 @@ describe('REQ-209 measuring, relating and solving through the surface', () => {
   it('test_UAT_FC_REQ_209_a_recorded_relation_is_reported_with_what_it_is_worth_now', async () => {
     site = makeMemorySite()
     const ops = l1Operations(site.slug, site.opts, {}, fakeMeasurer().measure)
-    await ops.write_image({
-      name: 'wordmark',
-      svg: A_DRAWING.replace('<text', '<!-- #ord.cap-top = #one.cap-top --><text'),
-    })
+    await editAssetWrite(
+      site.slug,
+      'wordmark',
+      A_DRAWING.replace('<text', '<!-- #ord.cap-top = #one.cap-top --><text'),
+      site.opts,
+    )
     const out = (await ops.measure_drawing({ drawing: 'wordmark' })) as Record<string, unknown>
     const recorded = out.recorded as Record<string, unknown>[]
     expect(recorded).toHaveLength(1)
@@ -393,94 +400,6 @@ describe('REQ-209 measuring, relating and solving through the surface', () => {
   })
 })
 
-describe('REQ-209 asserting on the write', () => {
-  let site: SiteFixture | undefined
-
-  afterEach(() => {
-    site?.dispose()
-    site = undefined
-  })
-
-  it('test_UAT_FC_REQ_209_an_assertion_reports_and_still_writes', async () => {
-    site = makeMemorySite()
-    const measurer = fakeMeasurer()
-    const ops = l1Operations(site.slug, site.opts, {}, measurer.measure)
-    const out = (await ops.write_image({
-      name: 'wordmark',
-      svg: A_DRAWING,
-      assert: ['#ord.cap-top = #one.cap-top', '#ord.ink-left = #one.ink-right + 2'],
-    })) as Record<string, unknown>
-
-    // Written, whatever the assertions said. Advisory, never gating.
-    expect(await site.store.listAssets(site.slug)).toContain('wordmark.svg')
-    const asserted = out.asserted as Record<string, unknown>[]
-    expect(asserted).toHaveLength(2)
-    expect(asserted[0].holds).toBe(false)
-    expect(asserted[0].delta).toBeCloseTo(3.6, 3)
-    expect(asserted[1].holds).toBe(false)
-    expect(asserted[1].delta).toBeCloseTo(-7.1, 3)
-  })
-
-  it('test_UAT_FC_REQ_209_an_assertion_that_holds_reports_zero', async () => {
-    site = makeMemorySite()
-    const ops = l1Operations(
-      site.slug,
-      site.opts,
-      {},
-      fakeMeasurer(withOrdMovedBy(3.6)).measure,
-    )
-    const out = (await ops.write_image({
-      name: 'wordmark',
-      svg: A_DRAWING,
-      assert: ['#ord.cap-top = #one.cap-top'],
-    })) as Record<string, unknown>
-    const asserted = out.asserted as Record<string, unknown>[]
-    expect(asserted[0].holds).toBe(true)
-    expect(asserted[0].delta).toBeCloseTo(0, 6)
-  })
-
-  it('test_UAT_FC_REQ_209_a_relation_that_cannot_be_read_is_said_not_dropped', async () => {
-    site = makeMemorySite()
-    const ops = l1Operations(site.slug, site.opts, {}, fakeMeasurer().measure)
-    const out = (await ops.write_image({
-      name: 'wordmark',
-      svg: A_DRAWING,
-      assert: ['make it line up', '#gone.top = #one.top'],
-    })) as Record<string, unknown>
-    const asserted = out.asserted as Record<string, unknown>[]
-    // An absent assertion reads exactly like one that passed, so neither is
-    // allowed to disappear.
-    expect(asserted).toHaveLength(2)
-    expect(asserted[0].why).toMatch(/not a relation/)
-    expect(asserted[0].holds).toBeUndefined()
-    expect(asserted[1].why).toMatch(/no node called '#gone'/)
-  })
-
-  it('test_UAT_FC_REQ_209_a_write_with_no_assertion_renders_nothing', async () => {
-    site = makeMemorySite()
-    const measurer = fakeMeasurer()
-    const ops = l1Operations(site.slug, site.opts, {}, measurer.measure)
-    const out = (await ops.write_image({ name: 'wordmark', svg: A_DRAWING })) as Record<
-      string,
-      unknown
-    >
-    // The whole reason `assert` is opt-in: an ordinary write still costs no
-    // browser at all.
-    expect(measurer.calls).toHaveLength(0)
-    expect(out).not.toHaveProperty('asserted')
-    expect(out).toHaveProperty('asset')
-  })
-
-  it('test_UAT_FC_REQ_209_an_assertion_with_no_browser_says_it_checked_nothing', async () => {
-    site = makeMemorySite()
-    const ops = l1Operations(site.slug, site.opts, {}, null)
-    const out = (await ops.write_image({
-      name: 'wordmark',
-      svg: A_DRAWING,
-      assert: ['#ord.cap-top = #one.cap-top'],
-    })) as Record<string, unknown>
-    expect(await site.store.listAssets(site.slug)).toContain('wordmark.svg')
-    const asserted = out.asserted as Record<string, unknown>[]
-    expect(asserted[0].why).toMatch(/no browser/)
-  })
-})
+// [[REQ-423]] SUPERSEDES REQ-209's `assert` on `write_image`: the operation is
+// gone with drawing's move to the Library. A drawing on the site is still
+// measured, related and solved above.

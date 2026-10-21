@@ -31,6 +31,7 @@
  */
 
 import type { CatalogueItem, LibraryDeps, PlacedItem } from '../../../tools/generate/src/cli/ai/library-core'
+import { displayLine } from '../../../tools/generate/src/cli/ai/toolbox-core'
 import { LibraryRefusedError } from '../../../tools/generate/src/cli/ai/library-core'
 import type { ImageRenderer } from '../../../tools/generate/src/cli/image-recipe'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
@@ -50,7 +51,18 @@ import {
   NotRepublishableError,
   type MaterialRow,
 } from './material'
+import { generatedMaterialStore, IMAGE_MATERIAL_TYPE } from './imagegen'
 import type { TicketStore } from './tickets'
+
+/**
+ * What a drawing's record says made it ([[REQ-423]]) — its `description_model`.
+ * For a generated picture that field names the generator; for a drawing the
+ * maker is the consultant, by hand, and the description is the one it wrote.
+ */
+export const DRAWN_BY = 'consultant/svg'
+
+/** How many characters of a drawing's description become its Library title. */
+const DRAWING_TITLE_CHARS = 120
 
 /**
  * One Library row as a catalogue item.
@@ -133,6 +145,12 @@ export function chatLibrary(
    * `archiveMaterial`, so a file the consultant deletes stops answering searches too.
    */
   index?: () => Promise<IndexMaterial | null>,
+  /**
+   * Where a Library item's file can be seen ([[REQ-423]]) — the same address a
+   * generated picture's display line points at — or absent where nothing can
+   * show one, in which case a drawing comes back with no display line.
+   */
+  materialUrl?: (uid: string) => string,
 ): LibraryDeps {
   return {
     slug,
@@ -203,6 +221,34 @@ export function chatLibrary(
     /** [[BUG-196]] — `archiveMaterial`, exactly as the client's Delete button reaches it. */
     async remove(name: string): Promise<void> {
       await archiveMaterial(tickets, name, index ? await index() : null)
+    },
+
+    /**
+     * [[REQ-423]] — A DRAWING IS STORED THE WAY A GENERATED PICTURE IS, through
+     * the same handle: {@link generatedMaterialStore} writes this product's
+     * whole vocabulary at `create` (kind, origin, rights, `role: site`, the
+     * label) and `content_type`/`filename` at `attach`, then indexes. A second
+     * write path would be a second idea of what a picture the assistant made
+     * looks like in the Library.
+     */
+    async draw(name: string, svg: string, description: string) {
+      const store = generatedMaterialStore(tickets, () => DRAWN_BY, index ? await index() : null)
+      const filename = `${name}.svg`
+      const { ticket } = await store.create({
+        type: IMAGE_MATERIAL_TYPE,
+        title: description.slice(0, DRAWING_TITLE_CHARS),
+        body: description,
+      })
+      await store.attach({
+        uid: ticket.uid,
+        bytes: new TextEncoder().encode(svg),
+        filename,
+        content_type: 'image/svg+xml',
+      })
+      return {
+        item: catalogueItem(await readMaterial(tickets, ticket.uid)),
+        display: materialUrl ? displayLine(filename, materialUrl(ticket.uid)) : null,
+      }
     },
 
     async place(name: string, as: string | null): Promise<PlacedItem> {

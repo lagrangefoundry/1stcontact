@@ -1,7 +1,7 @@
 {
   "surface": "library",
   "version": 1,
-  "surface_version": 5,
+  "surface_version": 6,
   "title": "The client's Library — everything they have given you",
   "call_type": "inproc",
   "overview": "Your client has a Library, and this is it. Every file they have dropped on a conversation is here — their logo, their photographs, their brand guidelines, the font their signwriter used — along with every picture you have generated for them. It is the same list they see on their own Library tab, and it is the catalogue of what this engagement has to work with.\n\n**Being on the site is a field on a catalogue item, not a different place to look.** An item that is on the site says so, in `placed_on`. An item that is not is still theirs, still described, still here — it simply has not been placed yet. Do not think of these as two stores; think of one catalogue with a mark on some of its entries.\n\n**This is not the same list as `list_assets`, and the difference is real.** `list_assets` answers *what can this site reference today* — every file the site holds, including drawings you made yourself. This answers *what has the client given us*. The two overlap exactly where `placed_on` says they do. When you want to put a picture on a page that is already on the site, `list_assets` is your list; when you want to know what the client actually has, this one is.\n\n**Say the number, not the name you call it by.** Every item here has a number your client can see on their own Library row — `IMAGE-5`, `DOC-7`. It is the only name the two of you share: the catalogue name is a handle nobody says out loud, and a title is not unique — three pictures made from one request arrive titled the same, which is the whole reason the number exists. So say *\"the crucible, IMAGE-5\"* when you talk to your client about a picture, and expect them to say it back to you. This is not internal vocabulary and it is not a thing to hide from them: it is a catalogue number, the way a gallery or a print shop gives one, and it is theirs as much as yours.\n\n**Look before you ask.** You can see every picture in here — `screenshot` takes the name this catalogue gives you, unchanged. A client who has given you three photographs and been asked which one is best, by someone who never looked at them, has been given nothing. Read the catalogue, look at the pictures, form a view, and say it.",
@@ -9,6 +9,10 @@
     "item_name": {
       "base": "string",
       "description": "What the item is called. Its catalogue name, its Library number (IMAGE-5, DOC-7), the client's own filename, or the title the Library shows — whichever you are holding. A name that fits two items is refused rather than guessed at, and the refusal tells you both."
+    },
+    "drawing_name": {
+      "base": "string",
+      "description": "A name for a drawing: one word, lowercase letters, digits and hyphens — e.g. `wordmark`. It becomes the file's name (`wordmark.svg`) and the item's title; it is not a path."
     }
   },
   "shapes": {
@@ -58,6 +62,14 @@
       "deleted": "true: it is gone from the Library",
       "still_on_site": "the sites that still show it. Deleting never takes a picture off a page, because the page holds its own copy",
       "note": "what happened, in one sentence to pass on to your client"
+    },
+    "drawing": {
+      "item": "the new Library item's catalogue name — what screenshot takes, and what placing it on the site takes",
+      "label": "its number in your client's Library, IMAGE-n — the name you and your client both say",
+      "title": "what the Library calls it",
+      "filename": "the file's name, which it keeps when it is placed on the site unless you ask for another",
+      "placed_on": "the sites it is on — empty: drawing does not place it",
+      "display": "a line of your own reply that shows this drawing to the person you are talking to — paste it into your answer EXACTLY as written. Absent when this deployment has nowhere to show a picture, in which case say what you drew in words instead."
     }
   },
   "errors": {
@@ -77,7 +89,7 @@
       "message": "there is no site store behind this conversation, so there is nowhere to put a file."
     },
     "SCHEMA_INVALID": {
-      "message": "the call was not well-formed. Nothing was placed and the catalogue is exactly as it was."
+      "message": "the call was not well-formed. Nothing was placed or stored, and the catalogue is exactly as it was. The refusal says what was wrong."
     },
     "NOT_AN_UPLOAD": {
       "message": "only a file your client uploaded themselves can be moved between 'site' and 'reference'. What anything else is for was worked out from where it came from, and it is not something to change."
@@ -183,6 +195,35 @@
       ]
     },
     {
+      "op": "draw_image",
+      "tool": "draw_image",
+      "effect": "write",
+      "summary": "Draw an image yourself — a mark, an icon, a divider — and keep it in the client's Library.",
+      "description": "For a drawing you compose rather than a picture someone took. It is written as SVG and stored as a new item in your client's Library, with its own number (IMAGE-n) and the description you give it — exactly like a picture you generated. It is NOT on the site yet: placing it there is a separate step, the same one every Library picture takes, and it is also how a builder gets it — place it, then brief the builder with the `src` handle that placing hands back.\n\n**Draw only what drawing is good for.** A logo starts as a WORDMARK: the business name well set — typeface, weight, spacing, maybe one simple rule or mark — which the page's own typography does better than any drawing and keeps crisp and editable. An ILLUSTRATED mark comes from image generation, iterated with your client, not from paths you plot by hand. Draw by hand for simple geometric marks, icons and dividers.\n\n**Look before you use it.** After drawing, `screenshot` it by the `item` that comes back — that is you looking at it, not reading about it. Once it is placed, look at the page where it sits, at its real size, before you call it done or brief anything around it.\n\n**It is drawing only, and the rules are checked rather than trusted.** Shapes, paths, gradients, text and grouping. No script, no event handler, no stylesheet, no reference to anything outside the drawing itself, and nothing that loads or embeds another document. Any of those and the whole drawing is refused, nothing is stored, and the refusal says which one. This is not a formality: once placed, the drawing is served from the site's own address, so anything executable in it would run as the site.\n\n**Never draw a stand-in for a file the client gave you.** If they sent a logo, a photograph or a mark and you cannot find it or cannot use it, SAY SO and ask them to drop it on the conversation — do not compose something similar. A drawing offered in place of their own file is a different thing wearing its name.\n\n**Show them what you drew.** The result carries a `display` line — paste it into your reply, word for word, where the picture belongs in what you are saying. Where it is absent there is nowhere to show it, and saying what you drew is all you can do.\n\n**Say what it shows on the element that places it.** The `description` you give is kept with the Library item; the picture element that puts the drawing on a page has its own field for what someone who cannot see it needs told, and that is where it goes.\n\n**A run of styled text is ONE `<text>` with `<tspan>` children — never several `<text>` elements placed by hand.** The browser advances the pen from one run to the next; positioning runs separately means guessing at gaps that are wrong on every machine but one. **Name a real font** — `system-ui`, `-apple-system` and a bare `sans-serif` resolve to different faces per platform. **Give a node an `id`** when you mean to position it precisely: once the drawing is on the site, `measure_drawing`, `relate` and `solve` address it that way.\n\n**A redraw is a new item.** Drawing again makes another IMAGE-n; place the one you settle on. This is not a way to make a photograph.",
+      "params": {
+        "name": {
+          "type": "drawing_name",
+          "required": true
+        },
+        "svg": {
+          "type": "string",
+          "required": true,
+          "description": "The drawing itself, as a complete `<svg>` document."
+        },
+        "description": {
+          "type": "string",
+          "required": true,
+          "description": "What the drawing shows, in the words someone would search the Library by — and what the alt text on the page will be written from."
+        }
+      },
+      "returns": {
+        "shape": "drawing"
+      },
+      "errors": [
+        "SCHEMA_INVALID"
+      ]
+    },
+    {
       "op": "set_upload_role",
       "tool": "set_upload_role",
       "effect": "write",
@@ -259,6 +300,15 @@
       ]
     },
     {
+      "group": "DrawImages",
+      "effect": "write",
+      "title": "Drawing images",
+      "description": "Composing an image yourself and keeping it in the client's Library. Its own capability: every other picture in the Library was chosen by a person or generated from a prompt they saw, and this is the one composed by hand. It is the consultant's — a builder places what the consultant drew and never draws.",
+      "operations": [
+        "draw_image"
+      ]
+    },
+    {
       "group": "KeepLibrary",
       "effect": "write",
       "title": "Keeping the client's Library, on their say-so",
@@ -278,6 +328,14 @@
         "place_on_site"
       ],
       "note": "Look at the candidates before you choose — screenshot takes the catalogue name unchanged, so a name from the listing needs no translating. Read the one you chose for its description, place it, and write the src handle you get back into a picture element, with alt text you wrote yourself from that description."
+    },
+    {
+      "name": "Draw a mark and use it",
+      "steps": [
+        "draw_image",
+        "place_on_site"
+      ],
+      "note": "Draw, then look at it with screenshot before anything else. Place the one you settle on, and put the src handle you get back into a picture element — or brief a builder with it. Look at the page it sits on once it is there."
     }
   ],
   "absences": [
@@ -292,6 +350,10 @@
     {
       "name": "Putting a picture in front of anybody",
       "note": "Placing is not page editing. It puts the bytes on the site and hands you the handle; the picture appears to a visitor only once you write that handle into an element on a page."
+    },
+    {
+      "name": "Showing a picture any way but pasting the line",
+      "note": "You cannot put a picture in front of your user directly — nothing you return is shown to them. What they read is your own reply and nothing else, so a picture reaches them only by the `display` line travelling into it unchanged. A turn that made a drawing and did not paste its line is a turn that left the picture where only you can see it, and the client is left to go and find it for themselves. When a result carries one, use it."
     }
   ]
 }

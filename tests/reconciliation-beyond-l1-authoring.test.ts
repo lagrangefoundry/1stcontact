@@ -20,6 +20,7 @@ import {
   L1_DECLARATION,
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox'
+import { LIBRARY_DECLARATION, libraryInstanceConfig } from '../tools/generate/src/cli/ai/library-core'
 // By path rather than by package name: the workspace links live under each
 // package, and a suite at the repo root resolves neither — as every other test
 // at this level reaches source.
@@ -746,12 +747,14 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   afterEach(() => rmSync(cwd, { recursive: true, force: true }))
 
   it('test_UAT_AC1104_a_drawing_becomes_an_ordinary_site_image_and_ships_unaltered', async () => {
+    // [[REQ-423]] — the assistant's drawing now lands in the client's Library and
+    // reaches the site by placement; the SITE half of this story — a drawing as an
+    // ordinary site image — is the command line's `asset write`, proven here.
     const box = await consultant()
 
-    const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
-      name: 'wordmark',
-      svg: MARK,
-    })
+    const drawn = await cli(cwd, 'asset', 'write', SLUG, 'wordmark', '--content', MARK)
+    expect(drawn.ok).toBe(true)
+    const written = drawn.data as { asset: { id: string; src: string } }
     expect(written.asset.id).toBe('wordmark.svg')
     // The handle handed back is the one an L1 image node takes, so the caller
     // uses the answer directly rather than composing a path.
@@ -786,17 +789,17 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   }, 120000)
 
   it('test_UAT_AC1105_a_drawing_carrying_anything_executable_is_refused_whole', async () => {
-    const box = await consultant()
     const assetsDir = path.join(draftDir(), 'assets')
     const before = readFileSync(sitePath(), 'utf8')
 
     for (const [what, hostile] of HOSTILE) {
-      const answer = await box.run('write_image', { name: 'attack', svg: hostile })
-      expect(answer, what).toContain('SCHEMA_INVALID')
+      const answer = await cli(cwd, 'asset', 'write', SLUG, 'attack', '--content', hostile)
+      expect(answer.ok, what).toBe(false)
+      expect(answer.error!.code, what).toBe('SCHEMA_INVALID')
       // The refusal identifies the rule that was broken rather than saying only
       // "invalid" — and it is never a rewrite: nothing is stripped to make the
       // drawing acceptable.
-      expect(answer, what).toMatch(/refused/i)
+      expect(answer.error!.message, what).toMatch(/refused/i)
     }
 
     // Refusal is WHOLE: no file created, no registry change, byte-identical.
@@ -832,13 +835,10 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
   })
 
   it('test_UAT_AC1107_the_filename_is_generated_and_an_existing_name_is_a_conflict', async () => {
-    const box = await consultant()
-
     // There is no path to traverse because no path is accepted — a name is one
     // plain lowercase word of letters, digits and hyphens.
     const BAD_NAMES = ['../../etc/passwd', 'a/b', 'mark.png', '.hidden', 'Mark Two']
     for (const name of BAD_NAMES) {
-      expect(await box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
       // The refusal shows an ACCEPTABLE name rather than restating the rule —
       // read at the command line, where a refusal's own text survives.
       const fromCli = await cli(cwd, 'asset', 'write', SLUG, name, '--content', MARK)
@@ -851,53 +851,46 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
     expect(existsSync(assetsDir) ? readdirSync(assetsDir) : []).toEqual([])
 
     // The stored filename is derived from the plain name under the one format.
-    const written = await json<{ asset: { id: string } }>(box, 'write_image', {
-      name: 'wordmark',
-      svg: MARK,
-    })
-    expect(written.asset.id).toBe('wordmark.svg')
+    const written = await cli(cwd, 'asset', 'write', SLUG, 'wordmark', '--content', MARK)
+    expect((written.data!.asset as { id: string }).id).toBe('wordmark.svg')
 
     // A name already in use is a conflict, never a silent overwrite.
-    expect(await box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
+    const again = await cli(cwd, 'asset', 'write', SLUG, 'wordmark', '--content', MARK)
+    expect(again.error!.code).toBe('CONFLICT')
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
 
     // Replacing is a deliberate act, and then the stored bytes are the new ones.
     expect(
-      await box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true }),
-    ).not.toContain('CONFLICT')
+      (await cli(cwd, 'asset', 'write', SLUG, 'wordmark', '--content', REDRAWN, '--force')).ok,
+    ).toBe(true)
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(REDRAWN)
   })
 
   it('test_UAT_AC1108_drawing_is_its_own_grantable_capability_apart_from_managing_supplied_files', async () => {
-    const groups = L1_DECLARATION.groups as { group: string; operations: string[] }[]
-
-    // Declared in DIFFERENT groups: every other image in a site was chosen by a
-    // person, and this is the one that was not.
-    const drawing = groups.find((g) => g.operations.includes('write_image'))
-    const supplied = groups.find((g) => g.operations.includes('add_asset'))
+    // [[REQ-423]] — drawing moved to the client's Library: its own group there,
+    // apart from placing and from keeping what the client supplied.
+    const groups = LIBRARY_DECLARATION.groups as { group: string; operations: string[] }[]
+    const drawing = groups.find((g) => g.operations.includes('draw_image'))
+    const placing = groups.find((g) => g.operations.includes('place_on_site'))
+    const keeping = groups.find((g) => g.operations.includes('delete_library_item'))
     expect(drawing).toBeDefined()
-    expect(supplied).toBeDefined()
-    expect(drawing!.group).not.toBe(supplied!.group)
-    expect(supplied!.operations).toEqual(expect.arrayContaining(['add_asset', 'remove_asset']))
-    expect(drawing!.operations).not.toContain('add_asset')
-    expect(drawing!.operations).not.toContain('remove_asset')
+    expect(drawing!.group).not.toBe(placing!.group)
+    expect(drawing!.group).not.toBe(keeping!.group)
+    expect(drawing!.operations).toEqual(['draw_image'])
+    // The consultant's travelling grant holds it.
+    expect((libraryInstanceConfig().library as { groups: string[] }).groups).toContain(drawing!.group)
 
-    // The grant is what makes the separation real: the assistant holds the
-    // drawing group and not the supplied-file one.
-    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
-    expect(granted).toContain(drawing!.group)
-    expect(granted).not.toContain(supplied!.group)
-
-    // ...and that is what the assistant is actually offered: drawing is present
-    // and performs a write; managing supplied files is absent from the set.
+    // The site surface no longer draws at all, and the assistant still holds no
+    // way to manage supplied files there.
+    const l1Groups = L1_DECLARATION.groups as { group: string; operations: string[] }[]
+    expect(l1Groups.flatMap((g) => g.operations)).not.toContain('write_image')
     const box = await consultant()
     const tools = box.toolNames()
-    expect(tools).toContain('write_image')
+    expect(tools).not.toContain('write_image')
     expect(tools).not.toContain('add_asset')
     expect(tools).not.toContain('remove_asset')
-
-    await box.run('write_image', { name: 'wordmark', svg: MARK })
-    expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
+    const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
+    expect(granted).not.toContain('DrawImages')
   })
 })
 
@@ -1084,8 +1077,12 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       config: FORM_CONFIG,
     })
     await box.run('remove_component', { page: 'home', name: 'spare' })
-    await box.run('write_image', { name: 'wordmark', svg: MARK })
-    await box.run('write_image', { name: 'wordmark', svg: REDRAWN, replace: true })
+    // [[REQ-423]] — the surface draws into the Library, not the site; the site
+    // drawing is the command line's, so the surface side writes it the same way.
+    expect((await cli(viaSurface, 'asset', 'write', SLUG, 'wordmark', '--content', MARK)).ok).toBe(true)
+    expect(
+      (await cli(viaSurface, 'asset', 'write', SLUG, 'wordmark', '--content', REDRAWN, '--force')).ok,
+    ).toBe(true)
     await box.run('add_page', {
       page: 'about',
       title: 'About',

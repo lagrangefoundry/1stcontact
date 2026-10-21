@@ -935,34 +935,11 @@ export interface HostDeps {
   extraOps?: Partial<L1Operations>
 
   /**
-   * Where this host serves one of a site's own assets to the person being talked
-   * to, or `null` where it has no surface that could show a picture ([[REQ-217]]).
-   *
-   * A FACTORY OVER THE SLUG, exactly like `fidelity`, `pictures` and `ledger`
-   * above and for the same reason: a site asset is named within one site, and
-   * which site that is falls out of the session rather than out of the call.
-   *
-   * NULL IS ORDINARY AND IS THE DEFAULT. The `1c` CLI's conversation is a
-   * terminal: there is nowhere to put a picture and no origin to address it
-   * from, so a drawing is written and described in words, exactly as it was
-   * before this existed. The Worker supplies one, scoped to the business whose
-   * conversation this is — an unscoped path would be resolved against whichever
-   * business happens to be admissible first, which is the crossing `scope.ts`
-   * exists to prevent.
-   *
-   * IT ANSWERS WITH AN ADDRESS AND NOT A LINE. What that address is worth saying
-   * in — markdown, in this product's case — is the surface's business, and the
-   * surface prose that tells the model to paste the line is written beside the
-   * code that composes it.
-   */
-  assetUrl?: ((slug: string, handle: string) => string) | null
-
-  /**
    * Every public address one of this deployment's sites can be reached at, or
    * `null` where it cannot answer ([[REQ-238]]).
    *
-   * A FACTORY OVER THE SLUG, like `fidelity`, `pictures`, `ledger` and
-   * `assetUrl` above it, and for the same reason: an address names a site, and
+   * A FACTORY OVER THE SLUG, like `fidelity`, `pictures` and `ledger`
+   * above it, and for the same reason: an address names a site, and
    * which site that is falls out of the session rather than out of the call.
    *
    * NULL IS ORDINARY AND IS THE DEFAULT — the `1c` CLI's permanent state. It
@@ -1015,7 +992,7 @@ export interface HostDeps {
    * this deployment keeps no meter.
    *
    * NOT A FACTORY OVER THE SLUG, unlike `fidelity`, `pictures`, `ledger`,
-   * `library`, `assetUrl` and `addresses` above it, and the asymmetry is the
+   * `library` and `addresses` above it, and the asymmetry is the
    * point: a turn's cost is a fact about the TENANT and the conversation, not
    * about a site — the settings conversation has no site at all and spends money
    * exactly like a site one does. So it is bound to the tenant by whoever builds
@@ -1036,7 +1013,7 @@ export interface HostDeps {
    * where this host has no per-business answer to read.
    *
    * NOT A FACTORY OVER THE SLUG, unlike `fidelity`, `pictures`, `ledger`,
-   * `library`, `assetUrl` and `addresses`, and the asymmetry is the same one
+   * `library` and `addresses`, and the asymmetry is the same one
    * `recordTurnSpend` has: whether the consultant commissions construction is a
    * fact about the BUSINESS, not about a site. A business's two sites do not get
    * two different networks, and a factory over the slug would be an argument
@@ -2068,7 +2045,6 @@ async function build(
           pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
           // [[REQ-415]] — what a browser finds wrong with a page, on its map.
           layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
-          assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
           addresses: deps.addresses ? () => deps.addresses!(slug) : null,
           extraSurfaces: [
             ...(fidelity ? [{ surface: await fidelitySurfaceFor(lib, fidelity) }] : []),
@@ -2343,12 +2319,8 @@ async function build(
       pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
       // [[REQ-415]] — what a browser finds wrong with a page, on its map.
       layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
-      // WHERE A DRAWING CAN BE SEEN ([[REQ-217]]), or absent where it cannot be.
-      // Bound to this session's site here, so no operation takes a slug and no
-      // line can address a site the conversation is not about.
-      assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
       // [[REQ-238]] — WHETHER THIS SITE HAS A PUBLIC ADDRESS, bound to this
-      // session's site here for the same reason `assetUrl` is: the publish
+      // session's site here, so the publish
       // operation then takes no site, and cannot ask about one the conversation
       // is not about.
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
@@ -2887,7 +2859,6 @@ async function composeCoordinator(
       pageMeasurer: fidelity ? browserPageMeasurer(fidelity) : null,
       // [[REQ-415]] — what a browser finds wrong with a page, on its map.
       layoutChecker: fidelity ? browserLayoutChecker(fidelity) : null,
-      assetUrl: deps.assetUrl ? (handle: string) => deps.assetUrl!(slug, handle) : null,
       addresses: deps.addresses ? () => deps.addresses!(slug) : null,
       extraSurfaces: [
         ...(deps.coordinatorSurfaces ?? []),

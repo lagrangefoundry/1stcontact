@@ -9,8 +9,7 @@
         "WriteConfig",
         "ManagePalette",
         "ManageTextStyles",
-        "MeasureDrawings",
-        "DrawImages"
+        "MeasureDrawings"
       ]
     },
     "fidelity": {
@@ -34,8 +33,7 @@
         "WriteConfig",
         "ManagePalette",
         "ManageTextStyles",
-        "MeasureDrawings",
-        "DrawImages"
+        "MeasureDrawings"
       ]
     },
     "fidelity": {

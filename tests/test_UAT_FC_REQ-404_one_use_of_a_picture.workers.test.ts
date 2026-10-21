@@ -10,7 +10,7 @@ import type { Scope } from '../apps/control-app/src/scope'
 import { storeFor } from '../apps/control-app/src/store'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
-import { configureDelegation, delegationDocument } from '../tools/generate/src/cli/ai/delegation'
+import { configureDelegation } from '../tools/generate/src/cli/ai/delegation'
 import { applySchema, ensureTenant, makeD1Site } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -27,8 +27,9 @@ import { calls, says, scriptedClient } from './support/scripted-model-client'
  *  2. A CHANGE WRITES THAT USE'S OWN RECIPE. `POST /api/site/picture/recipe`
  *     re-renders that file alone; the Library item's recipe and every other copy
  *     — including a second use on the same page — are unchanged.
- *  3. `write_image` PRODUCES A LIBRARY ITEM, with the placement recorded — and so
- *     does every other road onto a site, because the door is the store's.
+ *  3. A DRAWING IS A LIBRARY ITEM, and placing it records the placement
+ *     ([[REQ-423]]: `draw_image` draws into the Library) — and every other road
+ *     onto a site is catalogued too, because the door is the store's.
  *  4. THE BACKFILL CATALOGUES AN ORPHAN AND CHANGES NOTHING ON THE SITE.
  *  5. AN ORPHAN IS A LOUD FAULT, named, not a silent "not editable".
  *
@@ -226,15 +227,20 @@ describe('REQ-404 — the photo editor over one use of a picture', () => {
 })
 
 describe('REQ-404 — every picture on a site has a Library item', () => {
-  it('test_UAT_FC_REQ-404_write_image_produces_a_library_item_with_the_placement_recorded', async () => {
+  it('test_UAT_FC_REQ-404_a_drawing_is_a_library_item_and_placing_it_records_the_placement', async () => {
     const tenant = 'req404-draw'
     const site = await makeD1Site({ tenantId: tenant, slug: 'req404d' })
-    configureDelegation({ ...delegationDocument, primary_writes: true })
-    resetAiHost()
-    resetChatHost()
     const opened = await call(tenant, '/api/ai/session', { payload: { site: site.slug } })
     expect(opened.status).toBe(200)
-    setModelClient(scriptedClient([calls('write_image', { name: 'wordmark', svg: MARK }), says('Done.')]))
+    // [[REQ-423]] — drawn into the Library, then placed by its filename (an alias
+    // the catalogue resolves), under the shipped configuration.
+    setModelClient(
+      scriptedClient([
+        calls('draw_image', { name: 'wordmark', svg: MARK, description: 'A navy square mark.' }),
+        calls('place_on_site', { item: 'wordmark.svg' }),
+        says('Done.'),
+      ]),
+    )
     const streamed = await route(
       new Request(`${ORIGIN}/api/ai/prompt`, {
         method: 'POST',

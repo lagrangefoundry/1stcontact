@@ -447,67 +447,11 @@ const HOSTILE: Array<[string, string]> = [
   ['no svg root at all', '<html><body>hi</body></html>'],
 ]
 
+// [[REQ-423]] — the assistant's drawing moved to the client's Library
+// (`draw_image`); writing a drawing onto the site is the command line's
+// `asset write`, whose envelope and naming AC1104–AC1107 prove. What stays here
+// is the grammar itself, which both share.
 describe('REQ-130 — the generated image is closed by content, not by extension', () => {
-  beforeEach(() => fresh('req130-image-'))
-  afterEach(() => rmSync(cwd, { recursive: true, force: true }))
-
-  it('test_UAT_FC_REQ_130_a_drawing_is_written_and_referenced_from_a_page', async () => {
-    const box = await consultant()
-
-    const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
-      name: 'wordmark',
-      svg: MARK,
-    })
-    expect(written.asset.id).toBe('wordmark.svg')
-    // The handle it hands back is the one an L1 image node takes, so a caller
-    // can use the answer directly rather than composing a path.
-    expect(written.asset.src).toBe('/assets/wordmark.svg')
-    expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
-
-    // It is a first-class asset: the listing every picker reads reports it.
-    const listed = await json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
-    expect(listed.assets.find((a) => a.src === '/assets/wordmark.svg')?.kind).toBe('image')
-
-    // ...and it reaches the page through the ordinary L1 write path.
-    const root = (await json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' })).node
-    await box.run('set_l1', {
-      page: 'home',
-      path: '0',
-      node: {
-        ...root,
-        children: [{ kind: 'image', src: '/assets/wordmark.svg', alt: 'The XGD wireframe mark' }],
-      },
-    })
-    // Emitted document-relative, as every asset reference is: a published
-    // snapshot holds no absolute self-reference, which is what makes it
-    // content-addressable and relocatable (DOC-12 §7).
-    const { outDir } = await cmdRender(SLUG, { cwd })
-    expect(readFileSync(path.join(outDir, 'index.html'), 'utf8')).toMatch(
-      /<img[^>]+src="assets\/wordmark\.svg"/,
-    )
-    // ...and the bytes shipped with it, unaltered — the drawing is an asset, not
-    // a special case the renderer has to know about.
-    expect(readFileSync(path.join(outDir, 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
-  }, 120000)
-
-  it('test_UAT_FC_REQ_130_every_executable_svg_is_refused_and_no_byte_is_written', async () => {
-    const box = await consultant()
-    const assetsDir = path.join(draftDir(), 'assets')
-    const before = readFileSync(sitePath(), 'utf8')
-
-    // The ticket's fourth acceptance case, and the reason this capability was
-    // allowed to ship at all. Each of these is legal SVG that a browser honours,
-    // served same-origin from the site's own /assets/ — so the renderer's
-    // URL-scheme allowlist neither applies nor helps.
-    for (const [what, hostile] of HOSTILE) {
-      const answer = await box.run('write_image', { name: 'attack', svg: hostile })
-      expect(answer, what).toContain('SCHEMA_INVALID')
-    }
-
-    // A refusal is never a partial write, and never leaves a file behind.
-    expect(existsSync(assetsDir) ? readdirSync(assetsDir) : []).toEqual([])
-    expect(readFileSync(sitePath(), 'utf8')).toBe(before)
-  })
 
   it('test_UAT_FC_REQ_130_the_grammar_refuses_what_it_does_not_recognise', async () => {
     // The property that makes the allowlist worth having: there is no
@@ -560,25 +504,6 @@ describe('REQ-130 — the generated image is closed by content, not by extension
     ).toBe(true)
   })
 
-  it('test_UAT_FC_REQ_130_the_filename_is_generated_and_never_taken_from_the_caller', async () => {
-    const box = await consultant()
-
-    // Not a file-write primitive pointed at a directory: there is no path to
-    // traverse because there is no path, and the one extension is the one text
-    // format a model can actually produce.
-    for (const name of ['../../etc/passwd', 'a/b', 'mark.png', '.hidden', 'Mark Two']) {
-      expect(await box.run('write_image', { name, svg: MARK }), name).toContain('SCHEMA_INVALID')
-    }
-
-    // An existing name is a conflict rather than a silent overwrite; replacing
-    // one is a deliberate act.
-    await box.run('write_image', { name: 'wordmark', svg: MARK })
-    expect(await box.run('write_image', { name: 'wordmark', svg: MARK })).toContain('CONFLICT')
-
-    const redrawn = MARK.replace('#2e86a3', '#1d5f77')
-    await box.run('write_image', { name: 'wordmark', svg: redrawn, replace: true })
-    expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(redrawn)
-  })
 })
 
 // ── the surface stays in correspondence with itself ──────────────────────────
@@ -594,7 +519,6 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
       'add_component',
       'configure_component',
       'remove_component',
-      'write_image',
     ]) {
       expect(declared).toContain(op)
     }
@@ -612,15 +536,12 @@ describe('REQ-130 — declaration, implementation and grant agree', () => {
     const groups = (L1_DECLARATION.groups as { group: string }[]).map((g) => g.group)
     const granted = (L1_INSTANCES.consultant as { l1: { groups: string[] } }).l1.groups
     for (const group of granted) expect(groups).toContain(group)
-    expect(granted).toEqual(expect.arrayContaining(['ManageComponents', 'DrawImages']))
+    expect(granted).toEqual(expect.arrayContaining(['ManageComponents']))
 
     const box = await consultant()
-    expect(box.toolNames()).toEqual(
-      expect.arrayContaining(['add_component', 'write_image', 'list_behaviors']),
-    )
-    // Drawing is its own capability precisely so it can be withheld; the manual
-    // has to describe what it refuses, or the model learns by being refused.
-    expect(box.manual()).toMatch(/no script, no event handler/i)
+    expect(box.toolNames()).toEqual(expect.arrayContaining(['add_component', 'list_behaviors']))
+    // [[REQ-423]] — drawing is no longer on the site surface at all.
+    expect(declared).not.toContain('write_image')
   })
 
   it('test_UAT_FC_REQ_130_the_surface_states_what_it_still_cannot_do', async () => {
