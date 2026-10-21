@@ -5,18 +5,25 @@ type: bug
 title: 'Chat composer: Stop shows while only the consultant''s worker is running'
 created_by: REQ-419
 created_at: '2026-10-20T23:33:17.148650+00:00'
-updated_at: '2026-10-21T14:31:15.748589+00:00'
+updated_at: '2026-10-21T14:31:40.439586+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: medium
   priority: high
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-708569da
+  commits:
+  - working_sha: 9c0b67175f30279865c068fddd7cf81958beb9f6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a5d3ab5ddd4e23166ab95e3aedb489f4c7327340
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.566
 ---
-
 
 ## Symptom
 
