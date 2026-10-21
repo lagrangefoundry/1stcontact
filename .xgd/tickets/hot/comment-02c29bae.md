@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-420
 created_by: xgd
 created_at: '2026-10-20T23:33:59.571224+00:00'
-updated_at: '2026-10-21T00:39:41.944449+00:00'
+updated_at: '2026-10-21T00:40:21.839894+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -181,5 +181,16 @@ REQ-420 is implemented and merged into `xgd-working`. The ticket is at `free_cod
 <!-- xgd-chat role="user" ts="2026-10-21T00:39:41.410410+00:00" -->
 #### You
 can you review and implement the adjustments to the ticket please?
+
+<!-- xgd-turn id="97585a66-508f-437e-b4b6-8a5bf4c9965e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T00:40:20.370307+00:00" -->
+#### Claude
+I reviewed the adjustments, and none of them need code. Nothing was committed and the ticket stays at `free_coded`.
+
+- **Review note:** it describes the build accurately. Spacing lives on the text styles, nothing refuses a heading with more space below than above, per-element overrides exist, the floating heading is reported by BUG-238's `loose_heading` check, and all the work is in this repo.
+- **Rewritten item 9, the `gapPx` half:** confirmed. Containers with `gapPx` render byte-identically; a UAT checks it, and I hash-compared every stored page before and after the change.
+- **Item 9, the plain-text-stack half:** confirmed. A text stack with no stated spacing now spaces by rhythm. The UAT `a_rhythm_stack_attaches_each_heading_to_its_text` uses exactly such a stack, and 4 of the 13 stored pages change.
+- **Item 9, "a published site changes only when it is published again":** this was the one new claim, and it holds. Publishing renders static HTML into R2 (`publish.ts` → `renderSiteFiles`), and the public site serves those files as they are. A live site keeps its old spacing until the next publish, while drafts and previews show rhythm straight away.
 
 <!-- xgd-chat-end -->
