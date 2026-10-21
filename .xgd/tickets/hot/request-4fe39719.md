@@ -6,9 +6,9 @@ title: 'Guided focus tasks: the consultant leads the client through questions an
   story-board reactions, knows when they''re done, and resumes'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:14.162881+00:00'
-updated_at: '2026-10-21T22:34:37.811689+00:00'
+updated_at: '2026-10-21T22:34:44.131678+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
