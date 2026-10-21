@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:51:21.759802+00:00'
+updated_at: '2026-10-21T15:54:43.788729+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4382,5 +4382,11 @@ Everything else from that review is also in: the story board out of briefs (BUG-
 That will give us the first real before-and-after figure for builder spend.
 
 **Still waiting on you:** the discovery priming draft (`.xgd/tmp/epic20/discovery-priming-draft.md`). If you want the next test to include the discovery changes too, give me the OK and I'll apply it before you deploy.
+
+<!-- xgd-turn id="0fb240cb-82aa-4a29-b12d-8e6880f5310b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T15:54:42.865228+00:00" -->
+#### You
+Sure please apply the draft and we will try it outt
 
 <!-- xgd-chat-end -->
