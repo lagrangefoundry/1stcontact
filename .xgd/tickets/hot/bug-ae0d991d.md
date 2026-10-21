@@ -6,10 +6,10 @@ title: 'Preview refresh: keep scroll position, refresh only the page that change
   no replayed animations, fewer redraws during a build'
 created_by: EPIC-19
 created_at: '2026-10-21T18:00:24.767152+00:00'
-updated_at: '2026-10-21T20:46:07.042911+00:00'
+updated_at: '2026-10-21T20:51:50.783877+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: medium
   priority: high
