@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T21:15:20.284880+00:00'
+updated_at: '2026-10-21T21:20:00.769175+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11980,5 +11980,11 @@ I've filed it as **REQ-426**, *"Talker as conversation strategist"* (EPIC-19, `d
 The time you spend waiting on the build is then spent gathering material that ends up on the site.
 
 I've also recorded the agreed direction on the epic: the critic as a tool at the end of each big build and before publishing, and the due list as a derived field of the plan, with the separate strategist deferred.
+
+<!-- xgd-turn id="42d0a7b7-9dba-4ca4-b37d-438774e13585-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T21:20:00.320974+00:00" -->
+#### You
+Well in fairness the AI is trying to gather material to populate the kids classes page that I asked for - but I would prefer a more strategic and collaborative approach rather than a constant stream of questions.
 
 <!-- xgd-chat-end -->
