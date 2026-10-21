@@ -6,9 +6,9 @@ title: 'Guided focus tasks: the consultant leads the client through questions an
   story-board reactions, knows when they''re done, and resumes'
 created_by: EPIC-19
 created_at: '2026-10-21T19:10:14.162881+00:00'
-updated_at: '2026-10-21T19:10:14.162881+00:00'
+updated_at: '2026-10-21T19:16:47.396429+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   priority: high
@@ -83,3 +83,14 @@ consultant when every card is closed).
   did.
 - A reaction task with more than the configured number of notes covers only the
   first batch; later notes are marked new for the next task.
+
+
+## Correction: the board was never open (operator, 2026-10-21)
+
+> I wasn't even thinking about reacting because I didn't have it open — again I need to be guided to it.
+
+The failure isn't only pace; the client never saw the board. So:
+- **Starting a focus task brings its surface in front of the client** — the host switches the view to it (story board, questions panel, comparison board), unless the client is mid-typing, in which case the message carries the link. This is a deliberate exception to "link, don't switch": starting a task is exactly the moment the client is being asked to go there.
+- **The surface opens on the task**: on the story board, the notes awaiting a reaction are highlighted and the reaction controls are visibly what to do ("Heart the ones that are most you").
+- **If the client hasn't opened the surface** (BUG-246's view report) by their next message, the consultant re-points once, gently, with the link — then leaves it.
+- Test: starting a reaction task switches an idle client's view to Story with pending notes highlighted; a mid-typing client gets the link instead; a client who stays elsewhere is re-pointed once.
