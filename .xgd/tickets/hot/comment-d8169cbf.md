@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:16:53.021167+00:00'
+updated_at: '2026-10-21T19:38:36.126265+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11464,5 +11464,42 @@ You're right, I got the cause wrong. The board wasn't too fast for you: you neve
 - **If you haven't opened it by your next message**, the consultant points you to it once more, gently, with the link, and then leaves it.
 
 This relies on BUG-246, which tells the consultant which view you have open, so the two work together.
+
+<!-- xgd-turn id="64b8ab77-5c03-49af-bad9-b562d8c49889-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:38:34.628784+00:00" -->
+#### You
+Take a look at the last few turns - I am disappointed with the conversation.
+
+I didn't like the line it chose for the site so it asked:
+
+**If a contractor reads one line at the top of your page, what do you want it to tell them?** Your own rough words are fine, and I'll tighten them.
+
+I think this is OK but I also wonder if we could do better. It is essentially the right question what I'm trying to say is that I think of the consultant could be doing more to help the user with a critical decision here.
+
+Part of the problem is exactly this one of the storyboard is incomplete so I have no headline....
+
+I think there are two approaches here:
+1. The AI can take me back to the story board exercise and we can complete it
+2. we can have a more accelerated conversation where is says:
+I see these themes on your site: X, Y, Z
+You are characterized by; I JK
+Ultimately your USP to get a contractor to buy from you is:...
+
+A website is the start (or contiuation) of your conversation with a customer - what is the message you want to give them at this point...? What would make them most likely to choose your service?
+
+Am I making sense?
+
+Lets take several steps back fore a second - I think we are making progress here but we need to try to anticipate different users for each area - messaging, look and feel, site function there is a spectrum from
+1. I don't know where to start to
+2. I know exactly what I want just do what I tell you
+
+Most people will be somewhere in between with some partially developed ideas.
+
+I think we are currently designing for 1 - people who are at 2 can probably just drive the conversation. My worry is the people in between - if I know the answer to your question, don't force me through a brainstorming exercise with you to get there...if I don't know where to start please help me build the concepts I need.
+
+Also disappointed at the AI's choices here "If you wouldn't stand under it, don't weld it." is an interesting adage but its not going to sell my services. It doesn't tell you I do good work.
+
+This is all related to the story board not quite working yet
 
 <!-- xgd-chat-end -->
