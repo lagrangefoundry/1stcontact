@@ -6,9 +6,9 @@ title: 'Builders: keep calling ReportResult after reporting until they run out o
   context'
 created_by: EPIC-20
 created_at: '2026-10-21T13:24:40.462540+00:00'
-updated_at: '2026-10-21T14:55:09.798096+00:00'
+updated_at: '2026-10-21T15:00:00.596119+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   severity: high
@@ -51,3 +51,29 @@ If the investigation shows the loop also happens below the reserve threshold, ca
   - a builder below the threshold that reports: same, its turn ends after the report;
   - the consultant still receives that report, unchanged.
 - Measure afterwards from the builders' tool transcripts: no run should end with consecutive `ReportResult` calls.
+
+## What landed
+
+**The host ends the turn itself; no fallback wording was needed.** `guardTurn` (`tools/generate/src/cli/ai/budget-core.ts`) takes a new `finish` predicate: a `tool_activity` event that finishes the turn. The builder's guard is given `finish: reportRecorded` (`account-core.ts`): the event is a `ReportResult` call whose output is a recorded receipt, not a refusal (the same `reportRefused` test the BUG-212 shape hint uses).
+
+When `finish` fires the guard:
+
+- marks the segment finished, so **the report-reserve notice is never attached again** on that segment, whatever its occupancy;
+- **closes the turn there**: it yields a `done` event that is *not* `interrupted` (the turn finished, so the manager closes it `complete`, not `aborted`, and REQ-409 does not replace the builder), carrying the turn's usage and last occupancy like the budget stop's `done` does, then returns the inner tool loop. **No further model request is built.** Any tool calls the model put *after* the report in the same reply are not run.
+- **A refused report does not finish the turn.** The builder gets its retry, still told to report while past the reserve; the recorded retry ends the turn.
+
+The consultant still receives the report exactly as before: outcome `reported`, the builder's summary, `changed` and checks unchanged.
+
+Cause 2 (the receipt not saying the work is over) was driving the loop below the reserve too; ending the turn host-side covers both causes, so the receipt text is unchanged.
+
+**Framework:** no upstream ticket filed. The guard already owns ending a builder's turn between requests (REQ-296, BUG-212), so this is the same seam, not a workaround. A framework `report` that ended the worker's turn itself would be tidier, but it isn't needed.
+
+## Tests
+
+- New: `tests/test_UAT_FC_BUG-243_recorded_report_ends_builder_turn.workers.test.ts`, which drives the real route with a scripted builder model that would keep reporting if asked:
+  - past the reserve, reports once: exactly 3 builder requests, the notice only on the one before the report, outcome `reported`;
+  - below the reserve, reports: the turn ends after the report, no notice;
+  - a refused report past the reserve is followed by a retry that still carries the notice; the recorded retry ends the turn;
+  - the consultant receives the report unchanged (summary, `changed`, passed/failed checks).
+- Adjusted, because their scripted builders depended on a request *after* the report: REQ-339 `no_later_turn_of_the_worker_recovers_it_either` (a read before the report gives the worker its second request), REQ-411 `a_non_concurrent_tool_in_the_same_reply_still_runs_alone` (builder scripts are `[REPORT]`), REQ-421 `builder_system_asks_an_hour...` (the builder reads, then reports).
+- Regression scope: the 33 suites that drive builders, the report or the guard. The only failures are 13 that also fail with the fix removed (reconciliation-assistant-conversation AC1051–1061, REQ-341 config, REQ-295 ×2).
