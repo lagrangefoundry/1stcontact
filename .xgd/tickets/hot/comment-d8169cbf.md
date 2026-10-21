@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:32:15.754635+00:00'
+updated_at: '2026-10-21T17:33:37.636448+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10947,5 +10947,11 @@ So in this case the message would have read:
 > Nothing on the story board is in your customers' words yet. **When a contractor recommends you to another, what do they say?** [Open the story board](…). It's under Story, beside View and Edit.
 
 It's a small ticket: a view field on the message beside the width, the "not yet opened" record, two digest lines and the priming rule. Shall I file it, or fold it into BUG-245? BUG-245 hasn't started, but it's already 13 points.
+
+<!-- xgd-turn id="b313583f-5fe0-44ad-9bea-2cd389916c83-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T17:33:36.982066+00:00" -->
+#### You
+New ticket please 245 is in flight
 
 <!-- xgd-chat-end -->
