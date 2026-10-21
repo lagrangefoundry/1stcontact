@@ -41,6 +41,12 @@ export function createPageIndex(options) {
    * back the instant there is one to take it with.
    */
   let pending = null
+  // [[BUG-250]] — IT IS THE SHOWN FRAME'S DESTINATION, so a mode switch, which
+  // shows another frame (Looks's, say), leaves nothing pending: that frame's own
+  // document is the answer.
+  panel?.on?.('mode', () => {
+    pending = null
+  })
 
   /**
    * Who to tell when the listing changes ([[REQ-252]]).

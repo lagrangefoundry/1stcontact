@@ -136,8 +136,14 @@ async function mounted(): Promise<Handle> {
   return app
 }
 
-// [[REQ-402]] — the carousel is the band above the preview, present only while a set is on offer.
+// [[REQ-402]] — the carousel is the band above the preview, and since [[BUG-250]] it is
+// Looks mode's: the Looks tab is on the toggle only while a set is on offer.
 const bar = () => root.querySelector('.looks-band') as HTMLElement
+const looksTab = () => root.querySelector('button[data-mode="looks"]') as HTMLButtonElement | null
+async function openLooks(): Promise<void> {
+  looksTab()!.click()
+  await settle()
+}
 const label = () => bar().querySelector('.builder-carousel__label')?.textContent
 const count = () => bar().querySelector('.builder-carousel__count')?.textContent
 const lit = () => bar() !== null
@@ -160,34 +166,34 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — looks are not pages of the site',
   })
 
   it('test_UAT_FC_REQ-391_the_carousel_is_lit_only_while_a_set_is_on_offer', async () => {
-    await mounted()
+    const app = await mounted()
+    expect(looksTab()).not.toBeNull()
+    await openLooks()
     expect(lit()).toBe(true)
 
     // The set is chosen from elsewhere; the next document the pane shows re-takes
-    // the listing, which leaves nothing to compare.
+    // the listing, which leaves nothing to compare — and no Looks to be in.
     for (const row of listing) if ((row as any).alternative) (row as any).alternative.archived = true
     root.querySelector('iframe.builder-panel__frame')!.dispatchEvent(new Event('load'))
     await settle()
     expect(lit()).toBe(false)
+    expect(app.panel.getMode()).toBe('view')
+    expect(looksTab()).toBeNull()
   })
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
   it('test_UAT_FC_REQ-391_the_carousel_shows_label_and_n_of_n_and_the_arrows_move_between_looks', async () => {
     const app = await mounted()
-    expect(label()).toBe('Current')
-    expect(count()).toBe('1 of 4')
-    // The next look is already loaded behind the draft, so the first step is instant.
+    // The first look is already loaded behind the draft, so opening Looks is instant.
     expect(allSrcs().some((s) => s.endsWith('/draft/home-workwear'))).toBe(true)
-    next().click()
-    await settle()
+    await openLooks()
 
-    // The pane stays in View, with its own strip ([[BUG-205]]).
-    expect(app.panel.getMode()).toBe('view')
-    expect(app.toolbar.ids()).toContain('publish')
+    // Looks mode, with its own strip ([[BUG-250]]).
+    expect(app.panel.getMode()).toBe('looks')
     // In the set's own order, not the listing's; the archived look is not offered.
     expect(label()).toBe('Workwear')
-    expect(count()).toBe('2 of 4')
+    expect(count()).toBe('1 of 3')
     expect(bar().textContent).toContain('Navy and safety orange, the van up top')
     // The look is shown live, from the draft channel.
     expect(shownSrc(app)).toMatch(/\/preview\/charlies\/draft\/home-workwear$/)
@@ -197,7 +203,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     next().click()
     await settle()
     expect(label()).toBe('Coastal')
-    expect(count()).toBe('3 of 4')
+    expect(count()).toBe('2 of 3')
     // The swap is to the PRELOADED frame, animated in.
     expect(app.panel.frame).toBe(preloaded)
     expect(preloaded!.classList.contains('builder-panel__pane--entering')).toBe(true)
@@ -222,7 +228,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-391 — the carousel', () => {
     app.chat.element.append(link)
     link.click()
     await settle()
-    expect(app.panel.getMode()).toBe('view')
+    expect(app.panel.getMode()).toBe('looks')
     expect(label()).toBe('Workwear')
     expect(location.hash).not.toBe('#looks=home-looks')
   })

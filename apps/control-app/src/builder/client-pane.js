@@ -7,9 +7,8 @@
  * toggle and "Story" in what the consultant is told are the same word by
  * construction rather than by two tables agreeing.
  *
- * `looks` IS NOT A MODE OF THE PANE: a look is shown in View, as a page of its
- * own. It is reported as a pane because to the client it is one — the looks band
- * is what they are looking at, not the draft.
+ * `looks` is the pane's Looks mode ([[BUG-250]]): the alternative looks for a
+ * page, shown on their own, offered while the page shown has any.
  */
 
 /** The panes, in the order the toggle offers them; `looks` last. */

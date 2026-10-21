@@ -5,7 +5,7 @@ import { createPlanPanel } from './plan-panel.js'
 import { createComparisons } from './comparisons.js'
 import { createStoryBoard } from './story-board.js'
 import { createBanner } from './banner.js'
-import { createLooks, mountLooksBand } from './looks.js'
+import { createLooks, LOOKS_MODE, mountLooksBand } from './looks.js'
 import { appendDnsCard } from './dns-history.js'
 import { createMarkedPoints } from './points.js'
 import {
@@ -24,6 +24,7 @@ import {
   STORAGE_KEYS,
   STORY_MODE_LABEL,
   COMPS_MODE_LABEL,
+  LOOKS_MODE_LABEL,
   TABS,
 } from './config.js'
 import {
@@ -717,9 +718,9 @@ export function mountBuilder(root, options = {}) {
     site: sites[0]?.site ?? null,
     // The pane is about to re-derive what it shows; take what the outgoing
     // document holds before the URL that replaces it is computed from it.
-    // [[BUG-205]] — never a look: the carry holds the draft page "Current" goes
-    // back to, and a look is not a page of the draft. Asked before the panel
-    // exists, so it is through the late-bound `looks` below.
+    // [[BUG-205]] — never a look: the carry holds the draft page View shows,
+    // and a look is not a page of the draft. Asked before the panel exists, so
+    // it is through the late-bound `looks` below.
     onBeforeNavigate: () => {
       if (!looks?.showingLook()) carry.capture(panel.frame?.contentWindow)
     },
@@ -753,10 +754,8 @@ export function mountBuilder(root, options = {}) {
       // the width the draft is looked at is a property of looking, not of one
       // channel, so it holds across the flip.
       //
-      // NO `looks` HERE ([[REQ-402]]): the looks offered for a page are stepped
-      // through in a band of their own across the top of the preview (see
-      // `mountLooksBand` below), in whichever channel the pane is in — there is
-      // no looks mode and no second place to change looks.
+      // NO LOOKS HERE ([[BUG-250]]): the looks offered for a page are their own
+      // mode, Looks (below), and View shows only the draft.
       //
       // `replay-animations` in THIS ONE ONLY ([[BUG-248]]): a refresh brings the
       // page in with its entrances off, and the edit render runs no page script.
@@ -830,7 +829,22 @@ export function mountBuilder(root, options = {}) {
       offered: () => comparisons.raised(),
       actions: ['mode-toggle'],
     })
+    // [[BUG-250]] — LOOKS: the alternative looks for the page shown, and only
+    // them — the draft is a link away in the band ("Compare with your current
+    // page"), not one of the positions. On the toggle only while the page shown
+    // has looks on offer. Edit and Colours act on the draft and are not here;
+    // looking at a look — its width, on a phone, in a tab — is.
+    .registerMode({
+      id: LOOKS_MODE,
+      label: LOOKS_MODE_LABEL,
+      src: ({ site }) => looks?.src(site) ?? '',
+      offered: () => looks?.offered() ?? false,
+      actions: ['mode-toggle', 'preview-width', 'open-new-tab', 'phone-preview'],
+    })
     .restore()
+  // Looks is never reopened from a previous visit: which looks are on offer is
+  // not known until the listing arrives, and a set may have been chosen from since.
+  if (panel.getMode() === LOOKS_MODE) panel.setMode('view', { remember: false })
 
   /**
    * THE REMEMBERED SITE, READ ONCE ([[REQ-179]]).
@@ -1127,7 +1141,7 @@ export function mountBuilder(root, options = {}) {
   })
 
   /** [[REQ-391]] — the looks offered for a page; the band that steps through them is mounted with the split. */
-  looks = createLooks({ panel, pages, draftPath: () => carry.pathFor(currentSite) })
+  looks = createLooks({ panel, pages })
 
   /**
    * [[BUG-246]] — which pane the client has open, and which they have never
@@ -1136,10 +1150,9 @@ export function mountBuilder(root, options = {}) {
    * Story at all, without being told.
    */
   const openedViews = createOpenedViews({ storage: shell.storage(STORAGE_KEYS.openedViews) })
-  /** The pane on screen — a look shown in View is the looks, not the draft. */
+  /** The pane on screen. */
   function openPane() {
     const mode = panel.getMode()
-    if ((mode === 'view' || mode === 'edit') && looks.showingLook()) return 'looks'
     return CLIENT_PANES.includes(mode) ? mode : null
   }
   const noteOpened = () => openedViews.opened(currentSite, openPane())
@@ -1156,10 +1169,12 @@ export function mountBuilder(root, options = {}) {
       .getModes()
       .filter((m) => m.offered?.() !== false)
       .map((m) => m.id)
-    if (looks.state().members.length > 0) offered.push('looks')
+    // [[BUG-250]] — with Looks open, which look: the consultant names it back.
+    const look = pane === LOOKS_MODE ? looks.state().look?.alternative?.label : undefined
     return {
       pane,
       ...(pane === 'comparisons' ? { comps: comparisons.comps().length } : {}),
+      ...(look ? { look } : {}),
       unopened: openedViews.unopened(currentSite, offered),
     }
   }
@@ -1213,10 +1228,8 @@ export function mountBuilder(root, options = {}) {
       if (row && row.slug !== pages.current()) pages.open(row.slug)
       return true
     }
-    if (target === 'looks') {
-      toDraft()
-      return looks.open(q.get('set'), q.get('look'))
-    }
+    // [[BUG-250]] — in Looks mode, which `open` switches to.
+    if (target === 'looks') return looks.open(q.get('set'), q.get('look'))
     // [[BUG-245]] — the comparison board as a whole, as the consultant announces it.
     if (target === 'comps') {
       if (!comparisons.raised()) return false
@@ -1318,6 +1331,20 @@ export function mountBuilder(root, options = {}) {
       publishAction(lockedPublish),
     ],
   })
+
+  /**
+   * [[BUG-250]] — LOOKS IS OFFERED WHILE THE PAGE SHOWN HAS LOOKS, and the toggle
+   * is redrawn the moment that changes: a set made, chosen from or cleared, or
+   * the client moving to a page with or without one.
+   */
+  let looksOffered = looks.offered()
+  const followLooks = () => {
+    if (looks.offered() === looksOffered) return
+    looksOffered = looks.offered()
+    toolbar.render()
+  }
+  pages.onRefreshed(followLooks)
+  for (const event of ['src', 'document']) panel.on(event, followLooks)
 
   /**
    * The assistant, in the split's secondary (REQ-122).
@@ -1611,8 +1638,7 @@ export function mountBuilder(root, options = {}) {
      * against are the ones actually on screen.
      */
     // [[REQ-391]] — a look is not the draft page the carry returns to, and
-    // [[BUG-205]] it is shown, not edited: Edit applies to the real page only,
-    // and the carousel says so.
+    // [[BUG-250]] it is shown, not edited: Looks mode has no Edit.
     const lookShown = looks?.showingLook() ?? false
     if (!lookShown) carry.adopt(panel.frame?.contentWindow, currentSite)
     // No bridge supplied → no editing. The browser entry always supplies one;
@@ -1943,14 +1969,14 @@ export function mountBuilder(root, options = {}) {
   })
 
   /**
-   * The preview's column ([[REQ-402]]): the band of looks, when the page in the
-   * pane has any, and the pane under it. The band is inserted beside the pane,
-   * never the pane moved, so the frames are not reloaded when it comes and goes.
+   * The preview's column ([[REQ-402]]): the band of looks, in Looks mode, and
+   * the pane under it. The band is inserted beside the pane, never the pane
+   * moved, so the frames are not reloaded when it comes and goes.
    */
   const previewArea = document.createElement('div')
   previewArea.className = 'builder-preview'
   previewArea.append(panel.element)
-  mountLooksBand({ looks, panel, area: previewArea, modes: ['view', 'edit'] })
+  mountLooksBand({ looks, panel, area: previewArea })
 
   const split = mountSplit(splitHost, {
     id: STORAGE_KEYS.split,

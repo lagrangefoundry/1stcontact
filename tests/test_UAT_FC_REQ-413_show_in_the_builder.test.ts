@@ -291,7 +291,8 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-413 — a link the client follows', () =>
     await send(live)
     chatLink(live, '#show=looks&set=home-looks&look=home-coastal')!.click()
     await settle()
-    expect(live.panel.getMode()).toBe('view')
+    // [[BUG-250]] — a look is shown in Looks mode.
+    expect(live.panel.getMode()).toBe('looks')
     expect(bandLabel()).toBe('Coastal')
     expect(shownSrc(live)).toMatch(/\/draft\/home-coastal$/)
     // In place: the builder is not navigated away and no tab is opened.
@@ -312,7 +313,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-413 — a link the client follows', () =>
     reloaded.panel.setMode('story')
     chatLink(reloaded, '#show=looks&set=home-looks&look=home-coastal')!.click()
     await settle()
-    expect(reloaded.panel.getMode()).toBe('view')
+    expect(reloaded.panel.getMode()).toBe('looks')
     expect(bandLabel()).toBe('Coastal')
   })
 
