@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T14:54:02.873555+00:00'
+updated_at: '2026-10-21T14:55:04.349485+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10710,5 +10710,42 @@ LF REQ-214 changes the same composer and status widget code, to add the "+" and 
 <!-- xgd-chat role="user" ts="2026-10-21T14:54:02.055837+00:00" -->
 #### You
 Can you please summarize the changes that we made since the start of the last run? Is everything that we agreed on ready to go?
+
+<!-- xgd-turn id="8cb02511-0c2c-4aaf-bfe3-ddbe06454428-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T14:55:02.990880+00:00" -->
+#### Claude
+Everything agreed is landed except the BUG-236 composer/status move, which I said I'd file once REQ-214 landed. Filing it now.
+
+Almost everything has landed. One agreed change was still unbuilt, so I've just filed it, and two cost fixes from another session are still being worked on.
+
+## Changes since Bob's Salon 3 started (20 Oct, 14:29 UTC)
+
+All of these are landed (`ready_to_reconcile`):
+
+| | |
+|---|---|
+| **Talker and process** | **BUG-235**: discovery stays in progress while the first draft is built, Stop building stays stopped, and the clean layout-check line now reads correctly. **BUG-240** with LF **REQ-215**: when the consultant starts building without answering, a talker answers your question within seconds and can stay silent if there's nothing to say. The consultant also no longer repeats what the talker already told you. |
+| **Chat** | **BUG-236**: attachments can't hide the text box, plus pacing (a single line for new panel questions, and each message ends on its one real question), a short worker hand-back held while you're typing, builder instructions that say to look, Done and "Saved ✓" on the panel, and questions that can't change form once shown. **BUG-239** with LF **BUG-89**: the composer shows Send while only the worker runs. **BUG-241**: messages no longer run together (the broken bold), the vocabulary table is in, and `bc:` is supported. |
+| **Visual quality** | **BUG-237**: the form false alarm. **BUG-238**: flags a too-small logo or business name, and headings not attached to their text. **REQ-420**: L1 vertical rhythm. **REQ-418**: L1 row-based tables. |
+| **Comparisons** | **REQ-419**: a preview mode of site tiles that open the real sites. |
+| **Cost** | **REQ-421** with LF **REQ-216**: builders share the common starting context through the cache, and how long the cache lasts is configurable. **BUG-242**: the spend meter now prices cache writes at the right rate. |
+| **Framework** | LF **REQ-214**: the composer "+" and a status widget the host can place. |
+
+Your shared install already has REQ-214, REQ-215 and BUG-89, so there's nothing to reinstall.
+
+## Not ready yet
+
+1. **The "+" in the text box and the status widget under the progress bar.** This was BUG-236 item 7, which waited on LF REQ-214. REQ-214 has landed but nothing on our side uses it: the 📎 "Attach files" row is still there. I've filed it as **BUG-244** (2 points). It's small, but without it this run looks the same as the last one at the bottom of the screen.
+2. **BUG-243 (`draft`): builders keep calling `ReportResult` after they've reported.** In Bob's Salon 3, 15 of the 18 builders that ran out of context spent their end doing this: 284 redundant calls, about $4. It came from another session and isn't built yet.
+3. **LF BUG-90 (`draft`): separate builder sessions don't share their cached starting context.** That's about $3.40 a session where sharing would cost about $0.20. Also not started.
+
+Items 2 and 3 only affect cost, not what you see. With both unfixed, though, builder spend in the next run will look much like the last one.
+
+## Before you start
+
+- **Ideally land BUG-244 first,** plus BUG-243 if you want this run's costs to mean anything.
+- **Run `bin/deploy --env dev`**, then start a new business.
+- **Check one thing early:** the contact form shouldn't trigger the "layout fault" continuation any more (BUG-237). If it still does, stop and tell me, because that's what cost you 11 paid turns last time.
 
 <!-- xgd-chat-end -->
