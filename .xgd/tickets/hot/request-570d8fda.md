@@ -6,10 +6,10 @@ title: 'L1: a shared site header and footer with navigation that knows the site'
   pages; host checks for missing headers and dead-end pages'
 created_by: EPIC-19
 created_at: '2026-10-21T18:29:34.512587+00:00'
-updated_at: '2026-10-21T21:35:54.580994+00:00'
+updated_at: '2026-10-21T21:36:37.883191+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 13
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-66f7c2b3
+  commits:
+  - working_sha: e868abf1b06129e5a52b1da2b25187361601b0f2
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: f879f0e8a4eb1a08b3b00c0fd8ac15730eb17c97
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.575
 ---
 
 ## Why (Ariel's AR Welding run, 2026-10-21; operator)
@@ -159,4 +167,3 @@ New op **`share_section`** `{ page, section, as: header|footer }` moves a page's
 ## Test plan (as landed)
 `tests/test_UAT_FC_REQ-422_shared_header_and_navigation.test.ts` (node): header and footer render on every page; opt-out renders without (and back); editing the header changes every page; a new page has both; wordmark sized from configuration; adding/copying a page adds a menu item (current page marked); set_navigation hides/reorders; removing/renaming updates the menu; phone width collapses via native details with no script; second header and a menu entry to a part refused; id shared by page and header refused; menu labels/hrefs inert; share_section converts a page's header section and removes copies; schema refuses a part with shared/seoMeta; structure findings name unreachable, dead end and leftover placeholder; a page in the shared header menu has none; priming carries the rules.
 `tests/test_UAT_FC_REQ-422_header_checks.test.ts` (Chromium): 18px header name with 32px H2 → `name_smaller_than_headings` at both widths; 30px name with 28px H2 → none; a page with no name/logo at its top → `no_header`; the shared menu shows links at desktop, only the button at 375px, and opens natively.
-
