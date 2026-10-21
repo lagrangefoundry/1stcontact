@@ -34,7 +34,7 @@
  */
 
 import priceDocument from './prices.json'
-import { modelOfBackend } from './backends'
+import { cacheTtlOf, modelOfBackend } from './backends'
 
 /**
  * The four counters a request is billed from, in one order, spelled once.
@@ -61,8 +61,27 @@ export const COUNTER_KEYS = [
 
 export type CounterKey = (typeof COUNTER_KEYS)[number]
 
-/** One turn's four counters, summed across the requests it made. */
-export type TurnCounters = Record<CounterKey, number>
+/**
+ * How `cache_creation_input_tokens` divides between the two cache lifetimes, as
+ * the API reports it under `usage.cache_creation` ([[BUG-242]]).
+ */
+export interface WriteSplit {
+  ephemeral_5m_input_tokens: number
+  ephemeral_1h_input_tokens: number
+}
+
+/**
+ * One turn's four counters, summed across the requests it made — plus, where the
+ * usage record carried it, how its cache writes divide between the lifetimes.
+ *
+ * THE SPLIT IS NOT A COUNTER. It refines one (`cache_creation_input_tokens`
+ * already holds its total), so it has no column and no place in
+ * {@link COUNTER_KEYS}: it is read for pricing and nothing else. The framework's
+ * usage record does not carry it yet (lagrange-framework REQ-216), so today it is
+ * present only on a raw per-request record that has it, and absent everywhere
+ * else — which prices every write at the lifetime its backend asked for.
+ */
+export type TurnCounters = Record<CounterKey, number> & { cache_creation?: WriteSplit }
 
 /**
  * Which rate in `prices.json` prices which counter.
@@ -72,12 +91,37 @@ export type TurnCounters = Record<CounterKey, number>
  * "cache read", not "cache_read_input_tokens". This map is the one place the two
  * meet, so neither has to be spelled in the other's terms anywhere else.
  */
-export const RATE_OF: Record<CounterKey, string> = {
+export const RATE_OF: Record<Exclude<CounterKey, WriteCounter>, string> = {
   input_tokens: 'input',
   output_tokens: 'output',
   cache_read_input_tokens: 'cache_read',
-  cache_creation_input_tokens: 'cache_write',
   web_search_requests: 'web_search',
+}
+
+/** The one counter priced by a rate that depends on more than its name. */
+type WriteCounter = 'cache_creation_input_tokens'
+const WRITE_COUNTER: WriteCounter = 'cache_creation_input_tokens'
+
+/**
+ * Which rate prices a cache write of each lifetime ([[BUG-242]]).
+ *
+ * TWO RATES, BECAUSE THE BILL HAS TWO. The provider charges a write by the
+ * lifetime it was written with — five minutes at 1.25x input, an hour at 2x — so a
+ * single write rate is right for one lifetime and wrong for the other. It was the
+ * five-minute rate while every request asked for the hour, and every write was
+ * metered at 62.5% of what it cost.
+ */
+export const WRITE_RATE_OF = { '5m': 'cache_write_5m', '1h': 'cache_write_1h' } as const
+
+/** A cache lifetime the provider bills differently. */
+export type CacheLifetime = keyof typeof WRITE_RATE_OF
+
+/**
+ * The lifetime a backend's requested `cacheTtl` buys: `'1h'` is the hour, and
+ * anything else — `''`, the API's own default — is five minutes.
+ */
+export function lifetimeOf(ttl: string): CacheLifetime {
+  return ttl === '1h' ? '1h' : '5m'
 }
 
 /**
@@ -90,7 +134,7 @@ const OPTIONAL_RATES: ReadonlySet<CounterKey> = new Set(['web_search_requests'])
 /** The price table as loaded — exported so a UAT can assert against the document. */
 export { priceDocument }
 
-/** One entry's four rates, in US dollars per million tokens. */
+/** One entry's rates by name, in US dollars per million tokens. */
 export type Rates = Record<string, number>
 
 /**
@@ -189,7 +233,7 @@ export interface TurnSpendRecord {
 export type RecordTurnSpend = (record: TurnSpendRecord) => Promise<void>
 
 /** Read a counter off a reported `usage` block; anything unreadable is zero. */
-function counter(usage: unknown, key: CounterKey): number {
+function counter(usage: unknown, key: string): number {
   const value = (usage as Record<string, unknown> | null | undefined)?.[key]
   return typeof value === 'number' && Number.isFinite(value) ? Math.trunc(value) : 0
 }
@@ -197,9 +241,22 @@ function counter(usage: unknown, key: CounterKey): number {
 /**
  * A reported `usage` block as the four counters, with missing entries read as
  * zero — a partial block is a smaller measurement, never a reason to throw.
+ *
+ * The write split rides along only where the block carries one with a non-zero
+ * part ([[BUG-242]]): absent is "the record does not say", which prices at the
+ * requested lifetime, and a split of two zeros says nothing more than absent does.
  */
 export function countersOf(usage: unknown): TurnCounters {
-  return Object.fromEntries(COUNTER_KEYS.map((key) => [key, counter(usage, key)])) as TurnCounters
+  const out = Object.fromEntries(COUNTER_KEYS.map((key) => [key, counter(usage, key)])) as unknown as TurnCounters
+  const raw = (usage as Record<string, unknown> | null | undefined)?.cache_creation
+  if (raw && typeof raw === 'object') {
+    const split: WriteSplit = {
+      ephemeral_5m_input_tokens: counter(raw, 'ephemeral_5m_input_tokens'),
+      ephemeral_1h_input_tokens: counter(raw, 'ephemeral_1h_input_tokens'),
+    }
+    if (split.ephemeral_5m_input_tokens > 0 || split.ephemeral_1h_input_tokens > 0) out.cache_creation = split
+  }
+  return out
 }
 
 /**
@@ -215,8 +272,9 @@ export function measured(usage: TurnCounters): boolean {
 }
 
 /**
- * The four rates for one `(backend, model)`, or `null` where the table names no
- * such pair.
+ * The rates for one `(backend, model)`, or `null` where the table names no such
+ * pair — or names it without both write rates, which would leave a write
+ * unpriceable at one of the lifetimes ([[BUG-242]]).
  *
  * NULL IS ORDINARY. A model configured before its rates were added is still
  * measured and still recorded; it is simply not priced. The counters are what
@@ -229,12 +287,38 @@ export function ratesFor(backend: string, model: string): Rates | null {
   const rates = (provider as Record<string, unknown>)[model]
   if (!rates || typeof rates !== 'object') return null
   const out: Rates = {}
-  for (const key of COUNTER_KEYS) {
-    const rate = (rates as Record<string, unknown>)[RATE_OF[key]]
-    if (typeof rate === 'number' && Number.isFinite(rate)) out[RATE_OF[key]] = rate
-    else if (!OPTIONAL_RATES.has(key)) return null
+  const names: [string, boolean][] = [
+    ...(Object.entries(RATE_OF) as [CounterKey, string][]).map(
+      ([key, name]): [string, boolean] => [name, OPTIONAL_RATES.has(key)],
+    ),
+    ...Object.values(WRITE_RATE_OF).map((name): [string, boolean] => [name, false]),
+  ]
+  for (const [name, optional] of names) {
+    const rate = (rates as Record<string, unknown>)[name]
+    if (typeof rate === 'number' && Number.isFinite(rate)) out[name] = rate
+    else if (!optional) return null
   }
   return out
+}
+
+/**
+ * What a turn's cache writes cost in (unrounded) micros ([[BUG-242]]).
+ *
+ * BY THE LIFETIME EACH WAS WRITTEN WITH. Where the usage record splits the writes,
+ * each part is priced at its own rate; any remainder of the total the split does
+ * not account for, and the whole total where there is no split, is priced at the
+ * lifetime the backend REQUESTED. That fallback is exact today rather than
+ * approximate: a backend asks for one lifetime on every marker it emits, so every
+ * token it writes was written with it.
+ */
+function writeMicros(usage: TurnCounters, rates: Rates, ttl: string): number {
+  const requested = rates[WRITE_RATE_OF[lifetimeOf(ttl)]]
+  const split = usage.cache_creation
+  if (!split) return usage[WRITE_COUNTER] * requested
+  const short = split.ephemeral_5m_input_tokens
+  const long = split.ephemeral_1h_input_tokens
+  const rest = Math.max(0, usage[WRITE_COUNTER] - short - long)
+  return short * rates[WRITE_RATE_OF['5m']] + long * rates[WRITE_RATE_OF['1h']] + rest * requested
 }
 
 /**
@@ -246,12 +330,20 @@ export function ratesFor(backend: string, model: string): Rates | null {
  * the end, on a figure that is otherwise exact — rather than four times, on four
  * per-counter costs, which is how a per-turn error becomes a per-month one.
  */
-export function costMicros(usage: TurnCounters, backend: string, model: string): number | null {
+export function costMicros(
+  usage: TurnCounters,
+  backend: string,
+  model: string,
+  // [[BUG-242]] — the lifetime the backend asked for, from the same function its
+  // constructor is given it by. A parameter only so a lifetime no backend asks
+  // for today can be priced.
+  ttl: string = cacheTtlOf(backend),
+): number | null {
   const rates = ratesFor(backend, model)
   if (rates === null) return null
-  let micros = 0
-  for (const key of COUNTER_KEYS) {
-    const rate = rates[RATE_OF[key]]
+  let micros = writeMicros(usage, rates, ttl)
+  for (const [key, name] of Object.entries(RATE_OF) as [CounterKey, string][]) {
+    const rate = rates[name]
     // [[REQ-378]] — searches run under an entry that names no search rate.
     if (rate === undefined) {
       if (usage[key] > 0) return null

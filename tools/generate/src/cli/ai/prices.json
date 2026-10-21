@@ -62,7 +62,18 @@
     "search. It is billed per search, not per token: $10 per 1,000 searches (Anthropic,",
     "2026-10-03; a failed search is not billed) is 10,000 dollars per MILLION searches,",
     "so it sits in the same unit as the token rates and `count x rate` is still micros.",
-    "An entry that names no search rate prices a turn that searched as unpriced."
+    "An entry that names no search rate prices a turn that searched as unpriced.",
+    "",
+    "TWO WRITE RATES, ONE PER CACHE LIFETIME ([[BUG-242]]). A request asks for a",
+    "lifetime on each cache marker, and the provider bills the write by it: five",
+    "minutes at 1.25x the input rate, one hour at 2x. This file once named one",
+    "`cache_write`, at the five-minute rate, while every request this product sends",
+    "asks for the hour — so every write was metered at 62.5% of its bill. A write is",
+    "priced at the lifetime it was written with: per part, where the usage record",
+    "carries `cache_creation`'s 5m/1h split, and otherwise at the lifetime its",
+    "backend asked for (`cacheTtlOf` in `backends.ts`, the same function the",
+    "backend's constructor is given it by). A provider that does not charge for",
+    "writes names both as 0."
   ],
 
   "claude": {
@@ -70,21 +81,24 @@
       "input": 4,
       "output": 20,
       "cache_read": 0.2,
-      "cache_write": 5,
+      "cache_write_5m": 5,
+      "cache_write_1h": 8,
       "web_search": 10000
     },
     "claude-opus-5": {
       "input": 5,
       "output": 25,
       "cache_read": 0.5,
-      "cache_write": 6.25,
+      "cache_write_5m": 6.25,
+      "cache_write_1h": 10,
       "web_search": 10000
     },
     "claude-sonnet-5": {
       "input": 3,
       "output": 15,
       "cache_read": 0.3,
-      "cache_write": 3.75,
+      "cache_write_5m": 3.75,
+      "cache_write_1h": 6,
       "web_search": 10000
     }
   },
@@ -94,7 +108,8 @@
       "input": 1,
       "output": 5,
       "cache_read": 0.1,
-      "cache_write": 1.25
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2
     }
   },
 
@@ -103,7 +118,8 @@
       "input": 1,
       "output": 5,
       "cache_read": 0.1,
-      "cache_write": 1.25
+      "cache_write_5m": 1.25,
+      "cache_write_1h": 2
     }
   },
 
@@ -112,7 +128,8 @@
       "input": 2.5,
       "output": 10,
       "cache_read": 1.25,
-      "cache_write": 0
+      "cache_write_5m": 0,
+      "cache_write_1h": 0
     }
   }
 }

@@ -31,7 +31,9 @@ describe('REQ-362 — consultant on Opus 5.5, each role priced at its own backen
       input: 4,
       output: 20,
       cache_read: 0.2,
-      cache_write: 5,
+      // [[BUG-242]] — a write is priced by the lifetime it was written with.
+      cache_write_5m: 5,
+      cache_write_1h: 8,
       // [[REQ-378]] — $10 per 1,000 web searches, in the same per-million unit.
       web_search: 10_000,
     })

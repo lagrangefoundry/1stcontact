@@ -11,17 +11,30 @@ import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 import {
   COUNTER_KEYS,
   RATE_OF,
+  WRITE_RATE_OF,
   costMicros,
+  lifetimeOf,
   measured,
   priceDocument,
   ratesFor,
   turnSpendRecord,
   type TurnCounters,
 } from '../tools/generate/src/cli/ai/spend-core'
-import { PROJECT_BACKEND, backendsDocument } from '../tools/generate/src/cli/ai/backends'
+import { PROJECT_BACKEND, backendsDocument, cacheTtlOf } from '../tools/generate/src/cli/ai/backends'
 import { makeFsSite } from './support/site-factory'
 import type { SiteFixture } from './support/site-factory'
 import { metered, says, scriptedClient } from './support/scripted-model-client'
+
+/**
+ * The rate that prices `key` on the project's backend. A cache write's rate
+ * depends on the lifetime the backend asks for ([[BUG-242]]); every other
+ * counter's is named by {@link RATE_OF}.
+ */
+function rateName(key: (typeof COUNTER_KEYS)[number]): string {
+  return key === 'cache_creation_input_tokens'
+    ? WRITE_RATE_OF[lifetimeOf(cacheTtlOf(PROJECT_BACKEND))]
+    : RATE_OF[key]
+}
 
 /**
  * [[REQ-292]] — **what a token costs, and the two things that must not drift.**
@@ -79,7 +92,7 @@ describe('REQ-292 — the price table', () => {
 
     // …AND EVERY ONE OF THEM IS PRICED. A counter with no rate would be billed
     // at nothing, which is the same lie as a zero cost wearing a different hat.
-    for (const key of COUNTER_KEYS) expect(typeof RATE_OF[key]).toBe('string')
+    for (const key of COUNTER_KEYS) expect(typeof rateName(key)).toBe('string')
   })
 
   it('test_UAT_FC_REQ-292_the_model_this_project_runs_has_rates', async () => {
@@ -123,7 +136,7 @@ describe('REQ-292 — the price table', () => {
     const rates = ratesFor(PROJECT_BACKEND, MODEL)!
     for (const key of COUNTER_KEYS) {
       expect(costMicros(only(key, MILLION), PROJECT_BACKEND, MODEL)).toBe(
-        Math.round(rates[RATE_OF[key]] * MILLION),
+        Math.round(rates[rateName(key)] * MILLION),
       )
     }
 
