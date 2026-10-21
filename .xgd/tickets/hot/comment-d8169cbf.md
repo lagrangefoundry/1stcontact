@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:44:16.965424+00:00'
+updated_at: '2026-10-21T18:45:14.867263+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11272,5 +11272,27 @@ I'd put BUG-249 ahead of the UX tickets. Everything else assumes a conversation 
 <!-- xgd-chat role="user" ts="2026-10-21T18:44:16.069617+00:00" -->
 #### You
 Has it happened again? the talker has stopped responding?
+
+<!-- xgd-turn id="35e1eb23-7b51-47c2-880c-e7a4cfafa022-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:45:13.370863+00:00" -->
+#### Claude
+It's not the same wedge. The build is fine, but the talker is failing on every message.
+
+**The worker is alive and working.** The session log shows its builder returning at 18:44:08 and the consultant recording decisions at 18:44:29, with heartbeats every 5 seconds. The build is progressing and will reply when it finishes.
+
+**The talker fails instantly.** The talker turns at 18:43:59 and earlier each ended within a second with an error from the API:
+
+> `400 … messages.54.content.0.thinking: each thinking block must contain thinking`
+
+It's the same class of error as LF BUG-81, the empty reasoning block, now on the **talker's** path. When a talker opens during a build, its copy of the conversation includes a reasoning block with no text, almost certainly the worker's message that's still being written. The API rejects the whole request, so every message you send during this build fails. And nothing tells you, so the consultant just seems to stop responding.
+
+**Right now:** wait for the build to finish. After that, your next message runs as an ordinary turn and should work. Your messages are saved; nothing is lost.
+
+**What I've filed:**
+- **lagrange-framework BUG-91** (critical): a talker's request must never contain an empty reasoning block. That means building its copy only from completed records, or collecting the reasoning the way BUG-81 does, or dropping an empty reasoning block when the conversation is replayed to the talker. It includes a test for this exact case.
+- **BUG-249, extended:** a talker that fails must never go silent. Your message is queued for the worker's next step or the next turn, and you see a gentle line such as *"I'll pick that up as soon as this part of the build is done."* Repeated failures are logged with their cause.
+
+**One more thing from the log:** the turns that "completed" at 18:31–18:34 each finished in about 40 ms. Those were your retries being **queued behind the stuck 18:29 turn**, not answered. That confirms the earlier wedge was a turn holding its lease. BUG-249 covers it.
 
 <!-- xgd-chat-end -->
