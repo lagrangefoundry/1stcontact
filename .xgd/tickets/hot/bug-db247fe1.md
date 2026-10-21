@@ -6,10 +6,10 @@ title: 'Turns can wedge a session until the server restarts: progress deadline, 
   leases, automatic recovery, no ugly client errors'
 created_by: EPIC-19
 created_at: '2026-10-21T18:37:46.343167+00:00'
-updated_at: '2026-10-21T19:19:43.939774+00:00'
+updated_at: '2026-10-21T19:20:30.523122+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   severity: critical
   priority: high
@@ -18,8 +18,15 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-962214e3
+  commits:
+  - working_sha: 5ad2bf9cadfecc106007e18ce2c3de3621e807d1
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: cc808aa09054bb266b2e2ef0c023c9acc7ecbffc
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.572
 ---
-
 
 ## Incident (Ariel's AR Welding run, 2026-10-21 18:29 UTC)
 
