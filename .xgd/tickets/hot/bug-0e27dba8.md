@@ -6,10 +6,10 @@ title: 'Chat: segments run together in one bubble (bold breaks), and the consult
   names our internals to the client; bc: for out-of-character debugging'
 created_by: EPIC-19
 created_at: '2026-10-21T01:18:26.515729+00:00'
-updated_at: '2026-10-21T01:18:26.515729+00:00'
+updated_at: '2026-10-21T01:24:14.719927+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: free_coding
 fields:
   severity: medium
   priority: high
