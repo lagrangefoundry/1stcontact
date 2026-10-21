@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T19:03:40.554601+00:00'
+updated_at: '2026-10-21T19:09:33.361217+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11401,5 +11401,27 @@ In BUG-205 you asked for **no separate mode**: carousel controls on the existing
 - **Choosing stays in the conversation,** as now ("I'll go with Workwear because…"), and keeping the current page is a valid answer.
 
 That means undoing part of BUG-205: the toolbar carousel goes, "Current" stops being a position in it, and the REQ-402 band moves into the Looks tab. Shall I file it as one bug under EPIC-19?
+
+<!-- xgd-turn id="ccd32072-1800-403d-9b32-a00007401406-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T19:09:32.984441+00:00" -->
+#### You
+yes please
+
+Also I just noticed, I was so busy responding to the talker I have not added any reactions to the storyboard.
+
+This is again the consultant needing to walk me carefully through a process. It got lost asking me for more and more content but never stopped to ask me to react to them
+
+Likewise the questions
+
+The consultant should not just throw out questions and tell me to answer them when I feel like it.
+
+It should choose a point in the dialog and direct me (gently) to answer the questions (without asking me what my favorite icecream flavor is at the same time). Same story for the board.
+
+The AI needs to understand that now I have answered the questions, reacted to the board and it should resume conversation.
+
+If more questions or material are added we can repeat this cycle.
+
+The current board is almost overwhelming BTW - probably ok but there;s a lot to react to
 
 <!-- xgd-chat-end -->
