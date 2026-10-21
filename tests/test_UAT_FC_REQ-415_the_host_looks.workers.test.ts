@@ -180,7 +180,7 @@ describe('REQ-415 the host looks, and the end of the build waits for a look', ()
     expect(blocks[0].text).toContain('Rewrote the heading.')
     // And the host's report names the page, the width and the section.
     const report = blocks[1].text!
-    expect(report).toContain('The host looked at what this builder wrote')
+    expect(report).toContain('The host looked at what the build you started wrote')
     expect(report).toContain(`prices, phone (375px): section 0.0 ${PHONE_FINDING}`)
     expect(report).toContain('THIS BUILD IS NOT DONE')
     // The check ran at both widths, and the picture is low detail.
@@ -189,7 +189,7 @@ describe('REQ-415 the host looks, and the end of the build waits for a look', ()
 
     // A REPLY THAT ENDED WITH THE FAULT STILL THERE WAS CONTINUED BY THE HOST,
     // with the finding in front of the consultant.
-    const cue = consultant.find((req) => req.messages.some((m) => text(m.content).includes('the layout check still finds faults')))
+    const cue = consultant.find((req) => req.messages.some((m) => text(m.content).includes('still have layout faults')))
     expect(cue, 'the host carried the request on').toBeDefined()
     const said = cue!.messages.map((m) => text(m.content)).join('\n')
     expect(said).toContain(PHONE_FINDING)

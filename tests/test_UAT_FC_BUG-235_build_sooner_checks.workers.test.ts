@@ -31,7 +31,7 @@ const ORIGIN = 'https://app.test'
 const ENABLED = { ...delegationDocument, enabled: true }
 const WORKER_MODEL = backendsDocument.claude_builder.model
 const PHONE_FINDING = 'has a list built as 2 side-by-side columns, and its rows do not line up from row 1'
-const CONTINUED = 'the layout check still finds faults'
+const CONTINUED = 'still have layout faults'
 
 function routerEnv(): RouterEnv {
   return {
@@ -172,8 +172,8 @@ describe('BUG-235 build sooner: stops, clean checks and no browser', () => {
     const report = consultantRequests(c)
       .map(said)
       .join('\n')
-    expect(report).toContain('The host looked at what this builder wrote')
-    expect(report).toContain('The layout check found no layout faults.')
+    expect(report).toContain('The host looked at what the build you started wrote')
+    expect(report).toContain('No layout faults at either width.')
     expect(report).not.toContain('The check finds faults')
     expect(report).not.toContain('THIS BUILD IS NOT DONE')
   }, 60000)
