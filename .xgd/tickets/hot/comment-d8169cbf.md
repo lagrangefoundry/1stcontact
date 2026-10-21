@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T20:35:37.352891+00:00'
+updated_at: '2026-10-21T20:36:20.992911+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11813,5 +11813,50 @@ Does that match what you had in mind? If so, the design note would describe:
 Perhaps calling them should be a rule?
 
 I am a little nervous about making the flow too rigid - we are working almost entirely with the idea of type 1 customers. Customers who already have a site they like for example will need very different handling I suspect - hopefully its the same stages but we can skip over them much faster?
+
+<!-- xgd-turn id="9d6cd546-90e4-4d9a-9803-81fc9d36990c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T20:36:19.362305+00:00" -->
+#### Claude
+Yes, a rule, but deliberately a narrow one. And you're right to be nervous: the danger is building a fixed path that serves the hesitant first-timer and annoys everyone else.
+
+## Rules for the checks, not the path
+
+**Rules (hard, enforced by the host):**
+- **A critique at the end of every big build, before it's handed back.** You never see it happen, it costs nothing in your time, and it applies to everyone. A site you're confident about still deserves a check that the name isn't smaller than the headings.
+- **A critique before publishing.**
+- **A stage plan when a stage starts.** But its output depends on the client. For someone who knows what they want, the plan can be one line: *"Confirm and carry out."*
+
+**Not rules:** the order of the conversation, how many questions get asked, which stages run in full. The stages are **a map, not a track.** The strategist decides, per client, what each one needs.
+
+## The same stages at different speeds
+
+**How ready the client is in each area** (REQ-425) is the dial:
+
+| area readiness | what the stage looks like |
+|---|---|
+| **don't know where to start** | the full guided version: interview, react, synthesise, propose |
+| **has some ideas** | propose from what they've said; they correct it |
+| **knows exactly** | carry out what they say; one confirmation and the stage is done |
+
+A client who arrives saying *"black, rust, gritty, our sign is the logo, headline is Beauty and Strength"* should get through looks and messaging in a couple of exchanges. The strategist's plan says so, and the next-move line stops asking.
+
+## Customers who already have a site
+
+This is the placeholder you raised on the 18th. It's the clearest case for **same stages, much faster**, because their current site is the richest input we'll ever get:
+1. **Ask early which kind of start this is:** from scratch, a site you like and want rebuilt, or a site you want replaced. That sets the readiness defaults and the route through the stages.
+2. **Capture their current site** (`capture_site` already exists) and **pre-fill** from it:
+   - story notes from their own text;
+   - a draft positioning card;
+   - palette, fonts and logo;
+   - the page list and contact routes.
+3. **Most stages become confirmation:** *"Here's what I took from your current site: your positioning reads as X, your colours are Y. Keep, or change?"* Kept items are ticked done straight away (the progress tracker already supports stages done out of order).
+4. **The critic compares the rebuild with the original:** nothing they relied on should go missing, no page and no contact route.
+
+"I like my site, make it better" becomes a short conversation. "I hate my site" uses the capture as the comparison to argue against, and runs the full process where it matters.
+
+## Next
+
+I'd put this in the design note as its organising principle, *rules for the checks, readiness for the path*, alongside the next-move line, the two tools and the persistent sessions. The existing-site route would get its own ticket afterwards, since it's a separate starting point. Shall I write the note now?
 
 <!-- xgd-chat-end -->
