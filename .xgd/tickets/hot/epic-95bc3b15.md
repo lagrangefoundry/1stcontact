@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T17:38:33.808722+00:00'
+updated_at: '2026-10-21T18:00:29.721313+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2319,3 +2319,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-247]] — composer showed Stop and no status widget appeared on a turn that answered first, wrote to the plan, then started a builder (Ariel's run, 17:33 UTC); hypotheses: talk mode lost on a remount, or the widget drawn into a container the plan redraw replaced.
+
+
+- [[BUG-248]] — preview refresh during builds: keep scroll position (hidden-frame swap), refresh only when the viewed page or something shared changed, no replayed entrance animations (with a Replay control), and at most one refresh every few seconds plus one at the end.
