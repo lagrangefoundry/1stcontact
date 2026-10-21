@@ -6,9 +6,9 @@ title: 'L1: a shared site header and footer with navigation that knows the site'
   pages; host checks for missing headers and dead-end pages'
 created_by: EPIC-19
 created_at: '2026-10-21T18:29:34.512587+00:00'
-updated_at: '2026-10-21T21:00:23.575866+00:00'
+updated_at: '2026-10-21T21:35:54.580994+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -109,3 +109,54 @@ No. A hero headline (a tagline) may be larger than the header's wordmark — tha
 - **Home page first screen:** the business name appears prominently — either as the hero heading itself, or in the header at the size above with the hero headline supporting it.
 - **Layout check finding `name_smaller_than_headings`:** the business name (header wordmark, or logo's rendered height compared with heading cap height) is smaller than any section heading (H2) on the page, at desktop or phone. A finding means the build isn't done (REQ-415), and it applies to today's pages as well as after the shared header lands.
 - Test: a page whose header name is 18px with 32px H2s produces the finding; a 30px name with 28px H2s does not.
+
+## Implementation (as landed, REQ-422 free-coded)
+
+### Shared header and footer
+- A shared part **is a page** whose `kind` is `header` or `footer` (`pageKindSchema` gains both). It is stored under its own name (`header.json`), so it is its own lease file (REQ-397), is written with the same L1 tools, validated the same way, and is **never served**: `servedPages` (and every "which pages are served" reader) excludes it via one helper, `isServedPage` (`packages/site-schema/src/parts.ts`). The builder preview still renders `header.html` on its own so it can be looked at.
+- The site validator allows **at most one** header and one footer; a part cannot be a look, carry `seoMeta`, carry components, or opt out of parts; nothing in `site.nav` may point at a part.
+- A web page carries both parts unless it opts out with `shared: { header: false }` / `{ footer: false }` (set by `add_page` / `update_page`). Email pages and parts carry none.
+- **Render:** `renderPage` draws each carried part as its own L1 document **beside** the page's root, not spliced into it: `<header data-l1-part="header">` before `.l1-0` and `<footer data-l1-part="footer">` after, wrapper `display: contents` (so a sticky header sticks to the page). The part's classes are prefixed (`header-l1-N`) via a new `prefix` render option, which also suppresses the document reset and paints the part's own background/text colour on its root. So the page's own addresses (`0.n` — edit channel, `set_l1`, layout-check sections) are unchanged. In the edit channel parts are shown `inert` and unstamped (edited on their own page).
+- **Ids:** `validateSite` refuses a node id used both by a page and by a part it is drawn with (one HTML document).
+- **Security:** structured only — a part is ordinary L1, the menu items are drawn by the renderer from structured entries; labels are escaped and hrefs pass `isSafeHref` like every link.
+
+### Navigation that knows the pages
+- **Reuses the existing `site.nav.entries`** (previously validated but never rendered) as the menu's source of truth — no second store. A new L1 leaf node **`nav`** draws it: `{ kind: 'nav', item, gapPx?, align?, collapseBelowPx?, menuLabel?, axes?, type?, …axis groups }`. Its one child is `item`, a text node (no id/link/action/heading) that is the look of every entry; its copy is replaced per entry. Rendered as `<nav aria-label="Main">`, one `<a>` per entry (current page `aria-current="page"`), emitted through the ordinary text path (the renderer remains the sole `<a>` sink).
+- **Phone:** below `collapseBelowPx` (default 640; `0` never) the list folds behind a native `<details><summary>Menu</summary>` button — no script.
+- **Page list sync:** `add_page` and `copy_page` append the page to the navigation in the same write (opt out with `nav: false`); `update_page` relabels an entry that still carried the old title; `remove_page` drops the page's entries in the same write; `make_alternatives` drops the entry of a page that becomes a look. Creating the site's first header/footer (or `share_section`) seeds an **empty** navigation with the served pages, home first. **This writes `site.json`, so a builder adding/removing/renaming pages needs `site.json` in its scope** (priming says so).
+- New op **`set_navigation`** `{ entries: [{page, label?} | {href, label}] }` sets order, labels and visibility in one call; a served page left out is hidden from the menu (not removed).
+- **Supersedes REQ-11's `page_rm_blocked_by_nav`:** removing a page the menu names is no longer refused (REFERENTIAL_INTEGRITY); its entries are removed with it. The REQ-11 UAT was rewritten as `test_UAT_FC_REQ-11_page_rm_removes_its_nav_entries`.
+
+### Branding
+- `add_page` with `kind: header` seeds the business name (from `config.businessName`) linking home, beside a `nav` node. The wordmark size comes from configuration: `layout-check.json` `brand.wordmarkPx` `{ desktop: 30, phone: 24 }` (a responsive track between them), in the site's `heading` text style when it has one. A footer seeds the name and a centred, never-folding menu.
+
+### Host checks
+In-browser, in REQ-415's `LAYOUT_SCRIPT` (both need the business name, which every site page now states as `<meta name="application-name">`; a bare L1 fixture without it is not checked for these two):
+- the shared header is measured as its own section `site-header` (footer `site-footer`), and when present it is the page's header for the BUG-238 checks; parts are left out of the content-edge comparison;
+- **`no_header`** — the top of the page (the shared header, else the first section) shows neither the business name (matched on its first significant word) nor a logo (img/svg);
+- **`name_smaller_than_headings`** — the business name in the top section is smaller than the page's largest H2, or (logo only) the logo is shorter than that heading's cap height (0.7 × size).
+On the stored site (`siteStructureFindings` in `edit.ts`, same reachability walk `list_pages` uses — now following links in the parts a page carries and the menu a `nav` draws):
+- **`unreachable`** — a served page not reachable from home;
+- **`dead_end`** — a served page other than home with no link back home;
+- **`leftover_placeholder`** — a page still holding the `placeholder` heading `add_page` seeds.
+The host's after-build look (`hostLook`) runs the structure check over **every** served page after any build that wrote pages (a header change is browser-checked on the home page), owes each finding until fixed, and says "THIS BUILD IS NOT DONE … before you say a page is ready or in the menu".
+
+### Teaching
+Builder priming (both variants): header/footer are shared pages, never build a header/menu/link home into a page, the menu is a `nav` whose items are the pages, change it with `set_navigation`, replace the `placeholder`, the business name is never smaller than the section headings. Consultant priming (both variants): shared parts and menu, `site.json` in scope for page add/remove/rename and menu changes, how to create a header or `share_section` an existing one on the client's yes, and never claim something is in the menu until the host's look reports no unreachable page or dead end. Delegation-files template names `header.json`/`footer.json` and that page add/remove/rename writes `site.json`.
+
+### Existing sites
+New op **`share_section`** `{ page, section, as: header|footer }` moves a page's own top-level section into a new shared part (keeping the page's widths/paint/fonts), removes the same-id section from every other web page (copies), seeds an empty navigation, and is refused when the part exists or the section hosts a component. Nothing is converted automatically.
+
+### Not done / limits
+- Capture/fold has no reverse inference of `nav` or shared parts: a captured rendered page folds the menu back to plain links (the round-trip gate's fixtures carry no `nav`). The geometry model estimates a `nav` as one line of its item type.
+- A header edited by a builder is browser-checked on the home page only (other pages get the structure check).
+
+### Other UAT adjustments (intent preserved)
+- BUG-235's "clean check" fixture is now a coherent site (a shared header listing both pages, no placeholder) — the old fixture is an unreachable/dead-end site, which is now correctly a fault.
+- BUG-237 (hidden text) filters out the new brand findings on its bare form page; they are pinned by REQ-422's own UATs.
+- REQ-126 / AC1073 op lists gain `set_navigation` and `share_section`.
+
+## Test plan (as landed)
+`tests/test_UAT_FC_REQ-422_shared_header_and_navigation.test.ts` (node): header and footer render on every page; opt-out renders without (and back); editing the header changes every page; a new page has both; wordmark sized from configuration; adding/copying a page adds a menu item (current page marked); set_navigation hides/reorders; removing/renaming updates the menu; phone width collapses via native details with no script; second header and a menu entry to a part refused; id shared by page and header refused; menu labels/hrefs inert; share_section converts a page's header section and removes copies; schema refuses a part with shared/seoMeta; structure findings name unreachable, dead end and leftover placeholder; a page in the shared header menu has none; priming carries the rules.
+`tests/test_UAT_FC_REQ-422_header_checks.test.ts` (Chromium): 18px header name with 32px H2 → `name_smaller_than_headings` at both widths; 30px name with 28px H2 → none; a page with no name/logo at its top → `no_header`; the shared menu shows links at desktop, only the button at 375px, and opens natively.
+
