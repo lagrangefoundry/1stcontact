@@ -6,10 +6,10 @@ title: 'Builders: keep calling ReportResult after reporting until they run out o
   context'
 created_by: EPIC-20
 created_at: '2026-10-21T13:24:40.462540+00:00'
-updated_at: '2026-10-21T15:00:28.709850+00:00'
+updated_at: '2026-10-21T15:05:04.016240+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   severity: high
   priority: high
