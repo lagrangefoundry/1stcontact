@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T17:07:37.541961+00:00'
+updated_at: '2026-10-21T17:08:15.609016+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -10790,5 +10790,38 @@ Some questions also appeared on the question pannel I didn't see any explanation
 Dropping the comp sites into the chat is unnecessary and really too much - I thing we should just say: "I've put four Bay Area fabrication shops on the comparison board, under Comparisons in the preview, chosen to show you a range. Open the board to see" <-- link the last part
 
 There should be space for the AI's commentry on the comp board.
+
+<!-- xgd-turn id="089d7523-7d4f-477a-b4d4-b0dde5325bcf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T17:08:14.561219+00:00" -->
+#### Claude
+I read the end of the Ariel's AR Welding run. Here's what happened in that last minute:
+
+- **16:59:31:** the consultant (as talker) asked you about the Saturday classes, a good story question, and you started answering.
+- **17:01:15:** the comps arrived as a second message: four full-width screenshots, four link lines, four descriptions, an invitation to add sites, and a second question (*"Where on that range do you want to be…?"*).
+
+So while you were typing, **two open questions from what looked like two voices** were competing, and the larger one shoved the conversation off screen. Questions added to the panel in the same period were never mentioned at all. It's the same root problem as the "consultant has finished" marker: the worker and the talker each speak whenever they're ready, as if they were two people.
+
+## What I'd change
+
+**1. One thread at a time.** While you're answering a question, nothing else opens a new topic. News from the work (comps found, a draft built, new panel questions) doesn't post as a separate message. It's **absorbed into the consultant's next reply, after it has responded to what you said**: *"…that's a great origin for the classes. Meanwhile, I've put four Bay Area fabrication shops on the comparison board. [Open the board](…) when you're ready."* If you're not mid-answer, the news can come straight away. But it's still one short message, never a second question on top of an open one. This is the same mechanism as the marker fix from last turn, so it would be one ticket.
+
+**2. Comps in the chat: one line and a link, as you wrote it.**
+> I've put four Bay Area fabrication shops on the comparison board, under Comparisons in the preview, chosen to show you a range. [Open the board to see](…)
+
+The link uses REQ-413's view link, so it opens Comparisons mode. No screenshots or site links in the chat. This reverses BUG-202's in-chat comp tiles, which came before REQ-419 gave the comps a home of their own. The question about where you want to sit on the range waits until you've looked.
+
+**3. Room for the consultant's commentary on the board.** Each comp card gets a line for **why it was chosen**, e.g. *"The odd one out: a polished, design-led architectural metal shop, here to show how far 'premium' can go."* That's what was in the chat today, moved to where you read it beside the site. The board also gets a short header note explaining the range: *"From a typical Oakland independent to a design-led studio: where do you want to sit?"* Your likes and dislikes stay as they are, underneath the consultant's note.
+
+**4. New panel questions are visible, and mentioned once.**
+- The panel shows a small **"2 new"** badge, and new items are highlighted until you open them, so they never appear silently.
+- The consultant mentions them in one line, inside its next reply, per item 1. Never as their own interruption.
+
+## What it touches
+- **Item 1** is the one-voice change. It replaces BUG-236's marker and REQ-210's "result shown after the talker" order, and it may need the small framework hand-over I mentioned last turn.
+- **Items 2 and 3:** comps priming, a "why chosen" field on each comp plus a header note on the board, and the REQ-419 board rendering.
+- **Item 4:** a panel badge and highlight, plus priming.
+
+I'd file it as **one 1stcontact bug for the "too many things at once" experience** covering all four, plus a lagrange-framework ticket if the hand-over needs one. Shall I file it?
 
 <!-- xgd-chat-end -->
