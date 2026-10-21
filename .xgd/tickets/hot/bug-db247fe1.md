@@ -6,9 +6,9 @@ title: 'Turns can wedge a session until the server restarts: progress deadline, 
   leases, automatic recovery, no ugly client errors'
 created_by: EPIC-19
 created_at: '2026-10-21T18:37:46.343167+00:00'
-updated_at: '2026-10-21T18:37:46.343167+00:00'
+updated_at: '2026-10-21T18:45:04.306412+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: draft
 fields:
   severity: critical
@@ -74,3 +74,12 @@ Durable Object outlives the isolate, so a wedged session can stay wedged.
 - A wedged talker desk / write-behind drain is handled the same way.
 - Production client wording is the gentle line; dev shows the detailed note.
 - No `turn_log` row stays open past the watchdog interval.
+
+
+## Also: a talker that fails must not go silent (2026-10-21 18:43 UTC)
+
+A second incident, different cause: the worker round was healthy, but every talker round failed at once with a 400 (empty thinking block — lagrange-framework BUG-91). The client saw the consultant stop responding.
+
+- When a talker round fails, the host does not leave the client's message unanswered: it queues the message for the worker's next boundary / the next round (BUG-224's path), and the client sees a gentle line ("I'll pick that up as soon as this part of the build is done").
+- Repeated talker failures in one worker round are logged with their cause and stop being attempted for that round.
+- Test: a talker round that ends `status: error` leaves the message delivered to the next round and shows the gentle line; no message is lost.
