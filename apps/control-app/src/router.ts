@@ -92,6 +92,8 @@ import { captureLead, type LeadEnv as LeadIntakeEnv, type LeadSubmission } from 
 import { UnknownTenantError } from '../../../tools/generate/src/store/d1r2-store'
 import type { TenantSiteStore } from '../../../tools/generate/src/store/d1r2-store'
 import { StoreConflictError, type SiteStore } from '../../../tools/generate/src/store/site-store'
+import { scopeOf } from '../../../tools/generate/src/store/journal-model'
+import { L1_REVEAL_SCRIPT } from '../../../packages/framework/src/l1/render'
 import { elementLease, leasedStore, leasesOf } from '../../../tools/generate/src/store/leased-store'
 import { d1Leases } from '../../../tools/generate/src/store/d1-leases'
 import {
@@ -2081,6 +2083,14 @@ export const SITE_CHANGES_PATH = '/api/sites/changes'
  * its navigation entry — so the count travels beside the page, not in it.
  */
 export const DRAFT_AT_TIMING = 'draft-at'
+
+/**
+ * The query flag that asks the builder preview for a page with no entrance
+ * motion ([[BUG-248]]). The builder sets it on a refresh it made because the
+ * draft moved — replaying every entrance on each write is noise — and never on
+ * a page the reader opened themselves. Builder preview only.
+ */
+export const PREVIEW_STILL_PARAM = 'still'
 
 /** How often the preview feed asks the store whether the draft moved ([[BUG-192]]). */
 export const DRAFT_CHANGE_POLL_MS = 2000
@@ -7347,10 +7357,8 @@ async function routeUncached(
       // [[BUG-215]] — NO SPECIAL CASE FOR "NOTHING BUILT YET": the starter page
       // itself is the grey placeholder (`placeholderDocument`), so it renders
       // like any page and the first section the consultant adds simply replaces it.
-      return stampDraftAt(
-        await servePreview(store, site, channel as PreviewChannel, preview[3] ?? '/', platformFonts),
-        at,
-      )
+      const served = await servePreview(store, site, channel as PreviewChannel, preview[3] ?? '/', platformFonts)
+      return stampDraftAt(url.searchParams.has(PREVIEW_STILL_PARAM) ? await stillPage(served) : served, at)
     }
 
     // Not a route: the build artifacts, or a genuine 404 from the binding that
@@ -8175,6 +8183,9 @@ function streamContactChanges(
  * ONE FRAME PER MOVE, CARRYING WHERE THE COUNT NOW IS, not one per change. The
  * reader reloads a page; three writes inside one poll are one reload.
  *
+ * [[BUG-248]] — EACH `draft` FRAME NAMES WHAT MOVED: `pages` (the page ids
+ * written) and `site` (something every page renders changed). See `scopeOf`.
+ *
  * TEARDOWN BOTH WAYS A CLIENT LEAVES, for {@link streamContactChanges}' reason.
  */
 function streamDraftChanges(
@@ -8228,7 +8239,11 @@ function streamDraftChanges(
           // NOT `!==`. A count below the cursor is a client presenting an id from
           // another site or a reset store; it is nothing this page is missing.
           if (at > cursor) {
-            if (!write(`id: ${at}\ndata: ${JSON.stringify({ kind: 'draft', at })}\n\n`)) return
+            // [[BUG-248]] — AND WHAT MOVED, so a preview showing another page
+            // can leave itself alone. Read only when the count moved: an idle
+            // connection still costs one counter read per poll.
+            const scope = scopeOf(await store.changesSince(site, cursor))
+            if (!write(`id: ${at}\ndata: ${JSON.stringify({ kind: 'draft', at, ...scope })}\n\n`)) return
             cursor = at
           } else if (Date.now() - lastWrite >= SSE_HEARTBEAT_MS) {
             write(': ping\n\n')
@@ -8261,6 +8276,21 @@ function streamDraftChanges(
       'cache-control': 'no-store',
     },
   })
+}
+
+/**
+ * A builder preview page with its entrances off ([[BUG-248]]).
+ *
+ * THE REVEAL SCRIPT IS THE ONLY THING THAT TURNS ENTRANCE MOTION ON: the
+ * pre-state is gated on the marker that script sets, so a page without it
+ * renders settled ([[REQ-100]]'s "fails visible"). Removing it is therefore the
+ * whole of "no entrances" — no second render path, and published output never
+ * passes through here.
+ */
+async function stillPage(response: Response): Promise<Response> {
+  if (response.status !== 200 || !/^text\/html/i.test(response.headers.get('content-type') ?? '')) return response
+  const html = (await response.text()).replace(L1_REVEAL_SCRIPT, '')
+  return new Response(html, { status: 200, headers: response.headers })
 }
 
 /**

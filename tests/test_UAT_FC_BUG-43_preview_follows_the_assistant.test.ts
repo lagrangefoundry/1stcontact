@@ -15,6 +15,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { previewWindow, watchRefreshes } from './support/preview-refresh'
 
 const SITES = [{ site: 'alpha', latest: null }]
 
@@ -199,27 +200,32 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-43 — 1c turns the signal into a re-rend
         }),
         streamPrompt: streamOf(TWO_WRITES),
       },
+      // [[BUG-248]] — unpaced, so each write is refreshed as it lands.
+      previewRefreshMs: 0,
     })
     await settle()
 
     // The frame's own `contentWindow` is jsdom's and cannot navigate, so the
-    // reload is counted rather than performed. What is under test is that the
-    // app reaches for THE PREVIEW FRAME on the signal — the same object and the
-    // same call the palette popup and the segment editor already reload.
-    let reloads = 0
-    Object.defineProperty(app.panel.frame, 'contentWindow', {
-      configurable: true,
-      value: { location: { reload: () => void (reloads += 1) } },
-    })
+    // refresh is counted rather than performed — as the newer page being loaded
+    // behind the one on screen ([[BUG-248]]). What is under test is that the app
+    // refreshes THE PREVIEW on the signal — the same call the palette popup and
+    // the segment editor already make.
+    Object.defineProperty(app.panel.frame, 'contentWindow', { configurable: true, value: previewWindow() })
     // The page has arrived, as a browser says with `load` — jsdom never does,
-    // and a frame still mid-navigation is re-pointed rather than reloaded ([[BUG-207]]).
+    // and a frame still mid-navigation is re-pointed rather than refreshed ([[BUG-207]]).
     app.panel.frame.dispatchEvent(new Event('load'))
+    await settle()
+    const watch = watchRefreshes(app.panel)
 
-    await app.chat.getChat().send('Add a services page and a contact page.')
+    try {
+      await app.chat.getChat().send('Add a services page and a contact page.')
 
-    // Twice — the page unfolds as the assistant works rather than arriving whole
-    // when it stops talking.
-    expect(reloads).toBe(2)
+      // Twice — the page unfolds as the assistant works rather than arriving
+      // whole when it stops talking.
+      expect(watch.asked).toHaveLength(2)
+    } finally {
+      watch.restore()
+    }
 
     app.destroy()
   })
@@ -239,20 +245,22 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-43 — 1c turns the signal into a re-rend
     })
     await settle()
 
-    let reloads = 0
-    Object.defineProperty(app.panel.frame, 'contentWindow', {
-      configurable: true,
-      value: { location: { reload: () => void (reloads += 1) } },
-    })
+    Object.defineProperty(app.panel.frame, 'contentWindow', { configurable: true, value: previewWindow() })
     // The page has arrived, as a browser says with `load` — jsdom never does,
-    // and a frame still mid-navigation is re-pointed rather than reloaded ([[BUG-207]]).
+    // and a frame still mid-navigation is re-pointed rather than refreshed ([[BUG-207]]).
     app.panel.frame.dispatchEvent(new Event('load'))
+    await settle()
+    const watch = watchRefreshes(app.panel)
 
-    await app.chat.getChat().send('What pages do I have?')
+    try {
+      await app.chat.getChat().send('What pages do I have?')
 
-    // Nothing moved, so nothing is thrown away — the operator keeps their
-    // scroll position and the page they were looking at.
-    expect(reloads).toBe(0)
+      // Nothing moved, so nothing is thrown away — the operator keeps their
+      // scroll position and the page they were looking at.
+      expect(watch.asked).toEqual([])
+    } finally {
+      watch.restore()
+    }
 
     app.destroy()
   })

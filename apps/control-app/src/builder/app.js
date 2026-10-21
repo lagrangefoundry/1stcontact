@@ -70,6 +70,7 @@ import {
   panelsAction,
   previewWidthAction,
   publishAction,
+  replayAnimationsAction,
   subjectAction,
 } from './toolbar.js'
 import {
@@ -85,6 +86,7 @@ import {
   openSettingsSession,
   postSurface,
   previewChannelUrl,
+  previewStillUrl,
   previewUrl,
   saveMaterialName,
   saveMaterialRecipe,
@@ -284,6 +286,12 @@ export function mountBuilder(root, options = {}) {
      * `{close}` to drive it without one.
      */
     draftTransport = null,
+    /**
+     * [[BUG-248]] — the least time between two refreshes the draft causes. A
+     * build writes in bursts; the visible page follows at this pace, plus once
+     * after the burst, rather than redrawing on every write.
+     */
+    previewRefreshMs = PREVIEW_REFRESH_MS,
     /**
      * When the markdown engines have settled (BUG-42). Awaited before a
      * conversation is handed to the pane, because the pane paints each turn once.
@@ -715,6 +723,8 @@ export function mountBuilder(root, options = {}) {
     onBeforeNavigate: () => {
       if (!looks?.showingLook()) carry.capture(panel.frame?.contentWindow)
     },
+    // [[BUG-248]] — a refresh asks for the page without its entrances.
+    stillUrl: previewStillUrl,
   })
 
   /**
@@ -747,10 +757,14 @@ export function mountBuilder(root, options = {}) {
       // through in a band of their own across the top of the preview (see
       // `mountLooksBand` below), in whichever channel the pane is in — there is
       // no looks mode and no second place to change looks.
+      //
+      // `replay-animations` in THIS ONE ONLY ([[BUG-248]]): a refresh brings the
+      // page in with its entrances off, and the edit render runs no page script.
       actions: [
         'mode-toggle',
         'pages',
         'colors',
+        'replay-animations',
         'preview-width',
         'open-new-tab',
         'phone-preview',
@@ -876,13 +890,65 @@ export function mountBuilder(root, options = {}) {
     const at = stated == null || stated === '' ? NaN : Number(stated)
     return Number.isSafeInteger(at) ? at : null
   }
-  const catchUp = (at, ifUnknown) => {
-    if (!Number.isSafeInteger(at)) {
-      if (ifUnknown) panel.reloadDocument()
-      return
+  /**
+   * [[BUG-248]] — DOES THIS CHANGE TOUCH THE PAGE ON SCREEN. A signal names the
+   * pages written (by id) and whether something every page renders moved; a
+   * write to another page — a look of this one included, which is a page of its
+   * own — leaves this one alone. A signal that says neither, or a page the
+   * listing cannot yet place, is answered as touching it.
+   */
+  const touchesShown = (scope) => {
+    if (!scope || scope.site !== false || !Array.isArray(scope.pages)) return true
+    const listed = pages.list()
+    if (listed.length === 0) return true
+    const slug = pages.current()
+    const row = listed.find((r) => r.slug === slug)
+    return scope.pages.some((id) => id === slug || id === row?.id)
+  }
+  /**
+   * [[BUG-248]] — AT MOST ONE REFRESH PER `previewRefreshMs`. The first change
+   * after a quiet spell shows at once; the rest of a burst is collected and
+   * shown once the interval has passed — so a build is watched growing, and its
+   * last write is always shown, without a redraw per write. Whether the frame is
+   * behind is asked when the refresh is due, so a burst the frame has already
+   * caught up with costs nothing.
+   *
+   * A COUNT ALREADY ASKED FOR IS NOT ASKED FOR AGAIN (`askedAt`). The newer
+   * page loads behind the shown one, which goes on stating the older count
+   * until the swap — so the same write reported twice (in the chat stream, then
+   * on the feed) would otherwise start its load over.
+   */
+  let due = null
+  let dueTimer = null
+  let lastRefresh = -Infinity
+  let askedAt = -Infinity
+  const refreshDue = () => {
+    dueTimer = null
+    const want = due
+    due = null
+    if (!want) return
+    if (!want.force) {
+      if (want.at !== null && want.at <= askedAt) return
+      const shown = want.at === null ? null : shownAt()
+      if (!(shown === null ? want.ifUnknown : shown < want.at)) return
     }
-    const shown = shownAt()
-    if (shown === null ? ifUnknown : shown < at) panel.reloadDocument()
+    lastRefresh = Date.now()
+    if (want.at !== null) askedAt = Math.max(askedAt, want.at)
+    panel.reloadDocument()
+  }
+  const catchUp = (at, ifUnknown, scope) => {
+    if (!touchesShown(scope)) return
+    const known = Number.isSafeInteger(at)
+    if (!known && !ifUnknown) return
+    due = {
+      at: known ? Math.max(at, due?.at ?? at) : (due?.at ?? null),
+      ifUnknown: ifUnknown || (due?.ifUnknown ?? false),
+      force: !known || (due?.force ?? false),
+    }
+    if (dueTimer !== null) return
+    const wait = lastRefresh + previewRefreshMs - Date.now()
+    if (wait <= 0) refreshDue()
+    else dueTimer = setTimeout(refreshDue, wait)
   }
   /** Re-aim the feed at the site in scope — the business is part of its URL. */
   const followDraft = (site) => {
@@ -891,10 +957,12 @@ export function mountBuilder(root, options = {}) {
     draftFeed.close()
     draftFeed = { close: () => {} }
     draftFeedKey = key
+    // Another site's counts are not this one's.
+    askedAt = -Infinity
     if (!site) return
     draftFeed = followDraftFeed(site, (frame) => {
       if (key !== draftFeedKey) return
-      catchUp(frame?.at, frame?.kind !== 'ready')
+      catchUp(frame?.at, frame?.kind !== 'ready', frame)
     })
   }
 
@@ -1236,6 +1304,7 @@ export function mountBuilder(root, options = {}) {
       markPointsAction(points),
       panelsAction(carry),
       colorsAction(openPalette),
+      replayAnimationsAction(),
       previewWidthAction(previewWidth, VIEW_LABELS, VIEW_MODES),
       // THE DRAFT RENDER OF WHATEVER PAGE THE PANE IS ON ([[BUG-131]]) — not the
       // URL the pane is showing. The tab is the honest, production view
@@ -1408,7 +1477,7 @@ export function mountBuilder(root, options = {}) {
     // [[BUG-192]] — through `catchUp`, so the draft feed reporting the same
     // write a moment later does not reload the frame again.
     onSiteChanged: (meta) => {
-      catchUp(meta?.at, true)
+      catchUp(meta?.at, true, meta)
       // [[REQ-400]] — the site's assistant can set the icon and card, and the
       // Settings pane shows them.
       void settings.launch.refresh()
@@ -2355,6 +2424,7 @@ export function mountBuilder(root, options = {}) {
       sessionNotice?.element.remove()
       unbindDocument()
       unbindSite()
+      clearTimeout(dueTimer)
       draftFeed.close()
       switcher.destroy()
       unwatchChat()
@@ -2427,6 +2497,9 @@ function blockEverything(root, shell, message) {
  * client told this once understands why the wait does not repeat, and does not
  * learn to dread the button.
  */
+/** [[BUG-248]] — the least time between two refreshes the draft causes; see `previewRefreshMs`. */
+const PREVIEW_REFRESH_MS = 3000
+
 const PUBLISH_RESIZING_MESSAGE =
   'First-time publication of images requires resizing, which can take some time — ' +
   'please leave this tab open.'

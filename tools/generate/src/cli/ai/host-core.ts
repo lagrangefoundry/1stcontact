@@ -60,6 +60,7 @@
 
 import type { GlobalOptions } from '../options'
 import type { SiteStore, StoredPage } from '../../store/site-store'
+import { scopeOf } from '../../store/journal-model'
 import { editAlternativeChoose, servedPageId } from '../edit'
 import {
   COORDINATOR_ROLE,
@@ -277,7 +278,8 @@ type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
  *
  * `meta.at` is the change count after the write; `meta.changes` is how many
  * landed since the previous signal — normally one, more if a single operation
- * journalled several.
+ * journalled several. [[BUG-248]] — `meta.pages` and `meta.site` say what they
+ * touched (`scopeOf`), so a preview showing another page can leave itself alone.
  */
 export const SITE_CHANGED = 'site_changed'
 
@@ -5005,8 +5007,9 @@ async function* siteTurn(
       const now = await store.counter(slug)
       if (now <= seen) continue
       const changes = now - seen
+      const scope = scopeOf(await store.changesSince(slug, seen))
       seen = now
-      yield { kind: SITE_CHANGED, content: '', meta: { at: now, changes } }
+      yield { kind: SITE_CHANGED, content: '', meta: { at: now, changes, ...scope } }
     }
   } catch (err) {
     outcome = 'error'

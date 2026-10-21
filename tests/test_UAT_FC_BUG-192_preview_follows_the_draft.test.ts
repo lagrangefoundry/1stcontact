@@ -16,8 +16,9 @@
  * against the installed `webui-chat`, as the BUG-43 suite is.
  */
 
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
+import { previewWindow, watchRefreshes, type RefreshWatch } from './support/preview-refresh'
 
 const SITES = [{ site: 'alpha', latest: null }]
 
@@ -66,33 +67,25 @@ function fakeFeed() {
 }
 
 /**
- * Stand in for the frame's window. jsdom's frame cannot navigate, so the reload
- * is counted; the count the page was rendered at is the `draft-at` metric on its
- * navigation entry, exactly where a browser puts the response's `Server-Timing`.
+ * Stand in for the frame's window, rendered at `shownAt`. jsdom's frame cannot
+ * navigate, so a refresh is counted where [[BUG-248]] makes it — a frame behind
+ * the shown one pointed at the page — and `arrive` plays the newer page landing.
  */
-function stubFrame(app: { panel: { frame: HTMLIFrameElement } }, shownAt: number | null) {
-  const counts = { reloads: 0 }
-  let stated = shownAt
-  const win = {
-    location: { reload: () => void (counts.reloads += 1) },
-    performance: {
-      getEntriesByType: (type: string) =>
-        type !== 'navigation'
-          ? []
-          : [{ serverTiming: stated === null ? [] : [{ name: 'draft-at', description: String(stated), duration: 0 }] }],
-    },
-  }
-  Object.defineProperty(app.panel.frame, 'contentWindow', { configurable: true, value: win })
+let watch: RefreshWatch | null = null
+async function stubFrame(app: { panel: { frame: HTMLIFrameElement } }, shownAt: number | null) {
+  Object.defineProperty(app.panel.frame, 'contentWindow', {
+    configurable: true,
+    value: previewWindow({ at: shownAt }),
+  })
   // The page has ARRIVED, as a browser says with `load` — jsdom never does.
   // A frame still mid-navigation states nothing about the page it is going to
   // ([[BUG-207]]), so a stand-in for a shown page has to have loaded.
   app.panel.frame.dispatchEvent(new Event('load'))
+  await settle()
+  watch = watchRefreshes(app.panel)
   return {
-    counts,
-    win,
-    /** What a reload would do: the page now states a newer count. */
-    show: (at: number) => {
-      stated = at
+    get reloads() {
+      return watch!.asked.length
     },
   }
 }
@@ -102,6 +95,8 @@ const mount = (root: HTMLElement, feed: ReturnType<typeof fakeFeed>, streamEvent
     sites: SITES,
     storage: memoryStorage(),
     draftTransport: feed.transport,
+    // [[BUG-248]] — no pacing, so every signal is judged the moment it arrives.
+    previewRefreshMs: 0,
     chatTransport: {
       openSession: async (slug: string) => ({ sessionId: `site-${slug}`, turns: [], ready: true }),
       streamPrompt: streamOf(streamEvents),
@@ -131,6 +126,11 @@ beforeAll(async () => {
   })) as never
 })
 
+afterEach(() => {
+  watch?.restore()
+  watch = null
+})
+
 let root: HTMLElement
 beforeEach(() => {
   document.body.replaceChildren()
@@ -158,13 +158,13 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-192 — the preview follows the draft', (
     const feed = fakeFeed()
     const app = mount(root, feed)
     await settle()
-    const frame = stubFrame(app, 67)
+    const frame = await stubFrame(app, 67)
 
     feed.push({ kind: 'ready', at: 67 })
-    expect(frame.counts.reloads).toBe(0)
+    expect(frame.reloads).toBe(0)
 
     feed.push({ kind: 'draft', at: 75 })
-    expect(frame.counts.reloads).toBe(1)
+    expect(frame.reloads).toBe(1)
 
     app.destroy()
   })
@@ -175,10 +175,10 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-192 — the preview follows the draft', (
     const feed = fakeFeed()
     const app = mount(root, feed)
     await settle()
-    const frame = stubFrame(app, 67)
+    const frame = await stubFrame(app, 67)
 
     feed.push({ kind: 'ready', at: 75 })
-    expect(frame.counts.reloads).toBe(1)
+    expect(frame.reloads).toBe(1)
 
     app.destroy()
   })
@@ -189,11 +189,11 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-192 — the preview follows the draft', (
     const feed = fakeFeed()
     const app = mount(root, feed)
     await settle()
-    const frame = stubFrame(app, 75)
+    const frame = await stubFrame(app, 75)
 
     feed.push({ kind: 'draft', at: 75 })
     feed.push({ kind: 'draft', at: 74 })
-    expect(frame.counts.reloads).toBe(0)
+    expect(frame.reloads).toBe(0)
 
     app.destroy()
   })
@@ -207,18 +207,18 @@ describe.skipIf(!WEBUI_INSTALLED)('BUG-192 — the preview follows the draft', (
       { kind: 'done' },
     ])
     await settle()
-    const frame = stubFrame(app, 75)
-    // The reload loads the page at the count it was told about.
-    const reload = frame.win.location.reload
-    frame.win.location.reload = () => {
-      reload()
-      frame.show(76)
-    }
+    const frame = await stubFrame(app, 75)
 
+    // The chat reports 76 and the refresh starts; the feed repeats 76 while the
+    // newer page is still loading behind the shown one ([[BUG-248]]).
     await app.chat.getChat().send('Add a section.')
     feed.push({ kind: 'draft', at: 76 })
+    expect(frame.reloads).toBe(1)
 
-    expect(frame.counts.reloads).toBe(1)
+    // …and once it has landed, the count it shows is not asked for again.
+    watch!.arrive(previewWindow({ at: 76 }))
+    feed.push({ kind: 'draft', at: 76 })
+    expect(frame.reloads).toBe(1)
 
     app.destroy()
   })

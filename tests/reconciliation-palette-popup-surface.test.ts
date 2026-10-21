@@ -959,10 +959,11 @@ describe('story-4300366a the palette popup', () => {
     expect(app.panel.getSite()).toBe(wsSlug)
     expect(app.panel.getSrc()).toBe(previewUrl(wsSlug, 'draft'))
 
-    // The refresh is observed at the frame's own `contentWindow` seam: jsdom's
-    // `location.reload` is non-configurable, and jsdom does not navigate an
-    // iframe anyway, so the reachable evidence is that the workspace ASKED the
-    // displayed frame to reload — and the fetch below shows what that ask gets.
+    // The refresh is observed where a frame is pointed at the page: jsdom does
+    // not navigate an iframe, so the reachable evidence is that the workspace
+    // ASKED for the displayed page again — into the shown frame, or into one
+    // behind it that is swapped in once it loads ([[BUG-248]]) — and the fetch
+    // below shows what that ask gets.
     //
     // The pane holds a frame per channel since [[BUG-79]], so "the displayed
     // frame" is named rather than assumed: exactly one of them is shown, and it
@@ -971,16 +972,21 @@ describe('story-4300366a the palette popup', () => {
     expect(document.querySelector('.builder-panel__frame')).toBe(app.panel.frame)
 
     let reloads = 0
-    const contentWindow = vi
-      .spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get')
-      .mockReturnValue({ location: { reload: () => void (reloads += 1) } } as unknown as Window)
+    const real = HTMLIFrameElement.prototype.setAttribute
+    const setAttribute = vi
+      .spyOn(HTMLIFrameElement.prototype, 'setAttribute')
+      .mockImplementation(function (this: HTMLIFrameElement, name: string, value: string) {
+        if (name === 'src') reloads += 1
+        return real.call(this, name, value)
+      })
     try {
       app.toolbar.get('colors')!.click()
       await settled(document)
       selectIn(document, 'primary')
 
-      // Nothing has asked for a refresh yet.
-      expect(reloads).toBe(0)
+      // Nothing has been written yet; what the pane loaded while the popup
+      // opened is the baseline, not a refresh.
+      const asked = reloads
 
       const wsText = detailIn(document).querySelector<HTMLInputElement>(
         '.builder-palette__hex-text',
@@ -994,7 +1000,7 @@ describe('story-4300366a the palette popup', () => {
       // WITHOUT ANY FURTHER OPERATOR ACTION the displayed frame is refreshed —
       // a palette write that left a stale page on screen would read as a write
       // that did nothing.
-      expect(reloads).toBeGreaterThan(0)
+      expect(reloads).toBeGreaterThan(asked)
 
       // ...and what that refresh fetches is the repainted page.
       const refetched = await (await toOrigin(app.panel.getSrc())).text()
@@ -1005,7 +1011,7 @@ describe('story-4300366a the palette popup', () => {
 
       clickIn(document, 'Close')
     } finally {
-      contentWindow.mockRestore()
+      setAttribute.mockRestore()
       app.destroy()
       root.remove()
     }

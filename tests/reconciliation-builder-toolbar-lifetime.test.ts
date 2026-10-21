@@ -37,10 +37,20 @@ const SITES = [
  * reasoning — which page is shown and which channel shows it are independent
  * questions, so the control belongs wherever a page is shown. `phone-preview`
  * ([[REQ-376]]) sits beside `open-new-tab` wherever that is offered, because it
- * carries the same address to another device.
+ * carries the same address to another device. `replay-animations` ([[BUG-248]])
+ * is View's own: a refresh brings the page in with its entrances off.
  */
 // [[REQ-402]] — no `looks` in the strip: the looks are stepped through in a band above the preview.
-const DECLARED = ['mode-toggle', 'pages', 'colors', 'preview-width', 'open-new-tab', 'phone-preview', 'publish']
+const DECLARED = [
+  'mode-toggle',
+  'pages',
+  'colors',
+  'replay-animations',
+  'preview-width',
+  'open-new-tab',
+  'phone-preview',
+  'publish',
+]
 
 /**
  * `app.js` imports the webui components by bare specifier, so it is loaded

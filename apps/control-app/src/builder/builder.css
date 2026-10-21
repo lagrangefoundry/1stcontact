@@ -229,6 +229,7 @@ body {
 .builder-toolbar__colors,
 .builder-toolbar__publish,
 .builder-toolbar__phone,
+.builder-toolbar__replay,
 .builder-toolbar__open,
 .builder-toolbar__points,
 .builder-toolbar__panels,
@@ -488,6 +489,18 @@ body {
 
 .builder-panel__pane--entering[data-swap='previous'] {
   --builder-swap-in: -8%;
+}
+
+/* [[BUG-248]] — a refresh is the same page, newer, at the same scroll: the new
+ * one fades in OVER the old, which holds still beneath it, so the pane never
+ * shows anything between them. */
+.builder-panel__pane--leaving[data-swap='refresh'] {
+  animation: none;
+}
+
+.builder-panel__pane--entering[data-swap='refresh'] {
+  z-index: 1;
+  --builder-swap-in: 0%;
 }
 
 @keyframes builder-pane-leave {
