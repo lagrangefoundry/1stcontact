@@ -208,12 +208,13 @@ async function delegatedAfterRecording(): Promise<{
       says('I had the About page built.'),
     ],
     [
+      // A read first, so the worker sends a second request: its report ends its turn ([[BUG-243]]).
+      calls('describe_page', { page: 'home' }),
       calls(REPORT_TOOL, {
         summary: 'Built the About page with three sections.',
         changed: ['about'],
         passed: ['every section has a heading'],
       }),
-      says('Reported.'),
     ],
   )
   setModelClient(second)

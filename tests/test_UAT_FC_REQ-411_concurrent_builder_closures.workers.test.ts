@@ -282,8 +282,9 @@ describe('REQ-411 — builders commissioned together run together', () => {
     configureDelegation({ ...delegationDocument, enabled: true, max_concurrent: 3 })
     const site = await sectionedSite('alone')
     const { timeline, run } = builders({
-      hero: [REPORT, says('')],
-      story: [REPORT, says('')],
+      // A recorded report ends a builder's turn ([[BUG-243]]): it is the last request.
+      hero: [REPORT],
+      story: [REPORT],
     })
     // `list_pages` is declared non-concurrent: it waits for the hero builder to
     // finish and runs before the story builder can start.

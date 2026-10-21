@@ -158,6 +158,7 @@ import {
   REPORT_TOOL,
   draftAccount,
   reportInput,
+  reportRecorded,
   reportRefused,
   reportSchema,
   reportingDelegationToolbox,
@@ -2109,6 +2110,8 @@ async function build(
                 }), {
                   // [[BUG-212]] — told to report while it still has the room to.
                   reserve: { fraction: REPORT_RESERVE_FRACTION, notice: reportReserveNotice },
+                  // [[BUG-243]] — and once its report is recorded, its turn is over.
+                  finish: reportRecorded,
                   // [[REQ-409]] — a builder's requests count against its caller's message.
                   charge: (records) => spendMeterFor(managerKey(slug, deps)).charge(backend, records),
                 })

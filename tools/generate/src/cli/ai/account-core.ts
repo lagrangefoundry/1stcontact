@@ -1006,6 +1006,16 @@ export function reportRefused(output: unknown): boolean {
   return typeof output === 'string' && !/"recorded"\s*:\s*true/.test(output)
 }
 
+/**
+ * Whether a tool activity is a `ReportResult` that was recorded — the call that
+ * finishes a builder's turn ([[BUG-243]]). A refused report is not: its retry is
+ * still to come.
+ */
+export function reportRecorded(event: { meta?: Record<string, unknown> }): boolean {
+  const meta = event?.meta
+  return meta?.name === REPORT_TOOL && typeof meta.output === 'string' && !reportRefused(meta.output)
+}
+
 // ── the hook that takes it ───────────────────────────────────────────────────
 
 /**
