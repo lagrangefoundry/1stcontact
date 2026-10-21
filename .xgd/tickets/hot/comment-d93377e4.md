@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T14:20:02.266054+00:00'
+updated_at: '2026-10-21T14:21:42.277537+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -364,5 +364,36 @@ None of it is committed yet. Bob's 16 images are also still loose in `bobs-salon
 <!-- xgd-chat role="user" ts="2026-10-21T14:20:01.588240+00:00" -->
 #### You
 Yes please organize bob's gallery and commit it
+
+<!-- xgd-turn id="1a1460fb-3ef8-4082-9c34-fd7e167d6a49-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T14:21:41.325025+00:00" -->
+#### Claude
+Two of the images are byte-for-byte identical. Next I'm looking at each picture so I can give it a proper name.
+
+I've seen all 16 images. Now I'm moving them into `images/` with descriptive names and dropping the duplicate.
+
+Bob's gallery is organised and committed together with Ariel's Arc Welding as `44de8e5e9f` on `xgd-working`. Only `example-businesses/` went into the commit.
+
+I looked at each image and gave it a descriptive name in `bobs-salon/images/`:
+- **Brand:** `logo.png` (the gold emblem), `team-storefront.png`, and `collage-hair-heart-community.png`.
+- **People:** `bob-portrait.png`, `bob-cutting-long-hair.png`, `marisol-portrait.png`, `twee-portrait.png`, `aoife-portrait.png`, `eileen-portrait.png`.
+- **The work:** `mens-long-curls.png`, `balayage-waves-back.png`, `balayage-waves-profile.png`, `copper-long-waves.png`, `textured-updo.png`.
+- **Community:** `wigs-for-kids-wall.png`.
+
+There were 16 images, but two were byte-for-byte identical copies of the team photo, so I deleted one and 15 are committed. Bob's README now has a gallery table describing each image.
+
+The images don't say who the staff are, so I matched them by role and look:
+- the woman with long curls is Marisol, who does colour and curly hair
+- the woman with glasses and tattoos is Twee, who does nails
+- the woman with the red-gold bun is Aoife, the Irish facialist
+- the older woman with white hair is Eileen, Bob's mother
+
+Swap any of those if you see them differently.
+
+I noted three places in the README where the images and the written details disagree:
+- **The shop is at street level in the photos**, with a chalkboard on the sidewalk. The documents put it on the second floor above a bakery, and one review complains about the stairs. I can rewrite those bits to match the photos if you like.
+- **The chalkboard says "Good hair, kinder people".** It would work as a tagline, but the documents don't use it yet.
+- **The Wigs for Kids wall has a typo in the image.** The brass plaque reads "Small acts make a big BRIFFERENCE". Crop or regenerate it before it goes on a site.
 
 <!-- xgd-chat-end -->
