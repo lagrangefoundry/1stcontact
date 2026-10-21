@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T22:02:43.400393+00:00'
+updated_at: '2026-10-21T22:04:30.170588+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12182,5 +12182,11 @@ The screenshot critic could also catch all of this, but these checks are cheaper
 I'd add these checks to the existing layout-check ticket (BUG-238) rather than open a new one. Should I write them up there?
 
 **Why your last three messages failed:** this epic's chat history is about 1 MB and the ticket itself about 160 KB. The session launcher passes them to `claude` on the command line, which is over the system's limit, so it fails with "Argument list too long". That's a bug in xgd itself, so it would need a ticket in the xgd repo. Want me to file it?
+
+<!-- xgd-turn id="70fc268b-ed29-4ab1-ac80-095fd0d5aeb0-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-21T22:04:26.782594+00:00" -->
+#### You
+Its ok I restarted the dashboard with the bug fix in it - that's how we are talking
 
 <!-- xgd-chat-end -->
