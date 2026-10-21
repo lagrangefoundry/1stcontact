@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T21:20:39.220160+00:00'
+updated_at: '2026-10-21T21:21:06.579275+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11994,5 +11994,18 @@ Well in fairness the AI is trying to gather material to populate the kids classe
 Well in fairness the AI is trying to gather material to populate the kids classes page that I asked for - but I would prefer a more strategic and collaborative approach rather than a constant stream of questions.
 
 Again its hard for me here because this is a role play a real user might not have as much resistance to this
+
+<!-- xgd-turn id="91836a6c-0332-4400-a520-1d44554adfc1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T21:21:05.197274+00:00" -->
+#### Claude
+You're right, and I misread it: the questions did have a purpose, the classes page you asked for. The problem is the **mode**. It's an interrogation, one fact at a time, with nothing visibly getting built, when it could be working on the page with you.
+
+The collaborative version, which I've added to REQ-426:
+- **Draft first, with the gaps marked.** *"For the classes page I'd cover what the class is, ages, price, what the kids make, safety, who teaches, and how to sign up. Here's a first version from what you've told me; the [?] bits are what I don't know yet."* You fill in, correct, or say "skip", all in one go.
+- **Facts go to the panel as one batch.** Short factual gaps like price, ages, class size and what to bring become a small panel task (REQ-424) instead of trickling through the chat. The chat is kept for things that need a conversation: the story and the reasons why.
+- **Each exchange visibly moves the site forward.** You watch the draft section get better, rather than feeding answers into a void.
+
+On the role-play caveat: agreed. A real owner might happily talk about the kids for ten minutes. But draft-first holds up across the range. A talkative owner still gets to talk, now about something concrete, and an owner short on time can fill the gaps and move on. It's also cheaper: one draft and one panel batch replace seven exchanges.
 
 <!-- xgd-chat-end -->
