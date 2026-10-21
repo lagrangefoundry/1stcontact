@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T18:37:12.930742+00:00'
+updated_at: '2026-10-21T18:38:03.651243+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -11244,5 +11244,27 @@ Shall I file them?
 <!-- xgd-chat role="user" ts="2026-10-21T18:37:12.612952+00:00" -->
 #### You
 In this case it wasn't anthropic - I had to restart the dev server that seems to have fixed it - this would be catastrophic if it happened in production BTW
+
+<!-- xgd-turn id="b5a18c6d-efd6-44b1-8421-afec40b03611-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T18:38:02.505599+00:00" -->
+#### Claude
+Agreed, it would be catastrophic, and a restart fixing it makes it worse. A restart only clears memory inside one worker process. In production, leases and locks held in a Durable Object outlive that process, so a stuck session could stay stuck with nothing to restart. I've filed it as **BUG-249** (**critical**, 8 points, under EPIC-19).
+
+**What happened, as far as the records show:** the turn started, then something inside our server waited on an operation that never finished. Candidates are a Durable Object call, a file lock, the background write to the session log, or the talker desk. Meanwhile its heartbeats kept saying "I'm alive", so the turn held its lease and every later message stayed blocked. No error was logged and the turn was never closed. The heartbeat proves the process is running, not that the turn is making progress, and that's the core flaw.
+
+**What the ticket requires:**
+1. **No turn can hang forever.** Each turn has a progress deadline: no new text, tool activity or progress for a configured time means the host aborts it. It records the outcome `stalled` with what it was waiting on, and releases everything it holds: the lease, file locks, draft leases, and the talker desk. Heartbeats don't count as progress. If that part lives in the framework, a lagrange-framework ticket gets filed for it.
+2. **Leases and locks expire by themselves** once their holder stops making progress.
+3. **The conversation picks back up automatically,** and your next message is never blocked by the dead turn.
+4. **No unpleasant messages for clients.** Production shows *"One moment, picking that back up…"*; the detailed note with the turn id stays in dev.
+5. **Every turn closes in `turn_log`** with an outcome and a cause, and a watchdog closes any left open.
+6. **The cause is logged:** the last event and what was being waited on, so the next incident tells us why.
+7. **Resilience to model API failures** (timeouts and retries), filed in the framework if it isn't already there.
+8. **For production:** an alert when a turn stalls, and an admin "unstick this session" action as a last resort.
+
+The main test injects a wait that never finishes into a tool call. It then checks that the turn is aborted on time, that everything it held is released, and that your next message works **without a restart**.
+
+I'd put BUG-249 ahead of the UX tickets. Everything else assumes a conversation that can't get permanently stuck.
 
 <!-- xgd-chat-end -->
