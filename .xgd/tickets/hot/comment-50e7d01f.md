@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T13:19:11.783428+00:00'
+updated_at: '2026-10-21T13:25:07.210794+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4222,5 +4222,90 @@ Yes please create tickets and do your analysis
 on shortening instructions, there is obviously a trade off if the builder instructions are unclear it could burn more tokens making mistakes.
 
 Also if that 50k is reuse can we make better uses of caching for the builders?
+
+<!-- xgd-turn id="892274f9-b08e-4e7e-b9b5-d5d8891d3e79-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T13:25:05.532691+00:00" -->
+#### Claude
+Three pieces of work: a ticket for the meter, an analysis of what's in a builder's starting ~50k tokens and whether it's being cached, and a classification of the 38 builder runs. I'll hand the classification to a subagent so it runs while I do the other two.
+
+Now the builder's starting context: what it's made of, and how the cache is set up.
+
+Likely culprit: each builder's tool definitions are built per session (`claims.worker(session)`). Tools come first in a request, so if they differ, every builder misses the shared prefix. Checking.
+
+Tool definitions only vary in how calls run, not in what the model sees, so they aren't the cause. Sizing what goes into a builder's starting context instead.
+
+The framework drops the 5-minute/1-hour split, so the meter can't price writes exactly yet. Writing the three tickets.
+
+The framework ticket printed nothing; I'll check its store before retrying, so I don't file a duplicate.
+
+Filed: BUG-242 and REQ-421 here, and framework REQ-216. Now cross-referencing them and linking them to EPIC-20.
+
+All three tickets are filed and linked. The run classification is still going in the background, so I'll wait for it rather than end the turn without it.
+
+While that runs, I'll record the cache findings on EPIC-20.
+
+The findings are recorded on EPIC-20. Waiting for the classification to finish.
+
+The classification is back, and its biggest claim is surprising: builders call ReportResult in a loop until they run out of context. I'll check that against the raw data before reporting it.
+
+I've filed four tickets and finished the analysis. The biggest single waste turned out to be a bug: builders keep reporting in a loop after they've finished.
+
+## Your caching question: yes, that's the lever
+
+You're right on both counts.
+
+- **Shortening instructions is the wrong lever.** Most of a builder's ~45–50k starting tokens aren't instructions anyway: they're its tool definitions (the page toolset's declaration alone is about 100 KB).
+- **Caching is the right lever, and it isn't working.** That starting context is identical for every builder, and the code says it's meant to be shared through the cache. It isn't: every builder writes the whole thing again, even when another started ten minutes earlier. Builders also pay the 1-hour cache rate (2× input) for a conversation that lasts minutes and is never resumed.
+
+Fixing both is worth about $6 a session, roughly a fifth of builder spend, and nothing the builders are told changes.
+
+## Tickets
+
+| ticket | what | where |
+|---|---|---|
+| **BUG-242** | The meter prices cache writes at the 5-minute rate (1.25×), but every request asks for the 1-hour cache (2×). Every figure since metering began is about 15% low; Bob's Salon 3 is really about **$49.60**, not $42.46. | here |
+| **REQ-421** | Builders share their common starting context through the cache. Each run's own conversation is cached for 5 minutes, the shared part for an hour. Explicitly, nothing gets cut from the instructions. | here |
+| **REQ-216** | Lets a backend set its cache lifetime in config, separately for the shared part and the conversation, and reports which lifetime each write used. REQ-421 and BUG-242 both rely on it. | lagrange-framework |
+| **BUG-243** | Builders loop on ReportResult (below). | here |
+
+All are drafts under EPIC-20, apart from REQ-216, which is in the framework repo.
+
+## Where the builder money went (38 runs)
+
+The run-by-run sorting is my subagent's judgement call:
+
+| | runs | share of builder cost |
+|---|---|---|
+| New work | 6 | 15% |
+| Redoing work | 27 | 73% |
+| Repairing damage | 3 | 10% |
+| Client changed their mind | 2 | 3% |
+
+Treat the 73% as an upper bound. Several "redo" runs had actually done the work and were marked failed because of the layout check's false alarm on the contact form (BUG-237). That alarm also re-prompted the consultant 13 times.
+
+**The surprise: builders don't stop after reporting.** 15 of the 18 runs that hit their context limit finished with 7–27 ReportResult calls in a row. I checked builder-1 directly: its last real edit was at 19:28:43, then it reported 27 times in under three minutes. That's 284 wasted calls, about $4.
+
+I think the cause is ours. Past 80% of its context, the host tells the builder on every request *"Call ReportResult now"*. Nothing turns that off once the report is in, and the report's result is just `{"recorded": true}`. So most of those "ran out of context" endings were finished work, reported and then repeated. BUG-243 ends the builder's turn once its report is recorded.
+
+**The other causes of rework:**
+- The photo gallery's per-screen-width columns took 8 runs. One builder spent 103 requests trying a setting that doesn't exist.
+- The header call button and the logo took about 12 runs.
+- Builders changed things outside their brief: the price menu was deleted, a footer background was stripped, and a photo was swapped.
+- Desktop fixes broke the phone layout and the other way round. The Colour price table took five passes.
+
+**Failed tool calls:** 330 of 2,115.
+- 92 were rejected page edits.
+- 106 were screenshot calls with the wrong options, still the old screenshot options from before the REQ-363 change.
+- One builder retried the same refused "add palette colour" 42 times, because the brief asked for something its scope didn't allow.
+
+**A good sign:** none of the 38 briefs carried the story board.
+
+## What I'd do first
+
+1. **BUG-243**, the report loop. It's small and stops the worst waste.
+2. **BUG-242**, so the numbers are right.
+3. **REQ-421**, with framework REQ-216.
+4. **BUG-237** (the false alarm), if it isn't already moving. It caused rework and kept nagging the consultant.
 
 <!-- xgd-chat-end -->
