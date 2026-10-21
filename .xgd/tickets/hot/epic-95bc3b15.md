@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T18:00:29.721313+00:00'
+updated_at: '2026-10-21T18:29:46.821245+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2322,3 +2322,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[BUG-248]] — preview refresh during builds: keep scroll position (hidden-frame swap), refresh only when the viewed page or something shared changed, no replayed entrance animations (with a Replay control), and at most one refresh every few seconds plus one at the end.
+
+
+- [[REQ-422]] — L1 shared site header and footer with navigation built from the site's pages (operator: "a first class concept in L1"); host checks for a page with no header/brand, unreachable pages, dead ends and leftover placeholders (Ariel's run: no header on home, art page a dead end, a false "it's in the menu"). BUG-246 gains page awareness and the page-switching line.
