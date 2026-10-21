@@ -5,7 +5,7 @@ type: comment
 title: Comment on chat CHAT-59
 created_by: xgd
 created_at: '2026-10-02T17:51:38.357138+00:00'
-updated_at: '2026-10-21T14:19:31.413665+00:00'
+updated_at: '2026-10-21T14:19:59.190750+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -350,5 +350,13 @@ Everything you gave me is in the README's canon table. Here's how I filled in th
 <!-- xgd-chat role="user" ts="2026-10-21T14:19:31.170898+00:00" -->
 #### You
 Yeah I meant arc welding - sorry
+
+<!-- xgd-turn id="7393766f-c986-4638-a91b-87769f170e3f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-21T14:19:58.766575+00:00" -->
+#### Claude
+I've changed the name to **Ariel's Arc Welding** everywhere. The folder is now `example-businesses/ariels-arcwelding/`, and the made-up email and website are `shop@arielsarcwelding.example` and `arielsarcwelding.example`. The index is updated too, and no "Archwelding" is left anywhere.
+
+None of it is committed yet. Bob's 16 images are also still loose in `bobs-salon/` and uncommitted. Should I move them into `bobs-salon/images/`, list them in Bob's README, and commit both businesses together?
 
 <!-- xgd-chat-end -->
