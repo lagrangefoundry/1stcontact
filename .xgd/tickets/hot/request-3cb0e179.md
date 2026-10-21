@@ -6,9 +6,9 @@ title: 'L1: vertical rhythm — text styles carry space above and below, so a he
   attaches to its paragraph'
 created_by: EPIC-19
 created_at: '2026-10-20T23:26:20.891074+00:00'
-updated_at: '2026-10-21T00:19:52.424413+00:00'
+updated_at: '2026-10-21T00:38:14.020002+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coded
 fields:
   priority: high
@@ -52,6 +52,25 @@ be spaced evenly, so every builder produces the floating-heading look.
   the AI can override. REQ-415's layout check flags it as a finding.
 - **L1, in this repo** (`packages/site-schema` + `packages/framework` renderer).
 
+## Review against the decisions (EPIC-19, 2026-10-21)
+
+The implementation (below) meets all three operator decisions:
+- **Implicit pairing** — spacing lives on text styles (`spaceAbove` /
+  `spaceBelow`), stacks collapse to max(below, above), and keep-with-next groups
+  a heading with its text; there is no "titled block" node.
+- **A default, not a rule** — nothing in the validator forbids a heading with
+  more space below than above; per-node overrides exist; the floating heading is
+  a layout-check finding (BUG-238's `loose_heading`), not a refusal.
+- **L1 in this repo** — `packages/site-schema`, `packages/framework`, capture/fold
+  and `1c type assign`.
+
+One change from the original wording, accepted: item 9 originally said existing
+pages render unchanged. As built, stacks with `gapPx` are byte-identical, but a
+plain text stack with no stated spacing now adopts rhythm (4 of 13 stored pages:
+xgd home and whitepapers, Charlie's home, the sandbox demo). Those stacks had no
+spacing before, so this is the fix the operator asked for reaching them; item 9
+is rewritten to say so. Published sites are unaffected until republished.
+
 ## What changes
 
 1. **A rhythm unit.** The site declares a base vertical spacing unit (default ≈
@@ -83,8 +102,11 @@ be spaced evenly, so every builder produces the floating-heading look.
    reproductions keep it; the REQ-82 round-trip gate covers it.
 8. **Builders and consultant** are taught: text goes in rhythm stacks; adjust
    spacing on the style, override per node only for a specific reason.
-9. **Existing pages** keep `gapPx` and render unchanged; they move to rhythm when
-   next restyled. No forced migration.
+9. **Existing pages.** A container with `gapPx` keeps rendering exactly as
+   before. A plain text stack that states no spacing at all (no `gapPx`) now
+   spaces by rhythm, because before it had no spacing between its children — so
+   this is a correction, not a restyle. Drafts change on next render; a
+   published site changes only when it is published again. No other migration.
 
 ## Test plan
 - Schema/validator: styles accept bounded `spaceAbove`/`spaceBelow`; out-of-range
