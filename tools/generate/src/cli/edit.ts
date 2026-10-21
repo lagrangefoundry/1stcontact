@@ -4177,6 +4177,8 @@ export async function editTextStyleAssign(slug: string, opts: EditOptions): Prom
     ...rest,
     textStyles: result.textStyles,
     ...(result.textDefault ? { textDefault: result.textDefault } : {}),
+    // REQ-420 — the unit the reference's rhythm was measured in.
+    ...(result.rhythm ? { rhythm: result.rhythm } : {}),
   }
   await validateOrThrow(slug, opts, newBase, result.pages)
   await opts.store.write(slug, {

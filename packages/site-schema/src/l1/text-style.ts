@@ -32,8 +32,16 @@ type TypeAxis = (typeof L1_TYPE_AXES)[number]
 /** The three that may vary by width (`responsive`). */
 const TRACKED: ReadonlySet<string> = new Set(['fontSizePx', 'lineHeightPx', 'letterSpacingPx'])
 
+/**
+ * REQ-420 — the two rhythm axes a style sets. Not type axes: they land on the
+ * run's NODE (`spaceAbove`/`spaceBelow`), where a run's own override is written,
+ * rather than in its `axes` — but they resolve through the same precedence.
+ */
+const SPACE_AXES = ['spaceAbove', 'spaceBelow'] as const
+type SpaceAxis = (typeof SPACE_AXES)[number]
+
 type Value = { value: string | number } | { track: L1ScalarTrack }
-type Bag = Partial<Record<TypeAxis, Value>>
+type Bag = Partial<Record<TypeAxis, Value>> & Partial<Record<SpaceAxis, number>>
 
 /** Lay `source`'s axes over `bag`: each axis it sets replaces the one below, in whichever form it sets it. */
 function layer(bag: Bag, source: Partial<L1TextStyle> | undefined): Bag {
@@ -44,6 +52,9 @@ function layer(bag: Bag, source: Partial<L1TextStyle> | undefined): Bag {
     const track = TRACKED.has(axis) ? responsive?.[axis as keyof L1TextResponsive] : undefined
     if (track) out[axis] = { track }
     else if (source[axis] !== undefined) out[axis] = { value: source[axis] as string | number }
+  }
+  for (const axis of SPACE_AXES) {
+    if (source[axis] !== undefined) out[axis] = source[axis]
   }
   return out
 }
@@ -129,13 +140,27 @@ export function renameL1TextStyleRef<T>(input: T, from: string, to: string): T {
  * is skipped rather than guessed at, exactly as nothing else here invents a value.
  */
 export function resolveL1TextStyles<T>(input: T, styles?: L1TextStyles, defaultStyle?: string): T {
-  const base: Bag = layer({}, defaultStyle !== undefined ? styles?.[defaultStyle] : undefined)
-  if (Object.keys(base).length === 0 && !usesStyles(input)) return input
+  const fromDefault: Bag = layer({}, defaultStyle !== undefined ? styles?.[defaultStyle] : undefined)
+  // REQ-420 — the default style's SPACE is body spacing, and a heading does not
+  // inherit it: a site whose body style says `spaceBelow: 1` would otherwise hand
+  // every heading 0 above and 1 below, which is the floating heading this axis
+  // exists to remove. A heading's space comes from a style it or its container
+  // names, or else from its level's default.
+  const base: Bag = { ...fromDefault }
+  const bodySpace: Bag = {}
+  for (const axis of SPACE_AXES) {
+    if (base[axis] === undefined) continue
+    bodySpace[axis] = base[axis]
+    delete base[axis]
+  }
+  if (Object.keys(fromDefault).length === 0 && !usesStyles(input)) return input
   const walk = (v: unknown, bag: Bag): unknown => {
     if (Array.isArray(v)) return v.map((item) => walk(item, bag))
     if (typeof v !== 'object' || v === null) return v
     const node = { ...(v as Record<string, unknown>) }
-    if (node.kind === 'text' || node.kind === 'control') return applyToRun(node, bag, styles)
+    if (node.kind === 'text' || node.kind === 'control') {
+      return applyToRun(node, node.heading === undefined ? { ...bodySpace, ...bag } : bag, styles)
+    }
     let inner = bag
     if (typeof node.kind === 'string' && node.type && typeof node.type === 'object') {
       const type = node.type as L1Type
@@ -169,6 +194,9 @@ function applyToRun(node: Record<string, unknown>, bag: Bag, styles?: L1TextStyl
     }
   }
   const out: Record<string, unknown> = { ...node }
+  for (const axis of SPACE_AXES) {
+    if (out[axis] === undefined && resolved[axis] !== undefined) out[axis] = resolved[axis]
+  }
   if (Object.keys(axes).length > 0) out.axes = axes
   else delete out.axes
   if (Object.keys(responsive).length > 0) out.responsive = responsive

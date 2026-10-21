@@ -25,6 +25,11 @@ import {
   resolveL1Palette,
   resolveL1TextStyles,
   type L1TextStyles,
+  l1RhythmPlan,
+  L1_KEEP_ATTR,
+  L1_RHYTHM_FALLBACK_UNIT_PX,
+  type L1RhythmPlan,
+  type L1RhythmUnit,
   resolveSiteLocale,
   L1_EDIT_HOT_CLASS,
   L1_EDIT_MARKER_ATTR,
@@ -3242,6 +3247,63 @@ function scalarAxisRules(selector: string, prop: string, track: L1ScalarTrack): 
  * `flex-wrap` is emitted only when the node actually declares `wrap`, so the
  * emission for an untouched container is unchanged to the byte.
  */
+/**
+ * REQ-420 — a rhythm container's children: each member carries the space before
+ * it as a top margin, and each keep-with-next group (a heading and the child it
+ * introduces) is wrapped as ONE item.
+ *
+ * THE WRAPPER IS WHAT KEEPS THEM TOGETHER. A row that wraps, or a layout that
+ * restacks at phone width, moves items — and an item is the unit it moves. A
+ * heading and its text as two items can be split across a line; as one, they
+ * cannot. The wrapper is a column, so inside it the two stack with the heading's
+ * own space below at every width, and it is a `role="group"` labelled by the
+ * heading, so assistive technology announces the text as belonging to it.
+ *
+ * The wrapper takes its first member's lead, so in a stack the arithmetic is the
+ * one the members would have had on their own and nothing moves by a pixel. It
+ * is the one element emitted that is not a node, and says so ({@link L1_KEEP_ATTR}),
+ * so a reader that maps the page's elements to addresses by position looks
+ * through it.
+ */
+function rhythmChildrenHtml(
+  node: L1Container,
+  plan: L1RhythmPlan,
+  flow: ParentFlow,
+  state: RenderState,
+  emitChild: (child: L1Node, i: number, flow: ParentFlow, lead?: RhythmLead) => string,
+): string {
+  state.usesRhythm = true
+  const column: ParentFlow = { base: 'stack', keyframes: [] }
+  const groupAt = new Map(plan.groups.map((g) => [g.start, g]))
+  const out: string[] = []
+  for (let i = 0; i < node.children.length; i++) {
+    const group = groupAt.get(i)
+    if (!group) {
+      out.push(emitChild(node.children[i], i, flow, rhythmLead(plan.leads.get(i), flow, state)))
+      continue
+    }
+    const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
+    const decls = ['display: flex', 'flex-direction: column', 'position: relative', 'min-width: 0']
+    if (node.align) decls.push(`align-items: ${ALIGN[node.align]}`)
+    const lead = rhythmLead(plan.leads.get(i), flow, state)
+    if (lead?.base) decls.push(`margin-top: ${lead.base}`)
+    for (const m of lead?.media ?? []) {
+      state.rules.push({ media: `(min-width: ${m.at}px)`, selector: `.${name}`, decls: [`margin-top: ${m.value}`] })
+    }
+    state.rules.push({ selector: `.${name}`, decls })
+    const heading = node.children[group.heading]
+    const labelId = heading.id ?? `${name}-h`
+    const members: string[] = []
+    for (let j = group.start; j <= group.end; j++) {
+      const child = j === group.heading && heading.id === undefined ? { ...heading, id: labelId } : node.children[j]
+      members.push(emitChild(child, j, column, j === group.start ? undefined : rhythmLead(plan.leads.get(j), column, state)))
+    }
+    out.push(`<div class="${name}" ${L1_KEEP_ATTR} role="group" aria-labelledby="${escapeHtml(labelId)}">${members.join('')}</div>`)
+    i = group.end
+  }
+  return out.join('')
+}
+
 function layoutDecls(mode: L1LayoutMode, node: L1Container): string[] {
   if (mode === 'grid') {
     return ['display: grid', `grid-template-columns: repeat(${node.columns ?? 1}, 1fr)`]
@@ -4234,6 +4296,48 @@ interface RenderState {
   zoomGroups?: Map<string, ZoomGroup>
   /** REQ-116 — render the edit channel: addresses stamped, the page inert. */
   edit?: boolean
+  /** REQ-420 — the site's rhythm unit, which every rhythm space is a multiple of. */
+  rhythm?: L1RhythmUnit
+  /** REQ-420 — set once any container spaces by rhythm, so the unit is declared only then. */
+  usesRhythm?: boolean
+}
+
+/**
+ * REQ-420 — a member's space before it in a rhythm container, as `margin-top`
+ * declarations: the base value and one override per layout keyframe. Rhythm
+ * space is vertical, so it is the lead at every width where the parent stacks
+ * and `0` wherever the parent lays its children side by side.
+ */
+interface RhythmLead {
+  base: string | null
+  media: readonly { at: number; value: string }[]
+}
+
+/** The custom property every rhythm space is a multiple of; declared on `:root`. */
+const RHYTHM_UNIT_VAR = '--l1-ru'
+
+/**
+ * REQ-420 — `k` rhythm units as CSS. The fallback is this render's own unit, so a
+ * fragment mounted where no document declared the property still spaces itself.
+ */
+function rhythmLength(k: number, state: RenderState): string {
+  return `calc(var(${RHYTHM_UNIT_VAR}, ${num(state.rhythm?.unitPx ?? L1_RHYTHM_FALLBACK_UNIT_PX)}px) * ${num(k)})`
+}
+
+/** REQ-420 — the lead `k` units buys a child of a parent laid out by `flow`. */
+function rhythmLead(k: number | undefined, flow: ParentFlow, state: RenderState): RhythmLead | undefined {
+  if (!k) return undefined
+  const on = rhythmLength(k, state)
+  return {
+    base: flow.base === 'stack' ? on : null,
+    media: flow.keyframes.map((kf) => ({ at: kf.at, value: kf.value === 'stack' ? on : '0' })),
+  }
+}
+
+/** REQ-420 — the `:root` rules declaring the unit, emitted only by a render that used it. */
+function rhythmUnitRules(unit: L1RhythmUnit | undefined): Rule[] {
+  if (unit?.track) return scalarAxisRules(':root', RHYTHM_UNIT_VAR, unit.track)
+  return [{ selector: ':root', decls: [`${RHYTHM_UNIT_VAR}: ${num(unit?.unitPx ?? L1_RHYTHM_FALLBACK_UNIT_PX)}px`] }]
 }
 
 /**
@@ -4491,6 +4595,8 @@ function emitNode(
    * container), which is the same answer as `stack`: height stays a percentage.
    */
   parent?: ParentFlow,
+  /** REQ-420 — the space before this node in its parent's rhythm, when it has one. */
+  lead?: RhythmLead,
 ): string {
   const name = `${state.prefix ? `${state.prefix}-` : ''}l1-${state.n++}`
   const selector = `.${name}`
@@ -5038,7 +5144,10 @@ function emitNode(
           decls: layoutDecls(kf.value, node),
         })
       }
-      if (node.gapPx !== undefined) base.push(`gap: ${node.gapPx}px`)
+      // REQ-420 — a rhythm container spaces its children by their own space, so
+      // it emits no uniform gap; `gapPx` is the `gap` mode's value only.
+      const rhythm = l1RhythmPlan(node)
+      if (node.gapPx !== undefined && !rhythm) base.push(`gap: ${node.gapPx}px`)
       if (node.distribution) base.push(`justify-content: ${JUSTIFY[node.distribution]}`)
       if (node.align) base.push(`align-items: ${ALIGN[node.align]}`)
       // REQ-98 — a container paints AND lays out, so a painted, internally-laid-out
@@ -5058,12 +5167,13 @@ function emitNode(
         base: track ? track.keyframes[0].value : node.layout,
         keyframes: track?.keyframes.slice(1) ?? [],
       }
-      const inner = node.children
-        .map((child, i) => {
-          const share = node.staggerMs && child.reveal ? revealIndex++ * node.staggerMs : 0
-          return emitNode(child, state, [...path, i], share, childFlow)
-        })
-        .join('')
+      const emitChild = (child: L1Node, i: number, flow: ParentFlow, lead?: RhythmLead): string => {
+        const share = node.staggerMs && child.reveal ? revealIndex++ * node.staggerMs : 0
+        return emitNode(child, state, [...path, i], share, flow, lead)
+      }
+      const inner = rhythm
+        ? rhythmChildrenHtml(node, rhythm, childFlow, state, emitChild)
+        : node.children.map((child, i) => emitChild(child, i, childFlow)).join('')
       if (href) base.unshift('text-decoration: none', 'color: inherit')
       html = `<${tag('div')} class="${cls}"${idAttr}${editAttrs}${linkAttrs}${actionAttrs}${dialogAttrs}>${inner}</${tag('div')}>`
       break
@@ -5260,6 +5370,12 @@ function emitNode(
       state.rules.push({ media: `(min-width: ${untilPx}px)`, selector, decls: ['display: none'] })
     }
   }
+
+  // REQ-420 — the rhythm space before this node. Last, so it wins over the
+  // `margin: 0` a run resets its UA margins with; a node placed by geometry is
+  // never a rhythm member, so this can never meet REQ-278's leading offset.
+  if (lead?.base) base.push(`margin-top: ${lead.base}`)
+  for (const m of lead?.media ?? []) state.rules.push({ media: `(min-width: ${m.at}px)`, selector, decls: [`margin-top: ${m.value}`] })
 
   if (base.length) state.rules.push({ selector, decls: base })
 
@@ -5462,6 +5578,13 @@ export interface L1RenderOptions {
    * stored-XSS sink that the `<img>` channel it arrived on had closed for free.
    */
   drawings?: Readonly<Record<string, string>>
+  /**
+   * REQ-420 — the site's rhythm unit (`l1RhythmUnit(site)`), which every rhythm
+   * space on the page is a multiple of. A site-level value, so supplied by the
+   * caller that holds the site, on `palette`'s terms. Absent, the unit is
+   * {@link L1_RHYTHM_FALLBACK_UNIT_PX}.
+   */
+  rhythm?: L1RhythmUnit
 }
 
 /** Render an L1 document to `{ html, css }`. Pure; deterministic. */
@@ -5477,6 +5600,7 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
     edit: opts.edit,
     delivery: opts.delivery,
     drawings: opts.drawings,
+    rhythm: opts.rhythm,
   }
   // The document's root node list is the single `doc.root`, so its address is
   // `0` — the same "index the list, then walk `children`" rule a fragment uses.
@@ -5485,6 +5609,9 @@ export function renderL1Document(input: L1Document, opts: L1RenderOptions = {}):
   // so its one shell cannot be written at any of them, and the rules it pushes
   // (the scrim, the ink) have to reach the CSS below.
   const body = emitNode(doc.root, state, [0]) + flushZoomGroups(state)
+  // REQ-420 — the unit is declared once, for the page, and only by a page that
+  // spaces something by rhythm: a document that does not is byte-identical.
+  if (state.usesRhythm) state.rules.unshift(...rhythmUnitRules(opts.rhythm))
   const reset = [
     '*, *::before, *::after { box-sizing: border-box }',
     'html, body { margin: 0; padding: 0 }',
@@ -5550,9 +5677,16 @@ export function renderL1Fragment(
   nodes: L1Node[],
   prefix = 'fc',
   controls?: Readonly<Record<string, L1ControlElement>>,
-  opts: { palette?: L1Palette; textStyles?: L1TextStyles; textDefault?: string; edit?: boolean } = {},
+  opts: {
+    palette?: L1Palette
+    textStyles?: L1TextStyles
+    textDefault?: string
+    edit?: boolean
+    /** REQ-420 — the unit a fragment's rhythm falls back to where the page declares none. */
+    rhythm?: L1RhythmUnit
+  } = {},
 ): L1FragmentResult {
-  const state: RenderState = { n: 0, rules: [], prefix, controls, edit: opts.edit }
+  const state: RenderState = { n: 0, rules: [], prefix, controls, edit: opts.edit, rhythm: opts.rhythm }
   // REQ-116 — a fragment's addresses are rooted at the SUBTREE ARRAY, so they are
   // relative to the mounted instance rather than to the document. The client
   // reads which instance and which seam off the enclosing `data-fc-module` /
@@ -5589,8 +5723,9 @@ export function renderL1Page(
   doc: L1Document,
   title = 'L1',
   locale: SiteLocaleInput = {},
+  opts: L1RenderOptions = {},
 ): string {
-  const { html, css } = renderL1Document(doc)
+  const { html, css } = renderL1Document(doc, opts)
   const resolved = resolveSiteLocale(locale)
   return `<!doctype html>
 <html lang="${escapeHtml(resolved.locale)}" dir="${resolved.dir}">

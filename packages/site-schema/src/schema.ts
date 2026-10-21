@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { l1DocumentSchema, l1NodeSchema } from './l1/schema'
 import { l1PaletteSchema } from './l1/palette'
-import { l1StyleNameSchema, l1TextStylesSchema } from './l1/schema'
+import { l1RhythmSchema, l1StyleNameSchema, l1TextStylesSchema } from './l1/schema'
 import { l1DocumentSlotNames } from './l1/slots'
 import {
   COUNTRY_DEFAULTS,
@@ -1179,6 +1179,13 @@ export const siteSchema = z
      * container or run says otherwise. Must name one of {@link textStyles}.
      */
     textDefault: l1StyleNameSchema.optional(),
+    /**
+     * REQ-420 — the site's base vertical spacing unit: what one rhythm unit is,
+     * in px, optionally per width (`responsive.unitPx`). Every `spaceAbove` /
+     * `spaceBelow` on the site is a multiple of it. Absent, it is the default
+     * text style's line height.
+     */
+    rhythm: l1RhythmSchema.optional(),
     nav: navConfigSchema,
     pages: z.array(pageSchema),
     /*

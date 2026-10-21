@@ -357,6 +357,25 @@ export const l1AxisSizingSchema = z
 export const l1LayoutModeSchema = z.enum(['stack', 'row', 'grid'])
 
 /**
+ * REQ-420 — how a container spaces its children.
+ *
+ * - `rhythm` — each neighbour pair is separated by the larger of the first one's
+ *   `spaceBelow` and the second one's `spaceAbove`, in the site's rhythm units,
+ *   so a heading sits close to the text it introduces and well clear of what
+ *   came before. A heading is kept with what follows it: the two are one unit
+ *   when a row wraps or a layout restacks. For stacks of text.
+ * - `gap` — one uniform `gapPx` between every pair. For card grids, image rows,
+ *   button rows.
+ *
+ * Unset, a container with a `gapPx` uses `gap`; a `stack` holding text with no
+ * `gapPx` and no pinned or offset children uses `rhythm`; anything else `gap`.
+ * Rhythm space is vertical, so it applies at the widths where the container is a
+ * `stack`; at a width where it is a row or grid its children sit side by side
+ * with no space between them.
+ */
+export const l1SpacingSchema = z.enum(['rhythm', 'gap'])
+
+/**
  * REQ-104 — one breakpoint of a container's layout mode: the mode in force from
  * `at` px upward. Discrete, so there is no `segments` companion — a layout mode
  * has nothing to interpolate, it snaps.
@@ -1994,12 +2013,51 @@ const l1TypeAxesShape = {
 }
 
 /**
+ * REQ-420 — vertical space, in RHYTHM UNITS: multiples of the site's base
+ * spacing unit (`site.rhythm`), never pixels, so a whole site's spacing scales
+ * with one value and tightens at phone width with it.
+ */
+export const l1RhythmSpaceSchema = z.number().min(0).max(16)
+
+/**
+ * REQ-420 — the space an element asks for above and below itself, in rhythm
+ * units. Between two neighbours in a `rhythm` container the space is the LARGER
+ * of the first one's `spaceBelow` and the second one's `spaceAbove` — the two
+ * collapse, as in typesetting — and the container's own top and bottom edge drop
+ * them, so its padding governs its edges. A heading asks for much more above
+ * than below, which is what attaches it to the text it introduces.
+ */
+const l1RhythmSpaceShape = {
+  /** REQ-420 — space above, in rhythm units. */
+  spaceAbove: l1RhythmSpaceSchema.optional(),
+  /** REQ-420 — space below, in rhythm units. */
+  spaceBelow: l1RhythmSpaceSchema.optional(),
+}
+
+/**
  * REQ-350 — a NAMED TEXT STYLE: type set once, on the site, and referred to by
  * every run that uses it (`axes.textStyle`). Changing the style changes every
  * run that refers to it — the palette's model (REQ-114), one axis group over.
  * Structured only: a closed set of typed axes, `.strict()`, no raw CSS.
+ *
+ * REQ-420 — a style also carries the space its runs take above and below
+ * themselves, so "headings sit closer to their text" is one change to the style
+ * rather than one per heading. A run's own `spaceAbove`/`spaceBelow` still wins.
  */
-export const l1TextStyleSchema = z.object(l1TypeAxesShape).strict()
+export const l1TextStyleSchema = z.object({ ...l1TypeAxesShape, ...l1RhythmSpaceShape }).strict()
+
+/**
+ * REQ-420 — the site's base vertical spacing unit: what one rhythm unit is, in
+ * px, optionally per viewport width (`responsive.unitPx`) so phone rhythm can be
+ * tighter than desktop. Absent, the unit is the default text style's line
+ * height, or 24px when that sets none.
+ */
+export const l1RhythmSchema = z
+  .object({
+    unitPx: z.number().min(1).max(200),
+    responsive: z.object({ unitPx: l1ScalarTrackSchema }).strict().optional(),
+  })
+  .strict()
 
 /** The site's text styles: an arbitrary-size map of names to styles. */
 export const l1TextStylesSchema = z.record(l1StyleNameSchema, l1TextStyleSchema)
@@ -2318,6 +2376,14 @@ const nodeAxisGroupsShape = {
    * clipping composition actually has.
    */
   clip: z.literal(true).optional(),
+  /**
+   * REQ-420 — this node's own space above and below it in a `rhythm` container,
+   * in rhythm units. Unset, a text run takes its style's, and a heading or a
+   * paragraph with none takes its level's default; set it here only for a
+   * specific need, because changing the style changes every use and this changes
+   * one.
+   */
+  ...l1RhythmSpaceShape,
 } as const
 
 /**
@@ -2791,6 +2857,8 @@ export interface L1ContainerNode extends L1NodeAxisGroups {
   axes?: z.infer<typeof l1SurfaceAxesSchema>
   /** REQ-350 — the type this container sets for every run it contains. */
   type?: z.infer<typeof l1TypeSchema>
+  /** REQ-420 — how neighbours are spaced: by their own rhythm, or by one uniform `gapPx`. */
+  spacing?: z.infer<typeof l1SpacingSchema>
   gapPx?: number
   columns?: number
   distribution?: z.infer<typeof l1DistributionSchema>
@@ -2858,6 +2926,8 @@ export const l1ContainerSchema: z.ZodType<L1ContainerNode> = z.lazy(() =>
       axes: l1SurfaceAxesSchema.optional(),
       /** REQ-350 — the type this container sets for every run it contains. */
       type: l1TypeSchema.optional(),
+      /** REQ-420 — `rhythm` or `gap`; see {@link l1SpacingSchema}. */
+      spacing: l1SpacingSchema.optional(),
       gapPx: finite.nonnegative().optional(),
       columns: z.number().int().positive().optional(),
       distribution: l1DistributionSchema.optional(),

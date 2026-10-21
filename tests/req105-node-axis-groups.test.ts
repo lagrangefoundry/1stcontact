@@ -250,6 +250,10 @@ describe('REQ-105 — a slot carries the shared sizing group', () => {
       // property of the box. The loss that named it was a headline painted under
       // a photograph, which is a `text` node losing an axis a montage needs.
       paintOrder: 20,
+      // REQ-420 — a node's own rhythm space, carried by every kind for the same
+      // reason: anything in a rhythm stack is somebody's neighbour.
+      spaceAbove: 2.5,
+      spaceBelow: 0.5,
     }
     const groups = Object.keys(l1NodeAxisGroupsSchema.shape)
     expect(groups.sort()).toEqual(Object.keys(sample).sort())

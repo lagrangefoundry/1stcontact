@@ -90,6 +90,17 @@ export { l1Children, l1ChildEntries, l1TableCells, setL1Child, withL1Children } 
 // REQ-104 — the one place the renderer and the analytic evaluator agree on which
 // layout mode a container is in at a given width.
 export { resolveLayoutMode } from './layout'
+// REQ-420 — vertical rhythm, shared by the renderer and the analytic evaluator.
+export {
+  L1_KEEP_ATTR,
+  L1_RHYTHM_DEFAULTS,
+  L1_RHYTHM_FALLBACK_UNIT_PX,
+  l1RhythmPlan,
+  l1RhythmUnit,
+  l1SpaceOf,
+  l1SpacingOf,
+} from './rhythm'
+export type { L1RhythmGroup, L1RhythmPlan, L1RhythmUnit, L1Space } from './rhythm'
 // REQ-116/117 — the edit bridge's definition half: the stamp's attribute names,
 // the address and its one resolution rule, and a segment's exposed copy fields.
 export {

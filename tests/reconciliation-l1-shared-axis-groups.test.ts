@@ -125,6 +125,10 @@ const NODE_GROUP_SAMPLES: Record<string, unknown> = {
   // second way), which is what makes the "anything that is not a legal value is
   // refused" half of the sweep below hold for it as it does for the two literals.
   paintOrder: 20,
+  // REQ-420 — a node's own rhythm space, carried by every kind: anything in a
+  // rhythm stack is somebody's neighbour, so any kind may need its own space.
+  spaceAbove: 2.5,
+  spaceBelow: 0.5,
 }
 
 /**

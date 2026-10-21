@@ -176,6 +176,7 @@ const ALL_CONTAINER_AXES = [
   'distribution',
   'align',
   'staggerMs',
+  'spacing',
 ] as const
 
 /**

@@ -38,6 +38,7 @@
  * any style; nothing here says a page is ugly.
  */
 
+import { L1_KEEP_ATTR } from '@1stcontact/site-schema'
 import type { BrowserDriverFactory } from '../capture/types'
 import { VIEWPORTS } from '../capture/screenshot'
 import type { MeasureDeps } from './measure-core'
@@ -111,7 +112,9 @@ export const LAYOUT_SCRIPT = String.raw`(() => {
   const vw = window.innerWidth;
   const out = { width: vw, findings: [] };
   const add = (section, kind, text) => out.findings.push({ section, kind, text });
-  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE');
+  // [[REQ-420]] — a keep-with-next wrapper is not a node; its members are.
+  const real = (el) => Array.from(el.children).filter((c) => c.tagName !== 'SCRIPT' && c.tagName !== 'STYLE')
+    .flatMap((c) => (c.hasAttribute('${L1_KEEP_ATTR}') ? real(c) : [c]));
   let root = document.querySelector('body > .l1-0');
   if (!root) return out;
   let at = '0';

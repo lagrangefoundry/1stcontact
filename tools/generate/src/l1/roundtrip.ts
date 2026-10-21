@@ -11,7 +11,7 @@
  * every captured width.
  */
 import http from 'node:http'
-import { renderL1Page } from '@1stcontact/framework'
+import { renderL1Page, type L1RenderOptions } from '@1stcontact/framework'
 import { l1TextRuns, type L1Document, type L1Node } from '@1stcontact/site-schema'
 import { evalScalarTrack } from './probes'
 // REQ-351 (issue 5) — the one statement of which runs have substance, so a
@@ -40,8 +40,8 @@ export interface L1Serve {
 }
 
 /** Render an L1 document and serve it over loopback (the `1c shot` seam). */
-export async function serveL1(doc: L1Document): Promise<L1Serve> {
-  const page = renderL1Page(doc)
+export async function serveL1(doc: L1Document, render: L1RenderOptions = {}): Promise<L1Serve> {
+  const page = renderL1Page(doc, 'L1', {}, render)
   const body = Buffer.from(page, 'utf-8')
   const server = http.createServer((_req, res) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' })
@@ -61,6 +61,8 @@ export interface L1CaptureOptions {
   engines?: RenderEngine[]
   /** Viewport widths (default the document's own ladder). */
   widths?: number[]
+  /** REQ-420 — what the page is rendered with that the document does not carry: the site's rhythm unit. */
+  render?: L1RenderOptions
 }
 
 /**
@@ -78,7 +80,7 @@ export async function captureL1(
 ): Promise<StateProjection[]> {
   const engines = opts.engines ?? ['chromium']
   const widths = opts.widths ?? doc.widths
-  const serve = await serveL1(doc)
+  const serve = await serveL1(doc, opts.render)
   const projections: StateProjection[] = []
   try {
     for (const engine of engines) {
