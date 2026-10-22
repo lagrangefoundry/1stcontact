@@ -6,10 +6,10 @@ title: 'Executive function: due items that hold, one agenda for talker and consu
   a gear-change count, and promises on the plan'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:16.729230+00:00'
-updated_at: '2026-10-22T21:15:27.187706+00:00'
+updated_at: '2026-10-22T21:15:50.140084+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-641e761b
+  commits:
+  - working_sha: 24984adcbdfd5fb232a4a8758c088411b7eb5901
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 6675c08adc251b45a1a0308366361d2b522b7eff
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.581
 ---
 
 ## Why (operator, 2026-10-22, EPIC-19)
