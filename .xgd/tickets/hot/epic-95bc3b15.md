@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-22T20:43:49.163018+00:00'
+updated_at: '2026-10-22T21:05:53.485979+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2348,3 +2348,5 @@ The consultant promised Charlie it would build two sections in parallel, but the
 - [[REQ-427]] — the critic: an independent review (one strong-model call, four lenses: purpose, messaging, style, function; brief + screenshots at 1280/900/375, never the transcript), due at the first draft, a looks set and before publishing; the host holds the hand-back until every finding is answered fixed/decision/dismissed. Strategist dropped from this design.
 
 - [[REQ-428]] — executive function, gaps after REQ-424/425/426: an unreacted-notes cap on `pin_notes`; one agenda (open decisions, Due) for talker and consultant; a gear-change count after 3 question-only replies; mid-build requests recorded as "next" plan tasks the hand-back must honour.
+
+- [[REQ-429]] — layout check as a framework of named checks (registry + runner, per-check thresholds in layout-check.json, one failing check does not stop the rest, widths as config with tablet 900 added); new and widened checks: heading spacing on the ink and against paragraph spacing, stranded short word in display text, menu label wraps, phone menu links under 14px, phone menu over a third of the screen, table alignment for tables/grids/column lists (rows share a baseline, columns share an edge), controls overlapping or closer than 8px. (BUG-251 abandoned: same scope, filed as a bug by mistake.)
