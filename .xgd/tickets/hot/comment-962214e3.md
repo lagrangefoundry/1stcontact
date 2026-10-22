@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-249
 created_by: xgd
 created_at: '2026-10-21T18:46:35.872409+00:00'
-updated_at: '2026-10-21T19:20:56.364295+00:00'
+updated_at: '2026-10-22T22:49:56.065473+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -111,5 +111,11 @@ BUG-249 is implemented and merged into xgd-working. The ticket is at `free_coded
   - an abandoned tool is never actually cancelled.
 - **Unstick only frees what the serving isolate can see.** A turn stuck in a different isolate is freed by that isolate's own deadline.
 - **Dev needs a refresh to show this.** The local server picks up `TURN_DIAGNOSTICS` on restart, and the browser-side wording change reaches the dev environment only after `bin/deploy --env dev`.
+
+<!-- xgd-turn id="55d1d1d6-8801-4f32-8ba2-f21bb05ff8c8-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:49:51.725368+00:00" -->
+#### You
+Did you create a corresponding LF bug? BUG-92? Can you answer the questions that 92 has in its transcript with answers in its ticket please
 
 <!-- xgd-chat-end -->
