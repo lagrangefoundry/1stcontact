@@ -6,7 +6,7 @@ title: 'Critic: an independent review of the work, due at the end of each big bu
   and before publishing'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:06.020897+00:00'
-updated_at: '2026-10-22T21:40:12.386368+00:00'
+updated_at: '2026-10-22T21:45:43.219119+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -160,8 +160,12 @@ are owed first. The plan entry also says what is owed ("Review: …") while it i
 one was `fixed`, exactly one re-check falls due; a re-check never makes another.
 
 **What the client sees.** Nothing called a critic: the critique is kept off the
-client's plan panel (`/api/plan`), and the consultant is told the top finding is
-the weakest point it names to them (REQ-408's line).
+client's plan panel (`/api/plan`); the host's review cue is kept off the
+conversation the client reopens (like REQ-428's promise cue); and the consultant
+is told the top finding is the weakest point it names to them (REQ-408's line).
+
+**Order of holds** (merged with REQ-428): REQ-415 layout faults first, then the
+review, then REQ-428's owed promises — one cue per continuation.
 
 **Measurement.** Every review, finding and answer is kept on the plan's
 `critique` record (`runs[]`: id, time, trigger, pages, verdict, findings with
@@ -177,7 +181,7 @@ the review too.
 `tests/test_UAT_FC_REQ-427_the_critic.workers.test.ts`:
 - a first draft holds the hand-back until it is reviewed and every finding is
   answered; `decision` opens a plan decision; nothing about it reaches the
-  client's panel;
+  client's panel or the conversation they reopen;
 - the critic is handed the brief and pictures at three widths as image blocks,
   focus page first, on its own backend, with no tools and none of the
   conversation;
