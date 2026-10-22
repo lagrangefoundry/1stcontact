@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T19:47:07.394520+00:00'
+updated_at: '2026-10-22T20:42:10.799483+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12475,5 +12475,17 @@ ok can you review the design for the critic? - please remove the strategist from
 - Whether its questions say what they're for, and whether it stops after two or three on one topic.
 
 Want me to write the critic design note on EPIC-19? I'd also file the layout checks as one bug, and gaps 1 to 4 as one ticket, but only if you say so.
+
+<!-- xgd-turn id="f8f83486-7584-41e6-bf4b-527c72e154cd-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T20:42:09.761774+00:00" -->
+#### You
+the host decides when it's due rather than the consultant, <-- what is the host vs consultant?
+
+ok yes on the consultant ticket and the gaps 1-4.
+
+I want to talk about the checks a little more I don't understand exactly what you are proposing. Lets separate what specific checks we want to run from the check mechanism. Is this another tool call like the critic?
+
+Related - can we cache screenshots? Both (1) only take a new screenshot at a gtive size if nothing has changes since the last one and (2) if we have N AI API calls that all check the same screenshots can we cache them and reference the cache?
 
 <!-- xgd-chat-end -->
