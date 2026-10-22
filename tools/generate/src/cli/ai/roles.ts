@@ -48,7 +48,7 @@ import type { SiteDigest, DigestPage } from './digest-core'
 // [[REQ-388]] — the width control's settings, shared with the builder that offers them.
 import { layoutLabel, VIEW_LABELS, VIEW_MODES } from '../../../../../apps/control-app/src/builder/view-width.js'
 import { CLIENT_PANES, PANE_LABELS } from '../../../../../apps/control-app/src/builder/client-pane.js'
-import { FOCUS_WHAT, focusView, nearPublishing, planReminder, talkerAgenda, type NotLooked, type Plan } from './plan-core'
+import { FOCUS_WHAT, focusView, nearPublishing, PLAN_DECLARATION, planReminder, talkerAgenda, type NotLooked, type Plan } from './plan-core'
 import talkerDocument from './talker.json'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
@@ -594,6 +594,22 @@ export function layoutContinuationCue(findings: readonly string[]): string {
   return template('layout-continuation-cue').replace('{findings}', findings.map((f) => `- ${f}`).join('\n'))
 }
 
+/**
+ * [[REQ-428]] — the user turn the host records when the consultant hands a build
+ * back while a promise made during it — a task the client asked for, on the plan
+ * as next — is neither started nor explained to them. Carried on like
+ * {@link layoutContinuationCue}, and kept out of the client's transcript.
+ */
+export function promiseContinuationCue(titles: readonly string[]): string {
+  return template('promise-continuation-cue').replace('{promises}', titles.map((t) => `- ${t}`).join('\n'))
+}
+
+/** [[REQ-428]] — whether a user turn is the host's promise cue, whatever it named. */
+export function isPromiseContinuationCue(content: string): boolean {
+  const [head] = template('promise-continuation-cue').split('{promises}')
+  return content.startsWith(head!)
+}
+
 /** [[REQ-409]] — what the consultant is told once the message's spend ceiling is reached. */
 export function spendCeilingNotice(): string {
   return template('spend-ceiling')
@@ -791,6 +807,33 @@ export const TALKER_REMINDER_PROVIDER = 'talker.discovery'
 export const TALKER_WITHHOLD: readonly string[] = talkerDocument.withhold
 export const TALKER_ALLOW: readonly string[] = talkerDocument.allow
 export const TALKER_REFUSAL: string = talkerDocument.refusal
+
+/**
+ * [[REQ-428]] — the tools that MOVE something: every write to the plan except
+ * bringing a view up in front of the client, and every write to the site (what
+ * the talker is withheld, Delegate among them). A focus task is a plan write.
+ */
+const MOVING_TOOLS: ReadonlySet<string> = new Set([
+  ...(PLAN_DECLARATION.operations as { tool: string; effect: string }[])
+    .filter((o) => o.effect === 'write' && o.tool !== 'show_client')
+    .map((o) => o.tool),
+  ...TALKER_WITHHOLD,
+])
+
+/** [[REQ-428]] — whether a reply asked the client something: a "?" outside a "[?]" gap. */
+export function asksClient(said: string): boolean {
+  return said.replaceAll('[?]', '').includes('?')
+}
+
+/**
+ * [[REQ-428]] — the gear-change count after one reply of the talker's or the
+ * consultant's: back to 0 once it moved anything, one more when it asked and moved
+ * nothing, and as it was when it did neither.
+ */
+export function gearCount(count: number, said: string, tools: readonly string[]): number {
+  if (tools.some((t) => MOVING_TOOLS.has(t))) return 0
+  return asksClient(said) ? count + 1 : count
+}
 
 /**
  * [[REQ-416]] — what the talker is told each exchange. [[REQ-426]] — its job is
@@ -1130,6 +1173,8 @@ export function registerSiteProviders(
      * context does not say. Absent is never.
      */
     talking?: (() => boolean) | null
+    /** [[REQ-428]] — the replies in a row that asked and moved nothing. Read late. Absent is none. */
+    questions?: (() => number) | null
   },
 ): void {
   providers.register(MANUAL_PROVIDER, async () => binding.box.manual({ level: 'summary' }))
@@ -1184,7 +1229,12 @@ export function registerSiteProviders(
       // [[REQ-415]] — and the pages not looked at since they changed, on the same terms.
       const unlooked =
         binding.unlooked && nearPublishing(plan) ? await binding.unlooked().catch(() => undefined) : undefined
-      return planReminder(plan, { noAddress, unlooked, cannotLook: binding.cannotLook === true && nearPublishing(plan) })
+      return planReminder(plan, {
+        noAddress,
+        unlooked,
+        cannotLook: binding.cannotLook === true && nearPublishing(plan),
+        questions: binding.questions?.() ?? 0,
+      })
     } catch {
       return null
     }
