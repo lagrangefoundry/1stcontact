@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-22T20:43:35.403533+00:00'
+updated_at: '2026-10-22T20:43:49.163018+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2345,4 +2345,6 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 - [[REQ-426]] — the talker as conversation strategist: every question states what it's for; its facts are open decisions/sections and the due list, not "story areas missing"; enough-is-enough after 2–3 questions on a topic; priority by value; no repeated questions (Ariel's run: seven questions in a row on the kids' classes). Strategist-as-a-separate-tool deferred; a critic tool (end of each big build, before publish) and a derived "due" list on the plan are the agreed direction, to be written up as the design note.
 
--
+- [[REQ-427]] — the critic: an independent review (one strong-model call, four lenses: purpose, messaging, style, function; brief + screenshots at 1280/900/375, never the transcript), due at the first draft, a looks set and before publishing; the host holds the hand-back until every finding is answered fixed/decision/dismissed. Strategist dropped from this design.
+
+- [[REQ-428]] — executive function, gaps after REQ-424/425/426: an unreacted-notes cap on `pin_notes`; one agenda (open decisions, Due) for talker and consultant; a gear-change count after 3 question-only replies; mid-build requests recorded as "next" plan tasks the hand-back must honour.
