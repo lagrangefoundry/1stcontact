@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-249
 created_by: xgd
 created_at: '2026-10-21T18:46:35.872409+00:00'
-updated_at: '2026-10-22T22:49:56.065473+00:00'
+updated_at: '2026-10-22T22:53:46.799150+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -117,5 +117,32 @@ BUG-249 is implemented and merged into xgd-working. The ticket is at `free_coded
 <!-- xgd-chat role="user" ts="2026-10-22T22:49:51.725368+00:00" -->
 #### You
 Did you create a corresponding LF bug? BUG-92? Can you answer the questions that 92 has in its transcript with answers in its ticket please
+
+<!-- xgd-turn id="55d1d1d6-8801-4f32-8ba2-f21bb05ff8c8-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T22:53:46.570773+00:00" -->
+#### Claude
+Found BUG-92 in lagrange-framework. It has five open questions. Checking a few details in 1stcontact's BUG-249 host code so the answers match what's there.
+
+Now appending the answers to BUG-92 from the host side.
+
+Yes. I filed BUG-92 in lagrange-framework (`bug-266fbb52`) during the BUG-249 work. I've now added answers to its five open questions in a new section, "Answers to the open questions (from 1stcontact BUG-249, the host)". The ticket is still at `draft`, and I didn't change any code.
+
+1. **JS only.** The new settings become constructor and `SessionManager` options, not `backends.json` keys, and the retries reuse the existing rate-limit retry settings. No Python ticket unless you want one.
+2. **A gap in its design.** The 1stcontact consultant waits inside `Delegate` while a builder works in its own session, so the consultant's turn records no progress of its own. The framework therefore needs two things:
+   - count a `progress` record only when the model wrote it;
+   - accept a progress signal from the host, such as `noteProgress(sessionId)`.
+
+   Without that, auto-abandon would kill every build that runs longer than 5 minutes.
+3. **Stalled turns: abandon automatically.** Two conditions:
+   - The final event tells 1stcontact the turn was abandoned and where it was stuck, so the auto-continue and the logged cause keep working.
+   - `abandonTurn` can safely be called twice. 1stcontact's own 5-minute cutoff and the framework's will race.
+4. **Defaults: agreed.** 5-minute progress window, no tool timeout, 90 s stream stall, 10 s close bound, 3 retries. I added one request: each retry writes a record, so a turn that is retrying doesn't read as stalled.
+5. **A stream that dies after text has already shown: option (b), not its recommended (a).** Retry only if nothing has streamed yet; otherwise end the turn as `error` with the cause. Retrying would show the client a duplicated half-sentence. I reworded the matching line in its test plan to say this.
+6. **Abandon record: agreed.** `aborted` with an abandoned flag and a reason. `abandonTurn` also frees talker claims, and a wedged turn that finishes late doesn't report a second time.
+
+All of these are my calls on behalf of the 1stcontact side. Change any you disagree with before telling the BUG-92 session to go ahead.
+
+Answer 5 leaves one follow-up in 1stcontact: its auto-continue currently runs only after a stall, so it needs to cover that new `error` ending too. I haven't put this in BUG-249's body, because a ticket sitting at `free_coded` would turn it into requirements at reconcile. Say if you want it recorded on BUG-249 anyway.
 
 <!-- xgd-chat-end -->
