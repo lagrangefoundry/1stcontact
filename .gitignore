@@ -15,6 +15,7 @@
 .xgd/derived-data/
 .xgd/_staging/
 .xgd/_locks/
+.xgd/_changes/
 #
 # Derived/aggregated artifacts — auto-rebuilt by ticketing/quality tooling.
 # These MUST be ignored: tracking them causes spurious "modified" state
@@ -35,6 +36,7 @@
 .xgd/merge.lock
 .xgd/merge-back.lock
 .xgd/dashboard_pid
+.xgd/planner.lock
 .xgd/dashboard_url
 .xgd/dispatcher.pid
 .xgd/dispatcher.children
