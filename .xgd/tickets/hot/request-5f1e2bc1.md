@@ -6,7 +6,7 @@ title: 'Executive function: due items that hold, one agenda for talker and consu
   a gear-change count, and promises on the plan'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:16.729230+00:00'
-updated_at: '2026-10-22T21:08:18.417878+00:00'
+updated_at: '2026-10-22T21:15:27.187706+00:00'
 completed_at: null
 last_field_updated: body
 status: free_coding
@@ -117,3 +117,6 @@ hand-back.
   next plan entry and a plan write clears it; a talker records a mid-build
   request as a promise and the worker's hand-back is continued with a cue
   naming it.
+
+
+**Plan entry budget (settled while testing).** The plan entry keeps its 2,000-character bound (REQ-356 pins it). To make room for the agenda, a decision the Open decisions line names is not named again in the Not yet decided / Defaulted / Proposed lines, so nothing is said twice.
