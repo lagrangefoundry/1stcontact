@@ -7,10 +7,10 @@ title: 'Layout check: a framework of named checks, a tablet width, and checks fo
   close'
 created_by: EPIC-19
 created_at: '2026-10-22T21:05:38.681370+00:00'
-updated_at: '2026-10-22T21:33:22.328993+00:00'
+updated_at: '2026-10-22T21:34:09.017394+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -18,6 +18,14 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-38bf347f
+  commits:
+  - working_sha: 542e8f4a838b1bb55e99520ed26ee1aea9fe08d6
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 74fd057f167e249504b8da67f71bb90b7454c7f6
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.582
 ---
 
 ## Symptom (Ariel's Arc Welding, 2026-10-21; Bob's salon 2, 2026-10-20)
