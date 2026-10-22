@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T20:59:48.508653+00:00'
+updated_at: '2026-10-22T21:04:23.613080+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12576,5 +12576,17 @@ Alignment in columns - this happened to be a pricelist for hair color but ultima
 Overlapping (or very close) stuff - navigation menu very close to call button - form overlapping text etc
 
 Lets implement your checks
+
+<!-- xgd-turn id="e29e5e0a-f016-411e-bad9-f1f8e6a20cb5-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T21:04:23.022258+00:00" -->
+#### Claude
+Before any code, I'm checking what depends on the layout check's widths and finding kinds, and where its tests are.
+
+Nothing outside the layout check depends on its internals, so I can restructure it. Creating the ticket now.
+
+Baselining the existing layout-check tests in the new worktree before changing anything.
+
+Baseline is green: 37 browser tests really ran. Now looking at how the existing tests serve fixture pages.
 
 <!-- xgd-chat-end -->
