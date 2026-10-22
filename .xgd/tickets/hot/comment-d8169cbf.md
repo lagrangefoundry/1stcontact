@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T22:56:30.306552+00:00'
+updated_at: '2026-10-22T22:57:01.356242+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12665,5 +12665,13 @@ Two small things to know:
 <!-- xgd-chat role="user" ts="2026-10-22T22:56:29.111728+00:00" -->
 #### You
 pleasee tidy up the repo - everything needs to be checked in please
+
+<!-- xgd-turn id="54b84005-6a59-4449-af74-334551db5f54-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:56:57.108421+00:00" -->
+#### You
+pleasee tidy up the repo - everything needs to be checked in please
+
+`bin/deploy --env dev`**.<-- I just did, did it not work?**
 
 <!-- xgd-chat-end -->
