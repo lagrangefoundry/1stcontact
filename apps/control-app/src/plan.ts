@@ -57,6 +57,8 @@ const PLAN_KEYS: (keyof PlanFields)[] = [
   'looked_at',
   'focus_tasks',
   'readiness',
+  // [[REQ-427]] — the critiques of the work and the one due.
+  'critique',
 ]
 
 /**

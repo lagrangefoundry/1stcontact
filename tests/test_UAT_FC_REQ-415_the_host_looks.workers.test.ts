@@ -210,23 +210,28 @@ describe('REQ-415 the host looks, and the end of the build waits for a look', ()
       calls('Delegate', { scope: ['site.json', 'prices.json'], note: 'On it.', role: BUILDER_ROLE, goal: 'Rewrite the prices heading.' }),
       calls('set_stage', { stage: 'ready_to_publish', state: 'in_progress' }),
       look('/prices', 'mobile'),
+      // [[REQ-427]] — and the review before publishing, which the stage also waits for.
+      calls('critique', {}),
       calls('set_stage', { stage: 'ready_to_publish', state: 'in_progress' }),
       says('Ready when you are.'),
     ]
+    const critic: ModelStep = says('```json\n{"verdict": "Good enough.", "findings": []}\n```')
     const builder: ModelStep[] = [
       calls('set_l1', { page: 'prices', path: '0.0', node: { kind: 'text', text: 'Colour prices', axes: { fontSizePx: 40 } } }),
       calls('ReportResult', { summary: 'Rewrote the heading.', changed: ['prices'] }),
       says('Reported.'),
     ]
+    const isCritic = (req: ModelRequest): boolean => systemText(req).includes('You review a small business')
     const client = scriptedClient([
       (req) => {
+        if (isCritic(req)) return critic(req)
         const [script, index] = req.model === WORKER_MODEL ? [builder, atWorker++] : [caller, atCaller++]
         return script[Math.min(index, script.length - 1)](req)
       },
     ])
     await prompt(scope, slug, client, { launch: browser.launch })
 
-    const consultant = client.seen.filter((req) => req.model !== WORKER_MODEL)
+    const consultant = client.seen.filter((req) => req.model !== WORKER_MODEL && !isCritic(req))
     const stages = toolResults(consultant).filter((r) => r.name === 'set_stage').map((r) => text(r.content))
     expect(stages).toHaveLength(2)
     // Refused after the builder wrote prices, naming that page and the width not

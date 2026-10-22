@@ -87,6 +87,8 @@ import {
   isStallContinuationCue,
   finishedCue,
   layoutContinuationCue,
+  critiqueContinuationCue,
+  criticRole,
   talkerCue,
   spendCeilingNotice,
   reportReserveNotice,
@@ -95,6 +97,7 @@ import {
   type WorkerKnowledge,
 } from './roles'
 import { delegationForScope, type DelegationResolver } from './delegation'
+import { CRITIC_BACKEND, CRITIC_PAGES, CRITIC_ROLE, CRITIC_WIDTHS, critiqueOwed } from './critic-core'
 import {
   settingsInstanceConfig,
   settingsSurfaceFor,
@@ -1446,6 +1449,140 @@ function delegateLooked(look: (output: unknown) => Promise<unknown>): (name: str
   return async (name, output) => (name === DELEGATE_TOOL ? look(output) : output)
 }
 
+// ── [[REQ-427]] — the critic ─────────────────────────────────────────────────
+
+/**
+ * [[REQ-427]] — the sessions whose consultant has a critic, by manager key: the
+ * hold in {@link continuedTurn} applies only where a review can actually be had.
+ */
+const critics = new Set<string>()
+
+/**
+ * [[REQ-427]] — what the consultant still owes the critic on this site: a review
+ * due, or a finding unanswered. Empty where there is no critic or no plan.
+ */
+async function critiqueOwedFor(deps: HostDeps, slug: string): Promise<string[]> {
+  if (!deps.plan || !critics.has(managerKey(slug, deps))) return []
+  try {
+    const plan = await deps.plan(slug).read()
+    return plan ? critiqueOwed(plan.fields) : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * [[REQ-427]] — THE CRITIC'S HALF THE HOST HOLDS: the pictures, and its session.
+ *
+ * A DELEGATED SESSION OF ITS OWN, opened per review the way the delegation surface
+ * opens a worker — its own role and priming (the rubric), its own backend entry
+ * (`claude_critic`), a private context, closed when it has answered — but not
+ * through `Delegate`, because a brief there is text. The critic's one turn is the
+ * brief AND THE PICTURES AS IMAGE BLOCKS, which the manager carries to the backend
+ * intact (lagrange-framework REQ-111); a picture serialised into text is a page
+ * the critic cannot see. It has no tools at all, which is the read-only grant.
+ *
+ * IT SEES WHAT CHANGED since its last review — every served page the first time —
+ * at desktop, tablet and phone, home (or the page it was asked to focus on) first.
+ * Its pictures are not the consultant's looks: the principal checking the work is
+ * the point of [[REQ-415]]'s record, so the camera here records nothing.
+ *
+ * ITS SPEND IS THE CALLER'S: charged to the message's meter ([[REQ-409]]) and
+ * attributed to the consultant's session, as a worker's is.
+ */
+function criticFor(
+  lib: Untyped,
+  deps: HostDeps,
+  slug: string,
+  fidelity: FidelityDeps,
+  manager: () => Untyped,
+): NonNullable<PlanDeps['critic']> {
+  const camera = fidelityOperations(fidelity)
+  const said = (error: unknown): string => (error instanceof Error ? error.message : String(error))
+  return {
+    run: async ({ since, focus, brief }) => {
+      const served = (await deps.store.readPages(slug)).map((p) => p.page).filter(isServedPage)
+      const named = served.map((page) => ({ id: String(page.id), name: String(page.slug) }))
+      let chosen = named
+      if (since !== null) {
+        const looked = Object.fromEntries(named.map((p) => [p.id, { desktop: since, phone: since }]))
+        const changed = new Set(pagesNotLooked(looked, named, await deps.store.changesSince(slug, since)).map((p) => p.page))
+        if (changed.size) chosen = named.filter((p) => changed.has(p.name))
+      }
+      const home = homePageOf(served)
+      const first = (p: { id: string; name: string }): number =>
+        focus && focus.toLowerCase().includes(p.name.toLowerCase()) ? 0 : home && String(home.id) === p.id ? 1 : 2
+      const pages = [...chosen].sort((a, b) => first(a) - first(b)).slice(0, CRITIC_PAGES).map((p) => p.name)
+      const counter = await deps.store.counter(slug)
+      const content: ContentBlock[] = [{ type: 'text', text: brief(pages) } as ContentBlock]
+      for (const page of pages) {
+        for (const width of CRITIC_WIDTHS) {
+          content.push({ type: 'text', text: `${page} at ${width.name} (${width.width}px):` } as ContentBlock)
+          try {
+            const blocks = await camera.screenshot({ of: { kind: 'draft', page: `/${page}`, viewport: width.viewport }, tiles: 'all', detail: 'low' })
+            content.push(...(blocks as ContentBlock[]).map(turnBlock))
+          } catch (error) {
+            content.push({ type: 'text', text: `No picture: ${said(error)}.` } as ContentBlock)
+          }
+        }
+      }
+      const m = manager()
+      if (!m) throw new Error('no session manager is wired')
+      const sid = newId(CRITIC_ROLE)
+      const registered = `${CRITIC_BACKEND}#${sid}`
+      const adapter = guardTurn(
+        lib,
+        new lib.ClaudeAPIBackend({
+          ...(modelClient ? { client: modelClient } : {}),
+          ...(deps.apiKey ? { apiKey: deps.apiKey } : {}),
+          name: CRITIC_BACKEND,
+        }),
+        { charge: (records) => spendMeterFor(managerKey(slug, deps)).charge(CRITIC_BACKEND, records) },
+      )
+      // WITH ITS CAPABILITIES, as the delegation surface registers a worker's: the
+      // manager refuses image content to a backend that does not declare vision.
+      lib.registerBackend(registered, () => adapter, adapter.capabilities)
+      await m.createSession(CRITIC_ROLE, registered, { sessionId: sid })
+      let reply = ''
+      try {
+        for await (const event of m.promptStream(sid, content)) {
+          if (event.kind === TEXT && event.content) reply += String(event.content)
+        }
+      } finally {
+        try {
+          const ledger = await m.usage(sid)
+          if (ledger?.usage) {
+            m.attributeUsage(sessionIdFor(slug), {
+              session: sid,
+              role: CRITIC_ROLE,
+              backend: CRITIC_BACKEND,
+              usage: ledger.usage,
+              ...(typeof ledger.cost_usd === 'number' ? { cost_usd: ledger.cost_usd } : {}),
+            })
+          }
+        } catch {
+          // The account is worth having and never worth losing the review over.
+        }
+        await Promise.resolve(m.closeSession(sid)).catch(() => undefined)
+      }
+      return { pages, counter, reply }
+    },
+  }
+}
+
+/**
+ * [[REQ-427]] — a camera block as a USER TURN carries it. The camera answers in
+ * the provider's tool-result shape (`source.media_type`); a turn's own content is
+ * the framework's neutral shape (`mediaType`, `data`), which the adapter
+ * translates for whichever provider it talks to.
+ */
+function turnBlock(block: ContentBlock): ContentBlock {
+  const b = block as { type?: string; source?: { media_type?: string; data?: string } }
+  return b.type === 'image' && b.source
+    ? ({ type: 'image', mediaType: b.source.media_type, data: b.source.data } as unknown as ContentBlock)
+    : block
+}
+
 /** How many of the pages one builder wrote are pictured in its result; the rest are named. */
 const HOST_LOOK_PAGES = 3
 
@@ -2466,13 +2603,15 @@ async function build(
                   // [[BUG-235]] only where a browser can record a look, or the
                   // publishing stages could never close.
                   ...(consultantFidelity ? { unlooked: () => unlookedFor(deps, slug) } : {}),
+                  // [[REQ-427]] — and the critic, where the pages can be pictured.
+                  ...(fidelity ? { critic: criticFor(lib, deps, slug, fidelity, () => manager) } : {}),
                   looks: {
                     choose: async (look: string, choice?: { contentChangesSeen?: boolean }) =>
                       (await editAlternativeChoose(slug, look, { ...opts, ...choice, actor: 'ai', store: deps.store }))
                         .data as unknown as LookChoice,
                   },
                 }),
-                granted: planInstanceConfig('consultant'),
+                granted: planInstanceConfig('consultant', { critic: fidelity !== null }),
               },
             ]
           : []),
@@ -2673,6 +2812,8 @@ async function build(
     // [[BUG-235]] with no browser, that they cannot be looked at.
     unlooked: deps.plan && fidelity ? () => unlookedFor(deps, slug) : null,
     cannotLook: Boolean(deps.plan) && !fidelity,
+    // [[REQ-427]] — and what is owed to the critic, where there is one.
+    critic: Boolean(deps.plan) && fidelity !== null,
   })
 
   // KM's two providers, when this host has a corpus. The seam registers and
@@ -2762,6 +2903,13 @@ async function build(
     if (workerKnowledge) await workerKnowledge.priming(builderBox, providers)
     named[BUILDER_ROLE] = builderRole(lib, providers, worker.granted, Boolean(workerKnowledge))
   }
+
+  // [[REQ-427]] — AND THE CRITIC, where its review can be had: a plan to hold it
+  // on and a browser to picture the pages with. No manual and no tools.
+  if (deps.plan && fidelity) {
+    named[CRITIC_ROLE] = criticRole(lib)
+    critics.add(key)
+  } else critics.delete(key)
 
   // AND THE COORDINATOR, where this business runs a group chat ([[REQ-357]]).
   if (wiring) {
@@ -4749,8 +4897,11 @@ async function* continuedTurn(
     // IS NOT THE END OF THE BUILD: the host carries it on, on REQ-409's terms —
     // the same continuations and the same spend ceiling.
     const owed = owedLayout(key)
-    const unfinished =
-      !stopped && !again && done!.meta?.exhausted !== true && done!.meta?.status !== 'error' && owed.length > 0 && willContinue(key)
+    // [[REQ-427]] — NOR IS ONE THAT ENDS WITH THE REVIEW OWED: a review due, or a
+    // finding unanswered. Layout first: a review of a page still broken is wasted.
+    const ended = !stopped && !again && done!.meta?.exhausted !== true && done!.meta?.status !== 'error'
+    const reviewOwed = ended && owed.length === 0 ? await critiqueOwedFor(deps, slug) : []
+    const unfinished = ended && (owed.length > 0 || reviewOwed.length > 0) && willContinue(key)
     // [[BUG-235]] — nor is one the client stopped after the round last looked.
     if ((!again && !unfinished) || (await stopPending(deps, sessionId, since))) {
       if (meter.over()) {
@@ -4764,7 +4915,7 @@ async function* continuedTurn(
       return
     }
     continuationsLeft.set(key, (continuationsLeft.get(key) ?? 0) - 1)
-    prompt = unfinished ? layoutContinuationCue(owed) : continuationCue()
+    prompt = !unfinished ? continuationCue() : owed.length ? layoutContinuationCue(owed) : critiqueContinuationCue(reviewOwed)
     // Each turn its own spend row; the caller's ledger id keys the first.
     turnId = turn ? `${turn}-continued-${round + 1}` : undefined
   }
@@ -5735,6 +5886,7 @@ export function resetAiHost(): void {
   cuedMessages.clear()
   spendMeters.clear()
   continuationsLeft.clear()
+  critics.clear()
   promisedContinuation.clear()
   // AND THE CARDS THAT HAVE NOT BEEN DELIVERED ([[REQ-260]]). A queued change
   // that outlived its conversation would be reported into the next one, putting

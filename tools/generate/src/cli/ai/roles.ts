@@ -52,6 +52,7 @@ import { FOCUS_WHAT, focusView, nearPublishing, planReminder, talkerAgenda, type
 import talkerDocument from './talker.json'
 import { builderVocabulary } from './l1-vocabulary-core'
 import { CLIENT_BUSY, type ClientBusy } from './show-core'
+import { CRITIC_ROLE } from './critic-core'
 
 /** The AI library and the bridge are untyped JavaScript; the boundary is here. */
 type Untyped = any // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -594,6 +595,15 @@ export function layoutContinuationCue(findings: readonly string[]): string {
   return template('layout-continuation-cue').replace('{findings}', findings.map((f) => `- ${f}`).join('\n'))
 }
 
+/**
+ * [[REQ-427]] — the user turn the host records when a reply ends with the review
+ * of the site still owed: a review due, or a finding of the latest one
+ * unanswered. Carried on like {@link layoutContinuationCue}, on REQ-409's terms.
+ */
+export function critiqueContinuationCue(owed: readonly string[]): string {
+  return template('critique-continuation-cue').replace('{owed}', owed.map((f) => `- ${f}`).join('\n'))
+}
+
 /** [[REQ-409]] — what the consultant is told once the message's spend ceiling is reached. */
 export function spendCeilingNotice(): string {
   return template('spend-ceiling')
@@ -1061,6 +1071,8 @@ export function registerSiteProviders(
      * plan is near publishing. Absent says nothing about looking.
      */
     unlooked?: (() => Promise<NotLooked[]>) | null
+    /** [[REQ-427]] — this site has a critic, so the plan entry says what is owed to it. */
+    critic?: boolean
     /**
      * [[BUG-235]] — this deployment has no browser, so no page can be looked at;
      * said near publishing instead of the pages not looked at.
@@ -1184,7 +1196,12 @@ export function registerSiteProviders(
       // [[REQ-415]] — and the pages not looked at since they changed, on the same terms.
       const unlooked =
         binding.unlooked && nearPublishing(plan) ? await binding.unlooked().catch(() => undefined) : undefined
-      return planReminder(plan, { noAddress, unlooked, cannotLook: binding.cannotLook === true && nearPublishing(plan) })
+      return planReminder(plan, {
+        noAddress,
+        unlooked,
+        cannotLook: binding.cannotLook === true && nearPublishing(plan),
+        critic: binding.critic === true,
+      })
     } catch {
       return null
     }
@@ -1747,6 +1764,22 @@ export function coordinatorRole(lib: Untyped, providers: Untyped): Untyped {
     { providers },
   )
   return roles[COORDINATOR_ROLE]
+}
+
+/**
+ * [[REQ-427]] — the critic's role: its rubric and nothing else. No manual and no
+ * tools: everything it judges is handed to it in its one turn.
+ */
+export function criticRole(lib: Untyped): Untyped {
+  const roles = lib.rolesFromMapping({
+    roles: {
+      [CRITIC_ROLE]: {
+        priming: (primingDocument.critic_priming as RawEntry[]).map(normalise),
+        reminders: (primingDocument.critic_reminders as RawEntry[]).map(normalise),
+      },
+    },
+  })
+  return roles[CRITIC_ROLE]
 }
 
 export function registerBuilderProviders(providers: Untyped, binding: { box: Untyped }): void {

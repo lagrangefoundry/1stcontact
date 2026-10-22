@@ -52,7 +52,8 @@
     "wrong figure this file exists to avoid. `claude_coordinator` ([[REQ-357]]) is",
     "keyed for the same reason: since [[REQ-362]] a coordinator turn's row records",
     "the backend that ran rather than the consultant's, and an absent entry would",
-    "leave every one of them unpriced.",
+    "leave every one of them unpriced. `claude_critic` ([[REQ-427]]) likewise: the",
+    "reviewer's spend is charged to the message's meter under its own name.",
     "",
     "`claude-opus-5` stays under `claude` after the consultant moved to opus-5-5",
     "([[REQ-362]]): rows already written keep their counters, and re-pricing one",
@@ -120,6 +121,15 @@
       "cache_read": 0.1,
       "cache_write_5m": 1.25,
       "cache_write_1h": 2
+    }
+  },
+  "claude_critic": {
+    "claude-opus-5-5": {
+      "input": 4,
+      "output": 20,
+      "cache_read": 0.2,
+      "cache_write_5m": 5,
+      "cache_write_1h": 8
     }
   },
 

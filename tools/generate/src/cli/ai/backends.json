@@ -110,7 +110,14 @@
     "across an evening. Its history gets five minutes: its requests come seconds",
     "apart and it is never resumed once it reports, so an hour on it was paid for",
     "and never read. The system lifetime may be longer than the history's, never",
-    "shorter, because the API requires longer-lived entries to come first."
+    "shorter, because the API requires longer-lived entries to come first.",
+    "",
+    "`claude_critic` IS THE REVIEWER ([[REQ-427]]), a fourth variant of the same",
+    "adapter. Judgement of a whole site from pictures is the expensive kind, so it",
+    "runs on the consultant's model rather than the builder's, and it is its own entry",
+    "so that what reviews the work is decided apart from what builds it. One turn per",
+    "review and never resumed, so nothing is asked to be cached for an hour. 16000",
+    "because it writes a short report, not pages."
   ],
 
   "claude": {
@@ -133,5 +140,12 @@
     "model": "claude-haiku-4-5",
     "max_tokens": 16000,
     "cache_ttl": "1h"
+  },
+
+  "claude_critic": {
+    "model": "claude-opus-5-5",
+    "max_tokens": 16000,
+    "context_window": 1000000,
+    "cache_ttl": "5m"
   }
 }

@@ -31,7 +31,10 @@
       "notes": "the notes just pinned to the story board: each one's id, text and theme",
       "note": "the story-board note as it now stands",
       "theme": "the story-board theme as it now stands, with its colour",
-      "headline": "the story board's headline as it now stands: the chosen line, the options still on offer, and the ones offered and passed over"
+      "headline": "the story board's headline as it now stands: the chosen line, the options still on offer, and the ones offered and passed over",
+      "finding": "the finding answered",
+      "recheck": "when a re-check falls due",
+      "still_owed": "what of the review is still owed"
     },
     "shown": {
       "how": "`switch` when the client's view was changed, `link` when it was not",
@@ -49,6 +52,10 @@
       "say_in_room": "in a group chat only: the line to include in what you say to the room",
       "say": "what to say in the conversation now",
       "ended": "the task you ended: its kind and your line"
+    },
+    "critique": {
+      "critique": "the review: its id, a one-line verdict, the pages pictured, and its findings ranked, each with an id, lens, severity, page, width, what is seen and a suggested fix",
+      "next": "what to do with the findings"
     }
   },
   "errors": {
@@ -126,6 +133,18 @@
     },
     "NO_POSITIONING": {
       "message": "the story board has no positioning card yet, so no headlines were offered: write it with write_positioning first."
+    },
+    "NOT_CRITIQUED": {
+      "message": "the review before publishing is not done and answered. Nothing was written."
+    },
+    "NO_CRITIC": {
+      "message": "this host runs no review of the work."
+    },
+    "CRITIC_FAILED": {
+      "message": "the review could not be had or read. Nothing was recorded."
+    },
+    "UNKNOWN_FINDING": {
+      "message": "no finding of the latest review has that id."
     }
   },
   "operations": [
@@ -359,7 +378,7 @@
         "state": { "type": "string", "required": true, "enum": ["not_started", "in_progress", "done"], "description": "Where it now stands." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "NOT_LOOKED", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "NOT_LOOKED", "NOT_CRITIQUED", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "set_ask",
@@ -587,6 +606,37 @@
       "errors": ["PLAN_INVALID", "NO_POSITIONING", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
+      "op": "critique",
+      "tool": "critique",
+      "effect": "write",
+      "summary": "Have the site reviewed by fresh eyes.",
+      "description": "A reviewer who has not seen this conversation is handed the brief, the positioning card, the hearted notes, the decisions, the comps, its previous findings with your answers, and pictures of the pages changed since its last review at desktop, tablet and phone. It judges purpose, messaging, style and function, and answers at most three ranked findings, or that the site is good enough.\n\nThe host makes a review due when the first draft is built, when you offer looks, and before publishing. While one is due or a finding is unanswered your hand-back waits, and Ready to publish can't be marked until the review before publishing is answered. Never mention the review to your client: the top finding is the weakest point you name to them.",
+      "params": {
+        "focus": {
+          "type": "string",
+          "description": "What to look at hardest, if anything — a page, or a worry."
+        }
+      },
+      "returns": { "shape": "critique" },
+      "errors": ["NO_CRITIC", "CRITIC_FAILED", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
+      "op": "answer_finding",
+      "tool": "answer_finding",
+      "effect": "write",
+      "summary": "Answer a review finding.",
+      "description": "`fixed` once the fix is made; `decision` when it needs your client — name the plan decision in `decision` (with `title` for a new one) and it is opened for them; `dismissed` with your reason in `note`. When a high-severity finding is fixed, one re-check falls due.",
+      "params": {
+        "finding": { "type": "string", "required": true, "description": "The finding's id, such as C1.2." },
+        "answer": { "type": "string", "required": true, "enum": ["fixed", "decision", "dismissed"], "description": "How it was answered." },
+        "note": { "type": "string", "description": "What was done, or why it is dismissed." },
+        "decision": { "type": "string", "description": "For `decision`: the plan decision's id, such as headline." },
+        "title": { "type": "string", "description": "For `decision`, when the plan has no such decision: what it is." }
+      },
+      "returns": { "shape": "written" },
+      "errors": ["UNKNOWN_FINDING", "UNKNOWN_DECISION", "PLAN_INVALID", "CONFLICT", "SCHEMA_INVALID"]
+    },
+    {
       "op": "set_readiness",
       "tool": "set_readiness",
       "effect": "write",
@@ -657,6 +707,13 @@
       "title": "Keeping the story board",
       "description": "The client's story in their own words: pinning, rewording, moving and removing notes, naming the themes they cluster under, writing the positioning card from the notes the client hearted, and offering headlines written from it.",
       "operations": ["pin_notes", "reword_note", "move_note", "remove_note", "set_theme", "write_positioning", "offer_headlines"]
+    },
+    {
+      "group": "Critique",
+      "effect": "write",
+      "title": "Reviews",
+      "description": "An independent review of the site, and your answers.",
+      "operations": ["critique", "answer_finding"]
     }
   ],
   "sequences": [],

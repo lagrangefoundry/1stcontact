@@ -44,6 +44,19 @@ import {
   type StoryBoard,
 } from './story-core'
 import { showOperations, type ShowDeps } from './show-core'
+import {
+  answerFinding,
+  critiqueFallsDue,
+  critiqueOwed,
+  FindingRefusal,
+  LOOKS_OFFERED,
+  parseCritique,
+  publishCritiqued,
+  recordCritique,
+  criticBrief,
+  type CritiqueRun,
+  type PlanCritique,
+} from './critic-core'
 
 /** The declaration, imported as data for the reason `toolbox-core.ts` gives. */
 export const PLAN_DECLARATION = planSurface as unknown as Record<string, unknown>
@@ -456,6 +469,8 @@ export interface PlanFields {
   focus_tasks?: FocusTask[]
   /** [[REQ-425]] — how ready the client is in each area, as the consultant judges it. Absent until judged. */
   readiness?: Readiness
+  /** [[REQ-427]] — the critiques of the work, and the one now due. Absent until the first falls due. */
+  critique?: PlanCritique
 }
 
 /**
@@ -518,6 +533,15 @@ export interface PlanDeps {
    * them on desktop and on phone. Absent, the publishing stages are not held to it.
    */
   unlooked?: () => Promise<NotLooked[]>
+  /**
+   * [[REQ-427]] — the critic: pictures the pages changed since `since` (every page
+   * when `null`) at the critic's widths, hands them to it with the brief `brief`
+   * writes for the pages pictured, and answers its reply. Absent, nothing is
+   * critiqued and nothing is held for a critique.
+   */
+  critic?: {
+    run(input: { since: number | null; focus?: string; brief: (pages: string[]) => string }): Promise<{ pages: string[]; counter: number; reply: string }>
+  }
 }
 
 type Params = Record<string, unknown>
@@ -608,6 +632,8 @@ export function builderSessionCompleted(plan: Plan, at: string): Plan {
   if (!m.first_pass_at) {
     m.first_pass_at = at
     fallDue(next.fields, FIRST_PASS_COMPLETE, at)
+    // [[REQ-427]] — and the first draft is reviewed before the client is handed it.
+    critiqueFallsDue(next.fields, FIRST_PASS_COMPLETE, at)
   } else {
     m.revision_rounds = (m.revision_rounds ?? 0) + 1
     fallDue(next.fields, REVISION_ROUND_FINISHED, at)
@@ -628,6 +654,8 @@ export function publishOpened(plan: Plan, at: string): Plan {
   if (m.publish_opened_at) return next
   m.publish_opened_at = at
   fallDue(next.fields, BEFORE_PUBLISH, at)
+  // [[REQ-427]] — and the site is reviewed before it goes out.
+  if (!publishCritiqued(next.fields)) critiqueFallsDue(next.fields, BEFORE_PUBLISH, at)
   checkPlan(next.fields)
   return next
 }
@@ -716,6 +744,9 @@ export const CANNOT_LOOK_LINE =
 
 /** [[REQ-415]] — the refusal for a publishing stage marked before the pages were looked at. */
 export const NOT_LOOKED = 'NOT_LOOKED'
+
+/** [[REQ-427]] — the refusal for Ready to publish marked before the site was reviewed. */
+export const NOT_CRITIQUED = 'NOT_CRITIQUED'
 
 /** A stage's words, from the seed. */
 export const stageLabel = (id: string): string => STAGES.find((s) => s.id === id)?.label ?? id
@@ -1306,6 +1337,8 @@ export interface PlanFacts {
   unlooked?: NotLooked[]
   /** [[BUG-235]] — near publishing, with no browser to look at the pages with. */
   cannotLook?: boolean
+  /** [[REQ-427]] — this host runs the critic, so what is owed to it is said. */
+  critic?: boolean
 }
 
 /**
@@ -1332,6 +1365,8 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
     )
   }
   if (facts.cannotLook) lines.push(CANNOT_LOOK_LINE)
+  // [[REQ-427]] — what is owed to the critic holds the hand-back; said before it does.
+  if (facts.critic) lines.push(...critiqueOwed(f).map((l) => `Review: ${l}`))
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
   // left to itself forgets: the stage it never moved, the milestone it never raised.
   const behind = stageBehind(f)
@@ -2566,7 +2601,7 @@ export function planOperations(
         deps.unlooked && STAGE_IDS.indexOf(id) >= STAGE_IDS.indexOf(FINISHING_TOUCHES) && state !== 'not_started'
           ? await deps.unlooked()
           : []
-      return change((plan) => {
+      const staged = change((plan) => {
         plan.fields.stages = stagesFor(plan.fields.stages)
         const was = new Map(plan.fields.stages.map((s) => [s.id, s.state]))
         const stage = plan.fields.stages.find((s) => s.id === id)
@@ -2585,7 +2620,30 @@ export function planOperations(
               'check it looks right, fix what does not, and then set the stage again.',
           )
         }
+        // [[REQ-427]] — AND NOT UNTIL THE SITE HAS BEEN REVIEWED, every finding answered.
+        if (deps.critic && publishing && !publishCritiqued(plan.fields)) {
+          throw refuse(
+            NOT_CRITIQUED,
+            `"${stageLabel(READY_TO_PUBLISH)}" can't be marked until the site has had its review before publishing and every finding is answered. ` +
+              'Call critique, answer each finding with answer_finding, and then set the stage again.',
+          )
+        }
         return { stage: { ...stage, label: stageLabel(stage.id) } }
+      })
+      // A REFUSED ATTEMPT AT READY TO PUBLISH, for either reason, writes nothing —
+      // so the review it will need is made due beside it, in place of any other:
+      // one review before publishing covers a first draft's too.
+      return staged.catch(async (error) => {
+        if (deps.critic && id === READY_TO_PUBLISH && state !== 'not_started') {
+          await deps.write((current) => {
+            const next = copy(current)
+            if (!publishCritiqued(next.fields) && next.fields.critique?.due?.trigger !== BEFORE_PUBLISH) {
+              critiqueFallsDue(next.fields, BEFORE_PUBLISH, now())
+            }
+            return next
+          })
+        }
+        throw error
       })
     },
 
@@ -2869,6 +2927,84 @@ export function planOperations(
 
     // ── bringing a view to the client: the consultant's ([[REQ-413]]) ───────
     ...shows,
+    // [[REQ-427]] — LOOKS PUT IN FRONT OF THE CLIENT ARE REVIEWED: a critique falls
+    // due once for each page whose looks are offered.
+    show_client: async (p) => {
+      const shown = await shows.show_client(p)
+      const of = str(p.page) ?? str(p.look)
+      if (deps.critic && p.target === 'looks' && of) {
+        await deps.write((current) => {
+          const next = copy(current)
+          critiqueFallsDue(next.fields, LOOKS_OFFERED, now(), of)
+          return next
+        })
+      }
+      return shown
+    },
+
+    // ── the critic: the consultant's ([[REQ-427]]) ──────────────────────────
+    critique: async (p) => {
+      if (!deps.critic) throw refuse('NO_CRITIC', 'this host has no critic')
+      const held = (await deps.read()) ?? seedPlan('')
+      const focus = str(p.focus)
+      const ran = await deps.critic.run({
+        since: held.fields.critique?.runs.at(-1)?.counter ?? null,
+        ...(focus ? { focus } : {}),
+        brief: (pages) => criticBrief(held.fields, { pages, ...(focus ? { focus } : {}) }),
+      })
+      let report
+      try {
+        report = parseCritique(ran.reply)
+      } catch (error) {
+        throw refuse('CRITIC_FAILED', `${(error as Error).message}; nothing was recorded — call critique again`)
+      }
+      let stored: CritiqueRun | null = null
+      await deps.write((current) => {
+        const next = copy(current)
+        stored = recordCritique(next.fields, report, {
+          at: now(),
+          pages: ran.pages,
+          counter: ran.counter,
+          ...(focus ? { focus } : {}),
+          nearPublishing: nearPublishing(next),
+        })
+        checkPlan(next.fields)
+        return next
+      })
+      const run = stored! as CritiqueRun
+      return {
+        critique: { id: run.id, verdict: run.verdict, pages: run.pages, findings: run.findings },
+        next: run.findings.length
+          ? 'Answer every finding with answer_finding before you hand back: fixed once the fix is made, decision when it needs your client, dismissed with your reason. Finding 1 is the weakest point.'
+          : 'Nothing to answer.',
+      }
+    },
+    answer_finding: (p) =>
+      change((plan) => {
+        try {
+          const done = answerFinding(
+            plan.fields,
+            {
+              finding: String(p.finding ?? ''),
+              answer: String(p.answer ?? ''),
+              ...(str(p.note) ? { note: str(p.note) } : {}),
+              ...(str(p.decision) ? { decision: str(p.decision) } : {}),
+              ...(str(p.title) ? { title: str(p.title) } : {}),
+            },
+            now(),
+          )
+          const left = critiqueOwed(plan.fields)
+          return {
+            finding: { id: done.finding.id, answer: done.finding.answer!.kind },
+            ...(done.decision ? { decision: { id: done.decision.id, state: done.decision.state } } : {}),
+            ...(done.recheck ? { recheck: 'A high-severity finding was fixed: call critique once more to check it.' } : {}),
+            still_owed: left.length,
+          }
+        } catch (error) {
+          if (error instanceof FindingRefusal) throw refuse(error.code, error.message)
+          throw error
+        }
+      }),
 
     // ── focus tasks: the consultant's ([[REQ-424]]) ─────────────────────────
     /**
@@ -2932,15 +3068,17 @@ export function clientBoardAction(plan: Plan, input: Record<string, unknown>, at
 }
 
 /** The groups each role is granted ([[DOC-64]] §5's "who writes what"). */
-export function planInstanceConfig(role: PlanRole): Record<string, unknown> {
+export function planInstanceConfig(role: PlanRole, opts: { critic?: boolean } = {}): Record<string, unknown> {
   const work = role === 'consultant' ? 'PlanWork' : 'CoordinatePlan'
+  // [[REQ-427]] — the critic is the consultant's, and only where the host runs one.
+  const critique = role === 'consultant' && opts.critic ? ['Critique'] : []
   // [[REQ-364]] — BOTH ROLES KEEP ASKS: either can be the one maintaining the
   // panel, so turning the room on or off changes who keeps it and not how.
   // [[REQ-379]] — AND BOTH KEEP THE MILESTONES, for the same reason: with the room
   // off there is no coordinator, and a phase only the coordinator could move never
   // moved (EPIC-19 Finding 18). [[REQ-390]]'s stages are kept the same way.
   // [[REQ-408]] — and the story board, for the same reason.
-  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps', 'KeepStoryBoard'] } }
+  return { [PLAN_SURFACE]: { groups: ['ReadPlan', 'KeepBrief', work, 'KeepAsks', 'KeepMilestones', 'KeepComps', 'KeepStoryBoard', ...critique] } }
 }
 
 const bound = new WeakMap<object, Promise<Untyped>>()
