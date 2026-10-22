@@ -6,10 +6,10 @@ title: 'Critic: an independent review of the work, due at the end of each big bu
   and before publishing'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:06.020897+00:00'
-updated_at: '2026-10-22T21:45:43.219119+00:00'
+updated_at: '2026-10-22T21:46:08.561844+00:00'
 completed_at: null
-last_field_updated: body
-status: free_coding
+last_field_updated: status
+status: free_coded
 fields:
   priority: high
   story_points: 8
@@ -17,6 +17,17 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-e8d7a090
+  commits:
+  - working_sha: ede316ab4ffc50febf79aa89c4a3732e5a12b292
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 16570c5753b1244b54e76dcdddb9c784e6881bda
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: b0439db63d724bd78173042b0e1c15a939607bae
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.583
 ---
 
 ## Why (operator, 2026-10-21/22, EPIC-19)
