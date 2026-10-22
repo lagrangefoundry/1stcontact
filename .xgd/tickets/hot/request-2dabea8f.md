@@ -5,9 +5,9 @@ type: request
 title: 'Platform console: open any business, with an operator banner'
 created_by: EPIC-23
 created_at: '2026-10-03T18:32:31.746993+00:00'
-updated_at: '2026-10-03T19:22:02.532365+00:00'
+updated_at: '2026-10-03T19:32:19.328828+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   epic_parent: epic-ee37a03f
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.447
+  story_points: 5
 ---
 
 Child of [[EPIC-23]]. The epic holds the cross-feature context and the decisions log.
