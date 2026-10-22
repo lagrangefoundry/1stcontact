@@ -6,9 +6,9 @@ title: 'Executive function: due items that hold, one agenda for talker and consu
   a gear-change count, and promises on the plan'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:16.729230+00:00'
-updated_at: '2026-10-22T21:15:50.140084+00:00'
+updated_at: '2026-10-22T21:15:54.584507+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_points
 status: free_coded
 fields:
   priority: high
