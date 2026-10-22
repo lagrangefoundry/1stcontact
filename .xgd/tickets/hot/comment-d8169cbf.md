@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T20:44:13.393871+00:00'
+updated_at: '2026-10-22T20:59:48.508653+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12564,5 +12564,17 @@ Once we've agreed the list, it's one bug.
 For the critic this backs starting with **one call covering all four lenses**: the screenshots are paid for once. If we split into lenses later, we'd keep the shared part identical and run one call before the rest.
 
 Do you want the stored-screenshot reuse added to REQ-427? And are you happy with checks 1–7 as the list for the layout bug?
+
+<!-- xgd-turn id="e29e5e0a-f016-411e-bad9-f1f8e6a20cb5-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T20:59:47.160956+00:00" -->
+#### You
+No caching that's fine keep it simple. I hope that the checks are a generic framework with specific and growing checks.
+
+Can we check:
+Alignment in columns - this happened to be a pricelist for hair color but ultimately its just a table and the alignment was all over the place
+Overlapping (or very close) stuff - navigation menu very close to call button - form overlapping text etc
+
+Lets implement your checks
 
 <!-- xgd-chat-end -->
