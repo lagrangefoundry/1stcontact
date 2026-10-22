@@ -16,6 +16,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-e8d7a090
 ---
 
 ## Why (operator, 2026-10-21/22, EPIC-19)
