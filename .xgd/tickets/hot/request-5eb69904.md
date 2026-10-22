@@ -6,10 +6,10 @@ title: 'Critic: an independent review of the work, due at the end of each big bu
   and before publishing'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:06.020897+00:00'
-updated_at: '2026-10-22T21:46:08.561844+00:00'
+updated_at: '2026-10-22T22:32:53.150839+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coded
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8
