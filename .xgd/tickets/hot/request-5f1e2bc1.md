@@ -6,9 +6,9 @@ title: 'Executive function: due items that hold, one agenda for talker and consu
   a gear-change count, and promises on the plan'
 created_by: EPIC-19
 created_at: '2026-10-22T20:43:16.729230+00:00'
-updated_at: '2026-10-22T21:08:18.133480+00:00'
+updated_at: '2026-10-22T21:08:18.417878+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: free_coding
 fields:
   priority: high
@@ -61,3 +61,59 @@ Rules apply to checks, not to the path: readiness still sets the pace.
   notes; a plan write clears it.
 - A client message mid-build asking for X adds a "next" task; the worker's
   hand-back with that task untouched is continued with a line naming it.
+
+
+## Design (free-coding session, 2026-10-22)
+
+**Reuse, not new machinery.** Every part rides code REQ-424/425/426 already built:
+`newNotes`/`focusGuard` for the cap, `talkerAgenda` for the agenda, the plan's
+`tasks` and `set_task` for promises, REQ-409/415's continuation loop for the
+hand-back.
+
+1. **Cap.** The count is REQ-424's "new" notes: pinned by the consultant, no
+   reaction, not deleted, covered by no story task. More than
+   `plan-seed.json`'s `focus.max_unreacted_notes` (8) → `pin_notes` refused
+   `NOTES_UNREACTED`, naming `start_focus` with `kind: story`. Once a story task
+   has covered them (it covers at most 8, so 9 leaves 1), pinning works again.
+2. **One agenda.** `talkerAgenda` is split so its "Open decisions, most valuable
+   first" and "Due:" lines are written by one function (`agendaLines`), and the
+   consultant's per-turn plan entry (`planReminder`, read by the worker, the
+   talker and a plain consultant turn alike) carries them. A due check becomes
+   its own "Due: ask the client "…" (id) — why." line, the line the plan entry
+   already had, so talker and consultant now read the same words; the plan entry
+   follows it with how to record it (ask_check / record_check_answer). The
+   talker's own notes keep only what is the talker's ("Being built or next",
+   "Already on the panel"), since the plan entry it also reads now carries the
+   rest; no line is said twice.
+3. **Gear-change count.** The host keeps one count per site, shared by the
+   consultant's and the talker's replies. A reply that ends having asked the
+   client something (a "?" outside a "[?]" gap) and called no tool that writes
+   the plan or the site adds one. A reply that called any such tool — every
+   plan-surface write except `show_client`, every site write (the talker's
+   withheld list, which includes Delegate), `start_focus` included — sets it to
+   0. A reply that neither asks nor writes leaves it as it is. At 3 or more, the
+   plan entry carries "You have asked N questions without moving anything —
+   draft it with [?] gaps, put the facts on the panel as one batch, or propose."
+   Read from the round's own junction records (its `tool_issue`s and `delta`s),
+   so the worker's writes beside a talker never count as the talker's.
+4. **Promises.** `set_task` takes `client_asked` (the client's words): the task
+   is recorded as a promise (`asked: {quote, at}`), status `todo`, so it shows in
+   "Being built or next". It also takes `told_client`: what you told the client
+   about when it will happen (`told`). When the consultant's reply on a client
+   message ends normally, a promise made since that message began that is still
+   `todo` and has no `told` is owed: the host continues the turn (REQ-409's
+   continuations and spend ceiling) with a cue naming each one — start it
+   (`doing`) or tell the client when and record it with `told_client`. The
+   talker's priming says to record a change asked for mid-build with set_task
+   and `client_asked`.
+
+## UATs
+
+- `tests/test_UAT_FC_REQ-428_executive_function.test.ts` — plan-core level:
+  the cap refusal and its release by a story task; the plan entry and the
+  talker's notes carrying the same Open/Due lines; promises recorded and owed.
+- `tests/test_UAT_FC_REQ-428_executive_function.workers.test.ts` — the real
+  worker: three question-only consultant replies put the gear-change line in the
+  next plan entry and a plan write clears it; a talker records a mid-build
+  request as a promise and the worker's hand-back is continued with a cue
+  naming it.
