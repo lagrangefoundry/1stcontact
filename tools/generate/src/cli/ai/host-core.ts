@@ -89,6 +89,9 @@ import {
   layoutContinuationCue,
   critiqueContinuationCue,
   criticRole,
+  promiseContinuationCue,
+  isPromiseContinuationCue,
+  gearCount,
   talkerCue,
   spendCeilingNotice,
   reportReserveNotice,
@@ -115,6 +118,7 @@ import {
   builderSessionCompleted,
   lookWidthOf,
   OPENING_MESSAGE,
+  owedPromises,
   pagesNotLooked,
   screenshotTaken,
   type NotLooked,
@@ -1646,10 +1650,13 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       const name = String(p.page.slug)
       const id = String(p.page.id)
       try {
-        const found = (await checker(name, p.sections ?? [])).map(layoutLine)
-        if (found.length) owed.set(id, found)
+        const checked = await checker(name, p.sections ?? [])
+        const found = checked.map(layoutLine)
+        // [[REQ-429]] a check that could not run is said, but is not the page's fault to fix.
+        const faults = checked.filter((f) => f.kind !== 'check_failed').map(layoutLine)
+        if (faults.length) owed.set(id, faults)
         else owed.delete(id)
-        lines.push(...(found.length ? found : [`${name}: nothing wrong at either width.`]))
+        lines.push(...(found.length ? found : [`${name}: nothing wrong at any width.`]))
       } catch (error) {
         lines.push(`${name}: the check could not run (${said(error)}).`)
       }
@@ -1678,7 +1685,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
     }
     const unpictured = pages.map((p) => String(p.page.slug)).filter((n) => !pictured.includes(n))
     const faulty = pages.some((p) => owed.has(String(p.page.id))) || structure.length > 0
-    const widths = LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`).join(' and ')
+    const widths = new Intl.ListFormat('en', { type: 'conjunction' }).format(LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`))
     const report = [
       'The host looked at what the build you started wrote, so you did not have to ask. This is guidance for you, not words for your client.' +
         (pictured.length
@@ -1689,7 +1696,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       ...lines.map((l) => `- ${l}`),
       faulty
         ? 'THIS BUILD IS NOT DONE: the site has layout or navigation faults. Fix every line above — brief the fix with them — and look again before you say a page is ready or in the menu.'
-        : 'No layout faults at either width. Whether the page is what your client asked for is what the picture is for.',
+        : 'No layout faults at any width. Whether the page is what your client asked for is what the picture is for.',
       // [[BUG-241]] — what this is, said to the consultant in the words its client hears.
       'To your client, this is you checking the page on a computer and a phone: never name the check, or who wrote the page.',
     ].join('\n')
@@ -2747,6 +2754,8 @@ async function build(
     signal: () => signals.get(key),
     // [[REQ-416]] — whether the round being assembled is a talker's.
     talking: () => talking(sessionIdFor(slug)),
+    // [[REQ-428]] — the replies in a row that asked and moved nothing.
+    questions: () => questionRuns.get(key) ?? 0,
     // [[REQ-295]] — WHETHER THE CONSULTANT IS TOLD HOW TO HAND WORK OVER, which
     // is the same question as whether it was given the tool. With the switch off
     // the entry renders nothing, so the prompt is byte-for-byte what this host
@@ -3323,9 +3332,10 @@ async function storedTranscript(
   // [[REQ-409]] — nor is the host's cue for a continuation. [[BUG-245]] — nor its
   // cue for a finished comp board or [[REQ-424]] focus task.
   const cues = new Set([opening, continuationCue(), finishedCue()])
-  // [[BUG-249]] — nor its cue for a round it carried on after a stall.
+  // [[BUG-249]] — nor its cue for a round it carried on after a stall. [[REQ-428]] —
+  // nor for one it carried on because a promise was owed.
   const hidden = (turn: { role: string; content: string }): boolean =>
-    turn.role === 'user' && (cues.has(turn.content) || isStallContinuationCue(turn.content))
+    turn.role === 'user' && (cues.has(turn.content) || isStallContinuationCue(turn.content) || isPromiseContinuationCue(turn.content))
   const turns = recorded.filter((turn) => !hidden(turn)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
@@ -4369,6 +4379,35 @@ export async function unstickSession(sessionId: string, deps: HostDeps): Promise
 }
 
 /**
+ * [[REQ-428]] — THE GEAR-CHANGE COUNT, per site: the talker's and the consultant's
+ * replies in a row that asked the client something and moved nothing on the plan
+ * or the site. The plan entry says so at {@link GEAR_CHANGE_QUESTIONS}.
+ */
+const questionRuns = new Map<string, number>()
+
+/**
+ * [[REQ-428]] — count one reply toward the gear change, from its own records on the
+ * junction past `from`: what it said and which tools it called. `turnId` names a
+ * talker's round; without it, the first round opened past `from` that was not
+ * forked from another — the consultant's own. A round's records are its own, so the
+ * worker's writes beside a talker are never the talker's. Never throws.
+ */
+function tallyReply(manager: Untyped, sessionId: string, key: string, from: number, turnId?: string): void {
+  if (from < 0) return
+  try {
+    const [records] = manager.logFor(sessionId).readFrom(from) as [Array<Record<string, unknown>>]
+    const id = turnId ?? String(records.find((r) => r?.kind === 'turn_start' && !r.fork_of)?.turn_id ?? '')
+    if (!id) return
+    const mine = records.filter((r) => r?.turn_id === id)
+    const said = mine.filter((r) => r.kind === 'delta').map((r) => String(r.content ?? '')).join('')
+    const tools = mine.filter((r) => r.kind === 'tool_issue').map((r) => String(r.name ?? ''))
+    questionRuns.set(key, gearCount(questionRuns.get(key) ?? 0, said, tools))
+  } catch {
+    // No junction, nothing to count.
+  }
+}
+
+/**
  * [[REQ-416]] — the talker rounds opening or running in this isolate, by session.
  * What the talker's reminder provider asks: a round assembled while one is, is a
  * talker's (the worker assembled its own before the fork).
@@ -4471,6 +4510,8 @@ function talkerDesk(manager: Untyped, sessionId: string, deps: HostDeps, since: 
     running.push(
       started.done
         .then(ends, ends)
+        // [[REQ-428]] — a talker's reply counts toward the gear change.
+        .then(() => tallyReply(manager, sessionId, key, from, turnId))
         .then(() => writeTalkerSpend(manager, sessionId, turnId, from, startedAt, deps))
         .then((closed) => talkerFailed(closed, text)),
     )
@@ -4858,6 +4899,7 @@ async function* continuedTurn(
     let done: { kind: string; content: string; meta?: Record<string, unknown> } | null = null
     let opened = round === 0
     promisedContinuation.delete(key)
+    const from = turnCursor(manager, sessionId)
     for await (const event of siteTurn(
       manager, slug, sessionId, CONSULTANT_ROLE, siteBackendName(slug), prompt, deps, turnId, view, WORKING_UNNAMED, since,
     )) {
@@ -4890,20 +4932,26 @@ async function* continuedTurn(
       yield { ...done, meta: { ...done.meta, stalled } }
       return
     }
-    // [[BUG-235]] — A STOPPED ROUND IS NEVER CONTINUED, by either path below.
+    // [[REQ-428]] — the consultant's reply counts toward the gear change.
+    tallyReply(manager, sessionId, key, from)
+    // [[BUG-235]] — A STOPPED ROUND IS NEVER CONTINUED, by any path below.
     const stopped = done === null || done.meta?.status === ABORTED_STATUS
     const again = !stopped && endedOnBudget(done!.meta) && promisedContinuation.get(key) === true
     // [[REQ-415]] — A REPLY THAT ENDS WITH LAYOUT FAULTS ON A PAGE A BUILDER WROTE
     // IS NOT THE END OF THE BUILD: the host carries it on, on REQ-409's terms —
     // the same continuations and the same spend ceiling.
     const owed = owedLayout(key)
+    const ended = !stopped && !again && done!.meta?.exhausted !== true && done!.meta?.status !== 'error' && willContinue(key)
+    const unfinished = ended && owed.length > 0
     // [[REQ-427]] — NOR IS ONE THAT ENDS WITH THE REVIEW OWED: a review due, or a
     // finding unanswered. Layout first: a review of a page still broken is wasted.
-    const ended = !stopped && !again && done!.meta?.exhausted !== true && done!.meta?.status !== 'error'
-    const reviewOwed = ended && owed.length === 0 ? await critiqueOwedFor(deps, slug) : []
-    const unfinished = ended && (owed.length > 0 || reviewOwed.length > 0) && willContinue(key)
+    const reviewOwed = ended && !unfinished ? await critiqueOwedFor(deps, slug) : []
+    // [[REQ-428]] — NOR IS A HAND-BACK THAT LEAVES A PROMISE HANGING: a task the
+    // client asked for during this message, on the plan as next, neither started
+    // nor explained to them. Carried on the same terms, with the cue naming it.
+    const promised = ended && !unfinished && reviewOwed.length === 0 ? await promisesOwed(deps, slug, since) : []
     // [[BUG-235]] — nor is one the client stopped after the round last looked.
-    if ((!again && !unfinished) || (await stopPending(deps, sessionId, since))) {
+    if ((!again && !unfinished && reviewOwed.length === 0 && promised.length === 0) || (await stopPending(deps, sessionId, since))) {
       if (meter.over()) {
         // VISIBLE TO THE OPERATOR, NEVER TO THE CLIENT: the Worker's log.
         console.warn(
@@ -4915,9 +4963,29 @@ async function* continuedTurn(
       return
     }
     continuationsLeft.set(key, (continuationsLeft.get(key) ?? 0) - 1)
-    prompt = !unfinished ? continuationCue() : owed.length ? layoutContinuationCue(owed) : critiqueContinuationCue(reviewOwed)
+    prompt = unfinished
+      ? layoutContinuationCue(owed)
+      : reviewOwed.length
+        ? critiqueContinuationCue(reviewOwed)
+        : promised.length
+          ? promiseContinuationCue(promised)
+          : continuationCue()
     // Each turn its own spend row; the caller's ledger id keys the first.
     turnId = turn ? `${turn}-continued-${round + 1}` : undefined
+  }
+}
+
+/**
+ * [[REQ-428]] — the titles of the promises the client is still owed from the
+ * message that began at `since`. A plan that cannot be read owes nothing.
+ */
+async function promisesOwed(deps: HostDeps, slug: string, since: string): Promise<string[]> {
+  if (!deps.plan) return []
+  try {
+    const plan = await deps.plan(slug).read()
+    return plan ? owedPromises(plan.fields, since).map((t) => t.title) : []
+  } catch {
+    return []
   }
 }
 
@@ -5881,6 +5949,7 @@ export function resetAiHost(): void {
   planWrites.clear()
   workingNotes.clear()
   talkerRounds.clear()
+  questionRuns.clear()
   clientShows.clear()
   talkerCues.clear()
   cuedMessages.clear()

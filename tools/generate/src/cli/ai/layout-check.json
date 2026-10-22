@@ -1,26 +1,53 @@
 {
   "about": [
-    "The thresholds of the layout check's two craft findings ([[BUG-238]]). Both",
-    "are defaults builders get wrong again and again, so the host measures them",
-    "rather than trusting a reminder in the priming.",
+    "The layout check's configuration: the widths every page is checked at, and",
+    "each named check's thresholds under that check's own id ([[REQ-429]]).",
     "",
-    "`brand`: the header is the page's first section when it holds a link.",
-    "`logoMinPx` is the least height its logo image may render at, per width the",
-    "page is checked at (`desktop`, `phone`). `nameOverNav` is how much larger",
-    "than the navigation links the business name must be to read as the header's",
-    "largest text. `wordmarkPx` is the size a new site header sets the business",
-    "name at ([[REQ-422]]); whatever size it ends up at, the business name must",
-    "never be smaller than the page's section headings (`name_smaller_than_headings`).",
+    "`widths`: every check runs at every width; a finding names its width as",
+    "`tablet (900px)`. A threshold given per width name (`{ \"desktop\": 48,",
+    "\"phone\": 36 }`) applies from that width up: a width with no entry uses the",
+    "nearest smaller one (tablet uses phone's), and a screen narrower than every",
+    "entry uses the smallest.",
     "",
-    "`heading`: a heading belongs to the text it introduces, so the space below it",
-    "must be clearly smaller than the space above it. It is reported when the",
-    "space below is at least `belowOverAbove` times the space above. A space above",
-    "under `minAbovePx` is tight spacing, not a floating heading, and is not",
-    "reported: 16 keeps an 8px-and-8px heading out while catching 20px above and",
-    "19px below.",
+    "`brand` ([[BUG-238]]): the header is the page's first section when it holds a",
+    "link. `logoMinPx` is the least height its logo image may render at.",
+    "`nameOverNav` is how much larger than the navigation links the business name",
+    "must be to read as the header's largest text. `wordmarkPx` is the size a new",
+    "site header sets the business name at ([[REQ-422]]); whatever size it ends up",
+    "at, the business name must never be smaller than the page's section headings.",
+    "",
+    "`heading`: a heading belongs to the text it introduces. Spaces are measured",
+    "between the letters (their ink), not between boxes, so a display font's empty",
+    "line space counts. It is reported when the space below is at least",
+    "`belowOverAbove` times the space above (a space above under `minAbovePx` is",
+    "tight spacing, not a floating heading), and when the space below is at least",
+    "`belowOverParagraph` times the space between the text it introduces and the",
+    "next text under that — once those two are at least `minParagraphGapPx` apart,",
+    "so the lines of one list are not mistaken for paragraphs.",
+    "",
+    "`table`: the cells of one row share a baseline, and the cells of one column",
+    "share a left edge, a right edge or a centre, within `tolerancePx`.",
+    "",
+    "`stranded_word`: text of at least `minFontPx` running over two or more lines",
+    "with a word of at most `maxLetters` alone on a line.",
+    "",
+    "`nav_wraps`: a menu link of at most `maxWords` words over more than one line.",
+    "`small_nav` and `tall_menu` apply at screens up to `maxWidthPx` wide: menu",
+    "links under `minFontPx`, and shown menu links spanning more than",
+    "`maxScreenShare` of the screen's height.",
+    "",
+    "`crowded`: two controls, or a control and the header's logo or business name,",
+    "closer than `minGapPx`. `overlap`: drawn over each other by more than",
+    "`minAreaPx` square pixels.",
     "",
     "The numbers are starting values to tune, not measurements."
   ],
+
+  "widths": {
+    "desktop": { "width": 1280, "height": 900 },
+    "tablet": { "width": 900, "height": 900 },
+    "phone": { "width": 375, "height": 667 }
+  },
 
   "brand": {
     "logoMinPx": { "desktop": 48, "phone": 36 },
@@ -30,6 +57,39 @@
 
   "heading": {
     "belowOverAbove": 0.75,
-    "minAbovePx": 16
+    "minAbovePx": 16,
+    "belowOverParagraph": 0.9,
+    "minParagraphGapPx": 16
+  },
+
+  "table": {
+    "tolerancePx": 4
+  },
+
+  "stranded_word": {
+    "minFontPx": 28,
+    "maxLetters": 4
+  },
+
+  "nav_wraps": {
+    "maxWords": 4
+  },
+
+  "small_nav": {
+    "maxWidthPx": 480,
+    "minFontPx": 14
+  },
+
+  "tall_menu": {
+    "maxWidthPx": 480,
+    "maxScreenShare": 0.3333
+  },
+
+  "crowded": {
+    "minGapPx": 8
+  },
+
+  "overlap": {
+    "minAreaPx": 16
   }
 }

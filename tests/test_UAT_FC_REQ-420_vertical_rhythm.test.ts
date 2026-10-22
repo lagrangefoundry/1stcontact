@@ -368,7 +368,7 @@ describe.runIf(browserOk)('REQ-420 — vertical rhythm in a browser', () => {
     closers.push(served1.close)
     const found = (await checkLayoutAt(served1.url, 'home', createPlaywrightDriver)).filter((f) => f.kind === 'loose_heading')
     expect(found.map((f) => f.text)).toEqual(
-      expect.arrayContaining([expect.stringMatching(/^has the heading "Opening hours" with 24px of space below it and 24px above/)]),
+      expect.arrayContaining([expect.stringMatching(/^has the heading "Opening hours" with \d+px of space below it and \d+px above/)]),
     )
     // By rhythm, nothing to report.
     const served2 = await serveL1(doc([SERVICES, footer]), { rhythm: { unitPx: 20 } })

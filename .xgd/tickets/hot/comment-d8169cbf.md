@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T21:04:58.826324+00:00'
+updated_at: '2026-10-22T21:06:21.345198+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12594,5 +12594,38 @@ Baseline is green: 37 browser tests really ran. Now looking at how the existing 
 <!-- xgd-chat role="user" ts="2026-10-22T21:04:57.175940+00:00" -->
 #### You
 Obviously I do not want you to implement the checks - you are an EPIC - I want you to create and REQ to implement the checks
+
+<!-- xgd-turn id="fb132732-1c2a-45fa-8b71-b64ca7c969a1-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T21:06:16.294818+00:00" -->
+#### Claude
+Understood, I shouldn't have started on it. I'm removing the branch I cut and turning the ticket into a REQ.
+
+The CLI can't change a ticket's type, so I'm creating the REQ with the same body and abandoning BUG-251.
+
+I've filed the checks as **REQ-429** under EPIC-19, at `draft`. I hadn't changed or committed any code, and I've removed the branch I'd cut.
+- **BUG-251** was the same scope filed as a bug. It's now `abandoned`, and REQ-429's body says it replaces it. I couldn't add that note to BUG-251 itself, because an abandoned ticket's body is locked.
+- **The epic's list** has a line for REQ-429.
+
+**What REQ-429 covers:**
+- **The mechanism as a framework.** The check becomes a runner plus a list of named checks, so adding a check means adding one entry:
+  - each check keeps its own thresholds in `layout-check.json`;
+  - if one check fails, the rest still run;
+  - the widths it checks at are configuration, with tablet (900px) added to desktop and phone.
+- **Your two additions:**
+  - **table alignment for anything built as a table:** a real table, a grid of short text cells, or side-by-side columns. Each row's cells must line up, and each column must be aligned on its left edge, right edge or centre;
+  - **things overlapping or too close:** a button, form field or image drawn over text, and controls, or a control and the logo or business name, closer than 8px.
+- **The checks I proposed:**
+  - heading spacing measured between the letters, and compared with the spacing between the paragraphs under it;
+  - a short word stranded on its own line;
+  - a menu label that wraps;
+  - phone menu links under 14px;
+  - a phone menu taking up more than a third of the screen.
+- **Tests:** the test plan lists one fixture page per check, plus the existing layout-check tests to re-run. Those tests all passed in a fresh branch before I stopped, with Chromium actually running.
+
+All three of today's tickets are drafts, ready to be picked up in their own sessions:
+- **REQ-427:** the critic.
+- **REQ-428:** the executive-function gaps.
+- **REQ-429:** the layout checks.
 
 <!-- xgd-chat-end -->

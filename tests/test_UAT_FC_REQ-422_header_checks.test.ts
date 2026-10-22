@@ -86,6 +86,7 @@ describe.runIf(browserOk)('REQ-422 the business at the top of every page', () =>
     const small = of(found, 'name_smaller_than_headings')
     expect(small.map((f) => [f.widthName, f.sectionName])).toEqual([
       ['desktop', 'site-header'],
+      ['tablet', 'site-header'],
       ['phone', 'site-header'],
     ])
     expect(small[0].text).toMatch(/business name "Acme Ironworks" at 18px, smaller than the page's 32px section heading/)
@@ -107,6 +108,7 @@ describe.runIf(browserOk)('REQ-422 the business at the top of every page', () =>
     const found = await checkLayoutAt(await serve(fixture), 'home', createPlaywrightDriver, ['services', 'contact'])
     expect(of(found, 'no_header').map((f) => [f.widthName, f.sectionName])).toEqual([
       ['desktop', 'services'],
+      ['tablet', 'services'],
       ['phone', 'services'],
     ])
   }, 120000)

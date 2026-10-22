@@ -125,6 +125,9 @@
     "FOCUS_OPEN": {
       "message": "your client is working through a focus task you started, so nothing new was written: one task at a time, and nothing new on its surface until they finish. You are told when they do."
     },
+    "NOTES_UNREACTED": {
+      "message": "too many notes on the story board are waiting for your client's reaction, so nothing new was pinned. Start the reaction task (start_focus with kind story) and pin more once they have been through them."
+    },
     "NOTHING_TO_FOCUS": {
       "message": "nothing there is waiting on your client, so no focus task was started."
     },
@@ -289,7 +292,9 @@
         "title": { "type": "string", "description": "What the task is." },
         "status": { "type": "string", "enum": ["todo", "doing", "done", "dropped"], "description": "Where it is." },
         "depends_on": { "type": "array", "description": "Ids of tasks that must be done first." },
-        "decisions": { "type": "array", "description": "Ids of the decisions this task settles or depends on." }
+        "decisions": { "type": "array", "description": "Ids of the decisions this task settles or depends on." },
+        "client_asked": { "type": "string", "description": "The client asked for this while a build was running: their words. It is then a promise — when the build hands back, it is started or the client is told when." },
+        "told_client": { "type": "string", "description": "What you told the client about when this will happen, when it is not started now." }
       },
       "returns": { "shape": "written" },
       "errors": ["PLAN_INVALID", "UNKNOWN_TASK", "CONFLICT", "SCHEMA_INVALID"]
@@ -521,7 +526,7 @@
         "notes": { "type": "story_notes", "required": true, "description": "The notes, each `{\"text\": ..., \"quote\": ..., \"emoji\": ..., \"theme\": ..., \"area\": ...}` — `quote` the client's original sentence, `theme` a theme's name or id, and `area` the part of their story it tells when it fits one: `beginning` (how it started), `craft` (the signature thing), `people`, `customers`, `community` (what they do for others), `refusals` (what they won't do) or `proud_moment`." }
       },
       "returns": { "shape": "written" },
-      "errors": ["PLAN_INVALID", "FOCUS_OPEN", "CONFLICT", "SCHEMA_INVALID"]
+      "errors": ["PLAN_INVALID", "FOCUS_OPEN", "NOTES_UNREACTED", "CONFLICT", "SCHEMA_INVALID"]
     },
     {
       "op": "reword_note",

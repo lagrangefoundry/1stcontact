@@ -59,7 +59,9 @@
   ],
   "focus": {
     "about": "REQ-424 — guided focus tasks. A story-board reaction task covers at most this many notes, so the client is never handed the whole board at once; the rest wait, marked new, for the next task.",
-    "max_story_notes": 8
+    "max_story_notes": 8,
+    "about_unreacted": "REQ-428 — with more than this many new notes (pinned, no reaction, covered by no story task) pin_notes is refused until a reaction task has run over them.",
+    "max_unreacted_notes": 8
   },
   "story_areas": [
     { "id": "beginning", "label": "how it started" },

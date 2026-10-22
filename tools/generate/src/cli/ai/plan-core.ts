@@ -240,6 +240,10 @@ export interface PlanTask {
   status: string
   depends_on?: string[]
   decisions?: string[]
+  /** [[REQ-428]] — a promise: the client asked for it, in these words, at this moment. */
+  asked?: { quote: string; at: string }
+  /** [[REQ-428]] — what the client was told about when it will happen. */
+  told?: string
 }
 
 /**
@@ -1339,6 +1343,24 @@ export interface PlanFacts {
   cannotLook?: boolean
   /** [[REQ-427]] — this host runs the critic, so what is owed to it is said. */
   critic?: boolean
+  /** [[REQ-428]] — replies in a row that asked the client something and moved nothing. */
+  questions?: number
+}
+
+/** [[REQ-428]] — how many questions in a row, with nothing moved, the plan entry says so at. */
+export const GEAR_CHANGE_QUESTIONS = 3
+
+/** [[REQ-428]] — the plan entry's line once that many questions moved nothing. */
+export function gearChangeLine(n: number): string {
+  return `You have asked ${n} questions without moving anything — draft it with [?] gaps, put the facts on the panel as one batch, or propose.`
+}
+
+/**
+ * [[REQ-428]] — the promises the build owes on hand-back: tasks the client asked
+ * for since `since`, not started, and not explained to them.
+ */
+export function owedPromises(fields: Pick<PlanFields, 'tasks'>, since: string): PlanTask[] {
+  return fields.tasks.filter((t) => t.asked && t.asked.at >= since && t.status === 'todo' && !t.told)
 }
 
 /**
@@ -1367,6 +1389,8 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
   if (facts.cannotLook) lines.push(CANNOT_LOOK_LINE)
   // [[REQ-427]] — what is owed to the critic holds the hand-back; said before it does.
   if (facts.critic) lines.push(...critiqueOwed(f).map((l) => `Review: ${l}`))
+  // [[REQ-428]] — the gear-change count: questions asked with nothing moved.
+  if ((facts.questions ?? 0) >= GEAR_CHANGE_QUESTIONS) lines.push(gearChangeLine(facts.questions!))
   // [[REQ-379]] — FACTS THE HOST SAW, FIRST, because they are the things a session
   // left to itself forgets: the stage it never moved, the milestone it never raised.
   const behind = stageBehind(f)
@@ -1383,9 +1407,9 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
       `Passed over: ${list(passed.map((id) => `"${stageLabel(id)}" (${id})`))} — the client sees ${passed.length > 1 ? 'these' : 'it'} as skipped. If ${passed.length > 1 ? 'they were' : 'it was'} covered, tick ${passed.length > 1 ? 'them' : 'it'} done with set_stage.`,
     )
   }
-  for (const c of panel.due_checks) {
-    lines.push(`Due: ask the client "${c.question}" (${c.id}) — ${DUE_BECAUSE[c.trigger] ?? c.trigger}. Record that you asked with ask_check and their answer with record_check_answer.`)
-  }
+  // [[REQ-428]] — the agenda every voice reads: open decisions, then what is due.
+  lines.push(...agendaLines(f))
+  if (panel.due_checks.length) lines.push('Record that you asked a due check with ask_check and their answer with record_check_answer.')
   const brief = f.brief as Record<string, unknown>
   const briefBits = [
     typeof brief.business === 'string' ? `business: ${brief.business}` : '',
@@ -1408,8 +1432,11 @@ export function planReminder(plan: Plan | null, facts: PlanFacts = {}): string |
     ['delegated', 'Left to you'],
     ['chosen', 'Chosen by the client'],
   ]
+  // [[REQ-428]] — A DECISION THE AGENDA NAMED IS NOT NAMED AGAIN.
+  const named = new Set(agendaDecisions(f).map((d) => d.title))
   for (const [state, label] of order) {
-    if (panel.decisions[state].length) lines.push(`${label}: ${list(panel.decisions[state])}.`)
+    const rest = panel.decisions[state].filter((title) => !named.has(title))
+    if (rest.length) lines.push(`${label}: ${list(rest)}.`)
   }
   for (const c of panel.open_checks) {
     lines.push(`Asked and awaiting an answer: "${c.question}"${c.answered_by.length ? ` (answered by ${c.answered_by.join(', ')})` : ''}.`)
@@ -1909,6 +1936,9 @@ export const MAX_FOCUS_INTRO_CHARS = 200
 /** [[REQ-424]] — how many notes one reaction task covers, from the plan seed. */
 export const FOCUS_MAX_STORY_NOTES: number = planSeed.focus.max_story_notes
 
+/** [[REQ-428]] — the most new notes the board may hold before a reaction task, from the plan seed. */
+export const MAX_UNREACTED_NOTES: number = planSeed.focus.max_unreacted_notes
+
 /** [[REQ-424]] — what the client is asked to do on each surface, as the consultant is told it. */
 export const FOCUS_WHAT: Record<FocusKind, string> = {
   questions: 'answering the questions on the panel',
@@ -2014,6 +2044,22 @@ function focusRefusal(task: FocusTask): string {
 export function focusGuard(fields: Pick<PlanFields, 'focus_tasks'> | undefined, kind: FocusKind): void {
   const task = fields ? openFocus(fields) : null
   if (task && task.kind === kind) throw refuse('FOCUS_OPEN', focusRefusal(task))
+}
+
+/**
+ * [[REQ-428]] — NO MORE NOTES THAN THE CLIENT CAN TAKE IN: with more than
+ * {@link MAX_UNREACTED_NOTES} new notes waiting, nothing new is pinned until a
+ * reaction task has run over them. Advice it could read past was read past.
+ */
+export function unreactedGuard(fields: PlanFields): void {
+  const waiting = newNotes(fields).length
+  if (waiting > MAX_UNREACTED_NOTES) {
+    throw refuse(
+      'NOTES_UNREACTED',
+      `${waiting} notes on the story board are waiting for your client's reaction — more than ${MAX_UNREACTED_NOTES}. ` +
+        'Start the reaction task first (start_focus with kind story); pin more once they have been through them',
+    )
+  }
 }
 
 /** [[REQ-424]] — start a task (the consultant's `start_focus`). Mutates `fields`; answers the task. */
@@ -2211,34 +2257,50 @@ const NEEDS: Record<string, string> = {
   talk: 'talking it through',
 }
 
-/**
- * [[REQ-426]] — what the talker is told the talk is for, one line each: the open
- * decisions, most valuable first, with what each still needs; what is being built
- * or comes next; what is due; and the questions already waiting on the panel,
- * which it points to rather than asks again. Derived, like {@link planPanel}.
- */
-export function talkerAgenda(fields: PlanFields): string[] {
+/** [[REQ-426]] — the decisions a conversation can settle, most valuable first, at most {@link TALKER_AGENDA_DECISIONS}. */
+function agendaDecisions(fields: PlanFields): PlanDecision[] {
   const rank = (d: PlanDecision): number =>
     (d.tier === 'concept' ? 0 : 100) + (TALK_AREAS.indexOf(d.area) + 1 || TALK_AREAS.length + 1)
-  const open = (fields.decisions ?? [])
+  return (fields.decisions ?? [])
     .filter((d) => TALK_STATES.includes(d.state) && TALK_SETTLES.includes(d.settle ?? 'talk'))
     .sort((a, b) => rank(a) - rank(b))
     .slice(0, TALKER_AGENDA_DECISIONS)
+}
+
+/**
+ * [[REQ-426]] — the decisions open for talk and what is due, one line each: the
+ * open decisions, most valuable first, with what each still needs; each check that
+ * has fallen due; and the rest of what is due. [[REQ-428]] — ONE AGENDA FOR EVERY
+ * VOICE: these lines are the consultant's plan entry's, which the worker, the
+ * talker and a plain consultant turn all read, so none reads another version.
+ */
+export function agendaLines(fields: PlanFields): string[] {
+  const open = agendaDecisions(fields)
   const lines: string[] = []
   if (open.length) {
     lines.push(
       `Open decisions, most valuable first: ${open.map((d) => `${d.title} (needs ${NEEDS[d.state] ?? NEEDS[d.settle ?? 'talk']})`).join('; ')}.`,
     )
   }
+  for (const c of planPanel(fields).due_checks) {
+    lines.push(`Due: ask the client "${c.question}" (${c.id}) — ${DUE_BECAUSE[c.trigger] ?? c.trigger}.`)
+  }
+  const notes = focusCandidates(fields, 'story').filter((id) => !STEP_IDS.includes(id)).length
+  const due = [...boardFinishGaps(fields), ...(notes ? [`${notes} new story notes waiting for a reaction task`] : [])]
+  if (due.length) lines.push(`Due: ${due.join('; ')}.`)
+  return lines
+}
+
+/**
+ * [[REQ-426]] — what the talker is told beside the plan entry: what is being built
+ * or comes next, and the questions already waiting on the panel, which it points
+ * to rather than asks again. Derived, like {@link planPanel}.
+ */
+export function talkerAgenda(fields: PlanFields): string[] {
   const panel = planPanel(fields)
+  const lines: string[] = []
   const building = [...panel.tasks.doing, ...panel.tasks.next]
   if (building.length) lines.push(`Being built or next: ${building.join('; ')} — draft these with them, gaps marked [?].`)
-  const due = [
-    ...boardFinishGaps(fields),
-    ...panel.due_checks.map((c) => `ask "${c.question}"`),
-    ...(focusCandidates(fields, 'story').length ? [`${focusCandidates(fields, 'story').length} new story notes waiting for a reaction task`] : []),
-  ]
-  if (due.length) lines.push(`Due: ${due.join('; ')}.`)
   if (panel.asks.open.length) {
     lines.push(
       `Already on the panel, waiting for them — point to these, never ask them again: ${panel.asks.open.map((a) => JSON.stringify(a.prompt)).join('; ')}.`,
@@ -2472,6 +2534,9 @@ export function planOperations(
         if (str(p.status)) t.status = str(p.status)!
         if (Array.isArray(p.depends_on)) t.depends_on = p.depends_on.map(String)
         if (Array.isArray(p.decisions)) t.decisions = p.decisions.map(String)
+        // [[REQ-428]] — a promise is the client's words; what you told them about it is yours.
+        if (str(p.client_asked)) t.asked = { quote: str(p.client_asked)!, at: now() }
+        if (str(p.told_client)) t.told = str(p.told_client)
         return { task: t }
       }),
     // [[REQ-391]] — the client chose a look and said so in the conversation: the
@@ -2882,6 +2947,8 @@ export function planOperations(
     pin_notes: (p) =>
       change((plan) => {
         focusGuard(plan.fields, 'story')
+        // [[REQ-428]] — and none while too many wait for a reaction.
+        unreactedGuard(plan.fields)
         return pinNotes(plan.fields, p, now())
       }),
     // [[REQ-425]] — and no new card or headline offer while they work through the board.
