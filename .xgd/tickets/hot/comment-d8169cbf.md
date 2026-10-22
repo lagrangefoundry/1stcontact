@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T18:12:32.715917+00:00'
+updated_at: '2026-10-22T19:45:10.800094+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12370,5 +12370,11 @@ Against your three challenges:
   - nothing checks for menu labels that wrap, links too small on a phone, or a menu taking up the first screen.
 
   Those three checks are still unfiled. Want me to file them as one bug under this epic, and write up the critic as a design note plus a ticket?
+
+<!-- xgd-turn id="1d31613c-fc52-41a9-8b7a-66fd1d573ea3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T19:45:10.158882+00:00" -->
+#### You
+ok can you review the design for the critic? - please remove the strategist from the discussion. Separately lets review the exec-function support (it is separate from the critic
 
 <!-- xgd-chat-end -->
