@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T18:08:10.922174+00:00'
+updated_at: '2026-10-22T18:12:32.715917+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12283,5 +12283,92 @@ I think we have things to address these - please confirm that we have implemente
  - the critic (should help with 3)
  - Giving the AI visibility into what the users UI has open and tools to change or provide links to change focus
  - more executive function support tools
+
+<!-- xgd-turn id="23f66aa1-a5f0-4366-b802-70ff17eae3c2-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T18:12:31.427864+00:00" -->
+#### Claude
+I'm going through yesterday's tickets now, about 20 of them, and checking where "the critic" lives.
+
+Ticket output is truncated, so I'm reading the ticket files directly.
+
+Nearly done. I'm checking whether the "due list" was built, then what's live on dev.
+
+I've gone through everything that landed yesterday (21 Oct). There's one correction first: **the critic was never built.** We agreed it as the direction and noted it on the epic, but there's no ticket and no code. What does run is the host's automatic look and layout check (REQ-415, BUG-238), which is narrower.
+
+## Before you start
+
+Run `bin/deploy --env dev`. Last night the dev build dated from 14:24 yesterday, so it predates the shared header and menu (REQ-422) and everything after it. Restarting the dashboard doesn't change what dev serves. Unless you've deployed since, a good part of what's below won't be there.
+
+## What changed yesterday, and what to watch for
+
+**One voice, and less chaos in the chat**
+- **BUG-245:**
+  - Work updates are folded into the consultant's next reply, so it shouldn't produce separate "finished" messages.
+  - Comparison sites arrive as cards with Send/Skip and a line of the consultant's commentary each.
+  - Once every card is dealt with, the comparison board tells the consultant you're done.
+- **BUG-247:** if the consultant answers first and then starts work, the composer should show Send (not Stop) and the status widget should appear.
+- **BUG-244:** the attach "+" now sits inside the text box, and the status widget sits under the progress banner.
+- **The wording fix from last night (`a0089791ee`):** a request made mid-build should get one definite line, like "the buttons are next". **Watch whether it actually does them** after the current work. I couldn't confirm that anything makes it act on them.
+
+**Steering you between views**
+- **BUG-246:** every message tells the consultant which view you have open, and which views you've never opened. It should give you a link, not switch the view, when it refers to something you're not looking at. The first time, it should add one line saying where that view lives. It should say "story board" or "comparison board", never just "the board".
+- **BUG-250:** Looks is now its own tab. The tab only appears while a page has looks on offer, and it shows only the looks: no "Current", no Edit, no Colours.
+- **BUG-248:** while it builds, the preview should keep your scroll position, refresh only the page that changed, and not replay entrance animations.
+
+**Leading you through the work**
+- **REQ-424, guided focus tasks:** the consultant picks a moment, often right after starting a build, and gives you one job. That's either answering the panel questions, reacting to the story board, or commenting on the comparisons. Its message should say what to do, include a link, and **ask nothing else**. While a task is open it can't add notes or open a new topic. When you finish or press Done, it should pick the conversation back up without being asked.
+- **REQ-426, the talker as strategist:**
+  - each question says what it's for;
+  - after two or three questions on one topic it changes gear;
+  - short facts go to the panel as one batch;
+  - it doesn't repeat a question.
+
+  It now works from open decisions and a "due" list rather than "story areas missing". That's what drove the seven questions in a row about the kids' classes.
+- **REQ-425:** a positioning card now sits between the notes and the headline: what I'm hearing, what you're known for, and why customers pick you. You heart it or edit it, and headlines are written from it. "Getting to know you" can't finish until the card is confirmed, or until the consultant records the honest fallback card.
+
+**Layout and drawing**
+- **REQ-420:** text styles carry space above and below, so a heading sits closer to its own paragraph. This only applies to text that uses a heading style. Last night's hero didn't, which is why its gaps were all 24px.
+- **REQ-422:** a shared site header and footer, with a menu built from the site's pages. The host also flags a page with no header or brand, pages nobody can reach, dead ends, and leftover placeholders.
+- **REQ-423:** the consultant now draws SVGs itself, not the builders. Drawings are kept in the Library, and logos start from a wordmark.
+
+**Reliability**
+- **BUG-249:** a turn that stops making progress is cut off, so it can't freeze the session until a restart. If anything hangs, note the time.
+- **BUG-243:** a builder's turn ends once it has filed its report.
+- **REQ-421:** a cache change for the builders.
+- **BUG-242:** cache writes are costed correctly in the spend figures.
+
+## When the layout check runs
+
+- **After every builder session that writes a page**, the host:
+  - screenshots up to 3 changed pages at your current width;
+  - runs a layout check at 1280px and 375px.
+
+  The consultant gets both with the builder's result. Any finding means "THIS BUILD IS NOT DONE", and the host makes it carry on and fix them in the same turn.
+- The same findings show up as warnings when the consultant looks at a page's structure.
+- **"Finishing touches" and "Ready to publish" are refused** while any changed page hasn't been looked at on both desktop and phone.
+- **What it checks:**
+  - sideways scrolling, overlaps, clipped text, empty sections, ragged edges, price lists built as columns;
+  - since BUG-238, a logo under 48px on desktop or 36px on phone;
+  - a business name that isn't clearly the biggest text in the header;
+  - a heading that isn't closer to its own text than to what's above.
+
+## Your three items
+
+| You asked about | Status |
+|---|---|
+| The critic | **Not built.** Agreed as a separate review at the end of each big build and before publishing, but never written up as a design note or ticketed. |
+| Consultant sees which view you have open and can link or switch you | **Built:** BUG-246, plus `show_client` from REQ-413, extended to Looks by BUG-250. |
+| More executive-function support | **Partly built.** Focus tasks (REQ-424), the strategist agenda and due list (REQ-426), and the positioning card with readiness per area (REQ-425). The separate strategist/director was deferred. |
+
+Against your three challenges:
+- **Story board use:** REQ-424 and REQ-425 are the direct answer. This run is their first real test.
+- **Steering between views:** BUG-246, BUG-250 and REQ-424.
+- **Obvious layout jank:** this is where I'd expect the most trouble. REQ-420, REQ-422 and the layout check help, but last night's problems would still get through:
+  - the check measures gaps between boxes, not between the letters;
+  - nothing checks for "and" stranded on its own line;
+  - nothing checks for menu labels that wrap, links too small on a phone, or a menu taking up the first screen.
+
+  Those three checks are still unfiled. Want me to file them as one bug under this epic, and write up the critic as a design note plus a ticket?
 
 <!-- xgd-chat-end -->
