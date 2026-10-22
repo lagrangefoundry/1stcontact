@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T19:45:10.800094+00:00'
+updated_at: '2026-10-22T19:47:07.394520+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12376,5 +12376,104 @@ Against your three challenges:
 <!-- xgd-chat role="user" ts="2026-10-22T19:45:10.158882+00:00" -->
 #### You
 ok can you review the design for the critic? - please remove the strategist from the discussion. Separately lets review the exec-function support (it is separate from the critic
+
+<!-- xgd-turn id="1d31613c-fc52-41a9-8b7a-66fd1d573ea3-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T19:47:07.266873+00:00" -->
+#### Claude
+# The critic, without the strategist
+
+## The design as agreed
+
+- **What it is:** a tool the consultant calls, `critique(focus)`. It runs as its own delegated session, the same mechanism as `Delegate`, with:
+  - its own priming: the rubric;
+  - a strong model;
+  - read-only access, and a private context;
+  - a report back to the consultant.
+
+  It never speaks in the chat.
+- **What it sees:**
+  - the brief and the result: the positioning card, hearted notes, decisions, the comparison sites' conventions, and screenshots at desktop and phone;
+  - **never the consultant's transcript or reasoning.** That independence is the point: if it can see why something was done, it tends to agree with it.
+- **What it judges, by lens:**
+  - **Purpose:** whether the site serves the business's goal, and the customer's path from landing to calling. We called this "Strategy" before; I'd rename it so it doesn't get mixed up with the strategist.
+  - **Messaging:** whether the headline answers what the buyer is deciding, whether claims are backed, whether the text could belong to a competitor.
+  - **Style:** hierarchy, rhythm, contrast, brand presence, consistency between pages.
+  - **Function:** contact routes, forms, navigation.
+- **What it returns:** the top one to three findings, each with severity, evidence and a suggested fix. It's allowed to say "good enough".
+- **When it runs:** the host makes it due **once at the end of a big run, before the consultant hands back to you**, and again before publishing. The consultant can also call it whenever it wants.
+- **The hold:**
+  - the host won't let the consultant hand back until the critique has run;
+  - each top finding must be either fixed or recorded as an open decision for you;
+  - at most one re-check, and only after a severe finding.
+- **What reaches you:** only the single weakest point, through the existing "the weakest part of the site right now is…" line (REQ-408).
+- **Measurement:** findings are logged across runs, which gives us a quality measure.
+- **Deferred:** a session that persists across calls, so the critic remembers what it flagged last time. That needs work in lagrange-framework.
+
+## My review
+
+**What's right:** it's a tool rather than a second voice, it gets a clean context, the host decides when it's due rather than the consultant, the output is short, and it runs once per gate. I'd keep all of that.
+
+**What I'd change or pin down:**
+
+1. **Don't make it the defence against obvious jank.** The cramped menu, tiny nav text, the stranded "and" and the flat hero spacing can all be measured. Measured checks are cheap, certain and catch the problem every time; a model reading a screenshot catches it some of the time. They belong in the layout check (REQ-415 and BUG-238), which already holds the hand-back. The critic is for **judgement**:
+   - whether this headline sells;
+   - whether this looks like a welding shop;
+   - whether the hierarchy is right.
+
+   So we still need the three layout checks I proposed last night. The critic won't replace them.
+2. **Screenshot it at the widths where things break.** The critic needs desktop, phone **and about 900px**, since that's where the nav fell apart. REQ-415's host look only takes your current width.
+3. **Verify the images actually reach it as images.** One delegated path we've seen serialises an image into text, so the model never sees the picture (`box.run`). If the critic's screenshots went through that path, it would judge pages it can't see. This is the first thing to check.
+4. **"Big run" needs a definition the host can check.** I'd use three triggers:
+   - the first draft finishing;
+   - a set of looks being offered;
+   - the move to "Ready to publish", alongside REQ-415's looked-at gate.
+
+   Nothing else triggers it.
+5. **Make "respond to every finding" checkable.** Each finding gets an id, and the consultant answers it with fixed, open decision, or dismissed with a reason. The hold lifts when every top finding has an answer. Otherwise it's a rule we hope it follows, and we've seen how that goes. The hold itself can reuse the layout check's "not done" continuation, which already has a cap and a spend ceiling.
+6. **Start with one call, not four.** Each lens would need its own copy of the screenshots, and four calls started at once don't share a cache. One call with all four rubrics, returning the top three findings overall, is cheaper and lets us measure. Split it only if a lens gets crowded out.
+7. **Get "remembers last time" without new framework work.** Record findings on the plan and pass the previous ones into the next call ("check whether these were fixed"). That gives most of the persistent-session benefit now.
+8. **Messaging needs something to judge against.** Without a confirmed positioning card or the fallback card, the messaging lens should say that's what's missing, not guess.
+9. **Wording you see:** the word "critic" never appears to you. Under BUG-241, it's the consultant's own review.
+10. **Model:** a new backend entry for the critic on Opus, set in `backends.json`, kept separate from the cheaper builder model.
+
+**Cost:** about one strong-model call per gate with three screenshots, so 3 to 5 per site. That's small next to a consultant turn.
+
+**What it would take:** a design note (a DOC) on EPIC-19, then one ticket here. That ticket covers the tool and its rubric, the backend entry, the triggers, the hold, the finding ids and the logging. Nothing is needed in lagrange-framework yet.
+
+---
+
+# Executive-function support: what's built, and the gaps
+
+## Built yesterday and before
+
+| Piece | What it does | Enforced or advice |
+|---|---|---|
+| **Focus tasks** (REQ-424) | The consultant leads you through one job: questions, story-board reactions or comparison sites. When you finish or press Done, it's prompted to carry on. | **Enforced:** while a task is open it can't add notes, start a second task, or add questions to a questions task. |
+| **Talker agenda** (REQ-426) | Every exchange, the talker is told: the open decisions, most valuable first, with what each needs; what's being built; what's due; questions already on the panel. | Advice |
+| **Consultant's per-turn plan notes** | Stages behind or skipped, due checks, readiness, story-board state, focus state, decisions by state. | Advice |
+| **Readiness per area** (REQ-425) | Guide, propose, or just carry out, per area. The consultant or the talker sets it. | Advice |
+| **Positioning card** (REQ-425) | "Getting to know you" can't finish without a confirmed card or the recorded fallback card, and headlines must come from the card. | **Enforced** |
+| **Comparison board finish** (BUG-245) | The board tells the consultant when every card is closed. | **Enforced** (a notice) |
+| **Final-stage looked-at gate** and the layout check's "not done" (REQ-415) | The consultant can't call pages finished without looking at them on desktop and phone, and must fix findings before handing back. | **Enforced** |
+
+## Gaps
+
+1. **"What's due" never holds anything.** "14 notes waiting for a reaction task" is a line it can read past, and yesterday it did. The only hard stops are the focus task's own refusals, the positioning-card gate and the final-stage gates. The obvious next one is a cap: with more than about 8 notes nobody has reacted to, adding more notes is refused until a story-board task has run. That's a check, not a fixed path, so it fits your "rules for the checks, readiness for the path". It is a rule, though, so it's your call.
+2. **The talker and the consultant get different versions of the same facts.** The talker gets REQ-426's agenda; the consultant gets the plan notes, worded differently. We agreed one shared line so they never contradict each other. I'd give the consultant the same "Due:" and "open decisions" lines, built by the same code.
+3. **"Change gear after two or three questions" is only a rule in its priming.** Nothing counts. The host could count the talker's questions in a row that change nothing on the plan, and say "you've asked three without moving anything; switch to a draft or a panel batch". This is the in-the-middle-of-a-stage help you said is where it's needed.
+4. **Promises aren't recorded.** Last night's "the buttons are next" lives only in a sentence. If a request made mid-build became a "next" task on the plan, it would show up under "Being built or next" and be due when the build hands back. That would also close the gap I flagged last night, where nothing makes the build act on those requests.
+5. **Readiness is only as good as the consultant's guess.** If it never sets it, every area stays "unknown" and gets the full guided treatment. Watch whether it sets readiness early with Ariel, who knows a lot about the look.
+6. **Not built:** the existing-site route (capture their current site, pre-fill, confirm and move on). It needs its own ticket when you want it.
+
+## Watch for in today's build
+
+- Whether it starts a story-board task by itself, around the 8-note mark or while the first build runs, and whether that message asks nothing else.
+- Whether it carries on unprompted after you press Done.
+- Whether it writes and offers the positioning card before any headline.
+- Whether it sets readiness per area, and goes faster on the look.
+- Whether its questions say what they're for, and whether it stops after two or three on one topic.
+
+Want me to write the critic design note on EPIC-19? I'd also file the layout checks as one bug, and gaps 1 to 4 as one ticket, but only if you say so.
 
 <!-- xgd-chat-end -->
