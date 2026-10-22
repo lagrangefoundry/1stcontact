@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T20:42:10.799483+00:00'
+updated_at: '2026-10-22T20:44:13.393871+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12487,5 +12487,82 @@ ok yes on the consultant ticket and the gaps 1-4.
 I want to talk about the checks a little more I don't understand exactly what you are proposing. Lets separate what specific checks we want to run from the check mechanism. Is this another tool call like the critic?
 
 Related - can we cache screenshots? Both (1) only take a new screenshot at a gtive size if nothing has changes since the last one and (2) if we have N AI API calls that all check the same screenshots can we cache them and reference the cache?
+
+<!-- xgd-turn id="f8f83486-7584-41e6-bf4b-527c72e154cd-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T20:44:11.787538+00:00" -->
+#### Claude
+The append wrote a literal "-", so I'm fixing the epic body.
+
+I've filed both tickets as drafts under EPIC-19 and added both to the epic's list. I took "the consultant ticket" to mean the critic. Tell me if you meant something else.
+- **REQ-427, the critic:** the design from my last reply, with the changes I suggested. The strategist is out.
+- **REQ-428, executive-function gaps 1–4:**
+  - a cap on adding story notes while too many have no reaction;
+  - the same "open decisions" and "Due" lines for the talker and the consultant;
+  - a count of questions in a row that change nothing on the plan or site;
+  - requests made mid-build recorded on the plan as "next" tasks.
+
+## Host vs consultant
+
+- **The consultant** is the AI model, Opus. It's the only one that thinks and talks, and its worker and talker are both the consultant.
+- **The host** is our own server code that runs the consultant. Each turn it:
+  - builds the consultant's prompt and per-turn notes;
+  - runs the tools it calls;
+  - stores the plan;
+  - decides whether a turn is finished or has to carry on.
+
+"The host decides when it's due" means our code sees the first draft is finished and won't let the turn end until the critique has run. Nobody relies on the consultant remembering to ask for one.
+
+## Checks: the mechanism, separate from what's checked
+
+**The mechanism is not a model call, and not a tool the consultant calls.** It's a script that runs inside the browser on the rendered page (`layout-check.ts`) and reads exact positions and sizes. No AI is involved, so it's cheap and gives the same answer every time.
+- **It runs automatically** after every builder session that writes a page, at 1280px and 375px.
+- **Its findings go to the consultant** as plain lines with the builder's result, and also appear in the page map's warnings.
+- **Any finding means the build isn't done.** The host makes the consultant carry on and fix it in the same turn, up to a cap.
+
+**The critic is the opposite kind of thing:** a model call that uses judgement, may miss things, and costs money. The two don't overlap:
+- **Checks** cover anything that can be measured, because they catch it every time.
+- **The critic** covers what can't be measured.
+
+**What's checked today:**
+- content wider than the screen;
+- overlapping or clipped text;
+- empty sections;
+- ragged section edges;
+- price lists built as columns;
+- logo under 48px (36px on phone);
+- business name not clearly the biggest text in the header;
+- a heading not closer to its own text than to what's above;
+- since REQ-422: no header, unreachable pages, dead ends, leftover placeholders.
+
+**What I proposed adding,** from last night's Ariel page:
+1. **Heading spacing:** measure the gap between the letters, not between the boxes. That's why the 96px Cinzel hero passed.
+2. **The gap after a heading must be clearly smaller than the gap between the paragraphs under it,** not just smaller than the gap above it.
+3. **A short word left alone on its own line** in large heading text, like "and".
+4. **A menu label that wraps** onto two lines.
+5. **Menu links under about 14px** on a phone.
+6. **A menu taking more than about a third** of the first screen on a phone.
+7. **Run the checks at about 900px too.** That's where the menu fell apart, and it's about the width of the builder's preview pane.
+
+Once we've agreed the list, it's one bug.
+
+## Can we cache screenshots?
+
+**(1) Reusing a screenshot when nothing has changed.** Nothing does this today; every screenshot is taken fresh. Taking one is cheap, though. The expensive part is the model reading it.
+- **The host already knows** which revision and width the consultant last looked at (REQ-415's record).
+- **Two savings would follow from that record:**
+  - keep the image bytes for each page, revision and width, and reuse them;
+  - more valuable: when the consultant asks to see a page it has already seen unchanged, reply "unchanged since you looked at it" instead of sending the picture again.
+- **Reused bytes also matter for (2):** two fresh screenshots of the same page can differ slightly in their bytes, and any difference breaks the API's cache.
+
+**(2) Several model calls reading the same screenshots.** Yes, through the API's prompt caching, with conditions:
+- **Order:** each call has to start identically, with the same instructions and then the same image bytes, and only then the part that differs, such as a lens. A difference before the images means no cache.
+- **Timing:** a cached copy can only be used once the first call has started replying. Calls fired at the same moment all pay full price, so run one first and then the others.
+- **Price:** a cached read costs about a tenth of the normal input price, and the cache lasts 5 minutes by default or an hour if we ask.
+- **The Files API doesn't help with cost.** You upload an image once and refer to it by id, which saves sending it again. Every use is still billed as full input tokens.
+
+For the critic this backs starting with **one call covering all four lenses**: the screenshots are paid for once. If we split into lenses later, we'd keep the shared part identical and run one call before the rest.
+
+Do you want the stored-screenshot reuse added to REQ-427? And are you happy with checks 1–7 as the list for the layout bug?
 
 <!-- xgd-chat-end -->
