@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-20
 created_by: xgd
 created_at: '2026-09-21T18:07:34.699110+00:00'
-updated_at: '2026-10-21T15:56:45.251327+00:00'
+updated_at: '2026-10-22T22:59:34.795233+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -4414,5 +4414,11 @@ I've applied the discovery draft to the consultant's priming and committed it on
 No tests pinned the old wording. The 13 suites that load the priming file all pass (105 tests). I committed only `priming.json`; the other files already modified in your tree weren't touched.
 
 To try it, run `bin/deploy --env dev` and build a fresh test site. After the session I can check the conversation (whether discovery closes out and whether the questions ease off once there's a draft) and the cost: whether builders now share their starting context, stop after reporting, and are priced correctly.
+
+<!-- xgd-turn id="796110f7-a6e2-4d2a-b4b5-80b08db1a1c2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:59:33.271274+00:00" -->
+#### You
+Please review Ariels Arc Welding its our most expensive build, more costly even than Lagrange (which is a real site). I need to run it again now are there any quick fixes we can apply? Are the delegates using caching as we discussed yet??
 
 <!-- xgd-chat-end -->
