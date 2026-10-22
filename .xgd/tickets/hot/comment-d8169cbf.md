@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T22:50:30.937047+00:00'
+updated_at: '2026-10-22T22:52:04.219074+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12633,5 +12633,31 @@ All three of today's tickets are drafts, ready to be picked up in their own sess
 <!-- xgd-chat role="user" ts="2026-10-22T22:50:27.916233+00:00" -->
 #### You
 I think everything is ready to go, yes? Prompts have been updated to use all the new capabilities?
+
+<!-- xgd-turn id="6d90c6ae-8519-4773-9acb-9c52aa860244-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-22T22:52:01.959862+00:00" -->
+#### Claude
+All three child tickets have landed. Now checking whether each one also updated what the consultant is told.
+
+Prompts are in place for all three. One last check: whether the deployed dev environment has the browser the checks and the critic depend on.
+
+Yes, nearly. All three tickets landed this afternoon, and each one updated what the consultant is told:
+
+| Ticket | What it tells the AI |
+|---|---|
+| **REQ-428**, executive function | Adding a story note is refused with "start the reaction task" once more than 8 notes have no reaction. Tasks can be recorded as promises the client asked for during a build, with a reminder if they're dropped at hand-back. The talker is told to record mid-build requests that way. The consultant now reads the same open-decisions and Due lines as the talker, plus "you have asked N questions without moving anything". |
+| **REQ-427**, the critic | The `critique` and `answer_finding` tools carry their own instructions, the critic has its own rubric, and a reminder appears when a review is owed. The consultant is told the top finding is the weakest point to raise with you. |
+| **REQ-429**, layout checks | No prompt change needed. Findings reach the consultant as plain lines through the existing path, now at desktop, tablet (900) and phone. |
+
+Dev has the browser that both the checks and the critic need.
+
+Before you start:
+1. **Run `bin/deploy --env dev`.** None of today's work is on dev until you do.
+2. **Your main checkout has uncommitted changes:** `fonts/platform.json`, `tools/generate/src/cli/ai/platform-fonts.json` and `packages/framework/src/modules/module-assets.ts`. The `module-assets.ts` change is usually a side effect of a `1c assets` run, and the font files look like a mirror update. If you deploy from that checkout, check you mean to ship them.
+
+Two small things to know:
+- **The critic's tablet width is 768px, not 900.** It uses the camera's existing tablet setting, while the layout check uses 900, where Ariel's menu broke. The layout check will still catch the wrapping menu; the critic just won't see that width.
+- **None of this has been seen in a live run yet.** The holds run in a fixed order: layout faults, then the review, then promises. Watch for the first draft taking a bit longer before it hands back, which is the review running, and check that you never see a "critic" or "review" mentioned in the chat.
 
 <!-- xgd-chat-end -->
