@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T21:06:21.345198+00:00'
+updated_at: '2026-10-22T22:50:30.937047+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12627,5 +12627,11 @@ All three of today's tickets are drafts, ready to be picked up in their own sess
 - **REQ-427:** the critic.
 - **REQ-428:** the executive-function gaps.
 - **REQ-429:** the layout checks.
+
+<!-- xgd-turn id="6d90c6ae-8519-4773-9acb-9c52aa860244-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:50:27.916233+00:00" -->
+#### You
+I think everything is ready to go, yes? Prompts have been updated to use all the new capabilities?
 
 <!-- xgd-chat-end -->
