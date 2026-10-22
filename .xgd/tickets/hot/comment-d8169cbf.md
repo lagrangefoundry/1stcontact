@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-21T23:40:24.889433+00:00'
+updated_at: '2026-10-22T18:08:10.922174+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12265,5 +12265,23 @@ The same rule went into the template used while you're working through a panel t
 **Tests:** 73 of 74 priming and talker tests pass. The one failure also fails on a clean tree: a test's expected sentence was split across two lines in the priming.
 
 **Not checked:** I haven't confirmed that the build actually does a request made mid-build once it finishes. The builder does see that part of the conversation when it hands back, but nothing I found makes it act on those requests. If it doesn't, "the buttons are next" is a promise nothing keeps. Watch whether it does the buttons when the header and footer work finishes; if it doesn't, that needs a fix in how the build hands back.
+
+<!-- xgd-turn id="23f66aa1-a5f0-4366-b802-70ff17eae3c2-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T18:08:10.153522+00:00" -->
+#### You
+Ok I'm going to start another build of Ariel in a few. Can you review all the changes that we have made and bugs we have fixed yesterday so I can be sure to look out for them. 
+
+IIRC implementing the critic was one of these - please remind me when it is run
+
+My feeling from yesterday is that our biggest outstanding challenges are:
+1. ensuring that the story board is used (or its purpose is satisfied by a converstation
+2. steering the user between the different tasks and interfaces
+3. Janky obvious layout issues - site title or navigation prompts too small - spacing on navigation too cramped - vertical spacing lacks semantics  - the user should be directing the AI towards style preferences not having to point out obvious layout bugs.
+
+I think we have things to address these - please confirm that we have implemented:
+ - the critic (should help with 3)
+ - Giving the AI visibility into what the users UI has open and tools to change or provide links to change focus
+ - more executive function support tools
 
 <!-- xgd-chat-end -->
