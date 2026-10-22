@@ -7,10 +7,10 @@ title: 'Layout check: a framework of named checks, a tablet width, and checks fo
   close'
 created_by: EPIC-19
 created_at: '2026-10-22T21:02:02.410612+00:00'
-updated_at: '2026-10-22T21:02:09.722230+00:00'
+updated_at: '2026-10-22T21:05:49.696148+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: abandoned
 fields:
   severity: high
   priority: high
