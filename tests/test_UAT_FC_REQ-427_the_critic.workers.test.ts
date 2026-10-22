@@ -220,9 +220,20 @@ describe('REQ-427 the critic', () => {
     expect(plan.critique.due).toBeUndefined()
     expect(plan.decisions.find((d: { id: string }) => d.id === 'headline_sells')).toMatchObject({ state: 'open', area: 'messaging' })
 
-    // NOTHING CALLED A CRITIC REACHES THE CLIENT: not their panel, not the reply.
+    // NOTHING CALLED A CRITIC REACHES THE CLIENT: not their panel, and not the
+    // conversation they reopen — the host's cue that carried the reply on is kept off it.
     const panel = await route(new Request(`${ORIGIN}${PLAN_PATH}?site=${encodeURIComponent(slug)}`), routerEnv(), scope, {})
     expect(JSON.stringify(await panel.json())).not.toMatch(/critiq|critic/i)
+    const reopened = await route(
+      new Request(`${ORIGIN}/api/ai/session`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ site: slug }) }),
+      routerEnv(),
+      scope,
+      { launch: browser.launch },
+    )
+    const shown = JSON.stringify(((await reopened.json()) as { turns?: unknown[] }).turns ?? [])
+    expect(shown).toContain(CLIENT_SAID)
+    expect(shown).not.toContain(HELD)
+    expect(shown).not.toMatch(/critique|answer_finding/)
   }, 60000)
 
   it('test_UAT_FC_REQ-427_the_critic_is_handed_the_brief_and_pictures_at_three_widths_as_images_never_the_conversation', async () => {

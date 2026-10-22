@@ -604,6 +604,12 @@ export function critiqueContinuationCue(owed: readonly string[]): string {
   return template('critique-continuation-cue').replace('{owed}', owed.map((f) => `- ${f}`).join('\n'))
 }
 
+/** [[REQ-427]] — whether a user turn is the host's review cue: never shown to the client. */
+export function isCritiqueContinuationCue(content: string): boolean {
+  const [head] = template('critique-continuation-cue').split('{owed}')
+  return content.startsWith(head!)
+}
+
 /**
  * [[REQ-428]] — the user turn the host records when the consultant hands a build
  * back while a promise made during it — a task the client asked for, on the plan

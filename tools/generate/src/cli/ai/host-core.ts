@@ -88,6 +88,7 @@ import {
   finishedCue,
   layoutContinuationCue,
   critiqueContinuationCue,
+  isCritiqueContinuationCue,
   criticRole,
   promiseContinuationCue,
   isPromiseContinuationCue,
@@ -3333,9 +3334,14 @@ async function storedTranscript(
   // cue for a finished comp board or [[REQ-424]] focus task.
   const cues = new Set([opening, continuationCue(), finishedCue()])
   // [[BUG-249]] — nor its cue for a round it carried on after a stall. [[REQ-428]] —
-  // nor for one it carried on because a promise was owed.
+  // nor for one it carried on because a promise was owed. [[REQ-427]] — nor because
+  // the review was owed: the client never hears of the review.
   const hidden = (turn: { role: string; content: string }): boolean =>
-    turn.role === 'user' && (cues.has(turn.content) || isStallContinuationCue(turn.content) || isPromiseContinuationCue(turn.content))
+    turn.role === 'user' &&
+    (cues.has(turn.content) ||
+      isStallContinuationCue(turn.content) ||
+      isPromiseContinuationCue(turn.content) ||
+      isCritiqueContinuationCue(turn.content))
   const turns = recorded.filter((turn) => !hidden(turn)).map(
     (turn) => ({
       role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
