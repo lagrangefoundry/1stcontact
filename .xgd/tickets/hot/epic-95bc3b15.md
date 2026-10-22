@@ -5,7 +5,7 @@ type: epic
 title: Web Builder Experience
 created_by: martin-github@westhead.me
 created_at: '2026-09-18T18:58:18.644541+00:00'
-updated_at: '2026-10-21T21:15:10.713904+00:00'
+updated_at: '2026-10-22T20:43:35.403533+00:00'
 completed_at: null
 last_field_updated: body
 status: ongoing
@@ -2344,3 +2344,5 @@ The consultant promised Charlie it would build two sections in parallel, but the
 
 
 - [[REQ-426]] — the talker as conversation strategist: every question states what it's for; its facts are open decisions/sections and the due list, not "story areas missing"; enough-is-enough after 2–3 questions on a topic; priority by value; no repeated questions (Ariel's run: seven questions in a row on the kids' classes). Strategist-as-a-separate-tool deferred; a critic tool (end of each big build, before publish) and a derived "due" list on the plan are the agreed direction, to be written up as the design note.
+
+-
