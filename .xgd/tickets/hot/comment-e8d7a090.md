@@ -5,7 +5,7 @@ type: comment
 title: Comment on request REQ-427
 created_by: xgd
 created_at: '2026-10-22T21:00:59.841736+00:00'
-updated_at: '2026-10-22T21:47:18.727129+00:00'
+updated_at: '2026-10-22T22:14:51.694272+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -173,5 +173,11 @@ REQ-427 is built and merged into xgd-working. The ticket is at `free_coded` (ver
 - The node project shows no new failures. A few tests fail only because they run in a worktree (missing `.xgd/tmp` and webui packages, and a built `dist-assets` copy that trips one check); they don't touch this change.
 
 **One existing gap I left alone:** REQ-415's layout-fault cue still shows in the client's reopened conversation, though the review and promise cues are hidden.
+
+<!-- xgd-turn id="6c1c6cb2-2a20-4336-8454-99d7bf55d9e3-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:14:50.993589+00:00" -->
+#### You
+Is this finished?
 
 <!-- xgd-chat-end -->
