@@ -17,6 +17,7 @@ fields:
   epic_parent: epic-95bc3b15
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-38bf347f
 ---
 
 ## Symptom (Ariel's Arc Welding, 2026-10-21; Bob's salon 2, 2026-10-20)
