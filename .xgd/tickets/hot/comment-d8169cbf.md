@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-19
 created_by: xgd
 created_at: '2026-09-18T19:05:45.594764+00:00'
-updated_at: '2026-10-22T22:52:04.219074+00:00'
+updated_at: '2026-10-22T22:56:30.306552+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -12659,5 +12659,11 @@ Before you start:
 Two small things to know:
 - **The critic's tablet width is 768px, not 900.** It uses the camera's existing tablet setting, while the layout check uses 900, where Ariel's menu broke. The layout check will still catch the wrapping menu; the critic just won't see that width.
 - **None of this has been seen in a live run yet.** The holds run in a fixed order: layout faults, then the review, then promises. Watch for the first draft taking a bit longer before it hands back, which is the review running, and check that you never see a "critic" or "review" mentioned in the chat.
+
+<!-- xgd-turn id="c8ae14aa-2a90-4942-bbf6-d4e6432bee0a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-22T22:56:29.111728+00:00" -->
+#### You
+pleasee tidy up the repo - everything needs to be checked in please
 
 <!-- xgd-chat-end -->
