@@ -190,7 +190,7 @@ describe('BUG-235 build sooner: stops, clean checks and no browser', () => {
       .map(said)
       .join('\n')
     expect(report).toContain('The host looked at what the build you started wrote')
-    expect(report).toContain('No layout faults at either width.')
+    expect(report).toContain('No layout faults at any width.')
     expect(report).not.toContain('The check finds faults')
     expect(report).not.toContain('THIS BUILD IS NOT DONE')
   }, 60000)

@@ -1513,10 +1513,13 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       const name = String(p.page.slug)
       const id = String(p.page.id)
       try {
-        const found = (await checker(name, p.sections ?? [])).map(layoutLine)
-        if (found.length) owed.set(id, found)
+        const checked = await checker(name, p.sections ?? [])
+        const found = checked.map(layoutLine)
+        // [[REQ-429]] a check that could not run is said, but is not the page's fault to fix.
+        const faults = checked.filter((f) => f.kind !== 'check_failed').map(layoutLine)
+        if (faults.length) owed.set(id, faults)
         else owed.delete(id)
-        lines.push(...(found.length ? found : [`${name}: nothing wrong at either width.`]))
+        lines.push(...(found.length ? found : [`${name}: nothing wrong at any width.`]))
       } catch (error) {
         lines.push(`${name}: the check could not run (${said(error)}).`)
       }
@@ -1545,7 +1548,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
     }
     const unpictured = pages.map((p) => String(p.page.slug)).filter((n) => !pictured.includes(n))
     const faulty = pages.some((p) => owed.has(String(p.page.id))) || structure.length > 0
-    const widths = LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`).join(' and ')
+    const widths = new Intl.ListFormat('en', { type: 'conjunction' }).format(LAYOUT_WIDTHS.map((w) => `${w.name} (${w.width}px)`))
     const report = [
       'The host looked at what the build you started wrote, so you did not have to ask. This is guidance for you, not words for your client.' +
         (pictured.length
@@ -1556,7 +1559,7 @@ function hostLook(deps: HostDeps, slug: string, fidelity: FidelityDeps): (output
       ...lines.map((l) => `- ${l}`),
       faulty
         ? 'THIS BUILD IS NOT DONE: the site has layout or navigation faults. Fix every line above — brief the fix with them — and look again before you say a page is ready or in the menu.'
-        : 'No layout faults at either width. Whether the page is what your client asked for is what the picture is for.',
+        : 'No layout faults at any width. Whether the page is what your client asked for is what the picture is for.',
       // [[BUG-241]] — what this is, said to the consultant in the words its client hears.
       'To your client, this is you checking the page on a computer and a phone: never name the check, or who wrote the page.',
     ].join('\n')

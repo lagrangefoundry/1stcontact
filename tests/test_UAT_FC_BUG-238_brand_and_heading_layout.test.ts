@@ -84,6 +84,7 @@ describe.runIf(browserOk)('BUG-238 brand and heading layout findings', () => {
     const small = found.filter((f) => f.kind === 'small_logo')
     expect(small.map((f) => [f.widthName, f.sectionName])).toEqual([
       ['desktop', 'header'],
+      ['tablet', 'header'],
       ['phone', 'header'],
     ])
     expect(layoutLine(small[0])).toMatch(
