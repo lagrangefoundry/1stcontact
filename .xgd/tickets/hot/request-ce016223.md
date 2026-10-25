@@ -1,0 +1,239 @@
+---
+uid: request-ce016223
+id: REQ-321
+type: request
+title: Take element authoring off the consultant so construction must be delegated
+created_by: EPIC-20
+created_at: '2026-09-25T03:59:12.140415+00:00'
+updated_at: '2026-09-25T04:37:26.368840+00:00'
+completed_at: null
+last_field_updated: status
+status: abandoned
+fields:
+  epic_parent: epic-0923bb64
+  auto_merge_back: true
+  needs_review: false
+  priority: medium
+---
+
+## Why
+
+Delegation works and is barely used. Measured on the dev environment
+(EPIC-20 holds the full reading):
+
+- **5.7%** of all metered spend has been delegated — $1.33 against $21.84.
+- **2026-09-22: seven delegations across five turns. 2026-09-24: one across
+  nine.** Identical configuration, identical prose, and the operator never asked
+  for delegation in either sitting — all eight delegations were model-initiated.
+- The consultant is **not** discriminating by job size. It delegated a 27-write
+  sweep in the morning and then did **10-write and 14-write sweeps itself** at
+  19:35 and 20:04 local, on Opus, at $3.32 and $4.24.
+
+REQ-295 shipped the additive grant — option (a) — knowingly accepting that
+*nothing gives the consultant a per-turn reason to delegate*, on the grounds that
+the outcome would be measurable. It has been measured. **The variance, not the
+level, is the finding:** a lever that yields 7-in-5 one day and 1-in-9 two days
+later is not one capacity can be planned around, and no amount of more
+persuasive prose in a prefix that is 186k deep by the end of a sitting changes
+its character. This is option (b) from REQ-295's body, taken off reserve.
+
+Rough size of the prize: the evening cost **$0.35 per site write**; the 09-22
+workers cost **$0.14–$0.57 each** for sweeps of comparable size.
+
+## What changes
+
+**The consultant loses the ability to author elements. A worker gains being the
+only thing that can.**
+
+### The group boundary does not match the decision boundary
+
+The obvious edit — drop `AuthorPages` from `consultant.l1.groups` in
+`instances.json` — is one line and is **wrong**, because `l1-surface.json`
+declares:
+
+```
+AuthorPages  ['set_l1', 'set_page_style', 'use_font']
+```
+
+`set_l1` is construction and should go. `use_font` and `set_page_style` are
+**decisions**, and the consultant made them correctly this very morning: it bound
+the two typefaces with two `use_font` calls and *then* handed the 27-element
+sweep to a worker. That is precisely the division this ticket wants, and removing
+the group wholesale would break the good half of the only good example we have.
+
+So `AuthorPages` splits. Names are the implementer's, but the cut is:
+
+- **element authoring** — `set_l1` — which the consultant loses and the builder
+  keeps.
+- **page styling and typeface binding** — `set_page_style`, `use_font` — which
+  both roles keep.
+
+Both documents are in-repo (`tools/generate/src/cli/ai/`), so this is a
+declaration edit and a grant edit, not a framework change.
+
+### Check the carve-out for back doors before trusting it
+
+The consultant retains `ManagePages` (`add_page`, `copy_page`, `update_page`,
+`remove_page`) and `ManageComponents`. Whether any of those can author element
+content — and so reopen the path this ticket closes — must be **established
+rather than assumed**. If one can, it is part of the cut.
+
+### The failure mode to design against
+
+A consultant that cannot write must **delegate**, not **narrate**. The mode to
+prevent is the one where it tells the client "I'll update that" and nothing
+happens, or where it describes the change instead of causing it. The method prose
+already asks the consultant to write a brief and define checks; what it has never
+had to handle is having no alternative. That paragraph needs revising alongside
+the grant, and the behaviour needs a UAT of its own — a consultant asked for an
+element change produces a delegation, not a sentence.
+
+## Why the grant and not a per-turn allowance
+
+The alternative considered was keeping `set_l1` and capping it — N writes per
+turn, the N+1th refused with a message naming delegation, the refusal doubling as
+the per-turn signal the current design lacks. It is rejected as the primary
+mechanism for two reasons:
+
+- **It breaks sweeps in the middle.** The consultant makes three writes, is
+  refused, and must now brief a worker on "the remaining eleven elements" — which
+  it has to discover and describe accurately, from a page it has already left
+  half-changed. A brief written up front is strictly better than a brief written
+  after hitting a wall.
+- **It is state where the grant is a fact.** A counter scoped to turn and role is
+  machinery that can be wrong; an absent tool cannot be.
+
+**The latency objection, which is the real one.** Today's delegation took
+**2m54s** wall clock — unacceptable per iteration if the operator is tuning a
+line's position by eye. But that worker made **70 tool calls**; delegation
+latency scales with the job, and a single-element brief should cost a fraction of
+it. **That assumption is the first thing to check**, because the whole trade rests
+on it. If a one-element delegation turns out to be slow, the allowance returns as
+the fallback — the same way this ticket was held in reserve.
+
+## Rollback
+
+Configuration, following `delegation.json`'s precedent exactly: the switch that
+turns this off restores the consultant's grant, and a deployment with it off is
+indistinguishable from this repository today. A capability change that can only
+be reverted by a release is one nobody will try.
+
+## How it will be known to work
+
+- A consultant asked for an element change delegates it, and the element changes.
+- The consultant can still bind a typeface and set a page style without a worker.
+- REQ-293's split-by-model shows the delegated share moving off 5.7%.
+
+That last measurement depends on **BUG-145** — the split currently loses half its
+subject, so until that lands there is no instrument fit to grade this change.
+
+
+---
+
+## HOLD — this ticket's premise is materially weakened (2026-09-24, same evening)
+
+Do not implement this as written. The reasoning above is *"the consultant will not
+delegate, so remove the capability to do otherwise"*. Evidence gathered after
+filing shows the unwillingness is largely **earned and misattributed**, not
+dispositional.
+
+Of six delegations ever, **one was accepted**:
+
+- **Two** were genuinely blocked by REQ-300 — every write refused with *"Page
+  'stylea' has no L1 document"*, because `set_l1` replaces an existing element and
+  cannot bootstrap an empty page. That has shipped and has **never been
+  re-tested**.
+- **Three** were recorded `accepted: false` while the worker **did the work
+  correctly**. `reconcile` pairs the caller's `accept` entries to the worker's
+  report by exact normalised string, and on all five 09-22 delegations the
+  consultant passed **one entry containing several concatenated checks**. A worker
+  answering them as separate items cannot ever match. `u4ej95` reported 4 passes
+  against 1 compound ask (0 pairs); `ya6wkq` reported 6 against 1 (0 pairs).
+- **One** — 09-24, with **six discrete checks** — paired 6 of 6 and was accepted.
+
+So the consultant observed an 83% rejection rate that was mostly an artifact of
+its own brief-writing meeting a brittle pairing rule, on top of a real blocker
+since fixed. **Compelling use of a mechanism with that observed record is the
+wrong order of operations.**
+
+### What to do first, in order
+
+1. Make an `unreported` check visible to the caller as distinct from a failed one.
+   Today both collapse into one `accepted: false` that reads identically, so a
+   caller cannot tell "I asked badly" from "the worker botched it".
+2. Re-test delegation now that REQ-300 has shipped.
+3. Run the free experiment: the consultant has independently articulated the
+   correct policy and committed to it. The next settled-decision-in-several-places
+   pass tests whether that holds. If it decays, this ticket ships on evidence.
+
+### If it does proceed, adopt the consultant's boundary instead
+
+Replace the element-authoring cut above with the rule the consultant stated
+itself: **a settled decision that has to land in several places goes to a worker;
+anything that is one edit, or any question of what the page should say or be,
+stays.** It is framed on what is *settled* rather than what is *numerous*, which
+is the distinction that matters given the constraint this ticket did not record:
+**a worker cannot ask the client anything.** Forcing unsettled, iterative
+work — four attempts at one section rule, three at the plaques — through a worker
+that cannot ask a question would be a regression, and the grant-only cut above
+cannot tell the two apart.
+
+
+### Correction to the section above (same evening)
+
+The claim *"in two of them the worker did the work correctly and was recorded as
+having failed"* is too strong, and the difference matters for what gets fixed.
+Checked against each worker's own tool outcomes:
+
+| worker | writes | failed tool calls | asked check answered? | `accepted: false` correct? |
+|---|---|---|---|---|
+| q73amk | 0 | **all refused** (REQ-300) | no — reported 0 passes | **yes** |
+| tql0pf | 0 | **all refused** (REQ-300) | no — reported 0 passes | **yes** |
+| qen037 | — | — | never reported at all (`silent`) | **yes** |
+| ya6wkq | **18 set_l1, 0 failures** | none | **no** — answered six checks of its own invention | **yes** |
+| u4ej95 | **2 set_l1, 0 failures** | none | **yes, in parts** — pairing failed on a compound ask | **no — artifact** |
+
+So `accepted: false` was **correct in four of the five**, not two. `ya6wkq` did land
+its work, but it was asked *"the pages `home` and `stylea` have zero changes
+recorded against them during this run — verify with list_changes"* and replied with
+`WORDMARK 40px with proportional tracking`, `HEADLINE 92px…` and four more
+descriptions of its own work. The check it was asked was never answered, so
+`unreported` was honest and the consultant genuinely did still have an inspection
+to make.
+
+**The pairing artifact is one case, `u4ej95`, not three.**
+
+### And the "more feedback to the caller" proposal is withdrawn
+
+`_result()` in `delegation_toolbox.js` already returns `summary`, `changed`,
+`decisions`, `checks` — **every asked check with `passed` / `failed` + reason /
+`unreported`** — plus `accepted`, `outcome`, `session`, `role`, `backend` and
+`usage`. The per-check verdicts are already surfaced and already distinguish
+unanswered from failed. Proposing to surface them was proposing to fix something
+that works.
+
+### What is actually worth fixing, narrowed
+
+Two defects, both the same shape — *a malformed check becomes a silent
+`unreported` later instead of a refusal at the moment it is offered* — and they sit
+on opposite sides of the seam:
+
+1. **Caller side: a compound `accept` entry cannot be paired.** Several checks
+   concatenated into one string can only ever score zero, however well the worker
+   answers. Refuse a multi-sentence `accept` entry when it is offered, naming the
+   problem, while the caller can still split it. The exact-match rule itself stays
+   — its direction is right.
+2. **Worker side: a `passed` entry that answers no asked check.** `ya6wkq` listed
+   its work instead of answering the question. Refuse a `passed` entry that
+   corresponds to no requested check, so the worker is made to answer the real
+   question rather than discovering after the fact that it did not.
+
+### A third thing, which is not a code fix
+
+The consultant told the operator its workers *"came back with nothing"*. For
+`u4ej95` and `ya6wkq` that is false: twenty element changes landed and stayed. It
+held the `summary` and the `changed` list when it said so. Part of what this epic
+is dealing with is therefore what the consultant **remembered** — a single
+`accepted: false` — rather than what it was **told**. Worth knowing before
+spending engineering on the information path, because that part of the problem is
+not on the information path.

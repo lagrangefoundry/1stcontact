@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-44
 created_by: xgd
 created_at: '2026-09-01T21:59:00.736408+00:00'
-updated_at: '2026-09-01T22:09:46.191730+00:00'
+updated_at: '2026-09-02T20:25:18.240569+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -572,5 +572,393 @@ The image went through the same door: `material-a4932624` holds a real vision de
 On the leftovers you mention — those are pre-fix materials whose bodies were frozen as *"nothing here can read application/octet-stream"*. There's no backfill. material.ts:797 says a re-describe pass "**could** be a QUERY (`description_status = no_describer`)" — i.e. the query is identified but the pass was never built, so anything uploaded before BUG-41 stays unreadable until something re-describes it. Separate from anything filed today; say the word if you want it scoped.
 
 I've deliberately left faults 3 and 4 unscoped, on the reasoning recorded in BUG-44: a refusal that names the failing field may remove most of the need for a projected L1 vocabulary, so sizing that work before BUG-39 lands would be guessing.
+
+<!-- xgd-turn id="5d789b42-9c13-4870-98a5-42140edf07f6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-01T22:41:41.143276+00:00" -->
+#### You
+Curious.
+
+Everything in the KMS (every KB) is represented as a ticket and accessible through the ticket API, yes?
+
+Assets are cataloged as tickets so they should be accessed as tickets that point to blobs, right?
+
+What does the KMS return? Does it not include references to tickets?
+
+Help me understand what the AI is actually accessing here?
+
+<!-- xgd-turn id="5d789b42-9c13-4870-98a5-42140edf07f6-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-01T22:44:16.442992+00:00" -->
+#### Claude
+Your model is right on all three counts — and following it through changes the diagnosis of fault 4 substantially.
+
+## Yes: every KB document is a ticket
+
+`apps/control-app/src/material.ts` `ingest` does exactly two writes:
+
+```ts
+const { ticket } = await store.create({ type: 'material', title, body, fields })
+const { attachment } = await store.attach({ uid: ticket.uid, bytes, filename, content_type })
+```
+
+So a document is a ticket, and its bytes are a blob hanging off it. One detail worth knowing: the blob is keyed by **the attachment record's uid, not the sha256**. `readBlob`'s comment says `attach` used to content-address and dedup and gave it up deliberately — a shared blob can't be moved to trash without breaking whichever sibling record still names it, and moving it is what makes deletion actually revoke reach. `sha256` stays on the record for integrity only.
+
+## Yes: the KMS returns ticket references
+
+`knowledge_surface.json` shapes:
+
+- `hits.uid` — *"The document's uid — the handle for reading the whole thing"*
+- `document.ticket` — *"The whole document: its uid, type, title, fields and full body"*
+
+`KnowledgeGet` returns literally `{ticket: {...}}`. The shape is *called* `document`; the field is `ticket`. That's what the AI called and it worked.
+
+## But the site asset store is a different store, and it is not ticket-shaped
+
+This is the answer to "what is the AI actually accessing" — **two stores, only one of which is ticket-shaped**:
+
+| | KMS / material | Site assets |
+|---|---|---|
+| Unit | ticket + blob attachment | bytes under `draft/assets/` + an `assets` registry inside the site definition |
+| Handle | `uid` | a bare filename |
+| AI reaches it via | `KnowledgeSearch` / `KnowledgeGet` | `list_assets` / `get_asset` / `write_image` |
+
+No uid on the right-hand side, no blob handle, no ticket. The bridge is `promoteToSiteAsset` (material.ts:536), and it's reachable only from `router.ts:442` — an HTTP endpoint the Library UI calls. Not an AI tool, not in `l1-surface.json`.
+
+## And here's the thing that actually explains the transcript
+
+Compare the two writers into the site store:
+
+```ts
+// editAssetWrite — write_image, edit.ts:2081
+await opts.store.write(slug, { siteJson: newBase, assets: [{ name: filename, bytes }] })
+
+// promoteToSiteAsset — material.ts:564
+await sites.write(args.slug, { assets: [{ name, bytes }] })
+```
+
+`write_image` writes the registry entry **and** the bytes. `promoteToSiteAsset` writes bytes only. A promoted file is therefore permanently `onDisk: true, registered: false` — which is exactly what `list_assets` showed for `image (6).png`, and exactly why `get_asset` (registry-only, edit.ts:1930) said `NOT_FOUND`.
+
+So your client had already promoted their logo through the Library. It was sitting in the site's asset store the whole time.
+
+## I need to correct what I told you earlier
+
+I said the AI's conclusion — that it couldn't use the logo — was a real product gap. Tracing the schema, it isn't:
+
+```ts
+// packages/site-schema/src/l1/schema.ts:1124
+kind: z.literal('image'),
+src: z.string(),   // scheme-checked by the envelope, NOT checked against the registry
+```
+
+`image.src` is validated for scheme safety only. Referencing `/assets/image (6).png` would have been **accepted and would have rendered**. Registration governs alt text and what the picker offers — not whether a page may reference the bytes.
+
+The AI inferred "unregistered ⇒ unusable" from `get_asset`'s NOT_FOUND, told your client that adding their logo happens outside the chat, and drew a substitute. The file was usable all along.
+
+That makes fault 4 three separable defects, none of which depend on lf BUG-39:
+
+1. `promoteToSiteAsset` doesn't register what it promotes
+2. `get_asset` and `list_assets` disagree about which namespace they serve
+3. nothing in the surface says registration isn't a precondition for use
+
+I've rewritten fault 4 on BUG-44 with this. Given it's independent of the framework work and it's the one that visibly cost your client, it's probably what to do first — want me to scope it?
+
+<!-- xgd-turn id="91c2c49b-e66d-4636-b733-50f3bad9264f-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:05:54.712834+00:00" -->
+#### You
+If 3 is not true, what's the point of registration? Is there any intended semantics to stored, but not registered?
+
+<!-- xgd-turn id="91c2c49b-e66d-4636-b733-50f3bad9264f-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:07:46.407278+00:00" -->
+#### Claude
+You've found the real question, and the answer is: **registration currently buys nothing that matters, and the code already says so.**
+
+## What reads the registry
+
+`site.json`'s optional `assets` array is read in exactly one file — `edit.ts`, at five sites: the listing merge, `get_asset`, the collision checks in `add_asset`/`write_image`, and `remove_asset`. **Nothing else in the repo reads `siteJson.assets`.**
+
+It gates none of the things you'd expect:
+
+- **Rendering** — `l1ImageSchema` (l1/schema.ts:1122) carries its own *required* `alt`. Render-time alt comes from the node.
+- **Publishing** — `readDraftSnapshot` (publish.ts:83) snapshots `store.listAssets(slug)` — every byte on disk, registered or not.
+- **The picker** — `imageHandles` (edit.ts:1909) filters `listSiteAssets`, which is the *union*. Unregistered files are already offered.
+- **Validation** — `image.src` is `z.string()`, scheme-checked only.
+
+## What it was *for*
+
+`assetRefSchema` gives it two metadata fields beyond the name. Both are dead:
+
+- `alt` — superseded by the node's own required `alt`
+- `focalPoint` — **zero readers anywhere**. Schema definition and generated `.d.ts` only.
+
+## Is there intended semantics to stored-but-not-registered?
+
+Yes, exactly one, and `listSiteAssets`'s own comment states it (edit.ts:1876):
+
+> It is the UNION of two sources that genuinely disagree. The registry carries metadata (`alt`, `focalPoint`) but **every real site in `storage/` has an empty one**, so a registry-only picker offers nothing on the sites we actually build. The directory carries the bytes but no metadata. Reporting both, with provenance, is the honest answer: the picker can offer what exists, and **a future browser mode can show which files are undeclared**.
+
+So the intended meaning of unregistered is **"undeclared"** — a provenance distinction for an operator-facing browser that doesn't exist yet. Never a capability gate.
+
+I checked the claim: 8 of 9 `site.json` files under `storage/` have `assets: []`, including `sites/gigabytealchemy`. The one exception (`sandbox/joyfulculinary`, 14 entries) carries `alt: ""` on every single entry — a name list duplicating what `listAssets` already returns.
+
+`get_asset` is the **sole consumer that treats "undeclared" as "does not exist."**
+
+## This changes the fix — my earlier recommendation was wrong
+
+I said make `promoteToSiteAsset` register what it promotes. That's the wrong fix. It would write `{id, src, alt: ""}` that nothing reads, leave every non-promotion path still invisible to `get_asset`, and add a `site.json` write per promote.
+
+**The fix is `get_asset`**: resolve the same union `list_assets` reports. That restores the "one listing, three consumers" intent the code already states, needs no write-path change, and covers every way a file reaches the store. `get_asset`'s declared summary — "Read one *registered* image or font" — moves with it, and the surface should say plainly that registration isn't a precondition for use.
+
+## The larger question you've surfaced
+
+An optional field, empty on every real site, whose two metadata fields are dead, whose one behavioural consumer is the bug — that's a candidate for **removal** rather than repair. Deleting it would collapse `list_assets` to the directory listing and make the whole registered/unregistered distinction vanish.
+
+The argument against: `focalPoint` is a genuinely good idea that just never got wired up, and the "undeclared files" browser is a real operator need. Keeping the field costs nothing while it's unused.
+
+That's your call, and it's bigger than BUG-44 — I've recorded it as open rather than deciding it. All of the above is now on the ticket.
+
+Want me to scope the `get_asset` fix, or settle the registry question first?
+
+<!-- xgd-turn id="e26307b4-7883-4b1f-82a1-6d4a5f33aa61-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:26:23.119654+00:00" -->
+#### You
+So look we have the tickets which have the metadata and references to the blobs - can we just get rid of the registry and all the code associated with it? Meta data goes in the ticket - if there is a need for "registering" a blob that should be ticket metadata not a separate store, right?
+
+<!-- xgd-turn id="e26307b4-7883-4b1f-82a1-6d4a5f33aa61-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:27:47.794128+00:00" -->
+#### Claude
+**Yes to deleting the registry. No to moving its metadata onto tickets** — and the reason matters, because it's the thing that would bite later.
+
+## The tickets don't cover the assets
+
+Five paths write bytes into `draft/assets/`. Only one has a ticket behind it:
+
+| Path | Registers? | Ticket? |
+|---|---|---|
+| `write_image` (AI-drawn SVG) | yes | **no** |
+| `add_asset` / `1c asset add` (operator) | yes | **no** |
+| capture fold (mirrors origin assets) | no | **no** |
+| fonts (copied under `draft/assets/`) | no | **no** |
+| `promoteToSiteAsset` (Library) | no | yes |
+
+Your own client site is the evidence. `storage/sites/gigabytealchemy/draft/assets/` holds a `woff2`, `blog.Byz9EGdq.css`, `css2`, `index`, `AlchemistLabWithTech.png` — capture-fold output — against an empty registry and no material tickets. Ticket-backed metadata would describe a fifth of the assets and leave the rest with nowhere to put anything.
+
+## The dependency runs the wrong way
+
+```
+@1stcontact/generate  →  framework, site-schema     (that's all)
+apps/control-app      →  generate
+```
+
+The ticket store lives in control-app. `edit.ts` can't reach a ticket without inverting that edge.
+
+## A site has to stay self-contained
+
+`readDraftSnapshot` reads asset **bytes** into memory rather than referencing them, and publish.ts:75 says why: a snapshot pointing at the draft's `logo.svg` *"would silently change the day someone replaced it."* And `import-site.ts` moves a whole site between stores as siteJson + pages + bytes — no tenant, no ticket store anywhere in it.
+
+Per-asset metadata held in a tenant-side ticket survives neither publication nor export.
+
+## The distinction worth keeping
+
+These aren't two copies of one thing:
+
+- A **material ticket** is *provenance* — what the client gave us, where it came from, whether it's republishable, what it depicts. Tenant-scoped, mutable, CRM-side, **not part of the site**.
+- A **site asset** is a *byte in the portable artifact* — named by filename, referenced as `/assets/<name>`, snapshot into immutable revisions.
+
+`promoteToSiteAsset` **copying** bytes across that boundary rather than referencing them is correct for exactly this reason, and it's the one place the two worlds are meant to touch.
+
+## So what I'd actually do
+
+The registry isn't in the wrong *place* — it's an unused *feature*. `alt` got superseded by the node's own required field; `focalPoint` was never wired up. Delete it because it's dead, not because tickets should take it over. The directory becomes the single source of truth for site assets, which is what the code has already de facto converged on.
+
+And if `focalPoint` ever gets built, it comes back in the site definition — same place — because that's where portable per-asset metadata has to live.
+
+Two independent pieces of work, then:
+
+1. **`get_asset` resolves the union** — fixes the actual client-facing bug, small, stands regardless of what you decide about the registry.
+2. **Delete the registry** — larger, touches `add_asset`/`write_image` collision checks, `remove_asset`, the `list_assets` shape (`registered` disappears from the AI's view), and `assetRefSchema`. Pure dead-code removal, but it changes a declared tool shape, so the surface moves with it.
+
+(2) subsumes (1) — if the registry is gone there's no union to reconcile. Worth doing (1) first anyway if you want your client unblocked before the bigger change lands.
+
+Want me to scope (1) now, or go straight at (2)?
+
+<!-- xgd-turn id="2d1fe0b4-978b-40ef-8bde-3f64c96bb74e-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T00:39:56.343210+00:00" -->
+#### You
+Right please remove the registry and any code and doc references
+
+<!-- xgd-turn id="2d1fe0b4-978b-40ef-8bde-3f64c96bb74e-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T00:42:29.450243+00:00" -->
+#### Claude
+I'll survey the full blast radius before scoping the ticket.
+
+Stopping before I touch anything — there's a conflict you need to decide.
+
+I haven't written any code. Two things surfaced during the blast-radius survey that you need to rule on first.
+
+## BUG-45 already specifies the opposite, and it's already branched
+
+`BUG-45 — "Chat upload: a file dropped on 'Put it on the site' is unusable to the assistant"` is `status: free_coding` with `free-BUG-45` cut. Its required behaviour:
+
+> 1. **Promotion registers.** … bytes stored, **registry entry created**, `site.json` validated …
+> 2. **The description becomes the alt text.** The material ticket's AI-written title lands **on the registry entry** …
+> 5. … `registered` remains reportable — it is a true fact about the file …
+
+Deleting the registry contradicts 1, 2 and 5 head-on. The good news: `xgd-working..free-BUG-45` carries only ticket commits — **no code written yet**. So it's a specification collision, not a merge problem.
+
+## And a correction to what I told you earlier
+
+I said your client had promoted their logo and it was sitting in the site's asset store. BUG-45 read the live miniflare state before it was reset and found `material-a4932624` with `role: "reference"`, `republishable: false`. `placeOnSite` (router.ts:439) returns at its first line on `role !== 'site'` — so **the logo never reached the site's asset folder at all**. It wasn't an unregistered asset; it wasn't on the site.
+
+The promote-doesn't-register defect is real and confirmed independently. It just isn't what happened to this file, and the entries `list_assets` did show weren't it.
+
+## What the decision actually turns on
+
+BUG-45's behaviour 2 is the one live use for the registry my "the metadata is dead" analysis under-weighted — the AI-written description becoming alt text. That's a good idea.
+
+But **the registry's `alt` is write-only today.** Nothing propagates it to a node: `imageHandles` (edit.ts:1909) maps `listSiteAssets` to `.src` alone, and `imageChoices` receives handles, not entries. Writing the description onto a registry entry puts it in a field no renderer and no picker reads — it would need further plumbing to become visible.
+
+Meanwhile the node already has a **required** `alt` (`l1ImageSchema.alt: z.string()`), that's where the renderer reads it, and the assistant can pull the description via `KnowledgeGet` and set it directly. No plumbing.
+
+## Your options
+
+**A — delete the registry, rewrite BUG-45.** Its intent survives whole: no registry means no unregistered state, so behaviours 1 and 5 are satisfied by the deletion itself; behaviour 2 re-aims at the node's `alt`; behaviours 3, 4, 6 are untouched.
+
+**B — keep the registry, do BUG-45 as written,** plus build the propagation that makes registry `alt` actually reach a node.
+
+**C — both, sequenced.** BUG-45 as written first to unblock the client, deletion later — but that pays for plumbing the deletion then deletes.
+
+**I'd go with A.** It's what your instinct pointed at, it removes a store rather than adding a second home for alt text, and BUG-45 loses nothing real — its behaviour 2 currently targets a dead field, so re-aiming it at the node is a fix, not a concession.
+
+Say the word and I'll rewrite BUG-45's behaviour section, scope BUG-44 with the deletion behaviours, cut the branch, and do it. Worth noting the surface changes too — `registered` disappears from `list_assets`, and `get_asset`'s "Read one *registered* image or font" moves with it — so the AI-facing manual is part of the diff.
+
+<!-- xgd-turn id="7182fd69-5e8f-4ed5-b59c-136d7b6645a6-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T01:50:00.546794+00:00" -->
+#### You
+I just want you to clear the data so that they can do a clean test this has nothing to do with bug 45 what are you saying?
+
+<!-- xgd-turn id="52b48414-5410-46fa-8d90-31c26fcbf84c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T01:51:13.322828+00:00" -->
+#### You
+BUG45 was written before our conversation - please overrule it and delete the registry. The fact that the content was not being added to the registry was a problem that needed to be fixed. What we discovered was we don't actually need the registry at all so let's get rid of it. Is that clear?
+
+<!-- xgd-turn id="52b48414-5410-46fa-8d90-31c26fcbf84c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T02:09:19.738442+00:00" -->
+#### Claude
+Clear. Overruling BUG-45 and deleting the registry.
+
+BUG-45's code landed on `xgd-working` at 17:43 — during our conversation. Let me see exactly what I'm unwinding.
+
+Now scoping BUG-44 with the required behaviour.
+
+Branch cut. Working in the worktree now.
+
+Now the schema change:
+
+edit.ts is clean. Now the remaining call sites and the surface:
+
+Typecheck is clean. Now the AI surface:
+
+Now the tests. Let me see what BUG-45 left and what else asserts on registration:
+
+Now rewriting that suite around the single-source premise:
+
+All 6 pass. Now the other affected suites:
+
+Now BUG-45's two UATs — one withdrawn, one re-aimed:
+
+That one's an intentional historical reference. Now the surface UAT:
+
+Now the workers suite and a broad sweep:
+
+Now confirming `bug32` is a pre-existing worktree artifact, not mine:
+
+Pre-existing failure, unrelated. Now the workers project:
+
+All 203 workers tests pass. Final sweep for stragglers, then commit:
+
+Clean — the copied `generated/` is gitignored. Committing:
+
+Branch is current. Promoting to `free_coded`:
+
+Now recording the supersession on BUG-45:
+
+Done. **2240 passing, 1 failure — `bug32-webui-scope-rebrand`, which I verified fails identically on the unmodified checkout.** Pre-existing and unrelated (it's about component scope declaration).
+
+## What went
+
+`site.json`'s optional `assets` array, and everything that existed to maintain it:
+
+- **`packages/site-schema/src/schema.ts`** — the field. `assetRefSchema` **stays**: it's the object shape permitted inside a `ContentValue` and is used by `backgroundSchema` and `layerChildSchema`. Only the site-level array went.
+- **`edit.ts`** — `assetRegistry()`, `SiteAsset.registered`, `SiteAsset.alt`, the union merge in `listSiteAssets`, the `(unregistered)` marker in `1c asset list`. `add_asset`, `write_image` and `remove_asset` now write bytes and never `site.json`; `remove_asset` gets its existence answer from the store, which fixes the same false negative `get_asset` had.
+- **`l1-surface.json`** → version 6. Zero occurrences of "registered" or "registry" remain.
+- **`material.ts`** — promotion no longer passes alt; `altFromMaterial` deleted.
+- **`scaffold.ts`, `repro.ts`** — the `assets: []` seed.
+
+`siteSchema` isn't `.strict()`, so sites still carrying the key load untouched and it's ignored. I stripped it from the two tracked sites (`storage/sites/xgd`, `storage/sites/gigabytealchemy`).
+
+## What this cost — worth knowing
+
+A promoted upload no longer carries the description ingestion wrote for it, because there's nowhere site-side left to put it. The description isn't lost — it's on the material ticket — but it doesn't arrive by itself. The surface now tells the assistant to read it there and write it onto the element that places the picture. That's recorded on both tickets.
+
+## BUG-45
+
+Its code had already merged (`fd6aa2bf39`, 17:43). I kept the two parts that survive — `get_asset` answering from the listing, and promotion running through `editAssetAdd` for the collision rules and journal note — and unwound registration and registry-alt. Its two UAT files were **re-aimed rather than deleted**, so the surviving behaviours keep coverage under BUG-44. Its ticket now records exactly which behaviours were withdrawn and why.
+
+Two ACs are withdrawn with the field they assert on, both now unreachable: **AC-1019** (a declared asset contributing its identity and listing with no file) and **AC-1020's off-site case** (a declaration naming an `https://` byte). AC-1019 is replaced by its inverse — a stale `assets` array changes nothing about the listing.
+
+Merged to `xgd-working` as `d46756fefa`, version 0.2.42, BUG-44 is `free_coded`.
+
+One loose end from earlier: you asked me to **clear the data for a clean test** and I never actioned it — I went into the BUG-45 conflict instead. Say the word on which store you mean (local `storage/`, or the deployed D1/R2 tenant) and I'll do it.
+
+<!-- xgd-turn id="6d4b97ee-6c59-4616-9046-05d43919bf4c-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-02T20:24:36.755055+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Blocking details:
+- branch `free-BUG-44` still exists at `/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/free-BUG-44`
+- branch HEAD: `d46756fefa43ca8709acb13d64abccb2ac91d961`
+
+<!-- xgd-turn id="6d4b97ee-6c59-4616-9046-05d43919bf4c-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-02T20:25:17.818108+00:00" -->
+#### Claude
+Free-coding on BUG-44 is complete.
+
+```
+Status:   free_coded
+Version:  0.2.42
+Commits:  working_sha d46756fefa43ca8709acb13d64abccb2ac91d961
+```
+
+`xgd branch clean BUG-44` removed the worktree, deleted the local branch, and released the merge lock. The commit is confirmed an ancestor of `xgd-working`.
+
+The `origin/free-BUG-44` remote ref remains, which matches the existing pattern — eight other completed tickets (`free-BUG-34`, `free-REQ-131`, `free-REQ-133`…) leave the same remnant, so `clean` isn't expected to remove it.
+
+**Full protocol trail:**
+
+1. Ticket scoped with six required behaviours and a test plan before any code
+2. `xgd branch cut BUG-44` → worktree
+3. Code + UATs named `test_UAT_FC_BUG-44_*`, each tracing to ticket-body language — including the two re-aimed from BUG-45
+4. Committed `[FREE-CODED]`
+5. `xgd branch lock` → merge by hand → `xgd ticket move-to-free-coded` with the 40-char SHA and version
+6. `xgd branch clean`
+
+Final suite: **2240 passing, 67 skipped, 1 failure** — `bug32-webui-scope-rebrand`, which I verified fails identically on the unmodified main checkout. Pre-existing, unrelated to this change.
+
+BUG-45's ticket carries the supersession record: which of its behaviours were withdrawn, which survive, and where their coverage moved.
+
+Still outstanding from earlier, and untouched: **clearing the data for a clean test**. Tell me which store — local `storage/` or the deployed D1/R2 tenant — and I'll handle it.
 
 <!-- xgd-chat-end -->

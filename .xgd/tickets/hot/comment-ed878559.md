@@ -1,0 +1,284 @@
+---
+uid: comment-ed878559
+id: COMMENT-2284
+type: comment
+title: Comment on request REQ-190
+created_by: xgd
+created_at: '2026-09-05T22:15:59.310471+00:00'
+updated_at: '2026-09-06T17:40:35.538301+00:00'
+completed_at: null
+last_field_updated: body
+status: null
+fields:
+  subject_uid: request-3a87d4a1
+  kind: chat_transcript
+---
+
+<!-- xgd-turn id="b9a90ec6-8b09-4bb4-a82b-15271d5d72fb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T22:15:34.132518+00:00" -->
+#### You
+Please investigate the root cause or the implementation of this ticket. Report your findings here so that we can discuss them. Do not make any code changes until we are aligned.
+
+<!-- xgd-turn id="b9a90ec6-8b09-4bb4-a82b-15271d5d72fb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T22:21:33.570855+00:00" -->
+#### Claude
+I've read the schema, both stores, the identity/scope layer and the tests that pin them. Findings below — no changes made.
+
+## 1. Two rows of the ticket's table are already fixed, and that changes the shape of the work
+
+**`tenants.id` is already opaque for every business except one.** `provisionBusiness` mints `newId('acct')` (`apps/control-app/src/identity.ts:446`) and `createTenant` writes it. The only non-opaque tenant id in existence is `'1stcontact'`, seeded by `0005` and named by `TENANT_ID`. So the "propagates into every `tenant_id`, into R2 prefixes and `/b/<id>/` URLs" cost is real but confined to a single row — the platform business — and the R2 blast radius outside D1 is one tenant's objects, in a world where D1 is being wiped anyway.
+
+**`published_sites`' global slug is already claimed, not silently overwritten.** `claimSlug` (`tools/generate/src/store/d1r2-store.ts:255-271`) does a conditional insert and re-reads the winner, throwing `SlugClaimedError` on loss. And `createStarterSite` (`identity.ts:494-510`) sets the starter slug **to the business id**, precisely to dodge the collision. So the live failure is not a cross-tenant overwrite or a disclosure of content — it is (a) an existence oracle: publishing `home` and getting refused tells you another business holds it, and (b) the first customer who renames their starter site to something plausible takes that name globally.
+
+Worth correcting in the body — the current text says "the first two customers who choose the same slug collide", which reads as data loss and is not what the code does.
+
+## 2. The hardest problem is not in SQLite: `/site/<slug>/` carries no tenant
+
+`apps/public-site/src/routes.ts:1-23` fixes the public grammar as `/site/<slug>/…`, and `D1SiteStore.read` (`apps/public-site/src/site-store.ts:97-105`) resolves it by joining `published_sites` → `site_revisions` **through the slug alone**, because the request has no business in it. `0002_revisions.sql:56-69` says this explicitly and calls the global unique index "THE GUARANTEE".
+
+So `two businesses can each publish a site called home` is not achievable by changing keys. It requires changing the public address:
+
+- **(a) per-business hostname** — DOC-12 §9's stated answer, and by far the biggest piece of work (custom domains, cert provisioning, host→business resolution). Out of scope for a schema ticket.
+- **(b) put the business in the path** — `/b/<businessId>/<slug>/` or `/s/<siteId>/`. Cheap, and consistent with the ticket's "the same key is safe in a URL". Costs: every published page references assets document-relatively (`routes.ts:29-36`), so the depth change is safe, but every published URL changes and the apex/marketing story needs a look.
+- **(c) keep the global claim** and drop this AC, treating the starter-site-slug-is-the-business-id trick as the interim.
+
+This needs your decision before anything else; it determines whether `published_sites` keeps a slug unique index at all.
+
+Note also that the ticket's "the same key is used in joins and in URLs" does **not** hold for sites: the published address is deliberately a human-chosen slug. The key sits behind it. That's consistent with the rule but the phrasing conflates them.
+
+## 3. The move AC and the erasure AC pull in opposite directions
+
+The new section wants *"no R2 object copied"* on a move. The draft prefix is `draft/${tenantId}/${slug}/…` (`d1r2-store.ts:369, 423`). Any prefix containing the tenant means a move copies objects. So the prefix must become `draft/<siteId>/…`.
+
+But the other AC says *"R2 prefixes and the erasure path follow the new keys"*, and DOC-37's erasure is implemented as *delete everything under `t/<tenant>/`*. Drop the tenant from the site prefix and a business's sites are no longer under one prefix.
+
+Two useful facts: erasure is **not implemented** — `portal.ts` renders an explanation and `people.ts:367` mentions the obligation; nothing deletes. And the genuinely per-business prefixes (`t/<tenant>/blob/`, `t/<tenant>/ref/`, `kb/<tenant>/`) are unaffected, because blobs and knowledge belong to the business, not to a site.
+
+So the resolution is available now and cheap: **erasure enumerates a business's site ids from D1 and deletes each site prefix, plus the three tenant prefixes.** Query-driven rather than one prefix sweep. Worth writing into the ticket, because otherwise the two ACs are unsatisfiable together.
+
+## 4. "No integer sequence" needs a carve-out or it destroys two correct designs
+
+Read literally, *every primary key becomes an opaque random id... No integer sequence* takes out:
+
+- **`site_revisions.id`** — monotonic per site, forward-only, and its *ordinality is its meaning*: live is `MAX(id)` with no head pointer (`0002_revisions.sql:26-30`, DOC-12 §4), and it is published in R2 as `rev/0001` (`revision-model.ts:219-240`). Randomising it removes the ability to derive "live" at all.
+- **`site_changes.at`** — not a timestamp despite the name; it is the journal counter, `row.counter + 1` (`d1r2-store.ts:623`), and the window is enforced by `DELETE … WHERE at <= ?`.
+
+Both are *positions in a sequence*, not identity surrogates. The rule is about identity; these are ordering. Suggest the body says so, otherwise a later reader (or a reconcile pass) will treat them as violations.
+
+Same question, smaller: `site_pages`/`site_assets` are keyed `(tenant_id, slug, name)` where `name` is `home.json` / `logo.svg` — data. But the name *is* the addressing token for the store's whole port (`readAsset(slug, name)`), and renaming a page is not something anyone has asked for. My read: these become `(site_id, name)` and stop there.
+
+## 5. `TENANT_ID` becomes a magic constant shared by two files with nothing checking them
+
+If `tenants.id` for the platform business becomes opaque, then `apps/control-app/wrangler.toml:118` and `:242` must carry a literal like `acct_9f3c…`, and the baseline SQL must seed *exactly that literal*. Nothing today would catch a mismatch — the symptom would be `UnknownTenantError` on every deployed request. This wants a UAT pinning the toml value against the baseline's seed, in the same spirit as the existing `migrations_dir` and Access-var guards.
+
+Second-order: `ensurePlatformOperator` calls `createTenant({ id: platformTenant, name: platformTenant })` (`identity.ts:676`). With an opaque id, the break-glass path would name the business `acct_9f3c…`. Needs a `PLATFORM_NAME` or to rely on the baseline having seeded the row first.
+
+## 6. The sweep is contained; the test surface is not
+
+All the SQL against these tables lives in four files — `d1r2-store.ts` (22 statements against `tenant_id = ? AND slug = ?`), `apps/public-site/src/site-store.ts` (one join), `identity.ts`, `material.ts`. That's small.
+
+What the rebaseline breaks:
+
+| Thing | Where | Why |
+|---|---|---|
+| explicit migration list | `tests/support/d1-site-factory.ts:41-71` | eight entries, ordering-commented |
+| raw migration imports | `test_UAT_FC_REQ-167_identity.workers.test.ts:19`, `test_UAT_FC_REQ-168_scope.workers.test.ts:20` | import `0004`/`0005` by filename |
+| ticket-store transcription UAT | `test_UAT_FC_REQ-162_ticket_store_bindings.test.ts:39,109,121` | hardcodes `0003_ticket_store.sql`, asserts `^0003_`, and asserts `ALTER TABLE tenants ADD COLUMN config` is present — which in a single baseline is a duplicate-column error and must go |
+| vocabulary guard | `test_UAT_FC_REQ-180_business_vocabulary.test.ts:242-268` | reads every migration and pins `tenant_id` as the column name, forbidding `ALTER TABLE tenants RENAME` |
+
+That last one is a live constraint on naming: `memberships`/`entitlements` say `business_id` after REQ-184, `sites` and friends say `tenant_id` by REQ-180 §3's explicit decision. The baseline has to pick one and, if it unifies, amend that UAT with a stated reason.
+
+Also note the ticket-store DDL is **not ours** — it is `@lagrangefoundry/ticketing`'s `SCHEMA_STATEMENTS`, transcribed, with a UAT asserting every statement appears verbatim. The baseline must keep those statements byte-identical; only the `tenants` reconciliation around them changes.
+
+## 7. Three ACs name operations that do not exist
+
+There is no rename of a business name, no rename of a site slug, and no move. `SiteStore` (`site-store.ts:164-250`) has no `rename`; nothing anywhere issues `UPDATE tenants SET name`.
+
+That's fine and doesn't need them built — the ACs are *schema properties*, and a UAT can prove them directly: `UPDATE sites SET slug = ?`, then assert pages, assets, journal, revisions and the published resolution all still answer; `UPDATE sites SET business_id = ?`, then assert the site is fully readable from the new business's handle and unreachable from the old, with no other table touched and no R2 object rewritten. That is stronger evidence than a rename tool would be, and it keeps the move tool where the ticket wants it — later.
+
+## 8. One structural consequence
+
+`newId` lives in `apps/control-app/src/identity.ts`, and the dependency runs control-app → tools/generate, one way (11 control-app modules import `tools/generate`; nothing goes the other way). If the site store mints site ids, `newId` has to move down into `tools/generate/src/store/` with control-app re-exporting it. Small, but it touches the module the whole ticket's rule is anchored to.
+
+---
+
+## What I'd like decided before drafting the plan
+
+1. **The published address.** (a) hostnames, (b) business in the path, or (c) keep the global slug claim and drop that AC. This is the only one that gates the schema.
+2. **Erasure by enumeration** — confirm the draft prefix drops the tenant (`draft/<siteId>/…`) and erasure becomes a query-driven sweep, so the move AC is satisfiable.
+3. **Carve-out for ordered sequences** — `site_revisions.id` and `site_changes.at` stay integers, stated in the body.
+4. **Column naming** — `sites.tenant_id` vs `sites.business_id`, and whether REQ-180's vocabulary guard gets amended.
+5. **Scope of the fs store.** `storage/sites/<slug>/` is git-tracked, has no tenant, and is keyed by a human-chosen directory name (`xgd`, `gigabytealchemy`). My read is the rule is about the multi-tenant database and the local authoring tier stays slug-keyed — but the ticket says "across the schema" and should say which schema.
+
+Once those are settled I'll write the plan and the ticket body update.
+
+<!-- xgd-turn id="aefd48df-b36f-40f4-9252-c1ea71bdce05-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:26:40.659715+00:00" -->
+#### You
+Please read the updates in the ticket and proceed
+
+<!-- xgd-turn id="aefd48df-b36f-40f4-9252-c1ea71bdce05-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T00:56:42.793599+00:00" -->
+#### Claude
+The ticket's updates settle the seed, the sweep scope and the R2 wipe. Three things it still leaves open are decidable from the ACs themselves — I'll record them as decisions in the body first so the UATs have language to trace to.
+
+One thing to flag: the body currently starts with a **duplicated frontmatter block** (lines 20–37 are a second copy of the YAML header, as body text). That looks like a bad write from an earlier update. I'm appending rather than rewriting, so I won't touch it — but it wants cleaning up before reconciliation reads it.
+
+Now the baseline migration.
+
+Now `revision-model.ts` prefixes, then the store itself.
+
+Now the public-site resolver.
+
+Now `identity.ts` — the `newId` move and the starter site.
+
+Now the REQ-162 migration-binding test and the REQ-180 vocabulary guard.
+
+Now the REQ-190 UATs.
+
+Now the file-level baseline UATs.
+
+<!-- xgd-turn id="f3ef3c9c-a9e0-43a2-998a-a6373a99060d-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T00:58:59.236549+00:00" -->
+#### You
+please complete the free-coding of this ticket
+
+Project note (additive — does not override the above):
+Please be aware that in this current chat environment, background jobs die. Please be sure to run any tests in the foreground.
+
+<!-- xgd-turn id="f3ef3c9c-a9e0-43a2-998a-a6373a99060d-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T01:17:38.084720+00:00" -->
+#### Claude
+Tests green (branch failures match main's pre-existing set exactly). Now closing the protocol gap — several UATs assert behaviour the body doesn't yet name.
+
+REQ-190 is free-coded and merged back. `xgd-working` is at `e862cec72c`, version 0.2.84, status `free_coded`.
+
+## What landed
+
+**One baseline.** `db/migrations/0001_baseline.sql` replaces `0001`–`0009`. It seeds no people — `0005` hardcoded one personal address into a migration that ran everywhere forever, and `ensurePlatformOperator` already writes the same four rows from `PLATFORM_ADMINS`. The one seeded row is the platform business, whose id is a 128-bit literal `wrangler.toml` and the baseline must agree on.
+
+**The published address is the site's key.** This is the decision I made from the ACs and recorded in the body before coding. `/site/<slug>/` carried no business, so the slug had to be unique across the deployment for the URL to name anything — which is what made a chosen name a key, what stopped two customers publishing `home`, and what turned the refusal into an existence oracle across the tenant barrier. It's `/site/<siteId>/` now. `published_sites` is **deleted, not re-keyed**: its only job was enforcing that constraint, and its one other fact is the earliest row in `site_revisions`. The route grammar is untouched — its pattern already admitted the key's character set — so only the token's meaning changed.
+
+**Only the site's own row names its business.** Child tables carry `site_id` and no `tenant_id`; R2 is `draft/<siteId>/` and `sites/<siteId>/rev/…`. Renaming a business, changing a slug, and moving a site are each one `UPDATE`, asserted in the strong form: nothing else changed, byte for byte. Isolation moved one level in — the handle resolves slug → `sites.id` under `WHERE tenant_id = ?`, and a key is 128 random bits.
+
+**Ordinal is not identity.** `site_revisions.id` and `site_changes.at` stay integers, with a UAT saying so before someone finishes the sweep by hand.
+
+20 new UATs across two files; `newId` moved into `tools/generate/src/store/ids.ts` with a UAT asserting one file calls the CSPRNG.
+
+## Three things worth your attention
+
+1. **The starter site is called `home` now**, not the business id. That was a workaround for the claim that no longer exists, and it's the visible face of the `home`-collision AC.
+2. **Two things I decided rather than asked**, both recorded in the body as decisions: the opaque published address (the ACs left no consistent alternative — with `/site/<slug>/`, "two businesses can each publish `home`" is unsatisfiable), and the ordinal carve-out. If you'd rather have per-business hostnames instead, that reverses a fair amount of this.
+3. **The remote D1 and both R2 buckets still need wiping** — the ticket calls for it and I did not do it; that's an outward-facing action. Local D1 I did wipe, and it needed it: `INSERT OR IGNORE` on a persisted dev database silently keeps a stale row keyed the old way, which shows up as a 403 that reads like an admission bug.
+
+Test suite: 16 failures across 5 files, all in the knowledge/KB index seam and all present on `xgd-working` before this branch. `req115-builder-shell` and `reconciliation-l1-navigation` fail only on the first run after a local-D1 wipe or under parallel load, and pass on a settled run and in isolation.
+
+<!-- xgd-turn id="45d2b045-0255-41ab-8003-350f6e12d033-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-06T17:23:36.904123+00:00" -->
+#### You
+I would like the start site to be called "Unnamed" to encorage the user to find a name for it.
+
+**Two things I decided rather than asked**, both recorded in the body as decisions: the opaque published address (the ACs left no consistent alternative — with `/site/<slug>/`, "two businesses can each publish `home`" is unsatisfiable), and the ordinal carve-out. If you'd rather have per-business hostnames instead, that reverses a fair amount of this. <-- I don't fully understand this, but I need to. We have not discussed hostnames. I fully expect all businesses to own their own eventually.
+
+Can you wipe my D1 and R2 buckets please? You should have an API key in the env
+
+<!-- xgd-turn id="45d2b045-0255-41ab-8003-350f6e12d033-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-06T17:40:35.213655+00:00" -->
+#### Claude
+I'll take these in order: explain the address decision (that's the one you need to understand before the rest matters), then the "Unnamed" change, then the wipe.
+
+Now let me check what credentials are available for the wipe.
+
+Let me read the ticket body before changing anything.
+
+Now `identity.ts` — the slug, its rationale, and the display name.
+
+Now the REQ-190 UAT. Let me see the existing workers test file's shape.
+
+Now the new UAT for the `Unnamed` behaviour itself.
+
+Green. Full sweep to confirm the remaining failures match the pre-existing baseline.
+
+Clean. Now the ticket body — the section that names the starter site.
+
+Code change landed. Now the wipe.
+
+41 objects, all under the old `tenant/slug` key scheme. Deleting.
+
+Bucket empty. Now D1 — drop the old schema and apply the new baseline.
+
+All three done. The hostname question first, since my earlier sentence was misleading.
+
+## Hostnames — I mis-stated this, and the correction matters
+
+**What I wrote:** *"If you'd rather have per-business hostnames instead, that reverses a fair amount of this."*
+
+**That's wrong.** Hostnames and what I built are not alternatives. What I built is the precondition for hostnames. Here's the actual chain.
+
+### The defect
+
+The public URL was `/site/<slug>/`. Nothing in that URL says which business. So for the URL to name exactly one site, the slug had to be unique **across the whole deployment** — enforced by a global unique index on `published_sites`. Three consequences:
+
+- A name the operator typed was doing a key's job — the thing this ticket exists to stop.
+- Two customers couldn't both publish `home`; the second was refused.
+- The refusal leaked across the tenant barrier: try `home`, get refused, now you know another business on the platform holds it.
+
+### The three ways out
+
+| | | |
+|---|---|---|
+| **(a)** | put the business in the **host** — `alicesplumbing.com/about` | slug only needs to be unique *within* the business |
+| **(b)** | put the key in the **path** — `/site/<siteId>/about` | slug stops being an addressing token at all |
+| **(c)** | keep the global claim, drop the AC | the defect stays |
+
+(a) and (b) reach the *same schema*. Both need exactly one thing: `UNIQUE (tenant_id, slug)` instead of `UNIQUE (slug)`. That is what landed — `db/migrations/0001_baseline.sql:113`.
+
+So when hostnames arrive, nothing in the schema reverses. You add a `domains` table (or a column on `tenants`, which today has only `id, name, status, config, created_at`) mapping host → business, and the public resolver gains a first step: host → business, then `WHERE tenant_id = ? AND slug = ?`. That query is already the shape the store uses. **Additive, not a reversal.**
+
+The option that *would* have blocked hostnames is **(c)** — keeping "a slug identifies a site deployment-wide" baked in, which is precisely the assumption a custom domain breaks. That's the one I ruled out, and it's the one my sentence should have named.
+
+### What it does genuinely cost you
+
+The interim address — before a customer has bought a domain — is now `1stcontact.io/site/site_a3f9…/`, which is unreadable. Under the old scheme it was `1stcontact.io/site/alices-plumbing/`: pretty, and globally claimed.
+
+That's a real product regression on one surface, and it has a cheap fix that is (a) in its least expensive form: **a wildcard subdomain**. `alice.1stcontact.io` — one wildcard DNS record, one wildcard cert, no per-customer provisioning. Uniqueness then scopes to one column on the business rather than a global claim on every site name every business owns, which is a much smaller thing to contend over. Custom domains layer on top later through the same host→business step.
+
+I'd suggest that as the next ticket. It needs no schema change to what just landed.
+
+## The starter site
+
+`unnamed` / `Unnamed`, landed as `19c5e62c64`.
+
+Both surfaces say it, because an operator meets the site twice: the slug (`unnamed`) is what the store addresses and the builder lists; `config.businessName` (`Unnamed`) is prose and reaches every rendered page's `<title>`. Two constants rather than one derived from the other, so editing the prose can't silently rewrite a key.
+
+It deliberately isn't the *business* name either, though provisioning knows it — a site isn't a business, an account will own several, and a name asserted on the owner's behalf is still one they never chose. Same objection as `home`, from the other side.
+
+New UAT `test_UAT_FC_REQ-190_a_new_account_finds_its_one_site_visibly_unnamed` pins both surfaces, that it isn't the business name, and that renaming it is one `UPDATE`. Five existing UATs reached for the starter by the literal `'home'`; those are fixtures, not assertions, so they read `STARTER_SLUG` now — two of them also reorder, because the store sorts slugs and `unnamed` is no longer alphabetically first.
+
+Ticket at `free_coded`, version 0.2.85, merged to `xgd-working` at `ae7e655715`.
+
+## The wipe — done, with one thing you should know
+
+**R2 `1stcontact-sites`:** 41 objects deleted, 0 remaining. All of them were old-scheme (`draft/1stcontact/xgd/…`, `sites/xgd/preview/…`, plus audit and chat logs).
+
+**D1 `1stcontact` (remote):** it was on `0001_site_store` + `0002_revisions` — pre-identity entirely, no `users`/`memberships`/`entitlements`/`tickets` had ever been applied there. Dropped all seven app tables, cleared `d1_migrations`, applied `0001_baseline.sql`. Now: `counters, entitlements, memberships, site_assets, site_changes, site_pages, site_revisions, sites, tickets, users` — and the seeded platform business is `acct_51a6746495c8057e886ff98d4208e6b9`, which matches both `TENANT_ID` literals in `wrangler.toml` (lines 133, 257).
+
+**Local D1:** was already baselined; had a stray `acct_uatwestheadme` test tenant left from a run. Cleared, so local now matches remote exactly — one tenant, no users, no sites.
+
+**⚠️ The `1stcontact-material` bucket does not exist.** `wrangler r2 bucket list` returns only `1stcontact-sites`. The `BLOBS` binding is declared in `wrangler.toml` at both the top level and `[env.production]`, so a production deploy will either fail at upload or bind nothing and throw on the first blob call. Nothing to wipe there — it needs creating:
+
+```
+npx wrangler r2 bucket create 1stcontact-material
+```
+
+I didn't create it: it's an outward-facing resource you didn't ask for, and it may be that the binding is ahead of the feature deliberately. Say the word and I'll run it.
+
+<!-- xgd-chat-end -->

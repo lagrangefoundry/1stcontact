@@ -1,0 +1,210 @@
+---
+uid: comment-761b2db1
+id: COMMENT-2283
+type: comment
+title: Comment on chat CHAT-38
+created_by: xgd
+created_at: '2026-09-05T21:21:03.349099+00:00'
+updated_at: '2026-09-05T21:49:36.266401+00:00'
+completed_at: null
+last_field_updated: body
+status: null
+fields:
+  subject_uid: chat-8529c537
+  kind: chat_transcript
+---
+
+<!-- xgd-turn id="eb39b545-a64a-4ac1-ad36-7c86c51bc230-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:20:53.464054+00:00" -->
+#### You
+The product is called 1st contact our representation of contacts is CRITICAL. Right now our schema is very amateur. Lets take a moment to discuss.
+
+I just proposed some changes to the representation of email see the last turn or two on the "Login" chat.
+
+Lets talk about Name we will also need addresses and phone numbers - not short term but lets think ahead
+
+Immediate converstion:
+
+Representation of names I know this is a super complicated topic when you get into the full internationalization and all the variance. I have read some very interesting blog posts about the corner cases and representing names. However, I want to hit a happy medium I do not want to over design this. I think we should at least have first name and last name, we should probably have title and suffix (title is not used much in the US but it is common in the UK were some of our customers are, we need titles like Dr, Cpt, Rev etc). For the US we need suffixed (Jnr, Snr - do we need 2nd, 3rd, 4th?). Do we need middle initial too? 
+
+People's names change, the data model needs to accommodate - we should store old and new - so name is a table like email
+
+<!-- xgd-turn id="eb39b545-a64a-4ac1-ad36-7c86c51bc230-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:24:55.970417+00:00" -->
+#### Claude
+Read the Login-chat tail and REQ-190. Here's where I land.
+
+## Name is not shaped like email, and the difference is the whole design
+
+Your instinct — "name is a table like email" — is right, but for a different reason than email's, and conflating the two is how you get "which name is current?" bugs at call sites.
+
+|  | many at once? | history matters? |
+|---|---|---|
+| **name** | **no — always exactly one** | yes |
+| email | yes | yes (inbound from an old address must still resolve) |
+| phone | yes | yes |
+| address | yes | yes |
+
+Email is multi-valued *now*. Name is multi-valued *over time only*. They both become tables, and — this is the useful bit — **the same partial unique index does both jobs**: `WHERE is_primary = 1` for email is `WHERE superseded_at IS NULL` for name. One pattern, four tables, name as the degenerate case where the set is always size one.
+
+The "legal name vs what they go by" case is the one thing that looks like concurrent multiplicity. It isn't: you always know which of the two you want, so it's two columns, not two rows. A `kind` column that only ever holds one of two values and is always filtered to a specific one is a table pretending to be columns.
+
+## The field that makes the rest safe
+
+The single most important field is a free-text **authored** name — what the person typed, what you display. The structured parts are a parse of it, used for salutation and sorting, and are allowed to be empty.
+
+**Display is stored, never computed.** Concatenating parts to render a name is where the internationalisation horror stories actually come from — mononyms (Prince, Sukarno), family-name-first cultures, Spanish double surnames, patronymics. Store what to show and you're correct for all of them without a single line of cultural logic. Nothing but `display_name` is `NOT NULL`.
+
+## The parts, and your specific questions
+
+```
+user_names
+  id                 opaque random     -- per §3 of REQ-190
+  user_id            -> users(id)
+  display_name       TEXT NOT NULL     -- authored. what you show.
+  known_as           TEXT              -- "Hi ___,"
+  title              TEXT              -- honorific prefix, free text
+  given_name         TEXT
+  middle_names       TEXT
+  family_name        TEXT
+  suffix             TEXT
+  created_at         TEXT NOT NULL
+  superseded_at      TEXT
+  superseded_reason  TEXT              -- see below
+```
+
+- **Middle initial — store middle *names*, free text.** An initial costs the same bytes and is strictly less information; you can always derive `M.` from `Michael`, never the reverse.
+- **2nd/3rd/4th — yes, and the question dissolves** because `suffix` is free text. `III` is genuinely common in the US. What you must not do is make it an enum of `{Jr, Sr}`. Same field carries post-nominals (`PhD`, `MBE`, `RN`) — arguably a different kind of thing, but one free-text field is the happy medium for a small-business CRM.
+- **`known_as` earns its place more than anything else here.** For a product called 1st Contact, "what do I put in the greeting" is the highest-frequency read in the record, and it's derivable from parts *badly* (Robert → "Hi Robert," when everyone calls him Bob) and authorable *well*. Falls back to `given_name`, then `display_name`. It also absorbs the preferred-name case above, so one field solves two problems.
+- **No `sort_name` column.** Sort by `COALESCE(family_name, display_name)` and accept it's imperfect for "van der Berg". A third representation of the same fact is a third thing nobody maintains.
+
+## Title: one warning
+
+Keep it free text and never required, and be careful about ever offering a picker. `Mr/Mrs/Ms` asks for gender and marital status — under UK/EU minimisation that's data you have no purpose for, and it's the classic way to offend a customer on first contact. `known_as` means you don't need a title to write a greeting, which removes the only reason to make it prominent. Dr/Rev/Cpt/Prof/Rt Hon are the ones your UK customers actually want, and they're all free text anyway.
+
+## History is data, not an audit log — but it is not uniformly safe to keep
+
+Two reasons it's a real indexed table rather than an audit trail: you need to **find** people by their former name ("Sarah Jones — oh, she's Sarah Patel now"), and an audit log won't be indexed for that.
+
+But blanket retention is wrong, and this is the part I'd push hardest on. Two supersessions look identical in the schema and are completely different facts:
+
+- **`corrected`** — the old value was never right. Typo, autocorrect, `Marting`. Keep it for audit; never search it, never display it.
+- **`changed`** — a genuine former name. Searchable, displayable as "formerly".
+
+Get this wrong in the safe direction and you have a stale typo in search results. Get it wrong in the unsafe direction and you surface a deadname, or greet a customer by a name they changed deliberately. That's not a small failure, and it's also an erasure hook ([[DOC-37]]) — a name row must be redactable with the timeline left intact.
+
+So: **`corrected` is the default**, and marking a supersession as a real name change is an explicit act. Corrections are common and accidental; name changes are rare and deliberate — the default should match the common case *and* be the safe one, and here those agree.
+
+## Looking ahead — phone and address, so this doesn't need revisiting
+
+**Phone is email.** Same table, same invariants. Store E.164 normalised alongside the authored form (same reasoning as your casefolding decision — the constraint should enforce what the convention intends). `kind` matters here in a way it doesn't for email, because SMS only reaches a mobile — that's a capability distinction, not decoration.
+
+**Address is not a channel and should not be structured yet.** Authored multi-line block, plus exactly two structured fields: `country` (ISO-3166-1 alpha-2) and `postcode`. Country because [[DOC-34]] makes it the single input to locale, currency, timezone and legal obligation. Postcode because it's the one part that gets validated and queried. Street/city/region are display-only and structuring them buys nothing until you're doing tax or shipping by region — at which point you'll know what shape you actually need.
+
+**Resist the one-table generalisation.** A single `contact_channels` with a `kind` covering email/phone/address is tempting and wrong: email and phone are a normalised routing string with a meaningful uniqueness constraint; an address is a compound with none. Keep the *pattern* uniform — opaque key, FK by key, `is_primary`, `superseded_at`, invariant enforced by partial unique index — and let the tables differ.
+
+## Two consequences worth naming
+
+**These hang off `users`, which is tenant-scoped.** So Bob-of-Alice's-Plumbing has a different name row from Bob-of-1st-Contact, and a marriage means updating the name once per business that knows him. Unavoidable given [[DOC-42]] §1, and correct, but it's a real operational cost that will surprise someone later.
+
+**REQ-189 is already `ready_to_reconcile` and renders `users.display_name`.** If name moves to a table, that read path becomes a join — REQ-190 has to carry the update or the Users tab silently shows blanks.
+
+## Also spotted
+
+REQ-190 §4's `user_emails` snippet still says `id INTEGER PRIMARY KEY`, which contradicts §3's opaque-random decision. Editorial leftover from the earlier draft.
+
+---
+
+**My recommendation: fold names into REQ-190 rather than a second ticket.** It's the same rebaseline event. Doing names afterwards means either a second wipe or exactly the create-copy-drop-rename dance the rebaseline exists to avoid.
+
+Three calls I need from you:
+
+1. **Fold in, or separate ticket?** (I'd fold — and while we're there, fold phone in too, since §5 already leaves it dangling as "a decision rather than an oversight" and the answer is now obvious.)
+2. **`known_as` — in or out?** It's the one field I'm recommending beyond your list.
+3. **`corrected` vs `changed`** — do you want the disposition column, or is "keep everything, search everything" acceptable for now?
+
+<!-- xgd-turn id="33ba9cd1-5201-49f2-8c97-d2470ef62537-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:38:54.733057+00:00" -->
+#### You
+OK, so I buy all your arguments. I think this is a very thoughtful conversation, and it's important this is supposed to be a contact system and if we can't represent peoples names correctly we are screwed before we start.
+
+That said what is going through my head as I read your proposal is, how are we going to populate all these fields correctly? Actually you know what never mind I think in most cases it is the small business owner who is going to populate these Fields, they are the one who is going to correct the contact name the other one who was going to add the known as field and they're going to do it because they care and we're going to give them the tools to make that possible. The customer themselves almost always will not want to fill in all of these details, and their self declaration is probably much simpler than what we have here but we can talk about that when we design it. Perhaps we offer the fields and have many of them as optional...
+
+OK if you feel this should be part of   REQ-190 please add it - and please pics fix the primary key thing.
+
+Why don't you give me a column for the corrected versus changed, I suspect this is a YNGNT but it's easy to remove an empty column it's harder to add one
+
+<!-- xgd-turn id="33ba9cd1-5201-49f2-8c97-d2470ef62537-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:42:39.837964+00:00" -->
+#### Claude
+REQ-190 has been split under me — the address half is now REQ-191 ("A person's email addresses are a table, not a column"), and REQ-190 is the keys-and-sweep half. Reading REQ-191 before I touch anything.
+
+The primary-key slip is already fixed — REQ-191's shape block now reads `id TEXT PRIMARY KEY -- opaque random`. Checking whether another session is live on these tickets before I write.
+
+Nobody's mid-write (last touch 21:34, six minutes ago). Two things I can settle now, one that needs your word.
+
+Three things happened, one of which changes your instruction.
+
+## REQ-190 got split thirteen minutes ago
+
+It's no longer the email ticket. It's now **"Data is not a key: opaque keys across the schema, in one rebaseline"** — the rule plus the `tenants.id` / `sites.slug` / `published_sites` sweep. The address half became **REQ-191**, *"A person's email addresses are a table, not a column"*, and **REQ-192** covers regenerating test data.
+
+Both new tickets already anticipate this conversation. REQ-190: *"CHAT-38's name work will join the same baseline if it is ready in time."* REQ-191, under Not in scope: *"Names. CHAT-38 again; the name history table is the same pattern and will be its own ticket."*
+
+So "add it to REQ-190" no longer means what it meant when you said it — REQ-190 is about keys, and names aren't a key problem.
+
+## The primary key thing is already fixed
+
+REQ-191's shape block reads `id TEXT PRIMARY KEY -- opaque random ([[REQ-190]])`. The `INTEGER` slip went away in the split. Nothing to do.
+
+## What I did land
+
+**REQ-191's "Not in scope" is now "Not in scope — but now decided"**, recording what you settled today, since that ticket is where all three were flagged as open questions:
+
+- **Phone is a sibling table, not a generic `user_channels`** — with the reason written down, so nobody helpfully consolidates it later.
+- **Names take the same shape minus `is_primary`**, one axis removed, own ticket, same baseline.
+- **Postal addresses deferred and deliberately under-structured** when they come: authored block + `country` + `postcode`, nothing else.
+
+Nothing else in REQ-191 changed — same shape, same acceptance.
+
+## What I can't land
+
+I can't file the name ticket without you saying so. The full body is drafted and ready at `.xgd/tmp/req-names-draft.md` — title *"A person's name is a table, and every part of it is optional"*, everything we agreed including `superseded_reason` with `corrected` as the default.
+
+Your point about who populates the fields became **its own section**, not a footnote, because it's a genuine requirement rather than context: the operator is the curator, self-declaration is simpler, and therefore every field but `display_name` is optional. That last clause is the acceptance criterion — *"answering just my name is a complete answer."* It needed to be in the body so the tests can trace to it.
+
+**Say the word and I'll file it.**
+
+## One thing I did *not* touch, because it deserves your call
+
+My table last turn claimed email history matters too — inbound mail from someone's old address should still resolve to them, but the old address must not be a send target. That argues for `superseded_at` on `user_emails`, not just deletion.
+
+I left REQ-191 alone because it's not free. Two wrinkles: a superseded row must have `is_primary` cleared or it fights the partial index, and `UNIQUE (tenant_id, email)` would then refuse to let someone re-add an address they'd previously dropped. Both solvable, neither obvious, and REQ-191 is clean right now.
+
+Worth doing, or is dropping an address on change good enough for the alpha?
+
+<!-- xgd-turn id="dca1b3be-f1e5-4f24-9579-83eacc572fbc-user" -->
+
+<!-- xgd-chat role="user" ts="2026-09-05T21:48:24.828535+00:00" -->
+#### You
+Please file the name ticket
+
+<!-- xgd-turn id="dca1b3be-f1e5-4f24-9579-83eacc572fbc-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-09-05T21:49:34.979834+00:00" -->
+#### Claude
+Filed as **REQ-193 — "A person's name is a table, and every part of it is optional"** (`request-bce2b6f9`, draft, high, 3 points — matching REQ-191 and REQ-192).
+
+**What's in it:** the seven-part shape with `display_name` as the only `NOT NULL`; display stored never computed; `known_as`, `middle_names` over an initial, free-text `title` and `suffix`, no `sort_name`; `superseded_at` with the partial unique index enforcing *one current*; and `superseded_reason` with `corrected` as the default. Plus the section on who populates it, the tenant-scoping cost, and the REQ-189 read-path handoff.
+
+**Cross-references updated in both directions.** REQ-190's "name work will join the same baseline if it is ready in time" now names REQ-193, and its baseline acceptance criterion lists it alongside REQ-191. REQ-191's two forward references — the intro and the names bullet — point at it too. So the three tickets that share one baseline all say so.
+
+Three separate commits with distinct messages: create, and one content edit each on 190 and 191.
+
+**Still open from last turn:** whether `user_emails` gets `superseded_at`, so an old address still resolves inbound mail without becoming a send target. I left REQ-191 alone on that one — it's the only thing from this conversation not written down anywhere.
+
+<!-- xgd-chat-end -->

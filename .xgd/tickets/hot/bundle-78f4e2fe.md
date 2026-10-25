@@ -5,9 +5,9 @@ type: bundle
 title: BUG-36 + BUG-37 + BUG-38
 created_by: xgd
 created_at: '2026-08-26T17:36:26.915596+00:00'
-updated_at: '2026-08-31T19:19:50.607800+00:00'
-completed_at: '2026-08-31T19:19:32.487153+00:00'
-last_field_updated: result
+updated_at: '2026-10-17T20:07:35.914256+00:00'
+completed_at: '2026-08-31T19:19:32.730241+00:00'
+last_field_updated: bundle_type
 status: free_and_reconciled
 fields:
   commits:
@@ -33,51 +33,7 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
-  orphan_commits:
-  - old_sha: 018103eb295c70866b86a050825853276d6de7ac
-    new_sha: f695e3fefc513c972737ee865ecd57f2aac02429
-  - old_sha: 1d67c633f4208e58d029d0652bb77959e4bb35f4
-    new_sha: fe4fba056a6741d05213cf69ed6a37523adb24f1
-  - old_sha: deca3aa558c689918940fd8226dcc3a40c6f6bc4
-    new_sha: 2589a37af046f6a7260f9a8ed61a85162f6d28c5
-  - old_sha: c8ba1d2ffac7e4c476e1ea8f1feb125c67982821
-    new_sha: 6b5761399d4cd7cc32105ed11e187da63ca374c5
-  - old_sha: 9ddcaa1ad9d714d6d3f4df96e1300f5daeadc0fe
-    new_sha: 527850840cbf4bb9615eccbdf907d97f151a7fae
-  - old_sha: ebc2f68fa4a7fd23f0c1f05c3a13bc7b0fbd131d
-    new_sha: e77b98749dafa59c20c996c3bfd7892cad305389
-  - old_sha: 9d5bd54076ab53da8f968d876a9ca687d1d29fe2
-    new_sha: a88cd4df6f48d327b9db518db6165ae440426486
-  - old_sha: 33a72c00e177d0c8ea41c227064ca3c018d3c156
-    new_sha: 5fd995a38c8a245642afb180071f12926b18c6f2
-  - old_sha: c45887f47797cc62bbaa490e46bc31f887d0832f
-    new_sha: e7043932473e59aa9662ab23636cd5c72a56efd2
-  - old_sha: 1d11368af5cb72db14c3ad4e4e2d64c56434757c
-    new_sha: a106e09ab97cbadb8684fc4c0db988230914d540
-  - old_sha: b29048c3e243d3bc68dd372770e3a6adcf39fc34
-    new_sha: eed7ed8445c8d2f8416be5f31ad7ccb9873b8691
-  - old_sha: ce9d05d1acb22b1396b30b72c604018ea5028ea8
-    new_sha: e8d0be405d9bca7302c9482b353c217afcb5ee93
-  - old_sha: 0509306ba2b9ce4fb745e2f3bd6787485b932871
-    new_sha: ef622540d9ae62b42e6abb3c1e48096edfb1386e
-  - old_sha: 6434b6c54fdb62e07788ee6c4cb8e5f32539cad2
-    new_sha: 57ff31ce1c0ed84c84d1138a897240f28e3c7dad
-  - old_sha: 6771aa6101a61ea402aedc4957a4350cfad5d079
-    new_sha: e34437c9a530abb8935d45d48a6cffafd2b1e98a
-  - old_sha: e9000a64df3066f4d50ee2b1b80a31db5f7589d1
-    new_sha: d87f1688e39f98a30cc569ffe6f8980edb9e94a6
-  - old_sha: b839473f679c27a11be729138d59b613ff370a27
-    new_sha: ffa5cdf34b8d6b256949aa51ba632e1800b36178
-  - old_sha: 97327f55c1d75dfef7bf44d407e7b73949eef6e6
-    new_sha: 721f73866725cd497aa038c694e56c9304f77a74
-  - old_sha: 1e813620337fe8ca09c21d90cc41bf47297cbdfb
-    new_sha: a85ff47461a28b3fd475936d6dbc6df6e7ab7325
-  - old_sha: a342dac6d0a90d9376c4ddc41003a01c0031115f
-    new_sha: e704298e921c6adf702cb026dbb9202a8d23adef
-  - old_sha: 4cf9622fb205802232c48c0cb79d398246971305
-    new_sha: 342e1f0177287e58c565af10ee9c64f367b03f52
-  merged_at_commit: 96a76934e010d272feb2d2bfc2b5d9645db10fe8
-result: pass
+  bundle_type: reconcile
 ---
 
 # Bundle
