@@ -6,10 +6,10 @@ title: A file handed over as background while a site is open, and a promotion th
   failed softly, record no placement and keep the material
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:26:34.419931+00:00'
-updated_at: '2026-10-26T01:26:34.419931+00:00'
+updated_at: '2026-10-26T01:35:17.488359+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
