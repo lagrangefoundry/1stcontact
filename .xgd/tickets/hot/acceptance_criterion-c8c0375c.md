@@ -6,10 +6,10 @@ title: A promotion that lands records exactly the site it landed on in the mater
   placement list, once per site, listing every site it is on
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:26:33.033491+00:00'
-updated_at: '2026-10-26T01:26:33.033491+00:00'
+updated_at: '2026-10-26T01:35:17.703175+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-aacb7060
   kind: behavior
