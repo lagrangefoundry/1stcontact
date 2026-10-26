@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-26T01:03:30.388344+00:00'
+updated_at: '2026-10-26T01:12:44.794825+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-5607a08d
@@ -101,7 +101,7 @@ fields:
         identity and description, and is listed even with no file present'' — withdrawn
         by BUG-44 (registry deleted, operator decision; commit d46756fefa names AC-1019
         explicitly)'
-    story_uid: null
+    story_uid: story-c46abfa6
   - index: 2
     component: Site-Asset Promotion & Library placement (placed_on)
     item_type: upgrade
