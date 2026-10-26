@@ -6,10 +6,10 @@ title: 'Handing A File To The Platform: One Overlay, Two Entry Points, And The O
   Question It Asks'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:31:10.902566+00:00'
-updated_at: '2026-10-26T01:40:04.156340+00:00'
+updated_at: '2026-10-26T01:40:27.341768+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-e9324eb7
