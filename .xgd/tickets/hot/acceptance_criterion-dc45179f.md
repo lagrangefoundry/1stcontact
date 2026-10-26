@@ -6,10 +6,10 @@ title: The On this site badge, the Used on row and the used-on-this-site filter 
   one placement list and agree on every row, across a site switch
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:26:42.562489+00:00'
-updated_at: '2026-10-26T01:26:42.562489+00:00'
+updated_at: '2026-10-26T02:01:00.804191+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
