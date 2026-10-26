@@ -6,14 +6,14 @@ title: Author a site's settings, components, page metadata and generated images 
   the control surface
 created_by: xgd
 created_at: '2026-08-10T09:32:44.463811+00:00'
-updated_at: '2026-09-11T03:40:13.696424+00:00'
+updated_at: '2026-10-26T01:11:49.914956+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-2d32662d
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
   uat_coverage: pass
 ---
@@ -32,7 +32,7 @@ The element tree is only part of a site. This story covers the four things that 
 
 **Page metadata.** A page carries search metadata on creation and on update, merged so improving a description does not clear the title, and it reaches the rendered document.
 
-**Generated images.** A drawing composed by the assistant can be written into the site as an image — a mark, an icon, a divider, a diagram. It becomes an ordinary entry in the site's image list, referenced from a picture element like any other, and ships into the render unaltered. Because it is the one image in a site that no person vouched for, it is a separate grantable capability from managing files a person supplied, and its contents are checked rather than trusted: accepted whole or refused whole, never rewritten.
+**Generated images.** A drawing composed by the assistant can be written into the site as an image — a mark, an icon, a divider, a diagram. It becomes an ordinary entry in the site's image list, referenced from a picture element like any other, and ships into the render unaltered. Writing it stores bytes and nothing else — the site definition is untouched and the drawing carries no alt text of its own; what it shows is written on the picture element that places it. A name already in use is refused unless replacement is asked for. A drawing is for when a drawing is what was wanted: the operation's declaration tells the assistant it is never a stand-in for a file the client supplied — if that file cannot be found or used, the assistant says so and asks for it. Because it is the one image in a site that no person vouched for, it is a separate grantable capability from managing files a person supplied, and its contents are checked rather than trusted: accepted whole or refused whole, never rewritten.
 
 **Out of scope.** Authoring a new *kind* of component — the catalog is closed, and a new behaviour is written, reviewed and vetted by a developer. Extending the element vocabulary itself. Uploading any file, including licensed binary fonts, which remain the font-registry-and-provenance capability's work.
 
@@ -44,6 +44,7 @@ The element tree is only part of a site. This story covers the four things that 
 - **Naming note (no behavioural divergence).** The intent and the surface declare the component operations as `add_component` / `configure_component` / `remove_component` / `list_behaviors`; the command line and the underlying write path name the same operations `module add|set|rm` and `behavior list`. One set of behaviours, two vocabularies at two boundaries.
 - **Flagged for a future reconciliation, not claimed here.** The "a behaviour declares a default presentation retrievable by its id" index lives in the framework's L2 layer, whose owning capability is the behaviour-module contract (CAP-70 / story-179b8c06). It is documented here because that is where the behaviour is observable — a component arrives with a working look in one call — but a later reconciliation of that capability may want an L2-side criterion of its own.
 - Known upstream gaps this story does not claim closed: none specific to it; the enum-control, single-field-layout and refusal-rendering gaps recorded in this bundle are filed against other capabilities.
+- **No registry (BUG-44, operator decision 2026-09-01).** A drawing used to be registered in the site definition's asset registry with an alt text; that registry was deleted (see STORY-102), so a drawing is an ordinary stored file and AC-1104/AC-1105 now speak of the stored definition being untouched rather than of a registry. The no-stand-in rule comes from BUG-45, where a client's uploaded logo was silently replaced by an assistant drawing; it is a declaration, asserted on the surface text — a mechanical gate on substitution is a larger design and is not claimed.
 
 ## Dependencies
 
