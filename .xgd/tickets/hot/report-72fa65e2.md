@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-26T01:27:14.804936+00:00'
+updated_at: '2026-10-26T01:40:27.826141+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -212,7 +212,7 @@ fields:
         the background area''s hint still states the material will not appear on the
         site'
       remove: []
-    story_uid: null
+    story_uid: story-1500b111
   - index: 4
     component: 'Fidelity surface: the assistant can see'
     item_type: feature
