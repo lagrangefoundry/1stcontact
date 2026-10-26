@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-26T01:12:44.794825+00:00'
+updated_at: '2026-10-26T01:27:14.804936+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -162,7 +162,7 @@ fields:
         the one recorded and reported, with promotion going through the same add path
         as every other asset'
       remove: []
-    story_uid: null
+    story_uid: story-aacb7060
   - index: 3
     component: Library row & upload overlay wording
     item_type: upgrade
