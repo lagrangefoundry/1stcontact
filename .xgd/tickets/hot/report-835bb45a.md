@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-1500b111'
 created_by: xgd
 created_at: '2026-10-26T01:48:44.641534+00:00'
-updated_at: '2026-10-26T01:48:44.641534+00:00'
+updated_at: '2026-10-26T01:55:55.805256+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-1500b111
@@ -25,6 +25,7 @@ fields:
     instructions: ''
     test_scope: AC-1717 (orphaned acceptance criterion) or AC-1722 (orphaned acceptance
       criterion) or test_UAT_AC1715 or test_UAT_AC1716 or test_UAT_AC1717 or test_UAT_AC1722
+  batches_pending: false
 ---
 
 {
