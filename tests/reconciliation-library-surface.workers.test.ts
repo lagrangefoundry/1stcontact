@@ -4,7 +4,7 @@ import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/
 import { PROJECT_KB, projectKnowledgeFor } from '../apps/control-app/src/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { CLIENT_DESCRIBER } from '../apps/control-app/src/material'
-import { applySchema } from './support/d1-site-factory'
+import { applySchema, makeD1Site } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 
 /**
@@ -122,9 +122,12 @@ beforeAll(async () => {
 describe('AC-1722 — the list is rows without descriptions; the item adds one; neither leaves the account', () => {
   it('test_UAT_AC1722_list_returns_bodiless_rows_newest_first_and_the_item_adds_the_description', async () => {
     const tenant = 'story1500b111-list'
-    const site = 'story1500b111a'
+    // A SITE THE PROMOTION CAN ACTUALLY LAND ON: since BUG-47 the row's
+    // placement is written only when the bytes reach the site, so an unknown
+    // slug would leave the "bound" row placed nowhere.
+    const site = (await makeD1Site({ tenantId: tenant, slug: 'story1500b111a' })).slug
 
-    // ONE BOUND TO NO SITE AND ONE BOUND TO A SITE, uploaded in that order, so
+    // ONE PLACED ON NO SITE AND ONE PLACED ON A SITE, uploaded in that order, so
     // "newest first" is a claim with something to be wrong about.
     const unbound = await body(
       await upload(tenant, {
@@ -163,13 +166,16 @@ describe('AC-1722 — the list is rows without descriptions; the item adds one; 
     expect(wordmark.republishable).toBe(true)
     expect(wordmark.exportable).toBe(false)
     expect(wordmark.origin).toBe('uploaded')
-    expect(wordmark.site_slug).toBe(site)
+    // PLACEMENT, not upload context (BUG-47): `placed_on` replaced `site_slug`.
+    expect(wordmark.placed_on).toEqual([site])
+    expect(Object.keys(wordmark)).not.toContain('site_slug')
     expect(typeof wordmark.title).toBe('string')
     expect(typeof wordmark.updated_at).toBe('string')
     expect(Object.keys(wordmark)).toContain('description_status')
     expect(Object.keys(wordmark)).toContain('description_model')
-    // Bound to NO site, and the row says so rather than omitting the axis.
-    expect(positioning.site_slug).toBeNull()
+    // Placed on NO site, and the row says so with an empty list rather than
+    // omitting the axis.
+    expect(positioning.placed_on).toEqual([])
     expect(positioning.role).toBe('reference')
 
     // AND CARRYING NO DESCRIPTIONS. A description is a document's extracted text,
@@ -181,7 +187,7 @@ describe('AC-1722 — the list is rows without descriptions; the item adds one; 
     const item = await body(await readItem(tenant, String(positioning.uid)))
     expect(item.uid).toBe(positioning.uid)
     expect(item.filename).toBe('positioning.txt')
-    expect(item.site_slug).toBeNull()
+    expect(item.placed_on).toEqual([])
     expect(String(item.body)).toContain('late-night bakery')
 
     // BOTH ANSWERS ARE CONFINED TO THE ACCOUNT ASKING. This is the first surface

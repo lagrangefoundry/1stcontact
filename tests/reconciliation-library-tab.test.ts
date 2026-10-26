@@ -66,8 +66,10 @@ function memoryStorage(): Storage {
  *
  * DELIBERATELY SPANS TWO SITES AND NEITHER. A fixture whose material was all
  * bound to the open site could not tell a badge from a boundary — which is the
- * single distinction AC-1715 is about. So one row is bound to the open site, one
- * to another site of the same client, and one to no site at all.
+ * single distinction AC-1715 is about. So one row is placed on the open site, one
+ * on another site of the same client, and one on no site at all — read from the
+ * recorded placement (`placed_on`), which replaced the upload-context `site_slug`
+ * (BUG-47).
  */
 const MATERIAL = [
   {
@@ -81,7 +83,7 @@ const MATERIAL = [
     republishable: true,
     exportable: false,
     origin: 'uploaded',
-    site_slug: 'alpha',
+    placed_on: ['alpha'],
     source_url: null,
     description_status: 'ok',
     description_model: 'stub/vision-1',
@@ -98,7 +100,7 @@ const MATERIAL = [
     republishable: false,
     exportable: false,
     origin: 'uploaded',
-    site_slug: null,
+    placed_on: [],
     source_url: null,
     description_status: 'ok',
     description_model: 'unpdf',
@@ -115,8 +117,8 @@ const MATERIAL = [
     republishable: true,
     exportable: false,
     origin: 'uploaded',
-    // Another site of the SAME client: present in the list, badged differently.
-    site_slug: 'beta',
+    // Placed on another site of the SAME client: present in the list, badged differently.
+    placed_on: ['beta'],
     source_url: null,
     description_status: 'no_describer',
     description_model: null,
@@ -414,7 +416,10 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1717 — the file itself, and the rights r
     expect(named('rights').textContent).toContain('owned')
     expect(named('role')).toBeTruthy()
     expect(named('republishable')).toBeTruthy()
-    expect(named('site_slug')).toBeTruthy()
+    // `Used on` reads the recorded placement; this document is placed nowhere.
+    expect(named('placed_on')).toBeTruthy()
+    // Empty is the fields component's own placeholder, naming no site.
+    expect(named('placed_on').textContent!.replace('Used on', '').trim()).toMatch(/^[—-]?$/)
     expect(named('source_url')).toBeTruthy()
 
     // …AND NOT ONE OF THEM OFFERS ANY MEANS OF EDITING. Rights are inferred from
