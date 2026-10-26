@@ -6,10 +6,10 @@ title: Adding, drawing and removing an asset write bytes and never the site defi
   and each is journalled
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:11:09.073016+00:00'
-updated_at: '2026-10-26T01:11:09.073016+00:00'
+updated_at: '2026-10-26T01:21:25.104284+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-c46abfa6
   kind: behavior
