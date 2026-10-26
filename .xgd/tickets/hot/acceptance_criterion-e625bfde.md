@@ -7,10 +7,10 @@ title: Every Library row opens with exactly one labelled type icon — distinct 
   a kind pill
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:39:00.190886+00:00'
-updated_at: '2026-10-26T01:39:00.190886+00:00'
+updated_at: '2026-10-26T02:01:00.554017+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
