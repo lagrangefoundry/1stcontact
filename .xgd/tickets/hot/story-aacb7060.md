@@ -6,10 +6,10 @@ title: 'Site-Asset Promotion: Only Material The Client May Publish Reaches Their
   Site'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:02:09.778452+00:00'
-updated_at: '2026-10-26T01:25:02.101904+00:00'
+updated_at: '2026-10-26T01:27:13.852650+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-20802191
