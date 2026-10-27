@@ -6,10 +6,10 @@ title: 'The Assistant Can Compare And Judge: Perceptual Comparison And Fidelity 
   Over Any Two Pictures'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:46:16.482074+00:00'
-updated_at: '2026-10-27T20:56:36.758596+00:00'
+updated_at: '2026-10-27T21:13:36.670589+00:00'
 completed_at: null
-last_field_updated: body
-status: unplanned
+last_field_updated: status
+status: completed
 fields:
   intent_uid: bundle-5607a08d
   capability_uid: capability-00e77e55
