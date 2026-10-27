@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The reference side is read at the viewport the actual picture asked for
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:47:01.059178+00:00'
-updated_at: '2026-10-27T20:47:01.059178+00:00'
+updated_at: '2026-10-27T21:13:42.274153+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-47fb84e6
   kind: behavior
