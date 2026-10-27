@@ -6,10 +6,10 @@ title: check_fidelity against an uncaptured reference is refused by name before 
   gate or browser work
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:47:03.799757+00:00'
-updated_at: '2026-10-27T20:56:02.234621+00:00'
+updated_at: '2026-10-27T21:13:41.547302+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-47fb84e6
   kind: behavior
