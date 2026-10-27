@@ -6,10 +6,10 @@ title: All five picture kinds resolve to a picture of what they name, with the d
   defaults
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:42:07.448209+00:00'
-updated_at: '2026-10-27T19:42:07.448209+00:00'
+updated_at: '2026-10-27T20:44:35.432903+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
