@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-27T20:47:33.166661+00:00'
+updated_at: '2026-10-27T21:20:21.890163+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -288,7 +288,7 @@ fields:
       drivers'' request seams. New capability; safety ACs belong with the operation
       they guard rather than as a separate story. FC evidence: capture/egress UATs
       in tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts.'
-    story_uid: null
+    story_uid: story-31204812
   - index: 7
     component: 'Assistant role: consultant'
     item_type: upgrade
