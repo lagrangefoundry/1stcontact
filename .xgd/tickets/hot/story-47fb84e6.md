@@ -6,9 +6,9 @@ title: 'The Assistant Can Compare And Judge: Perceptual Comparison And Fidelity 
   Over Any Two Pictures'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:46:16.482074+00:00'
-updated_at: '2026-10-27T20:46:16.482074+00:00'
+updated_at: '2026-10-27T20:47:11.651941+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-5607a08d
@@ -39,9 +39,9 @@ Out of scope: `capture_site` and the egress guard (plan item 6); `screenshot`, p
 - Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts`, describe blocks "REQ-157 AC4" and "REQ-157 AC5".
 
 ## Reconciliation Decisions
-- **Regions as coordinates instead of crop pairs** (decided at reconciliation, 2026-10-27): REQ-157's operations table is marked *provisional* and lists `compare` returning "perceptual verdict, ranked regions, crop pairs". The binding AC 4 asks only that the verdict equal `1c diff`'s. The landed code returns ranked regions (rank, area, mean difference) and deliberately omits the heatmap and crop-triptych files, because they are operator files with no meaning on this surface and no filesystem exists in a Worker. Formalized in the compare-result AC. This is not a contradiction: the provisional table was superseded by the AC.
-- **Unknown reference refused by name before any browser is used** (decided at reconciliation, 2026-10-27): intent is silent. The code refuses `check_fidelity` against a reference name that holds no capture, with a not-found error naming the reference and pointing at `list_references`, before any gate or browser work runs. Formalized as its own AC because a metered browser lease for a typo is a real cost and the error is what the model acts on.
-- **The `pass` next step still points at outstanding value deltas** (decided at reconciliation, 2026-10-27): intent says each verdict has its own next step. The code's `pass` next step says nothing is outstanding when there are no value deltas. When deltas remain, it names their count and directs the reader to work them. Formalized within the five-verdicts AC.
+- **Regions as coordinates instead of crop pairs** (decided at reconciliation, 2026-10-27): REQ-157's operations table is marked *provisional* and lists `compare` returning "perceptual verdict, ranked regions, crop pairs". The binding AC 4 asks only that the verdict equal `1c diff`'s. The landed code returns ranked regions (rank, area, mean difference) and deliberately omits the heatmap and crop-triptych files, because they are operator files with no meaning on this surface and no filesystem exists in a Worker. Formalized as AC-2036. This is not a contradiction: the provisional table was superseded by the AC.
+- **Unknown reference refused by name before any browser is used** (decided at reconciliation, 2026-10-27): intent is silent. The code refuses `check_fidelity` against a reference name that holds no capture, with a not-found error naming the reference and pointing at `list_references`, before any gate or browser work runs. Formalized as AC-2043 because a metered browser lease for a typo is a real cost and the error is what the model acts on.
+- **The `pass` next step still points at outstanding value deltas** (decided at reconciliation, 2026-10-27): intent says each verdict has its own next step. The code's `pass` next step says nothing is outstanding when there are no value deltas. When deltas remain, it names their count and directs the reader to work them. Formalized within AC-2040.
 
 ## Dependencies
 - Plan item 4: story-58b2cec4 (fidelity surface: the assistant can see — picture vocabulary and surface composition).
