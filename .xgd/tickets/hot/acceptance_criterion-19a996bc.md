@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Every picture is named with one declared shape whose schema the model is shown
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:42:05.175968+00:00'
-updated_at: '2026-10-27T19:42:05.175968+00:00'
+updated_at: '2026-10-27T20:44:35.716045+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
