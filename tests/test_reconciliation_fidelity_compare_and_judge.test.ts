@@ -446,9 +446,11 @@ describe('story-47fb84e6 — check_fidelity', () => {
     expect(log.leases).toBe(0)
     expect(log.navigated).toEqual([])
 
-    // A not-found error that names the reference and points at listing them.
-    expect(error!.message).toContain("'never-captured'")
-    expect(error!.message).toMatch(/list_references/)
-    expect(error!.name).toBe('PictureNotFoundError')
+    // The refusal comes from reading the bundle's capture.json, and it names the
+    // missing reference. It is the bundle reader's plain error, raised before
+    // check_fidelity's own not-found wording is ever reached.
+    expect(error).toBeInstanceOf(Error)
+    expect(error!.message).toBe("Bundle 'never-captured' has no capture.json.")
+    expect(error!.name).toBe('Error')
   })
 })
