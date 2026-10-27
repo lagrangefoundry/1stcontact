@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-27T19:42:51.534018+00:00'
+updated_at: '2026-10-27T20:47:33.166661+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -265,7 +265,7 @@ fields:
       the assistant''s verdict equals the CLI''s. New assistant capability built on
       (not replacing) those stories; the gate-core extraction is structural and leaves
       STORY-86''s ACs unchanged. FC evidence: compare/check_fidelity UATs in tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts.'
-    story_uid: null
+    story_uid: story-47fb84e6
   - index: 6
     component: 'Fidelity surface: capture a reference behind an egress guard'
     item_type: feature
