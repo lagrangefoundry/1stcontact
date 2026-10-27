@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-26T01:40:27.826141+00:00'
+updated_at: '2026-10-27T19:42:51.534018+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -243,7 +243,7 @@ fields:
       or delivers an image to the model. Genuinely new capability for the assistant.
       FC evidence: tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts (surface/picture/screenshot/read-only/grant
       UATs).'
-    story_uid: null
+    story_uid: story-58b2cec4
   - index: 5
     component: 'Fidelity surface: compare and judge'
     item_type: feature
