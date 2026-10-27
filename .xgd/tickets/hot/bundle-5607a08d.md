@@ -5,10 +5,10 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-25T22:20:44.857531+00:00'
+updated_at: '2026-10-27T21:54:04.156582+00:00'
 completed_at: null
 last_field_updated: status
-status: reconciling
+status: error
 fields:
   bundle_type: reconcile
   commits:
@@ -261,6 +261,11 @@ fields:
     new_sha: 669ddfecdcc8d067b43e9faa8097141553ae954e
   - old_sha: 9632cd6ae08c11923bb2f4b1ca1e710581ce5db9
     new_sha: 3138181ae778bfe392a9b3c629035e6d4b6ed964
+  reconcile_error: 'reconcile workflow crashed: Workflow execution failed: Failed
+    to execute Python function ''xgd_source.quality.fix_planning.validate_fix_plan'':
+    test_fix planner emitted an invalid plan twice; rejected: the aligned_to_tip ruling
+    cannot be accepted: no failing test in blocked_by_ruling.tests belongs to `acceptance_criterion-2b82c3cf`:
+    nothing to resolve'
 ---
 
 # Bundle
