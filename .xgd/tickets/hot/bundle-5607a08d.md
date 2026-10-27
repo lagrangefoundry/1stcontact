@@ -5,7 +5,7 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-27T21:54:04.156582+00:00'
+updated_at: '2026-10-27T23:53:43.795660+00:00'
 completed_at: null
 last_field_updated: status
 status: error
@@ -266,6 +266,7 @@ fields:
     test_fix planner emitted an invalid plan twice; rejected: the aligned_to_tip ruling
     cannot be accepted: no failing test in blocked_by_ruling.tests belongs to `acceptance_criterion-2b82c3cf`:
     nothing to resolve'
+result: fail
 ---
 
 # Bundle
