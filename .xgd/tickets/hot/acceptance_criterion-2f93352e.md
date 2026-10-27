@@ -6,10 +6,10 @@ title: compare reports exactly the perceptual verdict 1c diff computes for the s
   two pictures, with ranked regions as coordinates
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:46:54.475246+00:00'
-updated_at: '2026-10-27T20:46:54.475246+00:00'
+updated_at: '2026-10-27T21:13:44.022529+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-47fb84e6
   kind: behavior
