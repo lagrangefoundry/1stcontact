@@ -59,7 +59,7 @@ import {
   LEGACY_ROLE_NAMES,
 } from './roles'
 import { createL1Toolbox, type AiLibrary, type L1Operations } from './toolbox-core'
-import { fidelitySurfaceFor } from './fidelity-core'
+import { contentBlocksFrom, fidelitySurfaceFor } from './fidelity-core'
 import type { FidelityDeps } from './fidelity-core'
 
 /**
@@ -517,7 +517,13 @@ async function build(slug: string, opts: GlobalOptions, deps: HostDeps): Promise
               name,
               spec.description,
               { properties: spec.properties, required: spec.required },
-              (input: Record<string, unknown>) => box.run(name, input),
+              // A picture operation's blocks are recovered from the Toolbox's
+              // rendered text so the model is SHOWN the image; every other
+              // result, refusals included, passes through as the text it is.
+              async (input: Record<string, unknown>) => {
+                const payload = await box.run(name, input)
+                return contentBlocksFrom(payload) ?? payload
+              },
             ),
         ),
       }),

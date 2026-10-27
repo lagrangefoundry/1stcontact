@@ -166,6 +166,9 @@ export function workerHost(
   tenantId: string,
   tickets: TicketStore,
   knowledge: SessionKnowledge | null = null,
+  // The looking surface ([[REQ-157]]), per site. Null is the ordinary
+  // no-browser case: the session still opens and still edits, with no eyes.
+  fidelity: HostDeps['fidelity'] = null,
 ): WorkerHost {
   const audit = bufferedAuditSink()
   // THE SURFACE AND THE PRIMING COME AS A PAIR OR NOT AT ALL (REQ-158) — the
@@ -210,6 +213,7 @@ export function workerHost(
         ? (sessionId: string) =>
             turnDelta(knowledge, tickets, sessionId, new Date().toISOString())
         : null,
+      fidelity,
     },
     flush: (sessionId: string) =>
       flushAudit(env.SITES, tenantId, sessionId, audit.drain()),

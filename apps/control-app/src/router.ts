@@ -23,6 +23,10 @@ import {
   UnknownSessionError,
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { workerHost, type WorkerHost } from './ai'
+import { fidelityDeps } from './shot'
+import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
+import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
+import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
 import { chromeHtml } from './chrome'
 import { redactor } from './redact'
 import { storeFor, TenantNotConfiguredError, type StoreEnv } from './store'
@@ -115,7 +119,7 @@ const PREVIEWS = new WeakMap<TenantSiteStore, PreviewRenderer>()
  */
 let CHAT: Promise<WorkerHost> | null = null
 
-function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
+function chatHost(env: RouterEnv, deps: RouterDeps, origin: string): Promise<WorkerHost> {
   if (!CHAT) {
     CHAT = (async () => {
       const tenantId = (env.TENANT_ID ?? '').trim()
@@ -142,10 +146,48 @@ function chatHost(env: RouterEnv, deps: RouterDeps): Promise<WorkerHost> {
       // the project corpus is the tenant's real D1 store either way.
       const system = await (deps.knowledge ?? systemKnowledge)(env)
       const knowledge = await sessionKnowledgeFor(env, { system, tickets })
-      return workerHost(env, store, tenantId, tickets, knowledge)
+      const fidelity = await sessionFidelity(env, deps, store, tenantId, origin)
+      return workerHost(env, store, tenantId, tickets, knowledge, fidelity)
     })()
   }
   return CHAT
+}
+
+/**
+ * The looking surface's dependencies for one site ([[REQ-157]]), or null.
+ *
+ * `shot.ts` is the Worker's composition root for the surface; this is where it
+ * is mounted. NULL WHERE EITHER HALF IS MISSING, and both absences are ordinary:
+ * without a browser there is nothing to look with, and without `BLOBS` there is
+ * nowhere private to keep what is looked at. A deployment missing either still
+ * opens the session and still edits — it simply has no eyes.
+ *
+ * A FACTORY OF THE SLUG, because that is the shape `HostDeps` declares: the
+ * surface is bound to one site at construction, so no picture can name another.
+ */
+async function sessionFidelity(
+  env: RouterEnv,
+  deps: RouterDeps,
+  store: TenantSiteStore,
+  tenantId: string,
+  origin: string,
+): Promise<HostDeps['fidelity']> {
+  if (!deps.launch && !env.BROWSER) return null
+  if (!env.BLOBS) return null
+  // The client's own private bucket, bound to THIS tenant by `forTenant`.
+  const references = await r2ReferenceStore({ DB: env.DB, BLOBS: env.BLOBS }).forTenant(tenantId)
+  return (site: string) =>
+    fidelityDeps(
+      env,
+      // THE SAME RENDERER THE `/preview/*` ROUTE USES, memoised per store.
+      previewRenderer(store),
+      references,
+      origin,
+      site,
+      // Spread rather than set to `undefined`: an explicit `undefined` would
+      // read as a launcher that was supplied and is broken.
+      deps.launch ? { launch: deps.launch } : {},
+    )
 }
 
 /** Drop the cached chat host. For tests that rebuild bindings per case. */
@@ -276,6 +318,12 @@ export interface RouterDeps {
   describeImage?: DescribeImage
   /** The fetch the guard drives, so redirect re-validation is provable offline. */
   fetch?: typeof fetch
+  /**
+   * The browser the looking surface drives ([[REQ-157]]). ABSENT IS THE
+   * ORDINARY CASE and resolves to the `BROWSER` binding; a UAT injects one so
+   * a picture can be taken without Browser Rendering.
+   */
+  launch?: BrowserLauncher
 }
 
 /**
@@ -917,7 +965,7 @@ async function routeUncached(
       if (typeof slug !== 'string' || slug === '') {
         return json(400, { error: 'slug is required' })
       }
-      const host = await chatHost(env, deps)
+      const host = await chatHost(env, deps, url.origin)
       const session = await openSession(slug, {}, host.deps)
       // Opening can run a tool-free turn's worth of policy — nothing to audit
       // yet in practice, but flushed for the same reason the prompt route
@@ -936,7 +984,7 @@ async function routeUncached(
       if (typeof text !== 'string') {
         return json(400, { error: 'text is required' })
       }
-      const host = await chatHost(env, deps)
+      const host = await chatHost(env, deps, url.origin)
       return streamTurn(host, sessionId, text, redactor(secretsOf(env)))
     }
 

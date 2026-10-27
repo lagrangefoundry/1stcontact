@@ -121,6 +121,40 @@ export function isContentBlocks(value: unknown): value is ContentBlock[] {
 }
 
 /**
+ * Recover an image-returning operation's blocks from the text a Toolbox
+ * rendered them as.
+ *
+ * `host-core.ts` registers every tool as `box.run(name, input)`, and the
+ * Toolbox's contract is that a call renders to TEXT — it serialises the result,
+ * marks its provenance and records its size. So without this the picture arrives
+ * at the model as a JSON document with base64 in it: described, not shown.
+ *
+ * Recovery rather than bypassing the Toolbox, because everything it does on the
+ * way — validation, the capability gate, refusals, the audit record — is wanted
+ * for these operations exactly as for the ones that write. The rendering is
+ * lossless, so it is undone at the edge that can carry the richer shape.
+ *
+ * Safe on every payload: the text must contain a JSON array, and that array must
+ * be blocks carrying an image; anything else (including every refusal) is
+ * handed back as `null`. The scan is bracket-based, not keyed to the provenance
+ * markers' spelling, which are the component's to change.
+ */
+export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
+  if (typeof payload !== 'string') return null
+  const open = payload.indexOf('[')
+  const close = payload.lastIndexOf(']')
+  if (open < 0 || close <= open) return null
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(payload.slice(open, close + 1))
+  } catch {
+    return null
+  }
+  if (!isContentBlocks(parsed)) return null
+  return parsed.some((block) => block.type === 'image') ? parsed : null
+}
+
+/**
  * Base64 without `Buffer`, which is Node's and does not exist in workerd.
  *
  * Chunked because `String.fromCharCode(...bytes)` on a multi-megabyte array

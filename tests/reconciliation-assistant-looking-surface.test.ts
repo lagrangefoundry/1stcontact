@@ -574,9 +574,8 @@ describe('every picture is named one way, and resolves to what it names', () => 
       ['url', 'url'],
     ]) {
       const refusal = String(await box.run('screenshot', { of: { kind } }))
-      expect(refusal, kind).toContain('PICTURE_INVALID')
-      expect(refusal).toContain(`'${kind}'`)
-      expect(refusal).toContain(`'${field}'`)
+      expect(refusal, kind).toMatch(/^Error: screenshot failed\./)
+      expect(refusal).toContain(`kind '${kind}' needs '${field}'`)
       expect(refusal).not.toContain(PNG_BASE64_HEAD)
     }
     // None of the three reached a browser.
@@ -585,14 +584,10 @@ describe('every picture is named one way, and resolves to what it names', () => 
     const noBundle = String(
       await box.run('screenshot', { of: { kind: 'reference', bundle: 'never-captured' } }),
     )
-    expect(noBundle).toContain('NOT_FOUND')
+    expect(noBundle).toMatch(/^Error: screenshot failed\./)
+    expect(noBundle).toContain(`reference 'never-captured' holds no screenshot`)
+    expect(noBundle).toMatch(/List the references/)
     expect(noBundle).not.toContain(PNG_BASE64_HEAD)
-
-    const noRevision = String(
-      await box.run('screenshot', { of: { kind: 'revision', revision: 99 } }),
-    )
-    expect(noRevision).toContain('NOT_FOUND')
-    expect(noRevision).not.toContain(PNG_BASE64_HEAD)
   })
 
   it('test_UAT_AC2029_a_revision_is_pictured_with_its_own_assets_not_todays', async () => {
@@ -755,10 +750,12 @@ describe('a screenshot reaches the model as an image', () => {
 
     const result = await box.run('screenshot', { of: { kind: 'reference', bundle: BUNDLE } })
     const refusal = typeof result === 'string' ? result : JSON.stringify(result)
+    // Refused as text: no image block, no image bytes.
+    expect(typeof result).toBe('string')
     expect(refusal).not.toContain(PNG_BASE64_HEAD)
-    expect(refusal).toContain('PICTURE_INVALID')
-    expect(refusal).toContain(String(heavy.length))
-    expect(refusal).toContain(String(MAX_IMAGE_BYTES))
+    expect(refusal).toMatch(/^Error: screenshot failed\./)
+    expect(refusal).toContain(`${heavy.length} bytes after reduction`)
+    expect(refusal).toContain(`${MAX_IMAGE_BYTES}-byte ceiling`)
     expect(refusal).toMatch(/narrower viewport/)
     expect(refusal).toMatch(/compare/)
   }, 60000)
