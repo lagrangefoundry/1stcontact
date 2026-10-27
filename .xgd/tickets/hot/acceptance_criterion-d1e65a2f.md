@@ -6,10 +6,10 @@ title: A picture missing the field its kind needs is refused naming that field; 
   reference with no screenshot is refused naming it
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:42:10.090328+00:00'
-updated_at: '2026-10-27T20:13:13.775818+00:00'
+updated_at: '2026-10-27T20:44:33.739241+00:00'
 completed_at: null
-last_field_updated: title
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-58b2cec4
   kind: behavior
