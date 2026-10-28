@@ -6,10 +6,10 @@ title: In both hosts a capture over 32 MiB or 60 seconds is abandoned and refuse
   sends no further request and offers no reference
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:41.555274+00:00'
-updated_at: '2026-10-28T03:56:41.733349+00:00'
+updated_at: '2026-10-28T04:07:33.504186+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-31204812
   kind: behavior
