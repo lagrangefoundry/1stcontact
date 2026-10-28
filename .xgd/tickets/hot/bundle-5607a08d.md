@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-28T00:14:12.385088+00:00'
+updated_at: '2026-10-28T03:54:02.311017+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: aligned_to_running_code
 status: error
 fields:
   bundle_type: reconcile
@@ -266,6 +266,36 @@ fields:
     test_fix planner emitted an invalid plan twice; rejected: the aligned_to_tip ruling
     cannot be accepted: no failing test in blocked_by_ruling.tests belongs to `acceptance_criterion-2b82c3cf`:
     nothing to resolve'
+  aligned_to_running_code:
+  - subject_uid: story-31204812
+    batch_index: 0
+    acs:
+    - acceptance_criterion-2b82c3cf
+    - acceptance_criterion-d553d8fb
+    - acceptance_criterion-7db0225c
+    - acceptance_criterion-b4af8127
+    - acceptance_criterion-e4c4d77e
+    - acceptance_criterion-26d0ac51
+    reason: REQ-157 owns these ACs and is the only in-window intent on this surface,
+      so no later in-window intent orders the conflict in the ACs' favour; xgd-working's
+      tip decides. Neither the window code nor the tip implements the builder's proposed
+      fixes (tolerant readCapture, Node redirect-hop guard, applied 60 s cap, refusal
+      of a cap-tripped capture), and out-of-window BUG-172/BUG-127 move further from
+      the ACs, so a code_frozen grant would invent behaviour rather than port it.
+      The ACs are rewritten to the code as landed; clauses where the tip later diverges
+      are retired rather than asserted either way.
+    intent_ticket: REQ-157
+    intent_sentence: '`capture_site` is refused for private address space, over-large
+      responses and redirect loops;'
+    tip_ref: reconcile-src-BUNDLE-32
+    tip_evidence:
+    - tools/generate/src/cli/capture/bundle.ts:95-99
+    - tools/generate/src/cli/ai/fidelity-core.ts:245-253
+    - tools/generate/src/cli/ai/fidelity-core.ts:309-357
+    - tools/generate/src/cli/capture/egress-guard.ts:228-275
+    - tools/generate/src/cli/capture/playwright-driver.ts:101-110
+    - tools/generate/src/cli/capture/cf-driver.ts:231-232
+    - tools/generate/src/cli/capture/cf-driver.ts:280-280
 result: fail
 ---
 
