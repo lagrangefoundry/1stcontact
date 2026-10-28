@@ -645,7 +645,7 @@ describe('a transcript written by the deployed host is read by the local one', (
       JSON.stringify(
         {
           id: sessionId,
-          role: 'caretaker',
+          role: 'consultant',
           backend: `claude+site:${OTHER}`,
           filter_tool_use: false,
           backend_ref: '',

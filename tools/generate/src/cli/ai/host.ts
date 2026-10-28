@@ -210,7 +210,10 @@ export async function nodeDeps(opts: GlobalOptions): Promise<HostDeps> {
     lib,
     store,
     archive: new lib.FileArchive(dir),
-    logDir: path.join(dir, 'live'),
+    // The framework's file junction, under the same workspace directory as the
+    // archive. `logDir` was its old name; since the framework stopped accepting
+    // it, no Node session could open ([[REQ-452]]).
+    junctions: lib.fileJunctions(path.join(dir, 'live')),
     audit: fileAuditSink(opts),
     extraSurfaces: [],
     // REQ-157 — the fidelity surface, when this process knows what it is called

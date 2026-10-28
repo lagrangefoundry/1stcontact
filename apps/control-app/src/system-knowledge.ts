@@ -189,7 +189,7 @@ export function knowledgeSurfaceFor(runtime: Untyped): {
  * the session opened.
  *
  * THE ORDER IS NO LONGER DECIDED HERE. KM used to own it; `host-core.ts` now states
- * it in the entry list — the map, then what this caretaker is for, then the
+ * it in the entry list — the map, then the role purpose, then the
  * projected manual last, because the last thing the agent reads is the first thing
  * it does. What is decided HERE is what the mechanism says, and it is this
  * session's own projected manual rather than a sentence written by hand about what

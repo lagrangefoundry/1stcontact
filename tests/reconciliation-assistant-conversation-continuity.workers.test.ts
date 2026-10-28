@@ -335,7 +335,7 @@ describe('no knowledge base to open is ordinary on the deployed host too', () =>
       // against the two things AC-1319 proves priming carries WHEN there is a
       // corpus — the manual, which names the operations, and the landscape, which
       // is about a knowledge base — rather than against the bare word, which
-      // appears innocently inside "acknowledge" in the caretaker's own prose.
+      // appears innocently inside "acknowledge" in the consultant's own prose.
       const primed = JSON.stringify(model.seen[0].system)
       for (const name of KNOWLEDGE_TOOLS) expect(primed, name).not.toContain(name)
       expect(primed).not.toMatch(/knowledge base/i)

@@ -146,8 +146,12 @@ describe('the assistant is told it is a consultant', () => {
     // The system text of the first REAL model request, assembled by the host —
     // not the constant read back.
     expect(client.seen.length).toBeGreaterThan(0)
-    const system = client.seen[0].system
-    expect(typeof system).toBe('string')
+    // `system` is a string or a list of `{type: 'text', text}` blocks; the
+    // preamble is the joined text either way.
+    const seen = client.seen[0].system
+    const system =
+      typeof seen === 'string' ? seen : seen.map((block) => block.text ?? '').join('\n\n')
+    expect(system.length).toBeGreaterThan(0)
 
     expect(system).toContain('consultant')
     expect(system).not.toMatch(new RegExp(LEGACY, 'i'))

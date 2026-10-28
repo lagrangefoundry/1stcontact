@@ -15,7 +15,7 @@ import {
  * it. Routing either through workerd would need forty-one real uploads to say
  * something that is not about uploading at all, and the claim would be no more
  * true for the journey. The notice these tests read is the same string the turn
- * carries: `caretakerReminder` appends whatever {@link deltaLine} returns and
+ * carries: `consultantReminder` appends whatever {@link deltaLine} returns and
  * changes not a character of it, and the end-to-end evidence that it reaches a
  * real turn in that form is the sibling workers suite (AC-1798, AC-1807).
  *
