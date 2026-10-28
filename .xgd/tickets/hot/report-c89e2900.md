@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-a58a0974'
 created_by: xgd
 created_at: '2026-10-28T20:39:51.667115+00:00'
-updated_at: '2026-10-28T20:46:46.729599+00:00'
+updated_at: '2026-10-28T20:48:06.257971+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-a58a0974
@@ -49,6 +49,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
