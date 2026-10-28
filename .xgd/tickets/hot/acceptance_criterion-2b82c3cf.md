@@ -6,10 +6,10 @@ title: list_references lists every captured reference with its name, recorded ad
   and capture time, and an empty list when nothing is captured
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:06.225730+00:00'
-updated_at: '2026-10-28T03:56:17.149714+00:00'
+updated_at: '2026-10-28T04:07:34.656947+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-31204812
   kind: behavior
