@@ -6,9 +6,9 @@ title: 'System knowledge base: build the assistant''s domain knowledge from our 
   documents, with each document deciding whether it is in'
 created_by: xgd
 created_at: '2026-08-20T04:15:05.992521+00:00'
-updated_at: '2026-09-10T08:04:46.111057+00:00'
+updated_at: '2026-10-28T20:54:16.493018+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-77b28def
@@ -55,6 +55,7 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 - **The map is generated, always.** Clustered from the same vectors the reader searches, described in the corpus's own vocabulary, and validated by *the reader's own search* — a map whose doors were checked by a different query path would promise routes that do not exist for the agent that follows them. A territory with no validated way in is named rather than passed over. The map is kept out of the corpus it describes, or every rebuild would cluster the previous build's map and the knowledge base would slowly fill with descriptions of its own descriptions.
 - **The declaration is the thing in force.** Description, weight and the membership predicate all come from the declaration. Editing it changes what the build produces; a build never overwrites it.
 - **One embedding model on both sides.** The vectors the index is built from and the vectors a query is compared against come from the same model, so comparability holds by construction rather than by argument — the failure mode of two models is not an error but plausible-looking nonsense.
+- **One value to set, not two.** Indexing needs only the Cloudflare API token. The account id is not a second credential — it is a path segment in the embedding call, and the token already knows which account it belongs to — so it is **discovered from the token** rather than demanded, the way the repository's access-token provisioning has always done it. An explicitly set account id is the override: used verbatim, and no discovery request is made. Discovery never guesses and never misreports: a token that sees several accounts is refused with each account named by name and id; a token that sees none is told its *scope* is the problem; and a token that cannot list accounts at all — refused outright, refused under a success status, or a discovery request that does not complete — is diagnosed as the narrowly-scoped case it most likely is, carrying Cloudflare's reason and naming the override, rather than read as an empty list or as a broken build. The named-embedder test seam keeps precedence over all of it and is consulted before any credential is read.
 
 **Out of scope**
 
@@ -78,6 +79,7 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 - **The document store ignores frontmatter timestamps.** It takes both stamps from the file entry, so the exported timestamps are provenance for a human reader and the *file's* stamp is what the incremental build reads. This is why "an unchanged document is not rewritten" is a correctness property rather than an optimisation — and why the packed module has to carry those file stamps forward rather than let a bundled reader default them.
 - **Structured fields are dropped rather than coerced.** The corpus format reads one level of fields, so a mapping value has no representation; rendering it as text would put a placeholder in the corpus that is not the value, does not fail, and is indistinguishable from data.
 - **The describing model needs no credentials**; the embedding model does, and there is deliberately no local stand-in for it — a stand-in would make laptop vectors incomparable with production ones, which is precisely the failure the single-model rule exists to prevent.
+- **The embedding credential is one token; the account is asked of it** (BUG-49). Discovery is a `GET /accounts` against Cloudflare's REST API with the token, checking *both* the HTTP status and the `success` flag in the envelope — Cloudflare answers a refused operation with `success: false` under a 200 as readily as with a 4xx, and reading only the status would turn "you may not do that" into an empty list, which would then be misreported as a scope problem the operator does not have. Listing accounts is a permission of its own, so a token scoped to Workers AI alone can run the model and still be refused here; the way past that is the override, not a new token. `bin/access-token`'s `resolve_account()` is the precedent and is unchanged.
 - Related: the assistant's per-site conversation capability consumes this artefact — on the operator's own origin and, through the packed module, on a deployed host; the control surface's generated manual is the *other* half of what the assistant is primed with.
 
 ## Reconciliation Decisions
@@ -103,6 +105,14 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 - **What replaces it is a vacuity guard over the thing the rule needs in order to have been exercised**: that the store holds documents at all, that every one of them reached a decision, and that the excluded set is non-empty. Against the store as it stands that is 38 documents, every one correctly excluded — a substantive claim, not two empty lists matching each other.
 - **The corpus-directory check is strengthened while it is open.** It was a per-excluded-document absence; it is now an equality over the whole directory, so a file the rule never selected cannot survive there unnoticed either.
 - **This resolves a tension inside this story rather than creating one.** AC-1300 already pins the empty-member-set store as a declared, tested state — a build against it is *refused*, by name. A sibling criterion demanding the same store be non-empty could not both be true.
+
+**2026-10-28 — reconciling account discovery for the embedder (BUNDLE-32 / BUG-49).**
+
+- **The "names both credentials" clause of AC-1306 is restated, not kept alongside.** BUG-49 says outright that demanding the account id is the bug ("continuing to demand a value the tool can derive would be the original bug, restated"), so the missing-credential refusal now names the token as required and the account id as the optional override, and the usage text says the same. The map-needs-no-credentials half of the criterion is unchanged.
+- **Discovery's four outcomes are split across two criteria by what the operator does next.** One criterion covers the paths that *succeed* (one visible account; an explicit id with no request made); the other covers the three refusals (several, none, undiscoverable), whose value lies entirely in their being *distinct* — each names a different cause and the override. Keeping the refusals together is what lets a single verification assert they are not confused with one another, which is the failure BUG-49 criterion 5 calls out.
+- **A blank or whitespace-only account id counts as unset.** The intent is silent; the code trims the value and falls through to discovery when nothing remains. Formalised now as part of the success-path criterion because the alternative — a blank string used "verbatim" as a URL path segment — produces an embedding call against no account, which would fail far from its cause.
+- **An unnamed account is still listed.** The intent asks for each account's name and id; where Cloudflare returns no name, the code still lists the id with a placeholder name rather than dropping the entry. Decided now: the id is what the operator needs to set the override, so it must never be omitted.
+- **No code-issue is raised.** Every behaviour BUG-49 asks for — token-only resolution, override short-circuit, several/none/undiscoverable diagnoses, the rewritten missing-token message and usage text, and the named-embedder seam's precedence — is present in the code as landed.
 
 ## Dependencies
 
