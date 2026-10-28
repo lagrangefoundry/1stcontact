@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-a58a0974'
 created_by: xgd
 created_at: '2026-10-28T20:38:06.669288+00:00'
-updated_at: '2026-10-28T20:38:06.669288+00:00'
+updated_at: '2026-10-28T20:46:43.765739+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -130,6 +130,7 @@ fields:
       or test_UAT_AC2026_ or test_UAT_AC2027_ or test_UAT_AC2028_ or test_UAT_AC2029_
       or test_UAT_AC2030_ or test_UAT_AC2031_ or test_UAT_AC2032_ or test_UAT_AC2033_
       or test_UAT_AC2034_ or test_UAT_AC2035_
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
