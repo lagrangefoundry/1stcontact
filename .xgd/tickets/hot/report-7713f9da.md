@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-31204812'
 created_by: xgd
 created_at: '2026-10-28T03:50:59.225690+00:00'
-updated_at: '2026-10-28T03:50:59.225690+00:00'
+updated_at: '2026-10-28T03:54:00.466339+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 result: pass
 fields:
   report_kind: fix_plan
@@ -182,3 +182,19 @@ One batch. All six failures are in one test file and share one root cause (the A
 2. The 60 s capture limit (MAX_CAPTURE_MS) is never applied.
 3. A capture whose guard tripped is still adopted as a reference.
 4. A bundle with no `capture.json` breaks `list_references` and `describe_reference`.
+
+## Aligned to running code (REQ-895)
+
+REQ-157 owns these ACs and is the only in-window intent on this surface, so no later in-window intent orders the conflict in the ACs' favour; xgd-working's tip decides. Neither the window code nor the tip implements the builder's proposed fixes (tolerant readCapture, Node redirect-hop guard, applied 60 s cap, refusal of a cap-tripped capture), and out-of-window BUG-172/BUG-127 move further from the ACs, so a code_frozen grant would invent behaviour rather than port it. The ACs are rewritten to the code as landed; clauses where the tip later diverges are retired rather than asserted either way.
+
+- **ACs retired or rewritten**: acceptance_criterion-2b82c3cf, acceptance_criterion-d553d8fb, acceptance_criterion-7db0225c, acceptance_criterion-b4af8127, acceptance_criterion-e4c4d77e, acceptance_criterion-26d0ac51
+- **Failing tests covered**: test_UAT_AC2045_list_references_reports_recorded_url_and_capture_time, test_UAT_AC2046_describe_reference_reports_widths_images_findings_and_refuses_unknown, test_UAT_AC2047_capture_site_preflight_refuses_unsafe_addresses_without_leasing, test_UAT_AC2048_every_request_is_guarded_refused_ones_never_sent_and_reported, test_UAT_AC2049_redirect_cap_counts_hops_not_subresource_origins, test_UAT_AC2050_byte_and_time_budgets_abandon_the_capture_in_both_hosts
+- **Tip evidence** (read at `reconcile-src-BUNDLE-32`):
+  - `tools/generate/src/cli/capture/bundle.ts` lines 95-99
+  - `tools/generate/src/cli/ai/fidelity-core.ts` lines 245-253
+  - `tools/generate/src/cli/ai/fidelity-core.ts` lines 309-357
+  - `tools/generate/src/cli/capture/egress-guard.ts` lines 228-275
+  - `tools/generate/src/cli/capture/playwright-driver.ts` lines 101-110
+  - `tools/generate/src/cli/capture/cf-driver.ts` lines 231-232
+  - `tools/generate/src/cli/capture/cf-driver.ts` lines 280-280
+- **Intent** `REQ-157`: "`capture_site` is refused for private address space, over-large responses and redirect loops;"
