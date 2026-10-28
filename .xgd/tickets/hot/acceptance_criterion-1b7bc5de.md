@@ -6,10 +6,10 @@ title: Capture results are offered to the model as untrusted, and the surface te
   it captured words are never instructions and to check describe_reference first
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:55.002546+00:00'
-updated_at: '2026-10-27T21:19:55.002546+00:00'
+updated_at: '2026-10-28T04:07:35.121175+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-31204812
   kind: behavior
