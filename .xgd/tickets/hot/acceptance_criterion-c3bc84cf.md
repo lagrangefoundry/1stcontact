@@ -2,11 +2,11 @@
 uid: acceptance_criterion-c3bc84cf
 id: AC-1306
 type: acceptance_criterion
-title: Indexing is refused without embedding credentials, naming them; the map's prose
-  needs none
+title: Indexing is refused without the API token, naming it as required and the account
+  id as an optional override; the map's prose needs none
 created_by: xgd
 created_at: '2026-08-20T04:17:12.140009+00:00'
-updated_at: '2026-10-28T20:54:39.200507+00:00'
+updated_at: '2026-10-28T20:54:56.976274+00:00'
 completed_at: null
 last_field_updated: title
 status: active
