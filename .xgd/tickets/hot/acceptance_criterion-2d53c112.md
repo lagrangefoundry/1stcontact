@@ -6,10 +6,10 @@ title: Every capture_site call leaves one audit record carrying the requested UR
   and a refusal reaches the model as REFUSED naming the address
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:48.094902+00:00'
-updated_at: '2026-10-27T21:19:48.094902+00:00'
+updated_at: '2026-10-28T04:07:35.357760+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-31204812
   kind: behavior
