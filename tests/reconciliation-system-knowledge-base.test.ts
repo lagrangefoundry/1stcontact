@@ -32,6 +32,7 @@ import {
   SYSTEM_KB,
 } from '../tools/generate/src/cli/kb'
 import { run } from '../tools/generate/src/cli'
+import { isProjected } from '../tools/generate/src/cli/kb-projection'
 import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
 
 /**
@@ -633,15 +634,20 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
           'CLOUDFLARE_API_TOKEN',
           'ANTHROPIC_API_KEY',
         ],
-        () => withStore(store, () => cli(['kb', 'export'])),
+        () => withStore(paging(store), () => cli(['kb', 'export'])),
       )
 
       expect(result.code).toBeUndefined()
       expect(result.out).toContain(`corpus: ${CORPUS.length} document(s)`)
       expect(result.err).toBe('')
 
+      // The command also writes the generated reference projections (REQ-165)
+      // into their own namespace — model-free by construction — so the exported
+      // documents are compared with that namespace set aside.
       const live = kbRoot()
-      expect(corpusFiles(live)).toEqual(CORPUS.map((t) => `${t.id}.md`).sort())
+      expect(corpusFiles(live).filter((name) => !isProjected(name))).toEqual(
+        CORPUS.map((t) => `${t.id}.md`).sort(),
+      )
       expect(existsSync(configPath(live))).toBe(true)
       expect(existsSync(path.join(corpusDir(live), 'index'))).toBe(false)
       expect(existsSync(path.join(corpusDir(live), 'chunks'))).toBe(false)
@@ -687,10 +693,13 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
     // array alone would leave the reason — and the line's conditional emission —
     // unproven, which is the half an operator actually reads.
     await withRepoCorpus(async () => {
-      const excluded = await withStore(mixed, () => cli(['kb', 'export']))
+      const excluded = await withStore(paging(mixed), () => cli(['kb', 'export']))
 
       expect(excluded.code).toBeUndefined()
-      expect(excluded.out).toContain('not in the KB (no fields.system_kb):')
+      // The reason names the field and value that would admit them — the kind
+      // in force, never the retired boolean.
+      expect(excluded.out).toContain(`not in the KB (no ${KIND_FIELD}: ${MEMBER_KIND}):`)
+      expect(excluded.out).not.toContain('fields.system_kb')
       // Named individually, every one of them — not summarised, not truncated.
       for (const id of ['DOC-OUT1', 'DOC-OUT2', 'DOC-OUT3']) {
         expect(excluded.out).toContain(id)
@@ -700,7 +709,7 @@ describe('story-c4f329d3 — what the build refuses, reports and leaves alone', 
 
       // Nothing left out: the line is absent ENTIRELY. Not printed empty, not
       // printed as a zero — an operator should have nothing to go looking for.
-      const none = await withStore(CORPUS, () => cli(['kb', 'export']))
+      const none = await withStore(paging(CORPUS), () => cli(['kb', 'export']))
       expect(none.code).toBeUndefined()
       expect(none.out).toContain(`corpus: ${CORPUS.length} document(s)`)
       expect(none.out).not.toContain('not in the KB')
@@ -1255,19 +1264,19 @@ describe('story-c4f329d3 — what is in the knowledge base, and how it is read',
 // ── AC-1297: the real document store, exported and read back ─────────────────
 
 /**
- * One export of the REAL ticket store, asserted from two angles.
+ * One export of the REAL ticket store, read back.
  *
- * Deliberately not a fixture here: what is being tested is that OUR documents,
+ * Deliberately not only a fixture: what is being tested is that OUR documents,
  * as they actually are, survive the trip into the corpus format — and the
- * format's sharp edges are ones only real data reliably has. Reading the store
- * costs a minute, so both ACs share the one run rather than paying twice.
+ * format's sharp edges are ones only real data reliably has. (AC-1295's own
+ * real-store half lives with its seeded half above.)
  *
- * What the real store may NOT do is decide the verdict. How many documents are
- * opted in is data no branch controls, and it has already been zero once — which
- * turned the read-back assertions below into a loop over nothing that passed for
- * that reason. So each AC is proven over a SEEDED corpus, which cannot degrade,
- * and the real store is asserted for AGREEMENT — a property that holds at any
- * size, zero included, and would still catch a rule and an export disagreeing.
+ * What the real store may NOT do is decide the verdict. How many documents
+ * carry the membership kind is data no branch controls, and it is zero today —
+ * which would turn the read-back assertions below into a loop over nothing that
+ * passed for that reason. So the AC is proven over a SEEDED corpus, which cannot
+ * degrade, and the real store is asserted for a count round-trip — a property
+ * that holds at any size, zero included.
  */
 describe('story-c4f329d3 — the real document store, exported and read back', () => {
   let root: string
@@ -1279,55 +1288,6 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
   }, 300_000)
 
   afterAll(() => rmSync(root, { recursive: true, force: true }))
-
-  it('test_UAT_AC1295_only_a_genuine_boolean_true_opts_a_document_in', async () => {
-    // Strictly the boolean, and every other shape is out. A value that merely
-    // LOOKS like true is a document whose frontmatter did not parse the way its
-    // author assumed; admitting it would hide exactly the failure worth seeing,
-    // which is a document silently reaching a client-facing assistant.
-    expect(optedIn({ fields: { system_kb: true } })).toBe(true)
-    expect(optedIn({ fields: {} })).toBe(false)
-    expect(optedIn({})).toBe(false)
-    expect(optedIn({ fields: null })).toBe(false)
-    expect(optedIn({ fields: { system_kb: false } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 'true' } })).toBe(false)
-    expect(optedIn({ fields: { system_kb: 1 } })).toBe(false)
-
-    // The integration half, over a SEEDED store: each of the near-miss shapes
-    // above put on an actual document and run through the real export, so the
-    // rule is proven where it is applied and not only where it is defined. The
-    // seed cannot degrade to nothing, so this half is the one that carries the
-    // AC's weight.
-    await withRoot(async (scratch) => {
-      const seeded = await withStore(
-        [
-          ticket('DOC-IN', 'Genuinely opted in', '# In', { system_kb: true }),
-          ticket('DOC-STR', 'The string true', '# Out', { system_kb: 'true' }),
-          ticket('DOC-ONE', 'The number one', '# Out', { system_kb: 1 }),
-          ticket('DOC-FALSE', 'Explicitly false', '# Out', { system_kb: false }),
-          ticket('DOC-NONE', 'No opt-in at all', '# Out', {}),
-        ],
-        () => exportCorpus(scratch),
-      )
-
-      expect(seeded.docs.map((d) => d.id)).toEqual(['DOC-IN'])
-      expect(seeded.skipped.sort()).toEqual(['DOC-FALSE', 'DOC-NONE', 'DOC-ONE', 'DOC-STR'])
-      expect(corpusFiles(scratch)).toEqual(['DOC-IN.md'])
-    })
-
-    // …and against the real store, AGREEMENT: what the export produced is
-    // exactly what the rule selects — nothing silently added, nothing silently
-    // dropped, and no excluded document with a file in the corpus. This holds at
-    // any corpus size, so live data cannot turn it red or make it vacuous.
-    const shouldBeIn = tickets.filter(optedIn).map((t) => t.id).sort()
-    const shouldBeOut = tickets.filter((t) => !optedIn(t)).map((t) => t.id).sort()
-
-    expect(exported.docs.map((d) => d.id).sort()).toEqual(shouldBeIn)
-    expect(exported.skipped).toEqual(shouldBeOut)
-
-    const onDisk = corpusFiles(root)
-    for (const id of shouldBeOut) expect(onDisk).not.toContain(`${id}.md`)
-  }, 300_000)
 
   it('test_UAT_AC1297_a_document_is_addressed_by_its_human_id_and_reads_back_as_a_document', async () => {
     // The address is the HUMAN ID, never the title: a retitled document must
@@ -1341,10 +1301,10 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
     // passing suite.
     await withRoot(async (scratch) => {
       const seeded = await withStore(
-        [
+        paging([
           ticket('DOC-901', 'Addressed by its id', '# One\n\nBody text.'),
           ticket('DOC-902', 'And so is this one', '# Two\n\nMore body text.'),
-        ],
+        ]),
         () => exportCorpus(scratch),
       )
       expect(seeded.docs.length).toBe(2)
@@ -1363,11 +1323,13 @@ describe('story-c4f329d3 — the real document store, exported and read back', (
     })
 
     // The same properties over the real corpus — every document actually
-    // exported reads back as a document, and the count round-trips.
+    // exported reads back as a document, and the count round-trips. No
+    // non-empty floor here: how many real documents carry the membership kind
+    // is curation state (none, until xgd's `doc_kind` enum ships the value —
+    // REQ-164), and the seeded half above is what guards against vacuity.
     const store = new DocDirStore(nodeDocReader(corpusDir(root)), { type: 'doc' })
     const { tickets: readBack } = await store.query({ type: 'doc' })
 
-    expect(readBack.length).toBeGreaterThan(0)
     expect(readBack.length).toBe(exported.docs.length)
     for (const doc of readBack) {
       expect(doc.uid).toMatch(/^[A-Z]+-\d+$/)
