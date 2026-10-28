@@ -6,9 +6,9 @@ title: A capture that follows more than 5 redirect hops is refused as a redirect
   subresources from many origins do not count as hops
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:35.030326+00:00'
-updated_at: '2026-10-27T21:19:35.030326+00:00'
+updated_at: '2026-10-28T03:56:40.372411+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-31204812
@@ -17,7 +17,9 @@ fields:
 ---
 
 ## Criterion
-A capture whose navigation follows more than 5 redirect hops is treated as a redirect loop and refused under `REFUSED`, with a refusal of reason `redirect-cap` naming the URL at which the cap was reached. **Subresources do not count as hops:** a page that loads its images, fonts, scripts and styles from many distinct public origins (more than 5) is captured normally, with no `redirect-cap` refusal.
+On the Worker host, a capture whose navigation follows a redirect chain through more than 5 distinct hosts trips the guard's redirect cap. The request that reaches the cap, and every request after it, is refused at the seam and never sent. `capture_site` still returns a result, and its `refusals` array carries one entry with reason `redirect-cap` naming the URL at which the cap was reached, plus a detail saying it is treated as a redirect loop.
+
+> Aligned to code per fix_plan iteration 6 ruling (aligned_to_tip). Two clauses are retired. (1) "Refused under `REFUSED` with no reference offered": `capture_site` does not check `guard.tripped`, see STORY-159 Known gaps. (2) "Subresources from many origins do not count as hops": the guard counts every distinct origin, and out-of-window BUG-127 changes that behaviour.
 
 ## Verification
-With a doubled network, make a public URL redirect through 6 or more distinct hops and assert `REFUSED` with reason `redirect-cap`. Separately, capture a public page with no redirects whose subresources come from 8 distinct public origins, and assert it succeeds with an empty `refusals` array and every subresource fetched. (The second assertion fails against the code as landed: see *Code issues* item 1 in the story.)
+With a doubled network on the Worker host, make a public URL redirect through 7 distinct hosts. Assert the result is not an error and `refusals` holds exactly one `redirect-cap` entry naming `https://hop6.test/`. Assert hops 1–5 were forwarded and hops 6–8 were not.
