@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-31204812'
 created_by: xgd
 created_at: '2026-10-28T03:50:59.225690+00:00'
-updated_at: '2026-10-28T03:54:00.466339+00:00'
+updated_at: '2026-10-28T04:02:36.200871+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -142,6 +142,7 @@ fields:
         ticket: REQ-157
         sentence: '`capture_site` is refused for private address space, over-large
           responses and redirect loops;'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 6
