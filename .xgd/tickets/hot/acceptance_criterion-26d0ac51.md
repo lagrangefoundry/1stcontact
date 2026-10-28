@@ -6,9 +6,9 @@ title: In both hosts a capture over 32 MiB or 60 seconds is abandoned and refuse
   sends no further request and offers no reference
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:41.555274+00:00'
-updated_at: '2026-10-27T21:19:41.555274+00:00'
+updated_at: '2026-10-28T03:56:41.733349+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-31204812
@@ -17,7 +17,9 @@ fields:
 ---
 
 ## Criterion
-In both the Worker and the Node host, a capture whose responses together exceed 32 MiB is abandoned and refused under `REFUSED`, with a refusal of reason `response-cap`. A capture that runs longer than 60 seconds wall-clock is abandoned and reported as failed, naming the time limit. Either way, once a budget is exhausted no further request is sent, and no reference is offered as the capture: `capture_site` returns no bundle name, and nothing new appears in `list_references` as a usable capture of that address.
+On the Worker host (Browser Rendering), the driver records each network-served response body's size against the capture's egress guard. Once responses together exceed 32 MiB, the guard trips with a refusal of reason `response-cap` (url `(total)`), and every later request the page makes is refused at the seam and never sent. `capture_site` still returns the bundle, with the trip listed in its `refusals`.
+
+> Aligned to code per fix_plan iteration 6 ruling (aligned_to_tip). Three clauses are retired and recorded as STORY-159 Known gaps: (1) the 60 s wall-clock ceiling (`MAX_CAPTURE_MS` is declared but applied nowhere); (2) the Node host byte cap (the Playwright driver never records bytes); (3) "refused under `REFUSED`, no reference offered" (`capture_site` does not check `guard.tripped`). Out-of-window BUG-172 later removes the byte cap.
 
 ## Verification
-For each host's guarded driver with a doubled network: serve a page whose resources total more than 32 MiB and assert `REFUSED` with `response-cap`, that no later request was forwarded, and that `list_references` is unchanged. Serve a page that never reaches network idle and assert the capture ends within the time limit with an error naming it. (This fails against the code as landed: see *Code issues* items 2–4 in the story.)
+With the Worker host's guarded driver and a doubled network, serve a page whose first image is 33 MiB and whose second image follows it. Assert the result is not an error, `refusals` contains the `response-cap` entry, the large image was forwarded, the following image was not, and the bundle appears in `list_references`.
