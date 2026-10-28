@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-09-19T15:03:27.070181+00:00'
+updated_at: '2026-10-28T04:09:34.489725+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -40,7 +40,16 @@ In scope:
 
 - **Asking what the assistant is** — the role on offer and whether it can run
   right now, answerable without opening a conversation at all, so a caller can
-  say what is missing before it starts one.
+  say what is missing before it starts one. The one role on offer is the
+  **consultant**, and that is the only name the host ever reports or records.
+- **Who the assistant is told it is** — a consultant working on a site its
+  *client* owns, engaged for judgement and not only for hands: told to form a
+  view and state it, to say when what the client asked for would make the site
+  worse, and never to build past an open question and leave it unmade — while
+  the closed-vocabulary constraint (no HTML, CSS or JavaScript; a malformed
+  change is refused whole) is carried unchanged. A conversation begun under the
+  role's former name is still the same conversation: it reopens with its turns
+  and keeps working, and nothing is ever written under the old name again.
 - **Opening a conversation for a site** — the one and only point at which a site
   becomes a conversation. It answers with an identifier for that conversation,
   the turns already spoken, and whether a turn can be run (and why not). Opening
@@ -330,7 +339,7 @@ Out of scope:
   raising it is withdrawn (re-checked 2026-09-19).** These criteria were written
   while the module that serves a turn would not compile, so the announcement they
   describe could not run: the turn's baseline was read from a binding REQ-160 had
-  removed, the caretaker's purpose was both imported and declared locally, and one
+  removed, the role's purpose was both imported and declared locally, and one
   knowledge module imported a name the other did not export. All three were
   repaired on this branch before the bundle closed, and the code now reads the
   turn's baseline from the site's own change count before the loop and advances it
@@ -581,7 +590,55 @@ panel can act on, emitted per write rather than once at the end of the turn".
   omission.** The intent notes that the assistant is told "the page the user is
   looking at re-renders after every change", and names that as part of the
   defect. The fix makes the sentence true instead of rewriting it, so no
-  criterion claims anything about the preamble's wording.
+  criterion claims anything about that sentence's wording. (REQ-174 later
+  rewrote the surrounding preamble and made "user" "client"; the re-render
+  sentence survives in substance, and this decision still holds for it.)
+
+Decisions taken on **2026-10-27** while reconciling BUNDLE-32 (REQ-174). The
+intent renames the role caretaker → consultant because the name is the first
+thing the model reads about itself and sets its register; it rewrites the
+preamble to an advisory posture, and decides the stored-name question as
+*accept on read, no migration*.
+
+- **The preamble's wording becomes a criterion, reversing the BUNDLE-27 stance
+  for this one property.** BUNDLE-27 claimed nothing about the preamble because
+  its intent fixed behaviour rather than words. REQ-174's intent *is* the words:
+  it names three things the preamble must tell the assistant (form and state a
+  view; say when a request would make the site worse; never build past an open
+  question) and one thing it must keep (the closed-vocabulary constraint). The
+  criterion is asserted on the system text the model actually receives from the
+  real host, not on the constant, because only the former is what the model
+  reads.
+- **AC-1051 is sharpened to name the role, rather than a second criterion added
+  for the name.** "The one role on offer" was always the property; what REQ-174
+  adds is which name that is and that it is the *only* name reported. The archive
+  header, the grant and the corpus purpose are a separate criterion, because they
+  are where the name is durable and fail independently of what the host says.
+- **Legacy reopen is claimed as a working session, not merely an opened one.**
+  The intent's own evidence is "reopens with its turns intact and takes another
+  turn that reaches the tools and changes the site". A criterion that stopped at
+  "opens" would pass on a session that resolved the name and then could not
+  construct a toolbox. It is evidenced on the operator's host, whose file archive
+  is the durable copy a restart reads; the intent states the alias behaves
+  identically for the junction and the store-backed archive because the stored
+  name is resolved by the same lookup, so the criterion is written
+  host-neutrally.
+- **No migration criterion, and none of the opposite.** The intent decides that
+  nothing is rewritten and nothing is written under the legacy name; the
+  criterion carries the second half as an observable and claims nothing about
+  converting old archives.
+- **The straggler guard's exclusions are formalised beyond what the intent
+  lists.** The intent excludes `kb/` and `generated/` (the system knowledge base,
+  rebuilt from the ticket store). The guard as built also skips `storage/` —
+  stored conversations this rename deliberately does not migrate, which the
+  accept-on-read decision makes necessary — plus dependency and build output,
+  dot-directories (the ticket store and runtime caches), and files that are not
+  source or documentation types. Formalised now because each exclusion follows
+  from a decision the intent did make; the criterion states them as categories
+  rather than as a directory list.
+- **The historical architecture documents are not touched.** The intent places
+  the titles of DOC-4 and DOC-5 out of scope; they live in the ticket store,
+  which the guard does not scan, so no criterion needs an exception for them.
 
 ## Dependencies
 
