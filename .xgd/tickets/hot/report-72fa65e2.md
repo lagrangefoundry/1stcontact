@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-28T20:24:17.336737+00:00'
+updated_at: '2026-10-28T20:55:28.811165+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -375,7 +375,7 @@ fields:
         refused naming the token as required and the account id as an optional override;
         the usage text says the same'
       remove: []
-    story_uid: null
+    story_uid: story-c4f329d3
   - index: 9
     component: '1c CLI: raw-server hosting path discontinued'
     item_type: upgrade
