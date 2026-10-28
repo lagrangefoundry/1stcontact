@@ -6,7 +6,7 @@ title: Indexing is refused without the API token, naming it as required and the 
   id as an optional override; the map's prose needs none
 created_by: xgd
 created_at: '2026-08-20T04:17:12.140009+00:00'
-updated_at: '2026-10-28T20:54:56.976274+00:00'
+updated_at: '2026-10-28T20:55:05.350892+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -15,8 +15,6 @@ fields:
   kind: behavior
   regression_only: false
   uat_coverage: pass
-  title: Indexing is refused without the API token, naming it as required and the
-    account id as an optional override; the map's prose needs none
 ---
 
 ## Criterion
