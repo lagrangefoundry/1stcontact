@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-27T21:20:21.890163+00:00'
+updated_at: '2026-10-28T04:10:47.847205+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -334,7 +334,7 @@ fields:
       modify:
       - 'AC-1051 (acceptance_criterion-fe61861f): the one role on offer is named `consultant`'
       remove: []
-    story_uid: null
+    story_uid: story-a58a0974
   - index: 8
     component: 'System knowledge base build: account discovery'
     item_type: upgrade
