@@ -5,10 +5,10 @@ type: request
 title: Discontinue the raw-server hosting path (1c serve)
 created_by: xgd
 created_at: '2026-09-02T23:06:22.597809+00:00'
-updated_at: '2026-10-25T22:19:55.558862+00:00'
-completed_at: null
+updated_at: '2026-10-30T21:51:39.059020+00:00'
+completed_at: '2026-10-30T21:51:39.059020+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 2
