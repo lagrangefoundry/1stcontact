@@ -138,6 +138,14 @@ export function isContentBlocks(value: unknown): value is ContentBlock[] {
  * be blocks carrying an image; anything else (including every refusal) is
  * handed back as `null`. The scan is bracket-based, not keyed to the provenance
  * markers' spelling, which are the component's to change.
+ *
+ * The frame is kept. Whatever the rendering put before the array and after it —
+ * the untrusted-content markers, for an `untrusted` operation — is carried onto
+ * the recovered blocks: the leading text joins the front of the first block when
+ * that block is text and becomes its own block otherwise, and the trailing text
+ * likewise joins the end of the last. A picture of a third party's page is third
+ * party content, and recovering it as blocks must not be the step that stops
+ * saying so. An unframed rendering comes back exactly as the blocks it holds.
  */
 export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
   if (typeof payload !== 'string') return null
@@ -151,7 +159,23 @@ export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
     return null
   }
   if (!isContentBlocks(parsed)) return null
-  return parsed.some((block) => block.type === 'image') ? parsed : null
+  if (!parsed.some((block) => block.type === 'image')) return null
+
+  const leading = payload.slice(0, open)
+  const trailing = payload.slice(close + 1)
+  const blocks: ContentBlock[] = [...parsed]
+  if (leading) {
+    const first = blocks[0]
+    if (first.type === 'text') blocks[0] = { type: 'text', text: leading + first.text }
+    else blocks.unshift({ type: 'text', text: leading })
+  }
+  if (trailing) {
+    const at = blocks.length - 1
+    const last = blocks[at]
+    if (last.type === 'text') blocks[at] = { type: 'text', text: last.text + trailing }
+    else blocks.push({ type: 'text', text: trailing })
+  }
+  return blocks
 }
 
 /**
