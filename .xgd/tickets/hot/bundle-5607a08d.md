@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-30T20:46:35.557140+00:00'
+updated_at: '2026-10-30T20:52:48.308671+00:00'
 completed_at: null
-last_field_updated: regression_anchor_uid
+last_field_updated: session_builder
 status: error
 fields:
   bundle_type: reconcile
@@ -297,8 +297,8 @@ fields:
     - tools/generate/src/cli/capture/cf-driver.ts:231-232
     - tools/generate/src/cli/capture/cf-driver.ts:280-280
   regression_anchor_uid: report-00553335
-  session_builder: effd1213-ae7b-43f9-a410-96df21c1a415
-  session_builder_started_at: '2026-10-30T19:39:27.671203+00:00'
+  session_builder: 50722a79-7c2b-4852-80d7-ed3c1fee03a7
+  session_builder_started_at: '2026-10-30T20:52:47.726470+00:00'
 result: fail
 ---
 
