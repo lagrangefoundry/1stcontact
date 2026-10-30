@@ -5,7 +5,7 @@ type: bug
 title: 'Chat upload: a file dropped on "Put it on the site" is unusable to the assistant'
 created_by: xgd
 created_at: '2026-09-01T22:31:24.397792+00:00'
-updated_at: '2026-10-30T21:51:50.595851+00:00'
+updated_at: '2026-10-30T21:51:54.093867+00:00'
 completed_at: '2026-10-30T21:51:50.595851+00:00'
 last_field_updated: status
 status: free_and_reconciled
