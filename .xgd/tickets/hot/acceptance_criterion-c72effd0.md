@@ -6,9 +6,9 @@ title: 'A Library row lays out on one line: icon, a 13px title that takes the re
   space and truncates, then pills that never wrap or shrink'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:39:01.939721+00:00'
-updated_at: '2026-10-26T02:01:00.317841+00:00'
+updated_at: '2026-10-30T20:06:03.830844+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-1500b111
@@ -36,6 +36,10 @@ Specifically:
 ## Verification
 
 Layout is asserted through the stylesheet contract that produces it (a DOM without a layout
-engine measures no boxes): the row is a row-axis flex container; the title is allowed to grow
+engine measures no boxes), reading every stylesheet block that styles each element rather than
+the first one found: the row is a row-axis flex container; the title is allowed to grow
 and shrink with a zero minimum width, is 13px, does not wrap and ellipses on overflow; the icon
-and the pill strip do not flex and the pill strip does not wrap.
+and the pill strip do not flex and the pill strip does not wrap — and no other block for the
+same element declares a conflicting value. Order along the axis is the DOM's, so mount the
+Library and assert every row's content is, in order, the icon, the title, then the pill strip,
+with every pill inside that strip.
