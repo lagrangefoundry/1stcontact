@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-10-30T21:56:05.817328+00:00",
-  "ticket_count": 676,
+  "ticket_count": 716,
   "rebuild_epoch": 1793397358.6132421,
   "tickets": {
     "report-4393e3ba": {
@@ -8961,6 +8961,569 @@
         "subject_uid": "standalone",
         "report_kind": "quality"
       }
+    },
+    "report-62b8387c": {
+      "id": "REPORT-792",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:11.748748+00:00",
+      "created_at": "2026-10-30T21:56:11.748748+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Capture-to-L1 Reproduction Fold (level=uat)",
+      "fields": {
+        "subject_uid": "capability-2049c9ec",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-639ccff9": {
+      "id": "REPORT-684",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:11.863712+00:00",
+      "created_at": "2026-10-30T21:56:11.863712+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: ec2ce07d2c17f5f55f1b338fd69e5f626087b887",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-63c315e2": {
+      "id": "REPORT-763",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:11.977580+00:00",
+      "created_at": "2026-10-30T21:56:11.977580+00:00",
+      "completed_at": null,
+      "title": "Scoped quality: pass (48 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-7",
+        "report_kind": "quality"
+      }
+    },
+    "report-64fc6897": {
+      "id": "REPORT-628",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.095267+00:00",
+      "created_at": "2026-10-30T21:56:12.095267+00:00",
+      "completed_at": null,
+      "title": "Test Naming Check: story-16f2793c (skipped - no test files)",
+      "fields": {
+        "subject_uid": "story-16f2793c",
+        "report_kind": "test_naming_check"
+      }
+    },
+    "report-65031253": {
+      "id": "REPORT-838",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.259162+00:00",
+      "created_at": "2026-10-30T21:56:12.259162+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Size-Aware Diffing (level=ac)",
+      "fields": {
+        "subject_uid": "capability-18a822ac",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-6522683a": {
+      "id": "REPORT-894",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.381200+00:00",
+      "created_at": "2026-10-30T21:56:12.381200+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Values-Diff Fidelity (level=uat)",
+      "fields": {
+        "subject_uid": "capability-aa030c83",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-671fc3ca": {
+      "id": "REPORT-667",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.506027+00:00",
+      "created_at": "2026-10-30T21:56:12.506027+00:00",
+      "completed_at": null,
+      "title": "Report: quality for standalone",
+      "fields": {
+        "subject_uid": "standalone",
+        "report_kind": "quality"
+      }
+    },
+    "report-672d986b": {
+      "id": "REPORT-570",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.627984+00:00",
+      "created_at": "2026-10-30T21:56:12.627984+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-675d64b6": {
+      "id": "REPORT-967",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.750202+00:00",
+      "created_at": "2026-10-30T21:56:12.750202+00:00",
+      "completed_at": null,
+      "title": "Scoped quality: pass (17 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "report-2ec962f5",
+        "report_kind": "quality"
+      }
+    },
+    "report-68294841": {
+      "id": "REPORT-676",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:12.908570+00:00",
+      "created_at": "2026-10-30T21:56:12.908570+00:00",
+      "completed_at": null,
+      "title": "Scoped quality: pass (51 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "report-0e82c093",
+        "report_kind": "quality"
+      }
+    },
+    "report-687c4cfb": {
+      "id": "REPORT-840",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:13.028110+00:00",
+      "created_at": "2026-10-30T21:56:13.028110+00:00",
+      "completed_at": null,
+      "title": "Fix 1c Size-Aware Diffing (uat) \u2014 attempt 1",
+      "fields": {
+        "subject_uid": "capability-18a822ac",
+        "report_kind": "fix_structural_validation",
+        "level": "uat",
+        "needs_more_work": false,
+        "progress_made": true
+      }
+    },
+    "report-68aec00f": {
+      "id": "REPORT-1032",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.147390+00:00",
+      "created_at": "2026-10-30T21:56:13.147390+00:00",
+      "completed_at": null,
+      "title": "Report: reconciliation_test for story-e15a19ef",
+      "fields": {
+        "subject_uid": "story-e15a19ef",
+        "report_kind": "reconciliation_test"
+      }
+    },
+    "report-6992c381": {
+      "id": "REPORT-843",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.266764+00:00",
+      "created_at": "2026-10-30T21:56:13.266764+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Gradient Fidelity (level=story)",
+      "fields": {
+        "subject_uid": "capability-36dd68c5",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-69a40af0": {
+      "id": "REPORT-1017",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.387665+00:00",
+      "created_at": "2026-10-30T21:56:13.387665+00:00",
+      "completed_at": null,
+      "title": "Report: reconciliation_test for story-d0a8cfad",
+      "fields": {
+        "subject_uid": "story-d0a8cfad",
+        "report_kind": "reconciliation_test"
+      }
+    },
+    "report-69b5a4ce": {
+      "id": "REPORT-594",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.544793+00:00",
+      "created_at": "2026-10-30T21:56:13.544793+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-6a03d263": {
+      "id": "REPORT-916",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.664687+00:00",
+      "created_at": "2026-10-30T21:56:13.664687+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Framework Absolute-or-Overlay Value System (level=uat)",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-6bf7df2a": {
+      "id": "REPORT-706",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.785037+00:00",
+      "created_at": "2026-10-30T21:56:13.785037+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-7",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-7",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-6c064f21": {
+      "id": "REPORT-1057",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:13.907275+00:00",
+      "created_at": "2026-10-30T21:56:13.907275+00:00",
+      "completed_at": null,
+      "title": "Sync-main review: reconcile-BUNDLE-8",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-8",
+        "report_kind": "sync_main_review"
+      }
+    },
+    "report-6c43de44": {
+      "id": "REPORT-636",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:14.028685+00:00",
+      "created_at": "2026-10-30T21:56:14.028685+00:00",
+      "completed_at": null,
+      "title": "Test Naming Check: story-2c7069fe (skipped - no test files)",
+      "fields": {
+        "subject_uid": "story-2c7069fe",
+        "report_kind": "test_naming_check"
+      }
+    },
+    "report-6d59c91e": {
+      "id": "REPORT-859",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:14.187481+00:00",
+      "created_at": "2026-10-30T21:56:14.187481+00:00",
+      "completed_at": null,
+      "title": "Report: fix_plan for 973fcaec",
+      "fields": {
+        "subject_uid": "973fcaec",
+        "report_kind": "fix_plan",
+        "batches_pending": false
+      }
+    },
+    "report-6ddc3b71": {
+      "id": "REPORT-828",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:14.306364+00:00",
+      "created_at": "2026-10-30T21:56:14.306364+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Framework Absolute-or-Overlay Value System (level=ac)",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-6f832c57": {
+      "id": "REPORT-735",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:14.426516+00:00",
+      "created_at": "2026-10-30T21:56:14.426516+00:00",
+      "completed_at": null,
+      "title": "Test Naming Check: story-24098299 (skipped - no test files)",
+      "fields": {
+        "subject_uid": "story-24098299",
+        "report_kind": "test_naming_check"
+      }
+    },
+    "report-6fabc8f1": {
+      "id": "REPORT-781",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:14.545554+00:00",
+      "created_at": "2026-10-30T21:56:14.545554+00:00",
+      "completed_at": null,
+      "title": "Overlap resolution: cluster done",
+      "fields": {
+        "subject_uid": "report-9260fc31",
+        "report_kind": "overlap_resolution"
+      }
+    },
+    "report-710d42c0": {
+      "id": "REPORT-648",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:14.664356+00:00",
+      "created_at": "2026-10-30T21:56:14.664356+00:00",
+      "completed_at": null,
+      "title": "Claude reconciliation_uat_generation report",
+      "fields": {
+        "subject_uid": "story-c490f1cf",
+        "report_kind": "reconciliation_uat_generation"
+      }
+    },
+    "report-72e4f4b3": {
+      "id": "REPORT-827",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:14.823640+00:00",
+      "created_at": "2026-10-30T21:56:14.823640+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Framework Absolute-or-Overlay Value System (level=story)",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-73343321": {
+      "id": "REPORT-823",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-10-30T21:56:14.950374+00:00",
+      "created_at": "2026-10-30T21:56:14.950374+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Framework Absolute-or-Overlay Value System (level=story)",
+      "fields": {
+        "subject_uid": "capability-6e088083",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 1,
+        "needs_review_count": 0
+      }
+    },
+    "report-73ace293": {
+      "id": "REPORT-871",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:15.080260+00:00",
+      "created_at": "2026-10-30T21:56:15.080260+00:00",
+      "completed_at": null,
+      "title": "Claude structural_rebalance report",
+      "fields": {
+        "subject_uid": "report-b1a287b0",
+        "report_kind": "structural_rebalance"
+      }
+    },
+    "report-73fa3cc3": {
+      "id": "REPORT-883",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:15.205064+00:00",
+      "created_at": "2026-10-30T21:56:15.205064+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: f72504735d5405af1376d8b1ddd218c0bc1ba4ea",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-7497dd74": {
+      "id": "REPORT-650",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:15.334058+00:00",
+      "created_at": "2026-10-30T21:56:15.334058+00:00",
+      "completed_at": null,
+      "title": "Report: reconciliation_test for story-c490f1cf",
+      "fields": {
+        "subject_uid": "story-c490f1cf",
+        "report_kind": "reconciliation_test"
+      }
+    },
+    "report-74a1c1ed": {
+      "id": "REPORT-964",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:15.500421+00:00",
+      "created_at": "2026-10-30T21:56:15.500421+00:00",
+      "completed_at": null,
+      "title": "Scoped quality: pass (17 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "report-2ec962f5",
+        "report_kind": "quality"
+      }
+    },
+    "report-74d0d077": {
+      "id": "REPORT-668",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:15.622448+00:00",
+      "created_at": "2026-10-30T21:56:15.622448+00:00",
+      "completed_at": null,
+      "title": "Claude batch_fix_assessment report",
+      "fields": {
+        "subject_uid": "report-0e82c093",
+        "report_kind": "batch_fix_assessment",
+        "parent_report_uid": "report-b75b74eb",
+        "batch_index": "0"
+      }
+    },
+    "report-751ffa7c": {
+      "id": "REPORT-679",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:15.747250+00:00",
+      "created_at": "2026-10-30T21:56:15.747250+00:00",
+      "completed_at": null,
+      "title": "Resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-75aece48": {
+      "id": "REPORT-790",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:15.873615+00:00",
+      "created_at": "2026-10-30T21:56:15.873615+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Capture-to-L1 Reproduction Fold (level=story)",
+      "fields": {
+        "subject_uid": "capability-2049c9ec",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-75d9b744": {
+      "id": "REPORT-808",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T21:56:16.002586+00:00",
+      "created_at": "2026-10-30T21:56:16.002586+00:00",
+      "completed_at": null,
+      "title": "Fix Framework Responsive Per-Breakpoint Dials (story) \u2014 attempt 1",
+      "fields": {
+        "subject_uid": "capability-bd0b722e",
+        "report_kind": "fix_structural_validation",
+        "level": "story",
+        "needs_more_work": false,
+        "progress_made": true
+      }
+    },
+    "report-77a13f69": {
+      "id": "REPORT-975",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:16.169177+00:00",
+      "created_at": "2026-10-30T21:56:16.169177+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: 006568bd9e49cc7323728e278446fbe1f1e9b96b",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-77eb6a65": {
+      "id": "REPORT-836",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-10-30T21:56:16.297942+00:00",
+      "created_at": "2026-10-30T21:56:16.297942+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Size-Aware Diffing (level=ac)",
+      "fields": {
+        "subject_uid": "capability-18a822ac",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 1,
+        "needs_review_count": 0
+      }
+    },
+    "report-78100001": {
+      "id": "REPORT-759",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:16.425487+00:00",
+      "created_at": "2026-10-30T21:56:16.425487+00:00",
+      "completed_at": null,
+      "title": "Reconciliation Review: commits (BUNDLE-7 framework pivot + values-diff coverage)",
+      "fields": {
+        "subject_uid": "bundle-31e474b9",
+        "report_kind": "reconciliation_review",
+        "anchor_uid": "bundle-31e474b9"
+      }
+    },
+    "report-7a00f640": {
+      "id": "REPORT-599",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:16.550265+00:00",
+      "created_at": "2026-10-30T21:56:16.550265+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-7a858346": {
+      "id": "REPORT-844",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:16.678506+00:00",
+      "created_at": "2026-10-30T21:56:16.678506+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Gradient Fidelity (level=ac)",
+      "fields": {
+        "subject_uid": "capability-36dd68c5",
+        "report_kind": "capability_validation",
+        "level": "ac",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-7b55af91": {
+      "id": "REPORT-1008",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-10-30T21:56:16.840784+00:00",
+      "created_at": "2026-10-30T21:56:16.840784+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: c205486e37a108411ebc7b765232f40376103517",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
     }
   },
   "by_type": {
@@ -9163,7 +9726,47 @@
       "report-e2450bdb",
       "report-e5f4cfb9",
       "report-f4befb40",
-      "report-fce6fcb0"
+      "report-fce6fcb0",
+      "report-62b8387c",
+      "report-639ccff9",
+      "report-63c315e2",
+      "report-64fc6897",
+      "report-65031253",
+      "report-6522683a",
+      "report-671fc3ca",
+      "report-672d986b",
+      "report-675d64b6",
+      "report-68294841",
+      "report-687c4cfb",
+      "report-68aec00f",
+      "report-6992c381",
+      "report-69a40af0",
+      "report-69b5a4ce",
+      "report-6a03d263",
+      "report-6bf7df2a",
+      "report-6c064f21",
+      "report-6c43de44",
+      "report-6d59c91e",
+      "report-6ddc3b71",
+      "report-6f832c57",
+      "report-6fabc8f1",
+      "report-710d42c0",
+      "report-72e4f4b3",
+      "report-73343321",
+      "report-73ace293",
+      "report-73fa3cc3",
+      "report-7497dd74",
+      "report-74a1c1ed",
+      "report-74d0d077",
+      "report-751ffa7c",
+      "report-75aece48",
+      "report-75d9b744",
+      "report-77a13f69",
+      "report-77eb6a65",
+      "report-78100001",
+      "report-7a00f640",
+      "report-7a858346",
+      "report-7b55af91"
     ],
     "chat": [
       "chat-05ff1029",
@@ -9669,18 +10272,22 @@
         "report-0ff71924",
         "report-3387663c",
         "report-3af26f3b",
-        "report-3c651178"
+        "report-3c651178",
+        "report-75d9b744"
       ],
       "report-b1a287b0": [
         "report-441ee2ba",
         "report-4441e33f",
-        "report-261c8f20"
+        "report-261c8f20",
+        "report-73ace293"
       ],
       "capability-2049c9ec": [
         "report-456b5fa9",
         "report-01a7f3a5",
         "report-2fa04f75",
-        "report-363bebd0"
+        "report-363bebd0",
+        "report-62b8387c",
+        "report-75aece48"
       ],
       "capability-ae9d65d6": [
         "report-457570e0",
@@ -9705,11 +10312,16 @@
         "report-1822d065",
         "report-18a83873",
         "report-351d42ee",
-        "report-3d84eca7"
+        "report-3d84eca7",
+        "report-672d986b",
+        "report-69b5a4ce",
+        "report-751ffa7c",
+        "report-7a00f640"
       ],
       "story-d0a8cfad": [
         "report-46ae5779",
-        "report-1603e7c6"
+        "report-1603e7c6",
+        "report-69a40af0"
       ],
       "report-510318c4": [
         "report-49a16eae",
@@ -9742,7 +10354,11 @@
         "report-3aa677ff",
         "report-3b449b1d",
         "report-3f7139c6",
-        "report-3fa8537f"
+        "report-3fa8537f",
+        "report-639ccff9",
+        "report-73fa3cc3",
+        "report-77a13f69",
+        "report-7b55af91"
       ],
       "capability-ac7ca849": [
         "report-4aadf2dc",
@@ -9754,7 +10370,10 @@
         "report-4b6f95cb",
         "report-52779898",
         "report-2ad1101c",
-        "report-31c711c0"
+        "report-31c711c0",
+        "report-65031253",
+        "report-687c4cfb",
+        "report-77eb6a65"
       ],
       "bundle-31e474b9": [
         "report-4bd20de6",
@@ -9764,7 +10383,8 @@
         "report-18c955a5",
         "report-21e447e7",
         "report-24f82e07",
-        "report-39d09a9a"
+        "report-39d09a9a",
+        "report-78100001"
       ],
       "f5e08d21": [
         "report-4d618001",
@@ -9777,10 +10397,13 @@
       ],
       "story-24098299": [
         "report-5264edcf",
-        "report-3eae161a"
+        "report-3eae161a",
+        "report-6f832c57"
       ],
       "report-0e82c093": [
-        "report-53128f42"
+        "report-53128f42",
+        "report-68294841",
+        "report-74d0d077"
       ],
       "capability-6e088083": [
         "report-532c4174",
@@ -9789,7 +10412,11 @@
         "report-61922366",
         "report-028a669f",
         "report-0b25225c",
-        "report-1956d8ad"
+        "report-1956d8ad",
+        "report-6a03d263",
+        "report-6ddc3b71",
+        "report-72e4f4b3",
+        "report-73343321"
       ],
       "973fcaec": [
         "report-5521c04f",
@@ -9799,15 +10426,19 @@
         "report-1275cebf",
         "report-21f5e08b",
         "report-33d3e92f",
-        "report-421a9711"
+        "report-421a9711",
+        "report-6d59c91e"
       ],
       "capability-aa030c83": [
         "report-599dc8fb",
         "report-5dbbbd44",
-        "report-0954436b"
+        "report-0954436b",
+        "report-6522683a"
       ],
       "report-2ec962f5": [
-        "report-5f904989"
+        "report-5f904989",
+        "report-675d64b6",
+        "report-74a1c1ed"
       ],
       "reconcile-BUNDLE-7": [
         "report-5ff635d8",
@@ -9816,7 +10447,9 @@
         "report-157a886c",
         "report-21f11ce7",
         "report-22f73ba6",
-        "report-338972d9"
+        "report-338972d9",
+        "report-63c315e2",
+        "report-6bf7df2a"
       ],
       "report-d99ae84f": [
         "comment-00c19b3b"
@@ -11134,10 +11767,13 @@
         "report-bde19699",
         "report-e2450bdb",
         "report-f4befb40",
-        "report-fce6fcb0"
+        "report-fce6fcb0",
+        "report-671fc3ca"
       ],
       "capability-36dd68c5": [
-        "report-03cac079"
+        "report-03cac079",
+        "report-6992c381",
+        "report-7a858346"
       ],
       "story-d5de22a5": [
         "report-03f0f316",
@@ -11148,7 +11784,8 @@
         "report-0a245f78"
       ],
       "reconcile-BUNDLE-8": [
-        "report-0cb6bd26"
+        "report-0cb6bd26",
+        "report-6c064f21"
       ],
       "regression-anchor": [
         "report-0e82c093",
@@ -11169,7 +11806,8 @@
       "report-9260fc31": [
         "report-17fad7e0",
         "report-2cbb7bba",
-        "report-30aeb6f9"
+        "report-30aeb6f9",
+        "report-6fabc8f1"
       ],
       "capability-938f26ec": [
         "report-1c976944",
@@ -11178,7 +11816,8 @@
       "story-e15a19ef": [
         "report-1efcd97c",
         "report-291fd3f8",
-        "report-34626008"
+        "report-34626008",
+        "report-68aec00f"
       ],
       "capability-ce902be4": [
         "report-2f16ce41",
@@ -11186,7 +11825,9 @@
         "report-320be0c7"
       ],
       "story-c490f1cf": [
-        "report-2f686536"
+        "report-2f686536",
+        "report-710d42c0",
+        "report-7497dd74"
       ],
       "STORY-81": [
         "report-35ff1577"
@@ -11196,11 +11837,18 @@
       ],
       "report-c6607526": [
         "report-41eb4861"
+      ],
+      "story-16f2793c": [
+        "report-64fc6897"
+      ],
+      "story-2c7069fe": [
+        "report-6c43de44"
       ]
     },
     "report_kind": {
       "reconciliation_review": [
-        "report-4393e3ba"
+        "report-4393e3ba",
+        "report-78100001"
       ],
       "fix_structural_validation": [
         "report-43adfdc1",
@@ -11208,13 +11856,16 @@
         "report-028a669f",
         "report-0eb88e8b",
         "report-0ff71924",
-        "report-3af26f3b"
+        "report-3af26f3b",
+        "report-687c4cfb",
+        "report-75d9b744"
       ],
       "overlap_resolution": [
         "report-441ee2ba",
         "report-17fad7e0",
         "report-261c8f20",
-        "report-2cbb7bba"
+        "report-2cbb7bba",
+        "report-6fabc8f1"
       ],
       "structural_health": [
         "report-4441e33f",
@@ -11248,7 +11899,18 @@
         "report-320be0c7",
         "report-3c651178",
         "report-3ec6a86f",
-        "report-41fd4e05"
+        "report-41fd4e05",
+        "report-62b8387c",
+        "report-65031253",
+        "report-6522683a",
+        "report-6992c381",
+        "report-6a03d263",
+        "report-6ddc3b71",
+        "report-72e4f4b3",
+        "report-73343321",
+        "report-75aece48",
+        "report-77eb6a65",
+        "report-7a858346"
       ],
       "test_naming_check": [
         "report-45c900c5",
@@ -11258,7 +11920,10 @@
         "report-2f686536",
         "report-30a41335",
         "report-34626008",
-        "report-3eae161a"
+        "report-3eae161a",
+        "report-64fc6897",
+        "report-6c43de44",
+        "report-6f832c57"
       ],
       "resolve_conflicts": [
         "report-463fd53d",
@@ -11312,7 +11977,16 @@
         "report-3d84eca7",
         "report-3e8c23b0",
         "report-3f7139c6",
-        "report-3fa8537f"
+        "report-3fa8537f",
+        "report-639ccff9",
+        "report-672d986b",
+        "report-69b5a4ce",
+        "report-6bf7df2a",
+        "report-73fa3cc3",
+        "report-751ffa7c",
+        "report-77a13f69",
+        "report-7a00f640",
+        "report-7b55af91"
       ],
       "reconciliation_test": [
         "report-46ae5779",
@@ -11323,7 +11997,10 @@
         "report-291fd3f8",
         "report-35ff1577",
         "report-3b832d95",
-        "report-3c3d6417"
+        "report-3c3d6417",
+        "report-68aec00f",
+        "report-69a40af0",
+        "report-7497dd74"
       ],
       "code_review": [
         "report-4924cc6b",
@@ -11382,14 +12059,20 @@
         "report-bde19699",
         "report-e2450bdb",
         "report-f4befb40",
-        "report-fce6fcb0"
+        "report-fce6fcb0",
+        "report-63c315e2",
+        "report-671fc3ca",
+        "report-675d64b6",
+        "report-68294841",
+        "report-74a1c1ed"
       ],
       "reconciliation_uat_generation": [
         "report-4d6afd8d",
         "report-0a245f78",
         "report-15642c30",
         "report-165d2688",
-        "report-20b985d0"
+        "report-20b985d0",
+        "report-710d42c0"
       ],
       "batch_quality_check": [
         "report-53128f42",
@@ -11400,13 +12083,16 @@
       "batch_fix_assessment": [
         "report-5521c04f",
         "report-1d22d7da",
-        "report-33d3e92f"
+        "report-33d3e92f",
+        "report-74d0d077"
       ],
       "fix_plan": [
-        "report-043e9a68"
+        "report-043e9a68",
+        "report-6d59c91e"
       ],
       "sync_main_review": [
-        "report-0768a263"
+        "report-0768a263",
+        "report-6c064f21"
       ],
       "revert_audit": [
         "report-0b9c64bd",
@@ -11441,6 +12127,9 @@
       "fix_reconciliation_review": [
         "report-24cc56f6",
         "report-41e0d140"
+      ],
+      "structural_rebalance": [
+        "report-73ace293"
       ]
     },
     "anchor_uid": {
@@ -11452,6 +12141,9 @@
       ],
       "bundle-ab9e0cb6": [
         "report-01eeef07"
+      ],
+      "bundle-31e474b9": [
+        "report-78100001"
       ]
     },
     "level": {
@@ -11475,7 +12167,12 @@
         "report-1956d8ad",
         "report-2ad1101c",
         "report-320be0c7",
-        "report-3af26f3b"
+        "report-3af26f3b",
+        "report-6992c381",
+        "report-72e4f4b3",
+        "report-73343321",
+        "report-75aece48",
+        "report-75d9b744"
       ],
       "ac": [
         "report-456b5fa9",
@@ -11484,7 +12181,11 @@
         "report-2fa04f75",
         "report-31d4da32",
         "report-3c651178",
-        "report-41fd4e05"
+        "report-41fd4e05",
+        "report-65031253",
+        "report-6ddc3b71",
+        "report-77eb6a65",
+        "report-7a858346"
       ],
       "uat": [
         "report-457570e0",
@@ -11493,7 +12194,11 @@
         "report-1c976944",
         "report-1d179736",
         "report-31c711c0",
-        "report-3ec6a86f"
+        "report-3ec6a86f",
+        "report-62b8387c",
+        "report-6522683a",
+        "report-687c4cfb",
+        "report-6a03d263"
       ]
     },
     "needs_more_work": {
@@ -11505,7 +12210,9 @@
       "false": [
         "report-61922366",
         "report-028a669f",
-        "report-0ff71924"
+        "report-0ff71924",
+        "report-687c4cfb",
+        "report-75d9b744"
       ]
     },
     "progress_made": {
@@ -11517,7 +12224,9 @@
       ],
       "true": [
         "report-61922366",
-        "report-0ff71924"
+        "report-0ff71924",
+        "report-687c4cfb",
+        "report-75d9b744"
       ]
     },
     "violations": {
@@ -11553,11 +12262,22 @@
         "report-363bebd0",
         "report-3c651178",
         "report-3ec6a86f",
-        "report-41fd4e05"
+        "report-41fd4e05",
+        "report-62b8387c",
+        "report-65031253",
+        "report-6522683a",
+        "report-6992c381",
+        "report-6a03d263",
+        "report-6ddc3b71",
+        "report-72e4f4b3",
+        "report-75aece48",
+        "report-7a858346"
       ],
       "1": [
         "report-1956d8ad",
-        "report-31c711c0"
+        "report-31c711c0",
+        "report-73343321",
+        "report-77eb6a65"
       ]
     },
     "needs_review_count": {
@@ -11593,7 +12313,18 @@
         "report-363bebd0",
         "report-3c651178",
         "report-3ec6a86f",
-        "report-41fd4e05"
+        "report-41fd4e05",
+        "report-62b8387c",
+        "report-65031253",
+        "report-6522683a",
+        "report-6992c381",
+        "report-6a03d263",
+        "report-6ddc3b71",
+        "report-72e4f4b3",
+        "report-73343321",
+        "report-75aece48",
+        "report-77eb6a65",
+        "report-7a858346"
       ],
       "1": [
         "report-02113cbd",
@@ -11602,7 +12333,8 @@
     },
     "parent_report_uid": {
       "report-b75b74eb": [
-        "report-53128f42"
+        "report-53128f42",
+        "report-74d0d077"
       ],
       "report-6d59c91e": [
         "report-5521c04f",
@@ -11625,7 +12357,8 @@
         "report-1275cebf",
         "report-1d22d7da",
         "report-21f5e08b",
-        "report-33d3e92f"
+        "report-33d3e92f",
+        "report-74d0d077"
       ]
     },
     "quality_fix_cycle": {
@@ -12115,7 +12848,8 @@
     },
     "batches_pending": {
       "false": [
-        "report-043e9a68"
+        "report-043e9a68",
+        "report-6d59c91e"
       ]
     },
     "intent_uid": {
@@ -12812,7 +13546,47 @@
     "REPORT-155": "report-e2450bdb",
     "REPORT-212": "report-e5f4cfb9",
     "REPORT-211": "report-f4befb40",
-    "REPORT-20": "report-fce6fcb0"
+    "REPORT-20": "report-fce6fcb0",
+    "REPORT-792": "report-62b8387c",
+    "REPORT-684": "report-639ccff9",
+    "REPORT-763": "report-63c315e2",
+    "REPORT-628": "report-64fc6897",
+    "REPORT-838": "report-65031253",
+    "REPORT-894": "report-6522683a",
+    "REPORT-667": "report-671fc3ca",
+    "REPORT-570": "report-672d986b",
+    "REPORT-967": "report-675d64b6",
+    "REPORT-676": "report-68294841",
+    "REPORT-840": "report-687c4cfb",
+    "REPORT-1032": "report-68aec00f",
+    "REPORT-843": "report-6992c381",
+    "REPORT-1017": "report-69a40af0",
+    "REPORT-594": "report-69b5a4ce",
+    "REPORT-916": "report-6a03d263",
+    "REPORT-706": "report-6bf7df2a",
+    "REPORT-1057": "report-6c064f21",
+    "REPORT-636": "report-6c43de44",
+    "REPORT-859": "report-6d59c91e",
+    "REPORT-828": "report-6ddc3b71",
+    "REPORT-735": "report-6f832c57",
+    "REPORT-781": "report-6fabc8f1",
+    "REPORT-648": "report-710d42c0",
+    "REPORT-827": "report-72e4f4b3",
+    "REPORT-823": "report-73343321",
+    "REPORT-871": "report-73ace293",
+    "REPORT-883": "report-73fa3cc3",
+    "REPORT-650": "report-7497dd74",
+    "REPORT-964": "report-74a1c1ed",
+    "REPORT-668": "report-74d0d077",
+    "REPORT-679": "report-751ffa7c",
+    "REPORT-790": "report-75aece48",
+    "REPORT-808": "report-75d9b744",
+    "REPORT-975": "report-77a13f69",
+    "REPORT-836": "report-77eb6a65",
+    "REPORT-759": "report-78100001",
+    "REPORT-599": "report-7a00f640",
+    "REPORT-844": "report-7a858346",
+    "REPORT-1008": "report-7b55af91"
   },
   "backlinks_index": {
     "request-d05379d0": {
