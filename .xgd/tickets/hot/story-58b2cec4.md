@@ -5,7 +5,7 @@ type: story
 title: 'The Assistant Can See: A Read-Only Looking Surface With One Picture Vocabulary'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:41:11.984108+00:00'
-updated_at: '2026-10-30T20:12:35.460401+00:00'
+updated_at: '2026-10-30T20:31:23.419371+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -36,7 +36,11 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
 - The consultant grant (`fidelity: {groups: [SeeSite]}`) is local, in the instance config beside the L1 grant; the grant is narrowed to the surfaces actually composed, so it can only ever lose keys, never widen.
 - Builds on STORY-124/125 (deployment screenshot primitive), the preview channels (CAP-84 edit channel), REQ-149 revisions, and CAP-63 capture bundles. Architecture policy #7/#8 (Workers + Browser Rendering) and #29 (AI makes structured changes only — this surface makes none).
 - Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts` (AC1, AC2, AC3, AC7, AC8 blocks), `tests/reconciliation-assistant-looking-surface.test.ts` (Node host and Toolbox) and `tests/reconciliation-assistant-looking-surface-worker.workers.test.ts` (Worker host inside workerd: AC-2025, and AC-2024's no-`BROWSER` branch).
-- **The untrusted-content frame is kept on the picture path.** `host-core.ts` registers every tool as `box.run`, and the Toolbox renders each result as text, wrapping every `provenance: untrusted` result (every operation on this surface) in `<<<untrusted>>>` … `<<</untrusted>>>`. `contentBlocksFrom` (`fidelity-core.ts`) recovers a picture's blocks from that text so the model is shown the image. It carries the frame onto the blocks: the text before the array opens the first text block, or is inserted as one; the text after closes the last text block, or is appended as one. So a screenshot of a third-party page reaches the model marked like every other untrusted result (AC-2067).
+- **The untrusted-content frame is NOT kept on the picture path (known gap, BUG-316).**
+  - `host-core.ts` registers every tool as `box.run`. The Toolbox renders each result as text and wraps every `provenance: untrusted` result (every operation on this surface) in `<<<untrusted>>>` … `<<</untrusted>>>`.
+  - `contentBlocksFrom` (`fidelity-core.ts`) recovers a picture's blocks from that text so that the model is shown the image. It returns the inner array bare, and `host-core.ts` hands it to the model as `contentBlocksFrom(payload) ?? payload`.
+  - As a result, a screenshot and its description text reach the model unmarked (AC-2067 pins this as the code runs).
+  - The frame was dropped by the code_frozen grant report-be7d1be4 (13aa65737c). A later review-fixer edit (0a0f97f216) restored it without any grant, and was reverted at review report-84f2f9bc's direction (F1).
 
 ### Code issue flagged earlier — resolved
 - **The Worker host now composes the looking surface.** Reconciliation flagged that the Worker's host construction (`apps/control-app/src/ai.ts`, `workerHost`) passed only the knowledge surface, so a Worker-hosted consultant with a Browser Rendering binding was offered no looking operation, contrary to REQ-157's "Both hosts". Commit 13aa65737c fixed this. `router.ts` `sessionFidelity` now builds the surface's dependencies from `shot.ts` `fidelityDeps` when a `BROWSER` binding (or an injected launcher) and `BLOBS` are present, and `workerHost` composes it. AC-2025 passes inside workerd. Where there is no browser it composes nothing, and the session still edits (AC-2024, Worker branch).
@@ -46,6 +50,10 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
 - **No slug anywhere** (decided at reconciliation, 2026-10-27): the original table names draft/edit/revision "by slug + page"; REQ-157's own "Behaviour the build settled" supersedes that — the surface is bound to one site at construction and no picture names a site. Formalized as the binding AC; this follows the later intent passage, not a code deviation.
 - **Byte ceiling value** (decided at reconciliation, 2026-10-27): intent says "a declared byte ceiling" without a number; code uses 3 MiB after reduction and names both size and ceiling in the refusal. Formalized at that value since the refusal text tells the model what to do instead.
 - **SSE elision form** (decided at reconciliation, 2026-10-27): intent says image data is stripped while the text survives; code replaces the image data with a marker naming its byte count and media type. Formalized: text block intact, no base64 in the streamed event.
+- **Intent–code conflict: unframed screenshots** (recorded at reconciliation, 2026-10-30, review report-84f2f9bc F1).
+  - REQ-157 says "a captured page's text must never be able to read as an instruction", and the surface declares every operation `provenance: untrusted`. On the picture path, however, the recovered blocks reach the model without the untrusted-content frame.
+  - Carrying the frame is new behaviour: the reference state `reconcile-src-BUNDLE-32` returns the array bare too. It was never granted in this code-frozen run, so AC-2067 is aligned to the running code rather than to the intent.
+  - The gap is tracked by follow-up **BUG-316 (bug-d9778adf)**, which rewrites AC-2067 when it lands. This is a recorded divergence, not an absorbed one.
 - **Absence without a browser** (decided at reconciliation, 2026-10-27): stated in intent ("a deployment without a browser still starts an editing assistant"; Node "absent an origin there is no fidelity surface"). Formalized as its own AC because it is the failure path of composition.
 
 ## Dependencies
