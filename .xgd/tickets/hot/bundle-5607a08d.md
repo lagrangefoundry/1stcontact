@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-30T21:52:00.902243+00:00'
+updated_at: '2026-10-30T21:56:54.943457+00:00'
 completed_at: '2026-10-30T21:51:37.569100+00:00'
-last_field_updated: status
+last_field_updated: result
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -271,7 +271,7 @@ fields:
   session_assessor: 86907960-e27c-4e27-b0f4-cdc9107b4164
   session_assessor_started_at: '2026-10-30T21:14:25.219538+00:00'
   merged_at_commit: 62a5507efb93485fa1f11bfdb12c9671670c2a4c
-result: fail
+result: pass
 ---
 
 # Bundle
