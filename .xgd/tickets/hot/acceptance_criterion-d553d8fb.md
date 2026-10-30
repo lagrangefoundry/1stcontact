@@ -3,12 +3,13 @@ uid: acceptance_criterion-d553d8fb
 id: AC-2046
 type: acceptance_criterion
 title: describe_reference reports a capture's widths, sections, image counts, coverage
-  findings and contents, and refuses an unknown name with NOT_FOUND
+  findings and contents; an unknown name fails with an error naming the bundle as
+  having no capture record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:12.934693+00:00'
-updated_at: '2026-10-28T04:07:34.423714+00:00'
+updated_at: '2026-10-30T20:02:38.139380+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: active
 fields:
   story_uid: story-31204812
