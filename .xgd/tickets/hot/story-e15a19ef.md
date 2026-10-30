@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-10-30T19:33:31.696822+00:00'
+updated_at: '2026-10-30T20:03:14.704018+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -173,8 +173,8 @@ Seven CLI-correctness guarantees for the `1c` command line:
 7. **The raw-server hosting path is discontinued; the capture fixture is not.**
    `1c serve` is no longer a command. Invoking it falls through to the CLI's
    unknown-command refusal — `Unknown command: serve` on stderr followed by the
-   usage text, exit status 1 — and binds no port. The help text carries no
-   `1c serve` line and advertises no way to serve a site outside a Worker; it
+   usage text, exit status 1 — and binds no port. The help text names no
+   `serve` command anywhere and advertises no way to serve a site outside a Worker; it
    offers `1c builder` (which starts `wrangler dev`) instead. The only supported
    way to serve a site is a Worker.
 
@@ -341,15 +341,15 @@ reports and names the remedy, it never runs it.
   `serve` was dropped from the offline-verb lists in both install-preflight
   suites with no change in assertion semantics, and from guarantee 6's offline
   verbs here.
-- **Code issue for `fix_uat_coverage` — do NOT encode this as an AC.** REQ-177
-  states that `serve` was removed "from the help text's list of ungated offline
-  verbs", but the *Install preflight (REQ-44)* paragraph of the CLI's `USAGE`
-  text in `tools/generate/src/cli/index.ts` still reads "Offline commands
-  (render, serve, builder, …) are never gated" on this tree. The help therefore
-  still names a verb that is refused as unknown. Per the chain of authority the
-  criteria record the intent (no `serve` in the offline verbs); the help text is
-  the thing to correct. The existing UAT only checks that no line *begins* with
-  `1c serve`, so it does not catch this.
+- **Help-text straggler resolved (BUNDLE-32 reconciliation review, report-9ddac478
+  G3).** The CLI's `USAGE` text in `tools/generate/src/cli/index.ts` still named
+  `serve` in two places after the command was removed — the *Install preflight
+  (REQ-44)* offline-verb list ("Offline commands (render, serve, builder, …) are
+  never gated") and the L1 reproduction pipeline's "render/serve/shot/diff/values-diff
+  loop". Both mentions were removed, so the help no longer names a verb that is
+  refused as unknown. The AC-2064 UAT was tightened to match: it rejects `serve`
+  as a whole word anywhere in the help (not only a line beginning `1c serve`), and
+  observes `net.Server#listen` to assert that invoking `1c serve` binds no port.
 - Related stories and capabilities: the sibling stories in this same capability,
   CAP-63 (1c Capture & Diff Fidelity) — STORY-75 (the intrinsic value axes) and
   STORY-77/STORY-78 (size-aware and cross-size diffing) — the commands whose
