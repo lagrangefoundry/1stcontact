@@ -6,9 +6,9 @@ title: Each of the five fidelity verdicts is reached under its own condition and
   a distinct next step
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T20:46:59.768057+00:00'
-updated_at: '2026-10-27T21:13:42.591260+00:00'
+updated_at: '2026-10-30T20:12:03.911907+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-47fb84e6
@@ -30,4 +30,23 @@ Each of the five fidelity verdicts is reached under its own condition and carrie
 The same inputs give the same verdict through `check_fidelity` and through `1c gate`.
 
 ## Verification
-Drive the shared gate reconciliation with five input sets: structural fail; clean and quiet; loud with coverage findings and no deltas; loud with clean coverage and 2 deltas; loud with clean coverage and no deltas. Assert the five verdicts in turn. For capture-incomplete, assert the value delta count is 0 and the percent over threshold is 80. For reproduction-wrong, assert the delta count is 2. Assert the five `nextStep` strings are pairwise distinct.
+**Bundles.** Build real reference bundles in an on-disk store, each with a black reference screenshot:
+- **broken:** a structural oracle pushed past the viewport.
+- **broken-everything:** the same, plus unreferenced images and a reference run.
+- **silent:** a clean oracle, with no images and no reference run.
+- **impoverished:** a clean oracle with three unreferenced mirrored images.
+- **our-fault:** a clean oracle with one reference run that the draft does not carry.
+
+**Draft.** The draft is either 4/255 off the reference (within the floor) or 200/255 off it (breaching the floor). Its live page carries no value elements.
+
+**Run each case two ways and compare.** Drive each verdict through `check_fidelity` on the composed Toolbox. Run `1c gate --json` (`cli.run`) on the same bundle directory, with the same draft bytes and the same flattened live-page read. Assert the two reports are the same judgement: verdict, pass, diagnosis, next step, floor, values, coverage, and the perceptual values at the CLI's precision.
+
+**Assert each verdict:**
+- **structural-failure:** broken + loud gives `structural-failure`. Broken-everything + loud, which has coverage findings, value deltas and a breach, still gives `structural-failure`.
+- **pass:** silent + quiet gives `pass`, with zero deltas and a next step saying "nothing outstanding".
+- **pass with deltas left:** our-fault + quiet gives `pass`. Its next step names `<n> delta(s)` and does not say "nothing outstanding".
+- **capture-incomplete:** impoverished + loud gives `capture-incomplete`, with findings, zero deltas, percent over threshold above the floor, and a next step naming a CAPTURE defect.
+- **reproduction-wrong:** our-fault + loud gives `reproduction-wrong`, with clean coverage, deltas above zero, and a next step that says to work that many.
+- **unexplained-disagreement:** silent + loud gives `unexplained-disagreement`, with clean coverage, zero deltas, and a next step naming a FRAMEWORK gap.
+
+**Across the five.** Only the two `pass` cases have `pass` true. The five verdicts are distinct, and their five `nextStep` strings are pairwise distinct.
