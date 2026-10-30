@@ -12,6 +12,7 @@ import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
 import { encodePng } from '../tools/generate/src/cli/png'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
+import { fsReferenceBundle } from '../tools/generate/src/store/fs-reference-store'
 import type { L1Document } from '../packages/site-schema/src/index'
 import type { Capture } from '../tools/generate/src/cli/capture'
 
@@ -170,7 +171,7 @@ describe('story-e15a19ef — aligned-crops --sandbox emits crop pairs from the s
   async function refBundle(): Promise<string> {
     const dir = path.join(cwd, 'ref')
     mkdirSync(dir, { recursive: true })
-    writeL1(dir, refDoc())
+    await writeL1(fsReferenceBundle(dir), refDoc())
     writeFileSync(
       path.join(dir, 'capture.json'),
       JSON.stringify({ url: 'https://example.invalid/', host: 'example.invalid', assets: [] } as unknown as Capture),
