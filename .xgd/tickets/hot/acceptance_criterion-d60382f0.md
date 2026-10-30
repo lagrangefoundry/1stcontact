@@ -6,10 +6,10 @@ title: '1c serve is not a command: refused as unknown with usage and exit 1, bin
   no port; help offers only the Worker-based builder'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-30T18:55:46.496399+00:00'
-updated_at: '2026-10-30T18:55:46.496399+00:00'
+updated_at: '2026-10-30T19:33:33.430332+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
