@@ -2,13 +2,14 @@
 uid: acceptance_criterion-26d0ac51
 id: AC-2050
 type: acceptance_criterion
-title: In both hosts a capture over 32 MiB or 60 seconds is abandoned and refused,
-  sends no further request and offers no reference
+title: 'On the Worker host, responses totalling more than 32 MiB trip the response
+  cap: later requests are never sent and the trip is reported in refusals, but the
+  bundle is still returned'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:41.555274+00:00'
-updated_at: '2026-10-28T04:07:33.504186+00:00'
+updated_at: '2026-10-30T20:02:46.509873+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: active
 fields:
   story_uid: story-31204812
