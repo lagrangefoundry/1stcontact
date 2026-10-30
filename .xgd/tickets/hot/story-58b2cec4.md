@@ -5,9 +5,9 @@ type: story
 title: 'The Assistant Can See: A Read-Only Looking Surface With One Picture Vocabulary'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:41:11.984108+00:00'
-updated_at: '2026-10-27T20:44:31.798897+00:00'
+updated_at: '2026-10-30T20:12:35.460401+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-5607a08d
@@ -35,10 +35,11 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
 - Declared as data (`fidelity-surface.json`), implemented against the store and an injected browser seam — same declared/granted/validated/audited model as CAP-92's site control surface (STORY-105). The surface list replaces the former single knowledge-surface slot; the knowledge surface is the first entry and is unchanged.
 - The consultant grant (`fidelity: {groups: [SeeSite]}`) is local, in the instance config beside the L1 grant; the grant is narrowed to the surfaces actually composed, so it can only ever lose keys, never widen.
 - Builds on STORY-124/125 (deployment screenshot primitive), the preview channels (CAP-84 edit channel), REQ-149 revisions, and CAP-63 capture bundles. Architecture policy #7/#8 (Workers + Browser Rendering) and #29 (AI makes structured changes only — this surface makes none).
-- Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts` (AC1, AC2, AC3, AC7, AC8 blocks). No existing UAT covers the SSE strip, grant narrowing / absence without a browser, revision-asset fidelity, or the Worker host composition — those ACs are expected to drive new UATs.
+- Evidence: `tests/test_UAT_FC_REQ-157_fidelity_surface.test.ts` (AC1, AC2, AC3, AC7, AC8 blocks), `tests/reconciliation-assistant-looking-surface.test.ts` (Node host and Toolbox) and `tests/reconciliation-assistant-looking-surface-worker.workers.test.ts` (Worker host inside workerd: AC-2025, and AC-2024's no-`BROWSER` branch).
+- **The untrusted-content frame is kept on the picture path.** `host-core.ts` registers every tool as `box.run`, and the Toolbox renders each result as text, wrapping every `provenance: untrusted` result (every operation on this surface) in `<<<untrusted>>>` … `<<</untrusted>>>`. `contentBlocksFrom` (`fidelity-core.ts`) recovers a picture's blocks from that text so the model is shown the image. It carries the frame onto the blocks: the text before the array opens the first text block, or is inserted as one; the text after closes the last text block, or is appended as one. So a screenshot of a third-party page reaches the model marked like every other untrusted result (AC-2067).
 
-### Code issue flagged (intent contradicts code)
-- **The Worker host never composes the looking surface.** REQ-157's *Why* names the problem as "In the cloud the assistant has none", and its *As built → Both hosts* section states "The Worker composition root is `apps/control-app/src/shot.ts` … Node is wired too." In the landed code `shot.ts` exports the Worker's surface dependencies, but the Worker's host construction (`apps/control-app/src/ai.ts`, `workerHost`) passes only the knowledge surface and no fidelity dependencies, so a Worker-hosted consultant with a Browser Rendering binding is offered no looking operation. The AC captures intent (the Worker-hosted assistant with a browser is offered the surface); `fix_uat_coverage`'s code-issue lever should wire it.
+### Code issue flagged earlier — resolved
+- **The Worker host now composes the looking surface.** Reconciliation flagged that the Worker's host construction (`apps/control-app/src/ai.ts`, `workerHost`) passed only the knowledge surface, so a Worker-hosted consultant with a Browser Rendering binding was offered no looking operation, contrary to REQ-157's "Both hosts". Commit 13aa65737c fixed this. `router.ts` `sessionFidelity` now builds the surface's dependencies from `shot.ts` `fidelityDeps` when a `BROWSER` binding (or an injected launcher) and `BLOBS` are present, and `workerHost` composes it. AC-2025 passes inside workerd. Where there is no browser it composes nothing, and the session still edits (AC-2024, Worker branch).
 
 ## Reconciliation Decisions
 - **Picture defaults** (decided at reconciliation, 2026-10-27): REQ-157 names each kind's required fields but not defaults; the declaration defaults `viewport` to `desktop` and `page` to `/`. Formalized in the resolution AC because the model is told these defaults and relies on them.
