@@ -813,13 +813,14 @@ describe('a screenshot reaches the model as an image', () => {
 const UNTRUSTED_OPEN = '<<<untrusted>>>'
 const UNTRUSTED_CLOSE = '<<</untrusted>>>'
 
-// Known gap (BUG-316): the Toolbox frames a screenshot's rendering like every
-// untrusted result, but the blocks recovered for the model are the bare array —
-// the frame is not carried onto them. These UATs pin the code as it runs; the
-// fix for BUG-316 rewrites them together with AC-2067.
-describe('a picture is recovered from its framed rendering as the bare block array', () => {
-  it('test_UAT_AC2067_a_screenshot_reaches_the_model_as_the_bare_blocks_without_the_frame', async () => {
-    // `screenshot` is declared `provenance: untrusted`.
+// REQ-157: "a captured page's text must never be able to read as an
+// instruction". The Toolbox frames a screenshot's rendering like every untrusted
+// result, and the blocks recovered for the model keep that frame (BUG-316).
+describe('a picture keeps the untrusted-content frame on its way to the model', () => {
+  it('test_UAT_AC2067_a_screenshot_reaches_the_model_inside_the_untrusted_frame', async () => {
+    // `screenshot` is declared `provenance: untrusted`: a picture of any page is
+    // third-party content, and must be marked as such on the wire exactly as a
+    // text result would be.
     const declared = (FIDELITY_DECLARATION.operations as {
       op: string
       returns: { provenance: string }
@@ -833,27 +834,37 @@ describe('a picture is recovered from its framed rendering as the bare block arr
     expect(result).toBeDefined()
     expect(Array.isArray(result!.content)).toBe(true)
     const blocks = result!.content as ContentBlock[]
+    expect(blocks.length).toBeGreaterThanOrEqual(3)
 
-    // The picture's description, then the picture itself — and nothing else.
-    expect(blocks).toHaveLength(2)
+    // The frame opens before the first block…
     const first = blocks[0] as { type: string; text?: string }
     expect(first.type).toBe('text')
-    expect(first.text).toContain('60×40')
-    const image = blocks[1] as { type: string; source: { media_type: string; data: string } }
-    expect(image.type).toBe('image')
+    expect(first.text!.startsWith(`${UNTRUSTED_OPEN}\n`)).toBe(true)
+    // …and closes after the image.
+    const last = blocks[blocks.length - 1] as { type: string; text?: string }
+    expect(last.type).toBe('text')
+    expect(last.text!.endsWith(`\n${UNTRUSTED_CLOSE}`)).toBe(true)
+
+    // The picture itself lies strictly inside the frame, and is still a picture.
+    const imageAt = blocks.findIndex((b) => b.type === 'image')
+    expect(imageAt).toBeGreaterThan(0)
+    expect(imageAt).toBeLessThan(blocks.length - 1)
+    const image = blocks[imageAt] as { source: { media_type: string; data: string } }
     expect(image.source.media_type).toBe('image/png')
     expect(image.source.data.startsWith(PNG_BASE64_HEAD)).toBe(true)
 
-    // No frame marker reaches the model on the picture path (BUG-316).
+    // Exactly one frame: opened once, closed once, and nothing outside it.
     const texts = blocks
       .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
       .map((b) => b.text)
       .join('')
-    expect(texts).not.toContain(UNTRUSTED_OPEN)
-    expect(texts).not.toContain(UNTRUSTED_CLOSE)
+    expect(texts.split(UNTRUSTED_OPEN)).toHaveLength(2)
+    expect(texts.split(UNTRUSTED_CLOSE)).toHaveLength(2)
+    // The picture's own description is still there, inside the frame.
+    expect(first.text).toContain('60×40')
   }, 120000)
 
-  it('test_UAT_AC2067_content_blocks_recovered_from_a_framed_rendering_are_the_inner_array', async () => {
+  it('test_UAT_AC2067_content_blocks_recovered_from_a_framed_rendering_keep_the_frame', async () => {
     // The real Toolbox's rendering of a real screenshot: framed text.
     const store = storeWith([{ slug: 'studio' }])
     const picture = await png(solid(12, 8, 40))
@@ -865,22 +876,30 @@ describe('a picture is recovered from its framed rendering as the bare block arr
     expect((rendered as string).startsWith(`${UNTRUSTED_OPEN}\n`)).toBe(true)
     expect((rendered as string).endsWith(`\n${UNTRUSTED_CLOSE}`)).toBe(true)
 
-    // Recovered as blocks — the host's own step — the result is exactly the
-    // array inside the frame; the frame text around it is dropped (BUG-316).
+    // Recovered as blocks — the host's own step — the frame is carried onto them.
     const recovered = contentBlocksFrom(rendered)
     expect(recovered).not.toBeNull()
     const inner = blocksOf(rendered)
+    expect(recovered).toEqual([
+      { type: 'text', text: `${UNTRUSTED_OPEN}\n${(inner[0] as { text: string }).text}` },
+      inner[1],
+      { type: 'text', text: `\n${UNTRUSTED_CLOSE}` },
+    ])
     expect(inner[1].type).toBe('image')
-    expect(recovered).toEqual(inner)
 
-    // The same holds whatever the first block is.
+    // A first block that is not text gets the opening marker as its own block,
+    // and a trailing text block absorbs the closing one.
     const image = inner[1]
     const imageFirst = [image, { type: 'text', text: 'note' }]
     expect(
       contentBlocksFrom(`${UNTRUSTED_OPEN}\n${JSON.stringify(imageFirst)}\n${UNTRUSTED_CLOSE}`),
-    ).toEqual(imageFirst)
+    ).toEqual([
+      { type: 'text', text: `${UNTRUSTED_OPEN}\n` },
+      image,
+      { type: 'text', text: `note\n${UNTRUSTED_CLOSE}` },
+    ])
 
-    // An unframed rendering is returned as the blocks it is…
+    // An unframed rendering is returned as the blocks it is, with nothing added…
     expect(contentBlocksFrom(JSON.stringify(inner))).toEqual(inner)
     // …and a refusal is not a picture at all.
     expect(contentBlocksFrom('Error: screenshot failed. NOT_FOUND: nothing there.')).toBeNull()
