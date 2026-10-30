@@ -5,9 +5,9 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-30T21:00:06.047187+00:00'
+updated_at: '2026-10-30T21:14:25.450150+00:00'
 completed_at: null
-last_field_updated: session_builder
+last_field_updated: session_assessor
 status: error
 fields:
   bundle_type: reconcile
@@ -301,6 +301,8 @@ fields:
   session_builder_started_at: '2026-10-30T21:00:05.841171+00:00'
   session_planner: 7e540be1-29ce-4546-bcac-33dd3a516a9a
   session_planner_started_at: '2026-10-30T20:54:34.445881+00:00'
+  session_assessor: 86907960-e27c-4e27-b0f4-cdc9107b4164
+  session_assessor_started_at: '2026-10-30T21:14:25.219538+00:00'
 result: fail
 ---
 
