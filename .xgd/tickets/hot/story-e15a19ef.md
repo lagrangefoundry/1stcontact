@@ -6,18 +6,16 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-10-30T18:57:18.368257+00:00'
+updated_at: '2026-10-30T19:33:31.696822+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
   capability_uid: capability-aa030c83
   story_kind: upgrade
   story_points: 2
-  updated_by:
-  - bundle-8e1807f6
-  - bundle-5607a08d
+  updated_by: bundle-5607a08d
   uat_coverage: pass
 ---
 
