@@ -9,6 +9,7 @@ import {
   type AlignedCropsOptions,
 } from '../tools/generate/src/cli'
 import { writeL1 } from '../tools/generate/src/cli/capture/bundle'
+import { encodePng } from '../tools/generate/src/cli/png'
 import { cmdRepro } from '../tools/generate/src/cli/repro'
 import { STARTER_WIDTHS } from '../tools/generate/src/cli/scaffold'
 import type { L1Document } from '../packages/site-schema/src/index'
@@ -194,11 +195,17 @@ describe('story-e15a19ef — aligned-crops --sandbox emits crop pairs from the s
     )
     // A real PNG large enough that the 1280x460 ref window is fully inside it —
     // cropTo skips (writes nothing) when the window falls off the image, so an
-    // undersized shot would be indistinguishable from the routing bug.
-    const sharp = (await import('sharp')).default
-    await sharp({ create: { width: 1280, height: 1200, channels: 3, background: '#e8dfd3' } })
-      .png()
-      .toFile(path.join(dir, 'screenshot-1280.png'))
+    // undersized shot would be indistinguishable from the routing bug. Encoded with
+    // the in-repo codec: `sharp` is no longer a dependency (REQ-156).
+    const width = 1280
+    const height = 1200
+    const data = new Uint8Array(width * height * 3)
+    for (let i = 0; i < data.length; i += 3) {
+      data[i] = 0xe8
+      data[i + 1] = 0xdf
+      data[i + 2] = 0xd3
+    }
+    writeFileSync(path.join(dir, 'screenshot-1280.png'), await encodePng({ data, width, height, channels: 3 }))
     return dir
   }
 
