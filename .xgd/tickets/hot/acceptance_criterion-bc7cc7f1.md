@@ -5,7 +5,7 @@ type: acceptance_criterion
 title: The store answers from the command line without any editing gesture
 created_by: xgd
 created_at: '2026-08-07T04:30:06.593528+00:00'
-updated_at: '2026-10-26T01:09:54.959760+00:00'
+updated_at: '2026-10-30T20:06:02.336542+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -32,6 +32,8 @@ is an answer, not a failure.
 
 On a site whose store holds several files, invoke the listing from the command
 line with the site as its only input and assert it succeeds, returns every asset
-with exactly that entry shape, and that the human output contains no
-`(unregistered)` marker. Repeat on a site with no assets and assert an empty list
-and a success result rather than an error.
+with exactly that entry shape. Invoke it again without `--json` and assert the
+human output is exactly one line per asset (id, handle, kind) and contains no
+`(unregistered)` marker or other registered/declared wording. Repeat on a site
+with no assets and assert an empty list and a success result rather than an
+error, and that the human output reads `(no assets)`.
