@@ -5,7 +5,7 @@ type: request
 title: 'Library: a type icon, a one-line row, and the wording clients actually read'
 created_by: xgd
 created_at: '2026-09-02T20:59:01.075259+00:00'
-updated_at: '2026-10-30T21:51:43.921305+00:00'
+updated_at: '2026-10-30T21:51:52.949848+00:00'
 completed_at: '2026-10-30T21:51:43.921305+00:00'
 last_field_updated: status
 status: free_and_reconciled
