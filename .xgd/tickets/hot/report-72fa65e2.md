@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-32: BUG-45, BUG-44, BUG-47, REQ-
   REQ-176, REQ-174, BUG-49, REQ-177)'
 created_by: xgd
 created_at: '2026-10-26T01:03:30.388344+00:00'
-updated_at: '2026-10-28T20:55:28.811165+00:00'
+updated_at: '2026-10-30T18:57:18.927812+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -410,7 +410,7 @@ fields:
       - 'AC-1017 (acceptance_criterion-a465080d): `serve` is dropped from the enumerated
         offline verbs'
       remove: []
-    story_uid: null
+    story_uid: story-e15a19ef
 ---
 
 # Reconciliation Plan
