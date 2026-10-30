@@ -5,49 +5,16 @@ type: bundle
 title: BUG-45 + BUG-44 + BUG-47 + REQ-157 + REQ-176 + 3 more
 created_by: xgd
 created_at: '2026-10-25T22:19:53.631030+00:00'
-updated_at: '2026-10-30T21:51:37.569100+00:00'
+updated_at: '2026-10-30T21:52:00.902243+00:00'
 completed_at: '2026-10-30T21:51:37.569100+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
-  - working_sha: 9805ee506e68fa9ac1bcb5d533a56d2ef9a5f139
+  - working_sha: null
     reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: d46756fefa43ca8709acb13d64abccb2ac91d961
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 8d93d32d8bc56715af4fb1046c3a3d82260bd081
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 11ca5fea9ae676265d4d492c426df027f249ab53
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: ecbed061a8306552701b6f920f8a7a9cb12e980a
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: b96ff95e1d1a672d9d482bf8d1195426e4c00bac
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 2470b440e36d913b3f7bb43ea46084e7c2ececbc
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: fde87e69df30dfd16d0a987d4124138ba282af73
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
-  - working_sha: 9632cd6ae08c11923bb2f4b1ca1e710581ce5db9
-    reconcile_sha: null
-    main_sha: null
-    working_sha_history: []
+    main_sha: 62a5507efb93485fa1f11bfdb12c9671670c2a4c
   auto_merge_back: true
   priority: medium
   skipped_commits:
@@ -303,6 +270,7 @@ fields:
   session_planner_started_at: '2026-10-30T20:54:34.445881+00:00'
   session_assessor: 86907960-e27c-4e27-b0f4-cdc9107b4164
   session_assessor_started_at: '2026-10-30T21:14:25.219538+00:00'
+  merged_at_commit: 62a5507efb93485fa1f11bfdb12c9671670c2a4c
 result: fail
 ---
 
