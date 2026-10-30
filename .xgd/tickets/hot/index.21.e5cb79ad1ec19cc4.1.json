@@ -1,0 +1,37 @@
+{
+  "version": 21,
+  "fields_hash": "e5cb79ad1ec19cc4",
+  "generated_at": "2026-10-30T18:21:36.658724+00:00",
+  "ticket_count": 1,
+  "rebuild_epoch": 1793384496.6572669,
+  "tickets": {
+    "report-e3b879a9": {
+      "id": "REPORT-6877",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-10-30T18:21:36.411621+00:00",
+      "created_at": "2026-10-30T18:21:36.411621+00:00",
+      "completed_at": null,
+      "title": "Revert audit: reconcile-BUNDLE-32 \u2192 30a181ae",
+      "fields": {
+        "report_kind": "revert_audit"
+      }
+    }
+  },
+  "by_type": {
+    "report": [
+      "report-e3b879a9"
+    ]
+  },
+  "by_field": {
+    "report_kind": {
+      "revert_audit": [
+        "report-e3b879a9"
+      ]
+    }
+  },
+  "id_to_uid": {
+    "REPORT-6877": "report-e3b879a9"
+  },
+  "backlinks_index": {}
+}
