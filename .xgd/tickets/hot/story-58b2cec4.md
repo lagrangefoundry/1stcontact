@@ -5,7 +5,7 @@ type: story
 title: 'The Assistant Can See: A Read-Only Looking Surface With One Picture Vocabulary'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T19:41:11.984108+00:00'
-updated_at: '2026-10-30T20:44:54.307590+00:00'
+updated_at: '2026-10-30T21:32:40.171812+00:00'
 completed_at: null
 last_field_updated: body
 status: completed
@@ -40,7 +40,7 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
   - `host-core.ts` registers every tool as `box.run`. The Toolbox renders each result as text and wraps every `provenance: untrusted` result (every operation on this surface) in `<<<untrusted>>>` … `<<</untrusted>>>`.
   - `contentBlocksFrom` (`fidelity-core.ts`) recovers a picture's blocks from that text so that the model is shown the image, and `host-core.ts` hands them to the model as `contentBlocksFrom(payload) ?? payload`.
   - The text around the recovered array is carried onto the blocks: the text before the array prefixes the first text block (or becomes a new leading text block when the first block is an image), and the text after it suffixes the last text block (or becomes a new trailing text block). The image itself lies strictly inside the frame (AC-2067). Unframed payloads come back unchanged; refusals come back as `null` and stay text.
-  - History: the frame was dropped by the batch-0 code_frozen grant report-be7d1be4 (13aa65737c); an ungranted fixer edit (0a0f97f216) restoring it was reverted (review report-84f2f9bc F1); review report-b5be9c7c F1 directs restoring it under a **new rung-1 code_frozen grant** (REQ-157, Grant and safety) scoped to `tools/generate/src/cli/ai/fidelity-core.ts` only, with the trust-boundary audit fields computed. The AC-2067 UATs were restored to require the frame ahead of that grant, so until it lands they fail by design.
+  - History: the frame was dropped by the batch-0 code_frozen grant report-be7d1be4 (13aa65737c); an ungranted fixer edit (0a0f97f216) restoring it was reverted (review report-84f2f9bc F1); review report-b5be9c7c F1 directed restoring it under a new rung-1 code_frozen grant (REQ-157, Grant and safety) scoped to `tools/generate/src/cli/ai/fidelity-core.ts` only. That grant landed as report-d58b23f8 (trust-boundary audit fields computed, conformance pass), and the AC-2067 UATs now pass against it.
 
 ### Code issue flagged earlier — resolved
 - **The Worker host now composes the looking surface.** Reconciliation flagged that the Worker's host construction (`apps/control-app/src/ai.ts`, `workerHost`) passed only the knowledge surface, so a Worker-hosted consultant with a Browser Rendering binding was offered no looking operation, contrary to REQ-157's "Both hosts". Commit 13aa65737c fixed this. `router.ts` `sessionFidelity` now builds the surface's dependencies from `shot.ts` `fidelityDeps` when a `BROWSER` binding (or an injected launcher) and `BLOBS` are present, and `workerHost` composes it. AC-2025 passes inside workerd. Where there is no browser it composes nothing, and the session still edits (AC-2024, Worker branch).
@@ -52,7 +52,7 @@ Before REQ-157 the assistant's whole tool surface was site-editing operations; n
 - **SSE elision form** (decided at reconciliation, 2026-10-27): intent says image data is stripped while the text survives; code replaces the image data with a marker naming its byte count and media type. Formalized: text block intact, no base64 in the streamed event.
 - **Screenshots keep the untrusted-content frame** (decided at reconciliation, 2026-10-30, review report-b5be9c7c F1; supersedes the 2026-10-30 alignment under report-84f2f9bc F1).
   - REQ-157 says "a captured page's text must never be able to read as an instruction", and the surface declares every operation `provenance: untrusted`. The intent therefore demands the frame on the picture path too, and this follows the intent rather than the reference state (`reconcile-src-BUNDLE-32` returns the array bare).
-  - An earlier pass aligned AC-2067 to the unframed running code as a known gap. The review ruled that a recorded follow-up does not satisfy the override audit's trust-boundary item, so AC-2067 again requires the frame. The code change is to be made under a new rung-1 code_frozen grant on `fidelity-core.ts` (batch 0's code_frozen grant for this story is denied: report-1312a88f, report-07babd4a). BUG-316 (bug-d9778adf) is resolved by that change.
+  - An earlier pass aligned AC-2067 to the unframed running code as a known gap. The review ruled that a recorded follow-up does not satisfy the override audit's trust-boundary item, so AC-2067 again requires the frame. The code change was made under the rung-1 code_frozen grant report-d58b23f8 on `fidelity-core.ts` (batch 0's code_frozen grant for this story was denied: report-1312a88f, report-07babd4a). BUG-316 (bug-d9778adf) was resolved by that change.
 - **Absence without a browser** (decided at reconciliation, 2026-10-27): stated in intent ("a deployment without a browser still starts an editing assistant"; Node "absent an origin there is no fidelity surface"). Formalized as its own AC because it is the failure path of composition.
 
 ## Dependencies
