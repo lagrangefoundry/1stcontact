@@ -6,10 +6,10 @@ title: The overlay's area labels, the Library's role pills and filter, and the a
   manual's reference to the drop area all read from one definition
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:39:03.611216+00:00'
-updated_at: '2026-10-26T01:39:03.611216+00:00'
+updated_at: '2026-10-30T20:05:42.159413+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-325da65f
   kind: behavior
@@ -36,8 +36,12 @@ Specifically:
 
 ## Verification
 
-Mount the overlay and the Library together and assert each role's overlay label equals its
-Library role pill and filter option; read the assistant's declared surface and assert its
-"cannot fetch a file" absence note quotes the `site` area's label as the shared definition gives
-it — asserted against that definition, not against a literal, so a future relabel that misses a
-surface fails.
+Mount the overlay and the Library together over material of each role plus one whose role is
+neither area. Read each role's label off the overlay's rendered areas and assert: each row's
+Library role pill equals the overlay label for its role; the role filter offers exactly the two
+areas, as (`site`, overlay's site label) then (`reference`, overlay's reference label); and the
+role in each selected material's detail record equals the overlay label for its role. For the
+row whose role is neither area, assert the pill and the detail record show the raw role value.
+Read the assistant's declared surface and assert its "cannot fetch a file" absence note quotes
+the `site` area's label as the overlay shows it — asserted against that shared definition, not
+against a literal, so a future relabel that misses a surface fails.
