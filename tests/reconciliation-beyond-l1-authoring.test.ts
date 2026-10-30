@@ -1026,11 +1026,12 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
       'wordmark',
       '--content',
       MARK,
-      '--alt',
-      'The XGD wireframe mark',
     )
     expect(drawn.ok).toBe(true)
     expect((drawn.data!.asset as { src: string }).src).toBe('/assets/wordmark.svg')
+    // A drawing is bytes only (BUG-44): its alt text lives on the picture
+    // element that places it, never on the written asset.
+    expect(drawn.data!.asset).not.toHaveProperty('alt')
 
     // Replacing a drawing is the deliberate act it is on the surface — a flag
     // here, a parameter there — and not a second name.
@@ -1044,8 +1045,6 @@ describe('story-b3de4571 — the same four capabilities from the command line', 
           'wordmark',
           '--content',
           REDRAWN,
-          '--alt',
-          'The XGD wireframe mark',
           '--force',
         )
       ).ok,
