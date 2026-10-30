@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-00553335'
 created_by: xgd
 created_at: '2026-10-30T20:56:35.526120+00:00'
-updated_at: '2026-10-30T20:56:35.526120+00:00'
+updated_at: '2026-10-30T21:05:15.619618+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -75,6 +75,7 @@ fields:
       - file: tools/generate/src/cli/ai/fidelity-core.ts
         lines: 185-198
       trust_boundary: true
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
