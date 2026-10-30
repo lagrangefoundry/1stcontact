@@ -5,10 +5,10 @@ type: request
 title: 'Library: a type icon, a one-line row, and the wording clients actually read'
 created_by: xgd
 created_at: '2026-09-02T20:59:01.075259+00:00'
-updated_at: '2026-10-25T22:19:54.821672+00:00'
-completed_at: null
+updated_at: '2026-10-30T21:51:43.921305+00:00'
+completed_at: '2026-10-30T21:51:43.921305+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 3
