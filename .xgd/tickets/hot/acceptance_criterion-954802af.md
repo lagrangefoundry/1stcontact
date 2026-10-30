@@ -8,9 +8,9 @@ title: The preamble the model receives names a consultant and never the old role
   closed-vocabulary constraint
 created_by: xgd
 created_at: '2026-10-28T04:10:00.139275+00:00'
-updated_at: '2026-10-28T04:10:00.139275+00:00'
+updated_at: '2026-10-30T20:02:45.497651+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: active
 fields:
   story_uid: story-a58a0974
@@ -36,4 +36,6 @@ turn and capture the system text of the first model request. It contains
 "consultant"; it does not match the former role name case-insensitively; it
 mentions judgement, "would make the site worse" and "never build past an open
 question"; and it contains "closed vocabulary" and "you cannot write HTML, CSS
-or JavaScript".
+or JavaScript". The preamble as received — from "You are a design consultant"
+to "only when your client decides to publish." — contains "client" as a word
+and does not match "user" as a word case-insensitively.
