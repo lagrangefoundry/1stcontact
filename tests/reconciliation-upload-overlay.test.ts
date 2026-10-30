@@ -33,6 +33,8 @@
  * this module makes about it.
  */
 
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
@@ -43,6 +45,7 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
  */
 let createUploadOverlay: (spec: Record<string, unknown>) => never
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
+let createLibraryPanel: (opts?: Record<string, unknown>) => never
 let UPLOAD_AREAS: Array<{ id: string; label: string; hint: string }>
 let UPLOAD_PROMPT: string
 
@@ -88,6 +91,7 @@ beforeAll(async () => {
   ;({ UPLOAD_AREAS, UPLOAD_PROMPT } = await import('../apps/control-app/src/builder/config.js'))
   if (WEBUI_INSTALLED) {
     ;({ mountBuilder } = await import('../apps/control-app/src/builder/app.js'))
+    ;({ createLibraryPanel } = await import('../apps/control-app/src/builder/library.js'))
   }
   globalThis.ResizeObserver ??= class {
     observe() {}
@@ -136,12 +140,27 @@ describe('story-325da65f — the overlay: the one question only the client can a
     const heading = overlay.element.querySelector('.builder-upload__prompt')
     expect(heading, 'a single top-level prompt').not.toBeNull()
     expect(heading!.textContent).toBe(UPLOAD_PROMPT)
+    // PINNED AS THE CLIENT READS IT, not only against the constant — a relabel
+    // that drifted the constant itself must fail here.
+    expect(UPLOAD_PROMPT).toBe('Purpose')
+    expect(heading!.textContent).toBe('Purpose')
+    expect(overlay.element.querySelectorAll('.builder-upload__prompt')).toHaveLength(1)
 
     // EXACTLY TWO ANSWERS, in the order the client reads them, each carrying the
     // stable role identifier the handover will send.
     const areas = areasOf(overlay)
     expect(areas).toHaveLength(2)
     expect(areas.map((a) => a.dataset.role)).toEqual(['site', 'reference'])
+    // The labels, as literals and in that order: Site asset, then Background
+    // information — in the declared definition and in what the overlay renders.
+    expect(UPLOAD_AREAS.map((a) => [a.id, a.label])).toEqual([
+      ['site', 'Site asset'],
+      ['reference', 'Background information'],
+    ])
+    expect(areas[0].textContent).toContain('Site asset')
+    expect(areas[0].textContent).not.toContain('Background information')
+    expect(areas[1].textContent).toContain('Background information')
+    expect(areas[1].textContent).not.toContain('Site asset')
 
     // Each area shows its declared label AND its sub-line of consequences — the
     // copy is declared once, where every label in this builder is.
@@ -555,5 +574,128 @@ describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — two entry points, one inte
     expect(listCalls.length, 'the list was re-read after a Library handover').toBeGreaterThan(
       afterChat,
     )
+  })
+})
+
+// ── one definition names each area, wherever it is named ─────────────────────
+
+/** A Library row, as the material listing returns it. */
+function libraryRow(over: Record<string, unknown>): Record<string, unknown> {
+  return {
+    type: 'material',
+    kind: 'image',
+    role: 'site',
+    rights: 'owned',
+    republishable: true,
+    exportable: false,
+    origin: 'uploaded',
+    placed_on: [],
+    source_url: null,
+    description_status: 'ok',
+    updated_at: '2026-09-02T12:00:00.000Z',
+    ...over,
+  }
+}
+
+/** One row per area, and one whose role is neither — a value the overlay never sends. */
+const ROLE_ROWS = [
+  libraryRow({ uid: 'for-the-site', title: 'The wordmark', filename: 'wordmark.png', role: 'site' }),
+  libraryRow({
+    uid: 'for-reading',
+    title: 'Positioning note',
+    filename: 'positioning.md',
+    kind: 'document',
+    role: 'reference',
+    republishable: false,
+  }),
+  libraryRow({ uid: 'odd-role', title: 'A mood board', filename: 'mood.png', role: 'moodboard' }),
+]
+
+describe.skipIf(!WEBUI_INSTALLED)('story-325da65f — one definition names each area everywhere', () => {
+  it('test_UAT_AC2021_overlay_labels_library_pills_filter_detail_and_manual_read_from_one_definition', async () => {
+    // BOTH SURFACES MOUNTED TOGETHER, in one document, as the builder composes them.
+    const { overlay } = overlayWithLog()
+    if (!overlay.element.isConnected) host.append(overlay.element)
+    const panel = createLibraryPanel({
+      storage: memoryStorage(),
+      transport: {
+        list: async () => ({ material: ROLE_ROWS.map((row) => ({ ...row })) }),
+        item: async (uid: string) => ({ ...ROLE_ROWS.find((row) => row.uid === uid)!, body: 'About it.' }),
+        save: async (uid: string, body: string) => ({ ...ROLE_ROWS.find((row) => row.uid === uid)!, body }),
+        fileUrl: (uid: string) => `/api/material/file?uid=${encodeURIComponent(uid)}`,
+      },
+      getSite: () => 'alpha',
+    }) as unknown as {
+      element: HTMLElement
+      listDetail: { select: (uid: string) => void }
+      refresh: () => Promise<unknown>
+    }
+    host.append(panel.element)
+    await panel.refresh()
+    expect(overlay.element.isConnected && panel.element.isConnected).toBe(true)
+
+    // WHAT THE OVERLAY SHOWS, per role — read off the rendered areas.
+    const overlayLabel: Record<string, string> = Object.fromEntries(
+      areasOf(overlay).map((area) => [
+        area.dataset.role!,
+        area.querySelector('.builder-upload__label')!.textContent ?? '',
+      ]),
+    )
+    expect(Object.keys(overlayLabel)).toEqual(['site', 'reference'])
+    // And the definition it read them from, which every other surface reads too.
+    expect(overlayLabel).toEqual(Object.fromEntries(UPLOAD_AREAS.map((a) => [a.id, a.label])))
+    expect(overlayLabel.site).toBe('Site asset')
+    expect(overlayLabel.reference).toBe('Background information')
+
+    // THE ROLE PILL on each row reads exactly the overlay's label for its role.
+    const pillOf = (uid: string) =>
+      panel.element.querySelector(
+        `.list-detail-row[data-key="${uid}"] .builder-library__badge--role`,
+      )?.textContent ?? null
+    expect(pillOf('for-the-site')).toBe(overlayLabel.site)
+    expect(pillOf('for-reading')).toBe(overlayLabel.reference)
+
+    // THE ROLE FILTER offers exactly the two areas, by the overlay's labels,
+    // carrying the wire values — plus the "anything" option that clears it.
+    const roleSelect = panel.element.querySelector('.builder-library__role') as HTMLSelectElement
+    expect(roleSelect).toBeTruthy()
+    const options = [...roleSelect.options].filter((o) => o.value !== '')
+    expect(options.map((o) => [o.value, o.textContent])).toEqual([
+      ['site', overlayLabel.site],
+      ['reference', overlayLabel.reference],
+    ])
+
+    // THE DETAIL RECORD names the role by the same label.
+    const detailRole = async (uid: string): Promise<string> => {
+      panel.listDetail.select(uid)
+      await settle()
+      const row = panel.element.querySelector(
+        '.builder-library__rights .fields-row[data-field="role"]',
+      )
+      expect(row, `no role row in ${uid}'s record`).toBeTruthy()
+      // The value cell, as `library.js` itself addresses it (`.fields-row > .fields-value`).
+      const value = row!.querySelector('.fields-value')
+      expect(value, `no value cell on ${uid}'s role row`).toBeTruthy()
+      return (value!.textContent ?? '').trim()
+    }
+    expect(await detailRole('for-the-site')).toBe(overlayLabel.site)
+    expect(await detailRole('for-reading')).toBe(overlayLabel.reference)
+
+    // A ROLE THAT IS NEITHER AREA is shown as its raw value — never an empty pill,
+    // and never borrowed from one of the two areas.
+    expect(pillOf('odd-role')).toBe('moodboard')
+    expect(await detailRole('odd-role')).toBe('moodboard')
+
+    // THE ASSISTANT'S MANUAL quotes the `site` area by exactly the label the
+    // overlay shows — asserted against that, not a literal, so a relabel that
+    // misses the manual fails here.
+    const surface = JSON.parse(
+      readFileSync(path.resolve(__dirname, '..', 'tools/generate/src/cli/ai/l1-surface.json'), 'utf8'),
+    ) as { absences: Array<{ name: string; note: string }> }
+    const fileNote = surface.absences.find((a) => /file/i.test(a.name))
+    expect(fileNote, 'the cannot-fetch-a-file absence note').toBeDefined()
+    expect(fileNote!.note).toMatch(/drop/i)
+    expect(fileNote!.note).toContain(`“${overlayLabel.site}”`)
+    expect(fileNote!.note).not.toContain(overlayLabel.reference)
   })
 })

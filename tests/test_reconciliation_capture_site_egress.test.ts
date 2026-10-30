@@ -541,8 +541,8 @@ describe('AC-2045 — list_references lists every capture with its recorded addr
 
 // ── AC-2046 ──────────────────────────────────────────────────────────────────
 
-describe('AC-2046 — describe_reference reports what one capture holds', () => {
-  it('test_UAT_AC2046_describe_reference_reports_widths_images_findings_and_refuses_unknown', async () => {
+describe('AC-2046 — describe_reference reports what one capture holds; an unknown name is an error naming the bundle', () => {
+  it('test_UAT_AC2046_describe_reference_reports_widths_images_findings_and_errors_on_name_without_capture_record', async () => {
     const references = memoryReferenceStore()
     const name = 'acme.test/home'
     const bundle = references.bundle(name)
@@ -727,8 +727,8 @@ describe('AC-2047 — the typed address is refused before any browser is leased'
 
 // ── AC-2048 ──────────────────────────────────────────────────────────────────
 
-describe('AC-2048 — every request is checked: hops and subresources on Worker, routed requests on Node', () => {
-  it('test_UAT_AC2048_every_request_is_guarded_refused_ones_never_sent_and_reported', async () => {
+describe('AC-2048 — subresources are checked on both hosts, redirect hops on the Worker only', () => {
+  it('test_UAT_AC2048_subresources_guarded_on_both_hosts_hops_on_worker_refused_never_sent_and_reported', async () => {
     const METADATA = 'http://169.254.169.254/x.png'
     const PUBLIC_IMAGE = 'https://cdn.gallery.test/hero.png'
     for (const make of [workerHost, nodeHost]) {
@@ -780,8 +780,8 @@ describe('AC-2048 — every request is checked: hops and subresources on Worker,
 
 // ── AC-2049 ──────────────────────────────────────────────────────────────────
 
-describe('AC-2049 — a redirect chain through more than 5 distinct hosts trips redirect-cap (Worker)', () => {
-  it('test_UAT_AC2049_redirect_cap_counts_hops_not_subresource_origins', async () => {
+describe('AC-2049 — on the Worker, more than 5 distinct origins trips redirect-cap; a reference is still returned', () => {
+  it('test_UAT_AC2049_worker_redirect_cap_trips_past_5_origins_later_requests_unsent_capture_still_returns', async () => {
     // A navigation through seven distinct hops. The guard counts distinct
     // origins; the sixth trips the cap. capture_site still returns a bundle and
     // reports the trip in `refusals` rather than refusing the capture (STORY-159
@@ -812,8 +812,8 @@ describe('AC-2049 — a redirect chain through more than 5 distinct hosts trips 
 
 // ── AC-2050 ──────────────────────────────────────────────────────────────────
 
-describe('AC-2050 — on the Worker host a capture over 32 MiB trips response-cap and sends nothing further', () => {
-  it('test_UAT_AC2050_byte_and_time_budgets_abandon_the_capture_in_both_hosts', async () => {
+describe('AC-2050 — on the Worker host, over 32 MiB trips response-cap and sends nothing further; the bundle is still returned', () => {
+  it('test_UAT_AC2050_worker_response_cap_trips_past_32MiB_later_requests_unsent_bundle_still_returned', async () => {
     // Worker only: the Browser Rendering driver records response bytes against
     // the guard; the Node driver does not, and the 60 s ceiling is applied
     // nowhere (STORY-159 Known gaps). Out-of-window BUG-172 later removes the
@@ -851,9 +851,12 @@ describe('AC-2050 — on the Worker host a capture over 32 MiB trips response-ca
 
 // ── AC-2051 ──────────────────────────────────────────────────────────────────
 
-describe('AC-2051 — every capture_site call is audited with its URL; a refusal is REFUSED', () => {
-  it('test_UAT_AC2051_capture_site_audit_record_carries_url_and_refusal_is_refused', async () => {
-    const net = new Network().page('https://public.test/', '<html><body>hello</body></html>')
+describe('AC-2051 — every capture_site call is audited with its URL; typed refusals are REFUSED, seam refusals are in the result', () => {
+  it('test_UAT_AC2051_each_call_audited_with_its_url_typed_refusal_is_REFUSED_seam_refusal_reaches_model', async () => {
+    const METADATA = 'http://169.254.169.254/x.png'
+    const net = new Network()
+      .page('https://public.test/', '<html><body>hello</body></html>')
+      .page('https://mixed.test/', `<html><body><img src="${METADATA}"></body></html>`)
     const host = workerHost(net)
     const { site, box, audit, run } = await composed(host.deps)
     try {
@@ -882,6 +885,29 @@ describe('AC-2051 — every capture_site call is audited with its URL; a refusal
       expect(okLines).toHaveLength(1)
       expect(okLines[0].outcome.ok).toBe(true)
       expect(audit.filter((l) => l.operation === 'capture_site')).toHaveLength(2)
+
+      // A refusal made MID-CAPTURE, at the driver seam: a subresource in
+      // link-local space. It does not fail the call; it reaches the model in
+      // the result's `refusals` with its URL and reason, and it was never sent.
+      const mixed = await run('capture_site', { url: 'https://mixed.test/' })
+      const mixedResult = payload<CaptureResult>(mixed)
+      expect(mixedResult.url).toBe('https://mixed.test/')
+      expect(
+        mixedResult.refusals.some((r) => r.url === METADATA && r.reason === 'private-address'),
+        `seam refusal reported with its URL — ${mixed.slice(0, 300)}`,
+      ).toBe(true)
+      expect(net.forwarded).not.toContain(METADATA)
+      // And the call that carried it leaves exactly one audit record of its own,
+      // with the typed URL and an ok outcome. The refused subresource URL itself
+      // is NOT carried in the audit record (capture_site declares no summary
+      // projection) — that narrowing of REQ-157 AC6 is tracked by BUG-315
+      // (bug-84072362) and is not asserted either way here.
+      const mixedLines = audit.filter(
+        (l) => l.operation === 'capture_site' && l.params.url === 'https://mixed.test/',
+      )
+      expect(mixedLines).toHaveLength(1)
+      expect(mixedLines[0].outcome.ok).toBe(true)
+      expect(audit.filter((l) => l.operation === 'capture_site')).toHaveLength(3)
     } finally {
       site.dispose()
     }

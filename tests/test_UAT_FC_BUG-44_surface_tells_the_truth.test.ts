@@ -129,21 +129,9 @@ describe('BUG-44 — the surface no longer says a file cannot arrive through the
     expect(prose('write_image')).toMatch(/element that places it/i)
   })
 
-  it('test_UAT_FC_BUG-44_write_image_forbids_standing_in_for_a_supplied_file', () => {
-    // THE THIRD FAILURE, AND THE ONE THE CLIENT ACTUALLY SAW. Having decided it
-    // could not use their logo, the assistant drew a substitute and reported
-    // completion. `write_image` warned it was "not a way to make a photograph"
-    // but said nothing about standing in for a file that had been supplied.
-    const write = prose('write_image')
-
-    expect(write).toMatch(/never draw a stand-in|do not compose something similar/i)
-    // It must name the remedy, not only the prohibition — a refusal with no
-    // next move is how the original conversation dead-ended.
-    expect(write).toMatch(/say so/i)
-    expect(write).toMatch(/drop/i)
-    // The older constraint is not lost in the rewrite.
-    expect(write).toMatch(/not a way to make a photograph/i)
-  })
+  // THE THIRD FAILURE — `write_image` standing in for a supplied file — moved to
+  // its criterion: test_UAT_AC2014_drawing_is_declared_never_to_stand_in_for_a_client_supplied_file
+  // in reconciliation-beyond-l1-authoring.test.ts.
 
   it('test_UAT_FC_BUG-44_the_surface_version_moved_with_the_surface', () => {
     // Two shapes lost a field, `write_image` lost a parameter and an absence

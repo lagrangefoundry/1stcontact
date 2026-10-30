@@ -743,11 +743,14 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
 
   it('test_UAT_AC1104_a_drawing_becomes_an_ordinary_site_image_and_ships_unaltered', async () => {
     const box = await consultant()
+    // Bytes only: the stored site definition must be untouched by the write.
+    const definitionBefore = readFileSync(sitePath())
 
     const written = await json<{ asset: { id: string; src: string } }>(box, 'write_image', {
       name: 'wordmark',
       svg: MARK,
     })
+    expect(readFileSync(sitePath()).equals(definitionBefore)).toBe(true)
     expect(written.asset.id).toBe('wordmark.svg')
     // The handle handed back is the one an L1 image node takes, so the caller
     // uses the answer directly rather than composing a path.
@@ -759,7 +762,14 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
 
     // The listing every image picker reads reports it as an image.
     const listed = await json<{ assets: { src: string; kind: string }[] }>(box, 'list_assets')
-    expect(listed.assets.find((a) => a.src === '/assets/wordmark.svg')?.kind).toBe('image')
+    const entry = listed.assets.find((a) => a.src === '/assets/wordmark.svg')
+    expect(entry?.kind).toBe('image')
+    // ...as an ordinary entry: nothing registered, nothing declared, no alt text.
+    expect(entry).not.toHaveProperty('alt')
+    expect(entry).not.toHaveProperty('registered')
+    expect(entry).not.toHaveProperty('declared')
+    // Listing is a read: the definition is still the bytes it was before the write.
+    expect(readFileSync(sitePath()).equals(definitionBefore)).toBe(true)
 
     // Referenced from a picture element through the ordinary L1 write path...
     const root = (await json<{ node: any }>(box, 'get_l1', { page: 'home', path: '0' })).node
@@ -894,6 +904,36 @@ describe('story-b3de4571 — a drawing the assistant composed', () => {
 
     await box.run('write_image', { name: 'wordmark', svg: MARK })
     expect(readFileSync(path.join(draftDir(), 'assets', 'wordmark.svg'), 'utf8')).toBe(MARK)
+  })
+
+  it('test_UAT_AC2014_drawing_is_declared_never_to_stand_in_for_a_client_supplied_file', () => {
+    // BUG-45 — a client dropped a logo on the chat; the assistant decided it
+    // could not use it, drew a substitute and reported completion. The remedy is
+    // a DECLARATION, asserted on the text the assistant is handed — nothing
+    // mechanically prevents a model ignoring it, and this does not claim so.
+    const operations = L1_DECLARATION.operations as {
+      op: string
+      summary: string
+      description?: string
+      params?: Record<string, unknown>
+    }[]
+    const op = operations.find((o) => o.op === 'write_image')
+    expect(op).toBeDefined()
+    const write = `${op!.summary}\n${op!.description ?? ''}`
+
+    // It forbids standing a drawing in for a file the client supplied...
+    expect(write).toMatch(/never draw a stand-in for a file the client gave you/i)
+    expect(write).toMatch(/do not compose something similar/i)
+    // ...names the remedy rather than only the prohibition: say so, and ask for
+    // the file to be dropped on the conversation.
+    expect(write).toMatch(/say so/i)
+    expect(write).toMatch(/ask them to drop it on the conversation/i)
+    // ...and directs the description onto the picture element that places it,
+    // since a drawing carries none of its own.
+    expect(write).toMatch(/element that places it/i)
+    expect(op!.params ?? {}).not.toHaveProperty('alt')
+    // The older constraint is not lost in the rewrite.
+    expect(write).toMatch(/not a way to make a photograph/i)
   })
 })
 

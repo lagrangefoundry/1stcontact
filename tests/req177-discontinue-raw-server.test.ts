@@ -1,4 +1,5 @@
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import net from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -53,9 +54,20 @@ describe('REQ-177 — 1c serve is discontinued', () => {
     // default: a refusal and a non-zero exit, not a bound port. This is the
     // whole of the behavioural change an operator can observe.
     const err = captureStderr()
+    // Every listening socket in this process goes through net.Server#listen
+    // (http.Server inherits it), so a `serve` that bound a port would show here.
+    const listen = vi.spyOn(net.Server.prototype, 'listen')
+    spies.push(listen)
     await run(['serve', 'demo'])
     const stderr = err.join('\n')
     expect(stderr).toContain('Unknown command: serve')
+    // Binds no port.
+    expect(listen).not.toHaveBeenCalled()
+    // Not vacuous: the spy does see a real bind in this process.
+    const probe = net.createServer()
+    await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', () => resolve()))
+    expect(listen).toHaveBeenCalledTimes(1)
+    await new Promise<void>((resolve) => probe.close(() => resolve()))
     // The refusal is followed by the same usage text `1c help` prints.
     const help = captureStdout()
     await run(['help'])
@@ -73,6 +85,10 @@ describe('REQ-177 — 1c serve is discontinued', () => {
     await run(['help'])
     const usage = out.join('\n')
     expect(usage).not.toMatch(/^\s*1c serve\b/m)
+    // Nor anywhere else: no `serve` command is named in the help at all — not
+    // in a pipeline like "render/serve/shot", not in a list of offline verbs.
+    // (`serves`, `served`, `server-side` and `servable` are prose, not the verb.)
+    expect(usage).not.toMatch(/\bserve\b/i)
     expect(usage).toContain('1c builder')
     expect(usage).toContain('wrangler dev')
   })

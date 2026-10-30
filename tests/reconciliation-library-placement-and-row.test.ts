@@ -180,11 +180,43 @@ async function usedOn(panel: Panel, uid: string): Promise<string> {
   return (row.textContent ?? '').replace('Used on', '').trim()
 }
 
-/** The declared block for a selector, so a rule can be read as a contract. */
+/** The stylesheet with its comments removed, so prose about a rule is never read as one. */
+const CSS_RULES = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Whether one selector (one item of a comma list) styles the element `target`
+ * names: it ends in that class, optionally compounded with further classes,
+ * attributes or pseudo-CLASSES (a state of the same element) — but not a longer
+ * class name that merely starts with it, and not a pseudo-ELEMENT (`::after`
+ * styles a different box).
+ */
+function selects(selector: string, target: string): boolean {
+  return new RegExp(
+    `${escapeRe(target)}(?:\\.[\\w-]+|\\[[^\\]]*\\]|:(?!:)[\\w-]+(?:\\([^)]*\\))?)*$`,
+  ).test(selector.trim())
+}
+
+/**
+ * EVERY declared block that styles a selector, concatenated — wherever it sits
+ * (a comma list, a later override, inside an at-rule) — so a contract cannot be
+ * satisfied by the first block and silently undone by a later one.
+ */
 function rule(selector: string): string {
-  const at = CSS.indexOf(`${selector} {`)
-  expect(at, `no rule for ${selector}`).toBeGreaterThan(-1)
-  return CSS.slice(at, CSS.indexOf('}', at))
+  const blocks: string[] = []
+  const re = /([^{}]+)\{([^{}]*)\}/g
+  for (let m = re.exec(CSS_RULES); m; m = re.exec(CSS_RULES)) {
+    if (m[1].split(',').some((s) => selects(s, selector))) blocks.push(m[2])
+  }
+  expect(blocks.length, `no rule for ${selector}`).toBeGreaterThan(0)
+  return blocks.join('\n')
+}
+
+/** Every value any block styling `selector` declares for `property`. */
+function values(selector: string, property: string): string[] {
+  const re = new RegExp(`(?:^|[;{\\s])${escapeRe(property)}\\s*:\\s*([^;}]+)`, 'g')
+  return [...rule(selector).matchAll(re)].map((m) => m[1].trim())
 }
 
 describe.skipIf(!WEBUI_INSTALLED)('AC-1715 — the whole account, with the open site as a badge', () => {
@@ -367,6 +399,33 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2019 — one labelled type icon per row, n
 
     // No kind pill; role pills and the placement badge remain where they apply.
     expect(panel.element.querySelectorAll('.builder-library__badge--kind')).toHaveLength(0)
+    // NOT BY ANY NAME. A kind pill renamed to another class, or a kind printed in
+    // words anywhere on the row, is still the pill this criterion removed. Every
+    // kind word the fixture carries — and the "file" a kind-less row is announced
+    // as — is checked against everything a row SHOWS (its text, not the icon's
+    // accessible label, which is where the kind is meant to be).
+    const KIND_WORDS = /\b(image|document|font|capture|hologram|file)\b/i
+    for (const row of rows) {
+      const key = row.getAttribute('data-key')
+      const content = row.querySelector('.builder-library__row')!
+      // Nothing on the row is classed as a kind of anything.
+      expect(content.querySelectorAll('[class*="kind"]'), `${key}: kind-classed element`).toHaveLength(0)
+      // Every pill is one of the two that remain.
+      for (const pill of content.querySelectorAll('.builder-library__row-meta > *')) {
+        const isRole = pill.classList.contains('builder-library__badge--role')
+        const isHere = pill.classList.contains('builder-library__badge--here')
+        expect(isRole || isHere, `${key}: unexpected pill ${pill.className}`).toBe(true)
+        expect(pill.textContent ?? '', `${key}: pill text`).not.toMatch(KIND_WORDS)
+      }
+      // And no element on the row other than the icon prints a kind.
+      for (const node of content.querySelectorAll('*')) {
+        if (node.classList.contains('builder-library__row-icon')) continue
+        if (node.contains(content.querySelector('.builder-library__row-icon'))) continue
+        expect(node.textContent ?? '', `${key}: ${node.className}`).not.toMatch(KIND_WORDS)
+      }
+      // The icon itself prints a glyph, never the kind's word.
+      expect(content.querySelector('.builder-library__row-icon')!.textContent ?? '').not.toMatch(KIND_WORDS)
+    }
     expect(panel.element.querySelectorAll('.builder-library__badge--role')).toHaveLength(KINDS.length)
     expect(badgedKeys(panel.element)).toEqual(['an-image'])
 
@@ -403,8 +462,58 @@ describe('AC-2020 — the row is one line, and truncation lands on the title', (
     expect(meta).toMatch(/flex:\s*none/)
     expect(meta).not.toMatch(/flex-wrap:\s*wrap/)
 
+    // EVERY BLOCK AGREES — not just the first one found. No later rule, override
+    // or at-rule turns any of these back: each property, wherever it is declared
+    // for that element, has the one value the contract needs.
+    expect(values('.builder-library__row', 'display')).toEqual(['flex'])
+    for (const v of values('.builder-library__row', 'flex-direction')) expect(v).toMatch(/^row\b/)
+    for (const v of values('.builder-library__row', 'flex-flow')) expect(v).not.toMatch(/column|(^|\s)wrap/)
+    expect(values('.builder-library__row-title', 'font-size')).toEqual(['13px'])
+    expect(values('.builder-library__row-title', 'white-space')).toEqual(['nowrap'])
+    expect(values('.builder-library__row-title', 'text-overflow')).toEqual(['ellipsis'])
+    expect(values('.builder-library__row-title', 'overflow')).toEqual(['hidden'])
+    expect(values('.builder-library__row-title', 'min-width')).toEqual(['0'])
+    expect(values('.builder-library__row-title', 'flex')).toEqual(['1 1 auto'])
+    expect(values('.builder-library__row-icon', 'flex')).toEqual(['none'])
+    expect(values('.builder-library__row-meta', 'flex')).toEqual(['none'])
+    for (const sel of ['.builder-library__row-icon', '.builder-library__row-meta']) {
+      expect(values(sel, 'flex-shrink').filter((v) => v !== '0'), sel).toEqual([])
+      expect(values(sel, 'flex-grow').filter((v) => v !== '0'), sel).toEqual([])
+    }
+    for (const v of values('.builder-library__row-meta', 'flex-wrap')) expect(v).toBe('nowrap')
+    for (const v of values('.builder-library__badge', 'white-space')) expect(v).toBe('nowrap')
+
     // The shared list component is not restyled here: no rule in the builder
     // stylesheet targets the component's own row title.
     expect(CSS).not.toMatch(/\.list-detail-row-title\s*\{/)
+  })
+})
+
+describe.skipIf(!WEBUI_INSTALLED)('AC-2020 — the row is laid out icon, then title, then pills', () => {
+  it('test_UAT_AC2020_row_dom_order_is_icon_then_title_then_pills', async () => {
+    // The flex contract above only puts the row on ONE AXIS; the order along it
+    // is the DOM's. Asserted on every row, with and without a placement badge.
+    const { panel } = await library(PLACEMENT, 'alpha')
+    const rows = rowsIn(panel.element)
+    expect(rows).toHaveLength(PLACEMENT.length)
+    for (const row of rows) {
+      const key = row.getAttribute('data-key')
+      const content = row.querySelector('.builder-library__row')!
+      expect(content, `${key}: row content cell`).toBeTruthy()
+      expect(
+        [...content.children].map((c) =>
+          ['builder-library__row-icon', 'builder-library__row-title', 'builder-library__row-meta'].find((cls) =>
+            c.classList.contains(cls),
+          ) ?? c.className,
+        ),
+        `${key}: icon, title, pills`,
+      ).toEqual(['builder-library__row-icon', 'builder-library__row-title', 'builder-library__row-meta'])
+      // Every pill sits in the strip that follows the title, none before it.
+      const badges = [...content.querySelectorAll('.builder-library__badge')]
+      expect(badges.length, `${key}: at least the role pill`).toBeGreaterThan(0)
+      for (const badge of badges) {
+        expect(badge.parentElement!.classList.contains('builder-library__row-meta'), `${key}`).toBe(true)
+      }
+    }
   })
 })

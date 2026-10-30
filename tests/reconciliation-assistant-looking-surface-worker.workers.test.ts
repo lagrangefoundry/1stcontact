@@ -6,6 +6,8 @@ import { resetChatHost, route } from '../apps/control-app/src/router'
 import type { PuppeteerBrowser } from '../tools/generate/src/cli/capture/cf-driver'
 import { encodePng } from '../tools/generate/src/cli/png'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import { L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox-core'
+import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { calls, says, scriptedClient } from './support/scripted-model-client'
@@ -101,8 +103,26 @@ function eyes() {
   return { launch, log: fb.log }
 }
 
-async function seedSite(slug: string): Promise<void> {
-  const seed = siteSeed({ slug })
+/** A home page whose L1 holds one addressable headline, as the Node branch's does. */
+function homeWithHeadline(slug: string): Record<string, unknown> {
+  const home = structuredClone(siteSeed({ slug }).pages['home.json']) as Record<string, unknown> & {
+    l1: { root: unknown }
+  }
+  home.l1.root = {
+    kind: 'container',
+    id: 'root',
+    layout: 'stack',
+    children: [{ kind: 'text', text: 'The old headline.', axes: { fontSizePx: 32 } }],
+  }
+  home.modules = []
+  return home
+}
+
+async function seedSite(
+  slug: string,
+  pages?: Record<string, Record<string, unknown>>,
+): Promise<void> {
+  const seed = siteSeed({ slug, pages })
   const res = await post('/api/import', {
     slug: seed.slug,
     siteJson: seed.siteJson as Record<string, unknown>,
@@ -179,5 +199,60 @@ describe('a Worker-hosted consultant with a browser can see', () => {
     const page = browser.log.fulfilled.find((f) => f.url === browser.log.requested[0])
     expect(page?.status).toBe(200)
     expect(page?.contentType).toContain('text/html')
+  })
+})
+
+describe('a Worker-hosted consultant with no browser still edits', () => {
+  it('test_UAT_AC2024_a_worker_without_a_browser_binding_still_opens_an_editing_assistant', async () => {
+    const slug = nextSlug('blind')
+    await seedSite(slug, { 'home.json': homeWithHeadline(slug) })
+
+    // THE CONFIGURATION UNDER TEST: no Browser Rendering binding, and no launcher
+    // injected through the router's seam — this deployment has nothing to look
+    // with. Everything else is the Worker's ordinary environment.
+    const { BROWSER: _absent, ...rest } = workerEnv()
+    const blind = rest as Env
+    expect(blind.BROWSER).toBeUndefined()
+    // …while the consultant's grant still names the looking surface.
+    expect((L1_INSTANCES.consultant as Record<string, unknown>).fidelity).toBeDefined()
+
+    const client = scriptedClient([
+      calls('set_l1', {
+        page: 'home',
+        path: '0.0',
+        node: { kind: 'text', text: 'A new headline.', axes: { fontSizePx: 32 } },
+      }),
+      says('Changed it.'),
+    ])
+    setModelClient(client)
+    const chat = (path: string, body: unknown) => route(request(path, body), blind, {})
+
+    // The session constructs…
+    const opened = await chat('/api/ai/session', { slug })
+    expect(opened.status).toBe(200)
+    const session = (await opened.json()) as { sessionId: string; ready: boolean; error?: string }
+    expect(session.error).toBeUndefined()
+    expect(session.ready).toBe(true)
+
+    // …and takes an editing turn.
+    const turn = await chat('/api/ai/prompt', {
+      sessionId: session.sessionId,
+      text: 'Change the headline.',
+    })
+    expect(turn.status).toBe(200)
+    await turn.text()
+
+    // An editing tool was offered, and no looking operation was.
+    expect(client.seen.length).toBeGreaterThan(0)
+    const offered = client.seen[0].tools.map((t) => t.name)
+    expect(offered).toContain('set_l1')
+    for (const op of LOOKING_OPS) expect(offered).not.toContain(op)
+
+    // The edit landed: read back out of the tenant's own store.
+    const store = await d1r2SiteStore({ DB: env.DB, SITES: env.SITES }).forTenant(TENANT)
+    const home = (await store.readPages(slug)).find((p) => p.name === 'home.json')
+    expect(home).toBeDefined()
+    const root = (home!.page as { l1: { root: { children: { text: string }[] } } }).l1.root
+    expect(root.children[0].text).toBe('A new headline.')
   })
 })

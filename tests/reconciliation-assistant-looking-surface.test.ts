@@ -10,10 +10,14 @@ import {
   L1_INSTANCES,
 } from '../tools/generate/src/cli/ai/toolbox-core'
 import {
+  contentBlocksFrom,
   FIDELITY_DECLARATION,
   fidelitySurfaceFor,
   MAX_IMAGE_BYTES,
 } from '../tools/generate/src/cli/ai/fidelity-core'
+import { EXTRACT_SCRIPT } from '../tools/generate/src/cli/capture/extract'
+import type { RawSignals } from '../tools/generate/src/cli/capture/extract'
+import { signalsFor } from './support/fake-capture-driver'
 import type { ContentBlock } from '../tools/generate/src/cli/ai/fidelity-core'
 import { nodeDeps, resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host'
 import { openSession, streamPrompt } from '../tools/generate/src/cli/ai/host-core'
@@ -114,8 +118,12 @@ const ORIGIN = 'https://app.example.test'
  * The fake browser, with real pictures: each shot is chosen by the URL the page
  * actually settled on, so a resolver that shot the wrong thing gets the wrong
  * pixels.
+ *
+ * `signals`, when given, is what the page answers the value-extraction script
+ * with — the read `check_fidelity`'s value gates make of a live page. Every other
+ * script is still answered by the fake as before.
  */
-function eyes(shotFor: (url: string) => Uint8Array) {
+function eyes(shotFor: (url: string) => Uint8Array, signals?: RawSignals) {
   const fb = fakeBrowser()
   const launch = async (): Promise<PuppeteerBrowser> => {
     const browser = await fb.launch()
@@ -125,8 +133,17 @@ function eyes(shotFor: (url: string) => Uint8Array) {
         return {
           newPage: async () => {
             const page = await context.newPage()
-            const settled = page as unknown as { url(): string; screenshot(): Promise<Uint8Array> }
+            const settled = page as unknown as {
+              url(): string
+              screenshot(): Promise<Uint8Array>
+              evaluate(script: string): Promise<unknown>
+            }
             settled.screenshot = async () => shotFor(settled.url())
+            if (signals) {
+              const evaluate = settled.evaluate.bind(settled)
+              settled.evaluate = async (script: string) =>
+                script === EXTRACT_SCRIPT ? structuredClone(signals) : evaluate(script)
+            }
             return page
           },
           close: () => context.close(),
@@ -144,8 +161,9 @@ function looking(
   slug: string,
   references: ReturnType<typeof memoryReferenceStore>,
   shotFor: (url: string) => Uint8Array,
+  signals?: RawSignals,
 ) {
-  const browser = eyes(shotFor)
+  const browser = eyes(shotFor, signals)
   const deps = fidelityDeps({}, new PreviewRenderer(store), references, ORIGIN, slug, {
     launch: browser.launch,
   })
@@ -790,6 +808,101 @@ describe('a screenshot reaches the model as an image', () => {
   }, 120000)
 })
 
+// ── the trust boundary on the picture path ───────────────────────────────────
+
+const UNTRUSTED_OPEN = '<<<untrusted>>>'
+const UNTRUSTED_CLOSE = '<<</untrusted>>>'
+
+describe('a picture keeps the untrusted-content frame on its way to the model', () => {
+  it('test_UAT_AC2067_a_screenshot_reaches_the_model_inside_the_untrusted_frame', async () => {
+    // `screenshot` is declared `provenance: untrusted`: a picture of any page is
+    // third-party content, and must be marked as such on the wire exactly as a
+    // text result would be.
+    const declared = (FIDELITY_DECLARATION.operations as {
+      op: string
+      returns: { provenance: string }
+    }[]).find((o) => o.op === 'screenshot')
+    expect(declared?.returns.provenance).toBe('untrusted')
+
+    const { client } = await screenshotTurn()
+
+    // What the backend was handed, in the same turn, as the screenshot's result.
+    const result = toolResultIn(client.seen[1])
+    expect(result).toBeDefined()
+    expect(Array.isArray(result!.content)).toBe(true)
+    const blocks = result!.content as ContentBlock[]
+    expect(blocks.length).toBeGreaterThanOrEqual(3)
+
+    // The frame opens before the first block…
+    const first = blocks[0] as { type: string; text?: string }
+    expect(first.type).toBe('text')
+    expect(first.text!.startsWith(`${UNTRUSTED_OPEN}\n`)).toBe(true)
+    // …and closes after the image.
+    const last = blocks[blocks.length - 1] as { type: string; text?: string }
+    expect(last.type).toBe('text')
+    expect(last.text!.endsWith(`\n${UNTRUSTED_CLOSE}`)).toBe(true)
+
+    // The picture itself lies strictly inside the frame, and is still a picture.
+    const imageAt = blocks.findIndex((b) => b.type === 'image')
+    expect(imageAt).toBeGreaterThan(0)
+    expect(imageAt).toBeLessThan(blocks.length - 1)
+    const image = blocks[imageAt] as { source: { media_type: string; data: string } }
+    expect(image.source.media_type).toBe('image/png')
+    expect(image.source.data.startsWith(PNG_BASE64_HEAD)).toBe(true)
+
+    // Exactly one frame: opened once, closed once, and nothing outside it.
+    const texts = blocks
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+    expect(texts.split(UNTRUSTED_OPEN)).toHaveLength(2)
+    expect(texts.split(UNTRUSTED_CLOSE)).toHaveLength(2)
+    // The picture's own description is still there, inside the frame.
+    expect(first.text).toContain('60×40')
+  }, 120000)
+
+  it('test_UAT_AC2067_content_blocks_recovered_from_a_framed_rendering_keep_the_frame', async () => {
+    // The real Toolbox's rendering of a real screenshot: framed text.
+    const store = storeWith([{ slug: 'studio' }])
+    const picture = await png(solid(12, 8, 40))
+    const references = await seededReferences(picture)
+    const { deps } = looking(store, 'studio', references, () => picture)
+    const box = await consultantBox(store, 'studio', deps)
+    const rendered = await box.run('screenshot', { of: { kind: 'reference', bundle: BUNDLE } })
+    expect(typeof rendered).toBe('string')
+    expect((rendered as string).startsWith(`${UNTRUSTED_OPEN}\n`)).toBe(true)
+    expect((rendered as string).endsWith(`\n${UNTRUSTED_CLOSE}`)).toBe(true)
+
+    // Recovered as blocks — the host's own step — the frame is carried onto them.
+    const recovered = contentBlocksFrom(rendered)
+    expect(recovered).not.toBeNull()
+    const inner = blocksOf(rendered)
+    expect(recovered).toEqual([
+      { type: 'text', text: `${UNTRUSTED_OPEN}\n${(inner[0] as { text: string }).text}` },
+      inner[1],
+      { type: 'text', text: `\n${UNTRUSTED_CLOSE}` },
+    ])
+    expect(inner[1].type).toBe('image')
+
+    // A first block that is not text gets the opening marker as its own block,
+    // and a trailing text block absorbs the closing one.
+    const image = inner[1]
+    const imageFirst = [image, { type: 'text', text: 'note' }]
+    expect(
+      contentBlocksFrom(`${UNTRUSTED_OPEN}\n${JSON.stringify(imageFirst)}\n${UNTRUSTED_CLOSE}`),
+    ).toEqual([
+      { type: 'text', text: `${UNTRUSTED_OPEN}\n` },
+      image,
+      { type: 'text', text: `note\n${UNTRUSTED_CLOSE}` },
+    ])
+
+    // An unframed rendering is returned as the blocks it is, with nothing added…
+    expect(contentBlocksFrom(JSON.stringify(inner))).toEqual(inner)
+    // …and a refusal is not a picture at all.
+    expect(contentBlocksFrom('Error: screenshot failed. NOT_FOUND: nothing there.')).toBeNull()
+  }, 60000)
+})
+
 // ── read-only ────────────────────────────────────────────────────────────────
 
 describe('no looking operation changes the site', () => {
@@ -805,7 +918,9 @@ describe('no looking operation changes the site', () => {
     const store = storeWith([{ slug }])
     const shot = await png(solid(40, 40, 7))
     const references = await seededReferences(shot)
-    const { deps } = looking(store, slug, references, () => shot)
+    // The live page answers the value gates' extraction too, so `check_fidelity`
+    // runs to a verdict rather than failing on a browser that cannot be read.
+    const { deps } = looking(store, slug, references, () => shot, signalsFor(VIEWPORTS.desktop.width))
     const audit: { operation: string; effect: string }[] = []
     const box = await consultantBox(store, slug, deps, {
       audit: (r) => audit.push(r.asObject() as never),
@@ -815,13 +930,57 @@ describe('no looking operation changes the site', () => {
     const siteJson = await store.readSiteJson(slug)
     const pages = await store.readPages(slug)
 
-    await box.run('list_references', {})
-    await box.run('describe_reference', { bundle: BUNDLE })
-    await box.run('screenshot', { of: { kind: 'reference', bundle: BUNDLE } })
-    await box.run('compare', {
-      a: { kind: 'reference', bundle: BUNDLE },
-      b: { kind: 'draft' },
-    })
+    /**
+     * One call, which must have SUCCEEDED: a non-error result, inside the
+     * untrusted-content frame every result of this surface is rendered in.
+     */
+    const OPEN = '<<<untrusted>>>\n'
+    const CLOSE = '\n<<</untrusted>>>'
+    const succeeded = async (op: string, input: Record<string, unknown>): Promise<string> => {
+      const rendered = String(await box.run(op, input))
+      expect(rendered, `${op}: ${rendered.slice(0, 300)}`).not.toMatch(/^Error:/)
+      expect(rendered.startsWith(OPEN), `${op}: ${rendered.slice(0, 300)}`).toBe(true)
+      expect(rendered.endsWith(CLOSE), op).toBe(true)
+      return rendered.slice(OPEN.length, rendered.length - CLOSE.length)
+    }
+
+    const listed = JSON.parse(await succeeded('list_references', {})) as {
+      references: { bundle: string }[]
+    }
+    expect(listed.references.map((r) => r.bundle)).toEqual([BUNDLE])
+
+    const described = JSON.parse(await succeeded('describe_reference', { bundle: BUNDLE })) as {
+      bundle: string
+    }
+    expect(described.bundle).toBe(BUNDLE)
+
+    const pictured = JSON.parse(
+      await succeeded('screenshot', { of: { kind: 'reference', bundle: BUNDLE } }),
+    ) as ContentBlock[]
+    expect(pictured.some((b) => b.type === 'image')).toBe(true)
+    expect(JSON.stringify(pictured)).toContain(PNG_BASE64_HEAD)
+
+    const compared = JSON.parse(
+      await succeeded('compare', {
+        a: { kind: 'reference', bundle: BUNDLE },
+        b: { kind: 'draft' },
+      }),
+    ) as { size: { width: number; height: number }; meanDifference: number }
+    expect(compared.size).toEqual({ width: 40, height: 40 })
+    expect(compared.meanDifference).toBe(0)
+
+    const judged = JSON.parse(
+      await succeeded('check_fidelity', { actual: { kind: 'draft' }, reference: BUNDLE }),
+    ) as { verdict: string; nextStep: string }
+    expect([
+      'pass',
+      'structural-failure',
+      'capture-incomplete',
+      'reproduction-wrong',
+      'unexplained-disagreement',
+    ]).toContain(judged.verdict)
+    expect(judged.nextStep.length).toBeGreaterThan(0)
+
     // Through its refusal path: no network, and still a call that ran.
     const refused = String(await box.run('capture_site', { url: 'http://127.0.0.1/' }))
     expect(refused).toMatch(/REFUSED/)
@@ -829,14 +988,16 @@ describe('no looking operation changes the site', () => {
     expect(await store.counter(slug)).toBe(counter)
     expect(await store.readSiteJson(slug)).toEqual(siteJson)
     expect(await store.readPages(slug)).toEqual(pages)
-    // Every call was journalled, and journalled as a read.
+    // Every call — all six operations — was journalled, and journalled as a read.
     expect(audit.map((a) => a.operation)).toEqual([
       'list_references',
       'describe_reference',
       'screenshot',
       'compare',
+      'check_fidelity',
       'capture_site',
     ])
+    expect([...new Set(audit.map((a) => a.operation))].sort()).toEqual(LOOKING_OPS)
     for (const record of audit) expect(record.effect).toBe('read')
-  })
+  }, 60000)
 })

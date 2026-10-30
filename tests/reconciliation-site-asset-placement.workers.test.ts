@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
-import { promoteToSiteAsset } from '../apps/control-app/src/material'
+import { NotRepublishableError, promoteToSiteAsset } from '../apps/control-app/src/material'
 import { applySchema, makeD1Site, tenantStore } from './support/d1-site-factory'
 import { bytesOf } from './support/material-fixtures'
 import type { TenantSiteStore } from '../tools/generate/src/store/d1r2-store'
@@ -284,18 +284,54 @@ describe('story-aacb7060 — placement is recorded only when it is true', () => 
     expect(renamedSlice.changes[0].op).toBe('asset.add')
     expect(renamedSlice.changes[0].label).toBe('kitchen-2.png')
 
-    // REFUSED BY THE RIGHTS GATE: no new entry.
-    const refusedCursor = await cursorOf(sites, site.slug)
-    const refused = await handOver(tenant, {
+    // BACKGROUND MATERIAL: never routed to the gate at all (the route only
+    // promotes `site`-role material), and no new entry.
+    const referenceCursor = await cursorOf(sites, site.slug)
+    const reference = await handOver(tenant, {
       bytes: bytesOf('a competitor’s hero image'),
       name: 'theirs.png',
       type: 'image/png',
       role: 'reference',
       slug: site.slug,
     })
-    expect(refused.republishable).toBe(false)
-    expect(refused.site_asset).toBeNull()
-    expect((await sites.changesSince(site.slug, refusedCursor)).changes).toHaveLength(0)
+    expect(reference.republishable).toBe(false)
+    expect(reference.site_asset).toBeNull()
+    expect((await sites.changesSince(site.slug, referenceCursor)).changes).toHaveLength(0)
+
+    // REFUSED BY THE RIGHTS GATE ITSELF. The gate must actually be reached, so
+    // the material is `site`-role — the role the route promotes — but its own
+    // record forbids republishing. A hand-over classifies a `site` upload as
+    // republishable, so the record is narrowed after ingestion (rights withdrawn)
+    // and the material is promoted through `promoteToSiteAsset`, the function
+    // the route calls and the only promotion path the platform has.
+    const tickets = await ticketStoreFor(routerEnv(tenant))
+    const held = await handOver(tenant, {
+      bytes: bytesOf('a photograph whose licence was withdrawn'),
+      name: 'withdrawn.png',
+      type: 'image/png',
+      role: 'site',
+    })
+    const heldUid = String(held.uid)
+    expect(heldUid).not.toBe('')
+    expect(held.site_asset).toBeNull()
+    await tickets.update({ uid: heldUid, patch: { fields: { republishable: false } } })
+    const heldRecord = (await tickets.get({ uid: heldUid })).ticket
+    expect(heldRecord.fields.role).toBe('site')
+    expect(heldRecord.fields.republishable).toBe(false)
+
+    const assetsBeforeGate = await sites.listAssets(site.slug)
+    const gateCursor = await cursorOf(sites, site.slug)
+    const refusal = await promoteToSiteAsset(tickets, sites, {
+      uid: heldUid,
+      slug: site.slug,
+      name: 'withdrawn.png',
+    }).catch((err: unknown) => err)
+    expect(refusal).toBeInstanceOf(NotRepublishableError)
+    expect((refusal as NotRepublishableError).uid).toBe(heldUid)
+    // Nothing landed and nothing was journalled.
+    expect(await sites.listAssets(site.slug)).toEqual(assetsBeforeGate)
+    expect((await sites.changesSince(site.slug, gateCursor)).changes).toHaveLength(0)
+    expect((await listed(tenant, heldUid)).placed_on).toEqual([])
 
     // FAILED SOFTLY: the store refuses the write; the hand-over still succeeds,
     // and the journal records nothing.

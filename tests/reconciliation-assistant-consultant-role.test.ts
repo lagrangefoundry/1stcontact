@@ -10,7 +10,7 @@ import { L1_INSTANCES } from '../tools/generate/src/cli/ai/toolbox-core'
 import { repoRoot } from '../tools/generate/src/cli/webui'
 import { cmdNew } from '../tools/generate/src/cli/commands'
 import type { L1Node } from '@1stcontact/site-schema'
-import { calls, says, scriptedClient } from './support/scripted-model-client'
+import { calls, modelSaw, says, scriptedClient } from './support/scripted-model-client'
 
 /**
  * **The assistant is a consultant** (story-a58a0974, REQ-174).
@@ -169,6 +169,45 @@ describe('the assistant is told it is a consultant', () => {
 
     // The person the site belongs to is the client.
     expect(system).toMatch(/\bclient\b/)
+
+    // ...and never the user, the register the rename retired. Checked on the
+    // preamble AS RECEIVED — from its opening sentence to its closing one — and
+    // not on the whole system text, whose projected tool manual and knowledge
+    // documents are not the role's voice.
+    const opening = 'You are a design consultant'
+    const closing = 'only when your client decides to publish.'
+    const start = flat.indexOf(opening)
+    expect(start).toBeGreaterThanOrEqual(0)
+    const end = flat.indexOf(closing, start)
+    expect(end).toBeGreaterThan(start)
+    const preamble = flat.slice(start, end + closing.length)
+    expect(preamble).toMatch(/\bclient\b/)
+    expect(preamble).not.toMatch(/\buser\b/i)
+  })
+
+  it('test_UAT_AC2066_per_turn_reminder_the_model_receives_calls_the_owner_the_client', async () => {
+    const client = scriptedClient([says('Understood.')])
+    setModelClient(client)
+
+    await speak(base, SLUG, 'Say something')
+
+    // The reminder as it actually rode the first REAL model request — resolved by
+    // the host's reminder provider for this turn, wherever the library placed it
+    // (it rides the tail of the last message, not `system`) — never the
+    // function's return value read back.
+    expect(client.seen.length).toBeGreaterThan(0)
+    const sent = modelSaw(client.seen[0])
+    const opening = `You are working on the site "${SLUG}".`
+    const start = sent.indexOf(opening)
+    expect(start, 'the reminder reached the model').toBeGreaterThanOrEqual(0)
+    // The reminder is one line (its sentences are joined with spaces).
+    const lineEnd = sent.indexOf('\n', start)
+    const reminder = sent.slice(start, lineEnd === -1 ? undefined : lineEnd)
+    expect(reminder.length).toBeGreaterThan(opening.length)
+
+    expect(reminder).toMatch(/\bclient\b/)
+    expect(reminder).not.toMatch(/\buser\b/i)
+    expect(reminder).not.toMatch(new RegExp(LEGACY, 'i'))
   })
 
   it('test_UAT_AC2055_new_session_is_recorded_and_reported_under_the_consultant_name_alone', async () => {
@@ -206,6 +245,9 @@ describe('a conversation stored under the former name still works', () => {
       readFileSync(archive, 'utf8').replaceAll(`"role": "${CONSULTANT_ROLE}"`, `"role": "${LEGACY}"`),
     )
     expect(archivedHeader(cwd, SLUG).role).toBe(LEGACY)
+    const legacyWord = new RegExp(LEGACY, 'gi')
+    const legacyMentionsBefore = (readFileSync(archive, 'utf8').match(legacyWord) ?? []).length
+    expect(legacyMentionsBefore).toBeGreaterThan(0)
 
     // Drop the in-process host: the next request must resume from storage.
     resetAiHost()
@@ -236,6 +278,14 @@ describe('a conversation stored under the former name still works', () => {
     for (const file of readdirSync(sessionsDir({ cwd }))) {
       expect(file).not.toMatch(new RegExp(LEGACY, 'i'))
     }
+
+    // Nothing NEW is recorded under the former name: the stored transcript, now
+    // carrying the further turn, names the consultant or still holds the aged
+    // value untouched — and the further turn added no mention of the old name.
+    const after = readFileSync(archive, 'utf8')
+    expect(after).toContain('Change the headline to')
+    expect([CONSULTANT_ROLE, LEGACY]).toContain(archivedHeader(cwd, SLUG).role)
+    expect((after.match(legacyWord) ?? []).length).toBeLessThanOrEqual(legacyMentionsBefore)
   })
 })
 

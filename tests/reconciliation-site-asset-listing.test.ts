@@ -135,6 +135,32 @@ async function cli(cwd: string, ...argv: string[]): Promise<CliResult> {
   return { ...(JSON.parse(out[out.length - 1]) as CliResult), exitCode }
 }
 
+/**
+ * Drive the real `1c` entry point WITHOUT `--json` — what an operator reads at a
+ * terminal. Returns every line written to stdout, and the exit code.
+ */
+async function cliHuman(cwd: string, ...argv: string[]): Promise<{ lines: string[]; exitCode: number }> {
+  const prevCwd = process.cwd()
+  const prevLog = console.log
+  const out: string[] = []
+  process.chdir(cwd)
+  process.exitCode = 0
+  console.log = (...a: unknown[]) => void out.push(a.map(String).join(' '))
+  try {
+    await run(argv)
+  } finally {
+    console.log = prevLog
+    process.chdir(prevCwd)
+  }
+  const exitCode = typeof process.exitCode === 'number' ? process.exitCode : 0
+  process.exitCode = 0
+  const lines = out
+    .join('\n')
+    .split('\n')
+    .filter((l) => l.trim() !== '')
+  return { lines, exitCode }
+}
+
 /** Ask a site for its assets from the command line — the site is the only input. */
 async function askForAssets(cwd: string, slug: string): Promise<CliResult> {
   return cli(cwd, 'asset', 'list', slug)
@@ -179,9 +205,35 @@ describe('story-c46abfa6 — the site asset store', () => {
       expect(entry.id, name).toBe(name)
       expect(entry.onDisk, name).toBe(true)
       expect(typeof entry.kind, name).toBe('string')
-      // Nothing on the entry says an asset needs declaring before it is used.
+      // Nothing on the entry says an asset needs declaring before it is used,
+      // and no entry carries descriptive text of its own: the entry is exactly
+      // id, handle, kind and present-on-disk.
       expect(entry, name).not.toHaveProperty('registered')
+      expect(entry, name).not.toHaveProperty('declared')
+      expect(entry, name).not.toHaveProperty('alt')
+      expect(Object.keys(entry).sort(), name).toEqual(['id', 'kind', 'onDisk', 'src'])
     }
+
+    // THE RETIRED `assets` KEY IS IGNORED. A stored definition that still names a
+    // file the store does not hold, and gives alt text for one it does, changes
+    // nothing about the answer: the absent file is not listed and no entry
+    // carries the alt text.
+    const siteJson = draftPath(cwd, 'undeclared', 'site.json')
+    const legacy = JSON.parse(readFileSync(siteJson, 'utf8'))
+    legacy.assets = [
+      { id: 'hero', src: 'hero.png', alt: 'LEGACY ALT TEXT FOR THE HERO' },
+      { id: 'phantom', src: 'phantom.png', alt: 'Named in the definition, absent from the store' },
+    ]
+    writeFileSync(siteJson, JSON.stringify(legacy, null, 2))
+
+    const again = await askForAssets(cwd, 'undeclared')
+    expect(again.ok).toBe(true)
+    expect(entriesOf(again)).toEqual(assets)
+    expect(entriesOf(again).map((a) => a.id)).not.toContain('phantom.png')
+    expect(entriesOf(again).map((a) => a.src)).not.toContain('/assets/phantom.png')
+    expect(JSON.stringify(again.data)).not.toContain('LEGACY ALT TEXT FOR THE HERO')
+    expect(JSON.stringify(again.data)).not.toContain('phantom')
+    for (const entry of entriesOf(again)) expect(entry).not.toHaveProperty('alt')
   })
 
   it('test_UAT_BUG-44_the_listing_reports_the_store_and_nothing_but_the_store', async () => {
@@ -283,6 +335,22 @@ describe('story-c46abfa6 — the site asset store', () => {
     expect(empty.ok).toBe(true)
     expect(empty.exitCode).toBe(0)
     expect(entriesOf(empty)).toEqual([])
+
+    // THE HUMAN OUTPUT — what an operator reads without `--json`. One line per
+    // asset (id, handle, kind), and nothing marks any asset as a lesser kind: the
+    // `(unregistered)` marker that once told an assistant a file was ineligible
+    // must never come back.
+    const human = await cliHuman(cwd, 'asset', 'list', 'acme')
+    expect(human.exitCode).toBe(0)
+    expect(human.lines).toEqual(MIXED_STORE.map((a) => `${a.id}\t${a.src}\t${a.kind}`))
+    const text = human.lines.join('\n')
+    expect(text).not.toMatch(/unregistered/i)
+    expect(text).not.toMatch(/undeclared|registered|declared/i)
+
+    // The empty site answers "no assets" in words, still as a success.
+    const humanEmpty = await cliHuman(cwd, 'asset', 'list', 'blank')
+    expect(humanEmpty.exitCode).toBe(0)
+    expect(humanEmpty.lines).toEqual(['(no assets)'])
   })
 })
 
