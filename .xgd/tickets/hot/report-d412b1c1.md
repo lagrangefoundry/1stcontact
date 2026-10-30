@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-e15a19ef'
 created_by: xgd
 created_at: '2026-10-30T19:13:46.016174+00:00'
-updated_at: '2026-10-30T19:13:46.016174+00:00'
+updated_at: '2026-10-30T19:29:57.924542+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-e15a19ef
@@ -19,6 +19,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC720
+  batches_pending: false
 ---
 
 {
