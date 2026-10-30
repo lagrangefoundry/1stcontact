@@ -6,9 +6,9 @@ title: Author a site's settings, components, page metadata and generated images 
   the control surface
 created_by: xgd
 created_at: '2026-08-10T09:32:44.463811+00:00'
-updated_at: '2026-10-26T01:12:44.512635+00:00'
+updated_at: '2026-10-30T21:32:15.477004+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -47,6 +47,14 @@ The element tree is only part of a site. This story covers the four things that 
 - **Flagged for a future reconciliation, not claimed here.** The "a behaviour declares a default presentation retrievable by its id" index lives in the framework's L2 layer, whose owning capability is the behaviour-module contract (CAP-70 / story-179b8c06). It is documented here because that is where the behaviour is observable — a component arrives with a working look in one call — but a later reconciliation of that capability may want an L2-side criterion of its own.
 - Known upstream gaps this story does not claim closed: none specific to it; the enum-control, single-field-layout and refusal-rendering gaps recorded in this bundle are filed against other capabilities.
 - **No registry (BUG-44, operator decision 2026-09-01).** A drawing used to be registered in the site definition's asset registry with an alt text; that registry was deleted (see STORY-102), so a drawing is an ordinary stored file and AC-1104/AC-1105 now speak of the stored definition being untouched rather than of a registry. The no-stand-in rule comes from BUG-45, where a client's uploaded logo was silently replaced by an assistant drawing; it is a declaration, asserted on the surface text — a mechanical gate on substitution is a larger design and is not claimed.
+
+### Code issue flagged (not encoded as an AC)
+
+- **The `1c` usage text still advertises `--alt` on `1c asset write`.** `tools/generate/src/cli/index.ts:438` reads `1c asset write <slug> <name> --content <svg> [--alt <t>] [--force]`. Since BUG-44 the `write` arm passes only `{ ...opts, force }` to `editAssetWrite`, which has no alt option, so `--alt` is accepted and silently ignored. An operator reading the help would expect the drawing to carry the alt text; it does not (AC-1109 asserts the written asset has no `alt`). Removing the `[--alt <t>]` fragment is a code change that needs a mode_override grant; it is recorded here rather than made during reconciliation (review report-e82f1d68 G2).
+
+## Reconciliation Decisions
+
+- **AC-1109 drops "optional alt text" from the command-line drawing write** (decided at reconciliation, 2026-10-30, review report-e82f1d68 G1). AC-1109 was authored before BUNDLE-32 and described the CLI writing a drawing "with optional alt text". BUG-44 behaviour 5 (bundle-5607a08d) retracted alt from `add_asset` / `write_image`; an image's alt text is the required `alt` on the L1 image node. The code follows it: the CLI `write` arm no longer reads `--alt`. AC-1109 is rewritten in place — the remaining three capabilities in that criterion are unchanged — to "writing a drawing by supplying its content, with explicit replacement", and its UAT no longer passes `--alt` and asserts the written asset carries no `alt`.
 
 ## Dependencies
 
