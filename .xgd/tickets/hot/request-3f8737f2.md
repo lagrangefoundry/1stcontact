@@ -5,7 +5,7 @@ type: request
 title: 'The fidelity surface: the assistant can look, compare and judge'
 created_by: xgd
 created_at: '2026-08-20T23:16:44.004000+00:00'
-updated_at: '2026-10-30T21:51:45.715619+00:00'
+updated_at: '2026-10-30T21:51:53.202742+00:00'
 completed_at: '2026-10-30T21:51:45.715619+00:00'
 last_field_updated: status
 status: free_and_reconciled
