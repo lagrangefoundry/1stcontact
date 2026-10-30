@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-09-19T14:02:52.579836+00:00'
+updated_at: '2026-10-30T18:56:19.114141+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -30,10 +30,12 @@ in any flag order, trust that a store-selecting flag reaches the render/serve it
 triggers, pipe machine-readable output straight into other tools without it
 breaking or being buried in setup noise, run the same render in a runtime that
 has no build transform, and get a named remedy instead of a stack trace from deep
-inside a browser launch.
+inside a browser launch, and to find that the CLI offers no raw-server way to look
+at a site — only the Worker — while the capture fixture my screenshots depend on
+keeps working.
 
 ## Description
-Six CLI-correctness guarantees for the `1c` command line:
+Seven CLI-correctness guarantees for the `1c` command line:
 
 1. **Boolean flag parsing.** The `--multi-viewport` flag is a boolean toggle, not
    a value-taking option. Invoking `values-diff --multi-viewport <slug>` (or
@@ -156,7 +158,7 @@ Six CLI-correctness guarantees for the `1c` command line:
    loads nothing that can be absent, and its requirement would be the empty set.
    The entry was **removed rather than emptied**, because a gate on an empty
    requirement can only produce a refusal the operator has no remedy for. `crop`
-   therefore joins the offline verbs — `render`, `serve`, `builder`, `repro`,
+   therefore joins the offline verbs — `render`, `builder`, `repro`,
    `refold`, `l1-gate`, `responsive-diff` and the structured-edit commands —
    which are never gated, so a verb is never blocked by a dependency it does not
    use, and `1c crop` completes on a tree that was never installed at all.
@@ -168,14 +170,34 @@ Six CLI-correctness guarantees for the `1c` command line:
    envelope under `--json`; a message naming which check failed and which
    packages; and a hint that is the literal install command to run.
 
+7. **The raw-server hosting path is discontinued; the capture fixture is not.**
+   `1c serve` is no longer a command. Invoking it falls through to the CLI's
+   unknown-command refusal — `Unknown command: serve` on stderr followed by the
+   usage text, exit status 1 — and binds no port. The help text carries no
+   `1c serve` line and advertises no way to serve a site outside a Worker; it
+   offers `1c builder` (which starts `wrangler dev`) instead. The only supported
+   way to serve a site is a Worker.
+
+   What survives is the function under the command: the static-preview capture
+   fixture stays exported from the CLI package and still binds an ephemeral
+   loopback origin serving a rendered site's bytes over real HTTP, because
+   `1c shot`, `1c aligned-crops` and the module conformance harness render to
+   disk and drive a headless browser at that origin. It is test and capture
+   infrastructure for a single run, never a hosting path, and both fixture
+   sources (the static-preview fixture and the builder's Node transport) say so
+   in their own headers.
+
 In scope: argument-parsing correctness for boolean flags, propagation of
 store-selecting flags into the render/serve a sub-command triggers, stdout/stderr
 separation and bootstrap quiet for scriptable output, how the launcher configures
 the server every command boots through and which build-transform dependency the
 repository carries, whether any render can reach a build transform at all, and the
 pre-command check that the installed tree matches the declared dependencies —
-including which verbs that check ranges over and which dependencies it names. Out
-of scope: the content/shape of the diff or crop artifacts themselves (covered by
+including which verbs that check ranges over and which dependencies it names, and
+which ways of serving a site the CLI offers (no raw server; the capture fixture
+survives as a library function). Out of scope: the file-backed local store
+(`new`/`render`/`publish`/`checkout`/`revisions`), which REQ-177 explicitly leaves
+untouched as an authoring tier rather than a server; the content/shape of the diff or crop artifacts themselves (covered by
 the values-diff, size-aware diff, and aligned-crops capabilities), the PNG codec
 that replaced the imaging dependency and the fidelity arithmetic it feeds (covered
 by the codec story in this same capability — this story owns only the
@@ -306,6 +328,28 @@ reports and names the remedy, it never runs it.
   the manifest change still carries `astro`, so the absence assertions only hold
   once the tree matches the lockfile. CI is unaffected: it installs
   `--frozen-lockfile` from scratch.
+- **Guarantee 7 reconciled from bundle-5607a08d (BUNDLE-32), plan item 9
+  (REQ-177), merge `9632cd6ae0` (commit `246333cbfe`).** The `case 'serve'`
+  dispatch arm, its usage line and the top-level `startServe` import were
+  removed from `cli/index.ts`; `startServe` is still re-exported straight from
+  `./serve`. `serve.ts` gained a header naming it the static-preview capture
+  fixture and stating it is not a hosting path; `builder.ts`'s header states
+  the same conclusion. `startBuilder` (the router's test transport, used by ~42
+  test files) is untouched. Evidence:
+  `tests/req177-discontinue-raw-server.test.ts` (three UATs: unknown-command
+  refusal, help advertises no raw server, fixture serves real bytes over HTTP).
+  `serve` was dropped from the offline-verb lists in both install-preflight
+  suites with no change in assertion semantics, and from guarantee 6's offline
+  verbs here.
+- **Code issue for `fix_uat_coverage` — do NOT encode this as an AC.** REQ-177
+  states that `serve` was removed "from the help text's list of ungated offline
+  verbs", but the *Install preflight (REQ-44)* paragraph of the CLI's `USAGE`
+  text in `tools/generate/src/cli/index.ts` still reads "Offline commands
+  (render, serve, builder, …) are never gated" on this tree. The help therefore
+  still names a verb that is refused as unknown. Per the chain of authority the
+  criteria record the intent (no `serve` in the offline verbs); the help text is
+  the thing to correct. The existing UAT only checks that no line *begins* with
+  `1c serve`, so it does not catch this.
 - Related stories and capabilities: the sibling stories in this same capability,
   CAP-63 (1c Capture & Diff Fidelity) — STORY-75 (the intrinsic value axes) and
   STORY-77/STORY-78 (size-aware and cross-size diffing) — the commands whose
