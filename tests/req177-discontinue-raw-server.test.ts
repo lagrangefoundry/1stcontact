@@ -48,17 +48,24 @@ function captureStdout(): string[] {
 }
 
 describe('REQ-177 — 1c serve is discontinued', () => {
-  it('test_UAT_FC_REQ-177_serve_is_no_longer_a_command', async () => {
+  it('test_UAT_AC2064_serve_is_refused_as_an_unknown_command', async () => {
     // The dispatch arm is gone, so `serve` falls through to the unknown-command
     // default: a refusal and a non-zero exit, not a bound port. This is the
     // whole of the behavioural change an operator can observe.
     const err = captureStderr()
     await run(['serve', 'demo'])
-    expect(err.join('\n')).toContain('Unknown command: serve')
+    const stderr = err.join('\n')
+    expect(stderr).toContain('Unknown command: serve')
+    // The refusal is followed by the same usage text `1c help` prints.
+    const help = captureStdout()
+    await run(['help'])
+    const usage = help.join('\n').trim()
+    expect(usage.length).toBeGreaterThan(0)
+    expect(stderr.slice(stderr.indexOf('Unknown command: serve'))).toContain(usage)
     expect(process.exitCode).toBe(1)
   })
 
-  it('test_UAT_FC_REQ-177_help_advertises_no_raw_server', async () => {
+  it('test_UAT_AC2064_help_offers_only_the_worker_based_builder', async () => {
     // The misleading part was the help text, not the code: an operator reading
     // it could reasonably conclude a node:http origin was a supported way to run
     // a site. `1c builder` (wrangler dev) is what the help now offers instead.
@@ -70,7 +77,7 @@ describe('REQ-177 — 1c serve is discontinued', () => {
     expect(usage).toContain('wrangler dev')
   })
 
-  it('test_UAT_FC_REQ-177_capture_fixture_still_binds_a_loopback_origin', async () => {
+  it('test_UAT_AC2065_capture_fixture_serves_rendered_bytes_over_a_loopback_origin', async () => {
     // The command is what goes; the function under it stays exported, because
     // `shot.ts`, `aligned-crops.ts` and `conformance/harness.ts` import it
     // directly. Driven over real HTTP rather than asserted as a type, so that
