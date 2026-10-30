@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for report-00553335'
 created_by: xgd
 created_at: '2026-10-30T20:59:44.548506+00:00'
-updated_at: '2026-10-30T21:05:19.173780+00:00'
+updated_at: '2026-10-30T21:15:00.226580+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: report-00553335
@@ -37,6 +37,8 @@ fields:
     for an `untrusted` operation — is carried onto'
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
