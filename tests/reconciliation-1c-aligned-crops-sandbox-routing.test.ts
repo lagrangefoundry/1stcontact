@@ -216,7 +216,7 @@ describe('story-e15a19ef — aligned-crops --sandbox emits crop pairs from the s
 
       // The reproduction lands under storage/sandbox/, not storage/sites/ — the
       // tree the render and serve must be routed to.
-      const repro = cmdRepro('tastingmenu', { cwd, ref, sandbox: true })
+      const repro = await cmdRepro('tastingmenu', { cwd, ref, sandbox: true })
       expect(repro.draftDir, 'reproduction imported into the sandbox tree').toContain(
         path.join('storage', 'sandbox'),
       )
