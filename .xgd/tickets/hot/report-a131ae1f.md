@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-e15a19ef'
 created_by: xgd
 created_at: '2026-10-30T19:01:28.494730+00:00'
-updated_at: '2026-10-30T19:01:28.494730+00:00'
+updated_at: '2026-10-30T19:08:02.165381+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-e15a19ef
@@ -38,6 +38,7 @@ fields:
       criterion) or AC-1016 (orphaned acceptance criterion) or AC-1015 (orphaned acceptance
       criterion) or AC-1014 (orphaned acceptance criterion) or AC-659 (orphaned acceptance
       criterion) or AC-656 (orphaned acceptance criterion) or test_UAT_AC738 or test_UAT_AC1415
+  batches_pending: false
 ---
 
 {
