@@ -2,13 +2,14 @@
 uid: acceptance_criterion-b4af8127
 id: AC-2048
 type: acceptance_criterion
-title: Every redirect hop and subresource a captured page requests is checked in both
-  hosts; refused requests are never sent and are reported in the result
+title: Every subresource a captured page requests is checked on both hosts, and every
+  redirect hop on the Worker host only; refused requests are never sent and are reported
+  in the result
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-27T21:19:27.255745+00:00'
-updated_at: '2026-10-28T04:07:33.966281+00:00'
+updated_at: '2026-10-30T20:02:42.229272+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: active
 fields:
   story_uid: story-31204812
