@@ -6,7 +6,7 @@ title: Selecting a row shows the file itself and the rights record read-only, wi
   no control by which a client can assert rights
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:49.652644+00:00'
-updated_at: '2026-09-14T07:06:34.792965+00:00'
+updated_at: '2026-10-30T19:59:42.091971+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -31,7 +31,7 @@ platform holds:
 - **The download link is present in every case**, including the cases that now render: being
   able to read a file on screen is not the same as having it.
 - **The record, read-only.** The filename, the kind, what the client said the material is for,
-  where it came from, its rights, whether it may appear on the site, which site it is used on and
+  where it came from, its rights, whether it may appear on the site, which sites it is used on (every one) and
   the address it was fetched from are all displayed, and none of them offers any means of
   editing. There is no control anywhere on the pane by which a client can assert rights over a
   file.
