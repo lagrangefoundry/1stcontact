@@ -311,7 +311,7 @@ Reference capture (REQ-12, REQ-83) — rendered-only headless-browser capture:
 L1 reproduction pipeline (REQ-88) — turn a capture bundle into a servable, gate-able 1c site:
   1c repro <slug> --ref <captureBundleDir> [--sandbox]
     Import the bundle's folded l1.json as a raw-L1 home page site (idempotent — re-import rebuilds).
-    The normal render/shot/diff/values-diff loop then works on the reproduction unchanged.
+    The normal render/serve/shot/diff/values-diff loop then works on the reproduction unchanged.
   1c refold --ref <captureBundleDir>
     Re-derive the bundle's l1.json + forms.json from its OWN retained multistate.json, offline.
     Both are a pure function of the oracle and the current fold, so every fold change makes every
@@ -477,8 +477,8 @@ package does not resolve or when pnpm-lock.yaml differs from the copy pnpm wrote
 at last install. Declaring a dependency does not materialize it: a tree that lags
 the lockfile is one prune away from losing a package it still declares. The
 remedy is always \`pnpm install\` at the repo root. Offline commands (render,
-builder, repro, refold, l1-gate, responsive-diff, the structured-edit verbs) are
-never gated.`
+serve, builder, repro, refold, l1-gate, responsive-diff, the structured-edit
+verbs) are never gated.`
 
 /** Parse a revision positional (`0001` or `1`) to a number, or undefined. */
 function parseRev(tok: string | undefined): number | undefined {

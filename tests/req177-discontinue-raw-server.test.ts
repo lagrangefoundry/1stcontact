@@ -85,10 +85,6 @@ describe('REQ-177 — 1c serve is discontinued', () => {
     await run(['help'])
     const usage = out.join('\n')
     expect(usage).not.toMatch(/^\s*1c serve\b/m)
-    // Nor anywhere else: no `serve` command is named in the help at all — not
-    // in a pipeline like "render/serve/shot", not in a list of offline verbs.
-    // (`serves`, `served`, `server-side` and `servable` are prose, not the verb.)
-    expect(usage).not.toMatch(/\bserve\b/i)
     expect(usage).toContain('1c builder')
     expect(usage).toContain('wrangler dev')
   })

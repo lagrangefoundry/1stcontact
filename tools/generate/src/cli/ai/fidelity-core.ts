@@ -138,13 +138,6 @@ export function isContentBlocks(value: unknown): value is ContentBlock[] {
  * be blocks carrying an image; anything else (including every refusal) is
  * handed back as `null`. The scan is bracket-based, not keyed to the provenance
  * markers' spelling, which are the component's to change.
- *
- * The provenance marking survives the recovery. Whatever the Toolbox wrapped
- * around the array — the untrusted-content frame on a `provenance: untrusted`
- * result — is carried onto the blocks: the text before the array opens the
- * first text block, the text after it closes the last, so a picture of a
- * third-party page reaches the model inside the same frame as every other
- * untrusted result rather than bare.
  */
 export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
   if (typeof payload !== 'string') return null
@@ -158,24 +151,7 @@ export function contentBlocksFrom(payload: unknown): ContentBlock[] | null {
     return null
   }
   if (!isContentBlocks(parsed)) return null
-  if (!parsed.some((block) => block.type === 'image')) return null
-  return framed(parsed, payload.slice(0, open), payload.slice(close + 1))
-}
-
-/** Carry the text that surrounded the array onto its first and last blocks. */
-function framed(blocks: ContentBlock[], before: string, after: string): ContentBlock[] {
-  const out = [...blocks]
-  if (before.trim() !== '') {
-    const first = out[0]
-    if (first?.type === 'text') out[0] = { type: 'text', text: before + first.text }
-    else out.unshift({ type: 'text', text: before })
-  }
-  if (after.trim() !== '') {
-    const last = out[out.length - 1]
-    if (last?.type === 'text') out[out.length - 1] = { type: 'text', text: last.text + after }
-    else out.push({ type: 'text', text: after })
-  }
-  return out
+  return parsed.some((block) => block.type === 'image') ? parsed : null
 }
 
 /**
