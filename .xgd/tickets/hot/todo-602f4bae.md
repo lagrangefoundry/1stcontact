@@ -6,10 +6,10 @@ title: Remove the orphan 'papers' page from the XGD site, and confirm the remova
   lands
 created_by: EPIC-10
 created_at: '2026-09-15T19:45:52.465327+00:00'
-updated_at: '2026-09-15T19:45:52.465327+00:00'
+updated_at: '2026-10-31T01:01:38.584258+00:00'
 completed_at: null
-last_field_updated: created_at
-status: open
+last_field_updated: status
+status: wont_do
 fields:
   priority: low
   kind: user_task

@@ -5,10 +5,10 @@ type: todo
 title: 'Plan panel: confirming facts without chat noise'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:19.762935+00:00'
-updated_at: '2026-10-02T17:48:54.876128+00:00'
+updated_at: '2026-10-30T18:27:24.800563+00:00'
 completed_at: null
-last_field_updated: body
-status: open
+last_field_updated: status
+status: done
 fields:
   kind: user_task
   priority: medium

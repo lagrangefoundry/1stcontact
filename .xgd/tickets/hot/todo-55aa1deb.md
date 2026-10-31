@@ -5,10 +5,10 @@ type: todo
 title: 'Builder sessions: measure and reduce cost per session'
 created_by: CHAT-58
 created_at: '2026-10-02T17:48:30.678889+00:00'
-updated_at: '2026-10-02T17:49:04.546944+00:00'
+updated_at: '2026-10-30T18:27:23.985782+00:00'
 completed_at: null
-last_field_updated: body
-status: open
+last_field_updated: status
+status: done
 fields:
   kind: user_task
   priority: low

@@ -6,15 +6,25 @@ title: 'Fidelity surface: screenshot reaches the model without the untrusted-con
   frame'
 created_by: workflow:fix_reconciliation_review/builder
 created_at: '2026-10-30T20:30:09.108108+00:00'
-updated_at: '2026-10-30T20:30:09.108108+00:00'
+updated_at: '2026-10-31T18:01:36.882642+00:00'
 completed_at: null
-last_field_updated: created_at
-status: draft
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   severity: high
   auto_merge_back: true
   needs_review: false
   priority: medium
+  chat_comment: comment-bb0ead3d
+  commits:
+  - working_sha: 00fefc7f5eb04bb1dce2317d1b02244e96d81cb5
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: bf0e359695568ba5f91b935a1ebceb4c3d107c30
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.711
+  story_points: 1
 ---
 
 ## Summary
@@ -38,3 +48,5 @@ The reverted 0a0f97f216 hunk is a ready reference implementation. AC-2067 (accep
 ## Test plan
 - Drive a consultant turn through the real Node host with `screenshot` scripted. Assert the backend's `tool_result` content opens with `<<<untrusted>>>` before the image and closes with `<<</untrusted>>>` after it.
 - Assert `contentBlocksFrom` keeps the frame for an image-first payload.
+
+-

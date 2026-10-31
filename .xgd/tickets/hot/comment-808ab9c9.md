@@ -5,7 +5,7 @@ type: comment
 title: Comment on epic EPIC-17
 created_by: xgd
 created_at: '2026-09-17T19:55:56.755356+00:00'
-updated_at: '2026-10-21T20:10:57.155676+00:00'
+updated_at: '2026-10-29T17:55:18.466169+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -326,5 +326,178 @@ Sources:
 - [Wikipedia: PHP2Shell](https://en.wikipedia.org/wiki/PHP2Shell)
 - [Brandefense: CVE analysis](https://brandefense.io/blog/php2shell-php-rce-cve-2026-109618-109619/)
 - [Cybersecurity News: public PoC](https://cybersecuritynews.com/php2shell-vulnerability/)
+
+<!-- xgd-turn id="89d16836-81df-411d-9736-7c48a879eb5b-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-29T16:53:06.396639+00:00" -->
+#### You
+I just removed the Cloudflare login protection from the main site and app so we are relying on our own cookies and login for security. Can you do a quick review to ensure that we didn't open any holes in that change?
+
+<!-- xgd-turn id="89d16836-81df-411d-9736-7c48a879eb5b-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-29T16:59:22.736865+00:00" -->
+#### Claude
+I'll start by finding the change itself, then work through what Access was covering.
+
+I didn't find any holes. The narrowed Access setup is doing what REQ-475 intended, and I checked that against the live site as well as the code.
+
+## Live checks against app.1stcontact.io
+
+| Request | Result |
+|---|---|
+| `/`, `/api/businesses`, `/api/material/file` with no session | `401` from our app, not Cloudflare |
+| `/sign-in` | `200`, our own page |
+| `/api/admin/sites`, `/sign-in/access`, `/api/export`, `/api/chats/export`, `/b/x/api/admin/sites`, `/b/x/api/export` | Cloudflare challenge (`302` to the Access login) |
+| Path tricks on the admin routes: uppercase, `//`, trailing `/`, a query string | All still get the Cloudflare challenge |
+| `/api/admin%2Fsites` | Slips past Cloudflare, but our app answers `401` with no session. The app also re-checks platform ownership on every admin route. |
+| `1stcontact-control-app…workers.dev` | Doesn't respond (`workers_dev = false`) |
+| Sign-in preflight from a foreign origin | No CORS headers come back |
+
+## What holds in the code
+
+- **Access isn't trusted on public paths.** Without a session they return 401 or redirect to sign-in. A `cf-access-jwt-assertion` header there is never read, so a forged one gets nothing (`src/index.ts:508`).
+- **Operator paths check the token themselves.** The Worker verifies the Access token's signature, audience, issuer and expiry, and fails closed if anything is missing.
+- **No open-dev switch in production.** `ACCESS_DEV_OPEN` isn't set under `[env.production]`. Even in dev it does nothing while the Access settings are filled in.
+- **The parts now open to the internet are the ones built for it.** Sign-in gives the same reply whether or not an email is known, is rate-limited per address, and only uses up a link on a POST. The email webhook requires a valid signature. Only invited people can get a session. The session cookie is `Secure; HttpOnly; SameSite=Lax`.
+
+## Things worth knowing (none are new holes)
+
+1. **Your inbox gets into every customer's builder.** As platform operator, a magic-link session alone lets you enter any business at delegate level through `/b/<id>/…`, and those aren't operator paths. That sounds like a downgrade, but your Access policy used One-time PIN, which also went to your email. The inbox was already the only thing guarding this, so nothing changed. If you want a stronger guard for operator access later, it would need a factor that isn't email.
+2. **No per-IP limit or Turnstile on `POST /sign-in`.** Mail volume per address is capped, but someone could still script requests at the endpoint. Low priority for the beta.
+3. **No security headers on the app** (HSTS, `frame-ancestors`). These were missing before as well. The `Lax` cookie blocks the main clickjacking risk, but HSTS is worth adding now that the app is public. It fits with the CSP and headers work already planned.
+4. **Same-origin uploads (F1 in the threat model) are unchanged.** Only invited people can get a session, so this change doesn't widen who can upload.
+
+One thing to confirm on your side: the old Access application's destination should now list only the operator paths. Any leftover bypass rules for `/sign-in`, `/sign-out` or the webhook can be deleted. The live checks above suggest that's already the case.
+
+I haven't changed any code or tickets. Do you want the first three items added to the EPIC-17 threat model?
+
+<!-- xgd-turn id="af7568d0-2bcf-4600-b03f-4b13ba3c5005-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-29T17:42:29.728579+00:00" -->
+#### You
+Are our webforms protected from abuse? How?
+
+<!-- xgd-turn id="af7568d0-2bcf-4600-b03f-4b13ba3c5005-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-29T17:43:52.008332+00:00" -->
+#### Claude
+Checking the public-site form handler and the sign-in form.
+
+Turnstile's site key is empty in the production config, so I'm checking whether the live forms render the widget at all. I'm also checking the builder-preview path that skips Turnstile.
+
+Yes. The public contact form has layered defences, and they fail closed: if any one is missing or can't be checked, the submission is refused rather than let through. The catch is that one of them isn't configured in production, so **the form on 1stcontact.io isn't taking any messages right now.**
+
+## How the contact form is protected
+
+The handler is `apps/public-site/src/lead.ts`. It runs these checks in order, cheapest first:
+
+1. **Shape.** Only form or JSON posts are accepted; anything else gets `415`.
+2. **Size.** The whole body is capped at 8 KB, checked against the declared length and again after reading. Each field is capped at 4,000 bytes, and the number of fields is capped too.
+3. **Rate limit.** Cloudflare's limiter allows 20 submissions per minute, keyed on the site and the sender's IP. Nothing in the form body can change that key. It's set high on purpose, because a tight per-site cap would let a spammer block a business's real enquiries. When the limit is hit, the sender gets the normal "thanks" reply but nothing is stored, so bots can't tell they've been limited.
+4. **Honeypot.** A hidden field that people never fill in. If it has a value, the sender gets the normal "thanks" reply and nothing is stored.
+5. **Turnstile.** The token is checked server-side with Cloudflare. A missing secret, missing token or failed check is refused. So is a network error, so a Cloudflare outage doesn't open the form.
+6. **Tenant.** Which business the lead belongs to comes from the URL, never from the form body, so a spammer can't send leads into another business's contacts.
+7. **After capture.** Addresses that have bounced or reported us as spam are suppressed before we send anything to them.
+
+The builder's draft-preview form skips the rate limit and Turnstile, because whoever uses it is already signed in. I checked that this is still sound now that the builder sits behind our own sign-in rather than Cloudflare Access. The skip is only on a route behind the app's sign-in. It's also limited to the signed-in person's own business, so the site in the URL can't reach anyone else's draft.
+
+## What's wrong in production
+
+- `TURNSTILE_SITEKEY = ""` under `[env.production.vars]` in `apps/public-site/wrangler.toml`. The live page has the Turnstile slot, but with no key in it and no Turnstile script loaded, so no visitor can ever produce a token.
+- I sent one test post with no token to `https://1stcontact.io/api/lead`, and it returned `503 "This site cannot take messages at the moment."` That means either the `TURNSTILE_SECRET` secret or the lead-intake binding is missing too. Nothing was written.
+
+So spam can't get in, but neither can real enquiries. To fix it, create a Turnstile widget for `1stcontact.io` and the customer domains, put its site key in the production vars, then run `wrangler secret put TURNSTILE_SECRET --env production` in `apps/public-site`. That's configuration, not code.
+
+## Gaps worth knowing
+
+- **The Turnstile hostname isn't checked** (item F8 in the EPIC-17 threat model). We read `success` but not the `hostname` Cloudflare sends back. The widget's domain allowlist in Cloudflare mostly covers this; adding the check is a few lines.
+- **Nothing reads the message content.** The architecture policy lists AI spam detection and reputation checks, but neither exists. A person who solves Turnstile, or a paid solving service, gets through at 20 per minute per IP. That's acceptable for the beta.
+- **The sign-in form on the main page** posts to `app.1stcontact.io/sign-in`. It has no Turnstile and no per-IP limit, only the limit on links per email address and the same reply for known and unknown addresses. Sign-in links are only ever emailed to invited people, so the realistic abuse is a modest number of unwanted sign-in emails to them.
+
+Other forms I didn't trace in detail: the gated download goes through the same lead pipeline; the email webhook requires a signature; everything in the builder (feedback, invites, settings) needs a signed-in session.
+
+I haven't changed anything. Do you want the Turnstile hostname check and the sign-in IP limit added to EPIC-17 as beta items, next to the configuration fix?
+
+<!-- xgd-turn id="799b45cc-b27e-45cf-a9b4-6a015cadec90-user" -->
+
+<!-- xgd-chat role="user" ts="2026-10-29T17:52:36.385194+00:00" -->
+#### You
+Can you create a ticket for adding security headers to the app (I assume this is straightforward)?
+
+Can you also please add a ticket for the Turnstile hostname check and the sign-in IP limit?
+
+Can you give me detailed specific instructions on fixing turnstyle
+
+<!-- xgd-turn id="799b45cc-b27e-45cf-a9b4-6a015cadec90-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-10-29T17:55:17.045869+00:00" -->
+#### Claude
+I'll check how REQ-266 was linked to EPIC-17 so the new tickets match, and look at the ticket-CLI notes in memory.
+
+Before writing the headers ticket I'm checking what a CSP would have to allow: inline scripts, iframes, and outside origins.
+
+Both tickets are going in as drafts under EPIC-17, linked the way REQ-266 is.
+
+Neither ticket shows up in the epic's children list automatically, so I'm adding them.
+
+Both tickets are filed. Before writing the Turnstile steps I'm checking how public-site gets deployed, so the commands match your scripts.
+
+I've filed both tickets as drafts under EPIC-17. Below are the Turnstile steps.
+
+## Tickets
+
+**REQ-485 — Control app: security headers on every response** (high priority, 3 points). It's mostly straightforward, with one part that isn't:
+- **Straightforward:** HSTS, `nosniff`, `Referrer-Policy`, framing limited to our own pages (`frame-ancestors 'self'`), and a `Permissions-Policy`. All of these get set in one place on the way out of the Worker, so routes added later get them automatically.
+- **Not quite straightforward: the Content-Security-Policy.** The builder has inline scripts in `chrome.ts`, `terms.ts` and `builder/people.js`, and those need hashes or moving into files. The builder also serves customer and captured pages on its own origin: previews, and material files via `/api/material/file`. Those can't inherit the builder's CSP, so the ticket gives them their own policy. The material-file policy is the sandbox CSP the threat model calls for (F1). The CSP ships in report-only mode first and is enforced after a clean beta session.
+
+**REQ-486 — Forms: Turnstile hostname check and per-IP sign-in limit** (medium priority, 3 points).
+- **Hostname check:** a token is only accepted if it was solved on the site the form was served from. A wrong host is refused exactly like a bad token.
+- **Sign-in limit:** a per-IP rate limit on requesting a sign-in link. Someone over the limit gets the same "check your email" reply but no email is sent. If the limit isn't configured, the route refuses rather than running unlimited. Redeeming a link isn't limited, and neither is `/sign-in/access`.
+
+## Fixing Turnstile
+
+**What I found:** `wrangler secret list --env production` on the public-site Worker returns `[]`, so no secrets are set at all. `TURNSTILE_SITEKEY` is `""` under `[env.production.vars]`. Both halves are missing, which is why the form answers 503.
+
+### 1. Create the widget (Cloudflare dashboard)
+1. Go to **Turnstile → Add widget**.
+2. **Name:** `1st Contact forms`.
+3. **Hostnames:** add `1stcontact.io` and `1stc.site`. A listed hostname should also cover its subdomains, which would include every customer site on `*.1stc.site`. Confirm that in step 5 with a `*.1stc.site` page. Each customer's own domain has to be added as it comes on. The free plan allows 10 hostnames per widget, so you'll hit that ceiling after a handful of customer domains.
+4. **Widget mode:** Managed.
+5. **Pre-clearance:** No.
+6. Click **Create**, then copy the **Site Key** (public) and the **Secret Key**.
+
+### 2. Put the site key in config
+In `apps/public-site/wrangler.toml`, under `[env.production.vars]`, replace `TURNSTILE_SITEKEY = ""` with:
+```toml
+TURNSTILE_SITEKEY = "0x4AAAA…your-site-key"
+```
+The site key is public and is meant to be committed. This is a config change, so it doesn't need a ticket. Send me the key and I'll make the edit if you like.
+
+### 3. Set the secret
+Run this from `apps/public-site`. Paste the value at the prompt rather than putting it on the command line:
+```sh
+cd apps/public-site
+../../node_modules/.bin/wrangler secret put TURNSTILE_SECRET --env production
+```
+Setting a secret takes effect on the live Worker straight away, but the site key in step 2 only takes effect after a deploy.
+
+### 4. Deploy
+```sh
+bin/deploy public-site
+```
+
+### 5. Check it works
+- `../../node_modules/.bin/wrangler secret list --env production` (in `apps/public-site`) should list `TURNSTILE_SECRET`.
+- `curl -s https://1stcontact.io/ | grep -o 'data-sitekey="[^"]*"'` should print your site key.
+- Open `https://1stcontact.io/` in a browser. The widget should appear, and a real submission should show up as a lead.
+- Do the same on one `*.1stc.site` customer page. That confirms the subdomain coverage from step 1.
+- `curl -s -X POST -d 'message=x' https://1stcontact.io/api/lead` should now return 400 ("Please complete the verification") instead of 503.
+
+If the browser submission still returns 503 once the secret is set, the lead-intake link from public-site to the control app is the next suspect, and I can trace it.
+
+### 6. Optional
+- **Dev:** Cloudflare publishes test keys that always pass: site key `1x00000000000000000000AA` and secret `1x0000000000000000000000000000000AA`. Using them lets local forms work without real challenges.
+- **Make it hard to lose again:** the control app's secrets each have a script in `bin/deploy.d/secrets/` that runs at deploy, but nothing like that exists for public-site's `TURNSTILE_SECRET`. That's why its absence went unnoticed. A small script there would make a missing secret fail the deploy loudly. I can add it to REQ-486 if you want.
+- **Also unset on public-site:** `GUTTER_SECRET`, which marks test submissions from synthetic checks. It's designed so that, when missing, those submissions are stored as real leads rather than refused. That's harmless, but it would matter once synthetic runs hit production.
 
 <!-- xgd-chat-end -->

@@ -6,10 +6,10 @@ title: 'Drawing stays with the consultant: SVG composition moves from builders t
   the principal, stored in the Library'
 created_by: EPIC-19
 created_at: '2026-10-21T18:52:32.985885+00:00'
-updated_at: '2026-10-21T21:54:23.608534+00:00'
+updated_at: '2026-10-28T03:53:42.901521+00:00'
 completed_at: null
-last_field_updated: story_points
-status: free_coded
+last_field_updated: status
+status: ready_to_reconcile
 fields:
   priority: high
   story_points: 8

@@ -5,15 +5,17 @@ type: epic
 title: Security Analysis
 created_by: martin-github@westhead.me
 created_at: '2026-09-17T19:33:30.327185+00:00'
-updated_at: '2026-10-21T20:10:39.368126+00:00'
+updated_at: '2026-10-29T17:54:36.801307+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: epic_children
 status: ongoing
 fields:
   priority: medium
   chat_comment: comment-808ab9c9
   epic_children:
   - request-53ddfe1f
+  - request-714556fc
+  - request-3b023783
 ---
 
 ## What this is
