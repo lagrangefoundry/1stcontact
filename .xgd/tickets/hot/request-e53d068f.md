@@ -5,10 +5,10 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-09-03T02:34:26.831347+00:00'
+updated_at: '2026-10-31T20:54:35.530172+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -26,6 +26,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.56
+  bundled_in: bundle-fd009b93
 ---
 
 # Material description: a digest in the body, the full text in a comment

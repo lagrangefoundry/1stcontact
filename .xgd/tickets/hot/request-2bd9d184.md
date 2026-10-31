@@ -5,10 +5,10 @@ type: request
 title: The consultant gets the whole of L1, and keeps getting it
 created_by: xgd
 created_at: '2026-09-02T20:48:58.308743+00:00'
-updated_at: '2026-09-03T02:34:19.795944+00:00'
+updated_at: '2026-10-31T20:54:34.536454+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 13
@@ -25,6 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.50
+  bundled_in: bundle-fd009b93
 ---
 
 # The consultant gets the whole of L1, and keeps getting it
