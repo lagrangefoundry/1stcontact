@@ -1,0 +1,20 @@
+---
+uid: report-155fdaf9
+id: REPORT-7064
+type: report
+title: 'Report: cherry_pick_conflict for reconcile-BUNDLE-34'
+created_by: xgd
+created_at: '2026-10-31T22:30:08.998667+00:00'
+updated_at: '2026-10-31T22:30:08.998667+00:00'
+completed_at: null
+last_field_updated: created_at
+result: fail
+fields:
+  report_kind: cherry_pick_conflict
+  subject_uid: reconcile-BUNDLE-34
+  conflict_sha: 693b62bdcd80526e3121eb89db559541fd13dd61
+  conflict_files:
+  - .xgd/tickets/hot/request-bfd833d0.md
+---
+
+cherry-pick of 693b62bdcd80526e3121eb89db559541fd13dd61 conflicted on: .xgd/tickets/hot/request-bfd833d0.md
