@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-01T21:29:08.460204+00:00'
+updated_at: '2026-11-01T22:20:06.783755+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -769,6 +769,19 @@ REQ-180 §1/§3).*
   No contradiction between the code and either intent was found. AC-1403 is
   unchanged: the session notice stands its guard down by the documented means
   (filling the mount point), so the guard's own criterion still holds.
+- **CODE-ISSUE: the material reader bypasses the one transport (BUG-52;
+  flagged in the BUNDLE-36 reconciliation review fix, 2026-11-01).** BUG-52's
+  intent says nothing outside `api.js` calls `fetch`. As landed,
+  `builder/reader.js` (`mountReader`) fetches a material file's bytes straight
+  from its URL, so it never goes through `send()`. A 401 on that fetch draws
+  the reader's own "unavailable" state, not the ended-session strip.
+  - *AC-2230 is narrowed to match the code.* Its single-transport claim now
+    covers the requests that go through `send()`, and the reader is recorded as
+    the one exception. The criterion no longer claims, as if it were true, a
+    property the code does not have.
+  - *Routing the reader through `send()` is not decided here.* That is a code
+    change against BUG-52's intent and is left for a follow-up, not absorbed
+    into the matrix.
 
 ## Dependencies
 
