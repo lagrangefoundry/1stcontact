@@ -5,18 +5,16 @@ type: story
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-01T09:54:59.518760+00:00'
+updated_at: '2026-11-01T10:22:20.425175+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-87be4669
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-fd009b93
-  - bundle-94dbe947
+  updated_by: bundle-94dbe947
 ---
 
 ## Story
