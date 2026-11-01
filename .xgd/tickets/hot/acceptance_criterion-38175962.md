@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A contact begins at pipeline stage Lead
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:05:09.731117+00:00'
-updated_at: '2026-11-01T20:05:09.731117+00:00'
+updated_at: '2026-11-01T20:12:52.934065+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0ea74f39
   kind: behavior
