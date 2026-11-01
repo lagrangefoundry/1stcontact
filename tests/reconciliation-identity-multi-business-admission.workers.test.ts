@@ -29,7 +29,7 @@ import { applySchema } from './support/d1-site-factory'
  * being selectable is a property of each BUSINESS. A lapsed, future-dated or
  * revoked grant marks its business unselectable but keeps it listed; a withdrawn
  * or expired membership removes its business entirely; the person is refused only
- * when no business qualifies.
+ * when no live membership remains.
  */
 
 const PLATFORM = 'story146-platform'
@@ -46,18 +46,18 @@ const ISO = (offsetMs: number): string => new Date(Date.now() + offsetMs).toISOS
 /** The admitted businesses keyed by id, or a failed expectation when refused. */
 function byId(result: Admission): Map<string, AdmittedBusiness> {
   expect(result.ok, `admission was refused: ${!result.ok ? result.reason : ''}`).toBe(true)
-  return new Map((result.ok ? result.businesses : []).map((b) => [b.accountId, b]))
+  return new Map((result.ok ? result.businesses : []).map((b) => [b.businessId, b]))
 }
 
-async function setGrant(accountId: string, column: 'ends_at' | 'starts_at' | 'status', value: string) {
-  await env.DB.prepare(`UPDATE entitlements SET ${column} = ? WHERE account_id = ?`)
-    .bind(value, accountId)
+async function setGrant(businessId: string, column: 'ends_at' | 'starts_at' | 'status', value: string) {
+  await env.DB.prepare(`UPDATE entitlements SET ${column} = ? WHERE business_id = ?`)
+    .bind(value, businessId)
     .run()
 }
 
-async function grantStatus(accountId: string): Promise<string | undefined> {
-  const row = await env.DB.prepare('SELECT status FROM entitlements WHERE account_id = ?')
-    .bind(accountId)
+async function grantStatus(businessId: string): Promise<string | undefined> {
+  const row = await env.DB.prepare('SELECT status FROM entitlements WHERE business_id = ?')
+    .bind(businessId)
     .first<{ status: string }>()
   return row?.status
 }
@@ -94,24 +94,24 @@ describe('the invite provisions', () => {
 
     // The business: a registered, active tenant carrying the supplied label.
     const tenant = await env.DB.prepare('SELECT name, status FROM tenants WHERE id = ?')
-      .bind(result.accountId)
+      .bind(result.businessId)
       .first<{ name: string; status: string }>()
     expect(tenant).toEqual({ name: 'Harbour Bakery', status: 'active' })
 
     // The membership: joins THAT person to THAT business as owner, active.
     const membership = await env.DB.prepare(
-      'SELECT account_id, role, status FROM memberships WHERE user_id = ?',
+      'SELECT business_id, role, status FROM memberships WHERE user_id = ?',
     )
       .bind(user!.id)
-      .first<{ account_id: string; role: string; status: string }>()
-    expect(membership).toEqual({ account_id: result.accountId, role: 'owner', status: 'active' })
+      .first<{ business_id: string; role: string; status: string }>()
+    expect(membership).toEqual({ business_id: result.businessId, role: 'owner', status: 'active' })
 
     // The grant: against the same business, administrator-issued, active, with
     // a start, the end the caller supplied, and the address it was made to.
     const grant = await env.DB.prepare(
-      'SELECT plan, source, status, starts_at, ends_at, email FROM entitlements WHERE account_id = ?',
+      'SELECT plan, source, status, starts_at, ends_at, email FROM entitlements WHERE business_id = ?',
     )
-      .bind(result.accountId)
+      .bind(result.businessId)
       .first<{ plan: string; source: string; status: string; starts_at: string; ends_at: string | null; email: string }>()
     expect(grant?.plan).toBe('pro')
     expect(grant?.source).toBe('admin_grant')
@@ -125,11 +125,11 @@ describe('the invite provisions', () => {
     const unlabelled = anEmail()
     const plain = await provisionInvite(identityEnv(), { email: unlabelled, endsAt: null })
     const plainTenant = await env.DB.prepare('SELECT name FROM tenants WHERE id = ?')
-      .bind(plain.accountId)
+      .bind(plain.businessId)
       .first<{ name: string }>()
     expect(plainTenant?.name).toBe(unlabelled)
-    const plainGrant = await env.DB.prepare('SELECT ends_at FROM entitlements WHERE account_id = ?')
-      .bind(plain.accountId)
+    const plainGrant = await env.DB.prepare('SELECT ends_at FROM entitlements WHERE business_id = ?')
+      .bind(plain.businessId)
       .first<{ ends_at: string | null }>()
     expect(plainGrant?.ends_at).toBeNull()
   })
@@ -145,25 +145,25 @@ describe('the invite provisions', () => {
       ...window,
     })
 
-    const shapeOf = async (accountId: string) => ({
+    const shapeOf = async (businessId: string) => ({
       tenant: await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
-        .bind(accountId)
+        .bind(businessId)
         .first(),
       membership: await env.DB.prepare(
-        'SELECT user_id, role, status, granted_by FROM memberships WHERE account_id = ?',
+        'SELECT user_id, role, status, granted_by FROM memberships WHERE business_id = ?',
       )
-        .bind(accountId)
+        .bind(businessId)
         .first(),
       grant: await env.DB.prepare(
         'SELECT email, plan, source, status, starts_at, ends_at, granted_by, note FROM entitlements ' +
-          'WHERE account_id = ?',
+          'WHERE business_id = ?',
       )
-        .bind(accountId)
+        .bind(businessId)
         .first(),
     })
 
-    const invitedShape = await shapeOf(invited.accountId)
-    const addedShape = await shapeOf(added.accountId)
+    const invitedShape = await shapeOf(invited.businessId)
+    const addedShape = await shapeOf(added.businessId)
     // Not vacuous: each side really holds every row.
     expect(invitedShape.tenant).toEqual({ status: 'active' })
     expect(invitedShape.membership).toMatchObject({ role: 'owner', status: 'active' })
@@ -171,22 +171,22 @@ describe('the invite provisions', () => {
     expect(addedShape).toEqual(invitedShape)
 
     // Names and identifiers are the only per-business differences.
-    expect(added.accountId).not.toBe(invited.accountId)
+    expect(added.businessId).not.toBe(invited.businessId)
     const names = await env.DB.prepare('SELECT id, name FROM tenants WHERE id IN (?, ?)')
-      .bind(invited.accountId, added.accountId)
+      .bind(invited.businessId, added.businessId)
       .all<{ id: string; name: string }>()
     expect(new Map((names.results ?? []).map((r) => [r.id, r.name]))).toEqual(
       new Map([
-        [invited.accountId, 'First'],
-        [added.accountId, 'Second'],
+        [invited.businessId, 'First'],
+        [added.businessId, 'Second'],
       ]),
     )
 
     // The additional business is immediately operable: listed selectable, and
     // its starter site readable through the ordinary site-storage port.
     const admitted = byId(await admit(identityEnv(), email))
-    expect(admitted.get(added.accountId)?.selectable).toBe(true)
-    const store = await d1r2SiteStore(identityEnv()).forTenant(added.accountId)
+    expect(admitted.get(added.businessId)?.selectable).toBe(true)
+    const store = await d1r2SiteStore(identityEnv()).forTenant(added.businessId)
     const pages = await store.readPages(added.siteSlug)
     expect(pages.map((p) => p.name)).toContain('home.json')
     expect(JSON.stringify(pages.find((p) => p.name === 'home.json')?.page)).toContain(STARTER_HEADING)
@@ -232,8 +232,8 @@ describe('the invite provisions', () => {
     expect(repaired.siteSlug, 'the re-invite provisioned no business').toBeTruthy()
 
     const admitted = await admit(identityEnv(), email)
-    expect(admitted.ok && admitted.businesses.map((b) => [b.accountId, b.selectable])).toEqual([
-      [repaired.accountId, true],
+    expect(admitted.ok && admitted.businesses.map((b) => [b.businessId, b.selectable])).toEqual([
+      [repaired.businessId, true],
     ])
 
     const people = await env.DB.prepare('SELECT id FROM users WHERE tenant_id = ? AND email = ?')
@@ -247,7 +247,7 @@ describe('the invite provisions', () => {
     const membershipsBefore = await count('memberships')
     const again = await provisionInvite(identityEnv(), { email, endsAt: null })
     expect(again.created).toBe(false)
-    expect(again.accountId).toBe(repaired.accountId)
+    expect(again.businessId).toBe(repaired.businessId)
     expect(again.siteSlug).toBeNull()
     expect(await count('tenants')).toBe(tenantsBefore)
     expect(await count('memberships')).toBe(membershipsBefore)
@@ -258,27 +258,29 @@ describe('admission returns the set of businesses', () => {
   it('test_UAT_AC1748_invited_person_is_admitted_with_a_deterministic_set_and_no_top_level_account', async () => {
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, accountName: 'Corner Florist', endsAt: null })
-    const grant = await env.DB.prepare('SELECT id FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+    const grant = await env.DB.prepare('SELECT id FROM entitlements WHERE business_id = ?')
+      .bind(invited.businessId)
       .first<{ id: string }>()
 
     const first = await admit(identityEnv(), email)
     expect(first.ok).toBe(true)
     if (!first.ok) return
     expect(first.businesses).toHaveLength(1)
-    expect(first.businesses[0].accountId).toBe(invited.accountId)
+    expect(first.businesses[0].businessId).toBe(invited.businessId)
     expect(first.businesses[0].name).toBe('Corner Florist')
     expect(first.businesses[0].entitlement?.id).toBe(grant?.id)
 
     // No singular account or grant beside the set.
+    expect(Object.keys(first).sort()).toEqual(['businesses', 'ok', 'user'])
     expect(Object.keys(first)).not.toContain('accountId')
+    expect(Object.keys(first)).not.toContain('businessId')
     expect(Object.keys(first)).not.toContain('entitlement')
 
     // Deterministic — with several businesses too, so the order is a real claim.
     await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Second', email })
     await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Third', email })
     const project = (r: Admission) =>
-      r.ok ? r.businesses.map((b) => [b.accountId, b.name, b.entitlement?.id ?? null]) : null
+      r.ok ? r.businesses.map((b) => [b.businessId, b.name, b.entitlement?.id ?? null]) : null
     const a = project(await admit(identityEnv(), email))
     const b = project(await admit(identityEnv(), email))
     expect(a).toHaveLength(3)
@@ -299,15 +301,15 @@ describe('admission returns the set of businesses', () => {
     const businesses = byId(result)
     expect(businesses.size).toBe(2)
 
-    const s = businesses.get(salon.accountId)
-    const t = businesses.get(studio.accountId)
+    const s = businesses.get(salon.businessId)
+    const t = businesses.get(studio.businessId)
     expect(s?.name).toBe('Salon')
     expect(t?.name).toBe('Studio')
     expect(s?.selectable).toBe(true)
     expect(t?.selectable).toBe(true)
     // Each grant belongs to its own business, and the two differ.
-    expect(s?.entitlement?.account_id).toBe(salon.accountId)
-    expect(t?.entitlement?.account_id).toBe(studio.accountId)
+    expect(s?.entitlement?.business_id).toBe(salon.businessId)
+    expect(t?.entitlement?.business_id).toBe(studio.businessId)
     expect(s?.entitlement?.plan).toBe('pro')
     expect(t?.entitlement?.plan).toBe('starter')
     expect(s?.entitlement?.id).not.toBe(t?.entitlement?.id)
@@ -327,15 +329,15 @@ describe('admission returns the set of businesses', () => {
         name: 'Dead',
         email,
       })
-      await setGrant(dead.accountId, column, value())
+      await setGrant(dead.businessId, column, value())
 
       const businesses = byId(await admit(identityEnv(), email))
       expect(businesses.size, `${label}: both businesses should be listed`).toBe(2)
-      expect(businesses.get(dead.accountId)?.selectable, label).toBe(false)
-      expect(businesses.get(dead.accountId)?.entitlement, label).toBeNull()
-      expect(businesses.get(dead.accountId)?.name, label).toBe('Dead')
-      expect(businesses.get(live.accountId)?.selectable, label).toBe(true)
-      expect(businesses.get(live.accountId)?.entitlement?.account_id, label).toBe(live.accountId)
+      expect(businesses.get(dead.businessId)?.selectable, label).toBe(false)
+      expect(businesses.get(dead.businessId)?.entitlement, label).toBeNull()
+      expect(businesses.get(dead.businessId)?.name, label).toBe('Dead')
+      expect(businesses.get(live.businessId)?.selectable, label).toBe(true)
+      expect(businesses.get(live.businessId)?.entitlement?.business_id, label).toBe(live.businessId)
     }
   })
 
@@ -345,67 +347,42 @@ describe('admission returns the set of businesses', () => {
     const withdrawn = await provisionBusiness(identityEnv(), { accountUserId: kept.user.id, name: 'Withdrawn', email })
     const expired = await provisionBusiness(identityEnv(), { accountUserId: kept.user.id, name: 'Expired', email })
 
-    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE account_id = ?')
-      .bind(new Date().toISOString(), withdrawn.accountId)
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE business_id = ?')
+      .bind(new Date().toISOString(), withdrawn.businessId)
       .run()
-    await env.DB.prepare('UPDATE memberships SET expires_at = ? WHERE account_id = ?')
-      .bind(ISO(-1_000), expired.accountId)
+    await env.DB.prepare('UPDATE memberships SET expires_at = ? WHERE business_id = ?')
+      .bind(ISO(-1_000), expired.businessId)
       .run()
 
     const result = await admit(identityEnv(), email)
     expect(result.ok).toBe(true)
     if (!result.ok) return
-    expect(result.businesses.map((b) => b.accountId)).toEqual([kept.accountId])
+    expect(result.businesses.map((b) => b.businessId)).toEqual([kept.businessId])
     const names = result.businesses.map((b) => b.name)
     expect(names).not.toContain('Withdrawn')
     expect(names).not.toContain('Expired')
 
     // Their grants were never touched — exclusion is about the membership.
-    expect(await grantStatus(withdrawn.accountId)).toBe('active')
-    expect(await grantStatus(expired.accountId)).toBe('active')
+    expect(await grantStatus(withdrawn.businessId)).toBe('active')
+    expect(await grantStatus(expired.businessId)).toBe('active')
   })
 })
 
+// AC1750 ("refused when every business has lapsed") is superseded by AC2112 —
+// membership admits, entitlement does not. Its both-sides expiry evidence lives
+// in `reconciliation-identity-business-lapse.workers.test.ts`.
 describe('grant state is evaluated per business', () => {
-  it('test_UAT_AC1750_grant_end_evaluated_both_sides_and_refusal_only_when_all_lapsed', async () => {
-    const email = anEmail()
-    const first = await provisionInvite(identityEnv(), { email, accountName: 'First', endsAt: ISO(86_400_000) })
-
-    // Not yet ended: admitted, selectable, reporting that grant.
-    const live = byId(await admit(identityEnv(), email))
-    expect(live.get(first.accountId)?.selectable).toBe(true)
-    expect(live.get(first.accountId)?.entitlement?.account_id).toBe(first.accountId)
-
-    // Ended, and the person's only business: refused on the entitlement.
-    await setGrant(first.accountId, 'ends_at', ISO(-1_000))
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
-
-    // Beside an open-ended business the lapsed one is listed unselectable with
-    // no grant, and the person is admitted — open-ended never expires.
-    const second = await provisionBusiness(identityEnv(), { accountUserId: first.user.id, name: 'Second', email })
-    const mixed = byId(await admit(identityEnv(), email))
-    expect(mixed.get(first.accountId)?.selectable).toBe(false)
-    expect(mixed.get(first.accountId)?.entitlement).toBeNull()
-    expect(mixed.get(second.accountId)?.selectable).toBe(true)
-    expect(mixed.get(second.accountId)?.entitlement?.ends_at).toBeNull()
-
-    // Both lapsed: refused — so a stop-at-the-first implementation cannot pass.
-    await setGrant(second.accountId, 'ends_at', ISO(-1_000))
-    const allLapsed = await admit(identityEnv(), email)
-    expect(allLapsed.ok).toBe(false)
-    expect(!allLapsed.ok && allLapsed.reason).toBe('no_entitlement')
-  })
-
   it('test_UAT_AC1751_future_start_makes_business_unselectable_not_the_person_refused', async () => {
     const email = anEmail()
     const scheduled = await provisionInvite(identityEnv(), { email, accountName: 'Scheduled', endsAt: null })
-    await setGrant(scheduled.accountId, 'starts_at', ISO(86_400_000))
+    await setGrant(scheduled.businessId, 'starts_at', ISO(86_400_000))
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    // The person's only business: admitted, the business listed but unselectable.
+    const alone = byId(await admit(identityEnv(), email))
+    expect([...alone.keys()]).toEqual([scheduled.businessId])
+    expect(alone.get(scheduled.businessId)?.selectable).toBe(false)
+    expect(alone.get(scheduled.businessId)?.entitlement).toBeNull()
+    expect(alone.get(scheduled.businessId)?.lapse).toEqual({ reason: 'not_yet', endedAt: null })
 
     const entitled = await provisionBusiness(identityEnv(), {
       accountUserId: scheduled.user.id,
@@ -413,54 +390,57 @@ describe('grant state is evaluated per business', () => {
       email,
     })
     const businesses = byId(await admit(identityEnv(), email))
-    expect(businesses.get(scheduled.accountId)?.selectable).toBe(false)
-    expect(businesses.get(scheduled.accountId)?.entitlement).toBeNull()
-    expect(businesses.get(entitled.accountId)?.selectable).toBe(true)
+    expect(businesses.get(scheduled.businessId)?.selectable).toBe(false)
+    expect(businesses.get(scheduled.businessId)?.entitlement).toBeNull()
+    expect(businesses.get(entitled.businessId)?.selectable).toBe(true)
   })
 
   it('test_UAT_AC1752_revoked_grant_makes_business_unselectable_whatever_its_dates', async () => {
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, accountName: 'Revoked', endsAt: null })
-    await setGrant(invited.accountId, 'status', 'revoked')
+    await setGrant(invited.businessId, 'status', 'revoked')
 
     // No date was touched: the grant is still open-ended.
-    const dates = await env.DB.prepare('SELECT starts_at, ends_at FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+    const dates = await env.DB.prepare('SELECT starts_at, ends_at FROM entitlements WHERE business_id = ?')
+      .bind(invited.businessId)
       .first<{ starts_at: string; ends_at: string | null }>()
     expect(dates?.ends_at).toBeNull()
     expect(dates!.starts_at <= new Date().toISOString()).toBe(true)
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    // The person's only business: admitted, listed, unselectable, reason revoked.
+    const alone = byId(await admit(identityEnv(), email))
+    expect([...alone.keys()]).toEqual([invited.businessId])
+    expect(alone.get(invited.businessId)?.selectable).toBe(false)
+    expect(alone.get(invited.businessId)?.entitlement).toBeNull()
+    expect(alone.get(invited.businessId)?.lapse).toEqual({ reason: 'revoked', endedAt: null })
 
     // It stays listed, unselectable, once another business is entitled.
     const other = await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Other', email })
     const businesses = byId(await admit(identityEnv(), email))
-    expect(businesses.get(invited.accountId)?.selectable).toBe(false)
-    expect(businesses.get(invited.accountId)?.entitlement).toBeNull()
-    expect(businesses.get(other.accountId)?.selectable).toBe(true)
+    expect(businesses.get(invited.businessId)?.selectable).toBe(false)
+    expect(businesses.get(invited.businessId)?.entitlement).toBeNull()
+    expect(businesses.get(other.businessId)?.selectable).toBe(true)
   })
 })
 
 describe('membership state excludes, grants untouched', () => {
   it('test_UAT_AC1753_inactive_membership_excludes_business_and_refuses_only_when_none_remain', async () => {
     const withdrawals: Array<[string, string, () => string]> = [
-      ['withdrawn', 'UPDATE memberships SET revoked_at = ? WHERE account_id = ?', () => new Date().toISOString()],
-      ['not active', 'UPDATE memberships SET status = ? WHERE account_id = ?', () => 'suspended'],
-      ['expired', 'UPDATE memberships SET expires_at = ? WHERE account_id = ?', () => ISO(-1_000)],
+      ['withdrawn', 'UPDATE memberships SET revoked_at = ? WHERE business_id = ?', () => new Date().toISOString()],
+      ['not active', 'UPDATE memberships SET status = ? WHERE business_id = ?', () => 'suspended'],
+      ['expired', 'UPDATE memberships SET expires_at = ? WHERE business_id = ?', () => ISO(-1_000)],
     ]
 
     for (const [label, sql, value] of withdrawals) {
       // Sole membership: refused on the membership, the grant still active.
       const email = anEmail()
       const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-      await env.DB.prepare(sql).bind(value(), invited.accountId).run()
+      await env.DB.prepare(sql).bind(value(), invited.businessId).run()
 
       const refused = await admit(identityEnv(), email)
       expect(refused.ok, `${label}: still admitted`).toBe(false)
       expect(!refused.ok && refused.reason, `${label}: wrong reason`).toBe('no_membership')
-      expect(await grantStatus(invited.accountId), `${label}: grant disturbed`).toBe('active')
+      expect(await grantStatus(invited.businessId), `${label}: grant disturbed`).toBe('active')
 
       // Beside a live membership: that business is excluded, the person admitted.
       const other = anEmail()
@@ -470,10 +450,10 @@ describe('membership state excludes, grants untouched', () => {
         name: 'Dropped',
         email: other,
       })
-      await env.DB.prepare(sql).bind(value(), dropped.accountId).run()
+      await env.DB.prepare(sql).bind(value(), dropped.businessId).run()
       const admitted = await admit(identityEnv(), other)
-      expect(admitted.ok && admitted.businesses.map((b) => b.accountId), label).toEqual([kept.accountId])
-      expect(await grantStatus(dropped.accountId), `${label}: grant disturbed`).toBe('active')
+      expect(admitted.ok && admitted.businesses.map((b) => b.businessId), label).toEqual([kept.businessId])
+      expect(await grantStatus(dropped.businessId), `${label}: grant disturbed`).toBe('active')
     }
   })
 })

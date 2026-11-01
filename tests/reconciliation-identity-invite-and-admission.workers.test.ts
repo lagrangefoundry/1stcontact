@@ -12,6 +12,7 @@ import {
   STARTER_HEADING,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -161,13 +162,13 @@ describe('the invite provisions', () => {
 
     const membership = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ?')
       .bind(user!.id)
-      .first<{ account_id: string; role: string; status: string }>()
-    expect(membership?.account_id).toBe(result.accountId)
+      .first<{ business_id: string; role: string; status: string }>()
+    expect(membership?.business_id).toBe(result.businessId)
     expect(membership?.role).toBe('owner')
     expect(membership?.status).toBe('active')
 
-    const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE account_id = ?')
-      .bind(result.accountId)
+    const grant = await env.DB.prepare('SELECT * FROM entitlements WHERE business_id = ?')
+      .bind(result.businessId)
       .first<{ plan: string; source: string; status: string; email: string; starts_at: string; ends_at: string | null }>()
     expect(grant?.plan).toBeTruthy()
     // An administrator issued it — the source is the audit record of that.
@@ -184,7 +185,7 @@ describe('the invite provisions', () => {
     // row — `forTenant` refuses an unregistered one, so a membership pointing at
     // an account the registry never heard of could never be used.
     const tenant = await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
-      .bind(result.accountId)
+      .bind(result.businessId)
       .first<{ status: string }>()
     expect(tenant?.status).toBe('active')
   })
@@ -197,8 +198,8 @@ describe('the invite provisions', () => {
     const first = await provisionInvite(identityEnv(), { email: anEmail(), endsAt: null, ...human })
     const second = await provisionInvite(identityEnv(), { email: anEmail(), endsAt: null, ...human })
 
-    expect(first.accountId).not.toBe(second.accountId)
-    for (const id of [first.accountId, second.accountId]) {
+    expect(first.businessId).not.toBe(second.businessId)
+    for (const id of [first.businessId, second.businessId]) {
       expect(id).toMatch(/^acct_[0-9a-f]{32}$/)
       for (const word of ['sarah', 'chen', 'catering']) {
         expect(id.toLowerCase()).not.toContain(word)
@@ -207,7 +208,7 @@ describe('the invite provisions', () => {
 
     // The human label lives where it CAN change.
     const tenant = await env.DB.prepare('SELECT name FROM tenants WHERE id = ?')
-      .bind(first.accountId)
+      .bind(first.businessId)
       .first<{ name: string }>()
     expect(tenant?.name).toBe('Sarah Chen Catering')
   })
@@ -216,14 +217,14 @@ describe('the invite provisions', () => {
     const first = await provisionInvite(identityEnv(), { email: anEmail(), endsAt: null })
 
     const { results } = await env.DB.prepare('SELECT slug FROM sites WHERE tenant_id = ?')
-      .bind(first.accountId)
+      .bind(first.businessId)
       .all<{ slug: string }>()
     expect((results ?? []).map((r) => r.slug)).toEqual([first.siteSlug])
 
     const page = await env.DB.prepare(
       'SELECT page FROM site_pages WHERE tenant_id = ? AND slug = ? AND name = ?',
     )
-      .bind(first.accountId, first.siteSlug, 'home.json')
+      .bind(first.businessId, first.siteSlug, 'home.json')
       .first<{ page: string }>()
     expect(page?.page).toContain(STARTER_HEADING)
 
@@ -244,7 +245,7 @@ describe('the invite provisions', () => {
 
     expect(again.created).toBe(false)
     expect(again.user.id).toBe(first.user.id)
-    expect(again.accountId).toBe(first.accountId)
+    expect(again.businessId).toBe(first.businessId)
 
     const { results } = await env.DB.prepare('SELECT id FROM users WHERE tenant_id = ? AND email = ?')
       .bind(PLATFORM, email)
@@ -305,7 +306,7 @@ describe('the invite provisions', () => {
     // second concurrent grant later is a code change rather than a migration.
     // Proved by the database ACCEPTING both, which a unique index or a CHECK
     // constraint would refuse.
-    const accountId = newId('acct')
+    const businessId = newId('acct')
     const now = new Date().toISOString()
 
     for (const [plan, status] of [
@@ -313,17 +314,17 @@ describe('the invite provisions', () => {
       ['a-plan-the-product-does-not-issue', 'a-status-the-product-does-not-issue'],
     ]) {
       await env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
       )
-        .bind(newId('ent'), accountId, plan, 'admin_grant', status, now, now, now)
+        .bind(newId('ent'), businessId, plan, 'admin_grant', status, now, now, now)
         .run()
     }
 
     const { results } = await env.DB.prepare(
-      'SELECT plan, status FROM entitlements WHERE account_id = ? ORDER BY plan',
+      'SELECT plan, status FROM entitlements WHERE business_id = ? ORDER BY plan',
     )
-      .bind(accountId)
+      .bind(businessId)
       .all<{ plan: string; status: string }>()
 
     // Both survive — the account holds two grants at once.
@@ -361,8 +362,8 @@ describe('login binds, and provisions nothing', () => {
       endsAt: null,
     })
 
-    const grant = await env.DB.prepare('SELECT id FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+    const grant = await env.DB.prepare('SELECT id FROM entitlements WHERE business_id = ?')
+      .bind(invited.businessId)
       .first<{ id: string }>()
     expect(grant?.id, 'the invite wrote no grant').toBeTruthy()
 
@@ -371,18 +372,20 @@ describe('login binds, and provisions nothing', () => {
     const first = await admit(identityEnv(), email)
     expect(first.ok).toBe(true)
     if (!first.ok) return
-    expect(first.businesses.map((b) => [b.accountId, b.name, b.entitlement?.id, b.selectable])).toEqual([
-      [invited.accountId, 'Story Bakery', grant!.id, true],
+    expect(first.businesses.map((b) => [b.businessId, b.name, b.entitlement?.id, b.selectable])).toEqual([
+      [invited.businessId, 'Story Bakery', grant!.id, true],
     ])
-    // No singular account or grant beside the set.
+    // No singular account, business or grant beside the set.
+    expect(Object.keys(first).sort()).toEqual(['businesses', 'ok', 'user'])
     expect(Object.keys(first)).not.toContain('accountId')
+    expect(Object.keys(first)).not.toContain('businessId')
     expect(Object.keys(first)).not.toContain('entitlement')
 
     // DETERMINISTIC: the same person with the same memberships resolves to the
     // same set, in the same order, every time.
     const second = await admit(identityEnv(), email)
-    expect(second.ok && second.businesses.map((b) => [b.accountId, b.entitlement?.id])).toEqual(
-      first.businesses.map((b) => [b.accountId, b.entitlement?.id]),
+    expect(second.ok && second.businesses.map((b) => [b.businessId, b.entitlement?.id])).toEqual(
+      first.businesses.map((b) => [b.businessId, b.entitlement?.id]),
     )
   })
 
@@ -409,68 +412,64 @@ describe('login binds, and provisions nothing', () => {
 
     // A REFUSED visit is an arrival too — "did the customer whose grant expired
     // ever try?" is a question about a refused visit, so the stamp is made before
-    // the decision rather than after it.
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(ISO(-1_000), invited.accountId)
+    // the decision rather than after it. A lapsed grant no longer refuses (it
+    // admits with nothing selectable), so the person is made ineligible instead.
+    await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?')
+      .bind('suspended', invited.user.id)
       .run()
     const refused = await admit(identityEnv(), email, new Date(Date.now() + 120_000))
     expect(refused.ok).toBe(false)
+    expect(!refused.ok && refused.reason).toBe('user_inactive')
 
     const afterRefusal = await stamps()
     expect(afterRefusal.last_seen_at > returning.last_seen_at).toBe(true)
     expect(afterRefusal.first_seen_at).toBe(arrival.first_seen_at)
   })
 
-  it('test_UAT_AC1750_a_grant_end_is_evaluated_from_both_sides', async () => {
-    // Both directions are REQUIRED: one alone would pass against code that always
-    // denied, or against code that never evaluated the date at all.
-    const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: ISO(86_400_000) })
-    expect((await admit(identityEnv(), email)).ok, 'a grant that has not ended did not admit').toBe(
-      true,
-    )
+  // AC1750 ("a lapsed sole business refuses the person") is superseded by AC2112:
+  // membership admits, entitlement does not. Its both-sides expiry evidence is
+  // carried by the AC2112 test in `reconciliation-identity-business-lapse`.
 
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(ISO(-1_000), invited.accountId)
-      .run()
-
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok, 'a grant whose end has passed still admitted').toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
-  })
-
-  it('test_UAT_AC1751_a_grant_whose_start_is_in_the_future_does_not_admit', async () => {
+  it('test_UAT_AC1751_a_grant_whose_start_is_in_the_future_does_not_admit_its_business', async () => {
     // Access written ahead of time is a promise about the future, not access
-    // today — otherwise an operator could hand out access by scheduling it.
+    // today — otherwise an operator could hand out access by scheduling it. The
+    // PERSON is still admitted: the business is listed, unselectable, not_yet.
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE account_id = ?')
-      .bind(ISO(86_400_000), invited.accountId)
+    await env.DB.prepare('UPDATE entitlements SET starts_at = ? WHERE business_id = ?')
+      .bind(ISO(86_400_000), invited.businessId)
       .run()
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    const admitted = await admit(identityEnv(), email)
+    expect(admitted.ok).toBe(true)
+    if (!admitted.ok) return
+    expect(
+      admitted.businesses.map((b) => [b.businessId, b.selectable, b.entitlement, b.lapse]),
+    ).toEqual([[invited.businessId, false, null, { reason: 'not_yet', endedAt: null }]])
   })
 
-  it('test_UAT_AC1752_a_revoked_grant_refuses_whatever_its_dates_say', async () => {
+  it('test_UAT_AC1752_a_revoked_grant_makes_its_business_unselectable_whatever_its_dates_say', async () => {
     // Revocation and expiry are INDEPENDENT: a revocation that only took effect
     // once an end date arrived would make revoking an open-ended grant a no-op.
     // So the grant below is open-ended and no date is touched.
     const email = anEmail()
     const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE account_id = ?')
-      .bind('revoked', invited.accountId)
+    await env.DB.prepare('UPDATE entitlements SET status = ? WHERE business_id = ?')
+      .bind('revoked', invited.businessId)
       .run()
 
-    const dates = await env.DB.prepare('SELECT ends_at FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+    const dates = await env.DB.prepare('SELECT ends_at FROM entitlements WHERE business_id = ?')
+      .bind(invited.businessId)
       .first<{ ends_at: string | null }>()
     expect(dates?.ends_at, 'the grant under test is no longer open-ended').toBeNull()
 
-    const refused = await admit(identityEnv(), email)
-    expect(refused.ok).toBe(false)
-    expect(!refused.ok && refused.reason).toBe('no_entitlement')
+    // Admitted on the membership; the revoked business stays listed, unselectable.
+    const admitted = await admit(identityEnv(), email)
+    expect(admitted.ok).toBe(true)
+    if (!admitted.ok) return
+    expect(
+      admitted.businesses.map((b) => [b.businessId, b.selectable, b.entitlement, b.lapse]),
+    ).toEqual([[invited.businessId, false, null, { reason: 'revoked', endedAt: null }]])
   })
 
   it('test_UAT_AC1753_an_inactive_membership_refuses_and_leaves_the_grant_alone', async () => {
@@ -495,8 +494,8 @@ describe('login binds, and provisions nothing', () => {
         'no_membership',
       )
 
-      const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE account_id = ?')
-        .bind(invited.accountId)
+      const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE business_id = ?')
+        .bind(invited.businessId)
         .first<{ status: string }>()
       expect(grant?.status, `a ${label} membership disturbed the account's grant`).toBe('active')
     }
@@ -515,11 +514,11 @@ describe('login binds, and provisions nothing', () => {
     const now = new Date().toISOString()
     await env.DB.batch([
       env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       ).bind(
         newId('ent'),
-        invited.accountId,
+        invited.businessId,
         'already-ended',
         'admin_grant',
         'active',
@@ -529,15 +528,15 @@ describe('login binds, and provisions nothing', () => {
         now,
       ),
       env.DB.prepare(
-        'INSERT INTO entitlements (id, account_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
+        'INSERT INTO entitlements (id, business_id, plan, source, status, starts_at, ends_at, created_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?)',
-      ).bind(newId('ent'), invited.accountId, 'open-ended', 'admin_grant', 'active', now, now, now),
+      ).bind(newId('ent'), invited.businessId, 'open-ended', 'admin_grant', 'active', now, now, now),
     ])
 
     // An open-ended grant preserves access longest, so it wins over both.
     // The grant is reported on the account's own entry in the admitted set.
     const effectivePlan = (r: Awaited<ReturnType<typeof admit>>): string | null | undefined =>
-      r.ok ? r.businesses.find((b) => b.accountId === invited.accountId)?.entitlement?.plan : undefined
+      r.ok ? r.businesses.find((b) => b.businessId === invited.businessId)?.entitlement?.plan : undefined
 
     const open = await admit(identityEnv(), email)
     expect(open.ok).toBe(true)
@@ -545,8 +544,8 @@ describe('login binds, and provisions nothing', () => {
 
     // Remove it, and the winner is the latest-ending grant still covering now —
     // NOT the lapsed one, which is ignored rather than selected.
-    await env.DB.prepare('DELETE FROM entitlements WHERE account_id = ? AND ends_at IS NULL')
-      .bind(invited.accountId)
+    await env.DB.prepare('DELETE FROM entitlements WHERE business_id = ? AND ends_at IS NULL')
+      .bind(invited.businessId)
       .run()
     const bounded = await admit(identityEnv(), email)
     expect(bounded.ok).toBe(true)
@@ -592,8 +591,8 @@ describe('login binds, and provisions nothing', () => {
       .first<{ status: string; revoked_at: string | null; expires_at: string | null }>()
     expect(membership).toMatchObject({ status: 'active', revoked_at: null, expires_at: null })
 
-    const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE account_id = ?')
-      .bind(invited.accountId)
+    const grant = await env.DB.prepare('SELECT status FROM entitlements WHERE business_id = ?')
+      .bind(invited.businessId)
       .first<{ status: string }>()
     expect(grant?.status).toBe('active')
   })
@@ -620,40 +619,54 @@ describe('the request path', () => {
   })
 
   it('test_UAT_AC1758_every_refusal_is_byte_identical_forbidden_and_uncacheable', async () => {
-    // Distinguishing "no such person" from "expired grant" on the wire is an
-    // account-existence oracle to anyone who can pass a one-time PIN, which is
-    // anyone with an email address.
+    // Distinguishing "no such person" from "known person, no longer admitted" on
+    // the wire is an account-existence oracle to anyone who can pass a one-time
+    // PIN, which is anyone with an email address. (A lapsed grant is no longer a
+    // refusal at the door — membership admits — so the known-but-refused callers
+    // here are a withdrawn member and a suspended person.)
     stubJwks()
     const stranger = await worker.fetch(GET(await mint(anEmail())), workerEnv())
 
-    const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(ISO(-1_000), invited.accountId)
+    const withdrawnEmail = anEmail()
+    const withdrawnInvite = await provisionInvite(identityEnv(), { email: withdrawnEmail, endsAt: null })
+    await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE user_id = ?')
+      .bind(new Date().toISOString(), withdrawnInvite.user.id)
       .run()
-    const expired = await worker.fetch(GET(await mint(email)), workerEnv())
+    const withdrawn = await worker.fetch(GET(await mint(withdrawnEmail)), workerEnv())
+
+    const suspendedEmail = anEmail()
+    const suspendedInvite = await provisionInvite(identityEnv(), { email: suspendedEmail, endsAt: null })
+    await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?')
+      .bind('suspended', suspendedInvite.user.id)
+      .run()
+    const suspended = await worker.fetch(GET(await mint(suspendedEmail)), workerEnv())
 
     const strangerBody = await stranger.text()
-    const expiredBody = await expired.text()
-    expect(expired.status).toBe(stranger.status)
-    expect(expiredBody).toBe(strangerBody)
+    for (const [label, refusal] of [
+      ['withdrawn member', withdrawn],
+      ['suspended person', suspended],
+    ] as const) {
+      const body = await refusal.text()
+      expect(refusal.status, label).toBe(stranger.status)
+      expect(body, label).toBe(strangerBody)
 
-    // FORBIDDEN, not a challenge: the caller already proved who they are, so
-    // sending them back round the login loop would produce the same token and the
-    // same refusal forever.
-    expect(expired.status).toBe(403)
-    expect(expired.status).not.toBe(401)
+      // FORBIDDEN, not a challenge: the caller already proved who they are, so
+      // sending them back round the login loop would produce the same token and
+      // the same refusal forever.
+      expect(refusal.status, label).toBe(403)
+      expect(refusal.status, label).not.toBe(401)
 
-    // The one message, naming no check.
-    expect(expiredBody).toBe(DENIED_MESSAGE)
-    for (const hint of ['user', 'membership', 'entitlement', 'grant', 'expired', 'reason']) {
-      expect(expiredBody.toLowerCase(), `the refusal hints at '${hint}'`).not.toContain(hint)
+      // The one message, naming no check.
+      expect(body, label).toBe(DENIED_MESSAGE)
+      for (const hint of ['user', 'membership', 'entitlement', 'grant', 'expired', 'reason', 'suspend']) {
+        expect(body.toLowerCase(), `${label}: the refusal hints at '${hint}'`).not.toContain(hint)
+      }
+
+      // Neither storable nor indexable — one cached refusal would become
+      // everybody's answer, including the entitled.
+      expect(refusal.headers.get('cache-control'), label).toBe('no-store')
+      expect(refusal.headers.get('x-robots-tag'), label).toContain('noindex')
     }
-
-    // Neither storable nor indexable — one cached refusal would become
-    // everybody's answer, including the entitled.
-    expect(expired.headers.get('cache-control')).toBe('no-store')
-    expect(expired.headers.get('x-robots-tag')).toContain('noindex')
   })
 
   it('test_UAT_AC1759_the_failed_check_is_recorded_for_the_operator_per_reason', async () => {
@@ -672,36 +685,43 @@ describe('the request path', () => {
       .bind(new Date().toISOString(), unmemberedInvite.user.id)
       .run()
 
+    // A person whose every grant has lapsed. Membership admits, so this one is
+    // NOT refused at the door; `no_entitlement` is recorded when their request
+    // reaches a business-scoped route and there is nothing to open.
     const ungranted = anEmail()
     const ungrantedInvite = await provisionInvite(identityEnv(), { email: ungranted, endsAt: null })
-    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE account_id = ?')
-      .bind(ISO(-1_000), ungrantedInvite.accountId)
+    await acceptTerms(identityEnv(), ungrantedInvite.user.id)
+    await env.DB.prepare('UPDATE entitlements SET ends_at = ? WHERE business_id = ?')
+      .bind(ISO(-1_000), ungrantedInvite.businessId)
       .run()
 
-    // Five causes, five different recorded answers — all distinguishable from one
-    // another, which is what makes the record useful to an operator debugging a
-    // customer's "it says no".
+    // The four admission refusals, four different answers.
     const reasons: string[] = []
-    for (const address of [null, strangerEmail, inactive, unmembered, ungranted]) {
+    for (const address of [null, strangerEmail, inactive, unmembered]) {
       const result = await admit(identityEnv(), address)
       expect(result.ok).toBe(false)
       reasons.push(!result.ok ? result.reason : 'admitted')
     }
-    expect(reasons).toEqual([
-      'no_email',
-      'no_user',
-      'user_inactive',
-      'no_membership',
-      'no_entitlement',
-    ])
-    expect(new Set(reasons).size).toBe(5)
+    expect(reasons).toEqual(['no_email', 'no_user', 'user_inactive', 'no_membership'])
+    expect((await admit(identityEnv(), ungranted)).ok, 'a lapsed member was refused at the door').toBe(true)
 
-    // …and the operational record for a refused REQUEST carries both the reason
-    // and the address, structured rather than prose so refusals can be queried
-    // out of the platform's own logs.
+    // …and the operational record for each refused REQUEST carries the reason and
+    // the address, structured rather than prose so refusals can be queried out of
+    // the platform's own logs. Five causes, five distinguishable recorded reasons.
     stubJwks()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    await worker.fetch(GET(await mint(ungranted)), workerEnv())
+    const callers: Array<[string, string]> = [
+      [strangerEmail, '/'],
+      [inactive, '/'],
+      [unmembered, '/'],
+      [ungranted, '/api/sites'],
+    ]
+    for (const [address, path] of callers) {
+      const response = await worker.fetch(GET(await mint(address), path), workerEnv())
+      expect(response.status, address).toBe(403)
+    }
+    const serviceToken = await worker.fetch(GET(await mint()), workerEnv())
+    expect(serviceToken.status).toBe(403)
 
     const records = warn.mock.calls
       .map(([line]) => {
@@ -712,25 +732,20 @@ describe('the request path', () => {
         }
       })
       .filter((r): r is Record<string, unknown> => r !== null)
-    expect(records).toContainEqual(
-      expect.objectContaining({ reason: 'no_entitlement', email: ungranted }),
-    )
+    for (const [reason, email] of [
+      ['no_user', strangerEmail],
+      ['user_inactive', inactive],
+      ['no_membership', unmembered],
+      ['no_entitlement', ungranted],
+      ['no_email', null],
+    ] as const) {
+      expect(records, reason).toContainEqual(expect.objectContaining({ reason, email }))
+    }
+    expect(new Set(records.map((r) => r.reason)).size).toBe(5)
   })
 
-  it('test_UAT_AC1760_an_invited_and_entitled_person_reaches_the_builder', async () => {
-    // The half that would otherwise be assumed: the second check must let the
-    // RIGHT person through, not merely refuse the wrong one. A gate that denied
-    // everybody would satisfy every refusal criterion above.
-    stubJwks()
-    const email = anEmail()
-    await provisionInvite(identityEnv(), { email, endsAt: null })
-
-    const response = await worker.fetch(GET(await mint(email)), workerEnv())
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-type')).toContain('text/html')
-    const body = await response.text()
-    expect(body).toContain('1st Contact builder')
-    expect(body).not.toContain(DENIED_MESSAGE)
-  })
+  // AC1760 is proved by the terms-aware test in
+  // `reconciliation-identity-business-lapse.workers.test.ts`: since REQ-169 an
+  // invited, entitled person reaches the builder only once they have also
+  // accepted the current terms, which this older version predated.
 })
