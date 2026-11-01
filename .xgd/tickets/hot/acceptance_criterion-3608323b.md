@@ -6,10 +6,10 @@ title: A named business the caller holds no membership on is refused with 403, n
   substituted
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:25:37.617024+00:00'
-updated_at: '2026-11-01T10:25:37.617024+00:00'
+updated_at: '2026-11-01T10:37:00.815802+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7102ffe3
   kind: behavior
