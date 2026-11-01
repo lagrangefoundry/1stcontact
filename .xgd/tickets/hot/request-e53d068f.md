@@ -5,7 +5,7 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-11-01T05:03:16.672582+00:00'
+updated_at: '2026-11-01T05:03:20.118217+00:00'
 completed_at: '2026-11-01T05:03:16.672582+00:00'
 last_field_updated: status
 status: free_and_reconciled
