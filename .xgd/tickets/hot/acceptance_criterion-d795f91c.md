@@ -7,10 +7,10 @@ title: An import into a site with builder-recorded changes is refused 409 naming
   import with force lands
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:29:46.501303+00:00'
-updated_at: '2026-11-01T20:29:46.501303+00:00'
+updated_at: '2026-11-01T20:47:56.354973+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
