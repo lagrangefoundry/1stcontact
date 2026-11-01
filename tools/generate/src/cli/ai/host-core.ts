@@ -766,9 +766,8 @@ async function reminderFor(slug: string, sessionId: string, deps: HostDeps): Pro
 async function storedTranscript(
   manager: Untyped,
   sessionId: string,
-  deps: HostDeps,
 ): Promise<{ turns: ChatTurn[]; cursor: number; live: boolean } | null> {
-  let read: { session: Untyped; cursor: number }
+  let read: { session: Untyped; cursor: number; live?: boolean }
   try {
     read = await manager.transcript(sessionId)
   } catch (err) {
@@ -779,14 +778,12 @@ async function storedTranscript(
     role: turn.role === 'user' ? ('user' as const) : ('assistant' as const),
     markdown: turn.content,
   }))
-  // A SECOND READ OF THE SAME LOG, and cheap enough to be worth its clarity:
-  // this is a memory junction in the Worker and a small file on Node, and
-  // `transcript` has already guaranteed one exists (it seeds when it must). The
-  // alternative is upstream returning the records it folded, which would widen
-  // its contract for one caller's benefit.
-  const [records] = manager.logFor(sessionId).readFrom(0)
-  const live = deps.lib.closedPrefix(records).length !== records.length
-  return { turns, cursor: read.cursor, live }
+  // `live` IS UPSTREAM'S, from the same fold that produced the turns and the
+  // cursor (BUG-64). It used to be re-derived here from a second read of the log
+  // as `closedPrefix(records).length !== records.length` — but `closedPrefix`
+  // returns a COUNT, so `.length` was undefined and every session with records
+  // read as mid-turn, leaving a reattach after a finished turn waiting forever.
+  return { turns, cursor: read.cursor, live: read.live === true }
 }
 
 /**
@@ -865,7 +862,7 @@ export async function openSession(
   // {@link storedTranscript} folds the junction and touches no backend, so the
   // property this ordering already bought — a deployment with no API key shows
   // the conversation AND says why it is frozen — survives the swap intact.
-  const read = await storedTranscript(manager, sessionId, deps)
+  const read = await storedTranscript(manager, sessionId)
   const turns = read?.turns ?? []
   const cursor = read?.cursor ?? 0
   const live = read?.live ?? false
