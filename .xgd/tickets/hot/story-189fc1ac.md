@@ -7,9 +7,9 @@ title: Have the assistant compose a page — see where everything sits, read an 
   or scripts
 created_by: xgd
 created_at: '2026-08-10T09:18:31.384971+00:00'
-updated_at: '2026-11-01T01:11:43.879501+00:00'
+updated_at: '2026-11-01T01:30:33.433460+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -17,8 +17,7 @@ fields:
   story_kind: upgrade
   story_points: 3
   uat_coverage: pass
-  updated_by:
-  - bundle-fd009b93
+  updated_by: bundle-fd009b93
 ---
 
 ## Story
