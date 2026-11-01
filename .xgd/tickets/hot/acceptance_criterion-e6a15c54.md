@@ -8,10 +8,10 @@ title: 1c reset previews without --yes, removes only the local state directories
   paths from the repo root
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:29:48.085878+00:00'
-updated_at: '2026-11-01T20:29:48.085878+00:00'
+updated_at: '2026-11-01T20:47:56.123471+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
