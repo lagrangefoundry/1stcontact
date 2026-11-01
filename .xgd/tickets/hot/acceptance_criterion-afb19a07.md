@@ -6,10 +6,10 @@ title: A contact is a Member if and only if they have accepted the terms, whatev
   else is true of them
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:05:08.390369+00:00'
-updated_at: '2026-11-01T20:05:08.390369+00:00'
+updated_at: '2026-11-01T20:12:53.160720+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0ea74f39
   kind: behavior
