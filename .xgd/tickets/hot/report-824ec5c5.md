@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-06a89294'
 created_by: xgd
 created_at: '2026-11-01T03:50:28.275731+00:00'
-updated_at: '2026-11-01T03:50:28.275731+00:00'
+updated_at: '2026-11-01T03:55:39.120698+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-06a89294
@@ -25,6 +25,7 @@ fields:
     test_scope: AC-1809 (orphaned acceptance criterion) or AC-1678 (orphaned acceptance
       criterion) or AC-1687 (orphaned acceptance criterion) or test_UAT_AC1809 or
       test_UAT_AC1678 or test_UAT_AC1687
+  batches_pending: false
 ---
 
 {
