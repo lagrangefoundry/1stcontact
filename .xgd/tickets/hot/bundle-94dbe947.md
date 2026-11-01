@@ -5,10 +5,10 @@ type: bundle
 title: BUG-48 + REQ-171 + REQ-168 + REQ-179 + REQ-169 + 6 more
 created_by: xgd
 created_at: '2026-11-01T05:18:02.740684+00:00'
-updated_at: '2026-11-01T13:27:46.632144+00:00'
-completed_at: null
-last_field_updated: regression_anchor_uid
-status: reconciling
+updated_at: '2026-11-01T13:58:34.419233+00:00'
+completed_at: '2026-11-01T13:58:34.419233+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
