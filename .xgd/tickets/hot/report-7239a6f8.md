@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for STORY-106'
 created_by: xgd
 created_at: '2026-11-01T01:21:39.981612+00:00'
-updated_at: '2026-11-01T01:21:39.981612+00:00'
+updated_at: '2026-11-01T01:27:23.430798+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: STORY-106
@@ -19,6 +19,7 @@ fields:
     dependency_tests: []
     instructions: ''
     test_scope: test_UAT_AC2069 or test_UAT_AC2072
+  batches_pending: false
 ---
 
 {
