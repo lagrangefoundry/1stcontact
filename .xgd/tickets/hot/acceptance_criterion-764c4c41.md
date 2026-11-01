@@ -6,10 +6,10 @@ title: 1c builder composes the same wrangler dev argv from any working directory
   and --port/--remote keep their meaning
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T12:35:49.559566+00:00'
-updated_at: '2026-11-01T12:35:49.559566+00:00'
+updated_at: '2026-11-01T12:41:14.484573+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
