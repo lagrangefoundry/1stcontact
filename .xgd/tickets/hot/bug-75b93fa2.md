@@ -5,7 +5,7 @@ type: bug
 title: 'Users tab: rename tab and list heading to Contacts'
 created_by: xgd
 created_at: '2026-09-05T22:26:37.166690+00:00'
-updated_at: '2026-11-01T22:57:15.337922+00:00'
+updated_at: '2026-11-01T22:57:22.679097+00:00'
 completed_at: '2026-11-01T22:57:15.337922+00:00'
 last_field_updated: status
 status: free_and_reconciled
