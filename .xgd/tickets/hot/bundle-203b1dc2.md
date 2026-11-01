@@ -56,7 +56,7 @@ fields:
     main_sha: null
     working_sha_history: []
   - working_sha: c2f6c582ad88ff1bf872907a8297bfe2c4a4b91e
-    reconcile_sha: null
+    reconcile_sha: 2fbb0f5f0269098d199fa969495fa5c27fd7e261
     main_sha: null
     working_sha_history: []
   auto_merge_back: true
