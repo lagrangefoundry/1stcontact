@@ -6,10 +6,10 @@ title: An operator can open a dated grant that names the business it is about; a
   without a business or plan is refused 400
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:33:13.804840+00:00'
-updated_at: '2026-11-01T19:33:13.804840+00:00'
+updated_at: '2026-11-01T20:02:32.502169+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a55c2f35
   kind: behavior
