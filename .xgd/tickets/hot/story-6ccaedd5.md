@@ -6,9 +6,9 @@ title: 'Ingestion: A File Handed To The Platform Becomes Stored, Classified, Fin
   Material'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:06:12.315229+00:00'
-updated_at: '2026-09-19T14:40:41.418002+00:00'
+updated_at: '2026-11-01T03:15:46.048769+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -35,10 +35,15 @@ the platform's own entry point becomes, in one operation:
 2. **stored bytes**, in the account's private material store;
 3. a **classification** — what kind of thing the file is, and what may be done with it, both
    worked out without asking the client a question they cannot answer;
-4. a **material record** whose body is the description of the file, so that the corpus is one
-   body of text and there is no second retrieval path for pictures, fonts or PDFs;
-5. an **announcement to the index**, so the material is searchable immediately rather than at
-   the next rebuild.
+4. a **material record** whose body is the description of the file — a digest of what it is —
+   so that the corpus is one body of text and there is no second retrieval path for pictures,
+   fonts or PDFs;
+5. for a document that carried text, **one text comment** on that record holding the document's
+   full extracted text, written once, before the index first sees the material, and never
+   edited; the answer names it;
+6. an **announcement to the index**, so the material is searchable immediately rather than at
+   the next rebuild — by its digest in the material-level index, and by its full text in the
+   passage-level index, where a hit deep inside the document still names the material itself.
 
 The content type is settled *first* because everything after it depends on the answer, and
 because the sender is often silent: a browser has no registered type for a Markdown file, so
@@ -50,6 +55,11 @@ classification, description and the record of the stored bytes all read the same
 the sender actually *stated* is never second-guessed, and an extension the platform has no
 reader for still leaves the generic type in place, so a file nothing can read still degrades
 honestly rather than being refused.
+
+Nothing here runs without a model. A deployment with **no model key configured** says so once
+rather than one upload at a time: the status endpoint reports it, the builder shows a banner
+across the top and accepts no input while it is up, and both ingestion routes refuse with a
+service-unavailable answer before any bytes are read, so no undescribed material is ever stored.
 
 Three refusals bound it: a file above the per-file ceiling and a file with no bytes at all are
 refused before anything is created, in words a non-technical client can act on; and a client
@@ -64,8 +74,9 @@ internet, so one account's upload is invisible to another account's list and to 
 account's search.
 
 **In scope**: the ingestion path itself — content-type resolution, classification, record
-creation, the ordering, the ceiling and empty-file refusals, the index announcement, and what
-happens when no indexer is configured.
+creation, the text comment, the ordering, the ceiling and empty-file refusals, the no-model-key
+gate (status, banner, refusal), the index announcement including where full text is indexed, and
+what happens when no indexer is configured.
 
 **Out of scope**, each covered by its own story: how a file is described (the extractors, the
 six honest outcomes when description is impossible); the guard in front of material fetched on
@@ -103,6 +114,16 @@ list, show and correct material.
   can choose how to show a document without a second call per row. That field, and the
   surfaces that read it, belong to the Library detail story (STORY-144), not here; this story
   owns only the fact that one resolved value reaches every consumer of the ingestion.
+
+- REQ-173 (bundle-fd009b93) moved a document's verbatim text out of the body into a comment
+  marked `material_text`, one per material. Until the knowledge component learns to index a
+  designated comment kind, the platform's index refresh hands the passage index a reading view
+  in which a material's body is its full text, while the material-level index (the one the
+  awareness map clusters) keeps reading the digest. That view is temporary by intent and is to be
+  deleted when the framework change lands; the criteria assert only the observable outcome —
+  deep hits name the material — so the deletion cannot falsify them.
+- The no-model-key gate counts a host-injected describer as configured: the question it asks is
+  whether a description can be written, not whether an environment secret is present.
 
 ## Reconciliation Decisions
 
@@ -153,6 +174,15 @@ list, show and correct material.
   are raised here rather than on the description story because the *ordering* claim ("once, at
   the head, for all three consumers") is only observable at the ingestion boundary; the
   description story keeps the claims about what each branch of the describer then does.
+
+- **The text comment carries the full text, separately bounded, and the envelope names it**
+  (decided at reconciliation, 2026-10-31): REQ-173 settles both explicitly in its resolved
+  section; formalized as a criterion here because writing the comment is an ingestion step and
+  the envelope is this story's answer.
+- **The builder's banner is selectable and stays outside the blocked area** (decided at
+  reconciliation, 2026-10-31): REQ-173 asks for a banner and a block and is silent on whether the
+  banner itself is blocked. The landed builder leaves it live so its text can be copied into a
+  support message. Folded into the no-key criterion rather than raised separately.
 
 ## Dependencies
 
