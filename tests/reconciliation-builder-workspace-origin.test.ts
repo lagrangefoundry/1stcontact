@@ -1002,7 +1002,12 @@ describe('story-e674c60a measured against a real browser', () => {
 
       try {
         const page = await browser.newPage({ viewport: { width: 1280, height: 900 } })
-        await page.goto(builder.url, { waitUntil: 'networkidle' })
+        // Wait for the frame the measurement is about, not for network idle: the
+        // workspace issues requests unrelated to layout (material listing, CDN
+        // imports for other panels) that may never settle in a sandbox, and
+        // their fate says nothing about the height chain.
+        await page.goto(builder.url, { waitUntil: 'load' })
+        await page.waitForSelector('.builder-panel__frame', { state: 'attached' })
 
         const frameHeight = () =>
           page.evaluate(() => {
@@ -1074,7 +1079,13 @@ async function launchAnyChromium(
   // Each attempt's reason is kept, so a launch that fails says WHY in the
   // failure rather than leaving only "no browser".
   const errors: string[] = []
-  for (const opts of [{}, { channel: 'chrome' as const }]) {
+  for (const opts of [
+    {},
+    { channel: 'chrome' as const },
+    // Under an OS sandbox (macOS Seatbelt) the multi-process browser dies at
+    // startup; the same build in one process still lays out for real.
+    { args: ['--single-process', '--no-zygote', '--disable-gpu'] },
+  ]) {
     try {
       return { browser: await chromium.launch(opts), errors }
     } catch (e) {
