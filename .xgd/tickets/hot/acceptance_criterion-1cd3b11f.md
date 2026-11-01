@@ -6,10 +6,10 @@ title: Existing contacts are placed on the pipeline by their invite stamp once, 
   the seeded platform operator starts at Invited
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:05:15.241331+00:00'
-updated_at: '2026-11-01T20:05:15.241331+00:00'
+updated_at: '2026-11-01T20:12:51.962750+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0ea74f39
   kind: behavior
