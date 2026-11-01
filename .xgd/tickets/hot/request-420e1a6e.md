@@ -5,10 +5,10 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-11-01T14:13:50.931438+00:00'
-completed_at: null
+updated_at: '2026-11-01T22:57:21.381351+00:00'
+completed_at: '2026-11-01T22:57:21.381351+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
