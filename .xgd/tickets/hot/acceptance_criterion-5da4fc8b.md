@@ -6,10 +6,10 @@ title: Two independent facets — pipeline stage and access — narrow the list 
   so 'invited and never came' and 'signed up and never asked' are askable
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:05:18.011603+00:00'
-updated_at: '2026-11-01T20:05:18.011603+00:00'
+updated_at: '2026-11-01T20:12:51.482463+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0ea74f39
   kind: behavior
