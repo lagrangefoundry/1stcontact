@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T11:57:58.789749+00:00'
+updated_at: '2026-11-01T12:06:50.187298+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -330,7 +330,7 @@ fields:
     justification: STORY-144 owns the Library and currently specifies the tenant-wide
       list with 'on this site' as a badge and filter; REQ-181 explicitly changes that
       rule. Same capability bucket (capability-e9324eb7).
-    story_uid: null
+    story_uid: story-1500b111
     target_story_ids:
     - story-1500b111
     acceptance_criteria_changes:
