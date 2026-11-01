@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-10-28T20:52:42.275467+00:00'
+updated_at: '2026-11-01T02:36:51.798190+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -52,8 +52,26 @@ In scope:
   and keeps working, and nothing is ever written under the old name again.
 - **Opening a conversation for a site** — the one and only point at which a site
   becomes a conversation. It answers with an identifier for that conversation,
-  the turns already spoken, and whether a turn can be run (and why not). Opening
-  the same site again is the same conversation, not a new one.
+  the turns already spoken — **including a turn still in progress, as far as it
+  has got** — the position in the conversation that answer was read up to,
+  whether a turn is live right now, and whether a turn can be run (and why not).
+  Opening the same site again is the same conversation, not a new one. What it
+  shows is read from the conversation as it stands, not from the durable copy
+  that deliberately trails it by the open turn, so reloading the page mid-turn
+  no longer makes that turn vanish. It needs no model key: a host that cannot
+  run a turn still shows the whole conversation. A site with no conversation
+  yet answers with no turns, and that is the **only** read failure that does —
+  any other failure to read the transcript is reported as a failure rather than
+  dressed as an empty conversation.
+- **Rejoining a turn in progress** — a caller holding the position an opened
+  conversation was read up to can rejoin the live turn from exactly there, and
+  receives the rest of it in the same stream format a turn is delivered in,
+  ending in the same single completion (which says how the turn ended), with
+  nothing before that position repeated and nothing after it skipped. It is a
+  reader, never a second producer: it cannot start, disturb or be noticed by the
+  turn, needs no model key, and writes nothing. Rejoining without that position
+  is refused rather than defaulted, because defaulting would replay a
+  conversation the caller has already shown.
 - **Running a turn** — addressed to a conversation, never to a site. What the
   assistant said and what it did are streamed as they happen, ending in exactly
   one completion. A turn that moves the site also announces each move as it
@@ -92,7 +110,10 @@ In scope:
   because that fact is born with it and dies with it. The tier in front of the
   archive holds only the turn in flight, so losing the host mid-turn costs that
   turn and not the conversation, and two writers folding onto one conversation
-  conflict loudly rather than one silently discarding the other.
+  conflict loudly rather than one silently discarding the other. Losing the
+  **client** mid-turn is not losing the host: a turn whose caller goes away still
+  runs to its end and is archived, because the host is asked to hold the request
+  open until it has.
 - **Where the conversation runs** — the same host serves the conversation from
   the operator's machine and from the deployed edge runtime, over one session
   model, one tool loop and one write path. Which one is answering is not
@@ -346,6 +367,29 @@ Out of scope:
   past every write it announces. Nothing in the criteria moved: they were written
   to the intent rather than to the broken code, and the code has since caught up
   with them. Recorded so the repair is not re-raised as an outstanding code issue.
+
+- **Reading the conversation from the live tier, not the archive (BUG-46).** The
+  archive cuts at the last point where no turn is open — folding half a turn
+  splits one reply into two stored turns (lagrange-framework BUG-19) — so it
+  lags by the whole open turn, on purpose. Opening a conversation therefore folds
+  the live tier, seeding it from the archive where none exists, so there is one
+  source with no splice (DOC-21 §11), and hands back the position it folded to.
+  "A turn is live" is decided by the same rule the archive uses to decide what it
+  may store: the stream is longer than its closed prefix exactly when a turn is
+  open. The fold touches no backend, which is why it still runs ahead of
+  attaching one.
+- **The drain outlives the client in the edge runtime.** A turn's ending — its
+  `turn_end` record and the archive sync — used to run after an aborted stream
+  with nothing holding the request open. The prompt route now registers the
+  stream's completion with the runtime's hold-open facility (`waitUntil`) where
+  the transport offers one; the operator's-machine transport has none and needs
+  none, and behaves as before. The rejoin route deliberately registers nothing,
+  because a reader leaves nothing to finish.
+- **Residual risk, named on closing.** The live tier in the edge runtime is
+  still memory scoped to one isolate, so an isolate evicted mid-turn still loses
+  that turn; DOC-21 §15.4's Durable Object junction is the route back and is not
+  taken. The criteria claim survival of a reload and of a disconnect, not of an
+  eviction.
 
 ## Reconciliation Decisions
 
@@ -639,6 +683,58 @@ preamble to an advisory posture, and decides the stored-name question as
 - **The historical architecture documents are not touched.** The intent places
   the titles of DOC-4 and DOC-5 out of scope; they live in the ticket store,
   which the guard does not scan, so no criterion needs an exception for them.
+
+Decisions taken on **2026-10-31** while reconciling BUNDLE-34 (BUG-46, the
+origin half). BUG-46's statement is that a reload during a turn destroyed that
+turn — side effects durable, conversation not — because the page-load answer
+read the archive, which lags by the open turn, and because the turn's drain ran
+after the client had gone with nothing holding the request open. Its fix has
+three parts, all landed: read from the live tier, let the drain outlive the
+client, and a reattach route. What the browser pane does with them is the pane
+story's, and is not claimed here.
+
+- **AC-1052 is widened in place rather than joined by a parallel "open" criterion.**
+  Opening a conversation was always this story's one point of entry; what BUG-46
+  changes is what it returns (the in-progress turn, the position read to, whether
+  a turn is live). A second criterion for the same answer would be two places for
+  its shape to drift.
+- **The position read to travels with the transcript and nowhere else.** BUG-46
+  says so and gives the reason: a position obtained separately describes a
+  different read, and the seam between them is exactly the gap-or-repeat the
+  pairing exists to remove. The criterion therefore states position and turns as
+  one answer.
+- **"Only no-conversation-yet is empty" is a criterion of its own.** BUG-46 names
+  the blanket swallow as what let the defect read as an empty conversation rather
+  than a failure. A narrowed catch is the kind of thing someone later widens back
+  for tidiness, so the observable — a store that fails to read is reported, not
+  shown as an empty conversation — is pinned separately from the shape of a
+  successful open.
+- **The disconnect survival criterion asserts the hold-open, not just the archive.**
+  BUG-46 records that an assertion of "the transcript ended up archived" passed
+  against the unfixed code, because nothing tears an isolate down in the test
+  runtime. The criterion is therefore that the host asks the runtime to hold the
+  request open for the turn's ending, and that what it asked to be held is
+  sufficient for the turn to be archived; either half alone is vacuous.
+- **The turn's outcome rides the completion on rejoin.** The intent's proof asks
+  for an abandoned turn to read as `aborted`; the stored session format carries
+  dialogue, not outcomes, so the archive cannot show it. The rejoin's completion
+  carries how the turn ended, which is where BUG-46 placed it. Formalised as part
+  of the rejoin criterion.
+- **Rejoining from a quiet conversation yields nothing and closes.** The intent is
+  silent on the case; the code closes when the tail's own timeout elapses, having
+  rejoined nothing. Not formalised as a criterion — it is the absence of a turn,
+  not a behaviour a caller depends on — and recorded here so a later reader does
+  not read it as a hang.
+- **Known divergence, recorded not absorbed: a keyless edge host opens `ready`.**
+  BUG-46's proof obligation 4 expects a host with no model key to answer the open
+  with `ready: false` and the full transcript. The operator's-machine host does;
+  the edge host returns the full transcript but reports `ready: true`, because
+  its backend is built lazily and the missing key surfaces on the first turn
+  instead. BUG-46 itself records that this predates it, is untouched by it, and
+  is a separate question for a separate ticket. The criteria here claim the half
+  BUG-46 owns — the full transcript comes back with no model key — and leave the
+  `ready` half to AC-1060 as it stands. Flagged as a code-issue against AC-1060's
+  edge-host evidence, not absorbed into it.
 
 ## Dependencies
 
