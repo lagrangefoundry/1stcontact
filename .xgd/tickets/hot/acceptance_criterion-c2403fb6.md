@@ -6,10 +6,10 @@ title: A captured reference states how many files it holds in place of the singl
   field, and its download link returns the screenshot
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T02:17:14.750915+00:00'
-updated_at: '2026-11-01T12:15:13.495995+00:00'
+updated_at: '2026-11-01T12:33:25.745301+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
