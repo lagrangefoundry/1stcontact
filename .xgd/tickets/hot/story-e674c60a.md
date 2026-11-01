@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-01T20:47:55.512315+00:00'
+updated_at: '2026-11-01T20:50:32.852168+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -254,6 +254,26 @@ the surface where an operator *sees* the site instead.
   replaces the blank page with what actually went wrong and a named fix for the
   two causes an operator can act on. It never overwrites a workspace that
   succeeded slowly.
+- **An ended session reads as an ended session, never as an empty account
+  (BUG-52).** Every request the builder makes goes through one transport, so a
+  401, or a fetch that rejects with no status (what a lapsed identity-provider
+  cookie looks like to a background request), is noticed whichever call meets it
+  first. The three opening calls refuse rather than returning an empty account, a
+  healthy assistant or an empty list. At load, the reason is drawn where the
+  builder would have been, and nothing is mounted. Mid-session, a strip appears
+  once above a shell that stays live: it is not made inert or dimmed, and unsaved
+  work stays editable. A refused site listing leaves the pane, the Library and
+  the Contacts tab as they were. A 401 says *"Your session has ended"*; a
+  rejected fetch hedges, because it may also be an origin that is down. Recovery
+  is a *Sign in again* button that reloads the page. Nothing navigates on its
+  own. Every other failure, a 500 included, is handled exactly as before.
+- **One type size for the chrome's controls (BUG-53).** The top bar's Theme and
+  About, the Contacts filter row and Invite, Provision a business, and the
+  buttons in the dialogs those open all take their size from one control
+  font-size token. That token is declared immediately after each control's own
+  font reset, so it wins regardless of stylesheet order. The filter row's
+  controls share one padding. Dialog buttons use the canonical dialog-button
+  class, with the primary modifier on the affirmative action.
 
 **Out of scope**
 
@@ -718,6 +738,37 @@ REQ-180 §1/§3).*
   *Rationale:* each is the less surprising reading of the intent, none
   contradicts it, and formalising them keeps regression from letting them drift.
   No contradiction between the code and BUG-51 was found.
+- **BUG-52 and BUG-53 (reconcile BUNDLE-36, item 8, 2026-11-01): session
+  expiry and control sizing are claimed here, as workspace chrome.** Three
+  criteria are added: AC-2230 (an ended session is reported, not drawn empty),
+  AC-2231 (non-401 failures are unchanged) and AC-2232 (one control type size).
+  - *The valid-session guard is folded into AC-2231, not stated alone.* BUG-52
+    requires that a working session survives a reload and that no auth-failure
+    path fires on it. That is the "everything else is unchanged" half of the
+    same rule, so splitting it out would state one boundary twice.
+  - *Mid-session refusal is claimed beyond what the intent's "reload" scope
+    names.* BUG-52 scopes itself to a reload, but its own "What was built"
+    section specifies the mid-session strip, the once-only latch and the
+    no-`inert` decision. So they are intent, not code-only behaviour. How a
+    session renews, and avoiding mid-session denial in the first place, remain
+    REQ-187's and are not claimed.
+  - *The harness token lifetime is not matrix subject matter.* The seven-day
+    default for locally minted test tokens has no production counterpart, as
+    BUG-52 itself says. It is test infrastructure and is not a criterion of this
+    story.
+  - *BUG-53 says "Users tab"; the criterion says "Contacts tab".* The tab was
+    renamed by later work in this bundle, and its filter row's single state
+    select became the access and pipeline selects (REQ-188). The criterion
+    covers the filter row's controls as they now exist, and the code applies the
+    token to all of them.
+  - *Formalised where the intent is silent:* (a) the strip sits outside the
+    shell, as its sibling, so its text stays selectable; (b) both notice shapes
+    carry an alert role; (c) a load failure that is not a refused session is
+    rethrown rather than reported as "sign in again".
+  *Rationale:* each follows directly from the BUG-52 and BUG-53 bodies and chat.
+  No contradiction between the code and either intent was found. AC-1403 is
+  unchanged: the session notice stands its guard down by the documented means
+  (filling the mount point), so the guard's own criterion still holds.
 
 ## Dependencies
 
