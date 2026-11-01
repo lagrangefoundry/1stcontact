@@ -37,6 +37,7 @@ import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
 import {
+  InvalidGrantError,
   InvalidInviteError,
   InvalidPersonRecordError,
   invitePerson,
@@ -925,6 +926,24 @@ async function routeUncached(
    */
   const identityEnv = env as unknown as IdentityEnv
 
+  /**
+   * The 403 for an owner write refused to a non-owner ([[REQ-170]], [[DOC-42]] §7).
+   *
+   * "THE GATE THAT MATTERS IS AT THE API." Opening or withdrawing a grant and
+   * suspending a login are owner acts on the scoped business; a refusal is
+   * logged and answered before the body is read, so nothing is written.
+   */
+  const refuseNonOwner = (event: string, refused: Scope, error: string): Response => {
+    console.warn(
+      JSON.stringify({
+        event,
+        businessId: refused.businessId,
+        email: deps.admission?.ok ? deps.admission.user.email : null,
+      }),
+    )
+    return json(403, { error })
+  }
+
   if (p === '/' || p === '/index.html') {
     return new Response(chromeHtml(), {
       status: 200,
@@ -1315,11 +1334,15 @@ async function routeUncached(
      * this route exists to keep.
      */
     if (p === PERSON_STATUS_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return refuseNonOwner('person_status_refused', scope, 'Only an owner of this business may change who can sign in.')
+      }
       const body = await readJsonBody(request)
       const id = typeof body.id === 'string' ? body.id : ''
       const status = typeof body.status === 'string' ? body.status.trim() : ''
       if (status === '') return json(400, { error: 'A status is required.' })
-      return json(200, await setPersonStatus(identityEnv, requireScope(), id, status))
+      return json(200, await setPersonStatus(identityEnv, scope, id, status))
     }
 
     /**
@@ -1434,6 +1457,10 @@ async function routeUncached(
      * grant, which is what every row written so far is ([[REQ-184]]).
      */
     if (p === GRANTS_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return refuseNonOwner('grant_refused', scope, 'Only an owner of this business may open a grant.')
+      }
       const body = await readJsonBody(request)
       return json(
         200,
@@ -1458,6 +1485,10 @@ async function routeUncached(
      * asking about a refusal is actually asking.
      */
     if (p === GRANT_REVOKE_PATH && method === 'POST') {
+      const scope = requireScope()
+      if (!ownsBusiness(deps.admission, scope.businessId)) {
+        return refuseNonOwner('grant_revoke_refused', scope, 'Only an owner of this business may withdraw a grant.')
+      }
       const body = await readJsonBody(request)
       await revokeGrant(identityEnv, typeof body.id === 'string' ? body.id : '')
       return json(200, { ok: true })
@@ -2016,6 +2047,13 @@ async function routeUncached(
     // box that is wrong. Reported as the generic 500 below it would say "the
     // builder broke" for a missing `.` and give them nothing to correct.
     if (err instanceof InvalidPersonRecordError) {
+      return json(400, { error: scrub(err.message) })
+    }
+
+    // A GRANT THAT NAMES NO BUSINESS OR NO PLAN, OR A WITHDRAWAL OF AN ID THAT
+    // NAMES NO GRANT, IS THE OPERATOR'S ERROR ([[REQ-170]]) — 400 carrying the
+    // sentence that says what is missing, not the generic 500.
+    if (err instanceof InvalidGrantError) {
       return json(400, { error: scrub(err.message) })
     }
 
