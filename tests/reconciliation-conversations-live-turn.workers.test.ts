@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
+import type { Scope } from '../apps/control-app/src/scope'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { resetChatHost } from '../apps/control-app/src/router'
@@ -21,6 +22,9 @@ import { nextSlug, siteSeed } from './support/site-seed'
  */
 
 const TENANT = 'story103live'
+
+/** The business every request here is scoped to, as the Worker's `fetch` resolves it. */
+const SCOPE: Scope = { businessId: TENANT }
 
 function workerEnv(overrides: Partial<Env> = {}): Env {
   return {
@@ -126,7 +130,7 @@ const spoken = (frames: Frame[]): string =>
     .join('')
 
 async function store(): Promise<TicketStore> {
-  return ticketStoreFor(workerEnv())
+  return ticketStoreFor(workerEnv(), SCOPE)
 }
 
 /** The chat ticket's `chat_transcript` comment for `sessionId`, or null. */

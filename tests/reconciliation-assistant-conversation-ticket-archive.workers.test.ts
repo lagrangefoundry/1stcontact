@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
+import type { Scope } from '../apps/control-app/src/scope'
 import { route, resetChatHost, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { sessionArchive } from '../apps/control-app/src/ai'
 import { CURSOR_FIELD } from '../apps/control-app/src/session-delta'
@@ -55,6 +56,9 @@ import { says, scriptedClient } from './support/scripted-model-client'
  */
 
 const TENANT = 'ac179x'
+
+/** The business every request here is scoped to, as the Worker's `fetch` resolves it. */
+const SCOPE: Scope = { businessId: TENANT }
 
 /** The kind of the comment the whole session file lives in ([[DOC-10]] §8). */
 const TRANSCRIPT_KIND = 'chat_transcript'
@@ -206,6 +210,7 @@ const post = (path: string, body: unknown, withModel = false): Promise<Response>
       body: JSON.stringify(body),
     }),
     workerEnv(withModel),
+    SCOPE,
     deps(withModel),
   )
 
@@ -238,7 +243,7 @@ async function seedSite(slug: string, withModel = false): Promise<void> {
 }
 
 /** The account's own ticket store — the same handle the chat routes are given. */
-const store = (withModel = false): Promise<TicketStore> => ticketStoreFor(workerEnv(withModel))
+const store = (withModel = false): Promise<TicketStore> => ticketStoreFor(workerEnv(withModel), SCOPE)
 
 /** Every `chat` ticket this account holds that names `sessionId`. */
 async function chatTickets(sessionId: string): Promise<Ticket[]> {

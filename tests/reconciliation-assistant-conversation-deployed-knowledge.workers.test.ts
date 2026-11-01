@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
+import type { Scope } from '../apps/control-app/src/scope'
 import {
   route,
   resetChatHost,
@@ -69,6 +70,9 @@ import {
  */
 
 const TENANT = 'ac165x'
+
+/** The business every request here is scoped to, as the Worker's `fetch` resolves it. */
+const SCOPE: Scope = { businessId: TENANT }
 
 /** The fact that exists nowhere but the planted document. */
 const PLANTED = 'Ravensblack Ledger is retained for eleven days and then discarded.'
@@ -341,6 +345,7 @@ const post = (path: string, body: unknown, deps: RouterDeps): Promise<Response> 
       body: JSON.stringify(body),
     }),
     workerEnv(),
+    SCOPE,
     deps,
   )
 

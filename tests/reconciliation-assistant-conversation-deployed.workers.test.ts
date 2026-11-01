@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
+import type { Scope } from '../apps/control-app/src/scope'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { route, resetChatHost } from '../apps/control-app/src/router'
@@ -137,6 +138,9 @@ const addsPage = (page: string, title: string) => [
 // ── the deployment ───────────────────────────────────────────────────────────
 
 const TENANT = 'story-a58a0974'
+
+/** The business every request here is scoped to, as the Worker's `fetch` resolves it. */
+const SCOPE: Scope = { businessId: TENANT }
 /** The credential as a deploy secret. Absent from any process environment. */
 const DEPLOY_SECRET = 'sk-ant-deploy-secret-not-a-real-key'
 
@@ -244,7 +248,7 @@ function sharedStore() {
  * account's conversation, because the account is not composed into a key.
  */
 const ticketStore = (tenant = TENANT): Promise<TicketStore> =>
-  ticketStoreFor({ DB: env.DB, BLOBS: env.BLOBS, TENANT_ID: tenant })
+  ticketStoreFor({ DB: env.DB, BLOBS: env.BLOBS, TENANT_ID: tenant }, { businessId: tenant })
 
 /** The `chat` ticket homing `sessionId` in `tenant`'s store, or `null`. */
 async function chatTicket(sessionId: string, tenant = TENANT): Promise<Ticket | null> {
@@ -536,6 +540,7 @@ describe('no credential the host holds appears in anything it says', () => {
         body: JSON.stringify({ slug }),
       }),
       workerEnv({ ANTHROPIC_API_KEY: key }),
+      SCOPE,
       {
         store: async () => {
           throw new Error(
