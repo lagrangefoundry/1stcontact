@@ -5,9 +5,9 @@ type: story
 title: Contacts tab — editing a contact's grants and record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:31:42.865017+00:00'
-updated_at: '2026-11-01T19:31:42.865017+00:00'
+updated_at: '2026-11-01T19:33:34.098574+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-39edf66d
@@ -39,12 +39,12 @@ This is the write side of the Contacts tab (plan item 3, story-0034d937, is the 
 - Security policy: the write surface accepts only typed scalar fields. Observed columns (`status`, `pipeline_stage`, `invited_at`, `tos_accepted_at`, stamps) are ignored if sent.
 
 ## Reconciliation Decisions
-- **Patch semantics on the record write** (decided at reconciliation, 2026-11-01): intent says the route "writes email and/or display_name". The landed code treats an absent key as "leave alone", turns an empty name into "no name", and refuses a body that changes nothing. Formalized because the panel commits one field at a time, and whole-record semantics would write stale values back. Formalized as the "absent keys untouched" AC.
-- **Observed fields ignored by the server** (decided at reconciliation, 2026-11-01): BUG-54 locks these fields in the UI. The "As landed" notes add the server half. Formalized as its own AC, because locking the boxes alone is only a client-side guarantee.
-- **The server keeps login suspension with no UI binding** (decided at reconciliation, 2026-11-01): BUG-54 explicitly keeps the status route and removes the panel binding. Formalized as a server AC (a suspended person is refused sign-in; restoring re-admits them). No UI AC asserts a suspend control.
-- **The panel shows the stored value after a save** (decided at reconciliation, 2026-11-01): intent is silent. The code puts the server-normalised row back into the pane (a typed `Sarah@…` is shown as `sarah@…`). Formalized inside the "panel commit" AC.
-- **CODE-ISSUE: grant routes are not owner-gated** (flagged at reconciliation, 2026-11-01). REQ-170's 2026-09-04 revision says *"The gate that matters is at the API"*. REQ-180 (router comment on the admin businesses path) says a customer-reachable route that "mints a live `pro` grant to whoever asks" is exactly what must not exist. As landed, `POST /api/grants` and `POST /api/grants/revoke` apply no ownership check: any admitted caller can open or revoke any grant by id. The AC follows intent: a caller who does not own the business they are scoped to is refused 403, and no grant row is written or changed. For fix_uat_coverage's code-issue lever.
-- **CODE-ISSUE: a refused grant is a 500** (flagged at reconciliation, 2026-11-01). REQ-170 says *"a grant that names no business is refused"*, and the surrounding convention maps operator errors to 400 with a sentence (invalid invite and invalid person record both do). The grant refusal error is never mapped, so a grant naming no business (or no plan), and a revoke of an unknown id, reach the generic 500. The AC pins 400 with the message. For fix_uat_coverage's code-issue lever.
+- **Patch semantics on the record write** (decided at reconciliation, 2026-11-01): intent says the route "writes email and/or display_name". The landed code treats an absent key as "leave alone", turns an empty name into "no name", and refuses a body that changes nothing. Formalized because the panel commits one field at a time, and whole-record semantics would write stale values back. Formalized as AC-2193.
+- **Observed fields ignored by the server** (decided at reconciliation, 2026-11-01): BUG-54 locks these fields in the UI. The "As landed" notes add the server half. Formalized in AC-2193, because locking the boxes alone is only a client-side guarantee.
+- **The server keeps login suspension with no UI binding** (decided at reconciliation, 2026-11-01): BUG-54 explicitly keeps the status route and removes the panel binding. Formalized as a server AC (a suspended person is refused sign-in; restoring re-admits them). AC-2201 also asserts the panel offers no suspend control.
+- **The panel shows the stored value after a save** (decided at reconciliation, 2026-11-01): intent is silent. The code puts the server-normalised row back into the pane (a typed `Sarah@…` is shown as `sarah@…`). Formalized in AC-2189.
+- **CODE-ISSUE: grant routes are not owner-gated** (flagged at reconciliation, 2026-11-01). REQ-170's 2026-09-04 revision says *"The gate that matters is at the API"*. REQ-180 (router comment on the admin businesses path) says a customer-reachable route that "mints a live `pro` grant to whoever asks" is exactly what must not exist. As landed, `POST /api/grants`, `POST /api/grants/revoke` and `POST /api/people/status` apply no ownership check (the record and invite routes do): any admitted caller can open or revoke any grant by id, or suspend a person in their scoped business. The AC follows intent: a caller who does not own the business they are scoped to is refused 403, and no grant row or person status changes. Formalized as AC-2200. For fix_uat_coverage's code-issue lever.
+- **CODE-ISSUE: a refused grant is a 500** (flagged at reconciliation, 2026-11-01). REQ-170 says *"a grant that names no business is refused"*, and the surrounding convention maps operator errors to 400 with a sentence (invalid invite and invalid person record both do). The grant refusal error is never mapped, so a grant naming no business (or no plan), and a revoke of an unknown id, reach the generic 500. AC-2198 and AC-2199 pin 400 with the message. For fix_uat_coverage's code-issue lever.
 
 ## Dependencies
 - Plan item 3: story-0034d937 (Contacts tab — the people of a business)
