@@ -6,9 +6,9 @@ title: An invited and entitled person who has accepted the current terms reaches
   builder
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:29:39.964535+00:00'
-updated_at: '2026-11-01T09:54:02.039761+00:00'
+updated_at: '2026-11-01T22:22:30.089986+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-7b1025b8
@@ -26,7 +26,10 @@ terms acceptance is the next check after it, so this outcome requires both.
 
 ## Verification
 
-Invite an address and record its acceptance of the current terms, then request
+Invite an address, then provision a business for that account
+(`provisionBusiness`), which is what gives it a membership and an active grant.
+Since REQ-186, an invite alone writes neither, and is refused `no_membership`
+(AC-2173). Record the account's acceptance of the current terms, then request
 the builder as that address with a valid proven identity. Assert the response
 succeeds, is an HTML document, and is the builder application rather than the
 refusal message or the terms page.
