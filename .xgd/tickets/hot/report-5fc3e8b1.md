@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T10:50:14.784022+00:00'
+updated_at: '2026-11-01T11:57:58.789749+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -312,7 +312,7 @@ fields:
     justification: STORY-146 explicitly excludes 'any operator console or CLI for
       issuing invites or creating businesses'; no story covers a route that creates
       a business or the constraints on privileged reads. New capability in capability-e5939ceb.
-    story_uid: null
+    story_uid: story-387c9dfe
   - index: 9
     component: Library — badge the exception
     item_type: upgrade
