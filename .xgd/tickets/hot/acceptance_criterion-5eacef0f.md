@@ -6,10 +6,10 @@ title: The platform-tenant setting is consulted only by scope resolution and ide
   asserted over the whole control-app source
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:26:15.884604+00:00'
-updated_at: '2026-11-01T10:26:15.884604+00:00'
+updated_at: '2026-11-01T10:36:59.478499+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7102ffe3
   kind: behavior
