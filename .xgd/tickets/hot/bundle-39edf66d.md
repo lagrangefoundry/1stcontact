@@ -5,9 +5,9 @@ type: bundle
 title: REQ-185 + REQ-170 + REQ-183 + REQ-186 + BUG-51 + 6 more
 created_by: xgd
 created_at: '2026-11-01T14:13:50.255886+00:00'
-updated_at: '2026-11-01T21:29:25.596829+00:00'
+updated_at: '2026-11-01T21:33:55.864316+00:00'
 completed_at: null
-last_field_updated: regression_anchor_uid
+last_field_updated: session_builder
 status: reconciling
 fields:
   bundle_type: reconcile
@@ -159,6 +159,8 @@ fields:
   - a1c9811e080c750f231ee95c5448993ee958b3cf
   - 9545d0b50ddbd30a46706fb820119d46872e59a7
   regression_anchor_uid: report-54bc92a7
+  session_builder: 40d5d960-e764-4f0f-93e4-123097a83883
+  session_builder_started_at: '2026-11-01T21:33:55.638023+00:00'
 ---
 
 # Bundle
