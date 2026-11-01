@@ -19,9 +19,11 @@ fields:
   - working_sha: 18102f737435788398a4873745f807444b06e098
     reconcile_sha: null
     main_sha: null
+    working_sha_history: []
   - working_sha: 6cddcbb1c4fb022c0a7defe8ec10e71faa644472
-    reconcile_sha: null
+    reconcile_sha: d2da20f9940db088f042f75ae7b94e236b7025cd
     main_sha: null
+    working_sha_history: []
   version: 0.2.50
 ---
 
