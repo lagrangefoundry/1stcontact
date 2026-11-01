@@ -6,10 +6,10 @@ title: The portal's copy says closing the account is done by asking, and offers 
   contact channel that does not work
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:16:16.228821+00:00'
-updated_at: '2026-11-01T20:16:16.228821+00:00'
+updated_at: '2026-11-01T20:26:44.339929+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-83ff6262
   kind: behavior
