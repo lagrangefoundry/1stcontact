@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-01T11:54:23.322412+00:00'
+updated_at: '2026-11-01T20:30:28.232178+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -198,11 +198,32 @@ the surface where an operator *sees* the site instead.
   it crosses through the same store the origin serves from rather than through a
   second writer: an import lands by exactly the path an edit lands by, opening
   the store through the one opener every route shares rather than through a
-  private one of its own. It is idempotent, so re-running it after an edit is the
-  ordinary way to use it, and it lands whole or not at all. It carries no
-  privilege the other routes lack: bringing the deployment's account into
-  existence is something opening the store does, not something only a copy can
-  do.
+  private one of its own. It is idempotent while the local copy is the only place
+  the site is edited, so re-running it after a *local* edit is the ordinary way
+  to use it, and it lands whole or not at all. It carries no privilege the other
+  routes lack: bringing the deployment's account into existence is something
+  opening the store does, not something only a copy can do.
+- **A copy never silently replaces work done in the builder (BUG-51).** Before
+  writing, the import reads the target's builder-recorded change count. Zero — a
+  site that does not exist, or one only ever filled by imports — and it proceeds
+  as before. Non-zero, and it is refused 409 with nothing written, naming the slug
+  and how many changes are at risk. An explicit `force` in the payload overrides
+  it: `1c push --force`, and `bin/publish --force`, which applies to every slug in
+  the run. An ordinary push omits `force` rather than sending `false`. The count,
+  not the write version, is the test, because every import raises the version and
+  only a builder, assistant or structured-edit change moves the count — so the
+  ordinary publish loop is never refused. Consequence accepted: re-publishing a
+  site with even one builder edit needs `--force`.
+- **One deliberate way back to an empty local store (BUG-51).** `1c reset`
+  previews by default — the state directories it would remove with their file
+  count and size, the `storage/` directories it will never touch — deletes
+  nothing and exits 0. With `--yes` it removes `apps/control-app/.wrangler/state`
+  (and `apps/public-site/.wrangler/state` with `--include-public`), never
+  `storage/`, and points at `bin/publish` to re-seed. It refuses while something
+  listens on the dev port (`--port`, default 8788), because deleting under a live
+  local runtime corrupts the store rather than emptying it; it reports an absent
+  store as already empty rather than failing; and it resolves every path from the
+  repository root, not the working directory.
 - **A split, and it remembers.** The display panel sits beside a secondary pane
   (the assistant panel) with a draggable divider that collapses to a rail and
   reopens to its previous width. The divider
@@ -678,6 +699,25 @@ REQ-180 §1/§3).*
   REQ-180's further guards — on the `platform_admin` flag's readers and on any
   "platform's own tenant" predicate — are about the model, not about what this
   workspace shows, and are not claimed here.
+- **BUG-51 (reconcile BUNDLE-36, 2026-11-01): import guard and `1c reset` are
+  claimed here; the starter-scaffold guard is not.** AC-1402's idempotence is
+  narrowed rather than retired: the intent says re-running after a *local* edit
+  stays ordinary, and that the import refuses only over builder-recorded changes,
+  so the criterion now states that boundary and the refusal's exact shape lives in
+  its own criterion. `1c reset` sits here because it is part of the operator's
+  local builder loop beside the builder command (AC-1401); the provisioning-time
+  guard and the creation report it depends on belong to the store story
+  (story-fde7370b). Where the intent is silent the code's behaviour is formalised:
+  (a) the 409 body carries `slug`, `changes` and a separate `force` hint as fields,
+  so a program can tell "refused, and how to mean it" from "refused" without
+  parsing prose; (b) only `force: true` overrides — any other value does not;
+  (c) the preview does not probe the port, since it changes nothing a live server
+  could be hurt by; (d) the preview also names the `storage/` directories it will
+  never touch, so the promise is readable rather than taken on trust; (e) a
+  `--port` that is not a positive number is refused as a usage error.
+  *Rationale:* each is the less surprising reading of the intent, none
+  contradicts it, and formalising them keeps regression from letting them drift.
+  No contradiction between the code and BUG-51 was found.
 
 ## Dependencies
 
