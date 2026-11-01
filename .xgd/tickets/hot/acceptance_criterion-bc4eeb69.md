@@ -6,10 +6,10 @@ title: A business-scoped route for an account with nothing selectable answers 40
   with its own message, logged as no_entitlement
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:26:52.967168+00:00'
-updated_at: '2026-11-01T10:26:52.967168+00:00'
+updated_at: '2026-11-01T10:36:58.165865+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7102ffe3
   kind: behavior
