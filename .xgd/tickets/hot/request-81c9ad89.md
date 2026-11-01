@@ -5,10 +5,10 @@ type: request
 title: 'Library under one-site-per-business: badge the exception, not the rule'
 created_by: xgd
 created_at: '2026-09-02T23:53:02.972968+00:00'
-updated_at: '2026-11-01T05:18:04.940753+00:00'
-completed_at: null
+updated_at: '2026-11-01T13:58:37.491520+00:00'
+completed_at: '2026-11-01T13:58:37.491520+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 3
