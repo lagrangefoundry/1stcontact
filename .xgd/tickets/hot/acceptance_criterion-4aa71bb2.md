@@ -6,10 +6,10 @@ title: The operator adds a business to an existing account and it is immediately
   for that account's owner
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:57:15.006394+00:00'
-updated_at: '2026-11-01T11:57:15.006394+00:00'
+updated_at: '2026-11-01T12:03:14.036932+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-387c9dfe
   kind: behavior
