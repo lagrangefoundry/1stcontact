@@ -2,11 +2,11 @@
 uid: acceptance_criterion-946ff3b5
 id: AC-1715
 type: acceptance_criterion
-title: The list is the whole account's material, and the open site is a badge on the
-  rows whose recorded placement includes it rather than a boundary on the list
+title: The list is the whole of the open business's material, placed or not, with
+  no placement badge, and a business switch leaves no row from the previous business
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:41.292816+00:00'
-updated_at: '2026-11-01T12:05:26.093677+00:00'
+updated_at: '2026-11-01T13:27:00.525774+00:00'
 completed_at: null
 last_field_updated: title
 status: active
