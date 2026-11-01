@@ -7,10 +7,10 @@ title: The consultant writes the conversation's ledger into the chat ticket's bo
   this conversation's ticket
 created_by: xgd
 created_at: '2026-11-01T09:27:32.418261+00:00'
-updated_at: '2026-11-01T09:27:32.418261+00:00'
+updated_at: '2026-11-01T09:51:03.662120+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
