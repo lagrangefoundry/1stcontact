@@ -7,10 +7,10 @@ title: 'Only an owner of the business may invite into it: a non-owner, including
   is 400'
 created_by: xgd
 created_at: '2026-11-01T18:27:41.242742+00:00'
-updated_at: '2026-11-01T18:27:41.242742+00:00'
+updated_at: '2026-11-01T18:57:27.126106+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
