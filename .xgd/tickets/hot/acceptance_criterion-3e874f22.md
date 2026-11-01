@@ -6,10 +6,10 @@ title: Each unselectable business says why — expired with its end date, revoke
   or never_granted — and a selectable one says nothing
 created_by: xgd
 created_at: '2026-11-01T09:54:35.181006+00:00'
-updated_at: '2026-11-01T09:54:35.181006+00:00'
+updated_at: '2026-11-01T10:22:21.637529+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
