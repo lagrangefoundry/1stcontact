@@ -6,10 +6,10 @@ title: An admitted business entered via the platform_operator bypass carries rol
   null, so entering a hosted business is never read back as owning it
 created_by: xgd
 created_at: '2026-11-01T17:59:08.825992+00:00'
-updated_at: '2026-11-01T17:59:08.825992+00:00'
+updated_at: '2026-11-01T18:21:35.342964+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7102ffe3
   kind: behavior
