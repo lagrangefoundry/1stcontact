@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-11-01T10:50:14.554763+00:00'
+updated_at: '2026-11-01T11:26:32.542649+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -667,6 +667,13 @@ REQ-180 §1/§3).*
   *Rationale:* each is the less surprising answer for the operator and none
   conflicts with REQ-179 or REQ-180; formalising them keeps regression from
   letting them drift silently.
+- **Correction (reconcile BUNDLE-35, fix_plan batch 0/1): clause (c) above is
+  withdrawn.** It misdescribed the code. Both the workspace client and the
+  reference map a listing failure that is not a refused session to an empty
+  list; only a refused session keeps the pane, and that is BUG-52's subject, not
+  this story's. The claim has been removed from AC-967 together with its
+  verification step, and nothing in its place asserts that a failure empties the
+  pane — that behaviour is left unasserted.
 - **The vocabulary rule is asserted here although it also reaches the public
   site.** It is one rule over the two surfaces a person reads and is enforced by
   one guard; splitting it by surface would state one guarantee twice.
