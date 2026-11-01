@@ -6,10 +6,10 @@ title: 'Business Fulfilment: Only The Operator Adds A Business, And A Business A
   Whole'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:56:27.726698+00:00'
-updated_at: '2026-11-01T17:58:02.127292+00:00'
+updated_at: '2026-11-01T17:59:39.813017+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-94dbe947
   capability_uid: capability-e5939ceb
