@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { cmdNew } from '../tools/generate/src/cli'
+import { cmdNew, CommandError, ctxOf, editDocumentSet, editL1Set } from '../tools/generate/src/cli'
 import { createL1Toolbox } from '../tools/generate/src/cli/ai/toolbox'
+import { fsSiteStore } from '../tools/generate/src/store'
 import { L1_DOCUMENT_KEYS, l1DocumentSchema } from '../packages/site-schema/src/index'
 import type { L1Node } from '@1stcontact/site-schema'
 
@@ -17,8 +18,10 @@ import type { L1Node } from '@1stcontact/site-schema'
  * ladder, background, text colour, content column and font table — and a write
  * path that refuses a change painting something that does not exist.
  *
- * Nothing is mocked. Every call goes through the assistant's own toolbox, and
- * the draft's bytes on disk are the evidence that a refusal wrote nothing.
+ * Nothing is mocked. Every call goes through the assistant's own toolbox —
+ * except a refusal's remedy (`hint`), which the toolbox does not relay and is
+ * read from the command layer beneath it — and the draft's bytes on disk are
+ * the evidence that a refusal wrote nothing.
  */
 
 const SLUG = 'studio'
@@ -106,6 +109,23 @@ function styledRoot(ladder: readonly number[]): L1Node {
       { kind: 'text', text: 'Body copy', axes: { fontSizePx: 16, color: '#111827' } },
     ],
   } as L1Node
+}
+
+type EditOpts = Parameters<typeof editDocumentSet>[3]
+
+/**
+ * The command layer's own refusal. The toolbox relays a refusal's code and
+ * message, but the per-error remedy travels on the error's `hint`, which only
+ * the command layer carries — so the remedy is read here, from the same write.
+ */
+async function refusalOf(write: (opts: EditOpts) => Promise<unknown>): Promise<CommandError> {
+  try {
+    await write({ cwd, store: fsSiteStore(ctxOf({ cwd })) } as EditOpts)
+  } catch (err) {
+    if (err instanceof CommandError) return err
+    throw err
+  }
+  throw new Error('expected the write to be refused, but it succeeded')
 }
 
 function fresh(prefix: string): void {
@@ -261,13 +281,13 @@ describe('the page document writes by top-level merge', () => {
       ['wrong shape', { background: 'not a colour' }, []],
       // Nothing named at all.
       ['empty write', {}, []],
-      // Not a document key: named, with the writable keys.
-      ['unknown key', { margin: 12 }, [/margin/, new RegExp(L1_DOCUMENT_KEYS.join(', '))]],
-      // The element tree's own key: pointed at the element operation.
+      // Not a document key: named.
+      ['unknown key', { margin: 12 }, [/'margin' is not a document key/]],
+      // The element tree's own key: named.
       [
         'element tree',
         { root: { kind: 'container', layout: 'stack', children: [] } },
-        [/root/, /set_l1/],
+        [/'root' is not a document key/],
       ],
     ]
     for (const [name, style, mentions] of refusals) {
@@ -279,6 +299,21 @@ describe('the page document writes by top-level merge', () => {
       for (const mention of mentions) expect.soft(answer, name).toMatch(mention)
       expect(draftBytes(), name).toBe(before)
     }
+
+    // The remedy each of those refusals carries: an unknown key lists the
+    // writable keys; the element tree's key points at the element operation.
+    const before0 = draftBytes()
+    const unknownKey = await refusalOf((o) => editDocumentSet(SLUG, 'home', { margin: 12 }, o))
+    expect(unknownKey.code).toBe('SCHEMA_INVALID')
+    expect(unknownKey.path).toBe('margin')
+    expect(unknownKey.hint).toBe(`Writable keys are ${L1_DOCUMENT_KEYS.join(', ')}.`)
+    const treeKey = await refusalOf((o) =>
+      editDocumentSet(SLUG, 'home', { root: { kind: 'container', layout: 'stack', children: [] } }, o),
+    )
+    expect(treeKey.code).toBe('SCHEMA_INVALID')
+    expect(treeKey.path).toBe('root')
+    expect(treeKey.hint).toMatch(/set_l1, at address "0"/)
+    expect(draftBytes()).toBe(before0)
 
     // Removing the column while an element is anchored to it is refused too.
     const anchored = styledRoot(ladder) as { children: unknown[] }
@@ -372,8 +407,14 @@ describe('a write may not introduce a reference to something that does not exist
     expect(image).toMatch(/broken image/i)
     expect(image).toContain('/assets/held.svg')
     expect(image).toMatch(/nothing was written/i)
+    expect(draftBytes()).toBe(before)
     // ...and says what to do: reference something held, or add it first.
-    expect.soft(image).toMatch(/reference something the site holds|add it to the site first/i)
+    const remedy = await refusalOf((o) =>
+      editL1Set(SLUG, 'home', at, { kind: 'image', src: '/assets/missing.png', alt: 'Missing' }, o),
+    )
+    expect(remedy.code).toBe('SCHEMA_INVALID')
+    expect(remedy.message).toContain('/assets/missing.png')
+    expect(remedy.hint).toBe('Reference something the site holds, or add it to the site first.')
     expect(draftBytes()).toBe(before)
 
     // A box whose background image names a missing asset: refused.
