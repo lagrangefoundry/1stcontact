@@ -18,6 +18,23 @@ fields:
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-97f85575
+  commits:
+  - working_sha: f1a2b408609e7bcec469da28744859f61743a40f
+    reconcile_sha: null
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 77250a1a191fbe042206361a43faf49606febd48
+    reconcile_sha: 93a3557f96e007f5cefd9aabaced54f458e2238d
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 758e0c71f99fbd0008f6533fcfd5da42bc3c2f08
+    reconcile_sha: 993884026859bf526f7948bff59423a761072867
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 0740bf633e7366f6931aaa00462caa122e556a43
+    reconcile_sha: 137a041bd39f3b3679c87c523ae554b18977d2a1
+    main_sha: null
+    working_sha_history: []
 ---
 
 # Capture → ticket: bundles become corpus members
