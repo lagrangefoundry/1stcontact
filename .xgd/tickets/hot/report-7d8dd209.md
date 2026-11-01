@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: free-coded BUNDLE-36 (REQ-185/170/183/186/188/189, BUG-51/52/53/54/56)'
 created_by: xgd
 created_at: '2026-11-01T17:54:53.149753+00:00'
-updated_at: '2026-11-01T20:05:39.801944+00:00'
+updated_at: '2026-11-01T20:16:46.691659+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -215,7 +215,7 @@ fields:
     justification: No story covers a customer portal or the account-portal module.
       New user-visible capability; it reuses STORY-85's module contract rather than
       extending it, so no upgrade there.
-    story_uid: null
+    story_uid: story-83ff6262
   - index: 7
     component: Local store safety — import guard, starter guard, 1c reset
     item_type: upgrade
