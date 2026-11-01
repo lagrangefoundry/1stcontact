@@ -90,6 +90,8 @@ fields:
     working_sha_history: []
   auto_merge_back: true
   priority: medium
+  skipped_commits:
+  - d25cd431588850d7ee53e51168ee84e62647a29d
 ---
 
 # Bundle
