@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T10:40:24.261495+00:00'
+updated_at: '2026-11-01T10:50:14.784022+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -266,7 +266,7 @@ fields:
       in the toolbar choosing one site; this changes where and what is selected rather
       than adding a new surface. Same capability bucket (capability-a994b8f3) — no
       parallel chrome.
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     acceptance_criteria_changes:
