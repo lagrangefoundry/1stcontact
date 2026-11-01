@@ -3,12 +3,13 @@ uid: acceptance_criterion-e44d6bbb
 id: AC-1792
 type: acceptance_criterion
 title: A turn on the deployed host leaves the conversation as one chat ticket carrying
-  its session id, with the session file in a transcript comment and the body untouched
+  its session id, with the session file in a transcript comment and the body never
+  written by the fold
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T05:52:51.563953+00:00'
-updated_at: '2026-11-01T09:26:37.945011+00:00'
+updated_at: '2026-11-01T09:26:43.348814+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-a58a0974
