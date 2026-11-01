@@ -6,10 +6,10 @@ title: No single predicate answers both 'is this person an owner here' and 'may 
   person enter a business they are not a member of'
 created_by: xgd
 created_at: '2026-11-01T17:59:10.330913+00:00'
-updated_at: '2026-11-01T17:59:10.330913+00:00'
+updated_at: '2026-11-01T22:21:32.526511+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-387c9dfe
   kind: behavior
