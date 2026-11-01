@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: free-coded BUNDLE-36 (REQ-185/170/183/186/188/189, BUG-51/52/53/54/56)'
 created_by: xgd
 created_at: '2026-11-01T17:54:53.149753+00:00'
-updated_at: '2026-11-01T17:59:40.335684+00:00'
+updated_at: '2026-11-01T18:28:59.982681+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -88,7 +88,7 @@ fields:
       one operation; REQ-186 explicitly supersedes that (Case 2) and decomposes it
       into invite + provisionBusiness. Same capability bucket (who exists / how they
       arrive), so upgrade, not a parallel story.
-    story_uid: null
+    story_uid: story-7b1025b8
     target_story_ids:
     - story-7b1025b8
     acceptance_criteria_changes:
