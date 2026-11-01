@@ -6,14 +6,15 @@ title: With no image describer configured the image is still stored, and the rec
   says nothing has looked at it
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:23:04.117198+00:00'
-updated_at: '2026-09-11T04:35:58.406578+00:00'
+updated_at: '2026-11-01T03:16:24.910230+00:00'
 completed_at: null
 last_field_updated: status
-status: active
+status: superseded
 fields:
   story_uid: story-4cabde9a
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-fd009b93
 ---
 
 ## Criterion
