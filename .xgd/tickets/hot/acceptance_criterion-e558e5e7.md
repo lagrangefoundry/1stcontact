@@ -6,10 +6,10 @@ title: The people tab is labelled Contacts and its list is headed Contacts, whil
   its persisted identity stays people
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:00:30.657220+00:00'
-updated_at: '2026-11-01T19:18:29.123747+00:00'
+updated_at: '2026-11-01T19:28:13.003830+00:00'
 completed_at: null
-last_field_updated: body
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
