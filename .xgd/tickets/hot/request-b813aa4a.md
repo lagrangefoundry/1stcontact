@@ -5,7 +5,7 @@ type: request
 title: The business selector is shell chrome, not a tab's toolbar
 created_by: xgd
 created_at: '2026-09-02T23:15:33.822429+00:00'
-updated_at: '2026-11-01T13:58:40.511635+00:00'
+updated_at: '2026-11-01T13:58:45.505126+00:00'
 completed_at: '2026-11-01T13:58:40.511635+00:00'
 last_field_updated: status
 status: free_and_reconciled
