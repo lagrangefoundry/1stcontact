@@ -6,10 +6,10 @@ title: The Contacts list holds exactly the people of the scoped business, contac
   included, oldest first, for every business alike
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:00:32.508312+00:00'
-updated_at: '2026-11-01T19:00:32.508312+00:00'
+updated_at: '2026-11-01T19:28:19.138631+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
