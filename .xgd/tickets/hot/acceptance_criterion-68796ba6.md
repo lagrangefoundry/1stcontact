@@ -6,10 +6,10 @@ title: A caller who does not own the scoped business is refused 403 when changin
   a contact's record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:33:12.383147+00:00'
-updated_at: '2026-11-01T19:33:12.383147+00:00'
+updated_at: '2026-11-01T20:02:32.733791+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a55c2f35
   kind: behavior
