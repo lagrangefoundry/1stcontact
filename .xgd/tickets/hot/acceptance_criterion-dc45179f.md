@@ -6,34 +6,38 @@ title: The On this site badge, the Used on row and the used-on-this-site filter 
   one placement list and agree on every row, across a site switch
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:26:42.562489+00:00'
-updated_at: '2026-10-26T02:01:00.804191+00:00'
+updated_at: '2026-11-01T12:05:35.966515+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
   regression_only: false
+  title: The not-on-the-site warning and the Placed on row of the record read one
+    placement list and agree on every row
 ---
 
 ## Criterion
 
-The "On this site" badge, the "Used on" row of the read-only record and the "Used on this site"
-filter read the same fact — the material's recorded placement list — and agree on every row:
+The two places the Library speaks about placement — the "Not on the site" warning on a row and the
+**Placed on** row of the read-only record — read the same fact, the material's recorded placement
+list, and agree on every row:
 
-- a row is badged on the open site exactly when the filter, set, keeps it;
-- the "Used on" row names every site the material is placed on, joined in one line, and is empty
-  for a material placed nowhere;
-- a material placed on two of the client's sites is badged, and kept by the filter, on each of
-  them; switching the open site between them re-decides badge and filter from the material
-  already listed, with no further request for the account's material.
+- the record row is labelled *Placed on* (not *Used on*): it says where the bytes went, and a
+  material added to the draft is not in use by anyone until the client publishes;
+- *Placed on* names every site the material is placed on, joined in one line, and is empty for a
+  material placed nowhere — it stays a list, because the store allows more than one site;
+- a site-role material whose *Placed on* is empty carries the warning, and one whose *Placed on*
+  names a site does not;
+- background material, whose placement is always empty, shows an empty *Placed on* and carries no
+  warning — it claims neither to be on the site nor to have failed to get there.
 
 ## Verification
 
-Mount the Library over material that includes one placed on the open site, one placed on two sites,
-one handed over as background while the open site was selected, and one whose promotion failed.
-Observe the badged rows are exactly the placed ones; set the filter and observe it keeps exactly
-the badged rows; select each row and observe its "Used on" row lists exactly its placed sites
-(both sites for the two-site material, nothing for the background and failed ones). Switch the
-open site to the two-site material's other site and observe it is still badged and kept, without
-the list being re-requested.
+Mount the Library over material that includes a site asset whose promotion landed, a site asset
+whose promotion failed, and background material. Select each row: observe the record row labelled
+*Placed on* and no row labelled *Used on*; observe the landed asset's *Placed on* names its site
+and its row carries no warning; observe the failed asset's *Placed on* is empty and its row carries
+the warning; observe the background material's *Placed on* is empty and its row carries no
+warning.
