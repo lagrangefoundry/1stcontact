@@ -6,10 +6,10 @@ title: 1c builder names each missing env file with its resolved path and consequ
   and still starts the server
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T12:35:48.127441+00:00'
-updated_at: '2026-11-01T12:35:48.127441+00:00'
+updated_at: '2026-11-01T12:41:14.703357+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
