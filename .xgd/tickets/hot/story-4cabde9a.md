@@ -5,9 +5,9 @@ type: story
 title: 'Material Description: What The System Understands A File To Be'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T04:21:12.885489+00:00'
-updated_at: '2026-09-19T14:34:39.085667+00:00'
+updated_at: '2026-11-01T03:15:31.126563+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -34,6 +34,14 @@ is retrieved by *"the kitchen at dusk"* through exactly the path that retrieves 
 paper, and there is no second retrieval route for pictures, fonts or PDFs. A weak description
 is therefore not cosmetic — it is material that cannot be found.
 
+**Every branch now yields a digest, not a transcription.** The body is a few sentences saying
+what the material is, whose it is and what someone would reach for it for — the shape the image
+and font branches always produced. A document's own words are not lost: description also hands
+back the document's **full extracted text**, separately from the body, and the ingestion keeps it
+once in a text comment on the material (STORY-140), where deep retrieval still reads it. So the
+body is short enough to correct by hand and to embed as one clean vector, and a fact on page 12
+of a client's brand book is still findable.
+
 Which of the branches below a file reaches is decided by its **resolved** content type — the
 one the ingestion settled from the sender's declaration, or from the filename where the sender
 declared nothing (STORY-140). That matters most at the unreadable branch: a textual file for
@@ -42,8 +50,11 @@ would have been stored with an account of why nothing could read it.
 
 Four kinds of file are understood in four different ways:
 
-- **Documents that carry text** yield their own words, and a PDF's own declared title where it
-  has one. A document with nothing extractable — a scan — is *stored and honestly described*,
+- **Documents that carry text** yield a **digest** of their content as the body — written by a
+  model from the head of the text plus a sample further in, so it is not a description of the
+  cover page — together with their full extracted text, kept beside the body rather than in it,
+  and a PDF's own declared title where it has one. The model writes prose only; it never titles
+  the document. A document with nothing extractable — a scan — is *stored and honestly described*,
   never refused: refusing a client's scanned brand book is by a wide margin the worse failure.
   There is no character recognition in this capability.
 - **Images** are described by what they *depict*, in the ordinary words someone would type
@@ -55,6 +66,11 @@ Four kinds of file are understood in four different ways:
   decompress, degrade honestly rather than being half-read into a confident wrong answer.
 - **Anything else** is still stored and still listed, with an account of why it could not be
   read.
+
+The document digest is written by a **lightweight session** on the platform's own AI host, not by
+a second path to a model: no tools, no priming beyond a fixed digest instruction, a session that
+leaves no conversation record behind, and one session per document, closed afterwards — also when
+describing fails.
 
 Titles are derived rather than asked for, and a title the *author* wrote beats one inferred
 from the text: a portable document's own declared title is preferred over its first line, and
@@ -69,13 +85,16 @@ rather than three special cases, so the material needing another attempt later i
 over the record rather than a migration. Re-describing is out of scope here; being able to
 select what would need it is not.
 
-The contract that binds all of it: **description never fails an upload.** A describer that is
+The contract that binds all of it: **description never fails an upload.** A document whose
+digest could not be written still keeps its derived title and its full text — reading text is
+code, and does not depend on a model being reachable. A describer that is
 missing, refuses, or breaks costs the material its findability and nothing else — the bytes are
 stored, the record is created, the client is told their file arrived, and the record says what
 is missing.
 
-**In scope**: what each kind of file yields, the six outcomes and the recorded describer, the
-title each description carries, the bounded body, and the never-throws contract.
+**In scope**: what each kind of file yields (digest body plus, for documents, full text), the
+six outcomes and the recorded describer, the title each description carries, the bounded body and
+bounded full text, the describer session's shape, and the never-throws contract.
 
 **Out of scope**, each covered by its own story: the ingestion pipeline that stores the bytes,
 settles the content type and creates the record (STORY-140); the guard in front of material
@@ -109,6 +128,17 @@ capture bundle, which belongs with capture ingestion.
   here — a Markdown upload reached the unreadable branch — but its cause was upstream, and the
   repair is asserted at the ingestion boundary (STORY-140) rather than restated here. What
   changes here is only which branch a file now reaches.
+
+- **REQ-173 (bundle-fd009b93)** turned the document body from a transcription into a digest and
+  moved the verbatim text out of the body. The recorded describer for a digested document names
+  both the model that wrote the digest and the reader that extracted the text (for example
+  `<model> (unpdf)`), so a later re-extract pass can still select on the reader.
+- **A missing model key no longer reaches this step on a real deployment.** REQ-173 makes a
+  deployment with no key refuse ingestion outright (STORY-140), which supersedes the former
+  criterion that an image with no describer is stored and described as undescribed (AC-1692).
+  The no-describer outcome remains one of the six and remains reachable by a caller that hands in
+  a document describer but no image describer, as defence in depth; it is no longer a criterion
+  of its own.
 
 ## Reconciliation Decisions
 
@@ -147,6 +177,15 @@ capture bundle, which belongs with capture ingestion.
   into the text-file criterion because both are the same failure the intent named (a file
   titled `---`) reached by a route the intent did not enumerate, and leaving them unstated
   would let a reimplementation reintroduce exactly the reported symptom.
+
+- **The full text has its own, separate ceiling, stated in the text when it bites** (decided at
+  reconciliation, 2026-10-31): REQ-173 names a bound on what one text comment may hold, far above
+  the digest's, and says it is stated when it applies for the same reason the body's clip is.
+  Formalized in the bounds criterion alongside the body's, so the two ceilings are asserted as
+  different things.
+- **A scan makes no model call** (decided at reconciliation, 2026-10-31): REQ-173 records this as
+  settled in implementation; it falls under the existing nothing-extractable criterion and is not
+  raised separately.
 
 ## Dependencies
 
