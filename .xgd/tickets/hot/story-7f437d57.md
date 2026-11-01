@@ -6,9 +6,9 @@ title: See the conversation about the site I am looking at, right beside it, wit
   its history and my unsent words intact
 created_by: xgd
 created_at: '2026-08-10T08:46:03.530800+00:00'
-updated_at: '2026-09-19T15:00:08.142035+00:00'
+updated_at: '2026-11-01T03:05:25.877349+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -53,6 +53,16 @@ In scope:
   still arriving would read as its own markdown source for the life of the page. The
   wait runs alongside the opening of the conversation, so it costs no more than the
   slower of the two.
+- **Rejoining a turn in progress.** A workspace opened or reloaded while the assistant is
+  still answering does not show the half-written reply as a finished message that stopped
+  mid-sentence. What had been said when the page loaded, or nothing if no words had
+  arrived yet, becomes the start of one assistant message that keeps growing until the
+  turn ends. No user message is added for it. Rejoining never holds the pane: the operator
+  can switch to another site straight away. A rejoined turn's writes reload the page beside
+  the conversation exactly as a turn sent from the pane does. A conversation with no turn
+  in progress is never rejoined. A rejoin that fails costs only the rest of that reply and
+  is not reported: the transcript already painted stays put and the pane stays usable. A
+  pane given a transport that cannot rejoin still mounts and simply shows the transcript.
 - **Composing state per conversation.** An unsent, half-typed message belongs to the
   conversation it was typed into: leave for another site and come back and it is still
   there, and the other site's composer is not holding it.
@@ -214,10 +224,41 @@ Out of scope:
   promise.
   *Rationale:* acceptance criteria are observable at a product boundary.
 
+*Recorded 2026-10-31, reconciling BUNDLE-34 (bundle-fd009b93), item 6 (BUG-46, panel half).*
+
+- **This story claims rejoining a live turn. It does not claim reporting that a turn is
+  live or serving the rest of the reply.** BUG-46 adds both halves. Whether a turn is open,
+  where the transcript stopped, and the route that streams the rest from that point belong
+  to the assistant host story. This story claims only what the operator sees: one
+  continuing assistant message, not a frozen half-reply.
+  *Rationale:* the host half and the pane half fail independently, as BUG-43's report and
+  reload do. Keeping one criterion per side means each failure can be traced to its side.
+- **The guards are written as one criterion.** BUG-46 names three cases where the rejoin
+  must not fire or must not hurt: no turn in progress, a failed tail, and a transport that
+  predates the rejoin. In each, the pane declines or absorbs a request the operator did not
+  make. All three answer one question, "can the rejoin ever cost me anything?", so they stay
+  together.
+  *Rationale:* splitting them would give three criteria whose only shared subject is
+  "nothing bad happens".
+- **Not holding the pane is stated on the rejoin criterion, not as its own.** BUG-46 says
+  the rejoin is not awaited, so switching stays immediate. From outside, that means a site
+  switch made during a rejoined turn lands at once. That is a property of the rejoin and is
+  verified there. AC-1070 still covers the race in general.
+  *Rationale:* whether the call is awaited is a mechanism. The immediate switch is what the
+  operator can see.
+- **A failed rejoin is silent, by intent.** BUG-46 says a rejoin is a request the operator
+  did not make, so its failure is not theirs to be told about. This deliberately differs
+  from AC-1068 and AC-1069, which report failures of things the operator asked for.
+- **Residual risk is not a criterion.** BUG-46 records that a turn still lives in one
+  isolate's memory, so an eviction mid-turn still loses it. That is a known gap with no
+  behaviour to claim, and it belongs to the host's storage, not to this pane.
+
 ## Dependencies
 
 - Plan item 4 — the assistant session host (story-a58a0974): the conversation this pane
   displays and sends into.
+- BUNDLE-34 plan item 5 — the BUG-46 half of the same host story: whether a turn is live,
+  where the transcript stopped, and the rejoin route this pane uses.
 
 ## Story Points
 
