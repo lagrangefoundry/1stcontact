@@ -2,13 +2,13 @@
 uid: acceptance_criterion-0fbe6d15
 id: AC-2154
 type: acceptance_criterion
-title: Creating an account provisions its first business through the same operation,
-  so the new account is admitted with exactly one business
+title: An account's first business is provisioned after the invite, and the account
+  is then admitted with exactly that one business
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:57:20.505394+00:00'
-updated_at: '2026-11-01T21:35:39.920763+00:00'
+updated_at: '2026-11-01T21:35:44.015594+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-387c9dfe
