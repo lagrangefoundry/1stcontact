@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-a58a0974'
 created_by: xgd
 created_at: '2026-11-01T09:41:51.953609+00:00'
-updated_at: '2026-11-01T09:41:51.953609+00:00'
+updated_at: '2026-11-01T09:48:03.820445+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -75,6 +75,7 @@ fields:
         must pass a Scope.'
       rung3: The tests assertions stand unchanged; only their call plumbing changes
         and no production code changes.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
