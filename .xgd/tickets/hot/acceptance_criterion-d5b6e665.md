@@ -6,10 +6,10 @@ title: Owning the 1st Contact business is a memberships.role='owner' row, indist
   to a caller from owning any other business
 created_by: xgd
 created_at: '2026-11-01T17:59:05.666542+00:00'
-updated_at: '2026-11-01T17:59:05.666542+00:00'
+updated_at: '2026-11-01T22:21:31.126452+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-387c9dfe
   kind: behavior
