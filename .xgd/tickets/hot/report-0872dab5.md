@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T01:11:44.100732+00:00'
+updated_at: '2026-11-01T01:34:29.411823+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -90,7 +90,7 @@ fields:
       shape (AC-1748 'bound to an account and one effective grant') and per-person
       refusal on grant/membership state. REQ-178 explicitly changes that shape. Same
       capability bucket (capability-e5939ceb); no parallel admission path is introduced.
-    story_uid: null
+    story_uid: STORY-146
     target_story_ids:
     - STORY-146
     acceptance_criteria_changes:
