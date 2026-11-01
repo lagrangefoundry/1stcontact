@@ -5,9 +5,9 @@ type: bundle
 title: REQ-175 + REQ-178 + REQ-166 + BUG-46 + REQ-173
 created_by: xgd
 created_at: '2026-10-31T20:54:34.245362+00:00'
-updated_at: '2026-11-01T05:08:54.517010+00:00'
+updated_at: '2026-11-01T05:10:49.096899+00:00'
 completed_at: '2026-11-01T05:03:15.940656+00:00'
-last_field_updated: status
+last_field_updated: session_assessor
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -133,6 +133,8 @@ fields:
   session_builder: 63eed75a-28bf-48f8-968b-b757b3504b61
   session_builder_started_at: '2026-11-01T03:50:46.937790+00:00'
   merged_at_commit: b231b1c09aa13f92f36b94251cdd53a6f834b02c
+  session_assessor: 249805ab-b373-4357-8307-029f4319d36b
+  session_assessor_started_at: '2026-11-01T05:10:48.819260+00:00'
 ---
 
 # Bundle
