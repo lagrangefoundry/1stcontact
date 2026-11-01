@@ -54,6 +54,7 @@ import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 // behaviour — the forwarding and failure-reporting contracts they pin are
 // unchanged, only unreachable to a caller Access has not admitted.
 import { startAccessTeam, type AccessTeam } from './support/access'
+import { applyLocalD1Schema, localD1, seedIdentity } from './support/local-d1'
 // The Worker's OWN `fetch`, driven in-process. `unstable_dev` is not used for
 // AC-964 any more: it spawns a `wrangler dev` child, which makes the gate
 // assertions hostage to a subprocess that cannot start in a sandboxed checkout,
@@ -733,37 +734,50 @@ describe('story-e674c60a component consumption route', () => {
 // ── the single origin, fronted by the Worker ─────────────────────────────────
 
 describe('story-e674c60a control-app front', () => {
+  const ORIGIN_TENANT = 'story-e674c60a'
+  const ORIGIN_EMAIL = 'story-e674c60a-origin@westhead.me'
   let access: AccessTeam
   let admitted: Record<string, string>
+  let d1: Awaited<ReturnType<typeof localD1>> | undefined
 
   beforeAll(async () => {
     if (!WEBUI_INSTALLED) return
     access = await startAccessTeam()
-    admitted = await access.headers()
+    // Admission reads D1 before any route runs (REQ-167), so the person behind
+    // the minted token must exist there — invited, entitled and agreed — under
+    // the deployment's own TENANT_ID. An address of this suite's own, so no
+    // other suite's seed of the same person decides which tenant they sit in.
+    admitted = await access.headers({ email: ORIGIN_EMAIL })
+    applyLocalD1Schema(REPO)
+    seedIdentity(REPO, ORIGIN_EMAIL, { tenantId: ORIGIN_TENANT })
+    d1 = await localD1(REPO)
   }, 120000)
 
   afterAll(async () => {
     await access?.close()
+    await d1?.dispose()
   })
 
   /**
-   * The Worker's env, in the deployed shape, with the STORE BINDINGS UNREACHABLE.
+   * The Worker's env, in the deployed shape: a REAL local D1, and the SITE STORE
+   * UNREACHABLE.
    *
-   * Neither route this leg sweeps may open a store — the document is composed
-   * and the artifact is served by the assets binding — so a binding that throws
-   * the moment it is touched turns "it happens not to be opened" into something
-   * a test can fail on. It is also what makes this leg possible at all: the node
-   * pool has no D1 or R2, which is why the store-backed half of AC-964's sweep
-   * lives in `reconciliation-workspace-admission.workers.test.ts`.
+   * Neither route this leg sweeps opens the site store — the document is
+   * composed and the artifact is served by the assets binding. They do touch D1,
+   * for admission only: the gate's verified email is looked up in the seeded
+   * identity tables before routing. R2 still throws the moment it is touched, so
+   * "the site store happens not to be opened" stays something a test can fail
+   * on. The store-backed half of AC-964's sweep lives in
+   * `reconciliation-workspace-admission.workers.test.ts`.
    */
   function workerEnv(): WorkerEnv {
     const unreachable = (what: string) => () => {
       throw new Error(`${what} was touched while answering a store-free route.`)
     }
     return {
-      DB: new Proxy({}, { get: unreachable('D1') }) as D1Database,
+      DB: d1!.db,
       SITES: new Proxy({}, { get: unreachable('R2') }) as R2Bucket,
-      TENANT_ID: 'story-e674c60a',
+      TENANT_ID: ORIGIN_TENANT,
       ACCESS_TEAM_DOMAIN: access.teamDomain,
       ACCESS_AUD: access.aud,
       ACCESS_DEV_OPEN: '',
@@ -939,7 +953,7 @@ describe('story-e674c60a origin failure reporting', () => {
  * jsdom does no layout — every `getBoundingClientRect()` is zero, so a
  * layout-less environment cannot tell a filled pane from a collapsed one. Only
  * a real browser can answer AC-975, and where none can be launched the test
- * says so out loud rather than passing quietly.
+ * fails, naming why, rather than passing quietly.
  */
 describe('story-e674c60a measured against a real browser', () => {
   let cwd: string
@@ -969,20 +983,21 @@ describe('story-e674c60a measured against a real browser', () => {
         unverified('the frame height measurement (the chrome needs the components)')
         return
       }
+      // No browser is a FAILURE, not a warning: a measurement that passes when it
+      // could not be taken is the silent green AC-975 rules out.
       if (!chromium || !builder) {
-        console.warn(
-          'story-e674c60a: frame measurement SKIPPED — playwright is not resolvable ' +
-            'from tools/generate. The viewport-fill behaviour is unverified here.',
+        throw new Error(
+          'story-e674c60a: frame measurement NOT TAKEN — playwright is not resolvable ' +
+            'from tools/generate, so the viewport-fill behaviour cannot be verified.',
         )
-        return
       }
-      const browser = await launchAnyChromium(chromium)
+      const { browser, errors: launchErrors } = await launchAnyChromium(chromium)
       if (!browser) {
-        console.warn(
-          'story-e674c60a: frame measurement SKIPPED — no chromium build or system ' +
-            'Chrome could be launched. The viewport-fill behaviour is unverified here.',
+        throw new Error(
+          'story-e674c60a: frame measurement NOT TAKEN — no chromium build or system ' +
+            'Chrome could be launched, so the viewport-fill behaviour cannot be verified. ' +
+            launchErrors.join(' | '),
         )
-        return
       }
 
       try {
@@ -1055,15 +1070,18 @@ async function loadChromium(): Promise<typeof import('playwright').chromium | un
  */
 async function launchAnyChromium(
   chromium: typeof import('playwright').chromium,
-): Promise<import('playwright').Browser | undefined> {
+): Promise<{ browser?: import('playwright').Browser; errors: string[] }> {
+  // Each attempt's reason is kept, so a launch that fails says WHY in the
+  // failure rather than leaving only "no browser".
+  const errors: string[] = []
   for (const opts of [{}, { channel: 'chrome' as const }]) {
     try {
-      return await chromium.launch(opts)
-    } catch {
-      /* try the next one */
+      return { browser: await chromium.launch(opts), errors }
+    } catch (e) {
+      errors.push(`${JSON.stringify(opts)}: ${(e as Error).message.split('\n')[0]}`)
     }
   }
-  return undefined
+  return { errors }
 }
 
 function* walk(dir: string): Generator<string> {

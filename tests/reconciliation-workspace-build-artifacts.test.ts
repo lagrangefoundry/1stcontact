@@ -39,9 +39,21 @@ import {
   webuiPackageDir,
 } from '../tools/generate/src/cli/webui'
 import { startAccessTeam, type AccessTeam } from './support/access'
+import { applyLocalD1Schema, localD1, seedIdentity } from './support/local-d1'
 
 const REPO = path.resolve(__dirname, '..')
 const DIST = path.join(REPO, 'apps', 'control-app', 'dist-assets')
+
+/**
+ * Who the minted tokens belong to, and under which deployment. Each identity is
+ * this suite's own address, so no other suite's seed of the same person decides
+ * which tenant they sit in. The second deployment names a TENANT_ID the store
+ * holds NO account row for — AC-1400's "a store that holds no account at all".
+ */
+const ARTIFACT_TENANT = 'story-e674c60a'
+const ARTIFACT_EMAIL = 'story-e674c60a-artifacts@westhead.me'
+const NO_ACCOUNT_TENANT = 'story-e674c60a-no-account'
+const NO_ACCOUNT_EMAIL = 'story-e674c60a-no-account@westhead.me'
 
 /** The map `1c assets` derives, recomposed here from each component's own declaration. */
 function declaredMap(): { imports: Record<string, string>; styles: string[] } {
@@ -77,20 +89,22 @@ function markerAssets(): Fetcher {
 }
 
 /**
- * The Worker's env, with the store bindings unreachable ON PURPOSE.
+ * The Worker's env: a REAL local D1, and the site store unreachable ON PURPOSE.
  *
- * An artifact request must never open a store, so a binding that throws the
- * moment it is touched turns "it happens not to be opened today" into a claim a
- * test can actually fail on.
+ * An artifact request touches D1 for admission only — the gate's verified email
+ * is looked up in the seeded identity tables before anything is routed. It must
+ * never open the SITE store, so an R2 binding that throws the moment it is
+ * touched turns "it happens not to be opened today" into a claim a test can
+ * actually fail on.
  */
-function workerEnv(team: AccessTeam, overrides: Partial<Env> = {}): Env {
+function workerEnv(team: AccessTeam, db: D1Database, overrides: Partial<Env> = {}): Env {
   const unreachable = (what: string) => () => {
     throw new Error(`${what} was touched while answering a build-artifact request.`)
   }
   return {
-    DB: new Proxy({}, { get: unreachable('D1') }) as D1Database,
+    DB: db,
     SITES: new Proxy({}, { get: unreachable('R2') }) as R2Bucket,
-    TENANT_ID: 'story-e674c60a',
+    TENANT_ID: ARTIFACT_TENANT,
     ACCESS_TEAM_DOMAIN: team.teamDomain,
     ACCESS_AUD: team.aud,
     ACCESS_DEV_OPEN: '',
@@ -112,16 +126,24 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
   let cwd: string
   let builder: BuilderHandle
   let team: AccessTeam
+  let d1: Awaited<ReturnType<typeof localD1>> | undefined
 
   beforeAll(async () => {
     cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'story-e674c60a-assets-'))
     builder = await startBuilder({ cwd })
     team = await startAccessTeam()
+    // Admission reads D1 before any route runs (REQ-167), so the person behind
+    // the minted token must exist there: invited, entitled and agreed.
+    applyLocalD1Schema(REPO)
+    seedIdentity(REPO, ARTIFACT_EMAIL, { tenantId: ARTIFACT_TENANT })
+    seedIdentity(REPO, NO_ACCOUNT_EMAIL, { tenantId: NO_ACCOUNT_TENANT })
+    d1 = await localD1(REPO)
   }, 120000)
 
   afterAll(async () => {
     await builder?.close()
     await team?.close()
+    await d1?.dispose()
     if (cwd) fs.rmSync(cwd, { recursive: true, force: true })
   })
 
@@ -189,15 +211,15 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
     expect(MODULE_CLIENT_JS.length).toBeGreaterThan(0)
 
     // ── behind the gate, never ahead of it ──────────────────────────────────
-    const admitted = await team.headers()
+    const admitted = await team.headers({ email: ARTIFACT_EMAIL })
     const req = (p: string, headers?: Record<string, string>) =>
       new Request(`https://app.example${p}`, headers ? { headers } : undefined)
 
-    const gated = await worker.fetch(req('/builder/main.js', admitted), workerEnv(team))
+    const gated = await worker.fetch(req('/builder/main.js', admitted), workerEnv(team, d1!.db))
     expect(gated.status).toBe(200)
     expect(await gated.text()).toBe('asset:/builder/main.js')
 
-    const refused = await worker.fetch(req('/builder/main.js'), workerEnv(team))
+    const refused = await worker.fetch(req('/builder/main.js'), workerEnv(team, d1!.db))
     expect(refused.status).toBe(401)
     const refusedBody = await refused.text()
     expect(refusedBody).not.toContain('asset:')
@@ -205,22 +227,29 @@ describe('story-e674c60a — the workspace serves what the build wrote', () => {
     expect(refusedBody).not.toContain(clientBytes.subarray(0, 64).toString('utf8'))
 
     // ── the fall-through does not depend on an account ──────────────────────
-    // A build artifact has nothing to do with one, and the store bindings above
-    // throw if touched — so this passing is the evidence the store stayed shut.
+    // A build artifact has nothing to do with one. The deployment names an
+    // account the seeded store holds no row for — a store that holds no account
+    // at all, as far as this deployment is concerned — and the site store
+    // throws if touched, so this passing is the evidence it stayed shut.
+    const accountRow = () =>
+      d1!.db.prepare('SELECT id FROM tenants WHERE id = ?').bind(NO_ACCOUNT_TENANT).first()
+    expect(await accountRow(), 'the no-account deployment must hold no account row').toBeNull()
     const noAccount = await worker.fetch(
-      req('/webui/marker.js', admitted),
-      workerEnv(team, { TENANT_ID: '' }),
+      req('/webui/marker.js', await team.headers({ email: NO_ACCOUNT_EMAIL })),
+      workerEnv(team, d1!.db, { TENANT_ID: NO_ACCOUNT_TENANT }),
     )
     expect(noAccount.status).toBe(200)
     expect(await noAccount.text()).toBe('asset:/webui/marker.js')
+    // …and answering it registered nothing: the store was never opened.
+    expect(await accountRow()).toBeNull()
 
     // ── and it stays LAST: no artifact answers in place of a route ──────────
-    const document = await worker.fetch(req('/', admitted), workerEnv(team))
+    const document = await worker.fetch(req('/', admitted), workerEnv(team, d1!.db))
     expect(document.status).toBe(200)
     expect(document.headers.get('content-type')).toContain('text/html')
     expect(await document.text()).not.toContain('asset:')
 
-    const published = await worker.fetch(req('/preview/alpha/published/', admitted), workerEnv(team))
+    const published = await worker.fetch(req('/preview/alpha/published/', admitted), workerEnv(team, d1!.db))
     expect(published.status).toBe(302)
     expect(published.headers.get('location')).toContain('/site/alpha/')
 

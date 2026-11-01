@@ -14,8 +14,8 @@
  * built that narrowing for. A deployment without a ticket store gets a
  * consultant that cannot record decisions, rather than one that fails to start.
  *
- * WHY A PURPOSE-BUILT SURFACE AND NOT THE TICKETING ONE. `@lagrangefoundry/ai-ticketing`
- * already declares `TicketAppendBody` and `TicketUpdate`, and granting them would
+ * WHY A PURPOSE-BUILT SURFACE AND NOT THE TICKETING ONE. The shared `ai-ticketing`
+ * component already declares `TicketAppendBody` and `TicketUpdate`, and granting them would
  * be the shorter path. It would also hand a client-facing assistant the ability
  * to write *any* ticket in the project, to be clawed back by a scope predicate
  * that has to stay correct forever. These two operations can only reach this

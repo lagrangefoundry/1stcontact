@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { TERMS_VERSION } from '../../apps/control-app/src/terms'
 
@@ -97,4 +99,45 @@ export function seedIdentity(
     stdio: 'ignore',
   })
   return { businessId }
+}
+
+/**
+ * That same local D1, as a binding a suite can hand the Worker's own `fetch`.
+ *
+ * WHY THIS EXISTS NEXT TO THE TWO ABOVE. Some suites drive `controlWorker.fetch`
+ * in-process rather than over `unstable_dev`, and so hold no D1 at all — but
+ * admission (REQ-167) reads `users`, `memberships` and `entitlements` before any
+ * route runs, so a route that opens no site store still touches D1. Handing such
+ * a suite a throwing stand-in made admission itself the failure.
+ *
+ * It is the database `applyLocalD1Schema` migrated and `seedIdentity` seeded:
+ * `getPlatformProxy` reads the same `wrangler.toml` and persists to the same
+ * directory `wrangler d1 … --local` does, so there is no second schema and no
+ * stubbed store — only a second way to reach the one local database.
+ */
+export async function localD1(
+  repoRoot: string,
+): Promise<{ db: D1Database; dispose: () => Promise<void> }> {
+  const { getPlatformProxy } = await import('wrangler')
+  const appDir = path.join(repoRoot, 'apps', 'control-app')
+  // Miniflare registers every worker it starts in wrangler's dev registry, which
+  // defaults to the operator's GLOBAL config directory. A test has no business
+  // announcing itself to whatever `wrangler dev` the operator has running, so
+  // the registry is a throwaway directory of this proxy's own — read once, while
+  // the options are composed, and restored straight after.
+  const previous = process.env.WRANGLER_REGISTRY_PATH
+  process.env.WRANGLER_REGISTRY_PATH = mkdtempSync(path.join(os.tmpdir(), 'local-d1-registry-'))
+  try {
+    const proxy = await getPlatformProxy<{ DB: D1Database }>({
+      configPath: path.join(appDir, 'wrangler.toml'),
+      persist: { path: path.join(appDir, '.wrangler', 'state', 'v3') },
+      // Local only. The config also declares bindings (AI, Browser Rendering)
+      // that only exist remotely; a test must never reach a Cloudflare account.
+      remoteBindings: false,
+    })
+    return { db: proxy.env.DB, dispose: () => proxy.dispose() }
+  } finally {
+    if (previous === undefined) delete process.env.WRANGLER_REGISTRY_PATH
+    else process.env.WRANGLER_REGISTRY_PATH = previous
+  }
 }

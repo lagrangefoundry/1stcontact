@@ -663,12 +663,10 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — site, toolbar and memory f
         { slug: 'shared', latest: null },
       ],
     }
-    let failNext = false
     const asked: Array<string | null> = []
     const app = mountInjected({
       loadSites: async (id: string | null) => {
         asked.push(id)
-        if (failNext) throw new Error('listing down')
         return sitesOf[id ?? ''] ?? []
       },
     })
@@ -692,13 +690,8 @@ describe.skipIf(!WEBUI_INSTALLED)('story-e674c60a — site, toolbar and memory f
     expect(app.panel.getSite()).toBe('shared')
     expect(app.panel.getSrc()).toBe('/b/acct_salon/preview/shared/edit/')
 
-    // A listing that fails leaves the pane showing what it had, not an empty pane.
-    const shownBefore = app.panel.getSite()
-    failNext = true
-    await app.scope.setBusiness('acct_studio')
-    await settle()
-    expect(app.panel.getSite()).toBe(shownBefore)
-    expect(app.panel.getSrc()).not.toBe('')
+    // What a failing listing does to the pane is deliberately not asserted here
+    // (fix_plan, reconcile BUNDLE-35 batch 0): AC-967 no longer claims it.
     app.destroy()
   })
 
