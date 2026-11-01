@@ -6,10 +6,10 @@ title: Reattaching from a cursor streams the rest of a live turn in the same fra
   format, with nothing before the cursor repeated; a reattach with no cursor is refused
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T02:37:53.106044+00:00'
-updated_at: '2026-11-01T02:37:53.106044+00:00'
+updated_at: '2026-11-01T09:51:05.775604+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
