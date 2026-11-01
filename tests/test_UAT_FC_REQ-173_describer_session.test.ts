@@ -12,7 +12,8 @@
  * WHAT A "LIGHTWEIGHT" SESSION IS, and each half is asserted below:
  *
  *   - **No tools.** A describer given a toolbox could write to the client's site.
- *   - **No corpus and no priming.** The document is the whole context.
+ *   - **No corpus; the digest instruction is the only priming.** The document
+ *     is the whole context.
  *   - **A `NullArchive`.** The load-bearing one: `TicketSessionArchive` homes a
  *     session in a `chat` ticket, so an archiving describer would create one chat
  *     ticket per upload — members of the very corpus this ticket is cleaning up.
@@ -31,7 +32,27 @@
 import { describe as suite, expect, it } from 'vitest'
 import { sessionTextDescriber } from '../apps/control-app/src/ai'
 import { DOCUMENT_DIGEST_SYSTEM } from '../apps/control-app/src/describe'
-import { says, scriptedClient } from './support/scripted-model-client'
+import { says, scriptedClient, type ModelRequest } from './support/scripted-model-client'
+
+/**
+ * Flatten a request's system content to its text. The host sends priming as
+ * Anthropic content blocks, not a bare string, so `toContain` on the raw value
+ * would test array membership rather than the prompt text.
+ */
+function systemText(req: ModelRequest): string {
+  const system: unknown = req.system
+  if (typeof system === 'string') return system
+  if (!Array.isArray(system)) return ''
+  return system
+    .map((block: unknown) =>
+      typeof block === 'string'
+        ? block
+        : block && typeof block === 'object' && 'text' in block
+          ? String((block as { text: unknown }).text ?? '')
+          : '',
+    )
+    .join('\n')
+}
 
 suite('REQ-173 — the document describer is a session on the AI host', () => {
   it('test_UAT_FC_REQ_173_the_digest_comes_back_from_a_session_prompted_with_the_document', async () => {
@@ -56,12 +77,13 @@ suite('REQ-173 — the document describer is a session on the AI host', () => {
     const client = scriptedClient([says('A note.')])
     await sessionTextDescriber('sk-not-a-real-key', { client })('Some text.')
 
-    const system = client.seen[0].system
-    // THE PROMPT `describe.ts` OWNS. The two prompts this product sends about
-    // material live next to each other, in the file that decides what a
-    // description IS — so the role is built from that constant rather than from a
-    // second copy of it here.
-    expect(system).toContain(DOCUMENT_DIGEST_SYSTEM)
+    const system = systemText(client.seen[0])
+    // THE PROMPT `describe.ts` OWNS, AND ONLY IT. The two prompts this product
+    // sends about material live next to each other, in the file that decides what
+    // a description IS — so the role is built from that constant rather than from
+    // a second copy of it here. Exact equality: the digest instruction is the
+    // single priming entry (BUG-63), so nothing else may reach the system prompt.
+    expect(system.trim()).toBe(DOCUMENT_DIGEST_SYSTEM)
     // NO CORPUS AND NO MANUAL. The consultant session's priming is the landscape
     // plus the toolbox manual; a describer primed with either would spend a large
     // prompt learning about material it is not being asked about.
