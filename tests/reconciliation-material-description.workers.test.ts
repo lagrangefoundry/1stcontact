@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import {
   describe as describeMaterial,
-  MAX_BODY_CHARS,
   VISION_MAX_BYTES,
   type DescribeImage,
 } from '../apps/control-app/src/describe'
@@ -103,27 +102,6 @@ function buildPdf(objects: string[], trailerExtra = ''): Uint8Array {
 
 function pdfStream(content: string): string {
   return `<< /Length ${content.length} >>\nstream\n${content}\nendstream`
-}
-
-const PDF_SENTENCE = 'Sourdough is proofed overnight in the cold room at Ridgeway Bakery.'
-const PDF_DECLARED_TITLE = 'Ridgeway Bakery Positioning Paper'
-
-/** A one-page portable document that carries text, with or without a declared title. */
-function textPdf(declaredTitle: boolean): Uint8Array {
-  return buildPdf(
-    [
-      '<< /Type /Catalog /Pages 2 0 R >>',
-      '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
-      '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] ' +
-        '/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>',
-      pdfStream(`BT /F1 12 Tf 36 700 Td (${PDF_SENTENCE}) Tj ET`),
-      '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
-      declaredTitle
-        ? `<< /Title (${PDF_DECLARED_TITLE}) /Author (Ada Vale) >>`
-        : '<< /Author (Ada Vale) >>',
-    ],
-    ' /Info 6 0 R',
-  )
 }
 
 /** Two pages of ink and no text layer — a scan, as far as any extractor is concerned. */
@@ -259,82 +237,11 @@ beforeAll(async () => {
 })
 
 describe('story-4cabde9a — what the system understands a file to be', () => {
-  it('test_UAT_AC1688_a_document_that_carries_text_yields_its_own_words_and_its_own_declared_title', async () => {
-    // THE BODY IS THE DOCUMENT'S OWN WORDS, which is the claim the whole
-    // uniform-corpus simplification rests on: a phrase in the file is a phrase in
-    // the description, so the retrieval handle for a PDF is the same one as for
-    // anything else.
-    const described = await describeMaterial({
-      bytes: textPdf(true),
-      kind: 'document',
-      contentType: 'application/pdf',
-      filename: 'positioning.pdf',
-    })
-
-    expect(described.status).toBe('ok')
-    expect(described.body).toContain('Sourdough')
-    expect(described.body).toContain('Ridgeway Bakery')
-    // Not merely its name, type or size — the distinction the criterion draws.
-    expect(described.body).not.toBe('positioning.pdf')
-    expect(described.body).not.toContain('positioning.pdf')
-    // The document's OWN declared title beats anything derived from its text.
-    expect(described.title).toBe(PDF_DECLARED_TITLE)
-    // An extractor identity, never an empty value: `ok` plus a named describer is
-    // what "this is a real description" means.
-    expect(described.describer).not.toBeNull()
-    expect(String(described.describer)).not.toBe('')
-
-    // A DOCUMENT WHOSE DECLARED TITLE CANNOT BE READ still yields its text, and
-    // falls back to a derived title rather than failing.
-    const untitled = await describeMaterial({
-      bytes: textPdf(false),
-      kind: 'document',
-      contentType: 'application/pdf',
-      filename: 'untitled-paper.pdf',
-    })
-    expect(untitled.status).toBe('ok')
-    expect(untitled.body).toContain('Sourdough')
-    expect(untitled.title).not.toBe('')
-    expect(untitled.title).not.toBe(PDF_DECLARED_TITLE)
-  })
-
-  it('test_UAT_AC1689_a_text_shaped_file_becomes_material_whose_body_is_its_decoded_contents', async () => {
-    // MARKDOWN — the title is the first substantial line with its heading marks
-    // removed, and the body is the file's text rather than a summary of its name.
-    const markdown = [
-      '# The Ridgeway Brand Brief',
-      '',
-      'Oxblood and bone are the palette chosen for the bakery.',
-    ].join('\n')
-    const md = await describeMaterial({
-      bytes: bytesOf(markdown),
-      kind: 'document',
-      contentType: 'text/markdown',
-      filename: 'brief.md',
-    })
-    expect(md.status).toBe('ok')
-    expect(md.body).toContain('Oxblood and bone are the palette chosen')
-    expect(md.title).toBe('The Ridgeway Brand Brief')
-    expect(md.title).not.toContain('#')
-    expect(md.describer).not.toBeNull()
-    expect(String(md.describer)).not.toBe('')
-
-    // STRUCTURED TEXT — the same treatment, reached by the type FAMILY and not by
-    // a list of extensions, which is what the criterion asks to be shown.
-    const json = ['{', '  "brand": "Ridgeway Bakery",', '  "note": "proofed overnight"', '}'].join(
-      '\n',
-    )
-    const structured = await describeMaterial({
-      bytes: bytesOf(json),
-      kind: 'document',
-      contentType: 'application/json',
-      filename: 'brand.json',
-    })
-    expect(structured.status).toBe('ok')
-    expect(structured.body).toContain('proofed overnight')
-    expect(structured.title).toContain('Ridgeway Bakery')
-    expect(structured.describer).not.toBeNull()
-  })
+  // AC-1688, AC-1689 and AC-1699 are proved in
+  // reconciliation-material-description-digest.workers.test.ts: since REQ-173 a
+  // document's body is a describer-written digest and its own words travel as
+  // `fullText`, so the pre-REQ-173 "body is the document's text" versions that
+  // stood here asserted behaviour the code no longer has.
 
   it('test_UAT_AC1690_a_document_with_nothing_extractable_is_stored_and_honestly_described', async () => {
     // A SCAN — pages of ink, no text layer. Not a refusal: the honest sentence,
@@ -740,53 +647,5 @@ describe('story-4cabde9a — what the system understands a file to be', () => {
     })
     expect(malformed.ticket.uid).not.toBe('')
     expect(malformed.description.status).not.toBe('ok')
-  })
-
-  it('test_UAT_AC1699_a_description_body_is_bounded_and_says_so_and_a_title_is_one_collapsed_line', async () => {
-    // TEXT BEYOND THE BODY CEILING IS NOT CARRIED, and the text up to it is.
-    const opening = 'Ridgeway Bakery opened on a Tuesday. '
-    const long = opening + 'The bread is proofed overnight. '.repeat(20_000)
-    expect(long.length).toBeGreaterThan(MAX_BODY_CHARS)
-    const clipped = await describeMaterial({
-      bytes: bytesOf(long),
-      kind: 'document',
-      contentType: 'text/plain',
-      filename: 'history.txt',
-    })
-
-    expect(clipped.status).toBe('ok')
-    // Bounded — the whole file did not arrive.
-    expect(clipped.body.length).toBeLessThan(long.length)
-    // The retained text is the LEADING portion of the original.
-    expect(clipped.body.startsWith(long.slice(0, 2000))).toBe(true)
-    // WHERE TEXT WAS DROPPED the body says so, and names the truncation length,
-    // so a description that stops mid-sentence is never read as corruption.
-    expect(clipped.body).toContain(`truncated at ${MAX_BODY_CHARS} characters`)
-
-    // MATERIAL WITHIN THE CEILING CARRIES NO SUCH STATEMENT.
-    const short = await describeMaterial({
-      bytes: bytesOf('A short note about the bakery.'),
-      kind: 'document',
-      contentType: 'text/plain',
-      filename: 'note.txt',
-    })
-    expect(short.status).toBe('ok')
-    expect(short.body).not.toContain('truncated at')
-
-    // A TITLE IS A SINGLE COLLAPSED LINE: internal runs of whitespace collapsed,
-    // and an over-long one ended with an ellipsis rather than cut without a mark.
-    const wordy = `The   Ridgeway \t Bakery ${'Positioning And Naming Paper '.repeat(12)}`
-    const titled = await describeMaterial({
-      bytes: bytesOf(`${wordy}\n\nBody text follows.`),
-      kind: 'document',
-      contentType: 'text/plain',
-      filename: 'wordy.txt',
-    })
-    expect(titled.title.length).toBeLessThanOrEqual(120)
-    expect(titled.title.endsWith('…')).toBe(true)
-    expect(titled.title).not.toContain('\n')
-    expect(titled.title).not.toContain('  ')
-    expect(titled.title).not.toContain('\t')
-    expect(titled.title.startsWith('The Ridgeway Bakery')).toBe(true)
   })
 })
