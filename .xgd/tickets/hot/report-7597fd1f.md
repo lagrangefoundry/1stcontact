@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for STORY-103'
 created_by: xgd
 created_at: '2026-11-01T02:53:40.045029+00:00'
-updated_at: '2026-11-01T02:53:40.045029+00:00'
+updated_at: '2026-11-01T02:59:17.327713+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -69,6 +69,7 @@ fields:
         from manager.transcript() (host-core.ts:4794-4832) and names the closedPrefix
         .length comparison as BUG-64 (4742-4760).'
       rung3: test_UAT_AC2088 stands as written; the code changes.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
