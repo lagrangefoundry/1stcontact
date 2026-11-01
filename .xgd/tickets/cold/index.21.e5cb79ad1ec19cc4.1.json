@@ -2,7 +2,7 @@
   "version": 21,
   "fields_hash": "e5cb79ad1ec19cc4",
   "generated_at": "2026-11-01T23:05:28.293626+00:00",
-  "ticket_count": 916,
+  "ticket_count": 937,
   "rebuild_epoch": 1793574328.2659872,
   "tickets": {
     "report-4393e3ba": {
@@ -12305,6 +12305,290 @@
         "violations": 0,
         "needs_review_count": 0
       }
+    },
+    "report-f5b2e2cf": {
+      "id": "REPORT-742",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-01T23:05:42.220841+00:00",
+      "created_at": "2026-11-01T23:05:42.220841+00:00",
+      "completed_at": null,
+      "title": "Claude reconciliation_uat_generation report",
+      "fields": {
+        "subject_uid": "STORY-80",
+        "report_kind": "reconciliation_uat_generation"
+      }
+    },
+    "report-f7a2ceb0": {
+      "id": "REPORT-751",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:42.366849+00:00",
+      "created_at": "2026-11-01T23:05:42.366849+00:00",
+      "completed_at": null,
+      "title": "Test Naming Check: STORY-82 (skipped - no test files)",
+      "fields": {
+        "subject_uid": "STORY-82",
+        "report_kind": "test_naming_check"
+      }
+    },
+    "report-f89f5a72": {
+      "id": "REPORT-592",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:42.514235+00:00",
+      "created_at": "2026-11-01T23:05:42.514235+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-f96029b8": {
+      "id": "REPORT-725",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-01T23:05:42.666357+00:00",
+      "created_at": "2026-11-01T23:05:42.666357+00:00",
+      "completed_at": null,
+      "title": "Claude reconciliation_story_generation report",
+      "fields": {
+        "subject_uid": "bundle-31e474b9",
+        "report_kind": "reconciliation_story_generation"
+      }
+    },
+    "report-f9a8a7a1": {
+      "id": "REPORT-660",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:42.891171+00:00",
+      "created_at": "2026-11-01T23:05:42.891171+00:00",
+      "completed_at": null,
+      "title": "Report: reconciliation_test for story-46e3b3c7",
+      "fields": {
+        "subject_uid": "story-46e3b3c7",
+        "report_kind": "reconciliation_test"
+      }
+    },
+    "report-faa78d91": {
+      "id": "REPORT-831",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.051084+00:00",
+      "created_at": "2026-11-01T23:05:43.051084+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c CLI Argument Parsing & Output Hygiene (level=story)",
+      "fields": {
+        "subject_uid": "capability-ac7ca849",
+        "report_kind": "capability_validation",
+        "level": "story",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-fabc779a": {
+      "id": "REPORT-555",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.205793+00:00",
+      "created_at": "2026-11-01T23:05:43.205793+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "bundle-ab9e0cb6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-fabe836e": {
+      "id": "REPORT-1001",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.355860+00:00",
+      "created_at": "2026-11-01T23:05:43.355860+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: 006568bd9e49cc7323728e278446fbe1f1e9b96b",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-faf01910": {
+      "id": "REPORT-711",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.577021+00:00",
+      "created_at": "2026-11-01T23:05:43.577021+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-7",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-7",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-fb5f8e6f": {
+      "id": "REPORT-620",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.727863+00:00",
+      "created_at": "2026-11-01T23:05:43.727863+00:00",
+      "completed_at": null,
+      "title": "Report: reconciliation_test for story-82eb6908",
+      "fields": {
+        "subject_uid": "story-82eb6908",
+        "report_kind": "reconciliation_test"
+      }
+    },
+    "report-fbdb7d5f": {
+      "id": "REPORT-982",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:43.887906+00:00",
+      "created_at": "2026-11-01T23:05:43.887906+00:00",
+      "completed_at": null,
+      "title": "Scoped quality: pass (7 tests, 0 failed)",
+      "fields": {
+        "subject_uid": "report-22b52658",
+        "report_kind": "quality"
+      }
+    },
+    "report-fc297865": {
+      "id": "REPORT-788",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:44.107269+00:00",
+      "created_at": "2026-11-01T23:05:44.107269+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: Capability Module Contract & Catalog (level=uat)",
+      "fields": {
+        "subject_uid": "capability-ce902be4",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 0,
+        "needs_review_count": 0
+      }
+    },
+    "report-fc827bc7": {
+      "id": "REPORT-884",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:44.361336+00:00",
+      "created_at": "2026-11-01T23:05:44.361336+00:00",
+      "completed_at": null,
+      "title": "Overlap resolution: cluster 5",
+      "fields": {
+        "subject_uid": "report-b1a287b0",
+        "report_kind": "overlap_resolution"
+      }
+    },
+    "report-fd0810b0": {
+      "id": "REPORT-1047",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:44.517377+00:00",
+      "created_at": "2026-11-01T23:05:44.517377+00:00",
+      "completed_at": null,
+      "title": "Reconciliation Review: commits (BUNDLE-8)",
+      "fields": {
+        "subject_uid": "bundle-cceaba25",
+        "report_kind": "reconciliation_review",
+        "anchor_uid": "bundle-cceaba25"
+      }
+    },
+    "report-fdd23fe1": {
+      "id": "REPORT-867",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-01T23:05:44.666881+00:00",
+      "created_at": "2026-11-01T23:05:44.666881+00:00",
+      "completed_at": null,
+      "title": "Report: structural_health for report-b1a287b0",
+      "fields": {
+        "subject_uid": "report-b1a287b0",
+        "report_kind": "structural_health"
+      }
+    },
+    "report-fe0a4a4c": {
+      "id": "REPORT-561",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:44.820495+00:00",
+      "created_at": "2026-11-01T23:05:44.820495+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-fea0d724": {
+      "id": "REPORT-1011",
+      "type": "report",
+      "status": null,
+      "updated_at": "2026-11-01T23:05:45.120964+00:00",
+      "created_at": "2026-11-01T23:05:45.120964+00:00",
+      "completed_at": null,
+      "title": "Reconciliation Plan: BUNDLE-8 (L1 language power + folder rebuild + gate evaluator, free-coded)",
+      "fields": {
+        "subject_uid": "bundle-cceaba25",
+        "report_kind": "reconciliation_plan",
+        "anchor_uid": "bundle-cceaba25"
+      }
+    },
+    "report-feb7be57": {
+      "id": "REPORT-845",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-01T23:05:45.294387+00:00",
+      "created_at": "2026-11-01T23:05:45.294387+00:00",
+      "completed_at": null,
+      "title": "Capability-Intent Alignment: 1c Gradient Fidelity (level=uat)",
+      "fields": {
+        "subject_uid": "capability-36dd68c5",
+        "report_kind": "capability_validation",
+        "level": "uat",
+        "violations": 1,
+        "needs_review_count": 0
+      }
+    },
+    "report-feea66e2": {
+      "id": "REPORT-875",
+      "type": "report",
+      "status": "fail",
+      "updated_at": "2026-11-01T23:05:45.449328+00:00",
+      "created_at": "2026-11-01T23:05:45.449328+00:00",
+      "completed_at": null,
+      "title": "Report: overlap_survey for report-b1a287b0",
+      "fields": {
+        "subject_uid": "report-b1a287b0",
+        "report_kind": "overlap_survey"
+      }
+    },
+    "report-fef71176": {
+      "id": "REPORT-546",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:45.609677+00:00",
+      "created_at": "2026-11-01T23:05:45.609677+00:00",
+      "completed_at": null,
+      "title": "Reconcile resolve conflicts: reconcile-BUNDLE-6",
+      "fields": {
+        "subject_uid": "reconcile-BUNDLE-6",
+        "report_kind": "resolve_conflicts"
+      }
+    },
+    "report-ff343d59": {
+      "id": "REPORT-985",
+      "type": "report",
+      "status": "pass",
+      "updated_at": "2026-11-01T23:05:45.823454+00:00",
+      "created_at": "2026-11-01T23:05:45.823454+00:00",
+      "completed_at": null,
+      "title": "Resync resolve conflicts: 006568bd9e49cc7323728e278446fbe1f1e9b96b",
+      "fields": {
+        "subject_uid": "report-510318c4",
+        "report_kind": "resolve_conflicts"
+      }
     }
   },
   "by_type": {
@@ -12747,7 +13031,28 @@
       "report-f231a29e",
       "report-f379333d",
       "report-f3fd71e9",
-      "report-f479b749"
+      "report-f479b749",
+      "report-f5b2e2cf",
+      "report-f7a2ceb0",
+      "report-f89f5a72",
+      "report-f96029b8",
+      "report-f9a8a7a1",
+      "report-faa78d91",
+      "report-fabc779a",
+      "report-fabe836e",
+      "report-faf01910",
+      "report-fb5f8e6f",
+      "report-fbdb7d5f",
+      "report-fc297865",
+      "report-fc827bc7",
+      "report-fd0810b0",
+      "report-fdd23fe1",
+      "report-fe0a4a4c",
+      "report-fea0d724",
+      "report-feb7be57",
+      "report-feea66e2",
+      "report-fef71176",
+      "report-ff343d59"
     ],
     "chat": [
       "chat-05ff1029",
@@ -13245,7 +13550,9 @@
         "report-387b66aa",
         "report-94ecf439",
         "report-c1714935",
-        "report-d194c165"
+        "report-d194c165",
+        "report-fd0810b0",
+        "report-fea0d724"
       ],
       "capability-bd0b722e": [
         "report-43adfdc1",
@@ -13274,7 +13581,10 @@
         "report-c2998d19",
         "report-cb8b9597",
         "report-db2699bb",
-        "report-f3fd71e9"
+        "report-f3fd71e9",
+        "report-fc827bc7",
+        "report-fdd23fe1",
+        "report-feea66e2"
       ],
       "capability-2049c9ec": [
         "report-456b5fa9",
@@ -13334,7 +13644,10 @@
         "report-d6fd60ec",
         "report-df86df9e",
         "report-e5cdae30",
-        "report-f1f15d23"
+        "report-f1f15d23",
+        "report-f89f5a72",
+        "report-fe0a4a4c",
+        "report-fef71176"
       ],
       "story-d0a8cfad": [
         "report-46ae5779",
@@ -13409,7 +13722,9 @@
         "report-e11d1d7d",
         "report-e66dacbc",
         "report-ec2cc148",
-        "report-ecdb33f1"
+        "report-ecdb33f1",
+        "report-fabe836e",
+        "report-ff343d59"
       ],
       "capability-ac7ca849": [
         "report-4aadf2dc",
@@ -13418,7 +13733,8 @@
         "report-3ec6a86f",
         "report-9d1764f7",
         "report-cf3d620a",
-        "report-eec5c62c"
+        "report-eec5c62c",
+        "report-faa78d91"
       ],
       "capability-18a822ac": [
         "report-4b6f95cb",
@@ -13448,7 +13764,8 @@
         "report-7dd7ab47",
         "report-82876d48",
         "report-874d6914",
-        "report-e7e80148"
+        "report-e7e80148",
+        "report-f96029b8"
       ],
       "f5e08d21": [
         "report-4d618001",
@@ -13544,7 +13861,8 @@
         "report-cd6dc0b1",
         "report-ce6dbfd6",
         "report-de0f3164",
-        "report-de4b0b84"
+        "report-de4b0b84",
+        "report-faf01910"
       ],
       "report-d99ae84f": [
         "comment-00c19b3b"
@@ -14625,7 +14943,8 @@
       "story-46e3b3c7": [
         "comment-ccb598c0",
         "report-15642c30",
-        "report-30a41335"
+        "report-30a41335",
+        "report-f9a8a7a1"
       ],
       "report-261c8f20": [
         "comment-ccd9b851"
@@ -14855,7 +15174,8 @@
       ],
       "STORY-80": [
         "report-01b49bbb",
-        "report-d8080172"
+        "report-d8080172",
+        "report-f5b2e2cf"
       ],
       "bundle-ab9e0cb6": [
         "report-01eeef07",
@@ -14873,7 +15193,8 @@
         "report-e10301a4",
         "report-e6387a92",
         "report-e82c00d4",
-        "report-eda2963f"
+        "report-eda2963f",
+        "report-fabc779a"
       ],
       "report-892c217e": [
         "report-0302ec15",
@@ -14910,7 +15231,8 @@
         "report-cd40e9a5",
         "report-e3ad52ca",
         "report-ecc53467",
-        "report-ef3cb592"
+        "report-ef3cb592",
+        "report-feb7be57"
       ],
       "story-d5de22a5": [
         "report-03f0f316",
@@ -14921,7 +15243,8 @@
       ],
       "story-82eb6908": [
         "report-0a245f78",
-        "report-bde4313c"
+        "report-bde4313c",
+        "report-fb5f8e6f"
       ],
       "reconcile-BUNDLE-8": [
         "report-0cb6bd26",
@@ -14936,7 +15259,8 @@
         "report-c6607526"
       ],
       "report-22b52658": [
-        "report-14dbe64f"
+        "report-14dbe64f",
+        "report-fbdb7d5f"
       ],
       "resync-anchor": [
         "report-155bb4c7",
@@ -14984,7 +15308,8 @@
         "report-a535d194",
         "report-af435d1e",
         "report-c0e80833",
-        "report-e3913d26"
+        "report-e3913d26",
+        "report-fc297865"
       ],
       "story-c490f1cf": [
         "report-2f686536",
@@ -15029,7 +15354,8 @@
       ],
       "STORY-82": [
         "report-c7b06431",
-        "report-db3f5d0d"
+        "report-db3f5d0d",
+        "report-f7a2ceb0"
       ]
     },
     "report_kind": {
@@ -15039,7 +15365,8 @@
         "report-a396efca",
         "report-b64f2cad",
         "report-c6d48521",
-        "report-e6387a92"
+        "report-e6387a92",
+        "report-fd0810b0"
       ],
       "fix_structural_validation": [
         "report-43adfdc1",
@@ -15068,12 +15395,14 @@
         "report-c2998d19",
         "report-cb8b9597",
         "report-db2699bb",
-        "report-f3fd71e9"
+        "report-f3fd71e9",
+        "report-fc827bc7"
       ],
       "structural_health": [
         "report-4441e33f",
         "report-30aeb6f9",
-        "report-d4e60c72"
+        "report-d4e60c72",
+        "report-fdd23fe1"
       ],
       "capability_validation": [
         "report-456b5fa9",
@@ -15151,7 +15480,10 @@
         "report-ee4e4822",
         "report-eec5c62c",
         "report-eef4fefa",
-        "report-ef3cb592"
+        "report-ef3cb592",
+        "report-faa78d91",
+        "report-fc297865",
+        "report-feb7be57"
       ],
       "test_naming_check": [
         "report-45c900c5",
@@ -15177,7 +15509,8 @@
         "report-cb8ee289",
         "report-d8080172",
         "report-e1c47eaf",
-        "report-ef8e2a3f"
+        "report-ef8e2a3f",
+        "report-f7a2ceb0"
       ],
       "resolve_conflicts": [
         "report-463fd53d",
@@ -15289,7 +15622,14 @@
         "report-ec2cc148",
         "report-ecdb33f1",
         "report-f1f15d23",
-        "report-f231a29e"
+        "report-f231a29e",
+        "report-f89f5a72",
+        "report-fabc779a",
+        "report-fabe836e",
+        "report-faf01910",
+        "report-fe0a4a4c",
+        "report-fef71176",
+        "report-ff343d59"
       ],
       "reconciliation_test": [
         "report-46ae5779",
@@ -15314,7 +15654,9 @@
         "report-d5db0a88",
         "report-d7481649",
         "report-db3f5d0d",
-        "report-dca92cc7"
+        "report-dca92cc7",
+        "report-f9a8a7a1",
+        "report-fb5f8e6f"
       ],
       "code_review": [
         "report-4924cc6b",
@@ -15373,7 +15715,8 @@
         "report-c1714935",
         "report-e10301a4",
         "report-e82c00d4",
-        "report-eda2963f"
+        "report-eda2963f",
+        "report-f96029b8"
       ],
       "quality": [
         "report-4d618001",
@@ -15423,7 +15766,8 @@
         "report-d4580985",
         "report-db35464c",
         "report-e811db5a",
-        "report-eff473e1"
+        "report-eff473e1",
+        "report-fbdb7d5f"
       ],
       "reconciliation_uat_generation": [
         "report-4d6afd8d",
@@ -15441,7 +15785,8 @@
         "report-c7b06431",
         "report-e876faa9",
         "report-f062f8cf",
-        "report-f379333d"
+        "report-f379333d",
+        "report-f5b2e2cf"
       ],
       "batch_quality_check": [
         "report-53128f42",
@@ -15519,10 +15864,12 @@
         "report-abec2d25",
         "report-c044154b",
         "report-e1ec21d2",
-        "report-e7e80148"
+        "report-e7e80148",
+        "report-fea0d724"
       ],
       "overlap_survey": [
-        "report-d022ad58"
+        "report-d022ad58",
+        "report-feea66e2"
       ]
     },
     "anchor_uid": {
@@ -15530,7 +15877,9 @@
         "report-4393e3ba",
         "report-4924cc6b",
         "report-15327906",
-        "report-387b66aa"
+        "report-387b66aa",
+        "report-fd0810b0",
+        "report-fea0d724"
       ],
       "bundle-ab9e0cb6": [
         "report-01eeef07",
@@ -15596,7 +15945,8 @@
         "report-c1bbead2",
         "report-d7764c73",
         "report-e3913d26",
-        "report-ec4cd337"
+        "report-ec4cd337",
+        "report-faa78d91"
       ],
       "ac": [
         "report-456b5fa9",
@@ -15649,7 +15999,9 @@
         "report-d7883d86",
         "report-e3ad52ca",
         "report-ee4e4822",
-        "report-eec5c62c"
+        "report-eec5c62c",
+        "report-fc297865",
+        "report-feb7be57"
       ]
     },
     "needs_more_work": {
@@ -15780,7 +16132,9 @@
         "report-ee4e4822",
         "report-eec5c62c",
         "report-eef4fefa",
-        "report-f479b749"
+        "report-f479b749",
+        "report-faa78d91",
+        "report-fc297865"
       ],
       "1": [
         "report-1956d8ad",
@@ -15790,7 +16144,8 @@
         "report-a1c346dc",
         "report-a309e3c3",
         "report-a5043438",
-        "report-ef3cb592"
+        "report-ef3cb592",
+        "report-feb7be57"
       ]
     },
     "needs_review_count": {
@@ -15886,7 +16241,10 @@
         "report-eec5c62c",
         "report-eef4fefa",
         "report-ef3cb592",
-        "report-f479b749"
+        "report-f479b749",
+        "report-faa78d91",
+        "report-fc297865",
+        "report-feb7be57"
       ],
       "1": [
         "report-02113cbd",
@@ -17372,7 +17730,28 @@
     "REPORT-991": "report-f231a29e",
     "REPORT-722": "report-f379333d",
     "REPORT-879": "report-f3fd71e9",
-    "REPORT-806": "report-f479b749"
+    "REPORT-806": "report-f479b749",
+    "REPORT-742": "report-f5b2e2cf",
+    "REPORT-751": "report-f7a2ceb0",
+    "REPORT-592": "report-f89f5a72",
+    "REPORT-725": "report-f96029b8",
+    "REPORT-660": "report-f9a8a7a1",
+    "REPORT-831": "report-faa78d91",
+    "REPORT-555": "report-fabc779a",
+    "REPORT-1001": "report-fabe836e",
+    "REPORT-711": "report-faf01910",
+    "REPORT-620": "report-fb5f8e6f",
+    "REPORT-982": "report-fbdb7d5f",
+    "REPORT-788": "report-fc297865",
+    "REPORT-884": "report-fc827bc7",
+    "REPORT-1047": "report-fd0810b0",
+    "REPORT-867": "report-fdd23fe1",
+    "REPORT-561": "report-fe0a4a4c",
+    "REPORT-1011": "report-fea0d724",
+    "REPORT-845": "report-feb7be57",
+    "REPORT-875": "report-feea66e2",
+    "REPORT-546": "report-fef71176",
+    "REPORT-985": "report-ff343d59"
   },
   "backlinks_index": {
     "request-d05379d0": {
