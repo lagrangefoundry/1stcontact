@@ -7,9 +7,9 @@ title: An expired session at load is reported in place of the builder, and mid-s
   refused listing clears no pane
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:49:56.060939+00:00'
-updated_at: '2026-11-01T21:29:09.668596+00:00'
+updated_at: '2026-11-01T22:19:34.310072+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -23,9 +23,14 @@ An ended session is reported as an ended session. It is never drawn as a working
 builder with no account, no businesses and no sites, because that is
 indistinguishable from a deleted account.
 
-**How the client recognises one.** Every request the builder makes goes through
-one transport, so no request can miss this. A request is treated as a sign that
-the session has ended in two cases:
+**How the client recognises one.** Every API request the builder makes goes
+through the one transport in `api.js` (`send()`), so none of those can miss this.
+**One exception is recorded here, not hidden:** the material reader (`reader.js`)
+fetches a material file's bytes directly from the file's URL, outside `send()`.
+A 401 on that fetch is shown as the reader's own unavailable state and raises no
+session strip. This criterion makes no claim about that request (see
+story-e674c60a, Reconciliation Decisions). A request through `send()` is treated
+as a sign that the session has ended in two cases:
 
 - **The origin answers 401.** The reason is *expired*, and the wording is
   *"Your session has ended. Sign in again to carry on."*
