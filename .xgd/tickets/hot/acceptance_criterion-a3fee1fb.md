@@ -6,10 +6,10 @@ title: Suspending a person's login stops them signing in, and restoring it lets 
   back in; there is no suspend control in the panel
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:33:18.146724+00:00'
-updated_at: '2026-11-01T19:33:18.146724+00:00'
+updated_at: '2026-11-01T20:02:31.809176+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a55c2f35
   kind: behavior
