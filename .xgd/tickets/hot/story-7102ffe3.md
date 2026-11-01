@@ -6,17 +6,16 @@ title: 'Business Scope: Every Request Operates Exactly One Business, Chosen By W
   The Caller Is'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:24:38.913681+00:00'
-updated_at: '2026-11-01T17:59:39.565608+00:00'
+updated_at: '2026-11-01T18:21:34.807998+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: status
 status: updated
 fields:
   intent_uid: bundle-94dbe947
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 3
-  updated_by:
-  - bundle-39edf66d
+  updated_by: bundle-39edf66d
 ---
 
 ## Story
