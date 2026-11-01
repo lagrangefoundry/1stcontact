@@ -6,10 +6,10 @@ title: The shell header carries the business switcher and the account avatar; no
   offers a site selector and every tab is business-scoped
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:49:02.972815+00:00'
-updated_at: '2026-11-01T10:49:02.972815+00:00'
+updated_at: '2026-11-01T11:54:24.982348+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
