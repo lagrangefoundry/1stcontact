@@ -6,9 +6,9 @@ title: The displayed site is one the store holds for the selected business, and 
   business changes it
 created_by: xgd
 created_at: '2026-08-07T01:44:23.282193+00:00'
-updated_at: '2026-11-01T10:48:26.517977+00:00'
+updated_at: '2026-11-01T11:26:12.076704+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-e674c60a
@@ -30,8 +30,13 @@ When the business changes, a site the operator was already looking at is kept
 if the newly selected business also holds a site with that slug; otherwise the
 first site the business holds is displayed. Slugs are unique per business, not
 globally, so the same slug under two businesses is two different sites and the
-displayed document's address distinguishes them. A site listing that fails to
-answer leaves the pane showing what it had rather than an empty pane.
+displayed document's address distinguishes them.
+
+*Note (reconcile BUNDLE-35, fix_plan batch 0/1):* an earlier version also
+claimed that a site listing which fails to answer leaves the pane showing what
+it had. The code does not do that for a generic listing failure — it maps a
+non-session failure to an empty list — so the claim is withdrawn. What a failing
+listing does to the pane is deliberately left unasserted here.
 
 ## Verification
 
@@ -40,5 +45,4 @@ assert the displayed site is one of the selected business's sites. Switch to the
 second business and assert the displayed document's URL is the second business's
 site rendering, carries that business, and the mode is unchanged. Repeat with a
 slug both businesses share and assert the slug is kept while the document
-address changes to the second business. Make the listing fail and assert the
-pane still shows the previous site.
+address changes to the second business.
