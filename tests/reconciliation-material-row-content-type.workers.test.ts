@@ -48,9 +48,17 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
   }
 }
 
-/** No describer, and an indexer that only counts — nothing here is about either. */
+/**
+ * A stub document describer, and an indexer that only counts — nothing here is
+ * about either. The describer is required because ingestion refuses a deployment
+ * that can reach no model with a 503 ([[REQ-173]]).
+ */
 function deps(over: Partial<RouterDeps> = {}): RouterDeps {
-  return { index: async () => async () => {}, ...over }
+  return {
+    index: async () => async () => {},
+    describeText: async () => ({ text: 'A document.', model: 'stub/digest-1' }),
+    ...over,
+  }
 }
 
 /** Put a file in through the platform's own material surface. */

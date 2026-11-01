@@ -50,9 +50,24 @@ function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
   }
 }
 
-/** No describer, and an indexer that only counts — the default for most claims. */
+/**
+ * The digest describer, doubled — no claim here is about how a document reads.
+ *
+ * INGESTION REQUIRES A DESCRIBER ([[REQ-173]]): a deployment that can reach no
+ * model refuses the upload with a 503 rather than storing an undescribed row, so
+ * every claim below is about a CONFIGURED deployment. Only the DOCUMENT describer
+ * is supplied; the image describer stays absent, which is the state the
+ * correction claims are about.
+ */
+const DIGEST = 'A positioning note for a late-night bakery, kept for reference.'
+const digest: NonNullable<RouterDeps['describeText']> = async () => ({
+  text: DIGEST,
+  model: 'stub/digest-1',
+})
+
+/** A document describer, no image describer, and an indexer that only counts. */
 function deps(over: Partial<RouterDeps> = {}): RouterDeps {
-  return { index: async () => async () => {}, ...over }
+  return { index: async () => async () => {}, describeText: digest, ...over }
 }
 
 /** Whatever the caller says, as bytes. */
@@ -178,17 +193,18 @@ describe('AC-1722 — the list is rows without descriptions; the item adds one; 
     expect(positioning.placed_on).toEqual([])
     expect(positioning.role).toBe('reference')
 
-    // AND CARRYING NO DESCRIPTIONS. A description is a document's extracted text,
-    // so a list that carried them would ship the client's whole corpus to draw a
-    // column of filenames.
+    // AND CARRYING NO DESCRIPTIONS. A description is per-row prose (a digest,
+    // since REQ-173), so a list that carried them would ship every one of them to
+    // draw a column of filenames.
     for (const row of rows) expect(row.body).toBeUndefined()
 
-    // ASKING FOR ONE RETURNS THE SAME ROW PLUS ITS DESCRIPTION.
+    // ASKING FOR ONE RETURNS THE SAME ROW PLUS ITS DESCRIPTION — the digest the
+    // describer wrote at ingest, exactly as it was stored.
     const item = await body(await readItem(tenant, String(positioning.uid)))
     expect(item.uid).toBe(positioning.uid)
     expect(item.filename).toBe('positioning.txt')
     expect(item.placed_on).toEqual([])
-    expect(String(item.body)).toContain('late-night bakery')
+    expect(item.body).toBe(DIGEST)
 
     // BOTH ANSWERS ARE CONFINED TO THE ACCOUNT ASKING. This is the first surface
     // that shows a client their own files, and therefore the one that would leak
