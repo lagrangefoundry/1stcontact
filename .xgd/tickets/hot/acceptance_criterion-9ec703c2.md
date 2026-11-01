@@ -6,10 +6,10 @@ title: Several grants on one business sit under a single Business and Role cell 
   one line per grant
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:00:45.144904+00:00'
-updated_at: '2026-11-01T19:00:45.144904+00:00'
+updated_at: '2026-11-01T19:28:15.503464+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
