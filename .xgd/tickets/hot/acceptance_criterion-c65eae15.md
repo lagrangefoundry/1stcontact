@@ -2,13 +2,13 @@
 uid: acceptance_criterion-c65eae15
 id: AC-1748
 type: acceptance_criterion
-title: An invited person is admitted and bound to an account and one effective grant,
-  deterministically
+title: An invited person is admitted with the deterministic set of businesses they
+  operate, each bound to its own effective grant
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:28:53.383038+00:00'
-updated_at: '2026-09-11T06:37:29.135988+00:00'
+updated_at: '2026-11-01T01:33:25.108440+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: title
 status: active
 fields:
   story_uid: story-7b1025b8
@@ -19,13 +19,16 @@ fields:
 ## Criterion
 
 An invited person presenting their proven address is admitted, and the admission
-reports both an account they may operate — resolved deterministically, so the
-same person with the same memberships always resolves to the same account — and
-the single effective grant their access is running on.
+reports the set of businesses they operate — each business carrying its own
+identifier, its name and the single effective grant its access is running on. The
+set is deterministic: the same person with the same memberships always receives
+the same businesses in the same order. The admission carries no single top-level
+account or grant beside that set.
 
 ## Verification
 
-Invite an address, then attempt admission with it. Assert the attempt succeeds,
-that the reported account is the account the invite created, and that the
-reported grant is the grant the invite created. Repeat the admission and assert
-the same account is reported both times.
+Invite an address, then attempt admission with it. Assert the attempt succeeds and
+that the reported set holds exactly one business: the business the invite
+created, with the name it was given and the grant the invite created. Assert the
+admission exposes no top-level account identifier or grant. Repeat the admission
+and assert the same set is reported, in the same order, both times.
