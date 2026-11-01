@@ -7,10 +7,10 @@ title: Have the assistant compose a page — see where everything sits, read an 
   or scripts
 created_by: xgd
 created_at: '2026-08-10T09:18:31.384971+00:00'
-updated_at: '2026-11-01T01:09:47.084731+00:00'
+updated_at: '2026-11-01T01:11:43.676604+00:00'
 completed_at: null
-last_field_updated: story_kind
-status: completed
+last_field_updated: status
+status: updated
 fields:
   intent_uid: bundle-e59210c5
   capability_uid: capability-fe236246
