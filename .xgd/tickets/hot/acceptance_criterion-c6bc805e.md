@@ -6,10 +6,10 @@ title: A business whose grant has lapsed, not started or been revoked stays list
   unselectable and carrying its lapse reason; the person is admitted regardless
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T01:33:54.147912+00:00'
-updated_at: '2026-11-01T09:53:59.981953+00:00'
+updated_at: '2026-11-01T10:22:22.086551+00:00'
 completed_at: null
-last_field_updated: title
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
