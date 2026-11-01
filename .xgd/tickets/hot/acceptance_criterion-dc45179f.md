@@ -2,11 +2,11 @@
 uid: acceptance_criterion-dc45179f
 id: AC-2018
 type: acceptance_criterion
-title: The On this site badge, the Used on row and the used-on-this-site filter read
-  one placement list and agree on every row, across a site switch
+title: The not-on-the-site warning and the Placed on row of the record read one placement
+  list and agree on every row
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:26:42.562489+00:00'
-updated_at: '2026-11-01T12:05:35.966515+00:00'
+updated_at: '2026-11-01T13:27:03.062827+00:00'
 completed_at: null
 last_field_updated: title
 status: active
