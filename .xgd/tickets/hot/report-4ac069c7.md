@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-71b1019e'
 created_by: xgd
 created_at: '2026-11-01T13:05:37.965435+00:00'
-updated_at: '2026-11-01T13:05:37.965435+00:00'
+updated_at: '2026-11-01T13:13:20.466679+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -60,6 +60,7 @@ fields:
         only the AC-token UAT link is missing.'
       rung3: The existing FC tests stand; new AC-token UATs add the link plus the
         uncovered keyframe-width phrase assertion.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3 (re-filed)
