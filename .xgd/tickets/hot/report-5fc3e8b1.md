@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T09:05:15.497063+00:00'
+updated_at: '2026-11-01T09:20:30.201931+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -73,7 +73,7 @@ fields:
       envelope of L1; the document shape, structural refusals and the self-check for
       coverage of its own source are absent. Same capability bucket (capability-45acba5e)
       — no new bucket.
-    story_uid: null
+    story_uid: story-5836022a
     target_story_ids:
     - story-5836022a
     acceptance_criteria_changes:
