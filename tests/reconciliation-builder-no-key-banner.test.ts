@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 /**
- * REQ-173 — **a builder with no API key says so once and blocks**.
+ * Reconciliation UATs for story-6ccaedd5 (STORY-140), AC-2098 — **a builder with
+ * no API key says so once and blocks** (REQ-173).
  *
  * WHY THIS IS PART OF THIS TICKET. It arrived as the answer to a narrower
  * question: what should a document's body be when no describer is configured?
@@ -86,7 +87,7 @@ beforeEach(() => {
 })
 
 describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and everything below is off', () => {
-  it('test_UAT_FC_REQ_173_an_unconfigured_deployment_shows_the_reason_and_disables_the_shell', async () => {
+  it('test_UAT_AC2098_an_unconfigured_deployment_shows_the_reason_in_a_banner_and_the_builder_below_accepts_no_input', async () => {
     const app = mountBuilder(root, {
       sites: SITES,
       storage: memoryStorage(),
@@ -119,7 +120,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and ever
     expect(root.querySelector('.builder-banner')).toBeNull()
   })
 
-  it('test_UAT_FC_REQ_173_a_configured_deployment_is_unchanged', async () => {
+  it('test_UAT_AC2098_a_configured_deployment_shows_no_banner_and_is_not_blocked', async () => {
     // THE DEFAULT IS UNBLOCKED, and it has to be: every existing host and every
     // suite that does not care about the key mounts exactly the builder it
     // mounted before, without passing anything new.
@@ -134,7 +135,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and ever
     expect(app.shell.element.hasAttribute('inert')).toBe(false)
   })
 
-  it('test_UAT_FC_REQ_173_no_session_is_opened_and_the_pane_says_the_same_thing', async () => {
+  it('test_UAT_AC2098_with_no_key_no_chat_session_is_opened_and_the_pane_says_why', async () => {
     // THE REQUEST IS NOT MADE. The origin would answer `ready: false` with the
     // host's own wording, which is true but describes the chat route rather than
     // the deployment — and the banner has already said the deployment-wide thing.
@@ -157,7 +158,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and ever
     app.destroy()
   })
 
-  it('test_UAT_FC_REQ_173_a_dropped_file_is_not_sent', async () => {
+  it('test_UAT_AC2098_with_no_key_a_dropped_file_is_not_uploaded', async () => {
     // BELT AND BRACES BESIDE `inert`. The attribute stops a click; a drag onto an
     // inert subtree is not something it is specified to refuse, and this is the
     // one action with a real origin behind it — which would answer 503 and give
@@ -191,7 +192,7 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and ever
 })
 
 describe('REQ-173 — the banner is visible as well as blocking', () => {
-  it('test_UAT_FC_REQ_173_the_blocked_shell_is_dimmed_by_the_class_the_app_sets', () => {
+  it('test_UAT_AC2098_the_blocked_builder_is_visibly_dimmed_by_the_class_the_app_sets', () => {
     // `inert` STOPS THE INTERACTION AND SHOWS NOTHING. A builder that ignores
     // every click while looking perfectly normal reads as broken software rather
     // than as a deployment that is switched off — so the class carries the
