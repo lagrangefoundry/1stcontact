@@ -6,10 +6,10 @@ title: The operator can still reach the existing 1stcontact business after the m
   and re-running it changes nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:26:59.208562+00:00'
-updated_at: '2026-11-01T10:26:59.208562+00:00'
+updated_at: '2026-11-01T10:36:57.962423+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7102ffe3
   kind: behavior
