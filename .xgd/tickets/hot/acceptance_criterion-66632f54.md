@@ -6,10 +6,10 @@ title: createDraft reports whether it created the site, and provisioning a busin
   whose starter slug already holds a site leaves its definition and pages unchanged
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:29:49.527312+00:00'
-updated_at: '2026-11-01T20:29:49.527312+00:00'
+updated_at: '2026-11-01T22:21:33.864676+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-fde7370b
   kind: behavior
