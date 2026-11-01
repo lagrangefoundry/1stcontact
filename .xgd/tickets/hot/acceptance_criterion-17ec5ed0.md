@@ -2,11 +2,11 @@
 uid: acceptance_criterion-17ec5ed0
 id: AC-1716
 type: acceptance_criterion
-title: The client narrows the Library by role, by kind, by used-on-this-site and by
-  typed text, conjunctively and as a view over the same listed material
+title: The client narrows the Library by role, by kind and by typed text, conjunctively
+  and as a view over the same listed material, with no used-on-this-site filter
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:45.613665+00:00'
-updated_at: '2026-11-01T12:05:30.820206+00:00'
+updated_at: '2026-11-01T13:27:01.781282+00:00'
 completed_at: null
 last_field_updated: title
 status: active
