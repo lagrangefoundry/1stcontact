@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-54bc92a7'
 created_by: xgd
 created_at: '2026-11-01T21:33:42.847022+00:00'
-updated_at: '2026-11-01T21:33:42.847022+00:00'
+updated_at: '2026-11-01T21:41:13.790089+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: report-54bc92a7
@@ -41,6 +41,7 @@ fields:
       criterion) or AC-2157 (orphaned acceptance criterion) or test_UAT_AC2158 or
       test_UAT_AC2149 or test_UAT_AC2150 or test_UAT_AC2152 or test_UAT_AC2153 or
       test_UAT_AC2154 or test_UAT_AC2155 or test_UAT_AC2156 or test_UAT_AC2157
+  batches_pending: false
 ---
 
 {
