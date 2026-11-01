@@ -124,6 +124,7 @@ function post(base: string, route: string, body: unknown): Promise<Response> {
 interface OpenedSession {
   sessionId: string
   turns: { role: string; markdown: string }[]
+  live: boolean
   ready: boolean
   error?: string
 }
@@ -522,14 +523,15 @@ describe('the conversation is stored with the workspace', () => {
   })
 
   /**
-   * AC-1057's second paragraph — the junction's BOUND, which the case above does
-   * not reach because it only ever restarts between completed turns.
+   * AC-1057's junction BOUND, which the case above does not reach because it only
+   * ever restarts between completed turns.
    *
-   * The claim is a pair, and the two halves fail differently: the tier in front
-   * of the store holds only the turn being spoken, and losing the host in the
-   * middle of one therefore costs that turn and never the conversation. A
-   * criterion that omitted the cost would claim more than the code does, which is
-   * why the story states it; stating it obliges someone to look.
+   * The claim is a split between two tiers: the archive holds only completed
+   * turns, and the tier in front of it holds the turn being spoken. On THIS host
+   * that tier is `lib.fileJunctions(<sessionsDir>/live)` ([[REQ-452]]) — a file
+   * held with the workspace, not memory — so losing the host mid-turn costs
+   * neither the conversation nor the turn as far as it had got: the reopen folds
+   * the junction file and paints the turn so far ([[BUG-46]]).
    *
    * WHY A STALLING MODEL. Against the instantaneous double every other case uses,
    * there is no mid-turn instant to look at: a turn is answered, drained and
@@ -538,14 +540,13 @@ describe('the conversation is stored with the workspace', () => {
    * makes "while a turn is in flight" a state this suite can actually stand in.
    *
    * The host is then lost the way {@link resetAiHost} loses it: every cached
-   * manager goes, and each one's junction is `memoryJunctions()` — the library's
-   * default, and what this host gets — so nothing that had not already drained
-   * survives.
+   * manager, issued id and workspace runtime goes. What survives is only what
+   * was on disk.
    */
   it('test_UAT_AC1057_losing_the_host_mid_turn_costs_that_turn_and_not_the_conversation', async () => {
     const KEPT = 'Noted — the first thing you told me.'
-    const LOST = 'This answer is still being spoken.'
-    const stalled = stalls(LOST)
+    const SPOKEN = 'This answer is still being spoken.'
+    const stalled = stalls(SPOKEN)
     setModelClient(scriptedClient([says(KEPT), stalled.step]))
 
     const opened = await open(base, SLUG)
@@ -561,39 +562,48 @@ describe('the conversation is stored with the workspace', () => {
     try {
       await stalled.entered
 
-      // WHILE IT IS IN FLIGHT: the store already holds the conversation, and does
-      // NOT hold the turn being spoken. That is the split the criterion names —
-      // one tier has the history, the other has the sentence in progress.
+      // WHILE IT IS IN FLIGHT: the archive already holds the conversation, and
+      // does NOT hold the turn being spoken. That is the split the criterion
+      // names — one tier has the history, the other has the sentence in progress.
       //
       // Read from the ARCHIVE ITSELF — the session's own transcript — and not
-      // from everything under the transcript directory. The tier in front is
-      // exactly the thing allowed to be holding `LOST` right now; a read wide
-      // enough to include it would be asserting the opposite of the criterion.
+      // from everything under the transcript directory: the junction lives under
+      // that directory too, and it is the tier holding `SPOKEN` right now.
       const archived = readFileSync(
         path.join(sessionsDir({ cwd }), `${opened.sessionId}.md`),
         'utf8',
       )
       expect(archived).toContain('The first thing')
       expect(archived).toContain(KEPT)
-      expect(archived).not.toContain(LOST)
+      expect(archived).not.toContain(SPOKEN)
 
-      // Now lose the host, mid-turn. Every manager and every junction with it.
+      // …and the tier in front is a file in the workspace, not memory: the
+      // sentence in progress is already on disk under the junction directory.
+      const junction = filesUnder(path.join(sessionsDir({ cwd }), 'live'))
+        .map((file) => readFileSync(file, 'utf8'))
+        .join('\n')
+      expect(junction).toContain(SPOKEN)
+
+      // Now lose the host, mid-turn: every cached manager and runtime goes.
       resetAiHost()
 
       const replayed = await open(base, SLUG)
 
       // The conversation is intact — ready, and replaying the completed exchange
-      // with its original text and attribution.
+      // with its original text and attribution…
       expect(replayed.ready, replayed.error).toBe(true)
       expect(replayed.turns[0]).toEqual({ role: 'user', markdown: 'The first thing' })
       expect(replayed.turns[1].role).toBe('assistant')
       expect(replayed.turns[1].markdown).toContain(KEPT)
 
-      // …and the cost is the turn that was in flight, nothing more: no assistant
-      // turn carries the answer that was still being spoken, and what did survive
-      // is a well-formed conversation rather than a half-written one.
-      expect(replayed.turns.map((t) => t.markdown).join('\n')).not.toContain(LOST)
-      expect(replayed.turns.every((t) => t.role === 'user' || t.role === 'assistant')).toBe(true)
+      // …and, because the junction outlived the host, so is the turn in flight
+      // as far as it had got: the operator's message, then the answer being
+      // spoken as one assistant turn — and the open reports it as still live.
+      expect(replayed.turns).toHaveLength(4)
+      expect(replayed.turns[2]).toEqual({ role: 'user', markdown: 'The second thing' })
+      expect(replayed.turns[3].role).toBe('assistant')
+      expect(replayed.turns[3].markdown).toContain(SPOKEN)
+      expect(replayed.live).toBe(true)
     } finally {
       // Let the abandoned turn finish rather than leaving its request pending for
       // the rest of the run. Its writes land after every assertion above, and
