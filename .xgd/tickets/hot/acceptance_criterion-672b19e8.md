@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The terms page offers only an agree control and declining records nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:40:04.819493+00:00'
-updated_at: '2026-11-01T10:40:04.819493+00:00'
+updated_at: '2026-11-01T10:46:01.562144+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cd18650
   kind: behavior
