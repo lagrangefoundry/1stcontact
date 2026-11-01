@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: free-coded BUNDLE-36 (REQ-185/170/183/186/188/189, BUG-51/52/53/54/56)'
 created_by: xgd
 created_at: '2026-11-01T17:54:53.149753+00:00'
-updated_at: '2026-11-01T19:01:14.845132+00:00'
+updated_at: '2026-11-01T19:33:57.140035+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -172,7 +172,7 @@ fields:
       Separated from item 3 because it is the owner-gated write surface (distinct
       gates, validation and persistence) rather than the read surface; together they
       would exceed 3 points.
-    story_uid: null
+    story_uid: story-a55c2f35
   - index: 5
     component: Contacts tab — access and pipeline axes
     item_type: feature
