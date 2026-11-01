@@ -6,9 +6,9 @@ title: '1c CLI: flags parse correctly, propagate into sub-commands, and --json e
   a clean scriptable document'
 created_by: xgd
 created_at: '2026-07-19T03:01:20.536179+00:00'
-updated_at: '2026-10-30T20:31:24.863761+00:00'
+updated_at: '2026-11-01T12:35:19.475196+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-ab9e0cb6
@@ -23,19 +23,21 @@ fields:
 **As a** user scripting the `1c` CLI, **I want** flags to be parsed correctly, to
 propagate into the commands a sub-command drives, `--json` output to be a single
 clean JSON document, every command to boot quietly on a server the launcher
-configures itself, the render path to reach no build transform at all, and a
+configures itself, the render path to reach no build transform at all, a
 command that needs a declared runtime dependency to refuse loudly on an installed
-tree that does not match what is declared, **so that** I can invoke `1c` commands
+tree that does not match what is declared, and the builder dev server to start
+with the same environment however I launch it, **so that** I can invoke `1c` commands
 in any flag order, trust that a store-selecting flag reaches the render/serve it
 triggers, pipe machine-readable output straight into other tools without it
 breaking or being buried in setup noise, run the same render in a runtime that
 has no build transform, and get a named remedy instead of a stack trace from deep
 inside a browser launch, and to find that the CLI offers no raw-server way to look
 at a site — only the Worker — while the capture fixture my screenshots depend on
-keeps working.
+keeps working, and to find that the API key I put where the documentation says
+is loaded by either entry point.
 
 ## Description
-Seven CLI-correctness guarantees for the `1c` command line:
+Eight CLI-correctness guarantees for the `1c` command line:
 
 1. **Boolean flag parsing.** The `--multi-viewport` flag is a boolean toggle, not
    a value-taking option. Invoking `values-diff --multi-viewport <slug>` (or
@@ -187,6 +189,37 @@ Seven CLI-correctness guarantees for the `1c` command line:
    sources (the static-preview fixture and the builder's Node transport) say so
    in their own headers.
 
+8. **The builder dev server starts with one environment, however it is launched.**
+   There are two ways to start the control app's dev server: `1c builder` and the
+   root package script `dev:control`. Both start `wrangler dev` with the same
+   env-file layering. The script does not compose that layering itself; it is a
+   caller of `1c builder`. The control app package carries no dev script of its
+   own, so no third place holds part of the layering. The layering, in load order
+   (the last file wins):
+
+   - the project's `.dev.vars` (per-clone local-dev config, resolved in the
+     control app's directory), then
+   - the personal secrets file: `ONECONTACT_SECRETS` when it is set and
+     non-empty, otherwise `$HOME/Documents/secrets/1c.dev.env`.
+
+   Both files are always named, because naming any env file replaces wrangler's
+   default `.dev.vars` lookup. Naming only the secrets file would silently drop
+   `.dev.vars`. This is what loads the assistant's API key.
+
+   A missing env file is a startup **warning**, not a refusal. The warning comes
+   after the builder banner and before wrangler's own output. It names the
+   resolved path that was looked for and what will not work:
+   - no secrets file: the assistant cannot take a turn, and uploads will be
+     refused;
+   - no `.dev.vars`: Cloudflare Access will not be open on loopback, so the
+     builder will refuse every request.
+
+   The server still starts. When both files are present, no warning is printed.
+   The command builds the same argv whatever directory it is typed in, because
+   the app directory comes from the repository root and not the working
+   directory. `--port` (default 8788) and `--remote` keep their meanings,
+   including the "REMOTE — this edits production data" banner.
+
 In scope: argument-parsing correctness for boolean flags, propagation of
 store-selecting flags into the render/serve a sub-command triggers, stdout/stderr
 separation and bootstrap quiet for scriptable output, how the launcher configures
@@ -195,7 +228,9 @@ repository carries, whether any render can reach a build transform at all, and t
 pre-command check that the installed tree matches the declared dependencies —
 including which verbs that check ranges over and which dependencies it names, and
 which ways of serving a site the CLI offers (no raw server; the capture fixture
-survives as a library function). Out of scope: the file-backed local store
+survives as a library function), and the environment the builder dev server is
+started with: one env-file layering shared by `1c builder` and the package dev
+script, and the startup warnings for a missing env file. Out of scope: the file-backed local store
 (`new`/`render`/`publish`/`checkout`/`revisions`), which REQ-177 explicitly leaves
 untouched as an authoring tier rather than a server; the content/shape of the diff or crop artifacts themselves (covered by
 the values-diff, size-aware diff, and aligned-crops capabilities), the PNG codec
@@ -346,6 +381,28 @@ reports and names the remedy, it never runs it.
   - the *Install preflight (REQ-44)* offline-verb list ("Offline commands (render, serve, builder, …) are never gated").
 
   REQ-177 asks that the help advertise no raw server, and the reference state has both removed. In this code-frozen reconcile run, however, the removal (0a0f97f216) was made without a mode_override grant and was reverted at review report-84f2f9bc's direction (F1). AC-2064 therefore asserts only that no help line begins `1c serve` and that `1c builder` / `wrangler dev` is offered. The AC-2064 UAT also observes `net.Server#listen` to assert that `1c serve` binds no port.
+- **Guarantee 8 reconciled from bundle-94dbe947 (BUNDLE-35), plan item 10
+  (BUG-50), merge `42c983d` (commit `a922dac72f`).** One definition of the
+  layering (`tools/generate/src/cli/dev-env.ts`, `devEnvLayering`) is spread
+  into `case 'builder'`'s argv. `appDir` now comes from `repoRoot()` and not
+  from `process.cwd()`. Root `dev:control` is `./bin/1c builder`.
+  `apps/control-app/package.json`'s own `dev` script is deleted. Wrangler
+  4.106's `getVarsForDev` was checked to confirm three things: `--env-file`
+  replaces the default `.dev.vars` lookup, later files win (`override: true`),
+  and a named file that does not exist is tolerated. That is why both flags are
+  passed unconditionally and existence is checked only to produce the warnings.
+  Evidence: `tests/test_UAT_FC_BUG-50_builder_env_files.test.ts`, six UATs. They
+  drive `run(['builder'])` with only `spawn` replaced (the process boundary).
+  They cover: both flags in load order; the `$HOME` default and the
+  `ONECONTACT_SECRETS` override; a missing secrets file named with its
+  consequence while the server still spawns; a present file that produces no
+  warning; a missing `.dev.vars` named with its own consequence; and `--remote`
+  surviving, with the argv not depending on cwd.
+- **Out of guarantee 8, by BUG-50's own scope.** Whether `.dev.vars` becomes a
+  tracked file is a separate configuration decision, not settled by BUG-50. The
+  guarantee is only that its absence is named at startup. Updating DOC-41 §2 is
+  a documentation deliverable of BUG-50, not CLI behaviour, so it is not
+  encoded as a criterion.
 - Related stories and capabilities: the sibling stories in this same capability,
   CAP-63 (1c Capture & Diff Fidelity) — STORY-75 (the intrinsic value axes) and
   STORY-77/STORY-78 (size-aware and cross-size diffing) — the commands whose
@@ -395,6 +452,22 @@ reports and names the remedy, it never runs it.
   falsifiable against a future re-entry through some *other* imaging package,
   which a bare absence claim about one named package would not catch. Intent is
   silent on the positive form; this is reconciliation's decision, made now.
+- **2026-11-01: guarantee 8 is carried by three criteria, not the single one
+  the plan item proposed.** The plan proposed one criterion: shared layering
+  from one definition. BUG-50's "Done means" names three separately
+  observable outcomes, and the shipped code and its six UATs implement all
+  three: the layering itself; that a missing env file is named with its own
+  consequence while the server still starts; and that the argv does not depend
+  on the working directory while `--remote` survives. Folding them into one
+  criterion would leave the warning contract and the cwd fix unpinned, so a
+  regression in either would not show in the matrix. Recorded now as three
+  criteria.
+- **2026-11-01: an empty `ONECONTACT_SECRETS` falls back to the default path.**
+  BUG-50 writes the default as `${ONECONTACT_SECRETS:-…}`. In shell, `:-` treats
+  an empty value as unset, and the code keeps that behaviour (`||`, not `??`).
+  The intent states it only through that shell notation. This decision states
+  it as observable behaviour, on the grounds that an exported but blank variable
+  is a variable someone meant to set, not a path to an empty-named file.
 
 ## Dependencies
 Depends on the behavior-module capability's conversion of behavior modules into
