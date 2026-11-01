@@ -6,10 +6,10 @@ title: Inviting an address already a contact of the business promotes that same 
   and inserts no second; the result reports whether a row was created
 created_by: xgd
 created_at: '2026-11-01T18:27:30.730809+00:00'
-updated_at: '2026-11-01T18:27:30.730809+00:00'
+updated_at: '2026-11-01T18:57:27.874298+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
