@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-7102ffe3'
 created_by: xgd
 created_at: '2026-11-01T18:12:55.983966+00:00'
-updated_at: '2026-11-01T18:12:55.983966+00:00'
+updated_at: '2026-11-01T18:18:12.264508+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-7102ffe3
@@ -33,6 +33,7 @@ fields:
       or test_UAT_AC2121 or test_UAT_AC2122 or test_UAT_AC2123 or test_UAT_AC2126
       or test_UAT_AC2127 or test_UAT_AC2128 or test_UAT_AC2129 or test_UAT_AC2130
       or test_UAT_AC2131
+  batches_pending: false
 ---
 
 {
