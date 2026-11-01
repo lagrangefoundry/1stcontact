@@ -5,10 +5,10 @@ type: request
 title: 'Material description: a digest in the body, the full text in a comment'
 created_by: xgd
 created_at: '2026-09-02T18:44:15.116380+00:00'
-updated_at: '2026-10-31T20:54:35.530172+00:00'
-completed_at: null
+updated_at: '2026-11-01T05:03:16.672582+00:00'
+completed_at: '2026-11-01T05:03:16.672582+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
