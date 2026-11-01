@@ -6,9 +6,9 @@ title: Hold one continuing conversation about my site with an assistant that can
   act on that site
 created_by: xgd
 created_at: '2026-08-10T08:34:38.465488+00:00'
-updated_at: '2026-11-01T03:03:27.104688+00:00'
+updated_at: '2026-11-01T09:28:27.992427+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e59210c5
@@ -50,6 +50,31 @@ In scope:
   change is refused whole) is carried unchanged. A conversation begun under the
   role's former name is still the same conversation: it reopens with its turns
   and keeps working, and nothing is ever written under the old name again.
+- **How what the assistant is told is organised** — three texts, split by what
+  changes them, and each piece of material in exactly one. The **product
+  level** is what is true of the product whatever role reads it — the tools are
+  the only path, a malformed change is refused whole, the site is a typed tree
+  plus vetted components never named to the client, read before you write,
+  changes are private until published — written once, naming no role, so a
+  second role costs a second role text and nothing more. The **role level** is
+  the role's own text, placed *before* the product text in the system prompt so
+  the role holds the highest-attention position, plus a short purpose in the
+  priming naming the documents the role must read (the consultation playbook,
+  the personas and registers document and the differentiation audit) and both
+  corpora it searches. The **reminder** rides every turn and is a handful of
+  lines: which site, the habits that decay first, and options-not-iterations
+  with a pointer to where the rest of the method lives, rather than the method
+  itself. The two per-turn signals — the client changed the site, the client's
+  corpus gained something — ride the reminder as its one stated exception and
+  are absent when there is nothing to say.
+- **Keeping the ledger** — where the conversation is a ticket, the consultant
+  writes the engagement's record into that ticket's body: one numbered entry
+  per decision as it is settled, with why and what was rejected, and a title
+  for the ticket naming the business rather than the session identifier — so a
+  later session, and a search over the client's corpus, can find what was
+  decided. It does so through a surface of its own that can reach only this
+  conversation's ticket and nothing on the site; where there is nowhere to
+  write (the operator's command line) that surface is simply absent.
 - **Opening a conversation for a site** — the one and only point at which a site
   becomes a conversation. It answers with an identifier for that conversation,
   the turns already spoken — **including a turn still in progress, as far as it
@@ -87,7 +112,10 @@ In scope:
   priming is generated rather than hand-written, and where a system knowledge
   base has been built it carries a *map* of what that corpus contains plus the
   means to pull the rest, not the documents themselves, so the corpus can grow
-  without the primed context growing with it. The operations that search and read
+  without the primed context growing with it. The tool guide it is primed with
+  is the *summary* of the manual projected against this session's grant — what
+  each granted group is for and one line per operation — with a tool's full
+  entry one `DescribeTools` call away. The operations that search and read
   that corpus are offered from the **same** granted surface as the site
   operations, so a knowledge call is gated, provenance-marked and audited exactly
   as a change to the site is, rather than reaching the model by a second route.
@@ -104,7 +132,8 @@ In scope:
   failure. On the deployed runtime that store is the account's own ticket store
   and **the conversation is itself a ticket** there: found again by the
   identifier it carries, with the whole session file held as a transcript comment
-  on it and its body left for a summary something else writes. On the operator's
+  on it and its body the conversation's **ledger**, which the transcript fold
+  never writes and only the ledger operation does. On the operator's
   machine it is a file held with the workspace. What a conversation has already
   been told about the corpus it can search is recorded on that same conversation,
   because that fact is born with it and dies with it. The tier in front of the
@@ -168,12 +197,18 @@ Out of scope:
   written through the site's own store rather than beside it, that no request
   address can name it, and that a losing concurrent fold is refused rather than
   swallowed.
-- **The summary the conversation's body is reserved for.** Making the conversation
-  a ticket does not make the conversation *knowledge*: the transcript is a comment
-  and the body is deliberately left alone, so a conversation enters the corpus
-  carrying its identifier and nothing else until something writes that summary.
-  REQ-171 owns it, together with the session prompts and turn reminders it has to
-  be written into.
+- **How the ledger is indexed and found.** This story claims that the ledger is
+  written into the chat ticket's body and title; that the knowledge component
+  indexes title and body, and how a client's corpus is chunked, refreshed and
+  enumerated in the awareness map, belong to the client knowledge base and
+  awareness-map capabilities (REQ-159, DOC-39 §7).
+- **A caretaker role for the ongoing tier.** Reserved and parked; the product
+  level is written so that standing it up costs a role text, but no criterion
+  here claims the role exists.
+- **The shared knowledge library's own texts.** The summary level, `DescribeTools`
+  and the library's mechanism prose are upstream's (lagrange-framework REQ-113);
+  this story claims only that the session adopts the summary and can reach
+  `DescribeTools`.
 - **What the conversation is told about a corpus that changed while it was open.**
   The per-turn report derived from the conversation's recorded boundary, how that
   boundary advances, and a search that reaches more than one knowledge base, are
@@ -223,7 +258,12 @@ Out of scope:
   Writing the two by hand would be a second place for them to drift apart.
 - **Priming order is load-bearing, and the order is this host's**: the map of
   what exists, then what this role is for, then the projected tool manual last —
-  the last thing read is the thing done first. The manual remains a projection of
+  the last thing read is the thing done first. Since REQ-171 that manual is the
+  **summary** level at all three call sites (the operator's host and both
+  deployed priming paths): measured on this repository's site surface with the
+  consultant's grant it is about a quarter of the full reference (≈11k against
+  ≈43k characters), and the full entry is reached through `DescribeTools`, which
+  travels with the manual it completes. The manual remains a projection of
   the operations actually granted, so a session's priming never mentions a
   capability it does not have, and the map is generated from the corpus rather
   than written by hand. Neither document is hand-authored prose about the tools.
@@ -735,6 +775,54 @@ story's, and is not claimed here.
   BUG-46 owns — the full transcript comes back with no model key — and leave the
   `ready` half to AC-1060 as it stands. Flagged as a code-issue against AC-1060's
   edge-host evidence, not absorbed into it.
+
+Decisions taken on **2026-11-01** while reconciling BUNDLE-35 (REQ-171). The
+intent states the governing rule — *nothing duplicative or irrelevant reaches the
+context* — restructures the session's texts into product level, role level and
+reminder, adopts the summary manual, and makes the chat ticket's body the ledger
+DOC-33 §3.1 describes. All of it landed on one branch, as the intent decided.
+
+- **The body-untouched clause of AC-1792 is restated, not superseded.** The
+  intent supersedes DOC-10 §8's *summary* framing with the ledger, but the
+  property AC-1792 protected — the transcript fold never writes the body — still
+  holds and is still the reason the body is safe to write into. The criterion now
+  says the body is the ledger, written only by the ledger operation, and its
+  verification checks a fold leaves a written ledger exactly as it was. The
+  matching out-of-scope bullet ("REQ-171 owns it") is withdrawn because REQ-171
+  has delivered it here.
+- **The three-part structure is one criterion; the summary manual, the reminder,
+  the ledger write and the ledger trigger are four more.** They fail
+  independently: a product text could name a role while the reminder stays
+  short, and a ledger could be written with no stated trigger.
+- **The role level sits before the product level in the system prompt.** The
+  intent's decision says "product prose + role prose, concatenated" and names
+  the trade-off as role identity moving after the product text; the code
+  composes role first, with the stated reason that the first thing a model reads
+  about itself sets its register. The intent's acceptance does not fix an order,
+  and its "consequence to accept" is about the role moving *out of the system
+  prompt into the priming* — which the Decisions section then reverses by
+  keeping role conduct in the system prompt. Formalised as role-then-product now,
+  as this reconciliation's decision, because it is the order the intent's own
+  rationale (highest-attention position) favours once the role stays in the
+  system prompt.
+- **"The cost of the trigger is stated with it" is held in this story's prose,
+  not made an observable.** The cost — one compare-and-set write of the delta per
+  settled decision, nothing on a turn that settles nothing — is a design fact a
+  caller cannot observe; the criterion carries the trigger as what the consultant
+  is told, which is observable.
+- **The rename is last-writer-wins, deliberately.** The intent requires
+  compare-and-set for ledger *entries* (a lost entry is a lost client answer) and
+  is silent on the title. The code writes the title without a version check,
+  because a title is not accumulated and the later name is the one wanted.
+  Formalised now: the title criterion claims replacement and repeatability, not
+  conflict detection.
+- **No ledger on the command line is an absence, not a failure.** The intent
+  states it ("a laptop gets a consultant that cannot record decisions rather than
+  one that fails to start"); the criterion carries it as observable on that host.
+- **AC-1319 and AC-2066 are left as they stand.** AC-1319's "projected manual of
+  the granted operations" is still true of the summary; the summary claim is the
+  new criterion's, so the order criterion does not take on a second property.
+  AC-2066's register claim is unaffected by the reminder's new pointer line.
 
 ## Dependencies
 
