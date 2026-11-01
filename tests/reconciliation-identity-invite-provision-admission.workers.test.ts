@@ -826,6 +826,7 @@ describe('login binds, and provisions nothing', () => {
     await env.DB.prepare('UPDATE users SET status = ? WHERE id = ?').bind('suspended', invited.user.id).run()
     const refused = await admit(identityEnv(), email, new Date(Date.now() + 120_000))
     expect(refused.ok).toBe(false)
+    expect(!refused.ok && refused.reason).toBe('user_inactive')
     const afterRefusal = await stamps()
     expect(afterRefusal.last_seen_at > returning.last_seen_at).toBe(true)
     expect(afterRefusal.first_seen_at).toBe(arrival.first_seen_at)
@@ -991,7 +992,7 @@ describe('membership admits; entitlement does not', () => {
       const businesses = byId(await admit(identityEnv(), email))
       expect(businesses.size, label).toBe(2)
       const d = businesses.get(dead.businessId)
-      expect([d?.selectable, d?.entitlement, d?.lapse?.reason], label).toEqual([false, null, reason])
+      expect([d?.name, d?.selectable, d?.entitlement, d?.lapse?.reason], label).toEqual(['Dead', false, null, reason])
       const l = businesses.get(live.businessId)
       expect([l?.selectable, l?.entitlement?.business_id, l?.lapse], label).toEqual([true, live.businessId, null])
 
@@ -999,6 +1000,7 @@ describe('membership admits; entitlement does not', () => {
       const both = byId(await admit(identityEnv(), email))
       expect(both.size, label).toBe(2)
       expect([...both.values()].some((b) => b.selectable), label).toBe(false)
+      expect([...both.values()].every((b) => b.lapse?.reason === reason), label).toBe(true)
     }
   })
 
@@ -1015,6 +1017,7 @@ describe('membership admits; entitlement does not', () => {
     const entitled = await provisionBusiness(identityEnv(), { accountUserId: scheduled.user.id, name: 'Entitled', email })
     const both = byId(await admit(identityEnv(), email))
     expect(both.get(scheduled.businessId)?.selectable).toBe(false)
+    expect(both.get(scheduled.businessId)?.entitlement).toBeNull()
     expect(both.get(entitled.businessId)?.selectable).toBe(true)
   })
 
@@ -1035,6 +1038,7 @@ describe('membership admits; entitlement does not', () => {
     const other = await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Other', email })
     const both = byId(await admit(identityEnv(), email))
     expect(both.get(invited.businessId)?.selectable).toBe(false)
+    expect(both.get(invited.businessId)?.entitlement).toBeNull()
     expect(both.get(other.businessId)?.selectable).toBe(true)
   })
 })
@@ -1230,6 +1234,7 @@ describe('the request path', () => {
     ] as const) {
       expect(records, reason).toContainEqual(expect.objectContaining({ reason, email }))
     }
+    expect(new Set(records.map((r) => r.reason)).size).toBe(5)
   })
 
   it('test_UAT_AC1760_an_invited_entitled_person_who_accepted_the_current_terms_reaches_the_builder', async () => {
