@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: GET /api/people reports canInvite and canFulfil as two separate flags
 created_by: xgd
 created_at: '2026-11-01T18:27:49.545479+00:00'
-updated_at: '2026-11-01T18:27:49.545479+00:00'
+updated_at: '2026-11-01T18:57:26.639471+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
