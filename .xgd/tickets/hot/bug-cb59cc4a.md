@@ -14,6 +14,19 @@ fields:
   story_points: 5
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: f00bf2693537f5ebcad901118e0e584990438d09
+    reconcile_sha: 373b191b3716ee42569dc2a0f23e2a147244a096
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 4b2ba3eae453208637caf49fc2235a20e52498a7
+    reconcile_sha: 20683ab0cfd2224192122b9afe707e0b946c39da
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 2598245285dcc48672a19130cddce1555dd18a70
+    reconcile_sha: 59069986f7bcf83b2ca3e1ba66e09b384dd20742
+    main_sha: null
+    working_sha_history: []
 ---
 
 # A document in the corpus that is not in the index is a shipped lie
