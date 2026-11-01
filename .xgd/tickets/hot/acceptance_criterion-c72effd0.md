@@ -6,24 +6,30 @@ title: 'A Library row lays out on one line: icon, a 13px title that takes the re
   space and truncates, then pills that never wrap or shrink'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:39:01.939721+00:00'
-updated_at: '2026-10-30T20:06:03.830844+00:00'
+updated_at: '2026-11-01T12:05:45.362926+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
   regression_only: false
+  title: 'A Library row reads on one line: type icon, a 13px title that takes the
+    remaining space and truncates, then the role pill (and, only in the exception,
+    the warning), never wrapping or shrinking'
 ---
 
 ## Criterion
 
-A Library row lays out on one line: the type icon, then the title, then the row's pills.
+A Library row reads on one line: the type icon, then the title, then the role pill.
 
 Specifically:
 
-- The row's elements sit on a single horizontal axis, in the order icon, title, pills — the
-  pills no longer drop to a second line beneath the title.
+- The row's elements sit on a single horizontal axis, in the order icon, title, pill strip — the
+  pills never drop to a second line beneath the title.
+- The pill strip holds the role pill, naming what the material is for (*Site asset* /
+  *Background information*). It carries no placement pill. The only other thing it can hold is
+  the "Not on the site" warning, on the one row state that warrants it.
 - The title takes the space the icon and pills leave, may shrink below its natural width, stays
   on one line and truncates with an ellipsis when it does not fit.
 - The title is set at 13px, the same size as the rows of the workspace's shared list component,
@@ -42,4 +48,5 @@ and shrink with a zero minimum width, is 13px, does not wrap and ellipses on ove
 and the pill strip do not flex and the pill strip does not wrap — and no other block for the
 same element declares a conflicting value. Order along the axis is the DOM's, so mount the
 Library and assert every row's content is, in order, the icon, the title, then the pill strip,
-with every pill inside that strip.
+with every pill inside that strip; on a placed site asset and on background material the strip
+holds exactly the role pill.
