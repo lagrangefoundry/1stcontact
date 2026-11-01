@@ -8,6 +8,7 @@ import {
   ticketStoreFor,
   type TicketStoreEnv,
 } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { d1r2SiteStore } from '../tools/generate/src/store/d1r2-store'
 import type { SiteStoreEnv } from '../tools/generate/src/store/d1r2-store'
@@ -36,9 +37,13 @@ function ticketEnv(overrides: Partial<TicketStoreEnv> = {}): TicketStoreEnv {
   return {
     DB: env.DB as D1Database,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: ACCOUNT_A,
     ...overrides,
   }
+}
+
+/** The resolved scope a request would carry for one account. */
+function scopeOf(businessId: string): Scope {
+  return { businessId }
 }
 
 /** The `material` shape [[DOC-38]] §9 requires, stated once. */
@@ -117,7 +122,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // ── and the ticket store answers to that same row ────────────────────────
     // It finds the account the site store registered rather than adding its own:
     // one row before, one row after.
-    const store = await ticketStoreFor(ticketEnv({ TENANT_ID: shared }))
+    const store = await ticketStoreFor(ticketEnv(), scopeOf(shared))
     const { ticket } = await store.create({
       type: 'material',
       title: 'Written against the shared registry',
@@ -134,7 +139,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // `config`, and a registry lacking the column fails with `no such column`
     // against a schema step that appeared to apply cleanly.
     const fresh = 'story-ab1ecd62-first-registration'
-    const firstStore = await ticketStoreFor(ticketEnv({ TENANT_ID: fresh }))
+    const firstStore = await ticketStoreFor(ticketEnv(), scopeOf(fresh))
     const { ticket: firstTicket } = await firstStore.create({
       type: 'brief',
       title: 'First registration',
@@ -152,7 +157,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // The acceptance in its plainest form, in the runtime the Worker is deployed
     // to: the migration applied, the account registered itself, the pack
     // validated, D1 took the row.
-    const store = await ticketStoreFor(ticketEnv())
+    const store = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_A))
     const { ticket } = await store.create({
       type: 'material',
       title: 'Brand guidelines',
@@ -164,7 +169,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // A SECOND, independently obtained handle — not the one that wrote. A round
     // trip through a single instance would pass with an in-memory cache and no
     // working schema at all.
-    const fresh = await ticketStoreFor(ticketEnv())
+    const fresh = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_A))
     expect(fresh, 'the reader is a different handle from the writer').not.toBe(store)
     const { ticket: read } = await fresh.get({ uid: ticket.uid })
     expect(read.uid).toBe(ticket.uid)
@@ -178,7 +183,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // ── a migrated-but-unregistered database is not a dead builder ───────────
     const unseen = 'story-ab1ecd62-never-seen'
     const before = await env.DB.prepare('SELECT COUNT(*) AS n FROM tenants').first<{ n: number }>()
-    const store = await ticketStoreFor(ticketEnv({ TENANT_ID: unseen }))
+    const store = await ticketStoreFor(ticketEnv(), scopeOf(unseen))
     const { ticket } = await store.create({
       type: 'brief',
       title: 'Decisions',
@@ -203,7 +208,7 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
     // request — turning account suspension into a suggestion.
     await env.DB.prepare('UPDATE tenants SET status = ? WHERE id = ?').bind('deactivated', unseen).run()
     await expect(
-      ticketStoreFor(ticketEnv({ TENANT_ID: unseen })),
+      ticketStoreFor(ticketEnv(), scopeOf(unseen)),
       'a deactivated account is refused, not served',
     ).rejects.toMatchObject({ code: 'validation' })
     const afterAttempt = await env.DB.prepare('SELECT status FROM tenants WHERE id = ?')
@@ -216,40 +221,20 @@ describe('story-ab1ecd62 — the schema step and the registry it reconciles', ()
 })
 
 describe('story-ab1ecd62 — the wiring point refuses a deployment it cannot serve', () => {
-  it('test_UAT_AC1481_a_deployment_that_names_no_account_is_refused_when_the_store_is_built', async () => {
-    // Absent, empty, and whitespace-only are one claim with three spellings —
-    // a var declared and left blank is the shape a half-finished deploy takes.
-    for (const TENANT_ID of [undefined, '', '   ', '\t\n']) {
-      const attempt = ticketStoreFor(ticketEnv({ TENANT_ID, DB: untouchableDb() }))
-      // The database is untouchable, so this rejecting with the NAMED error is
-      // also the evidence that nothing was created, read or written: any access
-      // at all would surface as a different error.
-      await expect(attempt, `TENANT_ID=${JSON.stringify(TENANT_ID)}`).rejects.toBeInstanceOf(
-        TenantNotConfiguredError,
-      )
-      await expect(attempt).rejects.toMatchObject({ name: 'TenantNotConfiguredError' })
-    }
-
-    // A distinct, named error a program can branch on — and it is not the other
-    // refusal wearing a different message.
-    expect(new TenantNotConfiguredError()).not.toBeInstanceOf(BlobsNotConfiguredError)
-
-    // The message identifies the missing configuration, says this deployment
-    // serves exactly one account and cannot infer which, and names BOTH
-    // declaration sites — a named environment inherits neither.
-    const message = new TenantNotConfiguredError().message
-    expect(message).toContain('TENANT_ID')
-    expect(message).toMatch(/serves one tenant and cannot\s+infer which/)
-    expect(message).toContain('[vars]')
-    expect(message).toContain('[env.production.vars]')
-    expect(message).toContain('does not inherit')
-  })
+  // AC1481 ("a deployment that names no account is refused when the store is
+  // built", TenantNotConfiguredError) is superseded by REQ-168: the ticket store
+  // no longer reads TENANT_ID, and an empty scope is refused at construction with
+  // UnscopedError instead. That evidence is AC2125's, in
+  // `test_reconciliation_business_scope.workers.test.ts`.
 
   it('test_UAT_AC1482_a_deployment_with_nowhere_to_put_attachment_bytes_is_refused_when_the_store_is_built', async () => {
     // Refused when the store is OBTAINED, before any operation is attempted —
     // including operations that would never touch bytes. The untouchable
     // database is what makes "before" observable rather than asserted.
-    const attempt = ticketStoreFor(ticketEnv({ BLOBS: undefined, DB: untouchableDb() }))
+    const attempt = ticketStoreFor(
+      ticketEnv({ BLOBS: undefined, DB: untouchableDb() }),
+      scopeOf(ACCOUNT_A),
+    )
     await expect(attempt).rejects.toBeInstanceOf(BlobsNotConfiguredError)
     await expect(attempt).rejects.toMatchObject({ name: 'BlobsNotConfiguredError' })
 
@@ -289,8 +274,8 @@ describe('story-ab1ecd62 — the wiring point refuses a deployment it cannot ser
 
 describe('story-ab1ecd62 — the account barrier on ticket rows', () => {
   it('test_UAT_AC1483_a_handle_sees_only_its_own_accounts_tickets_on_reads_and_listings', async () => {
-    const a = await ticketStoreFor(ticketEnv({ TENANT_ID: ACCOUNT_A }))
-    const b = await ticketStoreFor(ticketEnv({ TENANT_ID: ACCOUNT_B }))
+    const a = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_A))
+    const b = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_B))
 
     const { ticket } = await a.create({
       type: 'material',
@@ -337,8 +322,8 @@ describe('story-ab1ecd62 — the account barrier on ticket rows', () => {
   })
 
   it('test_UAT_AC1484_a_write_aimed_at_another_accounts_ticket_is_refused_and_the_target_is_unchanged', async () => {
-    const a = await ticketStoreFor(ticketEnv({ TENANT_ID: ACCOUNT_A }))
-    const b = await ticketStoreFor(ticketEnv({ TENANT_ID: ACCOUNT_B }))
+    const a = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_A))
+    const b = await ticketStoreFor(ticketEnv(), scopeOf(ACCOUNT_B))
 
     const { ticket } = await a.create({
       type: 'material',
