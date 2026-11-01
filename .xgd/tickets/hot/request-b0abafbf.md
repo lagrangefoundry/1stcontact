@@ -5,10 +5,10 @@ type: request
 title: A member is a contact who can sign in, and the pipeline is a separate axis
 created_by: xgd
 created_at: '2026-09-05T20:16:48.488771+00:00'
-updated_at: '2026-09-06T00:27:09.762369+00:00'
+updated_at: '2026-11-01T14:13:52.152681+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 4
@@ -25,6 +25,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.81
+  bundled_in: bundle-39edf66d
 ---
 
 # A member is a contact who can sign in, and the pipeline is a separate axis

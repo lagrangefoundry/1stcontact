@@ -5,10 +5,10 @@ type: request
 title: 'The User tab: the people of a business, their membership and their grants'
 created_by: xgd
 created_at: '2026-09-01T00:51:42.772184+00:00'
-updated_at: '2026-09-04T23:58:14.207595+00:00'
+updated_at: '2026-11-01T14:13:50.931438+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -17,6 +17,12 @@ fields:
   chat_comment: comment-a40ed226
   depends_on:
   - REQ-184
+  commits:
+  - working_sha: 5b6befd15c86e1fe7d41b3e3df18fdb6351b3de5
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.71
+  bundled_in: bundle-39edf66d
 ---
 
 # The admin console: users, entitlements, and the invite that provisions an account
@@ -279,3 +285,144 @@ blocker:
 
 Work lands on `working`, where [[REQ-178]]'s, [[REQ-179]]'s and [[REQ-180]]'s
 free-coded commits already sit, so none of this is waiting on reconciliation.
+
+### Correction 2026-09-04: four relations, not two ([[DOC-42]] §4 as corrected)
+
+The revision above says the detail pane carries *"the person's record, their
+membership on this business, and their grants"*, and that membership is the
+primary thing the tab manages. **The concepts hold; one of them named the wrong
+table.** [[DOC-42]] §4 has been corrected and this follows it.
+
+`memberships` does not mean *may log in*. `provisionInvite` writes a person's
+`users` row into the business's tenant (`identity.ts:398`) while
+`provisionBusiness` writes their membership on the business they will *run* — so
+an account logs in holding no membership on the business it logs in to. The
+member check is the `users` row; the membership row is the right to operate.
+
+So the tab's people carry **four** states, and the detail pane shows three
+columns rather than two:
+
+| | means | control |
+| --- | --- | --- |
+| **Contact** | known here — an email or a phone — and may become a member | the invite promotes them |
+| **Member** | may log in here | `users.status`, which `admit` refuses as `user_inactive` |
+| **Operator** | may run a business — owner, support | `memberships`, per business |
+| **Entitled** | granted access to a thing | `entitlements`, per grant |
+
+**Being in the list is the member relation.** There is no separate login toggle
+to render beside it; the control is `users.status`, and revoking it is what stops
+someone signing in. `memberships.revoked_at` withdraws the right to *run* a
+business and deliberately leaves that person's own Portal reachable.
+
+**The operator column is what the earlier revision already described** — *"the
+businesses that person may operate — the membership rows — which is the only
+place a second business is visible at all."* Viewed from 1st Contact, Alice's row
+shows Alice's Plumbing there. That is unchanged and is now correctly named.
+
+**Contacts appear in the list.** A person the business knows and has not invited
+is a row with `invited_at` null, and the tab shows them as such — this is the same
+population the CRM reads ([[DOC-42]] §9), and the invite is the transition. A tab
+that listed only invited people would be a second population, which is the thing
+that must not exist.
+
+#### Two schema gaps this ticket does not close
+
+Both are recorded in [[DOC-42]] §4.1 and neither blocks this tab, because every
+person in the 1st Contact business has an email and was invited.
+
+- **A phone-only contact is unrepresentable.** `users.email` is `NOT NULL` and
+  identity is the `(tenant_id, email)` index; there is no `phone` column. This
+  tab must not assume an email is present in a way that would need unpicking, but
+  it cannot fix the schema either.
+- **Nothing enforces contact versus member.** `invited_at` is the only marker.
+  The tab reads it and does not pretend it is a gate.
+
+---
+
+## What was implemented, including consequences of the above
+
+Commit `5b6befd15c86e1fe7d41b3e3df18fdb6351b3de5` on `free-REQ-170`, version
+0.2.71. Ten UATs in `tests/test_UAT_FC_REQ-170_people.workers.test.ts`.
+
+### The tab is `Users`, at `people`, and `/admin` was never built
+
+`PEOPLE_TAB = { id: 'people', label: 'Users', fill: true }` in `config.js`,
+third in `TABS`, mounted in `app.js` beside the Library and on the same terms — a
+business switch **clears then re-reads** rather than re-filtering, because these
+are other people entirely and leaving one business's rows under a header naming
+another is the outcome a failed re-read may not produce.
+
+The routes are `/api/people`, not `/api/admin/people`. The prefix was the
+decision rather than the spelling: an `admin` segment would encode a
+platform-only reading in the URL and be wrong for every customer who reaches it.
+
+### `entitlements.revoked_at` did not exist — 0008 adds it
+
+The body has always said revocation sets `revoked_at` and `status='revoked'`.
+`memberships` has held that column since `0004:82`; `entitlements` never did, and
+the asymmetry was an omission rather than a decision. `0008` adds it: nullable,
+unbackfilled — every existing row is a grant nobody has withdrawn, which is what
+NULL means — and **not** part of the access check, because `bestActiveGrant`
+already excludes `status='revoked'` and a second condition would give the check
+two ways to say no and let them disagree.
+
+### The gate calls [[REQ-185]] rather than reimplementing it
+
+`ownsPlatformBusiness` landed in `identity.ts` while this ticket was being
+written, so `people.ts` re-exports it instead of writing a second predicate. That
+also keeps `TENANT_ID` at the two readers [[REQ-168]] left it — a predicate
+written at the route or in this module would have been the third.
+
+`canFulfil` is reported **with the list** for the chrome to render on, and is
+explicitly not the gate: `/api/admin/businesses` asks the same question again for
+itself, because a control that is merely unrendered is not refused to anyone who
+can type a URL.
+
+### `identityEnv` is hoisted in `router.ts`
+
+It was declared inside the `/api/admin/businesses` handler. Five routes need it
+now, and a cast repeated six times is six places for one to drift into a
+different assertion.
+
+### [[REQ-161]]'s tab assertion is narrowed, not deleted
+
+It spelled *"the Library is beside the site tab"* as
+`toEqual([SITE_TAB.id, LIBRARY_TAB.id])`, which pinned the tab **count** as a
+side effect of pinning the relationship — so a third tab failed a claim it does
+not contradict. It now asserts the adjacency itself, which stays true however
+many tabs exist. Implicit supersession, this ticket being the later one.
+
+### Test plan
+
+Ten UATs, in four groups matching the sections above, inside workerd against
+real D1 with the deployed migrations applied. Every row is written through a
+shipped entry point — `provisionInvite`, `provisionBusiness`, `openGrant` — so a
+divergence between what the product writes and what the tab reads fails here
+rather than passes.
+
+- the list answers about the scoped business, and the same function against a
+  customer's business does not return our people
+- a contact is listed and is distinguishable from a member by `invitedAt`
+- a person in another business is indistinguishable from one that does not exist
+- **an account logs in holding no membership on the business it logs in to** —
+  the corrected reading of [[DOC-42]] §4, asserted rather than described
+- `users.status` is the login control, and a suspended person is refused
+  `user_inactive`
+- the detail lists the businesses that person runs, including a second one
+- an account holding two grants shows both, each naming its business
+- a grant that names no business is refused
+- revocation marks the grant and does not delete it
+- the fulfilment control is refused to a customer who owns their own business
+
+Regression scope: `test_UAT_FC_REQ-161_library_tab` and `req115-builder-shell`
+pass. Twelve suites fail on this branch and **fail identically on the base
+commit** — the knowledge-base cluster (REQ-123/158/159/160/163/165 and the two
+`reconciliation-*` files) and `bug32-webui-scope-rebrand` — none touched here.
+
+### Not done, and why
+
+- **The invite.** The tab reads and edits; it does not yet provision. The one
+  control that would is `/api/admin/businesses`, which exists ([[REQ-180]] D2)
+  and is wired to `canFulfil` but calls no starter-site path of its own.
+- **`display_name` editing.** [[REQ-183]] §5 records that `users.display_name`
+  and `tenants.name` are changeable by nobody, and calls it a different ticket.

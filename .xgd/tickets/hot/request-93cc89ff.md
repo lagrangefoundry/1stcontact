@@ -5,10 +5,10 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-09-04T23:58:13.760581+00:00'
+updated_at: '2026-11-01T14:13:50.612466+00:00'
 completed_at: null
 last_field_updated: status
-status: free_coding
+status: bundled
 fields:
   priority: medium
   story_points: 2
@@ -60,9 +60,17 @@ without membership is real, it is ours alone, and [[DOC-40]] §7 parks its gener
 form. What it must stop doing is doubling as a statement about ownership. The
 name is worth deciding rather than defaulting — `platform_operator` says what it
 does; `platform_admin` retained for just this half would leave the old reading
-available to anyone who does not read this ticket.
+available to anyone who does not read this ticket. **`platform_operator` is the
+name that landed**, renamed by `0007_platform_operator.sql`.
 
-**`PLATFORM_ADMINS` stays exactly as [[DOC-40]] §6 argues.**
+**`PLATFORM_ADMINS` stays exactly as [[DOC-40]] §6 argues** — which turned out to
+mean **building it**. The var was a design in §6 and had no reader, no
+declaration and no code anywhere in the repository; the flag alone carried the
+break-glass capability. That was survivable only while ownership was an ambient
+column. Moving ownership behind a `memberships` row is what makes the var
+load bearing rather than aspirational, so this ticket implements it: see *The
+bootstrapping constraint* below, which is now a description of shipped behaviour
+rather than a requirement on it.
 
 ## The bootstrapping constraint is the hard part
 
@@ -111,3 +119,65 @@ behind rather than depend on it forever.
   extra scope.
 - Whatever the retained column is called, no reader treats it as a statement
   about ownership.
+
+## How it lands
+
+The decisions above leave a handful of mechanical consequences. They are written
+down here because each one is asserted, and a UAT with no sentence behind it is
+indistinguishable from drift.
+
+**The rename is a migration, ordered after [[REQ-184]]'s.** That ticket renames
+`memberships.account_id` to `business_id` — the very column the ownership half
+moves onto — so the two cannot be reordered. `ALTER TABLE ... RENAME COLUMN`
+carries no `IF NOT EXISTS`, which breaks 0003–0005's convention; what makes that
+safe is that `wrangler d1 migrations apply` records what it has run. `0004` and
+`0005` keep naming the old column, because they are history and ran against a
+schema where it had that name. A suite re-applying `0005` maps the rename forward,
+which is the form [[REQ-184]] already established.
+
+**`PLATFORM_ADMINS` is deployment configuration, declared on both sides of the
+inheritance line and empty by default.** A named wrangler environment inherits no
+vars, so a break-glass key declared once is one that does not exist in production
+— discovered at the only moment it is ever reached for. Empty means nobody, for
+the reason an unset `ACCESS_TEAM_DOMAIN` means deny; a value checked in would be
+a standing grant no `memberships` row records.
+
+**The seed runs inside `admit`, before the user lookup, and is idempotent.**
+Before the lookup because the lockout it repairs includes having no `users` row
+at all. Idempotent because every admission by a holder runs it, so a second
+membership row per login would corrupt the table admission is decided from. It
+writes rows and does not synthesise an admission: the holder is then admitted by
+the same reads as everybody else, against rows that are now there. `admit`
+otherwise still creates nothing — the exception is bounded by the var and by
+nothing else, and an address the var does not name is refused exactly as before.
+
+**The admitted business carries its `role`.** That is what lets ownership be read
+without a second query that could disagree with the one admission was decided
+from, and it is `null` exactly on the bypass path — so entering a business you
+host can never be read back as owning it. It is unconstrained text, like `plan`
+and `status`, so a role added when seats land is a code change and not a
+migration.
+
+**The ownership question gets two named predicates, and the fulfilment route is
+what reads them.** `ownsBusiness(admission, businessId)` asks it uniformly for
+any business; `ownsPlatformBusiness(env, admission)` is that, applied to the
+business whose product is businesses. `POST /api/admin/businesses` — the one
+surface the flag gated — now calls the second and does not read the retained
+column at all. Both live in `identity.ts` because "which business's product is
+businesses" is `TENANT_ID`, and [[REQ-168]] left that variable exactly two
+readers; a route resolving it for itself would be a third. Both read the
+admission and touch no table, so ownership cannot be answered by a second query
+that disagrees with the one admission was decided from. Neither is a generic
+`isAdmin`, and [[REQ-180]]'s existing guard against one still holds.
+
+**The seed is exported, and [[REQ-180]]'s suite uses it.** That suite set up an
+administrator by inviting someone and setting the flag; the flag no longer
+confers what the route wants, so the setup says *owner of the 1st Contact
+business* instead — through `ensurePlatformOperator`, the path `PLATFORM_ADMINS`
+itself takes, rather than a hand-written approximation that could drift into
+granting something the real one does not.
+
+**[[REQ-180]]'s reader-count guard tightens rather than moving.** It held the
+count at two while the column was one column, explicitly so this split would be
+cheap; with the split made, the retained column has exactly one reader and no
+route among them. Two of its UATs are renamed to say one where they said two.

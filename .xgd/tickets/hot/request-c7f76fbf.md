@@ -5,10 +5,10 @@ type: request
 title: The Users tab is unstyled, and its detail panel splits one thing into two tables
 created_by: xgd
 created_at: '2026-09-05T20:17:18.378919+00:00'
-updated_at: '2026-09-05T20:40:43.578280+00:00'
+updated_at: '2026-11-01T14:13:52.443710+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 3
@@ -23,6 +23,7 @@ fields:
     reconcile_sha: null
     main_sha: null
   version: 0.2.77
+  bundled_in: bundle-39edf66d
 ---
 
 # The Users tab is unstyled, and its detail panel splits one thing into two tables
