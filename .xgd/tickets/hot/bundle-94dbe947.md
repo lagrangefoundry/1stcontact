@@ -5,9 +5,9 @@ type: bundle
 title: BUG-48 + REQ-171 + REQ-168 + REQ-179 + REQ-169 + 6 more
 created_by: xgd
 created_at: '2026-11-01T05:18:02.740684+00:00'
-updated_at: '2026-11-01T05:19:24.983308+00:00'
+updated_at: '2026-11-01T12:41:32.516688+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: regression_anchor_uid
 status: reconciling
 fields:
   bundle_type: reconcile
@@ -195,6 +195,7 @@ fields:
   - f11f7e86bddcd71a68bf4217b113d779ada63fb0
   - 8ab6ca2dfcb910e1c779bd49a7d80744438414cd
   - aed402905292491b032f23f7d90abd31f86d23b8
+  regression_anchor_uid: report-71b1019e
 ---
 
 # Bundle
