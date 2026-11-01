@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-a55c2f35'
 created_by: xgd
 created_at: '2026-11-01T19:50:07.093769+00:00'
-updated_at: '2026-11-01T19:58:15.861939+00:00'
+updated_at: '2026-11-01T19:59:25.263986+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-a55c2f35
@@ -41,6 +41,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
