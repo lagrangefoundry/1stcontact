@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-c4f329d3'
 created_by: xgd
 created_at: '2026-11-01T09:10:16.638145+00:00'
-updated_at: '2026-11-01T09:10:16.638145+00:00'
+updated_at: '2026-11-01T09:13:00.966572+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 fields:
   report_kind: fix_plan
   subject_uid: story-c4f329d3
@@ -42,6 +42,7 @@ fields:
       criterion) or AC-1295 (orphaned acceptance criterion) or AC-1294 (orphaned acceptance
       criterion) or AC-1293 (orphaned acceptance criterion) or AC-1292 (orphaned acceptance
       criterion) or AC-1291 (orphaned acceptance criterion)
+  batches_pending: false
 ---
 
 {
