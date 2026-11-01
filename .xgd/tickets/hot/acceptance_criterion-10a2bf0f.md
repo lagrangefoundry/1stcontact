@@ -6,10 +6,10 @@ title: Acceptance not posted as JSON is refused 415 (non-POST 405) and leaves th
   record untouched
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:39:57.810566+00:00'
-updated_at: '2026-11-01T10:39:57.810566+00:00'
+updated_at: '2026-11-01T10:46:02.688224+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cd18650
   kind: behavior
