@@ -6,10 +6,10 @@ title: No Contacts-tab style rule keys on a pipeline-stage, access or grant-stat
   value
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:00:50.138548+00:00'
-updated_at: '2026-11-01T19:00:50.138548+00:00'
+updated_at: '2026-11-01T19:28:13.791876+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
