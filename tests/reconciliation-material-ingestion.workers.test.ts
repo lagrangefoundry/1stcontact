@@ -65,17 +65,30 @@ function bytesOf(text: string): Uint8Array {
  * so recording the uids it was handed is a direct observation of the
  * announcement rather than a tally the pipeline reports about itself.
  */
-function deps(over: Partial<RouterDeps> = {}): RouterDeps & { indexed: string[] } {
+function deps(over: Partial<RouterDeps> = {}): RouterDeps & { indexed: string[]; prompts: string[] } {
   const indexed: string[] = []
+  const prompts: string[] = []
   return {
     index: async () => async (uid: string) => {
       indexed.push(uid)
     },
     describeImage: async () => ({ text: 'A thing\n\nSomething depicted.', model: 'stub/vision-1' }),
+    // THE DOCUMENT DIGEST SEAM (REQ-173). A document's body is a digest a model
+    // writes from the extracted text, and the upload route refuses a deployment
+    // that could write none. The prompt is RECORDED, so a claim that the body was
+    // drawn from the file can be checked against what the describer was shown.
+    describeText: async (prompt: string) => {
+      prompts.push(prompt)
+      return { text: DIGEST, model: 'stub/digest-1' }
+    },
     ...over,
     indexed,
+    prompts,
   }
 }
+
+/** What the stub describer writes as every document's digest. */
+const DIGEST = 'Kitchen notes for a bakery: opening hours and overnight baking.'
 
 /** An upload through the entry point, exactly as a dropped file arrives. */
 async function upload(
@@ -154,7 +167,8 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // is what makes this end-to-end rather than an echo — a response that
     // reflected its own request would satisfy the first half alone.
     const text = 'The kitchen opens at six and the bread is baked overnight.'
-    const response = await upload(bytesOf(text), 'kitchen-notes.txt', 'text/plain')
+    const d = deps()
+    const response = await upload(bytesOf(text), 'kitchen-notes.txt', 'text/plain', d)
     expect(response.status).toBe(200)
     const body = (await response.json()) as Record<string, unknown>
 
@@ -182,11 +196,15 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.type).toBe('material')
     expect(ticket.title.trim()).not.toBe('')
-    // THE BODY IS THE DESCRIPTION — the text the corpus is searched over. Drawn
-    // from the file itself and not from its name, which is the distinction that
-    // makes one corpus out of documents, pictures and fonts alike.
-    expect(ticket.body).toContain('bread is baked overnight')
-    expect(ticket.body).not.toBe('kitchen-notes.txt')
+    // THE BODY IS THE DESCRIPTION — the text the corpus is searched over. Since
+    // REQ-173 a document's description is a DIGEST the describer writes, so the
+    // body is exactly what it wrote, and the describer was shown the FILE'S OWN
+    // WORDS rather than its name — the distinction that makes one corpus out of
+    // documents, pictures and fonts alike.
+    expect(ticket.body).toBe(DIGEST)
+    expect(d.prompts).toHaveLength(1)
+    expect(d.prompts[0]).toContain('bread is baked overnight')
+    expect(ticket.fields.description_model).toBe('stub/digest-1 (text-decode)')
     // Carried on the record, so the material can be listed without reading
     // anything else.
     expect(ticket.fields.filename).toBe('kitchen-notes.txt')
@@ -512,10 +530,16 @@ describe('story-6ccaedd5 — a file handed to the platform becomes material', ()
     // deployment, so the operator knows what to fix.
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     // No indexer is injected and the env declares no AI binding, so the router
-    // resolves the deployment's real absence rather than a stand-in for one.
-    const response = await upload(bytesOf('stored but unfindable'), 'lost.txt', 'text/plain', {
-      describeImage: undefined,
-    })
+    // resolves the deployment's real absence rather than a stand-in for one. A
+    // DESCRIBER is still configured (the default deps' text seam): the upload route
+    // refuses a deployment that can write no description at all (REQ-173), and that
+    // is a different absence from the one this criterion is about.
+    const response = await upload(
+      bytesOf('stored but unfindable'),
+      'lost.txt',
+      'text/plain',
+      deps({ index: undefined, describeImage: undefined }),
+    )
 
     // The ingestion SUCCEEDS — never reported to the client as a failure.
     expect(response.status).toBe(200)

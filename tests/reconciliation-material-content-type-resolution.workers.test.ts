@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import { MATERIAL_TEXT_KIND } from '../apps/control-app/src/material'
 import { applySchema } from './support/d1-site-factory'
 
 /**
@@ -21,12 +22,11 @@ import { applySchema } from './support/d1-site-factory'
  * registered MIME type for one, and the route's fallback to
  * `application/octet-stream` happens downstream of that silence.
  *
- * NO DESCRIBER IS WIRED FOR THE TEXTUAL CASES, deliberately. If reading a client's
- * markdown needed a model, these would pass against a stub while the product
- * stayed broken for every deployment without a key. Reading text is code, so it
- * must pass with nothing configured. The one double is the vision seam, which is a
- * model boundary miniflare has no local Workers AI to reach — and no criterion
- * here is about the quality of a description, only about which type reached it.
+ * TWO DOUBLES, BOTH AT MODEL BOUNDARIES — the vision seam and the document digest
+ * seam. Since REQ-173 the upload route refuses a deployment with no describer, so
+ * one has to be wired; the stub records what it was shown, which is how "the
+ * markdown was read as markdown" is observed. No criterion here is about the
+ * quality of a description, only about which type reached it.
  *
  * READ BACK THROUGH A SECOND HANDLE. The durable record is what a later
  * re-describe pass reads and what the Library shows, so the assertions that matter
@@ -54,9 +54,19 @@ function routerEnv(): RouterEnv {
  * of an image description is the description story's. What matters is only that
  * the pipeline runs to completion so the recorded type can be read back.
  */
+const prompts: string[] = []
+const DIGEST = 'A positioning summary for a data-pipeline business.'
 const deps: RouterDeps = {
   index: async () => async () => {},
   describeImage: async () => ({ text: 'A mark\n\nA wordmark on a pale ground.', model: 'stub/vision-1' }),
+  // THE DOCUMENT DIGEST SEAM (REQ-173). The upload route refuses a deployment that
+  // can write no description, and a document's body is now a digest written from
+  // its extracted text. The prompt is recorded so "the describer read the file's
+  // own words" is an observation, not an inference from the body.
+  describeText: async (prompt: string) => {
+    prompts.push(prompt)
+    return { text: DIGEST, model: 'stub/digest-1' }
+  },
 }
 
 /** An upload through the entry point, exactly as a dropped file arrives. */
@@ -112,12 +122,21 @@ describe('story-6ccaedd5 — the content type is settled once, at the head', () 
     const { ticket } = await store.get({ uid: String(body.uid) })
     expect(ticket.fields.kind).toBe('document')
     expect(ticket.fields.content_type).toBe('text/markdown')
-    // The file's OWN WORDS as its body — the whole point of a body — rather than
-    // an account of what could not be read.
-    expect(ticket.body).toContain('audit trail')
-    expect(ticket.body).toContain('mid-market finance teams')
+    // The file was READ AS MARKDOWN: the describer was shown its own words, the
+    // body is the digest written from them rather than an account of what could
+    // not be read, and the extractor recorded is the text decoder — not the
+    // degraded branch an octet-stream would have taken.
+    expect(prompts.some((p) => p.includes('audit trail') && p.includes('mid-market finance teams'))).toBe(true)
+    expect(ticket.body).toBe(DIGEST)
     expect(ticket.body).not.toContain(UNREADABLE)
-    expect(ticket.fields.description_model).toBe('text-decode')
+    expect(ticket.fields.description_model).toBe('stub/digest-1 (text-decode)')
+    // And the file's own words are kept whole in the `material_text` comment,
+    // where deep retrieval reads them (REQ-173).
+    const { comments } = await store.comments({ uid: String(body.uid) })
+    const kept = comments.filter((c) => c.fields.kind === MATERIAL_TEXT_KIND)
+    expect(kept).toHaveLength(1)
+    expect(kept[0].body).toContain('audit trail')
+    expect(kept[0].body).toContain('mid-market finance teams')
 
     // AN EXTENSION NAMING AN IMAGE AND ONE NAMING A FONT, delivered just as
     // silently. The recorded kind and the recorded type must agree in each case:
