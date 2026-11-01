@@ -5,10 +5,10 @@ type: request
 title: '[split from REQ-178] straggler commits'
 created_by: xgd
 created_at: '2026-09-11T21:04:55.022970+00:00'
-updated_at: '2026-11-01T05:18:05.788163+00:00'
-completed_at: null
+updated_at: '2026-11-01T13:58:35.211455+00:00'
+completed_at: '2026-11-01T13:58:35.211455+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   commits:
   - working_sha: a9f1021dd88738c5976d7a86dbfee2a5db58373f
