@@ -6,10 +6,10 @@ title: A transcript read failure other than 'no conversation yet' is reported as
   failure, not as an empty conversation
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T02:37:54.516849+00:00'
-updated_at: '2026-11-01T02:37:54.516849+00:00'
+updated_at: '2026-11-01T09:51:05.066563+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
