@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Without scripting the erasure explanation is shown in full
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:16:14.814382+00:00'
-updated_at: '2026-11-01T20:16:14.814382+00:00'
+updated_at: '2026-11-01T20:26:44.593426+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-83ff6262
   kind: behavior
