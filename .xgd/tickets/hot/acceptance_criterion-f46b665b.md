@@ -6,10 +6,10 @@ title: 'The ledger is maintained on a stated trigger: one entry per decision as 
   is settled, and the engagement renamed once the business is known'
 created_by: xgd
 created_at: '2026-11-01T09:27:33.793660+00:00'
-updated_at: '2026-11-01T09:27:33.793660+00:00'
+updated_at: '2026-11-01T09:51:03.428838+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a58a0974
   kind: behavior
