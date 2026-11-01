@@ -386,7 +386,9 @@ function businessTable(rows, onRevoke) {
         cell(line, 'td', 'builder-people__plan', grant.plan)
         cell(line, 'td', 'builder-people__window', windowOf(grant))
         const status = cell(line, 'td', 'builder-people__grantstatus', grant.status)
-        if (grant.status !== 'revoked') {
+        // No `onRevoke` means this caller is not the operator — the route would
+        // refuse them, so the control is not offered ([[REQ-183]] §6).
+        if (grant.status !== 'revoked' && onRevoke) {
           const withdraw = el('button', 'builder-people__revokegrant', 'Withdraw')
           withdraw.type = 'button'
           withdraw.addEventListener('click', () => void onRevoke(grant.id))
@@ -727,11 +729,18 @@ export function createPeoplePanel(options = {}) {
         el('p', 'builder-people__empty', 'None — they run no business, and hold no grant.'),
       )
     } else {
+      // Withdrawing a grant is the operator's act, the same `canFulfil` answer
+      // the provisioning control renders on; `/api/grants/revoke` re-checks it.
       businesses.append(
-        businessTable(joined, async (grantId) => {
-          await transport.revoke(grantId)
-          await reopen(detail.person.id, view)
-        }),
+        businessTable(
+          joined,
+          canFulfil
+            ? async (grantId) => {
+                await transport.revoke(grantId)
+                await reopen(detail.person.id, view)
+              }
+            : null,
+        ),
       )
     }
 

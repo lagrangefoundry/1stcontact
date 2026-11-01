@@ -725,6 +725,43 @@ export async function revokeGrant(env: IdentityEnv, grantId: string): Promise<vo
 }
 
 /**
+ * Is `businessId` one of the businesses this tab can see?
+ *
+ * THE SAME POPULATION AS THE DETAIL'S BUSINESS TABLE: a business somebody in the
+ * scoped business holds a membership on ({@link personDetail}'s `operates`). A
+ * grant route that took the business from the body unchecked would let a caller
+ * in one scope write a grant onto any business whose id they had learned; asked
+ * here, an id outside the scope gets the same answer as one that never existed.
+ */
+export async function businessInScope(env: IdentityEnv, scope: Scope, businessId: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    'SELECT 1 AS hit FROM memberships m JOIN users u ON u.id = m.user_id ' +
+      'WHERE m.business_id = ? AND u.tenant_id = ? LIMIT 1',
+  )
+    .bind(businessId, scope.businessId)
+    .first<{ hit: number }>()
+  return row !== null
+}
+
+/**
+ * The business a grant is about, if that grant exists AND is within `scope`.
+ *
+ * Null for both "no such grant" and "not one this scope can see", so a revoke of
+ * another scope's grant is indistinguishable from a revoke of an unknown id.
+ */
+export async function grantBusinessInScope(
+  env: IdentityEnv,
+  scope: Scope,
+  grantId: string,
+): Promise<string | null> {
+  const row = await env.DB.prepare('SELECT business_id FROM entitlements WHERE id = ?')
+    .bind(grantId)
+    .first<{ business_id: string }>()
+  if (!row) return null
+  return (await businessInScope(env, scope, row.business_id)) ? row.business_id : null
+}
+
+/**
  * The gate on this tab's product-fulfilment controls lives in `identity.ts`.
  *
  * NOT REIMPLEMENTED HERE, and not as a query. [[REQ-185]] exports

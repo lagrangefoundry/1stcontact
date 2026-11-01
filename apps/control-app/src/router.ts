@@ -37,6 +37,8 @@ import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
 import {
+  businessInScope,
+  grantBusinessInScope,
   InvalidGrantError,
   InvalidInviteError,
   InvalidPersonRecordError,
@@ -1455,17 +1457,30 @@ async function routeUncached(
      * that omitted the object would silently change whichever one it found first.
      * The subject is separate and optional — null opens a per-business capacity
      * grant, which is what every row written so far is ([[REQ-184]]).
+     *
+     * GATED ON `ownsPlatformBusiness`, NOT `ownsBusiness` ([[REQ-183]] §6).
+     * "REQ-170 is the operator's tool: every account, every grant" — and a
+     * customer-reachable route onto a live `pro` grant is the unbounded free-plan
+     * mint [[REQ-180]] D2 forbids. Owning your own business does not let you grant
+     * yourself access to it. The business named must also be one this scope can
+     * see ({@link businessInScope}); an id from outside it is refused and nothing
+     * is written.
      */
     if (p === GRANTS_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return refuseNonOwner('grant_refused', scope, 'Only an owner of this business may open a grant.')
+      if (!ownsPlatformBusiness(identityEnv, deps.admission)) {
+        return refuseNonOwner('grant_refused', scope, 'Only the 1st Contact operator may open a grant.')
       }
       const body = await readJsonBody(request)
+      const businessId = typeof body.businessId === 'string' ? body.businessId : ''
+      // An empty id falls through to `openGrant`'s own refusal, which says so.
+      if (businessId.trim() !== '' && !(await businessInScope(identityEnv, scope, businessId.trim()))) {
+        throw new InvalidGrantError('No such business among these contacts.')
+      }
       return json(
         200,
         await openGrant(identityEnv, {
-          businessId: typeof body.businessId === 'string' ? body.businessId : '',
+          businessId,
           accountId: typeof body.accountId === 'string' ? body.accountId : null,
           plan: typeof body.plan === 'string' ? body.plan : '',
           startsAt: typeof body.startsAt === 'string' ? body.startsAt : undefined,
@@ -1483,14 +1498,22 @@ async function routeUncached(
      * thing being kept, and a deleted row takes with it the answer to "what were
      * they promised, and when did we stop honouring it" — which is what anyone
      * asking about a refusal is actually asking.
+     *
+     * THE SAME OPERATOR GATE AS OPENING ONE, and the same scope rule: a grant on
+     * a business this scope cannot see is "No such grant.", exactly as an id that
+     * never existed is.
      */
     if (p === GRANT_REVOKE_PATH && method === 'POST') {
       const scope = requireScope()
-      if (!ownsBusiness(deps.admission, scope.businessId)) {
-        return refuseNonOwner('grant_revoke_refused', scope, 'Only an owner of this business may withdraw a grant.')
+      if (!ownsPlatformBusiness(identityEnv, deps.admission)) {
+        return refuseNonOwner('grant_revoke_refused', scope, 'Only the 1st Contact operator may withdraw a grant.')
       }
       const body = await readJsonBody(request)
-      await revokeGrant(identityEnv, typeof body.id === 'string' ? body.id : '')
+      const id = typeof body.id === 'string' ? body.id : ''
+      if ((await grantBusinessInScope(identityEnv, scope, id)) === null) {
+        throw new InvalidGrantError('No such grant.')
+      }
+      await revokeGrant(identityEnv, id)
       return json(200, { ok: true })
     }
 

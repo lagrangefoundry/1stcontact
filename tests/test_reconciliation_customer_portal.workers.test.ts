@@ -3,9 +3,10 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { provisionBusiness, type IdentityEnv } from '../apps/control-app/src/identity'
+import { admit, provisionBusiness, type IdentityEnv } from '../apps/control-app/src/identity'
+import { invitePerson } from '../apps/control-app/src/people'
 import { inviteAccount } from './support/invite-account'
-import { BUSINESSES_PATH } from '../apps/control-app/src/router'
+import { BUSINESSES_PATH, route } from '../apps/control-app/src/router'
 import { storeFor } from '../apps/control-app/src/store'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PORTAL_PATH, PORTAL_SLUG, portalHomePage, portalSiteJson } from '../apps/control-app/src/portal'
@@ -240,6 +241,41 @@ describe('story-83ff6262 — which portal an admitted account reaches', () => {
     expect(lapsedHtml).toContain('Delete account')
   })
 
+  /**
+   * ONE LEVEL DOWN, where the caller's own row is NOT in `TENANT_ID`. Bob is an
+   * account of Salon — his `users` row lives in Salon's tenant — and runs a shop
+   * of his own. Admitted against Salon (the deployment one level down), and
+   * routed by a Worker whose `TENANT_ID` is still the platform, the portal he
+   * gets is Salon's: the business he is an account OF, never the configured
+   * tenant and never the one he operates.
+   */
+  it('test_UAT_AC2234_the_portal_is_the_business_the_caller_is_an_account_of_never_tenant_id', async () => {
+    const owner = await invite({ email: anEmail(), accountName: 'Salon', endsAt: null })
+    const bobEmail = anEmail()
+    const bob = await invitePerson(identityEnv(), { businessId: owner.businessId }, { email: bobEmail, displayName: 'Bob' })
+    const shop = await provisionBusiness(identityEnv(), { accountUserId: bob.person.id, name: "Bob's Shop", email: bobEmail })
+
+    await authorPortalIn(PLATFORM, 'Host business portal')
+    await authorPortalIn(owner.businessId, 'Salon portal for its own accounts')
+    await authorPortalIn(shop.businessId, "Bob's shop portal")
+
+    const admission = await admit({ ...identityEnv(), TENANT_ID: owner.businessId }, bobEmail)
+    expect(admission.ok).toBe(true)
+    if (!admission.ok) return
+    // The premise: the caller's tenant is not the Worker's configured one.
+    expect(admission.user.tenant_id).toBe(owner.businessId)
+    expect(workerEnv().TENANT_ID).toBe(PLATFORM)
+
+    for (const scope of [{ businessId: shop.businessId }, null]) {
+      const res = await route(new Request(`https://app.example${PORTAL_PATH}`), workerEnv(), scope, { admission })
+      expect(res.status).toBe(200)
+      const html = await res.text()
+      expect(html).toContain('Salon portal for its own accounts')
+      expect(html).not.toContain('Host business portal')
+      expect(html).not.toContain("Bob's shop portal")
+    }
+  })
+
   it('test_UAT_AC2217_another_accounts_business_is_indistinguishable_from_a_missing_one', async () => {
     stubJwks()
     const mine = anEmail()
@@ -293,32 +329,23 @@ describe('story-83ff6262 — using the portal destroys nothing', () => {
       expect(b).not.toMatch(/formaction|formmethod/i)
     }
 
-    // The vetted client served under the portal is the only script; the only
-    // request method it can make is GET.
-    const client = await ask(`${PORTAL_PATH}/capabilities.js`, email).then((r) => r.text())
-    const portalClient = client.slice(client.indexOf('data-account-portal'))
-    expect(portalClient).toContain("method: 'GET'")
-    expect(portalClient.slice(0, portalClient.indexOf('enhanceAllAccountPortals'))).not.toMatch(
-      /method:\s*'(POST|PUT|PATCH|DELETE)'/i,
-    )
-
-    // Everything the browser fetches while Delete account and Close are pressed:
-    // the page, its sub-resources and the account endpoint the module names. All GETs.
+    // What a browser loads for the page — its sub-resources and the account
+    // endpoint the module names. (Pressing the controls in a DOM against a real
+    // origin, and recording the client's own requests, is the jsdom sibling's
+    // AC2219 case; this one holds the D1 side.)
     const src = html.match(/data-account-src="([^"]+)"/)?.[1]
     expect(src).toBe(BUSINESSES_PATH)
-    const sent: Array<{ method: string; path: string; status: number }> = []
-    for (const p of [PORTAL_PATH, `${PORTAL_PATH}/theme.css`, `${PORTAL_PATH}/capabilities.js`, src!]) {
-      const res = await ask(p, email)
-      sent.push({ method: 'GET', path: p, status: res.status })
+    for (const p of [`${PORTAL_PATH}/theme.css`, `${PORTAL_PATH}/capabilities.js`, src!]) {
+      expect((await ask(p, email)).status, p).toBe(200)
     }
-    expect(sent.every((s) => s.method === 'GET' && s.status === 200)).toBe(true)
 
     // Afterwards: user, memberships, entitlements and businesses unchanged, no
     // new row anywhere (so no erasure request was recorded), and the caller can
-    // still load the portal and their account endpoint.
+    // still load the portal, their account endpoint and the builder.
     expect(await footprint(email)).toEqual(before)
     expect(await tableCounts()).toEqual(countsBefore)
     expect((await ask(PORTAL_PATH, email)).status).toBe(200)
     expect((await ask(BUSINESSES_PATH, email)).status).toBe(200)
+    expect((await ask('/', email)).status).toBe(200)
   })
 })

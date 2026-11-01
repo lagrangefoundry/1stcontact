@@ -309,6 +309,7 @@ describe.skipIf(!WEBUI_INSTALLED)('story-a55c2f35 — Who they are', () => {
 describe.skipIf(!WEBUI_INSTALLED)('story-a55c2f35 — grants and login, in the detail', () => {
   it('test_UAT_AC2199_withdraw_shows_only_on_live_grants_sends_the_revoke_and_rereads', async () => {
     const { transport } = await openSarah({
+      canFulfil: true,
       grants: [
         grant({ id: 'ent_live', plan: 'pro', status: 'active' }),
         grant({ id: 'ent_gone', plan: 'support', status: 'revoked' }),
@@ -329,6 +330,18 @@ describe.skipIf(!WEBUI_INSTALLED)('story-a55c2f35 — grants and login, in the d
     const after = grantLine('pro')!
     expect(after.querySelector('.builder-people__grantstatus')?.textContent).toContain('revoked')
     expect(after.querySelector('.builder-people__revokegrant')).toBeNull()
+  })
+
+  it('test_UAT_AC2200_a_customer_owner_is_offered_no_withdraw_control', async () => {
+    const { transport } = await openSarah({
+      canFulfil: false,
+      grants: [grant({ id: 'ent_live', plan: 'pro', status: 'active' })],
+    })
+
+    const live = grantLine('pro')!
+    expect(live.querySelector('.builder-people__grantstatus')?.textContent).toContain('active')
+    expect(live.querySelector('.builder-people__revokegrant')).toBeNull()
+    expect(transport.revoked).toEqual([])
   })
 
   it('test_UAT_AC2201_may_sign_in_is_locked_and_the_panel_offers_no_suspend_control', async () => {

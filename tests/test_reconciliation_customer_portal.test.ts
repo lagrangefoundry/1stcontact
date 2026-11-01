@@ -457,6 +457,59 @@ describe('story-83ff6262 — the Delete account control and its explanation', ()
     const controls = [...p.doc.querySelectorAll('button, a[href]')].map((c) => (c.textContent ?? '').trim())
     expect(controls.sort()).toEqual(['Close', 'Delete account'])
   })
+
+  it('test_UAT_AC2219_pressing_delete_account_and_close_sends_only_gets_and_changes_nothing', async () => {
+    const ws = await openWorkspace()
+    authorPortal(ws.cwd)
+    const storage = path.join(ws.cwd, 'storage')
+    const before = snapshot(storage)
+
+    // The served page, enhanced by the module's own client, with every request
+    // the client makes sent to the real control-app origin and recorded. The
+    // window's own `fetch` and any form submission are recorded too, so a click
+    // handler that wrote by another path would show here.
+    const html = await ws.req(PORTAL_PATH).then((r) => r.text())
+    const sent: Array<{ method: string; url: string; status: number }> = []
+    const throughOrigin = async (url: string, init: RequestInit = {}): Promise<Response> => {
+      const method = (init.method ?? 'GET').toUpperCase()
+      const res = await ws.req(url, init)
+      sent.push({ method, url, status: res.status })
+      return res
+    }
+    const dom = new JSDOM(html)
+    const doc = dom.window.document
+    ;(dom.window as unknown as { fetch: typeof throughOrigin }).fetch = throughOrigin
+    const submits: string[] = []
+    doc.addEventListener('submit', (e) => submits.push(String((e.target as Element)?.tagName)))
+    const section = doc.querySelector('[data-account-portal]') as HTMLElement
+    enhanceAccountPortal(section, throughOrigin)
+    await settle()
+
+    const buttons = [...section.querySelectorAll('button')] as HTMLButtonElement[]
+    const reveal = buttons.find((b) => b.hasAttribute('aria-expanded'))!
+    const dismiss = buttons.find((b) => !b.hasAttribute('aria-expanded'))!
+    const erasure = section.querySelector('[data-account-erasure]') as HTMLElement
+    expect(reveal.textContent?.trim()).toBe('Delete account')
+    expect(dismiss.textContent?.trim()).toBe('Close')
+
+    reveal.dispatchEvent(new dom.window.Event('click'))
+    await settle()
+    expect(isHidden(erasure)).toBe(false)
+    dismiss.dispatchEvent(new dom.window.Event('click'))
+    await settle()
+    expect(isHidden(erasure)).toBe(true)
+
+    // Only GETs left the page, and the account endpoint answered them.
+    expect(sent.length).toBeGreaterThan(0)
+    expect(sent.filter((s) => s.method !== 'GET')).toEqual([])
+    expect(sent.every((s) => s.status === 200)).toBe(true)
+    expect(submits).toEqual([])
+
+    // Nothing in the store moved, and the portal and the builder still load.
+    expect(snapshot(storage)).toEqual(before)
+    expect((await ws.req(PORTAL_PATH)).status).toBe(200)
+    expect((await ws.req('/')).status).toBe(200)
+  })
 })
 
 // ── the account facts the client fills ───────────────────────────────────────

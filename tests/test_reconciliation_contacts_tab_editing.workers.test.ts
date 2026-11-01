@@ -551,39 +551,87 @@ describe('story-a55c2f35 — grants', () => {
     expect(await errorOf(unknown)).toBe('No such grant.')
   })
 
-  it('test_UAT_AC2200_grant_and_status_writes_are_refused_403_to_a_non_owner_and_allowed_to_an_owner', async () => {
+  it('test_UAT_AC2200_grants_are_the_operators_act_and_refused_403_to_every_customer_owner', async () => {
     stubJwks()
     const theirs = await aBusinessWithSomebodyInIt('Gated Ltd')
     const existing = await capacityGrantOf(theirs.businessId)
     const member = await aNonOwnerMemberOf(theirs.businessId)
     const asMember = await mint(member)
+    const asOwner = await mint(theirs.owner)
 
     const countBefore = await grantCount()
-    const personBefore = await rowById(theirs.businessId, theirs.personId)
 
-    const open = await post(asMember, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, theirs.businessId)
-    expect(open.status, 'a non-owner opened a grant').toBe(403)
-    const revoke = await post(asMember, GRANT_REVOKE_PATH, { id: existing }, theirs.businessId)
-    expect(revoke.status, 'a non-owner withdrew a grant').toBe(403)
-    const status = await post(
-      asMember,
-      PERSON_STATUS_PATH,
-      { id: theirs.personId, status: 'suspended' },
-      theirs.businessId,
-    )
-    expect(status.status, "a non-owner changed a person's login").toBe(403)
-
+    // Neither a member nor the business's own OWNER may open or withdraw a grant:
+    // owning your business does not let you grant yourself access to it.
+    for (const [who, token] of [
+      ['a non-owner', asMember],
+      ['the customer owner', asOwner],
+    ] as const) {
+      const open = await post(token, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, theirs.businessId)
+      expect(open.status, `${who} opened a grant`).toBe(403)
+      expect(await errorOf(open)).toBe('Only the 1st Contact operator may open a grant.')
+      const revoke = await post(token, GRANT_REVOKE_PATH, { id: existing }, theirs.businessId)
+      expect(revoke.status, `${who} withdrew a grant`).toBe(403)
+    }
     expect(await grantCount()).toBe(countBefore)
     expect((await grantRow(existing))?.status).toBe('active')
+
+    // The operator, from the 1st Contact business where these people are contacts, does both.
+    const operatorEmail = anEmail()
+    await anOperator(operatorEmail)
+    const asOperator = await mint(operatorEmail)
+    const opened = await post(asOperator, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, PLATFORM)
+    expect(opened.status).toBe(200)
+    expect(await grantCount()).toBe(countBefore + 1)
+    expect((await post(asOperator, GRANT_REVOKE_PATH, { id: existing }, PLATFORM)).status).toBe(200)
+    expect((await grantRow(existing))?.status).toBe('revoked')
+  })
+
+  it('test_UAT_AC2233_a_grant_naming_a_business_outside_the_scope_is_refused_and_nothing_is_written', async () => {
+    stubJwks()
+    const theirs = await aBusinessWithSomebodyInIt('Out Of Scope Ltd')
+    const target = await capacityGrantOf(theirs.businessId)
+    // Somewhere else to stand: a business whose people run nothing.
+    const elsewhere = await aBusinessWithSomebodyInIt('Elsewhere Ltd')
+    const operatorEmail = anEmail()
+    await anOperator(operatorEmail)
+    const asOperator = await mint(operatorEmail)
+
+    const countBefore = await grantCount()
+
+    // Scoped to Elsewhere Ltd (the hosting bypass), Out Of Scope Ltd is not one of
+    // the businesses its contacts run: the id is refused and nothing is written.
+    const open = await post(asOperator, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, elsewhere.businessId)
+    expect(open.status).toBe(400)
+    expect(await errorOf(open)).toBe('No such business among these contacts.')
+    expect(await grantCount()).toBe(countBefore)
+
+    // A grant on that business is "No such grant." — the same as an id that never existed.
+    const revoke = await post(asOperator, GRANT_REVOKE_PATH, { id: target }, elsewhere.businessId)
+    expect(revoke.status).toBe(400)
+    expect(await errorOf(revoke)).toBe('No such grant.')
+    const row = await grantRow(target)
+    expect(row?.status).toBe('active')
+    expect(row?.revoked_at).toBeNull()
+
+    // From the 1st Contact business, where the owner of Out Of Scope Ltd is a contact, both succeed.
+    expect((await post(asOperator, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, PLATFORM)).status).toBe(200)
+    expect((await post(asOperator, GRANT_REVOKE_PATH, { id: target }, PLATFORM)).status).toBe(200)
+    expect((await grantRow(target))?.status).toBe('revoked')
+  })
+
+  it('test_UAT_AC2200_a_persons_login_status_is_an_owner_act_refused_403_to_a_non_owner', async () => {
+    stubJwks()
+    const theirs = await aBusinessWithSomebodyInIt('Status Ltd')
+    const asMember = await mint(await aNonOwnerMemberOf(theirs.businessId))
+    const personBefore = await rowById(theirs.businessId, theirs.personId)
+
+    const refused = await post(asMember, PERSON_STATUS_PATH, { id: theirs.personId, status: 'suspended' }, theirs.businessId)
+    expect(refused.status, "a non-owner changed a person's login").toBe(403)
     expect((await rowById(theirs.businessId, theirs.personId)).status).toBe(personBefore.status)
 
-    // The owner performs all three.
     const asOwner = await mint(theirs.owner)
-    expect((await post(asOwner, GRANTS_PATH, { businessId: theirs.businessId, plan: 'pro' }, theirs.businessId)).status).toBe(200)
     expect((await post(asOwner, PERSON_STATUS_PATH, { id: theirs.personId, status: 'suspended' }, theirs.businessId)).status).toBe(200)
-    expect((await post(asOwner, GRANT_REVOKE_PATH, { id: existing }, theirs.businessId)).status).toBe(200)
-    expect(await grantCount()).toBe(countBefore + 1)
-    expect((await grantRow(existing))?.status).toBe('revoked')
     expect((await rowById(theirs.businessId, theirs.personId)).status).toBe('suspended')
   })
 })
