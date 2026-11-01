@@ -6,7 +6,7 @@ title: 'The account surface: the businesses endpoint, the customer portal, and t
   Business vocabulary'
 created_by: xgd
 created_at: '2026-09-02T23:15:34.866461+00:00'
-updated_at: '2026-11-01T13:58:38.953406+00:00'
+updated_at: '2026-11-01T13:58:45.025467+00:00'
 completed_at: '2026-11-01T13:58:38.953406+00:00'
 last_field_updated: status
 status: free_and_reconciled
