@@ -6,10 +6,10 @@ title: The portal accepts only GET and HEAD; every other method returns 405 and 
   nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:16:07.910321+00:00'
-updated_at: '2026-11-01T20:16:07.910321+00:00'
+updated_at: '2026-11-01T20:26:45.900202+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-83ff6262
   kind: behavior
