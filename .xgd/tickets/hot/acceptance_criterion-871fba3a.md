@@ -2,13 +2,14 @@
 uid: acceptance_criterion-871fba3a
 id: AC-1063
 type: acceptance_criterion
-title: The pane shows what that site's conversation already contains, on first open
-  and after the workspace is reloaded
+title: The pane shows what that site's conversation already contains on first open
+  and after the workspace is reloaded, including a turn still in progress, which it
+  continues to receive
 created_by: xgd
 created_at: '2026-08-10T08:46:30.897019+00:00'
-updated_at: '2026-09-14T07:27:55.739333+00:00'
+updated_at: '2026-11-01T03:06:05.186777+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: title
 status: active
 fields:
   story_uid: story-7f437d57
@@ -25,6 +26,11 @@ true when the workspace is first opened and again after it is reloaded, so what 
 assistant remembers is what the operator can see. A site with nothing said yet shows an
 empty conversation with an invitation to type, not another site's messages and not a
 blank pane.
+
+That includes a turn still in progress when the pane opens. A reload during an
+assistant reply does not lose the operator's message or the part of the reply already
+written: both are shown. The pane then keeps receiving the rest of that reply rather
+than leaving it frozen part-way (how it continues is stated on the rejoin criterion).
 
 Replay does not begin until the markdown engines the pane renders with have settled.
 Each turn is painted once and cannot afterwards be redrawn, so a conversation handed to
@@ -46,6 +52,11 @@ messages rendered in the pane against the turns the conversation reports, includ
 their order and their speakers. Reload the workspace and confirm the same turns are
 shown again. Repeat for a site with no history and confirm an empty conversation with
 its invitation to type.
+
+Open the pane on a conversation reported as having a turn in progress, whose transcript
+ends with the operator's message and part of a reply. Confirm the operator's message is
+shown, the partial reply text is visible, and further text for that turn then appears
+in the pane.
 
 For the ordering: hold the markdown engines' readiness open while the conversation's
 turns are already available, and confirm the pane has painted no message at all. Release
