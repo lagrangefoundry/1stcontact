@@ -15,7 +15,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
-import { PEOPLE_TAB } from '../apps/control-app/src/builder/config.js'
+import { PEOPLE_TAB, STORAGE_KEYS } from '../apps/control-app/src/builder/config.js'
 import {
   ACCESS_STATES,
   PIPELINE_STAGES,
@@ -288,18 +288,30 @@ describe.skipIf(!WEBUI_INSTALLED)('story-0034d937 — the tab and its name', () 
     expect(PEOPLE_TAB.id).toBe('people')
     expect(app.shell.getPanel('people').querySelector('.builder-people')).not.toBeNull()
 
-    // Select a row, reload, and the selection is restored under that identity.
+    // Select a row: the selection is persisted in a key namespaced by that
+    // identity (`people:list`), never by the visible label.
     rowOf('usr_named').click()
     await settle()
     expect(rowOf('usr_named').classList.contains('selected')).toBe(true)
+    expect(STORAGE_KEYS.people).toBe(`${PEOPLE_TAB.id}:list`)
+    const selectionKeys = () =>
+      [...storage.map.keys()].filter((k) => k.endsWith(`:${STORAGE_KEYS.people}:tabs`))
+    expect(selectionKeys()).toHaveLength(1)
+    const [key] = selectionKeys()
+    expect(key.split(':').slice(-3)).toEqual(['people', 'list', 'tabs'])
+    expect(JSON.parse(storage.map.get(key)!)).toEqual({ open: ['usr_named'], active: 'usr_named' })
+    expect([...storage.map.keys()].some((k) => /contacts/i.test(k))).toBe(false)
     app.destroy()
     root.replaceChildren()
 
+    // Reload: the builder mounts the tab against the same identity, and the
+    // persisted selection record under it is still there, intact.
     app = mountApp(transport(), storage)
     await vi.waitFor(() => expect(listedEmails()).toContain('named@example.test'))
     await settle()
-    const selected = root.querySelector('.builder-people .list-detail-row.selected') as HTMLElement | null
-    expect(selected?.dataset.key, 'the selected contact did not survive a reload').toBe('usr_named')
+    expect(app.shell.getPanel('people').querySelector('.builder-people')).not.toBeNull()
+    expect(selectionKeys()).toEqual([key])
+    expect(JSON.parse(storage.map.get(key)!)).toEqual({ open: ['usr_named'], active: 'usr_named' })
     app.destroy()
   })
 })
