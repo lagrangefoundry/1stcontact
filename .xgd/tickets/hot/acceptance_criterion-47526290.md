@@ -7,10 +7,10 @@ title: 1c builder and the package dev script start wrangler dev with the same en
   — from one shared definition
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T12:35:44.682309+00:00'
-updated_at: '2026-11-01T12:35:44.682309+00:00'
+updated_at: '2026-11-01T12:41:14.939220+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e15a19ef
   kind: behavior
