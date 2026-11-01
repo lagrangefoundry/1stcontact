@@ -5,7 +5,7 @@ type: bundle
 title: BUG-48 + REQ-171 + REQ-168 + REQ-179 + REQ-169 + 6 more
 created_by: xgd
 created_at: '2026-11-01T05:18:02.740684+00:00'
-updated_at: '2026-11-01T12:55:22.609795+00:00'
+updated_at: '2026-11-01T13:04:04.570271+00:00'
 completed_at: null
 last_field_updated: session_planner
 status: reconciling
@@ -198,8 +198,8 @@ fields:
   regression_anchor_uid: report-71b1019e
   session_builder: d9d8947e-14bf-4171-8641-518942e4632b
   session_builder_started_at: '2026-11-01T12:49:50.406614+00:00'
-  session_planner: f8c4a232-7ab5-497e-b5e2-336dbaf90e73
-  session_planner_started_at: '2026-11-01T12:55:22.322382+00:00'
+  session_planner: 76dd91a4-73df-4753-a46a-22ab7ab7bf29
+  session_planner_started_at: '2026-11-01T13:04:04.324797+00:00'
 ---
 
 # Bundle
