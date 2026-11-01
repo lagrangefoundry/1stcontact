@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-7b1025b8'
 created_by: xgd
 created_at: '2026-11-01T18:45:31.122841+00:00'
-updated_at: '2026-11-01T18:45:31.122841+00:00'
+updated_at: '2026-11-01T18:53:52.380122+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -104,6 +104,7 @@ fields:
         no provisionInvite export (mentioned only in the comment at line 34); provisionBusiness
         is at line 793 and admit at line 1076.'
       rung3: Not reached; no production change.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
