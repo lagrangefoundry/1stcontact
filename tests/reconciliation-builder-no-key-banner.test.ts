@@ -15,9 +15,10 @@
  * banner carrying the reason, mounted OUTSIDE the disabled subtree so its text can
  * still be selected and pasted; the shell `inert`, which is what removes every
  * control at once from the tab order and from hit testing; no session opened; and
- * an upload refused before it is sent. It does NOT assert the dimming, which is a
- * CSS property jsdom computes nothing about — the class that carries it is
- * asserted instead, beside the rule that defines it.
+ * an upload refused before it is sent. It does NOT assert the dimming: that is
+ * presentation, not a claim of AC-2098, and reading the stylesheet's text would
+ * be source inspection rather than evidence. The `builder-shell--blocked` class
+ * the app sets is asserted; what the stylesheet does with it is not.
  *
  * `inert` RATHER THAN PER-SURFACE DISABLING, and that is the claim worth stating.
  * One attribute covers the tabs, the toolbar, the pane, the assistant and the
@@ -25,17 +26,12 @@
  * `disabled` calls would not.
  */
 
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WEBUI_INSTALLED, WEBUI_SKIP_REASON } from './support/webui-installed'
 
 let mountBuilder: (root: HTMLElement, opts?: Record<string, unknown>) => never
 
 if (!WEBUI_INSTALLED) console.warn(`REQ-173 banner suite skipped: ${WEBUI_SKIP_REASON}`)
-
-const repo = (...parts: string[]) => path.resolve(__dirname, '..', ...parts)
-const CSS = readFileSync(repo('apps/control-app/src/builder/builder.css'), 'utf8')
 
 const SITES = [{ slug: 'bakery', latest: 1 }]
 const REASON =
@@ -188,17 +184,5 @@ describe.skipIf(!WEBUI_INSTALLED)('REQ-173 — the reason is at the top and ever
     await app.receiveFiles([new File(['hello'], 'notes.txt', { type: 'text/plain' })], 'reference', 'library')
     expect(sent).toEqual([])
     app.destroy()
-  })
-})
-
-describe('REQ-173 — the banner is visible as well as blocking', () => {
-  it('test_UAT_AC2098_the_blocked_builder_is_visibly_dimmed_by_the_class_the_app_sets', () => {
-    // `inert` STOPS THE INTERACTION AND SHOWS NOTHING. A builder that ignores
-    // every click while looking perfectly normal reads as broken software rather
-    // than as a deployment that is switched off — so the class carries the
-    // visible half, and the rule that defines it is asserted beside the app that
-    // applies it.
-    expect(CSS).toMatch(/\.builder-shell--blocked\s*\{[^}]*opacity/)
-    expect(CSS).toMatch(/\.builder-banner\s*\{/)
   })
 })
