@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T01:34:29.411823+00:00'
+updated_at: '2026-11-01T01:51:59.139831+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -149,7 +149,7 @@ fields:
       but nothing makes a capture into client material the assistant can recall. This
       extends the same tool (no new route, optional FidelityDeps dep) rather than
       introducing a new capability bucket.
-    story_uid: null
+    story_uid: STORY-159
     target_story_ids:
     - STORY-159
     acceptance_criteria_changes:
