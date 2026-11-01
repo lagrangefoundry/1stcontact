@@ -5,10 +5,10 @@ type: request
 title: 'The customer portal: the account''s own surface, rendered by the site pipeline'
 created_by: xgd
 created_at: '2026-09-04T01:41:53.923078+00:00'
-updated_at: '2026-11-01T14:13:51.234952+00:00'
-completed_at: null
+updated_at: '2026-11-01T22:57:20.692641+00:00'
+completed_at: '2026-11-01T22:57:20.692641+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: medium
   story_points: 5
