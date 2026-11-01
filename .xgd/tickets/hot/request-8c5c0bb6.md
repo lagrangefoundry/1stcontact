@@ -5,10 +5,10 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-11-01T05:18:03.584439+00:00'
-completed_at: null
+updated_at: '2026-11-01T13:58:41.326772+00:00'
+completed_at: '2026-11-01T13:58:41.326772+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
