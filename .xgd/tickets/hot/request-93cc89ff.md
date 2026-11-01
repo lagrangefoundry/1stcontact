@@ -5,7 +5,7 @@ type: request
 title: platform_admin is two capabilities wearing one flag
 created_by: xgd
 created_at: '2026-09-04T23:51:48.220142+00:00'
-updated_at: '2026-11-01T22:57:22.047789+00:00'
+updated_at: '2026-11-01T22:57:25.283051+00:00'
 completed_at: '2026-11-01T22:57:22.047789+00:00'
 last_field_updated: status
 status: free_and_reconciled
