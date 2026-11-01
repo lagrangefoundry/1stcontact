@@ -5,10 +5,10 @@ type: bundle
 title: REQ-185 + REQ-170 + REQ-183 + REQ-186 + BUG-51 + 6 more
 created_by: xgd
 created_at: '2026-11-01T14:13:50.255886+00:00'
-updated_at: '2026-11-01T22:24:28.767986+00:00'
-completed_at: null
-last_field_updated: session_builder
-status: reconciling
+updated_at: '2026-11-01T22:57:14.669122+00:00'
+completed_at: '2026-11-01T22:57:14.669122+00:00'
+last_field_updated: status
+status: free_and_reconciled
 fields:
   bundle_type: reconcile
   commits:
