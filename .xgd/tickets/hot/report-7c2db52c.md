@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-a55c2f35'
 created_by: xgd
 created_at: '2026-11-01T19:47:30.378129+00:00'
-updated_at: '2026-11-01T19:47:30.378129+00:00'
+updated_at: '2026-11-01T19:58:14.462008+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -80,6 +80,7 @@ fields:
       - file: apps/control-app/src/router.ts
         lines: 8079-8093
       trust_boundary: true
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
