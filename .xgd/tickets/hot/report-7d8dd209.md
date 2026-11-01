@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: free-coded BUNDLE-36 (REQ-185/170/183/186/188/189, BUG-51/52/53/54/56)'
 created_by: xgd
 created_at: '2026-11-01T17:54:53.149753+00:00'
-updated_at: '2026-11-01T20:16:46.691659+00:00'
+updated_at: '2026-11-01T20:30:52.407717+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -238,7 +238,7 @@ fields:
       story. 1c reset is the operator's control over the same local dev store the
       workspace command defaults to (AC-1401), so it extends that bucket rather than
       opening a new one.
-    story_uid: null
+    story_uid: story-e674c60a
     target_story_ids:
     - story-e674c60a
     - story-fde7370b
