@@ -5,10 +5,10 @@ type: bug
 title: An expired session renders as a working, empty account
 created_by: xgd
 created_at: '2026-09-05T19:10:55.261370+00:00'
-updated_at: '2026-11-01T14:13:52.728816+00:00'
-completed_at: null
+updated_at: '2026-11-01T22:57:17.174707+00:00'
+completed_at: '2026-11-01T22:57:17.174707+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   severity: high
   priority: high
