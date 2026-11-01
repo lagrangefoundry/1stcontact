@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest'
  * (story-387c9dfe — AC-2158, AC-2159, AC-2160).
  *
  * These are static guards over the builder's server source. The failures they
- * catch are shapes, not exceptions: a third reader of `platform_admin`, a
+ * catch are shapes, not exceptions: a second reader of `platform_operator`, a
  * generic `isAdmin`-style predicate, or code that asks whether a business is
  * "the platform's own". Each guard walks the whole tree (generated build output
  * excluded) and is proven against a sample, so it cannot pass by seeing nothing.
@@ -31,11 +31,12 @@ function sourceFiles(dir: string): string[] {
 const A_COMMENT_LINE = /^\s*(\*|\/\/|\/\*)/
 
 // ---------------------------------------------------------------------------
-// AC-2158 — the flag has exactly two readers.
+// AC-2158 — the hosting column has exactly one reader: scope entry. The
+// fulfilment gate asks `ownsPlatformBusiness` instead ([[REQ-185]]).
 
-const FLAG_READERS = new Set(['scope.ts', 'router.ts'])
-const A_PROPERTY_READ = /\.\s*platform_admin\b/
-const A_DESTRUCTURE = /\{[^{}\n]*\bplatform_admin\b[^{}\n]*\}\s*=/
+const FLAG_READERS = new Set(['scope.ts'])
+const A_PROPERTY_READ = /\.\s*platform_operator\b/
+const A_DESTRUCTURE = /\{[^{}\n]*\bplatform_operator\b[^{}\n]*\}\s*=/
 
 function readsOfTheFlag(source: string): number[] {
   const found: number[] = []
@@ -141,25 +142,30 @@ function offenders(scan: (source: string) => number[], exempt: Set<string> = new
 
 describe('Business Fulfilment — the gate is not a generic admin surface', () => {
   it('test_UAT_AC2158_platform_admin_is_read_only_by_scope_entry_and_the_fulfilment_gate', () => {
-    // No third reader anywhere in the tree; a violation names file:line.
+    // No second reader anywhere in the tree; a violation names file:line.
     expect(
       offenders(readsOfTheFlag, FLAG_READERS),
-      'platform_admin gained a third reader outside scope.ts and router.ts',
+      'platform_operator gained a reader outside scope.ts',
     ).toEqual([])
 
-    // Both allowed readers still consult it — deleting the gate would fail here.
+    // The fulfilment gate does not read it — it asks about ownership instead.
+    const router = fs.readFileSync(path.join(SRC, 'router.ts'), 'utf8')
+    expect(readsOfTheFlag(router)).toEqual([])
+    expect(router).toContain('ownsPlatformBusiness(')
+
+    // Scope entry still consults it — deleting the bypass would fail here.
     for (const name of FLAG_READERS) {
       const source = fs.readFileSync(path.join(SRC, name), 'utf8')
-      expect(readsOfTheFlag(source).length, `${name} stopped reading platform_admin`).toBeGreaterThan(0)
+      expect(readsOfTheFlag(source).length, `${name} stopped reading platform_operator`).toBeGreaterThan(0)
     }
 
     // The guard sees reads and excuses a declaration, SQL and a comment.
     const sample = [
-      '  platform_admin: number',
-      "    'INSERT INTO users (id, tenant_id, platform_admin) VALUES (?, ?, ?)',",
-      ' * `platform_admin` is ambient by design.',
-      '  if (admission.user.platform_admin) {',
-      '  const { platform_admin } = admission.user',
+      '  platform_operator: number',
+      "    'INSERT INTO users (id, tenant_id, platform_operator) VALUES (?, ?, ?)',",
+      ' * `platform_operator` is ambient by design.',
+      '  if (admission.user.platform_operator) {',
+      '  const { platform_operator } = admission.user',
     ].join('\n')
     expect(readsOfTheFlag(sample)).toEqual([4, 5])
   })

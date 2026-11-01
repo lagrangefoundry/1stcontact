@@ -3,10 +3,18 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { admit, provisionInvite, type IdentityEnv } from '../apps/control-app/src/identity'
+import {
+  admit,
+  ensurePlatformOperator,
+  findAccount,
+  provisionBusiness,
+  type IdentityEnv,
+} from '../apps/control-app/src/identity'
+import { invitePerson } from '../apps/control-app/src/people'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
+import { inviteAccount } from './support/invite-account'
 
 /**
  * **Business Fulfilment: only the operator adds a business, and a business
@@ -17,6 +25,11 @@ import { applySchema } from './support/d1-site-factory'
  * stubbed JWKS — the only external boundary. Admission is resolved in
  * `index.ts` ahead of routing, so these prove the wiring as well as the route.
  * Success is read back through `admit`, which is what the product reads.
+ *
+ * The gate is *owner of the 1st Contact business* ([[REQ-185]]), so the operator
+ * is seeded through `ensurePlatformOperator` — the path `PLATFORM_ADMINS` takes —
+ * and an account through the `inviteAccount` fixture, which is the two shipped
+ * calls (`invitePerson` then `provisionBusiness`) in order ([[REQ-186]]).
  */
 
 const PLATFORM = 'recon-fulfil-platform'
@@ -82,16 +95,18 @@ const anEmail = (): string => `recon-fulfil-${(seq += 1)}@example.test`
 
 /** An invitee who has accepted the terms — fully admitted. */
 async function customer(email: string, accountName: string) {
-  const result = await provisionInvite(identityEnv(), { email, accountName, endsAt: null })
+  const result = await inviteAccount(identityEnv(), { email, accountName, endsAt: null })
   await acceptTerms(identityEnv(), result.user.id)
   return result
 }
 
-/** The same, holding the fulfilment privilege. */
+/** An owner of the 1st Contact business — what the fulfilment gate asks for. */
 async function operator(email: string) {
-  const result = await customer(email, 'Platform')
-  await env.DB.prepare('UPDATE users SET platform_admin = 1 WHERE id = ?').bind(result.user.id).run()
-  return result
+  await ensurePlatformOperator(identityEnv(), email)
+  const account = await findAccount(identityEnv(), email)
+  if (!account) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), account.id)
+  return account
 }
 
 const addBusiness = async (token: string | null, body: unknown, over: Partial<Env> = {}) =>
@@ -140,6 +155,25 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
 
     expect(response.status).toBe(404)
     expect(await businessCount(email)).toBe(1)
+
+    // Holding the hosting column without owning the 1st Contact business is
+    // refused too: `platform_operator` does not open the fulfilment gate.
+    const hosting = anEmail()
+    await customer(hosting, 'Bakery')
+    await env.DB.prepare('UPDATE users SET platform_operator = 1 WHERE tenant_id = ? AND email = ?')
+      .bind(PLATFORM, hosting)
+      .run()
+    const own = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM memberships m JOIN users u ON u.id = m.user_id ' +
+        'WHERE u.email = ? AND m.business_id = ?',
+    )
+      .bind(hosting, PLATFORM)
+      .first<{ n: number }>()
+    expect(own?.n).toBe(0)
+
+    const refused = await addBusiness(await mint(hosting), { accountEmail: hosting, name: 'Studio' })
+    expect(refused.status).toBe(404)
+    expect(await businessCount(hosting)).toBe(1)
   })
 
   it('test_UAT_AC2150_refusal_body_is_not_found_and_names_neither_admin_nor_business', async () => {
@@ -225,15 +259,31 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
   })
 
   it('test_UAT_AC2154_creating_an_account_provisions_its_first_business', async () => {
+    // The invite makes the person and nothing else: on its own it leaves an
+    // account with no business, which the door refuses as `no_membership`.
     const email = anEmail()
-    const result = await provisionInvite(identityEnv(), { email, accountName: 'Salon', endsAt: null })
+    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email, displayName: null })
+    const bare = await admit(identityEnv(), email)
+    expect(bare.ok === false && bare.reason).toBe('no_membership')
+
+    // Provisioning the first business is the second step, and afterwards the
+    // account is admitted with exactly that one business, under its name.
+    const result = await provisionBusiness(identityEnv(), {
+      accountUserId: invited.person.id,
+      name: 'Salon',
+      email,
+      endsAt: null,
+    })
 
     expect(result.businessId).toBeTruthy()
     const business = await env.DB.prepare('SELECT name FROM tenants WHERE id = ?')
       .bind(result.businessId)
       .first<{ name: string }>()
     expect(business?.name).toBe('Salon')
-    expect(await businessCount(email)).toBe(1)
+    const admitted = await admit(identityEnv(), email)
+    expect(admitted.ok).toBe(true)
+    if (!admitted.ok) return
+    expect(admitted.businesses.map((b) => b.businessId)).toEqual([result.businessId])
   })
 
   it('test_UAT_AC2155_unknown_account_email_is_reported_plainly_with_404', async () => {
