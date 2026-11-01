@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: free-coded BUNDLE-36 (REQ-185/170/183/186/188/189, BUG-51/52/53/54/56)'
 created_by: xgd
 created_at: '2026-11-01T17:54:53.149753+00:00'
-updated_at: '2026-11-01T17:54:53.149753+00:00'
+updated_at: '2026-11-01T17:59:40.335684+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-39edf66d
@@ -34,7 +34,7 @@ fields:
       fulfilment privilege''). Intent explicitly supersedes those readings (Case 2).
       No new capability bucket: scope entry and the fulfilment gate already exist
       in capability-e5939ceb; only what they read changes.'
-    story_uid: null
+    story_uid: story-7102ffe3
     target_story_ids:
     - story-7102ffe3
     - story-387c9dfe
