@@ -4,6 +4,7 @@ import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/
 import { PROJECT_KB, projectKnowledgeFor } from '../apps/control-app/src/knowledge'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
 import { CLIENT_DESCRIBER } from '../apps/control-app/src/material'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema, makeD1Site } from './support/d1-site-factory'
 import { stubEmbedder } from './support/stub-embedder'
 
@@ -39,16 +40,23 @@ import { stubEmbedder } from './support/stub-embedder'
 
 const APPLIED = applySchema()
 
-function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
+function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]). It used to ride on the env as
+ * `TENANT_ID`; the business comes from the caller's identity now, so it is an
+ * argument the way a request supplies it — and the cross-account claims below
+ * ask as a DIFFERENT BUSINESS, not under a different env.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /**
  * The digest describer, doubled — no claim here is about how a document reads.
@@ -86,7 +94,8 @@ async function upload(
   if (file.slug) form.append('slug', file.slug)
   return route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     d,
   )
 }
@@ -98,7 +107,7 @@ async function body(response: Response): Promise<Record<string, unknown>> {
 /** Read the list route as the Library's list pane does. */
 async function listMaterial(tenant: string): Promise<Array<Record<string, unknown>>> {
   const answered = await body(
-    await route(new Request('https://app.test/api/material'), routerEnv(tenant), deps()),
+    await route(new Request('https://app.test/api/material'), routerEnv(), scopeOf(tenant), deps()),
   )
   return answered.material as Array<Record<string, unknown>>
 }
@@ -107,7 +116,8 @@ async function listMaterial(tenant: string): Promise<Array<Record<string, unknow
 async function readItem(tenant: string, uid: string): Promise<Response> {
   return route(
     new Request(`https://app.test/api/material/item?uid=${encodeURIComponent(uid)}`),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(),
   )
 }
@@ -125,7 +135,8 @@ async function correct(
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ uid, body: text }),
     }),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     d,
   )
 }
@@ -230,7 +241,8 @@ describe('AC-1723 — a material’s file comes back as itself', () => {
 
     const file = await route(
       new Request(`https://app.test/api/material/file?uid=${created.uid}`),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps(),
     )
     expect(file.status).toBe(200)
@@ -247,7 +259,7 @@ describe('AC-1723 — a material’s file comes back as itself', () => {
     // MATERIAL CARRYING NO ATTACHED FILE IS ANSWERED WITH A STATEMENT THAT IT HAS
     // NONE, NAMING IT — never with empty bytes, which the pane would render as a
     // broken preview and the client would read as a lost file.
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     const { ticket } = await store.create({
       type: 'material',
       title: 'A record with nothing attached',
@@ -262,7 +274,8 @@ describe('AC-1723 — a material’s file comes back as itself', () => {
     })
     const empty = await route(
       new Request(`https://app.test/api/material/file?uid=${ticket.uid}`),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps(),
     )
     expect(empty.status).toBe(400)
@@ -275,7 +288,7 @@ describe('AC-1723 — a material’s file comes back as itself', () => {
 describe('AC-1724 — a uid that is not this account’s material is answered not-found, and a write so answered changes nothing', () => {
   it('test_UAT_AC1724_every_library_operation_answers_not_found_and_leaves_the_named_record_alone', async () => {
     const tenant = 'story1500b111-scope'
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
 
     // A RECORD OF ANOTHER KIND IN THE SAME ACCOUNT. The account barrier is not
     // what is under test here — this is the other half: a uid off the wire must
@@ -292,7 +305,8 @@ describe('AC-1724 — a uid that is not this account’s material is answered no
     expect(item.status).toBe(404)
     const file = await route(
       new Request(`https://app.test/api/material/file?uid=${ticket.uid}`),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps(),
     )
     expect(file.status).toBe(404)
@@ -318,7 +332,8 @@ describe('AC-1724 — a uid that is not this account’s material is answered no
       (
         await route(
           new Request(`https://app.test/api/material/file?uid=${absent}`),
-          routerEnv(tenant),
+          routerEnv(),
+          scopeOf(tenant),
           deps(),
         )
       ).status,
@@ -338,7 +353,7 @@ describe('AC-1721 — an empty description is refused, and the stored one is unt
         role: 'reference',
       }),
     )
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     const stored = (await store.get({ uid: String(created.uid) })).ticket.body
     expect(stored).toBeTruthy()
 
@@ -383,7 +398,7 @@ describe('AC-1720 — a description the client wrote is recorded as theirs', () 
     )
     expect(corrected.description_status).toBe('no_describer')
 
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     /** The selection a re-description pass uses: anything not successfully described. */
     const backlog = async () =>
       (await store.list({ type: 'material', limit: 'all' })).tickets
@@ -420,7 +435,7 @@ describe('AC-1719 — the corrected description is what retrieval answers with a
   it('test_UAT_AC1719_search_finds_the_material_by_the_new_words_and_not_by_the_superseded_ones', async () => {
     const tenant = 'story1500b111-retrieval'
     const embedder = stubEmbedder()
-    const kb = await projectKnowledgeFor(routerEnv(tenant), { embedder, defer: () => {} })
+    const kb = await projectKnowledgeFor(routerEnv(), scopeOf(tenant), { embedder, defer: () => {} })
     const index = async () => async () => void (await kb.onMaterialWritten())
 
     // A DISTRACTOR FIRST, so the claims below are about RANKING and not merely

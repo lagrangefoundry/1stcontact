@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { adoptCapture } from '../apps/control-app/src/capture-material'
 import { r2ReferenceStore } from '../tools/generate/src/store/r2-reference-store'
 import {
@@ -36,15 +37,20 @@ import { applySchema } from './support/d1-site-factory'
 const APPLIED = applySchema()
 const TENANT = 'story1500b111-capture-file'
 
-function routerEnv(tenantId = TENANT): RouterEnv {
+function routerEnv(): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
   }
 }
+
+/**
+ * The business the case operates on ([[REQ-168]]): it used to ride on the env as
+ * `TENANT_ID`, and is now an argument the way a request's identity supplies it.
+ */
+const scopeOf = (businessId = TENANT): Scope => ({ businessId })
 
 function fileRequest(uid: string, member?: string): Request {
   const base = `https://app.test/api/material/file?uid=${encodeURIComponent(uid)}`
@@ -82,11 +88,10 @@ beforeAll(async () => {
 describe('AC-1723 — a capture’s named member comes back as itself, and naming one is never required of a single file', () => {
   it('test_UAT_AC1723_a_named_member_returns_its_own_bytes_type_and_name_and_an_unheld_member_is_refused_by_name', async () => {
     // The ticket store FIRST: it registers the tenant the reference store needs.
-    const tickets = await ticketStoreFor({
-      DB: env.DB as D1Database,
-      BLOBS: env.BLOBS as R2Bucket,
-      TENANT_ID: TENANT,
-    })
+    const tickets = await ticketStoreFor(
+      { DB: env.DB as D1Database, BLOBS: env.BLOBS as R2Bucket },
+      scopeOf(),
+    )
     const references = await r2ReferenceStore({
       DB: env.DB as D1Database,
       BLOBS: env.BLOBS as R2Bucket,
@@ -108,7 +113,7 @@ describe('AC-1723 — a capture’s named member comes back as itself, and namin
 
     // THE SCREENSHOT, BY NAME: its own bytes byte-for-byte, an image type, and
     // its own filename on an inline disposition.
-    const shot = await route(fileRequest(uid, SCREENSHOT_MEMBER), routerEnv(), {})
+    const shot = await route(fileRequest(uid, SCREENSHOT_MEMBER), routerEnv(), scopeOf(), {})
     expect(shot.status).toBe(200)
     expect(new Uint8Array(await shot.arrayBuffer())).toEqual(result.screenshot)
     expect(shot.headers.get('content-type')).toMatch(/^image\//)
@@ -118,7 +123,7 @@ describe('AC-1723 — a capture’s named member comes back as itself, and namin
 
     // THE SAME REQUEST NAMING THE JSON MEMBER answers with the JSON instead —
     // never the screenshot, never whichever record sorts first.
-    const json = await route(fileRequest(uid, CAPTURE_MEMBER), routerEnv(), {})
+    const json = await route(fileRequest(uid, CAPTURE_MEMBER), routerEnv(), scopeOf(), {})
     expect(json.status).toBe(200)
     const jsonBytes = new Uint8Array(await json.arrayBuffer())
     expect(jsonBytes).toEqual(new Uint8Array(storedJson as Uint8Array))
@@ -128,7 +133,7 @@ describe('AC-1723 — a capture’s named member comes back as itself, and namin
 
     // A MEMBER THE CAPTURE DOES NOT HOLD is refused with a statement naming the
     // member and the material — no bytes, and no other member in its place.
-    const missing = await route(fileRequest(uid, 'screenshot.thumb.png'), routerEnv(), {})
+    const missing = await route(fileRequest(uid, 'screenshot.thumb.png'), routerEnv(), scopeOf(), {})
     expect(missing.status).toBe(400)
     expect(missing.headers.get('content-type') ?? '').toMatch(/json/)
     const refusal = String(((await missing.json()) as Record<string, unknown>).error)
@@ -159,7 +164,7 @@ describe('AC-1723 — a capture’s named member comes back as itself, and namin
       filename: 'hours.txt',
       content_type: 'text/plain',
     })
-    const single = await route(fileRequest(single_.uid), routerEnv(), {})
+    const single = await route(fileRequest(single_.uid), routerEnv(), scopeOf(), {})
     expect(single.status).toBe(200)
     expect(await single.text()).toBe(note)
     expect(single.headers.get('content-type') ?? '').toMatch(/^text\/plain/)

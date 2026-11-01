@@ -310,11 +310,13 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2086 — a capture states its file count i
       'Where it came from',
       'Rights',
       'Can appear on the site',
-      'Used on',
+      // *Placed on*, not *Used on*, since REQ-181.
+      'Placed on',
       'Address',
     ]) {
       expect(labels).toContain(kept)
     }
+    expect(labels).not.toContain('Used on')
     expect(many.querySelector('.builder-library__members')!.textContent).toBe(
       `${MEMBERS.length} files captured`,
     )

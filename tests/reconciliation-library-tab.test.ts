@@ -9,9 +9,10 @@
  * CONTRACT — what the list carries, what the bytes come back as, what a
  * correction does to the record and to retrieval. This file is the SURFACE: that
  * the tab is the workspace's own `split` + `list-detail` CONFIGURED rather than a
- * second browser built beside them, that the list is the whole account with the
- * open site as a badge, that the four filters are a view over it, and that the
- * one thing a client may change about a piece of material is what it SAYS.
+ * second browser built beside them, and that the one thing a client may change
+ * about a piece of material is what it SAYS. The listing, the filters, the
+ * read-only record and the placement warning are proved against REQ-181's design
+ * in `reconciliation-library-badges-the-exception.test.ts`.
  *
  * MOUNTED AGAINST THE ACTUALLY-INSTALLED COMPONENTS, on the pattern the workspace
  * chrome suites established. A mocked `list-detail` would assert the mock, and
@@ -62,14 +63,8 @@ function memoryStorage(): Storage {
 }
 
 /**
- * The account's material, as the list route answers it.
- *
- * DELIBERATELY SPANS TWO SITES AND NEITHER. A fixture whose material was all
- * bound to the open site could not tell a badge from a boundary — which is the
- * single distinction AC-1715 is about. So one row is placed on the open site, one
- * on another site of the same client, and one on no site at all — read from the
- * recorded placement (`placed_on`), which replaced the upload-context `site_slug`
- * (BUG-47).
+ * The account's material, as the list route answers it — placement read from
+ * the recorded `placed_on` (BUG-47).
  */
 const MATERIAL = [
   {
@@ -117,7 +112,6 @@ const MATERIAL = [
     republishable: true,
     exportable: false,
     origin: 'uploaded',
-    // Placed on another site of the SAME client: present in the list, badged differently.
     placed_on: ['beta'],
     source_url: null,
     description_status: 'no_describer',
@@ -133,24 +127,12 @@ const BODIES: Record<string, string> = {
   'material-3': '',
 }
 
-/**
- * A transport over the fixture, counting what was ASKED of it.
- *
- * `listCalls` is not bookkeeping: AC-1716 says every axis is a view over the
- * same listed material rather than a re-scoped request, and the only mechanical
- * form of that claim is that narrowing — and changing the open site — costs no
- * further call to the list route.
- */
+/** A transport over the fixture, recording every description it was asked to save. */
 function transportOver(rows = MATERIAL) {
   const saved: Array<{ uid: string; body: string }> = []
-  const listCalls: number[] = []
   return {
     saved,
-    listCalls,
-    list: async () => {
-      listCalls.push(1)
-      return { material: rows.map((row) => ({ ...row })) }
-    },
+    list: async () => ({ material: rows.map((row) => ({ ...row })) }),
     item: async (uid: string) => ({
       ...rows.find((row) => row.uid === uid)!,
       body: BODIES[uid] ?? '',
@@ -194,32 +176,27 @@ beforeEach(() => {
 })
 
 /**
- * A mounted Library over the fixture, already loaded.
- *
- * The open site is held in a BOX rather than passed by value, because AC-1716's
- * last clause is about the site changing under a list that is not re-read.
+ * A mounted Library over the fixture, already loaded. The Library never asks
+ * which site is open (REQ-181): the host clears and refreshes it on a business
+ * switch, so there is no site to hand it.
  */
-async function library(initialSite: string | null = 'alpha') {
-  const site = { slug: initialSite }
+async function library() {
   const transport = transportOver()
   const panel = createLibraryPanel({
     storage: memoryStorage(),
     transport,
-    getSite: () => site.slug,
   }) as unknown as {
     element: HTMLElement
     listDetail: { select: (uid: string) => void }
     refresh: () => Promise<unknown>
     getRows: () => Array<Record<string, unknown>>
-    siteChanged: () => void
   }
   root.append(panel.element)
   await panel.refresh()
-  return { panel, transport, site }
+  return { panel, transport }
 }
 
 const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
-const titlesIn = (el: Element) => rowsIn(el).map((row) => row.textContent ?? '')
 
 /** Select a row and let the detail's second request land. */
 async function open(panel: { element: HTMLElement; listDetail: { select: (uid: string) => void } }, uid: string) {
@@ -278,165 +255,9 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-1714 — a Library beside the site tab, in
   })
 })
 
-describe.skipIf(!WEBUI_INSTALLED)('AC-1715 — the whole account’s material, with the open site as a badge', () => {
-  it('test_UAT_AC1715_the_list_spans_every_binding_and_only_the_open_site_row_is_badged', async () => {
-    const { panel } = await library('alpha')
-
-    // ALL THREE, including the one bound to the client's OTHER site and the one
-    // bound to none. A Library that showed only the open site's material would
-    // make their second site start as cold as their first.
-    expect(rowsIn(panel.element)).toHaveLength(3)
-    const shown = titlesIn(panel.element).join('\n')
-    expect(shown).toContain('The wordmark')
-    expect(shown).toContain('Brand guidelines')
-    expect(shown).toContain('The old shopfront')
-
-    // THE BADGE IS ON THE ROW FOR THIS SITE, AND ONLY THAT ONE — a "not used
-    // here" mark on the majority would be noise to say something about the few.
-    const badges = [...panel.element.querySelectorAll('.builder-library__badge--here')]
-    expect(badges).toHaveLength(1)
-    expect(badges[0].closest('.list-detail-row')!.textContent).toContain('The wordmark')
-  })
-})
-
-describe.skipIf(!WEBUI_INSTALLED)('AC-1716 — four axes, conjunctive, over the same listed material', () => {
-  it('test_UAT_AC1716_role_kind_used_here_and_typed_text_narrow_conjunctively_without_refetching', async () => {
-    const { panel, transport, site } = await library('alpha')
-    const control = <T extends HTMLElement>(cls: string) => panel.element.querySelector(cls) as T
-    const fire = (el: HTMLElement, type: string) => el.dispatchEvent(new Event(type))
-
-    const role = () => control<HTMLSelectElement>('.builder-library__role')
-    const kind = () => control<HTMLSelectElement>('.builder-library__kind')
-    const here = () => control<HTMLInputElement>('.builder-library__here input')
-    const search = () => control<HTMLInputElement>('.builder-library__search')
-
-    // BY WHAT IT IS FOR — the axis the client chose when adding it, and the one
-    // that separates a hero photograph from a competitor screenshot.
-    role().value = 'reference'
-    fire(role(), 'change')
-    expect(titlesIn(panel.element)).toEqual([expect.stringContaining('Brand guidelines')])
-    role().value = ''
-    fire(role(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(3)
-
-    // BY KIND — inferred from the content type, never asked.
-    kind().value = 'image'
-    fire(kind(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(2)
-
-    // CONJUNCTIVE: material must satisfy every axis that is set. `image` AND
-    // typed text leaves the one image whose name carries it.
-    search().value = 'shopfront'
-    fire(search(), 'input')
-    expect(titlesIn(panel.element)).toEqual([expect.stringContaining('The old shopfront')])
-
-    // Clearing an axis restores what the others still allow.
-    search().value = ''
-    fire(search(), 'input')
-    kind().value = ''
-    fire(kind(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(3)
-
-    // BY TYPED TEXT ALONE, matched against title and filename — `guidelines` is
-    // the FILENAME half of that pair, so a match on title only would miss it.
-    search().value = 'guidelines'
-    fire(search(), 'input')
-    expect(titlesIn(panel.element)).toEqual([expect.stringContaining('Brand guidelines')])
-    search().value = ''
-    fire(search(), 'input')
-
-    // BY USED ON THIS SITE — a view the client turns on, not a scope the origin
-    // imposed: the same list, narrowed here.
-    here().checked = true
-    fire(here(), 'change')
-    expect(titlesIn(panel.element)).toEqual([expect.stringContaining('The wordmark')])
-
-    // CHANGING WHICH SITE IS OPEN RE-DECIDES THE FILTER FROM THE MATERIAL ALREADY
-    // LISTED. The material did not change; only which of it is in use here.
-    site.slug = 'beta'
-    panel.siteChanged()
-    expect(titlesIn(panel.element)).toEqual([expect.stringContaining('The old shopfront')])
-    expect(panel.getRows().map((row) => row.uid)).toEqual(['material-3'])
-
-    // …and the badge follows with it, on the row that is now the open site's.
-    const badges = [...panel.element.querySelectorAll('.builder-library__badge--here')]
-    expect(badges).toHaveLength(1)
-    expect(badges[0].closest('.list-detail-row')!.textContent).toContain('The old shopfront')
-
-    // Turning it off restores the whole account's material.
-    here().checked = false
-    fire(here(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(3)
-
-    // NOT ONE OF THOSE NARROWINGS WAS A REQUEST. Every axis is a view over the
-    // material listed by the single load in `library()`.
-    expect(transport.listCalls).toHaveLength(1)
-  })
-})
-
-describe.skipIf(!WEBUI_INSTALLED)('AC-1717 — the file itself, and the rights record read-only', () => {
-  it('test_UAT_AC1717_detail_shows_the_file_and_offers_no_control_that_asserts_rights', async () => {
-    const { panel } = await library('alpha')
-
-    // AN IMAGE IS RENDERED FROM THE PLATFORM'S OWN BYTES for that material — a
-    // Library that could only list filenames asks the client to recognise a
-    // picture by its path.
-    const image = await open(panel, 'material-1')
-    const img = image.querySelector('.builder-library__image') as HTMLImageElement
-    expect(img).toBeTruthy()
-    expect(img.getAttribute('src')).toBe('/api/material/file?uid=material-1')
-    expect(img.alt).toBe('The wordmark')
-    // …beside a download offer carrying the original filename.
-    const imageDownload = image.querySelector('.builder-library__download') as HTMLAnchorElement
-    expect(imageDownload.getAttribute('download')).toBe('wordmark.svg')
-
-    // A BYTES-ARE-GONE RECORD SAYS SO, rather than leaving a broken-image glyph.
-    // The ordering the pipeline uses makes this state unconstructible in normal
-    // operation, so if it is ever reached, saying so is the only useful behaviour.
-    img.dispatchEvent(new Event('error'))
-    expect(image.querySelector('.builder-library__image')).toBeNull()
-    expect(image.querySelector('.builder-library__missing')!.textContent).toMatch(
-      /no longer in storage/i,
-    )
-
-    // A NON-IMAGE IS OFFERED AS A DOWNLOAD UNDER ITS OWN NAME, with no rendered
-    // picture at all.
-    const document_ = await open(panel, 'material-2')
-    expect(document_.querySelector('.builder-library__image')).toBeNull()
-    const download = document_.querySelector('.builder-library__download') as HTMLAnchorElement
-    expect(download.getAttribute('download')).toBe('guidelines.pdf')
-    expect(download.getAttribute('href')).toBe('/api/material/file?uid=material-2')
-
-    // THE RECORD, READ-ONLY. Every field the platform holds is displayed…
-    const rights = document_.querySelector('.builder-library__rights .fields')!
-    const named = (name: string) => rights.querySelector(`.fields-row[data-field="${name}"]`)!
-    expect(named('filename').textContent).toContain('guidelines.pdf')
-    expect(named('kind').textContent).toContain('document')
-    expect(named('origin').textContent).toContain('uploaded')
-    expect(named('rights').textContent).toContain('owned')
-    expect(named('role')).toBeTruthy()
-    expect(named('republishable')).toBeTruthy()
-    // `Used on` reads the recorded placement; this document is placed nowhere.
-    expect(named('placed_on')).toBeTruthy()
-    // Empty is the fields component's own placeholder, naming no site.
-    expect(named('placed_on').textContent!.replace('Used on', '').trim()).toMatch(/^[—-]?$/)
-    expect(named('source_url')).toBeTruthy()
-
-    // …AND NOT ONE OF THEM OFFERS ANY MEANS OF EDITING. Rights are inferred from
-    // provenance precisely so the client is never put in front of a legal
-    // question; a `republishable` they could set by hand would be that question
-    // with a checkbox on it. The component marks an editable row `is-editable`,
-    // so its absence across the block is the mechanical form of the claim.
-    for (const row of rights.querySelectorAll('.fields-row')) {
-      expect(row.classList.contains('is-editable'), row.getAttribute('data-field') ?? '').toBe(false)
-    }
-    expect(rights.querySelectorAll('.fields-value-editable')).toHaveLength(0)
-  })
-})
-
 describe.skipIf(!WEBUI_INSTALLED)('AC-1718 — the description is the one editable thing', () => {
   it('test_UAT_AC1718_undescribed_material_says_so_and_the_committed_correction_is_stored', async () => {
-    const { panel, transport } = await library('alpha')
+    const { panel, transport } = await library()
 
     // THE MATERIAL NOTHING HAS READ — the case the correction exists for. In
     // place of a description it carries a statement and an invitation, not an

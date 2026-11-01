@@ -529,5 +529,16 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2161 — only the never-placed site asset 
     expect(warnRule).toContain('--shell-danger')
     expect(warnRule).not.toContain('--shell-accent')
     expect(CSS_RULES).not.toContain('.builder-library__badge--here')
+
+    // A ROW THAT PREDATES `placed_on` — carrying only the retired upload-context
+    // `site_slug` (BUG-47, no backfill) — reads as placed nowhere: the retired
+    // field is never mistaken for placement, so it is warned and its *Placed on*
+    // is empty.
+    root.replaceChildren()
+    const legacy = material({ uid: 'legacy', title: 'Old row', filename: 'old.png', placed_on: undefined, site_slug: 'salon' })
+    const { panel: legacyPanel } = await library([legacy])
+    expect(keysIn(legacyPanel.element)).toEqual(['legacy'])
+    expect(warnedKeys(legacyPanel.element)).toEqual(['legacy'])
+    expect((await placedOn(legacyPanel, 'legacy')).value).toMatch(/^[—-]?$/)
   })
 })

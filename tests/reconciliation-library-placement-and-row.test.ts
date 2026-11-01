@@ -1,18 +1,13 @@
 // @vitest-environment jsdom
 /**
- * Library (STORY-1500b111) — placement, filters and row presentation, as
- * reconciled in BUNDLE-32 (BUG-47, REQ-176).
+ * Library (STORY-1500b111) — row presentation, as reconciled in BUNDLE-32
+ * (REQ-176) and corrected for REQ-181.
  *
- * WHAT THIS FILE PROVES. The five criteria this bundle reshaped: the list is the
- * whole account's material with the open site as a badge decided by the recorded
- * placement (`placed_on`), the four filter axes narrow that same list, the badge,
- * the `Used on` row and the `Used on this site` filter agree on every row across
- * a site switch, every row leads with one labelled type icon instead of a kind
- * pill, and the row is laid out on one line by its stylesheet contract.
- *
- * THE FIXTURE CARRIES THE BUG. One row was handed over as background while the
- * open site was selected, one is a promotion that failed — both carry an empty
- * `placed_on`, so a surface that still read upload context would badge them.
+ * WHAT THIS FILE PROVES. Every row leads with one labelled type icon instead of
+ * a kind pill, carrying only its role pill and — on an unplaced site asset — the
+ * not-on-the-site warning (AC-2019); and the row is laid out on one line by its
+ * stylesheet contract (AC-2020). The listing, the filters and the placement
+ * warning are proved in `reconciliation-library-badges-the-exception.test.ts`.
  */
 
 import { readFileSync } from 'node:fs'
@@ -63,7 +58,7 @@ function material(over: Record<string, unknown>): Record<string, unknown> {
 
 /**
  * Five rows spanning every placement case the criteria name, across both roles
- * and two kinds. `alpha` is the open site; `beta` is the client's other site.
+ * and two kinds — placed, unplaced, and background.
  */
 const PLACEMENT = [
   material({ uid: 'placed-here', title: 'The wordmark', filename: 'wordmark.svg', placed_on: ['alpha'] }),
@@ -77,7 +72,7 @@ const PLACEMENT = [
     republishable: false,
   }),
   material({
-    // Handed over as background while `alpha` was open — never placed.
+    // Handed over as background — never placed, by construction.
     uid: 'background-while-here',
     title: 'Positioning note',
     filename: 'positioning.md',
@@ -102,13 +97,8 @@ const KINDS = [
 ]
 
 function transportOver(rows: Array<Record<string, unknown>>) {
-  const listCalls: number[] = []
   return {
-    listCalls,
-    list: async () => {
-      listCalls.push(1)
-      return { material: rows.map((row) => ({ ...row })) }
-    },
+    list: async () => ({ material: rows.map((row) => ({ ...row })) }),
     item: async (uid: string) => ({ ...rows.find((row) => row.uid === uid)!, body: 'About it.' }),
     save: async (uid: string, body: string) => ({ ...rows.find((row) => row.uid === uid)!, body }),
     fileUrl: (uid: string) => `/api/material/file?uid=${encodeURIComponent(uid)}`,
@@ -119,7 +109,6 @@ type Panel = {
   element: HTMLElement
   listDetail: { select: (uid: string) => void }
   refresh: () => Promise<unknown>
-  siteChanged: () => void
 }
 
 beforeAll(async () => {
@@ -150,35 +139,21 @@ beforeEach(() => {
   document.body.append(root)
 })
 
-/** A mounted Library; the open site is boxed so it can change under the list. */
-async function library(rows = PLACEMENT, initialSite: string | null = 'alpha') {
-  const site = { slug: initialSite }
+/** A mounted Library. It never asks which site is open (REQ-181). */
+async function library(rows = PLACEMENT) {
   const transport = transportOver(rows)
-  const panel = createLibraryPanel({
-    storage: memoryStorage(),
-    transport,
-    getSite: () => site.slug,
-  }) as unknown as Panel
+  const panel = createLibraryPanel({ storage: memoryStorage(), transport }) as unknown as Panel
   root.append(panel.element)
   await panel.refresh()
-  return { panel, transport, site }
+  return { panel, transport }
 }
 
 const rowsIn = (el: Element) => [...el.querySelectorAll('.list-detail-row')]
 const keysIn = (el: Element) => rowsIn(el).map((r) => r.getAttribute('data-key'))
-const badgedKeys = (el: Element) =>
-  [...el.querySelectorAll('.builder-library__badge--here')].map((b) =>
+const warnedKeys = (el: Element) =>
+  [...el.querySelectorAll('.builder-library__badge--unplaced')].map((b) =>
     b.closest('.list-detail-row')!.getAttribute('data-key'),
   )
-
-/** The `Used on` row's value: its text with the label removed. */
-async function usedOn(panel: Panel, uid: string): Promise<string> {
-  panel.listDetail.select(uid)
-  await settle()
-  const row = panel.element.querySelector('.builder-library__rights .fields-row[data-field="placed_on"]')!
-  expect(row, 'no Used on row in the record').toBeTruthy()
-  return (row.textContent ?? '').replace('Used on', '').trim()
-}
 
 /** The stylesheet with its comments removed, so prose about a rule is never read as one. */
 const CSS_RULES = CSS.replace(/\/\*[\s\S]*?\*\//g, '')
@@ -219,146 +194,9 @@ function values(selector: string, property: string): string[] {
   return [...rule(selector).matchAll(re)].map((m) => m[1].trim())
 }
 
-describe.skipIf(!WEBUI_INSTALLED)('AC-1715 — the whole account, with the open site as a badge', () => {
-  it('test_UAT_AC1715_every_placement_is_listed_and_only_material_placed_on_the_open_site_is_badged', async () => {
-    const { panel } = await library(PLACEMENT, 'alpha')
-
-    // ALL OF IT, unfiltered: placed here, placed on the other site, placed nowhere,
-    // and handed over as background while this site was open.
-    expect(keysIn(panel.element).sort()).toEqual(PLACEMENT.map((r) => r.uid as string).sort())
-
-    // THE BADGE FOLLOWS RECORDED PLACEMENT, NOT UPLOAD CONTEXT.
-    expect(badgedKeys(panel.element).sort()).toEqual(['on-both-sites', 'placed-here'])
-    expect(badgedKeys(panel.element)).not.toContain('background-while-here')
-    expect(badgedKeys(panel.element)).not.toContain('promotion-failed')
-    expect(badgedKeys(panel.element)).not.toContain('placed-elsewhere')
-
-    // A row that predates `placed_on` (only the retired field) is placed nowhere.
-    const legacy = material({ uid: 'legacy', title: 'Old row', filename: 'old.png', placed_on: undefined, site_slug: 'alpha' })
-    const { panel: legacyPanel } = await library([legacy], 'alpha')
-    expect(keysIn(legacyPanel.element)).toEqual(['legacy'])
-    expect(badgedKeys(legacyPanel.element)).toEqual([])
-  })
-})
-
-describe.skipIf(!WEBUI_INSTALLED)('AC-1716 — four axes, conjunctive, over the same listed material', () => {
-  it('test_UAT_AC1716_role_kind_placement_and_text_narrow_conjunctively_over_one_listing', async () => {
-    const { panel, transport, site } = await library(PLACEMENT, 'alpha')
-    const q = <T extends HTMLElement>(cls: string) => panel.element.querySelector(cls) as T
-    const fire = (el: HTMLElement, type: string) => el.dispatchEvent(new Event(type))
-    const role = () => q<HTMLSelectElement>('.builder-library__role')
-    const kind = () => q<HTMLSelectElement>('.builder-library__kind')
-    const here = () => q<HTMLInputElement>('.builder-library__here input')
-    const search = () => q<HTMLInputElement>('.builder-library__search')
-    const all = PLACEMENT.length
-
-    // BY ROLE.
-    role().value = 'reference'
-    fire(role(), 'change')
-    expect(keysIn(panel.element).sort()).toEqual(['background-while-here', 'placed-nowhere'])
-    role().value = ''
-    fire(role(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(all)
-
-    // BY KIND.
-    kind().value = 'document'
-    fire(kind(), 'change')
-    expect(keysIn(panel.element).sort()).toEqual(['background-while-here', 'placed-nowhere'])
-
-    // CONJUNCTIVE with typed text — `guidelines` is the filename half.
-    search().value = 'guidelines'
-    fire(search(), 'input')
-    expect(keysIn(panel.element)).toEqual(['placed-nowhere'])
-    search().value = ''
-    fire(search(), 'input')
-    kind().value = ''
-    fire(kind(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(all)
-
-    // BY USED ON THIS SITE — recorded placement only, never upload context.
-    here().checked = true
-    fire(here(), 'change')
-    expect(keysIn(panel.element).sort()).toEqual(['on-both-sites', 'placed-here'])
-
-    // CONJUNCTIVE with kind: images placed here, typed text narrows to the logo.
-    search().value = 'logo'
-    fire(search(), 'input')
-    expect(keysIn(panel.element)).toEqual(['on-both-sites'])
-    search().value = ''
-    fire(search(), 'input')
-
-    // SWITCHING SITE re-decides the filter from the material already listed.
-    site.slug = 'beta'
-    panel.siteChanged()
-    expect(keysIn(panel.element).sort()).toEqual(['on-both-sites', 'placed-elsewhere'])
-
-    // WITH NO SITE OPEN, the placement filter leaves nothing.
-    site.slug = null
-    panel.siteChanged()
-    expect(rowsIn(panel.element)).toHaveLength(0)
-
-    // Turning it off restores the whole account's material.
-    here().checked = false
-    fire(here(), 'change')
-    expect(rowsIn(panel.element)).toHaveLength(all)
-
-    // None of that was a re-scoped request.
-    expect(transport.listCalls).toHaveLength(1)
-  })
-})
-
-describe.skipIf(!WEBUI_INSTALLED)('AC-2018 — badge, Used on row and filter read one placement list', () => {
-  it('test_UAT_AC2018_badge_used_on_row_and_filter_agree_on_every_row_across_a_site_switch', async () => {
-    const { panel, transport, site } = await library(PLACEMENT, 'alpha')
-    const here = () => panel.element.querySelector('.builder-library__here input') as HTMLInputElement
-    const setHere = (on: boolean) => {
-      here().checked = on
-      here().dispatchEvent(new Event('change'))
-    }
-
-    // Badge on `alpha` = exactly the placed rows; the filter keeps exactly those.
-    const badgedAlpha = badgedKeys(panel.element).sort()
-    expect(badgedAlpha).toEqual(['on-both-sites', 'placed-here'])
-    setHere(true)
-    expect(keysIn(panel.element).sort()).toEqual(badgedAlpha)
-    setHere(false)
-
-    // The `Used on` row lists every placed site, and nothing for unplaced rows.
-    const expected: Record<string, string[]> = {
-      'placed-here': ['alpha'],
-      'placed-elsewhere': ['beta'],
-      'placed-nowhere': [],
-      'background-while-here': [],
-      'promotion-failed': [],
-      'on-both-sites': ['alpha', 'beta'],
-    }
-    for (const [uid, sites] of Object.entries(expected)) {
-      const value = await usedOn(panel, uid)
-      if (sites.length === 0) {
-        // Empty: the fields component's own empty placeholder, naming no site.
-        expect(value, `${uid} should show no placement`).toMatch(/^[—-]?$/)
-      } else {
-        expect(value.split(/,\s*/).sort(), `${uid} placement`).toEqual(sites)
-      }
-      // Agreement with the badge on the open site.
-      expect(badgedKeys(panel.element).includes(uid)).toBe(sites.includes('alpha'))
-    }
-
-    // Switch to `beta`: the two-site material is still badged and kept.
-    // Re-decided from the material already listed — no further list request.
-    site.slug = 'beta'
-    panel.siteChanged()
-    expect(transport.listCalls).toHaveLength(1)
-    const badgedBeta = badgedKeys(panel.element).sort()
-    expect(badgedBeta).toEqual(['on-both-sites', 'placed-elsewhere'])
-    setHere(true)
-    expect(keysIn(panel.element).sort()).toEqual(badgedBeta)
-  })
-})
-
 describe.skipIf(!WEBUI_INSTALLED)('AC-2019 — one labelled type icon per row, no kind pill', () => {
   it('test_UAT_AC2019_each_row_leads_with_one_labelled_type_icon_and_carries_no_kind_pill', async () => {
-    const { panel } = await library(KINDS, 'alpha')
+    const { panel } = await library(KINDS)
     const rows = rowsIn(panel.element)
     expect(rows).toHaveLength(KINDS.length)
 
@@ -397,7 +235,8 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2019 — one labelled type icon per row, n
       expect(iconOf(uid).getAttribute('aria-label')).toBe(label)
     }
 
-    // No kind pill; role pills and the placement badge remain where they apply.
+    // No kind pill; the role pill and, on an unplaced site asset, the warning
+    // are the only pills a row may carry (REQ-181).
     expect(panel.element.querySelectorAll('.builder-library__badge--kind')).toHaveLength(0)
     // NOT BY ANY NAME. A kind pill renamed to another class, or a kind printed in
     // words anywhere on the row, is still the pill this criterion removed. Every
@@ -410,13 +249,15 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2019 — one labelled type icon per row, n
       const content = row.querySelector('.builder-library__row')!
       // Nothing on the row is classed as a kind of anything.
       expect(content.querySelectorAll('[class*="kind"]'), `${key}: kind-classed element`).toHaveLength(0)
-      // Every pill is one of the two that remain.
+      // Every pill is one of the two that remain: the role pill, or the
+      // not-on-the-site warning. Never a kind pill, never a placement badge.
       for (const pill of content.querySelectorAll('.builder-library__row-meta > *')) {
         const isRole = pill.classList.contains('builder-library__badge--role')
-        const isHere = pill.classList.contains('builder-library__badge--here')
-        expect(isRole || isHere, `${key}: unexpected pill ${pill.className}`).toBe(true)
+        const isUnplaced = pill.classList.contains('builder-library__badge--unplaced')
+        expect(isRole || isUnplaced, `${key}: unexpected pill ${pill.className}`).toBe(true)
         expect(pill.textContent ?? '', `${key}: pill text`).not.toMatch(KIND_WORDS)
       }
+      expect(content.querySelectorAll('.builder-library__badge--here'), `${key}: placement badge`).toHaveLength(0)
       // And no element on the row other than the icon prints a kind.
       for (const node of content.querySelectorAll('*')) {
         if (node.classList.contains('builder-library__row-icon')) continue
@@ -427,7 +268,9 @@ describe.skipIf(!WEBUI_INSTALLED)('AC-2019 — one labelled type icon per row, n
       expect(content.querySelector('.builder-library__row-icon')!.textContent ?? '').not.toMatch(KIND_WORDS)
     }
     expect(panel.element.querySelectorAll('.builder-library__badge--role')).toHaveLength(KINDS.length)
-    expect(badgedKeys(panel.element)).toEqual(['an-image'])
+    // The warning sits only on the site-role rows placed nowhere — the placed
+    // image and the background document carry the role pill alone.
+    expect(warnedKeys(panel.element).sort()).toEqual(['a-capture', 'a-font', 'a-future-kind', 'no-kind'])
 
     // Kind is still a filter and still in the detail record.
     const kindSelect = panel.element.querySelector('.builder-library__kind') as HTMLSelectElement
@@ -492,8 +335,8 @@ describe('AC-2020 — the row is one line, and truncation lands on the title', (
 describe.skipIf(!WEBUI_INSTALLED)('AC-2020 — the row is laid out icon, then title, then pills', () => {
   it('test_UAT_AC2020_row_dom_order_is_icon_then_title_then_pills', async () => {
     // The flex contract above only puts the row on ONE AXIS; the order along it
-    // is the DOM's. Asserted on every row, with and without a placement badge.
-    const { panel } = await library(PLACEMENT, 'alpha')
+    // is the DOM's. Asserted on every row, with and without the warning.
+    const { panel } = await library(PLACEMENT)
     const rows = rowsIn(panel.element)
     expect(rows).toHaveLength(PLACEMENT.length)
     for (const row of rows) {

@@ -32,21 +32,27 @@ import { beforeAll, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:test'
 import { route, type RouterDeps, type RouterEnv } from '../apps/control-app/src/router'
 import { ticketStoreFor } from '../apps/control-app/src/tickets'
+import type { Scope } from '../apps/control-app/src/scope'
 import { applySchema } from './support/d1-site-factory'
 import { bytesOf } from './support/material-fixtures'
 
 const APPLIED = applySchema()
 
-function routerEnv(tenantId: string, over: Partial<RouterEnv> = {}): RouterEnv {
+function routerEnv(over: Partial<RouterEnv> = {}): RouterEnv {
   return {
     DB: env.DB as D1Database,
     SITES: env.SITES as R2Bucket,
     BLOBS: env.BLOBS as R2Bucket,
-    TENANT_ID: tenantId,
     ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
     ...over,
   }
 }
+
+/**
+ * The business a case operates on ([[REQ-168]]): it used to ride on the env as
+ * `TENANT_ID`, and is now an argument the way a request's identity supplies it.
+ */
+const scopeOf = (businessId: string): Scope => ({ businessId })
 
 /**
  * A stub document describer, and an indexer that only counts — nothing here is
@@ -71,7 +77,8 @@ async function upload(
   form.append('role', 'reference')
   const response = await route(
     new Request('https://app.test/api/material', { method: 'POST', body: form }),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(),
   )
   return (await response.json()) as Record<string, unknown>
@@ -81,7 +88,8 @@ async function upload(
 async function listed(tenant: string): Promise<Array<Record<string, unknown>>> {
   const response = await route(
     new Request('https://app.test/api/material'),
-    routerEnv(tenant),
+    routerEnv(),
+    scopeOf(tenant),
     deps(),
   )
   const payload = (await response.json()) as { material: Array<Record<string, unknown>> }
@@ -132,7 +140,7 @@ describe('AC-1813 — every listed row carries what its bytes are', () => {
     // MATERIAL WRITTEN BEFORE THE ROW CARRIED THE VALUE — which is exactly what
     // a valid material ticket without the field IS, so it is written through the
     // store directly rather than faked at the route.
-    const store = await ticketStoreFor(routerEnv(tenant))
+    const store = await ticketStoreFor(routerEnv(), scopeOf(tenant))
     await store.create({
       type: 'material',
       title: 'The old brief',
@@ -173,7 +181,8 @@ describe('AC-1813 — every listed row carries what its bytes are', () => {
     expect(attachments[0].fields.content_type).toBe(of('positioning.md').content_type)
     const file = await route(
       new Request(`https://app.test/api/material/file?uid=${markdown.uid}`),
-      routerEnv(tenant),
+      routerEnv(),
+      scopeOf(tenant),
       deps(),
     )
     expect(file.headers.get('content-type')).toBe(of('positioning.md').content_type)
