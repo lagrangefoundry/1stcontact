@@ -6,10 +6,10 @@ title: A person holding memberships in several businesses is admitted with all o
   them, each carrying its own effective grant and its business name
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T01:33:52.497097+00:00'
-updated_at: '2026-11-01T01:33:52.497097+00:00'
+updated_at: '2026-11-01T10:22:24.870882+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
