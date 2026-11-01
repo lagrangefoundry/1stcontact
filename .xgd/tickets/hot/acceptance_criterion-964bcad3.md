@@ -6,10 +6,10 @@ title: The portal offers no add-business, plan, charges, details-editing or expo
   surface and never says "tenant"
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:16:23.353914+00:00'
-updated_at: '2026-11-01T20:16:23.353914+00:00'
+updated_at: '2026-11-01T20:26:43.102631+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-83ff6262
   kind: behavior
