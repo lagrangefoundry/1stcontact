@@ -6,9 +6,9 @@ title: 'The builder workspace: one browser surface showing my real rendered site
   with the controls that act on it, served from a single origin'
 created_by: xgd
 created_at: '2026-08-07T01:42:20.886527+00:00'
-updated_at: '2026-09-10T11:07:30.091099+00:00'
+updated_at: '2026-11-01T10:49:50.930638+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-15c1f647
@@ -24,7 +24,7 @@ fields:
 
 **As a** person who owns a site on this platform, **I want** to open one page in
 my browser and see my actual site rendered there, filling the window, with the
-controls that act on it — which site, which way of looking at it, open it
+controls that act on it — which business, which way of looking at it, open it
 properly, publish it — arranged around it, **so that** working on my site is
 something I look at and point at, rather than a sequence of commands I have to
 know the names of.
@@ -124,15 +124,51 @@ the surface where an operator *sees* the site instead.
   something anyone keeps in step by hand: *every* change to what the pane is
   showing — the mode or the site — re-derives the whole strip, and each control
   is built against the mode and site current at that moment. So a control whose
-  content depends on the site, the selector's own shown value included, follows
-  the site on screen whatever changed it: the selector, the workspace restoring
-  what it remembered, or a change made programmatically. The strip itself stays
+  content depends on the site — the open-in-a-new-tab target — follows the site
+  on screen whatever changed it: a business switch, the workspace restoring what
+  it remembered, or a change made programmatically. The strip itself stays
   where it is through this; only its contents are replaced, so it never drops out
   of the layout. A control the strip replaces is released with it and stops
   reacting, so a workspace held open does not accumulate updaters writing to
-  controls that have left the document. The controls act on real things: the site
-  selector lists the sites the store actually holds, and publish goes through the
-  platform's existing publish behaviour and adds no semantics of its own.
+  controls that have left the document. The controls act on real things: publish
+  goes through the platform's existing publish behaviour and adds no semantics of
+  its own. No mode's strip offers a site selector — which site is shown is the
+  shell's decision, below.
+- **The business is chosen once, in the shell's chrome, and every tab follows
+  it.** The business is what everything belongs to, so its control lives in the
+  header every tab sits inside, not in any one tab's toolbar: a business switcher
+  at the header's leading edge and the account behind an avatar at its trailing
+  edge. The account is not a tab — it is the one surface that is not
+  business-scoped, and a tab for it would be the only place the switcher is
+  present and does not apply — so the tab strip is uniformly business-scoped. The
+  switcher lists the account's businesses by name from one call that answers both
+  the account and its businesses; a business whose grant has lapsed is listed,
+  suffixed, and cannot be chosen. With one business it shows the name and no
+  control; with none, nothing.
+
+  Choosing a business is one act that moves everything at once: every request the
+  builder makes afterwards carries that business in its address, the selection is
+  remembered, the pane shows that business's site and its frame reloads, the
+  assistant opens a session for that site, and the Library is cleared and re-read
+  as that business's material. Nothing outside the display panel asks the pane
+  what is in scope. In v1 a business has exactly one site, so the switcher yields
+  both; a per-site selector, when several sites per business arrive, belongs
+  inside the site tab, subordinate to this one. A remembered business the account
+  can no longer operate falls back silently to the first one it can.
+
+  An account whose every business has lapsed is still a signed-in session with
+  nothing it may open. The switcher renders, disabled, listing every business
+  marked and naming the first; the tab strip and panels are made inert while the
+  header — switcher, avatar, the shell's own controls — stays live; a banner in
+  the content area names the state and points at the account; and no site list is
+  asked for. The account surface behind the avatar states who is signed in, which
+  businesses that identity reaches, and — beside each lapsed one — why, in words.
+  It is bounded to those facts about the session: plan, billing and invoices are
+  the customer portal's, not the builder's.
+- **The word on screen is Business.** No string a person can read in the builder
+  or the public site says "tenant"; SQL and deployment vocabulary naming
+  `TENANT_ID` or `wrangler.toml` are exempt by rule, and the schema keeps
+  `tenant_id`.
 - **The draft-side channels are produced on request, not fetched off a shelf.**
   The two ways of looking at a site that track today's draft — the ordinary
   rendering and the editable one — are produced from the site's definition when
@@ -170,7 +206,7 @@ the surface where an operator *sees* the site instead.
 - **A split, and it remembers.** The display panel sits beside a secondary pane
   (the assistant panel) with a draggable divider that collapses to a rail and
   reopens to its previous width. The divider
-  position, the collapsed side, and which site and mode were being shown all
+  position, the collapsed side, and which business, site and mode were being shown all
   survive closing and reopening the workspace, and every stored value is
   namespaced to this workspace.
 - **Freshness over caching.** The origin rewrites the bytes it serves underneath
@@ -223,6 +259,12 @@ the surface where an operator *sees* the site instead.
   a visitor are the two halves of the delivery capability and are owned there.
 - The shared store's own guarantees — tenancy scoping, atomicity, concurrency,
   the byte path. This story is a consumer of that port, not its author.
+- **Which businesses an account may operate, and why one has lapsed.** Admission,
+  membership, grants and the derivation of a lapse reason belong to the access
+  and entitlement capabilities; this story owns that the endpoint reports them
+  and the chrome shows them. The customer portal the avatar will link out to
+  (plan, invoices, details) is its own capability, as is the operator-only route
+  that adds a business.
 - Any change to a shared UI component. Consuming the components under a renamed
   scope is not such a change: the components themselves stay untouched, and the
   name they are published under is owned upstream, not decided here.
@@ -447,6 +489,23 @@ the surface where an operator *sees* the site instead.
   criterion for this was absent from the matrix while the property was
   load-bearing in the code, which is why the divergence surfaced as red tests
   rather than as a documented gap.
+- **The scope control moved from a tab's toolbar to the shell (REQ-179).** The
+  toolbar's site selector is deleted rather than kept beside the switcher: two
+  controls that could disagree are what the rule "one place a scope is chosen"
+  forbids, and the rule survived with only its place changed. The pane keeps its
+  own site state, driven by the shell; everything else reads the shell's scope.
+  The shared shell component offers a trailing action slot and no leading one, so
+  the switcher is prepended into the shell's header bar — the one place this app
+  touches shell-internal markup, recorded so it becomes a one-line change when
+  upstream grows a leading slot. The businesses endpoint is answered from the
+  request's already-computed admission rather than from the store, and above the
+  store, because it is asked before any business is chosen. The business prefix
+  is applied in one place by the browser client to every URL it builds except
+  the account-level status and businesses calls.
+- **Two blocks, and the wider one wins.** The unconfigured-deployment block makes
+  the whole shell inert; the nothing-selectable block makes only the tab strip and
+  panels inert, because the avatar is the whole remedy that state has. When both
+  apply, the unconfigured block wins and no second banner is shown.
 - **Divergence noted, in commentary only.** The inline comment at the point where
   the strip subscribes still reads "on every mode change" while the code
   subscribes to both mode and site; the narrative docstring above it is correct
@@ -581,6 +640,37 @@ the surface where an operator *sees* the site instead.
   after the render cache stopped being the answer; stating it again as a
   workspace criterion would state one guarantee twice, in a capability that does
   not own it.
+
+*Recorded 2026-11-01, reconciling BUNDLE-35 (bundle-94dbe947), item 7 (REQ-179,
+REQ-180 §1/§3).*
+
+- **The site-selector criteria are restated, not retired.** REQ-179 removes the
+  toolbar's site selector but keeps the rule it carried — one place a scope is
+  chosen — and keeps "the displayed site is one the store actually holds". So the
+  criterion that the selector lists the store's sites (AC-967) is restated
+  against the business's site list, and the toolbar criterion (AC-970) keeps its
+  re-derivation guarantee with the open-in-a-new-tab target as its site-dependent
+  example and a business switch as one of the routes a site change arrives by.
+  *Rationale:* the guarantees outlived the control; retiring them would drop
+  properties the code still has.
+- **Behaviour the intent is silent on is formalised as the code does it.**
+  (a) With zero businesses — a host with no identity behind it — the switcher
+  renders nothing; an empty control would imply a choice that does not exist.
+  (b) A remembered site survives a business switch when the new business holds
+  the same slug, since slugs are unique per business and the scoped address
+  already tells the two apart. (c) A site listing that fails leaves the pane as
+  it was rather than empty. (d) The avatar shows the initial of the person's name,
+  or their email when no name is set. (e) In the nothing-selectable state the
+  stored selection is rewritten to empty, since nothing was opened.
+  *Rationale:* each is the less surprising answer for the operator and none
+  conflicts with REQ-179 or REQ-180; formalising them keeps regression from
+  letting them drift silently.
+- **The vocabulary rule is asserted here although it also reaches the public
+  site.** It is one rule over the two surfaces a person reads and is enforced by
+  one guard; splitting it by surface would state one guarantee twice.
+  REQ-180's further guards — on the `platform_admin` flag's readers and on any
+  "platform's own tenant" predicate — are about the model, not about what this
+  workspace shows, and are not claimed here.
 
 ## Dependencies
 
