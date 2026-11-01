@@ -6,10 +6,10 @@ title: The Businesses section is one headed table keyed by business, with No gra
   / Not an operator for the mismatches
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:00:43.329248+00:00'
-updated_at: '2026-11-01T19:00:43.329248+00:00'
+updated_at: '2026-11-01T19:28:16.078575+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
