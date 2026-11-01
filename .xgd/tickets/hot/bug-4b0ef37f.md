@@ -5,8 +5,8 @@ type: bug
 title: 1c builder and pnpm dev:control start the same server differently
 created_by: xgd
 created_at: '2026-09-02T23:50:14.011344+00:00'
-updated_at: '2026-11-01T13:58:44.784200+00:00'
-completed_at: '2026-11-01T13:58:38.224678+00:00'
+updated_at: '2026-11-01T14:05:06.303276+00:00'
+completed_at: '2026-11-01T14:05:06.303276+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
