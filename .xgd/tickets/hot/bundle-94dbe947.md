@@ -92,6 +92,7 @@ fields:
   priority: medium
   skipped_commits:
   - d25cd431588850d7ee53e51168ee84e62647a29d
+  - 00ed2bbcbf9291d54b66ec2542df37a92611974c
 ---
 
 # Bundle
