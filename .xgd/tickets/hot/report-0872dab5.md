@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T02:38:31.387450+00:00'
+updated_at: '2026-11-01T03:06:52.829662+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -267,7 +267,7 @@ fields:
     justification: STORY-104 AC-1063 promises the pane shows the conversation after
       a reload, but a turn in progress appeared frozen/truncated. Same pane, same
       capability; upgrade.
-    story_uid: null
+    story_uid: STORY-104
     target_story_ids:
     - STORY-104
     acceptance_criteria_changes:
