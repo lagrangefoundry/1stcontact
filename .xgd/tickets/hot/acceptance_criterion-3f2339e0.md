@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A malformed email address is refused inline in the panel without being sent
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:33:00.960693+00:00'
-updated_at: '2026-11-01T19:33:00.960693+00:00'
+updated_at: '2026-11-01T20:02:34.570947+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a55c2f35
   kind: behavior
