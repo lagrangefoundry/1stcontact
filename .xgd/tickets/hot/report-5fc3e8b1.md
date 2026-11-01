@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T09:54:59.788352+00:00'
+updated_at: '2026-11-01T10:27:18.339997+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -218,7 +218,7 @@ fields:
       that a handle obtained for an account is confined to it — no story states how
       the business is derived from the identity per request. This is the tenant-isolation
       capability for onboarding; genuinely new. Capability: capability-e5939ceb.'
-    story_uid: null
+    story_uid: story-7102ffe3
   - index: 6
     component: Terms of Service Gate
     item_type: feature
