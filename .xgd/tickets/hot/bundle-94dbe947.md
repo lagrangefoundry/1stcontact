@@ -5,9 +5,9 @@ type: bundle
 title: BUG-48 + REQ-171 + REQ-168 + REQ-179 + REQ-169 + 6 more
 created_by: xgd
 created_at: '2026-11-01T05:18:02.740684+00:00'
-updated_at: '2026-11-01T14:07:03.006343+00:00'
+updated_at: '2026-11-01T14:07:23.928733+00:00'
 completed_at: '2026-11-01T13:58:34.419233+00:00'
-last_field_updated: session_assessor
+last_field_updated: result
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -130,6 +130,7 @@ fields:
   merged_at_commit: d04633fbd0eba7e8df5adefe2c7ce307b8222b97
   session_assessor: 3fd9b256-7b79-4098-ac83-8728ba390be9
   session_assessor_started_at: '2026-11-01T14:07:02.518169+00:00'
+result: pass
 ---
 
 # Bundle
