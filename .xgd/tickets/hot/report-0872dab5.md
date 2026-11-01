@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T03:06:52.829662+00:00'
+updated_at: '2026-11-01T03:17:23.724167+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -305,7 +305,7 @@ fields:
       degraded describers. REQ-173 explicitly changes what a body is and turns 'no
       key' from degraded material into a refused upload. Same capability buckets (Material
       Ingestion); no parallel ingestion path.
-    story_uid: null
+    story_uid: STORY-141
     target_story_ids:
     - STORY-141
     - STORY-140
