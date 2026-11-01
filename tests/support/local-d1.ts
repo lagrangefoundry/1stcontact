@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { TERMS_VERSION } from '../../apps/control-app/src/terms'
@@ -27,11 +27,90 @@ let applied = false
 
 export function applyLocalD1Schema(repoRoot: string): void {
   if (applied) return
-  execFileSync('npx', ['wrangler', 'd1', 'migrations', 'apply', '1stcontact', '--local'], {
-    cwd: path.join(repoRoot, 'apps', 'control-app'),
-    stdio: 'ignore',
-  })
+  runLocalD1(repoRoot, ['migrations', 'apply', '1stcontact', '--local'], 'migrations apply')
   applied = true
+}
+
+/**
+ * One `wrangler d1 … --local` subprocess, SERIALISED ACROSS PROCESSES and with
+ * its output kept.
+ *
+ * WHY A LOCK. Vitest runs suites in parallel workers, and the memo above is per
+ * process — so several suites can each start a wrangler subprocess against the
+ * one SQLite file under `.wrangler/state` at the same moment, alongside any
+ * `getPlatformProxy` already holding it open. SQLite answers that with
+ * "database is locked", which killed a suite's `beforeAll` with nothing to say
+ * why. A directory created with `mkdir` is the lock: it is atomic on every
+ * filesystem these suites run on and needs no dependency. A lock older than the
+ * longest a migration has ever taken is a crashed holder's, and is broken.
+ *
+ * WHY THE OUTPUT IS KEPT. These ran with `stdio: 'ignore'`, so a failure reached
+ * the reporter as a bare non-zero exit — and a hook failure it then dropped
+ * entirely, reporting the test as skipped. The error now carries what wrangler
+ * printed, so a setup failure names its own cause.
+ *
+ * A busy database is retried, briefly: it is the one failure that means "try
+ * again" rather than "this is broken". Anything else throws at once.
+ */
+function runLocalD1(repoRoot: string, args: string[], what: string): void {
+  const appDir = path.join(repoRoot, 'apps', 'control-app')
+  const lock = path.join(appDir, '.wrangler', 'test-local-d1.lock')
+  mkdirSync(path.dirname(lock), { recursive: true })
+  withLock(lock, () => {
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        execFileSync('npx', ['wrangler', 'd1', ...args], {
+          cwd: appDir,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          encoding: 'utf8',
+        })
+        return
+      } catch (err) {
+        const e = err as { stdout?: string; stderr?: string; message?: string }
+        const output = `${e.stderr ?? ''}\n${e.stdout ?? ''}`.trim()
+        if (attempt < 5 && /SQLITE_BUSY|database is locked/i.test(output)) {
+          sleep(250 * attempt)
+          continue
+        }
+        throw new Error(
+          `wrangler d1 ${what} (local) failed after ${attempt} attempt(s): ` +
+            `${e.message ?? String(err)}\n${output || '(wrangler printed nothing)'}`,
+        )
+      }
+    }
+  })
+}
+
+const LOCK_STALE_MS = 120_000
+
+function withLock(lock: string, body: () => void): void {
+  const deadline = Date.now() + LOCK_STALE_MS
+  for (;;) {
+    try {
+      mkdirSync(lock)
+      break
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+      try {
+        if (Date.now() - statSync(lock).mtimeMs > LOCK_STALE_MS) rmSync(lock, { recursive: true, force: true })
+      } catch {
+        /* released between the check and the stat */
+      }
+      if (Date.now() > deadline) {
+        throw new Error(`Timed out waiting for the local D1 lock at ${lock}.`)
+      }
+      sleep(100)
+    }
+  }
+  try {
+    body()
+  } finally {
+    rmSync(lock, { recursive: true, force: true })
+  }
+}
+
+function sleep(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
 /**
@@ -95,10 +174,7 @@ export function seedIdentity(
       `VALUES ('ent_${userId}', '${businessId}', '${email.toLowerCase()}', 'pro', 'admin_grant', 'active', '${now}', NULL, '${now}', '${now}');`,
     `UPDATE users SET tos_version = '${TERMS_VERSION}', tos_accepted_at = '${now}' WHERE id = '${userId}';`,
   ].join(' ')
-  execFileSync('npx', ['wrangler', 'd1', 'execute', '1stcontact', '--local', '--command', sql], {
-    cwd: path.join(repoRoot, 'apps', 'control-app'),
-    stdio: 'ignore',
-  })
+  runLocalD1(repoRoot, ['execute', '1stcontact', '--local', '--command', sql], `execute (seed ${email})`)
   return { businessId }
 }
 
