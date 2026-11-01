@@ -3,14 +3,11 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import {
-  provisionBusiness,
-  provisionInvite,
-  type IdentityEnv,
-} from '../apps/control-app/src/identity'
+import { provisionBusiness, type IdentityEnv } from '../apps/control-app/src/identity'
 import { BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
+import { inviteAccount, type AccountSeed } from './support/invite-account'
 
 /**
  * story-e674c60a — **`GET /api/businesses`, through the deployed entry point**.
@@ -21,7 +18,8 @@ import { applySchema } from './support/d1-site-factory'
  * from, and calling `route()` with a hand-built admission would prove the
  * payload builder while saying nothing about that wiring. Real D1 with the
  * deployed schema, a real RS256 Access token against a real JWKS, and businesses
- * written by the shipped `provisionInvite` / `provisionBusiness`. The JWKS fetch
+ * written by the shipped `provisionBusiness` (accounts seeded through
+ * `inviteAccount`, the fixture composing the shipped invite path). The JWKS fetch
  * is the only stub: Cloudflare Access is the one true external boundary here.
  */
 
@@ -103,8 +101,8 @@ const ask = (token: string | null, over: Partial<Env> = {}): Promise<Response> =
   )
 
 /** An invitee who has accepted the terms, so the API answers rather than the interstitial. */
-async function invite(spec: Parameters<typeof provisionInvite>[1]) {
-  const result = await provisionInvite(identityEnv(), spec)
+async function invite(spec: AccountSeed) {
+  const result = await inviteAccount(identityEnv(), spec)
   await acceptTerms(identityEnv(), result.user.id)
   return result
 }
