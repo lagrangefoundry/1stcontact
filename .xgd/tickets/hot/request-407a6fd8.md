@@ -5,10 +5,10 @@ type: request
 title: 'Identity: an account operates several businesses, not one'
 created_by: xgd
 created_at: '2026-09-02T23:15:32.712582+00:00'
-updated_at: '2026-10-31T20:54:34.810307+00:00'
-completed_at: null
+updated_at: '2026-11-01T05:03:18.773286+00:00'
+completed_at: '2026-11-01T05:03:18.773286+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 4
