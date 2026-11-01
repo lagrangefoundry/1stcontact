@@ -6,10 +6,10 @@ title: The invite writes no membership and no grant; an invited person holding n
   business is refused as no_membership at the door
 created_by: xgd
 created_at: '2026-11-01T18:27:45.291361+00:00'
-updated_at: '2026-11-01T18:27:45.291361+00:00'
+updated_at: '2026-11-01T18:57:26.881213+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
