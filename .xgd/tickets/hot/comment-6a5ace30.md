@@ -5,7 +5,7 @@ type: comment
 title: Comment on bug BUG-321
 created_by: xgd
 created_at: '2026-10-31T21:09:42.557350+00:00'
-updated_at: '2026-10-31T22:51:18.192736+00:00'
+updated_at: '2026-11-01T16:14:12.221663+00:00'
 completed_at: null
 last_field_updated: body
 status: null
@@ -89,5 +89,80 @@ The fix is in 1st Contact's local build, but no code landed under BUG-321. Produ
 - The body now records the pick-up, the Chromium check, and the Safari step.
 - Nothing in 1st Contact's own code contributed to the bug, so per the ticket there's nothing to commit or test here. The framework's BUG-104 tests are the evidence.
 - Status stays `draft`, because `free_coded` requires recorded commits and there are none. Close it once Safari shows the cursor.
+
+<!-- xgd-turn id="eb859c76-6ef3-4281-9412-07857ba59f5a-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-01T16:04:20.911495+00:00" -->
+#### You
+The issue was occuring on Safari but only when I was speaking to the talker (worker was busy). Do you have what you need to finish this?
+
+<!-- xgd-turn id="eb859c76-6ef3-4281-9412-07857ba59f5a-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-01T16:06:14.272732+00:00" -->
+#### Claude
+That's a useful clue: the caret only disappears while the worker is busy. Something in that state is doing it, either 1st Contact's builder code or the framework's composer. I'll trace what changes in the composer while the worker is busy.
+
+The preview refreshes by loading a new iframe and swapping it in, which happens repeatedly while the worker writes. That's the main suspect on the host side. Reading the swap code.
+
+Not yet. Knowing it happens only while the worker is busy narrows it to two likely causes, but I can't reproduce it. WebKit won't open a page in my sandbox, so I can't drive Safari's engine. One log from you in Safari would tell me which cause it is and where the fix goes.
+
+**What's different while the worker is busy**
+1. **The preview refreshes repeatedly (most likely, and 1st Contact's own code).** Each time the worker writes, `panel.js` loads the newer page into a hidden spare iframe. It then swaps that frame in, scrolling it to where you were and restarting its animations. This only happens while the worker is busy, and it runs right beside the focused chat box. Safari can lose the parent page's caret when a frame next to it loads or swaps.
+2. **The chat box is cleared after you send to the talker (framework code).** The framework's composer resets its editor to empty while you're still focused in it. Then the Stop and Send buttons flip while the talker replies. This also happens after a normal send, so the busy state would only make it more noticeable.
+
+The "working…" line and the plan panel's redraw only change their own parts of the page, so I've ruled them out.
+
+**What I need from you:** paste this into Safari's console (Develop → Show JavaScript Console) on the builder before you reproduce it:
+
+```js
+(() => {
+  const ed = () => document.querySelector('.builder-chat .ProseMirror')
+  const log = (k) => { const s = getSelection(); console.log(new Date().toISOString().slice(11, 23), k,
+    'active=', document.activeElement?.className || document.activeElement?.tagName,
+    'hasFocus=', document.hasFocus(), 'selInEditor=', !!(s.anchorNode && ed()?.contains(s.anchorNode)), 'ranges=', s.rangeCount) }
+  for (const t of ['focusin', 'focusout', 'selectionchange']) document.addEventListener(t, () => log(t), true)
+  new MutationObserver(() => log('frame')).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['src', 'class'], childList: false })
+  setInterval(() => log('tick'), 2000)
+})()
+```
+
+Then click back on the page, start a worker turn, talk to the talker, and click into the empty box when the cursor is missing. Send me the console lines from around that moment.
+
+The log points to one of three cases:
+- **Focus has left the chat box** (`active` is no longer the ProseMirror, or `hasFocus=false`) right after a `frame` line: it's the preview swap. I'll fix that in 1st Contact under this ticket, with a test.
+- **Focus is still in the box, but `selInEditor=false` or `ranges=0`**: the editor lost its selection, which points at the clear-after-send. That fix belongs to the framework, as a reopen of BUG-104 or a new ticket there.
+- **Focus and selection are both fine, but no cursor shows**: Safari is just not painting it. I'd work around it by restoring the selection after each preview swap or clear.
+
+I've added the narrowed symptom, both candidates and this plan to the ticket. The status is still `draft`.
+
+<!-- xgd-turn id="8f65670a-8331-442b-9266-fd3e46fdecfb-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-01T16:10:04.718976+00:00" -->
+#### You
+It did not reproduce - cursor was visible
+
+<!-- xgd-turn id="8f65670a-8331-442b-9266-fd3e46fdecfb-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-01T16:10:30.016097+00:00" -->
+#### Claude
+Then I'd close BUG-321. The cursor showed in Safari with the worker busy and you talking to the talker, which is the exact state that used to lose it. One caveat: it was intermittent before, so one clean run is good evidence but not proof.
+
+- **No code lands against this ticket.** 1st Contact's own code doesn't contribute: our CSS has no rule on the caret or the placeholder. The fix is lagrange-framework BUG-104, now in the shared store and in the builder's rebuilt assets. That framework fix also covers the known Safari way of losing the caret in an empty box.
+- **The ticket body now records** the host check, the pick-up, the narrowed symptom with both candidate causes, and this non-reproduction. The status is still `draft`, because `free_coded` requires recorded commits. Closing it is your call.
+- **If it comes back,** the console snippet from my last message is the next step. It tells a lost focus (the preview swap, fixable here) from a lost selection (the framework's clear-after-send).
+
+I've deleted the throwaway probe files.
+
+<!-- xgd-turn id="2a361d33-dfa5-48ba-93f3-e941d287ffaf-user" -->
+
+<!-- xgd-chat role="user" ts="2026-11-01T16:13:53.760755+00:00" -->
+#### You
+ok please close the bug now as legacy_done we will return to it if it coninues to be a problem
+
+<!-- xgd-turn id="2a361d33-dfa5-48ba-93f3-e941d287ffaf-assistant" -->
+
+<!-- xgd-chat role="assistant" ts="2026-11-01T16:14:11.547377+00:00" -->
+#### Claude
+BUG-321 is now closed as `legacy_done`; I read the ticket back to confirm. Its body keeps everything from the investigation, including the console snippet to use as the first step if the missing cursor comes back.
 
 <!-- xgd-chat-end -->

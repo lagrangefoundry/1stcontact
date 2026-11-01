@@ -5,8 +5,8 @@ type: bug
 title: An expired session renders as a working, empty account
 created_by: xgd
 created_at: '2026-09-05T19:10:55.261370+00:00'
-updated_at: '2026-11-01T22:57:23.510498+00:00'
-completed_at: '2026-11-01T22:57:17.174707+00:00'
+updated_at: '2026-11-01T23:04:32.732301+00:00'
+completed_at: '2026-11-01T23:04:32.732301+00:00'
 last_field_updated: status
 status: free_and_reconciled
 fields:
@@ -20,11 +20,9 @@ fields:
   - working_sha: 902b5b63d93eb4716df946d6d8f462a2d3aa0a97
     reconcile_sha: null
     main_sha: null
-    working_sha_history: []
   - working_sha: 1cd00146f39e34df5fae860e124c2e071797cd7a
     reconcile_sha: aacb4e54c5edbd4e671b834407379d5239b38fa2
     main_sha: null
-    working_sha_history: []
   version: 0.2.76
   bundled_in: bundle-39edf66d
 ---
