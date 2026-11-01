@@ -25,6 +25,7 @@ import {
 } from '../../../tools/generate/src/cli/ai/host-core'
 import { sessionTextDescriber, workerHost, type WorkerHost } from './ai'
 import { fidelityDeps } from './shot'
+import { adoptCapture } from './capture-material'
 import type { BrowserLauncher } from '../../../tools/generate/src/cli/capture/cf-driver'
 import type { HostDeps } from '../../../tools/generate/src/cli/ai/host-core'
 import { r2ReferenceStore } from '../../../tools/generate/src/store/r2-reference-store'
@@ -147,7 +148,7 @@ function chatHost(env: RouterEnv, deps: RouterDeps, origin: string): Promise<Wor
       // the project corpus is the tenant's real D1 store either way.
       const system = await (deps.knowledge ?? systemKnowledge)(env)
       const knowledge = await sessionKnowledgeFor(env, { system, tickets })
-      const fidelity = await sessionFidelity(env, deps, store, tenantId, origin)
+      const fidelity = await sessionFidelity(env, deps, store, tickets, tenantId, origin)
       return workerHost(env, store, tenantId, tickets, knowledge, fidelity)
     })()
   }
@@ -170,6 +171,7 @@ async function sessionFidelity(
   env: RouterEnv,
   deps: RouterDeps,
   store: TenantSiteStore,
+  tickets: TicketStore,
   tenantId: string,
   origin: string,
 ): Promise<HostDeps['fidelity']> {
@@ -177,6 +179,22 @@ async function sessionFidelity(
   if (!env.BLOBS) return null
   // The client's own private bucket, bound to THIS tenant by `forTenant`.
   const references = await r2ReferenceStore({ DB: env.DB, BLOBS: env.BLOBS }).forTenant(tenantId)
+  // A finished bundle becomes a findable `reference` ticket ([[REQ-166]]),
+  // through the same indexer and describer `/api/material` resolves. The
+  // indexer is resolved PER ADOPTION, not once per host, so a deployment whose
+  // index binding changes is not stuck with the one the session opened with.
+  const adopt = async (bundle: string): Promise<{ uid: string; created: boolean }> => {
+    const adopted = await adoptCapture(
+      tickets,
+      references.bundle(bundle),
+      {},
+      {
+        index: deps.index ? await deps.index(env) : await defaultIndexer(env),
+        describeImage: deps.describeImage ?? defaultDescriber(env),
+      },
+    )
+    return { uid: adopted.ticket.uid, created: adopted.created }
+  }
   return (site: string) =>
     fidelityDeps(
       env,
@@ -188,6 +206,7 @@ async function sessionFidelity(
       // Spread rather than set to `undefined`: an explicit `undefined` would
       // read as a launcher that was supplied and is broken.
       deps.launch ? { launch: deps.launch } : {},
+      adopt,
     )
 }
 
