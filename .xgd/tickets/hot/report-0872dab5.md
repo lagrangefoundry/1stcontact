@@ -6,9 +6,9 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T01:06:25.354010+00:00'
+updated_at: '2026-11-01T01:11:44.100732+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-fd009b93
@@ -37,7 +37,7 @@ fields:
       now qualifies. No new capability bucket: this is the same read/replace symmetry
       on the same control surface, extended up one level, plus a refusal rule on the
       same write path.'
-    story_uid: null
+    story_uid: STORY-106
     target_story_ids:
     - STORY-106
     acceptance_criteria_changes:
