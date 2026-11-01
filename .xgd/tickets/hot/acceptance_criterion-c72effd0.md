@@ -2,11 +2,12 @@
 uid: acceptance_criterion-c72effd0
 id: AC-2020
 type: acceptance_criterion
-title: 'A Library row lays out on one line: icon, a 13px title that takes the remaining
-  space and truncates, then pills that never wrap or shrink'
+title: 'A Library row reads on one line: type icon, a 13px title that takes the remaining
+  space and truncates, then the role pill (and, only in the exception, the warning),
+  never wrapping or shrinking'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-10-26T01:39:01.939721+00:00'
-updated_at: '2026-11-01T12:05:45.362926+00:00'
+updated_at: '2026-11-01T13:27:04.352880+00:00'
 completed_at: null
 last_field_updated: title
 status: active
