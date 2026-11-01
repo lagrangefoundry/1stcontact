@@ -17,6 +17,15 @@ fields:
   chat_comment: comment-a924b82f
   depends_on:
   - REQ-184
+  commits:
+  - working_sha: 2103d2e63b88301c65af56727f1bc99be3f1b1fe
+    reconcile_sha: 24d5f74fc92114b5e3fd7678f7f17b9eed9edefe
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 75b37bc1c16f10bed1a0c5827d3c346f558dc7d2
+    reconcile_sha: 7ecd81981c5c8614d5dd5833783161d56ee739a5
+    main_sha: null
+    working_sha_history: []
 ---
 
 # `platform_admin` is two capabilities wearing one flag
