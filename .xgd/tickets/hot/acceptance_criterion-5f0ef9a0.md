@@ -6,10 +6,10 @@ title: Accepting the terms as JSON records the current version and the acceptanc
   time
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T10:39:53.446249+00:00'
-updated_at: '2026-11-01T10:39:53.446249+00:00'
+updated_at: '2026-11-01T10:46:02.907247+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0cd18650
   kind: behavior
