@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T09:20:30.201931+00:00'
+updated_at: '2026-11-01T09:29:03.427371+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -112,7 +112,7 @@ fields:
       fills that reserved slot and reshapes the texts STORY-103 already describes
       — it extends the conversation capability (capability-7e4714b7) rather than creating
       a new bucket.
-    story_uid: null
+    story_uid: story-a58a0974
     target_story_ids:
     - story-a58a0974
     acceptance_criteria_changes:
