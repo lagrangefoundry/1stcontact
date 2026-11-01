@@ -6,14 +6,15 @@ title: A person who exists but holds no business is refused as no_membership, an
   re-inviting them provisions a business
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T01:33:58.556817+00:00'
-updated_at: '2026-11-01T10:22:22.791943+00:00'
+updated_at: '2026-11-01T18:27:23.843376+00:00'
 completed_at: null
 last_field_updated: status
-status: active
+status: superseded
 fields:
   story_uid: story-7b1025b8
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-39edf66d
 ---
 
 ## Criterion
