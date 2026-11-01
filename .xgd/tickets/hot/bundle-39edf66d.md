@@ -5,9 +5,9 @@ type: bundle
 title: REQ-185 + REQ-170 + REQ-183 + REQ-186 + BUG-51 + 6 more
 created_by: xgd
 created_at: '2026-11-01T14:13:50.255886+00:00'
-updated_at: '2026-11-01T23:06:14.042451+00:00'
+updated_at: '2026-11-01T23:07:56.389112+00:00'
 completed_at: '2026-11-01T22:57:14.669122+00:00'
-last_field_updated: session_assessor
+last_field_updated: result
 status: free_and_reconciled
 fields:
   bundle_type: reconcile
@@ -95,6 +95,7 @@ fields:
   merged_at_commit: 0bdbd3439fe27293fe4a80101144bc40b0e41178
   session_assessor: a27b98a2-216b-4ada-a6ea-14dda3c6adb9
   session_assessor_started_at: '2026-11-01T23:06:13.405067+00:00'
+result: pass
 ---
 
 # Bundle
