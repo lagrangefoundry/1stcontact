@@ -120,9 +120,10 @@ export const DESCRIBER_BACKEND = 'material_describer'
  *   - **No tools.** The describer is given text and asked for text. A toolbox
  *     would hand a describer the ability to write to the client's site, which is
  *     an authority nothing about this task calls for.
- *   - **No corpus and no priming.** The document is the whole context. Priming
- *     the describer with the landscape would spend a large prompt teaching it
- *     about material it is not being asked about.
+ *   - **No corpus, and the digest instruction is the only priming.** The
+ *     document is the whole context. Priming the describer with the landscape
+ *     would spend a large prompt teaching it about material it is not being
+ *     asked about.
  *   - **A {@link NullArchive}.** THE LOAD-BEARING ONE. `TicketSessionArchive`
  *     homes a session in a `chat` ticket, so an archiving describer would create
  *     one chat ticket per upload — members of the very corpus this ticket is
@@ -158,10 +159,10 @@ export function sessionTextDescriber(
 
   const role = new lib.Role({
     name: DESCRIBER_ROLE,
-    system: DOCUMENT_DIGEST_SYSTEM,
-    // The duck-typed `ContextSource`, empty. See above: the document is the
-    // context, and there is nothing else this role should know.
-    source: { documents: () => [] },
+    // ONE STATIC ENTRY AND NOTHING ELSE (BUG-63). `Role` takes its system content
+    // only as `priming` entries, so the digest instruction must be one — the
+    // document is the context, and there is nothing else this role should know.
+    priming: [new lib.Entry({ name: 'digest-system', text: DOCUMENT_DIGEST_SYSTEM })],
   })
   const manager = new lib.SessionManager({ [DESCRIBER_ROLE]: role }, new lib.NullArchive(), {
     junctions: lib.memoryJunctions(),
