@@ -6,9 +6,9 @@ title: A captured reference states how many files it holds in place of the singl
   field, and its download link returns the screenshot
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T02:17:14.750915+00:00'
-updated_at: '2026-11-01T02:17:14.750915+00:00'
+updated_at: '2026-11-01T12:15:13.495995+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: pending
 fields:
   story_uid: story-1500b111
@@ -35,10 +35,13 @@ count, and its download link names no member and saves under its original filena
 ## Verification
 
 Select a capture holding a known number of named members, including its screenshot. Observe that
-the record has no *File* row while its other rows (kind, role, origin, rights, may-appear, used-on,
-fetched-from) remain; that once the detail loads the pane reads "<N> files captured" for that
-number (and "1 file captured" for a one-member capture); and that the download link addresses the
-screenshot member, is labelled and saved under the screenshot's name, and returns the
-screenshot's bytes. Before the detail loads, observe the count line empty. Select an ordinary
+the record has no *File* row while its other rows (kind, role, origin, rights, may-appear,
+*Placed on*, fetched-from) remain; that once the detail loads the pane reads "<N> files captured"
+for that number (and "1 file captured" for a one-member capture); and that the download link
+addresses the screenshot member, is labelled and saved under the screenshot's name, and returns
+the screenshot's bytes. Before the detail loads, observe the count line empty. Select an ordinary
 single-file material and observe the *File* row present, no count line, and a download link with
 no member that saves under the original filename.
+
+> Corrected in reconcile fix-plan iteration 2 (story-1500b111): the placement row is labelled
+> *Placed on* since REQ-181 (in scope, later) relabelled it from *Used on*.
