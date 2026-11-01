@@ -6,9 +6,9 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-09-10T07:16:18.950668+00:00'
+updated_at: '2026-11-01T20:30:30.343848+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -114,6 +114,14 @@ crosses as a single whole change, so against the transactional store an import l
 at all; a half-landed import would be worse than a failed one, because the site would exist,
 validate as far as it went, and be missing pages nobody had a record of.
 
+**Creating a site says whether it created one (BUG-51).** Creating a draft answers true when it
+wrote the site and false when the slug already held one, taken from the store's own count of rows
+the creation wrote rather than from a second read a concurrent creator could race. Provisioning a
+business scaffolds its starter site only on a true answer, so a site already at that slug is left
+entirely alone — definition, pages, version and change count untouched, neither merged with the
+starter nor repaired. Create-then-write had looked idempotent and was a total content wipe against
+an existing slug; the report is what makes the guarded form expressible.
+
 **And the two stores cannot drift, because there is one set of questions.** The same body of
 assertions is run against the filesystem store, the filesystem-free in-memory store, and the
 cloud store inside the Workers runtime against real database and object-store bindings. A site
@@ -143,6 +151,8 @@ declares a single bucket, and stops being true the moment a second binding is co
 - Asset bytes round-tripping with their content type, and the refusal for a name that leaves the
   assets namespace, on both the read and the write path.
 - Copying one site's whole draft from any store to any other, as one whole change.
+- A draft creation that reports whether it created the site, and provisioning that writes the
+  starter only when it did.
 - One body of storage assertions run against all three stores.
 - The whole structured editing surface completing inside the Workers runtime.
 - The database and object-store bindings declared for both the default and the named deployment
@@ -291,6 +301,13 @@ directly, including the key, the invalidation rule and the bound.
   decision rather than as a note because the alternative — leaving the count and treating its
   failure as a REQ-162 defect — would have made a correct deployment configuration
   unrepresentable.
+- **The BUG-51 provisioning guard is claimed here** (decided at reconciliation, BUNDLE-36,
+  2026-11-01): the creation report is a cloud-store property, and the guard is its only consumer,
+  so stating them together keeps the reason for the report next to it. The intent itself says the
+  guard is structural rather than a fix for a live failure — the starter slug is a random account
+  id today — and that it becomes load-bearing once the portal site is seeded at a fixed slug at
+  provisioning. The import-route refusal and `1c reset` are the builder workspace story's
+  (story-e674c60a), not this one's.
 
 ## Dependencies
 
