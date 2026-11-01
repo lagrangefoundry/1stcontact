@@ -6,10 +6,10 @@ title: A link in a material's description opens outside the builder, leaving the
   and any unsaved edit in place
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T02:17:16.439890+00:00'
-updated_at: '2026-11-01T02:17:16.439890+00:00'
+updated_at: '2026-11-01T12:33:26.483274+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-1500b111
   kind: behavior
