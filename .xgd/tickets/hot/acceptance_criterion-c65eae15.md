@@ -6,9 +6,9 @@ title: An invited person is admitted with the deterministic set of businesses th
   operate, each bound to its own effective grant
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:28:53.383038+00:00'
-updated_at: '2026-11-01T01:33:25.108440+00:00'
+updated_at: '2026-11-01T22:22:27.942080+00:00'
 completed_at: null
-last_field_updated: title
+last_field_updated: body
 status: active
 fields:
   story_uid: story-7b1025b8
@@ -27,8 +27,11 @@ account or grant beside that set.
 
 ## Verification
 
-Invite an address, then attempt admission with it. Assert the attempt succeeds and
-that the reported set holds exactly one business: the business the invite
-created, with the name it was given and the grant the invite created. Assert the
+Invite an address (which since REQ-186 writes the person only — no membership and
+no grant), then provision a business for that account (`provisionBusiness`, the
+add-a-business act, which writes the owner membership and the business's capacity
+grant). Attempt admission with the address. Assert the attempt succeeds and that
+the reported set holds exactly one business: the business that provisioning
+created, with the name it was given and the grant provisioning wrote. Assert the
 admission exposes no top-level account identifier or grant. Repeat the admission
 and assert the same set is reported, in the same order, both times.
