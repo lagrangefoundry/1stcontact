@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T01:51:59.139831+00:00'
+updated_at: '2026-11-01T02:17:42.888501+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -191,7 +191,7 @@ fields:
     justification: STORY-144 owns the Library list/detail and its readers (AC-1811,
       AC-1723) for single-file material; a multi-member capture is a new shape the
       same pane now renders. No new screen or capability bucket.
-    story_uid: null
+    story_uid: STORY-144
     target_story_ids:
     - STORY-144
     acceptance_criteria_changes:
