@@ -6,10 +6,10 @@ title: An admitted customer without the fulfilment privilege who asks to add a b
   gets 404 and no business is created
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:57:04.738864+00:00'
-updated_at: '2026-11-01T11:57:04.738864+00:00'
+updated_at: '2026-11-01T12:03:14.723256+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-387c9dfe
   kind: behavior
