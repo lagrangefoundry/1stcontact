@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-e674c60a'
 created_by: xgd
 created_at: '2026-11-01T20:37:20.615196+00:00'
-updated_at: '2026-11-01T20:37:20.615196+00:00'
+updated_at: '2026-11-01T20:44:11.310760+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -45,6 +45,7 @@ fields:
         inviteAccount.'
       rung3: AC-2144's assertions stand unchanged; only the test's seeding call changes.
   fix_iteration: 4
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 4
