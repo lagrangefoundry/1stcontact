@@ -5,16 +5,25 @@ type: request
 title: The tenant comes from the identity, not from the configuration
 created_by: xgd
 created_at: '2026-09-01T00:51:05.648749+00:00'
-updated_at: '2026-09-02T23:56:28.679042+00:00'
+updated_at: '2026-11-01T05:18:03.584439+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
   chat_comment: comment-d394036b
+  commits:
+  - working_sha: b4bc4cb0b62735f7c027f5add333e5e39f858209
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: db107b25a8a723729d97c509e351cdd84d87f79c
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.59
+  bundled_in: bundle-94dbe947
 ---
 
 # The tenant comes from the identity, not from the configuration
@@ -133,11 +142,11 @@ membership for is refused; a target whose entitlement has lapsed is refused
 *separately*, because those are different things to tell someone.
 
 **The no-target fallback needs a stated rule.** A request arriving without a
-target — first load, a bookmarked deep link, an API caller — resolves to the
-operator's last selection if it is still admissible, and otherwise to the first
-admissible business. Never to `env.TENANT_ID`. (The one place `TENANT_ID` *is*
-the answer is the dev-open branch below, which is not this branch: it has no
-identity to resolve from at all.)
+target resolves to the **first admissible business** — never to `env.TENANT_ID`.
+An earlier draft said "the operator's last selection" and left where that is
+persisted open; it is closed below, and the answer is that the server never needs
+it. (The one place `TENANT_ID` *is* the answer is the dev-open branch below,
+which is not this branch: it has no identity to resolve from at all.)
 
 **Who carries the target.** [[REQ-168]] defines the wire form and reads it,
 because it is the consumer; [[REQ-179]] sends it from the switcher and
@@ -300,10 +309,154 @@ cold-start defect.
 Sequence this after the in-flight KMS tickets reconcile, or expect a small merge
 in one file.
 
-## Open
+## The target travels as a path prefix
 
-**Where the last selection is persisted.** The no-target fallback above resolves
-to "the operator's last selection if still admissible". Nothing stores that
-today. It is a one-column decision ([[REQ-178]]'s user row, or a cookie the
-switcher sets) and it is [[REQ-179]]'s to make; this ticket reads whatever it
-lands on and falls through to the first admissible business until it exists.
+The wire form is `/b/<businessId>/…`, stripped once at the top of `route()`
+before any route matches. [[REQ-179]] sends it; this ticket reads it.
+
+**A header cannot carry it**, and the reason is structural rather than
+aesthetic. Three of `builder/api.js`'s functions do not fetch anything — they
+return a URL the *browser* loads: `previewUrl` into the preview `<iframe src>`,
+`assetUrl` into the image picker's `<img src>`, `materialFileUrl` into the
+Library's `<img>` / `<a>`. A browser attaches no custom header to those and
+offers no hook to make it.
+
+**A query parameter fails for a narrower reason that is worse.**
+`/preview/<slug>/<channel>/…` (`router.ts:1021`) serves the rendered page AND the
+page's own asset bytes, and the render emits those references document-relative
+(`relativizeUrl`, [[REQ-109]] — the rule `api.js:51` records). A relative
+sub-resource **drops the query string**, so every image inside every preview
+would arrive unscoped and fall through to the fallback: a preview of one business
+rendered inside a chrome showing another, with nothing in either to say so. A
+path prefix is inherited by relative sub-resources by construction, and that is
+the whole of why it is the answer.
+
+It is also cheap. `routeUncached` takes `url.pathname` into `p` once and every
+route matches on `p`, so stripping the prefix there leaves the route table
+untouched. `/builder/*` and `/webui/*` stay **unprefixed** — they are build
+artifacts with no business, and the assets fall-through must not acquire one.
+
+**The target is not a credential.** Access authenticates; resolution authorises
+the named business against the admission list on every request. A forged or
+guessed id resolves to a refusal, never to another account's data. That is what
+makes it safe in a URL — and it is exactly what the unauthorised-target UAT
+proves, which is why the UAT is the load-bearing half of this decision rather
+than a restatement of it.
+
+## The no-target fallback is the first admissible business
+
+An earlier draft said "the operator's last selection if it is still admissible",
+and left where that is persisted open. It is closed here: **the server never
+needs it.**
+
+[[REQ-179]] keeps the selection in `STORAGE_KEYS`, which is browser storage, so a
+request with no target is by definition one where browser storage did not reach
+the Worker. Nor does that leave a gap. `/` is answered at the top of the route
+table, above the store, from a `chromeHtml()` that takes no arguments — the first
+load needs no scope at all, and the first request that does need one is an API
+call the chrome makes *after* reading its own storage. With the prefix above, a
+bookmarked deep link carries its business too. What remains is a bare API caller.
+
+So a request with no target resolves to the **first admissible business**, and
+the returning-operator property stays where [[REQ-179]] put it. Never to
+`env.TENANT_ID` — with the single stated exception of the dev-open branch above,
+which has no identity to resolve from at all.
+
+This removes the one-column decision the earlier draft deferred: no `users`
+column, no cookie, no write on the request path.
+
+## Vocabulary: what the names get wrong
+
+The model is **an account holds several businesses; a business is a tenant; a
+site lives inside a business.** `sites` is keyed `(tenant_id, slug)`, so several
+sites per business is already representable and is a later UI question
+([[REQ-179]]) rather than a migration — nothing here may assume one site per
+business.
+
+Two things the existing names get wrong, which new code must not repeat:
+
+- **There is no `accounts` table.** The account handle is the user id —
+  `provisionBusiness(env, { accountUserId, … })` — so an account is a person
+  today. Resolution needs no account row: it needs `businessesFor(user.id)`,
+  which [[REQ-178]] landed. Billing rollup to a payer is [[REQ-180]]'s question.
+- **`account_id` holds a business id**, in `memberships` and `entitlements`
+  alike, and business ids read `acct_…`.
+
+So `AdmittedBusiness.accountId` is renamed **`businessId`** — a TypeScript
+rename with no migration behind it, done now because [[REQ-178]] is one commit
+old and every later call site would inherit the confusion. **The SQL columns and
+the `acct_` prefix are left alone**, on [[REQ-180]] §3's own argument: renaming a
+column to match a word buys a migration for nothing, and ids are opaque,
+permanent, and present in R2 keys.
+
+## Acceptance
+
+- No file outside the resolver and `identity.ts` reads `env.TENANT_ID`, asserted
+  over the source so a seventh mention cannot reappear unnoticed.
+- Two businesses held by one person resolve to two different stores: a request
+  under `/b/<A>/` reads A's sites and never B's, and the reverse.
+- A target the caller holds no live membership for is **refused**, not silently
+  resolved to one they can reach.
+- A `platform_admin` resolves a scope for a business with no membership row, and
+  is still refused a business whose entitlement has lapsed.
+- A request with no target resolves to the first admissible business; the scope
+  comes from `env.TENANT_ID` only on the dev-open branch, gated on the same
+  `isUnconfiguredLocalDev` predicate that skips the gate.
+- An asset requested from inside a rendered preview is served from the same
+  business as the page that referenced it.
+- Two businesses driven through one isolate get two chat hosts: a turn taken in
+  one appears in neither the other's transcript nor its corpus.
+- A deactivated business is absent from the admissible set rather than present
+  and 503-ing when it is chosen.
+- The operator's existing `1stcontact` business is still reachable after the
+  migration, re-running the migration changes nothing.
+
+
+## What the implementation added, and why
+
+Five things the sections above imply but did not say. They are written down here
+because each one has a UAT against it, and a UAT with no language behind it is
+drift by the time anyone reads it again.
+
+**A target is ignored on the dev-open branch.** That branch has no identity to
+authorise a target against, so honouring one would make the loopback door the
+single place in the system where a business is chosen with nobody checking — a
+shape that reads as a feature and would eventually be relied on. It resolves to
+`TENANT_ID` whether or not the request named a business.
+
+**The openers refuse an empty scope, under a name that is not
+`TenantNotConfiguredError`.** `resolveScope` cannot produce `{ businessId: '' }`
+— every branch either returns an id read out of an admission or throws — so an
+empty one reaching `storeFor` or `ticketStoreFor` means a caller built a scope by
+hand. That is a programming error, and telling an operator to go and check
+`wrangler.toml` for it would send them to fix something that is not broken. It is
+still checked rather than passed through, because `forTenant('')` would look up a
+tenant nobody registered and surface as "unknown tenant", which reads as a missing
+migration. This supersedes [[REQ-162]]'s assertion that an unscoped ticket store
+raises `TenantNotConfiguredError`: the refusal is unchanged and still happens at
+construction, only its name now matches what it means.
+
+**A chat host that fails to build is evicted from the cache.** A rejected promise
+left in the map would poison that business for the isolate's life — a missing
+binding repaired a second later would keep answering with the first failure, and
+only for whichever business happened to ask first. The single `let` had the same
+flaw and could hide it, because one poisoned entry looked like a dead isolate
+rather than like one dead tenant.
+
+**The rename covers every TypeScript field that holds a business id**, not only
+`AdmittedBusiness`. `InviteResult` and `BusinessResult` carry the same value under
+the same wrong name, and leaving two behind would reproduce exactly the confusion
+the rename exists to remove. The SQL columns and the `acct_` prefix are still
+untouched.
+
+**The migration seeds the grant as well as the membership.** [[DOC-40]] §5 makes
+entitlement a separate condition from membership, and `admit` refuses a business
+with no active grant covering now — so a membership on its own would leave the
+operator refused at the door with `no_entitlement` rather than served an empty
+builder, which is a different failure from the one the migration exists to
+prevent and no better. The grant is open-ended: a dated one on the platform's own
+business would expire the operator out of their own deployment at a wall-clock
+time nobody chose. `platform_admin` is deliberately left at 0 — the ambient flag
+is [[DOC-40]] §6 and [[REQ-170]]'s `PLATFORM_ADMINS` var is its seed, and deciding
+that ticket's bootstrapping question from inside a data migration is where nobody
+would look for it.
