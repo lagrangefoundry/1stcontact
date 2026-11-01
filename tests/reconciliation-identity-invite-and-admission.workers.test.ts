@@ -355,21 +355,35 @@ describe('login binds, and provisions nothing', () => {
 
   it('test_UAT_AC1748_an_invited_person_binds_to_one_account_and_one_grant', async () => {
     const email = anEmail()
-    const invited = await provisionInvite(identityEnv(), { email, endsAt: null })
-
-    const first = await admit(identityEnv(), email)
-    expect(first.ok).toBe(true)
-    expect(first.ok && first.accountId).toBe(invited.accountId)
+    const invited = await provisionInvite(identityEnv(), {
+      email,
+      accountName: 'Story Bakery',
+      endsAt: null,
+    })
 
     const grant = await env.DB.prepare('SELECT id FROM entitlements WHERE account_id = ?')
       .bind(invited.accountId)
       .first<{ id: string }>()
-    expect(first.ok && first.entitlement.id).toBe(grant?.id)
+    expect(grant?.id, 'the invite wrote no grant').toBeTruthy()
+
+    // The admission reports the SET of businesses: exactly the one the invite
+    // created, carrying its name and the grant the invite created.
+    const first = await admit(identityEnv(), email)
+    expect(first.ok).toBe(true)
+    if (!first.ok) return
+    expect(first.businesses.map((b) => [b.accountId, b.name, b.entitlement?.id, b.selectable])).toEqual([
+      [invited.accountId, 'Story Bakery', grant!.id, true],
+    ])
+    // No singular account or grant beside the set.
+    expect(Object.keys(first)).not.toContain('accountId')
+    expect(Object.keys(first)).not.toContain('entitlement')
 
     // DETERMINISTIC: the same person with the same memberships resolves to the
-    // same account every time, rather than to whatever the planner returned first.
+    // same set, in the same order, every time.
     const second = await admit(identityEnv(), email)
-    expect(second.ok && second.accountId).toBe(first.ok && first.accountId)
+    expect(second.ok && second.businesses.map((b) => [b.accountId, b.entitlement?.id])).toEqual(
+      first.businesses.map((b) => [b.accountId, b.entitlement?.id]),
+    )
   })
 
   it('test_UAT_AC1749_first_arrival_never_moves_latest_always_does_refusals_included', async () => {
@@ -521,8 +535,13 @@ describe('login binds, and provisions nothing', () => {
     ])
 
     // An open-ended grant preserves access longest, so it wins over both.
+    // The grant is reported on the account's own entry in the admitted set.
+    const effectivePlan = (r: Awaited<ReturnType<typeof admit>>): string | null | undefined =>
+      r.ok ? r.businesses.find((b) => b.accountId === invited.accountId)?.entitlement?.plan : undefined
+
     const open = await admit(identityEnv(), email)
-    expect(open.ok && open.entitlement.plan).toBe('open-ended')
+    expect(open.ok).toBe(true)
+    expect(effectivePlan(open)).toBe('open-ended')
 
     // Remove it, and the winner is the latest-ending grant still covering now —
     // NOT the lapsed one, which is ignored rather than selected.
@@ -530,7 +549,8 @@ describe('login binds, and provisions nothing', () => {
       .bind(invited.accountId)
       .run()
     const bounded = await admit(identityEnv(), email)
-    expect(bounded.ok && bounded.entitlement.plan).toBe('ends-shortly')
+    expect(bounded.ok).toBe(true)
+    expect(effectivePlan(bounded)).toBe('ends-shortly')
   })
 
   it('test_UAT_AC1755_an_identity_carrying_no_address_is_refused_not_failed', async () => {
