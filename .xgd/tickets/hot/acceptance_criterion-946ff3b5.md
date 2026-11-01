@@ -6,7 +6,7 @@ title: The list is the whole account's material, and the open site is a badge on
   rows whose recorded placement includes it rather than a boundary on the list
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T05:18:41.292816+00:00'
-updated_at: '2026-10-26T01:26:15.235001+00:00'
+updated_at: '2026-11-01T12:05:26.093677+00:00'
 completed_at: null
 last_field_updated: title
 status: active
@@ -14,25 +14,29 @@ fields:
   story_uid: story-1500b111
   kind: behavior
   regression_only: false
+  title: The list is the whole of the open business's material, placed or not, with
+    no placement badge, and a business switch leaves no row from the previous business
 ---
 
 ## Criterion
 
-The Library lists the whole account's material, never one site's: material placed on the site
-currently open, material placed on another of the client's sites, and material placed on no site
-at all are all listed together, with no filter applied.
+The Library lists the whole of the open business's material: material placed on the business's
+site and material placed on no site at all are listed together, with no filter applied. No row is
+withheld on the strength of its placement, and no row carries an "On this site" mark — under one
+site per business a placement badge would only restate the normal case (see the warning criterion
+for the one placement state that is marked).
 
-The site currently open decides a badge and nothing else. A row carries a visible "On this site"
-mark exactly when the material's recorded placement — the list of sites a promotion has actually
-landed it on — includes the open site. Which site was open when the file was handed over does not
-decide the mark: material handed over while the open site was selected but never placed on it
-(handed over as background, or whose promotion failed) carries no mark. No row is withheld on the
-strength of its placement.
+The Library does not depend on which site is open. Choosing a different business in the header
+selector — which, under one site per business, is what switching site means — replaces the list
+with that business's material: the rows on screen are dropped before the new business's material
+is requested, and the list is then filled from what comes back. No row from the previous business
+remains visible after a switch, including when the request for the new business's material fails
+(the list is then empty rather than the previous business's).
 
 ## Verification
 
-With an account holding at least four pieces of material — one placed on the open site, one placed
-on a different site of the same client, one placed on no site, and one handed over as background
-while the open site was selected — open the Library with no filter set. Observe all four rows
-present. Observe exactly one row carrying the "On this site" mark, and that it is the row placed
-on the open site; the background material handed over while that site was open carries none.
+With a business holding material placed on its site, material placed nowhere, and background
+material, open the Library with no filter set: observe every row present and none carrying an
+"On this site" mark. Switch the header selector to a second business holding different material
+and observe only the second business's rows. Switch again with the listing request failing and
+observe that none of the previous business's rows remain.
