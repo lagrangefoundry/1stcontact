@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded BUNDLE-34 (REQ-175 + REQ-178 + REQ-166 +
   + REQ-173)'
 created_by: xgd
 created_at: '2026-11-01T01:06:25.354010+00:00'
-updated_at: '2026-11-01T02:17:42.888501+00:00'
+updated_at: '2026-11-01T02:38:31.387450+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -228,7 +228,7 @@ fields:
       storage (AC-1057), and these were wrong: a reload mid-turn lost the turn. This
       is a bug fix to the existing capability, hence an upgrade; reattach is an extension
       of the same conversation surface, not a new bucket.'
-    story_uid: null
+    story_uid: STORY-103
     target_story_ids:
     - STORY-103
     acceptance_criteria_changes:
