@@ -6,14 +6,15 @@ title: A grant whose end has passed makes its business unselectable; the person 
   refused only when no business holds an admitting grant
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:29:01.303156+00:00'
-updated_at: '2026-11-01T01:33:27.009156+00:00'
+updated_at: '2026-11-01T09:54:04.175263+00:00'
 completed_at: null
-last_field_updated: title
-status: active
+last_field_updated: status
+status: superseded
 fields:
   story_uid: story-7b1025b8
   kind: behavior
   regression_only: false
+  superseded_by_uid: bundle-94dbe947
 ---
 
 ## Criterion
