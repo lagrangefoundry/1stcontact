@@ -7,10 +7,10 @@ title: An expired session at load is reported in place of the builder, and mid-s
   refused listing clears no pane
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:49:56.060939+00:00'
-updated_at: '2026-11-01T20:49:56.060939+00:00'
+updated_at: '2026-11-01T21:29:09.668596+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-e674c60a
   kind: behavior
