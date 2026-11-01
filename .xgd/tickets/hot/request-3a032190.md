@@ -5,15 +5,28 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-09-05T21:34:30.731359+00:00'
+updated_at: '2026-11-01T23:18:45.700519+00:00'
 completed_at: null
-last_field_updated: body
-status: draft
+last_field_updated: status
+status: bundled
 fields:
   priority: high
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  chat_comment: comment-33d260ac
+  commits:
+  - working_sha: 3d9529a4913eeecc0d6084bb2759170c9e2744d4
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: a89fc80a4304a1f7afd7972025ba81fd172b7e33
+    reconcile_sha: null
+    main_sha: null
+  - working_sha: 7c25b0c830f5bd55912919df264db0e583279214
+    reconcile_sha: null
+    main_sha: null
+  version: 0.2.113
+  bundled_in: bundle-5052a63c
 ---
 
 # Regenerate the test data as a command, not as hand-written SQL
@@ -123,3 +136,295 @@ sitting makes every bug look like the harness running down.
 
 This ticket still owns the seed the simulator signs people in to, and
 `apps/control-app/ACCESS.md` should gain a pointer to it.
+
+
+## Two corrections, 2026-09-05 ([[CHAT-23]])
+
+**The operator seed is gone, not relocated.** This ticket previously said `0005`
+was not test data and would come from the baseline. [[REQ-190]] now drops it
+entirely: [[REQ-185]]'s `PLATFORM_ADMINS` bootstrap writes the tenant, the user,
+the membership and the entitlement, from configuration, without hardcoding an
+address. Bringing a deployment up is: set the var, sign in once, empty it. This
+ticket seeds nobody privileged and should say so.
+
+**One real artefact has to survive the wipe: the `xgd` site.** Everything else in
+the stores is disposable ([[CHAT-23]]).
+
+It is already safe, and this ticket's job is to prove that rather than assume it.
+The file-backed store at `storage/sites/xgd/` holds a draft — `site.json`, `pages/`
+and 9 assets, last edited 2026-09-01 — which is **newer** than the two published
+revisions in D1 (2026-08-21, "hello cloud" and "live edit", 9 assets). So the
+current content lives outside the database and `1c push` restores it.
+
+What a wipe does destroy is the two revision *records*: the stamps, messages and
+`based_on` chain. That is history, not content, and it is accepted.
+
+A cheap guard is worth more than the assurance: **capture the draft before the
+wipe and diff it after the re-push**, so "the site came back" is a check rather
+than a look.
+
+## Added acceptance
+
+- the `xgd` site is present and byte-identical after a wipe, baseline and reseed,
+  restored from the file-backed store rather than from D1
+- the seed creates no platform operator; `PLATFORM_ADMINS` is the documented way
+  to bring up an empty deployment
+
+
+## The bootstrap phase cannot go over HTTP
+
+Established 2026-09-05 ([[CHAT-23]]), and it follows from [[REQ-190]] dropping the
+operator seed.
+
+After the wipe and the baseline the database is empty. Every privileged route
+needs an `admission`, and `admit` needs a `users` row to produce one — so with no
+rows, `/api/admin/businesses` answers 404 and `/api/people/invite` answers 403.
+A seed that drives the product over HTTP **cannot make its first call**: there is
+nobody to authenticate as. Migration `0005` used to paper over this by putting the
+operator in the database ahead of everything; nothing does now, deliberately.
+
+**The escape is that the gates are in the router, not the functions.**
+`provisionBusiness`, `invitePerson`, `openGrant` and `ensurePlatformOperator` are
+all exported and contain no permission checks — the checks live at `router.ts`
+(`ownsPlatformBusiness`, `ownsBusiness`). So an in-process caller with a `DB`
+binding can write the first rows, which is exactly how the suites already work.
+
+### Two phases, one command
+
+**Phase 1 — in process, and exactly one call.** `ensurePlatformOperator(env,
+address)` writes the tenant, the `users` row, the membership and the entitlement.
+It is the same function [[REQ-185]]'s break-glass path invokes, so the seed is not
+a second definition of what an operator is — it is the same one, reached without
+the var.
+
+**Phase 2 — over HTTP, as that operator**, with a token from `bin/access-sim`.
+Every business, invite and grant after the first goes through the real route and
+the real gate.
+
+**One command, not two scripts**, and the reason is not tidiness. Two scripts is
+one that can be run without the other, or in the wrong order, and the failure is a
+half-seeded store that looks seeded. It also keeps this ticket's existing promise
+— *one command, from a fresh clone and an empty D1* — literally true.
+
+### Why phase 2 is worth the trouble
+
+An in-process seed all the way through would be simpler and would prove less.
+This ticket's rationale is that *a seed which succeeds is evidence those paths
+work* — and calling the functions is evidence the **functions** work, not the
+routes or their gates.
+
+The gates are the part most likely to be wrong. [[REQ-186]] names substituting
+`ownsPlatformBusiness` for `ownsBusiness` as the mistake most likely to be made,
+and this session found exactly that substitution once already. A seed that never
+issues an HTTP request would never catch it.
+
+So phase 1 is kept to the single call that cannot be made any other way, and
+everything reachable over HTTP goes over HTTP.
+
+### The operator address is a parameter
+
+Not a literal in the seed. Hardcoding it here is the same defect [[REQ-190]] just
+removed from the migration, with a smaller blast radius but the same shape: a
+personal address baked into a path that runs in every environment. A flag or an
+env var, defaulted to nothing.
+
+## Added acceptance
+
+- the seed is one command; there is no second script an operator must remember
+- phase 1 makes exactly one in-process call, `ensurePlatformOperator`, and writes
+  nothing else directly
+- every persona, business, invite and grant after the operator is created over
+  HTTP through the routes a person would use
+- the seed refuses to run against a store that already has an operator, rather
+  than half-seeding it
+- the operator address is supplied, not hardcoded
+
+
+
+## Simplified, 2026-09-06: a SQL file and a runner
+
+The two-phase design above is withdrawn. It is over-built for what this is: a
+development fixture that most people will run once, on a laptop, to get a stack
+worth looking at. What replaces it is a **SQL file and a shell script that feeds
+it to `wrangler d1 execute`** — `db/dev-seed.sql` and `bin/seed`.
+
+**"Through the product's own entry points" is downgraded from a requirement to a
+preference, and here it is not taken.** The argument for it stands — a seed that
+succeeds is evidence those paths work — but the price is a two-phase command that
+needs a running Worker, a minted Access token, a bootstrapped operator and an
+in-process D1 binding held by a second process, all so that a fixture can be
+written. That is a lot of machinery to maintain for something whose failure mode
+is "the test data looks wrong", which is visible immediately. The routes are
+covered by [[REQ-180]]'s, [[REQ-186]]'s and [[REQ-188]]'s own suites, which is
+where evidence about a route belongs.
+
+So `phase 1` / `phase 2`, the in-process `ensurePlatformOperator` call, and the
+"one command, no second script" argument built on top of them are all dropped.
+The added acceptance clauses that describe them are superseded by this section.
+
+### What the seed writes
+
+Identity rows only, straight into the tables. Fixed, opaque primary keys —
+`usr_…`, `acct_…`, `mem_…`, `ent_…`, minted once and written down — so that
+`INSERT OR IGNORE` is the whole of the idempotence and no `WHERE NOT EXISTS`
+scaffolding is needed. Fixed rather than random is the one place this file
+departs from the baseline's rule, and it departs from the *minting* half only:
+the values still carry no meaning and are still never parsed.
+
+| Persona | Where | State |
+| --- | --- | --- |
+| Alice, `alice@plumbing.example` | a `users` row in the deployment's own business | signed up — she accepted the terms |
+| Alice's Plumbing | a business | Alice owns it, with an open-ended grant |
+| Alice's Lettings | a second business | the same account, a second business ([[REQ-178]]) |
+| Alice's Old Salon | a third business | its grant ended — present and unselectable |
+| Bob, `bob@example.com` | a `users` row in Alice's Plumbing | invited, and signed up |
+| Carol, `carol@example.com` | a `users` row in Alice's Plumbing | invited, and never came |
+| Dave, `dave@example.com` | a `users` row in Alice's Plumbing | a lead — never invited |
+
+Alice holds **no membership on the 1st Contact business** and signs in every day,
+which is [[DOC-42]] §4's correction stated as data rather than as prose.
+
+### What it does not write, and says so
+
+- **No platform operator.** `PLATFORM_ADMINS` is the way in, unchanged. Nothing
+  in the seed sets `platform_operator` or writes a membership on the deployment's
+  own business.
+- **No second address for anybody.** [[REQ-191]]'s `user_emails` table does not
+  exist yet, so that row of the cast is not reachable by any means, SQL included.
+  `bin/seed` prints this as an outstanding gap on every run, naming the ticket, so
+  that it stays visible rather than being quietly absent.
+- **No sites.** Identity fixtures, not a demo corpus — the businesses come up
+  empty and `1c push` puts a site in one. `bin/seed` prints that as the next step.
+
+### The runner
+
+`bin/seed` runs one `wrangler d1 execute DB --file db/dev-seed.sql`, against the
+local D1 by default and against the remote one only when `--remote` is typed. It
+prints what it wrote, the gap above, and what to do next. `--help` says all of it.
+
+Local by default is a safety property rather than a convenience: a fixture
+carrying `alice@plumbing.example` reaching a real deployment is the same defect
+[[REQ-190]] just took out of migration `0005`, so the destructive target has to be
+named out loud.
+
+### The Access simulator
+
+`bin/access-sim` is committed under this ticket, as the section above decided. It
+is what makes the seeded people reachable: a JWKS endpoint and a token minter on
+loopback, pointed at by `ACCESS_TEAM_DOMAIN`, so `access.ts` verifies a real RS256
+signature against keys this process published. A UAT mints through it and verifies
+with `verifyAccessJwt` itself, so the claim that it exercises the real gate rather
+than bypassing it is checked rather than asserted.
+
+`apps/control-app/ACCESS.md` gains the pointer to both, as this ticket already
+promised.
+
+### Superseded acceptance
+
+These clauses described the two-phase command and go with it:
+
+- ~~the seed is one command; there is no second script an operator must remember~~
+- ~~phase 1 makes exactly one in-process call, `ensurePlatformOperator`~~
+- ~~every persona, business, invite and grant after the operator is created over HTTP~~
+- ~~the seed refuses to run against a store that already has an operator~~
+- ~~the operator address is supplied, not hardcoded~~ — nothing seeds an operator, so
+  there is no address to supply
+
+### Acceptance, as it now stands
+
+- one command — `bin/seed` — populates an empty local D1 with the cast above
+- re-running it changes nothing
+- every persona the schema can hold is present; the one it cannot is named on
+  every run rather than silently missing
+- each seeded person can be signed in as locally, without a Cloudflare account,
+  through `bin/access-sim` — and where the product refuses them, the refusal is
+  the product's honest answer and not a defect in the fixture
+- the seed creates no platform operator
+- the seed writes to the local D1 unless `--remote` is typed
+
+
+
+## Correction, 2026-09-06: REQ-191 landed, so the cast is complete
+
+The section above said a person with two addresses could not be written by any
+means. That was true when it was written and stopped being true during the same
+session: [[REQ-191]] merged, `users.email` is gone, and `user_emails` holds the
+addresses. The gap is closed and the "still missing" report `bin/seed` was to
+print is deleted rather than kept as a paragraph nobody re-reads.
+
+**Alice holds two addresses**, `alice@plumbing.example` (primary) and
+`alice@oldsalon.example` (not primary), and that is the row of the cast with the
+least else covering it. [[REQ-191]] moved the address off `users` precisely so
+that one human could hold several, and nothing reachable by clicking produces the
+state — so the claim was asserted by the schema and demonstrated by nothing. Two
+things follow and both are checked:
+
+- reached at either address, Alice is the **same `users` row**, holding the same
+  three businesses. That is what the table bought: before it, a second address
+  was a second human who could never be reconciled with the first
+- the primary is still the one **shown**. Signing in at the secondary must not
+  silently relabel her, because `PRIMARY_EMAIL_SQL` is one definition site and two
+  answers to "which address is hers" is what it exists to prevent
+- `is_primary` is set on one and clear on the other. Two primaries violates
+  `idx_user_emails_one_primary`, and zero is legal but falls back to the oldest
+  address — so one-and-one is the state the detail panel is built to render, and
+  the state worth seeding
+
+### The simulator was already broken by it
+
+`bin/access-sim` listed the people to sign in as with `SELECT email FROM users`,
+which [[REQ-191]] made a query against a column that no longer exists. It failed
+silently, because `knownPeople` swallows a failure by design so that a missing
+store degrades to the manual path rather than to a broken page — the degradation
+is right, and it hid a real break: the page kept rendering and simply stopped
+listing anybody.
+
+It reads `user_emails` now and offers **every** address rather than one per
+person, because signing in as the same human at their second address is exactly
+the thing that is newly possible. A regression guard pins the query text, since
+the one reader that cannot report its own failure is the one that needs it.
+
+## Three properties the implementation added
+
+Each is a consequence of the shape above rather than a new requirement, and each
+has a check, so they are written down here rather than discovered later.
+
+- **The seed is not a migration, and must never become one.** `db/migrations/` is
+  applied to every environment forever, which is precisely what made `0005` a
+  defect. `db/dev-seed.sql` sits beside that directory and is reached only by
+  typing the command.
+- **The seed names the tenant `wrangler.toml` configures.** Alice's row has to
+  land in the business `TENANT_ID` names or she is a person in a tenant this
+  deployment never asks about — rows that look perfect and admit nobody. Nothing
+  about the value is derivable, so the two literals are compared.
+- **A seeded member has accepted the CURRENT terms.** `needsAcceptance` compares
+  the stored `tos_version` against `TERMS_VERSION`, not merely the presence of a
+  stamp, so a seed carrying an older string produces somebody who is signed up and
+  still refused by `guardTerms` — which reads as a broken fixture rather than as
+  the re-acceptance it is. Bumping the terms is when this rots, so the two are
+  pinned together.
+
+And one for the simulator: **a wrong `aud` is still refused.** "The minted token
+passed" is equally consistent with a verifier that checks nothing, so the same
+token is put through the same verifier under a different audience and has to fail.
+Without that case the claim that the real gate runs is untested.
+
+## Also landed here
+
+- `bin/access-sim` is committed, per the decision above, with
+  `apps/control-app/ACCESS.md` gaining the section that explains it beside the
+  real settings — including that `PLATFORM_ADMINS` is how somebody privileged
+  comes to exist, since the seed creates nobody.
+- `.dev.vars` and `.dev.vars.*` are gitignored. `--print-env` writes
+  `.dev.vars.local`, and local Access configuration does not belong in the repo.
+
+## Acceptance, final
+
+- one command — `bin/seed` — populates an empty local D1 with the cast
+- re-running it changes nothing, asserted as whole rows and not as "it did not error"
+- every persona and every state in the table is present, including the two addresses
+- each seeded person can be signed in as locally through `bin/access-sim`, without
+  a Cloudflare account; where the product refuses them, the refusal is the
+  product's honest answer and not a defect in the fixture
+- the seed creates no platform operator and confers no hosting capability
+- the seed writes to the local D1 unless `--remote` is typed

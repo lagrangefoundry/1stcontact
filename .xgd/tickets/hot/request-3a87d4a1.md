@@ -5,10 +5,10 @@ type: request
 title: 'Data is not a key: opaque keys across the schema, in one rebaseline'
 created_by: xgd
 created_at: '2026-09-05T21:12:40.298029+00:00'
-updated_at: '2026-09-06T18:09:14.377463+00:00'
+updated_at: '2026-11-01T23:18:44.059220+00:00'
 completed_at: null
 last_field_updated: status
-status: ready_to_reconcile
+status: bundled
 fields:
   priority: high
   story_points: 6
@@ -33,6 +33,7 @@ fields:
     main_sha: null
     working_sha_history: []
   version: 0.2.85
+  bundled_in: bundle-5052a63c
 ---
 
 ---
