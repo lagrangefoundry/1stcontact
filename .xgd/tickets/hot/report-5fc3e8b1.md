@@ -6,7 +6,7 @@ title: 'Reconciliation Plan: free-coded (BUNDLE-35 — BUG-48, REQ-171, REQ-168,
   REQ-169, REQ-180, BUG-50, REQ-181, REQ-184, REQ-224, REQ-225)'
 created_by: xgd
 created_at: '2026-11-01T09:01:34.043680+00:00'
-updated_at: '2026-11-01T09:29:03.427371+00:00'
+updated_at: '2026-11-01T09:54:59.788352+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -160,7 +160,7 @@ fields:
       commits and must be upgraded when they reconcile (Case 2, explicit supersession).
       Lapse reasons and the entitlement subject refine the same grant model. Same
       capability bucket (capability-e5939ceb).
-    story_uid: null
+    story_uid: story-7b1025b8
     target_story_ids:
     - story-7b1025b8
     acceptance_criteria_changes:
