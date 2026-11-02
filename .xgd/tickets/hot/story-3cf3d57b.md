@@ -6,14 +6,14 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-09-19T14:29:56.698257+00:00'
+updated_at: '2026-11-02T04:12:39.276592+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-8e1807f6
   capability_uid: capability-7e4714b7
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -65,6 +65,7 @@ In scope:
   an eviction or a redeploy, which is what makes a resumed conversation report
   what arrived while the client was away without any separate "while you were
   away" report existing.
+- **A hit can be read back, from either body, on either host.** Each knowledge base's runtime — on the deployed Worker and in the Node CLI — is opened with its document and passage indexes keyed by the source its own declaration resolves to: the system knowledge base under `shipped`, the client's, which declares no source, under the knowledge component's default source. The one search over both passes each side's indexes through under those keys. So a document the search returns can then be fetched rather than refused as "not in the corpus", and a knowledge base with no index for its source refuses loudly instead of answering as though it were empty.
 
 Out of scope (owned elsewhere, or declared blocked by the intent):
 
@@ -118,6 +119,8 @@ Dependency on CAP-90's conversation story is structural rather than incidental:
 a bookmark with nowhere to live would be recomputed from the map on every turn,
 so the first upload of a conversation would be announced again, and again.
 
+Each side's runtime reads its index through a map keyed by source name (upstream knowledge REQ-112, repaired here by BUG-55). This matters twice over: the search resolves its index through that key, and the runtime seeds the snapshot that decides which documents are readable *from* the same map. A runtime opened with the old singular key searched nothing and placed no document in its snapshot, so every read was refused as "not in the corpus" — an answer, not an error, and exactly how the assistant came to report shipped capabilities as missing. The client's knowledge base declares no source and must be keyed under the component's default source explicitly, because index lookup (unlike store lookup) has no fallback for an unnamed index. The composite runtime that merges the two searches holds no index of its own; it forwards each side's maps.
+
 ## Reconciliation Decisions
 
 - **The arrival notice covers the client's own knowledge alone** (decided at
@@ -150,6 +153,8 @@ so the first upload of a conversation would be announced again, and again.
   is absent from the code, so no criterion here claims it. This is an
   un-delivered piece of REQ-160, not a contradiction between intent and code:
   AC-1800 states the truncation and the exact count, and stops there.
+
+- **Search-then-read across both bodies is formalised as a criterion of this story** (decided at reconciliation, 2026-11-01, BUNDLE-37 / BUG-55): BUG-55 asks that "a hit that comes back from either knowledge base can be fetched" and that "the co-ranked surface searches both knowledge bases on both hosts". AC-1797 pins the merged search but not that its hits are readable, and the read failure was silent, so it is pinned separately as AC-2237. The client knowledge base's key (the default source) is stated in the criterion because it is the one asymmetry a search-only test would miss. No code-issue: the Worker and Node runtimes, and both merged-search overrides, pass source-keyed maps as the intent asks.
 
 ## Dependencies
 
