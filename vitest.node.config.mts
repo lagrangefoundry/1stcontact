@@ -70,6 +70,10 @@ export default defineConfig({
     name: 'node',
     include: ['tests/**/*.test.ts'],
     exclude: ['tests/**/*.workers.test.ts'],
+    // The control app imports its gitignored `src/generated/` shims statically;
+    // this writes them with the real `1c assets` generator when they are absent,
+    // so a fresh checkout's suites load instead of reading as orphaned.
+    globalSetup: ['./tests/global-setup-generated.ts'],
     testTimeout: 60000,
     hookTimeout: 60000,
   },
