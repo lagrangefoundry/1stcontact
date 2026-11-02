@@ -14,6 +14,19 @@ fields:
   story_points: 3
   auto_merge_back: true
   needs_review: false
+  commits:
+  - working_sha: d1b3fa897b668717020ae152ac2920087d9e3e88
+    reconcile_sha: 2c23da50b705d864468336794152878b813caad1
+    main_sha: null
+    working_sha_history: []
+  - working_sha: 7ea4e12b724f90d5cfc114c31a105c8d811ea5e0
+    reconcile_sha: 2d48c51ce2b5244a290a33d15e1611fc5eb103c5
+    main_sha: null
+    working_sha_history: []
+  - working_sha: e1fbf4319d33b5bc75c34e641ba367d3e2bcd8c8
+    reconcile_sha: 55c637191e0c7570e4c3b7696a4af827ffcb170b
+    main_sha: null
+    working_sha_history: []
 ---
 
 # The Account is a table, and a business is owned by one
