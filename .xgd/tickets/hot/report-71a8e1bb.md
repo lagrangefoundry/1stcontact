@@ -5,9 +5,9 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-02T04:08:25.762762+00:00'
+updated_at: '2026-11-02T04:13:03.960848+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: items
 fields:
   report_kind: reconciliation_plan
   subject_uid: bundle-5052a63c
@@ -50,7 +50,7 @@ fields:
         is keyed DEFAULT_SOURCE'
       modify: []
       remove: []
-    story_uid: null
+    story_uid: story-c4f329d3
   - index: 2
     component: Site storage keys & published address
     item_type: upgrade
