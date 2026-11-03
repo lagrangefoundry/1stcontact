@@ -104,6 +104,8 @@ sandbox:
       API's own resolver (REQ-787) — Bash-allowlisted for every headless role, so
       this closes DOC-981 §10.5's report-bug/all_projects tension without granting
       all_projects WHERE to any role just to make this one command work.
+  - command: pnpm test:browser *
+    comment: Browser suites need real multi-process Chromium, which the sandbox kills at launch (Seatbelt mach-register denial on MachPortRendezvousServer; mach_lookup does not cover it). Narrow by design - only this script runs unsandboxed.
 roles:
   interactive:
     where: all_projects
