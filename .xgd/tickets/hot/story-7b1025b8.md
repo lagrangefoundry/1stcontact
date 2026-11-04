@@ -5,9 +5,9 @@ type: story
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-04T17:18:31.762554+00:00'
+updated_at: '2026-11-04T19:42:22.064933+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -152,8 +152,10 @@ about anybody else's.
 
 *An entitlement has a subject and an object* (DOC-42 §6, REQ-184). Every grant
 names the business it is against (the object) and may name an account (the
-subject). A subject, when present, is an account key (REQ-194), never a person's
-id or an address. Grants written by business provisioning name no account: they are
+subject). REQ-194 intends a subject, when present, to be an account key, never a
+person's id or an address. Grants are read back by account key, so a subject that
+is not one is never found under anybody's account; the write path does not yet
+refuse such a subject (see the CODE-ISSUE under Reconciliation Decisions). Grants written by business provisioning name no account: they are
 per-business capacity grants — "this business holds a plan" — so the plan belongs
 to the business and not personally to whoever was invited first. The invite writes
 no grant at all. Only capacity grants decide whether a business may be entered; a
@@ -240,9 +242,11 @@ grants automatically; and any CLI for issuing invites or creating businesses.
 - **Grant columns (REQ-184, migration 0006).** The entitlement's business column
   holds the object (a tenant id) and a nullable account column holds the subject;
   the membership's business column was renamed in the same migration so the two
-  adjacent tables do not carry one name with opposite meanings. Since REQ-194 a
-  non-null subject is an `accounts` key, and the subject column is indexed because
-  the people detail pane now reads every grant naming one account.
+  adjacent tables do not carry one name with opposite meanings. Since REQ-194 the
+  subject is meant to be an `accounts` key and is read back as one; the column has
+  no foreign key and `openGrant` writes whatever subject it is given. The subject
+  column is indexed because the people detail pane reads every grant naming one
+  account.
 - **The account record (REQ-194).** `accounts (id, tenant_id, name, status,
   created_at, updated_at, fields)` is scoped to the business it is an account
   *of*, like every identity row. `name` is the billing label: the invite seeds it
@@ -375,8 +379,8 @@ grants automatically; and any CLI for issuing invites or creating businesses.
 - **The account is a table** (decided at reconciliation, 2026-11-04, BUNDLE-37).
   REQ-194 adds `accounts`, and the landed code matches its acceptance list. AC-1741
   now says a business key is distinct from its owning account's key. AC-2115 now
-  says a non-null subject is an account key, while the capacity grant keeps its
-  null subject. AC-1742 now says the business names its owning account and is
+  says grants are read back by account key, while the capacity grant keeps its
+  null subject (restated again below, under the CODE-ISSUE). AC-1742 now says the business names its owning account and is
   addressed by its own key. Three new criteria cover: the invite minting an
   account, with the schema refusing a person with none; several people on one
   account all operating its businesses; and no permission check reading role.
@@ -401,6 +405,20 @@ grants automatically; and any CLI for issuing invites or creating businesses.
 - **The starter site is `unnamed`, not `home`** (decided at reconciliation,
   2026-11-04). REQ-190's *What landed* names the starter slug `unnamed`, the code
   agrees, and the criterion says so.
+
+- **CODE-ISSUE — a grant's subject is not checked to be a real account** (raised at
+  reconciliation review, BUNDLE-37, 2026-11-04). REQ-194 says "`entitlements.account_id`
+  names a real account". Nothing enforces it. The column has no foreign key in
+  `0001_baseline.sql`, `openGrant` (`apps/control-app/src/people.ts`) writes
+  `spec.accountId` without looking it up, and `POST /api/grants` forwards any string.
+  A grant whose subject is a person's id, or any other string, is stored without
+  complaint. The intent is unmet on the write side, and this is recorded as an intent
+  gap against REQ-194 rather than presented as behaviour. What the code does guarantee
+  is the read side: grants are listed by account key, so a mis-subjected grant is
+  never found under any person's account and confers nothing through it. AC-2115 is
+  restated to claim exactly that and no more. The fix, when it is taken, is a lookup
+  (or foreign key) before the write and a refusal for an unknown account. It is not
+  made here, because reconciliation documents behaviour and does not change it.
 
 ## Dependencies
 
