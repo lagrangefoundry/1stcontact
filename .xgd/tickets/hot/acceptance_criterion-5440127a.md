@@ -6,10 +6,10 @@ title: The template ticket type requires a key from invite/signin/lapsed, a subj
   and a non-empty body; placeholders are optional; invalid writes are refused
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:21.648673+00:00'
-updated_at: '2026-11-04T17:32:21.648673+00:00'
+updated_at: '2026-11-04T18:00:34.050917+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
