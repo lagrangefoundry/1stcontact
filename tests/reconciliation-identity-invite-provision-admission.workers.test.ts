@@ -4,18 +4,20 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
+  accountInsert,
   admit,
   DENIED_MESSAGE,
   ensurePlatformOperator,
-  findAccount,
   IdentityNotConfiguredError,
   newId,
+  PRIMARY_EMAIL_SQL,
   provisionBusiness,
   STARTER_HEADING,
   type Admission,
   type AdmittedBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { currentNameOf } from '../apps/control-app/src/names'
 import { invitePerson, peopleOf } from '../apps/control-app/src/people'
 import { PORTAL_PATH } from '../apps/control-app/src/portal'
 import {
@@ -24,6 +26,7 @@ import {
   PERSON_INVITE_PATH,
 } from '../apps/control-app/src/router'
 import { acceptTerms, TERMS_ACCEPT_PATH } from '../apps/control-app/src/terms'
+import { seedContact } from './support/contact'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
 
@@ -129,10 +132,17 @@ const POST = (token: string | null, path: string, body: unknown, businessId: str
     body: JSON.stringify(body),
   })
 
+/**
+ * The person the invite route reports. The address is the PRIMARY one
+ * ([[REQ-191]]), the name is the current name record or null ([[REQ-193]]), and
+ * `accountId` is the account the person belongs to ([[REQ-194]]) — the key
+ * `provisionBusiness` takes, distinct from the person's own `id`.
+ */
 interface InvitedPersonJson {
   id: string
-  email: string
-  displayName: string | null
+  email: string | null
+  accountId: string
+  name: { displayName: string } | null
   invitedAt: string | null
 }
 
@@ -146,43 +156,51 @@ async function anAccount(email: string, name = 'A Business') {
   return seeded
 }
 
-/** An owner of the 1st Contact business, seeded the way production seeds one. */
-async function anOperator(email: string) {
-  await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
-}
-
-/** A contact: known to a business, never invited. */
-async function addContact(tenantId: string, email: string): Promise<string> {
-  const id = `usr_contact_${(seq += 1)}`
-  const now = ISO(0)
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, tenantId, email, 'active', now, now)
-    .run()
-  return id
-}
-
 type UserDbRow = Record<string, unknown> & {
   id: string
   tenant_id: string
-  email: string
+  account_id: string
+  /** The primary address, joined from `user_emails` — `users` holds none ([[REQ-191]]). */
+  email: string | null
   status: string
-  display_name: string | null
+  platform_operator: number
   invited_at: string | null
   first_seen_at: string | null
   last_seen_at: string | null
 }
 
+/**
+ * Every PERSON in a business reached by this address, read back from D1.
+ *
+ * RESOLVED THROUGH `user_emails` ([[REQ-191]]): the address is a row of its own,
+ * so "how many people does this address reach here" is the set of `users` rows
+ * any `user_emails` row for it points at. A result of length one is therefore
+ * the claim "exactly one person", not "exactly one address row". Each row carries
+ * its primary address joined the way the product joins it.
+ */
 async function rowsFor(tenantId: string, email: string): Promise<UserDbRow[]> {
-  const { results } = await env.DB.prepare('SELECT * FROM users WHERE tenant_id = ? AND email = ?')
-    .bind(tenantId, email)
+  const { results } = await env.DB.prepare(
+    `SELECT u.*, ${PRIMARY_EMAIL_SQL} AS email FROM users u WHERE u.tenant_id = ? AND u.id IN ` +
+      '(SELECT ue.user_id FROM user_emails ue WHERE ue.tenant_id = ? AND ue.email = ?)',
+  )
+    .bind(tenantId, tenantId, email)
     .all<UserDbRow>()
   return results ?? []
+}
+
+/**
+ * An owner of the 1st Contact business, seeded the way production seeds one.
+ *
+ * The PERSON is resolved by address and returned, because terms are accepted by
+ * a person and `platform_operator` is a column on the person — `findAccount`
+ * answers with the account they belong to ([[REQ-194]]), which is neither.
+ */
+async function anOperator(email: string): Promise<UserDbRow> {
+  await ensurePlatformOperator(identityEnv(), email)
+  const [person] = await rowsFor(PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
+  return person
 }
 
 async function count(table: 'tenants' | 'memberships' | 'entitlements' | 'users' | 'sites'): Promise<number> {
@@ -276,7 +294,8 @@ describe('the invite is a transition, not a creation', () => {
     const token = await mint(owner)
 
     const contact = anEmail()
-    const contactId = await addContact(account.businessId, contact)
+    // A contact: known to the business, never invited.
+    const contactId = await seedContact(identityEnv(), { tenantId: account.businessId, email: contact })
     expect((await rowsFor(account.businessId, contact))[0].invited_at).toBeNull()
 
     const promoted = await postInvite(token, { email: contact }, account.businessId)
@@ -329,10 +348,12 @@ describe('the invite is a transition, not a creation', () => {
     expect(bobRow.tenant_id).toBe(customer.businessId)
 
     // Every column apart from identifiers, the address, timestamps and the tenant.
+    // `account_id` is a per-person identifier: the invite mints one account per
+    // person ([[REQ-194]]).
     const shape = (row: UserDbRow) =>
       Object.fromEntries(
         Object.entries(row).filter(
-          ([k]) => !['id', 'email', 'tenant_id'].includes(k) && !k.endsWith('_at'),
+          ([k]) => !['id', 'account_id', 'email', 'tenant_id'].includes(k) && !k.endsWith('_at'),
         ),
       )
     expect(Object.keys(shape(aliceRow)).length).toBeGreaterThan(2)
@@ -360,24 +381,42 @@ describe('the invite is a transition, not a creation', () => {
     const first = await postInvite(token, { email }, account.businessId)
     expect(first.status).toBe(200)
     const firstBody = await first.json<{ person: InvitedPersonJson }>()
-    expect(firstBody.person.displayName).toBeNull()
+    const personId = firstBody.person.id
+    expect(firstBody.person.name).toBeNull()
+    expect(await currentNameOf(identityEnv(), personId), 'a nameless invite wrote a name').toBeNull()
     const stamp = (await rowsFor(account.businessId, email))[0].invited_at
     expect(stamp).toBeTruthy()
+
+    // The name history lives in `user_names` ([[REQ-193]]): every row, current or superseded.
+    const nameRows = async () =>
+      (
+        await env.DB.prepare('SELECT display_name, superseded_at FROM user_names WHERE user_id = ?')
+          .bind(personId)
+          .all<{ display_name: string; superseded_at: string | null }>()
+      ).results ?? []
 
     const second = await postInvite(token, { email, displayName: 'Bob Smith' }, account.businessId)
     expect(second.status).toBe(200)
     const secondBody = await second.json<{ created: boolean; person: InvitedPersonJson }>()
     expect(secondBody.created).toBe(false)
-    expect(secondBody.person.id).toBe(firstBody.person.id)
+    expect(secondBody.person.id).toBe(personId)
     let [row] = await rowsFor(account.businessId, email)
     expect(row.invited_at, 'a re-invite restamped the invitation').toBe(stamp)
-    expect(row.display_name, 'an empty name was not filled').toBe('Bob Smith')
+    expect((await currentNameOf(identityEnv(), personId))?.displayName, 'an empty name was not filled').toBe(
+      'Bob Smith',
+    )
 
     const third = await postInvite(token, { email, displayName: 'Robert Smith' }, account.businessId)
     expect(third.status).toBe(200)
     ;[row] = await rowsFor(account.businessId, email)
     expect(row.invited_at).toBe(stamp)
-    expect(row.display_name, 'the invite overwrote an existing name').toBe('Bob Smith')
+    expect(
+      (await currentNameOf(identityEnv(), personId))?.displayName,
+      'the invite overwrote an existing name',
+    ).toBe('Bob Smith')
+    expect(await nameRows(), 'the re-invite wrote or superseded a name row').toEqual([
+      { display_name: 'Bob Smith', superseded_at: null },
+    ])
   })
 
   it('test_UAT_AC1743_re_inviting_a_known_address_reports_the_person_and_creates_nothing', async () => {
@@ -430,7 +469,7 @@ describe('the invite is a transition, not a creation', () => {
     expect(againBody.person.id).toBe(firstBody.person.id)
     expect(await rowsFor(PLATFORM, email)).toHaveLength(1)
 
-    await provisionBusiness(identityEnv(), { accountUserId: firstBody.person.id, name: 'Cased', email })
+    await provisionBusiness(identityEnv(), { accountId: firstBody.person.accountId, name: 'Cased' })
     const admitted = await admit(identityEnv(), ` ${email.toUpperCase()} `)
     expect(admitted.ok).toBe(true)
     expect(admitted.ok && admitted.user.id).toBe(firstBody.person.id)
@@ -526,9 +565,8 @@ describe('the invite writes no membership and no grant', () => {
     expect(!bare.ok && bare.reason).toBe('no_membership')
 
     const business = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.person.id,
+      accountId: invited.person.accountId,
       name: 'Now Theirs',
-      email,
     })
     const admitted = await admit(identityEnv(), email)
     expect([...byId(admitted).keys()]).toEqual([business.businessId])
@@ -543,18 +581,6 @@ describe('the invite writes no membership and no grant', () => {
     expect(membershipCols).toContain('business_id')
     expect(membershipCols).not.toContain('account_id')
 
-    // The rows seeded before the rename are still readable, naming no account.
-    const seededGrant = await env.DB.prepare(
-      'SELECT business_id, account_id, status FROM entitlements WHERE business_id = ?',
-    )
-      .bind('1stcontact')
-      .first<{ business_id: string; account_id: string | null; status: string }>()
-    expect(seededGrant).toEqual({ business_id: '1stcontact', account_id: null, status: 'active' })
-    const seededMembership = await env.DB.prepare('SELECT business_id FROM memberships WHERE business_id = ?')
-      .bind('1stcontact')
-      .first<{ business_id: string }>()
-    expect(seededMembership?.business_id).toBe('1stcontact')
-
     // No column named for an account holds a business id.
     const { results: misfiled } = await env.DB.prepare(
       'SELECT e.id FROM entitlements e JOIN tenants t ON t.id = e.account_id',
@@ -566,18 +592,25 @@ describe('the invite writes no membership and no grant', () => {
     const before = await count('entitlements')
     const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
     expect(await count('entitlements'), 'the invite wrote a grant').toBe(before)
-    const business = await provisionBusiness(identityEnv(), { accountUserId: invited.person.id, name: 'Object', email })
+    const business = await provisionBusiness(identityEnv(), { accountId: invited.person.accountId, name: 'Object' })
     const { results: written } = await env.DB.prepare(
       'SELECT business_id, account_id FROM entitlements WHERE business_id = ?',
     )
       .bind(business.businessId)
       .all<{ business_id: string; account_id: string | null }>()
     expect(written).toEqual([{ business_id: business.businessId, account_id: null }])
+    // The object is the business, and it is not the account that owns it.
+    expect(business.businessId).not.toBe(invited.person.accountId)
 
     // Three grants against one business — none, A, B — stored and read back apart.
-    const target = newId('acct')
+    // A and B are real accounts ([[REQ-194]]): a subject is an `accounts` key.
+    const target = newId('biz')
     const a = newId('acct')
     const b = newId('acct')
+    await env.DB.batch([
+      accountInsert(identityEnv(), { id: a, tenantId: PLATFORM }),
+      accountInsert(identityEnv(), { id: b, tenantId: PLATFORM }),
+    ])
     const ids = {
       none: await grant({ businessId: target, accountId: null }),
       a: await grant({ businessId: target, accountId: a }),
@@ -611,18 +644,27 @@ describe('provisioning a business', () => {
     expect(
       await env.DB.prepare('SELECT id FROM memberships WHERE user_id = ?').bind(invited.person.id).first(),
     ).toBeNull()
-    expect(await env.DB.prepare('SELECT id FROM entitlements WHERE email = ?').bind(email).first()).toBeNull()
+    // A grant names its subject by account key, not by address ([[REQ-191]], [[REQ-194]]).
+    expect(
+      await env.DB.prepare('SELECT id FROM entitlements WHERE account_id = ?').bind(invited.person.accountId).first(),
+    ).toBeNull()
+    expect(
+      await env.DB.prepare('SELECT id FROM tenants WHERE owner_account_id = ?').bind(invited.person.accountId).first(),
+    ).toBeNull()
 
     const business = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.person.id,
+      accountId: invited.person.accountId,
       name: 'Harbour Bakery',
-      email,
     })
 
-    const tenant = await env.DB.prepare('SELECT name, status FROM tenants WHERE id = ?')
+    const tenant = await env.DB.prepare('SELECT name, status, owner_account_id FROM tenants WHERE id = ?')
       .bind(business.businessId)
-      .first<{ name: string; status: string }>()
-    expect(tenant).toEqual({ name: 'Harbour Bakery', status: 'active' })
+      .first<{ name: string; status: string; owner_account_id: string | null }>()
+    expect(tenant).toEqual({
+      name: 'Harbour Bakery',
+      status: 'active',
+      owner_account_id: invited.person.accountId,
+    })
     const membership = await env.DB.prepare('SELECT user_id, role, status FROM memberships WHERE business_id = ?')
       .bind(business.businessId)
       .first<{ user_id: string; role: string; status: string }>()
@@ -636,18 +678,35 @@ describe('provisioning a business', () => {
       .bind(business.businessId)
       .all<{ slug: string }>()
     expect((sites ?? []).map((s) => s.slug)).toEqual([business.siteSlug])
-    const page = await env.DB.prepare('SELECT page FROM site_pages WHERE tenant_id = ? AND slug = ? AND name = ?')
+    // Child tables name the site by key; the business is reached through `sites` ([[REQ-190]]).
+    const page = await env.DB.prepare(
+      'SELECT p.page FROM site_pages p JOIN sites s ON s.id = p.site_id ' +
+        'WHERE s.tenant_id = ? AND s.slug = ? AND p.name = ?',
+    )
       .bind(business.businessId, business.siteSlug, 'home.json')
       .first<{ page: string }>()
     expect(page?.page).toContain(STARTER_HEADING)
 
-    // Two businesses provisioned the same way cannot claim the same address.
+    // Two businesses provisioned the same way cannot claim the same address. The
+    // published address is the site's KEY (`/site/<siteId>/`, [[REQ-190]]) and the
+    // slug is only unique inside its business — so both starter sites may share a
+    // slug and still carry different addresses, and the second is not refused.
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.person.id,
+      accountId: invited.person.accountId,
       name: 'Harbour Bakery',
-      email,
     })
-    expect(second.siteSlug).not.toBe(business.siteSlug)
+    const siteKey = async (businessId: string, slug: string) =>
+      (
+        await env.DB.prepare('SELECT id FROM sites WHERE tenant_id = ? AND slug = ?')
+          .bind(businessId, slug)
+          .first<{ id: string }>()
+      )?.id
+    const firstAddress = await siteKey(business.businessId, business.siteSlug)
+    const secondAddress = await siteKey(second.businessId, second.siteSlug)
+    expect(second.siteSlug).toBe(business.siteSlug)
+    expect(firstAddress).toBeTruthy()
+    expect(secondAddress).toBeTruthy()
+    expect(secondAddress, 'two starter sites share one published address').not.toBe(firstAddress)
 
     // Empty owner, empty name: refused before anything is written.
     const snapshot = async () => ({
@@ -657,10 +716,10 @@ describe('provisioning a business', () => {
     })
     const before = await snapshot()
     await expect(
-      provisionBusiness(identityEnv(), { accountUserId: '  ', name: 'No Owner', email }),
-    ).rejects.toThrow(/account/)
+      provisionBusiness(identityEnv(), { accountId: '  ', name: 'No Owner' }),
+    ).rejects.toThrow('A business needs an account to belong to.')
     await expect(
-      provisionBusiness(identityEnv(), { accountUserId: invited.person.id, name: '   ', email }),
+      provisionBusiness(identityEnv(), { accountId: invited.person.accountId, name: '   ' }),
     ).rejects.toThrow(/name/)
     expect(await snapshot()).toEqual(before)
   })
@@ -796,8 +855,8 @@ describe('login binds, and provisions nothing', () => {
     ])
     expect(Object.keys(first).sort()).toEqual(['businesses', 'ok', 'user'])
 
-    await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Second', email })
-    await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Third', email })
+    await provisionBusiness(identityEnv(), { accountId: invited.user.account_id, name: 'Second' })
+    await provisionBusiness(identityEnv(), { accountId: invited.user.account_id, name: 'Third' })
     const project = (r: Admission) =>
       r.ok ? r.businesses.map((b) => [b.businessId, b.name, b.entitlement?.id ?? null]) : null
     const a = project(await admit(identityEnv(), email))
@@ -872,7 +931,7 @@ describe('login binds, and provisions nothing', () => {
 
       const other = anEmail()
       const kept = await inviteAccount(identityEnv(), { email: other, endsAt: null })
-      const dropped = await provisionBusiness(identityEnv(), { accountUserId: kept.user.id, name: 'Dropped', email: other })
+      const dropped = await provisionBusiness(identityEnv(), { accountId: kept.user.account_id, name: 'Dropped' })
       await env.DB.prepare(sql).bind(value(), dropped.businessId).run()
       const admitted = await admit(identityEnv(), other)
       expect(admitted.ok && admitted.businesses.map((b) => b.businessId), label).toEqual([kept.businessId])
@@ -886,9 +945,8 @@ describe('admission returns the set of businesses', () => {
     const email = anEmail()
     const salon = await inviteAccount(identityEnv(), { email, accountName: 'Salon', plan: 'pro', endsAt: null })
     const studio = await provisionBusiness(identityEnv(), {
-      accountUserId: salon.user.id,
+      accountId: salon.user.account_id,
       name: 'Studio',
-      email,
       plan: 'starter',
     })
 
@@ -908,8 +966,8 @@ describe('admission returns the set of businesses', () => {
   it('test_UAT_AC2077_a_withdrawn_or_expired_membership_is_absent_from_the_list', async () => {
     const email = anEmail()
     const kept = await inviteAccount(identityEnv(), { email, accountName: 'Kept', endsAt: null })
-    const withdrawn = await provisionBusiness(identityEnv(), { accountUserId: kept.user.id, name: 'Withdrawn', email })
-    const expired = await provisionBusiness(identityEnv(), { accountUserId: kept.user.id, name: 'Expired', email })
+    const withdrawn = await provisionBusiness(identityEnv(), { accountId: kept.user.account_id, name: 'Withdrawn' })
+    const expired = await provisionBusiness(identityEnv(), { accountId: kept.user.account_id, name: 'Expired' })
     await env.DB.prepare('UPDATE memberships SET revoked_at = ? WHERE business_id = ?')
       .bind(ISO(0), withdrawn.businessId)
       .run()
@@ -959,7 +1017,7 @@ describe('membership admits; entitlement does not', () => {
     expect(lapsed.get(first.businessId)?.selectable).toBe(false)
     expect(lapsed.get(first.businessId)?.entitlement).toBeNull()
 
-    const second = await provisionBusiness(identityEnv(), { accountUserId: first.user.id, name: 'Second', email, endsAt: null })
+    const second = await provisionBusiness(identityEnv(), { accountId: first.user.account_id, name: 'Second', endsAt: null })
     const mixed = byId(await admit(identityEnv(), email))
     expect(mixed.get(second.businessId)?.selectable).toBe(true)
     expect(mixed.get(second.businessId)?.entitlement?.ends_at).toBeNull()
@@ -986,7 +1044,7 @@ describe('membership admits; entitlement does not', () => {
     for (const [label, column, value, reason] of variants) {
       const email = anEmail()
       const live = await inviteAccount(identityEnv(), { email, accountName: 'Live', endsAt: null })
-      const dead = await provisionBusiness(identityEnv(), { accountUserId: live.user.id, name: 'Dead', email })
+      const dead = await provisionBusiness(identityEnv(), { accountId: live.user.account_id, name: 'Dead' })
       await setGrant(dead.businessId, column, value())
 
       const businesses = byId(await admit(identityEnv(), email))
@@ -1014,7 +1072,7 @@ describe('membership admits; entitlement does not', () => {
     const s = alone.get(scheduled.businessId)
     expect([s?.selectable, s?.entitlement, s?.lapse]).toEqual([false, null, { reason: 'not_yet', endedAt: null }])
 
-    const entitled = await provisionBusiness(identityEnv(), { accountUserId: scheduled.user.id, name: 'Entitled', email })
+    const entitled = await provisionBusiness(identityEnv(), { accountId: scheduled.user.account_id, name: 'Entitled' })
     const both = byId(await admit(identityEnv(), email))
     expect(both.get(scheduled.businessId)?.selectable).toBe(false)
     expect(both.get(scheduled.businessId)?.entitlement).toBeNull()
@@ -1035,7 +1093,7 @@ describe('membership admits; entitlement does not', () => {
     const r = alone.get(invited.businessId)
     expect([r?.selectable, r?.entitlement, r?.lapse]).toEqual([false, null, { reason: 'revoked', endedAt: null }])
 
-    const other = await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'Other', email })
+    const other = await provisionBusiness(identityEnv(), { accountId: invited.user.account_id, name: 'Other' })
     const both = byId(await admit(identityEnv(), email))
     expect(both.get(invited.businessId)?.selectable).toBe(false)
     expect(both.get(invited.businessId)?.entitlement).toBeNull()
@@ -1047,7 +1105,7 @@ describe('a lapse explains itself', () => {
   it('test_UAT_AC2113_each_unselectable_business_says_why_and_a_selectable_one_says_nothing', async () => {
     const email = anEmail()
     const open = await inviteAccount(identityEnv(), { email, accountName: 'Open', endsAt: null })
-    const add = (name: string) => provisionBusiness(identityEnv(), { accountUserId: open.user.id, name, email })
+    const add = (name: string) => provisionBusiness(identityEnv(), { accountId: open.user.account_id, name })
 
     const expired = await add('Expired')
     await dropGrants(expired.businessId)
@@ -1085,9 +1143,8 @@ describe('a lapse explains itself', () => {
     const aliceEmail = anEmail()
     const alice = await inviteAccount(identityEnv(), { email: aliceEmail, accountName: 'Alice Live', endsAt: null })
     const aliceLapsed = await provisionBusiness(identityEnv(), {
-      accountUserId: alice.user.id,
+      accountId: alice.user.account_id,
       name: 'Alice Lapsed',
-      email: aliceEmail,
     })
     await setGrant(aliceLapsed.businessId, 'ends_at', ISO(-1_000))
 
@@ -1115,7 +1172,7 @@ describe('a lapse explains itself', () => {
     const email = anEmail()
     const invited = await inviteAccount(identityEnv(), { email, accountName: 'AccountOnly', endsAt: null })
     await dropGrants(invited.businessId)
-    await grant({ businessId: invited.businessId, accountId: invited.user.id, endsAt: null })
+    await grant({ businessId: invited.businessId, accountId: invited.user.account_id, endsAt: null })
 
     const accountOnly = byId(await admit(identityEnv(), email)).get(invited.businessId)
     expect(accountOnly, 'the business was dropped rather than listed').toBeTruthy()
@@ -1123,9 +1180,9 @@ describe('a lapse explains itself', () => {
       false, null, 'never_granted',
     ])
 
-    const lapsed = await provisionBusiness(identityEnv(), { accountUserId: invited.user.id, name: 'LapsedCapacity', email })
+    const lapsed = await provisionBusiness(identityEnv(), { accountId: invited.user.account_id, name: 'LapsedCapacity' })
     await setGrant(lapsed.businessId, 'ends_at', ISO(-1_000))
-    await grant({ businessId: lapsed.businessId, accountId: invited.user.id, endsAt: ISO(30 * DAY) })
+    await grant({ businessId: lapsed.businessId, accountId: invited.user.account_id, endsAt: ISO(30 * DAY) })
     const l = byId(await admit(identityEnv(), email)).get(lapsed.businessId)
     expect([l?.selectable, l?.entitlement, l?.lapse?.reason]).toEqual([false, null, 'expired'])
   })
