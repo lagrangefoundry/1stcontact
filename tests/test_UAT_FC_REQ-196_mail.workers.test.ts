@@ -61,7 +61,7 @@ describe('REQ-196 — a sendEmail port, with Resend behind it', () => {
       from: 'no-reply@1stcontact.io',
       to: ['alice@example.com'],
       subject: 'Your 1st Contact invitation',
-      text: 'Alice — your builder is ready.',
+      html: 'Alice — your builder is ready.',
     })
   })
 

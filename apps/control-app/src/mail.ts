@@ -49,13 +49,12 @@ export interface Message {
   from: string
   subject: string
   /**
-   * PLAIN TEXT. The port shape [[REQ-196]] specifies is `body`, singular, and
-   * this is it — the Resend adapter sends it as `text`.
+   * HTML, IN ONE PART. The port shape [[REQ-196]] specifies is `body`, singular,
+   * and this is it — the Resend adapter sends it as `html`.
    *
-   * No HTML alternative, deliberately: a second field is a second thing every
-   * template must decide about, and nothing sends a message yet. When [[REQ-197]]
-   * writes one that wants markup, adding it is one field here and one line in the
-   * adapter — which is a smaller change than the guesswork of carrying it now.
+   * [[REQ-197]] decided the body is HTML because its templates carry their call to
+   * action as a button, and a button does not exist in plain text. There is no
+   * derived plain-text alternative: multipart is a later intent's concern.
    */
   body: string
 }
@@ -197,7 +196,7 @@ export function resendMailer(apiKey: string, fetchImpl: typeof fetch = fetch): S
           // An array because the API takes one, even for a single recipient.
           to: [message.to],
           subject: message.subject,
-          text: message.body,
+          html: message.body,
         }),
       })
     } catch (err) {
