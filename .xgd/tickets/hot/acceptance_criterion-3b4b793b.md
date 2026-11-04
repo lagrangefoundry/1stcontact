@@ -6,10 +6,10 @@ title: Admission and the invite resolve a person through any of their addresses,
   an invite or login at a secondary address
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T16:30:31.826740+00:00'
-updated_at: '2026-11-04T16:30:31.826740+00:00'
+updated_at: '2026-11-04T17:07:23.470809+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
