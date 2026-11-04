@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Erasing a contact erases that contact's events and no one else's
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:21:29.128101+00:00'
-updated_at: '2026-11-04T17:21:29.128101+00:00'
+updated_at: '2026-11-04T17:29:05.445155+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4630e921
   kind: behavior
