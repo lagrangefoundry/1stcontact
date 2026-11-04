@@ -6,9 +6,9 @@ title: The arrival notice is last in a turn's context, after the maps, the purpo
   the manual and the site-change reminder
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:28:56.192878+00:00'
-updated_at: '2026-09-14T06:52:06.616259+00:00'
+updated_at: '2026-11-04T19:07:13.748702+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: active
 fields:
   story_uid: story-3cf3d57b
@@ -18,9 +18,14 @@ fields:
 
 ## Criterion
 
-The arrival notice is the **last** thing in a turn's context, after everything
-that is stable across turns — the landscape, the purpose, the manual — and after
-the reminder of what the client changed on the site since the previous turn.
+The arrival notice is the **last volatile thing** in a turn's context: it closes
+the turn's own reminder, after everything that is stable across turns — the
+landscape, the purpose, the manual — and after the reminder of what the client
+changed on the site since the previous turn.
+
+The only thing that may follow it is the conversation's **memory reminder**,
+which names the conversation's own ticket and is byte-identical on every turn of
+that conversation. Nothing that changes from turn to turn comes after the notice.
 
 Ordering here is a cost decision rather than a presentation one: the maps and the
 manual are identical from turn to turn and the notice is not, so the volatile
@@ -32,5 +37,7 @@ whole conversation instead of being invalidated every turn.
 Take a turn on a conversation where both a site change and a knowledge arrival
 have occurred since the previous turn, and inspect the assembled context: the
 arrival notice appears after the landscape, purpose and mechanism sections and
-after the site-change reminder, with nothing following it. Take a further turn
-with only an arrival and confirm it is still last.
+after the site-change reminder, and closes the turn reminder; what follows it is
+only the memory reminder, carrying no arrival or site-change wording. Take a
+further turn with only an arrival and confirm the notice is still last, followed
+by the identical memory reminder.
