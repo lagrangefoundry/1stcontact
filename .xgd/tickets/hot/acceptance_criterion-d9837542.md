@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: Accepting the terms records member.signed_up carrying the accepted terms version
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:21:33.583953+00:00'
-updated_at: '2026-11-04T17:21:33.583953+00:00'
+updated_at: '2026-11-04T17:29:02.968162+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4630e921
   kind: behavior
