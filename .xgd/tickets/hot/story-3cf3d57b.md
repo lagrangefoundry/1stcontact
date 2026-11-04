@@ -6,9 +6,9 @@ title: Start every conversation knowing both bodies of knowledge, and hear about
   material the turn after it arrives
 created_by: martin-github@westhead.me
 created_at: '2026-09-14T06:26:34.496738+00:00'
-updated_at: '2026-11-02T04:13:03.633911+00:00'
+updated_at: '2026-11-04T20:11:42.715973+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-8e1807f6
@@ -67,7 +67,7 @@ In scope:
   an eviction or a redeploy, which is what makes a resumed conversation report
   what arrived while the client was away without any separate "while you were
   away" report existing.
-- **A hit can be read back, from either body, on either host.** Each knowledge base's runtime — on the deployed Worker and in the Node CLI — is opened with its document and passage indexes keyed by the source its own declaration resolves to: the system knowledge base under `shipped`, the client's, which declares no source, under the knowledge component's default source. The one search over both passes each side's indexes through under those keys. So a document the search returns can then be fetched rather than refused as "not in the corpus", and a knowledge base with no index for its source refuses loudly instead of answering as though it were empty.
+- **A hit can be read back.** On the deployed Worker, a hit from either body can be read back. In the Node CLI, which hosts only the system knowledge base, a system-KB hit can be read back. Each knowledge base's runtime is opened with its document and passage indexes keyed by the source its own declaration resolves to: the system knowledge base under `shipped` on both hosts, and the client's, which declares no source, under the knowledge component's default source on the Worker. On the Worker, the one search over both passes each side's indexes through under those keys. So a document the search returns can then be fetched rather than refused as "not in the corpus", and a knowledge base with no index for its source refuses loudly instead of answering as though it were empty. The Node CLI has no client knowledge base and no merged search; that is out of scope here (see Reconciliation Decisions).
 
 Out of scope (owned elsewhere, or declared blocked by the intent):
 
@@ -156,7 +156,9 @@ Each side's runtime reads its index through a map keyed by source name (upstream
   un-delivered piece of REQ-160, not a contradiction between intent and code:
   AC-1800 states the truncation and the exact count, and stops there.
 
-- **Search-then-read across both bodies is formalised as a criterion of this story** (decided at reconciliation, 2026-11-01, BUNDLE-37 / BUG-55): BUG-55 asks that "a hit that comes back from either knowledge base can be fetched" and that "the co-ranked surface searches both knowledge bases on both hosts". AC-1797 pins the merged search but not that its hits are readable, and the read failure was silent, so it is pinned separately as AC-2237. The client knowledge base's key (the default source) is stated in the criterion because it is the one asymmetry a search-only test would miss. No code-issue: the Worker and Node runtimes, and both merged-search overrides, pass source-keyed maps as the intent asks.
+- **Search-then-read across both bodies is formalised as a criterion of this story** (decided at reconciliation, 2026-11-01, BUNDLE-37 / BUG-55): BUG-55 asks that "a hit that comes back from either knowledge base can be fetched" and that "the co-ranked surface searches both knowledge bases on both hosts". AC-1797 pins the merged search but not that its hits are readable, and the read failure was silent, so it is pinned separately as AC-2237. The client knowledge base's key (the default source) is stated in the criterion because it is the one asymmetry a search-only test would miss. The Worker runtimes, the Node system-KB runtime and both merged-search overrides pass source-keyed maps as the intent asks.
+
+- **BUG-55's "both knowledge bases on both hosts" clause is retired as a wrong premise** (decided at reconciliation, 2026-11-04, BUNDLE-37 pass 2, report-ed9f3f94 N1). BUG-55's acceptance says "the co-ranked surface searches both knowledge bases on both hosts: the Worker through `session-knowledge.ts`, the Node CLI through `openKnowledgeRuntime`". The Node CLI has never hosted a client (project) knowledge base. `openKnowledgeRuntime` (tools/generate/src/cli/kb.ts) opens the system knowledge base alone, keyed `shipped`. The Node host (tools/generate/src/cli/ai/host.ts) grants only the system KB, and has done so since the system-KB session wiring landed (commit 40cc0c4f53). It caches one runtime per process because that KB is a release artefact shared by every site. The project knowledge base is a Worker construct backed by the control app's D1/R2 stores (`PROJECT_KB`, `projectKnowledgeFor` in apps/control-app/src/knowledge.ts). tools/generate only scaffolds its declaration into the shared KB config file, and its own doc comment (kb.ts, `PROJECT_KB`) states "This command never serves it: its corpus is the tenant's D1 ticket store, which a release build does not have". So BUG-55 did not take a Node co-ranked surface away; the clause described one that never existed. BUG-55's actual defect was the singular index key, which left every read refused as `not_in_corpus`. It is repaired on both hosts for every knowledge base each host opens, and AC-2237 pins exactly that: either KB on the Worker, the system KB on the Node CLI. This is not a CODE-ISSUE. Giving the Node CLI a client knowledge base would be new scope for a future intent, not a gap in BUG-55's fix.
 
 ## Dependencies
 
