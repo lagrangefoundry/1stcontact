@@ -6,10 +6,10 @@ title: A name is a row per name with optional parts, superseded as corrected or 
   rather than updated, one current; only changed former names reach the client
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T16:30:36.992985+00:00'
-updated_at: '2026-11-04T16:30:36.992985+00:00'
+updated_at: '2026-11-04T19:42:50.447261+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-a55c2f35
   kind: behavior
