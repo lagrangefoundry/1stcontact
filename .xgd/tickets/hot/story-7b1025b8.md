@@ -5,9 +5,9 @@ type: story
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-04T17:07:22.847292+00:00'
+updated_at: '2026-11-04T17:09:57.057073+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -38,9 +38,24 @@ whoever could pass the identity gate reached the builder, inside a single tenant
 This story is the record behind the address and the rule that reads it.
 
 **An account operates several businesses, not one** (DOC-40 §2, REQ-178). The
-*account* is the payer — the person. A *business* is the tenant, the unit of
-storage isolation. A person may hold memberships in several businesses, and each
-business carries its own grant.
+*account* is the payer and the owner of businesses, and since REQ-194 it is a
+record of its own, distinct from the person. A *business* is the tenant, the unit
+of storage isolation. A person may hold memberships in several businesses, and
+each business carries its own grant.
+
+**The account is a record, and people belong to it** (REQ-194, DOC-42 §6). Every
+person names the account they belong to, and the storage refuses a person who
+names none or names one that does not exist, so no reader has a missing case to
+handle. Every path that makes a person makes an account alongside them: the
+invite, and the break-glass operator seed. An account's key is opaque and reads
+`acct_`. That prefix names accounts only: business keys read `biz_`. An account
+may hold several people without any schema change. v1 creates exactly one person
+per account and nothing adds a second, but when the two-person shape is built,
+provisioning gives every person on the account an owner membership on the new
+business, so all of them operate it. `memberships (person, business, role)` stays
+as it was. It is the relation saying who may operate which of the account's
+businesses, not ownership. Access restrictions are punted: the only role value
+written is `owner`, and no access check tells people apart by role.
 
 **A person's addresses are a table, not a column** (REQ-191). The person record
 carries no address. A person holds as many addresses as they have, each stored
@@ -90,11 +105,13 @@ separate flags — may this caller invite, and may this caller provision busines
 — and each route asks its own question again for itself.
 
 *Provisioning a business is the other half.* Provisioning a business for an
-existing account writes a registered tenant carrying the business's name, an owner
-membership and an active administrator-source grant written together (so no
-business exists that nobody may operate or that carries no access), and the
-business's starter site. A business with no owning account or no name is refused
-before anything is written. Invite **plus** provisioning is how a person gets the
+existing account (named by its account key) writes, together, a registered tenant
+that carries the business's name and names the account that owns it, an owner
+membership for every person on that account, and an active administrator-source
+grant naming no account. This ensures no business exists that nobody may operate
+or that carries no access. It also writes the business's starter site, `unnamed`.
+Provisioning refuses an empty account key, an empty name, an account that does
+not exist, and an account with nobody on it, all before anything is written. Invite **plus** provisioning is how a person gets the
 app: the DOC-42 §1 sequence — invite Alice, provision her a business, Alice signs
 in and reaches only her business and her own `/account` — runs end to end.
 
@@ -135,7 +152,8 @@ about anybody else's.
 
 *An entitlement has a subject and an object* (DOC-42 §6, REQ-184). Every grant
 names the business it is against (the object) and may name an account (the
-subject). Grants written by business provisioning name no account: they are
+subject). A subject, when present, is an account key (REQ-194), never a person's
+id or an address. Grants written by business provisioning name no account: they are
 per-business capacity grants — "this business holds a plan" — so the plan belongs
 to the business and not personally to whoever was invited first. The invite writes
 no grant at all. Only capacity grants decide whether a business may be entered; a
@@ -150,8 +168,9 @@ runs, before any storage handle exists and before any path is examined. An
 admitted person reaches the builder once they have also accepted the current
 terms (REQ-169, the next check in the same place).
 
-**In scope**: the person / business / membership / grant records (including the
-grant's subject and object); the invite as an owner-gated, idempotent
+**In scope**: the account / person / business / membership / grant records
+(including the person's account, the business's owning account, and the grant's
+subject and object); the invite as an owner-gated, idempotent
 contact→invited transition on one row, its route, its refusals and the invite
 dialog's statement that no message is sent; the people list's separate
 may-invite and may-provision flags; provisioning a business for an existing
@@ -182,7 +201,8 @@ grants automatically; and any CLI for issuing invites or creating businesses.
   third, and business scope (REQ-168) follows.
 - A business is a tenant, the existing unit of storage isolation (CAP-101,
   CAP-81). Its identifier appears in storage keys and is permanent, which is why
-  it must not be derived from anything a human chose. The human label is held
+  it must not be derived from anything a human chose. Business keys are minted
+  `biz_`; `acct_` is reserved for accounts (REQ-194). The human label is held
   separately as the tenant's name, where it can change, and is what admission
   reports for each business.
 - **Admission carries no singular account or grant.** A successful admission
@@ -220,9 +240,18 @@ grants automatically; and any CLI for issuing invites or creating businesses.
 - **Grant columns (REQ-184, migration 0006).** The entitlement's business column
   holds the object (a tenant id) and a nullable account column holds the subject;
   the membership's business column was renamed in the same migration so the two
-  adjacent tables do not carry one name with opposite meanings. Existing grants
-  migrated with no subject. The subject column is unindexed until something reads
-  it.
+  adjacent tables do not carry one name with opposite meanings. Since REQ-194 a
+  non-null subject is an `accounts` key, and the subject column is indexed because
+  the people detail pane now reads every grant naming one account.
+- **The account record (REQ-194).** `accounts (id, tenant_id, name, status,
+  created_at, updated_at, fields)` is scoped to the business it is an account
+  *of*, like every identity row. `name` is the billing label: the invite seeds it
+  from the display name typed at the invite, and it may be null.
+  `users.account_id` is `NOT NULL` with a foreign key to `accounts`.
+  `tenants.owner_account_id` names the owner and is null only for the platform
+  business. That pair has no foreign key, because the two tables reference each
+  other. The operator's add-a-business lookup resolves an address to the account
+  that person belongs to, not to the person.
 - **The lapse reason is recovered, not recorded.** It is derived by re-reading the
   business's capacity grants without the covering filters, so a grant written by
   any path is explained and nothing must be kept in step at write time.
@@ -342,6 +371,36 @@ grants automatically; and any CLI for issuing invites or creating businesses.
   2026-11-04). REQ-191 *What landed*: the invite writes the person and their first
   address in one batch, so a person no address can find is never left behind.
   Formalized in the address-table criterion.
+
+- **The account is a table** (decided at reconciliation, 2026-11-04, BUNDLE-37).
+  REQ-194 adds `accounts`, and the landed code matches its acceptance list. AC-1741
+  now says a business key is distinct from its owning account's key. AC-2115 now
+  says a non-null subject is an account key, while the capacity grant keeps its
+  null subject. AC-1742 now says the business names its owning account and is
+  addressed by its own key. Three new criteria cover: the invite minting an
+  account, with the schema refusing a person with none; several people on one
+  account all operating its businesses; and no permission check reading role.
+
+- **"No permission check reads role" means no check beyond the one ownership
+  question** (decided at reconciliation, 2026-11-04). REQ-194's acceptance says
+  "no permission check anywhere reads `role`", but its body scopes this to *access
+  restrictions*: "no role vocabulary beyond the `'owner'` the `role` column already
+  holds, no RBAC". REQ-185/REQ-186's ownership question ("is this person an owner
+  of this business"), which gates the invite and fulfilment, predates REQ-194, and
+  REQ-194 keeps it. The landed code has exactly one reader of the role, that
+  ownership predicate, and writes no value but `owner`. Formalized that way. This
+  is not flagged as a contradiction, because REQ-194 explicitly keeps `owner` as
+  the foothold.
+
+- **The invite seeds the account's billing name from the display name** (decided
+  at reconciliation, 2026-11-04). REQ-194 is silent on how `accounts.name` is
+  filled. The code copies the display name typed at the invite and leaves it null
+  otherwise. Nothing reads it yet. This is recorded here and is not a separate
+  criterion.
+
+- **The starter site is `unnamed`, not `home`** (decided at reconciliation,
+  2026-11-04). REQ-190's *What landed* names the starter slug `unnamed`, the code
+  agrees, and the criterion says so.
 
 ## Dependencies
 
