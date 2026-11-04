@@ -598,9 +598,38 @@ describe('REQ-190 — ordinal is not identity', () => {
     // parsed: two ids with the same prefix are not related and two with
     // different prefixes are not ordered. Stated here because a prefix is the
     // one part of an opaque key that LOOKS like it means something.
-    expect(isOpaqueId(newId('site'), 'site')).toBe(true)
-    expect(isOpaqueId(newId('site'), 'acct')).toBe(false)
-    expect(isOpaqueId('home')).toBe(false)
-    expect(isOpaqueId('acct_1stcontact')).toBe(false)
+    //
+    // PROVED BEHAVIOURALLY: two businesses whose keys share the same 128 random
+    // bits and differ ONLY in their prefix — one the business prefix, one a
+    // prefix nothing in the product uses — are driven through the same shipped
+    // store calls. If anything branched on the prefix, the second would be
+    // refused or behave differently; if anything related ids by their random
+    // part, the two would see each other's sites.
+    const hex = newId('biz').slice('biz_'.length)
+    const usual = `biz_${hex}`
+    const unusual = `qqq_${hex}`
+    const outcomes: Array<Record<string, unknown>> = []
+    const keys: string[] = []
+    for (const businessId of [usual, unusual]) {
+      await root().createTenant({ id: businessId, name: 'Prefix Co', status: 'active' })
+      const store = await root().forTenant(businessId)
+      const created = await store.createDraft('home')
+      await fill(store, 'home', 'Same heading')
+      const key = await store.siteKey('home')
+      keys.push(key!)
+      outcomes.push({
+        created,
+        slugs: await store.slugs(),
+        siteKeys: (await store.siteKeys()).length,
+        keyShape: isOpaqueId(key ?? '', 'site'),
+      })
+    }
+    // Identical behaviour whatever the business key's prefix.
+    expect(outcomes[1]).toEqual(outcomes[0])
+    expect(outcomes[0]).toEqual({ created: true, slugs: ['home'], siteKeys: 1, keyShape: true })
+    // And sharing the random part relates nothing: each handle sees only its own site.
+    expect(keys[0]).not.toBe(keys[1])
+    expect(await (await root().forTenant(usual)).siteKeys()).toEqual([keys[0]])
+    expect(await (await root().forTenant(unusual)).siteKeys()).toEqual([keys[1]])
   })
 })

@@ -269,10 +269,45 @@ describe.skipIf(!WEBUI_INSTALLED)('story-4630e921 — the History section', () =
     ]) {
       expect(emitted.has(name), `section does not emit .${name}`).toBe(true)
     }
-    for (const name of emitted) {
-      // Exact class match: `.builder-people__event` must not be satisfied by
-      // the `.builder-people__events` rule.
-      expect(new RegExp(`\\.${name}(?![\\w-])`).test(CSS), `no rule matches .${name}`).toBe(true)
+    // The shipped stylesheet, injected and parsed by the document's own CSSOM, so
+    // "styled" means a real rule in it SELECTS the element that carries the class
+    // — not that the class name appears somewhere in the file's text.
+    const style = document.createElement('style')
+    style.textContent = CSS
+    document.head.append(style)
+    try {
+      const selectors: string[] = []
+      const collect = (list: CSSRuleList) => {
+        for (const rule of Array.from(list)) {
+          if ('selectorText' in rule && typeof rule.selectorText === 'string') {
+            selectors.push(...rule.selectorText.split(',').map((s) => s.trim()))
+          } else if ('cssRules' in rule) {
+            collect((rule as CSSGroupingRule).cssRules)
+          }
+        }
+      }
+      collect(style.sheet!.cssRules)
+      expect(selectors.length, 'the stylesheet parsed to no rules').toBeGreaterThan(0)
+
+      const applies = (node: Element, selector: string): boolean => {
+        try {
+          return node.matches(selector)
+        } catch {
+          return false
+        }
+      }
+      for (const name of emitted) {
+        // Exact class token: `.builder-people__event` must not be satisfied by
+        // a `.builder-people__events` rule.
+        const naming = selectors.filter((s) => new RegExp(`\\.${name}(?![\\w-])`).test(s))
+        const carriers = [section, ...section.querySelectorAll(`.${name}`)].filter((n) =>
+          n.classList.contains(name),
+        )
+        const styled = carriers.some((node) => naming.some((s) => applies(node, s)))
+        expect(styled, `no stylesheet rule selects the emitted .${name}`).toBe(true)
+      }
+    } finally {
+      style.remove()
     }
   })
 })

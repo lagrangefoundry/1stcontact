@@ -5,6 +5,7 @@ import {
   accountInsert,
   admit,
   ensurePlatformOperator,
+  findAccount,
   newId,
   peopleOnAccount,
   provisionBusiness,
@@ -29,7 +30,12 @@ import { inviteAccount } from './support/invite-account'
  * is opaque and distinct from its owning account's key (AC-1741); provisioning
  * writes a business owned by the account plus a starter site named `unnamed`
  * (AC-1742); and a non-null grant subject is an account key while the capacity
- * grant keeps its null subject (AC-2115).
+ * grant keeps its null subject (AC-2115); a business names the account that owns
+ * it, the platform business is owned by nobody and no business key reads `acct_`
+ * (AC-2255, the database half — the deployment-config half is the node sibling
+ * `reconciliation-identity-accounts.test.ts`); and provisioning refuses an
+ * account that does not exist or holds nobody, while the operator's lookup
+ * answers with an account (AC-2256).
  *
  * WHAT MAKES IT EVIDENCE. Every case runs inside workerd against a real D1 with
  * the deployed baseline applied by the helper the store suites use. Behaviour is
@@ -381,5 +387,80 @@ describe('a business is owned by an account', () => {
     expect(read.get(ids.none)).toEqual({ id: ids.none, business_id: target, account_id: null })
     expect(read.get(ids.a)).toEqual({ id: ids.a, business_id: target, account_id: a })
     expect(read.get(ids.b)).toEqual({ id: ids.b, business_id: target, account_id: b })
+  })
+
+  it('test_UAT_AC2255_a_business_names_its_owning_account_the_platform_is_owned_by_nobody_and_no_business_key_reads_acct', async () => {
+    // Provisioned through invite-then-provision: the owner is the account, not the person.
+    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email: anEmail() })
+    const accountId = await accountOf(invited.person.id)
+    const business = await provisionBusiness(identityEnv(), { accountId, name: 'Owned Ltd' })
+    expect(business.businessId).toMatch(/^biz_[0-9a-f]{32}$/)
+    const owned = await env.DB.prepare('SELECT owner_account_id FROM tenants WHERE id = ?')
+      .bind(business.businessId)
+      .first<{ owner_account_id: string | null }>()
+    expect(owned?.owner_account_id).toBe(accountId)
+    expect(owned?.owner_account_id).not.toBe(invited.person.id)
+
+    // Seeding the break-glass operator leaves the platform business with no owner,
+    // while the operator still gets an account of their own on it.
+    const operatorEmail = anEmail()
+    await ensurePlatformOperator({ ...identityEnv(), PLATFORM_ADMINS: operatorEmail }, operatorEmail)
+    const platform = await env.DB.prepare('SELECT owner_account_id FROM tenants WHERE id = ?')
+      .bind(PLATFORM)
+      .first<{ owner_account_id: string | null }>()
+    expect(platform).not.toBeNull()
+    expect(platform?.owner_account_id).toBeNull()
+    const operator = await env.DB.prepare(
+      'SELECT u.account_id AS account_id FROM users u ' +
+        'WHERE u.id = (SELECT user_id FROM user_emails WHERE tenant_id = ? AND email = ?)',
+    )
+      .bind(PLATFORM, operatorEmail)
+      .first<{ account_id: string }>()
+    expect(operator?.account_id).toMatch(/^acct_[0-9a-f]{32}$/)
+    expect((await accountById(identityEnv(), operator!.account_id))?.tenant_id).toBe(PLATFORM)
+
+    // Every business key and every account key, read from the database.
+    const tenants = await env.DB.prepare('SELECT id FROM tenants').all<{ id: string }>()
+    const accounts = await env.DB.prepare('SELECT id FROM accounts').all<{ id: string }>()
+    const businessKeys = (tenants.results ?? []).map((r) => r.id)
+    const accountKeys = (accounts.results ?? []).map((r) => r.id)
+    expect(businessKeys).toContain(business.businessId)
+    expect(accountKeys).toContain(accountId)
+    expect(businessKeys.filter((id) => id.startsWith('acct_'))).toEqual([])
+    expect(accountKeys.filter((id) => !id.startsWith('acct_'))).toEqual([])
+    expect(businessKeys.filter((id) => accountKeys.includes(id))).toEqual([])
+  })
+})
+
+describe('provisioning needs a real payer', () => {
+  it('test_UAT_AC2256_provisioning_refuses_a_missing_or_empty_account_and_the_operator_lookup_answers_with_an_account', async () => {
+    // A key that names no account is refused before anything is written.
+    await expect(
+      provisionBusiness(identityEnv(), { accountId: newId('acct'), name: 'Ghost AC2256 Ltd' }),
+    ).rejects.toThrow(/No such account/)
+
+    // An account that exists but holds nobody is refused too.
+    const empty = newId('acct')
+    await accountInsert(identityEnv(), { id: empty, tenantId: PLATFORM }).run()
+    await expect(
+      provisionBusiness(identityEnv(), { accountId: empty, name: 'Nobody AC2256 Ltd' }),
+    ).rejects.toThrow(/nobody on it/)
+
+    for (const name of ['Ghost AC2256 Ltd', 'Nobody AC2256 Ltd']) {
+      const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM tenants WHERE name = ?')
+        .bind(name)
+        .first<{ n: number }>()
+      expect(row?.n, `a tenant named ${name} was written`).toBe(0)
+    }
+
+    // The operator's lookup takes an address, in any case, and answers with the account.
+    const email = anEmail()
+    const invited = await invitePerson(identityEnv(), { businessId: PLATFORM }, { email })
+    const accountId = await accountOf(invited.person.id)
+    await provisionBusiness(identityEnv(), { accountId, name: 'Looked Up Ltd' })
+    const found = await findAccount(identityEnv(), email.toUpperCase())
+    expect(found?.id).toBe(accountId)
+    expect(found?.id).not.toBe(invited.person.id)
+    expect(await findAccount(identityEnv(), 'nobody-ac2256@example.test')).toBeNull()
   })
 })

@@ -12,8 +12,9 @@ import {
   userEmailInsert,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
-import { peopleOf, type Person } from '../apps/control-app/src/people'
-import { PERSON_INVITE_PATH } from '../apps/control-app/src/router'
+import { peopleOf, personDetail, type Person } from '../apps/control-app/src/people'
+import { currentNameOf, formerNamesOf } from '../apps/control-app/src/names'
+import { PERSON_INVITE_PATH, PERSON_RECORD_PATH } from '../apps/control-app/src/router'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
@@ -28,7 +29,11 @@ import { inviteAccount } from './support/invite-account'
  *    at most one primary, one person per address per business;
  *  - AC-2248 admission and the invite resolve a person through any address;
  *  - AC-1744 case/padding are the same person, with the schema enforcing it;
- *  - AC-2171 a re-invite neither restamps nor supersedes an existing name.
+ *  - AC-2171 a re-invite neither restamps nor supersedes an existing name;
+ *  - AC-2249 correcting the address rewrites the primary row and moves no key;
+ *  - AC-2251 a name is a superseding row, corrected unless marked changed;
+ *  - AC-2252 (the route half) clearing every part leaves no name, and clearing
+ *    the displayed name while a part remains is refused.
  *
  * EVIDENCE. workerd against real D1 with the deployed baseline. Invites go
  * through the Worker's own `fetch` with a real RS256 Access token verified
@@ -168,6 +173,53 @@ async function invitedAtOf(userId: string): Promise<string | null> {
     .bind(userId)
     .first<{ invited_at: string | null }>()
   return row?.invited_at ?? null
+}
+
+/** The record editor's route, as the Contacts pane posts to it. */
+async function postRecord(token: string, body: Record<string, unknown>, businessId: string): Promise<Response> {
+  return worker.fetch(
+    new Request(`https://app.example/b/${businessId}${PERSON_RECORD_PATH}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': token },
+      body: JSON.stringify(body),
+    }),
+    workerEnv(),
+  )
+}
+
+/** Everything that names a person: their key, memberships, grants and current name. */
+async function footprint(userId: string): Promise<Record<string, unknown>> {
+  const user = await env.DB.prepare('SELECT id, tenant_id, account_id FROM users WHERE id = ?')
+    .bind(userId)
+    .first<Record<string, unknown>>()
+  const memberships = await env.DB.prepare(
+    'SELECT id, user_id, business_id, role FROM memberships WHERE user_id = ? ORDER BY id',
+  )
+    .bind(userId)
+    .all<Record<string, unknown>>()
+  const grants = await env.DB.prepare(
+    'SELECT e.id, e.business_id, e.account_id FROM entitlements e ' +
+      'JOIN memberships m ON m.business_id = e.business_id WHERE m.user_id = ? ORDER BY e.id',
+  )
+    .bind(userId)
+    .all<Record<string, unknown>>()
+  const name = await env.DB.prepare(
+    'SELECT id, user_id, display_name FROM user_names WHERE user_id = ? AND superseded_at IS NULL',
+  )
+    .bind(userId)
+    .first<Record<string, unknown>>()
+  return { user, memberships: memberships.results ?? [], grants: grants.results ?? [], name }
+}
+
+/** Every name row a person has held, superseded ones first in supersession order. */
+async function nameHistoryOf(userId: string) {
+  const { results } = await env.DB.prepare(
+    'SELECT id, display_name, superseded_at, superseded_reason FROM user_names ' +
+      'WHERE user_id = ? ORDER BY superseded_at IS NULL ASC, superseded_at ASC, id ASC',
+  )
+    .bind(userId)
+    .all<{ id: string; display_name: string; superseded_at: string | null; superseded_reason: string | null }>()
+  return results ?? []
 }
 
 beforeAll(async () => {
@@ -336,5 +388,194 @@ describe('a re-invite', () => {
       .bind(personId)
       .all<{ display_name: string; superseded_at: string | null }>()
     expect(results).toEqual([{ display_name: 'Bob Smith', superseded_at: null }])
+  })
+})
+
+describe('correcting an address', () => {
+  it('test_UAT_AC2249_correcting_the_address_rewrites_the_primary_row_and_neither_that_nor_repriming_moves_a_key', async () => {
+    stubJwks()
+    const token = await anOperatorToken()
+    const first = anEmail()
+    const second = anEmail()
+    const corrected = anEmail()
+
+    // A person with a business of their own, a name, and a second address.
+    const invited = await postInvite(token, { email: first, displayName: 'Casey Typo' }, PLATFORM)
+    const personId = invited.body.person.id
+    await provisionBusiness(identityEnv(), { accountId: await accountIdOf(personId), name: 'Correction Co' })
+    await userEmailInsert(identityEnv(), { userId: personId, tenantId: PLATFORM, email: second, primary: false }).run()
+    const before = await footprint(personId)
+    expect((before.memberships as unknown[]).length).toBeGreaterThan(0)
+    expect(before.name).not.toBeNull()
+
+    // The owner corrects the address through the record route.
+    const response = await postRecord(token, { id: personId, email: `  ${corrected.toUpperCase()} ` }, PLATFORM)
+    expect(response.status, await response.clone().text()).toBe(200)
+
+    // The primary row was rewritten in place: still two addresses, the new one primary.
+    const held = await emailsOf(identityEnv(), personId)
+    expect(held).toHaveLength(2)
+    expect(held.filter((e) => e.is_primary === 1).map((e) => e.email)).toEqual([corrected])
+    expect(held.map((e) => e.email).sort()).toEqual([corrected, second].sort())
+
+    // The old address reaches nobody; the new one admits the same person.
+    const atOld = await admit(identityEnv(), first)
+    expect(atOld.ok).toBe(false)
+    const atNew = await admit(identityEnv(), corrected)
+    expect(atNew.ok, `refused: ${!atNew.ok ? atNew.reason : ''}`).toBe(true)
+    expect(atNew.ok && atNew.user.id).toBe(personId)
+
+    // Nothing that names the person moved.
+    expect(await footprint(personId)).toEqual(before)
+
+    // A person holding no address at all gains the corrected one, as primary.
+    const bare = await postInvite(token, { email: anEmail() }, PLATFORM)
+    const bareId = bare.body.person.id
+    await env.DB.prepare('DELETE FROM user_emails WHERE user_id = ?').bind(bareId).run()
+    expect(await emailsOf(identityEnv(), bareId)).toEqual([])
+    const given = anEmail()
+    const gave = await postRecord(token, { id: bareId, email: given }, PLATFORM)
+    expect(gave.status, await gave.clone().text()).toBe(200)
+    const gained = await emailsOf(identityEnv(), bareId)
+    expect(gained.map((e) => [e.email, e.is_primary])).toEqual([[given, 1]])
+
+    // Swapping which address is primary moves no key either, and both still resolve.
+    await env.DB.prepare('UPDATE user_emails SET is_primary = 0 WHERE user_id = ?').bind(personId).run()
+    await env.DB.prepare('UPDATE user_emails SET is_primary = 1 WHERE user_id = ? AND email = ?')
+      .bind(personId, second)
+      .run()
+    expect(await footprint(personId)).toEqual(before)
+    for (const address of [corrected, second]) {
+      const admitted = await admit(identityEnv(), address)
+      expect(admitted.ok && admitted.user.id, address).toBe(personId)
+    }
+    expect(await peopleAt(PLATFORM, corrected)).toEqual([personId])
+    expect(await peopleAt(PLATFORM, second)).toEqual([personId])
+  })
+})
+
+describe('a name is a row that is superseded, never updated', () => {
+  it('test_UAT_AC2251_a_name_is_superseded_as_corrected_unless_marked_changed_and_only_changed_former_names_reach_the_client', async () => {
+    stubJwks()
+    const owner = await aCustomerOwner()
+    const contact = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const personId = contact.body.person.id
+
+    // The person record carries no name column.
+    const { results: columns } = await env.DB.prepare('PRAGMA table_info(users)').all<{ name: string }>()
+    expect((columns ?? []).map((c) => c.name)).not.toContain('display_name')
+
+    // A first name, with every optional part, arrives flat and is stored as authored.
+    const named = await postRecord(
+      owner.token,
+      {
+        id: personId,
+        displayName: 'Sarah Jonse',
+        knownAs: 'Sal',
+        title: 'Dr',
+        givenName: 'Sarah',
+        middleNames: 'Anne',
+        familyName: 'Jonse',
+        suffix: 'PhD',
+      },
+      owner.businessId,
+    )
+    expect(named.status, await named.clone().text()).toBe(200)
+    expect(await currentNameOf(identityEnv(), personId)).toMatchObject({
+      displayName: 'Sarah Jonse',
+      knownAs: 'Sal',
+      title: 'Dr',
+      givenName: 'Sarah',
+      middleNames: 'Anne',
+      familyName: 'Jonse',
+      suffix: 'PhD',
+    })
+
+    // Corrected with no reason, then changed with reason `changed`, then resubmitted unchanged.
+    for (const body of [
+      { id: personId, displayName: 'Sarah Jones', familyName: 'Jones' },
+      { id: personId, displayName: 'Sarah Patel', familyName: 'Patel', nameReason: 'changed' },
+      { id: personId, displayName: 'Sarah Patel' },
+    ]) {
+      const response = await postRecord(owner.token, body, owner.businessId)
+      expect(response.status, await response.clone().text()).toBe(200)
+    }
+
+    const history = await nameHistoryOf(personId)
+    expect(history, 'the unchanged submission wrote a row').toHaveLength(3)
+    expect(history.filter((r) => r.superseded_at === null).map((r) => r.display_name)).toEqual(['Sarah Patel'])
+    const reasonOf = new Map(history.map((r) => [r.display_name, r.superseded_reason]))
+    expect(reasonOf.get('Sarah Jonse')).toBe('corrected')
+    expect(reasonOf.get('Sarah Jones')).toBe('changed')
+    // A patch carried the parts it did not name forward.
+    expect((await currentNameOf(identityEnv(), personId))?.knownAs).toBe('Sal')
+
+    // The schema refuses a second current row.
+    const now = new Date().toISOString()
+    await expect(
+      env.DB.prepare(
+        'INSERT INTO user_names (id, user_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+      )
+        .bind(`nam_ac2251_smuggled_${seq}`, personId, 'Smuggled', now, now)
+        .run(),
+    ).rejects.toThrow(/UNIQUE constraint failed/i)
+
+    // Only the former name that was a genuine change reaches the client.
+    expect(await formerNamesOf(identityEnv(), personId)).toEqual(['Sarah Jones'])
+    const listed = (await peopleOf(identityEnv(), { businessId: owner.businessId })).find((p) => p.id === personId)
+    expect(listed?.formerNames).toEqual(['Sarah Jones'])
+    const detail = await personDetail(identityEnv(), { businessId: owner.businessId }, personId)
+    expect(detail?.person.formerNames).toEqual(['Sarah Jones'])
+
+    // A reason the route does not recognise is recorded as a correction.
+    const odd = await postRecord(
+      owner.token,
+      { id: personId, displayName: 'Sarah Okonkwo', nameReason: 'whatever' },
+      owner.businessId,
+    )
+    expect(odd.status, await odd.clone().text()).toBe(200)
+    const after = await nameHistoryOf(personId)
+    expect(after.find((r) => r.display_name === 'Sarah Patel')?.superseded_reason).toBe('corrected')
+    expect(await formerNamesOf(identityEnv(), personId)).toEqual(['Sarah Jones'])
+
+    // A mononym — a displayed name and nothing else — is a complete name.
+    const prince = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const mono = await postRecord(owner.token, { id: prince.body.person.id, displayName: 'Prince' }, owner.businessId)
+    expect(mono.status, await mono.clone().text()).toBe(200)
+    expect(await currentNameOf(identityEnv(), prince.body.person.id)).toMatchObject({
+      displayName: 'Prince',
+      knownAs: null,
+      title: null,
+      givenName: null,
+      middleNames: null,
+      familyName: null,
+      suffix: null,
+    })
+  })
+
+  it('test_UAT_AC2252_clearing_every_part_through_the_route_leaves_no_name_and_clearing_only_the_displayed_name_is_refused', async () => {
+    stubJwks()
+    const owner = await aCustomerOwner()
+    const contact = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    const personId = contact.body.person.id
+    const set = await postRecord(
+      owner.token,
+      { id: personId, displayName: 'Robert Smith', knownAs: 'Bob' },
+      owner.businessId,
+    )
+    expect(set.status, await set.clone().text()).toBe(200)
+
+    // Clearing the displayed name while Known as remains is refused with a sentence.
+    const refused = await postRecord(owner.token, { id: personId, displayName: '' }, owner.businessId)
+    expect(refused.status).toBe(400)
+    expect(((await refused.json()) as { error: string }).error).toMatch(/needs something to show/i)
+    expect((await currentNameOf(identityEnv(), personId))?.displayName).toBe('Robert Smith')
+
+    // Clearing every part leaves the person with no current name.
+    const cleared = await postRecord(owner.token, { id: personId, knownAs: '', displayName: '' }, owner.businessId)
+    expect(cleared.status, await cleared.clone().text()).toBe(200)
+    expect(await currentNameOf(identityEnv(), personId)).toBeNull()
+    const listed = (await peopleOf(identityEnv(), { businessId: owner.businessId })).find((p) => p.id === personId)
+    expect(listed?.name).toBeNull()
   })
 })

@@ -232,6 +232,8 @@ describe('story-7d255580 — the sender', () => {
     // The provider's HTML body field carries the rendered body, button and all.
     expect(payload.html).toBe(rendered.body)
     expect(String(payload.html)).toMatch(new RegExp(`<a\\s[^>]*href="${url.replace(/[./]/g, '\\$&')}"`))
+    // One part: no plain-text alternative is submitted beside it.
+    expect(payload.text).toBeUndefined()
   })
 })
 

@@ -438,6 +438,42 @@ describe.skipIf(!WEBUI_INSTALLED)('story-0034d937 — the detail pane', () => {
     expect(unhandled, String(unhandled[0])).toEqual([])
   })
 
+  it('test_UAT_AC2250_other_addresses_lists_every_non_primary_address_read_only_and_is_absent_for_one_address', async () => {
+    const emailsOf: Record<string, Array<Record<string, unknown>>> = {
+      usr_named: [
+        { id: 'eml_1', email: 'named@example.test', isPrimary: true, createdAt: '2026-01-01T00:00:00.000Z' },
+        { id: 'eml_2', email: 'work@example.test', isPrimary: false, createdAt: '2026-02-01T00:00:00.000Z' },
+        { id: 'eml_3', email: 'old@example.test', isPrimary: false, createdAt: '2026-03-01T00:00:00.000Z' },
+      ],
+      usr_nameless: [
+        { id: 'eml_4', email: 'nameless@example.test', isPrimary: true, createdAt: '2026-01-01T00:00:00.000Z' },
+      ],
+    }
+    const base = transport()
+    const withEmails = {
+      item: async (id: string) => ({ ...(await base.item(id)), emails: emailsOf[id].map((e) => ({ ...e })) }),
+    }
+    const sectionHeadings = (detail: HTMLElement) =>
+      [...detail.querySelectorAll('.builder-people__heading')].map((h) => h.textContent?.trim())
+
+    const many = await open('usr_named', withEmails)
+    expect(sectionHeadings(many)).toContain('Other addresses')
+    const listed = [...many.querySelectorAll('.builder-people__address')].map((li) => li.textContent?.trim())
+    // Exactly the non-primary addresses, in order; the primary is not repeated.
+    expect(listed).toEqual(['work@example.test', 'old@example.test'])
+    const addresses = many.querySelector('.builder-people__addresses') as HTMLElement
+    expect(addresses).not.toBeNull()
+    expect(addresses.querySelector('input, button, select, textarea, [contenteditable="true"]')).toBeNull()
+
+    document.body.replaceChildren()
+    root = document.createElement('div')
+    document.body.append(root)
+    const one = await open('usr_nameless', withEmails)
+    expect(sectionHeadings(one)).not.toContain('Other addresses')
+    expect(one.querySelector('.builder-people__addresses')).toBeNull()
+    expect(one.querySelector('.builder-people__address')).toBeNull()
+  })
+
   it('test_UAT_AC2183_businesses_is_one_headed_table_keyed_by_business_with_named_gaps', async () => {
     const detail = await open('usr_mixed')
     expect(detail.querySelectorAll('table').length).toBe(1)
