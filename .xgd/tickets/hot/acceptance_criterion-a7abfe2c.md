@@ -6,10 +6,10 @@ title: Rendering substitutes every token in subject and body and returns the tem
   key and ticket uid
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:24.606267+00:00'
-updated_at: '2026-11-04T17:32:24.606267+00:00'
+updated_at: '2026-11-04T18:00:33.383789+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
