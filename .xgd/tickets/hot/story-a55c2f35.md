@@ -5,7 +5,7 @@ type: story
 title: Contacts tab — editing a contact's grants and record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:31:42.865017+00:00'
-updated_at: '2026-11-04T21:13:29.371125+00:00'
+updated_at: '2026-11-04T21:40:36.689518+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -61,6 +61,7 @@ This is the write side of the Contacts tab (plan item 3, story-0034d937, is the 
 - **A supersession reason the route does not recognise is a correction** (decided at reconciliation, 2026-11-04). REQ-193: "the unsafe value is never the one reached by accident". Formalized in the name-model criterion.
 
 - **Name redaction on erasure is a helper, not a behaviour** (decided at reconciliation, BUNDLE-37 review report-d91ea163). `redactNames` exists and is exercised only by tests. No product erasure path calls it, because person or business erasure is not built (see story-fde7370b's decision on erasure). No criterion claims that erasure redacts names. Wiring the helper into an erasure flow belongs to the intent that builds erasure.
+- **CODE-ISSUE — Provision a business is offered in every business, but resolves the address only among 1st Contact people** (recorded at reconciliation, BUNDLE-37 review report-0cfddba5 gap 6). AC-2202 previously implied the control appears only where the caller owns the business whose product is businesses. In code, `canFulfil` is `ownsPlatformBusiness` irrespective of scope, so the control appears in any business the operator scopes into. Add-a-business then resolves the submitted address only among 1st Contact people (story-387c9dfe, AC-2323). AC-2202 has been reworded to the actual offering rule and points to AC-2323 for the server-side lookup. Correcting the behaviour belongs to a follow-up upgrade intent.
 
 ## Dependencies
 - Plan item 3: story-0034d937 (Contacts tab — the people of a business)
