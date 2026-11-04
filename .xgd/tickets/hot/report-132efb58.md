@@ -5,9 +5,9 @@ type: report
 title: 'Report: mode_override for story-7d255580'
 created_by: xgd
 created_at: '2026-11-04T17:47:59.658860+00:00'
-updated_at: '2026-11-04T17:55:33.467077+00:00'
+updated_at: '2026-11-04T17:56:22.680774+00:00'
 completed_at: null
-last_field_updated: files_touched
+last_field_updated: conformance_verdict
 fields:
   report_kind: mode_override
   subject_uid: story-7d255580
@@ -37,6 +37,8 @@ fields:
   trust_boundary_matches: []
   trust_boundary_notes: []
   trust_boundary_mismatch: false
+  conformance_verdict: pass
+  conformance_findings: []
 ---
 
 # Mode override granted: code_frozen
