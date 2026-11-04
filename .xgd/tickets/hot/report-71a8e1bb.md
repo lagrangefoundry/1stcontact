@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-04T17:32:48.972899+00:00'
+updated_at: '2026-11-04T18:04:01.615954+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -285,7 +285,7 @@ fields:
     justification: 'No existing story records outgoing messages or receives provider
       callbacks, so this is a new capability. Evidence: test_UAT_FC_REQ-198_email_record.workers,
       REQ-198_delivery_webhook.workers and REQ-198_messages_pane.'
-    story_uid: null
+    story_uid: story-219b4217
   - index: 8
     component: 'Local dev fixture: bin/seed and bin/access-sim'
     item_type: feature
