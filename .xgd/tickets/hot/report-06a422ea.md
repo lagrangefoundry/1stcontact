@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-3f77b790'
 created_by: xgd
 created_at: '2026-11-04T18:46:33.170369+00:00'
-updated_at: '2026-11-04T18:46:33.170369+00:00'
+updated_at: '2026-11-04T19:18:40.776822+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -153,6 +153,7 @@ fields:
         and REQ-190''s site keys and siteKey verb.'
       rung3: Not reached; the stale tests are rewritten or deleted (AC-1422), UATs
         are added for AC-2237/2244/2245/2246, and the code stays.
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 1
