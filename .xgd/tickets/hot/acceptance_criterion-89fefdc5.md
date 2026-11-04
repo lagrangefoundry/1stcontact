@@ -6,9 +6,9 @@ title: A retained assembled draft never outlives nor is misattributed to its sit
   and never crosses the account barrier
 created_by: xgd
 created_at: '2026-08-31T16:37:50.343343+00:00'
-updated_at: '2026-09-10T07:16:04.333135+00:00'
+updated_at: '2026-11-04T21:16:42.998714+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-fde7370b
@@ -30,10 +30,11 @@ describes.
 - **A read that finds no site drops it too**, so a value cannot survive a site that disappeared by
   any route rather than by an explicit drop.
 - **Two accounts holding a site of the same name never see each other's.** What is retained is
-  identified by account *and* slug together, so the account barrier the handle establishes is not
-  quietly undone by reuse between reads. Each account reads back its own content.
+  identified by the site's own opaque key (its site id, which is never shared between accounts,
+  REQ-190), so the account barrier the handle establishes is not quietly undone by reuse between
+  reads. Each account reads back its own content.
 
-What is retained is bounded by construction: at most one value per account-and-site, replaced when
+What is retained is bounded by construction: at most one value per site, replaced when
 the site's write version moves rather than accumulated per version, so it cannot grow with the
 number of edits made to a site.
 
