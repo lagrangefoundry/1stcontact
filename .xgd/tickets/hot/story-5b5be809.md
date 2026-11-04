@@ -6,9 +6,9 @@ title: 'Local dev fixture: seed a known cast of people and sign in as them witho
   Cloudflare'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:16:25.000890+00:00'
-updated_at: '2026-11-04T18:16:25.000890+00:00'
+updated_at: '2026-11-04T18:17:37.692783+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: unplanned
 fields:
   intent_uid: bundle-5052a63c
@@ -55,11 +55,11 @@ The people also carry REQ-193's name shapes: a title, a known-as, a former name 
 ## Reconciliation Decisions
 - **Seed is SQL, not product entry points** (decided at reconciliation, 2026-11-04): REQ-192's original body required the seed to go through `provisionBusiness`/invite/`openGrant`. The 2026-09-06 "Simplified" section explicitly withdraws that requirement and the two-phase design. The latest intent governs, so the code agrees with intent. No AC asserts entry-point usage.
 - **No "missing second address" gap report** (decided at reconciliation, 2026-11-04): an intermediate section required `bin/seed` to print REQ-191 as an outstanding gap. The later "Correction, 2026-09-06" section deletes that report because REQ-191 landed. The code matches the correction.
-- **Unknown arguments are refused with exit 2** (decided at reconciliation, 2026-11-04): intent is silent. The landed runner rejects any argument other than `--local`, `--remote` and `--help`, and writes nothing. A typo such as `--remtoe` must never fall through to some default target, so this is formalized as part of the target-selection AC.
-- **A remote run warns on stderr** (decided at reconciliation, 2026-11-04): intent requires `--remote` to be typed but is silent about a warning. The code prints a warning that the fixture is going into the database real customers use. Formalized with the remote-target AC because it is the visible half of the safety property.
-- **Failure guidance** (decided at reconciliation, 2026-11-04): intent is silent. When wrangler refuses the fixture (typically because the schema was not applied), the runner prints wrangler's output plus the migrations-apply command and exits 1. Wrangler's per-statement output is held back on success. Formalized as its own failure-path AC.
-- **`/mint` endpoint and empty-store fallback on `/login`** (decided at reconciliation, 2026-11-04): intent names `/login` and says a missing store "degrades to the manual path", but does not specify the bare-token endpoint. The code serves `/mint?email=` (400 without `email`), which the suites and curl use. Formalized as part of the minting AC. The empty-list fallback is formalized as stated in intent.
-- **Every address, not one per person, on `/login`** (from the 2026-09-06 correction): formalized directly. The listing must read the address table, so Alice's two addresses both appear, adjacent, with the primary first.
+- **Unknown arguments are refused with exit 2** (decided at reconciliation, 2026-11-04): intent is silent. The landed runner rejects any argument other than `--local`, `--remote` and `--help`, and writes nothing. A typo such as `--remtoe` must never fall through to some default target, so this is formalized as part of the target-selection AC (AC-2313).
+- **A remote run warns on stderr** (decided at reconciliation, 2026-11-04): intent requires `--remote` to be typed but is silent about a warning. The code prints a warning that the fixture is going into the database real customers use. Formalized in AC-2313 because it is the visible half of the safety property.
+- **Failure guidance** (decided at reconciliation, 2026-11-04): intent is silent. When wrangler refuses the fixture (typically because the schema was not applied), the runner prints wrangler's output plus the migrations-apply command and exits 1. Wrangler's per-statement output is held back on success. Formalized as AC-2315.
+- **`/mint` endpoint and empty-store fallback on `/login`** (decided at reconciliation, 2026-11-04): intent names `/login` and says a missing store "degrades to the manual path", but does not specify the bare-token endpoint. The code serves `/mint?email=` (400 without `email`), which the suites and curl use. Formalized in AC-2318. The empty-list fallback is formalized as AC-2321, as stated in intent.
+- **Every address, not one per person, on `/login`** (from the 2026-09-06 correction): formalized directly. The listing must read the address table, so Alice's two addresses both appear, adjacent, with the primary first (AC-2320).
 
 ## Dependencies
 - Plan item 3 — Person identity: addresses & names (REQ-191, REQ-193)
