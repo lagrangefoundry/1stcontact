@@ -472,8 +472,12 @@ describe('story-fde7370b — the cloud site store, inside the Workers runtime', 
     expect(await store.readAsset(slug, 'photo.png')).toEqual(png)
 
     // The stored object carries the content type the NAME implies, so a response
-    // built from it is labelled without re-guessing the extension.
-    const key = (name: string): string => `draft/${DEFAULT_TENANT}/${slug}/assets/${name}`
+    // built from it is labelled without re-guessing the extension. The object
+    // lives under the SITE's opaque key (`draft/<siteId>/assets/`), which only
+    // the handle can name — no business or slug appears in the prefix.
+    const siteId = await store.siteKey(slug)
+    expect(siteId).not.toBeNull()
+    const key = (name: string): string => `draft/${siteId}/assets/${name}`
     const stored = await SITES.get(key('mark.svg'))
     expect(stored).not.toBeNull()
     expect(stored!.httpMetadata?.contentType).toBe('image/svg+xml')

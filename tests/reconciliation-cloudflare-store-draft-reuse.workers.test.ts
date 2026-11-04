@@ -108,15 +108,22 @@ function unwrap(result: unknown, label: string): LoadedSite {
  * case AC-1448 names, which `forget` cannot exercise because `forget` drops
  * what was retained itself. Deleting the rows leaves the store to discover the
  * absence on its next read, which is the branch under test.
+ *
+ * Child rows are keyed by the site's opaque key alone (REQ-190), so the key is
+ * resolved through the handle first and every row is deleted by it.
  */
-async function vanishSiteRows(tenantId: string, slug: string): Promise<void> {
+async function vanishSiteRows(store: TenantSiteStore, slug: string): Promise<void> {
   const { DB } = storeEnv()
+  const siteId = await store.siteKey(slug)
+  expect(siteId, `no site '${slug}' to vanish`).not.toBeNull()
   await DB.batch([
-    DB.prepare('DELETE FROM site_changes WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-    DB.prepare('DELETE FROM site_assets WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-    DB.prepare('DELETE FROM site_pages WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
-    DB.prepare('DELETE FROM sites WHERE tenant_id = ? AND slug = ?').bind(tenantId, slug),
+    DB.prepare('DELETE FROM site_changes WHERE site_id = ?').bind(siteId),
+    DB.prepare('DELETE FROM site_assets WHERE site_id = ?').bind(siteId),
+    DB.prepare('DELETE FROM site_pages WHERE site_id = ?').bind(siteId),
+    DB.prepare('DELETE FROM site_revisions WHERE site_id = ?').bind(siteId),
+    DB.prepare('DELETE FROM sites WHERE id = ?').bind(siteId),
   ])
+  expect(await store.siteKey(slug)).toBeNull()
 }
 
 describe('story-fde7370b — what a read of an unchanged draft costs, and what may be retained', () => {
@@ -227,7 +234,7 @@ describe('story-fde7370b — what a read of an unchanged draft costs, and what m
     const beforeVanish = await vanished.store.loadDraft(vanished.seed.slug)
     expect(beforeVanish?.result.ok).toBe(true)
 
-    await vanishSiteRows(TENANT, vanished.seed.slug)
+    await vanishSiteRows(vanished.store, vanished.seed.slug)
     expect(await vanished.store.loadDraft(vanished.seed.slug)).toBeNull()
 
     await vanished.store.createDraft(vanished.seed.slug)

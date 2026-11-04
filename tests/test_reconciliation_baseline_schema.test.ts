@@ -4,7 +4,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
- * REQ-190 — **the rebaseline, asserted as a fact about the repository.**
+ * story-fde7370b, AC-2238 / AC-2239 / AC-2241 (from REQ-190) — **the
+ * rebaseline, asserted as a fact about the repository.**
  *
  * The workers suite proves what the schema DOES. This proves what replaced it:
  * one baseline instead of nine migrations, a platform business id two files have
@@ -76,7 +77,7 @@ function sourceFiles(): string[] {
 }
 
 describe('REQ-190 — one baseline', () => {
-  it('test_UAT_FC_REQ-190_the_migrations_directory_is_one_baseline', () => {
+  it('test_UAT_AC2238_the_migrations_directory_is_one_baseline', () => {
     // `0001`–`0009` are gone, replaced by one file. D1 cannot alter a primary
     // key in place, so re-keying `sites` incrementally would have been eight
     // create-copy-drop-rename rebuilds carrying data that does not exist —
@@ -88,7 +89,7 @@ describe('REQ-190 — one baseline', () => {
     expect(files).toEqual(['0001_baseline.sql'])
   })
 
-  it('test_UAT_FC_REQ-190_tenant_id_literal', () => {
+  it('test_UAT_AC2238_the_platform_business_literal_matches_both_deployment_blocks', () => {
     // THE LITERAL TWO FILES MUST AGREE ON. `TENANT_ID` names the platform
     // business by key now, and the baseline seeds that exact id. A mismatch is
     // `UnknownTenantError` on every deployed request, and nothing else in the
@@ -110,7 +111,7 @@ describe('REQ-190 — one baseline', () => {
     expect(seeded![1]).toBe(declared[0])
   })
 
-  it('test_UAT_FC_REQ-190_the_baseline_seeds_no_people', () => {
+  it('test_UAT_AC2238_the_baseline_seeds_no_people', () => {
     // `0005` hardcoded one personal address into a migration that ran in every
     // environment, forever, including ones that address should never be able to
     // enter. `ensurePlatformOperator` writes the same four rows from
@@ -123,7 +124,7 @@ describe('REQ-190 — one baseline', () => {
     expect(ddl).not.toMatch(/@/)
   })
 
-  it('test_UAT_FC_REQ-190_there_is_no_claim_table_and_no_reader_of_one', () => {
+  it('test_UAT_AC2241_there_is_no_global_slug_claim_table_and_no_reader_of_one', () => {
     // `published_sites` existed to make one data field — the slug — globally
     // unique, because `/site/<slug>/` carried no business. The published address
     // is the site's key now, so there is nothing left to claim. Asserted over
@@ -136,7 +137,7 @@ describe('REQ-190 — one baseline', () => {
     expect(offenders).toEqual([])
   })
 
-  it('test_UAT_FC_REQ-190_there_is_one_minter_of_keys', () => {
+  it('test_UAT_AC2239_there_is_one_minter_of_keys', () => {
     // "A key is a surrogate THE SYSTEM MINTS" stops being a property the moment
     // there are two minters. `newId` moved down into the store layer because the
     // store is where a site comes into existence and `control-app` imports
@@ -149,7 +150,7 @@ describe('REQ-190 — one baseline', () => {
     expect(offenders).toEqual(['tools/generate/src/store/ids.ts'])
   })
 
-  it('test_UAT_FC_REQ-190_the_schema_carries_no_composite_key_made_of_data', () => {
+  it('test_UAT_AC2239_the_schema_carries_no_key_made_of_data', () => {
     // The rule, read off the DDL. Every `PRIMARY KEY` is either a single opaque
     // column or a pair whose parts are themselves keys or ordinals — never a
     // name somebody chose.

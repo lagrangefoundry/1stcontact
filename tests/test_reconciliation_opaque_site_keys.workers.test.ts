@@ -16,7 +16,7 @@ import { applySchema } from './support/d1-site-factory'
 import { siteSeed } from './support/site-seed'
 
 /**
- * REQ-190 — **no data field is ever a key.**
+ * story-fde7370b, AC-2239 … AC-2243 (from REQ-190) — **no data field is ever a key.**
  *
  * A key is a surrogate the system mints and never shows meaning through.
  * Anything a human chose, typed, or might change — an address, a slug, a
@@ -118,7 +118,7 @@ beforeAll(async () => {
 })
 
 describe('REQ-190 — every primary key is opaque', () => {
-  it('test_UAT_FC_REQ-190_every_primary_key_is_an_opaque_random_id', async () => {
+  it('test_UAT_AC2239_every_primary_key_is_an_opaque_random_id', async () => {
     // THE RULE, read back out of the database. Every key a provisioning writes
     // is 128 bits from a CSPRNG: not a value a human typed or chose, and not a
     // digest of the row's own data. A digest would be data-as-key wearing a
@@ -159,7 +159,7 @@ describe('REQ-190 — every primary key is opaque', () => {
     }
   })
 
-  it('test_UAT_FC_REQ-190_identical_inputs_produce_unrelated_keys', async () => {
+  it('test_UAT_AC2239_identical_inputs_produce_unrelated_keys', async () => {
     // RANDOM, NOT A DIGEST. Two provisionings given byte-identical inputs must
     // produce keys with no relationship to each other — which is exactly what a
     // hash of the row's data could not do, and is the whole difference between
@@ -177,7 +177,7 @@ describe('REQ-190 — every primary key is opaque', () => {
     expect(a).not.toBe(b)
   })
 
-  it('test_UAT_FC_REQ-190_no_child_row_records_the_business', async () => {
+  it('test_UAT_AC2240_no_child_row_records_the_business', async () => {
     // THE SITE'S OWN ROW IS THE ONLY PLACE ITS BUSINESS IS RECORDED, and that is
     // what makes the move below an update of one column rather than a promise
     // about one. Asserted over the schema, because it is a claim about what
@@ -197,7 +197,7 @@ describe('REQ-190 — every primary key is opaque', () => {
 })
 
 describe('REQ-190 — the key is the address', () => {
-  it('test_UAT_FC_REQ-190_a_new_account_finds_its_one_site_visibly_unnamed', async () => {
+  it('test_UAT_AC2240_a_new_accounts_unnamed_site_is_renamed_by_one_column', async () => {
     // THE DEFAULT IS LEGIBLE AS A DEFAULT, which is the whole of what the word
     // buys. `home` was the obvious candidate and is the wrong one: it reads as a
     // decision somebody made, so nothing about it asks to be changed, and every
@@ -235,7 +235,7 @@ describe('REQ-190 — the key is the address', () => {
     expect(await fresh.store.siteKey('unnamed')).toBeNull()
   })
 
-  it('test_UAT_FC_REQ-190_two_businesses_each_publish_a_site_called_home', async () => {
+  it('test_UAT_AC2241_two_businesses_each_publish_a_site_of_the_same_slug', async () => {
     // THE ACCEPTANCE THAT WAS LIVE RATHER THAN HYPOTHETICAL. `published_sites`
     // used to key on the slug GLOBALLY, because `/site/<slug>/` carried no
     // business — so the second customer to publish under the starter name was
@@ -280,7 +280,7 @@ describe('REQ-190 — the key is the address', () => {
     )
   })
 
-  it('test_UAT_FC_REQ-190_the_same_key_is_used_in_joins_and_in_the_url', async () => {
+  it('test_UAT_AC2239_the_same_opaque_key_is_used_in_joins_and_in_the_url', async () => {
     // ONE COLUMN, NOT TWO. An earlier design carried an integer key beside a
     // separate opaque `public_id`, because an incrementing key cannot appear in
     // a URL — `/b/2/` would probe every other business and turn a 403 into an
@@ -306,7 +306,7 @@ describe('REQ-190 — the key is the address', () => {
     expect(Number(joined?.n ?? 0)).toBe(1)
   })
 
-  it('test_UAT_FC_REQ-190_a_key_for_another_business_is_not_obtainable', async () => {
+  it('test_UAT_AC2242_a_handle_enumerates_only_its_own_business_site_keys', async () => {
     // WHAT REPLACED "TENANT IN EVERY QUERY". The child tables stopped carrying
     // the business, so isolation rests on the key instead of on twenty-two WHERE
     // clauses — and that is only as strong as the claim that a handle cannot
@@ -325,7 +325,7 @@ describe('REQ-190 — the key is the address', () => {
 })
 
 describe('REQ-190 — names change and keys do not', () => {
-  it('test_UAT_FC_REQ-190_a_business_is_renamed_with_no_key_rewritten', async () => {
+  it('test_UAT_AC2240_a_business_is_renamed_with_no_key_rewritten', async () => {
     // A business is *called* something in `tenants.name`, where it can change,
     // and is *keyed* by a value with no relationship to what it is called. The
     // rename is one UPDATE and nothing else in the schema records the name.
@@ -351,7 +351,7 @@ describe('REQ-190 — names change and keys do not', () => {
     expect(await keysUnder('')).toEqual(objectsBefore)
   })
 
-  it('test_UAT_FC_REQ-190_a_sites_slug_changes_with_no_key_rewritten', async () => {
+  it('test_UAT_AC2240_a_sites_slug_changes_with_no_key_rewritten', async () => {
     // The slug is the thing the operator calls a site and is no longer the thing
     // rows are keyed by. Changing it used to rewrite `site_pages`,
     // `site_assets`, `site_changes`, `site_revisions`, `published_sites` and
@@ -382,7 +382,7 @@ describe('REQ-190 — names change and keys do not', () => {
     expect(await keysUnder('')).toEqual(objectsBefore)
   })
 
-  it('test_UAT_FC_REQ-190_a_site_moves_business_by_one_column_with_no_object_copied', async () => {
+  it('test_UAT_AC2240_a_site_moves_business_by_one_column_with_no_object_copied', async () => {
     // THE WORKED EXAMPLE. `xgd.dev` was provisioned as a second business while
     // the `xgd` site it is named after sat in the platform's, and moving it was
     // a five-table rewrite plus an object-store copy — because the owning
@@ -450,7 +450,7 @@ describe('REQ-190 — names change and keys do not', () => {
     expect(await (await serve(`/site/${siteKey}/`)).status).toBe(200)
   })
 
-  it('test_UAT_FC_REQ-190_a_move_onto_a_taken_slug_is_refused_by_the_constraint', async () => {
+  it('test_UAT_AC2241_a_move_onto_a_taken_slug_is_refused_by_the_constraint', async () => {
     // THE OTHER SIDE OF "UNIQUE PER BUSINESS, NEVER GLOBAL". A slug means
     // nothing across businesses — that is what lets two of them publish `home` —
     // but inside one it must still name at most one site, or the builder could
@@ -473,7 +473,7 @@ describe('REQ-190 — names change and keys do not', () => {
 })
 
 describe('REQ-190 — the object store follows the keys', () => {
-  it('test_UAT_FC_REQ-190_erasure_reaches_every_object_by_enumerating_site_keys', async () => {
+  it('test_UAT_AC2242_erasure_reaches_every_object_by_enumerating_site_keys', async () => {
     // R2 prefixes and the erasure path follow the new keys. A site's objects
     // live under `draft/<siteId>/` and `sites/<siteId>/rev/…` with no business
     // in either — which is what makes a move copy nothing, and which is exactly
@@ -526,7 +526,7 @@ describe('REQ-190 — the object store follows the keys', () => {
     for (const key of mine) expect(reached.has(key), `${key} is stranded`).toBe(true)
   })
 
-  it('test_UAT_FC_REQ-190_forget_removes_the_site_and_its_objects', async () => {
+  it('test_UAT_AC2242_forget_removes_the_site_and_its_objects', async () => {
     // The same enumeration, exercised through the verb that already does it: a
     // site dropped by its own business leaves no row and no object behind, which
     // is the per-site half of the erasure obligation.
@@ -557,7 +557,7 @@ describe('REQ-190 — the object store follows the keys', () => {
 })
 
 describe('REQ-190 — ordinal is not identity', () => {
-  it('test_UAT_FC_REQ-190_a_revision_id_and_a_journal_counter_stay_ordinals', async () => {
+  it('test_UAT_AC2243_a_revision_id_and_a_journal_counter_stay_ordinals', async () => {
     // THE CARVE-OUT, PINNED. `site_revisions.id` is a POSITION — live is
     // `MAX(id)` with no head pointer, and the published layout is `rev/0001` —
     // and `site_changes.at` is the counter the retention window is trimmed by.
@@ -577,9 +577,23 @@ describe('REQ-190 — ordinal is not identity', () => {
     const at = await business.store.appendChange(STARTER_SLUG, { kind: 'edit' } as never)
     expect(at).toBeGreaterThan(0)
     expect(await business.store.appendChange(STARTER_SLUG, { kind: 'edit' } as never)).toBe(at + 1)
+
+    // And the schema says so: both ordinals are INTEGER columns, scoped by the
+    // site's (opaque, TEXT) key rather than carrying an opaque id of their own.
+    const typeOf = async (table: string, column: string): Promise<string | undefined> => {
+      const { results } = await env.DB.prepare(`PRAGMA table_info(${table})`).all<{
+        name: string
+        type: string
+      }>()
+      return (results ?? []).find((r) => r.name === column)?.type
+    }
+    expect(await typeOf('site_revisions', 'id')).toBe('INTEGER')
+    expect(await typeOf('site_changes', 'at')).toBe('INTEGER')
+    expect(await typeOf('site_revisions', 'site_id')).toBe('TEXT')
+    expect(await typeOf('site_changes', 'site_id')).toBe('TEXT')
   })
 
-  it('test_UAT_FC_REQ-190_the_id_prefix_is_a_reading_aid_and_nothing_branches_on_it', async () => {
+  it('test_UAT_AC2239_the_id_prefix_is_a_reading_aid_and_nothing_branches_on_it', async () => {
     // The prefix says which table a value in a log came from and is never
     // parsed: two ids with the same prefix are not related and two with
     // different prefixes are not ordered. Stated here because a prefix is the
