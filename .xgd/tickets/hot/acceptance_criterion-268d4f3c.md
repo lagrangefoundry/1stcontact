@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: A token minted by bin/access-sim passes the Worker's real Access verifier
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.914031+00:00'
-updated_at: '2026-11-04T18:17:21.914031+00:00'
+updated_at: '2026-11-04T18:28:56.611955+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5b5be809
   kind: behavior
