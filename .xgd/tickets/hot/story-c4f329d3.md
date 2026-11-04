@@ -6,7 +6,7 @@ title: 'System knowledge base: build the assistant''s domain knowledge from our 
   documents, with each document deciding whether it is in'
 created_by: xgd
 created_at: '2026-08-20T04:15:05.992521+00:00'
-updated_at: '2026-11-04T19:42:26.993995+00:00'
+updated_at: '2026-11-04T21:10:09.524537+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -139,7 +139,8 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 
 - **The read-seam repair is folded into the build's existing criteria plus one new criterion, not a new story.** BUG-55 restores behaviour this story already promised (one command runs the whole pipeline; the map is validated by the reader's own search). A new criterion (AC-2235) pins the specific failure — the map's search resolving against a source-keyed index so all four stages complete — because AC-1291 alone did not distinguish a build that dies at the map from one that finishes.
 - **The preflight compatibility check is formalised under this story** (AC-2236). BUG-55's last acceptance bullet asks for it "beside the existing shared-store preflight", reported on its own line and checked positively for one seam; the code does exactly that. Two details the intent is silent on are decided now from the code: the probe runs **only after** presence passes (so a missing component is never misreported as incompatible), and an incompatible store exits with the environment code (6) like its presence neighbour. Both are observable and an operator branches on the exit code.
-- **"The full release pipeline completes" is verified to the embedding boundary.** End-to-end completion against the real Workers AI embedder needs an operator credential; the criterion is verified with a stubbed embedder and the real knowledge component, and the credentialled run is recorded as an operator check rather than a UAT.
+- **"The full release pipeline completes" is narrowed to the build stage (AC-2235).** BUG-55's plan item said the full release pipeline completes. AC-2235 claims and evidences only what its UAT drives: the build stage (`buildKb`) runs all four stages over a temporary KB root and writes a fresh map, with the map search keyed `shipped`. The `1c kb build` process exit code and `bin/kb-release` going on to `1c assets` follow from that stage completing, but they are not claimed by an AC. Both write into the repository's own `kb/` tree and need the real Workers AI embedder (`CLOUDFLARE_API_TOKEN`), so the end-to-end release run is recorded as an operator check rather than a UAT.
+- **The preflight compatibility probe is a testable seam (AC-2236).** `knowledgeSeamProbe(load)` in `tools/generate/src/cli/shared-store.ts` builds the real probe around an injectable loader for the knowledge module. The default loader imports the installed component. The UAT injects component doubles (no `indexFor`, an `indexFor` that ignores the map, one that returns the wrong index), so the real detection branches run. It also drives `1c preflight` with a component missing from presence and asserts that the seam probe never runs.
 - **Out of scope here, and not a code-issue:** the priming-seam skew BUG-55 names under *What this ticket does NOT fix* (`KnowledgeDocs.documents()` becoming a coroutine while the installed `ai` iterates it synchronously). The intent explicitly defers it to its own ticket; no criterion here claims it.
 - **No code-issue is raised.** Every BUG-55 read-side call site in this story's surface passes `indexes`/`chunkIndexes` keyed `shipped`, the build-side calls are untouched, and the preflight reports the seam separately, as the intent asks.
 
