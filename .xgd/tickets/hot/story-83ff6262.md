@@ -6,15 +6,17 @@ title: 'Customer portal: an account reaches its own page, rendered as site conte
   with an honest Delete account control'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:14:57.817737+00:00'
-updated_at: '2026-11-04T17:11:23.836984+00:00'
+updated_at: '2026-11-04T17:11:24.078392+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-39edf66d
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 3
+  updated_by:
+  - bundle-5052a63c
 ---
 
 ## Story
