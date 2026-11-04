@@ -6,9 +6,9 @@ title: 'Customer portal: an account reaches its own page, rendered as site conte
   with an honest Delete account control'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:14:57.817737+00:00'
-updated_at: '2026-11-04T17:11:24.078392+00:00'
+updated_at: '2026-11-04T21:13:56.201826+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-39edf66d
@@ -49,7 +49,7 @@ Out of scope (REQ-183 §5, "What this does not land"): any deletion machinery (s
 - **Holdings sentence form** (decided at reconciliation, 2026-11-01): D6 requires the businesses to be listed by name. The code renders "This account operates N business(es): A, B." and uses a business's id when it has no name. Formalized.
 - **Draft channel serves the portal** (decided at reconciliation, 2026-11-01): intent is silent. The authored portal's draft is what is served, because the portal has no publish path yet. Formalized under the authored-portal AC.
 
-- **The identity field is `person`** (decided at reconciliation, 2026-11-04, BUNDLE-37): REQ-194 renames the payload's `account` to `person`. AC-2222's observable (the caller is named from their own facts, falling back to the verified address) is unchanged, so no criterion is reworded. Its UAT supplies the payload under the new key.
+- **The identity field is `person`** (decided at reconciliation, 2026-11-04, BUNDLE-37): REQ-194 renames the payload's `account` to `person`. AC-2222's observable (the caller is named from their own facts, falling back to the verified address) is unchanged. Its wording was updated from `account` to `person` to match the renamed payload key, and its UAT supplies the payload under the new key.
 
 ## Dependencies
 Plan item 1 (Accounts, Membership & Entitlement: scope and fulfilment gate, REQ-185).
