@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-04T18:04:01.615954+00:00'
+updated_at: '2026-11-04T18:18:05.502799+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -306,7 +306,7 @@ fields:
       simulator. These are operator/developer-facing tools rather than test-only output:
       they make a fresh clone usable. Evidence: test_UAT_FC_REQ-192_dev_seed.workers,
       REQ-192_seed_command, REQ-192_access_sim and REQ-193_seeded_names.workers.'
-    story_uid: null
+    story_uid: story-5b5be809
 ---
 
 # Reconciliation Plan
