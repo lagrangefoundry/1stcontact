@@ -6,9 +6,9 @@ title: 'Local dev fixture: seed a known cast of people and sign in as them witho
   Cloudflare'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:16:25.000890+00:00'
-updated_at: '2026-11-04T18:28:52.547083+00:00'
+updated_at: '2026-11-04T21:15:55.855850+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: completed
 fields:
   intent_uid: bundle-5052a63c
@@ -60,6 +60,8 @@ The people also carry REQ-193's name shapes: a title, a known-as, a former name 
 - **Failure guidance** (decided at reconciliation, 2026-11-04): intent is silent. When wrangler refuses the fixture (typically because the schema was not applied), the runner prints wrangler's output plus the migrations-apply command and exits 1. Wrangler's per-statement output is held back on success. Formalized as AC-2315.
 - **`/mint` endpoint and empty-store fallback on `/login`** (decided at reconciliation, 2026-11-04): intent names `/login` and says a missing store "degrades to the manual path", but does not specify the bare-token endpoint. The code serves `/mint?email=` (400 without `email`), which the suites and curl use. Formalized in AC-2318. The empty-list fallback is formalized as AC-2321, as stated in intent.
 - **Every address, not one per person, on `/login`** (from the 2026-09-06 correction): formalized directly. The listing must read the address table, so Alice's two addresses both appear, adjacent, with the primary first (AC-2320).
+
+- **The `xgd` site restore clause is an operator check, not a seed criterion** (decided at reconciliation, 2026-11-04, BUNDLE-37 review report-d91ea163). REQ-192's 2026-09-05 *Added acceptance* says the `xgd` site is present and byte-identical after a wipe, baseline and reseed, restored from the file-backed store rather than from D1. That clause describes an operator recovery procedure on real data: capture the draft, wipe, apply the baseline, `1c push` the file-backed `xgd` draft, then diff. It is not behaviour of `bin/seed`. The 2026-09-06 simplification limits the seed to identity rows written by a SQL fixture, and the seed neither writes nor reads any site. No code in this bundle automates the capture-and-diff guard, so the clause is not in *Acceptance, final* and has no AC. `1c push` itself is covered by its own story. Making the guard executable (a scripted capture and diff around a wipe) would be a new intent.
 
 ## Dependencies
 - Plan item 3 — Person identity: addresses & names (REQ-191, REQ-193)
