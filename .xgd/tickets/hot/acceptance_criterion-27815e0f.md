@@ -6,9 +6,9 @@ title: The revision record, not the key space, is the authority on what a URL ma
   reach
 created_by: xgd
 created_at: '2026-08-06T18:48:54.054985+00:00'
-updated_at: '2026-09-10T16:56:05.540288+00:00'
+updated_at: '2026-11-04T16:02:34.926995+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d34eccd8
@@ -26,7 +26,7 @@ reachable at any URL.
 
 The guarantee is that no component of a requested URL names stored bytes unless
 a record vouched for them first. The only untrusted value that reaches a storage
-key is the site name, and the address grammar has already refused anything that
+key is the site key from the URL, and the address grammar has already refused anything that
 is not a plain name; every other part of the key is composed from server-side
 constants and the value the record itself supplied. A visitor therefore cannot
 craft an address that reads bytes the record did not name — including bytes that
