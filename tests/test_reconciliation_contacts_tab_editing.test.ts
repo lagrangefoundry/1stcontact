@@ -230,7 +230,7 @@ const LOCKED = ['stage', 'access', 'status', 'invitedAt', 'firstSeenAt', 'lastSe
 const MALFORMED = ['a@b', 'a@@b.c', 'a@.c', 'a@b.', '@b.c', 'a b@example.test']
 
 describe.skipIf(!WEBUI_INSTALLED)('story-a55c2f35 — Who they are', () => {
-  it('test_UAT_AC2188_only_email_and_name_are_editable_and_the_eight_observed_fields_are_locked', async () => {
+  it('test_UAT_AC2188_who_they_are_edits_only_the_email_the_name_parts_edit_in_their_name_and_eight_fields_are_locked', async () => {
     await openSarah()
     // The rows of ONE section: the body that follows the "Who they are" heading.
     const sectionAfter = (title: string) => {

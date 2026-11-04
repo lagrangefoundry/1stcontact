@@ -17,6 +17,7 @@ import {
 } from '../apps/control-app/src/events'
 import { ensurePlatformOperator, type IdentityEnv } from '../apps/control-app/src/identity'
 import { invitePerson, personDetail } from '../apps/control-app/src/people'
+import { PERSON_DETAIL_PATH, route, type RouterEnv } from '../apps/control-app/src/router'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import { seedContact } from './support/contact'
@@ -45,6 +46,26 @@ let seq = 0
 const anEmail = (): string => `recon195-${(seq += 1)}@example.test`
 
 const kinds = (events: Array<{ kind: string }>): string[] => events.map((e) => e.kind)
+
+function routerEnv(tenantId = A): RouterEnv {
+  return {
+    DB: env.DB as D1Database,
+    SITES: env.SITES as R2Bucket,
+    BLOBS: env.BLOBS as R2Bucket,
+    TENANT_ID: tenantId,
+    ASSETS: { fetch: async () => new Response('asset', { status: 200 }) } as unknown as Fetcher,
+  }
+}
+
+/** `GET /api/people/detail?id=` through the shipped router, in one business. */
+async function detailRoute(id: string, businessId = A): Promise<Response> {
+  return route(
+    new Request(`https://app.test${PERSON_DETAIL_PATH}?id=${encodeURIComponent(id)}`),
+    routerEnv(businessId),
+    scope(businessId),
+    {},
+  )
+}
 
 async function storedEventCount(contactId: string): Promise<number> {
   const row = await env.DB.prepare('SELECT COUNT(*) AS n FROM contact_events WHERE contact_id = ?')
@@ -416,5 +437,23 @@ describe('story-4630e921 — the detail the Contacts tab reads', () => {
     const theirs = await seedContact(identityEnv(B), { tenantId: B, email: anEmail() })
     await recordEvent(identityEnv(B), scope(B), { contactId: theirs, kind: EMAIL_SENT })
     expect(await personDetail(identityEnv(), scope(A), theirs)).toBeNull()
+
+    // THROUGH THE ROUTE the Contacts tab loads: the same history in the same
+    // response as the record, and another business's contact is not found (404).
+    const served = await detailRoute(made.person.id)
+    expect(served.status).toBe(200)
+    const body = (await served.json()) as {
+      person: { id: string }
+      events: Array<{ kind: string; ref: string | null }>
+      provenance: { kind: string } | null
+    }
+    expect(body.person.id).toBe(made.person.id)
+    expect(kinds(body.events)).toEqual([EMAIL_SENT, CONTACT_INVITED, CONTACT_CREATED])
+    expect(body.events[0].ref).toBe('email-9f2c')
+    expect(body.provenance?.kind).toBe(CONTACT_CREATED)
+
+    const across = await detailRoute(theirs, A)
+    expect(across.status).toBe(404)
+    expect(JSON.stringify(await across.json())).not.toContain('events')
   })
 })

@@ -334,7 +334,7 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
     expect(await businessCount(op)).toBe(before)
   })
 
-  it('test_UAT_AC2157_businesses_payload_carries_exactly_account_and_businesses', async () => {
+  it('test_UAT_AC2157_businesses_payload_carries_exactly_person_and_businesses', async () => {
     stubJwks()
     const email = anEmail()
     await customer(email, 'Salon')

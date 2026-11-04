@@ -241,11 +241,12 @@ export {
   assertSharedStore,
   checkIndexSeam,
   checkSharedStore,
+  knowledgeSeamProbe,
   sharedComponents,
   SHARED_SERVER_COMPONENTS,
   SHARED_STORE_INSTALL_COMMAND,
 } from './shared-store'
-export type { IndexSeamProbe, SeamReport } from './shared-store'
+export type { IndexSeamProbe, KnowledgeLoader, SeamReport } from './shared-store'
 export type {
   ComponentResolver,
   MissingSharedComponent,

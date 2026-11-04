@@ -148,6 +148,22 @@ describe('REQ-190 — one baseline', () => {
       .filter((f) => /crypto\.getRandomValues/.test(code(fs.readFileSync(f, 'utf8'))))
       .map((f) => path.relative(REPO, f))
     expect(offenders).toEqual(['tools/generate/src/store/ids.ts'])
+
+    // The OTHER door to the CSPRNG. `crypto.randomUUID` would mint a key just as
+    // well, so its callers are pinned too — and each one that exists makes a
+    // value that is not a row's primary key: a model session's name, and the
+    // stand-in provider message id the local mail adapter answers with.
+    const uuidCallers = sourceFiles()
+      .filter((f) => !/\.d\.ts$/.test(f))
+      .filter((f) => /randomUUID\s*\(/.test(code(fs.readFileSync(f, 'utf8'))))
+      .map((f) => path.relative(REPO, f))
+    expect(uuidCallers).toEqual(['apps/control-app/src/ai.ts', 'apps/control-app/src/mail.ts'])
+    for (const file of uuidCallers) {
+      const uses = [...code(fs.readFileSync(path.join(REPO, file), 'utf8')).matchAll(/^.*randomUUID\s*\(.*$/gm)].map(
+        (m) => m[0],
+      )
+      for (const line of uses) expect(line, `${file} mints a key`).not.toMatch(/\bnewId\b|\bid\s*[:=]/)
+    }
   })
 
   it('test_UAT_AC2239_the_schema_carries_no_key_made_of_data', () => {

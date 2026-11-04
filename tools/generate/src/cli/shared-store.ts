@@ -150,6 +150,35 @@ export interface SeamReport {
 /** The seam probe, injectable so a UAT can drive the incompatible case. */
 export type IndexSeamProbe = () => Promise<unknown>
 
+/** Loads the knowledge component's module namespace. */
+export type KnowledgeLoader = () => Promise<Record<string, unknown>>
+
+/**
+ * The real probe, around a loader for the knowledge module.
+ *
+ * The loader is the only injectable part: by default it imports the installed
+ * component, and a UAT can hand it a component double instead, so the detection
+ * below is what runs in both cases.
+ */
+export function knowledgeSeamProbe(
+  load: KnowledgeLoader = () => import(/* @vite-ignore */ sharedModuleUrl('knowledge')),
+): IndexSeamProbe {
+  return async () => {
+    const { indexFor } = await load()
+    if (typeof indexFor !== 'function') {
+      throw new Error('the knowledge component exports no `indexFor`')
+    }
+    // A stand-in index — `indexFor` selects, it does not read, so nothing here
+    // has to be a real artifact for the resolution to be the real one.
+    const sentinel = {}
+    const resolved = indexFor({ name: 'probe', source: 'probe' }, { probe: sentinel })
+    if (resolved !== sentinel) {
+      throw new Error('`indexFor` did not return the index named by the KB\'s source')
+    }
+    return resolved
+  }
+}
+
 /**
  * Ask the installed component to resolve a KB against a map keyed by its source.
  *
@@ -160,22 +189,7 @@ export type IndexSeamProbe = () => Promise<unknown>
  * does the same thing about either.
  */
 export async function checkIndexSeam(opts?: { probe?: IndexSeamProbe }): Promise<SeamReport> {
-  const probe =
-    opts?.probe ??
-    (async () => {
-      const { indexFor } = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
-      if (typeof indexFor !== 'function') {
-        throw new Error('the knowledge component exports no `indexFor`')
-      }
-      // A stand-in index — `indexFor` selects, it does not read, so nothing here
-      // has to be a real artifact for the resolution to be the real one.
-      const sentinel = {}
-      const resolved = indexFor({ name: 'probe', source: 'probe' }, { probe: sentinel })
-      if (resolved !== sentinel) {
-        throw new Error('`indexFor` did not return the index named by the KB\'s source')
-      }
-      return resolved
-    })
+  const probe = opts?.probe ?? knowledgeSeamProbe()
 
   try {
     await probe()

@@ -171,7 +171,16 @@ const STAMP = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/
 
 describe.skipIf(!WEBUI_INSTALLED)('story-4630e921 — the History section', () => {
   it('test_UAT_AC2270_history_lists_events_newest_first_with_labels_and_unknown_kinds_verbatim', async () => {
-    const mixed = historySection(await open('usr_mixed'))
+    const mixedDetail = await open('usr_mixed')
+    // PLACEMENT: History is the section directly after Businesses, below the
+    // record, so the timeline closes the record rather than interrupting it.
+    const headings = [...mixedDetail.querySelectorAll('.builder-people__heading')].map((h) =>
+      h.textContent?.trim(),
+    )
+    expect(headings.indexOf('Businesses')).toBeGreaterThan(headings.indexOf('Who they are'))
+    expect(headings.indexOf('History')).toBe(headings.indexOf('Businesses') + 1)
+
+    const mixed = historySection(mixedDetail)
     const mixedRows = rows(mixed)
     expect(mixedRows.map((r) => textOf(r, 'builder-people__eventkind'))).toEqual([
       'Email bounced',

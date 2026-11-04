@@ -595,6 +595,25 @@ describe('a search hit from either knowledge base is read back, not refused', ()
     expect(clientDoc.ticket.uid).toBe(uploaded.uid)
     expect(clientDoc.ticket.body).toContain('We sell to independent restaurants.')
 
+    // THE PASSAGE SEARCH, once per knowledge base. It reads the CHUNK artifacts,
+    // each keyed by its own KB's source — so it reaches each corpus only if the
+    // chunk indexes are handed over as a source-keyed map, not as one `source`.
+    const shippedPassages = (await toolbox.chunk_search({
+      query: 'how pages are stored in the draft store',
+      kb: [SYSTEM_KB],
+      top_k: 1,
+    })) as Array<RankedHit & { chunks?: unknown }>
+    expect(shippedPassages.map((hit) => hit.uid)).toEqual(['doc-storage'])
+    expect(JSON.stringify(shippedPassages[0].chunks)).toContain('draft store')
+
+    const clientPassages = (await toolbox.chunk_search({
+      query: 'independent restaurants positioning',
+      kb: [PROJECT_KB],
+      top_k: 1,
+    })) as Array<RankedHit & { chunks?: unknown }>
+    expect(clientPassages.map((hit) => hit.uid)).toEqual([uploaded.uid])
+    expect(JSON.stringify(clientPassages[0].chunks)).toContain('independent restaurants')
+
     // The refusal that the fix removes is still the refusal for a uid that is
     // genuinely absent — proving the read above went through the snapshot rather
     // than around it.

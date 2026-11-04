@@ -17,9 +17,10 @@ import { CommandError, EXIT_CODES } from '../tools/generate/src/cli/errors'
 import {
   assertIndexSeam,
   checkIndexSeam,
+  knowledgeSeamProbe,
   SHARED_STORE_INSTALL_COMMAND,
 } from '../tools/generate/src/cli/shared-store'
-import { sharedModuleUrl } from '../tools/generate/src/cli/webui'
+import { sharedModuleUrl, webuiPackageDir } from '../tools/generate/src/cli/webui'
 
 /**
  * Reconciliation UATs for story-c4f329d3 — **the knowledge read seam** (BUNDLE-37,
@@ -138,7 +139,10 @@ function installStore(tickets: StoreTicket[]): { dir: string; restore: () => voi
 }
 
 /** The `1c` command line, in process, with both streams and the exit code captured. */
-async function cli(argv: string[]): Promise<{ out: string; err: string; code: number }> {
+async function cli(
+  argv: string[],
+  runner: (argv: string[]) => Promise<unknown> = run,
+): Promise<{ out: string; err: string; code: number }> {
   const out: string[] = []
   const err: string[] = []
   const log = vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
@@ -150,7 +154,7 @@ async function cli(argv: string[]): Promise<{ out: string; err: string; code: nu
   const before = process.exitCode
   process.exitCode = 0
   try {
-    await run(argv)
+    await runner(argv)
   } finally {
     log.mockRestore()
     error.mockRestore()
@@ -253,17 +257,70 @@ describe('story-c4f329d3 — the preflight asks compatible as well as present', 
   it('test_UAT_AC2236_preflight_checks_the_index_seam_and_reports_it_on_its_own_line', async () => {
     // COMPATIBLE, against the store as installed: the real probe resolves a KB
     // through the component's own `indexFor` and gets the index under its key.
-    expect(await checkIndexSeam()).toEqual({ ok: true })
-    await expect(assertIndexSeam()).resolves.toBeUndefined()
-
-    // INCOMPATIBLE: a component that refuses (or has no `indexFor` at all).
-    const failureText = 'the knowledge component exports no `indexFor`'
-    const refuses = async () => {
-      throw new Error(failureText)
+    //
+    // It is a single pure call: with the embedder seam pointing nowhere and the
+    // network refusing, the real probe still answers, and nothing was fetched.
+    const embedderBefore = process.env.LAGRANGE_KM_EMBEDDER
+    process.env.LAGRANGE_KM_EMBEDDER = path.join(tmpdir(), 'no-such-embedder.mjs')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      throw new Error('network is not available to the seam probe')
+    })
+    try {
+      expect(await checkIndexSeam()).toEqual({ ok: true })
+      await expect(assertIndexSeam()).resolves.toBeUndefined()
+      // The same real probe built around the real loader agrees.
+      expect(
+        await checkIndexSeam({
+          probe: knowledgeSeamProbe(() => import(/* @vite-ignore */ sharedModuleUrl('knowledge'))),
+        }),
+      ).toEqual({ ok: true })
+      expect(fetchSpy).not.toHaveBeenCalled()
+    } finally {
+      fetchSpy.mockRestore()
+      if (embedderBefore === undefined) delete process.env.LAGRANGE_KM_EMBEDDER
+      else process.env.LAGRANGE_KM_EMBEDDER = embedderBefore
     }
-    const report = await checkIndexSeam({ probe: refuses })
+
+    // INCOMPATIBLE — the REAL detection, run against component doubles. Only the
+    // module the probe loads is substituted; the checks are the production ones.
+    const real = (await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))) as Record<string, unknown>
+    const withIndexFor = (indexFor: unknown) => async () => ({ ...real, indexFor })
+
+    // (a) The old shape: no `indexFor` at all.
+    const failureText = 'the knowledge component exports no `indexFor`'
+    const { indexFor: _dropped, ...withoutIndexFor } = real
+    void _dropped
+    const noIndexFor = knowledgeSeamProbe(async () => withoutIndexFor)
+    const report = await checkIndexSeam({ probe: noIndexFor })
     expect(report.ok).toBe(false)
     expect(report.detail).toBe(failureText)
+
+    // (b) A component that ignores the map — the singular signature, which hands
+    // back whatever it was given as "the index".
+    const ignoresMap = await checkIndexSeam({
+      probe: knowledgeSeamProbe(withIndexFor((_kb: unknown, index: unknown) => index)),
+    })
+    expect(ignoresMap.ok).toBe(false)
+    expect(ignoresMap.detail).toMatch(/did not return the index named by the KB's source/)
+
+    // (c) A component that resolves, but to the wrong index.
+    const wrongIndex = await checkIndexSeam({
+      probe: knowledgeSeamProbe(withIndexFor(() => ({ not: 'the sentinel' }))),
+    })
+    expect(wrongIndex.ok).toBe(false)
+    expect(wrongIndex.detail).toMatch(/did not return the index named by the KB's source/)
+
+    // (d) A component that refuses the map outright: its own words are carried.
+    const refusesMap = await checkIndexSeam({
+      probe: knowledgeSeamProbe(
+        withIndexFor(() => {
+          throw new Error('expected a single source, got an object')
+        }),
+      ),
+    })
+    expect(refusesMap).toEqual({ ok: false, detail: 'expected a single source, got an object' })
+
+    const refuses = noIndexFor
 
     let refusal: unknown = null
     try {
@@ -298,5 +355,61 @@ describe('story-c4f329d3 — the preflight asks compatible as well as present', 
     expect(lines[countIndex]).not.toMatch(/seam|indexes/i)
     expect(lines[seamIndex]).toContain('installed knowledge component takes `indexes`')
     expect(lines[seamIndex]).not.toMatch(/components,|packages/)
+  })
+
+  it('test_UAT_AC2236_missing_component_is_reported_as_missing_and_the_seam_is_never_probed', async () => {
+    // PRESENT, THEN COMPATIBLE. The knowledge component is made to not resolve
+    // through the presence check's own resolver seam; everything else resolves
+    // exactly as installed. The seam check is the real one, wrapped only so the
+    // test can see whether the command ever reached it.
+    const seamCalls: unknown[] = []
+    vi.resetModules()
+    vi.doMock('../tools/generate/src/cli/shared-store', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('../tools/generate/src/cli/shared-store')>()
+      const knowledgeMissing = (component: string): string | undefined => {
+        if (component === 'knowledge') return undefined
+        try {
+          return webuiPackageDir(component)
+        } catch {
+          return undefined
+        }
+      }
+      return {
+        ...actual,
+        checkSharedStore: () => actual.checkSharedStore({ resolve: knowledgeMissing }),
+        assertSharedStore: () => actual.assertSharedStore({ resolve: knowledgeMissing }),
+        assertIndexSeam: async (...args: Parameters<typeof actual.assertIndexSeam>) => {
+          seamCalls.push(args)
+          return actual.assertIndexSeam(...args)
+        },
+        checkIndexSeam: async (...args: Parameters<typeof actual.checkIndexSeam>) => {
+          seamCalls.push(args)
+          return actual.checkIndexSeam(...args)
+        },
+      }
+    })
+    try {
+      const fresh = await import('../tools/generate/src/cli')
+      const result = await cli(['preflight'], fresh.run)
+
+      // Refused as an environment failure (exit 6), naming the missing
+      // component and the command that installs it.
+      expect(result.code).toBe(EXIT_CODES.ENVIRONMENT)
+      expect(result.code).toBe(6)
+      expect(result.out).toMatch(/MISS\s+shared\/server\s+knowledge/)
+      expect(result.err).toMatch(/shared component store is incomplete/)
+      expect(result.err).toMatch(/\/knowledge \(server\) does not resolve/)
+      expect(result.err).toContain(SHARED_STORE_INSTALL_COMMAND)
+
+      // Reported as MISSING, never as incompatible: the seam was not probed,
+      // and neither the success summary nor the seam line was printed.
+      expect(seamCalls).toEqual([])
+      expect(result.out).not.toMatch(/^Index seam:/m)
+      expect(result.out).not.toMatch(/Preflight passed:/)
+      expect(result.err).not.toMatch(/does not take the index seam/)
+    } finally {
+      vi.doUnmock('../tools/generate/src/cli/shared-store')
+      vi.resetModules()
+    }
   })
 })

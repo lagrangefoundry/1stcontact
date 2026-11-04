@@ -480,6 +480,12 @@ describe('REQ-190 — the object store follows the keys', () => {
     // why erasure can no longer be one prefix sweep. It enumerates instead, and
     // the property that matters is that the enumeration is COMPLETE: no object
     // belonging to the business is left stranded under a prefix nothing reaches.
+    //
+    // The whole bucket is snapshotted first, so "what this business wrote" is
+    // every object that appeared since, whatever prefix it landed under. An object
+    // under a prefix the enumeration does not cover would show up here even if
+    // its key carried neither the business id nor a site key.
+    const before = new Set(await keysUnder(''))
     const business = await aBusiness('Erasable')
     await business.store.createDraft('second')
     await business.store.write('second', {
@@ -508,22 +514,13 @@ describe('REQ-190 — the object store follows the keys', () => {
       for (const k of await keysUnder(prefix)) reached.add(k)
     }
 
-    // Nothing is stranded: every object either belongs to another business or
-    // was found above. The check is stated over the whole bucket rather than
-    // over what this test wrote, so an object written by a path this test does
-    // not know about would still count against it.
-    const others = new Set<string>()
-    for (const other of [
-      await (await root().forTenant((await aBusiness('Bystander')).businessId)).siteKeys(),
-    ].flat()) {
-      for (const k of await keysUnder(`draft/${other}/`)) others.add(k)
-      for (const k of await keysUnder(`sites/${other}/`)) others.add(k)
-    }
-    const mine = (await keysUnder('')).filter(
-      (k) => !others.has(k) && (k.includes(business.businessId) || siteKeys.some((s) => k.includes(s))),
-    )
-    expect(mine.length).toBeGreaterThan(0)
-    for (const key of mine) expect(reached.has(key), `${key} is stranded`).toBe(true)
+    // Nothing is stranded: every object that appeared in the bucket since the
+    // snapshot was found above. Stated over the whole bucket rather than over
+    // what this test wrote, so an object written by a path this test does not
+    // know about, under a prefix it does not know about, still counts against it.
+    const written = (await keysUnder('')).filter((k) => !before.has(k))
+    expect(written.length).toBeGreaterThan(0)
+    for (const key of written) expect(reached.has(key), `${key} is stranded`).toBe(true)
   })
 
   it('test_UAT_AC2242_forget_removes_the_site_and_its_objects', async () => {
