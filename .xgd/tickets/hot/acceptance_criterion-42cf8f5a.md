@@ -6,10 +6,10 @@ title: The delivery webhook refuses a correctly signed request whose timestamp i
   more than five minutes from now, so a captured request cannot be replayed
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:03:29.289204+00:00'
-updated_at: '2026-11-04T18:03:29.289204+00:00'
+updated_at: '2026-11-04T18:14:37.656874+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-219b4217
   kind: behavior
