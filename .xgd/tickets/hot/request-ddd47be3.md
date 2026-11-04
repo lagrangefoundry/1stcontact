@@ -5,10 +5,10 @@ type: request
 title: 'Contact events: the immutable spine every interaction hangs off'
 created_by: xgd
 created_at: '2026-09-05T23:30:16.329301+00:00'
-updated_at: '2026-11-01T23:18:47.424742+00:00'
-completed_at: null
+updated_at: '2026-11-04T22:20:49.624497+00:00'
+completed_at: '2026-11-04T22:20:49.624497+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
