@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-04T17:22:14.467908+00:00'
+updated_at: '2026-11-04T17:32:48.972899+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -264,7 +264,7 @@ fields:
       and content for any outgoing message, and neither has a caller on its own. Evidence:
       test_UAT_FC_REQ-196_mail.workers, REQ-196_mail_configuration, REQ-197_render
       and REQ-197_templates.workers.'
-    story_uid: null
+    story_uid: story-7d255580
   - index: 7
     component: Email record, delivery webhook & messages pane
     item_type: feature
