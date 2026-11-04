@@ -6,10 +6,10 @@ title: A message body is delivered to the mail provider as HTML so a template's 
   renders
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:20.037311+00:00'
-updated_at: '2026-11-04T17:32:20.037311+00:00'
+updated_at: '2026-11-04T18:00:34.352734+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
