@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-7d255580'
 created_by: xgd
 created_at: '2026-11-04T17:43:54.940868+00:00'
-updated_at: '2026-11-04T17:43:54.940868+00:00'
+updated_at: '2026-11-04T17:55:31.844238+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -65,6 +65,7 @@ fields:
       - file: apps/control-app/src/mail.ts
         lines: 380-392
       trust_boundary: false
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 2
