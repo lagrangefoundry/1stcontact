@@ -155,6 +155,65 @@ describe('BUG-55 — search is called with indexes, not source', () => {
     expect(documents.get(String(hits[0].uid))).toContain(SYSTEM_KB)
   })
 
+  it('test_UAT_AC2237_a_search_hit_is_read_back_on_the_node_host', async () => {
+    // AC-2237, THE NODE HALF. The Node CLI's assistant opens the system KB
+    // through `openKnowledgeRuntime` (`host.ts`) and hands it to the knowledge
+    // toolbox — the same surface the model calls. So the proof is that surface's
+    // own `search` followed by its own `get`, not the library's search alone: a
+    // hit that cannot then be fetched is the silent half of BUG-55.
+    const runtime = await openKnowledgeRuntime(root)
+    expect(runtime).not.toBeNull()
+    expect(Object.keys(runtime!.indexes)).toEqual([SHIPPED_SOURCE])
+
+    const { KnowledgeToolbox } = await import(
+      /* @vite-ignore */ sharedModuleUrl('ai-knowledge')
+    )
+    const toolbox = new KnowledgeToolbox(runtime)
+
+    const hits = await toolbox.search({
+      query: 'what makes the slides advance on their own',
+      kb: SYSTEM_KB,
+      top_k: 1,
+    })
+    expect(hits.map((hit: { uid: string }) => hit.uid)).toEqual(['DOC-A'])
+
+    // READ BACK by the uid the search gave — not refused `not_in_corpus`.
+    const read = await toolbox.get({ uid: hits[0].uid })
+    expect(read.ticket.title).toBe('Carousel behaviour module')
+    expect(read.ticket.body).toContain('the interval is what makes slides advance on their own')
+
+    // The refusal still exists for a uid the corpus genuinely lacks, so the read
+    // above went through the snapshot rather than around it.
+    await expect(toolbox.get({ uid: 'DOC-NOWHERE' })).rejects.toMatchObject({
+      code: 'not_in_corpus',
+    })
+
+    // And a runtime given no index for the KB's source refuses loudly at search
+    // time rather than returning an empty list.
+    const { KnowledgeRuntime } = await import(
+      /* @vite-ignore */ sharedModuleUrl('ai-knowledge')
+    )
+    const lib = await import(/* @vite-ignore */ sharedModuleUrl('knowledge'))
+    const unindexed = await KnowledgeRuntime.open({
+      store: runtime!.store,
+      kbs: runtime!.kbs,
+      embedder: runtime!.embedder,
+      sources: runtime!.sources,
+    })
+    expect(unindexed.documents.size).toBe(0)
+    await expect(
+      lib.search('slides', {
+        indexes: unindexed.indexes ?? {},
+        store: runtime!.store,
+        kbs: runtime!.kbs,
+        kb: SYSTEM_KB,
+        topK: 1,
+        embedder: runtime!.embedder,
+        sources: runtime!.sources,
+      }),
+    ).rejects.toThrow(/no index/)
+  })
+
   it('test_UAT_FC_BUG-55_each_knowledge_base_is_keyed_by_its_own_declared_source', async () => {
     // The key is the name the KB's DECLARATION resolves to, not the KB's own
     // name — for the system KB those differ (`system` reads from `shipped`), and

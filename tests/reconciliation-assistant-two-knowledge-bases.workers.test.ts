@@ -7,6 +7,7 @@ import {
   type RouterEnv,
 } from '../apps/control-app/src/router'
 import {
+  SHIPPED_SOURCE,
   SYSTEM_KB,
   systemKnowledge,
   type SystemKbBundle,
@@ -26,14 +27,19 @@ import {
   type RankedHit,
 } from '../apps/control-app/src/session-knowledge'
 import {
+  DEFAULT_SOURCE,
   buildChunkIndex,
   buildIndex,
   memoryIndexSource,
+  search as kmSearch,
 } from '../apps/control-app/src/generated/knowledge'
+import { KnowledgeRuntime } from '../apps/control-app/src/generated/ai-knowledge'
 import { DocDirStore, bundleDocReader } from '../apps/control-app/src/generated/ticketing'
 import { ticketStoreFor, type Ticket, type TicketStore } from '../apps/control-app/src/tickets'
 import { storeFor } from '../apps/control-app/src/store'
+import type { Scope } from '../apps/control-app/src/scope'
 import { resetAiHost, setModelClient } from '../tools/generate/src/cli/ai/host-core'
+import { CONSULTANT_PURPOSE } from '../tools/generate/src/cli/ai/roles'
 import { applySchema } from './support/d1-site-factory'
 import { nextSlug, siteSeed } from './support/site-seed'
 import { STUB_DIM, stubEmbedder, stubVector } from './support/stub-embedder'
@@ -207,6 +213,16 @@ function workerEnv({ ai = true }: { ai?: boolean } = {}): RouterEnv {
   } as unknown as RouterEnv
 }
 
+/**
+ * The business this case operates on.
+ *
+ * TENANCY IS AN ARGUMENT, NOT AN ENV READ. `index.ts` resolves the scope ahead
+ * of routing and hands it down, and every store opener takes it explicitly —
+ * so the suite passes the same value to the router and to every opener it
+ * calls directly, and they cannot disagree about which business is meant.
+ */
+const scope = (): Scope => ({ businessId: tenant })
+
 const post = (path: string, body: unknown, opts?: { ai?: boolean }): Promise<Response> =>
   route(
     new Request(`https://app.example/${path.replace(/^\//, '')}`, {
@@ -215,6 +231,7 @@ const post = (path: string, body: unknown, opts?: { ai?: boolean }): Promise<Res
       body: JSON.stringify(body),
     }),
     workerEnv(opts),
+    scope(),
     deps,
   )
 
@@ -228,7 +245,7 @@ async function frames(response: Response): Promise<{ kind: string; content?: str
     .map((f) => JSON.parse(f.slice(5).trim()))
 }
 
-const tickets = (): Promise<TicketStore> => ticketStoreFor(workerEnv())
+const tickets = (): Promise<TicketStore> => ticketStoreFor(workerEnv(), scope())
 
 /** A site, imported through the Worker's own route. */
 async function seedSite(slug: string, opts?: { ai?: boolean }): Promise<void> {
@@ -246,7 +263,7 @@ async function seedSite(slug: string, opts?: { ai?: boolean }): Promise<void> {
     },
     opts,
   )
-  expect(res.status).toBe(200)
+  expect(res.status, await res.clone().text()).toBe(200)
 }
 
 /** A seeded site with a conversation open on it. */
@@ -319,7 +336,7 @@ async function publishProjectMap(body: string): Promise<Ticket> {
 
 /** The client's knowledge base, opened the way the Worker opens it. */
 async function clientKnowledge(): Promise<Untyped> {
-  return projectKnowledgeFor(workerEnv(), { store: await tickets() })
+  return projectKnowledgeFor(workerEnv(), scope(), { store: await tickets() })
 }
 
 /** The `chat` ticket homing one conversation. */
@@ -327,6 +344,15 @@ async function chatTicket(sessionId: string): Promise<Ticket | null> {
   const { tickets: all } = await (await tickets()).query({ predicate: 'type=chat', limit: 'all' })
   return all.find((t) => (t.fields ?? {}).session_id === sessionId) ?? null
 }
+
+/**
+ * The per-turn line saying the client edited the site since the last turn —
+ * written by `roles.ts`'s turn reminder whenever the change count moved.
+ */
+const SITE_CHANGED = 'Your client has changed this site since your last turn'
+
+/** The sentence an arrival notice ends with — the last of the turn's reminder. */
+const NOTICE_CLOSE = 'Search for anything you need from them.'
 
 /** The wording every arrival notice opens with, and nothing else does. */
 const ARRIVAL = /entered this client's knowledge since your last turn/
@@ -363,7 +389,7 @@ describe('a cold conversation is primed with both maps in one landscape section'
     const context = await takeTurn(sessionId, 'Hello.')
 
     const landscape = context.indexOf('# What exists')
-    const purpose = context.indexOf('You look after a website for someone who is not technical')
+    const purpose = context.indexOf(CONSULTANT_PURPOSE)
     const mechanism = context.indexOf('# How to search')
     const closing = context.indexOf('Knowledge bases you can search:')
     const client = context.indexOf('Brand and positioning')
@@ -434,7 +460,7 @@ describe('one search reaches both knowledge bases and returns one ranked list', 
     const client = await clientKnowledge()
     await client.refreshIndex()
 
-    const knowledge = await sessionKnowledgeFor(workerEnv(), {
+    const knowledge = await sessionKnowledgeFor(workerEnv(), scope(), {
       system: await fixtureRuntime(),
       tickets: await tickets(),
     })
@@ -488,9 +514,115 @@ describe('one search reaches both knowledge bases and returns one ranked list', 
     // AND A KNOWLEDGE BASE THIS CONVERSATION WAS NEVER GRANTED IS REFUSED AS
     // UNKNOWN — not answered with an empty list, which reads as a working query
     // over a corpus that happens to hold nothing.
-    await expect(search({ query: 'anything', kb: ['ledger'] })).rejects.toMatchObject({
-      code: 'unknown_kb',
+    //
+    // THE REFUSAL IS SYNCHRONOUS inside the component's `_declared`, so the
+    // promise it rejects exists for one microtask before the co-ranked `search`
+    // adopts it — and workerd reports that gap as an unhandled rejection even
+    // though this caller handles the result. So, on a surface of its own, the
+    // inner promise is given a passive handler the moment it is made. Nothing is
+    // replaced: the real `_declared` runs, the real `search` returns its result,
+    // and the assertion below still requires the refusal and its code.
+    const guarded = sessionKnowledgeSurface(knowledge!).surface as Untyped
+    const declared = guarded._declared.bind(guarded)
+    guarded._declared = (kb: unknown, call: unknown): Promise<unknown> => {
+      const pending = declared(kb, call) as Promise<unknown>
+      pending.catch(() => {})
+      return pending
+    }
+    const refused = await (guarded.search({ query: 'anything', kb: ['ledger'] }) as Promise<unknown>).then(
+      () => null,
+      (error: unknown) => error,
+    )
+    expect(refused, 'an ungranted knowledge base was answered').not.toBeNull()
+    expect(refused).toMatchObject({ code: 'unknown_kb' })
+  })
+})
+
+// ── AC-2237: a hit from either knowledge base can be READ, on the Worker ─────
+
+describe('a search hit from either knowledge base is read back, not refused', () => {
+  it('test_UAT_AC2237_a_hit_from_each_knowledge_base_is_read_back_on_the_worker', async () => {
+    // BUG-55's SILENT HALF. `KnowledgeRuntime.open` seeds the document snapshot
+    // from the indexes it is handed; a runtime handed none places no uid, and
+    // every read is refused `not_in_corpus` — "the corpus does not contain this",
+    // which is not an error and does not look like a break. So a search that
+    // works is only half the evidence: the hit has to be fetched by its id.
+    await conversation('readback')
+    const uploaded = await upload('Ravenswood positioning note', 'We sell to independent restaurants.')
+    await (await clientKnowledge()).refreshIndex()
+
+    // Opened by the same production function the chat route calls.
+    const knowledge = await sessionKnowledgeFor(workerEnv(), scope(), {
+      system: await fixtureRuntime(),
+      tickets: await tickets(),
     })
+    expect(knowledge).not.toBeNull()
+
+    // EACH RUNTIME IS KEYED BY THE SOURCE ITS OWN DECLARATION RESOLVES TO: the
+    // system KB under `shipped`; the project KB, which declares no source, under
+    // the component's DEFAULT_SOURCE — named explicitly, because `indexFor` has
+    // no fallback for an unnamed index.
+    const system = knowledge!.perKb.get(SYSTEM_KB) as Untyped
+    const project = knowledge!.perKb.get(PROJECT_KB) as Untyped
+    expect(SHIPPED_SOURCE).toBe('shipped')
+    expect(DEFAULT_SOURCE).toBe('project')
+    expect(Object.keys(system.indexes)).toEqual([SHIPPED_SOURCE])
+    expect(Object.keys(system.chunkIndexes)).toEqual([SHIPPED_SOURCE])
+    expect(Object.keys(project.indexes)).toEqual([DEFAULT_SOURCE])
+    expect(Object.keys(project.chunkIndexes)).toEqual([DEFAULT_SOURCE])
+
+    const { surface } = sessionKnowledgeSurface(knowledge!)
+    const toolbox = surface as Untyped
+
+    // SEARCH, THEN READ — once per knowledge base, through the co-ranked surface.
+    const shippedHits = (await toolbox.search({
+      query: 'how pages are stored in the draft store',
+      kb: [SYSTEM_KB],
+      top_k: 1,
+    })) as RankedHit[]
+    expect(shippedHits.map((hit) => hit.uid)).toEqual(['doc-storage'])
+    const shippedDoc = await toolbox.get({ uid: shippedHits[0].uid })
+    expect(shippedDoc.ticket.uid).toBe('doc-storage')
+    expect(shippedDoc.ticket.body).toContain(SHIPPED_FACT)
+
+    const clientHits = (await toolbox.search({
+      query: 'independent restaurants positioning',
+      kb: [PROJECT_KB],
+      top_k: 1,
+    })) as RankedHit[]
+    expect(clientHits.map((hit) => hit.uid)).toEqual([uploaded.uid])
+    const clientDoc = await toolbox.get({ uid: clientHits[0].uid })
+    expect(clientDoc.ticket.uid).toBe(uploaded.uid)
+    expect(clientDoc.ticket.body).toContain('We sell to independent restaurants.')
+
+    // The refusal that the fix removes is still the refusal for a uid that is
+    // genuinely absent — proving the read above went through the snapshot rather
+    // than around it.
+    await expect(toolbox.get({ uid: 'doc-that-nobody-wrote' })).rejects.toMatchObject({
+      code: 'not_in_corpus',
+    })
+
+    // AND A RUNTIME GIVEN NO INDEX FOR ITS KB'S SOURCE REFUSES LOUDLY at search
+    // time — never an empty list, which would read as "this knowledge base has
+    // nothing in it".
+    const unindexed = await KnowledgeRuntime.open({
+      store: system.store,
+      kbs: system.kbs,
+      embedder: system.embedder,
+      sources: system.sources,
+    })
+    expect((unindexed as Untyped).documents.size).toBe(0)
+    await expect(
+      kmSearch('how pages are stored', {
+        indexes: (unindexed as Untyped).indexes ?? {},
+        store: system.store,
+        kbs: system.kbs,
+        kb: SYSTEM_KB,
+        topK: 1,
+        embedder: system.embedder,
+        sources: system.sources,
+      }),
+    ).rejects.toThrow(/no index/)
   })
 })
 
@@ -525,7 +657,7 @@ describe('a document uploaded mid-conversation is known by name on the next turn
 
     // AND IT CAN BE ANSWERED FROM: the document is retrievable through an
     // ordinary search, not merely announced.
-    const knowledge = await sessionKnowledgeFor(workerEnv(), {
+    const knowledge = await sessionKnowledgeFor(workerEnv(), scope(), {
       system: await fixtureRuntime(),
       tickets: await tickets(),
     })
@@ -785,7 +917,7 @@ describe("the arrival notice is last in a turn's context", () => {
     // write through the store port, which is the only thing the host compares —
     // and uploaded a document. The two ride the same channel and this is the case
     // that pins their order relative to each other.
-    const sites = await storeFor(workerEnv())
+    const sites = await storeFor(workerEnv(), scope())
     await sites.appendChange(slug, {
       actor: 'client',
       op: 'copy.set',
@@ -797,9 +929,9 @@ describe("the arrival notice is last in a turn's context", () => {
     const context = await takeTurn(sessionId, 'What changed?')
 
     const landscape = context.indexOf('# What exists')
-    const purpose = context.indexOf('You look after a website for someone who is not technical')
+    const purpose = context.indexOf(CONSULTANT_PURPOSE)
     const mechanism = context.indexOf('# How to search')
-    const siteChanged = context.indexOf('Your user has changed this site since your last turn')
+    const siteChanged = context.indexOf(SITE_CHANGED)
     const notice = context.search(ARRIVAL)
 
     expect(siteChanged).toBeGreaterThanOrEqual(0)
@@ -814,15 +946,29 @@ describe("the arrival notice is last in a turn's context", () => {
     expect(notice).toBeGreaterThan(mechanism)
     expect(notice).toBeGreaterThan(siteChanged)
 
-    // WITH NOTHING FOLLOWING IT.
-    expect(context.trimEnd().endsWith('Search for anything you need from them.')).toBe(true)
+    // NOTHING VOLATILE FOLLOWS IT. The notice closes the turn's own reminder;
+    // the only thing after it is the conversation's memory reminder, which names
+    // this conversation's ticket and is the same text on every turn — so it is
+    // stable material, not a second volatile region.
+    const tailOf = (text: string): string => {
+      const end = text.lastIndexOf(NOTICE_CLOSE)
+      expect(end, 'the arrival notice does not close the turn reminder').toBeGreaterThan(-1)
+      return text.slice(end + NOTICE_CLOSE.length)
+    }
+    const tail = tailOf(context)
+    expect(tail.trim().startsWith('Memory: you are ticket ')).toBe(true)
+    expect(tail).not.toMatch(ARRIVAL)
+    expect(tail).not.toContain(SITE_CHANGED)
+    expect(tail).not.toContain('Ravenswood')
 
-    // A further turn, with only an arrival, and it is still last.
+    // A further turn, with only an arrival, and it is still last — followed by
+    // the byte-identical memory reminder, which is what makes it stable.
     await upload('Winter menu', 'Six courses, from November.')
     const again = await takeTurn(sessionId, 'And this one?')
     expect(again).toContain('Winter menu')
-    expect(again).not.toContain('Your user has changed this site since your last turn')
-    expect(again.trimEnd().endsWith('Search for anything you need from them.')).toBe(true)
+    expect(again).not.toContain(SITE_CHANGED)
+    expect(again.search(ARRIVAL)).toBeGreaterThan(again.indexOf('# How to search'))
+    expect(tailOf(again)).toBe(tail)
   })
 })
 
