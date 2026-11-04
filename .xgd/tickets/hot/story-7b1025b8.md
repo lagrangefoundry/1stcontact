@@ -5,9 +5,9 @@ type: story
 title: 'Identity: the invite provisions the account, login binds it'
 created_by: martin-github@westhead.me
 created_at: '2026-09-11T06:26:38.441768+00:00'
-updated_at: '2026-11-01T18:57:25.644141+00:00'
+updated_at: '2026-11-04T16:28:38.975599+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-87be4669
@@ -42,6 +42,16 @@ This story is the record behind the address and the rule that reads it.
 storage isolation. A person may hold memberships in several businesses, and each
 business carries its own grant.
 
+**A person's addresses are a table, not a column** (REQ-191). The person record
+carries no address. A person holds as many addresses as they have, each stored
+casefolded and trimmed, with one of them primary; the storage refuses a second
+primary for the same person and refuses an address that is not in casefolded
+form. Within a business an address reaches exactly one person; the same address
+held by two businesses is two unrelated people, and nothing tells one business
+that another knows it. Every surface that shows one address for a person shows
+the primary. A person and their first address are written together, so no person
+exists that no address can find.
+
 **Three operations, deliberately asymmetric** (REQ-186, DOC-42 §9).
 
 *The invite is a transition, not a creation.* Contacts and members are one
@@ -50,9 +60,13 @@ an address into **the business they are in**: if that business already holds a
 person at that address — a captured contact, or someone already invited — that
 same row is marked invited; only when there is no such row is one inserted, active,
 marked invited and not yet seen. The address is casefolded and trimmed on the way
-in, so a differently-cased address is the same person. A re-invite does not
-restamp when the person was invited, and a name typed at the invite fills an empty
-name but never overwrites an existing one. The result reports the person and
+in, so a differently-cased address is the same person. The invite matches a
+person by **any** of the addresses the business holds for them, not only the
+primary — inviting someone at their second address reaches the person their first
+one reaches, creates no second person and adds no address. A newly inserted
+person's address becomes their primary. A re-invite does not restamp when the
+person was invited, and a name typed at the invite gives a person with no current
+name their first one but never supersedes a name they already have. The result reports the person and
 whether a row was **created** (inserted) rather than promoted, and the dialog says
 which. Inviting from the 1st Contact business and inviting from a customer's
 business are the same control writing the same row shape, differing only in the
@@ -90,7 +104,8 @@ configured, refusing with a configuration error that names what is missing rathe
 than guessing. A proven address with no person behind it is refused, not signed
 up — self-signup is a later branch, and its absence here is the point. The
 person-level checks come first and in order: an address must be present, a person
-must exist behind it, and that person's own record must be active. Only then are
+must exist behind it — found through any of their addresses, with the admission
+then carrying the person's primary address whichever one was presented — and that person's own record must be active. Only then are
 businesses looked at. Admission returns the deterministic, stably ordered set of
 businesses the person holds a live membership in — each with its name and its own
 effective grant (an active per-business grant that has started and not ended;
@@ -179,10 +194,17 @@ grants automatically; and any CLI for issuing invites or creating businesses.
 - **The invite reports a person and `created`; business provisioning reports one
   business.** The two are separate calls and separate results; neither reports
   the other's rows.
-- **The invite is keyed by the people table's `(tenant_id, email)` uniqueness.**
-  It reads the row that index decides and updates it in place (same row id); it
-  inserts only when absent. Invite and login both casefold and trim the address,
-  because the index is byte-exact and admission normalises.
+- **Identity is decided by the address table (REQ-191).** `users` has no address
+  column; `user_emails` holds `(tenant_id, email)` unique, casefolding enforced by
+  a check constraint, and at most one `is_primary` row per person enforced by a
+  partial unique index. The person key is opaque and global; the address is unique
+  only within a business. The invite and admission resolve the person through any
+  `user_emails` row in the business, read that person's row and update it in place
+  (same id); the invite inserts the person and their primary address in one batch
+  only when no row matches. Invite and login both casefold and trim before
+  comparing. The primary shown is the flagged row, falling back to the oldest
+  address when none is flagged. An entitlement names its subject by key, never by
+  address, so an address change has one place to land.
 - **The invite and provisioning are composed only by the operator.** The
   composite "invite provisions a business" operation no longer exists in
   production; tests compose the two shipped calls through a fixture.
@@ -294,6 +316,32 @@ grants automatically; and any CLI for issuing invites or creating businesses.
   a business without a membership reads the same selectability and lapse as its
   owner, by design (REQ-180, DOC-40 §6). That bypass belongs to business scope
   (REQ-168), so this story's criterion is stated for the membership path.
+
+- **Addresses are a table** (decided at reconciliation, 2026-11-04, BUNDLE-37).
+  REQ-191 replaces the address column with `user_emails`. AC-1744 is sharpened to
+  say the schema, not a convention, stores the casefolded form; two new criteria
+  pin the table's shape and resolution through any address (including an invite
+  at a secondary address). AC-2171 is restated in terms of name rows (REQ-193):
+  the invite never supersedes an existing current name.
+
+- **"Exactly one primary" is enforced as "at most one"** (decided at
+  reconciliation, 2026-11-04). REQ-191's acceptance says exactly one primary
+  enforced by a constraint; its *What landed* section records that the partial
+  unique index enforces at most one, because a contact holding no address (the
+  phone-only shape) has zero, and that a person with addresses but no flagged
+  primary shows the oldest. Formalized that way: the constraint refuses a second
+  primary, and every writer in the product writes a person's first address as
+  primary.
+
+- **Admission presents the primary address** (decided at reconciliation,
+  2026-11-04). REQ-191 *What landed*: resolution matches any address and the
+  admission carries the primary, so a person sees one identity whichever address
+  they typed. Formalized in the resolution criterion.
+
+- **A person and their first address are one write** (decided at reconciliation,
+  2026-11-04). REQ-191 *What landed*: the invite writes the person and their first
+  address in one batch, so a person no address can find is never left behind.
+  Formalized in the address-table criterion.
 
 ## Dependencies
 
