@@ -13,8 +13,9 @@ import {
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { invitePerson } from '../apps/control-app/src/people'
+import { writeName } from '../apps/control-app/src/names'
 import { acceptTerms } from '../apps/control-app/src/terms'
-import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
+import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH, PEOPLE_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
 import { personByEmail } from './support/person'
@@ -334,24 +335,98 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
     expect(await businessCount(op)).toBe(before)
   })
 
-  it('test_UAT_AC2157_businesses_payload_carries_exactly_person_and_businesses', async () => {
+  it('test_UAT_AC2323_add_a_business_resolves_the_address_only_among_platform_people_from_any_scoped_business', async () => {
     stubJwks()
-    const email = anEmail()
-    await customer(email, 'Salon')
+    const op = anEmail()
+    const opPerson = await operator(op)
+    const opToken = await mint(op)
+    const accountOfPerson = async (personId: string): Promise<string> =>
+      (await env.DB.prepare('SELECT account_id FROM users WHERE id = ?')
+        .bind(personId)
+        .first<{ account_id: string }>())!.account_id
+    const ownedBy = async (accountId: string): Promise<number> =>
+      (await env.DB.prepare('SELECT COUNT(*) AS n FROM tenants WHERE owner_account_id = ?')
+        .bind(accountId)
+        .first<{ n: number }>())!.n
 
-    const response = await worker.fetch(
-      new Request(`https://app.example${BUSINESSES_PATH}`, {
-        headers: { 'cf-access-jwt-assertion': await mint(email) },
+    // The operator also owns a customer business, and scopes into it.
+    const salon = await provisionBusiness(identityEnv(), {
+      accountId: await accountOfPerson(opPerson.id),
+      name: 'Operator Salon',
+    })
+    expect(salon.businessId).not.toBe(PLATFORM)
+    const list = await worker.fetch(
+      new Request(`https://app.example/b/${salon.businessId}${PEOPLE_PATH}`, {
+        headers: { 'cf-access-jwt-assertion': opToken },
       }),
       workerEnv(),
     )
-    expect(response.status).toBe(200)
-    const body = (await response.json()) as Record<string, unknown>
+    expect(list.status).toBe(200)
+    // The fulfilment privilege is the caller's, so it is offered here too.
+    expect(((await list.json()) as { canFulfil: boolean }).canFulfil).toBe(true)
+
+    // A contact only this business holds is not found by add-a-business.
+    const onlyHere = anEmail()
+    const local = await invitePerson(identityEnv(), { businessId: salon.businessId }, { email: onlyHere })
+    const missing = await addBusiness(opToken, { accountEmail: onlyHere, name: 'Local Co' })
+    expect(missing.status).toBe(404)
+    expect(await missing.json()).toEqual({ error: 'No account with that email address.' })
+    expect(await ownedBy(local.person.accountId)).toBe(0)
+
+    // An address a 1st Contact person also holds resolves to THAT person's
+    // account — an unrelated person — not to the scoped business's contact.
+    const shared = anEmail()
+    const platformPerson = await customer(shared, 'Platform Person Co')
+    const platformAccount = await accountOfPerson(platformPerson.user.id)
+    const contact = await invitePerson(identityEnv(), { businessId: salon.businessId }, { email: shared })
+    expect(contact.created).toBe(true)
+    expect(contact.person.accountId).not.toBe(platformAccount)
+
+    const made = await addBusiness(opToken, { accountEmail: shared, name: 'Shared Co' })
+    expect(made.status).toBe(200)
+    const { businessId } = (await made.json()) as { businessId: string }
+    const owner = await env.DB.prepare('SELECT owner_account_id FROM tenants WHERE id = ?')
+      .bind(businessId)
+      .first<{ owner_account_id: string }>()
+    expect(owner?.owner_account_id).toBe(platformAccount)
+    expect(owner?.owner_account_id).not.toBe(contact.person.accountId)
+    expect(await ownedBy(contact.person.accountId)).toBe(0)
+  })
+
+  it('test_UAT_AC2157_businesses_payload_carries_exactly_person_and_businesses', async () => {
+    stubJwks()
+    const email = anEmail()
+    const seeded = await customer(email, 'Salon')
+    const token = await mint(email)
+    const fetchPayload = async () => {
+      const response = await worker.fetch(
+        new Request(`https://app.example${BUSINESSES_PATH}`, {
+          headers: { 'cf-access-jwt-assertion': token },
+        }),
+        workerEnv(),
+      )
+      expect(response.status).toBe(200)
+      return (await response.json()) as Record<string, unknown>
+    }
+    type PersonPayload = { name: string | null; email: string | null }
+
+    // Before any name is recorded the person is reported with no name.
+    const unnamed = await fetchPayload()
+    expect((unnamed.person as PersonPayload).name).toBeNull()
+
+    // `person` carries the CURRENT name, read from the name history …
+    await writeName(identityEnv(), seeded.user.id, { displayName: 'Sarah Jones' })
+    const body = await fetchPayload()
 
     // `person` names the signed-in human; the account is a separate row and is
     // not what this payload presents ([[REQ-194]]).
     expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
     expect(body).not.toHaveProperty('account')
-    expect((body.person as { email: string | null }).email).toBe(email)
+    expect(body.person as PersonPayload).toEqual({ name: 'Sarah Jones', email })
+
+    // … and follows it when the name is superseded.
+    await writeName(identityEnv(), seeded.user.id, { displayName: 'Sarah Okonkwo' }, 'changed')
+    const renamed = await fetchPayload()
+    expect(renamed.person as PersonPayload).toEqual({ name: 'Sarah Okonkwo', email })
   })
 })

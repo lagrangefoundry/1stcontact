@@ -380,6 +380,26 @@ describe('REQ-190 — names change and keys do not', () => {
     expect(await after.revisions('shop')).toEqual(revisionsBefore)
     expect(await after.listAssets('shop')).toEqual(['mark.svg'])
     expect(await keysUnder('')).toEqual(objectsBefore)
+
+    // …and the site is then edited and published UNDER THE NEW SLUG, landing on
+    // the same key: a second revision in its log, and the same public address
+    // now serving the new copy.
+    const pages = await after.readPages('shop')
+    const page = structuredClone(pages[0].page) as Record<string, unknown>
+    const l1 = page.l1 as { root: { children: Array<{ text: string }> } }
+    l1.root.children[0].text = 'AFTER-SLUG-CHANGE-COPY'
+    await after.write('shop', { pages: [{ name: pages[0].name, page }] })
+    expect(await after.readPages('shop')).not.toEqual(pagesBefore)
+    await publishSite(after, 'shop', { message: 'r2' })
+
+    const revisionsAfter = await after.revisions('shop')
+    expect(revisionsAfter).toHaveLength(revisionsBefore.length + 1)
+    expect(await after.siteKey('shop')).toBe(siteKey)
+    expect(await after.slugs()).toEqual(['shop'])
+    const served = await serve(`/site/${siteKey}/?after-slug-change=1`)
+    expect(served.status).toBe(200)
+    expect(await served.text()).toContain('AFTER-SLUG-CHANGE-COPY')
+    expect(await env.SITES.get(`sites/${siteKey}/rev/0002/out/index.html`)).not.toBeNull()
   })
 
   it('test_UAT_AC2240_a_site_moves_business_by_one_column_with_no_object_copied', async () => {
@@ -537,7 +557,56 @@ describe('REQ-190 — the object store follows the keys', () => {
     expect(await keysUnder(`draft/${siteKey}/`)).not.toHaveLength(0)
     expect(await keysUnder(`sites/${siteKey}/`)).not.toHaveLength(0)
 
+    // Siblings that must survive: another site in the SAME business, and the
+    // same-slug site in ANOTHER business.
+    await business.store.createDraft('sibling')
+    await business.store.write('sibling', {
+      assets: [{ name: 's.svg', bytes: new TextEncoder().encode('<svg/>') }],
+    })
+    await fill(business.store, 'sibling', 'Sibling')
+    await publishSite(business.store, 'sibling', { message: 'r1' })
+    const siblingKey = (await business.store.siteKey('sibling'))!
+    const other = await aBusiness('Unrelated Forgetful')
+    await fill(other.store, STARTER_SLUG, 'Unrelated')
+    await publishSite(other.store, STARTER_SLUG, { message: 'r1' })
+    const otherKey = (await other.store.siteKey(STARTER_SLUG))!
+    const survivorObjects = [
+      ...(await keysUnder(`draft/${siblingKey}/`)),
+      ...(await keysUnder(`sites/${siblingKey}/`)),
+      ...(await keysUnder(`draft/${otherKey}/`)),
+      ...(await keysUnder(`sites/${otherKey}/`)),
+    ].sort()
+    expect(survivorObjects.length).toBeGreaterThan(0)
+    const rowCounts = async (key: string): Promise<number[]> => {
+      const counts: number[] = []
+      for (const table of ['site_pages', 'site_assets', 'site_changes', 'site_revisions']) {
+        const row = await env.DB.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE site_id = ?`)
+          .bind(key)
+          .first<{ n: number }>()
+        counts.push(Number(row?.n ?? 0))
+      }
+      return counts
+    }
+    const siblingRows = await rowCounts(siblingKey)
+    const otherRows = await rowCounts(otherKey)
+
     await business.store.forget(STARTER_SLUG)
+
+    // The other sites are untouched: same rows, same objects, still served.
+    expect(await business.store.siteKey('sibling')).toBe(siblingKey)
+    expect(await other.store.siteKey(STARTER_SLUG)).toBe(otherKey)
+    expect(await rowCounts(siblingKey)).toEqual(siblingRows)
+    expect(await rowCounts(otherKey)).toEqual(otherRows)
+    expect(
+      [
+        ...(await keysUnder(`draft/${siblingKey}/`)),
+        ...(await keysUnder(`sites/${siblingKey}/`)),
+        ...(await keysUnder(`draft/${otherKey}/`)),
+        ...(await keysUnder(`sites/${otherKey}/`)),
+      ].sort(),
+    ).toEqual(survivorObjects)
+    expect((await serve(`/site/${siblingKey}/?after-forget=1`)).status).toBe(200)
+    expect((await serve(`/site/${otherKey}/?after-forget=1`)).status).toBe(200)
 
     expect(await business.store.siteKey(STARTER_SLUG)).toBeNull()
     expect(await keysUnder(`draft/${siteKey}/`)).toEqual([])

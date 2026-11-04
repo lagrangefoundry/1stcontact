@@ -4,6 +4,7 @@ import {
   InvalidMessageError,
   MailSendError,
   RESEND_ENDPOINT,
+  capturingMailer,
   mailerFor,
   type MailEnv,
   type Message,
@@ -123,6 +124,24 @@ describe('story-7d255580 — the sender', () => {
     expect(lines[0]).toContain('First')
     expect(lines[1]).toContain('second@example.com')
     expect(lines[1]).toContain('Second')
+
+    // The local adapter `mailerFor` selects records each message it is given,
+    // in send order, alongside the console line — and still calls no network.
+    const captureLines: string[] = []
+    const capture = capturingMailer((line) => captureLines.push(line))
+    const third = { ...MESSAGE, to: 'third@example.com', subject: 'Third' }
+    const captureIds = [
+      (await capture.send(first)).providerId,
+      (await capture.send(second)).providerId,
+      (await capture.send(third)).providerId,
+    ]
+    expect(capture.sent).toEqual([first, second, third])
+    expect(captureLines).toHaveLength(3)
+    expect(captureLines[2]).toContain('third@example.com')
+    for (const id of captureIds) expect(id).toMatch(/^local_.+$/)
+    expect(new Set(captureIds).size).toBe(3)
+    expect(injected).not.toHaveBeenCalled()
+    expect(globalFetch).not.toHaveBeenCalled()
 
     // The suite's own runtime carries no credential …
     const runtime = env as unknown as MailEnv

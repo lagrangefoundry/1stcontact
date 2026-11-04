@@ -14,7 +14,13 @@ import {
 } from '../apps/control-app/src/identity'
 import { peopleOf, personDetail, type Person } from '../apps/control-app/src/people'
 import { currentNameOf, formerNamesOf } from '../apps/control-app/src/names'
-import { PERSON_INVITE_PATH, PERSON_RECORD_PATH } from '../apps/control-app/src/router'
+import {
+  ADMIN_BUSINESSES_PATH,
+  PEOPLE_PATH,
+  PERSON_INVITE_PATH,
+  PERSON_RECORD_PATH,
+  PERSON_STATUS_PATH,
+} from '../apps/control-app/src/router'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
@@ -275,6 +281,27 @@ describe('a person and their addresses', () => {
     const listed = (await peopleOf(identityEnv(), { businessId: PLATFORM })).find((p) => p.id === personId)
     expect(listed?.email).toBe(first)
 
+    // …and it is the PRIMARY that is shown, not the oldest: move the flag to the
+    // newer address and every one-address surface follows it.
+    await env.DB.batch([
+      env.DB.prepare('UPDATE user_emails SET is_primary = 0 WHERE user_id = ? AND email = ?').bind(personId, first),
+      env.DB.prepare('UPDATE user_emails SET is_primary = 1 WHERE user_id = ? AND email = ?').bind(personId, second),
+    ])
+    const relisted = (await peopleOf(identityEnv(), { businessId: PLATFORM })).find((p) => p.id === personId)
+    expect(relisted?.email).toBe(second)
+    const detail = await personDetail(identityEnv(), { businessId: PLATFORM }, personId)
+    expect(detail?.person.email).toBe(second)
+    expect(detail?.emails[0]?.email).toBe(second)
+    expect(detail?.emails[0]?.isPrimary).toBe(true)
+    expect(detail?.emails.map((e) => e.email)).toEqual([second, first])
+    await provisionBusiness(identityEnv(), { accountId: await accountIdOf(personId), name: 'Primary Moved Co' })
+    for (const address of [first, second]) {
+      const admitted = await admit(identityEnv(), address)
+      expect(admitted.ok, `refused: ${!admitted.ok ? admitted.reason : ''}`).toBe(true)
+      expect(admitted.ok && admitted.user.id).toBe(personId)
+      expect(admitted.ok && admitted.user.email).toBe(second)
+    }
+
     // Within one business an address reaches exactly one person.
     const rival = await postInvite(token, { email: anEmail() }, PLATFORM)
     await expect(
@@ -294,6 +321,134 @@ describe('a person and their addresses', () => {
     expect(there.body.person.id).not.toBe(personId)
     expect(await peopleAt(owner.businessId, first)).toEqual([there.body.person.id])
     expect(await peopleAt(PLATFORM, first)).toEqual([personId])
+  })
+
+  it('test_UAT_AC2179_the_contacts_list_route_carries_the_primary_address_not_the_oldest', async () => {
+    // The server half of the Contacts list row: the address `/api/people` hands
+    // the panel for a person holding two addresses is the one flagged primary,
+    // even when that is the NEWER address.
+    stubJwks()
+    const owner = await aCustomerOwner()
+    const older = anEmail()
+    const invited = await postInvite(owner.token, { email: older }, owner.businessId)
+    expect(invited.body.created).toBe(true)
+    const personId = invited.body.person.id
+    const newer = anEmail()
+    await userEmailInsert(identityEnv(), {
+      userId: personId,
+      tenantId: owner.businessId,
+      email: newer,
+      primary: false,
+    }).run()
+    await env.DB.batch([
+      env.DB.prepare('UPDATE user_emails SET is_primary = 0 WHERE user_id = ? AND email = ?').bind(personId, older),
+      env.DB.prepare('UPDATE user_emails SET is_primary = 1 WHERE user_id = ? AND email = ?').bind(personId, newer),
+    ])
+
+    const response = await worker.fetch(
+      new Request(`https://app.example/b/${owner.businessId}${PEOPLE_PATH}`, {
+        headers: { 'cf-access-jwt-assertion': owner.token },
+      }),
+      workerEnv(),
+    )
+    expect(response.status).toBe(200)
+    const listed = (await response.json()) as { people: Array<{ id: string; email: string }> }
+    const row = listed.people.find((p) => p.id === personId)
+    expect(row?.email).toBe(newer)
+    expect(row?.email).not.toBe(older)
+  })
+
+  it('test_UAT_AC2257_a_non_owner_role_is_admitted_and_refused_only_at_the_ownership_gates', async () => {
+    // RUNTIME EVIDENCE that the role is read by the ownership question and by
+    // nothing else: a membership carrying a role the product never writes
+    // (`staff`) is an ordinary member everywhere except at the owner-only routes.
+    stubJwks()
+    const operatorToken = await anOperatorToken() // the platform business exists
+    const owner = await aCustomerOwner()
+    const staffEmail = anEmail()
+    const staff = await inviteAccount(identityEnv(), { email: staffEmail, accountName: 'Staff Own Co', endsAt: null })
+    await acceptTerms(identityEnv(), staff.user.id)
+    const now = new Date().toISOString()
+    for (const businessId of [owner.businessId, PLATFORM]) {
+      await env.DB.prepare(
+        'INSERT INTO memberships (id, user_id, business_id, role, status, granted_at) VALUES (?, ?, ?, ?, ?, ?)',
+      )
+        .bind(newId('mem'), staff.user.id, businessId, 'staff', 'active', now)
+        .run()
+    }
+    const staffToken = await mint(staffEmail)
+    const at = (businessId: string, path: string, init: RequestInit = {}, token = staffToken) =>
+      worker.fetch(
+        new Request(`https://app.example/b/${businessId}${path}`, {
+          ...init,
+          headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': token },
+        }),
+        workerEnv(),
+      )
+
+    // Admitted, with the business in their list and selectable, carrying `staff`.
+    const admitted = await admit(identityEnv(), staffEmail)
+    expect(admitted.ok, `refused: ${!admitted.ok ? admitted.reason : ''}`).toBe(true)
+    const membership = admitted.ok ? admitted.businesses.find((b) => b.businessId === owner.businessId) : undefined
+    expect(membership?.role).toBe('staff')
+    expect(membership?.selectable).toBe(true)
+
+    // Business-scoped reads behave exactly as they do for the owner.
+    const ownerList = await at(owner.businessId, PEOPLE_PATH, {}, owner.token)
+    const staffList = await at(owner.businessId, PEOPLE_PATH)
+    expect(ownerList.status).toBe(200)
+    expect(staffList.status).toBe(200)
+    const ownerPeople = (await ownerList.json()) as { people: Array<{ id: string }>; canInvite: boolean }
+    const staffPeople = (await staffList.json()) as { people: Array<{ id: string }>; canInvite: boolean }
+    expect(staffPeople.people.map((p) => p.id)).toEqual(ownerPeople.people.map((p) => p.id))
+    // … and the ownership question is the one thing that differs.
+    expect(ownerPeople.canInvite).toBe(true)
+    expect(staffPeople.canInvite).toBe(false)
+
+    // Refused at the owner-gated routes: invite, record edit, sign-in status.
+    const target = ownerPeople.people[0].id
+    const before = await countPeople(owner.businessId)
+    const invite = await at(owner.businessId, PERSON_INVITE_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ email: anEmail() }),
+    })
+    expect(invite.status).toBe(403)
+    expect(await countPeople(owner.businessId)).toBe(before)
+    const record = await at(owner.businessId, PERSON_RECORD_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ id: target, displayName: 'Not Allowed' }),
+    })
+    expect(record.status).toBe(403)
+    const status = await at(owner.businessId, PERSON_STATUS_PATH, {
+      method: 'POST',
+      body: JSON.stringify({ id: target, status: 'suspended' }),
+    })
+    expect(status.status).toBe(403)
+
+    // The owner passes the same invite gate.
+    const ownerInvite = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
+    expect(ownerInvite.status).toBe(200)
+
+    // Add-a-business: a `staff` member of the 1st Contact business is refused
+    // (404, the admin route's answer), where an owner of it is let through.
+    const addAsStaff = await worker.fetch(
+      new Request(`https://app.example${ADMIN_BUSINESSES_PATH}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': staffToken },
+        body: JSON.stringify({ accountEmail: staffEmail, name: 'Should Not Exist' }),
+      }),
+      workerEnv(),
+    )
+    expect(addAsStaff.status).toBe(404)
+    const addAsOwner = await worker.fetch(
+      new Request(`https://app.example${ADMIN_BUSINESSES_PATH}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'cf-access-jwt-assertion': operatorToken },
+        body: JSON.stringify({}),
+      }),
+      workerEnv(),
+    )
+    expect(addAsOwner.status).toBe(400)
   })
 
   it('test_UAT_AC2248_admission_and_the_invite_resolve_a_person_through_any_of_their_addresses', async () => {
