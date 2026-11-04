@@ -5,9 +5,9 @@ type: story
 title: Contacts tab — editing a contact's grants and record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:31:42.865017+00:00'
-updated_at: '2026-11-04T16:31:37.991161+00:00'
+updated_at: '2026-11-04T21:13:29.371125+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-39edf66d
@@ -38,7 +38,7 @@ This is the write side of the Contacts tab (plan item 3, story-0034d937, is the 
 - Not-found and not-yours give the same 404. This is the non-oracle rule the person-detail read already keeps.
 - There is one definition of an email shape, shared by the panel (inline refusal) and the server (authoritative refusal). Rule: exactly one `@`, a non-empty local part, a domain of at least two non-empty dot-separated labels, and no whitespace.
 - Identity is the address table: `user_emails (tenant_id, email)` is unique (REQ-191). So a duplicate is checked within a business only, and addresses are casefolded (the schema refuses any other form) so admission can still find the person. An address correction updates the `is_primary` row's address in place; the person's key and every foreign key to it are untouched, and which row is primary is a flag, not a key.
-- Names live in `user_names` (REQ-193): a row per name, `superseded_at` null while current, a partial unique index allowing one current row per person, `superseded_reason` `corrected` | `changed` (absent or unrecognised reads as `corrected`). All reads of a current name go through one resolver; former names are filtered to `changed` on the server, so the client is never the thing deciding which may be shown. The part list and the greeting's fallback chain are declared once and shared by the Worker and the panel. Erasure redacts name text and keeps the rows.
+- Names live in `user_names` (REQ-193): a row per name, `superseded_at` null while current, a partial unique index allowing one current row per person, `superseded_reason` `corrected` | `changed` (absent or unrecognised reads as `corrected`). All reads of a current name go through one resolver; former names are filtered to `changed` on the server, so the client is never the thing deciding which may be shown. The part list and the greeting's fallback chain are declared once and shared by the Worker and the panel. A redaction helper (`redactNames`, `apps/control-app/src/names.ts`) blanks name text and keeps the rows, but no erasure path calls it yet (see Reconciliation Decisions).
 - The fulfilment route re-checks its own gate. Not rendering the control is not the gate. The route belongs to story-387c9dfe (Business Fulfilment).
 - Security policy: the write surface accepts only typed scalar fields. Observed columns (`status`, `pipeline_stage`, `invited_at`, `tos_accepted_at`, stamps) are ignored if sent.
 
@@ -59,6 +59,8 @@ This is the write side of the Contacts tab (plan item 3, story-0034d937, is the 
 - **Address correction rewrites the primary row** (decided at reconciliation, 2026-11-04). REQ-191 *What landed*: a correction rewrites the primary `user_emails` row, inserting one when the person has none; nothing adds a second address. Formalized as a criterion together with "changing which address is primary changes no key".
 - **Name writes are patches and a no-op writes no history** (decided at reconciliation, 2026-11-04). REQ-193 *What curation actually looks like*: an absent part is carried forward, an empty one cleared, and committing an unchanged value writes nothing. Clearing the displayed name with no other part set supersedes the row so the person has no name; with parts remaining it is refused. Formalized in the name criteria.
 - **A supersession reason the route does not recognise is a correction** (decided at reconciliation, 2026-11-04). REQ-193: "the unsafe value is never the one reached by accident". Formalized in the name-model criterion.
+
+- **Name redaction on erasure is a helper, not a behaviour** (decided at reconciliation, BUNDLE-37 review report-d91ea163). `redactNames` exists and is exercised only by tests. No product erasure path calls it, because person or business erasure is not built (see story-fde7370b's decision on erasure). No criterion claims that erasure redacts names. Wiring the helper into an erasure flow belongs to the intent that builds erasure.
 
 ## Dependencies
 - Plan item 3: story-0034d937 (Contacts tab — the people of a business)
