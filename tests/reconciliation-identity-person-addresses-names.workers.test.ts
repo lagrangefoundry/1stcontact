@@ -393,6 +393,21 @@ describe('a person and their addresses', () => {
     expect(membership?.role).toBe('staff')
     expect(membership?.selectable).toBe(true)
 
+    // A real contact in the owner's business, put there through the product path,
+    // so the list comparison below compares something and the refusals have a target.
+    const contact = await postInvite(owner.token, { email: anEmail(), displayName: 'Kept Name' }, owner.businessId)
+    expect(contact.body.created).toBe(true)
+    const contactId = contact.body.person.id
+    const stateOf = async () =>
+      env.DB.prepare(
+        'SELECT u.status AS status, n.display_name AS displayName FROM users u ' +
+          'LEFT JOIN user_names n ON n.user_id = u.id AND n.superseded_at IS NULL WHERE u.id = ?',
+      )
+        .bind(contactId)
+        .first<{ status: string; displayName: string | null }>()
+    const contactBefore = await stateOf()
+    expect(contactBefore?.displayName).toBe('Kept Name')
+
     // Business-scoped reads behave exactly as they do for the owner.
     const ownerList = await at(owner.businessId, PEOPLE_PATH, {}, owner.token)
     const staffList = await at(owner.businessId, PEOPLE_PATH)
@@ -400,13 +415,16 @@ describe('a person and their addresses', () => {
     expect(staffList.status).toBe(200)
     const ownerPeople = (await ownerList.json()) as { people: Array<{ id: string }>; canInvite: boolean }
     const staffPeople = (await staffList.json()) as { people: Array<{ id: string }>; canInvite: boolean }
+    expect(ownerPeople.people.length).toBeGreaterThan(0)
+    expect(ownerPeople.people.map((p) => p.id)).toContain(contactId)
+    expect(staffPeople.people.map((p) => p.id)).toContain(contactId)
     expect(staffPeople.people.map((p) => p.id)).toEqual(ownerPeople.people.map((p) => p.id))
     // … and the ownership question is the one thing that differs.
     expect(ownerPeople.canInvite).toBe(true)
     expect(staffPeople.canInvite).toBe(false)
 
     // Refused at the owner-gated routes: invite, record edit, sign-in status.
-    const target = ownerPeople.people[0].id
+    const target = contactId
     const before = await countPeople(owner.businessId)
     const invite = await at(owner.businessId, PERSON_INVITE_PATH, {
       method: 'POST',
@@ -424,6 +442,11 @@ describe('a person and their addresses', () => {
       body: JSON.stringify({ id: target, status: 'suspended' }),
     })
     expect(status.status).toBe(403)
+    // Neither refusal wrote anything: the target's name and status are unchanged.
+    const contactAfter = await stateOf()
+    expect(contactAfter?.displayName).toBe('Kept Name')
+    expect(contactAfter?.status).toBe(contactBefore?.status)
+    expect(contactAfter?.status).not.toBe('suspended')
 
     // The owner passes the same invite gate.
     const ownerInvite = await postInvite(owner.token, { email: anEmail() }, owner.businessId)
