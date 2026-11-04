@@ -5,9 +5,9 @@ type: bundle
 title: BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more
 created_by: xgd
 created_at: '2026-11-01T23:18:42.510726+00:00'
-updated_at: '2026-11-04T21:50:54.328624+00:00'
+updated_at: '2026-11-04T21:57:08.147259+00:00'
 completed_at: null
-last_field_updated: session_planner
+last_field_updated: session_builder
 status: error
 fields:
   bundle_type: reconcile
@@ -203,8 +203,8 @@ fields:
   regression_anchor_uid: report-3f77b790
   session_planner: afeaf16e-b5ab-4dad-9d1f-2b056e905806
   session_planner_started_at: '2026-11-04T21:50:53.824805+00:00'
-  session_builder: d3154af8-2899-4200-9b1c-2fbc6277edef
-  session_builder_started_at: '2026-11-04T20:51:35.852241+00:00'
+  session_builder: 167165e6-3186-453b-b643-b9961fe9be7d
+  session_builder_started_at: '2026-11-04T21:57:07.852497+00:00'
 ---
 
 # Bundle
