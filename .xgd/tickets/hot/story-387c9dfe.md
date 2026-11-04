@@ -6,9 +6,9 @@ title: 'Business Fulfilment: Only The Operator Adds A Business, And A Business A
   Whole'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:56:27.726698+00:00'
-updated_at: '2026-11-04T17:11:23.596932+00:00'
+updated_at: '2026-11-04T21:40:35.033122+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-94dbe947
@@ -64,6 +64,7 @@ Out of scope:
 
 - **Ownership is a column on the business (REQ-194, decided at reconciliation 2026-11-04, BUNDLE-37).** `tenants.owner_account_id` names the owning account. It was previously inferred from the first membership row. `findAccount` now returns an `accounts` row rather than a person's row, and the route passes that account's key to `provisionBusiness`. Formalized as two new criteria (ownership and the platform business's null owner; the refusals of a missing or empty account). AC-2157 is restated: the businesses payload carries `person`, not `account`, because the account is now a row of its own and the payload's identity field describes the signed-in human.
 - **The platform business's null owner is formalized as intent, not a gap** (decided at reconciliation, 2026-11-04): REQ-194 states it in "Two edges the ownership column does not have", and the baseline seed and `ensurePlatformOperator` both leave it null.
+- **CODE-ISSUE — add-a-business resolves the address only among 1st Contact people, from any scoped business** (recorded at reconciliation, BUNDLE-37 review report-0cfddba5 gap 6). `findAccount` (identity.ts) looks the `accountEmail` up only in the platform (1st Contact) business, while `canFulfil` is reported from `ownsPlatformBusiness` in whatever business the operator is scoped to (router.ts `GET /api/people`), and the Contacts panel's "Provision a business" submits the contact's own address (builder/people.js). Since REQ-191 makes the same address in two businesses two unrelated people, provisioning from a customer business's contact either answers 404 "No account with that email address." or creates a business owned by the account of an unrelated 1st Contact person who holds that address. This is pinned as current behaviour by AC-2323, so it cannot change silently. It is not endorsed as design: the fix (resolve within the contact's business, or offer the control only in the 1st Contact business) belongs to a follow-up upgrade intent.
 
 ## Dependencies
 - Plan item 4 (Admission after DOC-42: membership admits, lapse reasons). Success is verified through admission's selectable/lapse view.
