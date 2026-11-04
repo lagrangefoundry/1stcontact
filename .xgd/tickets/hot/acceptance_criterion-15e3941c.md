@@ -6,10 +6,10 @@ title: The delivery webhook refuses a request whose signature is missing or does
   verify over the exact bytes received, and writes nothing
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:03:28.504257+00:00'
-updated_at: '2026-11-04T18:03:28.504257+00:00'
+updated_at: '2026-11-04T18:14:38.049197+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-219b4217
   kind: behavior
