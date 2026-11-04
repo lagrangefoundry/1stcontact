@@ -6,10 +6,10 @@ title: The detail pane lists every non-primary address read-only under Other add
   and the section is absent for a person with one address
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T16:30:35.184339+00:00'
-updated_at: '2026-11-04T16:30:35.184339+00:00'
+updated_at: '2026-11-04T19:42:49.757760+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-0034d937
   kind: behavior
