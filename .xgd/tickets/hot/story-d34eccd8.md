@@ -6,9 +6,9 @@ title: 'Serve a published site: a URL names a site, the revision record says whi
   bytes'
 created_by: xgd
 created_at: '2026-08-06T18:47:52.197635+00:00'
-updated_at: '2026-09-10T16:56:18.792563+00:00'
+updated_at: '2026-11-04T16:01:33.078167+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -53,17 +53,23 @@ In scope:
   vouch for — an interrupted publish, or one nobody swept — is unreachable
   rather than quietly live. No component of the requested URL names stored bytes
   unless a record vouched for it first: the only untrusted value that reaches a
-  key is the site name, which the grammar has already constrained to a plain
-  name, and everything else in the key is composed from server-side constants and
+  key is the site key from the URL, which the grammar has already constrained
+  to a plain name, and everything else in the key is composed from server-side constants and
   the record's own value.
 - **Live is derived, never stored.** Which revision a site currently serves is
   the highest revision id in its log, computed on read. It is not recorded
   anywhere a second time, so there is nothing that could disagree with the log
   it reads.
-- **A published address is global, and claimed.** The public URL carries no
-  account, so which account's revisions a site name resolves to is settled by
-  the claim the operator half records on first publish. A name no account has
-  claimed resolves to nothing.
+- **A published address is the site's key (REQ-190).** A published URL is
+  `/site/<siteId>/`, where the segment is the site's own opaque, unguessable
+  key: the same value the database joins on, not the slug the operator calls
+  the site. It names exactly one site by construction, so nothing is claimed and
+  nothing needs to be globally unique. Two businesses may each publish a site
+  whose slug is `home`, and each is reachable only at its own key. A key that
+  names no site, or a site that has never published, resolves to nothing. The
+  only way to learn a site's key is through its own business's store handle, so
+  a key for another business's site is not obtainable through any operator
+  surface.
 - **The address grammar rejects before it reads.** A URL whose components are
   empty, dot-shaped, separator-bearing, or otherwise outside the shapes the
   addressing scheme admits is answered not-found with no stored bytes looked up
@@ -75,7 +81,9 @@ In scope:
   every one of those references one level too high, giving an unstyled page; the
   bare form therefore permanently redirects to the slashed form.
 - **Published bytes have exactly one serving path.** The builder's own published
-  view does not serve them: it redirects here, so the resolve-and-serve rules
+  view does not serve them: it resolves the slug to the site's key through the
+  business's own store and redirects to that key's published address (a slug the
+  business does not hold is not-found rather than a redirect), so the resolve-and-serve rules
   live in one place. The cost is accepted — a site that has never published
   shows this server's not-found rather than a builder-shaped message.
 - **Honest, opaque failure.** A URL that names nothing answers with a plain
@@ -100,8 +108,8 @@ In scope:
 Out of scope: authentication and access control; the apex marketing site (the
 apex is deliberately held back to a holding response); custom domains and
 per-site subdomain routing; the clean-URL agreement between the local preview
-server and this one, which is its own story; and minting a revision, claiming a
-slug and writing the bytes, which are the operator half's.
+server and this one, which is its own story; and minting a revision and writing the
+bytes, which are the operator half's.
 
 ## Technical Context
 
@@ -164,11 +172,19 @@ each is formalised as a criterion now rather than left as an open question.
    channel would silently deindex every customer's site, so its absence is
    asserted rather than assumed. Pinned in the freshness criterion.
 
+4. **The builder's published view resolves through the business's store**
+   (decided at reconciliation, BUNDLE-37, 2026-11-04). REQ-190's free-coding
+   notes state the redirect now resolves the slug to the site key first, so an
+   unheld slug is a 404 rather than a redirect that could only 404 one hop
+   later. Formalized in the address criterion, alongside the key-only address.
+   The existing redirect criterion (AC-1424) is unchanged in what it asserts:
+   one serving path.
+
 ## Dependencies
 
 - The operator half of the same capability — hard: this story serves the storage
-  layout and reads the revision log that story writes, and the slug claim it
-  records is what makes a global published address safe.
+  layout and reads the revision log that story writes, Since REQ-190 there is no slug claim
+  between them: the address is the site key the store mints.
 
 ## Story Points
 
