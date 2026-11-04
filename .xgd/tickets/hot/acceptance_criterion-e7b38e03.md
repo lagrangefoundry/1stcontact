@@ -6,10 +6,10 @@ title: A successful send moves the record to sent and stores the provider's mess
   id and a send time
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:03:24.961880+00:00'
-updated_at: '2026-11-04T18:03:24.961880+00:00'
+updated_at: '2026-11-04T18:14:40.216150+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-219b4217
   kind: behavior
