@@ -6,10 +6,10 @@ title: A first invite records contact.created (via invite) and contact.invited; 
   repeat invite adds one contact.invited
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:21:32.824657+00:00'
-updated_at: '2026-11-04T17:21:32.824657+00:00'
+updated_at: '2026-11-04T17:29:03.250789+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4630e921
   kind: behavior
