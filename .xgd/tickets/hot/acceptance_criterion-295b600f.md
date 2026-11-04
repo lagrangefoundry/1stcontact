@@ -6,10 +6,10 @@ title: A business names the account that owns it; the platform business is owned
   nobody; no business id the product mints or the deployment names reads acct_
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:10:56.252656+00:00'
-updated_at: '2026-11-04T17:10:56.252656+00:00'
+updated_at: '2026-11-04T19:42:51.066560+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-387c9dfe
   kind: behavior
