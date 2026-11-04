@@ -6,10 +6,10 @@ title: Both senders refuse a message missing to/from/subject or with an empty bo
   naming the missing fields, before delivering or recording
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:12.269991+00:00'
-updated_at: '2026-11-04T17:32:12.269991+00:00'
+updated_at: '2026-11-04T18:00:35.583138+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
