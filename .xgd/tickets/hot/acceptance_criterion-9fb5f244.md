@@ -6,10 +6,10 @@ title: From address is configured as no-reply@1stcontact.io in default and produ
   a missing or blank From refuses with no default
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:15.344182+00:00'
-updated_at: '2026-11-04T17:32:15.344182+00:00'
+updated_at: '2026-11-04T18:00:35.036980+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
