@@ -6,10 +6,10 @@ title: A contact's events read as one newest-first sequence by occurred time, in
   and outbound interleaved, capped at 100
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:21:29.864366+00:00'
-updated_at: '2026-11-04T17:21:29.864366+00:00'
+updated_at: '2026-11-04T17:29:05.024573+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4630e921
   kind: behavior
