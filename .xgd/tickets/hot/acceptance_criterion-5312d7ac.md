@@ -6,9 +6,9 @@ title: A published URL serves the site's live revision, derived as the highest i
   its log, complete with every asset it references
 created_by: xgd
 created_at: '2026-08-06T18:48:21.095289+00:00'
-updated_at: '2026-09-10T16:56:04.464688+00:00'
+updated_at: '2026-11-04T16:02:31.942238+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: body
 status: active
 fields:
   story_uid: story-d34eccd8
@@ -33,10 +33,9 @@ returns the earlier revision's content again, with every revision's bytes left
 untouched in storage. Nothing else is consulted, so nothing can disagree with
 the log.
 
-The site name in a published address carries no account. Which account's
-revisions it resolves to is settled by the claim recorded when the site was
-first published, so a site name resolves to exactly one account's log and never
-to whichever account happened to sort first.
+The site segment of a published address is the site's opaque key, so it
+resolves to exactly one site's log by construction. No claim is consulted, and
+no other business's site, whatever its slug, can be reached through it.
 
 ## Verification
 
@@ -47,6 +46,6 @@ resolved against the same URL, and assert every one succeeds; assert a named
 asset's own content type as well. Publish a second, different revision, request
 the identical URL and assert the response is the second revision's. Wind the log
 back to the first revision, request the identical URL again, and assert the
-first revision's content is served. With a second account holding a site of the
-same name that has never published, assert the published URL still serves the
-claiming account's revision and none of the second account's content.
+first revision's content is served. With a second business holding a site of the
+same slug, published or not, assert the first site's key-addressed URL serves
+only the first site's revision and none of the second business's content.
