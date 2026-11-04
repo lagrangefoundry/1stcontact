@@ -6,10 +6,10 @@ title: Rendering refuses on a declared token missing from the body, a missing or
   value, or any leftover token, naming template, uid and token
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:26.152323+00:00'
-updated_at: '2026-11-04T17:32:26.152323+00:00'
+updated_at: '2026-11-04T18:00:33.121698+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
