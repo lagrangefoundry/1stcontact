@@ -6,10 +6,10 @@ title: bin/access-sim --print-env emits the two Access settings that point the W
   at the simulator
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:21.192988+00:00'
-updated_at: '2026-11-04T18:17:21.192988+00:00'
+updated_at: '2026-11-04T18:28:57.134080+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5b5be809
   kind: behavior
