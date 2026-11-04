@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-04T17:11:24.337092+00:00'
+updated_at: '2026-11-04T17:22:14.467908+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -240,7 +240,7 @@ fields:
     justification: 'No existing story covers a contact''s event history. STORY-163
       and STORY-165 describe present state only, so this is a new capability. Evidence:
       test_UAT_FC_REQ-195_contact_events.workers and test_UAT_FC_REQ-195_contact_history.'
-    story_uid: null
+    story_uid: story-4630e921
   - index: 6
     component: Outgoing message composition & sending (templates + mail port)
     item_type: feature
