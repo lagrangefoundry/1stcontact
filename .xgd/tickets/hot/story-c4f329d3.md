@@ -6,9 +6,9 @@ title: 'System knowledge base: build the assistant''s domain knowledge from our 
   documents, with each document deciding whether it is in'
 created_by: xgd
 created_at: '2026-08-20T04:15:05.992521+00:00'
-updated_at: '2026-11-04T15:57:24.786075+00:00'
+updated_at: '2026-11-04T19:42:26.993995+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-77b28def
@@ -142,6 +142,11 @@ Every one of the ways this pipeline can go wrong has the same shape: **the corpu
 - **"The full release pipeline completes" is verified to the embedding boundary.** End-to-end completion against the real Workers AI embedder needs an operator credential; the criterion is verified with a stubbed embedder and the real knowledge component, and the credentialled run is recorded as an operator check rather than a UAT.
 - **Out of scope here, and not a code-issue:** the priming-seam skew BUG-55 names under *What this ticket does NOT fix* (`KnowledgeDocs.documents()` becoming a coroutine while the installed `ai` iterates it synchronously). The intent explicitly defers it to its own ticket; no criterion here claims it.
 - **No code-issue is raised.** Every BUG-55 read-side call site in this story's surface passes `indexes`/`chunkIndexes` keyed `shipped`, the build-side calls are untouched, and the preflight reports the seam separately, as the intent asks.
+
+**2026-11-04 — BUG-55's "`1c assets` reports the awareness map as indexed, not primed" bullet (BUNDLE-37, reconciliation review).**
+
+- **The bullet is retired, not left open, and no code-issue is raised.** BUG-55 read the asset report's `<id> primed not indexed` as a symptom of the broken build ("so every bundle built since carries a degraded map"). It is not one. The awareness map is excluded from the corpus by the membership predicate *by design*: it is what a cold agent is primed with instead of the documents, so no build indexes it, broken or healthy. BUG-48 C2 made the asset report name every such exemption, and AC-2101 pins that wording (`tools/generate/src/cli/assets.ts`, `kbLine`). The degradation BUG-55 saw was real but different: the bundle carried the *previous* build's map, because `kb build` died at the map stage. That is fixed by the build completing (AC-2235), not by changing the label.
+- **Indexing the map, or printing "indexed" for it, would contradict decided behaviour.** It would break the exemption-by-property rule (AC-2101), and the report would say something untrue about the shipped pack. The more specific decisions (BUG-48 C2 and this story's map design) govern, so the bullet is read as superseded by them, and `1c assets` keeps reporting the map as primed, not indexed. The operator may reopen this as a new intent if indexing the map is actually wanted.
 
 ## Dependencies
 
