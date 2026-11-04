@@ -4,11 +4,12 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
+  PRIMARY_EMAIL_SQL,
   admit,
   ensurePlatformOperator,
-  findAccount,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
+import { CURRENT_NAME_JOIN } from '../apps/control-app/src/names'
 import { invitePerson } from '../apps/control-app/src/people'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import {
@@ -20,6 +21,7 @@ import {
 } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
+import { personByEmail } from './support/person'
 
 /**
  * story-a55c2f35 — **the Contacts tab, editing: the origin half.**
@@ -105,10 +107,11 @@ async function anAccount(email: string, name = 'A Business') {
 /** An owner of the 1st Contact business, seeded the way production seeds one. */
 async function anOperator(email: string) {
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
+  // The PERSON accepts the terms, not their account ([[REQ-194]]).
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
+  return person
 }
 
 /** An owner, their business, and one person in it to correct. */
@@ -166,7 +169,9 @@ const getDetail = (token: string, businessId: string, id: string): Promise<Respo
 
 interface UserRowShape {
   id: string
-  email: string
+  /** The PRIMARY address, from `user_emails` ([[REQ-191]]). */
+  email: string | null
+  /** The CURRENT displayed name, from `user_names` ([[REQ-193]]). */
   display_name: string | null
   status: string
   pipeline_stage: string | null
@@ -178,9 +183,15 @@ interface UserRowShape {
 }
 
 const rowById = async (tenantId: string, id: string): Promise<UserRowShape> => {
+  // Neither the address nor the name is a column on `users` any more: the
+  // primary address is joined from `user_emails` and the current name from
+  // `user_names`, through the same fragments the product reads them with.
   const row = await env.DB.prepare(
-    'SELECT id, email, display_name, status, pipeline_stage, invited_at, first_seen_at, ' +
-      'last_seen_at, tos_accepted_at, created_at FROM users WHERE tenant_id = ? AND id = ?',
+    `SELECT u.id AS id, ${PRIMARY_EMAIL_SQL} AS email, n.display_name AS display_name, ` +
+      'u.status AS status, u.pipeline_stage AS pipeline_stage, u.invited_at AS invited_at, ' +
+      'u.first_seen_at AS first_seen_at, u.last_seen_at AS last_seen_at, ' +
+      'u.tos_accepted_at AS tos_accepted_at, u.created_at AS created_at ' +
+      `FROM users u ${CURRENT_NAME_JOIN} WHERE u.tenant_id = ? AND u.id = ?`,
   )
     .bind(tenantId, id)
     .first<UserRowShape>()
@@ -238,21 +249,34 @@ describe('story-a55c2f35 — an owner corrects who somebody is', () => {
       first.businessId,
     )
     expect(response.status).toBe(200)
-    const returned = await response.json<{ id: string; email: string; displayName: string | null }>()
+    type Named = { id: string; email: string | null; name: { displayName: string; knownAs: string | null } | null }
+    const returned = await response.json<Named>()
     expect(returned.id).toBe(first.personId)
     expect(returned.email).toBe('alice@example.com')
-    expect(returned.displayName).toBe('Bob Smith')
+    expect(returned.name?.displayName).toBe('Bob Smith')
+
+    // One name part alone: it is written, and the displayed name is untouched.
+    const knownAs = await post(token, PERSON_RECORD_PATH, { id: first.personId, knownAs: 'Bobby' }, first.businessId)
+    expect(knownAs.status).toBe(200)
+    const afterKnownAs = await knownAs.json<Named>()
+    expect(afterKnownAs.name?.knownAs).toBe('Bobby')
+    expect(afterKnownAs.name?.displayName).toBe('Bob Smith')
 
     // Persisted, and readable through the detail the tab reads.
     const read = await getDetail(token, first.businessId, first.personId)
     expect(read.status).toBe(200)
-    const detail = await read.json<{ person: { email: string; displayName: string | null } }>()
+    const detail = await read.json<{ person: Named }>()
     expect(detail.person.email).toBe('alice@example.com')
-    expect(detail.person.displayName).toBe('Bob Smith')
+    expect(detail.person.name?.displayName).toBe('Bob Smith')
+    expect(detail.person.name?.knownAs).toBe('Bobby')
 
-    // A whitespace-only name is stored as no name.
+    // A whitespace-only displayed name, with no other part set, leaves no name.
+    // The known-as part is cleared first, because a part left behind would have
+    // nothing to hang off and the clear would be refused ([[REQ-193]]).
+    expect((await post(token, PERSON_RECORD_PATH, { id: first.personId, knownAs: '' }, first.businessId)).status).toBe(200)
     const blanked = await post(token, PERSON_RECORD_PATH, { id: first.personId, displayName: '   ' }, first.businessId)
     expect(blanked.status).toBe(200)
+    expect((await blanked.json<Named>()).name).toBeNull()
     const blankedRow = await rowById(first.businessId, first.personId)
     expect(blankedRow.display_name).toBeNull()
     // Stored casefolded — the form `admit` normalises any casing to.
@@ -452,7 +476,8 @@ describe('story-a55c2f35 — grants', () => {
       GRANTS_PATH,
       {
         businessId: holder.businessId,
-        accountId: holder.user.id,
+        // The subject is the ACCOUNT ([[REQ-194]]), named by its key.
+        accountId: holder.user.account_id,
         plan: 'support',
         source: 'stripe',
         status: 'revoked',
@@ -476,7 +501,7 @@ describe('story-a55c2f35 — grants', () => {
     }>()
     expect(grant.businessId).toBe(holder.businessId)
     expect(grant.businessName).toBe('Holder Ltd')
-    expect(grant.accountId).toBe(holder.user.id)
+    expect(grant.accountId).toBe(holder.user.account_id)
     expect(grant.plan).toBe('support')
     expect(grant.source).toBe('admin_grant')
     expect(grant.status).toBe('active')

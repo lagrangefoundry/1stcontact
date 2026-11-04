@@ -6,7 +6,6 @@ import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
   admit,
   ensurePlatformOperator,
-  findAccount,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
 import { invitePerson, openGrant } from '../apps/control-app/src/people'
@@ -14,6 +13,8 @@ import { acceptTerms } from '../apps/control-app/src/terms'
 import { PEOPLE_PATH, PERSON_DETAIL_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
+import { seedContact } from './support/contact'
+import { personByEmail } from './support/person'
 
 /**
  * story-0034d937 — **the Contacts tab, at the origin.**
@@ -24,9 +25,9 @@ import { inviteAccount } from './support/invite-account'
  * workerd, against a real D1 with the deployed migrations and a real RS256
  * Access token verified against a stubbed JWKS — the JWKS fetch being the only
  * external boundary. Rows are written by shipped entry points (`inviteAccount`,
- * `invitePerson`, `openGrant`); the uninvited contact is a direct `users` insert
- * because nothing shipped writes a bare contact yet (the CRM capture is its
- * eventual writer). The browser half is the jsdom sibling.
+ * `invitePerson`, `openGrant`); the uninvited contact is seeded through
+ * `seedContact`, the one fixture that writes every row a contact is
+ * ([[REQ-191]], [[REQ-193]], [[REQ-194]]). The browser half is the jsdom sibling.
  */
 
 const PLATFORM = 'contacts-platform'
@@ -98,22 +99,16 @@ async function anAccount(email: string, name: string) {
 
 async function anOperator(email: string) {
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
+  // The PERSON accepts the terms, not their account ([[REQ-194]]).
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
+  return person
 }
 
 /** A contact: known to a business and never invited. */
 async function addContact(tenantId: string, email: string): Promise<string> {
-  const id = `usr_contact_${(seq += 1)}`
-  const now = new Date().toISOString()
-  await env.DB.prepare(
-    'INSERT INTO users (id, tenant_id, email, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
-  )
-    .bind(id, tenantId, email, 'active', now, now)
-    .run()
-  return id
+  return seedContact(identityEnv(), { tenantId, email })
 }
 
 const get = (token: string, businessId: string, pathAndQuery: string): Promise<Response> =>
@@ -248,8 +243,9 @@ describe('story-0034d937 — every grant names its business', () => {
     const other = await inviteAccount(identityEnv(), { email: anEmail(), accountName: 'Somebody Else Ltd' })
     const gone = await inviteAccount(identityEnv(), { email: anEmail(), accountName: 'Gone Ltd' })
 
-    await openGrant(identityEnv(), { businessId: other.businessId, accountId: holder.user.id, plan: 'support' })
-    await openGrant(identityEnv(), { businessId: gone.businessId, accountId: holder.user.id, plan: 'pro' })
+    // A grant names its subject by ACCOUNT key ([[REQ-194]]), not by person.
+    await openGrant(identityEnv(), { businessId: other.businessId, accountId: holder.user.account_id, plan: 'support' })
+    await openGrant(identityEnv(), { businessId: gone.businessId, accountId: holder.user.account_id, plan: 'pro' })
     await env.DB.prepare('DELETE FROM tenants WHERE id = ?').bind(gone.businessId).run()
 
     const response = await get(

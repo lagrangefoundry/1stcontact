@@ -222,20 +222,40 @@ async function type(name: string, value: string) {
   await settleAll()
 }
 
-const EDITABLE = ['email', 'displayName']
+/** The one editable field of Who they are: the primary address ([[REQ-191]]). */
+const EDITABLE = ['email']
+/** The name's parts, edited in their own Their name section ([[REQ-193]]). */
+const NAME_PART_FIELDS = ['displayName', 'knownAs', 'title', 'givenName', 'middleNames', 'familyName', 'suffix']
 const LOCKED = ['stage', 'access', 'status', 'invitedAt', 'firstSeenAt', 'lastSeenAt', 'termsAcceptedAt', 'createdAt']
 const MALFORMED = ['a@b', 'a@@b.c', 'a@.c', 'a@b.', '@b.c', 'a b@example.test']
 
 describe.skipIf(!WEBUI_INSTALLED)('story-a55c2f35 — Who they are', () => {
   it('test_UAT_AC2188_only_email_and_name_are_editable_and_the_eight_observed_fields_are_locked', async () => {
     await openSarah()
-    const section = root.querySelectorAll('.fields-row')
-    expect(section.length).toBe(10)
-    expect([...section].map((r) => (r as HTMLElement).dataset.field).sort()).toEqual(
-      [...EDITABLE, ...LOCKED].sort(),
-    )
+    // The rows of ONE section: the body that follows the "Who they are" heading.
+    const sectionAfter = (title: string) => {
+      const heading = [...root.querySelectorAll('.builder-people__heading')].find((h) => h.textContent === title)
+      expect(heading, `no "${title}" section`).toBeTruthy()
+      return heading!.nextElementSibling as HTMLElement
+    }
+    const fieldsOf = (section: HTMLElement) =>
+      [...section.querySelectorAll('.fields-row')].map((r) => (r as HTMLElement).dataset.field)
+
+    const who = sectionAfter('Who they are')
+    expect(fieldsOf(who).length).toBe(9)
+    expect([...fieldsOf(who)].sort()).toEqual([...EDITABLE, ...LOCKED].sort())
+    // The name is not edited here: no name part appears in Who they are.
+    for (const part of NAME_PART_FIELDS) expect(fieldsOf(who), part).not.toContain(part)
+    // Its parts live in the separate Their name section, each one editable.
+    const named = sectionAfter('Their name')
+    for (const part of NAME_PART_FIELDS) {
+      expect(fieldsOf(named), part).toContain(part)
+      const partCell = named.querySelector(`.fields-row[data-field="${part}"] .fields-value`)!
+      expect(partCell.classList.contains('fields-value-editable'), `${part} has no affordance`).toBe(true)
+    }
 
     for (const name of LOCKED) {
+      expect(who.contains(row(name)), `${name} is not in Who they are`).toBe(true)
       expect(row(name)!.classList.contains('is-locked'), `${name} is not locked`).toBe(true)
       expect(cell(name)!.classList.contains('fields-value-editable'), `${name} has an affordance`).toBe(false)
       cell(name)!.click()

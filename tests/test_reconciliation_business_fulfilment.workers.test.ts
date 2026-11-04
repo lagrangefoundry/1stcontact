@@ -4,9 +4,11 @@ import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
 import {
+  STARTER_SLUG,
+  USER_ID_BY_EMAIL_SQL,
   admit,
   ensurePlatformOperator,
-  findAccount,
+  normaliseEmail,
   provisionBusiness,
   type IdentityEnv,
 } from '../apps/control-app/src/identity'
@@ -15,6 +17,7 @@ import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, BUSINESSES_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
+import { personByEmail } from './support/person'
 
 /**
  * **Business Fulfilment: only the operator adds a business, and a business
@@ -103,10 +106,12 @@ async function customer(email: string, accountName: string) {
 /** An owner of the 1st Contact business — what the fulfilment gate asks for. */
 async function operator(email: string) {
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
-  return account
+  // The PERSON accepts the terms, not the account ([[REQ-194]]); the person is
+  // found through `user_emails` because `users` carries no address ([[REQ-191]]).
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
+  return person
 }
 
 const addBusiness = async (token: string | null, body: unknown, over: Partial<Env> = {}) =>
@@ -160,14 +165,18 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
     // refused too: `platform_operator` does not open the fulfilment gate.
     const hosting = anEmail()
     await customer(hosting, 'Bakery')
-    await env.DB.prepare('UPDATE users SET platform_operator = 1 WHERE tenant_id = ? AND email = ?')
-      .bind(PLATFORM, hosting)
-      .run()
-    const own = await env.DB.prepare(
-      'SELECT COUNT(*) AS n FROM memberships m JOIN users u ON u.id = m.user_id ' +
-        'WHERE u.email = ? AND m.business_id = ?',
+    const hostingPerson = await personByEmail(identityEnv(), PLATFORM, hosting)
+    if (!hostingPerson) throw new Error('the seeded customer was not readable back')
+    const set = await env.DB.prepare(
+      `UPDATE users SET platform_operator = 1 WHERE tenant_id = ? AND id = ${USER_ID_BY_EMAIL_SQL}`,
     )
-      .bind(hosting, PLATFORM)
+      .bind(PLATFORM, PLATFORM, normaliseEmail(hosting))
+      .run()
+    expect(set.meta.changes).toBe(1)
+    const own = await env.DB.prepare(
+      'SELECT COUNT(*) AS n FROM memberships WHERE user_id = ? AND business_id = ?',
+    )
+      .bind(hostingPerson.id, PLATFORM)
       .first<{ n: number }>()
     expect(own?.n).toBe(0)
 
@@ -255,7 +264,15 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
     expect(grant?.status).toBe('active')
     expect(grant?.granted_by).toBe(op)
 
-    expect(created.siteSlug).toBe(created.businessId)
+    // The starter site is a word, not the business id ([[REQ-190]]): the slug is
+    // unique only inside its business, so every business's starter shares it.
+    // It is the new business's own site row, created in the same operation.
+    expect(created.siteSlug).toBe(STARTER_SLUG)
+    expect(created.siteSlug).not.toBe(created.businessId)
+    const site = await env.DB.prepare('SELECT slug FROM sites WHERE tenant_id = ?')
+      .bind(created.businessId)
+      .all<{ slug: string }>()
+    expect(site.results.map((row) => row.slug)).toEqual([STARTER_SLUG])
   })
 
   it('test_UAT_AC2154_creating_an_account_provisions_its_first_business', async () => {
@@ -268,10 +285,11 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
 
     // Provisioning the first business is the second step, and afterwards the
     // account is admitted with exactly that one business, under its name.
+    // The business is owned by the person's ACCOUNT ([[REQ-194]]) — the one the
+    // invite minted beside them — and provisioning takes no address ([[REQ-191]]).
     const result = await provisionBusiness(identityEnv(), {
-      accountUserId: invited.person.id,
+      accountId: invited.person.accountId,
       name: 'Salon',
-      email,
       endsAt: null,
     })
 
@@ -330,6 +348,10 @@ describe('Business Fulfilment — the operator adds a business, nobody else can'
     expect(response.status).toBe(200)
     const body = (await response.json()) as Record<string, unknown>
 
-    expect(Object.keys(body).sort()).toEqual(['account', 'businesses'])
+    // `person` names the signed-in human; the account is a separate row and is
+    // not what this payload presents ([[REQ-194]]).
+    expect(Object.keys(body).sort()).toEqual(['businesses', 'person'])
+    expect(body).not.toHaveProperty('account')
+    expect((body.person as { email: string | null }).email).toBe(email)
   })
 })

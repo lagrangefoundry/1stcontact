@@ -3,11 +3,17 @@ import { env } from 'cloudflare:test'
 import worker from '../apps/control-app/src/index'
 import type { Env } from '../apps/control-app/src/index'
 import { certsUrl, resetJwksCache } from '../apps/control-app/src/access'
-import { ensurePlatformOperator, findAccount, type IdentityEnv } from '../apps/control-app/src/identity'
+import {
+  USER_ID_BY_EMAIL_SQL,
+  ensurePlatformOperator,
+  normaliseEmail,
+  type IdentityEnv,
+} from '../apps/control-app/src/identity'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { ADMIN_BUSINESSES_PATH, PEOPLE_PATH } from '../apps/control-app/src/router'
 import { applySchema } from './support/d1-site-factory'
 import { inviteAccount } from './support/invite-account'
+import { personByEmail } from './support/person'
 
 /**
  * story-387c9dfe — **owning the 1st Contact business and hosting the others are
@@ -82,18 +88,24 @@ let seq = 0
 const anEmail = (): string => `split-${(seq += 1)}@example.test`
 
 const setHosting = async (email: string, on: boolean): Promise<void> => {
-  await env.DB.prepare('UPDATE users SET platform_operator = ? WHERE tenant_id = ? AND email = ?')
-    .bind(on ? 1 : 0, PLATFORM, email)
+  // The person is resolved through `user_emails` ([[REQ-191]]): the address is
+  // not a column on `users`, so it cannot be what the UPDATE is keyed by.
+  const updated = await env.DB.prepare(
+    `UPDATE users SET platform_operator = ? WHERE tenant_id = ? AND id = ${USER_ID_BY_EMAIL_SQL}`,
+  )
+    .bind(on ? 1 : 0, PLATFORM, PLATFORM, normaliseEmail(email))
     .run()
+  if (updated.meta.changes !== 1) throw new Error(`no person at ${email} to set hosting on`)
 }
 
 /** Both halves, exactly as production seeds an operator. */
 async function both(): Promise<string> {
   const email = anEmail()
   await ensurePlatformOperator(identityEnv(), email)
-  const account = await findAccount(identityEnv(), email)
-  if (!account) throw new Error('the seeded operator was not readable back')
-  await acceptTerms(identityEnv(), account.id)
+  // The PERSON, not the account ([[REQ-194]]): terms are accepted by a person.
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) throw new Error('the seeded operator was not readable back')
+  await acceptTerms(identityEnv(), person.id)
   return email
 }
 

@@ -58,8 +58,26 @@ function memoryStorage() {
   }
 }
 
+/**
+ * A person's CURRENT NAME, in the shape the detail and list carry ([[REQ-193]]):
+ * a name record whose displayed name is stored, never assembled from parts.
+ */
+const nameRecord = (displayName: string) => ({
+  id: `nam_${displayName.replace(/\W+/g, '_') || 'empty'}`,
+  displayName,
+  knownAs: null,
+  title: null,
+  givenName: null,
+  middleNames: null,
+  familyName: null,
+  suffix: null,
+  createdAt: '2026-09-01T09:00:00.000Z',
+  updatedAt: '2026-09-01T09:00:00.000Z',
+})
+
 const person = (over: Record<string, unknown>) => ({
-  displayName: null,
+  name: null,
+  formerNames: [],
   status: 'active',
   invitedAt: null,
   firstSeenAt: null,
@@ -83,19 +101,19 @@ const grant = (over: Record<string, unknown>) => ({
 /**
  * The population, one person per shape the ACs name:
  *
- * - `usr_named` — has a display name; a Lead.
- * - `usr_nameless` — no display name; Invited; runs nothing and holds nothing.
+ * - `usr_named` — has a current name; a Lead.
+ * - `usr_nameless` — no name row at all; Invited; runs nothing and holds nothing.
  * - `usr_mixed` — runs X with no grant, and holds a grant on Y without running it.
  * - `usr_two` — runs X and holds two grants on X.
  * - `usr_gone` — holds a grant on a business whose row has vanished.
  * - `usr_novel` — at a pipeline stage this build has never heard of.
  */
 const PEOPLE = [
-  person({ id: 'usr_named', email: 'named@example.test', displayName: 'Alice Adams' }),
+  person({ id: 'usr_named', email: 'named@example.test', name: nameRecord('Alice Adams') }),
   person({
     id: 'usr_nameless',
     email: 'nameless@example.test',
-    displayName: '',
+    name: null,
     pipelineStage: 'invited',
     invitedAt: '2026-09-02T09:00:00.000Z',
   }),
@@ -318,16 +336,29 @@ describe.skipIf(!WEBUI_INSTALLED)('story-0034d937 — the tab and its name', () 
 
 describe.skipIf(!WEBUI_INSTALLED)('story-0034d937 — the list', () => {
   it('test_UAT_AC2179_row_shows_name_and_address_in_two_cells_or_no_name_yet', async () => {
-    await panel()
+    // A third shape beside the population: a current name row whose text was
+    // redacted to empty ([[REQ-193]]) — present, and still no name to show.
+    const redacted = person({ id: 'usr_redacted', email: 'redacted@example.test', name: nameRecord('') })
+    await panel({
+      list: async () => ({
+        people: [...PEOPLE, redacted].map((p) => ({ ...p })),
+        canInvite: true,
+        canFulfil: true,
+      }),
+    })
     const named = rowOf('usr_named')
     expect(named.querySelector('.builder-people__who')!.textContent).toBe('Alice Adams')
+    // The address cell is the PRIMARY address the list carries ([[REQ-191]]).
     expect(named.querySelector('.builder-people__email')!.textContent).toBe('named@example.test')
 
-    // Empty string, like null, is "no display name".
-    const nameless = rowOf('usr_nameless')
+    // No name row, and a name row with empty text, both read "No name yet".
     expect(NO_NAME_YET).toBe('No name yet')
+    const nameless = rowOf('usr_nameless')
     expect(nameless.querySelector('.builder-people__who')!.textContent).toBe('No name yet')
     expect(nameless.querySelector('.builder-people__email')!.textContent).toBe('nameless@example.test')
+    const emptied = rowOf('usr_redacted')
+    expect(emptied.querySelector('.builder-people__who')!.textContent).toBe('No name yet')
+    expect(emptied.querySelector('.builder-people__email')!.textContent).toBe('redacted@example.test')
     // Two separate cells, and the name cell is never blank.
     expect(nameless.querySelector('.builder-people__who')).not.toBe(
       nameless.querySelector('.builder-people__email'),

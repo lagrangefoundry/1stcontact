@@ -11,6 +11,7 @@ import { storeFor } from '../apps/control-app/src/store'
 import { acceptTerms } from '../apps/control-app/src/terms'
 import { PORTAL_PATH, PORTAL_SLUG, portalHomePage, portalSiteJson } from '../apps/control-app/src/portal'
 import { applySchema } from './support/d1-site-factory'
+import { personByEmail } from './support/person'
 
 /**
  * story-83ff6262 — **Customer portal** (workers side).
@@ -129,7 +130,13 @@ function titleOf(html: string): string | null {
 }
 
 /**
- * The caller's account footprint: user, memberships, entitlements, businesses.
+ * The caller's account footprint: user, their addresses, their account,
+ * memberships, entitlements, businesses.
+ *
+ * The person is resolved through `user_emails` ([[REQ-191]]) and then every
+ * other row is read BY KEY — the `users` row by id, the `accounts` row by the
+ * person's `account_id` ([[REQ-194]]) — so the comparison covers whole rows and
+ * not whatever an address lookup happens to reach.
  *
  * The user row's sign-in bookkeeping (`first_seen_at`, `last_seen_at` and the
  * `updated_at` they bump) is dropped: admission stamps it on EVERY authenticated
@@ -137,7 +144,9 @@ function titleOf(html: string): string | null {
  * anything about the account changed.
  */
 async function footprint(email: string): Promise<Record<string, unknown>> {
-  const row = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first()
+  const person = await personByEmail(identityEnv(), PLATFORM, email)
+  if (!person) return { user: null }
+  const row = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(person.id).first()
   if (!row) return { user: null }
   const {
     first_seen_at: _first,
@@ -146,6 +155,12 @@ async function footprint(email: string): Promise<Record<string, unknown>> {
     ...user
   } = row as Record<string, unknown>
   const id = (user as { id: string }).id
+  const emails = await env.DB.prepare('SELECT * FROM user_emails WHERE user_id = ? ORDER BY id')
+    .bind(id)
+    .all()
+  const account = await env.DB.prepare('SELECT * FROM accounts WHERE id = ?')
+    .bind((user as { account_id: string }).account_id)
+    .first()
   const memberships = await env.DB.prepare('SELECT * FROM memberships WHERE user_id = ? ORDER BY business_id')
     .bind(id)
     .all()
@@ -160,7 +175,13 @@ async function footprint(email: string): Promise<Record<string, unknown>> {
   )
     .bind(id)
     .all()
-  return { user, memberships: memberships.results, entitlements: entitlements.results, businesses: businesses.results }
+  return {
+    user,
+    emails: emails.results,
+    account,
+    memberships: memberships.results,     entitlements: entitlements.results,
+    businesses: businesses.results,
+  }
 }
 
 /** Row counts of every user table — an erasure-request row anywhere would show here. */
@@ -199,10 +220,11 @@ describe('story-83ff6262 — which portal an admitted account reaches', () => {
     stubJwks()
     const email = anEmail()
     const first = await invite({ email, accountName: 'Salon', endsAt: null })
+    // A second business for the SAME account ([[REQ-194]]): owned by the
+    // account's key, and provisioning takes no address ([[REQ-191]]).
     const second = await provisionBusiness(identityEnv(), {
-      accountUserId: first.user.id,
+      accountId: first.user.account_id,
       name: 'Studio',
-      email,
     })
 
     // Unauthored host: the page is the shipped default, titled "Your account".
@@ -253,7 +275,7 @@ describe('story-83ff6262 — which portal an admitted account reaches', () => {
     const owner = await invite({ email: anEmail(), accountName: 'Salon', endsAt: null })
     const bobEmail = anEmail()
     const bob = await invitePerson(identityEnv(), { businessId: owner.businessId }, { email: bobEmail, displayName: 'Bob' })
-    const shop = await provisionBusiness(identityEnv(), { accountUserId: bob.person.id, name: "Bob's Shop", email: bobEmail })
+    const shop = await provisionBusiness(identityEnv(), { accountId: bob.person.accountId, name: "Bob's Shop" })
 
     await authorPortalIn(PLATFORM, 'Host business portal')
     await authorPortalIn(owner.businessId, 'Salon portal for its own accounts')
@@ -311,11 +333,17 @@ describe('story-83ff6262 — using the portal destroys nothing', () => {
     stubJwks()
     const email = anEmail()
     const first = await invite({ email, accountName: 'Salon', endsAt: null })
-    await provisionBusiness(identityEnv(), { accountUserId: first.user.id, name: 'Studio', email })
+    await provisionBusiness(identityEnv(), { accountId: first.user.account_id, name: 'Studio' })
 
     const before = await footprint(email)
     const countsBefore = await tableCounts()
     expect((before.memberships as unknown[]).length).toBe(2)
+    // The footprint is real: one address, an account row, and both businesses
+    // owned by that account.
+    expect((before.emails as Array<{ email: string }>).map((e) => e.email)).toEqual([email])
+    expect(before.account).not.toBeNull()
+    const owners = (before.businesses as Array<{ owner_account_id: string | null }>).map((b) => b.owner_account_id)
+    expect(owners).toEqual([first.user.account_id, first.user.account_id])
 
     // The page as served: the two controls are plain buttons, nothing submits.
     const page = await ask(PORTAL_PATH, email)

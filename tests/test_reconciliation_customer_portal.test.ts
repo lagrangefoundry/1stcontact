@@ -193,8 +193,12 @@ const SURVIVORS = [
   'Your invoices and payments, with you reduced to the least the law allows.',
 ]
 
+/**
+ * The businesses payload as the endpoint serves it: who is signed in is `person`,
+ * not `account` — the account is a separate row, the payer ([[REQ-194]]).
+ */
 const ACCOUNT = {
-  account: { name: 'Alice', email: 'alice@example.test' },
+  person: { name: 'Alice', email: 'alice@example.test' },
   businesses: [
     { id: 'acct_a', name: 'Salon', selectable: true },
     { id: 'acct_b', name: 'Studio', selectable: false },
@@ -519,15 +523,18 @@ describe("story-83ff6262 — the caller's own account facts", () => {
     const ws = await openWorkspace()
     const html = await ws.req(PORTAL_PATH).then((r) => r.text())
 
-    const cases: Array<{ account: unknown; text: string; hidden: boolean }> = [
-      { account: { name: 'Alice', email: 'alice@example.test' }, text: 'Alice — alice@example.test', hidden: false },
-      { account: { name: '', email: 'alice@example.test' }, text: 'alice@example.test', hidden: false },
-      { account: { name: '   ', email: 'alice@example.test' }, text: 'alice@example.test', hidden: false },
-      { account: { name: null, email: null }, text: '', hidden: true },
-      { account: null, text: '', hidden: true },
+    // The caller is the payload's `person` ([[REQ-194]]); a payload still keyed
+    // `account` names nobody, so the line stays hidden rather than guessing.
+    const cases: Array<{ body: Record<string, unknown>; text: string; hidden: boolean }> = [
+      { body: { person: { name: 'Alice', email: 'alice@example.test' } }, text: 'Alice — alice@example.test', hidden: false },
+      { body: { person: { name: '', email: 'alice@example.test' } }, text: 'alice@example.test', hidden: false },
+      { body: { person: { name: '   ', email: 'alice@example.test' } }, text: 'alice@example.test', hidden: false },
+      { body: { person: { name: null, email: null } }, text: '', hidden: true },
+      { body: { person: null }, text: '', hidden: true },
+      { body: { account: { name: 'Alice', email: 'alice@example.test' } }, text: '', hidden: true },
     ]
     for (const c of cases) {
-      const p = await mountPortal(html, { body: { account: c.account, businesses: [] } })
+      const p = await mountPortal(html, { body: { ...c.body, businesses: [] } })
       // It asked the endpoint the instance names — the caller's own account endpoint.
       expect(p.requests).toEqual([{ url: BUSINESSES_PATH, method: 'GET' }])
       expect(p.identity.textContent).toBe(c.text)
@@ -643,7 +650,8 @@ describe('story-83ff6262 — the avatar dialog links out to the portal', () => {
         host.innerHTML = ''
         const modal = openAccountSurface({
           host,
-          account: { name: 'Alice', email: 'alice@example.test' },
+          // Who is signed in is the PERSON ([[REQ-194]]).
+          person: { name: 'Alice', email: 'alice@example.test' },
           businesses: a.businesses,
           selected: a.selected,
         })
