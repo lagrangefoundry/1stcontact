@@ -6,9 +6,9 @@ title: 'Business Fulfilment: Only The Operator Adds A Business, And A Business A
   Whole'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T11:56:27.726698+00:00'
-updated_at: '2026-11-01T21:36:01.578771+00:00'
+updated_at: '2026-11-04T17:09:59.157622+00:00'
 completed_at: null
-last_field_updated: body
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-94dbe947
@@ -29,7 +29,8 @@ Adding a business is 1st Contact filling an order: our own product-fulfilment ac
 
 In scope:
 - An operator-only add-a-business action that names an existing account by email and a business name, and creates the business through the same single provisioning operation (`provisionBusiness`) every business is created by.
-- A business and its tenant come into existence as one operation: the business record, the account owner's `owner` membership, a live grant recording which operator granted it, and a starter site. It is all or nothing, verified through admission (what the product reads), not by reading tables back.
+- The named account is resolved from the address to the account the person at that address belongs to, not to the person (REQ-194). The new business names that account as its owner. The platform business (1st Contact) names no owner: it is nobody's product (DOC-42 §8), and the break-glass operator seed leaves it ownerless while still giving the operator an account of their own. Business keys are opaque and read `biz_`. No business key that the product mints or the deployment names reads `acct_`, which is reserved for accounts. Provisioning refuses an account that does not exist, or one with nobody on it, before writing anything.
+- A business and its tenant come into existence as one operation: the business record, an `owner` membership for every person on the account, a live grant recording which operator granted it, and a starter site. It is all or nothing, verified through admission (what the product reads), not by reading tables back.
 - An account's first business is provisioned through that same operation, as a separate step after the invite (REQ-186): the invite writes the person and no business, so an invited account with no business yet is refused `no_membership` at the door, and once its first business is provisioned it is admitted with exactly that one. First and added businesses are indistinguishable afterwards.
 - Everyone who is not an owner of the 1st Contact business is answered as if the surface does not exist. That includes ordinary admitted customers, a `platform_operator` with no owner membership there, and the unauthenticated loopback dev door.
 - Ownership asked uniformly. "Is this person an owner here" and "may this person enter a business they are not a member of" are answered by different facts, and no single check answers both.
@@ -57,8 +58,11 @@ Out of scope:
 - **An unknown account is reported plainly** (decided at reconciliation, 2026-11-01): intent says the route "names an existing account by email" but does not say what happens when there is none. The code answers 404 with `No account with that email address.` because the oracle argument that silences other refusals does not apply to someone who already holds the privilege. Formalized as an AC.
 - **Missing account email or name is a 400** (decided at reconciliation, 2026-11-01): intent is silent. The code rejects blank or missing `accountEmail`/`name` with 400 before any write, so the operator can tell an omitted field from a broken builder. Formalized as an AC.
 - **The grant records who added the business** (decided at reconciliation, 2026-11-01): intent is silent on audit. The code writes the operator's email as the grant's `granted_by`, in line with DOC-5 policy 26 (maintain audit events). It is formalized inside the one-operation AC.
-- **The chrome exposes no creation contract** (decided at reconciliation, 2026-11-01): D2 says there is "no button, no customer-reachable route". The businesses payload the browser reads carries exactly `account` and `businesses`. This is formalized as the positive observable of that absence.
+- **The chrome exposes no creation contract** (decided at reconciliation, 2026-11-01): D2 says there is "no button, no customer-reachable route". The businesses payload the browser reads carries exactly `person` and `businesses` (`account` until REQ-194 renamed it). This is formalized as the positive observable of that absence.
 - **"Fulfilment privilege" now means owner of the 1st Contact business** (decided at reconciliation, 2026-11-01): REQ-185 replaces the flag with DOC-42 §7's two conditions. Existing ACs that say "holding the fulfilment privilege" keep that wording, and it is defined in the Description as an `owner` membership on the business whose product is businesses. The ACs are not reworded one by one.
+
+- **Ownership is a column on the business (REQ-194, decided at reconciliation 2026-11-04, BUNDLE-37).** `tenants.owner_account_id` names the owning account. It was previously inferred from the first membership row. `findAccount` now returns an `accounts` row rather than a person's row, and the route passes that account's key to `provisionBusiness`. Formalized as two new criteria (ownership and the platform business's null owner; the refusals of a missing or empty account). AC-2157 is restated: the businesses payload carries `person`, not `account`, because the account is now a row of its own and the payload's identity field describes the signed-in human.
+- **The platform business's null owner is formalized as intent, not a gap** (decided at reconciliation, 2026-11-04): REQ-194 states it in "Two edges the ownership column does not have", and the baseline seed and `ensurePlatformOperator` both leave it null.
 
 ## Dependencies
 - Plan item 4 (Admission after DOC-42: membership admits, lapse reasons). Success is verified through admission's selectable/lapse view.
