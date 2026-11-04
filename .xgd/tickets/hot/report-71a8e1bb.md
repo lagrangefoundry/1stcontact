@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-04T16:03:07.435726+00:00'
+updated_at: '2026-11-04T16:31:38.263482+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -166,7 +166,7 @@ fields:
       - 'acceptance_criterion-890af8ec (AC-1744): an address differing only in case
         or padding is the same person, enforced by the schema storing casefolded addresses'
       remove: []
-    story_uid: null
+    story_uid: story-7b1025b8
   - index: 4
     component: 'Accounts: the payer that owns businesses'
     item_type: upgrade
