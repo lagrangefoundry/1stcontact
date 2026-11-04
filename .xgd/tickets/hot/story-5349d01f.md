@@ -6,9 +6,9 @@ title: 'Publish a site to shared storage: one revision-minting publish, driven f
   the builder and the command line'
 created_by: xgd
 created_at: '2026-08-06T18:38:28.628910+00:00'
-updated_at: '2026-09-10T16:56:17.708304+00:00'
+updated_at: '2026-11-04T16:01:35.813076+00:00'
 completed_at: null
-last_field_updated: uat_coverage
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-e0143ffa
@@ -66,10 +66,17 @@ In scope:
   earlier revision re-parents the draft onto it rather than rewinding the log, so
   the next publish mints a new highest revision and records what it descended
   from. A revision is never removed, renumbered or reused.
-- **A published address belongs to whoever claimed it first.** The public URL
-  grammar carries no account, so the first publish of a slug claims it and a
-  second account publishing the same slug is refused before any byte is written,
-  leaving the live site untouched.
+- **Nothing is claimed on publish (REQ-190).** A site is published at its own
+  opaque key, not at its slug, so publishing records no claim, consults no claim,
+  and cannot be refused because another business uses the same slug. Two
+  businesses can each publish a site called `home`, and each publish lands at
+  that site's own address.
+- **A new account's starter site is visibly unnamed.** Provisioning a business
+  gives it one starter site whose slug is `unnamed` and whose displayed name is
+  `Unnamed`, the same word for every account. It is a prompt to name the site,
+  not a reserved word: it is unique only within the business, so every account
+  can publish its starter without colliding, and renaming it is an ordinary slug
+  change.
 
 Out of scope: what a URL serves — including where the live revision is read from
 and how the builder's published view reaches it — belongs to the serving story
@@ -130,6 +137,19 @@ decisions taken now rather than open questions.
    a published page whose images resolved only while the draft still held them
    cannot decay. The intent said the artifact is complete; which halves carry
    assets was left open.
+
+4. **The superseded first-claim criterion is retired, not rewritten**
+   (decided at reconciliation, BUNDLE-37, 2026-11-04). REQ-190 deletes the claim
+   table, the claimed-slug refusal and its 409 outright ("deleted, not
+   relaxed"), so AC-1422 is marked superseded by BUNDLE-37 and its replacement
+   asserts the opposite outcome.
+5. **The starter slug is `unnamed`, not `home`** (decided at reconciliation,
+   BUNDLE-37, 2026-11-04). The reconciliation plan's draft criterion said the
+   starter is "named home". REQ-190's own free-coding section explicitly rejects
+   `home` in favour of `unnamed` / `Unnamed`, and the code matches it, so the
+   intent governs and the criterion says `unnamed`. Starter provisioning sits
+   here because its published-collision property is what REQ-190 changed.
+   Provisioning itself and the BUG-51 guard stay STORY-121's.
 
 ## Dependencies
 
