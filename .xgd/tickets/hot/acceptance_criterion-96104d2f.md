@@ -6,10 +6,10 @@ title: Without a mail credential, a send is recorded locally, makes no network c
   and returns a distinct local_ id; the credential is the only switch
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:32:10.877961+00:00'
-updated_at: '2026-11-04T17:32:10.877961+00:00'
+updated_at: '2026-11-04T18:00:35.869006+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7d255580
   kind: behavior
