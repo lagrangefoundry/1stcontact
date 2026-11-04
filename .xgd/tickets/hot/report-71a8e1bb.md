@@ -5,7 +5,7 @@ type: report
 title: 'Reconciliation Plan: BUNDLE-37 (BUG-55, REQ-190..REQ-198)'
 created_by: xgd
 created_at: '2026-11-02T04:08:25.762762+00:00'
-updated_at: '2026-11-02T04:13:03.960848+00:00'
+updated_at: '2026-11-04T16:03:07.435726+00:00'
 completed_at: null
 last_field_updated: items
 fields:
@@ -106,7 +106,7 @@ fields:
       modify: []
       remove:
       - acceptance_criterion-51835b53
-    story_uid: null
+    story_uid: story-fde7370b
   - index: 3
     component: 'Person identity: addresses and names as tables'
     item_type: upgrade
