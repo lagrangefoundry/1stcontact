@@ -6,7 +6,7 @@ title: 'Every primary key is an opaque random id from one minter: identical inpu
   yield unrelated keys, and the prefix is only a reading aid'
 created_by: xgd
 created_at: '2026-11-04T16:01:03.436303+00:00'
-updated_at: '2026-11-04T19:42:33.895588+00:00'
+updated_at: '2026-11-04T21:16:33.450607+00:00'
 completed_at: null
 last_field_updated: body
 status: active
@@ -26,4 +26,4 @@ All such keys come from **a single minter**. This is a structural claim about th
 
 ## Verification
 
-Create two same-slug sites in two businesses (and two businesses with identical names) and assert each key is opaque-shaped and the keys share nothing beyond the prefix. Register two businesses whose keys share the same random part and differ only in prefix (the business prefix, and one the product never uses). Drive both through the same store calls (create a site, write it, read its key, enumerate its keys) and assert the outcomes are identical, that each handle sees only its own site, and that the two site keys differ. Scan the baseline schema and assert no primary key is a chosen attribute (no slug, name or email key). Structurally: scan the platform's authored source (skipping dot-directories and build output) and assert exactly one file calls the CSPRNG to mint keys.
+Create two same-slug sites in two businesses (and two businesses with identical names) and assert each key is opaque-shaped and the keys share nothing beyond the prefix. Register two businesses whose keys share the same random part and differ only in prefix (the business prefix, and one the product never uses). Drive both through the same store calls (create a site, write it, read its key, enumerate its keys) and assert the outcomes are identical, that each handle sees only its own site, and that the two site keys differ. Scan the baseline schema and assert no primary key is a chosen attribute (no slug, name or email key). Structurally: scan the platform's authored source (skipping dot-directories and build output) and assert exactly one file calls `crypto.getRandomValues` (the minter), and that the only callers of `crypto.randomUUID` are the two that make non-key values (a model session name in `ai.ts`, the local mail adapter's stand-in provider message id in `mail.ts`), neither of which assigns an `id` or calls `newId`.
