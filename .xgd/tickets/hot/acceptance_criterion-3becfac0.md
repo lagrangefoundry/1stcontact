@@ -6,10 +6,10 @@ title: The contact detail carries the newest-first history and provenance; anoth
   business's contact detail is not found
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T17:21:35.755264+00:00'
-updated_at: '2026-11-04T17:21:35.755264+00:00'
+updated_at: '2026-11-04T17:29:02.166088+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-4630e921
   kind: behavior
