@@ -5,10 +5,10 @@ type: request
 title: Regenerate the test data as a command, not as hand-written SQL
 created_by: xgd
 created_at: '2026-09-05T21:26:15.353111+00:00'
-updated_at: '2026-11-01T23:18:45.700519+00:00'
-completed_at: null
+updated_at: '2026-11-04T22:20:55.922827+00:00'
+completed_at: '2026-11-04T22:20:55.922827+00:00'
 last_field_updated: status
-status: bundled
+status: free_and_reconciled
 fields:
   priority: high
   story_points: 3
