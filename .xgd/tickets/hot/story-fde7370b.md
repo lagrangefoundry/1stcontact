@@ -6,9 +6,9 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-11-04T16:25:38.960312+00:00'
+updated_at: '2026-11-04T19:42:27.566843+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: body
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -360,6 +360,24 @@ directly, including the key, the invalidation rule and the bound.
   one-off deployment act, not a standing behaviour; the `users.email` / `entitlements.email`
   columns belong to REQ-191/REQ-193. The local filesystem transport keeps the slug as its key by
   design (REQ-190: "the local authoring tier is unchanged") and is unaffected by these criteria.
+- **"One minter" is a structural claim, evidenced structurally** (decided at reconciliation
+  review, BUNDLE-37, 2026-11-04). AC-2239 says every key comes from a single minter. That is a
+  negative claim about the source ("no other code path mints a key") with no runtime observable,
+  since a second minter would mint perfectly good ids. It is evidenced by the comment-stripped
+  source scan for `crypto.getRandomValues` in authored TypeScript, the same treatment the
+  review accepted for AC-2257's "nothing reads role". The behavioural half of the key rule is
+  evidenced at runtime: opaque shape, identical inputs giving unrelated keys, and keys unchanged
+  by attribute edits.
+- **"Nothing branches on the prefix" is evidenced behaviourally** (decided at reconciliation
+  review, BUNDLE-37, 2026-11-04). Two businesses whose keys share the same random part and differ
+  only in prefix (the business prefix, and one nothing in the product uses) are driven through
+  the same store calls. They behave identically, and neither sees the other's site. The earlier
+  UAT exercised only the test helper `isOpaqueId`, which proved nothing about the product.
+- **"The baseline seeds no people" is evidenced by applying it** (decided at reconciliation
+  review, BUNDLE-37, 2026-11-04). The baseline is applied to a fresh D1 and the business and
+  people tables are counted (`reconciliation-baseline-seed.workers.test.ts`). The source-text
+  check stays alongside as the repository-level guard against a personal address being written
+  into the migration.
 
 ## Dependencies
 
