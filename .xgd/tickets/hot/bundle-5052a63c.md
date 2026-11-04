@@ -5,7 +5,7 @@ type: bundle
 title: BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more
 created_by: xgd
 created_at: '2026-11-01T23:18:42.510726+00:00'
-updated_at: '2026-11-04T21:18:22.809820+00:00'
+updated_at: '2026-11-04T21:42:53.429234+00:00'
 completed_at: null
 last_field_updated: regression_anchor_uid
 status: error
