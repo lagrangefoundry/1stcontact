@@ -6,14 +6,14 @@ title: 'Customer portal: an account reaches its own page, rendered as site conte
   with an honest Delete account control'
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T20:14:57.817737+00:00'
-updated_at: '2026-11-01T20:26:42.451981+00:00'
+updated_at: '2026-11-04T17:10:00.680670+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: story_kind
 status: completed
 fields:
   intent_uid: bundle-39edf66d
   capability_uid: capability-e5939ceb
-  story_kind: feature
+  story_kind: upgrade
   story_points: 3
 ---
 
@@ -37,6 +37,7 @@ Out of scope (REQ-183 §5, "What this does not land"): any deletion machinery (s
 - **One renderer (D3):** `/account` goes through the same request-time preview renderer as `/preview/<slug>/draft/…`. The fallback is a real in-memory SiteStore, not a branch in the renderer. The renderer's store parameter was widened to the SiteStore port for this.
 - **Host resolution (D2):** the host is the admitted user's own business row. With no admission it falls back to the request's scope. With neither, the answer is 404. Business-scope resolution is not consulted on the admitted path. Depends on REQ-178/REQ-179 reopening (B1), so that membership admits and the avatar is present even when nothing is selectable.
 - **Behaviour module:** `account-portal` is a vetted module in the framework catalog under the same contract as `contact-form` (CAP-72 / CAP-70). It paints nothing. Its presentation is L1 in its slots, the identity and holdings lines are invariant elements its client fills, and the reveal/dismiss affordances are L1 `control` nodes. The REQ-180 §3 "no tenant wording" rule applies to it even though it lives outside the two apps.
+- **The identity line names the person, not the account (REQ-194).** The caller's account endpoint (`/api/businesses`) reports the signed-in human under `person` (name, primary address), not `account`. The account is now a separate record: the payer that owns businesses. The portal's identity line reads that `person` field, and the line's format is unchanged. The holdings sentence still says "This account operates…", because the businesses listed are the ones the caller's account operates.
 - **Builds on:** CAP-114 admission (plan item 1: REQ-185's split of `platform_admin` and the AdmittedBusiness role), REQ-179's `/api/businesses` endpoint, and REQ-169's ToS gate, left as it was.
 
 ## Reconciliation Decisions
@@ -45,6 +46,8 @@ Out of scope (REQ-183 §5, "What this does not land"): any deletion machinery (s
 - **Account line format** (decided at reconciliation, 2026-11-01): intent says only that an account with no display name is named by its verified email. The code shows "Name — email" when both exist, otherwise whichever exists. Formalized as written.
 - **Holdings sentence form** (decided at reconciliation, 2026-11-01): D6 requires the businesses to be listed by name. The code renders "This account operates N business(es): A, B." and uses a business's id when it has no name. Formalized.
 - **Draft channel serves the portal** (decided at reconciliation, 2026-11-01): intent is silent. The authored portal's draft is what is served, because the portal has no publish path yet. Formalized under the authored-portal AC.
+
+- **The identity field is `person`** (decided at reconciliation, 2026-11-04, BUNDLE-37): REQ-194 renames the payload's `account` to `person`. AC-2222's observable (the caller is named from their own facts, falling back to the verified address) is unchanged, so no criterion is reworded. Its UAT supplies the payload under the new key.
 
 ## Dependencies
 Plan item 1 (Accounts, Membership & Entitlement: scope and fulfilment gate, REQ-185).
