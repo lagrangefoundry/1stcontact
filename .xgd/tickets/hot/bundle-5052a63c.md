@@ -5,9 +5,9 @@ type: bundle
 title: BUG-55 + REQ-190 + REQ-191 + REQ-193 + REQ-192 + 5 more
 created_by: xgd
 created_at: '2026-11-01T23:18:42.510726+00:00'
-updated_at: '2026-11-02T19:12:01.292598+00:00'
+updated_at: '2026-11-04T18:29:33.873299+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: regression_anchor_uid
 status: error
 fields:
   bundle_type: reconcile
@@ -200,6 +200,7 @@ fields:
   reconcile_error: |-
     reconcile workflow crashed: Workflow execution failed: Failed to execute Python function 'xgd_source.quality.mode_overrides.route_blocked_by': batch 0 of story-c4f329d3 edited production code in reconcile mode without a granted `code_frozen` override naming it:
     vitest.node.config.mts
+  regression_anchor_uid: report-3f77b790
 ---
 
 # Bundle
