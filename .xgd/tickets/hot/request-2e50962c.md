@@ -5,7 +5,7 @@ type: request
 title: A person's email addresses are a table, not a column
 created_by: xgd
 created_at: '2026-09-05T21:25:16.063394+00:00'
-updated_at: '2026-11-04T22:20:59.644504+00:00'
+updated_at: '2026-11-04T22:21:10.031144+00:00'
 completed_at: '2026-11-04T22:20:59.644504+00:00'
 last_field_updated: status
 status: free_and_reconciled
