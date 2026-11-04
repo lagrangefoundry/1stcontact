@@ -5,15 +5,17 @@ type: story
 title: Contacts tab — editing a contact's grants and record
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-01T19:31:42.865017+00:00'
-updated_at: '2026-11-04T16:31:37.700392+00:00'
+updated_at: '2026-11-04T16:31:37.991161+00:00'
 completed_at: null
-last_field_updated: status
+last_field_updated: updated_by
 status: updated
 fields:
   intent_uid: bundle-39edf66d
   capability_uid: capability-e5939ceb
   story_kind: upgrade
   story_points: 3
+  updated_by:
+  - bundle-5052a63c
 ---
 
 ## Story
