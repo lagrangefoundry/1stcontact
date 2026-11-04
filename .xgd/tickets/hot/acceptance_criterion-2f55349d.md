@@ -6,9 +6,9 @@ title: The shared-store preflight checks that the installed knowledge component 
   compatible with the index seam, not only present, and reports it on its own line
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-02T04:11:39.238489+00:00'
-updated_at: '2026-11-02T04:11:39.238489+00:00'
+updated_at: '2026-11-04T21:11:12.896973+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: body
 status: active
 fields:
   story_uid: story-c4f329d3
@@ -30,4 +30,4 @@ The compatibility probe is a single pure call: **no network, no embedder, no fil
 
 ## Verification
 
-Drive the compatibility check with an injected probe that refuses, and assert: not ok, the component's own failure text is carried, and the asserting form throws an `ENVIRONMENT` error naming the source-keyed shape and the install command. Run the real probe against the installed store and assert it reports compatible. Assert the preflight's success output prints the seam result on a line separate from the component/package counts.
+Build the real probe (`knowledgeSeamProbe`) around component doubles that substitute only the loaded knowledge module, and assert it is not ok in each case, carrying the component's own text where it has one: a component with no `indexFor`, an `indexFor` that ignores the map (singular signature), one that returns the wrong index, and one that throws on the map. Assert the asserting form throws an `ENVIRONMENT` error (exit 6) naming the source-keyed shape, the install command and the call sites. Run the real probe against the installed store with the embedder seam pointing at a non-existent model and `fetch` refusing, and assert it reports compatible and nothing was fetched. Run `1c preflight` and assert the seam result is printed on a line separate from the component/package counts. Run `1c preflight` again with the knowledge component made unresolvable through the presence check's resolver seam, and assert: exit 6, the presence refusal naming the missing component and the install command, no `Index seam:` line, no success summary, and the seam check never invoked.
