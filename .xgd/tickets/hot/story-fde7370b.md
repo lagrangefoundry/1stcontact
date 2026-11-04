@@ -6,9 +6,9 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-11-01T20:30:52.134770+00:00'
+updated_at: '2026-11-04T16:00:18.158380+00:00'
 completed_at: null
-last_field_updated: updated_by
+last_field_updated: story_kind
 status: updated
 fields:
   intent_uid: bundle-b3b7c399
@@ -123,6 +123,39 @@ entirely alone — definition, pages, version and change count untouched, neithe
 starter nor repaired. Create-then-write had looked idempotent and was a total content wipe against
 an existing slug; the report is what makes the guarded form expressible.
 
+**Keys are opaque and never data (REQ-190).** Every primary key in the schema is an opaque random
+identifier — 128 bits from a cryptographic random source, written as a short reading-aid prefix and
+32 hex characters — minted by exactly one minter. Two sites created from identical inputs get
+unrelated keys; nothing a human chose, typed or might rename (a business name, a slug, an address)
+is a key, and no key is a digest of its row's own data. The prefix (`site_`, `biz_`, `usr_`…) says
+which table a value in a log came from and nothing more: no behaviour branches on it, so it can move
+to a different noun without consequence. Two things stay integers, deliberately, because they order
+rather than identify: a site's revision id (live is the highest) and its change-journal counter.
+
+**Only the site's own row names its business.** Pages, assets, the change journal and the revision
+log are keyed by the site's key and carry no business at all; a site's draft objects live under
+`draft/<siteId>/` and its published output under `sites/<siteId>/rev/…`. So renaming a business,
+changing a site's slug, or moving a site to another business is one column on one row — no other
+row is rewritten and no stored object is copied — and the site is fully addressable under its new
+name or owner the moment that change lands. A slug is unique **within its business** and nowhere
+else: two businesses may each hold a site called `home`, and a move that would give the destination
+two sites of one name is refused by the database's own constraint, leaving the site where it was.
+Isolation moves one level in and does not weaken: the handle is still bound to one business, and
+the only way to learn a site's key is to ask the handle for it by slug, which answers only for that
+business's own sites.
+
+**Erasure enumerates.** Because a site's objects no longer sit under a business prefix, reaching
+every object a business owns means asking the handle for every one of its site keys and deleting
+under each, plus the business-owned prefixes. Dropping a site removes every row it owns and every
+object under its draft and published prefixes; afterwards it has no draft, no key, and nothing left
+in either store.
+
+**One baseline, no people.** The schema is created by a single baseline migration that replaced
+every earlier one. It seeds the platform business row and nothing else — no user, membership or
+entitlement; an operator is bootstrapped from deployment configuration on first sign-in. The
+platform business's key is a fixed opaque literal that the deployment configuration must name
+identically, in both its default and its production variable blocks.
+
 **And the two stores cannot drift, because there is one set of questions.** The same body of
 assertions is run against the filesystem store, the filesystem-free in-memory store, and the
 cloud store inside the Workers runtime against real database and object-store bindings. A site
@@ -152,6 +185,14 @@ declares a single bucket, and stops being true the moment a second binding is co
 - Asset bytes round-tripping with their content type, and the refusal for a name that leaves the
   assets namespace, on both the read and the write path.
 - Copying one site's whole draft from any store to any other, as one whole change.
+- Opaque, singly-minted keys on every table, with revision id and journal counter kept as integer
+  ordinals.
+- Child rows and stored objects keyed by site only; rename, re-slug and move as one-column changes;
+  per-business slug uniqueness enforced by the database.
+- The business-scoped site-key lookup, the per-business enumeration of site keys erasure uses, and
+  dropping a site leaving no row and no object.
+- The single no-people baseline and its platform-business literal agreeing with deployment
+  configuration.
 - A draft creation that reports whether it created the site, and provisioning that writes the
   starter only when it did.
 - One body of storage assertions run against all three stores.
@@ -304,11 +345,24 @@ directly, including the key, the invalidation rule and the bound.
   unrepresentable.
 - **The BUG-51 provisioning guard is claimed here** (decided at reconciliation, BUNDLE-36,
   2026-11-01): the creation report is a cloud-store property, and the guard is its only consumer,
-  so stating them together keeps the reason for the report next to it. The intent itself says the
-  guard is structural rather than a fix for a live failure — the starter slug is a random account
-  id today — and that it becomes load-bearing once the portal site is seeded at a fixed slug at
-  provisioning. The import-route refusal and `1c reset` are the builder workspace story's
+  so stating them together keeps the reason for the report next to it. The guard was structural while the
+  starter slug was the account id; since REQ-190 the starter slug is the fixed word `unnamed`, so
+  the guard is now load-bearing. The import-route refusal and `1c reset` are the builder workspace story's
   (story-e674c60a), not this one's.
+
+- **REQ-190 keys formalized here rather than in a new story** (decided at reconciliation,
+  BUNDLE-37, 2026-11-04): the re-key changes what this store's rows and objects are keyed by, which
+  is this story's surface, so it is stated as criteria on it rather than as a parallel "schema"
+  story. Criteria are stated at the persistent-schema and store-handle boundary; the one-column
+  rename/move is observed as a single-row update on the schema, because REQ-190 deliberately ships
+  no move tool ("the move tool is deliberately not built first").
+- **The prefix is not behaviour** (decided at reconciliation, BUNDLE-37, 2026-11-04): REQ-190's
+  free-coding notes say nothing parses or branches on a key's prefix; this is formalized because
+  REQ-194 is about to change one prefix and that is safe only while it holds.
+- **Not formalized here:** the bucket wipe and re-seed (REQ-190's rebaseline operation) is a
+  one-off deployment act, not a standing behaviour; the `users.email` / `entitlements.email`
+  columns belong to REQ-191/REQ-193. The local filesystem transport keeps the slug as its key by
+  design (REQ-190: "the local authoring tier is unchanged") and is unaffected by these criteria.
 
 ## Dependencies
 
