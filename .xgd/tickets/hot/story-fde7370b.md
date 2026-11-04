@@ -6,7 +6,7 @@ title: 'Cloudflare Site Store: Definitions In A Database, Bytes In An Object Sto
   Scoped To One Account'
 created_by: xgd
 created_at: '2026-08-31T09:45:24.792019+00:00'
-updated_at: '2026-11-04T19:42:27.566843+00:00'
+updated_at: '2026-11-04T21:13:19.900082+00:00'
 completed_at: null
 last_field_updated: body
 status: updated
@@ -378,6 +378,8 @@ directly, including the key, the invalidation rule and the bound.
   people tables are counted (`reconciliation-baseline-seed.workers.test.ts`). The source-text
   check stays alongside as the repository-level guard against a personal address being written
   into the migration.
+
+- **Business erasure is not built; only the enumeration it will use is** (decided at reconciliation, BUNDLE-37 review report-d91ea163). REQ-190 says erasure "is not implemented today" and settles only the layout erasure will rely on. The code provides `siteKeys()` (every site key a business owns) and `forget` (drop one site's rows and objects), but no path erases a whole business. AC-2242 is worded in the future tense: the enumeration is the one erasure *will* use, and its UAT proves it is complete. Every R2 object a business's sites wrote, found by snapshotting the whole bucket before and after, sits under a prefix the enumeration reaches. Building erasure is a separate intent.
 
 ## Dependencies
 
