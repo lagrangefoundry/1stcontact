@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for story-c4f329d3'
 created_by: xgd
 created_at: '2026-11-02T19:02:02.969227+00:00'
-updated_at: '2026-11-02T19:02:02.969227+00:00'
+updated_at: '2026-11-04T15:52:02.836481+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -87,6 +87,7 @@ fields:
       rung3: 'Decided here: the tests stand; the fix is a node-project globalSetup
         that generates the shims before collection.'
   fix_iteration: 3
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
