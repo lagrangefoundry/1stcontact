@@ -5,10 +5,10 @@ type: acceptance_criterion
 title: The seed creates no platform operator and confers no hosting capability
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:17:16.953822+00:00'
-updated_at: '2026-11-04T18:17:16.953822+00:00'
+updated_at: '2026-11-04T18:28:59.299147+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-5b5be809
   kind: behavior
