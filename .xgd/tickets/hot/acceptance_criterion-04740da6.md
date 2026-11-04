@@ -6,10 +6,10 @@ title: The person record carries no address; a person holds several casefolded a
   with at most one primary, and an address reaches exactly one person in a business
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T16:30:30.199754+00:00'
-updated_at: '2026-11-04T16:30:30.199754+00:00'
+updated_at: '2026-11-04T17:07:23.748238+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-7b1025b8
   kind: behavior
