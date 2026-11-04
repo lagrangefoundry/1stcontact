@@ -5,9 +5,9 @@ type: report
 title: 'Report: fix_plan for report-3f77b790'
 created_by: xgd
 created_at: '2026-11-04T21:53:11.720271+00:00'
-updated_at: '2026-11-04T21:53:11.720271+00:00'
+updated_at: '2026-11-04T22:03:47.472479+00:00'
 completed_at: null
-last_field_updated: created_at
+last_field_updated: batches_pending
 result: pass
 fields:
   report_kind: fix_plan
@@ -50,6 +50,7 @@ fields:
       rung3: 'Decided here: the assertions stand and the fixture is fixed. The test
         seeds no contact in the business it lists, so it changes and the code does
         not. No override.'
+  batches_pending: false
 ---
 
 # Fix Plan — Iteration 3
