@@ -1,0 +1,1895 @@
+---
+uid: report-8da7b343
+id: REPORT-10928
+type: report
+title: 'Scoped quality: fail (298 tests, 1 failed, 1 orphan AC(s))'
+created_by: xgd
+created_at: '2026-11-04T20:34:52.778148+00:00'
+updated_at: '2026-11-04T20:34:52.778148+00:00'
+completed_at: null
+last_field_updated: created_at
+result: fail
+fields:
+  report_kind: quality
+  subject_uid: report-3f77b790
+  commit: 961e91a2cce99fb9f9d4b9b073f5ff2349a5b8f2
+---
+
+{
+  "timestamp": "2026-11-04T20:27:22.075598Z",
+  "lint": {
+    "status": "success",
+    "exit_code": 0,
+    "duration_seconds": 0.00015033292584121227,
+    "errors": 0,
+    "warnings": 0,
+    "error_list": [],
+    "warning_list": []
+  },
+  "build": {
+    "status": "success",
+    "exit_code": 0,
+    "duration_seconds": 0.0,
+    "errors": 0,
+    "error_list": [],
+    "stdout": "No tsconfig.json \u2014 type-check skipped (JS-only project)",
+    "stderr": ""
+  },
+  "preflight": {
+    "status": "pass",
+    "violations": []
+  },
+  "suites": {
+    "javascript-vitest": {
+      "suite_name": "javascript-vitest",
+      "status": "failure",
+      "exit_code": 1,
+      "duration_seconds": 123.88503320794553,
+      "passed": 297,
+      "failed": 1,
+      "skipped": 0,
+      "errors": 0,
+      "total": 298,
+      "deselected": 29,
+      "test_filter": [
+        "test_UAT_AC1291_",
+        "test_UAT_AC1292_",
+        "test_UAT_AC1293_",
+        "test_UAT_AC1294_",
+        "test_UAT_AC1295_",
+        "test_UAT_AC1296_",
+        "test_UAT_AC1297_",
+        "test_UAT_AC1298_",
+        "test_UAT_AC1299_",
+        "test_UAT_AC1300_",
+        "test_UAT_AC1301_",
+        "test_UAT_AC1302_",
+        "test_UAT_AC1303_",
+        "test_UAT_AC1304_",
+        "test_UAT_AC1305_",
+        "test_UAT_AC1306_",
+        "test_UAT_AC1385_",
+        "test_UAT_AC1386_",
+        "test_UAT_AC1387_",
+        "test_UAT_AC1388_",
+        "test_UAT_AC1389_",
+        "test_UAT_AC1390_",
+        "test_UAT_AC1391_",
+        "test_UAT_AC1392_",
+        "test_UAT_AC1393_",
+        "test_UAT_AC1394_",
+        "test_UAT_AC1395_",
+        "test_UAT_AC1396_",
+        "test_UAT_AC1397_",
+        "test_UAT_AC1398_",
+        "test_UAT_AC1418_",
+        "test_UAT_AC1419_",
+        "test_UAT_AC1420_",
+        "test_UAT_AC1421_",
+        "test_UAT_AC1422_",
+        "test_UAT_AC1423_",
+        "test_UAT_AC1424_",
+        "test_UAT_AC1447_",
+        "test_UAT_AC1448_",
+        "test_UAT_AC1632_",
+        "test_UAT_AC1633_",
+        "test_UAT_AC1647_",
+        "test_UAT_AC1648_",
+        "test_UAT_AC1649_",
+        "test_UAT_AC1740_",
+        "test_UAT_AC1741_",
+        "test_UAT_AC1742_",
+        "test_UAT_AC1743_",
+        "test_UAT_AC1744_",
+        "test_UAT_AC1745_",
+        "test_UAT_AC1746_",
+        "test_UAT_AC1747_",
+        "test_UAT_AC1748_",
+        "test_UAT_AC1749_",
+        "test_UAT_AC1750_",
+        "test_UAT_AC1751_",
+        "test_UAT_AC1752_",
+        "test_UAT_AC1753_",
+        "test_UAT_AC1754_",
+        "test_UAT_AC1755_",
+        "test_UAT_AC1756_",
+        "test_UAT_AC1757_",
+        "test_UAT_AC1758_",
+        "test_UAT_AC1759_",
+        "test_UAT_AC1760_",
+        "test_UAT_AC1795_",
+        "test_UAT_AC1796_",
+        "test_UAT_AC1797_",
+        "test_UAT_AC1798_",
+        "test_UAT_AC1799_",
+        "test_UAT_AC1800_",
+        "test_UAT_AC1801_",
+        "test_UAT_AC1802_",
+        "test_UAT_AC1803_",
+        "test_UAT_AC1804_",
+        "test_UAT_AC1805_",
+        "test_UAT_AC1806_",
+        "test_UAT_AC1807_",
+        "test_UAT_AC1808_",
+        "test_UAT_AC2058_",
+        "test_UAT_AC2059_",
+        "test_UAT_AC2075_",
+        "test_UAT_AC2076_",
+        "test_UAT_AC2077_",
+        "test_UAT_AC2078_",
+        "test_UAT_AC2079_",
+        "test_UAT_AC2099_",
+        "test_UAT_AC2100_",
+        "test_UAT_AC2101_",
+        "test_UAT_AC2102_",
+        "test_UAT_AC2103_",
+        "test_UAT_AC2112_",
+        "test_UAT_AC2113_",
+        "test_UAT_AC2114_",
+        "test_UAT_AC2115_",
+        "test_UAT_AC2116_",
+        "test_UAT_AC2149_",
+        "test_UAT_AC2150_",
+        "test_UAT_AC2151_",
+        "test_UAT_AC2152_",
+        "test_UAT_AC2153_",
+        "test_UAT_AC2154_",
+        "test_UAT_AC2155_",
+        "test_UAT_AC2156_",
+        "test_UAT_AC2157_",
+        "test_UAT_AC2158_",
+        "test_UAT_AC2159_",
+        "test_UAT_AC2160_",
+        "test_UAT_AC2165_",
+        "test_UAT_AC2168_",
+        "test_UAT_AC2169_",
+        "test_UAT_AC2170_",
+        "test_UAT_AC2171_",
+        "test_UAT_AC2172_",
+        "test_UAT_AC2173_",
+        "test_UAT_AC2174_",
+        "test_UAT_AC2175_",
+        "test_UAT_AC2176_",
+        "test_UAT_AC2177_",
+        "test_UAT_AC2178_",
+        "test_UAT_AC2179_",
+        "test_UAT_AC2180_",
+        "test_UAT_AC2181_",
+        "test_UAT_AC2182_",
+        "test_UAT_AC2183_",
+        "test_UAT_AC2184_",
+        "test_UAT_AC2185_",
+        "test_UAT_AC2186_",
+        "test_UAT_AC2187_",
+        "test_UAT_AC2188_",
+        "test_UAT_AC2189_",
+        "test_UAT_AC2190_",
+        "test_UAT_AC2191_",
+        "test_UAT_AC2192_",
+        "test_UAT_AC2193_",
+        "test_UAT_AC2194_",
+        "test_UAT_AC2195_",
+        "test_UAT_AC2196_",
+        "test_UAT_AC2197_",
+        "test_UAT_AC2198_",
+        "test_UAT_AC2199_",
+        "test_UAT_AC2200_",
+        "test_UAT_AC2201_",
+        "test_UAT_AC2202_",
+        "test_UAT_AC2212_",
+        "test_UAT_AC2213_",
+        "test_UAT_AC2214_",
+        "test_UAT_AC2215_",
+        "test_UAT_AC2216_",
+        "test_UAT_AC2217_",
+        "test_UAT_AC2218_",
+        "test_UAT_AC2219_",
+        "test_UAT_AC2220_",
+        "test_UAT_AC2221_",
+        "test_UAT_AC2222_",
+        "test_UAT_AC2223_",
+        "test_UAT_AC2224_",
+        "test_UAT_AC2225_",
+        "test_UAT_AC2226_",
+        "test_UAT_AC2229_",
+        "test_UAT_AC2233_",
+        "test_UAT_AC2234_",
+        "test_UAT_AC2235_",
+        "test_UAT_AC2236_",
+        "test_UAT_AC2237_",
+        "test_UAT_AC2238_",
+        "test_UAT_AC2239_",
+        "test_UAT_AC2240_",
+        "test_UAT_AC2241_",
+        "test_UAT_AC2242_",
+        "test_UAT_AC2243_",
+        "test_UAT_AC2244_",
+        "test_UAT_AC2245_",
+        "test_UAT_AC2246_",
+        "test_UAT_AC2247_",
+        "test_UAT_AC2248_",
+        "test_UAT_AC2249_",
+        "test_UAT_AC2250_",
+        "test_UAT_AC2251_",
+        "test_UAT_AC2252_",
+        "test_UAT_AC2253_",
+        "test_UAT_AC2254_",
+        "test_UAT_AC2255_",
+        "test_UAT_AC2256_",
+        "test_UAT_AC2257_",
+        "test_UAT_AC2258_",
+        "test_UAT_AC2259_",
+        "test_UAT_AC2260_",
+        "test_UAT_AC2261_",
+        "test_UAT_AC2262_",
+        "test_UAT_AC2263_",
+        "test_UAT_AC2264_",
+        "test_UAT_AC2265_",
+        "test_UAT_AC2266_",
+        "test_UAT_AC2267_",
+        "test_UAT_AC2268_",
+        "test_UAT_AC2269_",
+        "test_UAT_AC2270_",
+        "test_UAT_AC2271_",
+        "test_UAT_AC2272_",
+        "test_UAT_AC2273_",
+        "test_UAT_AC2274_",
+        "test_UAT_AC2275_",
+        "test_UAT_AC2276_",
+        "test_UAT_AC2277_",
+        "test_UAT_AC2278_",
+        "test_UAT_AC2279_",
+        "test_UAT_AC2280_",
+        "test_UAT_AC2281_",
+        "test_UAT_AC2282_",
+        "test_UAT_AC2283_",
+        "test_UAT_AC2284_",
+        "test_UAT_AC2285_",
+        "test_UAT_AC2286_",
+        "test_UAT_AC2287_",
+        "test_UAT_AC2288_",
+        "test_UAT_AC2289_",
+        "test_UAT_AC2290_",
+        "test_UAT_AC2291_",
+        "test_UAT_AC2292_",
+        "test_UAT_AC2293_",
+        "test_UAT_AC2294_",
+        "test_UAT_AC2295_",
+        "test_UAT_AC2296_",
+        "test_UAT_AC2297_",
+        "test_UAT_AC2298_",
+        "test_UAT_AC2299_",
+        "test_UAT_AC2300_",
+        "test_UAT_AC2301_",
+        "test_UAT_AC2302_",
+        "test_UAT_AC2303_",
+        "test_UAT_AC2304_",
+        "test_UAT_AC2305_",
+        "test_UAT_AC2306_",
+        "test_UAT_AC2307_",
+        "test_UAT_AC2308_",
+        "test_UAT_AC2309_",
+        "test_UAT_AC2310_",
+        "test_UAT_AC2311_",
+        "test_UAT_AC2312_",
+        "test_UAT_AC2313_",
+        "test_UAT_AC2314_",
+        "test_UAT_AC2315_",
+        "test_UAT_AC2316_",
+        "test_UAT_AC2317_",
+        "test_UAT_AC2318_",
+        "test_UAT_AC2319_",
+        "test_UAT_AC2320_",
+        "test_UAT_AC2321_",
+        "test_UAT_AC2322_",
+        "test_UAT_AC892_",
+        "test_UAT_AC894_",
+        "test_UAT_AC903_",
+        "test_UAT_AC904_",
+        "test_UAT_AC905_",
+        "test_UAT_AC906_",
+        "test_UAT_AC907_",
+        "test_UAT_AC908_",
+        "test_UAT_AC909_",
+        "test_UAT_AC911_",
+        "test_UAT_AC912_",
+        "test_UAT_AC913_",
+        "test_UAT_FC_BUG_55",
+        "test_UAT_FC_BUNDLE_37",
+        "test_UAT_FC_REQ_190",
+        "test_UAT_FC_REQ_191",
+        "test_UAT_FC_REQ_192",
+        "test_UAT_FC_REQ_193",
+        "test_UAT_FC_REQ_194",
+        "test_UAT_FC_REQ_195",
+        "test_UAT_FC_REQ_196",
+        "test_UAT_FC_REQ_197",
+        "test_UAT_FC_REQ_198"
+      ],
+      "coverage": null,
+      "lines_covered": 0,
+      "lines_total": 0,
+      "files_covered": [],
+      "junit_xml_path": null,
+      "stdout": "on_the_record_in_the_business_that_sent_it\",\"duration\":56,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2294_missing_or_unverifiable_signature_is_refused_identically_and_writes_nothing\",\"status\":\"passed\",\"title\":\"test_UAT_AC2294_missing_or_unverifiable_signature_is_refused_identically_and_writes_nothing\",\"duration\":86,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2295_signed_request_outside_the_five_minute_window_is_refused\",\"status\":\"passed\",\"title\":\"test_UAT_AC2295_signed_request_outside_the_five_minute_window_is_refused\",\"duration\":28,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2296_with_no_signing_secret_every_request_is_refused\",\"status\":\"passed\",\"title\":\"test_UAT_AC2296_with_no_signing_secret_every_request_is_refused\",\"duration\":18,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2297_verified_but_malformed_body_is_400_and_bad_signature_wins_over_parsing\",\"status\":\"passed\",\"title\":\"test_UAT_AC2297_verified_but_malformed_body_is_400_and_bad_signature_wins_over_parsing\",\"duration\":82,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2298_verified_event_for_an_unknown_message_is_404_and_writes_nothing\",\"status\":\"passed\",\"title\":\"test_UAT_AC2298_verified_event_for_an_unknown_message_is_404_and_writes_nothing\",\"duration\":54,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the delivery webhook\"],\"fullName\":\"story-219b4217 \u2014 the delivery webhook test_UAT_AC2299_verified_non_delivery_events_are_acknowledged_and_change_nothing\",\"status\":\"passed\",\"title\":\"test_UAT_AC2299_verified_non_delivery_events_are_acknowledged_and_change_nothing\",\"duration\":92,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the webhook sits ahead of the Access gate\"],\"fullName\":\"story-219b4217 \u2014 the webhook sits ahead of the Access gate test_UAT_AC2300_signed_post_reaches_the_webhook_without_access_while_other_routes_stay_gated\",\"status\":\"passed\",\"title\":\"test_UAT_AC2300_signed_post_reaches_the_webhook_without_access_while_other_routes_stay_gated\",\"duration\":78,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the Contacts reads\"],\"fullName\":\"story-219b4217 \u2014 the Contacts reads test_UAT_AC2301_messages_read_returns_the_contacts_messages_newest_first_with_subject_time_status_failure\",\"status\":\"passed\",\"title\":\"test_UAT_AC2301_messages_read_returns_the_contacts_messages_newest_first_with_subject_time_status_failure\",\"duration\":28,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the Contacts reads\"],\"fullName\":\"story-219b4217 \u2014 the Contacts reads test_UAT_AC2302_messages_read_answers_200_with_an_empty_list_for_no_unknown_or_foreign_contact\",\"status\":\"passed\",\"title\":\"test_UAT_AC2302_messages_read_answers_200_with_an_empty_list_for_no_unknown_or_foreign_contact\",\"duration\":37,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the Contacts reads\"],\"fullName\":\"story-219b4217 \u2014 the Contacts reads test_UAT_AC2303_one_businesss_messages_and_bounces_never_appear_through_another\",\"status\":\"passed\",\"title\":\"test_UAT_AC2303_one_businesss_messages_and_bounces_never_appear_through_another\",\"duration\":106,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-219b4217 \u2014 the Contacts reads\"],\"fullName\":\"story-219b4217 \u2014 the Contacts reads test_UAT_AC2304_people_list_read_reports_each_bounced_contact_once\",\"status\":\"passed\",\"title\":\"test_UAT_AC2304_people_list_read_reports_each_bounced_contact_once\",\"duration\":184,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1793824138791,\"endTime\":1793824139963,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-37/tests/test_reconciliation_outgoing_message_record.workers.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"story-7d255580 \u2014 the sender\"],\"fullName\":\"story-7d255580 \u2014 the sender test_UAT_AC2275_credentialed_send_submits_once_and_returns_the_provider_id\",\"status\":\"passed\",\"title\":\"test_UAT_AC2275_credentialed_send_submits_once_and_returns_the_provider_id\",\"duration\":2,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 the sender\"],\"fullName\":\"story-7d255580 \u2014 the sender test_UAT_AC2276_uncredentialed_send_records_locally_with_no_network_and_distinct_local_ids\",\"status\":\"passed\",\"title\":\"test_UAT_AC2276_uncredentialed_send_records_locally_with_no_network_and_distinct_local_ids\",\"duration\":2,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 the sender\"],\"fullName\":\"story-7d255580 \u2014 the sender test_UAT_AC2277_both_senders_refuse_malformed_messages_naming_the_fields\",\"status\":\"passed\",\"title\":\"test_UAT_AC2277_both_senders_refuse_malformed_messages_naming_the_fields\",\"duration\":1,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 the sender\"],\"fullName\":\"story-7d255580 \u2014 the sender test_UAT_AC2278_provider_failures_are_reported_to_the_caller_as_send_errors\",\"status\":\"passed\",\"title\":\"test_UAT_AC2278_provider_failures_are_reported_to_the_caller_as_send_errors\",\"duration\":3,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 the sender\"],\"fullName\":\"story-7d255580 \u2014 the sender test_UAT_AC2281_message_body_reaches_the_provider_as_html\",\"status\":\"passed\",\"title\":\"test_UAT_AC2281_message_body_reaches_the_provider_as_html\",\"duration\":9,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 templates in the business store\"],\"fullName\":\"story-7d255580 \u2014 templates in the business store test_UAT_AC2282_template_type_requires_key_subject_and_body_and_refuses_invalid_writes\",\"status\":\"passed\",\"title\":\"test_UAT_AC2282_template_type_requires_key_subject_and_body_and_refuses_invalid_writes\",\"duration\":8,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 templates in the business store\"],\"fullName\":\"story-7d255580 \u2014 templates in the business store test_UAT_AC2283_lookup_returns_newest_for_key_and_seeds_the_default_once_per_business\",\"status\":\"passed\",\"title\":\"test_UAT_AC2283_lookup_returns_newest_for_key_and_seeds_the_default_once_per_business\",\"duration\":35,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-7d255580 \u2014 templates in the business store\"],\"fullName\":\"story-7d255580 \u2014 templates in the business store test_UAT_AC2286_seeded_templates_are_business_neutral_with_button_and_pasteable_url\",\"status\":\"passed\",\"title\":\"test_UAT_AC2286_seeded_templates_are_business_neutral_with_button_and_pasteable_url\",\"duration\":14,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1793824164730,\"endTime\":1793824164804,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-37/tests/test_reconciliation_outgoing_messages.workers.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"story-387c9dfe \u2014 owning 1st Contact is ordinary ownership\"],\"fullName\":\"story-387c9dfe \u2014 owning 1st Contact is ordinary ownership test_UAT_AC2165_owning_1st_contact_reads_exactly_like_owning_a_salon\",\"status\":\"passed\",\"title\":\"test_UAT_AC2165_owning_1st_contact_reads_exactly_like_owning_a_salon\",\"duration\":79,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-387c9dfe \u2014 no single predicate answers both questions\"],\"fullName\":\"story-387c9dfe \u2014 no single predicate answers both questions test_UAT_AC2168_ownership_and_bypass_are_separately_held_and_neither_implies_the_other\",\"status\":\"passed\",\"title\":\"test_UAT_AC2168_ownership_and_bypass_are_separately_held_and_neither_implies_the_other\",\"duration\":154,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1793824165102,\"endTime\":1793824165335,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-37/tests/test_reconciliation_ownership_and_bypass_split.workers.test.ts\"},{\"assertionResults\":[{\"ancestorTitles\":[\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it\"],\"fullName\":\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_create_draft_answers_true_then_false_for_one_slug\",\"status\":\"passed\",\"title\":\"test_UAT_AC2229_create_draft_answers_true_then_false_for_one_slug\",\"duration\":6,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it\"],\"fullName\":\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_provisioning_onto_an_existing_starter_slug_leaves_the_site_unchanged\",\"status\":\"passed\",\"title\":\"test_UAT_AC2229_provisioning_onto_an_existing_starter_slug_leaves_the_site_unchanged\",\"duration\":41,\"failureMessages\":[],\"meta\":{},\"tags\":[]},{\"ancestorTitles\":[\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it\"],\"fullName\":\"story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_provisioning_onto_a_fresh_slug_writes_the_starter_site\",\"status\":\"passed\",\"title\":\"test_UAT_AC2229_provisioning_onto_a_fresh_slug_writes_the_starter_site\",\"duration\":13,\"failureMessages\":[],\"meta\":{},\"tags\":[]}],\"startTime\":1793824158968,\"endTime\":1793824159028,\"status\":\"passed\",\"message\":\"\",\"name\":\"/Users/martin/.xgd/worktrees/git_github.com_lagrangefoundry_1stcontact.git/reconcile-BUNDLE-37/tests/test_reconciliation_starter_site_guard.workers.test.ts\"}]}",
+      "stderr": "",
+      "tests": [
+        {
+          "name": "an arrival notice above its budget truncates titles and never the count test_UAT_AC1800_forty_one_arrivals_keep_an_exact_count_and_lose_only_titles",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a single title longer than the whole budget is clipped and still named test_UAT_AC1801_one_oversized_title_is_clipped_rather_than_dropped",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, from the host runtime test_UAT_AC1385_every_storage_question_answers_identically_over_all_three_stores",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, from the host runtime test_UAT_AC1391_the_filesystem_store_applies_a_version_carrying_write_unconditionally",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, from the host runtime test_UAT_AC1397_one_extension_yields_one_content_type_wherever_an_asset_is_served",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, from the host runtime test_UAT_AC1398_each_declared_binding_names_one_target_across_both_halves_and_the_schema_precedes_upload",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the History section test_UAT_AC2270_history_lists_events_newest_first_with_labels_and_unknown_kinds_verbatim",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the History section test_UAT_AC2271_a_recorded_stamp_appears_only_when_it_differs_from_occurred",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the History section test_UAT_AC2272_origin_line_comes_from_server_provenance_and_is_absent_without_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the History section test_UAT_AC2273_an_empty_history_still_shows_the_section_with_nothing_recorded_yet",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the History section test_UAT_AC2274_history_section_is_read_only_and_every_emitted_class_is_styled",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Their name test_UAT_AC2252_their_name_edits_one_part_at_a_time_shows_the_greeting_and_records_a_change_as_one_act",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Their name test_UAT_AC2252_clearing_the_displayed_name_alone_is_refused_and_clearing_every_part_leaves_no_name_yet",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Their name test_UAT_AC2251_only_a_changed_former_name_is_shown_as_formerly_and_found_by_search",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2305_seed_on_an_empty_store_populates_exactly_the_cast",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2311_re_running_the_seed_leaves_every_row_identical",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2312_the_seed_creates_no_platform_operator",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2313_seed_targets_local_unless_remote_is_typed",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2314_success_report_and_help_text",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2315_seed_without_schema_fails_with_migration_guidance",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/seed test_UAT_AC2316_applying_migrations_never_applies_the_fixture",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/access-sim test_UAT_AC2317_print_env_emits_exactly_the_two_access_settings",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/access-sim test_UAT_AC2318_a_minted_token_passes_the_real_verifier",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/access-sim test_UAT_AC2319_the_verifier_refuses_the_token_under_a_different_aud",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/access-sim test_UAT_AC2320_login_lists_every_address_and_signs_in_as_the_chosen_one",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 bin/access-sim test_UAT_AC2321_login_offers_a_way_in_when_the_store_is_missing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 ACCESS.md test_UAT_AC2322_access_md_points_to_seed_and_simulator",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the business id the deployment names test_UAT_AC2255_the_configured_platform_business_id_agrees_across_both_environments_and_the_seed_and_reads_biz",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite control test_UAT_AC2175_the_invite_control_is_owner_only_and_its_dialog_says_no_message_is_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC1419_unchanged_draft_mints_nothing_and_the_command_says_so",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC1420_an_invalid_draft_publishes_nothing_and_fails_before_any_write",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC1421_history_is_readable_and_a_checkout_re_parents_forward_only",
+          "file": "",
+          "status": "failed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC894_publishing_always_renders_from_the_current_draft",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC892_a_revision_stores_both_halves_of_the_artifact",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC913_the_apex_holds_and_never_serves_a_site",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC904_a_bare_published_root_redirects_to_the_slashed_form",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC905_the_record_and_not_the_key_space_says_what_a_url_may_reach",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC906_not_found_is_plain_and_identical_across_its_four_causes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC907_a_malformed_or_traversal_shaped_component_404s_without_a_read",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC908_the_served_type_follows_the_key_that_answered",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC909_published_responses_are_short_lived_mutable_and_indexable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC911_a_warm_request_skips_the_store_and_a_not_found_is_never_retained",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site test_UAT_AC912_the_server_is_read_only_and_head_is_bodiless",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 indexing needs the token, and the account is asked of it test_UAT_AC1306_indexing_is_refused_without_the_token_naming_the_account_id_as_an_override",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 indexing needs the token, and the account is asked of it test_UAT_AC2058_the_token_alone_resolves_the_account_and_an_explicit_id_costs_no_call",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 indexing needs the token, and the account is asked of it test_UAT_AC2059_an_unsettled_account_is_refused_with_a_diagnosis_specific_to_why",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the built knowledge base, packed test_UAT_AC1647_the_packed_module_carries_both_indexes_the_corpus_and_each_stamp",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the built knowledge base, packed test_UAT_AC1649_an_absent_knowledge_base_is_loud_and_a_packed_one_is_counted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the packed module is written on every application build test_UAT_AC1648_the_module_is_written_even_when_no_knowledge_base_has_been_built",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the build reads its own index, keyed by source test_UAT_AC2235_build_completes_all_four_stages_with_the_map_search_keyed_by_source",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the preflight asks compatible as well as present test_UAT_AC2236_preflight_checks_the_index_seam_and_reports_it_on_its_own_line",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "System knowledge base \u2014 the shipping gate test_UAT_AC2099_packing_refuses_a_document_absent_from_either_manifest_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "System knowledge base \u2014 the shipping gate test_UAT_AC2100_a_document_indexed_under_an_older_version_is_stale_and_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "System knowledge base \u2014 the shipping gate test_UAT_AC2101_the_map_is_exempt_by_predicate_and_named_on_the_report_line",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "System knowledge base \u2014 one release command test_UAT_AC2102_the_release_command_builds_before_it_packs_and_refuses_unknown_arguments",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "System knowledge base \u2014 stamp precision test_UAT_AC2103_packed_stamps_match_the_manifests_at_whole_second_precision",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the whole pipeline, built once and read back test_UAT_AC1291_build_runs_the_whole_pipeline_and_reports_what_it_produced",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the whole pipeline, built once and read back test_UAT_AC1301_a_document_is_found_by_describing_what_it_is_about",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the whole pipeline, built once and read back test_UAT_AC1302_a_passage_search_returns_a_section_and_names_its_document",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the whole pipeline, built once and read back test_UAT_AC1303_the_map_is_generated_from_the_corpus_and_names_a_territory_with_no_way_in",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the whole pipeline, built once and read back test_UAT_AC1304_the_map_is_out_of_the_corpus_and_found_as_the_awareness_report",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1292_the_corpus_can_be_built_alone_with_no_model_and_no_credentials",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1296_every_excluded_document_is_named_individually",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1298_a_document_that_leaves_the_knowledge_base_is_deleted_from_the_corpus",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1299_an_unchanged_document_is_not_rewritten_and_an_unchanged_corpus_is_not_re_embedded",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1300_a_build_with_nothing_carrying_the_kind_is_refused_and_reaches_no_model",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1305_the_declaration_is_in_force_never_overwritten_and_a_missing_one_is_refused_by_name",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what the build refuses, reports and leaves alone test_UAT_AC1306_indexing_is_refused_without_embedding_credentials_and_the_map_needs_none",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the command answers before it acts test_UAT_AC1293_status_reports_the_corpus_against_the_ticket_count_and_each_artefact",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the command answers before it acts test_UAT_AC1294_an_unrecognised_form_is_refused_with_usage_and_builds_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what is in the knowledge base, and how it is read test_UAT_AC1295_only_the_system_kb_doc_kind_puts_a_document_in",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what is in the knowledge base, and how it is read test_UAT_AC1632_the_declarations_restrict_nothing_and_any_markdown_file_resolves",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 what is in the knowledge base, and how it is read test_UAT_AC1633_the_listing_is_exhaustive_and_a_truncated_envelope_is_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-c4f329d3 \u2014 the real document store, exported and read back test_UAT_AC1297_a_document_is_addressed_by_its_human_id_and_reads_back_as_a_document",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "BUG-55 \u2014 search is called with indexes, not source test_UAT_AC2237_a_search_hit_is_read_back_on_the_node_host",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2238_the_migrations_directory_is_one_baseline",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2238_the_platform_business_literal_matches_both_deployment_blocks",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2238_the_baseline_seeds_no_people",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2241_there_is_no_global_slug_claim_table_and_no_reader_of_one",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2239_there_is_one_minter_of_keys",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 one baseline test_UAT_AC2239_the_schema_carries_no_key_made_of_data",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the gate is not a generic admin surface test_UAT_AC2158_platform_admin_is_read_only_by_scope_entry_and_the_fulfilment_gate",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the gate is not a generic admin surface test_UAT_AC2159_no_generic_administrator_predicate_exists",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the gate is not a generic admin surface test_UAT_AC2160_nothing_outside_the_two_identity_readers_asks_for_the_platform_tenant",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the tab and its name test_UAT_AC2177_tab_and_list_read_contacts_and_selection_persists_under_people",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the list test_UAT_AC2179_row_shows_name_and_address_in_two_cells_or_no_name_yet",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the list test_UAT_AC2180_business_switch_empties_the_list_then_rereads_for_the_new_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the detail pane test_UAT_AC2182_selecting_a_person_opens_a_pane_at_once_that_fills_with_both_sections",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the detail pane test_UAT_AC2250_other_addresses_lists_every_non_primary_address_read_only_and_is_absent_for_one_address",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the detail pane test_UAT_AC2183_businesses_is_one_headed_table_keyed_by_business_with_named_gaps",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the detail pane test_UAT_AC2184_several_grants_on_one_business_share_one_business_and_role_cell",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the detail pane test_UAT_AC2185_rendered_business_cell_shows_the_name_or_the_id_of_a_vanished_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 presentation test_UAT_AC2186_list_detail_table_and_both_dialogs_are_styled_to_webui_fields_metrics",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 presentation test_UAT_AC2187_no_contacts_style_rule_keys_on_a_stage_access_or_grant_status_value",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Who they are test_UAT_AC2188_only_email_and_name_are_editable_and_the_eight_observed_fields_are_locked",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Who they are test_UAT_AC2189_a_confirmed_edit_sends_only_that_field_and_shows_the_stored_value",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Who they are test_UAT_AC2190_a_malformed_address_is_refused_inline_and_not_sent",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Who they are test_UAT_AC2191_a_rejected_save_rolls_the_cell_back_and_shows_the_message",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants and login, in the detail test_UAT_AC2199_withdraw_shows_only_on_live_grants_sends_the_revoke_and_rereads",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants and login, in the detail test_UAT_AC2200_a_customer_owner_is_offered_no_withdraw_control",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants and login, in the detail test_UAT_AC2201_may_sign_in_is_locked_and_the_panel_offers_no_suspend_control",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 Provision a business test_UAT_AC2202_provision_a_business_submits_the_contacts_own_address",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the portal is site content served at /account test_UAT_AC2213_authored_portal_site_is_served_else_the_shipped_default",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the portal is site content served at /account test_UAT_AC2214_portal_is_rendered_by_the_preview_renderer_with_assets_under_account",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the portal is site content served at /account test_UAT_AC2215_portal_accepts_only_get_and_head_and_writes_change_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the portal is site content served at /account test_UAT_AC2216_no_admission_and_no_scope_is_404_but_a_scope_alone_serves_its_portal",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the Delete account control and its explanation test_UAT_AC2218_delete_account_reveals_the_erasure_explanation_and_close_folds_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the Delete account control and its explanation test_UAT_AC2220_without_scripting_the_explanation_is_served_in_full_and_visible",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the Delete account control and its explanation test_UAT_AC2221_copy_says_closing_is_done_by_asking_and_offers_no_dead_contact_channel",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the Delete account control and its explanation test_UAT_AC2226_portal_offers_no_business_plan_charges_details_or_export_surface_and_no_tenant",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the Delete account control and its explanation test_UAT_AC2219_pressing_delete_account_and_close_sends_only_gets_and_changes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the caller's own account facts test_UAT_AC2222_account_line_names_the_caller_and_falls_back_to_the_verified_email",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the caller's own account facts test_UAT_AC2223_holdings_sentence_names_every_business_including_lapsed_ones",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the caller's own account facts test_UAT_AC2224_failed_account_load_is_announced_and_the_explanation_still_works",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 the avatar dialog links out to the portal test_UAT_AC2225_avatar_dialog_links_to_the_portal_in_a_new_tab_and_adds_nothing_else",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Messages section test_UAT_AC2301_messages_section_lists_rows_newest_first_with_subject_time_status_and_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Messages section test_UAT_AC2302_no_messages_says_nothing_sent_and_a_failed_read_says_it_could_not_be_read",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the bounced marker in the list test_UAT_AC2304_contacts_list_marks_only_bounced_contacts_and_drops_marks_on_business_switch",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 rendering test_UAT_AC2284_render_substitutes_every_token_in_subject_and_body_and_names_the_ticket",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 rendering test_UAT_AC2285_render_refuses_on_absent_declared_token_empty_value_or_leftover_token",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sending configuration test_UAT_AC2279_from_address_is_configured_on_both_sides_and_absent_refuses",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sending configuration test_UAT_AC2280_mail_credential_is_uncommitted_redacted_and_resolved_by_the_deploy_hook",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a cold conversation is primed with both maps in one landscape section test_UAT_AC1795_both_maps_sit_in_one_landscape_section_clients_first",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a client corpus small enough to list reaches the conversation in full test_UAT_AC1796_a_small_client_corpus_is_listed_in_full_and_labelled_complete",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "one search reaches both knowledge bases and returns one ranked list test_UAT_AC1797_a_search_fans_out_merges_on_their_own_scores_and_cuts_after",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a search hit from either knowledge base is read back, not refused test_UAT_AC2237_a_hit_from_each_knowledge_base_is_read_back_on_the_worker",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a document uploaded mid-conversation is known by name on the next turn test_UAT_AC1798_a_mid_conversation_upload_is_named_next_turn_with_no_map_rebuild",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a turn on which nothing arrived carries no arrival notice at all test_UAT_AC1799_a_quiet_turn_carries_no_arrival_wording_of_any_kind",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "an arrival is announced once and never again test_UAT_AC1802_the_boundary_document_and_its_instant_are_not_reported_twice",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "an unreadable record of what a conversation was told never costs the turn test_UAT_AC1803_a_corrupt_absent_or_empty_bookmark_still_takes_the_turn",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a conversation's coverage starts where the map's coverage ends test_UAT_AC1804_a_document_arriving_in_the_gap_is_announced_on_the_first_turn",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a resumed conversation's first turn back reports what arrived while away test_UAT_AC1805_a_resumed_conversation_names_what_arrived_while_it_was_not_served",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a conversation is never announced to itself test_UAT_AC1806_a_conversation_is_excluded_from_arrivals_but_not_from_the_corpus",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the arrival notice is last in a turn's context test_UAT_AC1807_the_notice_follows_the_maps_the_purpose_the_manual_and_the_site_change",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "arrivals are the client's knowledge alone, and no client knowledge still takes turns test_UAT_AC1808_the_shipped_corpus_is_never_swept_and_a_shipped_only_conversation_runs",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the baseline seeds no people test_UAT_AC2238_the_baseline_applied_to_an_empty_database_creates_one_business_and_no_people",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1386_a_store_handle_sees_exactly_one_account_and_no_operation_takes_one",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1387_an_unknown_or_inactive_account_is_refused_when_the_handle_is_asked_for",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1388_a_site_version_is_readable_and_advances_on_every_write",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1389_a_stale_expectation_is_refused_with_both_versions_and_one_racer_survives",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1390_a_refused_multi_part_write_leaves_no_page_definition_or_version_behind",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1392_asset_bytes_round_trip_typed_listable_and_removable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1393_an_unsafe_asset_name_reads_as_absent_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1394_a_whole_draft_copies_between_any_two_stores_as_one_whole_change",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1395_a_real_site_copied_into_the_cloud_store_assembles_and_renders_identically",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 the cloud site store, inside the Workers runtime test_UAT_AC1396_the_editing_surface_completes_inside_the_workers_runtime",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 what a read of an unchanged draft costs, and what may be retained test_UAT_AC1447_an_unchanged_draft_assembles_once_with_currency_read_live_on_every_read",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 what a read of an unchanged draft costs, and what may be retained test_UAT_AC1448_a_retained_assembled_draft_never_outlives_or_crosses_the_site_it_describes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 events are immutable facts test_UAT_AC2258_a_recorded_event_cannot_be_rewritten_and_has_no_status",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 events are immutable facts test_UAT_AC2259_a_changing_delivery_outcome_appends_against_the_same_ref",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 events are immutable facts test_UAT_AC2260_erasing_a_contact_erases_only_that_contacts_events",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 one sequence, in the order things happened test_UAT_AC2261_history_is_one_newest_first_sequence_with_stable_ties_capped_at_100",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 one sequence, in the order things happened test_UAT_AC2262_an_event_keeps_occurred_and_recorded_times_and_sorts_by_occurred",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 one sequence, in the order things happened test_UAT_AC2263_an_unseen_kind_is_accepted_and_read_back_verbatim",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 provenance is the earliest event test_UAT_AC2264_provenance_is_the_earliest_event_past_the_cap_and_null_without_history",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the acts that exist today emit test_UAT_AC2265_first_invite_records_created_and_invited_and_reinvite_adds_one_invited",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the acts that exist today emit test_UAT_AC2266_accepting_terms_records_signed_up_with_the_terms_version",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the acts that exist today emit test_UAT_AC2267_a_seeded_platform_operator_records_created_once",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the business barrier test_UAT_AC2268_events_belong_to_the_contacts_business_and_cross_business_access_is_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-4630e921 \u2014 the detail the Contacts tab reads test_UAT_AC2269_contact_detail_carries_history_and_provenance_and_is_null_across_businesses",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 the seeded cast, through the product test_UAT_AC2306_alice_is_one_person_at_either_address_with_the_primary_shown",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 the seeded cast, through the product test_UAT_AC2307_an_ended_grant_business_is_listed_but_not_selectable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 the seeded cast, through the product test_UAT_AC2308_alices_plumbing_holds_a_member_an_invitee_and_a_lead",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 the seeded cast, through the product test_UAT_AC2309_seeded_alice_signs_in_at_current_terms_with_no_platform_membership",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5b5be809 \u2014 the seeded cast, through the product test_UAT_AC2310_every_seeded_person_has_one_current_name_across_four_shapes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the account is a record people belong to test_UAT_AC2253_an_invite_mints_an_opaque_account_and_the_schema_refuses_a_person_without_one",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the account is a record people belong to test_UAT_AC2254_an_account_holding_two_people_makes_both_owners_of_its_new_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the account is a record people belong to test_UAT_AC2257_only_the_ownership_question_reads_role_and_owner_is_the_only_value",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a business is owned by an account test_UAT_AC1741_business_key_is_opaque_biz_and_distinct_from_its_owning_account_key",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a business is owned by an account test_UAT_AC1742_provisioning_writes_an_account_owned_business_grant_and_unnamed_starter_site",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a business is owned by an account test_UAT_AC2115_a_non_null_grant_subject_is_an_account_key_and_the_capacity_grant_names_none",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a business is owned by an account test_UAT_AC2255_a_business_names_its_owning_account_the_platform_is_owned_by_nobody_and_no_business_key_reads_acct",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "provisioning needs a real payer test_UAT_AC2256_provisioning_refuses_a_missing_or_empty_account_and_the_operator_lookup_answers_with_an_account",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite is a transition, not a creation test_UAT_AC2169_inviting_a_known_contact_promotes_that_row_and_reports_created",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite is a transition, not a creation test_UAT_AC2170_invites_from_two_businesses_differ_only_in_tenant_and_no_level_column",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite is a transition, not a creation test_UAT_AC2171_a_re_invite_does_not_restamp_and_never_overwrites_a_name",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite is a transition, not a creation test_UAT_AC1743_re_inviting_a_known_address_reports_the_person_and_creates_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite is a transition, not a creation test_UAT_AC1744_case_and_padding_are_the_same_person_at_the_invite_route_and_at_login",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "who may invite test_UAT_AC2172_only_an_owner_may_invite_and_every_refusal_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "who may invite test_UAT_AC2174_the_people_list_reports_canInvite_and_canFulfil_separately",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite writes no membership and no grant test_UAT_AC2173_the_invite_writes_no_membership_or_grant_and_the_invitee_is_refused_no_membership",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the invite writes no membership and no grant test_UAT_AC2115_a_grant_names_its_business_as_object_and_optionally_an_account_as_subject",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "provisioning a business test_UAT_AC1742_provisioning_not_the_invite_writes_the_business_grant_and_a_starter_site",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "provisioning a business test_UAT_AC1741_the_identifier_is_opaque_and_the_label_is_separate",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "provisioning a business test_UAT_AC1746_several_concurrent_grants_and_unknown_plan_and_status_round_trip",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "invite plus provisioning makes a customer test_UAT_AC2176_invite_provision_sign_in_reaches_only_that_business_and_its_account",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1745_admission_refuses_an_unconfigured_platform_tenant_naming_what_is_missing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1747_a_proven_address_with_no_person_is_refused_and_creates_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1748_an_invited_person_is_admitted_with_a_deterministic_set_and_no_top_level_account",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1749_first_arrival_never_moves_latest_always_does_refusals_included",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1755_an_identity_carrying_no_address_is_refused_not_failed",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1756_an_inactive_person_is_refused_without_disturbing_their_account",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "login binds, and provisions nothing test_UAT_AC1753_an_inactive_membership_excludes_its_business_and_refuses_only_when_none_remain",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "admission returns the set of businesses test_UAT_AC2075_several_businesses_each_carry_their_own_name_and_grant",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "admission returns the set of businesses test_UAT_AC2077_a_withdrawn_or_expired_membership_is_absent_from_the_list",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "admission returns the set of businesses test_UAT_AC1754_the_effective_grant_is_the_one_preserving_access_longest",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "membership admits; entitlement does not test_UAT_AC2112_every_business_lapsed_is_admitted_with_none_selectable_and_expiry_evaluated_both_sides",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "membership admits; entitlement does not test_UAT_AC2076_a_lapsed_not_started_or_revoked_business_stays_listed_with_its_lapse_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "membership admits; entitlement does not test_UAT_AC1751_a_future_start_makes_its_business_unselectable_not_the_person_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "membership admits; entitlement does not test_UAT_AC1752_a_revoked_grant_makes_its_business_unselectable_whatever_its_dates",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a lapse explains itself test_UAT_AC2113_each_unselectable_business_says_why_and_a_selectable_one_says_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a lapse explains itself test_UAT_AC2114_a_lapse_reason_is_reported_only_for_a_business_the_person_holds_a_live_membership_on",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a lapse explains itself test_UAT_AC2116_only_capacity_grants_decide_selectability_and_an_account_grant_reads_never_granted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the request path test_UAT_AC1757_admission_is_decided_before_any_route_is_served",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the request path test_UAT_AC1758_every_refusal_is_byte_identical_forbidden_and_uncacheable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the request path test_UAT_AC1759_the_failed_check_is_recorded_for_the_operator_per_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "the request path test_UAT_AC1760_an_invited_entitled_person_who_accepted_the_current_terms_reaches_the_builder",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a person and their addresses test_UAT_AC2247_the_person_carries_no_address_and_addresses_are_casefolded_rows_with_at_most_one_primary",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a person and their addresses test_UAT_AC2248_admission_and_the_invite_resolve_a_person_through_any_of_their_addresses",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a person and their addresses test_UAT_AC1744_case_and_padding_are_the_same_person_at_the_invite_route_and_at_login_with_the_schema_casefolding",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a re-invite test_UAT_AC2171_a_re_invite_does_not_restamp_and_never_supersedes_an_existing_current_name",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "correcting an address test_UAT_AC2249_correcting_the_address_rewrites_the_primary_row_and_neither_that_nor_repriming_moves_a_key",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a name is a row that is superseded, never updated test_UAT_AC2251_a_name_is_superseded_as_corrected_unless_marked_changed_and_only_changed_former_names_reach_the_client",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "a name is a row that is superseded, never updated test_UAT_AC2252_clearing_every_part_through_the_route_leaves_no_name_and_clearing_only_the_displayed_name_is_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing in the cloud, where there is no filesystem test_UAT_AC1418_publish_mints_renders_and_stores_identically_from_both_front_doors",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing in the cloud, where there is no filesystem test_UAT_AC2245_two_businesses_each_publish_home_and_no_claim_is_recorded_or_consulted",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-5349d01f \u2014 publishing in the cloud, where there is no filesystem test_UAT_AC2246_every_new_accounts_starter_site_is_unnamed_and_publishes_without_colliding",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site, over real bindings test_UAT_AC903_a_published_url_serves_the_live_revision_whole",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site, over real bindings test_UAT_AC1423_live_is_recorded_only_in_the_log_and_never_beside_the_bytes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site, over real bindings test_UAT_AC1424_the_builders_published_view_redirects_to_the_one_serving_path",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-d34eccd8 \u2014 serving a published site, over real bindings test_UAT_AC2244_the_published_url_is_the_site_key_and_another_business_key_is_not_obtainable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-143 \u2014 the D1/R2 SiteStore over the D1/R2 store test_UAT_AC1385_the_draft_renders_from_whatever_store_served_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-143 \u2014 the D1/R2 SiteStore over the D1/R2 store test_UAT_AC1385_a_preview_asset_comes_back_as_bytes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2149_admitted_customer_without_privilege_gets_404_and_nothing_is_created",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2150_refusal_body_is_not_found_and_names_neither_admin_nor_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2151_loopback_dev_open_door_cannot_add_a_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2152_operator_adds_a_business_and_it_is_immediately_selectable",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2153_adding_a_business_creates_all_four_parts_in_one_operation",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2154_creating_an_account_provisions_its_first_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2155_unknown_account_email_is_reported_plainly_with_404",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2156_missing_or_blank_account_email_or_name_is_rejected_with_400",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "Business Fulfilment \u2014 the operator adds a business, nobody else can test_UAT_AC2157_businesses_payload_carries_exactly_account_and_businesses",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the list is the scoped business, for every business test_UAT_AC2178_list_is_exactly_the_scoped_business_contacts_included_oldest_first",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 the business barrier test_UAT_AC2181_detail_across_the_barrier_is_the_same_404_as_an_id_that_does_not_exist",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-0034d937 \u2014 every grant names its business test_UAT_AC2185_grant_detail_carries_the_business_name_and_keeps_a_vanished_business_by_id",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2192_an_owner_corrects_email_and_name_in_any_business_they_own",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2193_a_record_change_is_a_patch_and_ignores_observed_fields",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2194_a_malformed_email_is_refused_400_and_the_row_is_unchanged",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2190_the_server_shape_check_agrees_with_the_panel_rule",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2195_a_duplicate_address_in_the_same_business_is_400_and_another_business_is_fine",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2196_an_unknown_id_and_an_id_in_another_business_are_the_same_404",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 an owner corrects who somebody is test_UAT_AC2197_a_caller_who_does_not_own_the_scoped_business_is_refused_403",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants test_UAT_AC2198_an_operator_opens_a_dated_grant_naming_its_business_and_one_without_is_400",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants test_UAT_AC2199_withdrawing_a_grant_keeps_the_row_revoked_and_it_no_longer_confers_access",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants test_UAT_AC2200_grants_are_the_operators_act_and_refused_403_to_every_customer_owner",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants test_UAT_AC2233_a_grant_naming_a_business_outside_the_scope_is_refused_and_nothing_is_written",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 grants test_UAT_AC2200_a_persons_login_status_is_an_owner_act_refused_403_to_a_non_owner",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-a55c2f35 \u2014 the login control, server-side only test_UAT_AC2201_suspending_refuses_sign_in_and_restoring_readmits",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 which portal an admitted account reaches test_UAT_AC2212_admitted_account_gets_the_host_business_portal_whatever_it_operates",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 which portal an admitted account reaches test_UAT_AC2234_the_portal_is_the_business_the_caller_is_an_account_of_never_tenant_id",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 which portal an admitted account reaches test_UAT_AC2217_another_accounts_business_is_indistinguishable_from_a_missing_one",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-83ff6262 \u2014 using the portal destroys nothing test_UAT_AC2219_delete_account_writes_nothing_and_the_account_still_exists",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 every primary key is opaque test_UAT_AC2239_every_primary_key_is_an_opaque_random_id",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 every primary key is opaque test_UAT_AC2239_identical_inputs_produce_unrelated_keys",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 every primary key is opaque test_UAT_AC2240_no_child_row_records_the_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the key is the address test_UAT_AC2240_a_new_accounts_unnamed_site_is_renamed_by_one_column",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the key is the address test_UAT_AC2241_two_businesses_each_publish_a_site_of_the_same_slug",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the key is the address test_UAT_AC2239_the_same_opaque_key_is_used_in_joins_and_in_the_url",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the key is the address test_UAT_AC2242_a_handle_enumerates_only_its_own_business_site_keys",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 names change and keys do not test_UAT_AC2240_a_business_is_renamed_with_no_key_rewritten",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 names change and keys do not test_UAT_AC2240_a_sites_slug_changes_with_no_key_rewritten",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 names change and keys do not test_UAT_AC2240_a_site_moves_business_by_one_column_with_no_object_copied",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 names change and keys do not test_UAT_AC2241_a_move_onto_a_taken_slug_is_refused_by_the_constraint",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the object store follows the keys test_UAT_AC2242_erasure_reaches_every_object_by_enumerating_site_keys",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 the object store follows the keys test_UAT_AC2242_forget_removes_the_site_and_its_objects",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 ordinal is not identity test_UAT_AC2243_a_revision_id_and_a_journal_counter_stay_ordinals",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "REQ-190 \u2014 ordinal is not identity test_UAT_AC2239_the_id_prefix_is_a_reading_aid_and_nothing_branches_on_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the email record type test_UAT_AC2287_email_type_is_registered_with_its_field_contract_and_refuses_a_record_without_an_address",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 queue, send, update test_UAT_AC2288_record_is_queued_naming_contact_and_address_before_the_sender_is_called",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 queue, send, update test_UAT_AC2289_successful_send_moves_the_same_record_to_sent_with_provider_id_and_send_time",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 queue, send, update test_UAT_AC2290_failed_send_resolves_with_a_failed_record_carrying_the_reason",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 queue, send, update test_UAT_AC2291_stored_body_is_the_rendered_text_and_survives_a_later_template_change",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 queue, send, update test_UAT_AC2292_sending_goes_only_through_the_sender_passed_in",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2293_verified_delivery_and_bounce_land_on_the_record_in_the_business_that_sent_it",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2294_missing_or_unverifiable_signature_is_refused_identically_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2295_signed_request_outside_the_five_minute_window_is_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2296_with_no_signing_secret_every_request_is_refused",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2297_verified_but_malformed_body_is_400_and_bad_signature_wins_over_parsing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2298_verified_event_for_an_unknown_message_is_404_and_writes_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the delivery webhook test_UAT_AC2299_verified_non_delivery_events_are_acknowledged_and_change_nothing",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the webhook sits ahead of the Access gate test_UAT_AC2300_signed_post_reaches_the_webhook_without_access_while_other_routes_stay_gated",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Contacts reads test_UAT_AC2301_messages_read_returns_the_contacts_messages_newest_first_with_subject_time_status_failure",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Contacts reads test_UAT_AC2302_messages_read_answers_200_with_an_empty_list_for_no_unknown_or_foreign_contact",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Contacts reads test_UAT_AC2303_one_businesss_messages_and_bounces_never_appear_through_another",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-219b4217 \u2014 the Contacts reads test_UAT_AC2304_people_list_read_reports_each_bounced_contact_once",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sender test_UAT_AC2275_credentialed_send_submits_once_and_returns_the_provider_id",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sender test_UAT_AC2276_uncredentialed_send_records_locally_with_no_network_and_distinct_local_ids",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sender test_UAT_AC2277_both_senders_refuse_malformed_messages_naming_the_fields",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sender test_UAT_AC2278_provider_failures_are_reported_to_the_caller_as_send_errors",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 the sender test_UAT_AC2281_message_body_reaches_the_provider_as_html",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 templates in the business store test_UAT_AC2282_template_type_requires_key_subject_and_body_and_refuses_invalid_writes",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 templates in the business store test_UAT_AC2283_lookup_returns_newest_for_key_and_seeds_the_default_once_per_business",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-7d255580 \u2014 templates in the business store test_UAT_AC2286_seeded_templates_are_business_neutral_with_button_and_pasteable_url",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-387c9dfe \u2014 owning 1st Contact is ordinary ownership test_UAT_AC2165_owning_1st_contact_reads_exactly_like_owning_a_salon",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-387c9dfe \u2014 no single predicate answers both questions test_UAT_AC2168_ownership_and_bypass_are_separately_held_and_neither_implies_the_other",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_create_draft_answers_true_then_false_for_one_slug",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_provisioning_onto_an_existing_starter_slug_leaves_the_site_unchanged",
+          "file": "",
+          "status": "passed"
+        },
+        {
+          "name": "story-fde7370b \u2014 createDraft reports creation, and provisioning respects it test_UAT_AC2229_provisioning_onto_a_fresh_slug_writes_the_starter_site",
+          "file": "",
+          "status": "passed"
+        }
+      ],
+      "hung_test": null,
+      "timeout_reason": null,
+      "partial_results": false,
+      "failures": [
+        {
+          "test_name": "story-5349d01f \u2014 publishing from the command line and the builder test_UAT_AC1421_history_is_readable_and_a_checkout_re_parents_forward_only",
+          "message": "(structured failure details unavailable \u2014 JUnit XML missing or unparseable; this entry synthesised from streamed pytest output. Run pytest -k <test_name> to fetch full traceback.)",
+          "file_path": "",
+          "line_number": null,
+          "error_type": "assertion",
+          "action_required": null,
+          "traceback": null,
+          "synthesised": true
+        }
+      ]
+    },
+    "Quality Config": {
+      "suite_name": "Quality Config",
+      "status": "failure",
+      "passed": 0,
+      "failed": 0,
+      "total": 0,
+      "failures": [],
+      "tests": [],
+      "synthetic": true
+    },
+    "AC Coverage": {
+      "suite_name": "AC Coverage",
+      "status": "failure",
+      "passed": 256,
+      "failed": 1,
+      "total": 257,
+      "failures": [
+        {
+          "test_name": "AC-1421 (orphaned acceptance criterion)",
+          "file": "<capability_matrix>",
+          "status": "failed",
+          "message": "AC-1421 'Revision history is readable, and a checkout re-parents the draft while staying forward-only' (uid=acceptance_criterion-50925e49) has no passing test in this intent's scope. Either deprecate the AC if the feature is intentionally not in production, OR add / restore a passing test that references AC-1421.",
+          "ac_uid": "acceptance_criterion-50925e49",
+          "ac_id": "AC-1421",
+          "kind": "orphaned_ac"
+        }
+      ],
+      "tests": []
+    }
+  },
+  "overall": {
+    "status": "failure",
+    "issues": []
+  },
+  "validation": {
+    "anomalies": []
+  },
+  "quality_config_validation": {
+    "issues": [
+      {
+        "severity": "error",
+        "category": "test_failure",
+        "field": "test results",
+        "message": "1 test(s) failed",
+        "suggestion": "Fix failing tests",
+        "context": {
+          "failures": 1
+        }
+      }
+    ]
+  }
+}
