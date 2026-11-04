@@ -6,10 +6,10 @@ title: Sending is done only through the sender passed to the recording path, so 
   test drives it with a stub and no real mail can leave
 created_by: workflow:reconciliation_generate_story_prompt/planner
 created_at: '2026-11-04T18:03:27.088710+00:00'
-updated_at: '2026-11-04T18:03:27.088710+00:00'
+updated_at: '2026-11-04T18:14:38.862514+00:00'
 completed_at: null
-last_field_updated: created_at
-status: pending
+last_field_updated: status
+status: active
 fields:
   story_uid: story-219b4217
   kind: behavior
